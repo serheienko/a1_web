@@ -7,6 +7,7 @@
 // email-leak class of bug becomes structurally impossible.
 
 import { NULL_LOCATION_MEANS_REMOTE, PUBLISH_ONLY_NATIVE, isNativePost } from "./config";
+import { authorIsHidden, isArchivedOrDraft } from "./post-flags";
 import { parsePost, type Post, type MediaSize } from "./schemas";
 import { slugify } from "../seo/slug";
 import type {
@@ -25,16 +26,23 @@ function fromUnixSeconds(seconds: number): Date {
   return new Date(seconds * 1000);
 }
 
-function mapAuthor(author: Post["author"]): WebPostAuthor {
-  if (author.object !== "user-preview") {
+function mapAuthor(author: Post["author"], flags: number): WebPostAuthor {
+  if (authorIsHidden(flags) || author.object !== "user-preview") {
     // Covers the documented UserHidden variant and any shape our schema
     // couldn't match — PLAN.md §0.3: "must render as Anonymous, never crash."
     return { name: "Anonymous", username: null, avatarUrl: null, isAnonymous: true };
   }
+  // Deliberately NOT `author.photo` — that field is a pre-signed S3 URL
+  // that expires in ~2 minutes (confirmed against a live response), too
+  // short-lived to bake into an ISR-cached page (revalidate = 60 on the
+  // feed pages alone can outlive it). `author.photos[0]` is a real
+  // MediaDocument, so it goes through the same /api/media proxy as post
+  // photos — resolved fresh at actual view time, never stale.
+  const avatarDoc = author.photos[0];
   return {
     name: author.fullName || "Anonymous",
     username: author.username ?? null,
-    avatarUrl: author.photo ?? null,
+    avatarUrl: avatarDoc ? buildMediaProxyUrl(avatarDoc) : null,
     isAnonymous: false,
   };
 }
@@ -95,14 +103,21 @@ function pickDisplaySize(sizes: MediaSize[]): MediaSize | undefined {
   return sizes.find((s) => s.object === "size-photo") ?? sizes.find((s) => s.object === "size-original") ?? sizes[0];
 }
 
+/** Shared by mapImages() and mapAuthor(): any MediaDocument (a post photo
+ *  or an author's avatar doc) maps to the same /api/media proxy URL shape. */
+function buildMediaProxyUrl(doc: { _id: string; fileReference: string; sizes: MediaSize[] }): string {
+  const size = pickDisplaySize(doc.sizes);
+  const sizeParam = typeof size?.object === "string" ? size.object : "size-photo";
+  return `/api/media/${doc._id}?ref=${encodeURIComponent(doc.fileReference)}&size=${encodeURIComponent(sizeParam)}`;
+}
+
 function mapImages(post: Post): WebPostImage[] {
   return post.media
     .filter((m) => m.mimetype.startsWith("image/"))
     .map((m) => {
       const size = pickDisplaySize(m.sizes);
-      const sizeParam = typeof size?.object === "string" ? size.object : "size-photo";
       return {
-        url: `/api/media/${m._id}?ref=${encodeURIComponent(m.fileReference)}&size=${encodeURIComponent(sizeParam)}`,
+        url: buildMediaProxyUrl(m),
         width: size?.w ?? 0,
         height: size?.h ?? 0,
       };
@@ -131,6 +146,12 @@ export function mapPost(post: Post): WebPost | null {
   if (PUBLISH_ONLY_NATIVE && !isNativePost(post)) {
     return null;
   }
+  // Defense-in-depth (lib/a1/post-flags.ts) — posts.search almost
+  // certainly excludes these server-side already, but a draft or
+  // archived post has no business on a public, indexed page either way.
+  if (isArchivedOrDraft(post.flags)) {
+    return null;
+  }
 
   const { location, isRemote } = mapLocation(post);
 
@@ -143,7 +164,7 @@ export function mapPost(post: Post): WebPost | null {
     contentHtml: paragraphWrap(post.content),
     publishedAt: fromUnixSeconds(post.published ?? post.created),
     updatedAt: post.updated ? fromUnixSeconds(post.updated) : null,
-    author: mapAuthor(post.author),
+    author: mapAuthor(post.author, post.flags),
     location,
     isRemote,
     // Label lookup needs dataset.postCategories — lands with lib/a1/datasets.ts

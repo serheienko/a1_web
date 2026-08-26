@@ -13,17 +13,29 @@ if (typeof window !== "undefined") {
   throw new Error("[lib/a1/config] imported from the browser — this must stay server-only");
 }
 
-const envSchema = z.object({
-  A1_API_BASE: z.string().url(),
-  A1_SERVICE_EMAIL: z.string().email(),
-  A1_SERVICE_PASSWORD: z.string().min(1),
-});
+// A1_API_KEY (header `X-Api-Key`, confirmed via the live OpenAPI spec's
+// securitySchemes — not the `Authorization: Bearer` scheme the service
+// account uses) is the non-expiring alternative the backend added
+// 2026-08-26. Either it, or the email/password pair, must be present —
+// see the .refine() below. lib/a1/auth.ts picks whichever is configured;
+// see the `authorizer` export there for the actual switch.
+const envSchema = z
+  .object({
+    A1_API_BASE: z.string().url(),
+    A1_SERVICE_EMAIL: z.string().email().optional(),
+    A1_SERVICE_PASSWORD: z.string().min(1).optional(),
+    A1_API_KEY: z.string().min(1).optional(),
+  })
+  .refine((v) => Boolean(v.A1_API_KEY) || Boolean(v.A1_SERVICE_EMAIL && v.A1_SERVICE_PASSWORD), {
+    message: "set either A1_API_KEY, or both A1_SERVICE_EMAIL and A1_SERVICE_PASSWORD",
+  });
 
 function loadEnv() {
   const parsed = envSchema.safeParse({
     A1_API_BASE: process.env.A1_API_BASE,
     A1_SERVICE_EMAIL: process.env.A1_SERVICE_EMAIL,
     A1_SERVICE_PASSWORD: process.env.A1_SERVICE_PASSWORD,
+    A1_API_KEY: process.env.A1_API_KEY,
   });
 
   if (!parsed.success) {

@@ -42,7 +42,7 @@ export default async function JobsPage({ searchParams }: Props) {
     <main className="mx-auto max-w-3xl px-4 py-10 sm:py-16">
       <header className="mb-8">
         <h1 className="text-2xl font-semibold text-neutral-900 sm:text-3xl">Вакансии</h1>
-        <p className="mt-2 text-neutral-500">Открытые позиции от компаний и людей в A1.</p>
+        <p className="mt-2 text-neutral-500">Актуальные вакансии от компаний и частных лиц в A1.</p>
       </header>
 
       <Filters

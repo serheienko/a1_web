@@ -1,37 +1,46 @@
 // components/post-card.tsx
 //
 // Renders one WebPost. Server component — no client JS shipped for this.
-// Title links to the Phase 2 detail page. The thumbnail (Phase 3) is a
-// fixed 96x96 crop rather than the image's real aspect ratio — a
-// deliberate simplification for the card grid, not the "always emit real
-// width/height" rule from PLAN.md §2.6, which is honored on detail pages
-// where the full image renders. No avatar yet — not in PLAN.md's Phase 1-3
-// scope for PostCard.
+// Title links to the Phase 2 detail page. The thumbnail is the author's
+// avatar (a small circular crop), not a post photo — full post photo
+// galleries render on the detail page only. See mapAuthor() in
+// lib/a1/mappers.ts for why avatarUrl is built from author.photos[0]
+// (a real MediaDocument via the /api/media proxy) rather than the raw
+// author.photo field, which is a pre-signed URL that expires in ~2 minutes.
 
 import Image from "next/image";
 import Link from "next/link";
 import type { WebPost } from "@/types/web-post";
 import { formatRelativeTime, formatSalary } from "@/lib/format";
 
+function initialsFor(name: string): string {
+  const trimmed = name.trim();
+  return trimmed ? trimmed.charAt(0).toUpperCase() : "?";
+}
+
 export function PostCard({ post }: { post: WebPost }) {
   const locationLabel = post.location ? post.location.display : post.isRemote ? "Удалённо" : "Не указано";
   const salaryLabel = post.salary ? formatSalary(post.salary) : null;
   const href = `/${post.kind === "hiring" ? "jobs" : "talents"}/${post.slug}`;
-  const thumbnail = post.images[0];
+  const avatarUrl = post.author.avatarUrl;
 
   return (
     <article className="flex gap-4 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm transition hover:border-neutral-300">
-      {thumbnail && (
-        <Link href={href} className="shrink-0">
+      <Link href={href} className="shrink-0">
+        {avatarUrl ? (
           <Image
-            src={thumbnail.url}
+            src={avatarUrl}
             alt=""
-            width={96}
-            height={96}
-            className="h-24 w-24 rounded-lg object-cover"
+            width={56}
+            height={56}
+            className="h-14 w-14 rounded-full object-cover"
           />
-        </Link>
-      )}
+        ) : (
+          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-neutral-100 text-lg font-medium text-neutral-400">
+            {initialsFor(post.author.name)}
+          </span>
+        )}
+      </Link>
 
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-3">

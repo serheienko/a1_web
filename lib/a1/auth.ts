@@ -116,10 +116,35 @@ class NoAuthAuthorizer implements Authorizer {
   }
 }
 
+// The backend's non-expiring alternative to the login/refresh dance
+// (added 2026-08-26, confirmed against the live OpenAPI spec's
+// securitySchemes: an API key goes in the `X-Api-Key` header, NOT
+// `Authorization: Bearer` — that scheme is JWT-only). No token to cache,
+// no refresh, no 401-triggered re-login — the whole point of it.
+class ApiKeyAuthorizer implements Authorizer {
+  async headers(): Promise<Record<string, string>> {
+    return { "X-Api-Key": env.A1_API_KEY! }; // presence enforced by config.ts's .refine()
+  }
+  invalidate(): void {
+    // Non-expiring by design — nothing cached here to drop. If the key is
+    // ever rotated or revoked on the backend, the fix is deploying a new
+    // A1_API_KEY value in Vercel, not anything this method could do.
+  }
+}
+
 /**
  * Set A1_PUBLIC_MODE=true once the backend ships a public/anonymous read
  * endpoint (OPEN QUESTIONS #9) — the service-account bridge then drops out
  * of the request path without any other file changing.
+ *
+ * Otherwise: prefer the API key when A1_API_KEY is set in the environment
+ * (simpler, nothing to expire) — falls back to the original email/password
+ * + refresh-token flow when it isn't, so this is a no-op change until the
+ * founder actually adds A1_API_KEY to Vercel.
  */
 export const authorizer: Authorizer =
-  process.env.A1_PUBLIC_MODE === "true" ? new NoAuthAuthorizer() : new ServiceAccountAuthorizer();
+  process.env.A1_PUBLIC_MODE === "true"
+    ? new NoAuthAuthorizer()
+    : env.A1_API_KEY
+      ? new ApiKeyAuthorizer()
+      : new ServiceAccountAuthorizer();

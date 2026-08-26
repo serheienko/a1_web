@@ -144,8 +144,9 @@ const BasePostFields = {
   categories: z.array(z.number()).catch([]),
   tags: z.array(z.string()).catch([]),
   viewCount: z.number().catch(0),
-  // Parsed so the shape stays honest, never read — meaning unknown
-  // (PLAN.md §0.5 / OPEN QUESTIONS #2). Do not add logic keyed on this.
+  // Real bitmask, documented in the backend's OpenAPI spec (see
+  // lib/a1/post-flags.ts for the full enum and which bits are actually
+  // used, and why). No longer "meaning unknown" as PLAN.md §0.5 assumed.
   flags: z.number().catch(0),
   media: z.array(MediaDocumentSchema).catch([]),
   pinExpiresAt: z.number().nullable().catch(null),
