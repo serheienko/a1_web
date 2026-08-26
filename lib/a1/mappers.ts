@@ -7,7 +7,7 @@
 // email-leak class of bug becomes structurally impossible.
 
 import { NULL_LOCATION_MEANS_REMOTE, PUBLISH_ONLY_NATIVE, isNativePost } from "./config";
-import { parsePost, type Post } from "./schemas";
+import { parsePost, type Post, type MediaSize } from "./schemas";
 import { slugify } from "../seo/slug";
 import type {
   WebPost,
@@ -81,13 +81,28 @@ function mapSalary(money: Post["money"]): WebPostSalary | null {
   }
 }
 
+/**
+ * "size-photo" is the real displayable image; "size-original" is a
+ * fallback for the rare document missing it; "size-stripped" (an inline
+ * base64 preview blob, not a fetchable size — see schemas.ts) is
+ * deliberately never picked. Unconfirmed against docs: media.getUrl's
+ * `size` param is assumed to accept these same `object` strings, by
+ * naming-convention analogy with the Post union's own `object`
+ * discriminator (PLAN.md §0.1's media.getUrl signature doesn't enumerate
+ * valid values). Revisit if media.getUrl starts rejecting requests.
+ */
+function pickDisplaySize(sizes: MediaSize[]): MediaSize | undefined {
+  return sizes.find((s) => s.object === "size-photo") ?? sizes.find((s) => s.object === "size-original") ?? sizes[0];
+}
+
 function mapImages(post: Post): WebPostImage[] {
   return post.media
     .filter((m) => m.mimetype.startsWith("image/"))
     .map((m) => {
-      const size = m.sizes[m.sizes.length - 1]; // largest captured size
+      const size = pickDisplaySize(m.sizes);
+      const sizeParam = typeof size?.object === "string" ? size.object : "size-photo";
       return {
-        url: `/api/media/${m._id}?ref=${encodeURIComponent(m.fileReference)}`,
+        url: `/api/media/${m._id}?ref=${encodeURIComponent(m.fileReference)}&size=${encodeURIComponent(sizeParam)}`,
         width: size?.w ?? 0,
         height: size?.h ?? 0,
       };

@@ -9,6 +9,7 @@ import type { Metadata } from "next";
 import { fetchPostById } from "@/lib/a1/posts";
 import { slugify, parseSlugId } from "@/lib/seo/slug";
 import { buildJobPostingJsonLd, isJobPostingExpired } from "@/lib/seo/jsonld";
+import Image from "next/image";
 import { formatRelativeTime, formatSalary, truncateAtWordBoundary } from "@/lib/format";
 
 const SITE_URL = "https://jobs.a1appp.com";
@@ -40,8 +41,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     alternates: { canonical: canonicalUrl },
     robots: expired ? { index: false, follow: true } : undefined,
     openGraph: { title: post.title, description, type: "article", url: canonicalUrl },
-    // No og:image yet — post media rendering (and a generated fallback)
-    // lands in Phase 3, once /api/media exists.
+    // No og:image yet — a generated fallback (opengraph-image.tsx) is the
+    // remaining Phase 3 piece; post photos now render in the page body above.
     twitter: { card: "summary", title: post.title, description },
   };
 }
@@ -101,6 +102,25 @@ export default async function JobDetailPage({ params }: Props) {
         <span aria-hidden="true">·</span>
         <span>{formatRelativeTime(post.publishedAt)}</span>
       </div>
+
+      {post.images.length > 0 && (
+        <div className="mt-6 flex flex-col gap-3">
+          {post.images
+            .filter((img) => img.width > 0 && img.height > 0)
+            .map((img, i) => (
+              <Image
+                key={img.url}
+                src={img.url}
+                alt=""
+                width={img.width}
+                height={img.height}
+                sizes="(min-width: 672px) 672px, 100vw"
+                priority={i === 0}
+                className="w-full rounded-lg"
+              />
+            ))}
+        </div>
+      )}
 
       <div className="mt-6 whitespace-pre-wrap text-neutral-700">{post.contentText}</div>
 

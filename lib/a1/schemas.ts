@@ -25,12 +25,18 @@ export type WorldLocation = z.infer<typeof WorldLocationSchema>;
 // `width` / `height` — confirmed against a live posts.search response on
 // 2026-08-26. Not documented in PLAN.md §0.3; fixing it here for Phase 3
 // (media rendering) since layout-shift-free <Image> needs real dimensions.
-const MediaSizeSchema = z
+// `object` is the size variant discriminator (e.g. "size-photo",
+// "size-original", "size-stripped" — the last is an inline base64 preview
+// blob, not a real fetchable size). Exported so mappers.ts can pick the
+// display-worthy variant instead of just taking whichever sorts last.
+export const MediaSizeSchema = z
   .object({
     w: z.number().optional(),
     h: z.number().optional(),
+    object: z.string().optional(),
   })
   .catchall(z.unknown());
+export type MediaSize = z.infer<typeof MediaSizeSchema>;
 
 export const MediaDocumentSchema = z.object({
   _id: z.string(),
