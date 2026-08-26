@@ -5,6 +5,12 @@
 // the framework-native way to chunk a large sitemap and it's what Next
 // itself validates the shape of, rather than us guessing at the XML.
 //
+// IMPORTANT, confirmed live (2026-08-26): using generateSitemaps() means
+// there is no sitemap index served at /sitemap.xml — that path 404s.
+// Every chunk lives at /sitemap/<id>.xml instead (0-indexed), even when
+// there's only one chunk. app/robots.ts lists each chunk's URL explicitly
+// because of this — see the comment there.
+//
 // Jobs only (PLAN.md §3.4): expired/deleted posts are excluded by
 // fetchAllSitemapJobPosts() itself. Talents is deliberately never
 // included here — the whole /talents tree is noindex (still-open privacy
@@ -13,23 +19,22 @@
 // for sitemap coverage is elsewhere.
 
 import type { MetadataRoute } from "next";
-import { fetchAllSitemapJobPosts } from "@/lib/a1/sitemap-posts";
+import { fetchAllSitemapJobPosts, SITEMAP_CHUNK_SIZE } from "@/lib/a1/sitemap-posts";
 
 const SITE_URL = "https://jobs.a1appp.com";
-const CHUNK_SIZE = 45_000; // PLAN.md §3.1 — sitemaps.org's own 50k/file cap, with headroom
 
 export const revalidate = 3600;
 
 export async function generateSitemaps() {
   const posts = await fetchAllSitemapJobPosts();
-  const chunkCount = Math.max(1, Math.ceil(posts.length / CHUNK_SIZE));
+  const chunkCount = Math.max(1, Math.ceil(posts.length / SITEMAP_CHUNK_SIZE));
   return Array.from({ length: chunkCount }, (_, id) => ({ id }));
 }
 
 export default async function sitemap({ id }: { id: number }): Promise<MetadataRoute.Sitemap> {
   const posts = await fetchAllSitemapJobPosts();
-  const start = id * CHUNK_SIZE;
-  const chunk = posts.slice(start, start + CHUNK_SIZE);
+  const start = id * SITEMAP_CHUNK_SIZE;
+  const chunk = posts.slice(start, start + SITEMAP_CHUNK_SIZE);
 
   const entries: MetadataRoute.Sitemap = [];
 

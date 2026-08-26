@@ -20,12 +20,18 @@ import type { WebPost } from "@/types/web-post";
 
 const PAGE_SIZE = 100; // posts.search's documented max (PLAN.md §0.2)
 
-// PLAN.md §3.1: each chunked sitemap file caps at 45,000 URLs. This is a
-// hard safety stop across ALL chunks combined, well above any volume this
-// site will plausibly reach for a long while — it exists so a backend bug
-// (e.g. a cursor that never terminates) can't spin this into an infinite
-// loop, not because we expect to hit it.
-const MAX_TOTAL_POSTS = 45_000 * 5;
+// PLAN.md §3.1: each chunked sitemap file caps at 45,000 URLs. Exported so
+// app/sitemap.ts and app/robots.ts derive the same chunk count from the
+// same number — robots.txt has to list every /sitemap/<id>.xml URL by hand
+// (see app/robots.ts for why: generateSitemaps() does not serve an index
+// at /sitemap.xml, confirmed live).
+export const SITEMAP_CHUNK_SIZE = 45_000;
+
+// A hard safety stop across ALL chunks combined, well above any volume
+// this site will plausibly reach for a long while — it exists so a
+// backend bug (e.g. a cursor that never terminates) can't spin this into
+// an infinite loop, not because we expect to hit it.
+const MAX_TOTAL_POSTS = SITEMAP_CHUNK_SIZE * 5;
 
 /** Every live (non-expired, non-legacy-type, schema-valid), published Jobs
  *  post — walked to exhaustion via posts.search's cursor. */

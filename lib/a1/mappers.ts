@@ -32,10 +32,14 @@ function mapAuthor(author: Post["author"], flags: number): WebPostAuthor {
     // couldn't match — PLAN.md §0.3: "must render as Anonymous, never crash."
     return { name: "Anonymous", username: null, avatarUrl: null, isAnonymous: true };
   }
-  // Deliberately NOT `author.photo` — that field is a pre-signed S3 URL
-  // that expires in ~2 minutes (confirmed against a live response), too
-  // short-lived to bake into an ISR-cached page (revalidate = 60 on the
-  // feed pages alone can outlive it). `author.photos[0]` is a real
+  // Deliberately NOT `author.photo` — confirmed live twice now (once on
+  // 2026-08-26 against a raw response, and again via a screen recording
+  // Aleksandr sent of a real posts.search call: `X-Amz-Expires=120` right
+  // there in the URL) that it's always a pre-signed S3 link expiring in
+  // ~2 minutes, whether or not the user has a "real" uploaded photo —
+  // there's no separate stable default-avatar link hiding in this field.
+  // Too short-lived to bake into an ISR-cached page (revalidate = 60 on
+  // the feed pages alone can outlive it). `author.photos[0]` is a real
   // MediaDocument, so it goes through the same /api/media proxy as post
   // photos — resolved fresh at actual view time, never stale.
   const avatarDoc = author.photos[0];

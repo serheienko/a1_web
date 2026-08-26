@@ -7,16 +7,17 @@
 // lib/a1/mappers.ts for why avatarUrl is built from author.photos[0]
 // (a real MediaDocument via the /api/media proxy) rather than the raw
 // author.photo field, which is a pre-signed URL that expires in ~2 minutes.
+//
+// No avatarUrl (no uploaded photo) falls back to one of the app's own 30
+// cat-mascot defaults (lib/avatars.ts) — plain `<img>`, not next/image,
+// since it's a fixed public S3 asset outside next.config's remotePatterns
+// and not worth adding a whole external host just for 30 tiny images.
 
 import Image from "next/image";
 import Link from "next/link";
 import type { WebPost } from "@/types/web-post";
 import { formatRelativeTime, formatSalary } from "@/lib/format";
-
-function initialsFor(name: string): string {
-  const trimmed = name.trim();
-  return trimmed ? trimmed.charAt(0).toUpperCase() : "?";
-}
+import { pickDefaultCatAvatar } from "@/lib/avatars";
 
 export function PostCard({ post }: { post: WebPost }) {
   const locationLabel = post.location ? post.location.display : post.isRemote ? "Удалённо" : "Не указано";
@@ -36,9 +37,14 @@ export function PostCard({ post }: { post: WebPost }) {
             className="h-14 w-14 rounded-full object-cover"
           />
         ) : (
-          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-neutral-100 text-lg font-medium text-neutral-400">
-            {initialsFor(post.author.name)}
-          </span>
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={pickDefaultCatAvatar(post.author.username ?? post.author.name ?? post.id)}
+            alt=""
+            width={56}
+            height={56}
+            className="h-14 w-14 rounded-full object-cover"
+          />
         )}
       </Link>
 
