@@ -94,7 +94,7 @@ export async function Filters({
                 name="tag"
                 value={tag.value}
                 defaultChecked={currentTags.includes(tag.value)}
-                className="rounded border-neutral-300 dark:border-neutral-600"
+                className="rounded border-neutral-300 accent-accent dark:border-neutral-600"
               />
               {tag.text}
             </label>
