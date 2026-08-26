@@ -32,5 +32,5 @@ const POST_ID_PATTERN = /(po_[a-zA-Z0-9]+)$/;
  */
 export function parseSlugId(slug: string): string | null {
   const match = slug.match(POST_ID_PATTERN);
-  return match ? match[1] : null;
+  return match ? (match[1] ?? null) : null;
 }
