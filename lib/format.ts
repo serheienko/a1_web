@@ -16,6 +16,26 @@ const RELATIVE_UNITS: { limit: number; divisor: number; unit: Intl.RelativeTimeF
 
 const rtf = new Intl.RelativeTimeFormat("ru", { numeric: "auto" });
 
+// Language codes from the backend (e.g. "ja", "el", "da", "hr" — ISO 639-1,
+// lowercase) come through as bare codes with no name attached (confirmed
+// 2026-08-26: no such mapping exists in the API response or anywhere in
+// this repo). Rather than hand-authoring a code->Russian-name dictionary,
+// Intl.DisplayNames does exactly this natively and correctly ("ja" ->
+// "японский", "hr" -> "хорватский", etc) — Aleksandr asked for language
+// names spelled out in full instead of the raw 2-letter code.
+const languageDisplayNames = new Intl.DisplayNames(["ru"], { type: "language" });
+
+/** "ja" -> "Японский". Falls back to the raw (uppercased) code if unrecognized. */
+export function formatLanguageName(code: string): string {
+  try {
+    const name = languageDisplayNames.of(code.toLowerCase());
+    if (!name) return code.toUpperCase();
+    return name.charAt(0).toUpperCase() + name.slice(1);
+  } catch {
+    return code.toUpperCase();
+  }
+}
+
 /** "3 hours ago" / "2 days ago", etc — in Russian, relative to now. */
 export function formatRelativeTime(date: Date): string {
   const diffSeconds = (date.getTime() - Date.now()) / 1000;

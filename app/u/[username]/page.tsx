@@ -22,6 +22,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { fetchUserByUsername } from "@/lib/a1/users";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
+import { formatLanguageName } from "@/lib/format";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -176,7 +177,7 @@ export default async function ProfilePage({ params }: Props) {
           <div className="mt-3 flex flex-col gap-2">
             {profile.languages.map((lang) => (
               <div key={lang.value} className="flex items-center gap-3">
-                <span className="w-32 shrink-0 text-sm text-neutral-700 dark:text-neutral-300">{lang.value.toUpperCase()}</span>
+                <span className="w-36 shrink-0 text-sm text-neutral-700 sm:w-40 dark:text-neutral-300">{formatLanguageName(lang.value)}</span>
                 {levelBar(lang.level, 4)}
               </div>
             ))}
