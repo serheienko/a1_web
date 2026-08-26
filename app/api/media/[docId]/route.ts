@@ -23,14 +23,20 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   try {
+    // trackView/trackUsage are NOT booleans, despite how PLAN.md §2.6 reads
+    // ("Set trackUsage/trackView to false") — confirmed against the live
+    // OpenAPI spec on 2026-08-26: both are optional objects
+    // `{ id: string, type: UInt, at?: timestamp }` used to attribute a
+    // view/usage event to some context. Passing `false` gets a real
+    // validation error ("'trackView' must be of type object"). Since both
+    // are optional and we have no meaningful context to attribute a website
+    // pageview to anyway, omitting them entirely is what actually achieves
+    // "don't pollute in-app analytics" — there's no tracking event without
+    // a tracking context.
     const { downloadUrl } = await call<MediaGetUrlOutput>("media.getUrl", {
       fileId: docId,
       fileReference,
       size,
-      // Website traffic must not pollute in-app view/usage analytics
-      // (PLAN.md §2.6).
-      trackView: false,
-      trackUsage: false,
     });
 
     return NextResponse.redirect(downloadUrl, {
