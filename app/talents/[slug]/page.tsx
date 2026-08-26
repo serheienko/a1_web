@@ -18,6 +18,7 @@ import { fetchPostById } from "@/lib/a1/posts";
 import { slugify, parseSlugId } from "@/lib/seo/slug";
 import Image from "next/image";
 import { formatRelativeTime, formatSalary, truncateAtWordBoundary } from "@/lib/format";
+import { pickDefaultCatAvatar } from "@/lib/avatars";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -71,24 +72,49 @@ export default async function TalentDetailPage({ params }: Props) {
 
       <h1 className="mt-3 text-2xl font-semibold text-neutral-900 sm:text-3xl dark:text-neutral-50">{post.title}</h1>
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-neutral-500 dark:text-neutral-400">
-        {post.author.username ? (
-          <Link href={`/u/${post.author.username}`} className="hover:underline">
-            {post.author.name}
-          </Link>
+      {/* Avatar header (Aleksandr, 2026-08-26: "добавь аватар в отображении
+          поста") — same photo-or-cat-fallback pipeline as components/post-card.tsx,
+          just laid out byline-style (avatar + name, meta line underneath)
+          instead of the card's single-row version. */}
+      <div className="mt-4 flex items-center gap-3">
+        {post.author.avatarUrl ? (
+          <Image
+            src={post.author.avatarUrl}
+            alt=""
+            width={48}
+            height={48}
+            className="h-12 w-12 shrink-0 rounded-full object-cover"
+          />
         ) : (
-          <span>{post.author.name}</span>
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={pickDefaultCatAvatar(post.author.username ?? post.author.name ?? post.id)}
+            alt=""
+            width={48}
+            height={48}
+            className="h-12 w-12 shrink-0 rounded-full object-cover"
+          />
         )}
-        <span aria-hidden="true">·</span>
-        <span>{locationLabel}</span>
-        {post.salary && (
-          <>
+        <div className="min-w-0">
+          {post.author.username ? (
+            <Link href={`/u/${post.author.username}`} className="font-medium text-neutral-900 hover:underline dark:text-neutral-50">
+              {post.author.name}
+            </Link>
+          ) : (
+            <span className="font-medium text-neutral-900 dark:text-neutral-50">{post.author.name}</span>
+          )}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-faint dark:text-neutral-400">
+            <span>{locationLabel}</span>
+            {post.salary && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span>{formatSalary(post.salary)}</span>
+              </>
+            )}
             <span aria-hidden="true">·</span>
-            <span>{formatSalary(post.salary)}</span>
-          </>
-        )}
-        <span aria-hidden="true">·</span>
-        <span>{formatRelativeTime(post.publishedAt)}</span>
+            <span>{formatRelativeTime(post.publishedAt)}</span>
+          </div>
+        </div>
       </div>
 
       {post.images.length > 0 && (

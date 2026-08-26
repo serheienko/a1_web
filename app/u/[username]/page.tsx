@@ -61,23 +61,27 @@ export default async function ProfilePage({ params }: Props) {
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-10 sm:py-16">
-      <div className="flex items-center gap-4">
+      {/* Avatar sized off Instagram's own profile page as reference
+          (Aleksandr, 2026-08-26): ~96px on mobile, 150px on desktop —
+          noticeably bigger than the post-card/post-detail byline avatar,
+          since this IS the page, not a passing mention of the author. */}
+      <div className="flex items-center gap-4 sm:gap-8">
         {profile.avatarUrl ? (
           <Image
             src={profile.avatarUrl}
             alt=""
-            width={72}
-            height={72}
-            className="h-[72px] w-[72px] rounded-full object-cover"
+            width={150}
+            height={150}
+            className="h-24 w-24 shrink-0 rounded-full object-cover sm:h-[150px] sm:w-[150px]"
           />
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={pickDefaultCatAvatar(profile.username)}
             alt=""
-            width={72}
-            height={72}
-            className="h-[72px] w-[72px] rounded-full object-cover"
+            width={150}
+            height={150}
+            className="h-24 w-24 shrink-0 rounded-full object-cover sm:h-[150px] sm:w-[150px]"
           />
         )}
         <div>

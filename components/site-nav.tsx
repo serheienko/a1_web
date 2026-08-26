@@ -1,12 +1,11 @@
 // components/site-nav.tsx
 //
-// One nav component, two layouts via responsive classes rather than two
-// components: a horizontal top bar below the md breakpoint (unchanged
-// mobile behavior), and a fixed left sidebar + centered content column from
-// md up — the Instagram-web-style structure Aleksandr asked for on
-// 2026-08-26 ("сайдбар + центр-колонка"), replacing the old plain top nav.
-// app/layout.tsx's `md:pl-64` on the content wrapper is what makes room for
-// the fixed sidebar at md+; this component owns the matching `md:w-64`.
+// Facebook-style top bar (Aleksandr, 2026-08-26: likes FB/Instagram's
+// desktop chrome, wants our 2 sections as centered pill tabs in a top bar
+// rather than a left sidebar — reverting the earlier sidebar experiment).
+// Three-column grid so the tabs stay visually centered on the page
+// regardless of the logo/toggle's width, same trick FB uses for its own
+// centered icon row.
 "use client";
 
 import Link from "next/link";
@@ -22,34 +21,33 @@ export function SiteNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="border-b border-neutral-200 dark:border-neutral-800 md:fixed md:inset-y-0 md:left-0 md:w-64 md:border-r md:border-b-0">
-      <div className="mx-auto flex max-w-3xl items-center gap-6 px-4 py-4 md:mx-0 md:h-full md:max-w-none md:flex-col md:items-stretch md:gap-1 md:px-3 md:py-6">
-        <Link
-          href="/"
-          className="font-display text-base font-bold text-neutral-900 dark:text-neutral-50 md:px-3 md:pb-4 md:text-2xl"
-        >
+    <nav className="sticky top-0 z-10 border-b border-neutral-200 bg-app/80 backdrop-blur dark:border-neutral-800 dark:bg-black/80">
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 px-4 py-3">
+        <Link href="/" className="font-display justify-self-start text-xl font-bold text-neutral-900 dark:text-neutral-50">
           A1
         </Link>
 
-        {NAV_ITEMS.map((item) => {
-          const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={
-                "text-sm transition md:rounded-lg md:px-3 md:py-2 md:text-base md:font-medium " +
-                (active
-                  ? "text-accent md:bg-accent/10"
-                  : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50 md:hover:bg-neutral-100 md:dark:hover:bg-neutral-900")
-              }
-            >
-              {item.label}
-            </Link>
-          );
-        })}
+        <div className="col-start-2 flex items-center gap-1 justify-self-center rounded-full bg-neutral-100 p-1 dark:bg-neutral-900">
+          {NAV_ITEMS.map((item) => {
+            const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={
+                  "rounded-full px-4 py-2 text-sm font-medium transition sm:px-6 " +
+                  (active
+                    ? "bg-accent/15 text-accent"
+                    : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50")
+                }
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
 
-        <div className="ml-auto md:ml-0 md:mt-auto">
+        <div className="justify-self-end">
           <ThemeToggle />
         </div>
       </div>

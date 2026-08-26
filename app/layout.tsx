@@ -16,11 +16,11 @@ const commissioner = Commissioner({
   display: "swap",
 });
 
-// Oswald: stands in for the Figma file's "Impact" headings (itself flagged
-// as a missing/unresolved font inside Figma) — a condensed, high-impact
-// Google Font with full Cyrillic coverage, since Aleksandr wants that heavy
-// display look on Russian headings too, not just Latin ones. See the note
-// in app/globals.css (--font-display) for the reasoning and how to swap it.
+// Oswald: fallback for the real system "Impact" font used in the Figma
+// mockups (Impact itself covers modern Cyrillic fine — verified, see the
+// note in app/globals.css — but isn't installed by default on iOS/Android/
+// most Linux). Self-hosted so those platforms still get a heavy condensed
+// display face instead of silently degrading to a generic sans.
 const oswald = Oswald({
   subsets: ["latin", "cyrillic"],
   weight: ["500", "600", "700"],
@@ -71,10 +71,7 @@ export default function RootLayout({
       <body className="bg-app font-sans text-ink dark:bg-black dark:text-neutral-100">
         <Script id="theme-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <SiteNav />
-        {/* md:pl-64 offsets for the fixed sidebar SiteNav becomes at the md
-            breakpoint — see components/site-nav.tsx. Below md, SiteNav is a
-            normal top bar in flow, so this padding is inert there (0). */}
-        <div className="md:pl-64">{children}</div>
+        {children}
         <Analytics />
       </body>
     </html>

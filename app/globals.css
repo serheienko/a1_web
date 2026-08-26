@@ -50,17 +50,28 @@
  *     explicit standing instruction from earlier in the project, not a
  *     mockup value — kept as Tailwind's neutral-950/black via `dark:`
  *     utility classes rather than folded into a token here.
- *   - display/heading font: Figma's "Impact" (itself flagged as a missing
- *     font inside the Figma file, no confirmed real rendering) is being
- *     replaced project-wide — for BOTH Latin and Cyrillic headings — with
- *     Oswald Bold: a condensed, high-impact Google Font with full Cyrillic
- *     coverage (verified via the font's METADATA.pb before adopting it,
- *     same as Commissioner). Swappable in one line here + app/layout.tsx
- *     if it doesn't read right once it's live on a real heading.
+ *   - display/heading font: Figma uses "Impact" for headings, both Latin
+ *     and Cyrillic. Corrected 2026-08-26: I initially assumed Impact
+ *     lacked Cyrillic (based on one Figma text node showing a "missing
+ *     font" warning, likely just a slow font-load, not a real gap) and
+ *     swapped it for a Google-Fonts lookalike — Aleksandr caught this with
+ *     a screenshot of "Вакансии" rendering correctly in real Impact. Fact
+ *     (confirmed via Microsoft's own font docs + a glyph-coverage check,
+ *     not assumed): the standard Impact shipped with Windows and macOS
+ *     does cover modern Cyrillic (code page 1251 — contemporary Russian,
+ *     Ukrainian, Belarusian; it's missing only archaic/historical Cyrillic
+ *     letters nobody uses in UI copy). So Impact is used directly as a
+ *     system font below — zero download weight, pixel-identical to the
+ *     mockups on Windows/Mac. It isn't installed by default on iOS,
+ *     Android, or most Linux, though, so Oswald Bold (self-hosted, full
+ *     Cyrillic, verified via METADATA.pb) stays as the fallback for those
+ *     — not a replacement for Impact, a safety net for platforms without
+ *     it, so mobile still gets a heavy condensed face instead of a
+ *     generic sans.
  */
 @theme {
   --font-sans: var(--font-commissioner), ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-display: var(--font-oswald), "Arial Narrow Bold", sans-serif;
+  --font-display: Impact, var(--font-oswald), "Arial Narrow Bold", sans-serif;
 
   --color-app: #f2f2f7;
   --color-card: #ffffff;
