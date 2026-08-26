@@ -6,6 +6,10 @@
 // Secret-protected: requires ?secret=<A1_DEBUG_SECRET>. If A1_DEBUG_SECRET
 // is not set in the environment, the route refuses every request — it does
 // NOT fall open. Set A1_DEBUG_SECRET in Vercel to use this.
+//
+// ?raw=1 skips schema validation/mapping and returns the unprocessed
+// posts.search response — for diagnosing a real shape mismatch during
+// initial bring-up. Remove along with the rest of this file in Phase 1.
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,19 +27,31 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
 
+  const raw_mode = request.nextUrl.searchParams.get("raw") === "1";
+
   try {
-    const raw = await call<PostsSearchOutput>("posts.search", { limit: 5 });
-    const posts = mapPosts(raw.items);
+    const raw = await call<unknown>("posts.search", { limit: 5 });
+
+    if (raw_mode) {
+      return NextResponse.json({ raw });
+    }
+
+    const typed = raw as PostsSearchOutput;
+    const posts = mapPosts(typed.items);
 
     return NextResponse.json({
       count: posts.length,
-      totalFromApi: raw.items.length,
+      totalFromApi: typed.items.length,
       titles: posts.map((p) => ({ kind: p.kind, title: p.title, id: p.id })),
     });
   } catch (err) {
     console.error("[app/api/debug] posts.search failed", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "unknown error" },
+      {
+        error: err instanceof Error ? err.message : "unknown error",
+        name: err instanceof Error ? err.name : undefined,
+        stack: err instanceof Error ? err.stack : undefined,
+      },
       { status: 502 },
     );
   }
