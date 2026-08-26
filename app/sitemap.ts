@@ -38,11 +38,12 @@ export default async function sitemap({ id }: { id: number }): Promise<MetadataR
 
   const entries: MetadataRoute.Sitemap = [];
 
-  // Static pages ride along in the first chunk rather than getting a
-  // whole separate sitemap file for two URLs.
+  // The root URL rides along in the first chunk rather than getting a
+  // whole separate sitemap file for one URL. /jobs is a redirect stub as
+  // of 2026-08-26 (the feed now lives at the root, see app/page.tsx) so
+  // it no longer gets its own sitemap entry.
   if (id === 0) {
     entries.push({ url: SITE_URL });
-    entries.push({ url: `${SITE_URL}/jobs` });
   }
 
   for (const post of chunk) {

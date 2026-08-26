@@ -41,8 +41,8 @@ export default async function TalentsPage({ searchParams }: Props) {
   return (
     <main className="mx-auto max-w-3xl px-4 py-10 sm:py-16">
       <header className="mb-8">
-        <h1 className="text-2xl font-semibold text-neutral-900 sm:text-3xl">Специалисты</h1>
-        <p className="mt-2 text-neutral-500">Люди, которые ищут работу или проекты через A1.</p>
+        <h1 className="text-2xl font-semibold text-neutral-900 sm:text-3xl dark:text-neutral-50">Специалисты</h1>
+        <p className="mt-2 text-neutral-500 dark:text-neutral-400">Люди, которые ищут работу или проекты через A1.</p>
       </header>
 
       <Filters

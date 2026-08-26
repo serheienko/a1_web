@@ -28,7 +28,7 @@ export async function Filters({
     <form
       method="GET"
       action={basePath}
-      className="mb-8 flex flex-col gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4"
+      className="mb-8 flex flex-col gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-900"
     >
       <div className="flex flex-wrap gap-3">
         <input
@@ -36,12 +36,12 @@ export async function Filters({
           name="q"
           defaultValue={currentQuery}
           placeholder="Поиск по тексту..."
-          className="min-w-0 flex-1 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900"
+          className="min-w-0 flex-1 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 dark:border-neutral-700 dark:bg-black dark:text-neutral-100"
         />
         <select
           name="category"
           defaultValue={currentCategory ?? ""}
-          className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900"
+          className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 dark:border-neutral-700 dark:bg-black dark:text-neutral-100"
         >
           <option value="">Все категории</option>
           {categories.map((c) => (
@@ -59,7 +59,7 @@ export async function Filters({
         {hasFilters && (
           <a
             href={basePath}
-            className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 transition hover:border-neutral-400"
+            className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 transition hover:border-neutral-400 dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-neutral-500"
           >
             Сбросить
           </a>
@@ -69,13 +69,16 @@ export async function Filters({
       {tags.length > 0 && (
         <div className="flex flex-wrap gap-x-4 gap-y-2">
           {tags.map((tag) => (
-            <label key={tag.value} className="flex items-center gap-1.5 text-sm text-neutral-600">
+            <label
+              key={tag.value}
+              className="flex items-center gap-1.5 text-sm text-neutral-600 dark:text-neutral-400"
+            >
               <input
                 type="checkbox"
                 name="tag"
                 value={tag.value}
                 defaultChecked={currentTags.includes(tag.value)}
-                className="rounded border-neutral-300"
+                className="rounded border-neutral-300 dark:border-neutral-600"
               />
               {tag.text}
             </label>

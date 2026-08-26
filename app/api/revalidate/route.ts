@@ -41,7 +41,10 @@ export async function POST(request: NextRequest) {
     // Empty or non-JSON body — treat as a bare "something changed" ping.
   }
 
-  const paths = new Set<string>(["/jobs", "/talents"]);
+  // "/" is the Jobs feed root (moved from /jobs on 2026-08-26, see
+  // app/page.tsx) — /jobs/<slug> detail pages are unaffected and still
+  // live under /jobs, so `base` below is deliberately unchanged.
+  const paths = new Set<string>(["/", "/talents"]);
   if (body.slug) {
     const base = body.kind === "seeking" ? "/talents" : "/jobs";
     paths.add(`${base}/${body.slug}`);

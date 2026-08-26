@@ -1,90 +1,32 @@
-export const runtime = "nodejs";
-export const revalidate = 15; // lowered from 60 — 2026-08-26, founder wants post
-// updates to show up fast, not "up to a minute" later. ISR only re-fetches the
-// origin once per window in the background regardless of visitor count, so this
-// is cheap even at 15s. /api/revalidate exists for instant, event-driven
-// invalidation once the backend's webhook (OPEN QUESTIONS #8) is wired up —
-// this is the interim fix that does not depend on Andrew's timeline for that.
+// app/jobs/page.tsx
+//
+// The Jobs feed moved to the site root ("/") on 2026-08-26 per Aleksandr:
+// https://jobs.a1appp.com/ should show Jobs directly, no intermediate
+// landing page and no "jobs.jobs" duplication in the URL. This route is
+// now a permanent redirect for anyone hitting the old /jobs URL (bookmarks,
+// old links, search engines that haven't re-crawled yet), forwarding any
+// query/filter params through unchanged. See app/page.tsx for the actual
+// feed implementation. /jobs/[slug] detail pages are untouched.
 
-// app/jobs/page.tsx — Jobs feed (post-job-employing). PLAN.md Phase 1,
-// filters/search added in Phase 3.
-
-import type { Metadata } from "next";
-import { fetchFeedPage, toURLSearchParams, parseFeedFilters, hasActiveFilters } from "@/lib/a1/feed";
-import { PostCard } from "@/components/post-card";
-import { LoadMore } from "@/components/load-more";
-import { EmptyState } from "@/components/empty-state";
-import { Filters } from "@/components/filters";
-
-const SITE_URL = "https://jobs.a1appp.com";
+import { permanentRedirect } from "next/navigation";
 
 type Props = {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
-export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
-  const filters = parseFeedFilters(toURLSearchParams(await searchParams));
-  const filtered = hasActiveFilters(filters);
+export default async function JobsRedirectPage({ searchParams }: Props) {
+  const params = await searchParams;
+  const qs = new URLSearchParams();
 
-  return {
-    title: "Вакансии | A1 Jobs",
-    description: "Актуальные вакансии от компаний и людей в приложении A1.",
-    // Filtered/search views are noindex with a canonical back to the clean
-    // feed URL (PLAN.md §3.1) — search-result-shaped pages shouldn't carry
-    // JobPosting-adjacent signals into the index.
-    alternates: { canonical: `${SITE_URL}/jobs` },
-    robots: filtered ? { index: false, follow: true } : undefined,
-  };
-}
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined) continue;
+    if (Array.isArray(value)) {
+      for (const v of value) qs.append(key, v);
+    } else {
+      qs.append(key, value);
+    }
+  }
 
-export default async function JobsPage({ searchParams }: Props) {
-  const params = toURLSearchParams(await searchParams);
-  const filters = parseFeedFilters(params);
-  const { posts, next, hasMore } = await fetchFeedPage("hiring", undefined, filters);
-  const currentCategory = filters.categories?.[0];
-
-  return (
-    <main className="mx-auto max-w-3xl px-4 py-10 sm:py-16">
-      <header className="mb-8">
-        <h1 className="text-2xl font-semibold text-neutral-900 sm:text-3xl">Вакансии</h1>
-        <p className="mt-2 text-neutral-500">Актуальные вакансии от компаний и частных лиц в A1.</p>
-      </header>
-
-      <Filters
-        kind="hiring"
-        basePath="/jobs"
-        currentQuery={filters.q}
-        currentCategory={currentCategory}
-        currentTags={filters.tags ?? []}
-      />
-
-      {posts.length === 0 ? (
-        <EmptyState
-          message={
-            hasActiveFilters(filters)
-              ? "Ничего не нашлось. Попробуйте изменить фильтры."
-              : "Пока нет открытых вакансий."
-          }
-        />
-      ) : (
-        <>
-          <ul className="flex flex-col gap-4">
-            {posts.map((post) => (
-              <li key={post.id}>
-                <PostCard post={post} />
-              </li>
-            ))}
-          </ul>
-          <LoadMore
-            kind="hiring"
-            initialCursor={next}
-            initialHasMore={hasMore}
-            query={filters.q}
-            category={currentCategory}
-            tags={filters.tags}
-          />
-        </>
-      )}
-    </main>
-  );
+  const query = qs.toString();
+  permanentRedirect(query ? `/?${query}` : "/");
 }

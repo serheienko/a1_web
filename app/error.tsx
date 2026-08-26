@@ -1,6 +1,9 @@
 "use client";
 
-export default function JobsError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+// app/error.tsx — mirrors app/jobs/error.tsx (now that the Jobs feed lives
+// at "/", see app/page.tsx), since the root segment has no error boundary
+// of its own otherwise.
+export default function HomeError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
   return (
     <main className="mx-auto max-w-3xl px-4 py-16 text-center">
       <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-50">Не получилось загрузить вакансии</h1>

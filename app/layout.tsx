@@ -23,7 +23,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ru">
-      <body className="bg-white text-neutral-900">
+      <body className="bg-white text-neutral-900 dark:bg-black dark:text-neutral-100">
         <SiteNav />
         {children}
         <Analytics />

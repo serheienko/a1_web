@@ -65,13 +65,13 @@ export default async function TalentDetailPage({ params }: Props) {
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-10 sm:py-16">
-      <span className="inline-block rounded-full bg-[#C830FF]/10 px-2.5 py-1 text-xs font-medium text-[#C830FF]">
+      <span className="inline-block rounded-full bg-[#C830FF]/10 px-2.5 py-1 text-xs font-medium text-[#C830FF] dark:bg-[#C830FF]/20">
         Специалист
       </span>
 
-      <h1 className="mt-3 text-2xl font-semibold text-neutral-900 sm:text-3xl">{post.title}</h1>
+      <h1 className="mt-3 text-2xl font-semibold text-neutral-900 sm:text-3xl dark:text-neutral-50">{post.title}</h1>
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-neutral-500">
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-neutral-500 dark:text-neutral-400">
         {post.author.username ? (
           <Link href={`/u/${post.author.username}`} className="hover:underline">
             {post.author.name}
@@ -110,12 +110,12 @@ export default async function TalentDetailPage({ params }: Props) {
         </div>
       )}
 
-      <div className="mt-6 whitespace-pre-wrap text-neutral-700">{post.contentText}</div>
+      <div className="mt-6 whitespace-pre-wrap text-neutral-700 dark:text-neutral-300">{post.contentText}</div>
 
       {post.tags.length > 0 && (
         <div className="mt-6 flex flex-wrap gap-1.5">
           {post.tags.map((tag) => (
-            <span key={tag} className="rounded-md bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
+            <span key={tag} className="rounded-md bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
               {tag}
             </span>
           ))}

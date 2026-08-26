@@ -85,14 +85,14 @@ export function LoadMore({
         </ul>
       )}
 
-      {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
+      {error && <p className="mt-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
       {hasMore && (
         <button
           type="button"
           onClick={loadMore}
           disabled={loading}
-          className="mt-6 w-full rounded-lg border border-neutral-300 py-2.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-400 disabled:opacity-50"
+          className="mt-6 w-full rounded-lg border border-neutral-300 py-2.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-400 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-neutral-500"
         >
           {loading ? "Загрузка…" : "Показать ещё"}
         </button>

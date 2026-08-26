@@ -79,18 +79,18 @@ export default async function JobDetailPage({ params }: Props) {
       )}
 
       {expired && (
-        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
           Эта вакансия больше не активна.
         </div>
       )}
 
-      <span className="inline-block rounded-full bg-[#4F71EB]/10 px-2.5 py-1 text-xs font-medium text-[#4F71EB]">
+      <span className="inline-block rounded-full bg-[#4F71EB]/10 px-2.5 py-1 text-xs font-medium text-[#4F71EB] dark:bg-[#4F71EB]/20">
         Вакансия
       </span>
 
-      <h1 className="mt-3 text-2xl font-semibold text-neutral-900 sm:text-3xl">{post.title}</h1>
+      <h1 className="mt-3 text-2xl font-semibold text-neutral-900 sm:text-3xl dark:text-neutral-50">{post.title}</h1>
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-neutral-500">
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-neutral-500 dark:text-neutral-400">
         {post.author.username ? (
           <Link href={`/u/${post.author.username}`} className="hover:underline">
             {post.author.name}
@@ -129,12 +129,12 @@ export default async function JobDetailPage({ params }: Props) {
         </div>
       )}
 
-      <div className="mt-6 whitespace-pre-wrap text-neutral-700">{post.contentText}</div>
+      <div className="mt-6 whitespace-pre-wrap text-neutral-700 dark:text-neutral-300">{post.contentText}</div>
 
       {post.tags.length > 0 && (
         <div className="mt-6 flex flex-wrap gap-1.5">
           {post.tags.map((tag) => (
-            <span key={tag} className="rounded-md bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
+            <span key={tag} className="rounded-md bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
               {tag}
             </span>
           ))}
