@@ -84,7 +84,7 @@ export default async function JobDetailPage({ params }: Props) {
         </div>
       )}
 
-      <span className="inline-block rounded-full bg-[#4F71EB]/10 px-2.5 py-1 text-xs font-medium text-[#4F71EB] dark:bg-[#4F71EB]/20">
+      <span className="inline-block rounded-full bg-accent/10 px-2.5 py-1 text-xs font-medium text-accent dark:bg-accent/20">
         Вакансия
       </span>
 

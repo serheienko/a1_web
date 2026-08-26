@@ -47,7 +47,7 @@ function levelBar(level: number, max: number) {
   const pct = Math.max(0, Math.min(100, (level / max) * 100));
   return (
     <div className="h-1.5 w-full max-w-[160px] overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800">
-      <div className="h-full rounded-full bg-[#4F71EB]" style={{ width: `${pct}%` }} />
+      <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
     </div>
   );
 }

@@ -1,1 +1,39 @@
 @import "tailwindcss";
+
+/*
+ * Design tokens below are real values pulled from the Figma file
+ * (A1-Claude, "Feed Preview White" frame) via the Inspect/Design panel —
+ * NOT the file's Variables panel. Founder's call (2026-08-26): the
+ * Variables collection may be stale/unwired, so don't trust names like
+ * "tailwind colors/base/white" — only what's actually drawn on a real
+ * screen. Re-verify against Inspect, not Variables, whenever more of the
+ * 20-30 reference screens get reviewed.
+ *
+ * Verified so far (Feed Preview White frame):
+ *   screen bg      #F2F2F7  (iOS systemGroupedBackground, not pure white)
+ *   card bg        #FFFFFF, corner-radius 20, padding 16, internal gap 10,
+ *                  drop shadow, 16px gap between cards
+ *   accent blue    #4F71EB  (post-title badge, author name link)
+ *   body text      #3A3A3C, Commissioner Regular 15px / 150% line-height
+ *   heading text   Commissioner SemiBold 17px / 120% line-height
+ *   secondary/meta #8E8E93  (timestamps)
+ *   typeface       Commissioner (Google Font, has full Cyrillic coverage —
+ *                  confirmed before adopting it, since the UI is Russian)
+ *
+ * Dark mode keeps the founder's earlier explicit instruction (pure black
+ * #000000 background, matching the native app) rather than anything from
+ * Figma — that was a direct "Цвет фона как в апке — 000000" call, not a
+ * mockup value, so it stays as Tailwind's neutral-950/black via `dark:`
+ * classes rather than being folded into these light-mode tokens.
+ */
+@theme {
+  --font-sans: var(--font-commissioner), ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  --color-app: #f2f2f7;
+  --color-card: #ffffff;
+  --color-accent: #4f71eb;
+  --color-ink: #3a3a3c;
+  --color-ink-faint: #8e8e93;
+
+  --radius-card: 20px;
+}

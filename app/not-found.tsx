@@ -7,7 +7,7 @@ export default function NotFound() {
       <p className="mt-2 text-neutral-500 dark:text-neutral-400">Возможно, пост был удалён или ссылка устарела.</p>
       <Link
         href="/"
-        className="mt-6 inline-block rounded-lg bg-[#4F71EB] px-5 py-2.5 text-sm font-medium text-white transition hover:opacity-90"
+        className="mt-6 inline-block rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-white transition hover:opacity-90"
       >
         На главную
       </Link>

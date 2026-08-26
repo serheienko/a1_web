@@ -52,7 +52,7 @@ export async function Filters({
         </select>
         <button
           type="submit"
-          className="rounded-lg bg-[#4F71EB] px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
+          className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
         >
           Применить
         </button>

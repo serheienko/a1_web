@@ -45,7 +45,13 @@ export function PostCard({ post }: { post: WebPost }) {
   );
 
   return (
-    <article className="flex gap-4 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm transition hover:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700">
+    // Card look verified against the real Figma "Feed Preview White" frame
+    // via Inspect (2026-08-26), not the Variables panel — see the note in
+    // app/globals.css. Real values: bg #FFFFFF (no stroke, separated by
+    // shadow alone), corner-radius 20 (rounded-card), 16px padding. Dark
+    // mode keeps the pre-existing neutral-900/border treatment since no
+    // dark-mode screen has been checked yet.
+    <article className="flex gap-4 rounded-card bg-card p-4 shadow-sm transition hover:shadow-md dark:border dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700">
       {profileHref ? (
         <Link href={profileHref} className="shrink-0">
           {avatarImg}
@@ -65,7 +71,7 @@ export function PostCard({ post }: { post: WebPost }) {
             className={
               "shrink-0 rounded-full px-2.5 py-1 text-xs font-medium " +
               (post.kind === "hiring"
-                ? "bg-[#4F71EB]/10 text-[#4F71EB] dark:bg-[#4F71EB]/20"
+                ? "bg-accent/10 text-accent dark:bg-accent/20"
                 : "bg-[#C830FF]/10 text-[#C830FF] dark:bg-[#C830FF]/20")
             }
           >
@@ -73,7 +79,7 @@ export function PostCard({ post }: { post: WebPost }) {
           </span>
         </div>
 
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-neutral-500 dark:text-neutral-400">
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-faint dark:text-neutral-400">
           {profileHref ? (
             <Link href={profileHref} className="hover:underline">
               {post.author.name}
@@ -93,7 +99,7 @@ export function PostCard({ post }: { post: WebPost }) {
           <span>{formatRelativeTime(post.publishedAt)}</span>
         </div>
 
-        <p className="mt-3 line-clamp-3 text-sm text-neutral-600 dark:text-neutral-400">{post.contentText}</p>
+        <p className="mt-3 line-clamp-3 text-sm text-ink dark:text-neutral-400">{post.contentText}</p>
 
         {post.tags.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1.5">
