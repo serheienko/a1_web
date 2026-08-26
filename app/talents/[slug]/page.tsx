@@ -1,5 +1,5 @@
 export const runtime = "nodejs";
-export const revalidate = 300;
+export const revalidate = 60;
 
 // app/talents/[slug]/page.tsx — one specialist per page (PLAN.md Phase 2).
 //
@@ -12,6 +12,7 @@ export const revalidate = 300;
 // once the founder decides (a)/(b)/(c)/(d).
 
 import { notFound, permanentRedirect } from "next/navigation";
+import Link from "next/link";
 import type { Metadata } from "next";
 import { fetchPostById } from "@/lib/a1/posts";
 import { slugify, parseSlugId } from "@/lib/seo/slug";
@@ -71,7 +72,13 @@ export default async function TalentDetailPage({ params }: Props) {
       <h1 className="mt-3 text-2xl font-semibold text-neutral-900 sm:text-3xl">{post.title}</h1>
 
       <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-neutral-500">
-        <span>{post.author.name}</span>
+        {post.author.username ? (
+          <Link href={`/u/${post.author.username}`} className="hover:underline">
+            {post.author.name}
+          </Link>
+        ) : (
+          <span>{post.author.name}</span>
+        )}
         <span aria-hidden="true">·</span>
         <span>{locationLabel}</span>
         {post.salary && (

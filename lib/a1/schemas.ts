@@ -237,3 +237,105 @@ export function parsePost(raw: unknown): Post | null {
   console.warn(`[lib/a1/schemas] dropped unparseable post (id=${String(id)}, object=${String(kind)})`);
   return null;
 }
+
+// ---------------------------------------------------------------------------
+// Public user profiles (users.getByUsername) — added 2026-08-26 for the
+// author-profile page. Deliberately separate from AuthorSchema/UserPreview
+// above: those exist to render a small author blurb on a post and
+// structurally cannot carry PII (no email/phone/dob fields exist on that
+// type at all). This is a much wider object — see the security note on
+// UserProfileSchema below before touching it.
+// ---------------------------------------------------------------------------
+
+const UserLinkSchema = z.object({
+  title: z.string().catch(""),
+  url: z.string(),
+});
+
+const UserSkillSchema = z.object({
+  value: z.string(),
+  level: z.number().catch(0),
+});
+
+const UserLanguageSchema = z.object({
+  value: z.string(),
+  level: z.number().catch(0),
+});
+
+const UserCompanyPositionSchema = z.object({
+  description: z.string().nullable().catch(null),
+  start: z.string().nullable().catch(null),
+  end: z.string().nullable().catch(null),
+});
+
+const UserCompanySchema = z.object({
+  name: z.string().catch(""),
+  description: z.string().nullable().catch(null),
+  position: UserCompanyPositionSchema.nullable().catch(null),
+  employeesCount: z.number().nullable().catch(null),
+  category: z.number().nullable().catch(null),
+  link: UserLinkSchema.nullable().catch(null),
+  est: z.number().nullable().catch(null),
+});
+
+/**
+ * `Resource.User` — the full backend user object, confirmed against the
+ * live OpenAPI spec on 2026-08-26. It also contains `email`,
+ * `emailVerified`, `phoneNumber`, `dob`, `personalChatId`,
+ * `personalChatMessage`, `metadata`, `lastSeen`, `notifySettings`, and the
+ * `flags`/`featureFlags`/`scopeFlags` bitmasks — NONE of those are parsed
+ * here. This is the anti-corruption layer for user profiles the same way
+ * mappers.ts is for posts (PLAN.md §2.4): if a field isn't declared below,
+ * Zod silently drops it, so it structurally cannot reach lib/a1/
+ * user-mappers.ts, let alone the browser. `flags` is the one deliberate
+ * exception — parsed as a number so user-mappers.ts can gate `phone` /
+ * `email` / `dob` behind the user's own SHOW_* toggles (lib/a1/
+ * user-flags.ts) — the same consent signal the app itself uses. Do not
+ * add `email`, `phoneNumber`, `dob`, `personalChatId`, `metadata`,
+ * `lastSeen`, or `notifySettings` here without re-reading that file.
+ */
+export const UserProfileSchema = z.object({
+  _id: z.string(),
+  username: z.string().nullable().catch(null),
+  firstName: z.string().catch(""),
+  lastName: z.string().catch(""),
+  occupation: z.string().catch(""),
+  expertise: z.string().nullable().catch(null),
+  bio: z.string().catch(""),
+  profileTitle: z.string().nullable().catch(null),
+  photos: z.array(MediaDocumentSchema).catch([]),
+  location: WorldLocationSchema.nullable().catch(null),
+  links: z.array(UserLinkSchema).catch([]),
+  companies: z.array(UserCompanySchema).catch([]),
+  education: z.array(z.string()).catch([]),
+  skills: z.array(UserSkillSchema).catch([]),
+  languages: z.array(UserLanguageSchema).catch([]),
+  flags: z.number().catch(0),
+  // Present on the real object but only read behind their own SHOW_*
+  // flag check in user-mappers.ts — never returned to a caller otherwise.
+  phoneNumber: z.string().nullable().catch(null),
+  email: z.string().nullable().catch(null),
+  dob: z.string().nullable().catch(null),
+  object: z.literal("user"),
+});
+export type UserProfile = z.infer<typeof UserProfileSchema>;
+
+const UserHiddenProfileSchema = z.object({
+  fullName: z.string().catch("Anonymous"),
+  username: z.string().catch(""),
+  reason: z.string().optional(),
+  object: z.literal("user-hidden"),
+});
+export type UserHiddenProfile = z.infer<typeof UserHiddenProfileSchema>;
+
+const UserProfileResultSchema = z.union([UserProfileSchema, UserHiddenProfileSchema]);
+export type UserProfileResult = z.infer<typeof UserProfileResultSchema>;
+
+/** Parse users.getByUsername's response. Never throws — a malformed or
+ *  unrecognized shape is treated the same as "not found" by the caller. */
+export function parseUserProfile(raw: unknown): UserProfileResult | null {
+  const result = UserProfileResultSchema.safeParse(raw);
+  if (result.success) return result.data;
+  console.warn("[lib/a1/schemas] dropped unparseable user profile");
+  return null;
+}

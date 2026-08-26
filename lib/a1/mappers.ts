@@ -109,7 +109,7 @@ function pickDisplaySize(sizes: MediaSize[]): MediaSize | undefined {
 
 /** Shared by mapImages() and mapAuthor(): any MediaDocument (a post photo
  *  or an author's avatar doc) maps to the same /api/media proxy URL shape. */
-function buildMediaProxyUrl(doc: { _id: string; fileReference: string; sizes: MediaSize[] }): string {
+export function buildMediaProxyUrl(doc: { _id: string; fileReference: string; sizes: MediaSize[] }): string {
   const size = pickDisplaySize(doc.sizes);
   const sizeParam = typeof size?.object === "string" ? size.object : "size-photo";
   return `/api/media/${doc._id}?ref=${encodeURIComponent(doc.fileReference)}&size=${encodeURIComponent(sizeParam)}`;

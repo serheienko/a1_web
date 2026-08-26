@@ -1,5 +1,10 @@
 export const runtime = "nodejs";
-export const revalidate = 60;
+export const revalidate = 15; // lowered from 60 — 2026-08-26, founder wants post
+// updates to show up fast, not "up to a minute" later. ISR only re-fetches the
+// origin once per window in the background regardless of visitor count, so this
+// is cheap even at 15s. /api/revalidate exists for instant, event-driven
+// invalidation once the backend's webhook (OPEN QUESTIONS #8) is wired up —
+// this is the interim fix that does not depend on Andrew's timeline for that.
 
 // app/talents/page.tsx — Talents feed (post-job-seeking). PLAN.md Phase 1,
 // filters/search added in Phase 3.

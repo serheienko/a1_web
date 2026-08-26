@@ -12,6 +12,11 @@
 // cat-mascot defaults (lib/avatars.ts) — plain `<img>`, not next/image,
 // since it's a fixed public S3 asset outside next.config's remotePatterns
 // and not worth adding a whole external host just for 30 tiny images.
+//
+// Avatar + author name link to the author's public profile
+// (app/u/[username]/page.tsx) when there's a username to link to — an
+// anonymous author (isAnonymous, no username) has no profile page, so
+// falls back to plain, unlinked text/image.
 
 import Image from "next/image";
 import Link from "next/link";
@@ -24,29 +29,30 @@ export function PostCard({ post }: { post: WebPost }) {
   const salaryLabel = post.salary ? formatSalary(post.salary) : null;
   const href = `/${post.kind === "hiring" ? "jobs" : "talents"}/${post.slug}`;
   const avatarUrl = post.author.avatarUrl;
+  const profileHref = post.author.username ? `/u/${post.author.username}` : null;
+
+  const avatarImg = avatarUrl ? (
+    <Image src={avatarUrl} alt="" width={56} height={56} className="h-14 w-14 rounded-full object-cover" />
+  ) : (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={pickDefaultCatAvatar(post.author.username ?? post.author.name ?? post.id)}
+      alt=""
+      width={56}
+      height={56}
+      className="h-14 w-14 rounded-full object-cover"
+    />
+  );
 
   return (
     <article className="flex gap-4 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm transition hover:border-neutral-300">
-      <Link href={href} className="shrink-0">
-        {avatarUrl ? (
-          <Image
-            src={avatarUrl}
-            alt=""
-            width={56}
-            height={56}
-            className="h-14 w-14 rounded-full object-cover"
-          />
-        ) : (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={pickDefaultCatAvatar(post.author.username ?? post.author.name ?? post.id)}
-            alt=""
-            width={56}
-            height={56}
-            className="h-14 w-14 rounded-full object-cover"
-          />
-        )}
-      </Link>
+      {profileHref ? (
+        <Link href={profileHref} className="shrink-0">
+          {avatarImg}
+        </Link>
+      ) : (
+        <div className="shrink-0">{avatarImg}</div>
+      )}
 
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-3">
@@ -66,7 +72,13 @@ export function PostCard({ post }: { post: WebPost }) {
         </div>
 
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-neutral-500">
-          <span>{post.author.name}</span>
+          {profileHref ? (
+            <Link href={profileHref} className="hover:underline">
+              {post.author.name}
+            </Link>
+          ) : (
+            <span>{post.author.name}</span>
+          )}
           <span aria-hidden="true">·</span>
           <span>{locationLabel}</span>
           {salaryLabel && (
