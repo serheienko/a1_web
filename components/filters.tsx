@@ -6,7 +6,22 @@
 // come for free, and it matches §2.2's "less JS shipped" preference.
 
 import { fetchCategories, fetchTagsForKind } from "@/lib/a1/datasets";
+import type { Category } from "@/lib/a1/datasets";
 import type { WebPostKind } from "@/types/web-post";
+
+// Aleksandr, 2026-08-26: "Вынеси IT на самый верх" — the category list
+// itself comes verbatim from the backend (dataset.postCategories, see
+// lib/a1/datasets.ts), so there's no source-of-truth array here to
+// reorder. Pin "IT" to the front client-side instead, leaving the
+// backend's own ordering untouched for everything else. Matches on the
+// category text with its emoji prefix and any punctuation stripped, so
+// it survives the emoji/spacing exactly as the API happens to send it.
+function withItFirst(categories: Category[]): Category[] {
+  const isIt = (text: string) => text.replace(/[^\p{L}]/gu, "").toLowerCase() === "it";
+  const it = categories.find((c) => isIt(c.text));
+  if (!it) return categories;
+  return [it, ...categories.filter((c) => c !== it)];
+}
 
 export async function Filters({
   kind,
@@ -21,7 +36,8 @@ export async function Filters({
   currentCategory?: number;
   currentTags: string[];
 }) {
-  const [categories, tags] = await Promise.all([fetchCategories(), fetchTagsForKind(kind)]);
+  const [categoriesRaw, tags] = await Promise.all([fetchCategories(), fetchTagsForKind(kind)]);
+  const categories = withItFirst(categoriesRaw);
   const hasFilters = Boolean(currentQuery || currentCategory || currentTags.length > 0);
 
   return (
