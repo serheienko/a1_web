@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 // next page of mapped posts plus the next cursor (PLAN.md §2.3 / Phase 1).
 
 import { NextRequest, NextResponse } from "next/server";
-import { fetchFeedPage } from "@/lib/a1/feed";
+import { fetchFeedPage, parseFeedFilters } from "@/lib/a1/feed";
 import type { WebPostKind } from "@/types/web-post";
 
 const VALID_KINDS: WebPostKind[] = ["hiring", "seeking"];
@@ -18,8 +18,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "invalid kind" }, { status: 400 });
   }
 
+  // Phase 3: "load more" must keep respecting whatever filters the
+  // current page has active — the client passes them straight through as
+  // the same q/category/tag params the page itself was loaded with.
+  const filters = parseFeedFilters(request.nextUrl.searchParams);
+
   try {
-    const page = await fetchFeedPage(kindParam as WebPostKind, cursor);
+    const page = await fetchFeedPage(kindParam as WebPostKind, cursor, filters);
     return NextResponse.json(page);
   } catch (err) {
     console.error("[app/api/feed] fetchFeedPage failed", err);

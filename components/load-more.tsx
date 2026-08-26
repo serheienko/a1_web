@@ -29,10 +29,18 @@ export function LoadMore({
   kind,
   initialCursor,
   initialHasMore,
+  query,
+  category,
+  tags,
 }: {
   kind: WebPostKind;
   initialCursor: string | null;
   initialHasMore: boolean;
+  // The active filters (Phase 3), so "load more" pages keep respecting
+  // them instead of silently reverting to the unfiltered feed.
+  query?: string;
+  category?: number;
+  tags?: string[];
 }) {
   const [posts, setPosts] = useState<WebPost[]>([]);
   const [cursor, setCursor] = useState(initialCursor);
@@ -45,7 +53,12 @@ export function LoadMore({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/feed?kind=${kind}&cursor=${encodeURIComponent(cursor)}`, {
+      const params = new URLSearchParams({ kind, cursor });
+      if (query) params.set("q", query);
+      if (category != null) params.set("category", String(category));
+      for (const tag of tags ?? []) params.append("tag", tag);
+
+      const res = await fetch(`/api/feed?${params.toString()}`, {
         cache: "no-store",
       });
       if (!res.ok) throw new Error("request failed");

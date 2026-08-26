@@ -1,20 +1,42 @@
 export const runtime = "nodejs";
 export const revalidate = 60;
 
-// app/jobs/page.tsx — Jobs feed (post-job-employing). PLAN.md Phase 1.
+// app/jobs/page.tsx — Jobs feed (post-job-employing). PLAN.md Phase 1,
+// filters/search added in Phase 3.
 
-import { fetchFeedPage } from "@/lib/a1/feed";
+import type { Metadata } from "next";
+import { fetchFeedPage, toURLSearchParams, parseFeedFilters, hasActiveFilters } from "@/lib/a1/feed";
 import { PostCard } from "@/components/post-card";
 import { LoadMore } from "@/components/load-more";
 import { EmptyState } from "@/components/empty-state";
+import { Filters } from "@/components/filters";
 
-export const metadata = {
-  title: "Вакансии | A1 Jobs",
-  description: "Актуальные вакансии от компаний и людей в приложении A1.",
+const SITE_URL = "https://jobs.a1appp.com";
+
+type Props = {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
-export default async function JobsPage() {
-  const { posts, next, hasMore } = await fetchFeedPage("hiring");
+export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
+  const filters = parseFeedFilters(toURLSearchParams(await searchParams));
+  const filtered = hasActiveFilters(filters);
+
+  return {
+    title: "Вакансии | A1 Jobs",
+    description: "Актуальные вакансии от компаний и людей в приложении A1.",
+    // Filtered/search views are noindex with a canonical back to the clean
+    // feed URL (PLAN.md §3.1) — search-result-shaped pages shouldn't carry
+    // JobPosting-adjacent signals into the index.
+    alternates: { canonical: `${SITE_URL}/jobs` },
+    robots: filtered ? { index: false, follow: true } : undefined,
+  };
+}
+
+export default async function JobsPage({ searchParams }: Props) {
+  const params = toURLSearchParams(await searchParams);
+  const filters = parseFeedFilters(params);
+  const { posts, next, hasMore } = await fetchFeedPage("hiring", undefined, filters);
+  const currentCategory = filters.categories?.[0];
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-10 sm:py-16">
@@ -23,8 +45,22 @@ export default async function JobsPage() {
         <p className="mt-2 text-neutral-500">Открытые позиции от компаний и людей в A1.</p>
       </header>
 
+      <Filters
+        kind="hiring"
+        basePath="/jobs"
+        currentQuery={filters.q}
+        currentCategory={currentCategory}
+        currentTags={filters.tags ?? []}
+      />
+
       {posts.length === 0 ? (
-        <EmptyState message="Пока нет открытых вакансий." />
+        <EmptyState
+          message={
+            hasActiveFilters(filters)
+              ? "Ничего не нашлось. Попробуйте изменить фильтры."
+              : "Пока нет открытых вакансий."
+          }
+        />
       ) : (
         <>
           <ul className="flex flex-col gap-4">
@@ -34,7 +70,14 @@ export default async function JobsPage() {
               </li>
             ))}
           </ul>
-          <LoadMore kind="hiring" initialCursor={next} initialHasMore={hasMore} />
+          <LoadMore
+            kind="hiring"
+            initialCursor={next}
+            initialHasMore={hasMore}
+            query={filters.q}
+            category={currentCategory}
+            tags={filters.tags}
+          />
         </>
       )}
     </main>

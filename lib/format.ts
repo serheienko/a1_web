@@ -60,3 +60,33 @@ export function truncateAtWordBoundary(text: string, maxLength: number): string 
   const lastSpace = truncated.lastIndexOf(" ");
   return (lastSpace > 0 ? truncated.slice(0, lastSpace) : truncated).trim();
 }
+
+const NAMED_HTML_ENTITIES: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+};
+
+/**
+ * dataset.postCategories returns `text` as HTML-entity-encoded strings —
+ * e.g. "&#x1F33E; Agriculture" — confirmed against the live endpoint on
+ * 2026-08-26, not documented in PLAN.md. Decodes numeric entities
+ * (decimal `&#128290;` and hex `&#x1F33E;`, both seen in real data) plus
+ * the handful of named ones worth covering defensively.
+ */
+export function decodeHtmlEntities(text: string): string {
+  return text.replace(/&(#x[0-9a-fA-F]+|#[0-9]+|[a-zA-Z]+);/g, (match, entity: string) => {
+    // .charAt()/.startsWith() rather than entity[0] — safe under
+    // noUncheckedIndexedAccess regardless of how it treats string index
+    // signatures (bit us twice already on array indexing; not worth
+    // finding out the hard way a third time for strings).
+    if (entity.startsWith("#")) {
+      const isHex = entity.charAt(1) === "x" || entity.charAt(1) === "X";
+      const codePoint = isHex ? parseInt(entity.slice(2), 16) : parseInt(entity.slice(1), 10);
+      return Number.isNaN(codePoint) ? match : String.fromCodePoint(codePoint);
+    }
+    return NAMED_HTML_ENTITIES[entity] ?? match;
+  });
+}

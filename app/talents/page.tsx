@@ -1,18 +1,21 @@
 export const runtime = "nodejs";
 export const revalidate = 60;
 
-// app/talents/page.tsx — Talents feed (post-job-seeking). PLAN.md Phase 1.
+// app/talents/page.tsx — Talents feed (post-job-seeking). PLAN.md Phase 1,
+// filters/search added in Phase 3.
 //
 // noindex per PLAN.md's OPEN QUESTIONS ("Still open — privacy of the
 // Talents feed"): real people's names/photos/what-they're-looking-for
 // should not be Google-indexed until the founder makes an explicit call.
 // Recommendation (b) in the plan — publish, but noindex — is applied here
-// as the safe default. Revisit once he decides.
+// as the safe default, independent of whether filters are active (this
+// page is always noindex either way). Revisit once he decides.
 
-import { fetchFeedPage } from "@/lib/a1/feed";
+import { fetchFeedPage, toURLSearchParams, parseFeedFilters, hasActiveFilters } from "@/lib/a1/feed";
 import { PostCard } from "@/components/post-card";
 import { LoadMore } from "@/components/load-more";
 import { EmptyState } from "@/components/empty-state";
+import { Filters } from "@/components/filters";
 
 export const metadata = {
   title: "Специалисты | A1 Jobs",
@@ -20,8 +23,15 @@ export const metadata = {
   robots: { index: false, follow: true },
 };
 
-export default async function TalentsPage() {
-  const { posts, next, hasMore } = await fetchFeedPage("seeking");
+type Props = {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+};
+
+export default async function TalentsPage({ searchParams }: Props) {
+  const params = toURLSearchParams(await searchParams);
+  const filters = parseFeedFilters(params);
+  const { posts, next, hasMore } = await fetchFeedPage("seeking", undefined, filters);
+  const currentCategory = filters.categories?.[0];
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-10 sm:py-16">
@@ -30,8 +40,22 @@ export default async function TalentsPage() {
         <p className="mt-2 text-neutral-500">Люди, которые ищут работу или проекты через A1.</p>
       </header>
 
+      <Filters
+        kind="seeking"
+        basePath="/talents"
+        currentQuery={filters.q}
+        currentCategory={currentCategory}
+        currentTags={filters.tags ?? []}
+      />
+
       {posts.length === 0 ? (
-        <EmptyState message="Пока нет открытых анкет." />
+        <EmptyState
+          message={
+            hasActiveFilters(filters)
+              ? "Ничего не нашлось. Попробуйте изменить фильтры."
+              : "Пока нет открытых анкет."
+          }
+        />
       ) : (
         <>
           <ul className="flex flex-col gap-4">
@@ -41,7 +65,14 @@ export default async function TalentsPage() {
               </li>
             ))}
           </ul>
-          <LoadMore kind="seeking" initialCursor={next} initialHasMore={hasMore} />
+          <LoadMore
+            kind="seeking"
+            initialCursor={next}
+            initialHasMore={hasMore}
+            query={filters.q}
+            category={currentCategory}
+            tags={filters.tags}
+          />
         </>
       )}
     </main>

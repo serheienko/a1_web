@@ -23,11 +23,26 @@ export type FeedPage = {
   hasMore: boolean;
 };
 
-export async function fetchFeedPage(kind: WebPostKind, cursor?: string | null): Promise<FeedPage> {
+/** Phase 3: category/tag/free-text filters, all optional and all
+ *  OR-matched server-side per PLAN.md §0.2. */
+export type FeedFilters = {
+  q?: string;
+  categories?: number[];
+  tags?: string[];
+};
+
+export async function fetchFeedPage(
+  kind: WebPostKind,
+  cursor?: string | null,
+  filters: FeedFilters = {},
+): Promise<FeedPage> {
   const raw = await call<unknown>("posts.search", {
     limit: FEED_PAGE_SIZE,
     object: KIND_TO_OBJECT[kind],
     ...(cursor ? { next: cursor } : {}),
+    ...(filters.q ? { q: filters.q } : {}),
+    ...(filters.categories && filters.categories.length > 0 ? { categories: filters.categories } : {}),
+    ...(filters.tags && filters.tags.length > 0 ? { tags: filters.tags } : {}),
   });
 
   // The envelope itself must be well-formed, or something is badly wrong
@@ -41,4 +56,48 @@ export async function fetchFeedPage(kind: WebPostKind, cursor?: string | null): 
     next: parsed.pagination.next,
     hasMore: parsed.pagination.hasMore,
   };
+}
+
+/**
+ * Next 15 hands RSC pages `searchParams` as a plain
+ * `{ [key: string]: string | string[] | undefined }` object, not a real
+ * URLSearchParams like a Route Handler gets from `request.nextUrl`. This
+ * normalizes either into one shape so parseFeedFilters() below works from
+ * both app/jobs/page.tsx and app/api/feed/route.ts.
+ */
+export function toURLSearchParams(
+  record: Record<string, string | string[] | undefined>,
+): URLSearchParams {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(record)) {
+    if (value === undefined) continue;
+    if (Array.isArray(value)) {
+      for (const v of value) params.append(key, v);
+    } else {
+      params.append(key, value);
+    }
+  }
+  return params;
+}
+
+/**
+ * URL shape (PLAN.md §3.1): `?q=...&category=<id>&tag=<value>&tag=<value>`
+ * — one category (a <select>, not a multi-select — 39 options), any
+ * number of repeated `tag` params (checkboxes).
+ */
+export function parseFeedFilters(params: URLSearchParams): FeedFilters {
+  const q = params.get("q")?.trim();
+  const categoryParam = params.get("category");
+  const categoryId = categoryParam ? Number(categoryParam) : NaN;
+  const tags = params.getAll("tag").filter(Boolean);
+
+  return {
+    q: q || undefined,
+    categories: Number.isFinite(categoryId) && categoryParam ? [categoryId] : undefined,
+    tags: tags.length > 0 ? tags : undefined,
+  };
+}
+
+export function hasActiveFilters(filters: FeedFilters): boolean {
+  return Boolean(filters.q || (filters.categories && filters.categories.length > 0) || (filters.tags && filters.tags.length > 0));
 }
