@@ -1,21 +1,26 @@
 // components/post-card.tsx
 //
 // Renders one WebPost. Server component — no client JS shipped for this.
-// Phase 1 scope only: title, author, location/remote, salary, relative
-// date, tags. No avatar/images yet (media proxy lands in Phase 3) and no
-// link to a detail page yet (detail pages land in Phase 2).
+// Title links to the Phase 2 detail page. No avatar/images yet — the media
+// proxy lands in Phase 3.
 
+import Link from "next/link";
 import type { WebPost } from "@/types/web-post";
 import { formatRelativeTime, formatSalary } from "@/lib/format";
 
 export function PostCard({ post }: { post: WebPost }) {
   const locationLabel = post.location ? post.location.display : post.isRemote ? "Удалённо" : "Не указано";
   const salaryLabel = post.salary ? formatSalary(post.salary) : null;
+  const href = `/${post.kind === "hiring" ? "jobs" : "talents"}/${post.slug}`;
 
   return (
     <article className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm transition hover:border-neutral-300">
       <div className="flex items-start justify-between gap-3">
-        <h2 className="text-lg font-medium text-neutral-900">{post.title}</h2>
+        <h2 className="text-lg font-medium text-neutral-900">
+          <Link href={href} className="hover:underline">
+            {post.title}
+          </Link>
+        </h2>
         <span
           className={
             "shrink-0 rounded-full px-2.5 py-1 text-xs font-medium " +

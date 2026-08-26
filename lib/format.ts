@@ -50,3 +50,13 @@ export function formatSalary(salary: WebPostSalary): string {
   if (single == null) return "";
   return `${formatAmount(single, salary.currency)}${period}`;
 }
+
+/** Truncate to maxLength, backing off to the last whole word rather than
+ *  cutting mid-word (PLAN.md §3.2: page titles must break on a word
+ *  boundary). */
+export function truncateAtWordBoundary(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  const truncated = text.slice(0, maxLength);
+  const lastSpace = truncated.lastIndexOf(" ");
+  return (lastSpace > 0 ? truncated.slice(0, lastSpace) : truncated).trim();
+}
