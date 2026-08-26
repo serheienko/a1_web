@@ -23,8 +23,11 @@ export function SiteNav() {
   return (
     <nav className="sticky top-0 z-10 border-b border-neutral-200 bg-app/80 backdrop-blur dark:border-neutral-800 dark:bg-black/80">
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 px-4 py-3">
-        <Link href="/" className="justify-self-start text-xl font-bold text-neutral-900 dark:text-neutral-50">
-          A1
+        <Link href="/" className="justify-self-start shrink-0 transition-opacity hover:opacity-80">
+          {/* Two exact logo marks exported from Figma (light = brand blue #335EF7,
+              dark = white) rather than recoloring one asset with CSS filters. */}
+          <img src="/brand/a1-logo-blue.svg" alt="A1" className="h-7 w-auto dark:hidden" />
+          <img src="/brand/a1-logo-white.svg" alt="A1" className="hidden h-7 w-auto dark:block" />
         </Link>
 
         <div className="col-start-2 flex items-center gap-1 justify-self-center rounded-full bg-neutral-100 p-1 dark:bg-neutral-900">
