@@ -23,7 +23,7 @@ export function SiteNav() {
   return (
     <nav className="sticky top-0 z-10 border-b border-neutral-200 bg-app/80 backdrop-blur dark:border-neutral-800 dark:bg-black/80">
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 px-4 py-3">
-        <Link href="/" className="font-display justify-self-start text-xl font-bold text-neutral-900 dark:text-neutral-50">
+        <Link href="/" className="justify-self-start text-xl font-bold text-neutral-900 dark:text-neutral-50">
           A1
         </Link>
 

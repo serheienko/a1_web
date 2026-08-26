@@ -36,7 +36,8 @@
  *   screen bg      #F2F2F7  (iOS systemGroupedBackground, not pure white)
  *   card bg        #FFFFFF, corner-radius 20, padding 16, internal gap 10,
  *                  drop shadow, 16px gap between cards
- *   accent blue    #4F71EB  (post-title badge, author name link)
+ *   accent blue    originally #4F71EB from this frame (post-title badge,
+ *                  author name link) — superseded below, see corrections
  *   body text      #3A3A3C, Commissioner Regular 15px / 150% line-height
  *   heading text   Commissioner SemiBold 17px / 120% line-height
  *   secondary/meta #8E8E93  (timestamps)
@@ -44,38 +45,36 @@
  *                  confirmed before adopting it, since the UI is Russian)
  *
  * Founder corrections (2026-08-26, verbal, not from a Figma frame):
- *   - dark-mode accent blue is a different color from light mode: #0C8CE9
- *     (not #4F71EB) — overridden below under .dark.
+ *   - light-mode accent blue is #335EF7 ("более хлёсткий" — punchier),
+ *     replacing the #4F71EB pulled from the Figma frame above — a direct
+ *     brand-color call, not a mockup value.
+ *   - dark-mode accent blue is a different color again: #0C8CE9 —
+ *     overridden below under .dark.
  *   - dark-mode app background stays pure #000000 ("как в апке"), an
  *     explicit standing instruction from earlier in the project, not a
  *     mockup value — kept as Tailwind's neutral-950/black via `dark:`
  *     utility classes rather than folded into a token here.
- *   - display/heading font: Figma uses "Impact" for headings, both Latin
- *     and Cyrillic. Corrected 2026-08-26: I initially assumed Impact
- *     lacked Cyrillic (based on one Figma text node showing a "missing
- *     font" warning, likely just a slow font-load, not a real gap) and
- *     swapped it for a Google-Fonts lookalike — Aleksandr caught this with
- *     a screenshot of "Вакансии" rendering correctly in real Impact. Fact
- *     (confirmed via Microsoft's own font docs + a glyph-coverage check,
- *     not assumed): the standard Impact shipped with Windows and macOS
- *     does cover modern Cyrillic (code page 1251 — contemporary Russian,
- *     Ukrainian, Belarusian; it's missing only archaic/historical Cyrillic
- *     letters nobody uses in UI copy). So Impact is used directly as a
- *     system font below — zero download weight, pixel-identical to the
- *     mockups on Windows/Mac. It isn't installed by default on iOS,
- *     Android, or most Linux, though, so Oswald Bold (self-hosted, full
- *     Cyrillic, verified via METADATA.pb) stays as the fallback for those
- *     — not a replacement for Impact, a safety net for platforms without
- *     it, so mobile still gets a heavy condensed face instead of a
- *     generic sans.
+ *   - display/heading font: dropped entirely, 2026-08-26. Figma's "Impact"
+ *     does technically support Cyrillic (see git history / earlier
+ *     comments here for that back-and-forth), but Aleksandr saw it live on
+ *     "ВАКАНСИИ" and called it flat out ugly for this UI — condensed
+ *     all-caps Impact reads harsh/dated on a real page, not just "bold".
+ *     His call: drop it, pick something readable and current, my
+ *     judgment. Rather than add a third typeface, headings now use
+ *     Commissioner itself at font-bold (already loaded, no extra
+ *     download) instead of uppercase — one cohesive type family for the
+ *     whole site, which is also just a more current look (Linear/Stripe/
+ *     Vercel-style: bold humanist sans headings, not a squeezed display
+ *     face) than a separate condensed headline font. Oswald/Impact are no
+ *     longer referenced anywhere; safe to remove next/font's Oswald import
+ *     in app/layout.tsx too if nothing else picks it back up later.
  */
 @theme {
   --font-sans: var(--font-commissioner), ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-display: Impact, var(--font-oswald), "Arial Narrow Bold", sans-serif;
 
   --color-app: #f2f2f7;
   --color-card: #ffffff;
-  --color-accent: #4f71eb;
+  --color-accent: #335ef7;
   --color-ink: #3a3a3c;
   --color-ink-faint: #8e8e93;
 

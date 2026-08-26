@@ -53,7 +53,7 @@ export function PostCard({ post }: { post: WebPost }) {
     // dark-mode screen has been checked yet.
     <article className="flex gap-4 rounded-card bg-card p-4 shadow-sm transition hover:shadow-md dark:border dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700">
       {profileHref ? (
-        <Link href={profileHref} className="shrink-0">
+        <Link href={profileHref} className="shrink-0 transition-opacity hover:opacity-80">
           {avatarImg}
         </Link>
       ) : (
@@ -99,7 +99,12 @@ export function PostCard({ post }: { post: WebPost }) {
           <span>{formatRelativeTime(post.publishedAt)}</span>
         </div>
 
-        <p className="mt-3 line-clamp-3 text-sm text-ink dark:text-neutral-400">{post.contentText}</p>
+        <Link
+          href={href}
+          className="mt-3 block line-clamp-3 text-sm text-ink transition-opacity hover:opacity-80 dark:text-neutral-400"
+        >
+          {post.contentText}
+        </Link>
 
         {post.tags.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1.5">

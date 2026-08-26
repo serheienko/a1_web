@@ -96,24 +96,33 @@ export default async function JobDetailPage({ params }: Props) {
           just laid out byline-style (avatar + name, meta line underneath)
           instead of the card's single-row version. */}
       <div className="mt-4 flex items-center gap-3">
-        {post.author.avatarUrl ? (
-          <Image
-            src={post.author.avatarUrl}
-            alt=""
-            width={48}
-            height={48}
-            className="h-12 w-12 shrink-0 rounded-full object-cover"
-          />
-        ) : (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={pickDefaultCatAvatar(post.author.username ?? post.author.name ?? post.id)}
-            alt=""
-            width={48}
-            height={48}
-            className="h-12 w-12 shrink-0 rounded-full object-cover"
-          />
-        )}
+        {(() => {
+          const avatarImg = post.author.avatarUrl ? (
+            <Image
+              src={post.author.avatarUrl}
+              alt=""
+              width={48}
+              height={48}
+              className="h-12 w-12 shrink-0 rounded-full object-cover"
+            />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={pickDefaultCatAvatar(post.author.username ?? post.author.name ?? post.id)}
+              alt=""
+              width={48}
+              height={48}
+              className="h-12 w-12 shrink-0 rounded-full object-cover"
+            />
+          );
+          return post.author.username ? (
+            <Link href={`/u/${post.author.username}`} className="shrink-0 transition-opacity hover:opacity-80">
+              {avatarImg}
+            </Link>
+          ) : (
+            <div className="shrink-0">{avatarImg}</div>
+          );
+        })()}
         <div className="min-w-0">
           {post.author.username ? (
             <Link href={`/u/${post.author.username}`} className="font-medium text-neutral-900 hover:underline dark:text-neutral-50">

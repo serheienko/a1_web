@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Commissioner, Oswald } from "next/font/google";
+import { Commissioner } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import Script from "next/script";
 import "./globals.css";
@@ -16,17 +16,6 @@ const commissioner = Commissioner({
   display: "swap",
 });
 
-// Oswald: fallback for the real system "Impact" font used in the Figma
-// mockups (Impact itself covers modern Cyrillic fine — verified, see the
-// note in app/globals.css — but isn't installed by default on iOS/Android/
-// most Linux). Self-hosted so those platforms still get a heavy condensed
-// display face instead of silently degrading to a generic sans.
-const oswald = Oswald({
-  subsets: ["latin", "cyrillic"],
-  weight: ["500", "600", "700"],
-  variable: "--font-oswald",
-  display: "swap",
-});
 
 // Anti-flash theme script: next/script's `beforeInteractive` strategy is
 // the documented way to run something before hydration/paint AND have
@@ -67,7 +56,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ru" className={`${commissioner.variable} ${oswald.variable}`}>
+    <html lang="ru" className={commissioner.variable}>
       <body className="bg-app font-sans text-ink dark:bg-black dark:text-neutral-100">
         <Script id="theme-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <SiteNav />
