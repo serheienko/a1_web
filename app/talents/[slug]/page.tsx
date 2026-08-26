@@ -17,6 +17,7 @@ import type { Metadata } from "next";
 import { fetchPostById } from "@/lib/a1/posts";
 import { slugify, parseSlugId } from "@/lib/seo/slug";
 import Image from "next/image";
+import { PostImages } from "@/components/post-images";
 import { formatRelativeTime, formatSalary, truncateAtWordBoundary } from "@/lib/format";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 
@@ -126,24 +127,7 @@ export default async function TalentDetailPage({ params }: Props) {
         </div>
       </div>
 
-      {post.images.length > 0 && (
-        <div className="mt-6 flex flex-col gap-3">
-          {post.images
-            .filter((img) => img.width > 0 && img.height > 0)
-            .map((img, i) => (
-              <Image
-                key={img.url}
-                src={img.url}
-                alt=""
-                width={img.width}
-                height={img.height}
-                sizes="(min-width: 672px) 672px, 100vw"
-                priority={i === 0}
-                className="w-full rounded-lg"
-              />
-            ))}
-        </div>
-      )}
+      <PostImages images={post.images} />
 
       <div className="mt-6 whitespace-pre-wrap text-neutral-700 dark:text-neutral-300">{post.contentText}</div>
 
