@@ -51,7 +51,13 @@ export const UserPreviewSchema = z.object({
   photo: z.string().nullable().optional(),
   photos: z.array(MediaDocumentSchema).catch([]),
   username: z.string().nullable().optional(),
-  emojiStatus: z.string().nullable().optional(),
+  // Real API shape is `{ object: "empty" }` (or presumably other emoji
+  // shapes), not a string — confirmed against a live posts.search response
+  // on 2026-08-26, not documented in PLAN.md §0.3. It was typed as
+  // `z.string()` and silently failed every real author, which fell through
+  // to UserHiddenSchema and rendered every post as "Anonymous". Nothing in
+  // WebPostAuthor reads this field, so accept anything.
+  emojiStatus: z.unknown().optional(),
   object: z.literal("user-preview"),
 });
 export type UserPreview = z.infer<typeof UserPreviewSchema>;
