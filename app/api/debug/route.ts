@@ -8,8 +8,10 @@
 // NOT fall open. Set A1_DEBUG_SECRET in Vercel to use this.
 //
 // ?raw=1 skips schema validation/mapping and returns the unprocessed
-// posts.search response — for diagnosing a real shape mismatch during
-// initial bring-up. Remove along with the rest of this file in Phase 1.
+// posts.search response. ?probe=1 also fetches a known-good, no-auth
+// endpoint directly (bypassing lib/a1/client.ts and env resolution) to
+// isolate whether a mismatch is env/config or network/infra. Remove all of
+// this along with the rest of this file in Phase 1.
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +19,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { call } from "@/lib/a1/client";
 import { mapPosts } from "@/lib/a1/mappers";
+import { env } from "@/lib/a1/config";
 import type { PostsSearchOutput } from "@/lib/a1/schemas";
 
 export async function GET(request: NextRequest) {
@@ -28,12 +31,36 @@ export async function GET(request: NextRequest) {
   }
 
   const raw_mode = request.nextUrl.searchParams.get("raw") === "1";
+  const probe_mode = request.nextUrl.searchParams.get("probe") === "1";
+
+  if (probe_mode) {
+    // Bypasses lib/a1/client.ts and env.A1_API_BASE entirely — a hardcoded
+    // direct fetch to a documented no-auth endpoint. If this ALSO returns
+    // the generic gateway banner, the problem is network/infra (how Vercel
+    // reaches api.a1appp.com), not our env var or code.
+    const hardcodedRes = await fetch("https://api.a1appp.com/api/v1/dataset.postCategories", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({}),
+      cache: "no-store",
+    });
+    const hardcodedText = await hardcodedRes.text();
+
+    return NextResponse.json({
+      resolvedA1ApiBase: env.A1_API_BASE,
+      hardcodedProbe: {
+        url: "https://api.a1appp.com/api/v1/dataset.postCategories",
+        status: hardcodedRes.status,
+        body: hardcodedText.slice(0, 500),
+      },
+    });
+  }
 
   try {
     const raw = await call<unknown>("posts.search", { limit: 5 });
 
     if (raw_mode) {
-      return NextResponse.json({ raw });
+      return NextResponse.json({ raw, resolvedA1ApiBase: env.A1_API_BASE });
     }
 
     const typed = raw as PostsSearchOutput;
@@ -51,6 +78,7 @@ export async function GET(request: NextRequest) {
         error: err instanceof Error ? err.message : "unknown error",
         name: err instanceof Error ? err.name : undefined,
         stack: err instanceof Error ? err.stack : undefined,
+        resolvedA1ApiBase: env.A1_API_BASE,
       },
       { status: 502 },
     );
