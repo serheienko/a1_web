@@ -11,6 +11,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const NAV_ITEMS = [
   { href: "/", label: "Вакансии" },
@@ -25,7 +26,7 @@ export function SiteNav() {
       <div className="mx-auto flex max-w-3xl items-center gap-6 px-4 py-4 md:mx-0 md:h-full md:max-w-none md:flex-col md:items-stretch md:gap-1 md:px-3 md:py-6">
         <Link
           href="/"
-          className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 md:px-3 md:pb-4 md:text-xl"
+          className="font-display text-base font-bold text-neutral-900 dark:text-neutral-50 md:px-3 md:pb-4 md:text-2xl"
         >
           A1
         </Link>
@@ -47,6 +48,10 @@ export function SiteNav() {
             </Link>
           );
         })}
+
+        <div className="ml-auto md:ml-0 md:mt-auto">
+          <ThemeToggle />
+        </div>
       </div>
     </nav>
   );

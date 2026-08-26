@@ -1,6 +1,29 @@
 @import "tailwindcss";
 
 /*
+ * Class-based dark mode (2026-08-26): Aleksandr wants a manual light/dark
+ * toggle in the UI, not just OS-level prefers-color-scheme. This redefines
+ * Tailwind's `dark:` variant to key off a `.dark`/`.light` class on <html>
+ * instead of the media query directly, while still falling back to the OS
+ * preference when neither class is present (no stored choice yet). Every
+ * existing `dark:` utility class already written across the app keeps
+ * working unchanged — only what *triggers* dark: changes, not how it's
+ * spelled. See components/theme-toggle.tsx for the toggle itself and the
+ * inline anti-flash script in app/layout.tsx for how the class gets set
+ * before first paint.
+ */
+@custom-variant dark {
+  &:where(.dark, .dark *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:not(.light *)) {
+      @slot;
+    }
+  }
+}
+
+/*
  * Design tokens below are real values pulled from the Figma file
  * (A1-Claude, "Feed Preview White" frame) via the Inspect/Design panel —
  * NOT the file's Variables panel. Founder's call (2026-08-26): the
@@ -9,7 +32,7 @@
  * screen. Re-verify against Inspect, not Variables, whenever more of the
  * 20-30 reference screens get reviewed.
  *
- * Verified so far (Feed Preview White frame):
+ * Verified so far (Feed Preview White frame, light mode):
  *   screen bg      #F2F2F7  (iOS systemGroupedBackground, not pure white)
  *   card bg        #FFFFFF, corner-radius 20, padding 16, internal gap 10,
  *                  drop shadow, 16px gap between cards
@@ -20,14 +43,24 @@
  *   typeface       Commissioner (Google Font, has full Cyrillic coverage —
  *                  confirmed before adopting it, since the UI is Russian)
  *
- * Dark mode keeps the founder's earlier explicit instruction (pure black
- * #000000 background, matching the native app) rather than anything from
- * Figma — that was a direct "Цвет фона как в апке — 000000" call, not a
- * mockup value, so it stays as Tailwind's neutral-950/black via `dark:`
- * classes rather than being folded into these light-mode tokens.
+ * Founder corrections (2026-08-26, verbal, not from a Figma frame):
+ *   - dark-mode accent blue is a different color from light mode: #0C8CE9
+ *     (not #4F71EB) — overridden below under .dark.
+ *   - dark-mode app background stays pure #000000 ("как в апке"), an
+ *     explicit standing instruction from earlier in the project, not a
+ *     mockup value — kept as Tailwind's neutral-950/black via `dark:`
+ *     utility classes rather than folded into a token here.
+ *   - display/heading font: Figma's "Impact" (itself flagged as a missing
+ *     font inside the Figma file, no confirmed real rendering) is being
+ *     replaced project-wide — for BOTH Latin and Cyrillic headings — with
+ *     Oswald Bold: a condensed, high-impact Google Font with full Cyrillic
+ *     coverage (verified via the font's METADATA.pb before adopting it,
+ *     same as Commissioner). Swappable in one line here + app/layout.tsx
+ *     if it doesn't read right once it's live on a real heading.
  */
 @theme {
   --font-sans: var(--font-commissioner), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: var(--font-oswald), "Arial Narrow Bold", sans-serif;
 
   --color-app: #f2f2f7;
   --color-card: #ffffff;
@@ -36,4 +69,8 @@
   --color-ink-faint: #8e8e93;
 
   --radius-card: 20px;
+}
+
+.dark {
+  --color-accent: #0c8ce9;
 }

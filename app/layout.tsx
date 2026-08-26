@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import { Commissioner } from "next/font/google";
+import { Commissioner, Oswald } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import Script from "next/script";
 import "./globals.css";
 import { SiteNav } from "@/components/site-nav";
 
@@ -14,6 +15,38 @@ const commissioner = Commissioner({
   variable: "--font-commissioner",
   display: "swap",
 });
+
+// Oswald: stands in for the Figma file's "Impact" headings (itself flagged
+// as a missing/unresolved font inside Figma) — a condensed, high-impact
+// Google Font with full Cyrillic coverage, since Aleksandr wants that heavy
+// display look on Russian headings too, not just Latin ones. See the note
+// in app/globals.css (--font-display) for the reasoning and how to swap it.
+const oswald = Oswald({
+  subsets: ["latin", "cyrillic"],
+  weight: ["500", "600", "700"],
+  variable: "--font-oswald",
+  display: "swap",
+});
+
+// Anti-flash theme script: next/script's `beforeInteractive` strategy is
+// the documented way to run something before hydration/paint AND have
+// Next guarantee it's hoisted into <head> regardless of where the
+// component sits in the tree — a plain <script> placed inside a literal
+// <head> tag in the root layout does NOT reliably get that same ordering
+// guarantee (confirmed against Next's own docs before using this, not
+// assumed). Reads the same localStorage key components/theme-toggle.tsx
+// writes; falls back to the OS preference (by setting neither class) when
+// nothing's stored yet — matches the @custom-variant in app/globals.css.
+const THEME_INIT_SCRIPT = `
+(function () {
+  try {
+    var stored = localStorage.getItem("theme");
+    var root = document.documentElement;
+    if (stored === "dark") root.classList.add("dark");
+    else if (stored === "light") root.classList.add("light");
+  } catch (e) {}
+})();
+`;
 
 export const metadata: Metadata = {
   title: "A1 Web",
@@ -34,8 +67,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ru" className={commissioner.variable}>
+    <html lang="ru" className={`${commissioner.variable} ${oswald.variable}`}>
       <body className="bg-app font-sans text-ink dark:bg-black dark:text-neutral-100">
+        <Script id="theme-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <SiteNav />
         {/* md:pl-64 offsets for the fixed sidebar SiteNav becomes at the md
             breakpoint — see components/site-nav.tsx. Below md, SiteNav is a
