@@ -21,10 +21,14 @@ export const WorldLocationSchema = z.object({
 });
 export type WorldLocation = z.infer<typeof WorldLocationSchema>;
 
+// The real API returns short field names here (`w` / `h`), not
+// `width` / `height` — confirmed against a live posts.search response on
+// 2026-08-26. Not documented in PLAN.md §0.3; fixing it here for Phase 3
+// (media rendering) since layout-shift-free <Image> needs real dimensions.
 const MediaSizeSchema = z
   .object({
-    width: z.number().optional(),
-    height: z.number().optional(),
+    w: z.number().optional(),
+    h: z.number().optional(),
   })
   .catchall(z.unknown());
 

@@ -88,8 +88,8 @@ function mapImages(post: Post): WebPostImage[] {
       const size = m.sizes[m.sizes.length - 1]; // largest captured size
       return {
         url: `/api/media/${m._id}?ref=${encodeURIComponent(m.fileReference)}`,
-        width: size?.width ?? 0,
-        height: size?.height ?? 0,
+        width: size?.w ?? 0,
+        height: size?.h ?? 0,
       };
     });
 }

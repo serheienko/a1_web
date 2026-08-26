@@ -1,0 +1,52 @@
+// lib/format.ts
+//
+// Presentation-only formatting helpers for the UI. Nothing here touches
+// the API — lib/a1/ is the only boundary allowed to do that (PLAN.md §5
+// rule 3), and this file is safe to import from client components.
+
+import type { WebPostSalary } from "@/types/web-post";
+
+const RELATIVE_UNITS: { limit: number; divisor: number; unit: Intl.RelativeTimeFormatUnit }[] = [
+  { limit: 60, divisor: 1, unit: "second" },
+  { limit: 3600, divisor: 60, unit: "minute" },
+  { limit: 86400, divisor: 3600, unit: "hour" },
+  { limit: 2592000, divisor: 86400, unit: "day" },
+  { limit: 31536000, divisor: 2592000, unit: "month" },
+];
+
+const rtf = new Intl.RelativeTimeFormat("ru", { numeric: "auto" });
+
+/** "3 hours ago" / "2 days ago", etc — in Russian, relative to now. */
+export function formatRelativeTime(date: Date): string {
+  const diffSeconds = (date.getTime() - Date.now()) / 1000;
+  const abs = Math.abs(diffSeconds);
+
+  for (const { limit, divisor, unit } of RELATIVE_UNITS) {
+    if (abs < limit) {
+      return rtf.format(Math.round(diffSeconds / divisor), unit);
+    }
+  }
+  return rtf.format(Math.round(diffSeconds / 31536000), "year");
+}
+
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  usd: "$",
+  eur: "€",
+  gbp: "£",
+  uah: "₴",
+};
+
+function formatAmount(amount: number, currency: string): string {
+  const symbol = CURRENCY_SYMBOLS[currency.toLowerCase()] ?? currency.toUpperCase() + " ";
+  return `${symbol}${amount.toLocaleString("en-US")}`;
+}
+
+export function formatSalary(salary: WebPostSalary): string {
+  const period = salary.period === "YEAR" ? "/год" : "/мес";
+  if (salary.min != null && salary.max != null && salary.min !== salary.max) {
+    return `${formatAmount(salary.min, salary.currency)}–${formatAmount(salary.max, salary.currency)}${period}`;
+  }
+  const single = salary.min ?? salary.max;
+  if (single == null) return "";
+  return `${formatAmount(single, salary.currency)}${period}`;
+}
