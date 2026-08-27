@@ -37,6 +37,7 @@ import { VoiceIntroProvider } from "@/components/voice-intro-context";
 import { VoiceIntroRing } from "@/components/voice-intro-ring";
 import { VoiceIntroPlayer } from "@/components/voice-intro-player";
 import { OccupationIcon } from "@/components/occupation-icon";
+import { fetchBookCoverUrl, fetchMovieCoverUrl, fetchGameCoverUrl } from "@/lib/covers";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -82,6 +83,43 @@ function pillList(items: string[]) {
           {item}
         </span>
       ))}
+    </div>
+  );
+}
+
+// Aleksandr, 2026-08-28: "УЛЮБЛЕНЕ давай отобразим таким UI как вприложении?
+// Типа такие квадратные картинки (такие же как в апке) с названиями по
+// центру них" — square cover tile matching the app's own Books/Movies/
+// Games picker (Figma node reviewed 2026-08-28). coverUrl comes from
+// lib/covers.ts's best-effort third-party lookups; null falls back to a
+// plain tinted square with the title centered in ink instead of white
+// text over an image — never a broken image or empty box.
+function favoriteTile(title: string, subtitle: string | null, coverUrl: string | null, itemKey: string) {
+  return (
+    <div
+      key={itemKey}
+      className="relative flex aspect-square items-center justify-center overflow-hidden rounded-xl bg-neutral-100 p-3 text-center dark:bg-neutral-800"
+    >
+      {coverUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={coverUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      )}
+      {coverUrl && <div className="absolute inset-0 bg-black/45" aria-hidden="true" />}
+      <div className="relative">
+        <div
+          className={
+            "text-sm font-semibold uppercase leading-snug tracking-wide " +
+            (coverUrl ? "text-white" : "text-neutral-700 dark:text-neutral-200")
+          }
+        >
+          {title}
+        </div>
+        {subtitle && (
+          <div className={"mt-1 text-xs normal-case " + (coverUrl ? "text-white/80" : "text-neutral-500 dark:text-neutral-400")}>
+            {subtitle}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -231,6 +269,16 @@ export default async function ProfilePage({ params }: Props) {
 
   const hasWorkStylePreferences = Object.values(profile.workStylePreferences).some((ids) => ids.length > 0);
   const workStyleDataset = hasWorkStylePreferences ? await fetchWorkStylePreferences() : null;
+
+  // Best-effort third-party cover art for the Favorites tiles below — see
+  // lib/covers.ts. Fetched in parallel (not gated behind the section's own
+  // "has any favorites" check, since Promise.all over an empty array is
+  // free) so three separate waterfalls don't stack up sequentially.
+  const [bookCovers, movieCovers, gameCovers] = await Promise.all([
+    Promise.all(profile.favoriteBooks.map((b) => fetchBookCoverUrl(b.title, b.author))),
+    Promise.all(profile.favoriteMovies.map((m) => fetchMovieCoverUrl(m.title))),
+    Promise.all(profile.favoriteGames.map((g) => fetchGameCoverUrl(g.title))),
+  ]);
 
   return (
     <VoiceIntroProvider url={profile.voiceIntroUrl}>
@@ -526,35 +574,35 @@ export default async function ProfilePage({ params }: Props) {
       {(profile.favoriteBooks.length > 0 || profile.favoriteMovies.length > 0 || profile.favoriteGames.length > 0) && (
         <section className="mt-8">
           <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Улюблене" en="Favorites" ru="Любимое" de="Favoriten" es="Favoritos" fr="Favoris" pl="Ulubione" ptBR="Favoritos" zh="最爱" /></h2>
-          <div className="mt-3 flex flex-col gap-4">
+          <div className="mt-3 flex flex-col gap-6">
             {profile.favoriteBooks.length > 0 && (
               <div>
                 <h3 className="text-sm text-neutral-500 dark:text-neutral-400"><T uk="Книги" en="Books" ru="Книги" de="Bücher" es="Libros" fr="Livres" pl="Książki" ptBR="Livros" zh="书籍" /></h3>
-                <ul className="mt-1.5 flex flex-col gap-1 text-sm text-neutral-700 dark:text-neutral-300">
-                  {profile.favoriteBooks.map((book, i) => (
-                    <li key={i}>{book.author ? `${book.title} — ${book.author}` : book.title}</li>
-                  ))}
-                </ul>
+                <div className="mt-2 grid grid-cols-3 gap-3 sm:grid-cols-4">
+                  {profile.favoriteBooks.map((book, i) =>
+                    favoriteTile(book.title, book.author || null, bookCovers[i] ?? null, `book-${i}`),
+                  )}
+                </div>
               </div>
             )}
             {profile.favoriteMovies.length > 0 && (
               <div>
                 <h3 className="text-sm text-neutral-500 dark:text-neutral-400"><T uk="Фільми" en="Movies" ru="Фильмы" de="Filme" es="Películas" fr="Films" pl="Filmy" ptBR="Filmes" zh="电影" /></h3>
-                <ul className="mt-1.5 flex flex-col gap-1 text-sm text-neutral-700 dark:text-neutral-300">
-                  {profile.favoriteMovies.map((movie, i) => (
-                    <li key={i}>{movie.title}</li>
-                  ))}
-                </ul>
+                <div className="mt-2 grid grid-cols-3 gap-3 sm:grid-cols-4">
+                  {profile.favoriteMovies.map((movie, i) =>
+                    favoriteTile(movie.title, null, movieCovers[i] ?? null, `movie-${i}`),
+                  )}
+                </div>
               </div>
             )}
             {profile.favoriteGames.length > 0 && (
               <div>
                 <h3 className="text-sm text-neutral-500 dark:text-neutral-400"><T uk="Ігри" en="Games" ru="Игры" de="Spiele" es="Juegos" fr="Jeux" pl="Gry" ptBR="Jogos" zh="游戏" /></h3>
-                <ul className="mt-1.5 flex flex-col gap-1 text-sm text-neutral-700 dark:text-neutral-300">
-                  {profile.favoriteGames.map((game, i) => (
-                    <li key={i}>{game.title}</li>
-                  ))}
-                </ul>
+                <div className="mt-2 grid grid-cols-3 gap-3 sm:grid-cols-4">
+                  {profile.favoriteGames.map((game, i) =>
+                    favoriteTile(game.title, null, gameCovers[i] ?? null, `game-${i}`),
+                  )}
+                </div>
               </div>
             )}
           </div>
