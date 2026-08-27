@@ -284,30 +284,49 @@ export function FiltersForm({
           </button>
 
           {filtersOpen && (
-            <div className="absolute right-0 top-full z-20 mt-2 w-56 rounded-lg border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+            <div className="absolute right-0 top-full z-20 mt-2 max-h-80 w-56 overflow-y-auto rounded-lg border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
               <div className="px-1 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
                 {lang === "ru" ? "Категория" : "Категорія"}
               </div>
-              <select
-                value={currentCategory ?? ""}
-                onChange={(e) => {
-                  onCategoryChange(e.target.value);
+              <button
+                type="button"
+                onClick={() => {
+                  onCategoryChange("");
                   setFiltersOpen(false);
                 }}
-                className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 dark:border-neutral-700 dark:bg-black dark:text-neutral-100"
+                className={
+                  "block w-full truncate rounded-md px-2 py-1.5 text-left text-sm transition " +
+                  (currentCategory == null
+                    ? "bg-accent/10 font-medium text-accent"
+                    : "text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800")
+                }
               >
-                <option value="">{lang === "ru" ? "Все категории" : "Усі категорії"}</option>
-                {categories.map((c) => (
-                  <option
+                {lang === "ru" ? "Все категории" : "Усі категорії"}
+              </button>
+              {categories.map((c) => {
+                const isEmpty = emptyCategoryValues.includes(c.value);
+                return (
+                  <button
                     key={c.value}
-                    value={c.value}
-                    disabled={emptyCategoryValues.includes(c.value)}
-                    className="disabled:opacity-50"
+                    type="button"
+                    disabled={isEmpty}
+                    onClick={() => {
+                      onCategoryChange(String(c.value));
+                      setFiltersOpen(false);
+                    }}
+                    className={
+                      "block w-full truncate rounded-md px-2 py-1.5 text-left text-sm transition " +
+                      (isEmpty
+                        ? "cursor-not-allowed text-neutral-400 opacity-50 dark:text-neutral-600"
+                        : currentCategory === c.value
+                          ? "bg-accent/10 font-medium text-accent"
+                          : "text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800")
+                    }
                   >
                     {c.text}
-                  </option>
-                ))}
-              </select>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
