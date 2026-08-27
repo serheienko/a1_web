@@ -75,19 +75,24 @@ export function PostImages({ images }: { images: WebPostImage[] }) {
 
   return (
     <>
-      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+      {/* Aleksandr, 2026-08-27: "сделать 3-е фото в один ряд и скролабл,
+          с прокруткой на моб версии" — the 2-col grid used to wrap a 3rd+
+          photo onto a second row on mobile; now mobile is a single
+          horizontally-scrollable row (snap-to-photo, like a story tray),
+          and sm:+ keeps the existing 3-col grid. */}
+      <div className="-mx-4 mt-6 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 sm:pb-0">
         {valid.map((img, i) => (
           <button
             type="button"
             key={img.url}
             onClick={() => setOpenIndex(i)}
-            className="relative aspect-square overflow-hidden rounded-[15px] bg-neutral-100 dark:bg-neutral-900"
+            className="relative aspect-square w-[42vw] shrink-0 snap-start overflow-hidden rounded-[15px] bg-neutral-100 dark:bg-neutral-900 sm:w-auto sm:shrink sm:snap-none"
           >
             <Image
               src={img.url}
               alt=""
               fill
-              sizes="(min-width: 672px) 220px, 45vw"
+              sizes="(min-width: 672px) 220px, 42vw"
               priority={i === 0}
               className="object-cover"
             />

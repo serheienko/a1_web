@@ -20,6 +20,7 @@ import Image from "next/image";
 import { PostImages } from "@/components/post-images";
 import { formatRelativeTime, formatSalary, truncateAtWordBoundary } from "@/lib/format";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
+import { T } from "@/components/t";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -63,12 +64,18 @@ export default async function TalentDetailPage({ params }: Props) {
     permanentRedirect(`/talents/${canonicalSlug}`);
   }
 
-  const locationLabel = post.location ? post.location.display : post.isRemote ? "Удалённо" : "Не указано";
+  const locationLabel = post.location ? (
+    post.location.display
+  ) : post.isRemote ? (
+    <T uk="Віддалено" ru="Удалённо" />
+  ) : (
+    <T uk="Не вказано" ru="Не указано" />
+  );
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-10 sm:py-16">
       <span className="inline-block rounded-full bg-[#C830FF]/10 px-2.5 py-1 text-xs font-medium text-[#C830FF] dark:bg-[#C830FF]/20">
-        Специалист
+        <T uk="Фахівець" ru="Специалист" />
       </span>
 
       <h1 className="mt-3 text-2xl font-semibold text-neutral-900 sm:text-3xl dark:text-neutral-50">{post.title}</h1>
@@ -129,17 +136,21 @@ export default async function TalentDetailPage({ params }: Props) {
 
       <PostImages images={post.images} />
 
-      <div className="mt-6 whitespace-pre-wrap text-neutral-700 dark:text-neutral-300">{post.contentText}</div>
-
+      {/* Aleksandr, 2026-08-27: "поднять теги наверх, перед основным
+          текстом" — tags used to sit after contentText; moved above it
+          so they read as context for the post, not an afterthought.
+          Also switched to fully-rounded pills (~30px radius) here. */}
       {post.tags.length > 0 && (
         <div className="mt-6 flex flex-wrap gap-1.5">
           {post.tags.map((tag) => (
-            <span key={tag} className="rounded-md bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
+            <span key={tag} className="rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
               {tag}
             </span>
           ))}
         </div>
       )}
+
+      <div className="mt-6 whitespace-pre-wrap text-neutral-700 dark:text-neutral-300">{post.contentText}</div>
     </main>
   );
 }

@@ -21,6 +21,7 @@ import { PostCard } from "@/components/post-card";
 import { LoadMore } from "@/components/load-more";
 import { EmptyState } from "@/components/empty-state";
 import { Filters } from "@/components/filters";
+import { T } from "@/components/t";
 
 export const metadata = {
   title: "Специалисты | A1 Jobs",
@@ -39,10 +40,18 @@ export default async function TalentsPage({ searchParams }: Props) {
   const currentCategory = filters.categories?.[0];
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-10 sm:py-16">
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl dark:text-neutral-50">Специалисты</h1>
-        <p className="mt-2 text-neutral-500 dark:text-neutral-400">Люди, которые ищут работу или проекты через A1.</p>
+    <main className="mx-auto max-w-3xl px-4 py-4 sm:py-16">
+      {/* Aleksandr, 2026-08-27: hide this heading block on mobile and
+          pull the feed up — the tab bar in the nav already says which
+          feed you're on, so on a small screen this was just dead space
+          above the filters/cards. Desktop keeps it. */}
+      <header className="mb-8 hidden sm:block">
+        <h1 className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl dark:text-neutral-50">
+          <T uk="Фахівці" ru="Специалисты" />
+        </h1>
+        <p className="mt-2 text-neutral-500 dark:text-neutral-400">
+          <T uk="Люди, які шукають роботу або проєкти через A1." ru="Люди, которые ищут работу или проекты через A1." />
+        </p>
       </header>
 
       <Filters
@@ -56,9 +65,11 @@ export default async function TalentsPage({ searchParams }: Props) {
       {posts.length === 0 ? (
         <EmptyState
           message={
-            hasActiveFilters(filters)
-              ? "Ничего не нашлось. Попробуйте изменить фильтры."
-              : "Пока нет открытых анкет."
+            hasActiveFilters(filters) ? (
+              <T uk="Нічого не знайшлося. Спробуйте змінити фільтри." ru="Ничего не нашлось. Попробуйте изменить фильтры." />
+            ) : (
+              <T uk="Поки немає відкритих анкет." ru="Пока нет открытых анкет." />
+            )
           }
         />
       ) : (

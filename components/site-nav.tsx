@@ -11,10 +11,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { LangToggle } from "@/components/lang-toggle";
+import { T } from "@/components/t";
 
 const NAV_ITEMS = [
-  { href: "/", label: "Вакансии" },
-  { href: "/talents", label: "Специалисты" },
+  { href: "/", uk: "Вакансії", ru: "Вакансии" },
+  { href: "/talents", uk: "Фахівці", ru: "Специалисты" },
 ];
 
 export function SiteNav() {
@@ -44,13 +46,14 @@ export function SiteNav() {
                     : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50")
                 }
               >
-                {item.label}
+                <T uk={item.uk} ru={item.ru} />
               </Link>
             );
           })}
         </div>
 
-        <div className="justify-self-end">
+        <div className="flex items-center gap-1 justify-self-end">
+          <LangToggle />
           <ThemeToggle />
         </div>
       </div>

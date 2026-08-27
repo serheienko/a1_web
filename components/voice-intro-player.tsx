@@ -14,6 +14,7 @@
 "use client";
 
 import { useVoiceIntro } from "@/components/voice-intro-context";
+import { T } from "@/components/t";
 
 const RATE_LABELS: Record<number, string> = { 1: "1×", 1.5: "1.5×", 2: "2×" };
 
@@ -51,7 +52,9 @@ export function VoiceIntroPlayer() {
       </button>
 
       <div className="min-w-0 flex-1">
-        <div className="truncate text-xs font-medium text-ink dark:text-neutral-200">Голосовая визитка</div>
+        <div className="truncate text-xs font-medium text-ink dark:text-neutral-200">
+          <T uk="Голосова візитка" ru="Голосовая визитка" />
+        </div>
         <div className="mt-1.5 flex items-center gap-2">
           <span className="w-8 shrink-0 text-[11px] tabular-nums text-ink-faint">{formatTime(currentTime)}</span>
           <input

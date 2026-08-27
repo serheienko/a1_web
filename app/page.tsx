@@ -20,6 +20,7 @@ import { PostCard } from "@/components/post-card";
 import { LoadMore } from "@/components/load-more";
 import { EmptyState } from "@/components/empty-state";
 import { Filters } from "@/components/filters";
+import { T } from "@/components/t";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -49,10 +50,18 @@ export default async function HomePage({ searchParams }: Props) {
   const currentCategory = filters.categories?.[0];
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-10 sm:py-16">
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl dark:text-neutral-50">Вакансии</h1>
-        <p className="mt-2 text-neutral-500 dark:text-neutral-400">Актуальные вакансии от компаний и частных лиц в A1.</p>
+    <main className="mx-auto max-w-3xl px-4 py-4 sm:py-16">
+      {/* Aleksandr, 2026-08-27: hide this heading block on mobile and
+          pull the feed up — the tab bar in the nav already says which
+          feed you're on, so on a small screen this was just dead space
+          above the filters/cards. Desktop keeps it. */}
+      <header className="mb-8 hidden sm:block">
+        <h1 className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl dark:text-neutral-50">
+          <T uk="Вакансії" ru="Вакансии" />
+        </h1>
+        <p className="mt-2 text-neutral-500 dark:text-neutral-400">
+          <T uk="Актуальні вакансії від компаній та приватних осіб в A1." ru="Актуальные вакансии от компаний и частных лиц в A1." />
+        </p>
       </header>
 
       <Filters
@@ -66,9 +75,11 @@ export default async function HomePage({ searchParams }: Props) {
       {posts.length === 0 ? (
         <EmptyState
           message={
-            hasActiveFilters(filters)
-              ? "Ничего не нашлось. Попробуйте изменить фильтры."
-              : "Пока нет открытых вакансий."
+            hasActiveFilters(filters) ? (
+              <T uk="Нічого не знайшлося. Спробуйте змінити фільтри." ru="Ничего не нашлось. Попробуйте изменить фильтры." />
+            ) : (
+              <T uk="Поки немає відкритих вакансій." ru="Пока нет открытых вакансий." />
+            )
           }
         />
       ) : (

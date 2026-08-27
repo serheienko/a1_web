@@ -37,6 +37,22 @@ const THEME_INIT_SCRIPT = `
 })();
 `;
 
+// Same anti-flash trick, for the UA/RU switch (2026-08-27, see
+// components/lang-toggle.tsx and components/t.tsx). Default is Ukrainian
+// (no class, no stored choice, matches <html lang="uk"> below) — this
+// only ever needs to ADD .lang-ru when "ru" was explicitly chosen.
+const LANG_INIT_SCRIPT = `
+(function () {
+  try {
+    var stored = localStorage.getItem("lang");
+    if (stored === "ru") {
+      document.documentElement.classList.add("lang-ru");
+      document.documentElement.lang = "ru";
+    }
+  } catch (e) {}
+})();
+`;
+
 export const metadata: Metadata = {
   title: "A1 Web",
   description: "A1 — вакансии и специалисты из приложения A1, в вебе.",
@@ -56,9 +72,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ru" className={commissioner.variable}>
+    <html lang="uk" className={commissioner.variable}>
       <body className="bg-app font-sans text-ink dark:bg-black dark:text-neutral-100">
         <Script id="theme-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <Script id="lang-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: LANG_INIT_SCRIPT }} />
         <SiteNav />
         {children}
         <Analytics />

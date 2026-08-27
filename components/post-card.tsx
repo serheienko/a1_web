@@ -23,9 +23,16 @@ import Link from "next/link";
 import type { WebPost } from "@/types/web-post";
 import { formatRelativeTime, formatSalary } from "@/lib/format";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
+import { T } from "@/components/t";
 
 export function PostCard({ post }: { post: WebPost }) {
-  const locationLabel = post.location ? post.location.display : post.isRemote ? "Удалённо" : "Не указано";
+  const locationLabel = post.location ? (
+    post.location.display
+  ) : post.isRemote ? (
+    <T uk="Віддалено" ru="Удалённо" />
+  ) : (
+    <T uk="Не вказано" ru="Не указано" />
+  );
   const salaryLabel = post.salary ? formatSalary(post.salary) : null;
   const href = `/${post.kind === "hiring" ? "jobs" : "talents"}/${post.slug}`;
   const avatarUrl = post.author.avatarUrl;
@@ -75,7 +82,7 @@ export function PostCard({ post }: { post: WebPost }) {
                 : "bg-[#C830FF]/10 text-[#C830FF] dark:bg-[#C830FF]/20")
             }
           >
-            {post.kind === "hiring" ? "Вакансия" : "Специалист"}
+            {post.kind === "hiring" ? <T uk="Вакансія" ru="Вакансия" /> : <T uk="Фахівець" ru="Специалист" />}
           </span>
         </div>
 
@@ -99,9 +106,13 @@ export function PostCard({ post }: { post: WebPost }) {
           <span>{formatRelativeTime(post.publishedAt)}</span>
         </div>
 
+        {/* Aleksandr, 2026-08-27: "подрезать отображаемый текст в фиде
+            до 6 строк, остальное показывать через ... при переходе на
+            страницу" — 3 lines read as too little to judge a post from
+            the feed; full text still only lives on the detail page. */}
         <Link
           href={href}
-          className="mt-3 block line-clamp-3 text-sm text-ink transition-opacity hover:opacity-80 dark:text-neutral-400"
+          className="mt-3 block line-clamp-6 text-sm text-ink transition-opacity hover:opacity-80 dark:text-neutral-400"
         >
           {post.contentText}
         </Link>
@@ -109,7 +120,7 @@ export function PostCard({ post }: { post: WebPost }) {
         {post.tags.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1.5">
             {post.tags.slice(0, 6).map((tag) => (
-              <span key={tag} className="rounded-md bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
+              <span key={tag} className="rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
                 {tag}
               </span>
             ))}

@@ -23,6 +23,7 @@ import Image from "next/image";
 import { fetchUserByUsername } from "@/lib/a1/users";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { formatLanguageName } from "@/lib/format";
+import { T } from "@/components/t";
 import { VoiceIntroProvider } from "@/components/voice-intro-context";
 import { VoiceIntroRing } from "@/components/voice-intro-ring";
 import { VoiceIntroPlayer } from "@/components/voice-intro-player";
@@ -119,9 +120,9 @@ export default async function ProfilePage({ params }: Props) {
 
       {(profile.phone || profile.email || profile.dob) && (
         <div className="mt-6 flex flex-col gap-1 text-sm text-neutral-600 dark:text-neutral-400">
-          {profile.phone && <div>Телефон: {profile.phone}</div>}
+          {profile.phone && <div><T uk="Телефон" ru="Телефон" />: {profile.phone}</div>}
           {profile.email && <div>Email: {profile.email}</div>}
-          {profile.dob && <div>Дата рождения: {profile.dob}</div>}
+          {profile.dob && <div><T uk="Дата народження" ru="Дата рождения" />: {profile.dob}</div>}
         </div>
       )}
 
@@ -143,7 +144,7 @@ export default async function ProfilePage({ params }: Props) {
 
       {profile.companies.length > 0 && (
         <section className="mt-8">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">Опыт работы</h2>
+          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Досвід роботи" ru="Опыт работы" /></h2>
           <div className="mt-3 flex flex-col gap-4">
             {profile.companies.map((company, i) => (
               <div key={`${company.name}-${i}`}>
@@ -160,7 +161,7 @@ export default async function ProfilePage({ params }: Props) {
 
       {profile.education.length > 0 && (
         <section className="mt-8">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">Образование</h2>
+          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Освіта" ru="Образование" /></h2>
           <ul className="mt-3 flex flex-col gap-1 text-sm text-neutral-700 dark:text-neutral-300">
             {profile.education.map((entry, i) => (
               <li key={i}>{entry}</li>
@@ -171,7 +172,7 @@ export default async function ProfilePage({ params }: Props) {
 
       {profile.skills.length > 0 && (
         <section className="mt-8">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">Навыки</h2>
+          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Навички" ru="Навыки" /></h2>
           <div className="mt-3 flex flex-col gap-2">
             {profile.skills.map((skill) => (
               <div key={skill.value} className="flex items-center gap-3">
@@ -185,7 +186,7 @@ export default async function ProfilePage({ params }: Props) {
 
       {profile.languages.length > 0 && (
         <section className="mt-8">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">Языки</h2>
+          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Мови" ru="Языки" /></h2>
           <div className="mt-3 flex flex-col gap-2">
             {profile.languages.map((lang) => (
               <div key={lang.value} className="flex items-center gap-3">

@@ -8,6 +8,7 @@
 
 import { useState } from "react";
 import { PostCard } from "./post-card";
+import { T } from "./t";
 import type { WebPost, WebPostKind } from "@/types/web-post";
 
 // What /api/feed actually sends over JSON: Date fields arrive as ISO
@@ -46,12 +47,14 @@ export function LoadMore({
   const [cursor, setCursor] = useState(initialCursor);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Just a flag — the actual bilingual copy renders via <T/> in JSX
+  // below, same as everywhere else in this localization pass.
+  const [error, setError] = useState(false);
 
   async function loadMore() {
     if (!cursor || loading) return;
     setLoading(true);
-    setError(null);
+    setError(false);
     try {
       const params = new URLSearchParams({ kind, cursor });
       if (query) params.set("q", query);
@@ -67,7 +70,7 @@ export function LoadMore({
       setCursor(data.next);
       setHasMore(data.hasMore);
     } catch {
-      setError("Не получилось загрузить ещё. Попробуйте ещё раз.");
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -85,7 +88,11 @@ export function LoadMore({
         </ul>
       )}
 
-      {error && <p className="mt-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
+      {error && (
+        <p className="mt-4 text-sm text-red-600 dark:text-red-400">
+          <T uk="Не вдалося завантажити ще. Спробуйте ще раз." ru="Не получилось загрузить ещё. Попробуйте ещё раз." />
+        </p>
+      )}
 
       {hasMore && (
         <button
@@ -94,7 +101,7 @@ export function LoadMore({
           disabled={loading}
           className="mt-6 w-full rounded-lg border border-neutral-300 py-2.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-400 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-neutral-500"
         >
-          {loading ? "Загрузка…" : "Показать ещё"}
+          {loading ? <T uk="Завантаження…" ru="Загрузка…" /> : <T uk="Показати ще" ru="Показать ещё" />}
         </button>
       )}
     </>

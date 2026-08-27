@@ -24,6 +24,25 @@
 }
 
 /*
+ * Locale variant (2026-08-27): Aleksandr — "дефолтный язык - укр. +
+ * добавить локализации на наши языки". Default (no class) is Ukrainian;
+ * an explicit "ru" choice adds .lang-ru to <html> the same way the theme
+ * toggle adds .dark/.light — see components/lang-toggle.tsx and the
+ * anti-flash script in app/layout.tsx. Static chrome copy (nav, headers,
+ * empty states, button labels — NOT user-generated post/profile content,
+ * which stays whatever language the author wrote it in) renders BOTH
+ * strings via components/t.tsx and this variant just toggles which one is
+ * visible — pure CSS, no client JS/hooks needed in the pages themselves,
+ * so it doesn't force any of the ISR'd feed pages into dynamic rendering
+ * (a cookie- or headers()-based approach would have).
+ */
+@custom-variant lang-ru {
+  &:where(.lang-ru, .lang-ru *) {
+    @slot;
+  }
+}
+
+/*
  * Design tokens below are real values pulled from the Figma file
  * (A1-Claude, "Feed Preview White" frame) via the Inspect/Design panel —
  * NOT the file's Variables panel. Founder's call (2026-08-26): the
