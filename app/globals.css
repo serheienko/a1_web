@@ -194,3 +194,47 @@
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/*
+ * Aleksandr, 2026-08-27: "давайте... сделаем iOS нативные [попапы]... как
+ * у iOS снизу" — on narrow screens (below Tailwind's `sm` breakpoint),
+ * components/settings-menu.tsx's theme+language panel and
+ * components/filters-form.tsx's category panel switch from an anchored
+ * dropdown to a bottom sheet (fixed to the viewport bottom, slides up),
+ * matching the native app's own bottom-sheet pickers. This is the slide-up
+ * entrance for that sheet; both components apply it only below `sm` (the
+ * anchored-dropdown desktop variant doesn't use it, see `sm:animate-none`
+ * at each call site).
+ */
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.animate-sheet-up {
+  animation: sheet-up 0.25s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@keyframes sheet-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-sheet-backdrop {
+  animation: sheet-backdrop-in 0.2s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-sheet-up,
+  .animate-sheet-backdrop {
+    animation: none;
+  }
+}

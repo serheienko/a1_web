@@ -10,8 +10,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { LangToggle } from "@/components/lang-toggle";
+import { SettingsMenu } from "@/components/settings-menu";
 import { T } from "@/components/t";
 
 const NAV_ITEMS = [
@@ -83,8 +82,7 @@ export function SiteNav() {
         </div>
 
         <div className="flex items-center gap-1 justify-self-end">
-          <LangToggle />
-          <ThemeToggle />
+          <SettingsMenu />
         </div>
       </div>
     </nav>

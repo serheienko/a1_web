@@ -444,7 +444,14 @@ export function FiltersForm({
           </button>
 
           {filtersOpen && (
-            <div className="absolute right-0 top-full z-20 mt-2 max-h-80 w-56 overflow-y-auto rounded-lg border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+            <>
+              <div
+                className="animate-sheet-backdrop fixed inset-0 z-40 bg-black/40 sm:hidden"
+                onClick={() => setFiltersOpen(false)}
+                aria-hidden="true"
+              />
+              <div className="animate-sheet-up fixed inset-x-0 bottom-0 z-50 max-h-[75vh] overflow-y-auto rounded-t-2xl border-t border-neutral-200 bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl dark:border-neutral-800 dark:bg-neutral-900 sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:top-full sm:z-20 sm:mt-2 sm:max-h-80 sm:w-56 sm:animate-none sm:rounded-lg sm:border sm:p-2 sm:pb-2 sm:shadow-lg">
+              <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-neutral-300 dark:bg-neutral-700 sm:hidden" aria-hidden="true" />
               <div className="px-1 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
                 {FILTERS_FORM_STRINGS.category[lang]}
               </div>
@@ -500,7 +507,8 @@ export function FiltersForm({
                   </button>
                 );
               })}
-            </div>
+              </div>
+            </>
           )}
         </div>
       </div>
