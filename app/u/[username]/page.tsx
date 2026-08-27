@@ -21,6 +21,13 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Image from "next/image";
 import { fetchUserByUsername } from "@/lib/a1/users";
+import {
+  fetchCompanyCategories,
+  fetchHobbyLabels,
+  fetchWorkInterests,
+  fetchWorkStylePreferences,
+  WORK_STYLE_DATASET_KEYS,
+} from "@/lib/a1/datasets";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { formatLanguageName } from "@/lib/format";
 import { T } from "@/components/t";
@@ -57,12 +64,91 @@ function levelBar(level: number, max: number) {
   );
 }
 
+// Same white pill used for profile.links (Aleksandr, 2026-08-27: "Сделай
+// заливку этих штук, табов полностью FFFFFF 100%") — reused here so
+// hobbies/work-interests/work-style tags read as the same visual
+// language instead of introducing a second tag style.
+function pillList(items: string[]) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {items.map((item, i) => (
+        <span
+          key={i}
+          className="rounded-md bg-white px-3 py-1.5 text-sm text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
+        >
+          {item}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// Aleksandr, 2026-08-27 (mobile app video, "Профиль отображен только
+// частично") + Figma review (node-id=24338-3649, the edit-profile form's
+// "Preferences" field): 14 work-style categories, each a dataset lookup.
+// WORK_STYLE_DATASET_KEYS (lib/a1/datasets.ts) is the single source of
+// truth for the profile-field -> dataset-field name mapping (they mostly
+// match except workloadAndTaskDelegation/workloadTaskDelegation) — this
+// table only adds the uk/ru section labels on top of it.
+// Aleksandr, 2026-08-27 follow-up: occupation isn't free text — the
+// openapi spec (Resource.User.Occupation) pins it to exactly these 4
+// values. "none" means the user hasn't set one, so it's intentionally
+// left out of this table (falsy lookup -> row doesn't render at all,
+// same as before). He's also asked for the app's 3 animated cat icons
+// here (one per real value) — not added yet, see the TODO comment below
+// the lookup; need the actual asset files/URLs from him first.
+const OCCUPATION_LABELS: Record<string, { uk: string; ru: string }> = {
+  entrepreneur: { uk: "Підприємець", ru: "Предприниматель" },
+  professional: { uk: "Спеціаліст", ru: "Специалист" },
+  freelancer: { uk: "Фрілансер", ru: "Фрилансер" },
+};
+
+const WORK_STYLE_PREFERENCE_SECTIONS: Array<{
+  key: keyof typeof WORK_STYLE_DATASET_KEYS;
+  uk: string;
+  ru: string;
+}> = [
+  { key: "workEnvironment", uk: "Середовище роботи", ru: "Рабочая среда" },
+  { key: "personalityType", uk: "Тип особистості", ru: "Тип личности" },
+  { key: "workLifeBalance", uk: "Баланс роботи і життя", ru: "Баланс работы и жизни" },
+  { key: "workStyle", uk: "Стиль роботи", ru: "Стиль работы" },
+  { key: "workAvailability", uk: "Доступність", ru: "Доступность" },
+  { key: "projectType", uk: "Тип проєктів", ru: "Тип проектов" },
+  { key: "leadershipStyle", uk: "Стиль лідерства", ru: "Стиль лидерства" },
+  { key: "riskTolerance", uk: "Ставлення до ризику", ru: "Отношение к риску" },
+  { key: "workloadAndTaskDelegation", uk: "Розподіл завдань", ru: "Распределение задач" },
+  { key: "decisionMakingStyle", uk: "Стиль прийняття рішень", ru: "Стиль принятия решений" },
+  { key: "preferredCollaborationStyle", uk: "Стиль співпраці", ru: "Стиль сотрудничества" },
+  { key: "partnershipPreference", uk: "Партнерство", ru: "Партнёрство" },
+  { key: "preferredWorkingEnvironment", uk: "Бажане робоче середовище", ru: "Желаемая рабочая среда" },
+  { key: "learningStyle", uk: "Стиль навчання", ru: "Стиль обучения" },
+];
+
 export default async function ProfilePage({ params }: Props) {
   const { username } = await params;
   const profile = await fetchUserByUsername(username);
   if (!profile) notFound();
 
   const locationLabel = profile.location ? profile.location.display : null;
+
+  // 2026-08-27: only fetched when at least one company actually carries a
+  // category id — most profiles won't, and this is an extra network
+  // round-trip to a dataset endpoint nothing else on this page needs.
+  const companyCategoryIds = profile.companies.map((c) => c.category).filter((c) => c != null);
+  const companyCategories = companyCategoryIds.length > 0 ? await fetchCompanyCategories() : [];
+  const companyCategoryLabel = (id: number | null) =>
+    id == null ? null : (companyCategories.find((c) => c.value === id)?.text ?? null);
+
+  // Same lazy-dataset pattern as companyCategories above — only pay for
+  // the dataset round-trip when this profile actually has something to
+  // resolve.
+  const hobbyLabels = profile.hobbies.length > 0 ? await fetchHobbyLabels() : null;
+
+  const workInterestOptions = profile.workInterests.length > 0 ? await fetchWorkInterests() : [];
+  const workInterestLabel = (id: number) => workInterestOptions.find((c) => c.value === id)?.text ?? null;
+
+  const hasWorkStylePreferences = Object.values(profile.workStylePreferences).some((ids) => ids.length > 0);
+  const workStyleDataset = hasWorkStylePreferences ? await fetchWorkStylePreferences() : null;
 
   return (
     <VoiceIntroProvider url={profile.voiceIntroUrl}>
@@ -136,15 +222,33 @@ export default async function ProfilePage({ params }: Props) {
 
       {profile.profileTitle && <p className="mt-4 text-base text-neutral-700 dark:text-neutral-300">{profile.profileTitle}</p>}
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-neutral-500 dark:text-neutral-400">
-        {locationLabel && <span>{locationLabel}</span>}
-        {profile.expertise && (
-          <>
-            {locationLabel && <span aria-hidden="true">·</span>}
-            <span>{profile.expertise}</span>
-          </>
-        )}
-      </div>
+      {(() => {
+        const occupationLabel = OCCUPATION_LABELS[profile.occupation] ?? null;
+        return (
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-neutral-500 dark:text-neutral-400">
+            {occupationLabel && (
+              <span className="inline-flex items-center gap-1.5">
+                {/* TODO(Aleksandr): swap in the animated cat icon for this
+                    occupation once we have the 3 asset files/URLs — one
+                    per entrepreneur/professional/freelancer. */}
+                <T uk={occupationLabel.uk} ru={occupationLabel.ru} />
+              </span>
+            )}
+            {locationLabel && (
+              <>
+                {occupationLabel && <span aria-hidden="true">·</span>}
+                <span>{locationLabel}</span>
+              </>
+            )}
+            {profile.expertise && (
+              <>
+                {(occupationLabel || locationLabel) && <span aria-hidden="true">·</span>}
+                <span>{profile.expertise}</span>
+              </>
+            )}
+          </div>
+        );
+      })()}
 
       {profile.bio && <p className="mt-6 whitespace-pre-wrap text-neutral-700 dark:text-neutral-300">{profile.bio}</p>}
 
@@ -164,7 +268,7 @@ export default async function ProfilePage({ params }: Props) {
               href={link.url}
               target="_blank"
               rel="noopener noreferrer nofollow"
-              className="rounded-md bg-neutral-100 px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700"
+              className="rounded-md bg-white px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-100 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700"
             >
               {link.title || link.url}
             </a>
@@ -176,15 +280,42 @@ export default async function ProfilePage({ params }: Props) {
         <section className="mt-8">
           <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Досвід роботи" ru="Опыт работы" /></h2>
           <div className="mt-3 flex flex-col gap-4">
-            {profile.companies.map((company, i) => (
-              <div key={`${company.name}-${i}`}>
-                <div className="font-medium text-neutral-900 dark:text-neutral-50">{company.name}</div>
-                {company.positionDescription && (
-                  <div className="text-sm text-neutral-600 dark:text-neutral-400">{company.positionDescription}</div>
-                )}
-                {company.description && <div className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">{company.description}</div>}
-              </div>
-            ))}
+            {profile.companies.map((company, i) => {
+              // Aleksandr, 2026-08-27 (mobile app video): the app's
+              // company card shows a category chip ("IT"), team size
+              // ("2-10"), founding year, and a clickable website — all of
+              // this was already sitting in WebProfileCompany (mostly
+              // unused) except category, which needed the dataset lookup
+              // above. One line, so meta stays out of the way when a
+              // company genuinely has none of these set.
+              const meta = [
+                companyCategoryLabel(company.category),
+                company.employeesCount != null ? `${company.employeesCount}` : null,
+                company.establishedYear != null ? `${company.establishedYear}` : null,
+              ].filter((v): v is string => v != null);
+              return (
+                <div key={`${company.name}-${i}`}>
+                  <div className="font-medium text-neutral-900 dark:text-neutral-50">{company.name}</div>
+                  {company.positionDescription && (
+                    <div className="text-sm text-neutral-600 dark:text-neutral-400">{company.positionDescription}</div>
+                  )}
+                  {company.description && <div className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">{company.description}</div>}
+                  {meta.length > 0 && (
+                    <div className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">{meta.join(" · ")}</div>
+                  )}
+                  {company.link && (
+                    <a
+                      href={company.link.url}
+                      target="_blank"
+                      rel="noopener noreferrer nofollow"
+                      className="mt-1 inline-block text-sm text-accent hover:underline"
+                    >
+                      {company.link.title || company.link.url}
+                    </a>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </section>
       )}
@@ -224,6 +355,100 @@ export default async function ProfilePage({ params }: Props) {
                 {levelBar(lang.level, 4)}
               </div>
             ))}
+          </div>
+        </section>
+      )}
+
+      {/* Aleksandr, 2026-08-27, screen recordings: "Профиль отображен
+          только частично. Много полей пропущенно." — hobbies/work
+          interests/work-style preferences/favorite books,movies,games
+          below, matched against Figma node-id=24338-3649 per his
+          follow-up ("зайти, посмотреть и сопоставить"). All four raw
+          fields already existed on WebProfile from that earlier pass;
+          this is only the missing JSX. */}
+      {hobbyLabels && profile.hobbies.length > 0 && (
+        <section className="mt-8">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Хобі" ru="Хобби" /></h2>
+          <div className="mt-3">
+            {pillList(
+              profile.hobbies
+                .map((id) => hobbyLabels.get(id))
+                .filter((v): v is string => Boolean(v)),
+            )}
+          </div>
+        </section>
+      )}
+
+      {profile.workInterests.length > 0 && (
+        <section className="mt-8">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Робочі інтереси" ru="Рабочие интересы" /></h2>
+          <div className="mt-3">
+            {pillList(
+              profile.workInterests
+                .map((id) => workInterestLabel(id))
+                .filter((v): v is string => Boolean(v)),
+            )}
+          </div>
+        </section>
+      )}
+
+      {workStyleDataset && (
+        <section className="mt-8">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Переваги в роботі" ru="Предпочтения в работе" /></h2>
+          <div className="mt-4 flex flex-col gap-4">
+            {WORK_STYLE_PREFERENCE_SECTIONS.map(({ key, uk, ru }) => {
+              const ids = profile.workStylePreferences[key];
+              if (ids.length === 0) return null;
+              const options = workStyleDataset[WORK_STYLE_DATASET_KEYS[key]];
+              const labels = ids
+                .map((id) => options.find((o) => o.value === id)?.text ?? null)
+                .filter((v): v is string => Boolean(v));
+              if (labels.length === 0) return null;
+              return (
+                <div key={key}>
+                  <h3 className="text-sm text-neutral-500 dark:text-neutral-400"><T uk={uk} ru={ru} /></h3>
+                  <div className="mt-1.5">{pillList(labels)}</div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {(profile.favoriteBooks.length > 0 || profile.favoriteMovies.length > 0 || profile.favoriteGames.length > 0) && (
+        <section className="mt-8">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Улюблене" ru="Любимое" /></h2>
+          <div className="mt-3 flex flex-col gap-4">
+            {profile.favoriteBooks.length > 0 && (
+              <div>
+                <h3 className="text-sm text-neutral-500 dark:text-neutral-400"><T uk="Книги" ru="Книги" /></h3>
+                <ul className="mt-1.5 flex flex-col gap-1 text-sm text-neutral-700 dark:text-neutral-300">
+                  {profile.favoriteBooks.map((book, i) => (
+                    <li key={i}>{book.author ? `${book.title} — ${book.author}` : book.title}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {profile.favoriteMovies.length > 0 && (
+              <div>
+                <h3 className="text-sm text-neutral-500 dark:text-neutral-400"><T uk="Фільми" ru="Фильмы" /></h3>
+                <ul className="mt-1.5 flex flex-col gap-1 text-sm text-neutral-700 dark:text-neutral-300">
+                  {profile.favoriteMovies.map((movie, i) => (
+                    <li key={i}>{movie.title}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {profile.favoriteGames.length > 0 && (
+              <div>
+                <h3 className="text-sm text-neutral-500 dark:text-neutral-400"><T uk="Ігри" ru="Игры" /></h3>
+                <ul className="mt-1.5 flex flex-col gap-1 text-sm text-neutral-700 dark:text-neutral-300">
+                  {profile.favoriteGames.map((game, i) => (
+                    <li key={i}>{game.title}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         </section>
       )}

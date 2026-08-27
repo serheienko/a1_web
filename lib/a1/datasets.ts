@@ -74,3 +74,145 @@ export async function fetchTagsForKind(kind: "hiring" | "seeking"): Promise<Tag[
   // per-kind list the moment the backend adds it, no code change needed.
   return byObject[OBJECT_BY_KIND[kind]] ?? byObject["post-job-seeking"] ?? [];
 }
+
+/**
+ * Aleksandr, 2026-08-27: his mobile-app walkthrough video showed a
+ * company card with "IT" as a labeled category, distinct from the post
+ * category id we already resolve above. UserCompanySchema.category
+ * (lib/a1/schemas.ts) only ever carried a raw number — this is its label
+ * lookup, same no-auth dataset.* shape/pattern as postCategories, per the
+ * endpoint PLAN.md §0.1 already documents as existing
+ * (dataset.companyCategories) but that nothing in the repo had called
+ * yet. Returns [] on any parse failure so a company card degrades to
+ * "no category shown" rather than breaking the whole profile page.
+ */
+export const fetchCompanyCategories = cache(async function fetchCompanyCategories(): Promise<Category[]> {
+  const raw = await call<unknown>("dataset.companyCategories", {});
+  const parsed = CategoriesOutputSchema.safeParse(raw);
+  if (!parsed.success) {
+    console.warn("[lib/a1/datasets] companyCategories failed to parse", parsed.error);
+    return [];
+  }
+  return parsed.data.items.map((c) => ({ ...c, text: decodeHtmlEntities(c.text) }));
+});
+
+/**
+ * Aleksandr, 2026-08-27: three more no-auth dataset.* lookups, all for
+ * the profile-page fields his mobile-app video showed were missing on
+ * the web (hobbies, work interests, work style preferences) — confirmed
+ * field-for-field against the openapi.json he sent (see lib/a1/
+ * schemas.ts's WorkStylePreferencesSchema comment for how; this
+ * sandbox's own network can't reach api.a1appp.com directly).
+ *
+ * dataset.hobbies is shaped differently from every other dataset.* here
+ * — an ARRAY of `{ group, items: [{value,text,lottie}] }` (e.g. a
+ * "Sports" group containing "Football"), not a flat `{items:[...]}`.
+ * fetchHobbies() keeps that group structure (useful if a future design
+ * wants to show hobbies grouped); fetchHobbyLabels() flattens it to a
+ * plain id -> text Map for the simple "just show the tag pills" case
+ * app/u/[username]/page.tsx actually needs today.
+ */
+const HobbyItemSchema = z.object({
+  value: z.number(),
+  text: z.string().catch(""),
+});
+const HobbiesOutputSchema = z
+  .array(z.object({ group: z.string().catch(""), items: z.array(HobbyItemSchema).catch([]) }))
+  .catch([]);
+
+export const fetchHobbies = cache(async function fetchHobbies() {
+  const raw = await call<unknown>("dataset.hobbies", {});
+  const parsed = HobbiesOutputSchema.safeParse(raw);
+  if (!parsed.success) {
+    console.warn("[lib/a1/datasets] hobbies failed to parse", parsed.error);
+    return [];
+  }
+  return parsed.data.map((g) => ({ ...g, items: g.items.map((i) => ({ ...i, text: decodeHtmlEntities(i.text) })) }));
+});
+
+export const fetchHobbyLabels = cache(async function fetchHobbyLabels(): Promise<Map<number, string>> {
+  const groups = await fetchHobbies();
+  const map = new Map<number, string>();
+  for (const g of groups) for (const i of g.items) map.set(i.value, i.text);
+  return map;
+});
+
+const WorkInterestsOutputSchema = z.object({ items: z.array(CategorySchema).catch([]) });
+
+export const fetchWorkInterests = cache(async function fetchWorkInterests(): Promise<Category[]> {
+  const raw = await call<unknown>("dataset.workInterests", {});
+  const parsed = WorkInterestsOutputSchema.safeParse(raw);
+  if (!parsed.success) {
+    console.warn("[lib/a1/datasets] workInterests failed to parse", parsed.error);
+    return [];
+  }
+  return parsed.data.items.map((c) => ({ ...c, text: decodeHtmlEntities(c.text) }));
+});
+
+/**
+ * The 14 work-style categories on Resource.User.WorkStylePreferences,
+ * label-resolved. One deliberate rename: the *user's own* field is
+ * `workloadAndTaskDelegation` (see lib/a1/schemas.ts) but this dataset's
+ * matching key is `workloadTaskDelegation` (no "And") — confirmed in the
+ * openapi.json, not a typo. WORK_STYLE_DATASET_KEYS is the single place
+ * that mapping lives; nowhere else needs to know about it.
+ */
+const WorkStyleItemSchema = z.object({ value: z.number(), text: z.string().catch("") });
+const WorkStylePreferencesOutputSchema = z
+  .object({
+    workEnvironment: z.array(WorkStyleItemSchema).catch([]),
+    personalityType: z.array(WorkStyleItemSchema).catch([]),
+    workLifeBalance: z.array(WorkStyleItemSchema).catch([]),
+    workStyle: z.array(WorkStyleItemSchema).catch([]),
+    workAvailability: z.array(WorkStyleItemSchema).catch([]),
+    projectType: z.array(WorkStyleItemSchema).catch([]),
+    leadershipStyle: z.array(WorkStyleItemSchema).catch([]),
+    riskTolerance: z.array(WorkStyleItemSchema).catch([]),
+    workloadTaskDelegation: z.array(WorkStyleItemSchema).catch([]),
+    decisionMakingStyle: z.array(WorkStyleItemSchema).catch([]),
+    preferredCollaborationStyle: z.array(WorkStyleItemSchema).catch([]),
+    partnershipPreference: z.array(WorkStyleItemSchema).catch([]),
+    preferredWorkingEnvironment: z.array(WorkStyleItemSchema).catch([]),
+    learningStyle: z.array(WorkStyleItemSchema).catch([]),
+  })
+  .catch({
+    workEnvironment: [],
+    personalityType: [],
+    workLifeBalance: [],
+    workStyle: [],
+    workAvailability: [],
+    projectType: [],
+    leadershipStyle: [],
+    riskTolerance: [],
+    workloadTaskDelegation: [],
+    decisionMakingStyle: [],
+    preferredCollaborationStyle: [],
+    partnershipPreference: [],
+    preferredWorkingEnvironment: [],
+    learningStyle: [],
+  });
+export type WorkStylePreferencesDataset = z.infer<typeof WorkStylePreferencesOutputSchema>;
+
+// User-field key -> dataset key. Every key maps to itself except the one
+// confirmed rename above.
+export const WORK_STYLE_DATASET_KEYS = {
+  workEnvironment: "workEnvironment",
+  personalityType: "personalityType",
+  workLifeBalance: "workLifeBalance",
+  workStyle: "workStyle",
+  workAvailability: "workAvailability",
+  projectType: "projectType",
+  leadershipStyle: "leadershipStyle",
+  riskTolerance: "riskTolerance",
+  workloadAndTaskDelegation: "workloadTaskDelegation",
+  decisionMakingStyle: "decisionMakingStyle",
+  preferredCollaborationStyle: "preferredCollaborationStyle",
+  partnershipPreference: "partnershipPreference",
+  preferredWorkingEnvironment: "preferredWorkingEnvironment",
+  learningStyle: "learningStyle",
+} as const satisfies Record<string, keyof WorkStylePreferencesDataset>;
+
+export const fetchWorkStylePreferences = cache(async function fetchWorkStylePreferences(): Promise<WorkStylePreferencesDataset> {
+  const raw = await call<unknown>("dataset.workStylePreferences", {});
+  return WorkStylePreferencesOutputSchema.parse(raw);
+});

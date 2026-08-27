@@ -48,6 +48,15 @@ function mapCompanies(companies: RawUserProfile["companies"]): WebProfileCompany
     employeesCount: c.employeesCount,
     establishedYear: c.est,
     link: mapLink(c.link),
+    // Aleksandr, 2026-08-27 (video walkthrough of the mobile app): the
+    // company card there shows "IT" / "2-10" / "a1appp.com" — those are
+    // employeesCount/link above (already parsed, just never mapped
+    // through here before) plus this category id, which was sitting
+    // unused on the raw schema (lib/a1/schemas.ts's UserCompanySchema)
+    // since it's a plain number, not a label — see
+    // lib/a1/datasets.ts's fetchCompanyCategories for the id -> text
+    // lookup, same dataset.* pattern as post categories/tags.
+    category: c.category,
   }));
 }
 
@@ -90,6 +99,16 @@ export function mapUserProfile(raw: UserProfileResult): WebProfile | null {
     education: raw.education,
     skills: raw.skills,
     languages: raw.languages,
+    // Aleksandr, 2026-08-27 (mobile app video vs web gap): raw ids/text
+    // passed through as-is — see the WebProfileWorkStylePreferences /
+    // WebProfileBook comments in types/web-profile.ts for why the
+    // dataset-id -> label resolution happens on the page, not here.
+    hobbies: raw.hobbies,
+    workInterests: raw.workInterests,
+    favoriteBooks: raw.favoriteBooks,
+    favoriteMovies: raw.favoriteMovies,
+    favoriteGames: raw.favoriteGames,
+    workStylePreferences: raw.workStylePreferences,
     phone: canShowPhone(raw.flags) ? raw.phoneNumber : null,
     email: canShowEmail(raw.flags) ? raw.email : null,
     dob: canShowDob(raw.flags) ? raw.dob : null,

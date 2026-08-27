@@ -22,6 +22,9 @@ export type WebProfileCompany = {
   employeesCount: number | null;
   establishedYear: number | null;
   link: WebProfileLink | null;
+  // Raw dataset.companyCategories id — resolve to a label with
+  // lib/a1/datasets.ts's fetchCompanyCategories, same as post categories.
+  category: number | null;
 };
 
 export type WebProfileSkill = {
@@ -41,6 +44,36 @@ export type WebProfileLocation = {
   display: string;
 };
 
+export type WebProfileBook = {
+  title: string;
+  author: string;
+};
+
+export type WebProfileTitle = {
+  title: string;
+};
+
+// Raw dataset ids, same reason as WebProfileCompany.category — resolved
+// to labels in app/u/[username]/page.tsx via lib/a1/datasets.ts's
+// fetchWorkStylePreferences, not here (keeps this mapper-produced type
+// dataset-lookup-free, same split already used for company categories).
+export type WebProfileWorkStylePreferences = {
+  workEnvironment: number[];
+  personalityType: number[];
+  workLifeBalance: number[];
+  workStyle: number[];
+  workAvailability: number[];
+  projectType: number[];
+  leadershipStyle: number[];
+  riskTolerance: number[];
+  workloadAndTaskDelegation: number[];
+  decisionMakingStyle: number[];
+  preferredCollaborationStyle: number[];
+  partnershipPreference: number[];
+  preferredWorkingEnvironment: number[];
+  learningStyle: number[];
+};
+
 export type WebProfile = {
   username: string;
   fullName: string;
@@ -58,6 +91,14 @@ export type WebProfile = {
   education: string[];
   skills: WebProfileSkill[];
   languages: WebProfileLanguage[];
+  // Raw dataset.hobbies / dataset.workInterests ids — see
+  // WebProfileWorkStylePreferences comment above, same split.
+  hobbies: number[];
+  workInterests: number[];
+  favoriteBooks: WebProfileBook[];
+  favoriteMovies: WebProfileTitle[];
+  favoriteGames: WebProfileTitle[];
+  workStylePreferences: WebProfileWorkStylePreferences;
   // null unless the profile owner's own SHOW_* flag permits it — see
   // lib/a1/user-mappers.ts. Never assume non-null means "always safe to
   // display everywhere"; it means the user opted in, full stop.

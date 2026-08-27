@@ -302,6 +302,64 @@ const UserCompanySchema = z.object({
  * Resource.MediaDocument.AttributeAudio with `voice: true` — same
  * media-proxy URL resolution as any other MediaDocument.
  */
+// Aleksandr, 2026-08-27 (mobile app video, "профиль показан только
+// частично"): hobbies/workInterests/favoriteBooks/favoriteMovies/
+// favoriteGames/workStylePreferences below, confirmed field-for-field
+// against the openapi.json he sent (not the live endpoint directly —
+// this sandbox's network can't reach api.a1appp.com to fetch it; he
+// downloaded the file himself and sent it as a file). hobbies and
+// workInterests are arrays of dataset ids (resolve via
+// lib/a1/datasets.ts's fetchHobbies/fetchWorkInterests, same pattern as
+// company categories); favorite books/movies/games are freeform
+// title(+author) text, no id lookup needed. workStylePreferences is a
+// fixed object of 14 named categories, each its own array of dataset
+// ids (fetchWorkStylePreferences) — note one deliberate rename below:
+// the *user's* field is `workloadAndTaskDelegation` but the matching
+// *dataset* lookup's key is `workloadTaskDelegation` (no "And") per the
+// spec — a real, confirmed naming mismatch between the two, not a typo
+// here.
+const WorkStylePreferencesSchema = z.object({
+  workEnvironment: z.array(z.number()).catch([]),
+  personalityType: z.array(z.number()).catch([]),
+  workLifeBalance: z.array(z.number()).catch([]),
+  workStyle: z.array(z.number()).catch([]),
+  workAvailability: z.array(z.number()).catch([]),
+  projectType: z.array(z.number()).catch([]),
+  leadershipStyle: z.array(z.number()).catch([]),
+  riskTolerance: z.array(z.number()).catch([]),
+  workloadAndTaskDelegation: z.array(z.number()).catch([]),
+  decisionMakingStyle: z.array(z.number()).catch([]),
+  preferredCollaborationStyle: z.array(z.number()).catch([]),
+  partnershipPreference: z.array(z.number()).catch([]),
+  preferredWorkingEnvironment: z.array(z.number()).catch([]),
+  learningStyle: z.array(z.number()).catch([]),
+});
+export type UserWorkStylePreferences = z.infer<typeof WorkStylePreferencesSchema>;
+const EMPTY_WORK_STYLE_PREFERENCES: UserWorkStylePreferences = {
+  workEnvironment: [],
+  personalityType: [],
+  workLifeBalance: [],
+  workStyle: [],
+  workAvailability: [],
+  projectType: [],
+  leadershipStyle: [],
+  riskTolerance: [],
+  workloadAndTaskDelegation: [],
+  decisionMakingStyle: [],
+  preferredCollaborationStyle: [],
+  partnershipPreference: [],
+  preferredWorkingEnvironment: [],
+  learningStyle: [],
+};
+
+const FavoriteBookSchema = z.object({
+  title: z.string().catch(""),
+  author: z.string().catch(""),
+});
+const FavoriteTitleSchema = z.object({
+  title: z.string().catch(""),
+});
+
 export const UserProfileSchema = z.object({
   _id: z.string(),
   username: z.string().nullable().catch(null),
@@ -319,6 +377,12 @@ export const UserProfileSchema = z.object({
   education: z.array(z.string()).catch([]),
   skills: z.array(UserSkillSchema).catch([]),
   languages: z.array(UserLanguageSchema).catch([]),
+  hobbies: z.array(z.number()).catch([]),
+  workInterests: z.array(z.number()).catch([]),
+  favoriteBooks: z.array(FavoriteBookSchema).catch([]),
+  favoriteMovies: z.array(FavoriteTitleSchema).catch([]),
+  favoriteGames: z.array(FavoriteTitleSchema).catch([]),
+  workStylePreferences: WorkStylePreferencesSchema.catch(EMPTY_WORK_STYLE_PREFERENCES),
   flags: z.number().catch(0),
   // Present on the real object but only read behind their own SHOW_*
   // flag check in user-mappers.ts — never returned to a caller otherwise.
