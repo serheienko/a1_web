@@ -297,17 +297,27 @@ export default async function ProfilePage({ params }: Props) {
         that's narrower than 672px — so the visible "mass" of the block
         sits in the box's left portion while the box's own right portion
         is invisible padding, and a centered invisible box with
-        left-heavy visible content reads as shifted left. `w-fit` fixes
-        this at the root: the box shrinks to whatever its widest actual
-        row needs (measured live: ~392px here, close to the ~426px he
-        estimated off his Figma screenshot) and centers THAT, so the
-        visible content's own center lines up with the tabs' center
-        instead of a phantom 672px box's center. `max-w-2xl` stays as a
-        ceiling so unusually long content (unusual bio, many tags) can't
-        blow this out past the original width. Mobile is untouched —
-        `w-full` below max-w-2xl, `sm:w-fit` only kicks in at the
+        left-heavy visible content reads as shifted left.
+
+        2026-08-28 follow-up: `w-fit` (shrink to whatever the widest row
+        needs) fixed it THEN, but it's fragile — it recentres around
+        whichever row happens to be widest, and it silently broke again
+        the moment the Favorites section below grew a multi-column tile
+        grid (games can have 8 covers): that grid's own shrink-to-fit
+        "max-content" width doesn't respect wrapping, so the browser
+        measured it as if all tiles sat on one line, ballooned back up
+        toward the 672px `max-w-2xl` ceiling, and every other narrower
+        row (name, skills, bio) was left-heavy inside that wide box all
+        over again — "Опять съехал блок влево". A fixed width sidesteps
+        the whole shrink-to-fit dance instead of chasing it: ~420px
+        matches both his Figma measurement (~426px) and the box's own
+        previous natural width (~392px), and no future row — no matter
+        how wide its own content wants to be — can ever hijack the
+        container's width again, since the container no longer measures
+        its children to decide its own size. Mobile is untouched —
+        `w-full` below max-w-2xl, `sm:w-[420px]` only kicks in at the
         desktop breakpoint. */}
-    <main className="mx-auto w-full max-w-2xl px-4 py-10 sm:w-fit sm:py-16">
+    <main className="mx-auto w-full max-w-2xl px-4 py-10 sm:w-[420px] sm:py-16">
       {/* Avatar sized off Instagram's own profile page as reference
           (Aleksandr, 2026-08-26): originally ~96px mobile / 150px
           desktop. Aleksandr, 2026-08-27, after seeing the voice-intro
@@ -578,7 +588,7 @@ export default async function ProfilePage({ params }: Props) {
             {profile.favoriteBooks.length > 0 && (
               <div>
                 <h3 className="text-sm text-neutral-500 dark:text-neutral-400"><T uk="Книги" en="Books" ru="Книги" de="Bücher" es="Libros" fr="Livres" pl="Książki" ptBR="Livros" zh="书籍" /></h3>
-                <div className="mt-2 grid grid-cols-3 gap-3 sm:grid-cols-4">
+                <div className="mt-2 grid grid-cols-3 gap-3">
                   {profile.favoriteBooks.map((book, i) =>
                     favoriteTile(book.title, book.author || null, bookCovers[i] ?? null, `book-${i}`),
                   )}
@@ -588,7 +598,7 @@ export default async function ProfilePage({ params }: Props) {
             {profile.favoriteMovies.length > 0 && (
               <div>
                 <h3 className="text-sm text-neutral-500 dark:text-neutral-400"><T uk="Фільми" en="Movies" ru="Фильмы" de="Filme" es="Películas" fr="Films" pl="Filmy" ptBR="Filmes" zh="电影" /></h3>
-                <div className="mt-2 grid grid-cols-3 gap-3 sm:grid-cols-4">
+                <div className="mt-2 grid grid-cols-3 gap-3">
                   {profile.favoriteMovies.map((movie, i) =>
                     favoriteTile(movie.title, null, movieCovers[i] ?? null, `movie-${i}`),
                   )}
@@ -598,7 +608,7 @@ export default async function ProfilePage({ params }: Props) {
             {profile.favoriteGames.length > 0 && (
               <div>
                 <h3 className="text-sm text-neutral-500 dark:text-neutral-400"><T uk="Ігри" en="Games" ru="Игры" de="Spiele" es="Juegos" fr="Jeux" pl="Gry" ptBR="Jogos" zh="游戏" /></h3>
-                <div className="mt-2 grid grid-cols-3 gap-3 sm:grid-cols-4">
+                <div className="mt-2 grid grid-cols-3 gap-3">
                   {profile.favoriteGames.map((game, i) =>
                     favoriteTile(game.title, null, gameCovers[i] ?? null, `game-${i}`),
                   )}
