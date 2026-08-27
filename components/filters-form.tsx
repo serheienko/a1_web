@@ -175,8 +175,6 @@ export function FiltersForm({
     navigate({ q: "", tags: currentTags.includes(value) ? currentTags : [...currentTags, value] });
   }
 
-  const hasFilters = Boolean(currentQuery || currentCategory || currentTags.length > 0);
-
   const needle = query.trim().toLowerCase();
   const categorySuggestions = needle
     ? categories.filter((c) => c.text.toLowerCase().includes(needle)).slice(0, MAX_SUGGESTIONS_PER_GROUP)
@@ -335,22 +333,6 @@ export function FiltersForm({
             </div>
           )}
         </div>
-        {hasFilters && (
-          <button
-            type="button"
-            onClick={() => {
-              if (debounceRef.current) clearTimeout(debounceRef.current);
-              lastPushedQueryRef.current = "";
-              setQuery("");
-              startTransition(() => {
-                router.replace(basePath, { scroll: false });
-              });
-            }}
-            className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 transition hover:border-neutral-400 dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-neutral-500"
-          >
-            {lang === "ru" ? "Сбросить" : "Скинути"}
-          </button>
-        )}
       </div>
 
       {tags.length > 0 && (
