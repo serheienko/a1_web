@@ -33,6 +33,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Category, Tag } from "@/lib/a1/datasets";
 import { FilterIcon } from "@/components/filter-icon";
+import { ClearIcon } from "@/components/clear-icon";
 
 const MAX_SUGGESTIONS_PER_GROUP = 5;
 
@@ -204,7 +205,7 @@ export function FiltersForm({
             placeholder={lang === "ru" ? "Поиск по тексту..." : "Пошук за текстом..."}
             className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 pr-8 text-sm text-neutral-900 dark:border-neutral-700 dark:bg-black dark:text-neutral-100"
           />
-          {isPending && (
+          {isPending ? (
             <svg
               viewBox="0 0 24 24"
               fill="none"
@@ -214,6 +215,21 @@ export function FiltersForm({
               <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" strokeOpacity="0.25" />
               <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
             </svg>
+          ) : (
+            query.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (debounceRef.current) clearTimeout(debounceRef.current);
+                  setQuery("");
+                  navigate({ q: "" });
+                }}
+                aria-label={lang === "ru" ? "Очистить" : "Очистити"}
+                className="absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400 transition hover:text-neutral-600 dark:hover:text-neutral-300"
+              >
+                <ClearIcon className="h-4 w-4" />
+              </button>
+            )
           )}
 
           {/* Aleksandr, 2026-08-27: "автоподбор слов вот как гугл делает,
