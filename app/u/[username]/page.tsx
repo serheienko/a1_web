@@ -37,7 +37,7 @@ import { VoiceIntroProvider } from "@/components/voice-intro-context";
 import { VoiceIntroRing } from "@/components/voice-intro-ring";
 import { VoiceIntroPlayer } from "@/components/voice-intro-player";
 import { OccupationIcon } from "@/components/occupation-icon";
-import { fetchBookCoverUrl, fetchMovieCoverUrl, fetchGameCoverUrl } from "@/lib/covers";
+import { fetchBookCoverUrl, fetchMovieCoverUrl, fetchGameCoverUrl, type CoverImage } from "@/lib/covers";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -88,34 +88,55 @@ function pillList(items: string[]) {
 }
 
 // Aleksandr, 2026-08-28: "УЛЮБЛЕНЕ давай отобразим таким UI как вприложении?
-// Типа такие квадратные картинки (такие же как в апке) с названиями по
-// центру них" — square cover tile matching the app's own Books/Movies/
-// Games picker (Figma node reviewed 2026-08-28). coverUrl comes from
-// lib/covers.ts's best-effort third-party lookups; null falls back to a
-// plain tinted square with the title centered in ink instead of white
-// text over an image — never a broken image or empty box.
-function favoriteTile(title: string, subtitle: string | null, coverUrl: string | null, itemKey: string) {
+// Типа такие квадратные картинки (такие же как в апке)" — square cover
+// tile matching the app's own Books/Movies/Games picker (Figma node
+// reviewed 2026-08-28). cover comes from lib/covers.ts's best-effort
+// third-party lookups; null falls back to a plain tinted square with the
+// title in ink instead of white text over an image — never a broken
+// image or empty box.
+//
+// 2026-08-28 follow-up: "Названия... лучше снизу показывай" — title
+// moved from centered to bottom, over a gradient scrim for legibility.
+// Covers render through next/image (capped quality so Vercel's optimizer
+// keeps each file well under the ~100-150KB target) with a real
+// per-image blurred placeholder from lib/covers.ts, generated from the
+// actual cover's own pixels via sharp — not the generic shared shimmer
+// used elsewhere (see lib/blur-placeholder.ts).
+function favoriteTile(title: string, subtitle: string | null, cover: CoverImage | null, itemKey: string) {
   return (
     <div
       key={itemKey}
-      className="relative flex aspect-square items-center justify-center overflow-hidden rounded-xl bg-neutral-100 p-3 text-center dark:bg-neutral-800"
+      className="relative flex aspect-square items-center justify-end overflow-hidden rounded-xl bg-neutral-100 p-3 text-center dark:bg-neutral-800"
     >
-      {coverUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={coverUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      {cover && (
+        <Image
+          src={cover.url}
+          alt=""
+          fill
+          quality={60}
+          sizes="(min-width: 640px) 200px, 33vw"
+          className="object-cover"
+          placeholder={cover.blurDataUrl ? "blur" : "empty"}
+          blurDataURL={cover.blurDataUrl ?? undefined}
+        />
       )}
-      {coverUrl && <div className="absolute inset-0 bg-black/45" aria-hidden="true" />}
+      {cover && (
+        <div
+          className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/5 to-transparent"
+          aria-hidden="true"
+        />
+      )}
       <div className="relative">
         <div
           className={
             "text-sm font-semibold uppercase leading-snug tracking-wide " +
-            (coverUrl ? "text-white" : "text-neutral-700 dark:text-neutral-200")
+            (cover ? "text-white" : "text-neutral-700 dark:text-neutral-200")
           }
         >
           {title}
         </div>
         {subtitle && (
-          <div className={"mt-1 text-xs normal-case " + (coverUrl ? "text-white/80" : "text-neutral-500 dark:text-neutral-400")}>
+          <div className={"mt-1 text-xs normal-case " + (cover ? "text-white/80" : "text-neutral-500 dark:text-neutral-400")}>
             {subtitle}
           </div>
         )}
