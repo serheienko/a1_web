@@ -48,6 +48,14 @@ const THEME_INIT_SCRIPT = `
 // Wartime context, Aleksandr was explicit: not just "default to
 // Ukrainian", the RU option shouldn't be offered at all for a Ukraine
 // visitor, no exceptions (stale localStorage from before included).
+//
+// 2026-08-28: confirmed this is specifically about Russian, not
+// language-choice in general — "это только касается русского языка...
+// все остальные языки должны показываться как переключатель". The early
+// return above only ever skips the "ru" branch; it says nothing about
+// any other language, so the ~8-language switcher coming later doesn't
+// need this script to change — it only needs to keep "ru" out of
+// whatever it shows a geo-ua visitor.
 const LANG_INIT_SCRIPT = `
 (function () {
   try {

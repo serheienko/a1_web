@@ -14,6 +14,18 @@
 // variant below. Hidden via pure CSS (`geo-ua:hidden`, set before first
 // paint by the same anti-flash script), same zero-flash mechanism as
 // everything else here — this component doesn't need its own geo check.
+//
+// Aleksandr, 2026-08-28, scoping this precisely: "это только касается
+// русского языка в гео Украине... все остальные языки... должны
+// показываться как переключатель" — geo-ua only ever excludes RUSSIAN,
+// not language-switching in general. This button being fully hidden for
+// geo-ua today is a coincidence of there being exactly two languages
+// (uk/ru) — hiding "the switch" and hiding "the ru option" are the same
+// thing right now. They stop being the same thing the moment the ~8-language
+// list he's sending lands: that switcher must list every other language
+// normally for Ukraine-geo visitors too (English, Spanish, etc. all
+// selectable) and only ever drop "ru" from the list — never reuse
+// `geo-ua:hidden` on the switcher's root the way this button does.
 "use client";
 
 import { useEffect, useState } from "react";

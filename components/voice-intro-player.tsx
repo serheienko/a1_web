@@ -28,8 +28,18 @@
 //
 // Width, same day: "длину плеера на мобильном можно оставить, только
 // укоротить х2 на десктопе" (keep the mobile width, halve it on
-// desktop) — mobile keeps the full main-column width, `sm:w-1/2` below
-// only kicks in at the desktop breakpoint.
+// desktop) — first cut used `sm:w-1/2`, halving whatever the parent
+// <main> resolved to. That parent went from a fixed 672px box to a
+// `w-fit` one soon after (see app/u/[username]/page.tsx, same day, his
+// Figma-measured centering fix) — at that point "half of a
+// content-fitted parent" started truncating this row's own label,
+// since the parent's fit-content width is partly informed by this row
+// wanting to be full width. Dropped `sm:w-1/2`: this row is back to
+// `w-full` of its parent, and the parent shrinking to content already
+// makes it noticeably narrower than the old 672px version — the
+// original ask (shorter on desktop) still holds, just achieved by the
+// parent's own resize instead of a fraction that stacked badly on top
+// of it.
 "use client";
 
 import { useVoiceIntro } from "@/components/voice-intro-context";
@@ -53,7 +63,7 @@ export function VoiceIntroPlayer() {
   return (
     <div
       className={
-        "grid w-full transition-[grid-template-rows,opacity] duration-300 ease-out sm:w-1/2 " +
+        "grid w-full transition-[grid-template-rows,opacity] duration-300 ease-out " +
         (revealed ? "mt-4 grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")
       }
     >

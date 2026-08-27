@@ -9,6 +9,18 @@
 // away but not offered as an option at all. This is a real, current
 // wartime sensitivity, not a cosmetic preference — treated accordingly.
 //
+// Scoped precisely, 2026-08-28: "это только касается русского языка в
+// гео Украине... все остальные языки... должны показываться как
+// переключатель" — this is a RUSSIAN-specific carve-out, not a general
+// "no language switching in Ukraine" rule. English, Spanish, and
+// whatever else lands in the ~8-language rollout he's sending later all
+// stay fully selectable for Ukraine-geo visitors; only "ru" gets
+// dropped from their list. Nothing here needs to change for that later
+// — this middleware only ever stamps the visitor's country, it doesn't
+// know about languages at all; the actual exclusion logic lives in
+// app/layout.tsx's LANG_INIT_SCRIPT and wherever the future language
+// list gets rendered.
+//
 // This only stamps a plain (non-httpOnly) cookie with the visitor's
 // country, read from Vercel's edge geolocation header — it does NOT
 // touch cookies()/headers() inside any page or make any page dynamically

@@ -48,6 +48,14 @@
  * geolocated to Ukraine; components/lang-toggle.tsx uses `geo-ua:hidden`
  * to remove the RU switch entirely for them (not just default away from
  * it — Aleksandr was explicit the option itself shouldn't be offered).
+ *
+ * 2026-08-28: scoped to Russian specifically, not language-switching in
+ * general — "это только касается русского языка... все остальные языки
+ * должны показываться как переключатель". Using `geo-ua:hidden` on the
+ * whole two-state uk/ru button today happens to be equivalent to hiding
+ * only "ru", since there's nothing else to switch to yet. The future
+ * multi-language switcher (~8 languages, list still to come) must NOT
+ * apply `geo-ua:hidden` to itself wholesale — only to its "ru" option.
  */
 @custom-variant geo-ua {
   &:where(.geo-ua, .geo-ua *) {

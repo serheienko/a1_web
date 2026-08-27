@@ -66,7 +66,32 @@ export default async function ProfilePage({ params }: Props) {
 
   return (
     <VoiceIntroProvider url={profile.voiceIntroUrl}>
-    <main className="mx-auto max-w-2xl px-4 py-10 sm:py-16">
+    {/* Aleksandr, 2026-08-28: first tried dropping `mx-auto` to left-align
+        this against the nav logo — he corrected that: "НЕ к левому
+        краю... по центру страницы, как ориентир - 2 верхних таба" (NOT
+        to the left edge — centered on the page, using the two top tabs
+        as the reference point). Went back to `mx-auto`, which IS
+        mathematically centered on the same axis as the nav's tab pill
+        (verified live: both resolve to the exact same center X) — but
+        he came back with a photo of his own Figma measurements showing
+        it still read as left-shifted to him, and he was right: a fixed
+        672px (`max-w-2xl`) box being centered isn't the same as this
+        PAGE'S CONTENT looking centered, because every row here (avatar+
+        name, tag pills, skill bars, language bars) is left-aligned text
+        that's narrower than 672px — so the visible "mass" of the block
+        sits in the box's left portion while the box's own right portion
+        is invisible padding, and a centered invisible box with
+        left-heavy visible content reads as shifted left. `w-fit` fixes
+        this at the root: the box shrinks to whatever its widest actual
+        row needs (measured live: ~392px here, close to the ~426px he
+        estimated off his Figma screenshot) and centers THAT, so the
+        visible content's own center lines up with the tabs' center
+        instead of a phantom 672px box's center. `max-w-2xl` stays as a
+        ceiling so unusually long content (unusual bio, many tags) can't
+        blow this out past the original width. Mobile is untouched —
+        `w-full` below max-w-2xl, `sm:w-fit` only kicks in at the
+        desktop breakpoint. */}
+    <main className="mx-auto w-full max-w-2xl px-4 py-10 sm:w-fit sm:py-16">
       {/* Avatar sized off Instagram's own profile page as reference
           (Aleksandr, 2026-08-26): originally ~96px mobile / 150px
           desktop. Aleksandr, 2026-08-27, after seeing the voice-intro
