@@ -31,16 +31,82 @@ export type FeedFilters = {
   tags?: string[];
 };
 
+// Aleksandr, 2026-08-27: "надо модернизировать и улучшить поиск, чтобы он
+// подбирал не только по введенному полному слову, а начиная... со
+// второго символа" (typing "FR" should already surface "Frontend...").
+// Confirmed live: the backend's own `q` on posts.search needs something
+// close to a full word — "frontend" finds the post, "fr" finds nothing —
+// and the openapi spec (Method.v1_posts_search_input) has no alternate
+// matchType/fuzzy/prefix param to ask it to do this differently, and we
+// don't know where exactly its cutoff is between "fr" and "frontend"
+// either. So rather than guess a length threshold, ANY non-empty `q`
+// bypasses the backend's own matching entirely and substring-matches
+// client-side instead, against a bounded scan of this feed's own posts
+// (ignoring `q` in that scan, keeping categories/tags).
+const CLIENT_SEARCH_SCAN_PAGES = 5; // 5 * 100 = 500 posts scanned, max
+const CLIENT_SEARCH_SCAN_PAGE_SIZE = 100; // posts.search's documented max
+const CLIENT_SEARCH_CURSOR_PREFIX = "local-q-offset:";
+
+async function scanFeedForQuery(
+  kind: WebPostKind,
+  filters: FeedFilters,
+): Promise<WebPost[]> {
+  const needle = (filters.q ?? "").trim().toLowerCase();
+  const matches: WebPost[] = [];
+  let cursor: string | null | undefined;
+
+  for (let page = 0; page < CLIENT_SEARCH_SCAN_PAGES; page++) {
+    const raw = await call<unknown>("posts.search", {
+      limit: CLIENT_SEARCH_SCAN_PAGE_SIZE,
+      object: KIND_TO_OBJECT[kind],
+      ...(cursor ? { next: cursor } : {}),
+      ...(filters.categories && filters.categories.length > 0 ? { categories: filters.categories } : {}),
+      ...(filters.tags && filters.tags.length > 0 ? { tags: filters.tags } : {}),
+    });
+    const parsed = PostsSearchOutputSchema.parse(raw);
+    for (const post of mapPosts(parsed.items)) {
+      if (post.title.toLowerCase().includes(needle) || post.contentText.toLowerCase().includes(needle)) {
+        matches.push(post);
+      }
+    }
+    if (!parsed.pagination.hasMore || !parsed.pagination.next) break;
+    cursor = parsed.pagination.next;
+  }
+
+  // Not logged/surfaced anywhere further than this comment: past
+  // CLIENT_SEARCH_SCAN_PAGES * CLIENT_SEARCH_SCAN_PAGE_SIZE posts, a
+  // short-query match can silently go unseen. Fine at today's post
+  // volume; revisit (real backend prefix search, or a raised cap) if a
+  // feed ever gets close to 500 live posts.
+  return matches;
+}
+
 export async function fetchFeedPage(
   kind: WebPostKind,
   cursor?: string | null,
   filters: FeedFilters = {},
 ): Promise<FeedPage> {
+  const q = filters.q?.trim() ?? "";
+
+  if (q.length > 0) {
+    const offset = cursor?.startsWith(CLIENT_SEARCH_CURSOR_PREFIX)
+      ? Number(cursor.slice(CLIENT_SEARCH_CURSOR_PREFIX.length)) || 0
+      : 0;
+    const allMatches = await scanFeedForQuery(kind, filters);
+    const nextOffset = offset + FEED_PAGE_SIZE;
+    const hasMore = nextOffset < allMatches.length;
+    return {
+      posts: allMatches.slice(offset, nextOffset),
+      next: hasMore ? `${CLIENT_SEARCH_CURSOR_PREFIX}${nextOffset}` : null,
+      hasMore,
+    };
+  }
+
+  // q is always "" here — any non-empty q already returned above.
   const raw = await call<unknown>("posts.search", {
     limit: FEED_PAGE_SIZE,
     object: KIND_TO_OBJECT[kind],
     ...(cursor ? { next: cursor } : {}),
-    ...(filters.q ? { q: filters.q } : {}),
     ...(filters.categories && filters.categories.length > 0 ? { categories: filters.categories } : {}),
     ...(filters.tags && filters.tags.length > 0 ? { tags: filters.tags } : {}),
   });

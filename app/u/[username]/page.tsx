@@ -34,6 +34,7 @@ import { T } from "@/components/t";
 import { VoiceIntroProvider } from "@/components/voice-intro-context";
 import { VoiceIntroRing } from "@/components/voice-intro-ring";
 import { VoiceIntroPlayer } from "@/components/voice-intro-player";
+import { OccupationIcon } from "@/components/occupation-icon";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -228,9 +229,7 @@ export default async function ProfilePage({ params }: Props) {
           <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-neutral-500 dark:text-neutral-400">
             {occupationLabel && (
               <span className="inline-flex items-center gap-1.5">
-                {/* TODO(Aleksandr): swap in the animated cat icon for this
-                    occupation once we have the 3 asset files/URLs — one
-                    per entrepreneur/professional/freelancer. */}
+                <OccupationIcon occupation={profile.occupation} />
                 <T uk={occupationLabel.uk} ru={occupationLabel.ru} />
               </span>
             )}
