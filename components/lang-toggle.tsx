@@ -8,6 +8,12 @@
 // app/globals.css and components/t.tsx for how that's consumed. The
 // anti-flash script in app/layout.tsx applies the stored choice before
 // first paint, same as it already does for theme.
+//
+// Ukraine carve-out, same day: visitors geolocated to Ukraine don't get
+// this button at all — see middleware.ts for why, and the `geo-ua:`
+// variant below. Hidden via pure CSS (`geo-ua:hidden`, set before first
+// paint by the same anti-flash script), same zero-flash mechanism as
+// everything else here — this component doesn't need its own geo check.
 "use client";
 
 import { useEffect, useState } from "react";
@@ -40,7 +46,7 @@ export function LangToggle() {
       type="button"
       onClick={toggle}
       aria-label={isRu ? "Switch to Ukrainian" : "Переключить на русский"}
-      className="flex h-9 min-w-9 shrink-0 items-center justify-center rounded-lg px-2 text-xs font-semibold text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-900 dark:hover:text-neutral-50"
+      className="geo-ua:hidden flex h-9 min-w-9 shrink-0 items-center justify-center rounded-lg px-2 text-xs font-semibold text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-900 dark:hover:text-neutral-50"
     >
       {isRu === null ? null : isRu ? "УКР" : "РУС"}
     </button>

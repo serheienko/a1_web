@@ -43,6 +43,19 @@
 }
 
 /*
+ * Geo variant (2026-08-27) — see middleware.ts for the full rationale.
+ * .geo-ua goes on <html> before first paint when the visitor is
+ * geolocated to Ukraine; components/lang-toggle.tsx uses `geo-ua:hidden`
+ * to remove the RU switch entirely for them (not just default away from
+ * it — Aleksandr was explicit the option itself shouldn't be offered).
+ */
+@custom-variant geo-ua {
+  &:where(.geo-ua, .geo-ua *) {
+    @slot;
+  }
+}
+
+/*
  * Design tokens below are real values pulled from the Figma file
  * (A1-Claude, "Feed Preview White" frame) via the Inspect/Design panel —
  * NOT the file's Variables panel. Founder's call (2026-08-26): the

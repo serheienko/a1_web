@@ -41,13 +41,25 @@ const THEME_INIT_SCRIPT = `
 // components/lang-toggle.tsx and components/t.tsx). Default is Ukrainian
 // (no class, no stored choice, matches <html lang="uk"> below) — this
 // only ever needs to ADD .lang-ru when "ru" was explicitly chosen.
+//
+// Ukraine carve-out (2026-08-27, see middleware.ts): if the visitor is
+// geolocated to Ukraine, this returns immediately after stamping
+// .geo-ua — it never even LOOKS at a stored "ru" preference for them.
+// Wartime context, Aleksandr was explicit: not just "default to
+// Ukrainian", the RU option shouldn't be offered at all for a Ukraine
+// visitor, no exceptions (stale localStorage from before included).
 const LANG_INIT_SCRIPT = `
 (function () {
   try {
+    var root = document.documentElement;
+    if (document.cookie.indexOf("a1_geo=UA") !== -1) {
+      root.classList.add("geo-ua");
+      return;
+    }
     var stored = localStorage.getItem("lang");
     if (stored === "ru") {
-      document.documentElement.classList.add("lang-ru");
-      document.documentElement.lang = "ru";
+      root.classList.add("lang-ru");
+      root.lang = "ru";
     }
   } catch (e) {}
 })();

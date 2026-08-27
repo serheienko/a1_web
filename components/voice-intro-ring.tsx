@@ -101,15 +101,18 @@ export function VoiceIntroRing({ children }: { children: ReactNode }) {
         />
       </svg>
       {/* Corner badge — always visible so a voice intro is discoverable
-          before the first tap, not just while playing. */}
-      <span className="absolute bottom-0 right-0 flex h-6 w-6 items-center justify-center rounded-full bg-accent text-white ring-2 ring-app transition-transform group-hover:scale-110 dark:ring-black sm:h-8 sm:w-8">
+          before the first tap, not just while playing. Sized down along
+          with the avatar itself (2026-08-27, see app/u/[username]/page.tsx)
+          but not by the exact same ratio — a strictly-proportional shrink
+          left the mic icon inside it unreadably small. */}
+      <span className="absolute bottom-0 right-0 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-white ring-2 ring-app transition-transform group-hover:scale-110 dark:ring-black sm:h-6 sm:w-6">
         {playing ? (
-          <svg viewBox="0 0 24 24" fill="currentColor" className="h-3 w-3 sm:h-4 sm:w-4">
+          <svg viewBox="0 0 24 24" fill="currentColor" className="h-2.5 w-2.5 sm:h-3 sm:w-3">
             <rect x="6" y="5" width="4" height="14" rx="1" />
             <rect x="14" y="5" width="4" height="14" rx="1" />
           </svg>
         ) : (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3 w-3 sm:h-4 sm:w-4">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-2.5 w-2.5 sm:h-3 sm:w-3">
             <path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z" strokeLinecap="round" strokeLinejoin="round" />
             <path d="M6 11a6 6 0 0 0 12 0M12 17v3" strokeLinecap="round" strokeLinejoin="round" />
           </svg>

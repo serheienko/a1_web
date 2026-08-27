@@ -68,9 +68,14 @@ export default async function ProfilePage({ params }: Props) {
     <VoiceIntroProvider url={profile.voiceIntroUrl}>
     <main className="mx-auto max-w-2xl px-4 py-10 sm:py-16">
       {/* Avatar sized off Instagram's own profile page as reference
-          (Aleksandr, 2026-08-26): ~96px on mobile, 150px on desktop —
-          noticeably bigger than the post-card/post-detail byline avatar,
-          since this IS the page, not a passing mention of the author. */}
+          (Aleksandr, 2026-08-26): originally ~96px mobile / 150px
+          desktop. Aleksandr, 2026-08-27, after seeing the voice-intro
+          ring live: "оно какое-то очень большое... давай его в два раза
+          уменьшим" — halved to ~48px mobile / 75px desktop. The ring SVG
+          (components/voice-intro-ring.tsx) scales with this box
+          automatically (its viewBox is relative, not fixed pixels), so
+          nothing there needed to change — only the badge's own fixed
+          sizing did. */}
       <div className="flex items-center gap-4 sm:gap-8">
         <VoiceIntroRing>
           {profile.avatarUrl ? (
@@ -79,7 +84,7 @@ export default async function ProfilePage({ params }: Props) {
               alt=""
               width={150}
               height={150}
-              className="h-24 w-24 shrink-0 rounded-full object-cover sm:h-[150px] sm:w-[150px]"
+              className="h-12 w-12 shrink-0 rounded-full object-cover sm:h-[75px] sm:w-[75px]"
             />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
@@ -88,7 +93,7 @@ export default async function ProfilePage({ params }: Props) {
               alt=""
               width={150}
               height={150}
-              className="h-24 w-24 shrink-0 rounded-full object-cover sm:h-[150px] sm:w-[150px]"
+              className="h-12 w-12 shrink-0 rounded-full object-cover sm:h-[75px] sm:w-[75px]"
             />
           )}
         </VoiceIntroRing>

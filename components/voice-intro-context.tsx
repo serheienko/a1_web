@@ -25,6 +25,15 @@ type Rate = (typeof RATES)[number];
 
 type VoiceIntroState = {
   playing: boolean;
+  // Aleksandr, 2026-08-27, second follow-up: the player bar (see
+  // voice-intro-player.tsx) shouldn't hide again once you've paused —
+  // "если нажимаю паузу, он остается, потому что мы можем захотеть
+  // потом с этой точки прокрутить или прослушать или нажать x2" (if I
+  // hit pause it should stay, since I might want to scrub or change
+  // speed from that point). So visibility isn't `playing` anymore, it's
+  // "has this ever been tapped" — true forever once set, only reset by
+  // a fresh page load (new provider instance).
+  revealed: boolean;
   currentTime: number;
   duration: number;
   rate: Rate;
@@ -39,6 +48,7 @@ export function VoiceIntroProvider({ url, children }: { url: string | null; chil
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const rafRef = useRef<number | null>(null);
   const [playing, setPlaying] = useState(false);
+  const [revealed, setRevealed] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [rate, setRate] = useState<Rate>(RATES[0]);
@@ -68,6 +78,7 @@ export function VoiceIntroProvider({ url, children }: { url: string | null; chil
   }, [playing]);
 
   const toggle = useCallback(() => {
+    setRevealed(true);
     const audio = audioRef.current;
     if (!audio) return;
     if (audio.paused) void audio.play();
@@ -104,7 +115,7 @@ export function VoiceIntroProvider({ url, children }: { url: string | null; chil
   if (!url) return <>{children}</>;
 
   return (
-    <VoiceIntroContext.Provider value={{ playing, currentTime, duration, rate, toggle, seek, cycleRate }}>
+    <VoiceIntroContext.Provider value={{ playing, revealed, currentTime, duration, rate, toggle, seek, cycleRate }}>
       <audio
         ref={audioRef}
         src={url}

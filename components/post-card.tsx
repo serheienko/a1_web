@@ -109,10 +109,18 @@ export function PostCard({ post }: { post: WebPost }) {
         {/* Aleksandr, 2026-08-27: "подрезать отображаемый текст в фиде
             до 6 строк, остальное показывать через ... при переходе на
             страницу" — 3 lines read as too little to judge a post from
-            the feed; full text still only lives on the detail page. */}
+            the feed; full text still only lives on the detail page.
+            NO "block" class here — line-clamp-N's own `display:
+            -webkit-box` is what makes -webkit-line-clamp actually work
+            on real Safari/iOS (confirmed live on Aleksandr's iPhone,
+            2026-08-27: it silently no-ops there, though desktop Chrome's
+            newer standards-track line-clamp support masked it). A
+            `block` utility on the same element wins the display
+            property in the compiled CSS and overrides -webkit-box back
+            to block, which is exactly what breaks clamping on WebKit. */}
         <Link
           href={href}
-          className="mt-3 block line-clamp-6 text-sm text-ink transition-opacity hover:opacity-80 dark:text-neutral-400"
+          className="mt-3 line-clamp-6 text-sm text-ink transition-opacity hover:opacity-80 dark:text-neutral-400"
         >
           {post.contentText}
         </Link>
