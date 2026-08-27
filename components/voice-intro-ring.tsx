@@ -5,9 +5,16 @@
 // который она добавлена? Потом при нажатии появляется плеер играется звук
 // и круг идет по анимации" — a gradient ring around the avatar for users
 // who've recorded a voice intro (Figma ref: node 24332-3095, a blue→cyan
-// ring around the profile photo). Click plays the clip; the ring spins
-// while it's playing, and a small badge in the corner signals "tap to
-// listen" even before it's pressed.
+// ring around the profile photo). Click plays the clip.
+//
+// First cut span-nested an `animate-spin` around the whole avatar, which
+// span the AVATAR PHOTO itself instead of just the ring — Aleksandr caught
+// this: "Сейчас крутится сама аватарка, а надо чтобы кольцо уходило по
+// часовой стрелке по мере прослушивания" (the avatar itself is spinning;
+// the ring should sweep clockwise as playback progresses, not rotate the
+// photo). Rebuilt as a real progress ring: a separate absolutely-positioned
+// SVG circle overlay, stroke-dashoffset driven by audio.currentTime /
+// audio.duration via a rAF loop — the avatar element is never transformed.
 //
 // voiceIntroUrl comes from Resource.User.voiceIntroduction — confirmed
 // against the live OpenAPI spec 2026-08-27 (was entirely unparsed before;
@@ -15,7 +22,15 @@
 // as any other MediaDocument (avatarUrl, post photos).
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+
+// Big enough that stroke-width scales cleanly at both the 96px mobile and
+// 150px desktop avatar sizes (viewBox is unitless, so the SVG just scales
+// with its CSS box — see the wrapping <span>'s h-full w-full below).
+const SIZE = 100;
+const STROKE = 4;
+const RADIUS = (SIZE - STROKE) / 2;
+const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
 export function VoiceIntroRing({
   voiceIntroUrl,
@@ -25,7 +40,27 @@ export function VoiceIntroRing({
   children: ReactNode;
 }) {
   const [playing, setPlaying] = useState(false);
+  const [progress, setProgress] = useState(0); // 0..1, elapsed / duration
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const rafRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!playing) {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      return;
+    }
+    const tick = () => {
+      const audio = audioRef.current;
+      if (audio && audio.duration > 0 && Number.isFinite(audio.duration)) {
+        setProgress(audio.currentTime / audio.duration);
+      }
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    };
+  }, [playing]);
 
   if (!voiceIntroUrl) return <>{children}</>;
 
@@ -39,6 +74,11 @@ export function VoiceIntroRing({
     }
   };
 
+  // Clockwise sweep from 12 o'clock: rotate the SVG -90deg so 0,0 on the
+  // circle starts at the top, then dashoffset shrinks as progress grows —
+  // the drawn (colored) arc is what's already been listened to.
+  const dashOffset = CIRCUMFERENCE * (1 - progress);
+
   return (
     <button
       type="button"
@@ -51,21 +91,54 @@ export function VoiceIntroRing({
         src={voiceIntroUrl}
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
-        onEnded={() => setPlaying(false)}
+        onEnded={() => {
+          setPlaying(false);
+          setProgress(0);
+        }}
         className="hidden"
       />
-      {/* Ring: conic-gradient sweep in a padded circle, spinning while the
-          clip plays. A page-background inset between the gradient and the
-          avatar is what makes it read as a ring instead of a glow. */}
-      <span
-        className={"block rounded-full p-[3px] sm:p-1" + (playing ? " animate-spin" : "")}
-        style={{
-          background: "conic-gradient(from 0deg, var(--color-accent), #7dd3fc, var(--color-accent))",
-          animationDuration: "2.2s",
-        }}
-      >
+      {/* Avatar itself — never transformed, never rotated. */}
+      <span className="block rounded-full p-[3px] sm:p-1">
         <span className="block rounded-full bg-app p-[2px] dark:bg-black sm:p-[3px]">{children}</span>
       </span>
+      {/* Ring overlay: faint full track underneath, accent arc sweeping
+          clockwise on top as the clip plays. Static (unfilled) blue→cyan
+          gradient track when not yet started, so it's still discoverable
+          as a ring before the first tap. */}
+      <svg
+        viewBox={`0 0 ${SIZE} ${SIZE}`}
+        className="pointer-events-none absolute inset-0 h-full w-full -rotate-90"
+        aria-hidden="true"
+      >
+        <defs>
+          <linearGradient id="voice-ring-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="var(--color-accent)" />
+            <stop offset="100%" stopColor="#7dd3fc" />
+          </linearGradient>
+        </defs>
+        <circle
+          cx={SIZE / 2}
+          cy={SIZE / 2}
+          r={RADIUS}
+          fill="none"
+          stroke="url(#voice-ring-gradient)"
+          strokeWidth={STROKE}
+          strokeOpacity={playing ? 0.25 : 1}
+        />
+        {playing && (
+          <circle
+            cx={SIZE / 2}
+            cy={SIZE / 2}
+            r={RADIUS}
+            fill="none"
+            stroke="url(#voice-ring-gradient)"
+            strokeWidth={STROKE}
+            strokeLinecap="round"
+            strokeDasharray={CIRCUMFERENCE}
+            strokeDashoffset={dashOffset}
+          />
+        )}
+      </svg>
       {/* Corner badge — always visible so a voice intro is discoverable
           before the first tap, not just while playing. */}
       <span className="absolute bottom-0 right-0 flex h-6 w-6 items-center justify-center rounded-full bg-accent text-white ring-2 ring-app transition-transform group-hover:scale-110 dark:ring-black sm:h-8 sm:w-8">
