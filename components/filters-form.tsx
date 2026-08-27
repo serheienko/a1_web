@@ -142,7 +142,12 @@ const CATEGORY_LABEL_TRANSLATIONS: Record<string, Record<Locale, string>> = {
 function translateCategoryLabel(text: string, lang: Locale): string {
   const match = text.match(/^(\S+)\s+(.+)$/);
   if (!match) return text;
-  const [, emoji, name] = match;
+  // Both capturing groups are required by the pattern (no `?`), so a
+  // successful match always populates match[1]/match[2] — but
+  // noUncheckedIndexedAccess still types RegExpMatchArray access as
+  // possibly-undefined, hence the assertions.
+  const emoji = match[1]!;
+  const name = match[2]!;
   const translated = CATEGORY_LABEL_TRANSLATIONS[name]?.[lang];
   return translated ? emoji + " " + translated : text;
 }
