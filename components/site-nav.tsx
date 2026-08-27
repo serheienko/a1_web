@@ -23,7 +23,10 @@ export function SiteNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="sticky top-0 z-10 border-b border-neutral-200 bg-app/80 backdrop-blur dark:border-neutral-800 dark:bg-black/80">
+    <nav
+      className="sticky top-0 z-40 border-b border-neutral-200 bg-app/80 pt-[env(safe-area-inset-top)] backdrop-blur-xl [will-change:transform] dark:border-neutral-800 dark:bg-black/80"
+      style={{ transform: "translateZ(0)" }}
+    >
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 px-4 py-3">
         <Link href="/" className="justify-self-start shrink-0 transition-opacity hover:opacity-80">
           {/* Two exact logo marks exported from Figma (light = brand blue #335EF7,

@@ -17,6 +17,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import type { WebPostImage } from "@/types/web-post";
 
 export function PostImages({ images }: { images: WebPostImage[] }) {
@@ -65,6 +66,8 @@ export function PostImages({ images }: { images: WebPostImage[] }) {
             height={img.height}
             sizes="(min-width: 672px) 672px, 100vw"
             priority
+            placeholder="blur"
+            blurDataURL={BLUR_DATA_URL}
             className="w-full"
           />
         </button>
@@ -80,7 +83,7 @@ export function PostImages({ images }: { images: WebPostImage[] }) {
           photo onto a second row on mobile; now mobile is a single
           horizontally-scrollable row (snap-to-photo, like a story tray),
           and sm:+ keeps the existing 3-col grid. */}
-      <div className="-mx-4 mt-6 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 sm:pb-0">
+      <div className="no-scrollbar -mx-4 mt-6 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 sm:pb-0">
         {valid.map((img, i) => (
           <button
             type="button"
@@ -94,6 +97,8 @@ export function PostImages({ images }: { images: WebPostImage[] }) {
               fill
               sizes="(min-width: 672px) 220px, 42vw"
               priority={i === 0}
+              placeholder="blur"
+              blurDataURL={BLUR_DATA_URL}
               className="object-cover"
             />
           </button>

@@ -32,6 +32,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Category, Tag } from "@/lib/a1/datasets";
+import { FilterIcon } from "@/components/filter-icon";
 
 const MAX_SUGGESTIONS_PER_GROUP = 5;
 
@@ -42,6 +43,7 @@ export function FiltersForm({
   currentQuery,
   currentCategory,
   currentTags,
+  emptyCategoryValues = [],
 }: {
   basePath: string;
   categories: Category[];
@@ -49,6 +51,11 @@ export function FiltersForm({
   currentQuery?: string;
   currentCategory?: number;
   currentTags: string[];
+  // Aleksandr, 2026-08-27: "Категории в которых пока пусто показывай 50%
+  // прозрачности и не активными" — computed server-side (see
+  // lib/a1/feed.ts's fetchEmptyCategoryValues), one real posts.search per
+  // category rather than guessed client-side.
+  emptyCategoryValues?: number[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -56,6 +63,28 @@ export function FiltersForm({
   const [inputFocused, setInputFocused] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 2026-08-27: "категории... можно их вообще поселить на иконку
+  // фильтров, как у нас в приложении" — the category <select> now lives
+  // behind a filter-icon button (see components/filter-icon.tsx, traced
+  // from the Figma reference he linked) instead of sitting in the main
+  // row, so the search box can actually be the wide element. filtersOpen
+  // tracks the popover; filtersRef lets a click anywhere outside it
+  // close the popover (the search suggestions dropdown gets this for
+  // free from the input's onBlur, but a button + popover has no single
+  // focusable element to blur from).
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtersRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!filtersOpen) return;
+    function onDocPointerDown(e: MouseEvent) {
+      if (filtersRef.current && !filtersRef.current.contains(e.target as Node)) {
+        setFiltersOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocPointerDown);
+    return () => document.removeEventListener("mousedown", onDocPointerDown);
+  }, [filtersOpen]);
 
   // <T/> (components/t.tsx) can't help with attribute values or <option>
   // text — CSS can't conditionally show/hide inside those — so this one
@@ -71,7 +100,24 @@ export function FiltersForm({
   // currentQuery only changes when the URL changes from OUTSIDE this
   // component (back/forward nav, a shared link) — keep the input in sync
   // with it then, without fighting the user's own typing.
-  useEffect(() => setQuery(currentQuery ?? ""), [currentQuery]);
+  //
+  // 2026-08-27 fix ("поиск самоотчищается"): every navigate() call is an
+  // ASYNC router.replace — when it finally resolves and this component
+  // re-renders with the new currentQuery, that's usually just an ECHO of
+  // a change we ourselves just pushed, arriving late. Without this
+  // guard, that echo would stomp over whatever the user had typed since
+  // (occasionally all the way back to "" right after a quick clear+
+  // retype). lastPushedQueryRef tracks what WE last put in the URL; only
+  // resync from the prop when it doesn't match, i.e. it's a genuine
+  // external change (back/forward, a shared link) rather than our own
+  // request catching up.
+  const lastPushedQueryRef = useRef(currentQuery ?? "");
+  useEffect(() => {
+    const next = currentQuery ?? "";
+    if (next === lastPushedQueryRef.current) return;
+    lastPushedQueryRef.current = next;
+    setQuery(next);
+  }, [currentQuery]);
 
   useEffect(() => {
     return () => {
@@ -86,9 +132,12 @@ export function FiltersForm({
     const category = overrides.category !== undefined ? overrides.category : currentCategory;
     const nextTags = overrides.tags !== undefined ? overrides.tags : currentTags;
 
-    if (q.trim()) params.set("q", q.trim());
+    const trimmedQ = q.trim();
+    if (trimmedQ) params.set("q", trimmedQ);
     if (category != null) params.set("category", String(category));
     for (const tag of nextTags) params.append("tag", tag);
+
+    lastPushedQueryRef.current = trimmedQ;
 
     const qs = params.toString();
     startTransition(() => {
@@ -212,22 +261,67 @@ export function FiltersForm({
             </div>
           )}
         </div>
-        <select
-          value={currentCategory ?? ""}
-          onChange={(e) => onCategoryChange(e.target.value)}
-          className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 dark:border-neutral-700 dark:bg-black dark:text-neutral-100"
-        >
-          <option value="">{lang === "ru" ? "Все категории" : "Усі категорії"}</option>
-          {categories.map((c) => (
-            <option key={c.value} value={c.value}>
-              {c.text}
-            </option>
-          ))}
-        </select>
+        <div className="relative shrink-0" ref={filtersRef}>
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((v) => !v)}
+            aria-label={lang === "ru" ? "Фильтры" : "Фільтри"}
+            aria-expanded={filtersOpen}
+            className={
+              "relative flex h-10 w-10 items-center justify-center rounded-full border transition " +
+              (currentCategory != null
+                ? "border-accent/40 bg-accent/10 text-accent"
+                : "border-neutral-300 bg-white text-neutral-500 hover:text-neutral-900 dark:border-neutral-700 dark:bg-black dark:text-neutral-400 dark:hover:text-neutral-50")
+            }
+          >
+            <FilterIcon className="h-5 w-5" />
+            {currentCategory != null && (
+              <span
+                className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-accent ring-2 ring-white dark:ring-black"
+                aria-hidden="true"
+              />
+            )}
+          </button>
+
+          {filtersOpen && (
+            <div className="absolute right-0 top-full z-20 mt-2 w-56 rounded-lg border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+              <div className="px-1 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+                {lang === "ru" ? "Категория" : "Категорія"}
+              </div>
+              <select
+                value={currentCategory ?? ""}
+                onChange={(e) => {
+                  onCategoryChange(e.target.value);
+                  setFiltersOpen(false);
+                }}
+                className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 dark:border-neutral-700 dark:bg-black dark:text-neutral-100"
+              >
+                <option value="">{lang === "ru" ? "Все категории" : "Усі категорії"}</option>
+                {categories.map((c) => (
+                  <option
+                    key={c.value}
+                    value={c.value}
+                    disabled={emptyCategoryValues.includes(c.value)}
+                    className="disabled:opacity-50"
+                  >
+                    {c.text}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
         {hasFilters && (
           <button
             type="button"
-            onClick={() => router.replace(basePath, { scroll: false })}
+            onClick={() => {
+              if (debounceRef.current) clearTimeout(debounceRef.current);
+              lastPushedQueryRef.current = "";
+              setQuery("");
+              startTransition(() => {
+                router.replace(basePath, { scroll: false });
+              });
+            }}
             className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 transition hover:border-neutral-400 dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-neutral-500"
           >
             {lang === "ru" ? "Сбросить" : "Скинути"}

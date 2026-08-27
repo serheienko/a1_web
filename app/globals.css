@@ -124,3 +124,21 @@
 .dark {
   --color-accent: #0c8ce9;
 }
+
+/*
+ * Aleksandr, 2026-08-27: "Не показывай эту скролл полоску снизу возле
+ * фото в моб версии" — the mobile photo gallery in
+ * components/post-images.tsx is a horizontally-scrollable row
+ * (overflow-x-auto) so it still needs to scroll, just without the
+ * visible scrollbar chrome. Tailwind v4 has no built-in utility for
+ * this, so it's a small hand-written one, standard cross-browser
+ * combo (Firefox/IE via a property, WebKit/Chrome via the pseudo-element).
+ */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

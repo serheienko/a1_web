@@ -29,6 +29,7 @@ import {
   WORK_STYLE_DATASET_KEYS,
 } from "@/lib/a1/datasets";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
+import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { formatLanguageName } from "@/lib/format";
 import { T } from "@/components/t";
 import { VoiceIntroProvider } from "@/components/voice-intro-context";
@@ -196,6 +197,8 @@ export default async function ProfilePage({ params }: Props) {
               alt=""
               width={150}
               height={150}
+              placeholder="blur"
+              blurDataURL={BLUR_DATA_URL}
               className="h-12 w-12 shrink-0 rounded-full object-cover sm:h-[75px] sm:w-[75px]"
             />
           ) : (

@@ -7,18 +7,19 @@
 // own Lottie exports; "professional" maps to his "Employee.json" file —
 // that's the 3rd role's animation, just a different in-app label for it).
 //
-// "use client" + dynamic(..., {ssr:false}): lottie-web (which
-// lottie-react wraps) touches `document`/canvas APIs at import time and
-// can't run during SSR, same reason as VoiceIntroPlayer/VoiceIntroRing
-// elsewhere on this page. Animation JSON is fetched at runtime from
-// /public rather than imported as a JS module, so profiles with a
-// different (or no) occupation never pay for the other two files' bytes.
+// 2026-08-27 follow-up: shipped this first against `lottie-react` (a JSX
+// wrapper around lottie-web) and the icon never showed up live — no
+// fetch to /occupations/*.json even reached the network tab, which
+// points at the Vercel build itself failing on that commit (most likely
+// a strict-mode TS mismatch between lottie-react's own prop types and
+// what we were passing) and Vercel quietly continuing to serve the
+// previous successful deploy. Rebuilt against `lottie-web` directly —
+// its imperative `loadAnimation()` call has no JSX prop surface to
+// typecheck against, which is the safer shape for a browser-only
+// animation library sitting inside a server-rendered page.
 "use client";
 
-import { useEffect, useState } from "react";
-import dynamic from "next/dynamic";
-
-const Lottie = dynamic(() => import("lottie-react"), { ssr: false });
+import { useEffect, useRef } from "react";
 
 const OCCUPATION_ANIMATION_URLS: Record<string, string> = {
   entrepreneur: "/occupations/entrepreneur.json",
@@ -28,15 +29,25 @@ const OCCUPATION_ANIMATION_URLS: Record<string, string> = {
 
 export function OccupationIcon({ occupation }: { occupation: string }) {
   const url = OCCUPATION_ANIMATION_URLS[occupation];
-  const [animationData, setAnimationData] = useState<object | null>(null);
+  const containerRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
-    if (!url) return;
+    if (!url || !containerRef.current) return;
+
     let cancelled = false;
-    fetch(url)
-      .then((res) => res.json())
-      .then((data) => {
-        if (!cancelled) setAnimationData(data);
+    let anim: { destroy: () => void } | null = null;
+
+    Promise.all([import("lottie-web"), fetch(url).then((res) => res.json())])
+      .then(([lottieModule, animationData]) => {
+        if (cancelled || !containerRef.current) return;
+        const lottie = lottieModule.default;
+        anim = lottie.loadAnimation({
+          container: containerRef.current,
+          renderer: "svg",
+          loop: true,
+          autoplay: true,
+          animationData,
+        });
       })
       .catch(() => {
         // A missing/broken animation file just means no icon — the text
@@ -44,16 +55,20 @@ export function OccupationIcon({ occupation }: { occupation: string }) {
         // information, so this fails silently rather than showing a
         // broken-image placeholder.
       });
+
     return () => {
       cancelled = true;
+      anim?.destroy();
     };
   }, [url]);
 
-  if (!url || !animationData) return null;
+  if (!url) return null;
 
   return (
-    <span className="inline-block h-6 w-6 shrink-0" aria-hidden="true">
-      <Lottie animationData={animationData} loop autoplay />
-    </span>
+    <span
+      ref={containerRef}
+      className="inline-block h-6 w-6 shrink-0"
+      aria-hidden="true"
+    />
   );
 }

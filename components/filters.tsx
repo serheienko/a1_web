@@ -10,6 +10,7 @@ import { fetchCategories, fetchTagsForKind } from "@/lib/a1/datasets";
 import type { Category } from "@/lib/a1/datasets";
 import type { WebPostKind } from "@/types/web-post";
 import { FiltersForm } from "@/components/filters-form";
+import { fetchEmptyCategoryValues } from "@/lib/a1/feed";
 
 // Aleksandr, 2026-08-26: "Вынеси IT на самый верх" — the category list
 // itself comes verbatim from the backend (dataset.postCategories, see
@@ -40,6 +41,10 @@ export async function Filters({
 }) {
   const [categoriesRaw, tags] = await Promise.all([fetchCategories(), fetchTagsForKind(kind)]);
   const categories = withItFirst(categoriesRaw);
+  const emptyCategoryValues = await fetchEmptyCategoryValues(
+    kind,
+    categories.map((c) => c.value),
+  );
 
   return (
     <FiltersForm
@@ -49,6 +54,7 @@ export async function Filters({
       currentQuery={currentQuery}
       currentCategory={currentCategory}
       currentTags={currentTags}
+      emptyCategoryValues={emptyCategoryValues}
     />
   );
 }

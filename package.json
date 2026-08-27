@@ -14,7 +14,7 @@
     "react-dom": "^19.0.0",
     "zod": "^3.23.8",
     "@vercel/analytics": "^1.0.0",
-    "lottie-react": "^2.4.0"
+    "lottie-web": "^5.12.2"
   },
   "devDependencies": {
     "typescript": "^5.6.0",

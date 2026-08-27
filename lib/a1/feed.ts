@@ -81,6 +81,41 @@ async function scanFeedForQuery(
   return matches;
 }
 
+// Aleksandr, 2026-08-27: "Категории в которых пока пусто показывай 50%
+// прозрачности и не активными" — the category filter list should visibly
+// dim/disable a category that currently has zero live posts, rather than
+// let someone pick it and land on an empty feed. dataset.postCategories
+// (lib/a1/datasets.ts) carries no post-count of its own, so this asks
+// posts.search directly, one minimal (limit: 1) request per category, in
+// parallel — the same "count" field posts.search already returns
+// (schemas.ts's PostsSearchOutputSchema) is reused here rather than
+// counting items.length, since a single-item page can't tell "1 total"
+// apart from "100 total" on its own. A category that errors is treated
+// as non-empty (fails open) rather than getting hidden/disabled by a
+// transient network hiccup.
+export async function fetchEmptyCategoryValues(
+  kind: WebPostKind,
+  categoryValues: number[],
+): Promise<number[]> {
+  const results = await Promise.all(
+    categoryValues.map(async (categoryValue) => {
+      try {
+        const raw = await call<unknown>("posts.search", {
+          limit: 1,
+          object: KIND_TO_OBJECT[kind],
+          categories: [categoryValue],
+        });
+        const parsed = PostsSearchOutputSchema.parse(raw);
+        const total = parsed.count?.total ?? parsed.items.length;
+        return total === 0 ? categoryValue : null;
+      } catch {
+        return null;
+      }
+    }),
+  );
+  return results.filter((v): v is number => v !== null);
+}
+
 export async function fetchFeedPage(
   kind: WebPostKind,
   cursor?: string | null,

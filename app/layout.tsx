@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Commissioner } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import Script from "next/script";
@@ -84,6 +84,15 @@ export const metadata: Metadata = {
   verification: process.env.GOOGLE_SITE_VERIFICATION
     ? { google: process.env.GOOGLE_SITE_VERIFICATION }
     : undefined,
+};
+
+// Aleksandr, 2026-08-27: header should fog/blur under the iPhone status
+// bar/notch like the native app does, instead of a hard white edge —
+// needs `viewport-fit=cover` or `env(safe-area-inset-top)` in
+// site-nav.tsx's CSS always resolves to 0 and the notch area just shows
+// plain page background with nothing painted into it.
+export const viewport: Viewport = {
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
