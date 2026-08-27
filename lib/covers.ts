@@ -45,9 +45,18 @@ async function safeFetchJson(url: string): Promise<unknown | null> {
       next: { revalidate: 86400 },
     });
     clearTimeout(timeout);
-    if (!res.ok) return null;
+    if (!res.ok) {
+      // 2026-08-28: diagnostic-only — TMDB/RAWG covers weren't showing up
+      // in production; logging just the host + status (never the URL,
+      // which carries the API key in the query string) so we can tell a
+      // bad/missing key (401/403) apart from a network hiccup without
+      // ever putting a secret in the logs.
+      console.warn(`[covers] ${new URL(url).hostname} responded ${res.status}`);
+      return null;
+    }
     return await res.json();
-  } catch {
+  } catch (err) {
+    console.warn(`[covers] fetch failed for ${new URL(url).hostname}:`, err instanceof Error ? err.message : err);
     return null;
   }
 }

@@ -106,7 +106,7 @@ function favoriteTile(title: string, subtitle: string | null, cover: CoverImage 
   return (
     <div
       key={itemKey}
-      className="relative flex aspect-square items-center justify-end overflow-hidden rounded-xl bg-neutral-100 p-3 text-center dark:bg-neutral-800"
+      className="relative flex aspect-square flex-col items-center justify-end overflow-hidden rounded-xl bg-neutral-100 p-3 text-center dark:bg-neutral-800"
     >
       {cover && (
         <Image
