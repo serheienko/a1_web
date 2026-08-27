@@ -304,39 +304,28 @@ export function FiltersForm({
               <div className="px-1 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
                 {lang === "ru" ? "Категория" : "Категорія"}
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  onCategoryChange("");
-                  setFiltersOpen(false);
-                }}
-                className={
-                  "block w-full truncate rounded-md px-2 py-1.5 text-left text-sm transition " +
-                  (currentCategory == null
-                    ? "bg-accent/10 font-medium text-accent"
-                    : "text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800")
-                }
-              >
-                {lang === "ru" ? "Все категории" : "Усі категорії"}
-              </button>
               {categories.map((c) => {
                 const isEmpty = emptyCategoryValues.includes(c.value);
+                const isSelected = currentCategory === c.value;
                 return (
                   <button
                     key={c.value}
                     type="button"
                     disabled={isEmpty}
                     onClick={() => {
-                      onCategoryChange(String(c.value));
+                      // Selecting the already-selected category again
+                      // clears it — the only way back to "all" now that
+                      // there's no separate "all categories" row.
+                      onCategoryChange(isSelected ? "" : String(c.value));
                       setFiltersOpen(false);
                     }}
                     className={
                       "block w-full truncate rounded-md px-2 py-1.5 text-left text-sm transition " +
                       (isEmpty
                         ? "cursor-not-allowed text-neutral-400 opacity-50 dark:text-neutral-600"
-                        : currentCategory === c.value
+                        : isSelected
                           ? "bg-accent/10 font-medium text-accent"
-                          : "text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800")
+                          : "text-neutral-700 hover:bg-accent/10 hover:text-accent dark:text-neutral-300")
                     }
                   >
                     {c.text}
