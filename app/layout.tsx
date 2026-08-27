@@ -37,38 +37,83 @@ const THEME_INIT_SCRIPT = `
 })();
 `;
 
-// Same anti-flash trick, for the UA/RU switch (2026-08-27, see
-// components/lang-toggle.tsx and components/t.tsx). Default is Ukrainian
-// (no class, no stored choice, matches <html lang="uk"> below) — this
-// only ever needs to ADD .lang-ru when "ru" was explicitly chosen.
+// Same anti-flash trick, now for the full 9-language switcher (2026-08-27,
+// see components/lang-toggle.tsx and components/t.tsx). Every language —
+// including Ukrainian — needs an explicit lang-XX class for its <T/> spans
+// to show (components/t.tsx wraps ALL nine locales symmetrically in
+// "hidden lang-XX:inline", not just a non-default one), so this always
+// ends by setting exactly one such class, clearing any others first
+// (the <html> tag below bakes in lang-uk as the no-JS/pre-hydration
+// fallback; this script corrects it to the real resolved locale before
+// first paint, same guarantee beforeInteractive already gives THEME_INIT_SCRIPT).
 //
-// Ukraine carve-out (2026-08-27, see middleware.ts): if the visitor is
-// geolocated to Ukraine, this returns immediately after stamping
-// .geo-ua — it never even LOOKS at a stored "ru" preference for them.
-// Wartime context, Aleksandr was explicit: not just "default to
-// Ukrainian", the RU option shouldn't be offered at all for a Ukraine
-// visitor, no exceptions (stale localStorage from before included).
+// Resolution order: (1) an explicit stored choice from LangToggle always
+// wins; (2) otherwise, a geo-based default computed from middleware.ts's
+// a1_geo cookie (IP-detected, mirrors "хотелось бы, чтобы сайт
+// автоматически определял [язык] в зависимости от IP, но при этом выбор
+// также оставался" — auto-detect by default, manual pick always
+// override-able); (3) unmapped/unknown countries fall back to the site's
+// own default, Ukrainian — deliberately not English, matching the
+// existing <html lang="uk"> choice below.
 //
-// 2026-08-28: confirmed this is specifically about Russian, not
-// language-choice in general — "это только касается русского языка...
-// все остальные языки должны показываться как переключатель". The early
-// return above only ever skips the "ru" branch; it says nothing about
-// any other language, so the ~8-language switcher coming later doesn't
-// need this script to change — it only needs to keep "ru" out of
-// whatever it shows a geo-ua visitor.
+// Ukraine carve-out (2026-08-27/28, see middleware.ts, quoted precisely
+// because the scope matters): "это только касается русского языка в гео
+// Украине... все остальные языки... должны показываться как
+// переключатель" — geo-ua drops ONLY "ru" from consideration, both as a
+// stored choice (even stale localStorage from before this rule existed)
+// and as a geo-detected default. It never disables language-switching
+// itself — see components/lang-toggle.tsx, which keeps every other
+// language selectable for Ukraine-geo visitors.
 const LANG_INIT_SCRIPT = `
 (function () {
   try {
     var root = document.documentElement;
-    if (document.cookie.indexOf("a1_geo=UA") !== -1) {
-      root.classList.add("geo-ua");
-      return;
+    var LOCALES = ["uk", "en", "ru", "de", "es", "fr", "pl", "ptBR", "zh"];
+    var CLASS_FOR = {
+      uk: "lang-uk", en: "lang-en", ru: "lang-ru", de: "lang-de",
+      es: "lang-es", fr: "lang-fr", pl: "lang-pl", ptBR: "lang-ptbr", zh: "lang-zh"
+    };
+    var TAG_FOR = {
+      uk: "uk", en: "en", ru: "ru", de: "de", es: "es", fr: "fr",
+      pl: "pl", ptBR: "pt-BR", zh: "zh-Hans"
+    };
+
+    var match = document.cookie.match(/(?:^|; )a1_geo=([^;]*)/);
+    var country = match ? decodeURIComponent(match[1]) : "";
+    var isGeoUa = country === "UA";
+    if (isGeoUa) root.classList.add("geo-ua");
+
+    var stored = null;
+    try {
+      var s = localStorage.getItem("lang");
+      if (s && LOCALES.indexOf(s) !== -1) stored = s;
+    } catch (e) {}
+    // Hard rule, no exceptions: never Russian for a Ukraine-geo visitor,
+    // even a choice they made before this rule existed.
+    if (isGeoUa && stored === "ru") stored = null;
+
+    var locale = stored;
+    if (!locale) {
+      var GEO_DEFAULT = {
+        UA: "uk",
+        DE: "de", AT: "de", CH: "de",
+        ES: "es", MX: "es", AR: "es", CO: "es", CL: "es", PE: "es", VE: "es",
+        EC: "es", GT: "es", CU: "es", BO: "es", DO: "es", HN: "es", PY: "es",
+        SV: "es", NI: "es", CR: "es", PA: "es", UY: "es", PR: "es",
+        FR: "fr", BE: "fr",
+        PL: "pl",
+        BR: "ptBR",
+        CN: "zh",
+        RU: "ru", BY: "ru", KZ: "ru"
+      };
+      locale = GEO_DEFAULT[country] || "uk";
+      if (isGeoUa && locale === "ru") locale = "uk";
     }
-    var stored = localStorage.getItem("lang");
-    if (stored === "ru") {
-      root.classList.add("lang-ru");
-      root.lang = "ru";
-    }
+    if (LOCALES.indexOf(locale) === -1) locale = "uk";
+
+    for (var i = 0; i < LOCALES.length; i++) root.classList.remove(CLASS_FOR[LOCALES[i]]);
+    root.classList.add(CLASS_FOR[locale]);
+    root.lang = TAG_FOR[locale];
   } catch (e) {}
 })();
 `;
@@ -101,7 +146,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="uk" className={commissioner.variable}>
+    <html lang="uk" className={commissioner.variable + " lang-uk"}>
       <body className="bg-app font-sans text-ink dark:bg-black dark:text-neutral-100">
         <Script id="theme-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <Script id="lang-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: LANG_INIT_SCRIPT }} />

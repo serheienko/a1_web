@@ -75,9 +75,9 @@ export default async function JobDetailPage({ params }: Props) {
   const locationLabel = post.location ? (
     post.location.display
   ) : post.isRemote ? (
-    <T uk="Віддалено" ru="Удалённо" />
+    <T uk="Віддалено" en="Remote" ru="Удалённо" de="Remote" es="Remoto" fr="À distance" pl="Zdalnie" ptBR="Remoto" zh="远程" />
   ) : (
-    <T uk="Не вказано" ru="Не указано" />
+    <T uk="Не вказано" en="Not specified" ru="Не указано" de="Nicht angegeben" es="No especificado" fr="Non précisé" pl="Nie podano" ptBR="Não especificado" zh="未指定" />
   );
 
   return (
@@ -89,12 +89,12 @@ export default async function JobDetailPage({ params }: Props) {
 
       {expired && (
         <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
-          <T uk="Ця вакансія більше не активна." ru="Эта вакансия больше не активна." />
+          <T uk="Ця вакансія більше не активна." en="This job is no longer active." ru="Эта вакансия больше не активна." de="Diese Stellenanzeige ist nicht mehr aktiv." es="Esta vacante ya no está activa." fr="Cette offre d'emploi n'est plus active." pl="Ta oferta pracy nie jest już aktywna." ptBR="Esta vaga não está mais ativa." zh="该职位已不再有效。" />
         </div>
       )}
 
       <span className="inline-block rounded-full bg-accent/10 px-2.5 py-1 text-xs font-medium text-accent dark:bg-accent/20">
-        <T uk="Вакансія" ru="Вакансия" />
+        <T uk="Вакансія" en="Job" ru="Вакансия" de="Stellenanzeige" es="Vacante" fr="Offre d'emploi" pl="Oferta pracy" ptBR="Vaga" zh="职位" />
       </span>
 
       <h1 className="mt-3 text-2xl font-semibold text-neutral-900 sm:text-3xl dark:text-neutral-50">{post.title}</h1>

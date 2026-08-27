@@ -57,10 +57,10 @@ export default async function HomePage({ searchParams }: Props) {
           above the filters/cards. Desktop keeps it. */}
       <header className="mb-8 hidden sm:block">
         <h1 className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl dark:text-neutral-50">
-          <T uk="Вакансії" ru="Вакансии" />
+          <T uk="Вакансії" en="Jobs" ru="Вакансии" de="Stellenangebote" es="Vacantes" fr="Offres d'emploi" pl="Oferty pracy" ptBR="Vagas" zh="职位" />
         </h1>
         <p className="mt-2 text-neutral-500 dark:text-neutral-400">
-          <T uk="Актуальні вакансії від компаній та приватних осіб в A1." ru="Актуальные вакансии от компаний и частных лиц в A1." />
+          <T uk="Актуальні вакансії від компаній та приватних осіб в A1." en="Current job listings from companies and individuals on A1." ru="Актуальные вакансии от компаний и частных лиц в A1." de="Aktuelle Stellenangebote von Unternehmen und Privatpersonen auf A1." es="Vacantes actuales de empresas y particulares en A1." fr="Offres d'emploi actuelles d'entreprises et de particuliers sur A1." pl="Aktualne oferty pracy od firm i osób prywatnych na A1." ptBR="Vagas atuais de empresas e pessoas físicas na A1." zh="A1 上企业与个人发布的最新职位。" />
         </p>
       </header>
 
@@ -76,9 +76,9 @@ export default async function HomePage({ searchParams }: Props) {
         <EmptyState
           message={
             hasActiveFilters(filters) ? (
-              <T uk="Нічого не знайшлося. Спробуйте змінити фільтри." ru="Ничего не нашлось. Попробуйте изменить фильтры." />
+              <T uk="Нічого не знайшлося. Спробуйте змінити фільтри." en="Nothing found. Try changing the filters." ru="Ничего не нашлось. Попробуйте изменить фильтры." de="Nichts gefunden. Versuchen Sie, die Filter zu ändern." es="No se encontró nada. Prueba a cambiar los filtros." fr="Aucun résultat. Essayez de modifier les filtres." pl="Nic nie znaleziono. Spróbuj zmienić filtry." ptBR="Nada encontrado. Tente alterar os filtros." zh="未找到结果，请尝试更改筛选条件。" />
             ) : (
-              <T uk="Поки немає відкритих вакансій." ru="Пока нет открытых вакансий." />
+              <T uk="Поки немає відкритих вакансій." en="There are no open jobs yet." ru="Пока нет открытых вакансий." de="Es gibt noch keine offenen Stellenangebote." es="Todavía no hay vacantes abiertas." fr="Il n'y a pas encore d'offres d'emploi ouvertes." pl="Nie ma jeszcze żadnych otwartych ofert pracy." ptBR="Ainda não há vagas abertas." zh="目前还没有开放的职位。" />
             )
           }
         />

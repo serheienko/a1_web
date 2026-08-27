@@ -90,7 +90,7 @@ export function LoadMore({
 
       {error && (
         <p className="mt-4 text-sm text-red-600 dark:text-red-400">
-          <T uk="Не вдалося завантажити ще. Спробуйте ще раз." ru="Не получилось загрузить ещё. Попробуйте ещё раз." />
+          <T uk="Не вдалося завантажити ще. Спробуйте ще раз." en="Couldn't load more. Try again." ru="Не получилось загрузить ещё. Попробуйте ещё раз." de="Konnte nicht mehr laden. Versuchen Sie es erneut." es="No se pudo cargar más. Inténtalo de nuevo." fr="Impossible de charger plus. Réessayez." pl="Nie udało się załadować więcej. Spróbuj ponownie." ptBR="Não foi possível carregar mais. Tente novamente." zh="加载更多失败，请重试。" />
         </p>
       )}
 
@@ -101,7 +101,7 @@ export function LoadMore({
           disabled={loading}
           className="mt-6 w-full rounded-lg border border-neutral-300 py-2.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-400 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-neutral-500"
         >
-          {loading ? <T uk="Завантаження…" ru="Загрузка…" /> : <T uk="Показати ще" ru="Показать ещё" />}
+          {loading ? <T uk="Завантаження…" en="Loading…" ru="Загрузка…" de="Wird geladen…" es="Cargando…" fr="Chargement…" pl="Ładowanie…" ptBR="Carregando…" zh="加载中…" /> : <T uk="Показати ще" en="Show more" ru="Показать ещё" de="Mehr anzeigen" es="Mostrar más" fr="Afficher plus" pl="Pokaż więcej" ptBR="Mostrar mais" zh="显示更多" />}
         </button>
       )}
     </>

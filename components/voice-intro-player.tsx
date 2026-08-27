@@ -88,7 +88,7 @@ export function VoiceIntroPlayer() {
 
         <div className="min-w-0 flex-1">
           <div className="truncate text-xs font-medium text-ink dark:text-neutral-200">
-            <T uk="Голосова візитка" ru="Голосовая визитка" />
+            <T uk="Голосова візитка" en="Voice intro" ru="Голосовая визитка" de="Sprachvorstellung" es="Presentación de voz" fr="Présentation vocale" pl="Wizytówka głosowa" ptBR="Apresentação em áudio" zh="语音自我介绍" />
           </div>
           <div className="mt-1.5 flex items-center gap-2">
             <span className="w-8 shrink-0 text-[11px] tabular-nums text-ink-faint">{formatTime(currentTime)}</span>

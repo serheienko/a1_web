@@ -24,20 +24,69 @@
 }
 
 /*
- * Locale variant (2026-08-27): Aleksandr — "дефолтный язык - укр. +
- * добавить локализации на наши языки". Default (no class) is Ukrainian;
- * an explicit "ru" choice adds .lang-ru to <html> the same way the theme
- * toggle adds .dark/.light — see components/lang-toggle.tsx and the
- * anti-flash script in app/layout.tsx. Static chrome copy (nav, headers,
- * empty states, button labels — NOT user-generated post/profile content,
- * which stays whatever language the author wrote it in) renders BOTH
- * strings via components/t.tsx and this variant just toggles which one is
- * visible — pure CSS, no client JS/hooks needed in the pages themselves,
- * so it doesn't force any of the ISR'd feed pages into dynamic rendering
- * (a cookie- or headers()-based approach would have).
+ * Locale variants (2026-08-27, extended 2026-08-28 to the full 9-language
+ * rollout): "дефолтный язык - укр. + добавить локализации на наши языки"
+ * → later "давай добавлять локализацию на наш сайт... сейчас локализуем,
+ * что у нас есть интерфейсные" for the same 9 languages the app's own
+ * Settings → Language screen offers (English, Українська, Deutsch,
+ * Español, Français, Polski, Português (Brasil), 简体中文, Русский).
+ *
+ * Every language, including Ukrainian, now gets its OWN explicit class —
+ * no more "no class = Ukrainian" implicit default (that only worked
+ * cleanly for a 2-state uk/ru toggle). components/t.tsx renders all 9
+ * strings for every piece of static chrome copy (nav, headers, empty
+ * states, button labels — NOT user-generated post/profile content, which
+ * stays whatever language the author wrote it in) and exactly one
+ * `lang-XX` class on <html> decides which is visible — see
+ * components/lang-toggle.tsx (the switcher) and the anti-flash script in
+ * app/layout.tsx (which guarantees one of these 9 classes is always set
+ * before first paint, from localStorage or — new — a geo-IP guess when
+ * nothing's stored yet). Pure CSS, no client JS/hooks needed in the pages
+ * themselves, so it doesn't force any of the ISR'd feed pages into
+ * dynamic rendering (a cookie- or headers()-based approach would have).
  */
+@custom-variant lang-uk {
+  &:where(.lang-uk, .lang-uk *) {
+    @slot;
+  }
+}
+@custom-variant lang-en {
+  &:where(.lang-en, .lang-en *) {
+    @slot;
+  }
+}
 @custom-variant lang-ru {
   &:where(.lang-ru, .lang-ru *) {
+    @slot;
+  }
+}
+@custom-variant lang-de {
+  &:where(.lang-de, .lang-de *) {
+    @slot;
+  }
+}
+@custom-variant lang-es {
+  &:where(.lang-es, .lang-es *) {
+    @slot;
+  }
+}
+@custom-variant lang-fr {
+  &:where(.lang-fr, .lang-fr *) {
+    @slot;
+  }
+}
+@custom-variant lang-pl {
+  &:where(.lang-pl, .lang-pl *) {
+    @slot;
+  }
+}
+@custom-variant lang-ptbr {
+  &:where(.lang-ptbr, .lang-ptbr *) {
+    @slot;
+  }
+}
+@custom-variant lang-zh {
+  &:where(.lang-zh, .lang-zh *) {
     @slot;
   }
 }
@@ -45,17 +94,20 @@
 /*
  * Geo variant (2026-08-27) — see middleware.ts for the full rationale.
  * .geo-ua goes on <html> before first paint when the visitor is
- * geolocated to Ukraine; components/lang-toggle.tsx uses `geo-ua:hidden`
- * to remove the RU switch entirely for them (not just default away from
- * it — Aleksandr was explicit the option itself shouldn't be offered).
+ * geolocated to Ukraine, read by app/layout.tsx's LANG_INIT_SCRIPT and
+ * mirrored into React state in components/lang-toggle.tsx.
  *
- * 2026-08-28: scoped to Russian specifically, not language-switching in
+ * 2026-08-28, scoped to Russian specifically, not language-switching in
  * general — "это только касается русского языка... все остальные языки
- * должны показываться как переключатель". Using `geo-ua:hidden` on the
- * whole two-state uk/ru button today happens to be equivalent to hiding
- * only "ru", since there's nothing else to switch to yet. The future
- * multi-language switcher (~8 languages, list still to come) must NOT
- * apply `geo-ua:hidden` to itself wholesale — only to its "ru" option.
+ * должны показываться как переключатель". The 9-language switcher
+ * (components/lang-toggle.tsx) implements this in JS rather than with
+ * this CSS variant directly: it reads .geo-ua off <html> once on mount
+ * and filters "ru" out of the option list it renders — every other
+ * language stays fully selectable. This variant itself is still used by
+ * LANG_INIT_SCRIPT's own resolution logic (never resolving to "ru" when
+ * .geo-ua applies, even from stale localStorage) — it's just not applied
+ * as a bare `geo-ua:hidden` on the switcher's root the way the old
+ * two-state uk/ru button used to.
  */
 @custom-variant geo-ua {
   &:where(.geo-ua, .geo-ua *) {

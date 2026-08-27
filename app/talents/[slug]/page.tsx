@@ -67,15 +67,15 @@ export default async function TalentDetailPage({ params }: Props) {
   const locationLabel = post.location ? (
     post.location.display
   ) : post.isRemote ? (
-    <T uk="Віддалено" ru="Удалённо" />
+    <T uk="Віддалено" en="Remote" ru="Удалённо" de="Remote" es="Remoto" fr="À distance" pl="Zdalnie" ptBR="Remoto" zh="远程" />
   ) : (
-    <T uk="Не вказано" ru="Не указано" />
+    <T uk="Не вказано" en="Not specified" ru="Не указано" de="Nicht angegeben" es="No especificado" fr="Non précisé" pl="Nie podano" ptBR="Não especificado" zh="未指定" />
   );
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-10 sm:py-16">
       <span className="inline-block rounded-full bg-[#C830FF]/10 px-2.5 py-1 text-xs font-medium text-[#C830FF] dark:bg-[#C830FF]/20">
-        <T uk="Фахівець" ru="Специалист" />
+        <T uk="Фахівець" en="Talent" ru="Специалист" de="Fachkraft" es="Especialista" fr="Spécialiste" pl="Specjalista" ptBR="Especialista" zh="人才" />
       </span>
 
       <h1 className="mt-3 text-2xl font-semibold text-neutral-900 sm:text-3xl dark:text-neutral-50">{post.title}</h1>

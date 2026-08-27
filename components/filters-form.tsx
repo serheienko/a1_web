@@ -32,10 +32,43 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Category, Tag } from "@/lib/a1/datasets";
+import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { FilterIcon } from "@/components/filter-icon";
 import { ClearIcon } from "@/components/clear-icon";
 
 const MAX_SUGGESTIONS_PER_GROUP = 5;
+
+// Static UI strings this client component needs as plain values (not
+// <T/> — CSS can't conditionally show/hide inside attribute values or
+// non-DOM text like aria-label), keyed by the same 9 locales as
+// components/t.tsx.
+const FILTERS_FORM_STRINGS: Record<string, Record<Locale, string>> = {
+  searchPlaceholder: {
+    uk: "Пошук за текстом...", en: "Search by text...", ru: "Поиск по тексту...",
+    de: "Suche nach Text...", es: "Buscar por texto...", fr: "Rechercher par texte...",
+    pl: "Szukaj po tekście...", ptBR: "Buscar por texto...", zh: "按文字搜索...",
+  },
+  clear: {
+    uk: "Очистити", en: "Clear", ru: "Очистить", de: "Löschen", es: "Borrar",
+    fr: "Effacer", pl: "Wyczyść", ptBR: "Limpar", zh: "清除",
+  },
+  categories: {
+    uk: "Категорії", en: "Categories", ru: "Категории", de: "Kategorien", es: "Categorías",
+    fr: "Catégories", pl: "Kategorie", ptBR: "Categorias", zh: "分类",
+  },
+  tags: {
+    uk: "Теги", en: "Tags", ru: "Теги", de: "Tags", es: "Etiquetas",
+    fr: "Tags", pl: "Tagi", ptBR: "Tags", zh: "标签",
+  },
+  filters: {
+    uk: "Фільтри", en: "Filters", ru: "Фильтры", de: "Filter", es: "Filtros",
+    fr: "Filtres", pl: "Filtry", ptBR: "Filtros", zh: "筛选",
+  },
+  category: {
+    uk: "Категорія", en: "Category", ru: "Категория", de: "Kategorie", es: "Categoría",
+    fr: "Catégorie", pl: "Kategoria", ptBR: "Categoria", zh: "分类",
+  },
+};
 
 export function FiltersForm({
   basePath,
@@ -93,9 +126,11 @@ export function FiltersForm({
   // components/lang-toggle.tsx does. Defaults to "uk" (matches the SSR
   // markup) and corrects itself after mount to avoid a hydration mismatch;
   // matches the same pattern already used for isDark in theme-toggle.tsx.
-  const [lang, setLang] = useState<"uk" | "ru">("uk");
+  const [lang, setLang] = useState<Locale>("uk");
   useEffect(() => {
-    setLang(document.documentElement.classList.contains("lang-ru") ? "ru" : "uk");
+    const root = document.documentElement;
+    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
+    if (active) setLang(active);
   }, []);
 
   // currentQuery only changes when the URL changes from OUTSIDE this
@@ -200,7 +235,7 @@ export function FiltersForm({
               // needs to still fire after this input blurs to it.
               blurTimeoutRef.current = setTimeout(() => setInputFocused(false), 150);
             }}
-            placeholder={lang === "ru" ? "Поиск по тексту..." : "Пошук за текстом..."}
+            placeholder={FILTERS_FORM_STRINGS.searchPlaceholder[lang]}
             className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 pr-8 text-sm text-neutral-900 dark:border-neutral-700 dark:bg-black dark:text-neutral-100"
           />
           {isPending ? (
@@ -222,7 +257,7 @@ export function FiltersForm({
                   setQuery("");
                   navigate({ q: "" });
                 }}
-                aria-label={lang === "ru" ? "Очистить" : "Очистити"}
+                aria-label={FILTERS_FORM_STRINGS.clear[lang]}
                 className="absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400 transition hover:text-neutral-600 dark:hover:text-neutral-300"
               >
                 <ClearIcon className="h-4 w-4" />
@@ -241,7 +276,7 @@ export function FiltersForm({
               {categorySuggestions.length > 0 && (
                 <div className="border-b border-neutral-100 py-1 last:border-b-0 dark:border-neutral-800">
                   <div className="px-3 py-1 text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
-                    {lang === "ru" ? "Категории" : "Категорії"}
+                    {FILTERS_FORM_STRINGS.categories[lang]}
                   </div>
                   {categorySuggestions.map((c) => (
                     <button
@@ -258,7 +293,7 @@ export function FiltersForm({
               {tagSuggestions.length > 0 && (
                 <div className="py-1">
                   <div className="px-3 py-1 text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
-                    {lang === "ru" ? "Теги" : "Теги"}
+                    {FILTERS_FORM_STRINGS.tags[lang]}
                   </div>
                   {tagSuggestions.map((t) => (
                     <button
@@ -279,7 +314,7 @@ export function FiltersForm({
           <button
             type="button"
             onClick={() => setFiltersOpen((v) => !v)}
-            aria-label={lang === "ru" ? "Фильтры" : "Фільтри"}
+            aria-label={FILTERS_FORM_STRINGS.filters[lang]}
             aria-expanded={filtersOpen}
             className={
               "relative flex h-10 w-10 items-center justify-center rounded-full border transition " +
@@ -300,7 +335,7 @@ export function FiltersForm({
           {filtersOpen && (
             <div className="absolute right-0 top-full z-20 mt-2 max-h-80 w-56 overflow-y-auto rounded-lg border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
               <div className="px-1 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
-                {lang === "ru" ? "Категория" : "Категорія"}
+                {FILTERS_FORM_STRINGS.category[lang]}
               </div>
               {categories.map((c) => {
                 const isEmpty = emptyCategoryValues.includes(c.value);
@@ -325,7 +360,7 @@ export function FiltersForm({
                           onCategoryChange("");
                           setFiltersOpen(false);
                         }}
-                        aria-label={lang === "ru" ? "Очистить" : "Очистити"}
+                        aria-label={FILTERS_FORM_STRINGS.clear[lang]}
                         className="mr-1 shrink-0 rounded p-1 text-accent transition hover:opacity-70"
                       >
                         <ClearIcon className="h-4 w-4" />

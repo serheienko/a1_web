@@ -15,8 +15,30 @@ import { LangToggle } from "@/components/lang-toggle";
 import { T } from "@/components/t";
 
 const NAV_ITEMS = [
-  { href: "/", uk: "Вакансії", ru: "Вакансии" },
-  { href: "/talents", uk: "Фахівці", ru: "Специалисты" },
+  {
+    href: "/",
+    uk: "Вакансії",
+    en: "Jobs",
+    ru: "Вакансии",
+    de: "Stellenangebote",
+    es: "Vacantes",
+    fr: "Offres d'emploi",
+    pl: "Oferty pracy",
+    ptBR: "Vagas",
+    zh: "职位",
+  },
+  {
+    href: "/talents",
+    uk: "Фахівці",
+    en: "Talents",
+    ru: "Специалисты",
+    de: "Fachkräfte",
+    es: "Especialistas",
+    fr: "Spécialistes",
+    pl: "Specjaliści",
+    ptBR: "Especialistas",
+    zh: "人才",
+  },
 ];
 
 export function SiteNav() {
@@ -35,21 +57,26 @@ export function SiteNav() {
           <img src="/brand/a1-logo-white.svg" alt="A1" className="hidden h-7 w-auto dark:block" />
         </Link>
 
-        <div className="col-start-2 flex items-center gap-1 justify-self-center rounded-full bg-neutral-100 p-1 dark:bg-neutral-900">
+        <div className="col-start-2 flex items-center gap-1 justify-self-center rounded-full bg-white p-1 dark:bg-neutral-900">
           {NAV_ITEMS.map((item) => {
-            const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+            const { href, ...labels } = item;
+            const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
             return (
               <Link
-                key={item.href}
-                href={item.href}
+                key={href}
+                href={href}
                 className={
                   "rounded-full px-4 py-2 text-sm font-medium transition sm:px-6 " +
                   (active
                     ? "bg-accent/15 text-accent"
-                    : "bg-white text-neutral-500 hover:text-neutral-900 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-50")
+                    : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50")
                 }
               >
-                <T uk={item.uk} ru={item.ru} />
+                {/* Destructured above so T only ever receives the 9
+                    locale keys it declares — spreading `item` directly
+                    would also hand it `href`, which isn't part of its
+                    prop type. */}
+                <T {...labels} />
               </Link>
             );
           })}

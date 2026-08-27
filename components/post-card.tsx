@@ -30,9 +30,9 @@ export function PostCard({ post }: { post: WebPost }) {
   const locationLabel = post.location ? (
     post.location.display
   ) : post.isRemote ? (
-    <T uk="Віддалено" ru="Удалённо" />
+    <T uk="Віддалено" en="Remote" ru="Удалённо" de="Remote" es="Remoto" fr="À distance" pl="Zdalnie" ptBR="Remoto" zh="远程" />
   ) : (
-    <T uk="Не вказано" ru="Не указано" />
+    <T uk="Не вказано" en="Not specified" ru="Не указано" de="Nicht angegeben" es="No especificado" fr="Non précisé" pl="Nie podano" ptBR="Não especificado" zh="未指定" />
   );
   const salaryLabel = post.salary ? formatSalary(post.salary) : null;
   const href = `/${post.kind === "hiring" ? "jobs" : "talents"}/${post.slug}`;
@@ -83,7 +83,7 @@ export function PostCard({ post }: { post: WebPost }) {
                 : "bg-[#C830FF]/10 text-[#C830FF] dark:bg-[#C830FF]/20")
             }
           >
-            {post.kind === "hiring" ? <T uk="Вакансія" ru="Вакансия" /> : <T uk="Фахівець" ru="Специалист" />}
+            {post.kind === "hiring" ? <T uk="Вакансія" en="Job" ru="Вакансия" de="Stellenanzeige" es="Vacante" fr="Offre d'emploi" pl="Oferta pracy" ptBR="Vaga" zh="职位" /> : <T uk="Фахівець" en="Talent" ru="Специалист" de="Fachkraft" es="Especialista" fr="Spécialiste" pl="Specjalista" ptBR="Especialista" zh="人才" />}
           </span>
         </div>
 

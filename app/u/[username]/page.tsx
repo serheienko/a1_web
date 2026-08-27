@@ -31,7 +31,7 @@ import {
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { formatLanguageName } from "@/lib/format";
-import { T } from "@/components/t";
+import { T, type Locale } from "@/components/t";
 import { VoiceIntroProvider } from "@/components/voice-intro-context";
 import { VoiceIntroRing } from "@/components/voice-intro-ring";
 import { VoiceIntroPlayer } from "@/components/voice-intro-player";
@@ -99,31 +99,110 @@ function pillList(items: string[]) {
 // same as before). He's also asked for the app's 3 animated cat icons
 // here (one per real value) — not added yet, see the TODO comment below
 // the lookup; need the actual asset files/URLs from him first.
-const OCCUPATION_LABELS: Record<string, { uk: string; ru: string }> = {
-  entrepreneur: { uk: "Підприємець", ru: "Предприниматель" },
-  professional: { uk: "Спеціаліст", ru: "Специалист" },
-  freelancer: { uk: "Фрілансер", ru: "Фрилансер" },
+const OCCUPATION_LABELS: Record<string, Record<Locale, string>> = {
+  entrepreneur: {
+    uk: "Підприємець", en: "Entrepreneur", ru: "Предприниматель", de: "Unternehmer",
+    es: "Emprendedor", fr: "Entrepreneur", pl: "Przedsiębiorca", ptBR: "Empreendedor", zh: "创业者",
+  },
+  // "Professional" here, deliberately not "Specialist" — same Ukrainian/
+  // Russian source words as the post-type badge below ("Фахівець" /
+  // "Специалист"), but this is the OCCUPATION enum value ("employed
+  // professional", as opposed to freelancer/entrepreneur) and the other
+  // is a completely different thing (a talent-post badge) — translating
+  // both to "Specialist" in English etc. would make them read as the
+  // same concept when they aren't.
+  professional: {
+    uk: "Спеціаліст", en: "Professional", ru: "Специалист", de: "Fachkraft",
+    es: "Profesional", fr: "Professionnel", pl: "Specjalista", ptBR: "Profissional", zh: "专业人士",
+  },
+  freelancer: {
+    uk: "Фрілансер", en: "Freelancer", ru: "Фрилансер", de: "Freelancer",
+    es: "Freelancer", fr: "Freelance", pl: "Freelancer", ptBR: "Freelancer", zh: "自由职业者",
+  },
 };
 
-const WORK_STYLE_PREFERENCE_SECTIONS: Array<{
-  key: keyof typeof WORK_STYLE_DATASET_KEYS;
-  uk: string;
-  ru: string;
-}> = [
-  { key: "workEnvironment", uk: "Середовище роботи", ru: "Рабочая среда" },
-  { key: "personalityType", uk: "Тип особистості", ru: "Тип личности" },
-  { key: "workLifeBalance", uk: "Баланс роботи і життя", ru: "Баланс работы и жизни" },
-  { key: "workStyle", uk: "Стиль роботи", ru: "Стиль работы" },
-  { key: "workAvailability", uk: "Доступність", ru: "Доступность" },
-  { key: "projectType", uk: "Тип проєктів", ru: "Тип проектов" },
-  { key: "leadershipStyle", uk: "Стиль лідерства", ru: "Стиль лидерства" },
-  { key: "riskTolerance", uk: "Ставлення до ризику", ru: "Отношение к риску" },
-  { key: "workloadAndTaskDelegation", uk: "Розподіл завдань", ru: "Распределение задач" },
-  { key: "decisionMakingStyle", uk: "Стиль прийняття рішень", ru: "Стиль принятия решений" },
-  { key: "preferredCollaborationStyle", uk: "Стиль співпраці", ru: "Стиль сотрудничества" },
-  { key: "partnershipPreference", uk: "Партнерство", ru: "Партнёрство" },
-  { key: "preferredWorkingEnvironment", uk: "Бажане робоче середовище", ru: "Желаемая рабочая среда" },
-  { key: "learningStyle", uk: "Стиль навчання", ru: "Стиль обучения" },
+const WORK_STYLE_PREFERENCE_SECTIONS: Array<{ key: keyof typeof WORK_STYLE_DATASET_KEYS } & Record<Locale, string>> = [
+  {
+    key: "workEnvironment",
+    uk: "Середовище роботи", en: "Work environment", ru: "Рабочая среда", de: "Arbeitsumgebung",
+    es: "Entorno de trabajo", fr: "Environnement de travail", pl: "Środowisko pracy",
+    ptBR: "Ambiente de trabalho", zh: "工作环境",
+  },
+  {
+    key: "personalityType",
+    uk: "Тип особистості", en: "Personality type", ru: "Тип личности", de: "Persönlichkeitstyp",
+    es: "Tipo de personalidad", fr: "Type de personnalité", pl: "Typ osobowości",
+    ptBR: "Tipo de personalidade", zh: "性格类型",
+  },
+  {
+    key: "workLifeBalance",
+    uk: "Баланс роботи і життя", en: "Work-life balance", ru: "Баланс работы и жизни",
+    de: "Work-Life-Balance", es: "Equilibrio entre vida y trabajo", fr: "Équilibre vie pro/perso",
+    pl: "Równowaga między pracą a życiem", ptBR: "Equilíbrio entre vida e trabalho", zh: "工作与生活平衡",
+  },
+  {
+    key: "workStyle",
+    uk: "Стиль роботи", en: "Work style", ru: "Стиль работы", de: "Arbeitsstil",
+    es: "Estilo de trabajo", fr: "Style de travail", pl: "Styl pracy", ptBR: "Estilo de trabalho", zh: "工作风格",
+  },
+  {
+    key: "workAvailability",
+    uk: "Доступність", en: "Availability", ru: "Доступность", de: "Verfügbarkeit",
+    es: "Disponibilidad", fr: "Disponibilité", pl: "Dostępność", ptBR: "Disponibilidade", zh: "可用时间",
+  },
+  {
+    key: "projectType",
+    uk: "Тип проєктів", en: "Project type", ru: "Тип проектов", de: "Projektart",
+    es: "Tipo de proyecto", fr: "Type de projet", pl: "Typ projektów", ptBR: "Tipo de projeto", zh: "项目类型",
+  },
+  {
+    key: "leadershipStyle",
+    uk: "Стиль лідерства", en: "Leadership style", ru: "Стиль лидерства", de: "Führungsstil",
+    es: "Estilo de liderazgo", fr: "Style de leadership", pl: "Styl przywództwa",
+    ptBR: "Estilo de liderança", zh: "领导风格",
+  },
+  {
+    key: "riskTolerance",
+    uk: "Ставлення до ризику", en: "Risk tolerance", ru: "Отношение к риску", de: "Risikobereitschaft",
+    es: "Tolerancia al riesgo", fr: "Tolérance au risque", pl: "Tolerancja ryzyka",
+    ptBR: "Tolerância a riscos", zh: "风险承受度",
+  },
+  {
+    key: "workloadAndTaskDelegation",
+    uk: "Розподіл завдань", en: "Task delegation", ru: "Распределение задач", de: "Aufgabenverteilung",
+    es: "Delegación de tareas", fr: "Délégation des tâches", pl: "Delegowanie zadań",
+    ptBR: "Delegação de tarefas", zh: "任务分配",
+  },
+  {
+    key: "decisionMakingStyle",
+    uk: "Стиль прийняття рішень", en: "Decision-making style", ru: "Стиль принятия решений",
+    de: "Entscheidungsstil", es: "Estilo de toma de decisiones", fr: "Style de prise de décision",
+    pl: "Styl podejmowania decyzji", ptBR: "Estilo de tomada de decisão", zh: "决策风格",
+  },
+  {
+    key: "preferredCollaborationStyle",
+    uk: "Стиль співпраці", en: "Collaboration style", ru: "Стиль сотрудничества",
+    de: "Zusammenarbeitsstil", es: "Estilo de colaboración", fr: "Style de collaboration",
+    pl: "Styl współpracy", ptBR: "Estilo de colaboração", zh: "协作风格",
+  },
+  {
+    key: "partnershipPreference",
+    uk: "Партнерство", en: "Partnership", ru: "Партнёрство", de: "Partnerschaft",
+    es: "Asociación", fr: "Partenariat", pl: "Partnerstwo", ptBR: "Parceria", zh: "合作方式",
+  },
+  {
+    key: "preferredWorkingEnvironment",
+    uk: "Бажане робоче середовище", en: "Preferred work environment", ru: "Желаемая рабочая среда",
+    de: "Bevorzugte Arbeitsumgebung", es: "Entorno de trabajo preferido",
+    fr: "Environnement de travail préféré", pl: "Preferowane środowisko pracy",
+    ptBR: "Ambiente de trabalho preferido", zh: "理想工作环境",
+  },
+  {
+    key: "learningStyle",
+    uk: "Стиль навчання", en: "Learning style", ru: "Стиль обучения", de: "Lernstil",
+    es: "Estilo de aprendizaje", fr: "Style d'apprentissage", pl: "Styl uczenia się",
+    ptBR: "Estilo de aprendizagem", zh: "学习风格",
+  },
 ];
 
 export default async function ProfilePage({ params }: Props) {
@@ -233,7 +312,7 @@ export default async function ProfilePage({ params }: Props) {
             {occupationLabel && (
               <span className="inline-flex items-center gap-1.5">
                 <OccupationIcon occupation={profile.occupation} />
-                <T uk={occupationLabel.uk} ru={occupationLabel.ru} />
+                <T {...occupationLabel} />
               </span>
             )}
             {locationLabel && (
@@ -256,9 +335,9 @@ export default async function ProfilePage({ params }: Props) {
 
       {(profile.phone || profile.email || profile.dob) && (
         <div className="mt-6 flex flex-col gap-1 text-sm text-neutral-600 dark:text-neutral-400">
-          {profile.phone && <div><T uk="Телефон" ru="Телефон" />: {profile.phone}</div>}
+          {profile.phone && <div><T uk="Телефон" en="Phone" ru="Телефон" de="Telefon" es="Teléfono" fr="Téléphone" pl="Telefon" ptBR="Telefone" zh="电话" />: {profile.phone}</div>}
           {profile.email && <div>Email: {profile.email}</div>}
-          {profile.dob && <div><T uk="Дата народження" ru="Дата рождения" />: {profile.dob}</div>}
+          {profile.dob && <div><T uk="Дата народження" en="Date of birth" ru="Дата рождения" de="Geburtsdatum" es="Fecha de nacimiento" fr="Date de naissance" pl="Data urodzenia" ptBR="Data de nascimento" zh="出生日期" />: {profile.dob}</div>}
         </div>
       )}
 
@@ -280,7 +359,7 @@ export default async function ProfilePage({ params }: Props) {
 
       {profile.companies.length > 0 && (
         <section className="mt-8">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Досвід роботи" ru="Опыт работы" /></h2>
+          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Досвід роботи" en="Work experience" ru="Опыт работы" de="Berufserfahrung" es="Experiencia laboral" fr="Expérience professionnelle" pl="Doświadczenie zawodowe" ptBR="Experiência profissional" zh="工作经验" /></h2>
           <div className="mt-3 flex flex-col gap-4">
             {profile.companies.map((company, i) => {
               // Aleksandr, 2026-08-27 (mobile app video): the app's
@@ -324,7 +403,7 @@ export default async function ProfilePage({ params }: Props) {
 
       {profile.education.length > 0 && (
         <section className="mt-8">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Освіта" ru="Образование" /></h2>
+          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Освіта" en="Education" ru="Образование" de="Ausbildung" es="Educación" fr="Formation" pl="Wykształcenie" ptBR="Formação" zh="教育背景" /></h2>
           <ul className="mt-3 flex flex-col gap-1 text-sm text-neutral-700 dark:text-neutral-300">
             {profile.education.map((entry, i) => (
               <li key={i}>{entry}</li>
@@ -335,7 +414,7 @@ export default async function ProfilePage({ params }: Props) {
 
       {profile.skills.length > 0 && (
         <section className="mt-8">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Навички" ru="Навыки" /></h2>
+          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Навички" en="Skills" ru="Навыки" de="Fähigkeiten" es="Habilidades" fr="Compétences" pl="Umiejętności" ptBR="Habilidades" zh="技能" /></h2>
           <div className="mt-3 flex flex-col gap-2">
             {profile.skills.map((skill) => (
               <div key={skill.value} className="flex items-center gap-3">
@@ -349,7 +428,7 @@ export default async function ProfilePage({ params }: Props) {
 
       {profile.languages.length > 0 && (
         <section className="mt-8">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Мови" ru="Языки" /></h2>
+          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Мови" en="Languages" ru="Языки" de="Sprachen" es="Idiomas" fr="Langues" pl="Języki" ptBR="Idiomas" zh="语言" /></h2>
           <div className="mt-3 flex flex-col gap-2">
             {profile.languages.map((lang) => (
               <div key={lang.value} className="flex items-center gap-3">
@@ -370,7 +449,7 @@ export default async function ProfilePage({ params }: Props) {
           this is only the missing JSX. */}
       {hobbyLabels && profile.hobbies.length > 0 && (
         <section className="mt-8">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Хобі" ru="Хобби" /></h2>
+          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Хобі" en="Hobbies" ru="Хобби" de="Hobbys" es="Aficiones" fr="Loisirs" pl="Hobby" ptBR="Hobbies" zh="爱好" /></h2>
           <div className="mt-3">
             {pillList(
               profile.hobbies
@@ -383,7 +462,7 @@ export default async function ProfilePage({ params }: Props) {
 
       {profile.workInterests.length > 0 && (
         <section className="mt-8">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Робочі інтереси" ru="Рабочие интересы" /></h2>
+          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Робочі інтереси" en="Work interests" ru="Рабочие интересы" de="Berufliche Interessen" es="Intereses profesionales" fr="Intérêts professionnels" pl="Zainteresowania zawodowe" ptBR="Interesses profissionais" zh="工作兴趣" /></h2>
           <div className="mt-3">
             {pillList(
               profile.workInterests
@@ -396,9 +475,9 @@ export default async function ProfilePage({ params }: Props) {
 
       {workStyleDataset && (
         <section className="mt-8">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Переваги в роботі" ru="Предпочтения в работе" /></h2>
+          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Переваги в роботі" en="Work preferences" ru="Предпочтения в работе" de="Arbeitspräferenzen" es="Preferencias laborales" fr="Préférences de travail" pl="Preferencje zawodowe" ptBR="Preferências de trabalho" zh="工作偏好" /></h2>
           <div className="mt-4 flex flex-col gap-4">
-            {WORK_STYLE_PREFERENCE_SECTIONS.map(({ key, uk, ru }) => {
+            {WORK_STYLE_PREFERENCE_SECTIONS.map(({ key, ...section }) => {
               const ids = profile.workStylePreferences[key];
               if (ids.length === 0) return null;
               const options = workStyleDataset[WORK_STYLE_DATASET_KEYS[key]];
@@ -408,7 +487,7 @@ export default async function ProfilePage({ params }: Props) {
               if (labels.length === 0) return null;
               return (
                 <div key={key}>
-                  <h3 className="text-sm text-neutral-500 dark:text-neutral-400"><T uk={uk} ru={ru} /></h3>
+                  <h3 className="text-sm text-neutral-500 dark:text-neutral-400"><T {...section} /></h3>
                   <div className="mt-1.5">{pillList(labels)}</div>
                 </div>
               );
@@ -419,11 +498,11 @@ export default async function ProfilePage({ params }: Props) {
 
       {(profile.favoriteBooks.length > 0 || profile.favoriteMovies.length > 0 || profile.favoriteGames.length > 0) && (
         <section className="mt-8">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Улюблене" ru="Любимое" /></h2>
+          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Улюблене" en="Favorites" ru="Любимое" de="Favoriten" es="Favoritos" fr="Favoris" pl="Ulubione" ptBR="Favoritos" zh="最爱" /></h2>
           <div className="mt-3 flex flex-col gap-4">
             {profile.favoriteBooks.length > 0 && (
               <div>
-                <h3 className="text-sm text-neutral-500 dark:text-neutral-400"><T uk="Книги" ru="Книги" /></h3>
+                <h3 className="text-sm text-neutral-500 dark:text-neutral-400"><T uk="Книги" en="Books" ru="Книги" de="Bücher" es="Libros" fr="Livres" pl="Książki" ptBR="Livros" zh="书籍" /></h3>
                 <ul className="mt-1.5 flex flex-col gap-1 text-sm text-neutral-700 dark:text-neutral-300">
                   {profile.favoriteBooks.map((book, i) => (
                     <li key={i}>{book.author ? `${book.title} — ${book.author}` : book.title}</li>
@@ -433,7 +512,7 @@ export default async function ProfilePage({ params }: Props) {
             )}
             {profile.favoriteMovies.length > 0 && (
               <div>
-                <h3 className="text-sm text-neutral-500 dark:text-neutral-400"><T uk="Фільми" ru="Фильмы" /></h3>
+                <h3 className="text-sm text-neutral-500 dark:text-neutral-400"><T uk="Фільми" en="Movies" ru="Фильмы" de="Filme" es="Películas" fr="Films" pl="Filmy" ptBR="Filmes" zh="电影" /></h3>
                 <ul className="mt-1.5 flex flex-col gap-1 text-sm text-neutral-700 dark:text-neutral-300">
                   {profile.favoriteMovies.map((movie, i) => (
                     <li key={i}>{movie.title}</li>
@@ -443,7 +522,7 @@ export default async function ProfilePage({ params }: Props) {
             )}
             {profile.favoriteGames.length > 0 && (
               <div>
-                <h3 className="text-sm text-neutral-500 dark:text-neutral-400"><T uk="Ігри" ru="Игры" /></h3>
+                <h3 className="text-sm text-neutral-500 dark:text-neutral-400"><T uk="Ігри" en="Games" ru="Игры" de="Spiele" es="Juegos" fr="Jeux" pl="Gry" ptBR="Jogos" zh="游戏" /></h3>
                 <ul className="mt-1.5 flex flex-col gap-1 text-sm text-neutral-700 dark:text-neutral-300">
                   {profile.favoriteGames.map((game, i) => (
                     <li key={i}>{game.title}</li>

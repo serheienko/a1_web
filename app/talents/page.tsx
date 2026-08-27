@@ -47,10 +47,10 @@ export default async function TalentsPage({ searchParams }: Props) {
           above the filters/cards. Desktop keeps it. */}
       <header className="mb-8 hidden sm:block">
         <h1 className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl dark:text-neutral-50">
-          <T uk="Фахівці" ru="Специалисты" />
+          <T uk="Фахівці" en="Talents" ru="Специалисты" de="Fachkräfte" es="Especialistas" fr="Spécialistes" pl="Specjaliści" ptBR="Especialistas" zh="人才" />
         </h1>
         <p className="mt-2 text-neutral-500 dark:text-neutral-400">
-          <T uk="Люди, які шукають роботу або проєкти через A1." ru="Люди, которые ищут работу или проекты через A1." />
+          <T uk="Люди, які шукають роботу або проєкти через A1." en="People looking for work or projects through A1." ru="Люди, которые ищут работу или проекты через A1." de="Menschen, die über A1 nach Arbeit oder Projekten suchen." es="Personas que buscan trabajo o proyectos a través de A1." fr="Des personnes à la recherche d'un emploi ou de projets via A1." pl="Osoby szukające pracy lub projektów przez A1." ptBR="Pessoas em busca de trabalho ou projetos através da A1." zh="通过 A1 寻找工作或项目的人。" />
         </p>
       </header>
 
@@ -66,9 +66,9 @@ export default async function TalentsPage({ searchParams }: Props) {
         <EmptyState
           message={
             hasActiveFilters(filters) ? (
-              <T uk="Нічого не знайшлося. Спробуйте змінити фільтри." ru="Ничего не нашлось. Попробуйте изменить фильтры." />
+              <T uk="Нічого не знайшлося. Спробуйте змінити фільтри." en="Nothing found. Try changing the filters." ru="Ничего не нашлось. Попробуйте изменить фильтры." de="Nichts gefunden. Versuchen Sie, die Filter zu ändern." es="No se encontró nada. Prueba a cambiar los filtros." fr="Aucun résultat. Essayez de modifier les filtres." pl="Nic nie znaleziono. Spróbuj zmienić filtry." ptBR="Nada encontrado. Tente alterar os filtros." zh="未找到结果，请尝试更改筛选条件。" />
             ) : (
-              <T uk="Поки немає відкритих анкет." ru="Пока нет открытых анкет." />
+              <T uk="Поки немає відкритих анкет." en="There are no open talent profiles yet." ru="Пока нет открытых анкет." de="Es gibt noch keine offenen Talentprofile." es="Todavía no hay perfiles de talento abiertos." fr="Il n'y a pas encore de profils de talents ouverts." pl="Nie ma jeszcze żadnych otwartych profili talentów." ptBR="Ainda não há perfis de talentos abertos." zh="目前还没有可查看的人才资料。" />
             )
           }
         />
