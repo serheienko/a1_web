@@ -76,6 +76,10 @@ export function mapUserProfile(raw: UserProfileResult): WebProfile | null {
     // buildMediaProxyUrl in lib/a1/mappers.ts (exported for reuse here;
     // no circular import, mappers.ts doesn't import from this file).
     avatarUrl: avatarDoc ? buildMediaProxyUrl(avatarDoc) : null,
+    // Same proxy as avatarUrl/photos — voiceIntroduction is just another
+    // MediaDocument (a Resource.MediaDocument.AttributeAudio with
+    // voice: true under the hood), not a separate media type on the wire.
+    voiceIntroUrl: raw.voiceIntroduction ? buildMediaProxyUrl(raw.voiceIntroduction) : null,
     occupation: raw.occupation,
     expertise: raw.expertise,
     bio: raw.bio,

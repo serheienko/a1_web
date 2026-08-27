@@ -23,6 +23,7 @@ import Image from "next/image";
 import { fetchUserByUsername } from "@/lib/a1/users";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { formatLanguageName } from "@/lib/format";
+import { VoiceIntroRing } from "@/components/voice-intro-ring";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -67,24 +68,26 @@ export default async function ProfilePage({ params }: Props) {
           noticeably bigger than the post-card/post-detail byline avatar,
           since this IS the page, not a passing mention of the author. */}
       <div className="flex items-center gap-4 sm:gap-8">
-        {profile.avatarUrl ? (
-          <Image
-            src={profile.avatarUrl}
-            alt=""
-            width={150}
-            height={150}
-            className="h-24 w-24 shrink-0 rounded-full object-cover sm:h-[150px] sm:w-[150px]"
-          />
-        ) : (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={pickDefaultCatAvatar(profile.username)}
-            alt=""
-            width={150}
-            height={150}
-            className="h-24 w-24 shrink-0 rounded-full object-cover sm:h-[150px] sm:w-[150px]"
-          />
-        )}
+        <VoiceIntroRing voiceIntroUrl={profile.voiceIntroUrl}>
+          {profile.avatarUrl ? (
+            <Image
+              src={profile.avatarUrl}
+              alt=""
+              width={150}
+              height={150}
+              className="h-24 w-24 shrink-0 rounded-full object-cover sm:h-[150px] sm:w-[150px]"
+            />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={pickDefaultCatAvatar(profile.username)}
+              alt=""
+              width={150}
+              height={150}
+              className="h-24 w-24 shrink-0 rounded-full object-cover sm:h-[150px] sm:w-[150px]"
+            />
+          )}
+        </VoiceIntroRing>
         <div>
           <h1 className="text-xl font-semibold text-neutral-900 sm:text-2xl dark:text-neutral-50">{profile.fullName}</h1>
           <p className="text-sm text-neutral-500 dark:text-neutral-400">@{profile.username}</p>

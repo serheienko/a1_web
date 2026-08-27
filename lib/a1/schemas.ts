@@ -293,6 +293,14 @@ const UserCompanySchema = z.object({
  * user-flags.ts) — the same consent signal the app itself uses. Do not
  * add `email`, `phoneNumber`, `dob`, `personalChatId`, `metadata`,
  * `lastSeen`, or `notifySettings` here without re-reading that file.
+ *
+ * `voiceIntroduction` (Resource.MediaDocument | null) IS parsed below —
+ * confirmed present on Resource.User in the live spec 2026-08-27, per
+ * Aleksandr: "у нас у профилем есть голосовые визитки" (the mobile app
+ * already has these; the web just didn't read the field yet). It's a
+ * MediaDocument like `photos` entries, whose `attributes` carries a
+ * Resource.MediaDocument.AttributeAudio with `voice: true` — same
+ * media-proxy URL resolution as any other MediaDocument.
  */
 export const UserProfileSchema = z.object({
   _id: z.string(),
@@ -304,6 +312,7 @@ export const UserProfileSchema = z.object({
   bio: z.string().catch(""),
   profileTitle: z.string().nullable().catch(null),
   photos: z.array(MediaDocumentSchema).catch([]),
+  voiceIntroduction: MediaDocumentSchema.nullable().catch(null),
   location: WorldLocationSchema.nullable().catch(null),
   links: z.array(UserLinkSchema).catch([]),
   companies: z.array(UserCompanySchema).catch([]),

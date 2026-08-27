@@ -45,6 +45,9 @@ export type WebProfile = {
   username: string;
   fullName: string;
   avatarUrl: string | null;
+  // A media-proxy URL (see lib/a1/mappers.ts buildMediaProxyUrl), same
+  // shape as avatarUrl — null when the user hasn't recorded one.
+  voiceIntroUrl: string | null;
   occupation: string;
   expertise: string | null;
   bio: string;
