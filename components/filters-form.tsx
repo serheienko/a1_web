@@ -305,25 +305,49 @@ export function FiltersForm({
               {categories.map((c) => {
                 const isEmpty = emptyCategoryValues.includes(c.value);
                 const isSelected = currentCategory === c.value;
+
+                if (isSelected) {
+                  return (
+                    <div key={c.value} className="flex items-center rounded-md bg-accent/10 transition">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onCategoryChange("");
+                          setFiltersOpen(false);
+                        }}
+                        className="min-w-0 flex-1 truncate px-2 py-1.5 text-left text-sm font-medium text-accent"
+                      >
+                        {c.text}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onCategoryChange("");
+                          setFiltersOpen(false);
+                        }}
+                        aria-label={lang === "ru" ? "Очистить" : "Очистити"}
+                        className="mr-1 shrink-0 rounded p-1 text-accent transition hover:opacity-70"
+                      >
+                        <ClearIcon className="h-4 w-4" />
+                      </button>
+                    </div>
+                  );
+                }
+
                 return (
                   <button
                     key={c.value}
                     type="button"
                     disabled={isEmpty}
                     onClick={() => {
-                      // Selecting the already-selected category again
-                      // clears it — the only way back to "all" now that
-                      // there's no separate "all categories" row.
-                      onCategoryChange(isSelected ? "" : String(c.value));
+                      onCategoryChange(String(c.value));
                       setFiltersOpen(false);
                     }}
                     className={
                       "block w-full truncate rounded-md px-2 py-1.5 text-left text-sm transition " +
                       (isEmpty
                         ? "cursor-not-allowed text-neutral-400 opacity-50 dark:text-neutral-600"
-                        : isSelected
-                          ? "bg-accent/10 font-medium text-accent"
-                          : "text-neutral-700 hover:bg-accent/10 hover:text-accent dark:text-neutral-300")
+                        : "text-neutral-700 hover:bg-accent/10 hover:text-accent dark:text-neutral-300")
                     }
                   >
                     {c.text}
