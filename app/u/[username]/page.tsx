@@ -17,6 +17,7 @@ export const revalidate = 60;
 // it does not re-implement that check. See user-mappers.ts before adding
 // any other field that might carry PII.
 
+import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Image from "next/image";
@@ -76,7 +77,7 @@ function pillList(items: string[]) {
       {items.map((item, i) => (
         <span
           key={i}
-          className="rounded-md bg-white px-3 py-1.5 text-sm text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
+          className="rounded-full bg-white px-3 py-1.5 text-sm text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
         >
           {item}
         </span>
@@ -349,7 +350,7 @@ export default async function ProfilePage({ params }: Props) {
               href={link.url}
               target="_blank"
               rel="noopener noreferrer nofollow"
-              className="rounded-md bg-white px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-100 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700"
+              className="rounded-full bg-white px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-100 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700"
             >
               {link.title || link.url}
             </a>
@@ -367,13 +368,32 @@ export default async function ProfilePage({ params }: Props) {
               // ("2-10"), founding year, and a clickable website — all of
               // this was already sitting in WebProfileCompany (mostly
               // unused) except category, which needed the dataset lookup
-              // above. One line, so meta stays out of the way when a
-              // company genuinely has none of these set.
-              const meta = [
-                companyCategoryLabel(company.category),
-                company.employeesCount != null ? `${company.employeesCount}` : null,
-                company.establishedYear != null ? `${company.establishedYear}` : null,
-              ].filter((v): v is string => v != null);
+              // above.
+              //
+              // 2026-08-28 fix: this used to just join raw values with
+              // " · ", which rendered as the unreadable "IT · 10 · 0" —
+              // Aleksandr: "IT - 10 - 0 это что?" The "10" was the bare
+              // employeesCount with no unit (needs a translated suffix to
+              // read as a headcount, not a mystery number), and the
+              // trailing "0" was establishedYear defaulting to 0 when a
+              // company has no founding year set (0 isn't a real year —
+              // same "unset" treatment as null, just filtered out here
+              // instead of at the schema level since other establishedYear
+              // readers might still want to see the raw 0).
+              const metaParts: ReactNode[] = [];
+              const categoryLabel = companyCategoryLabel(company.category);
+              if (categoryLabel) metaParts.push(<span key="category">{categoryLabel}</span>);
+              if (company.employeesCount != null && company.employeesCount > 0) {
+                metaParts.push(
+                  <span key="employees">
+                    {company.employeesCount}{" "}
+                    <T uk="співробітників" en="employees" ru="сотрудников" de="Mitarbeiter" es="empleados" fr="employés" pl="pracowników" ptBR="funcionários" zh="名员工" />
+                  </span>,
+                );
+              }
+              if (company.establishedYear != null && company.establishedYear > 0) {
+                metaParts.push(<span key="year">{company.establishedYear}</span>);
+              }
               return (
                 <div key={`${company.name}-${i}`}>
                   <div className="font-medium text-neutral-900 dark:text-neutral-50">{company.name}</div>
@@ -381,8 +401,15 @@ export default async function ProfilePage({ params }: Props) {
                     <div className="text-sm text-neutral-600 dark:text-neutral-400">{company.positionDescription}</div>
                   )}
                   {company.description && <div className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">{company.description}</div>}
-                  {meta.length > 0 && (
-                    <div className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">{meta.join(" · ")}</div>
+                  {metaParts.length > 0 && (
+                    <div className="mt-1 flex flex-wrap items-center gap-x-1.5 text-sm text-neutral-500 dark:text-neutral-400">
+                      {metaParts.map((part, idx) => (
+                        <span key={idx} className="flex items-center gap-1.5">
+                          {idx > 0 && <span aria-hidden="true">·</span>}
+                          {part}
+                        </span>
+                      ))}
+                    </div>
                   )}
                   {company.link && (
                     <a
@@ -418,7 +445,7 @@ export default async function ProfilePage({ params }: Props) {
           <div className="mt-3 flex flex-col gap-2">
             {profile.skills.map((skill) => (
               <div key={skill.value} className="flex items-center gap-3">
-                <span className="w-32 shrink-0 text-sm text-neutral-700 dark:text-neutral-300">{skill.value}</span>
+                <span className="w-36 shrink-0 text-sm text-neutral-700 sm:w-40 dark:text-neutral-300">{skill.value}</span>
                 {levelBar(skill.level, 100)}
               </div>
             ))}

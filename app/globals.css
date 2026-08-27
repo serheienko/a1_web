@@ -1,6 +1,24 @@
 @import "tailwindcss";
 
 /*
+ * Aleksandr, 2026-08-28: "Нам надо увеличить все шрифты на сайте для
+ * лучшей читабельности. Моб версия - всё достаточно хорошо, а десктоп
+ * можно делать почти повсеместно крупнее." Rather than hand-tune every
+ * text-sm/text-base/etc utility across every component (easy to miss
+ * spots, easy to make inconsistent), bump the ROOT font-size on desktop
+ * only — every Tailwind text-* utility is rem-based, so this scales the
+ * whole type scale proportionally in one place. Mobile (below `sm`,
+ * matching the breakpoint already used for the mobile/desktop split in
+ * components/settings-menu.tsx and components/filters-form.tsx) keeps
+ * the default 16px root, since he said mobile is already fine.
+ */
+@media (min-width: 640px) {
+  html {
+    font-size: 112.5%; /* 18px effective base, was 16px */
+  }
+}
+
+/*
  * Class-based dark mode (2026-08-26): Aleksandr wants a manual light/dark
  * toggle in the UI, not just OS-level prefers-color-scheme. This redefines
  * Tailwind's `dark:` variant to key off a `.dark`/`.light` class on <html>
@@ -175,6 +193,23 @@
 
 .dark {
   --color-accent: #0c8ce9;
+}
+
+/*
+ * Aleksandr, 2026-08-28: "в выборе темы в режиме авто на темной теме синий
+ * цвет почему то отличается от обычного в темной теме" — the accent
+ * override above only fires when the .dark CLASS is literally present.
+ * In "Auto" mode (settings-menu.tsx's selectTheme("auto") removes both
+ * .dark and .light) the dark-mode LOOK still applies correctly via the
+ * @custom-variant dark { @media (prefers-color-scheme: dark) ... } fallback
+ * above, since that's a Tailwind variant — but --color-accent is a plain
+ * CSS custom property, which isn't touched by that variant at all, so it
+ * silently stayed at the light value. Mirror the same fallback here.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --color-accent: #0c8ce9;
+  }
 }
 
 /*

@@ -129,7 +129,7 @@ export function PostCard({ post }: { post: WebPost }) {
         {post.tags.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1.5">
             {post.tags.slice(0, 6).map((tag) => (
-              <span key={tag} className="rounded-full bg-white px-2.5 py-0.5 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
+              <span key={tag} className="rounded-full border border-neutral-200 bg-white px-2.5 py-0.5 text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400">
                 {tag}
               </span>
             ))}
