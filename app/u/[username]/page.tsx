@@ -23,7 +23,9 @@ import Image from "next/image";
 import { fetchUserByUsername } from "@/lib/a1/users";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { formatLanguageName } from "@/lib/format";
+import { VoiceIntroProvider } from "@/components/voice-intro-context";
 import { VoiceIntroRing } from "@/components/voice-intro-ring";
+import { VoiceIntroPlayer } from "@/components/voice-intro-player";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -62,13 +64,14 @@ export default async function ProfilePage({ params }: Props) {
   const locationLabel = profile.location ? profile.location.display : null;
 
   return (
+    <VoiceIntroProvider url={profile.voiceIntroUrl}>
     <main className="mx-auto max-w-2xl px-4 py-10 sm:py-16">
       {/* Avatar sized off Instagram's own profile page as reference
           (Aleksandr, 2026-08-26): ~96px on mobile, 150px on desktop —
           noticeably bigger than the post-card/post-detail byline avatar,
           since this IS the page, not a passing mention of the author. */}
       <div className="flex items-center gap-4 sm:gap-8">
-        <VoiceIntroRing voiceIntroUrl={profile.voiceIntroUrl}>
+        <VoiceIntroRing>
           {profile.avatarUrl ? (
             <Image
               src={profile.avatarUrl}
@@ -93,6 +96,12 @@ export default async function ProfilePage({ params }: Props) {
           <p className="text-sm text-neutral-500 dark:text-neutral-400">@{profile.username}</p>
         </div>
       </div>
+
+      {/* Fuller player element — speed + scrubbing — for the same clip
+          the ring plays, per Aleksandr's 2026-08-27 follow-up asking for
+          both. Shares the ring's audio state via VoiceIntroProvider so
+          only one of them is ever actually playing. */}
+      {profile.voiceIntroUrl && <VoiceIntroPlayer />}
 
       {profile.profileTitle && <p className="mt-4 text-base text-neutral-700 dark:text-neutral-300">{profile.profileTitle}</p>}
 
@@ -188,5 +197,6 @@ export default async function ProfilePage({ params }: Props) {
         </section>
       )}
     </main>
+    </VoiceIntroProvider>
   );
 }
