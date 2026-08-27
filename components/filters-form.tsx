@@ -38,6 +38,57 @@ import { ClearIcon } from "@/components/clear-icon";
 
 const MAX_SUGGESTIONS_PER_GROUP = 5;
 
+// 2026-08-27, Aleksandr noticed the tag checkboxes (Remote/On-site/Hybrid,
+// Full-time/Part-time/Contract, the experience-year buckets) still showed
+// raw English after the 9-language rollout — unlike everything else in
+// this file, tag.text isn't site chrome, it's live data from the backend
+// (lib/a1/datasets.ts's fetchTagsForKind -> dataset.postTags), same
+// category as category names, which components/t.tsx's own comment
+// explicitly scopes OUT of the <T/> system (translating arbitrary
+// backend/author content is a separate, much bigger problem).
+//
+// This specific tag set is really a small, fixed collection of platform
+// facets rather than open-ended user tags, so it's worth a pragmatic
+// client-side lookup keyed by the backend's current English text —
+// anything NOT in this table (a tag the backend renames or adds later)
+// just falls back to its raw tag.text, exactly like before this existed,
+// so an unrecognized tag never breaks or disappears, it's just
+// untranslated until this table is updated.
+const TAG_LABEL_TRANSLATIONS: Record<string, Record<Locale, string>> = {
+  "Remote": {
+    uk: "Віддалено", en: "Remote", ru: "Удалённо", de: "Remote", es: "Remoto",
+    fr: "À distance", pl: "Zdalnie", ptBR: "Remoto", zh: "远程",
+  },
+  "On-site": {
+    uk: "В офісі", en: "On-site", ru: "В офисе", de: "Vor Ort", es: "Presencial",
+    fr: "Sur site", pl: "Stacjonarnie", ptBR: "Presencial", zh: "现场办公",
+  },
+  "Hybrid": {
+    uk: "Гібридно", en: "Hybrid", ru: "Гибридно", de: "Hybrid", es: "Híbrido",
+    fr: "Hybride", pl: "Hybrydowo", ptBR: "Híbrido", zh: "混合办公",
+  },
+  "Full-time": {
+    uk: "Повна зайнятість", en: "Full-time", ru: "Полная занятость", de: "Vollzeit",
+    es: "Tiempo completo", fr: "Temps plein", pl: "Pełny etat", ptBR: "Tempo integral", zh: "全职",
+  },
+  "Part-time": {
+    uk: "Часткова зайнятість", en: "Part-time", ru: "Частичная занятость", de: "Teilzeit",
+    es: "Tiempo parcial", fr: "Temps partiel", pl: "Niepełny etat", ptBR: "Meio período", zh: "兼职",
+  },
+  "Contract": {
+    uk: "Контракт", en: "Contract", ru: "Контракт", de: "Vertrag", es: "Contrato",
+    fr: "Contrat", pl: "Kontrakt", ptBR: "Contrato", zh: "合同工",
+  },
+  "1 yr. exp.": {
+    uk: "1 рік досвіду", en: "1 yr. exp.", ru: "1 год опыта", de: "1 Jahr Erfahrung",
+    es: "1 año de exp.", fr: "1 an d'exp.", pl: "1 rok doświadczenia", ptBR: "1 ano de exp.", zh: "1年经验",
+  },
+};
+
+function translateTagLabel(text: string, lang: Locale): string {
+  return TAG_LABEL_TRANSLATIONS[text]?.[lang] ?? text;
+}
+
 // Static UI strings this client component needs as plain values (not
 // <T/> — CSS can't conditionally show/hide inside attribute values or
 // non-DOM text like aria-label), keyed by the same 9 locales as
@@ -304,7 +355,7 @@ export function FiltersForm({
                       onClick={() => pickTagSuggestion(t.value)}
                       className="block w-full truncate px-3 py-1.5 text-left text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
                     >
-                      {t.text}
+                      {translateTagLabel(t.text, lang)}
                     </button>
                   ))}
                 </div>
@@ -409,7 +460,7 @@ export function FiltersForm({
                 onChange={(e) => onTagToggle(tag.value, e.target.checked)}
                 className="rounded border-neutral-300 accent-accent dark:border-neutral-600"
               />
-              {tag.text}
+              {translateTagLabel(tag.text, lang)}
             </label>
           ))}
         </div>
