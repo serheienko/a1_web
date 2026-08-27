@@ -42,7 +42,9 @@ const MAX_SUGGESTIONS_PER_GROUP = 5;
 // <T/> — CSS can't conditionally show/hide inside attribute values or
 // non-DOM text like aria-label), keyed by the same 9 locales as
 // components/t.tsx.
-const FILTERS_FORM_STRINGS: Record<string, Record<Locale, string>> = {
+type FiltersFormStringKey = "searchPlaceholder" | "clear" | "categories" | "tags" | "filters" | "category";
+
+const FILTERS_FORM_STRINGS: Record<FiltersFormStringKey, Record<Locale, string>> = {
   searchPlaceholder: {
     uk: "Пошук за текстом...", en: "Search by text...", ru: "Поиск по тексту...",
     de: "Suche nach Text...", es: "Buscar por texto...", fr: "Rechercher par texte...",
