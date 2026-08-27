@@ -82,9 +82,19 @@ export function VoiceIntroProvider({ url, children }: { url: string | null; chil
   }, []);
 
   // No "off" — just cycles 1x -> 1.5x -> 2x -> 1x per Aleksandr's note.
+  //
+  // RATES[idx] below is typed `Rate | undefined` because tsconfig has
+  // noUncheckedIndexedAccess on and idx isn't a literal — this actually
+  // broke the Vercel build the first time around (assigning that to
+  // audio.playbackRate: number, and returning it from a Rate-typed
+  // updater, both failed strict typecheck; the deploy silently kept
+  // serving the previous build while this sat broken). `?? RATES[0]` is
+  // a real fallback for the type checker, never for logic — the modulo
+  // always yields a valid tuple index.
   const cycleRate = useCallback(() => {
     setRate((r) => {
-      const next = RATES[(RATES.indexOf(r) + 1) % RATES.length];
+      const idx = (RATES.indexOf(r) + 1) % RATES.length;
+      const next = RATES[idx] ?? RATES[0];
       const audio = audioRef.current;
       if (audio) audio.playbackRate = next;
       return next;
