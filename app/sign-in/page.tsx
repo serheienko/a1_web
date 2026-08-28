@@ -22,13 +22,37 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
+import { GoogleSignInButton } from "@/components/google-sign-in-button";
 
 type Mode = "sign-in" | "sign-up";
 
 // Same "read the active lang-XX class client-side" trick as
 // components/settings-menu.tsx — <T/> only helps for server-rendered
 // spans, not for values needed as plain strings/props here.
-const STRINGS: Record<string, Record<Locale, string>> = {
+//
+// A literal key union (not Record<string, ...>) — same convention
+// components/filters-form.tsx already uses, and for the same reason:
+// with tsconfig's noUncheckedIndexedAccess on, a generic `string` key
+// makes every STRINGS.foo[lang] read "possibly undefined" even for keys
+// that always exist. This is a real fix, found the hard way — the first
+// Vercel build of this page failed on exactly that (PLAN.md §6.12).
+type SignInStringKey =
+  | "signInTitle"
+  | "signUpTitle"
+  | "email"
+  | "password"
+  | "firstName"
+  | "lastName"
+  | "submitSignIn"
+  | "submitSignUp"
+  | "switchToSignUp"
+  | "switchToSignIn"
+  | "errorSignIn"
+  | "errorSignUp"
+  | "backHome"
+  | "orDivider";
+
+const STRINGS: Record<SignInStringKey, Record<Locale, string>> = {
   signInTitle: {
     uk: "Увійти", en: "Sign in", ru: "Войти", de: "Anmelden", es: "Iniciar sesión",
     fr: "Se connecter", pl: "Zaloguj się", ptBR: "Entrar", zh: "登录",
@@ -93,6 +117,10 @@ const STRINGS: Record<string, Record<Locale, string>> = {
     uk: "← На головну", en: "← Back home", ru: "← На главную", de: "← Zur Startseite",
     es: "← Volver al inicio", fr: "← Retour à l'accueil", pl: "← Strona główna", ptBR: "← Voltar ao início",
     zh: "← 返回首页",
+  },
+  orDivider: {
+    uk: "або", en: "or", ru: "или", de: "oder", es: "o",
+    fr: "ou", pl: "lub", ptBR: "ou", zh: "或",
   },
 };
 
@@ -211,6 +239,17 @@ export default function SignInPage() {
             {mode === "sign-in" ? STRINGS.submitSignIn[lang] : STRINGS.submitSignUp[lang]}
           </button>
         </form>
+
+        {/* Phase 5b (PLAN.md §6.6/§6.11): Google is fully unblocked
+            already — no reason to gate the button behind Apple, which
+            still needs Andrew's backend change. Apple's own button
+            joins here once Phase 5b-Apple is built. */}
+        <div className="my-4 flex items-center gap-3 text-xs text-neutral-400 dark:text-neutral-600">
+          <div className="h-px flex-1 bg-neutral-200 dark:bg-neutral-800" />
+          {STRINGS.orDivider[lang]}
+          <div className="h-px flex-1 bg-neutral-200 dark:bg-neutral-800" />
+        </div>
+        <GoogleSignInButton />
 
         <button
           type="button"

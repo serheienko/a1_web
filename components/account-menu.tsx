@@ -25,7 +25,12 @@ import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 // lib/a1/session-constants.ts's own comment).
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
 
-const ACCOUNT_MENU_STRINGS: Record<string, Record<Locale, string>> = {
+// Literal key union, not Record<string, ...> — see app/sign-in/page.tsx's
+// SignInStringKey comment for why (noUncheckedIndexedAccess + a generic
+// string key otherwise makes every lookup "possibly undefined").
+type AccountMenuStringKey = "signIn" | "signOut";
+
+const ACCOUNT_MENU_STRINGS: Record<AccountMenuStringKey, Record<Locale, string>> = {
   signIn: {
     uk: "Увійти", en: "Sign in", ru: "Войти", de: "Anmelden", es: "Iniciar sesión",
     fr: "Se connecter", pl: "Zaloguj się", ptBR: "Entrar", zh: "登录",

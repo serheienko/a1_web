@@ -887,6 +887,68 @@ now. Confirms §0.4's rule in practice — this class of error is exactly
 why a green Vercel build, not a local read of the diff, is the real
 check.
 
+**Second Vercel build attempt also failed, different cause — fixed same
+day.** Once the `next/headers` issue above was fixed, the build got
+further and hit a real `tsc` type error: `tsconfig.json`'s
+`noUncheckedIndexedAccess` (already on for this whole project) makes
+`SOME_TABLE.knownKey[lang]` a type error whenever `SOME_TABLE` is typed
+as `Record<string, ...>` — a generic `string` key is an index signature,
+and with that flag on, TypeScript treats every lookup through one as
+possibly missing, even for a key that's always there. Three of this
+session's new locale-string tables (`app/sign-in/page.tsx`,
+`components/account-menu.tsx`, `components/google-sign-in-button.tsx`)
+were typed exactly that way. The codebase already has the fix
+established in `components/filters-form.tsx` — type the table as
+`Record<SomeLiteralKeyUnion, Record<Locale, string>>` instead of
+`Record<string, ...>`, so every key is a real, always-present property
+instead of an index-signature guess. Reused that convention rather than
+inventing a different one; `components/settings-menu.tsx` instead
+handles it with an optional-chaining accessor function
+(`SETTINGS_MENU_STRINGS[key]?.[lang] ?? ""`) — either fix is valid, the
+literal-union one was picked here as the closer match to how these three
+files were already written.
+
+### 6.13 Phase 5b (Google): sign-in button implemented (2026-08-28)
+
+Google is the one OAuth path already fully unblocked (§6.11 — the
+backend needs no change), so it went first, ahead of Apple which is
+still waiting on Andrew.
+
+**New files:**
+- `lib/a1/oauth-public.ts` — holds `GOOGLE_WEB_CLIENT_ID` (the id from
+  §6.9), the one OAuth-related value that's *supposed* to be public and
+  shipped in client JS (Google's own design — there's no client secret
+  in this flow). Deliberately separate from `lib/a1/config.ts`, which
+  throws if ever imported client-side because it holds real secrets.
+  Inlined as a plain constant rather than a `NEXT_PUBLIC_` env var —
+  it's not sensitive, and this avoids one more thing to configure on
+  Vercel.
+- `components/google-sign-in-button.tsx` — renders Google's own "Sign in
+  with Google" button via Google Identity Services (a `<script>` tag,
+  `google.accounts.id.initialize`/`renderButton`), not the Firebase Auth
+  SDK. Verified against Google's own JS reference docs (2026-08-28,
+  not assumed): the button's callback receives a `CredentialResponse`
+  whose `.credential` is the ID token JWT — that's what gets POSTed to
+  the new route below. No new npm dependency (can't install one anyway,
+  §0.4) and no Firebase project config needed, unlike Apple's flow will
+  require (Apple's redirect-based sign-in needs a real callback
+  endpoint; Google's popup/One Tap flow talks to the browser directly
+  and doesn't).
+- `app/api/auth/google/route.ts` — same shape as the email sign-in
+  route: forwards the token to `auth.google` (PLAN.md §6.1), sets the
+  same two session cookies. Since `auth.google`'s response has no email
+  field, the display cookie's email comes from decoding (not
+  re-verifying — `auth.google` is what actually validates the token)
+  the `email` claim out of the same JWT already sent.
+
+**Wired into `app/sign-in/page.tsx`** below the email/password form,
+behind an "or" divider — visible immediately, not gated on Apple being
+ready.
+
+**Not yet pushed/verified green on Vercel** as of this writing — see the
+build-failure entries above this section for why two earlier pushes
+already failed (both fixed, same day, before this one went out).
+
 ## OPEN QUESTIONS — Stage 2, for Aleksandr
 
 1. ~~**Google Sign-In needs its own Web-application OAuth Client ID**~~
