@@ -126,10 +126,10 @@ function favoriteTile(title: string, subtitle: string | null, cover: CoverImage 
           aria-hidden="true"
         />
       )}
-      <div className="relative">
+      <div className="relative w-full min-w-0">
         <div
           className={
-            "text-sm font-semibold uppercase leading-snug tracking-wide " +
+            "break-words text-sm font-semibold uppercase leading-snug tracking-wide " +
             (cover ? "text-white" : "text-neutral-700 dark:text-neutral-200")
           }
         >
