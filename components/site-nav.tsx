@@ -26,9 +26,16 @@
 // that job itself, so a second, sharper edge on top of it looked
 // redundant/busy instead of crisp.
 //
-// 2026-08-28: the logo Link + its two static <img>s moved into their
-// own components/logo-play.tsx — same resting appearance, now with a
-// one-shot Lottie play effect on click. See that file's own comment.
+// 2026-08-28: tried moving the logo into components/logo-play.tsx for a
+// one-shot Lottie "play" effect on click. Reverted the same day: the
+// animation's crop/scale came out wrong in a way that only showed up
+// live (the mark visibly shrank and flashed before the real animation
+// kicked in) — this environment has no way to render or preview a
+// Lottie file to fix that blind, and Aleksandr asked to just revert
+// rather than keep guessing at the numbers. Back to the plain static
+// logo; components/logo-play.tsx and the two recolored animation JSONs
+// under public/brand/ are unused now (left in place in case this gets
+// revisited with an actual way to preview it).
 //
 // 2026-08-28: added `isolate` here after Aleksandr reported the fog
 // under this bar reading as a hard cut on his phone rather than a
@@ -40,7 +47,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogoPlay } from "@/components/logo-play";
 import { ProgressiveBlur } from "@/components/progressive-blur";
 import { SettingsMenu } from "@/components/settings-menu";
 import { T } from "@/components/t";
@@ -83,7 +89,13 @@ export function SiteNav() {
       <ProgressiveBlur />
       <div className="relative flex items-center gap-4 px-4 py-3">
         <div className="flex min-w-0 flex-1 items-center gap-4">
-          <LogoPlay />
+          <Link href="/" className="shrink-0 transition-opacity hover:opacity-80">
+            {/* Two exact logo marks exported from Figma (light = brand blue
+                #335EF7, dark = white) rather than recoloring one asset with
+                CSS filters. */}
+            <img src="/brand/a1-logo-blue.svg" alt="A1" className="h-7 w-auto dark:hidden" />
+            <img src="/brand/a1-logo-white.svg" alt="A1" className="hidden h-7 w-auto dark:block" />
+          </Link>
 
           {/* Desktop-only search box lives in components/filters-form.tsx and
               portals its markup in here — empty (zero-height/width) on pages
