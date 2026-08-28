@@ -806,6 +806,73 @@ shared-audience trick, so `com.aone.aoneapp.web` (§6.10) still needs to
 be added to `auth.appleId`'s accepted list before Apple sign-in works.
 
 
+### 6.12 Phase 5a implemented: email+password sign-in (2026-08-28)
+
+Built the "smallest possible slice" from §6.6's Phase 5a — a real
+session, "signed in as X" in the nav, nothing else yet (no profile
+editing, no publishing, no Google/Apple buttons — those are Phase 5b/6/7).
+Not yet pushed/verified on Vercel (this repo's only build/type-check
+environment, §0.4) — that's the next step, not a claim this is confirmed
+working end-to-end.
+
+**New files:**
+- `lib/a1/session.ts` — the session primitive. Deliberately a *sibling*
+  to `lib/a1/auth.ts`, not a second implementation of its `Authorizer`
+  interface: that module is a per-warm-instance singleton speaking for
+  one shared service account (§6.2 already ruled this out for per-
+  visitor state — a signed-in visitor's tokens can't live in a
+  module-level cache shared by every visitor hitting that instance).
+  Two cookies, split by trust level: `a1_session` (httpOnly — the real
+  `accessToken`/`refreshToken`, read only in Route Handlers or a future
+  dynamic page) and `a1_user` (plain — just the email, so the nav can
+  show "signed in as X" from a client-side read without ever calling
+  `cookies()`/`headers()` in a shared render path — the same constraint
+  §6.2 already put on this whole phase, to keep the ISR'd feed/detail
+  pages exactly as they are). Same two-tier pattern this codebase
+  already uses for `a1_geo` (`middleware.ts`) and the theme/lang
+  anti-flash cookies (`app/layout.tsx`). **Deliberately unsigned** for
+  this phase — editing your own `a1_session` cookie can only break your
+  own login (the API validates the real tokens on every call, same as
+  the app does); there's no cross-user risk to sign against yet.
+- `app/api/auth/sign-up/route.ts`, `app/api/auth/sign-in/route.ts` —
+  call the two documented public endpoints from §6.1 as-is
+  (`users.createUser`, `auth.email`) with Zod-validated bodies, set the
+  session cookies on success. No invented endpoints, no new required
+  env vars (`A1_API_BASE` already existed).
+- `app/api/auth/sign-out/route.ts` — clears both cookies, no backend
+  call. §6.1's ground truth has no documented revoke endpoint, and §5's
+  rule 1 says never invent one against the 121 known methods — a
+  forgotten cookie is a sufficient "sign out" at this phase.
+- `app/sign-in/page.tsx` — one combined sign-in/sign-up form, all 9
+  locales, reusing `--color-accent`/`--radius-card` and the input
+  styling already established in `components/filters-form.tsx`.
+  Deliberately plain — §4 Phase 5 (the *visual* design pass, a different
+  "Phase 5" than this one) is a separate future session; no point
+  polishing a page likely to be restyled then.
+- `components/account-menu.tsx` — the nav's "Sign in" link (signed out)
+  or email + "Sign out" (signed in), mounted next to `<SettingsMenu>` in
+  `components/site-nav.tsx`. Reads `a1_user` client-side only, same
+  reason as the cookie split above.
+
+**Modified:** `lib/a1/client.ts` — added a `.detail` getter to
+`A1ApiError` for best-effort human-readable error extraction (looks for
+a plain-string `message`/`error` field, returns `null` otherwise — §0's
+ground truth is explicit that 400/401/500 are declared with no schema,
+so this is a debugging aid, never something the sign-in page's copy
+relies on for correctness).
+
+**Deliberately deferred, not forgotten** (tracked as open question 3
+below): no email verification before sign-in works, no client-side
+"is this email already taken" check before submitting sign-up, no
+password-strength rule beyond "non-empty" — all pending Aleksandr's
+answer on what the backend actually requires/offers.
+
+**Navigation after sign-in/up/out is a full page load**
+(`window.location.href = "/"`), not client-side routing — chosen so
+`AccountMenu` (which reads its cookie once on mount, by design) remounts
+and picks up the fresh state, without building a shared auth context/
+event bus for a phase this small.
+
 ## OPEN QUESTIONS — Stage 2, for Aleksandr
 
 1. ~~**Google Sign-In needs its own Web-application OAuth Client ID**~~
