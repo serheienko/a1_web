@@ -956,10 +956,17 @@ decoding. Audited every other new file in this phase for the same
 pattern (`[0]`/`[1]` indexing, `.match()`/`.split()` results) after this
 one — nothing else found.
 
-**Not yet pushed/verified green on Vercel** as of this writing — three
-separate build failures so far, each a different mechanical
-consequence of the same strict tsconfig this project already had
-(`noUncheckedIndexedAccess`), not a design problem with Stage 2 itself.
+**Pushed and verified green on Vercel (commit `fa169a3`)** after three
+build-failure fixes above, all mechanical consequences of this
+project's existing strict tsconfig, not a design problem with Stage 2
+itself. Manually confirmed at `jobs.a1appp.com/sign-in`: the email/
+password form renders, and the Google button renders too — it already
+recognized an active Google session in the browser it was checked from
+and offered "Continue as ..." with that account's name/photo, which
+means Google Identity Services is correctly wired to the real web
+client id end to end. Not yet exercised — sign-up, sign-in, and the
+Google button's full round trip through `auth.google` still need an
+actual test pass by Aleksandr.
 
 ## OPEN QUESTIONS — Stage 2, for Aleksandr
 
