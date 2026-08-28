@@ -29,6 +29,13 @@
 // 2026-08-28: the logo Link + its two static <img>s moved into their
 // own components/logo-play.tsx — same resting appearance, now with a
 // one-shot Lottie play effect on click. See that file's own comment.
+//
+// 2026-08-28: added `isolate` here after Aleksandr reported the fog
+// under this bar reading as a hard cut on his phone rather than a
+// gradual blur — the real bug turned out to be in progressive-blur.tsx
+// itself (see that file's own comment), but an explicit stacking
+// context on the sticky bar is cheap, safe insurance against this
+// nav ever getting mis-ordered against scrolled content mid-scroll.
 "use client";
 
 import Link from "next/link";
@@ -70,7 +77,7 @@ export function SiteNav() {
 
   return (
     <nav
-      className="sticky top-0 z-40 bg-app/80 pt-[env(safe-area-inset-top)] backdrop-blur-xl [will-change:transform] dark:bg-black/80"
+      className="sticky top-0 z-40 isolate bg-app/80 pt-[env(safe-area-inset-top)] backdrop-blur-xl [will-change:transform] dark:bg-black/80"
       style={{ transform: "translateZ(0)" }}
     >
       <ProgressiveBlur />

@@ -12,11 +12,31 @@
 // is to stack several full-width layers directly under the header,
 // each blurred by a different amount and each masked (via a soft
 // linear-gradient alpha mask) so it only "switches on" over a narrow
-// band. Overlapping six of these bands — weakest blur nearest the page
-// content, strongest right under the header — reads as one smooth,
-// continuously increasing blur, which no single backdrop-filter can
-// produce. A matching colour fade rides on top for the actual "fog"
-// tint Aleksandr pointed at, not just the optical blur.
+// band. Overlapping layers — weakest blur nearest the page content,
+// strongest right under the header — reads as one smooth, continuously
+// increasing blur, which no single backdrop-filter can produce. A
+// matching colour fade rides on top for the actual "fog" tint
+// Aleksandr pointed at, not just the optical blur.
+//
+// 2026-08-28 (round 2): Aleksandr sent a screenshot showing a hard,
+// un-blurred cut right where his phone's screen meets the header — not
+// the gradual fog this was supposed to be. Tracked it to a real bug in
+// the mask math, not a device quirk: the strongest (topmost, nearest-
+// header) layer's mask was built with the same 4-stop "fade in, hold,
+// fade out" shape as the middle layers, so it faded back to fully
+// TRANSPARENT again right at 100% — i.e. exactly on the seam where
+// this strip meets the header's bottom edge. That put a strip of zero
+// blur precisely where the fog needed to be strongest, which reads
+// exactly like a hard cut once you're close enough that it's the only
+// part of the gradient still on-screen. Fixed by giving each layer an
+// explicit shape instead of inferring it from stop count: the bottom
+// layer fades OUT (opaque near the content, transparent going up), the
+// top layer fades IN and then STAYS opaque through 100% (transparent
+// near the content, opaque touching the header), and only the layers
+// in between get the fade-in-hold-fade-out "bump" shape. Also widened
+// the band and added `isolate` on the nav (site-nav.tsx) — a stacking
+// context anchor that's cheap insurance against any WebKit z-ordering
+// glitch during scroll, independent of the mask bug itself.
 //
 // Renders as a strip glued to the bottom edge of its parent — the
 // parent must be positioned (site-nav.tsx's <nav> is `sticky`, which
@@ -24,38 +44,52 @@
 // it. pointer-events-none throughout: it's decorative and sits over
 // real cards/content, so it must never intercept a click or tap.
 
-const LAYERS = [
-  { blur: 1, stops: [0, 12.5, 25] as const },
-  { blur: 2, stops: [0, 12.5, 25, 37.5] as const },
-  { blur: 4, stops: [12.5, 25, 37.5, 50] as const },
-  { blur: 8, stops: [25, 37.5, 50, 62.5] as const },
-  { blur: 16, stops: [37.5, 50, 62.5, 75] as const },
-  { blur: 32, stops: [50, 62.5, 75, 100] as const },
-];
+type Shape = "fade-out" | "bump" | "fade-in";
+
+type Layer = {
+  blur: number;
+  shape: Shape;
+  // fade-out: [opaque-until, transparent-by]
+  // fade-in:  [transparent-until, opaque-by]
+  // bump:     [transparent-until, opaque-by, opaque-until, transparent-by]
+  stops: readonly number[];
+};
 
 // `to top`: 0% = bottom of the strip (nearest the page content), 100%
-// = top of the strip (nearest the header). Each layer is fully
-// transparent (blur off) outside its band and fully opaque (blur on)
-// inside it, with a short ramp at each edge so neighboring layers
-// overlap instead of stepping — that overlap is what fuses six discrete
-// layers into what reads as one continuous gradient.
-function maskFor(stops: readonly number[]) {
-  if (stops.length === 3) {
-    const [a, b, c] = stops;
-    return `linear-gradient(to top, black ${a}%, black ${b}%, transparent ${c}%)`;
+// = top of the strip (nearest the header). Ordered weakest-to-strongest
+// so the blur reads as continuously increasing toward the header.
+const LAYERS: readonly Layer[] = [
+  { blur: 2, shape: "fade-out", stops: [20, 40] },
+  { blur: 6, shape: "bump", stops: [10, 30, 50, 65] },
+  { blur: 12, shape: "bump", stops: [35, 50, 70, 85] },
+  { blur: 22, shape: "bump", stops: [55, 70, 90, 97] },
+  // Stays opaque through 100% — the whole point of this layer is to be
+  // the strongest blur exactly on the seam with the header, so unlike
+  // every layer below it, it must NOT fade back out before reaching it.
+  { blur: 38, shape: "fade-in", stops: [75, 92] },
+];
+
+function maskFor(layer: Layer) {
+  if (layer.shape === "fade-out") {
+    const [opaqueUntil, transparentBy] = layer.stops;
+    return `linear-gradient(to top, black ${opaqueUntil}%, transparent ${transparentBy}%)`;
   }
-  const [a, b, c, d] = stops;
+  if (layer.shape === "fade-in") {
+    const [transparentUntil, opaqueBy] = layer.stops;
+    return `linear-gradient(to top, transparent ${transparentUntil}%, black ${opaqueBy}%)`;
+  }
+  const [a, b, c, d] = layer.stops;
   return `linear-gradient(to top, transparent ${a}%, black ${b}%, black ${c}%, transparent ${d}%)`;
 }
 
-export function ProgressiveBlur({ heightClassName = "h-24" }: { heightClassName?: string }) {
+export function ProgressiveBlur({ heightClassName = "h-32" }: { heightClassName?: string }) {
   return (
     <div
       className={`pointer-events-none absolute inset-x-0 top-full ${heightClassName}`}
       aria-hidden="true"
     >
       {LAYERS.map((layer) => {
-        const mask = maskFor(layer.stops);
+        const mask = maskFor(layer);
         return (
           <div
             key={layer.blur}
