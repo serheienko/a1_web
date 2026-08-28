@@ -25,10 +25,15 @@
 // cutoff line where content just stopped; the fog gradient now does
 // that job itself, so a second, sharper edge on top of it looked
 // redundant/busy instead of crisp.
+//
+// 2026-08-28: the logo Link + its two static <img>s moved into their
+// own components/logo-play.tsx — same resting appearance, now with a
+// one-shot Lottie play effect on click. See that file's own comment.
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { LogoPlay } from "@/components/logo-play";
 import { ProgressiveBlur } from "@/components/progressive-blur";
 import { SettingsMenu } from "@/components/settings-menu";
 import { T } from "@/components/t";
@@ -71,12 +76,7 @@ export function SiteNav() {
       <ProgressiveBlur />
       <div className="relative flex items-center gap-4 px-4 py-3">
         <div className="flex min-w-0 flex-1 items-center gap-4">
-          <Link href="/" className="shrink-0 transition-opacity hover:opacity-80">
-            {/* Two exact logo marks exported from Figma (light = brand blue #335EF7,
-                dark = white) rather than recoloring one asset with CSS filters. */}
-            <img src="/brand/a1-logo-blue.svg" alt="A1" className="h-7 w-auto dark:hidden" />
-            <img src="/brand/a1-logo-white.svg" alt="A1" className="hidden h-7 w-auto dark:block" />
-          </Link>
+          <LogoPlay />
 
           {/* Desktop-only search box lives in components/filters-form.tsx and
               portals its markup in here — empty (zero-height/width) on pages
