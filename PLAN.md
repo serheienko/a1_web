@@ -726,7 +726,56 @@ finishing:
 954420352634-d2s57so6b7gkk31q5uffl2vtku1vgdeb.apps.googleusercontent.com
 ```
 
-Apple Services ID (§6.3, §6.8 step 1's other half) is still not started.
+Apple Services ID (§6.3, §6.8 step 1's other half) is done too — see §6.10.
+
+### 6.10 Apple Services ID: created, configured (2026-08-28)
+
+Same shape as §6.9, done live in Apple Developer (team "A-ODYN, TOV",
+Aleksandr's own Apple Developer account). The app's
+existing App ID (`com.aone.aoneapp`) already had **Sign In with Apple**
+enabled as a primary App ID — nothing to change there.
+
+Registered a new **Services ID** (Apple's equivalent of a Web OAuth
+client — this is what appears as `aud` in the ID token, same role as
+Google's client id):
+
+```
+com.aone.aoneapp.web
+```
+
+Configured for Web Authentication:
+- **Primary App ID:** `com.aone.aoneapp` (the app's own) — this is what
+  makes Apple treat a web sign-in as the same app family; without this
+  link a web sign-in would be a fully separate, unrelated identity.
+- **Domains and Subdomains:** `jobs.a1appp.com`
+- **Return URLs:** `https://a1-app-9aaf1.firebaseapp.com/__/auth/handler`
+  — same Firebase generic OAuth handler already registered as the
+  redirect URI on the Google web client (§6.9), on the assumption the
+  web sign-in buttons will go through the Firebase Auth JS SDK
+  (`signInWithPopup` + `GoogleAuthProvider`/`OAuthProvider('apple.com')`)
+  rather than hand-rolled OAuth — matches the pattern already set up for
+  Google. **Flag if the implementing agent goes a different route.**
+
+**Noticed but left alone:** a second, older Services ID already existed
+(`com.aone.aoneapp.signin`, description "Sign in with AppleID") with
+Sign In with Apple *not* enabled — looked unfinished/unused. Didn't
+touch or delete it, history unknown; new work uses `com.aone.aoneapp.web`
+instead.
+
+**Not done yet (optional, deferred):** Apple's setup flow also offers a
+"Create Key" step and a "Register Email Sources for Communication"
+step. Per Apple's own UI copy, these are specifically for supporting
+Apple's *Private Email Relay* (so the backend can email a user who chose
+to hide their real email from Apple). Not needed to get basic sign-in
+working — revisit only if/when we need to email users who used Apple's
+hide-my-email option.
+
+**Identifier to send Andrew, same purpose as the Google client id
+(§6.9) — the value his backend needs to add to `auth.appleId`'s accepted
+audience list:**
+```
+com.aone.aoneapp.web
+```
 
 
 ## OPEN QUESTIONS — Stage 2, for Aleksandr
@@ -736,9 +785,10 @@ Apple Services ID (§6.3, §6.8 step 1's other half) is still not started.
    auto-created it), now configured and published.** See §6.9. Client ID
    sent to Andrew; waiting on him to add it to the accepted list
    (§6.8).
-2. **Apple Sign-In needs a Services ID + verified domain** in the Apple
-   Developer portal, separate from the app's identifiers (§6.3). Same
-   question.
+2. ~~**Apple Sign-In needs a Services ID + verified domain**~~ —
+   **Answered/done 2026-08-28: created `com.aone.aoneapp.web`,
+   associated with the app's App ID, domain + return URL configured.**
+   See §6.10. Identifier sent to Andrew alongside the Google one.
 3. **Password rules and email verification.** Any minimum password
    policy the backend enforces, or should the web set its own? Does a
    web account need to verify its email (`account.verifyEmail` exists)
