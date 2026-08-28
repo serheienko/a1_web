@@ -38,6 +38,23 @@
 // context anchor that's cheap insurance against any WebKit z-ordering
 // glitch during scroll, independent of the mask bug itself.
 //
+// 2026-08-28 (round 3): that 128px band (h-32) was sized off a desktop
+// test and turned out too tall on a phone screen — "она начинается
+// слишком рано... уже там чуть-чуть скролишь залазит тень" (it starts
+// too soon, just barely scroll and the shadow's already creeping in).
+// This strip is glued to the header regardless of scroll position — it
+// isn't scroll-triggered, it just sits wherever the header currently is
+// — so its height alone decides how far down into content it visibly
+// reaches even at rest. 128px eats a much bigger slice of a short phone
+// viewport than of a tall desktop one, so it was darkening/blurring the
+// TOP of the very first card the instant a page loaded, before the user
+// had scrolled anything into the header at all. h-20 (80px) on mobile
+// keeps the same layer curve (all the LAYERS stops below are
+// percentages of this height, so they stay proportionally identical,
+// just compressed into less physical space) while sm:h-32 keeps the
+// desktop version — which Aleksandr already confirmed looked right —
+// unchanged.
+//
 // Renders as a strip glued to the bottom edge of its parent — the
 // parent must be positioned (site-nav.tsx's <nav> is `sticky`, which
 // counts) so this can be `absolute inset-x-0 top-full` and scroll with
@@ -82,7 +99,7 @@ function maskFor(layer: Layer) {
   return `linear-gradient(to top, transparent ${a}%, black ${b}%, black ${c}%, transparent ${d}%)`;
 }
 
-export function ProgressiveBlur({ heightClassName = "h-32" }: { heightClassName?: string }) {
+export function ProgressiveBlur({ heightClassName = "h-20 sm:h-32" }: { heightClassName?: string }) {
   return (
     <div
       className={`pointer-events-none absolute inset-x-0 top-full ${heightClassName}`}
