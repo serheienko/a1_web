@@ -42,18 +42,26 @@
 // the tabs) — this component only ever renders inside <main>, wherever
 // the page places <Filters>, which is nowhere near the nav.
 //
-// The desktop filter popover shows category list + tag chips together
-// (tags become toggle pills instead of the mobile row's checkboxes);
-// mobile keeps its two separate pieces (category-only popover, tags as
-// an always-visible checkbox row) exactly as before. Both popovers share
-// one `filtersOpen` boolean — only one of the two trigger buttons is
-// ever visible at a given viewport width (the mobile card and the
-// portaled desktop box are CSS-`hidden` opposite each other), so sharing
-// state is safe and avoids two independent copies of "is a filter
-// popover open" getting out of sync. Query text, debounce, suggestions,
-// and the URL-is-the-filter-state navigate() logic are likewise shared
-// as-is between both search inputs — typing in whichever one is visible
-// updates the same `query` state.
+// Both the mobile and desktop filter popovers show category list +
+// location + tag chips together, all behind the one filter button —
+// 2026-08-28 follow-up ("мы договаривались, что ты это добавишь туда же
+// [в] фильтры... но просто это всё будет жить на одной кнопке"):
+// mobile used to keep tags as a separate always-visible checkbox row
+// below the search box (kept unchanged during the desktop-search-in-nav
+// redesign above, per "мобильная версия пусть остаётся как есть" — that
+// instruction was scoped to THAT task, not a standing rule), which read
+// as tags having quietly vanished once category+location moved behind a
+// popover next to them. Consolidated into the same popover as category/
+// location for both viewports instead — tagChipsBody (below) is shared
+// verbatim, not duplicated. Both popovers still share one `filtersOpen`
+// boolean — only one of the two trigger buttons is ever visible at a
+// given viewport width (the mobile card and the portaled desktop box are
+// CSS-`hidden` opposite each other), so sharing state is safe and avoids
+// two independent copies of "is a filter popover open" getting out of
+// sync. Query text, debounce, suggestions, and the URL-is-the-filter-
+// state navigate() logic are likewise shared as-is between both search
+// inputs — typing in whichever one is visible updates the same `query`
+// state.
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
@@ -655,10 +663,11 @@ export function FiltersForm({
     </>
   );
 
-  // 2026-08-28: desktop-only — tags as toggle pills inside the same
-  // filter popover as the category list ("фильтры пусть открывают
-  // категории и теги вместе"), instead of mobile's always-visible
-  // checkbox row below the search box.
+  // 2026-08-28: tags as toggle pills inside the same filter popover as
+  // the category list ("фильтры пусть открывают категории и теги
+  // вместе"), shared verbatim by both the mobile and desktop popovers —
+  // see this file's top comment for why mobile no longer has its own
+  // separate always-visible checkbox row.
   const tagChipsBody = tags.length > 0 && (
     <>
       <div className="my-2 border-t border-neutral-100 dark:border-neutral-800" />
@@ -746,13 +755,13 @@ export function FiltersForm({
               aria-expanded={filtersOpen}
               className={
                 "relative flex h-10 w-10 items-center justify-center rounded-full border transition " +
-                (currentCategory != null || currentLocation != null
+                (currentCategory != null || currentLocation != null || currentTags.length > 0
                   ? "border-accent/40 bg-accent/10 text-accent"
                   : "border-neutral-300 bg-white text-neutral-500 hover:text-neutral-900 dark:border-neutral-700 dark:bg-black dark:text-neutral-400 dark:hover:text-neutral-50")
               }
             >
               <FilterIcon className="h-5 w-5" />
-              {(currentCategory != null || currentLocation != null) && (
+              {(currentCategory != null || currentLocation != null || currentTags.length > 0) && (
                 <span
                   className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-accent ring-2 ring-white dark:ring-black"
                   aria-hidden="true"
@@ -775,29 +784,11 @@ export function FiltersForm({
               <div className="animate-popover absolute right-0 top-full z-20 mt-2 max-h-[70vh] w-72 max-w-[calc(100vw-2rem)] origin-top-right overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
                 {categoryListBody}
                 {locationSectionBody}
+                {tagChipsBody}
               </div>
             )}
           </div>
         </div>
-
-        {tags.length > 0 && (
-          <div className="flex flex-wrap gap-x-4 gap-y-2">
-            {tags.map((tag) => (
-              <label
-                key={tag.value}
-                className="flex items-center gap-1.5 text-sm text-neutral-600 dark:text-neutral-400"
-              >
-                <input
-                  type="checkbox"
-                  checked={currentTags.includes(tag.value)}
-                  onChange={(e) => onTagToggle(tag.value, e.target.checked)}
-                  className="rounded border-neutral-300 accent-accent dark:border-neutral-600"
-                />
-                {translateTagLabel(tag.text, lang)}
-              </label>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Desktop-only search box + filter button, teleported into

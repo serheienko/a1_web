@@ -139,11 +139,15 @@ export default async function TalentDetailPage({ params }: Props) {
       {/* Aleksandr, 2026-08-27: "поднять теги наверх, перед основным
           текстом" — tags used to sit after contentText; moved above it
           so they read as context for the post, not an afterthought.
-          Also switched to fully-rounded pills (~30px radius) here. */}
+          Also switched to fully-rounded pills (~30px radius) here.
+          2026-08-28: "сделай эти теги [белым] 100%" — bg-neutral-100
+          barely showed up against this page's own light-gray background;
+          switched to a solid white pill with a hairline border, matching
+          components/post-card.tsx's feed-card tags exactly. */}
       {post.tags.length > 0 && (
         <div className="mt-6 flex flex-wrap gap-1.5">
           {post.tags.map((tag) => (
-            <span key={tag} className="rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
+            <span key={tag} className="rounded-full border border-neutral-200 bg-white px-2.5 py-0.5 text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400">
               {tag}
             </span>
           ))}
