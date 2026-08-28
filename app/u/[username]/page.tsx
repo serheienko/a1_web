@@ -342,7 +342,10 @@ export default async function ProfilePage({ params }: Props) {
           (Aleksandr, 2026-08-26): originally ~96px mobile / 150px
           desktop. Aleksandr, 2026-08-27, after seeing the voice-intro
           ring live: "оно какое-то очень большое... давай его в два раза
-          уменьшим" — halved to ~48px mobile / 75px desktop. The ring SVG
+          уменьшим" — halved to ~48px mobile / 75px desktop. Aleksandr,
+          2026-08-28: "Увеличь на 50% аватар в профиле" — back up 50% from
+          that halved size, to ~72px mobile / 112.5px desktop (still well
+          under the original 96/150). The ring SVG
           (components/voice-intro-ring.tsx) scales with this box
           automatically (its viewBox is relative, not fixed pixels), so
           nothing there needed to change — only the badge's own fixed
@@ -357,7 +360,7 @@ export default async function ProfilePage({ params }: Props) {
               height={150}
               placeholder="blur"
               blurDataURL={avatarBlurDataUrl ?? BLUR_DATA_URL}
-              className="h-12 w-12 shrink-0 rounded-full object-cover sm:h-[75px] sm:w-[75px]"
+              className="h-[72px] w-[72px] shrink-0 rounded-full object-cover sm:h-[112.5px] sm:w-[112.5px]"
             />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
@@ -366,7 +369,7 @@ export default async function ProfilePage({ params }: Props) {
               alt=""
               width={150}
               height={150}
-              className="h-12 w-12 shrink-0 rounded-full object-cover sm:h-[75px] sm:w-[75px]"
+              className="h-[72px] w-[72px] shrink-0 rounded-full object-cover sm:h-[112.5px] sm:w-[112.5px]"
             />
           )}
         </VoiceIntroRing>

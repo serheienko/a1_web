@@ -35,7 +35,7 @@
 // — that trap no longer applies and the portal is gone.)
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { LOCALES, LOCALE_CLASS, LOCALE_TAG, type Locale } from "@/components/t";
 
 type Theme = "light" | "dark" | "auto";
@@ -115,8 +115,6 @@ export function SettingsMenu() {
   const [theme, setTheme] = useState<Theme | null>(null);
   const [lang, setLang] = useState<Locale | null>(null);
   const [isGeoUa, setIsGeoUa] = useState(false);
-  const triggerRef = useRef<HTMLDivElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -125,18 +123,6 @@ export function SettingsMenu() {
     setLang(active ?? "uk");
     setIsGeoUa(root.classList.contains("geo-ua"));
   }, []);
-
-  useEffect(() => {
-    if (!open) return;
-    function onDocPointerDown(e: MouseEvent) {
-      const target = e.target as Node;
-      if (triggerRef.current?.contains(target)) return;
-      if (panelRef.current?.contains(target)) return;
-      setOpen(false);
-    }
-    document.addEventListener("mousedown", onDocPointerDown);
-    return () => document.removeEventListener("mousedown", onDocPointerDown);
-  }, [open]);
 
   function selectTheme(next: Theme) {
     setTheme(next);
@@ -231,7 +217,7 @@ export function SettingsMenu() {
   );
 
   return (
-    <div className="relative shrink-0" ref={triggerRef}>
+    <div className="relative shrink-0">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -247,12 +233,26 @@ export function SettingsMenu() {
       </button>
 
       {open && (
-        <div
-          ref={panelRef}
-          className="animate-popover absolute right-0 top-full z-40 mt-2 w-64 max-w-[calc(100vw-2rem)] origin-top-right overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900"
-        >
-          {panelBody}
-        </div>
+        <>
+          {/* 2026-08-28: "тап в любом месте вне модалки сначала
+              закрытием модалки, а потом уже ответ на тап по конкретному
+              элементу" — a global outside-mousedown listener (what this
+              used to be) closes the panel but lets the SAME tap still
+              reach whatever's underneath, so tapping a post card behind
+              an open popover both closed the popover and navigated away
+              in one go. A full-viewport backdrop between the popover and
+              the page fixes it structurally: the backdrop itself is what
+              catches that first tap (closing on it), so the element
+              underneath never sees it at all — a second, genuinely
+              separate tap is what reaches it, now that the backdrop (and
+              popover) are gone. z-45 sits above the nav bar (z-40) so
+              this also swallows a stray tap on the nav itself, not just
+              on page content. */}
+          <div className="fixed inset-0 z-[45]" onClick={() => setOpen(false)} aria-hidden="true" />
+          <div className="animate-popover absolute right-0 top-full z-50 mt-2 w-64 max-w-[calc(100vw-2rem)] origin-top-right overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+            {panelBody}
+          </div>
+        </>
       )}
     </div>
   );

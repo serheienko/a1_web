@@ -318,20 +318,23 @@ export function FiltersForm({
   // outside whichever one is actually visible close it (only one of the
   // two trigger buttons is ever visible at a given viewport width — see
   // this file's top comment — so one shared boolean is safe).
+  // 2026-08-28: "тап в любом месте вне модалки сначала закрытием
+  // модалки, а потом уже ответ на тап по конкретному элементу" — used to
+  // be a global outside-mousedown listener here (filtersRef/
+  // desktopFiltersRef below are what's left of it, still attached to
+  // each popover's own wrapper so a click inside either doesn't close
+  // it via the backdrop below): it closed the popover but let that SAME
+  // tap still reach whatever was underneath, so tapping a post card (or
+  // even a nav tab) behind an open popover both closed the popover and
+  // acted on that element in one go. A full-viewport backdrop rendered
+  // right below the popover in this component's return (see there for
+  // why it has to live at the top level, not inside either the mobile
+  // or desktop branch) fixes it structurally: the backdrop is what
+  // catches that first tap, so the element underneath never sees it at
+  // all — see that render for the z-index layering.
   const [filtersOpen, setFiltersOpen] = useState(false);
   const filtersRef = useRef<HTMLDivElement>(null);
   const desktopFiltersRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!filtersOpen) return;
-    function onDocPointerDown(e: MouseEvent) {
-      const target = e.target as Node;
-      if (filtersRef.current?.contains(target)) return;
-      if (desktopFiltersRef.current?.contains(target)) return;
-      setFiltersOpen(false);
-    }
-    document.addEventListener("mousedown", onDocPointerDown);
-    return () => document.removeEventListener("mousedown", onDocPointerDown);
-  }, [filtersOpen]);
 
   // 2026-08-28: the desktop search box lives in components/site-nav.tsx's
   // DOM subtree via a portal — null until that slot is found client-side
@@ -739,6 +742,10 @@ export function FiltersForm({
 
   return (
     <>
+      {filtersOpen && (
+        <div className="fixed inset-0 z-[45]" onClick={() => setFiltersOpen(false)} aria-hidden="true" />
+      )}
+
       {/* Mobile search + filters. 2026-08-28: "уберем вот эту всю некую
           подложку... под серч" — dropped the gray card this used to sit
           in (border/bg/padding), so the search pill and filter button
@@ -821,11 +828,12 @@ export function FiltersForm({
                 have before its own anchored-popover rework. Same fix
                 here, same reasoning: a compact card anchored right under
                 the filter button (`.animate-popover`, defined in
-                app/globals.css alongside settings-menu.tsx's popover),
-                no backdrop needed since the existing outside-mousedown
-                listener above already closes it. */}
+                app/globals.css alongside settings-menu.tsx's popover).
+                Closing on an outside tap is the full-viewport backdrop
+                rendered at the top of this component's return, not a
+                listener here — see that comment. */}
             {filtersOpen && (
-              <div className="animate-popover absolute right-0 top-full z-20 mt-2 max-h-[85vh] w-72 max-w-[calc(100vw-2rem)] origin-top-right overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+              <div className="animate-popover absolute right-0 top-full z-50 mt-2 max-h-[85vh] w-72 max-w-[calc(100vw-2rem)] origin-top-right overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
                 {resetAllFiltersBody}
                 {locationSectionBody}
                 {tagChipsBody}
@@ -910,7 +918,7 @@ export function FiltersForm({
               </button>
 
               {filtersOpen && (
-                <div className="animate-popover absolute right-0 top-full z-20 mt-2 max-h-[30rem] w-64 overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+                <div className="animate-popover absolute right-0 top-full z-50 mt-2 max-h-[30rem] w-64 overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
                   {resetAllFiltersBody}
                   {locationSectionBody}
                   {tagChipsBody}

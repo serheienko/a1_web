@@ -14,6 +14,8 @@ import Image from "next/image";
 import { PostImages } from "@/components/post-images";
 import { formatRelativeTime, formatSalary, truncateAtWordBoundary } from "@/lib/format";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
+import { generateImageBlurDataUrl } from "@/lib/avatar-blur";
+import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { T } from "@/components/t";
 
 const SITE_URL = "https://jobs.a1appp.com";
@@ -72,6 +74,17 @@ export default async function JobDetailPage({ params }: Props) {
 
   const expired = isJobPostingExpired(post);
   const jsonLd = expired ? null : buildJobPostingJsonLd(post);
+
+  // 2026-08-28: real per-image blur-up (lib/avatar-blur.ts), same as the
+  // feed already does for avatars — see components/post-images.tsx's own
+  // comment for why this has to be computed here (a server component)
+  // rather than inside that client component. Both run concurrently, not
+  // one after the other.
+  const [authorAvatarBlurDataUrl, postImages] = await Promise.all([
+    generateImageBlurDataUrl(post.author.avatarUrl),
+    Promise.all(post.images.map(async (img) => ({ ...img, blurDataUrl: await generateImageBlurDataUrl(img.url) }))),
+  ]);
+
   const locationLabel = post.location ? (
     post.location.display
   ) : post.isRemote ? (
@@ -111,6 +124,8 @@ export default async function JobDetailPage({ params }: Props) {
               alt=""
               width={48}
               height={48}
+              placeholder="blur"
+              blurDataURL={authorAvatarBlurDataUrl ?? BLUR_DATA_URL}
               className="h-12 w-12 shrink-0 rounded-full object-cover"
             />
           ) : (
@@ -153,7 +168,7 @@ export default async function JobDetailPage({ params }: Props) {
         </div>
       </div>
 
-      <PostImages images={post.images} />
+      <PostImages images={postImages} />
 
       {/* Aleksandr, 2026-08-27: "поднять теги наверх, перед основным
           текстом" — tags used to sit after contentText; moved above it

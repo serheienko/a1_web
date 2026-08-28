@@ -59,3 +59,12 @@ export const generateAvatarBlurDataUrl = cache(async function generateAvatarBlur
     return null;
   }
 });
+
+// 2026-08-28: "на будущее все фото/видео делаем через такую подгрузку" —
+// this has nothing avatar-specific about it (just fetch + sharp resize),
+// so post photos reuse it too now (components/post-images.tsx via
+// app/jobs/[slug]/page.tsx and app/talents/[slug]/page.tsx). Kept the
+// original name/call sites for the existing avatar spots (this file's
+// own history) and export this alias under the name new call sites
+// should actually reach for.
+export const generateImageBlurDataUrl = generateAvatarBlurDataUrl;

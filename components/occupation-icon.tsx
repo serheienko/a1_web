@@ -65,9 +65,11 @@ export function OccupationIcon({ occupation }: { occupation: string }) {
   if (!url) return null;
 
   return (
+    // 2026-08-28: "Увеличь на 30% кота который подсвечивает роль
+    // пользователя" — 24px -> ~31px.
     <span
       ref={containerRef}
-      className="inline-block h-6 w-6 shrink-0"
+      className="inline-block h-[31px] w-[31px] shrink-0"
       aria-hidden="true"
     />
   );

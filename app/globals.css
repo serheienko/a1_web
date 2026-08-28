@@ -5,13 +5,24 @@
  * лучшей читабельности. Моб версия - всё достаточно хорошо, а десктоп
  * можно делать почти повсеместно крупнее." Rather than hand-tune every
  * text-sm/text-base/etc utility across every component (easy to miss
- * spots, easy to make inconsistent), bump the ROOT font-size on desktop
- * only — every Tailwind text-* utility is rem-based, so this scales the
- * whole type scale proportionally in one place. Mobile (below `sm`,
- * matching the breakpoint already used for the mobile/desktop split in
- * components/settings-menu.tsx and components/filters-form.tsx) keeps
- * the default 16px root, since he said mobile is already fine.
+ * spots, easy to make inconsistent), bump the ROOT font-size — every
+ * Tailwind text-* utility is rem-based, so this scales the whole type
+ * scale proportionally in one place.
+ *
+ * 2026-08-28, same-day follow-up: "аккуратное повсеместное увеличение
+ * шрифтов. В этот раз и на мобильном тоже. Стремимся к HIG по Apple." —
+ * mobile was deliberately left alone above; now it gets a small bump
+ * too, sized against Apple's Human Interface Guidelines rather than
+ * picked arbitrarily: HIG's default Dynamic Type "Body" size is 17pt,
+ * one step up from the browser default 16px root — a "careful" nudge,
+ * not the larger jump desktop already got. Unscoped `html` rule below is
+ * the new mobile-and-up base; the existing `sm:` media query still wins
+ * at 640px+ and takes it the rest of the way to desktop's 18px.
  */
+html {
+  font-size: 106.25%; /* 17px effective base (HIG Body/Callout size), was 16px */
+}
+
 @media (min-width: 640px) {
   html {
     font-size: 112.5%; /* 18px effective base, was 16px */
