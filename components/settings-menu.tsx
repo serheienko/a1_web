@@ -10,29 +10,32 @@
 // picker (Light/Dark/Auto, matching the native app's own appearance
 // picker) and the full 9-language list below it.
 //
-// Presentation is responsive rather than one fixed style everywhere
-// (confirmed with Aleksandr — mobile only): below Tailwind's `sm`
-// breakpoint the panel is a bottom sheet fixed to the viewport (backdrop,
-// rounded top corners, slide-up entrance — see the `sheet-up`/
-// `sheet-backdrop-in` keyframes in app/globals.css), matching the native
-// app's own bottom-sheet pickers (his reference screenshot). At `sm` and
-// above it's the same compact anchored dropdown every other popover in
-// this app already uses (components/filters-form.tsx's category/filter
-// panels, the old lang-toggle.tsx this replaces).
+// 2026-08-28 update: "не хотел bottom sheet снизу для этого меню — хочу
+// анкоред попапрямолC рядом с кнопкой, как у iOS/Safari '...'" — dropped
+// the mobile-only bottom sheet (was: fixed-to-viewport, slide-up,
+// rendered through a portal) in favor of one anchored popover for every
+// viewport, matching every other popover in this app already
+// (components/filters-form.tsx's desktop category dropdown, the old
+// lang-toggle.tsx this replaces). No more `isMobile`/matchMedia split and
+// no more portal — see the removed "Portal note" below for why the
+// portal existed in the first place and why it's no longer needed.
+// Also wrapped the "•••" trigger in an always-visible white/dark circle
+// (was: flat icon, background only on hover) per "оберни ... в белый
+// кружок, чтобы было заметнее" — easier to spot against the nav.
 //
-// Portal note: this component is rendered inside components/site-nav.tsx's
-// <nav>, which sets `transform: translateZ(0)` (an iOS Safari sticky-scroll
-// jank fix — do not remove it to "simplify" this). Per the CSS spec, any
+// (Historical portal note, kept for context: this component renders
+// inside components/site-nav.tsx's <nav>, which sets
+// `transform: translateZ(0)` — an iOS Safari sticky-scroll jank fix, do
+// not remove it to "simplify" site-nav.tsx. Per the CSS spec, a
 // transformed ancestor becomes the containing block for `position: fixed`
-// descendants, which would pin the mobile sheet to the NAV's box instead
-// of the viewport. Rendering the sheet through a portal into document.body
-// sidesteps that entirely — the desktop dropdown doesn't need this (plain
-// `position: absolute` anchors to its own nearest positioned ancestor
-// regardless of transforms elsewhere), so only the mobile branch portals.
+// descendants, which is what made the old fixed-position mobile sheet
+// need a portal into document.body to escape the nav's box. Now that
+// this component only ever uses `position: absolute` — which anchors to
+// its own nearest positioned ancestor regardless of transforms elsewhere
+// — that trap no longer applies and the portal is gone.)
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { LOCALES, LOCALE_CLASS, LOCALE_TAG, type Locale } from "@/components/t";
 
 type Theme = "light" | "dark" | "auto";
@@ -112,9 +115,6 @@ export function SettingsMenu() {
   const [theme, setTheme] = useState<Theme | null>(null);
   const [lang, setLang] = useState<Locale | null>(null);
   const [isGeoUa, setIsGeoUa] = useState(false);
-  // null until measured client-side — nothing opens until we know which
-  // presentation to render (avoids briefly mounting the wrong one).
-  const [isMobile, setIsMobile] = useState<boolean | null>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -124,12 +124,6 @@ export function SettingsMenu() {
     const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
     setLang(active ?? "uk");
     setIsGeoUa(root.classList.contains("geo-ua"));
-
-    const mq = window.matchMedia("(min-width: 640px)");
-    setIsMobile(!mq.matches);
-    const onChange = (e: MediaQueryListEvent) => setIsMobile(!e.matches);
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
   }, []);
 
   useEffect(() => {
@@ -243,7 +237,7 @@ export function SettingsMenu() {
         onClick={() => setOpen((v) => !v)}
         aria-label={str("settings")}
         aria-expanded={open}
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-900 dark:hover:text-neutral-50"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-neutral-500 shadow-sm ring-1 ring-black/5 transition hover:text-neutral-900 dark:bg-neutral-800 dark:text-neutral-400 dark:ring-white/10 dark:hover:text-neutral-50"
       >
         <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden="true">
           <circle cx="4" cy="10" r="1.7" />
@@ -252,29 +246,10 @@ export function SettingsMenu() {
         </svg>
       </button>
 
-      {open && isMobile === true &&
-        createPortal(
-          <>
-            <div
-              className="animate-sheet-backdrop fixed inset-0 z-30 bg-black/40"
-              onClick={() => setOpen(false)}
-              aria-hidden="true"
-            />
-            <div
-              ref={panelRef}
-              className="animate-sheet-up fixed inset-x-0 bottom-0 z-40 max-h-[75vh] overflow-y-auto rounded-t-2xl border-t border-neutral-200 bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl dark:border-neutral-800 dark:bg-neutral-900"
-            >
-              <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-neutral-300 dark:bg-neutral-700" aria-hidden="true" />
-              {panelBody}
-            </div>
-          </>,
-          document.body,
-        )}
-
-      {open && isMobile === false && (
+      {open && (
         <div
           ref={panelRef}
-          className="absolute right-0 top-full z-40 mt-2 w-64 overflow-y-auto rounded-lg border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900"
+          className="animate-popover absolute right-0 top-full z-40 mt-2 w-64 max-w-[calc(100vw-2rem)] origin-top-right overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900"
         >
           {panelBody}
         </div>

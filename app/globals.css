@@ -233,13 +233,18 @@
 /*
  * Aleksandr, 2026-08-27: "давайте... сделаем iOS нативные [попапы]... как
  * у iOS снизу" — on narrow screens (below Tailwind's `sm` breakpoint),
- * components/settings-menu.tsx's theme+language panel and
- * components/filters-form.tsx's category panel switch from an anchored
+ * components/filters-form.tsx's category panel switches from an anchored
  * dropdown to a bottom sheet (fixed to the viewport bottom, slides up),
  * matching the native app's own bottom-sheet pickers. This is the slide-up
- * entrance for that sheet; both components apply it only below `sm` (the
- * anchored-dropdown desktop variant doesn't use it, see `sm:animate-none`
- * at each call site).
+ * entrance for that sheet; filters-form.tsx applies it only below `sm`
+ * (the anchored-dropdown desktop variant doesn't use it, see
+ * `sm:animate-none` at its call site).
+ *
+ * 2026-08-28: components/settings-menu.tsx used to share this pattern for
+ * its own mobile bottom sheet, but per Aleksandr ("не хотел bottom sheet
+ * ... хочу анкоред попап рядом с кнопкой") it now uses a single anchored
+ * popover on every viewport instead — see `popover-in`/`.animate-popover`
+ * below.
  */
 @keyframes sheet-up {
   from {
@@ -267,9 +272,34 @@
   animation: sheet-backdrop-in 0.2s ease-out;
 }
 
+/*
+ * Aleksandr, 2026-08-28: entrance for components/settings-menu.tsx's
+ * unified anchored popover (theme+language panel) — a light scale+fade
+ * "native context menu" feel (like iOS/Safari's own "..." popup), not
+ * the sheet-up slide above, since this panel is never pinned to the
+ * viewport bottom now. transform-origin: top right matches the panel's
+ * `origin-top-right` (it's anchored under the top-right "•••" trigger).
+ */
+@keyframes popover-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-popover {
+  transform-origin: top right;
+  animation: popover-in 0.12s ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-sheet-up,
-  .animate-sheet-backdrop {
+  .animate-sheet-backdrop,
+  .animate-popover {
     animation: none;
   }
 }
