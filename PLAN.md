@@ -873,6 +873,20 @@ answer on what the backend actually requires/offers.
 and picks up the fresh state, without building a shared auth context/
 event bus for a phase this small.
 
+**First Vercel build failed — fixed same day.** `npm run build` errored:
+`components/account-menu.tsx` (a client component) imported the
+`DISPLAY_COOKIE` string constant from `lib/a1/session.ts`, but that file
+also does `import { cookies } from "next/headers"` — a server-only API.
+Importing anything from a module drags the whole module into whichever
+bundle imports it, so the client bundle tried to include `next/headers`
+and Next.js correctly refused to build. Fixed by moving just the two
+cookie-name constants into a new `lib/a1/session-constants.ts` with no
+other imports at all; `lib/a1/session.ts` (server) and
+`components/account-menu.tsx` (client) both import the names from there
+now. Confirms §0.4's rule in practice — this class of error is exactly
+why a green Vercel build, not a local read of the diff, is the real
+check.
+
 ## OPEN QUESTIONS — Stage 2, for Aleksandr
 
 1. ~~**Google Sign-In needs its own Web-application OAuth Client ID**~~

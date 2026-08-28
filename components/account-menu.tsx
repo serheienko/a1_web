@@ -8,15 +8,22 @@
 // sits above every page, including the ISR'd feed) does not force those
 // pages into dynamic rendering (PLAN.md §6.2).
 //
-// Deliberately reads lib/a1/session.ts's DISPLAY_COOKIE (just the email,
-// non-httpOnly) rather than the real session cookie — that one is
-// httpOnly by design and is not supposed to be readable here at all.
+// Deliberately reads lib/a1/session-constants.ts's DISPLAY_COOKIE (just
+// the email, non-httpOnly) rather than the real session cookie — that
+// one is httpOnly by design and is not supposed to be readable here at
+// all. (The constant lives in its own tiny module, not lib/a1/session.ts
+// — see that file's own comment for why: this component can't afford to
+// pull in next/headers.)
 "use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
-import { DISPLAY_COOKIE } from "@/lib/a1/session";
+// From the constants-only module, not lib/a1/session.ts itself — that
+// one also imports next/headers, which a client component can't bundle
+// (this is exactly the bug that broke the first build, 2026-08-28; see
+// lib/a1/session-constants.ts's own comment).
+import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
 
 const ACCOUNT_MENU_STRINGS: Record<string, Record<Locale, string>> = {
   signIn: {

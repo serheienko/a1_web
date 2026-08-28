@@ -31,9 +31,11 @@
 
 import { cookies } from "next/headers";
 import type { NextResponse } from "next/server";
+import { SESSION_COOKIE, DISPLAY_COOKIE } from "./session-constants";
 
-export const SESSION_COOKIE = "a1_session";
-export const DISPLAY_COOKIE = "a1_user";
+// Re-exported for existing server-side importers (the app/api/auth/*
+// routes) — only the two constants moved, not their public name here.
+export { SESSION_COOKIE, DISPLAY_COOKIE };
 
 // 60 days: no stated backend policy for how long a refreshToken stays
 // valid (not in PLAN.md §6.1's ground-truth table) — picked as a
