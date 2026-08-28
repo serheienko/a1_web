@@ -693,11 +693,49 @@ blocked on Andrew; it's now blocked on our own sequencing:**
 Phase 5a (email+password) has no dependency on any of this and can
 proceed immediately regardless of where steps 1-3 are.
 
+### 6.9 Google web OAuth client: found, configured, published (2026-08-28)
+
+Turned out step 1 of §6.8's list was already half-done: Firebase had
+auto-created a **Web application**-type OAuth client in the app's own
+GCP project (`a1-app-9aaf1`, account `aonesoftdev@gmail.com`) back on
+2026-08-26, when Google sign-in was set up for the app. Same project as
+the existing Android/iOS clients — which is exactly the requirement
+from §6.2/§6.5, since Google's `sub` (the stable per-user id) is scoped
+per *project*, not per client. No new client needed creating; it needed
+finishing:
+
+- Added `https://jobs.a1appp.com` to its Authorized JavaScript origins
+  (was missing — only `localhost` and the Firebase default domain were
+  there).
+- The consent screen ("Google Auth Platform" in Cloud Console) had no
+  scopes declared and no App name/support-email/home-page/privacy-policy
+  filled in, which blocked publishing. Declared the three basic scopes
+  (`openid`, `userinfo.email`, `userinfo.profile` — same ones the app
+  already asks for), and filled in home page (`https://a1appp.com`) and
+  privacy policy / terms of service link (`https://a1appp.com/privacy-policy`,
+  which already covers both).
+- Published the consent screen from **Testing → In production.** Basic
+  scopes only, so no Google verification review was required (Google's
+  own publish-confirmation dialog confirmed this). Before this, only
+  ~100 explicitly-added test accounts could have completed sign-in on
+  the web at all — this was a real, separate blocker from the client-ID
+  allow-list Andrew is fixing.
+
+**Client ID to send Andrew:**
+```
+954420352634-d2s57so6b7gkk31q5uffl2vtku1vgdeb.apps.googleusercontent.com
+```
+
+Apple Services ID (§6.3, §6.8 step 1's other half) is still not started.
+
+
 ## OPEN QUESTIONS — Stage 2, for Aleksandr
 
-1. **Google Sign-In needs its own Web-application OAuth Client ID** in
-   Google Cloud Console with `jobs.a1appp.com` authorized (§6.3). Does
-   one already exist, or do you need to create it?
+1. ~~**Google Sign-In needs its own Web-application OAuth Client ID**~~
+   — **Answered/done 2026-08-28: one already existed (Firebase
+   auto-created it), now configured and published.** See §6.9. Client ID
+   sent to Andrew; waiting on him to add it to the accepted list
+   (§6.8).
 2. **Apple Sign-In needs a Services ID + verified domain** in the Apple
    Developer portal, separate from the app's identifiers (§6.3). Same
    question.
