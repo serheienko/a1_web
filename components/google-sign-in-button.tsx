@@ -111,7 +111,11 @@ export function GoogleSignInButton() {
       theme: "outline",
       size: "large",
       text: "continue_with",
-      shape: "pill",
+      // "rectangular" (not the default "pill") to match the site's own
+      // rounded-xl inputs/buttons (app/sign-in/page.tsx) rather than a
+      // fully round stadium shape — a deliberate visual-polish pass,
+      // 2026-08-28.
+      shape: "rectangular",
       width: 320,
     });
   }, [scriptReady]);

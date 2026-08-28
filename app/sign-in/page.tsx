@@ -137,6 +137,8 @@ function useActiveLocale(): Locale {
 const inputClass =
   "w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 text-sm text-neutral-900 outline-none transition focus:border-accent/40 focus:ring-2 focus:ring-accent/30 dark:border-neutral-700 dark:bg-black dark:text-neutral-100";
 
+const labelClass = "text-xs font-medium text-neutral-500 dark:text-neutral-400";
+
 export default function SignInPage() {
   const lang = useActiveLocale();
   const [mode, setMode] = useState<Mode>("sign-in");
@@ -177,64 +179,89 @@ export default function SignInPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-[70vh] max-w-sm flex-col justify-center px-4 py-12">
-      <Link href="/" className="mb-6 text-sm text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50">
+    <main className="mx-auto flex min-h-[80vh] max-w-sm flex-col justify-center px-4 py-12">
+      <Link href="/" className="mb-8 w-fit text-sm text-neutral-400 transition hover:text-neutral-900 dark:text-neutral-500 dark:hover:text-neutral-50">
         {STRINGS.backHome[lang]}
       </Link>
 
-      <div className="rounded-card border border-neutral-200 bg-card p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-950">
-        <h1 className="mb-5 font-sans text-xl font-bold text-ink dark:text-neutral-100">
+      {/* Visual pass, 2026-08-28 (Aleksandr: "красивый UI как у GPT/
+          Claude") — layout/spacing/labels only, no logic changed. Still
+          deliberately not the full §4 Phase 5 design pass (a different
+          "Phase 5"): same tokens as every other card on the site
+          (rounded-card/bg-card, PLAN.md's Figma-sourced values), just
+          given the room a focal auth screen needs — a centered brand
+          mark, labeled fields instead of placeholder-only ones, and more
+          breathing room, the way a modern sign-in card usually reads. */}
+      <div className="rounded-card border border-neutral-200 bg-card p-8 shadow-lg shadow-neutral-900/5 dark:border-neutral-800 dark:bg-neutral-950 dark:shadow-black/40">
+        <div className="mb-6 flex justify-center">
+          <img src="/brand/a1-logo-blue.svg" alt="A1" className="h-8 w-auto dark:hidden" />
+          <img src="/brand/a1-logo-white.svg" alt="A1" className="hidden h-8 w-auto dark:block" />
+        </div>
+
+        <h1 className="mb-6 text-center font-sans text-2xl font-bold tracking-tight text-ink dark:text-neutral-50">
           {mode === "sign-in" ? STRINGS.signInTitle[lang] : STRINGS.signUpTitle[lang]}
         </h1>
 
-        <form onSubmit={onSubmit} className="flex flex-col gap-3">
+        <form onSubmit={onSubmit} className="flex flex-col gap-4">
           {mode === "sign-up" && (
             <div className="flex gap-3">
-              <input
-                type="text"
-                required
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                placeholder={STRINGS.firstName[lang]}
-                className={inputClass}
-                autoComplete="given-name"
-              />
-              <input
-                type="text"
-                required
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                placeholder={STRINGS.lastName[lang]}
-                className={inputClass}
-                autoComplete="family-name"
-              />
+              <div className="flex flex-1 flex-col gap-1.5">
+                <label htmlFor="firstName" className={labelClass}>{STRINGS.firstName[lang]}</label>
+                <input
+                  id="firstName"
+                  type="text"
+                  required
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  className={inputClass}
+                  autoComplete="given-name"
+                />
+              </div>
+              <div className="flex flex-1 flex-col gap-1.5">
+                <label htmlFor="lastName" className={labelClass}>{STRINGS.lastName[lang]}</label>
+                <input
+                  id="lastName"
+                  type="text"
+                  required
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  className={inputClass}
+                  autoComplete="family-name"
+                />
+              </div>
             </div>
           )}
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder={STRINGS.email[lang]}
-            className={inputClass}
-            autoComplete="email"
-          />
-          <input
-            type="password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder={STRINGS.password[lang]}
-            className={inputClass}
-            autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
-          />
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="email" className={labelClass}>{STRINGS.email[lang]}</label>
+            <input
+              id="email"
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={inputClass}
+              autoComplete="email"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="password" className={labelClass}>{STRINGS.password[lang]}</label>
+            <input
+              id="password"
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className={inputClass}
+              autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
+            />
+          </div>
 
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
           <button
             type="submit"
             disabled={pending}
-            className="mt-1 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+            className="mt-2 rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 hover:shadow-md disabled:opacity-50 disabled:shadow-none"
           >
             {mode === "sign-in" ? STRINGS.submitSignIn[lang] : STRINGS.submitSignUp[lang]}
           </button>
@@ -244,23 +271,25 @@ export default function SignInPage() {
             already — no reason to gate the button behind Apple, which
             still needs Andrew's backend change. Apple's own button
             joins here once Phase 5b-Apple is built. */}
-        <div className="my-4 flex items-center gap-3 text-xs text-neutral-400 dark:text-neutral-600">
+        <div className="my-6 flex items-center gap-3 text-xs font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-600">
           <div className="h-px flex-1 bg-neutral-200 dark:bg-neutral-800" />
           {STRINGS.orDivider[lang]}
           <div className="h-px flex-1 bg-neutral-200 dark:bg-neutral-800" />
         </div>
         <GoogleSignInButton />
 
-        <button
-          type="button"
-          onClick={() => {
-            setMode(mode === "sign-in" ? "sign-up" : "sign-in");
-            setError(null);
-          }}
-          className="mt-4 text-sm text-accent transition hover:opacity-70"
-        >
-          {mode === "sign-in" ? STRINGS.switchToSignUp[lang] : STRINGS.switchToSignIn[lang]}
-        </button>
+        <p className="mt-6 text-center text-sm">
+          <button
+            type="button"
+            onClick={() => {
+              setMode(mode === "sign-in" ? "sign-up" : "sign-in");
+              setError(null);
+            }}
+            className="font-medium text-accent transition hover:opacity-70"
+          >
+            {mode === "sign-in" ? STRINGS.switchToSignUp[lang] : STRINGS.switchToSignIn[lang]}
+          </button>
+        </p>
       </div>
     </main>
   );

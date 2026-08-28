@@ -968,6 +968,71 @@ client id end to end. Not yet exercised — sign-up, sign-in, and the
 Google button's full round trip through `auth.google` still need an
 actual test pass by Aleksandr.
 
+### 6.14 Manual test passed + UI polish + mobile nav fix (2026-08-28)
+
+**Manual sign-up confirmed working end-to-end in production.** Aleksandr
+signed up for real as `dewalaj262@neowd.com` and it went through — the
+first live proof that Phase 5a's session/cookie architecture (§6.12)
+actually works outside of my own testing, not just a green build.
+
+**Follow-up request, not yet built: email verification.** Aleksandr's
+own words: "надо добавить чтобы присылало код наверное, или какой-то
+вариант верификации имейла" (send a code, or some verification flow).
+This is exactly open question 3 below, now confirmed as wanted rather
+than hypothetical — needs its own design pass before coding (when is
+the code sent — at sign-up or before first publish; is it required to
+use the account at all, or just to publish; does `account.verifyEmail`
+already do what's needed, per that open question). Not started.
+
+**Reported bug, reproduced and fixed: "Sign in" didn't fit on mobile.**
+Aleksandr: "надо поправить на мобильной версии, а то sign in не
+влазит." Reproduced live (Chrome resized to 375x700) rather than
+guessed, per this project's own rule — at that width, several locales'
+nav text (e.g. Spanish "Iniciar sesión") visibly collided with the
+centered pill nav and `<SettingsMenu>`'s button. Root cause:
+`components/site-nav.tsx` centers the tab pill absolutely over the flex
+row, so the left/right groups can't push it out of the way — on a
+narrow viewport there's very little room left on the right for
+`<AccountMenu>`.
+
+Fix, in `components/account-menu.tsx`: icon-only below `sm:` (a new
+`h-9 w-9` circular button matching `<SettingsMenu>`'s own style exactly,
+so the two sit as a matched pair), with the text label added back from
+`sm:` up. Locale-length-independent by design — works whichever
+language's "Sign in"/"Sign out" string is active, not a fix tuned to
+fit today's specific translations.
+
+**Explicit UI request for this one page, ahead of the general §4 Phase
+5 design pass.** Aleksandr: "Сделай сразу красивый UI как у тебя при
+регистрации и у GPT" — i.e. do the visual polish for the sign-in page
+now, not later, in the style of Claude's own sign-up flow and
+ChatGPT's. This is a deliberate, page-specific override of the
+"functionality first" sequencing this file documented for this same
+page (see the file-level comment in `app/sign-in/page.tsx` from
+§6.6) — the general Phase 5 (visual) pass for the rest of the site is
+unaffected and still pending.
+
+Changes to `app/sign-in/page.tsx`: centered `A1` logo (the existing
+`/brand/a1-logo-blue.svg` / `-white.svg` assets, swapped by
+`dark:`), a bigger card (`p-8`, `shadow-lg`), labeled fields (a
+`<label>` above each input, not just a placeholder) with a shared
+`labelClass`, and a larger, higher-contrast submit button. Same design
+tokens as the rest of the site throughout (`rounded-card`, `bg-card`,
+`bg-accent`) — no new colors or radii introduced. Also added a new
+`orDivider` locale string (all 9 locales) for the "or" between the
+form and the Google button.
+
+Small matching tweak in `components/google-sign-in-button.tsx`:
+`renderButton`'s `shape` changed from the default `"pill"` to
+`"rectangular"`, to match the page's own `rounded-xl` inputs/button
+rather than a fully round stadium shape.
+
+**Status: committed locally, not yet pushed/verified on Vercel** — see
+below once pushed. Given this project's actual build/type-check
+history this session (three separate real failures, §6.12/§6.13), a
+build is not assumed green until Vercel confirms it.
+
+
 ## OPEN QUESTIONS — Stage 2, for Aleksandr
 
 1. ~~**Google Sign-In needs its own Web-application OAuth Client ID**~~

@@ -14,6 +14,18 @@
 // all. (The constant lives in its own tiny module, not lib/a1/session.ts
 // — see that file's own comment for why: this component can't afford to
 // pull in next/headers.)
+//
+// 2026-08-28, mobile overflow fix (Aleksandr: "sign in не влазит на
+// мобильной"): reproduced at 375px — the centered pill nav
+// (site-nav.tsx) leaves very little room on the right, and several
+// locales' "Sign in"/"Sign out" text (e.g. Spanish "Iniciar sesión")
+// simply doesn't fit next to <SettingsMenu>'s circular button, so it got
+// visually clipped/overlapped. Fixed the same way this codebase already
+// hides the email on narrow screens: icon-only, same h-9 w-9 circular
+// button style as SettingsMenu (so the two sit as a matched pair), text
+// label added back from `sm:` up. This is locale-length-independent —
+// works whether the label is "Entrar" or "Se déconnecter" — rather than
+// a fix tuned to fit today's specific translations.
 "use client";
 
 import { useEffect, useState } from "react";
@@ -40,6 +52,32 @@ const ACCOUNT_MENU_STRINGS: Record<AccountMenuStringKey, Record<Locale, string>>
     fr: "Se déconnecter", pl: "Wyloguj się", ptBR: "Sair", zh: "退出",
   },
 };
+
+// Same 18px/viewBox-24/stroke-2 style as ThemeIcon in settings-menu.tsx.
+function UserIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 20c0-4 3.6-6 8-6s8 2 8 6" />
+    </svg>
+  );
+}
+
+function LogOutIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <path d="M16 17l5-5-5-5" />
+      <path d="M21 12H9" />
+    </svg>
+  );
+}
+
+// Matches SettingsMenu's own circular button exactly (components/
+// settings-menu.tsx) so the two form a matched pair in the nav —
+// h-9 w-9 icon-only below `sm`, growing into a labeled pill from `sm` up.
+const ICON_BUTTON_CLASS =
+  "flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full bg-white px-0 text-neutral-500 shadow-sm ring-1 ring-black/5 transition hover:text-neutral-900 sm:w-auto sm:px-3.5 dark:bg-neutral-800 dark:text-neutral-400 dark:ring-white/10 dark:hover:text-neutral-50";
 
 function readDisplayCookie(): string | null {
   const match = document.cookie.match(new RegExp(`(?:^|; )${DISPLAY_COOKIE}=([^;]*)`));
@@ -80,11 +118,9 @@ export function AccountMenu() {
 
   if (!email) {
     return (
-      <Link
-        href="/sign-in"
-        className="rounded-full px-3 py-1.5 text-sm font-medium text-neutral-500 transition hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50"
-      >
-        {ACCOUNT_MENU_STRINGS.signIn[lang]}
+      <Link href="/sign-in" aria-label={ACCOUNT_MENU_STRINGS.signIn[lang]} className={ICON_BUTTON_CLASS + " w-9"}>
+        <UserIcon />
+        <span className="hidden text-sm font-medium sm:inline">{ACCOUNT_MENU_STRINGS.signIn[lang]}</span>
       </Link>
     );
   }
@@ -98,9 +134,11 @@ export function AccountMenu() {
         type="button"
         onClick={signOut}
         disabled={signingOut}
-        className="rounded-full px-3 py-1.5 text-sm font-medium text-neutral-500 transition hover:text-neutral-900 disabled:opacity-50 dark:text-neutral-400 dark:hover:text-neutral-50"
+        aria-label={ACCOUNT_MENU_STRINGS.signOut[lang]}
+        className={ICON_BUTTON_CLASS + " w-9 disabled:opacity-50"}
       >
-        {ACCOUNT_MENU_STRINGS.signOut[lang]}
+        <LogOutIcon />
+        <span className="hidden text-sm font-medium sm:inline">{ACCOUNT_MENU_STRINGS.signOut[lang]}</span>
       </button>
     </div>
   );
