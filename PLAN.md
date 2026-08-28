@@ -1104,14 +1104,11 @@ assumed:**
   Talent post (PLAN.md §6.1's `post-job-seeking` vs the not-yet-existing
   `post-job-employing` tag key). Asked Aleksandr; may need Andrew if
   Aleksandr doesn't know the literal field either.
-- Which service actually sends the verification email/code. `account.
-  verifyEmail` / `account.verifyEmailConfirm` already exist as backend
-  endpoints (§6.1), so the sending almost certainly happens server-side
-  (Andrew's infrastructure), not something the web needs to integrate
-  directly — plan is to identify the provider from the email's own
-  From-address/footer once Aleksandr sends a screenshot of the actual
-  received email (not just the app's code-entry screen, which is what
-  arrived so far).
+- ~~Which service actually sends the verification email/code~~ —
+  **answered: Mailgun**, confirmed via `a1appp.com`'s own SPF record.
+  See OPEN QUESTIONS #8. Sending happens entirely server-side (Andrew's
+  infrastructure) — the web only ever calls `account.verifyEmail` /
+  `verifyEmailConfirm`, never Mailgun itself.
 - The remaining 3 "Я..." dropdown animations — not sent yet.
 
 **Not started building yet, deliberately** — three required fields and
@@ -1149,10 +1146,24 @@ before writing the profile-setup step or the code-verification step.
    already-documented field list under any obvious name. Is it a
    profile field (which one?) or does it just decide whether the
    person is steered toward creating a Vacancy vs a Talent post?
-8. **Which verification-email screenshot?** §6.15 — the screenshots
-   sent so far show the app's code-entry screen, not the actual
-   received email. Need the real email (or at least its From-address)
-   to identify the sending service and match its template.
+8. ~~**Which verification-email screenshot?**~~ — **Answered
+   2026-08-28: Mailgun.** Aleksandr sent the real received email
+   (From: info@a1appp.com, subject "Greetings from A1! Enter this code
+   to proceed", a 4-digit code, the app's cat mascot). The screenshot
+   itself carries no ESP branding, so this was confirmed the same way
+   everything else in this project is — a live check, not a guess:
+   `a1appp.com`'s own SPF TXT record (queried via Google's public DNS-
+   over-HTTPS resolver, since this environment cannot reach arbitrary
+   DNS resolvers or api.a1appp.com directly) is `v=spf1 include:
+   mailgun.org ~all`, which authorizes Mailgun to send mail as this
+   domain. (Its MX record points at `mx.ukraine.com.ua` instead — that
+   is just where *incoming* mail to @a1appp.com addresses is hosted,
+   unrelated to outbound transactional mail.) Since `account.
+   verifyEmail`/`verifyEmailConfirm` already exist as backend
+   endpoints (§6.1), the web never talks to Mailgun directly — sending
+   is entirely Andrew's side. This only matters if Aleksandr wants to
+   look up the template/quota in Mailgun's own dashboard, or if a
+   future web-only email (not yet planned) needs to match its look.
 
 ## OPEN QUESTIONS — Stage 2, for the backend developer (Andrew)
 
