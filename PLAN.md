@@ -617,10 +617,19 @@ mirrored outbound.
 
 ### 6.6 Proposed phased delivery (mirrors §4's phase style — not started)
 
-- **Phase 5 — Sign-in only.** Email+password, Google, Apple; a session;
-  "signed in as X" in the nav. No profile editing, no publishing yet —
-  smallest possible slice to prove the session architecture (6.2) before
-  building any form on top of it.
+- **Phase 5 — Sign-in only.** **Split in two, 2026-08-28** — Andrew
+  confirmed the backend hard-codes one client ID per platform for
+  `auth.google`/`auth.appleId` (§6.7), so Google/Apple cannot pass on the
+  web until that changes, on no timeline yet.
+  - **Phase 5a — ships now:** email+password only. A session, "signed
+    in as X" in the nav. No profile editing, no publishing yet —
+    smallest possible slice to prove the session architecture (6.2)
+    before building any form on top of it.
+  - **Phase 5b — ships once §6.7's backend change lands:** add Google
+    and Apple as additional sign-in options on the same session
+    infrastructure Phase 5a already built. The client-side buttons/SDK
+    wiring can be built alongside 5a; only the final backend round-trip
+    is blocked.
 - **Phase 6 — Profile create/edit.** **Decided (2026-08-28): minimal
   fields first** — name, `occupation`, `bio`, one photo. The rest of
   `account.updateProfile`'s surface (skills, languages, favorites, the
@@ -639,6 +648,32 @@ mirrored outbound.
 - **Phase 8 — Parity pass.** Create a post on web, confirm it renders
   correctly in the app; edit a profile on web, confirm the app shows it;
   and both directions the other way.
+
+### 6.7 Andrew's answer: the client-ID check is hard-coded (2026-08-28)
+
+His words: **"У нас жесткая привязка к client id. Веб вообще не
+планировался в том обозримом будущем."** Direct consequence: today,
+literally no ID token from a new web OAuth client will pass
+`auth.google`/`auth.appleId` — not a config problem on our side, a
+backend code path that only ever expected one client ID per platform.
+Getting the Google Cloud project and Apple Services ID set up correctly
+(§6.3) is still necessary but is no longer sufficient by itself.
+
+**This is very likely a small change, not a redesign.** Verifying a
+Google or Apple ID token against a *list* of accepted client IDs instead
+of a single hard-coded one is the standard, well-supported shape of this
+check — both platforms' own verification libraries accept an array of
+audiences out of the box (this isn't a workaround, it's the documented
+way to support multiple client IDs per platform). Worth relaying back to
+Andrew in exactly those terms, so the ask lands as "swap one constant for
+a short list" rather than an open-ended architecture change — likely
+easier to prioritize on a Friday than it might have sounded from the
+original question.
+
+**Impact on delivery (see revised Phase 5 below): email+password sign-in
+is entirely unaffected — `auth.email`/`users.createUser` were never
+part of this restriction — so it ships on its own, and Google/Apple
+follow once his change lands, on whatever timeline he gives.**
 
 ## OPEN QUESTIONS — Stage 2, for Aleksandr
 
@@ -662,11 +697,11 @@ mirrored outbound.
 
 ## OPEN QUESTIONS — Stage 2, for the backend developer (Andrew)
 
-1. Do `auth.google` / `auth.appleId` validate the ID token's audience
-   against one fixed client ID per platform? If the web needs its own
-   Google/Apple client ID (very likely — §6.3), can the backend accept
-   tokens from more than one client per platform, or does this need a
-   backend change?
+1. ~~Do `auth.google` / `auth.appleId` validate the ID token's audience
+   against one fixed client ID per platform?~~ — **Answered 2026-08-28
+   by Andrew: yes, hard-coded to one client ID per platform, and web
+   was not previously planned for.** See §6.7 for what this means and
+   the specific fix being asked for.
 2. `account.checkEmail` being public suggests it's meant to be called
    live while a sign-up form is filled in — confirm that's the intended
    use, and whether `users.createUser` itself also rejects a duplicate
