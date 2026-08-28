@@ -778,13 +778,42 @@ com.aone.aoneapp.web
 ```
 
 
+### 6.11 Andrew: Google needs no backend change at all (2026-08-28)
+
+Sent him the Google web client id from §6.9. His reply: **"Такой уже
+добавлен, Ниджат просил для андроида. Видимо он и для веба годится."**
+("Already added — Nijat asked for it for Android. Looks like it works
+for web too.")
+
+**Why this makes sense, not just luck:** on Android, Google Identity
+Services does not let the app request an ID token audienced to its own
+Android client id — the documented pattern (`GetSignInWithGoogleOption
+.Builder(serverClientId)` / `idTokenRequestOptions.setServerClientId()`)
+requires passing the project's **Web application** client id even for a
+native Android sign-in. So whoever set up Google sign-in for the
+Android build (per Andrew, a dev named Nijat) would have had to ask for
+this exact Web client id to be whitelisted already — before Stage 2
+existed. It's the *same* client (§6.9), not a coincidence.
+
+**Consequence: Google sign-in on web needs zero backend changes.** The
+audience check Andrew described in §6.7 already accepts this id. Once
+the client-side button/SDK code (§6.6 checklist item 3) is written and
+wired to this same web client, Google login can be tested end-to-end
+immediately — no more waiting on Andrew for Google specifically.
+
+Apple is unaffected by this — Services IDs don't have an Android-style
+shared-audience trick, so `com.aone.aoneapp.web` (§6.10) still needs to
+be added to `auth.appleId`'s accepted list before Apple sign-in works.
+
+
 ## OPEN QUESTIONS — Stage 2, for Aleksandr
 
 1. ~~**Google Sign-In needs its own Web-application OAuth Client ID**~~
    — **Answered/done 2026-08-28: one already existed (Firebase
-   auto-created it), now configured and published.** See §6.9. Client ID
-   sent to Andrew; waiting on him to add it to the accepted list
-   (§6.8).
+   auto-created it), now configured and published.** See §6.9. Sent to
+   Andrew — turned out to already be whitelisted (Android needed the
+   same Web client id). **No backend change needed for Google at all;
+   see §6.11.**
 2. ~~**Apple Sign-In needs a Services ID + verified domain**~~ —
    **Answered/done 2026-08-28: created `com.aone.aoneapp.web`,
    associated with the app's App ID, domain + return URL configured.**
