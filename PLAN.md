@@ -572,10 +572,21 @@ mirrored outbound.
   "signed in as X" in the nav. No profile editing, no publishing yet —
   smallest possible slice to prove the session architecture (6.2) before
   building any form on top of it.
-- **Phase 6 — Profile create/edit.** Scope depends on OPEN QUESTIONS #4.
+- **Phase 6 — Profile create/edit.** **Decided (2026-08-28): minimal
+  fields first** — name, `occupation`, `bio`, one photo. The rest of
+  `account.updateProfile`'s surface (skills, languages, favorites, the
+  14 work-style axes, etc.) is explicitly deferred to a later phase, not
+  built now.
 - **Phase 7 — Post publish/edit/delete.** Jobs first, same
   Jobs-before-Talents order as Phase 1, including the direct-to-storage
-  image upload flow (6.1's `upload.create`/`upload.confirm`).
+  image upload flow (6.1's `upload.create`/`upload.confirm`). **Decided
+  (2026-08-28): no moderation step** — a web-created post goes live
+  immediately, exactly like an app-created one. **Decided: the existing
+  feed/detail pages are not touched in this phase** — no "my posts"
+  list, no edit/delete buttons on the public pages yet. A signed-in
+  visitor's only new surface is the separate sign-in/profile/post-editor
+  flow from Phases 5-7; revisit once that flow itself needs a "my
+  posts" entry point.
 - **Phase 8 — Parity pass.** Create a post on web, confirm it renders
   correctly in the app; edit a profile on web, confirm the app shows it;
   and both directions the other way.
@@ -592,18 +603,13 @@ mirrored outbound.
    policy the backend enforces, or should the web set its own? Does a
    web account need to verify its email (`account.verifyEmail` exists)
    before it can publish, or is that unnecessary?
-4. **Profile editor scope (§6.4):** the full field set `account.
-   updateProfile` accepts, or a minimal subset first (name, occupation,
-   bio, one photo), with skills/languages/favorites/work-style deferred?
-5. **Moderation.** Today nothing reaches the public feed without going
-   through the app (and whatever review that implies). Once anyone can
-   sign up on the web and publish, should a web-created post go live
-   immediately like an app post does, or does it need a review step
-   first?
-6. **Read-side changes.** Does a signed-in visitor get anything new on
-   the existing feed/detail pages as part of Stage 2 (a "my posts" list,
-   edit/delete on their own cards), or is this purely a separate
-   sign-in → editor flow with the public pages untouched for now?
+4. ~~**Profile editor scope (§6.4)**~~ — **Answered 2026-08-28:
+   minimal subset first** (name, occupation, bio, one photo). See Phase 6.
+5. ~~**Moderation**~~ — **Answered 2026-08-28: no moderation step**,
+   goes live immediately like an app post. See Phase 7.
+6. ~~**Read-side changes**~~ — **Answered 2026-08-28: public feed/
+   detail pages are not touched.** Purely a separate sign-in → editor
+   flow for now. See Phase 7.
 
 ## OPEN QUESTIONS — Stage 2, for the backend developer (Andrew)
 
