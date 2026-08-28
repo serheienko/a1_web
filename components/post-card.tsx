@@ -82,9 +82,20 @@ export function PostCard({
     // shadow alone), corner-radius 20 (rounded-card), 16px padding. Dark
     // mode keeps the pre-existing neutral-900/border treatment since no
     // dark-mode screen has been checked yet.
-    <article className="flex gap-4 rounded-card bg-card p-4 shadow-sm transition hover:shadow-md dark:border dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700">
+    <article className="flex items-start gap-4 rounded-card bg-card p-4 shadow-sm transition hover:shadow-md dark:border dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700">
+      {/* 2026-08-28: "нажатие на эту область сейчас открывает профиль...
+          мне надо, чтобы оно открывало пост. У нас профиль открывает
+          только тап по аватару и тап по имени." — Aleksandr circled a
+          tall blank strip below the avatar that was opening the profile
+          on tap. Cause: <article> is a flex row with no `items-start`,
+          so flexbox's default `align-items: stretch` stretched this
+          avatar <Link> to match the taller text column's height (its
+          real box was ~250px tall against a 56px-tall visible avatar
+          image) — everything below the avatar was silently part of the
+          profile link. `items-start` on the row keeps every flex child
+          (this Link included) sized to its own content instead. */}
       {profileHref ? (
-        <Link href={profileHref} className="shrink-0 transition-opacity hover:opacity-80">
+        <Link href={profileHref} className="shrink-0 self-start transition-opacity hover:opacity-80">
           {avatarImg}
         </Link>
       ) : (
