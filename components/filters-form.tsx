@@ -27,14 +27,43 @@
 // have" — the same categories/tags this form already fetched, filtered
 // by the typed text, not a live backend autocomplete endpoint (there
 // isn't one).
+//
+// 2026-08-28: "давай перенесём поиск в шапку на десктопе... сделаем его
+// компактнее, с иконкой лупы, а фильтры пусть открывают категории и теги
+// вместе. Мобильная версия пусть остаётся как есть" — this component now
+// renders TWO markups from the same state/logic below: the original
+// mobile card (search input + filter-icon-only category popover + tag
+// checkboxes), completely unchanged, gated `sm:hidden`; and a new
+// compact pill-shaped search box + filter button that gets teleported
+// into components/site-nav.tsx's nav bar via a portal (`#nav-search-
+// slot`) for `sm:` and above. A portal, not just different classNames on
+// markup rendered in place, because the desktop search box needs to
+// physically live inside the nav's own DOM subtree (between the logo and
+// the tabs) — this component only ever renders inside <main>, wherever
+// the page places <Filters>, which is nowhere near the nav.
+//
+// The desktop filter popover shows category list + tag chips together
+// (tags become toggle pills instead of the mobile row's checkboxes);
+// mobile keeps its two separate pieces (category-only popover, tags as
+// an always-visible checkbox row) exactly as before. Both popovers share
+// one `filtersOpen` boolean — only one of the two trigger buttons is
+// ever visible at a given viewport width (the mobile card and the
+// portaled desktop box are CSS-`hidden` opposite each other), so sharing
+// state is safe and avoids two independent copies of "is a filter
+// popover open" getting out of sync. Query text, debounce, suggestions,
+// and the URL-is-the-filter-state navigate() logic are likewise shared
+// as-is between both search inputs — typing in whichever one is visible
+// updates the same `query` state.
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import type { Category, Tag } from "@/lib/a1/datasets";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { FilterIcon } from "@/components/filter-icon";
 import { ClearIcon } from "@/components/clear-icon";
+import { SearchIcon } from "@/components/search-icon";
 
 const MAX_SUGGESTIONS_PER_GROUP = 5;
 
@@ -156,13 +185,28 @@ function translateCategoryLabel(text: string, lang: Locale): string {
 // <T/> — CSS can't conditionally show/hide inside attribute values or
 // non-DOM text like aria-label), keyed by the same 9 locales as
 // components/t.tsx.
-type FiltersFormStringKey = "searchPlaceholder" | "clear" | "categories" | "tags" | "filters" | "category";
+type FiltersFormStringKey =
+  | "searchPlaceholder"
+  | "searchPlaceholderShort"
+  | "clear"
+  | "categories"
+  | "tags"
+  | "filters"
+  | "category";
 
 const FILTERS_FORM_STRINGS: Record<FiltersFormStringKey, Record<Locale, string>> = {
   searchPlaceholder: {
     uk: "Пошук за текстом...", en: "Search by text...", ru: "Поиск по тексту...",
     de: "Suche nach Text...", es: "Buscar por texto...", fr: "Rechercher par texte...",
     pl: "Szukaj po tekście...", ptBR: "Buscar por texto...", zh: "按文字搜索...",
+  },
+  // 2026-08-28: the compact desktop nav search box (~40% width, pill-
+  // shaped, portaled into components/site-nav.tsx) has no room for the
+  // long "Search by text..." placeholder — a single word, matching the
+  // one-word style already used for "filters"/"category" below.
+  searchPlaceholderShort: {
+    uk: "Пошук", en: "Search", ru: "Поиск", de: "Suche", es: "Buscar",
+    fr: "Recherche", pl: "Szukaj", ptBR: "Buscar", zh: "搜索",
   },
   clear: {
     uk: "Очистити", en: "Clear", ru: "Очистить", de: "Löschen", es: "Borrar",
@@ -219,22 +263,35 @@ export function FiltersForm({
   // behind a filter-icon button (see components/filter-icon.tsx, traced
   // from the Figma reference he linked) instead of sitting in the main
   // row, so the search box can actually be the wide element. filtersOpen
-  // tracks the popover; filtersRef lets a click anywhere outside it
-  // close the popover (the search suggestions dropdown gets this for
-  // free from the input's onBlur, but a button + popover has no single
-  // focusable element to blur from).
+  // tracks the popover; filtersRef/desktopFiltersRef let a click anywhere
+  // outside whichever one is actually visible close it (only one of the
+  // two trigger buttons is ever visible at a given viewport width — see
+  // this file's top comment — so one shared boolean is safe).
   const [filtersOpen, setFiltersOpen] = useState(false);
   const filtersRef = useRef<HTMLDivElement>(null);
+  const desktopFiltersRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!filtersOpen) return;
     function onDocPointerDown(e: MouseEvent) {
-      if (filtersRef.current && !filtersRef.current.contains(e.target as Node)) {
-        setFiltersOpen(false);
-      }
+      const target = e.target as Node;
+      if (filtersRef.current?.contains(target)) return;
+      if (desktopFiltersRef.current?.contains(target)) return;
+      setFiltersOpen(false);
     }
     document.addEventListener("mousedown", onDocPointerDown);
     return () => document.removeEventListener("mousedown", onDocPointerDown);
   }, [filtersOpen]);
+
+  // 2026-08-28: the desktop search box lives in components/site-nav.tsx's
+  // DOM subtree via a portal — null until that slot is found client-side
+  // (never during SSR/first paint, avoiding any server/client markup
+  // mismatch). components/site-nav.tsx always renders the slot div
+  // itself, so this resolves on mount on every page that has a nav; a
+  // page with no <Filters> anywhere just never portals anything into it.
+  const [navSlot, setNavSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    setNavSlot(document.getElementById("nav-search-slot"));
+  }, []);
 
   // <T/> (components/t.tsx) can't help with attribute values or <option>
   // text — CSS can't conditionally show/hide inside those — so this one
@@ -337,205 +394,340 @@ export function FiltersForm({
     : [];
   const showSuggestions = inputFocused && needle.length > 0 && (categorySuggestions.length > 0 || tagSuggestions.length > 0);
 
-  return (
-    <div className="mb-8 flex flex-col gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-900">
-      <div className="flex flex-wrap gap-3">
-        <div className="relative min-w-0 flex-1">
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => onQueryChange(e.target.value)}
-            onFocus={() => setInputFocused(true)}
-            onBlur={() => {
-              // Delayed, not immediate — a suggestion button's onClick
-              // needs to still fire after this input blurs to it.
-              blurTimeoutRef.current = setTimeout(() => setInputFocused(false), 150);
-            }}
-            placeholder={FILTERS_FORM_STRINGS.searchPlaceholder[lang]}
-            className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 pr-8 text-sm text-neutral-900 dark:border-neutral-700 dark:bg-black dark:text-neutral-100"
-          />
-          {isPending ? (
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-neutral-400"
-              aria-hidden="true"
+  // Aleksandr, 2026-08-27: "автоподбор слов вот как гугл делает, таким
+  // выпадающим списком. Список именно того что у нас уже есть" —
+  // suggestions from our own already-fetched categories and tags, not
+  // free-text guesses. Picking one applies it as a real filter (not just
+  // text in the search box), since that's more useful than searching
+  // post bodies for the word. Shared verbatim between the mobile and
+  // desktop search inputs — both anchor it the same way (`relative`
+  // wrapper, `absolute ... top-full`).
+  const suggestionsDropdown = showSuggestions && (
+    <div className="absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+      {categorySuggestions.length > 0 && (
+        <div className="border-b border-neutral-100 py-1 last:border-b-0 dark:border-neutral-800">
+          <div className="px-3 py-1 text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+            {FILTERS_FORM_STRINGS.categories[lang]}
+          </div>
+          {categorySuggestions.map((c) => (
+            <button
+              key={c.value}
+              type="button"
+              onClick={() => pickCategorySuggestion(c.value)}
+              className="block w-full truncate px-3 py-1.5 text-left text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
             >
-              <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" strokeOpacity="0.25" />
-              <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-            </svg>
-          ) : (
-            query.length > 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (debounceRef.current) clearTimeout(debounceRef.current);
-                  setQuery("");
-                  navigate({ q: "" });
-                }}
-                aria-label={FILTERS_FORM_STRINGS.clear[lang]}
-                className="absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400 transition hover:text-neutral-600 dark:hover:text-neutral-300"
-              >
-                <ClearIcon className="h-4 w-4" />
-              </button>
-            )
-          )}
-
-          {/* Aleksandr, 2026-08-27: "автоподбор слов вот как гугл делает,
-              таким выпадающим списком. Список именно того что у нас уже
-              есть" — suggestions from our own already-fetched categories
-              and tags, not free-text guesses. Picking one applies it as
-              a real filter (not just text in the search box), since
-              that's more useful than searching post bodies for the word. */}
-          {showSuggestions && (
-            <div className="absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
-              {categorySuggestions.length > 0 && (
-                <div className="border-b border-neutral-100 py-1 last:border-b-0 dark:border-neutral-800">
-                  <div className="px-3 py-1 text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
-                    {FILTERS_FORM_STRINGS.categories[lang]}
-                  </div>
-                  {categorySuggestions.map((c) => (
-                    <button
-                      key={c.value}
-                      type="button"
-                      onClick={() => pickCategorySuggestion(c.value)}
-                      className="block w-full truncate px-3 py-1.5 text-left text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
-                    >
-                      {translateCategoryLabel(c.text, lang)}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {tagSuggestions.length > 0 && (
-                <div className="py-1">
-                  <div className="px-3 py-1 text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
-                    {FILTERS_FORM_STRINGS.tags[lang]}
-                  </div>
-                  {tagSuggestions.map((t) => (
-                    <button
-                      key={t.value}
-                      type="button"
-                      onClick={() => pickTagSuggestion(t.value)}
-                      className="block w-full truncate px-3 py-1.5 text-left text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
-                    >
-                      {translateTagLabel(t.text, lang)}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+              {translateCategoryLabel(c.text, lang)}
+            </button>
+          ))}
         </div>
-        <div className="relative shrink-0" ref={filtersRef}>
-          <button
-            type="button"
-            onClick={() => setFiltersOpen((v) => !v)}
-            aria-label={FILTERS_FORM_STRINGS.filters[lang]}
-            aria-expanded={filtersOpen}
-            className={
-              "relative flex h-10 w-10 items-center justify-center rounded-full border transition " +
-              (currentCategory != null
-                ? "border-accent/40 bg-accent/10 text-accent"
-                : "border-neutral-300 bg-white text-neutral-500 hover:text-neutral-900 dark:border-neutral-700 dark:bg-black dark:text-neutral-400 dark:hover:text-neutral-50")
-            }
-          >
-            <FilterIcon className="h-5 w-5" />
-            {currentCategory != null && (
-              <span
-                className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-accent ring-2 ring-white dark:ring-black"
-                aria-hidden="true"
-              />
-            )}
-          </button>
-
-          {filtersOpen && (
-            <>
-              <div
-                className="animate-sheet-backdrop fixed inset-0 z-40 bg-black/40 sm:hidden"
-                onClick={() => setFiltersOpen(false)}
-                aria-hidden="true"
-              />
-              <div className="animate-sheet-up fixed inset-x-0 bottom-0 z-50 max-h-[75vh] overflow-y-auto rounded-t-2xl border-t border-neutral-200 bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl dark:border-neutral-800 dark:bg-neutral-900 sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:top-full sm:z-20 sm:mt-2 sm:max-h-80 sm:w-56 sm:animate-none sm:rounded-lg sm:border sm:p-2 sm:pb-2 sm:shadow-lg">
-              <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-neutral-300 dark:bg-neutral-700 sm:hidden" aria-hidden="true" />
-              <div className="px-1 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
-                {FILTERS_FORM_STRINGS.category[lang]}
-              </div>
-              {categories.map((c) => {
-                const isEmpty = emptyCategoryValues.includes(c.value);
-                const isSelected = currentCategory === c.value;
-
-                if (isSelected) {
-                  return (
-                    <div key={c.value} className="flex items-center rounded-md bg-accent/10 transition">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onCategoryChange("");
-                          setFiltersOpen(false);
-                        }}
-                        className="min-w-0 flex-1 truncate px-2 py-1.5 text-left text-sm font-medium text-accent"
-                      >
-                        {translateCategoryLabel(c.text, lang)}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onCategoryChange("");
-                          setFiltersOpen(false);
-                        }}
-                        aria-label={FILTERS_FORM_STRINGS.clear[lang]}
-                        className="mr-1 shrink-0 rounded p-1 text-accent transition hover:opacity-70"
-                      >
-                        <ClearIcon className="h-4 w-4" />
-                      </button>
-                    </div>
-                  );
-                }
-
-                return (
-                  <button
-                    key={c.value}
-                    type="button"
-                    disabled={isEmpty}
-                    onClick={() => {
-                      onCategoryChange(String(c.value));
-                      setFiltersOpen(false);
-                    }}
-                    className={
-                      "block w-full truncate rounded-md px-2 py-1.5 text-left text-sm transition " +
-                      (isEmpty
-                        ? "cursor-not-allowed text-neutral-400 opacity-50 dark:text-neutral-600"
-                        : "text-neutral-700 hover:bg-accent/10 hover:text-accent dark:text-neutral-300")
-                    }
-                  >
-                    {translateCategoryLabel(c.text, lang)}
-                  </button>
-                );
-              })}
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      {tags.length > 0 && (
-        <div className="flex flex-wrap gap-x-4 gap-y-2">
-          {tags.map((tag) => (
-            <label
-              key={tag.value}
-              className="flex items-center gap-1.5 text-sm text-neutral-600 dark:text-neutral-400"
+      )}
+      {tagSuggestions.length > 0 && (
+        <div className="py-1">
+          <div className="px-3 py-1 text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+            {FILTERS_FORM_STRINGS.tags[lang]}
+          </div>
+          {tagSuggestions.map((t) => (
+            <button
+              key={t.value}
+              type="button"
+              onClick={() => pickTagSuggestion(t.value)}
+              className="block w-full truncate px-3 py-1.5 text-left text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
             >
-              <input
-                type="checkbox"
-                checked={currentTags.includes(tag.value)}
-                onChange={(e) => onTagToggle(tag.value, e.target.checked)}
-                className="rounded border-neutral-300 accent-accent dark:border-neutral-600"
-              />
-              {translateTagLabel(tag.text, lang)}
-            </label>
+              {translateTagLabel(t.text, lang)}
+            </button>
           ))}
         </div>
       )}
     </div>
+  );
+
+  // Category list, shared verbatim between the mobile popover (category
+  // only) and the desktop popover (category + tag chips together, see
+  // tagChipsBody below) — same data, same selection logic either way.
+  const categoryListBody = (
+    <>
+      <div className="px-1 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+        {FILTERS_FORM_STRINGS.category[lang]}
+      </div>
+      {categories.map((c) => {
+        const isEmpty = emptyCategoryValues.includes(c.value);
+        const isSelected = currentCategory === c.value;
+
+        if (isSelected) {
+          return (
+            <div key={c.value} className="flex items-center rounded-md bg-accent/10 transition">
+              <button
+                type="button"
+                onClick={() => {
+                  onCategoryChange("");
+                  setFiltersOpen(false);
+                }}
+                className="min-w-0 flex-1 truncate px-2 py-1.5 text-left text-sm font-medium text-accent"
+              >
+                {translateCategoryLabel(c.text, lang)}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onCategoryChange("");
+                  setFiltersOpen(false);
+                }}
+                aria-label={FILTERS_FORM_STRINGS.clear[lang]}
+                className="mr-1 shrink-0 rounded p-1 text-accent transition hover:opacity-70"
+              >
+                <ClearIcon className="h-4 w-4" />
+              </button>
+            </div>
+          );
+        }
+
+        return (
+          <button
+            key={c.value}
+            type="button"
+            disabled={isEmpty}
+            onClick={() => {
+              onCategoryChange(String(c.value));
+              setFiltersOpen(false);
+            }}
+            className={
+              "block w-full truncate rounded-md px-2 py-1.5 text-left text-sm transition " +
+              (isEmpty
+                ? "cursor-not-allowed text-neutral-400 opacity-50 dark:text-neutral-600"
+                : "text-neutral-700 hover:bg-accent/10 hover:text-accent dark:text-neutral-300")
+            }
+          >
+            {translateCategoryLabel(c.text, lang)}
+          </button>
+        );
+      })}
+    </>
+  );
+
+  // 2026-08-28: desktop-only — tags as toggle pills inside the same
+  // filter popover as the category list ("фильтры пусть открывают
+  // категории и теги вместе"), instead of mobile's always-visible
+  // checkbox row below the search box.
+  const tagChipsBody = tags.length > 0 && (
+    <>
+      <div className="my-2 border-t border-neutral-100 dark:border-neutral-800" />
+      <div className="px-1 pb-1.5 pt-1 text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+        {FILTERS_FORM_STRINGS.tags[lang]}
+      </div>
+      <div className="flex flex-wrap gap-1.5 px-1 pb-1">
+        {tags.map((tag) => {
+          const active = currentTags.includes(tag.value);
+          return (
+            <button
+              key={tag.value}
+              type="button"
+              onClick={() => onTagToggle(tag.value, !active)}
+              className={
+                "rounded-full border px-2.5 py-1 text-xs transition " +
+                (active
+                  ? "border-accent/40 bg-accent/10 text-accent"
+                  : "border-neutral-300 text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-400 dark:hover:bg-neutral-800")
+              }
+            >
+              {translateTagLabel(tag.text, lang)}
+            </button>
+          );
+        })}
+      </div>
+    </>
+  );
+
+  return (
+    <>
+      {/* Mobile card — unchanged from before the desktop-nav-search
+          redesign, just now gated to mobile only (desktop's search +
+          filters live in the nav via the portal below). */}
+      <div className="mb-8 flex flex-col gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-900 sm:hidden">
+        <div className="flex flex-wrap gap-3">
+          <div className="relative min-w-0 flex-1">
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => onQueryChange(e.target.value)}
+              onFocus={() => setInputFocused(true)}
+              onBlur={() => {
+                // Delayed, not immediate — a suggestion button's onClick
+                // needs to still fire after this input blurs to it.
+                blurTimeoutRef.current = setTimeout(() => setInputFocused(false), 150);
+              }}
+              placeholder={FILTERS_FORM_STRINGS.searchPlaceholder[lang]}
+              className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 pr-8 text-sm text-neutral-900 dark:border-neutral-700 dark:bg-black dark:text-neutral-100"
+            />
+            {isPending ? (
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-neutral-400"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" strokeOpacity="0.25" />
+                <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+              </svg>
+            ) : (
+              query.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (debounceRef.current) clearTimeout(debounceRef.current);
+                    setQuery("");
+                    navigate({ q: "" });
+                  }}
+                  aria-label={FILTERS_FORM_STRINGS.clear[lang]}
+                  className="absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400 transition hover:text-neutral-600 dark:hover:text-neutral-300"
+                >
+                  <ClearIcon className="h-4 w-4" />
+                </button>
+              )
+            )}
+
+            {suggestionsDropdown}
+          </div>
+          <div className="relative shrink-0" ref={filtersRef}>
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((v) => !v)}
+              aria-label={FILTERS_FORM_STRINGS.filters[lang]}
+              aria-expanded={filtersOpen}
+              className={
+                "relative flex h-10 w-10 items-center justify-center rounded-full border transition " +
+                (currentCategory != null
+                  ? "border-accent/40 bg-accent/10 text-accent"
+                  : "border-neutral-300 bg-white text-neutral-500 hover:text-neutral-900 dark:border-neutral-700 dark:bg-black dark:text-neutral-400 dark:hover:text-neutral-50")
+              }
+            >
+              <FilterIcon className="h-5 w-5" />
+              {currentCategory != null && (
+                <span
+                  className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-accent ring-2 ring-white dark:ring-black"
+                  aria-hidden="true"
+                />
+              )}
+            </button>
+
+            {filtersOpen && (
+              <>
+                <div
+                  className="animate-sheet-backdrop fixed inset-0 z-40 bg-black/40 sm:hidden"
+                  onClick={() => setFiltersOpen(false)}
+                  aria-hidden="true"
+                />
+                <div className="animate-sheet-up fixed inset-x-0 bottom-0 z-50 max-h-[75vh] overflow-y-auto rounded-t-2xl border-t border-neutral-200 bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl dark:border-neutral-800 dark:bg-neutral-900 sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:top-full sm:z-20 sm:mt-2 sm:max-h-80 sm:w-56 sm:animate-none sm:rounded-lg sm:border sm:p-2 sm:pb-2 sm:shadow-lg">
+                  <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-neutral-300 dark:bg-neutral-700 sm:hidden" aria-hidden="true" />
+                  {categoryListBody}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {tags.length > 0 && (
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
+            {tags.map((tag) => (
+              <label
+                key={tag.value}
+                className="flex items-center gap-1.5 text-sm text-neutral-600 dark:text-neutral-400"
+              >
+                <input
+                  type="checkbox"
+                  checked={currentTags.includes(tag.value)}
+                  onChange={(e) => onTagToggle(tag.value, e.target.checked)}
+                  className="rounded border-neutral-300 accent-accent dark:border-neutral-600"
+                />
+                {translateTagLabel(tag.text, lang)}
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Desktop-only search box + filter button, teleported into
+          components/site-nav.tsx's #nav-search-slot (between the logo
+          and the Jobs/Talents tabs) — see this file's top comment. Never
+          rendered during SSR/first paint (navSlot starts null), so
+          there's no server/client markup mismatch to worry about. */}
+      {navSlot &&
+        createPortal(
+          <div className="flex w-full items-center gap-2">
+            <div className="relative min-w-0 flex-1">
+              <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => onQueryChange(e.target.value)}
+                onFocus={() => setInputFocused(true)}
+                onBlur={() => {
+                  blurTimeoutRef.current = setTimeout(() => setInputFocused(false), 150);
+                }}
+                placeholder={FILTERS_FORM_STRINGS.searchPlaceholderShort[lang]}
+                className="w-full rounded-full border border-neutral-300 bg-white py-1.5 pl-9 pr-8 text-sm text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+              />
+              {isPending ? (
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-neutral-400"
+                  aria-hidden="true"
+                >
+                  <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" strokeOpacity="0.25" />
+                  <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                </svg>
+              ) : (
+                query.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (debounceRef.current) clearTimeout(debounceRef.current);
+                      setQuery("");
+                      navigate({ q: "" });
+                    }}
+                    aria-label={FILTERS_FORM_STRINGS.clear[lang]}
+                    className="absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400 transition hover:text-neutral-600 dark:hover:text-neutral-300"
+                  >
+                    <ClearIcon className="h-4 w-4" />
+                  </button>
+                )
+              )}
+
+              {suggestionsDropdown}
+            </div>
+
+            <div className="relative shrink-0" ref={desktopFiltersRef}>
+              <button
+                type="button"
+                onClick={() => setFiltersOpen((v) => !v)}
+                aria-label={FILTERS_FORM_STRINGS.filters[lang]}
+                aria-expanded={filtersOpen}
+                className={
+                  "relative flex h-8 w-8 items-center justify-center rounded-full border transition " +
+                  (currentCategory != null || currentTags.length > 0
+                    ? "border-accent/40 bg-accent/10 text-accent"
+                    : "border-neutral-300 bg-white text-neutral-500 hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50")
+                }
+              >
+                <FilterIcon className="h-4 w-4" />
+                {(currentCategory != null || currentTags.length > 0) && (
+                  <span
+                    className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-accent ring-2 ring-white dark:ring-black"
+                    aria-hidden="true"
+                  />
+                )}
+              </button>
+
+              {filtersOpen && (
+                <div className="absolute right-0 top-full z-20 mt-2 max-h-80 w-64 overflow-y-auto rounded-lg border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+                  {categoryListBody}
+                  {tagChipsBody}
+                </div>
+              )}
+            </div>
+          </div>,
+          navSlot,
+        )}
+    </>
   );
 }
