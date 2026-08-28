@@ -8,19 +8,27 @@
 // `location` field (WorldLocation._id) already existed in
 // PostsSearchInputSchema before this — see lib/a1/feed.ts's FeedFilters.
 //
-// locations.search's exact request/response shape could NOT be verified
+// locations.search's exact request/response shape couldn't be verified
 // live while building this (the backend's openapi.json is too large for
 // the tools available and its `paths` section — where this endpoint's
-// schema actually lives — never got reached). This guesses the most
-// plausible shape by analogy with posts.search's own `q`/`limit` params,
-// and parses the response permissively: any envelope shape mismatch, or
-// a per-item shape that doesn't match WorldLocationSchema, is dropped
-// rather than thrown, with a `console.warn` naming just the response's
-// top-level keys (never full bodies, never the query text someone
-// typed) so a wrong guess can be diagnosed and fixed from Vercel's logs
-// without waiting on another live debugging round-trip. Same contract as
-// lib/covers.ts and lib/avatar-blur.ts: a broken location search must
-// never break the filters UI, it just yields no suggestions.
+// schema actually lives — never got reached), so the first version of
+// this file also guessed a `limit` param by analogy with posts.search.
+// Live logs (Vercel, 2026-08-28) confirmed the actual shape is stricter
+// than posts.search's: `{"error":true,"code":"INVALID_INPUT","message":
+// "root has unknown property 'limit'","status":400}` — this endpoint's
+// input schema is closed (rejects ANY property it doesn't know, not just
+// wrong types), and only wants `q`. Results are still capped to
+// MAX_RESULTS client-side below regardless of how many the backend
+// returns. The response envelope shape is still a guess (accepts either
+// a bare array or an {items: [...]} wrapper) and still parses
+// permissively: any envelope shape mismatch, or a per-item shape that
+// doesn't match WorldLocationSchema, is dropped rather than thrown, with
+// a `console.warn` naming just the response's top-level keys (never full
+// bodies, never the query text someone typed) so a wrong guess can be
+// diagnosed and fixed from Vercel's logs without waiting on another live
+// debugging round-trip. Same contract as lib/covers.ts and
+// lib/avatar-blur.ts: a broken location search must never break the
+// filters UI, it just yields no suggestions.
 //
 // Wrapped in React's cache() for per-request dedup, same pattern as
 // lib/covers.ts / lib/avatar-blur.ts / lib/a1/datasets.ts.
@@ -41,7 +49,9 @@ export const searchLocations = cache(async function searchLocations(
     // locations.search requires auth per PLAN.md — same as posts.search,
     // called without skipAuth so it carries the service-account bearer
     // token like every other non-public endpoint in this file's siblings.
-    const raw = await call<unknown>("locations.search", { q, limit: MAX_RESULTS });
+    // 2026-08-28: no `limit` — see this file's top comment, the backend
+    // rejects it outright as an unknown property.
+    const raw = await call<unknown>("locations.search", { q });
 
     // Guessed envelope: an array directly, or an { items: [...] } wrapper
     // (posts.search's own shape) — accept either without committing to
