@@ -37,9 +37,21 @@
 //    and an "i / N" counter. Clamped at both ends rather than wrapping
 //    around — with usually 2-3 photos, a dead stop reads clearer than
 //    looping back to the first photo.
+//
+// 2026-08-28, follow-up: "кроме свайпа, тап на левый и правый край
+// открывает тоже следующее либо предыдущее фото" — tapping the outer
+// 25% on either side of the OVERLAY (not the photo's own width — a
+// narrow portrait photo shouldn't shrink its own tap zones) now also
+// navigates, on top of swipe/arrows/keys. The middle ~50% keeps closing
+// the viewer on tap, same as before; a middle-zone tap ON the photo
+// itself still does nothing, same as before — only the definition of
+// "edge" is new, not what tapping the photo's center does. A swipe
+// dispatches a synthetic click at touchend on mobile; suppressNextClickRef
+// swallows that one click so a swipe never ALSO fires an edge-tap
+// navigation (or a close) on top of itself.
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import Image from "next/image";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import type { WebPostImage } from "@/types/web-post";
@@ -48,10 +60,14 @@ type GalleryImage = WebPostImage & { blurDataUrl?: string | null };
 
 const SWIPE_THRESHOLD_PX = 50;
 
+const EDGE_ZONE_RATIO = 0.25;
+
 export function PostImages({ images }: { images: GalleryImage[] }) {
   const valid = images.filter((img) => img.width > 0 && img.height > 0);
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const touchStartXRef = useRef<number | null>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const suppressNextClickRef = useRef(false);
 
   const canGoPrev = openIndex !== null && openIndex > 0;
   const canGoNext = openIndex !== null && openIndex < valid.length - 1;
@@ -61,6 +77,43 @@ export function PostImages({ images }: { images: GalleryImage[] }) {
   }
   function goNext() {
     setOpenIndex((i) => (i === null ? null : Math.min(valid.length - 1, i + 1)));
+  }
+
+  // Which zone of the OVERLAY (not the photo) a given screen x-position
+  // falls into — shared by both the background click handler and the
+  // photo's own, so "edge" means the same thing whether the tap lands on
+  // the black padding or on the image itself.
+  function edgeZoneAt(clientX: number): "prev" | "next" | "middle" {
+    const rect = overlayRef.current?.getBoundingClientRect();
+    if (!rect) return "middle";
+    const x = clientX - rect.left;
+    if (x < rect.width * EDGE_ZONE_RATIO) return "prev";
+    if (x > rect.width * (1 - EDGE_ZONE_RATIO)) return "next";
+    return "middle";
+  }
+
+  function handleOverlayClick(e: ReactMouseEvent) {
+    if (suppressNextClickRef.current) {
+      suppressNextClickRef.current = false;
+      return;
+    }
+    const zone = edgeZoneAt(e.clientX);
+    if (zone === "prev" && canGoPrev) return goPrev();
+    if (zone === "next" && canGoNext) return goNext();
+    setOpenIndex(null);
+  }
+
+  function handleImageClick(e: ReactMouseEvent) {
+    e.stopPropagation();
+    if (suppressNextClickRef.current) {
+      suppressNextClickRef.current = false;
+      return;
+    }
+    const zone = edgeZoneAt(e.clientX);
+    if (zone === "prev" && canGoPrev) return goPrev();
+    if (zone === "next" && canGoNext) return goNext();
+    // Middle of the photo itself: no-op, same as before this change —
+    // only tapping outside it (or now, its edges) ever acted on a tap.
   }
 
   // Arrow keys + Escape while the viewer is open — standard lightbox
@@ -81,8 +134,9 @@ export function PostImages({ images }: { images: GalleryImage[] }) {
 
   const lightbox = openIndex !== null && (
     <div
+      ref={overlayRef}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
-      onClick={() => setOpenIndex(null)}
+      onClick={handleOverlayClick}
     >
       <button
         type="button"
@@ -141,7 +195,7 @@ export function PostImages({ images }: { images: GalleryImage[] }) {
       <img
         src={valid[openIndex]!.url}
         alt=""
-        onClick={(e) => e.stopPropagation()}
+        onClick={handleImageClick}
         onTouchStart={(e) => {
           touchStartXRef.current = e.touches[0]!.clientX;
         }}
@@ -149,8 +203,13 @@ export function PostImages({ images }: { images: GalleryImage[] }) {
           if (touchStartXRef.current === null) return;
           const dx = e.changedTouches[0]!.clientX - touchStartXRef.current;
           touchStartXRef.current = null;
-          if (dx > SWIPE_THRESHOLD_PX) goPrev();
-          else if (dx < -SWIPE_THRESHOLD_PX) goNext();
+          if (dx > SWIPE_THRESHOLD_PX) {
+            suppressNextClickRef.current = true;
+            goPrev();
+          } else if (dx < -SWIPE_THRESHOLD_PX) {
+            suppressNextClickRef.current = true;
+            goNext();
+          }
         }}
         className="max-h-full max-w-full touch-pan-y rounded-[15px] object-contain"
       />
