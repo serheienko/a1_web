@@ -1027,10 +1027,13 @@ Small matching tweak in `components/google-sign-in-button.tsx`:
 `"rectangular"`, to match the page's own `rounded-xl` inputs/button
 rather than a fully round stadium shape.
 
-**Status: committed locally, not yet pushed/verified on Vercel** — see
-below once pushed. Given this project's actual build/type-check
-history this session (three separate real failures, §6.12/§6.13), a
-build is not assumed green until Vercel confirms it.
+**Pushed and verified green on Vercel (commit `4aa9fcf`).** Checked
+live at both viewport sizes: at 1200px the redesigned card renders as
+intended (logo, labeled fields, accent submit button, Google button
+recognizing the active session and offering "Continue as ..."); at
+375x700 the nav overflow is gone — `<AccountMenu>` now shows as a
+plain icon next to the settings button, matched in size and style, no
+clipping or overlap with the centered tab pill.
 
 
 ## OPEN QUESTIONS — Stage 2, for Aleksandr
