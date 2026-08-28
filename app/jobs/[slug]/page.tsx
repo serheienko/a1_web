@@ -47,9 +47,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     alternates: { canonical: canonicalUrl },
     robots: expired ? { index: false, follow: true } : undefined,
     openGraph: { title: post.title, description, type: "article", url: canonicalUrl },
-    // No og:image yet — a generated fallback (opengraph-image.tsx) is the
-    // remaining Phase 3 piece; post photos now render in the page body above.
-    twitter: { card: "summary", title: post.title, description },
+    // og:image comes from the sibling opengraph-image.tsx file convention
+    // (2026-08-28: real post photo when there is one, else a branded
+    // fallback — see lib/seo/og-image.tsx) — Next merges it in
+    // automatically for both openGraph and twitter, hence no `images`
+    // key on either object here.
+    twitter: { card: "summary_large_image", title: post.title, description },
   };
 }
 

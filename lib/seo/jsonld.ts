@@ -6,6 +6,8 @@
 
 import type { WebPost } from "@/types/web-post";
 
+const SITE_URL = "https://jobs.a1appp.com";
+
 const VALID_THROUGH_DAYS = 60;
 
 /**
@@ -44,12 +46,16 @@ export function buildJobPostingJsonLd(post: WebPost): Record<string, unknown> {
       value: post.id,
     },
     // A1 authors are individual users, not verified companies (PLAN.md
-    // §3.3 "hiringOrganization" row flags this as acceptable-but-open). No
-    // `sameAs` — we don't have a confirmed public profile URL scheme to
-    // point it at, and a guessed one that 404s is worse than omitting it.
+    // §3.3 "hiringOrganization" row flags this as acceptable-but-open).
+    // `sameAs`: 2026-08-28 — app/u/[username]/page.tsx now exists and is
+    // indexable (Aleksandr: "если завели профиль — готовы его
+    // показать"), so this finally has somewhere real to point instead of
+    // a guessed URL that 404s. Anonymous authors and hidden usernames
+    // have no profile page at all, so they get no sameAs.
     hiringOrganization: {
       "@type": "Organization",
       name: post.author.name,
+      ...(post.author.username ? { sameAs: `${SITE_URL}/u/${post.author.username}` } : {}),
     },
     // We don't have a web application flow (PLAN.md §3.3 "directApply" row).
     directApply: false,

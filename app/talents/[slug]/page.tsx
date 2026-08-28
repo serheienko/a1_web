@@ -45,11 +45,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const description = post.contentText.replace(/\s+/g, " ").trim().slice(0, 155);
   const title = truncateAtWordBoundary(`${post.title} — ${post.author.name} | A1 Talents`, 60);
 
+  const canonicalUrl = `${SITE_URL}/talents/${canonicalSlug}`;
+
   return {
     title,
     description,
-    alternates: { canonical: `${SITE_URL}/talents/${canonicalSlug}` },
+    alternates: { canonical: canonicalUrl },
     robots: { index: false, follow: true },
+    // Still noindex (see file header), but a real og:image matters more
+    // here, not less — PLAN.md's OPEN QUESTIONS recommends this page work
+    // as a shareable link, which is exactly when a link preview shows.
+    // Image comes from the sibling opengraph-image.tsx file convention.
+    openGraph: { title: post.title, description, type: "profile", url: canonicalUrl },
+    twitter: { card: "summary_large_image", title: post.title, description },
   };
 }
 
