@@ -24,10 +24,23 @@ import { EmptyState } from "@/components/empty-state";
 import { Filters } from "@/components/filters";
 import { T } from "@/components/t";
 
+// 2026-08-28: same pass as app/page.tsx — Ukrainian copy matching the
+// site's real default, approved as final ("Текст норм"). Kept noindex
+// (see the file header comment above) but still worth a good
+// openGraph/twitter image: PLAN.md's OPEN QUESTIONS recommendation (b)
+// is "publish, but noindex, so it works as a shareable link" — a
+// shared link is exactly where the og:image below matters most.
+const TALENTS_TITLE = "Фахівці | A1 Jobs";
+const TALENTS_DESCRIPTION = "Люди, які шукають роботу або проєкти через A1 🪽";
+
 export const metadata = {
-  title: "Специалисты | A1 Jobs",
-  description: "Специалисты, которые ищут работу — из приложения A1.",
+  title: TALENTS_TITLE,
+  description: TALENTS_DESCRIPTION,
   robots: { index: false, follow: true },
+  // og:image comes from the sibling app/talents/opengraph-image.tsx file
+  // convention — Next merges it in automatically.
+  openGraph: { title: TALENTS_TITLE, description: TALENTS_DESCRIPTION, type: "website" },
+  twitter: { card: "summary_large_image", title: TALENTS_TITLE, description: TALENTS_DESCRIPTION },
 };
 
 type Props = {

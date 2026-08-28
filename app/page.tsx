@@ -33,14 +33,29 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   const filters = parseFeedFilters(toURLSearchParams(await searchParams));
   const filtered = hasActiveFilters(filters);
 
+  // 2026-08-28, per Aleksandr's review of the SEO copy ("Текст норм" —
+  // approved as final): Ukrainian, matching the site's real default
+  // (<html lang="uk">, see app/layout.tsx), not the Russian placeholder
+  // this carried before. Also drops an earlier draft's mention of a
+  // salary filter — there is no such filter (see components/filters.tsx),
+  // and fixes "компаній і людей" -> "компаній і приватних осіб", which
+  // reads oddly next to a company name.
+  const title = "Вакансії | A1 Jobs";
+  const description = "Актуальні вакансії від компаній та приватних осіб в A1 🐈‍⬛";
+
   return {
-    title: "Вакансии | A1 Jobs",
-    description: "Актуальные вакансии от компаний и людей в приложении A1.",
+    title,
+    description,
     // Filtered/search views are noindex with a canonical back to the clean
     // feed URL (PLAN.md §3.1) — search-result-shaped pages shouldn't carry
     // JobPosting-adjacent signals into the index.
     alternates: { canonical: SITE_URL },
     robots: filtered ? { index: false, follow: true } : undefined,
+    // og:image comes from the sibling app/opengraph-image.tsx file
+    // convention — Next merges it in automatically, no `images` needed
+    // here (added 2026-08-28 alongside metadataBase in app/layout.tsx).
+    openGraph: { title, description, url: SITE_URL, type: "website" },
+    twitter: { card: "summary_large_image", title, description },
   };
 }
 
