@@ -534,12 +534,16 @@ export function FiltersForm({
     </div>
   );
 
-  // Category list, shared verbatim between the mobile popover (category
-  // only) and the desktop popover (category + tag chips together, see
-  // tagChipsBody below) — same data, same selection logic either way.
+  // Category list, shared verbatim between the mobile and desktop
+  // popovers — same data, same selection logic either way. 2026-08-28:
+  // "этот блок [локация+теги] надо наверх вначало... а потом уже
+  // категории" — category moved to LAST in both popovers (see the
+  // render order below), so it now carries its own leading divider
+  // (locationSectionBody, now first, dropped its matching one).
   const categoryListBody = (
     <>
-      <div className="px-1 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+      <div className="my-2 border-t border-neutral-100 dark:border-neutral-800" />
+      <div className="px-1 pb-1.5 pt-1 text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
         {FILTERS_FORM_STRINGS.category[lang]}
       </div>
       {categories.map((c) => {
@@ -600,14 +604,16 @@ export function FiltersForm({
   // 2026-08-28: "В Фильтрах надо добавить фильтрацию через локацию" +
   // "сделай в таком же стиле [как категория]" — shown in BOTH the mobile
   // and desktop popovers (unlike tagChipsBody below, which stays
-  // desktop-only), right under the category list. Selected state mirrors
+  // desktop-only). Same-day follow-up: "этот блок надо наверх вначало...
+  // а потом уже категории" — moved to the TOP of both popovers (see the
+  // render order below), so no leading divider here (categoryListBody,
+  // now last, carries its own instead). Selected state mirrors
   // categoryListBody's selected-category row (a pill with a clear
   // button); unselected state is a live search box hitting
   // /api/locations (debounced, same 350ms as the main search input).
   const locationSectionBody = (
     <>
-      <div className="my-2 border-t border-neutral-100 dark:border-neutral-800" />
-      <div className="px-1 pb-1.5 pt-1 text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+      <div className="px-1 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
         {FILTERS_FORM_STRINGS.location[lang]}
       </div>
       {currentLocation != null && currentLocationLabel ? (
@@ -781,10 +787,10 @@ export function FiltersForm({
                 no backdrop needed since the existing outside-mousedown
                 listener above already closes it. */}
             {filtersOpen && (
-              <div className="animate-popover absolute right-0 top-full z-20 mt-2 max-h-[70vh] w-72 max-w-[calc(100vw-2rem)] origin-top-right overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
-                {categoryListBody}
+              <div className="animate-popover absolute right-0 top-full z-20 mt-2 max-h-[85vh] w-72 max-w-[calc(100vw-2rem)] origin-top-right overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
                 {locationSectionBody}
                 {tagChipsBody}
+                {categoryListBody}
               </div>
             )}
           </div>
@@ -865,10 +871,10 @@ export function FiltersForm({
               </button>
 
               {filtersOpen && (
-                <div className="animate-popover absolute right-0 top-full z-20 mt-2 max-h-80 w-64 overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
-                  {categoryListBody}
+                <div className="animate-popover absolute right-0 top-full z-20 mt-2 max-h-[30rem] w-64 overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
                   {locationSectionBody}
                   {tagChipsBody}
+                  {categoryListBody}
                 </div>
               )}
             </div>
