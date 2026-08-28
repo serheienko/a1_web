@@ -543,6 +543,55 @@ that requested it:
    client ID per platform, or does adding a web client require a backend
    change too?
 
+**2026-08-28, answering Aleksandr's question "will the web client tie in
+with the app, so accounts/posts cross without errors?" — verified against
+Google's and Apple's own docs, not assumed:**
+
+There is only one backend and one users table — a post or a profile
+created through the web *is* an app-visible record already, by
+construction, regardless of which OAuth client mediated the sign-in that
+created it (same for email/password: `auth.email`/`users.createUser` are
+the one shared login, no separate "web accounts"). The one real risk is
+narrower than "will it tie in at all" — it's specifically whether signing
+in with the SAME Apple/Google account through the NEW web client
+resolves to the SAME user record as signing in through the app's
+existing client, or a second, orphaned one. Two separate things have to
+be true for that:
+
+- **Google:** the ID token's `sub` (the stable per-user identifier —
+  Google's own guidance: "unique and stable among all Google Accounts and
+  never reused") is scoped to the *Google Cloud project*, not the
+  individual OAuth client. Google's own recommended structure is exactly
+  "a separate OAuth client for each platform (Web, Android, iOS), all
+  within the same Google Cloud project" ([Best Practices for Sign in with
+  Google](https://developers.google.com/identity/siwg/best-practices)) —
+  so **the new web client must be created in the same GCP project as the
+  app's existing Google client**, not a new project, or the same person
+  gets two different `sub`s on web vs. app.
+- **Apple:** does NOT default to a shared identifier — a Services ID
+  created standalone gets its own `sub` space. Apple's own instructions:
+  "you must create a Services ID and **associate your website to an
+  existing primary iOS/macOS/tvOS/watchOS App ID** enabled for Sign in
+  with Apple" ([Configure Sign in with Apple for the
+  web](https://developer.apple.com/help/account/capabilities/configure-sign-in-with-apple-for-the-web))
+  — doing that association is what makes the same Apple ID return the
+  same stable identifier on web and in the app. **This has to be an
+  explicit choice while creating the Services ID**, not the default.
+
+Neither of these is a code problem — both are console configuration, and
+both are exactly the two things to double-check while doing OPEN
+QUESTIONS #1-2 below: create the web client *inside* the app's existing
+Google Cloud project, and *associate* (don't stand up standalone) the
+web Services ID with the app's existing App ID.
+
+That still leaves the backend side: even a correctly-configured client
+produces a token whose `aud` (audience) claim is the new web client's ID,
+not the app's. If `auth.google`/`auth.appleId` on the backend verify
+the token against one hardcoded audience, a correctly-configured web
+token still gets rejected at the verification step, before `sub` even
+matters — this is OPEN QUESTION #1 for Andrew below, and it doesn't
+resolve itself just by getting the console setup right.
+
 ### 6.4 Scope question the form-building depends on
 
 `account.updateProfile`'s field list (6.1) is the same ~25-field, 14-sub-axis
