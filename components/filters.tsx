@@ -32,12 +32,16 @@ export async function Filters({
   currentQuery,
   currentCategory,
   currentTags,
+  currentLocation,
+  currentLocationLabel,
 }: {
   kind: WebPostKind;
   basePath: string;
   currentQuery?: string;
   currentCategory?: number;
   currentTags: string[];
+  currentLocation?: number;
+  currentLocationLabel?: string;
 }) {
   const [categoriesRaw, tags] = await Promise.all([fetchCategories(), fetchTagsForKind(kind)]);
   const categories = withItFirst(categoriesRaw);
@@ -54,6 +58,8 @@ export async function Filters({
       currentQuery={currentQuery}
       currentCategory={currentCategory}
       currentTags={currentTags}
+      currentLocation={currentLocation}
+      currentLocationLabel={currentLocationLabel}
       emptyCategoryValues={emptyCategoryValues}
     />
   );

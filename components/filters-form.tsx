@@ -192,7 +192,9 @@ type FiltersFormStringKey =
   | "categories"
   | "tags"
   | "filters"
-  | "category";
+  | "category"
+  | "location"
+  | "locationPlaceholder";
 
 const FILTERS_FORM_STRINGS: Record<FiltersFormStringKey, Record<Locale, string>> = {
   searchPlaceholder: {
@@ -228,6 +230,17 @@ const FILTERS_FORM_STRINGS: Record<FiltersFormStringKey, Record<Locale, string>>
     uk: "Категорія", en: "Category", ru: "Категория", de: "Kategorie", es: "Categoría",
     fr: "Catégorie", pl: "Kategoria", ptBR: "Categoria", zh: "分类",
   },
+  // 2026-08-28: location filter, styled/placed the same as category
+  // above — see FiltersForm's locationSectionBody.
+  location: {
+    uk: "Локація", en: "Location", ru: "Локация", de: "Standort", es: "Ubicación",
+    fr: "Localisation", pl: "Lokalizacja", ptBR: "Localização", zh: "位置",
+  },
+  locationPlaceholder: {
+    uk: "Пошук міста...", en: "Search city...", ru: "Поиск города...", de: "Stadt suchen...",
+    es: "Buscar ciudad...", fr: "Rechercher une ville...", pl: "Szukaj miasta...",
+    ptBR: "Buscar cidade...", zh: "搜索城市...",
+  },
 };
 
 export function FiltersForm({
@@ -237,6 +250,8 @@ export function FiltersForm({
   currentQuery,
   currentCategory,
   currentTags,
+  currentLocation,
+  currentLocationLabel,
   emptyCategoryValues = [],
 }: {
   basePath: string;
@@ -245,6 +260,8 @@ export function FiltersForm({
   currentQuery?: string;
   currentCategory?: number;
   currentTags: string[];
+  currentLocation?: number;
+  currentLocationLabel?: string;
   // Aleksandr, 2026-08-27: "Категории в которых пока пусто показывай 50%
   // прозрачности и не активными" — computed server-side (see
   // lib/a1/feed.ts's fetchEmptyCategoryValues), one real posts.search per
@@ -257,6 +274,24 @@ export function FiltersForm({
   const [inputFocused, setInputFocused] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 2026-08-28: "В Фильтрах надо добавить фильтрацию через локацию" —
+  // mirrors the query/debounce pattern above, but hits a NEW
+  // /api/locations route instead of a router navigation: locations.search
+  // is a real backend call needing auth (lib/a1/locations.ts), and this
+  // is a "use client" component that can't call it directly (PLAN.md §5
+  // rule 4). locationQuery/locationResults are local UI-only state,
+  // separate from the applied filter itself (currentLocation/
+  // currentLocationLabel props, round-tripped through the URL exactly
+  // like category/tags) — picking a result clears them and calls
+  // navigate(), same flow as pickCategorySuggestion/pickTagSuggestion.
+  // locationRequestIdRef guards against a slow earlier fetch overwriting
+  // a faster later one.
+  const [locationQuery, setLocationQuery] = useState("");
+  const [locationResults, setLocationResults] = useState<{ id: number; label: string }[]>([]);
+  const [locationSearchPending, setLocationSearchPending] = useState(false);
+  const locationDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const locationRequestIdRef = useRef(0);
 
   // 2026-08-27: "категории... можно их вообще поселить на иконку
   // фильтров, как у нас в приложении" — the category <select> now lives
@@ -332,19 +367,32 @@ export function FiltersForm({
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
+      if (locationDebounceRef.current) clearTimeout(locationDebounceRef.current);
     };
   }, []);
 
-  function navigate(overrides: { q?: string; category?: number | null; tags?: string[] }) {
+  function navigate(overrides: {
+    q?: string;
+    category?: number | null;
+    tags?: string[];
+    location?: number | null;
+    locationLabel?: string | null;
+  }) {
     const params = new URLSearchParams();
     const q = overrides.q !== undefined ? overrides.q : query;
     const category = overrides.category !== undefined ? overrides.category : currentCategory;
     const nextTags = overrides.tags !== undefined ? overrides.tags : currentTags;
+    const location = overrides.location !== undefined ? overrides.location : currentLocation;
+    const locationLabel = overrides.locationLabel !== undefined ? overrides.locationLabel : currentLocationLabel;
 
     const trimmedQ = q.trim();
     if (trimmedQ) params.set("q", trimmedQ);
     if (category != null) params.set("category", String(category));
     for (const tag of nextTags) params.append("tag", tag);
+    if (location != null) {
+      params.set("location", String(location));
+      if (locationLabel) params.set("locationLabel", locationLabel);
+    }
 
     lastPushedQueryRef.current = trimmedQ;
 
@@ -381,6 +429,43 @@ export function FiltersForm({
     setQuery("");
     setInputFocused(false);
     navigate({ q: "", tags: currentTags.includes(value) ? currentTags : [...currentTags, value] });
+  }
+
+  async function searchLocationsClient(q: string) {
+    const trimmed = q.trim();
+    if (trimmed.length < 2) {
+      setLocationResults([]);
+      return;
+    }
+    const requestId = ++locationRequestIdRef.current;
+    setLocationSearchPending(true);
+    try {
+      const res = await fetch(`/api/locations?q=${encodeURIComponent(trimmed)}`);
+      const data = (await res.json()) as { results?: { id: number; label: string }[] };
+      if (requestId !== locationRequestIdRef.current) return; // a newer request already landed
+      setLocationResults(Array.isArray(data.results) ? data.results : []);
+    } catch {
+      if (requestId === locationRequestIdRef.current) setLocationResults([]);
+    } finally {
+      if (requestId === locationRequestIdRef.current) setLocationSearchPending(false);
+    }
+  }
+
+  function onLocationQueryChange(value: string) {
+    setLocationQuery(value);
+    if (locationDebounceRef.current) clearTimeout(locationDebounceRef.current);
+    locationDebounceRef.current = setTimeout(() => searchLocationsClient(value), 350);
+  }
+
+  function pickLocation(id: number, label: string) {
+    if (locationDebounceRef.current) clearTimeout(locationDebounceRef.current);
+    setLocationQuery("");
+    setLocationResults([]);
+    navigate({ location: id, locationLabel: label });
+  }
+
+  function clearLocationFilter() {
+    navigate({ location: null, locationLabel: null });
   }
 
   const needle = query.trim().toLowerCase();
@@ -504,6 +589,72 @@ export function FiltersForm({
     </>
   );
 
+  // 2026-08-28: "В Фильтрах надо добавить фильтрацию через локацию" +
+  // "сделай в таком же стиле [как категория]" — shown in BOTH the mobile
+  // and desktop popovers (unlike tagChipsBody below, which stays
+  // desktop-only), right under the category list. Selected state mirrors
+  // categoryListBody's selected-category row (a pill with a clear
+  // button); unselected state is a live search box hitting
+  // /api/locations (debounced, same 350ms as the main search input).
+  const locationSectionBody = (
+    <>
+      <div className="my-2 border-t border-neutral-100 dark:border-neutral-800" />
+      <div className="px-1 pb-1.5 pt-1 text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+        {FILTERS_FORM_STRINGS.location[lang]}
+      </div>
+      {currentLocation != null && currentLocationLabel ? (
+        <div className="flex items-center rounded-md bg-accent/10 transition">
+          <div className="min-w-0 flex-1 truncate px-2 py-1.5 text-left text-sm font-medium text-accent">
+            {currentLocationLabel}
+          </div>
+          <button
+            type="button"
+            onClick={clearLocationFilter}
+            aria-label={FILTERS_FORM_STRINGS.clear[lang]}
+            className="mr-1 shrink-0 rounded p-1 text-accent transition hover:opacity-70"
+          >
+            <ClearIcon className="h-4 w-4" />
+          </button>
+        </div>
+      ) : (
+        <div className="relative px-1 pb-1">
+          <input
+            type="text"
+            value={locationQuery}
+            onChange={(e) => onLocationQueryChange(e.target.value)}
+            placeholder={FILTERS_FORM_STRINGS.locationPlaceholder[lang]}
+            className="w-full rounded-lg border border-neutral-300 bg-white px-2.5 py-1.5 pr-7 text-sm text-neutral-900 outline-none transition focus:border-accent/40 focus:ring-2 focus:ring-accent/30 dark:border-neutral-700 dark:bg-black dark:text-neutral-100"
+          />
+          {locationSearchPending && (
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              className="pointer-events-none absolute right-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-neutral-400"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" strokeOpacity="0.25" />
+              <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+            </svg>
+          )}
+          {locationResults.length > 0 && (
+            <div className="mt-1 overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700">
+              {locationResults.map((loc) => (
+                <button
+                  key={loc.id}
+                  type="button"
+                  onClick={() => pickLocation(loc.id, loc.label)}
+                  className="block w-full truncate px-2.5 py-1.5 text-left text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                >
+                  {loc.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+
   // 2026-08-28: desktop-only — tags as toggle pills inside the same
   // filter popover as the category list ("фильтры пусть открывают
   // категории и теги вместе"), instead of mobile's always-visible
@@ -556,7 +707,7 @@ export function FiltersForm({
                 blurTimeoutRef.current = setTimeout(() => setInputFocused(false), 150);
               }}
               placeholder={FILTERS_FORM_STRINGS.searchPlaceholder[lang]}
-              className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 pr-8 text-sm text-neutral-900 dark:border-neutral-700 dark:bg-black dark:text-neutral-100"
+              className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 pr-8 text-sm text-neutral-900 outline-none transition focus:border-accent/40 focus:ring-2 focus:ring-accent/30 dark:border-neutral-700 dark:bg-black dark:text-neutral-100"
             />
             {isPending ? (
               <svg
@@ -595,13 +746,13 @@ export function FiltersForm({
               aria-expanded={filtersOpen}
               className={
                 "relative flex h-10 w-10 items-center justify-center rounded-full border transition " +
-                (currentCategory != null
+                (currentCategory != null || currentLocation != null
                   ? "border-accent/40 bg-accent/10 text-accent"
                   : "border-neutral-300 bg-white text-neutral-500 hover:text-neutral-900 dark:border-neutral-700 dark:bg-black dark:text-neutral-400 dark:hover:text-neutral-50")
               }
             >
               <FilterIcon className="h-5 w-5" />
-              {currentCategory != null && (
+              {(currentCategory != null || currentLocation != null) && (
                 <span
                   className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-accent ring-2 ring-white dark:ring-black"
                   aria-hidden="true"
@@ -623,6 +774,7 @@ export function FiltersForm({
             {filtersOpen && (
               <div className="animate-popover absolute right-0 top-full z-20 mt-2 max-h-[70vh] w-72 max-w-[calc(100vw-2rem)] origin-top-right overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
                 {categoryListBody}
+                {locationSectionBody}
               </div>
             )}
           </div>
@@ -667,7 +819,7 @@ export function FiltersForm({
                   blurTimeoutRef.current = setTimeout(() => setInputFocused(false), 150);
                 }}
                 placeholder={FILTERS_FORM_STRINGS.searchPlaceholderShort[lang]}
-                className="w-full rounded-full border border-neutral-300 bg-white py-1.5 pl-9 pr-8 text-sm text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                className="w-full rounded-full border border-neutral-300 bg-white py-1.5 pl-9 pr-8 text-sm text-neutral-900 outline-none transition focus:border-accent/40 focus:ring-2 focus:ring-accent/30 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
               />
               {isPending ? (
                 <svg
@@ -707,13 +859,13 @@ export function FiltersForm({
                 aria-expanded={filtersOpen}
                 className={
                   "relative flex h-8 w-8 items-center justify-center rounded-full border transition " +
-                  (currentCategory != null || currentTags.length > 0
+                  (currentCategory != null || currentTags.length > 0 || currentLocation != null
                     ? "border-accent/40 bg-accent/10 text-accent"
                     : "border-neutral-300 bg-white text-neutral-500 hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50")
                 }
               >
                 <FilterIcon className="h-4 w-4" />
-                {(currentCategory != null || currentTags.length > 0) && (
+                {(currentCategory != null || currentTags.length > 0 || currentLocation != null) && (
                   <span
                     className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-accent ring-2 ring-white dark:ring-black"
                     aria-hidden="true"
@@ -724,6 +876,7 @@ export function FiltersForm({
               {filtersOpen && (
                 <div className="animate-popover absolute right-0 top-full z-20 mt-2 max-h-80 w-64 overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
                   {categoryListBody}
+                  {locationSectionBody}
                   {tagChipsBody}
                 </div>
               )}

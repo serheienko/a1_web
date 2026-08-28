@@ -65,6 +65,8 @@ export default async function TalentsPage({ searchParams }: Props) {
         currentQuery={filters.q}
         currentCategory={currentCategory}
         currentTags={filters.tags ?? []}
+        currentLocation={filters.location}
+        currentLocationLabel={filters.locationLabel}
       />
 
       {posts.length === 0 ? (

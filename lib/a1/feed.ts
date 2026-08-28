@@ -29,6 +29,15 @@ export type FeedFilters = {
   q?: string;
   categories?: number[];
   tags?: string[];
+  // 2026-08-28: WorldLocation._id, sent to posts.search's own `location`
+  // field (lib/a1/schemas.ts's PostsSearchInputSchema already had this
+  // typed — nothing used it until now). locationLabel is NOT sent to the
+  // backend at all — it's the human-readable place name the user picked
+  // in components/filters-form.tsx's location search (lib/a1/locations.ts),
+  // round-tripped through the URL purely so a reloaded/shared link can
+  // redisplay "Kyiv, Ukraine" instead of just the bare id.
+  location?: number;
+  locationLabel?: string;
 };
 
 // Aleksandr, 2026-08-27: "надо модернизировать и улучшить поиск, чтобы он
@@ -62,6 +71,7 @@ async function scanFeedForQuery(
       ...(cursor ? { next: cursor } : {}),
       ...(filters.categories && filters.categories.length > 0 ? { categories: filters.categories } : {}),
       ...(filters.tags && filters.tags.length > 0 ? { tags: filters.tags } : {}),
+      ...(filters.location != null ? { location: filters.location } : {}),
     });
     const parsed = PostsSearchOutputSchema.parse(raw);
     for (const post of mapPosts(parsed.items)) {
@@ -144,6 +154,7 @@ export async function fetchFeedPage(
     ...(cursor ? { next: cursor } : {}),
     ...(filters.categories && filters.categories.length > 0 ? { categories: filters.categories } : {}),
     ...(filters.tags && filters.tags.length > 0 ? { tags: filters.tags } : {}),
+    ...(filters.location != null ? { location: filters.location } : {}),
   });
 
   // The envelope itself must be well-formed, or something is badly wrong
@@ -184,21 +195,34 @@ export function toURLSearchParams(
 /**
  * URL shape (PLAN.md §3.1): `?q=...&category=<id>&tag=<value>&tag=<value>`
  * — one category (a <select>, not a multi-select — 39 options), any
- * number of repeated `tag` params (checkboxes).
+ * number of repeated `tag` params (checkboxes). 2026-08-28: `&location=
+ * <id>&locationLabel=<name>` added the same way — one location, an id +
+ * its display label riding along in its own param (see FeedFilters above
+ * for why the label needs to be in the URL at all).
  */
 export function parseFeedFilters(params: URLSearchParams): FeedFilters {
   const q = params.get("q")?.trim();
   const categoryParam = params.get("category");
   const categoryId = categoryParam ? Number(categoryParam) : NaN;
   const tags = params.getAll("tag").filter(Boolean);
+  const locationParam = params.get("location");
+  const locationId = locationParam ? Number(locationParam) : NaN;
+  const locationLabel = params.get("locationLabel")?.trim();
 
   return {
     q: q || undefined,
     categories: Number.isFinite(categoryId) && categoryParam ? [categoryId] : undefined,
     tags: tags.length > 0 ? tags : undefined,
+    location: Number.isFinite(locationId) && locationParam ? locationId : undefined,
+    locationLabel: locationLabel || undefined,
   };
 }
 
 export function hasActiveFilters(filters: FeedFilters): boolean {
-  return Boolean(filters.q || (filters.categories && filters.categories.length > 0) || (filters.tags && filters.tags.length > 0));
+  return Boolean(
+    filters.q ||
+      (filters.categories && filters.categories.length > 0) ||
+      (filters.tags && filters.tags.length > 0) ||
+      filters.location != null,
+  );
 }
