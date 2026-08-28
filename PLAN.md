@@ -1036,6 +1036,91 @@ plain icon next to the settings button, matched in size and style, no
 clipping or overlap with the centered tab pill.
 
 
+### 6.15 Post-signup onboarding steps — requirements gathering in progress (2026-08-28)
+
+Aleksandr's own words: the web sign-up flow needs extra steps after
+registration to collect data, and it "must tie in completely with the
+app — the same data we already collect and use" (not a new, web-only
+data shape). Also: a real email-verification step (a service sends a
+code), and he sent screenshots of the app's own onboarding screens plus
+two cat animations to use.
+
+**What was received so far (screenshots of the app, 2026-08-28):**
+- Step "Настройте профиль" (Set up your profile) — three required
+  fields: a free-text "Роль и навыки" field (placeholder example:
+  "Разработчик, Основатель, Дизайнер"), a "Я..." dropdown (three
+  options, each with its own cat animation, values shown so far:
+  Бизнесмен / Специалист / Фрилансер — Aleksandr's term: "тип
+  пользователя", user type), and an "Отрасль" dropdown (a searchable
+  list with emoji-prefixed entries — IT, B2B, Аренда, Бизнес-услуги,
+  Бухгалтерия, Бытовая техника, ... — Aleksandr's term: "Категория").
+  Aleksandr confirmed: **all three fields are required.**
+- Step "Введите код подтверждения" (Enter confirmation code) — a
+  4-digit numeric code sent to the user's email, a resend timer shown
+  as a live countdown ("Не получили код? 55" — seconds remaining) and
+  an "Изменить электронную почту" (change email) link.
+- Two cat animations, as native Telegram sticker files (`.tgs` — gzipped
+  Lottie JSON, confirmed by decompressing them: 512x512, ~60fps, ~3s
+  loops). Aleksandr: 2 of an eventual set — `Briefcase.tgs` for the
+  profile-setup step, `Phone.tgs` (a "cat-telephone-operator" pose) for
+  the code step. **Decoded to plain Lottie JSON and committed as static
+  assets**: `public/animations/briefcase-profile-setup.json`,
+  `public/animations/phone-verify-code.json`. Three more animations
+  (one per "Я..." dropdown option) are still coming.
+  Rendering plan, to avoid adding a new npm dependency to a codebase
+  that already can't `npm install` locally (§0.4) and has had three real
+  build failures this session from exactly this kind of avoidable risk:
+  load the `@lottiefiles/lottie-player` web component from a CDN
+  `<script>` tag, the same pattern already used for Google Identity
+  Services (`components/google-sign-in-button.tsx`), rather than
+  installing a React Lottie wrapper package.
+
+**Two things confirmed against already-established facts, not
+assumed:**
+- "Отрасль" is almost certainly `dataset.companyCategories` — its
+  values (emoji + label, e.g. "IT") match the exact `{value, text,
+  lottie}` / HTML-entity-encoded-emoji shape `lib/a1/datasets.ts`
+  already documents for this exact dataset (comment there: "Aleksandr,
+  2026-08-27: his mobile-app walkthrough video showed a company card
+  with 'IT' as a labeled category" — the same word appears first in
+  this new screenshot's list too).
+- `occupation` is a plain string field, confirmed directly against the
+  live `openapi.json` schema, 2026-08-28: `{"occupation": {"type":
+  "string", "description": "User occupation", "example": "Software
+  Engineer"}}`. So the free-text "Роль и навыки" field maps cleanly
+  to `occupation` — a single string, not a structured list — unless
+  Aleksandr says the app actually splits "role" and "skills" into two
+  separate stored things here.
+
+**Not yet resolved — genuinely unknown, not guessed:**
+- What backend field(s) "Я..." (Бизнесмен/Специалист/Фрилансер) writes
+  to. Nothing in `account.updateProfile`'s already-documented field
+  list (§6.1) obviously matches a 3-value "user type" enum by name.
+  Two real possibilities that need a real answer, not a guess: (a) it's
+  a stored profile attribute (candidate field names from §6.1:
+  `expertise`, `lockingFor`/`helpfulWith`, or the catch-all `metadata`),
+  or (b) it's not a stored field at all — just a UI branch that decides
+  whether the person is steered toward creating a Vacancy post or a
+  Talent post (PLAN.md §6.1's `post-job-seeking` vs the not-yet-existing
+  `post-job-employing` tag key). Asked Aleksandr; may need Andrew if
+  Aleksandr doesn't know the literal field either.
+- Which service actually sends the verification email/code. `account.
+  verifyEmail` / `account.verifyEmailConfirm` already exist as backend
+  endpoints (§6.1), so the sending almost certainly happens server-side
+  (Andrew's infrastructure), not something the web needs to integrate
+  directly — plan is to identify the provider from the email's own
+  From-address/footer once Aleksandr sends a screenshot of the actual
+  received email (not just the app's code-entry screen, which is what
+  arrived so far).
+- The remaining 3 "Я..." dropdown animations — not sent yet.
+
+**Not started building yet, deliberately** — three required fields and
+an email-verification flow are exactly the kind of thing that's
+expensive to get wrong on a live, already-working sign-up flow (real
+users are signing up already, §6.14). Waiting for the two answers above
+before writing the profile-setup step or the code-verification step.
+
+
 ## OPEN QUESTIONS — Stage 2, for Aleksandr
 
 1. ~~**Google Sign-In needs its own Web-application OAuth Client ID**~~
@@ -1059,6 +1144,15 @@ clipping or overlap with the centered tab pill.
 6. ~~**Read-side changes**~~ — **Answered 2026-08-28: public feed/
    detail pages are not touched.** Purely a separate sign-in → editor
    flow for now. See Phase 7.
+7. **What does the "Я..." (Бизнесмен/Специалист/Фрилансер) onboarding
+   field save as?** See §6.15 — not in `account.updateProfile`'s
+   already-documented field list under any obvious name. Is it a
+   profile field (which one?) or does it just decide whether the
+   person is steered toward creating a Vacancy vs a Talent post?
+8. **Which verification-email screenshot?** §6.15 — the screenshots
+   sent so far show the app's code-entry screen, not the actual
+   received email. Need the real email (or at least its From-address)
+   to identify the sending service and match its template.
 
 ## OPEN QUESTIONS — Stage 2, for the backend developer (Andrew)
 
