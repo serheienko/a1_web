@@ -742,8 +742,22 @@ export function FiltersForm({
 
   return (
     <>
+      {/* 2026-08-28: z-30, deliberately BELOW the nav bar's z-40 — this
+          backdrop closes the popover on any outside tap (see the fuller
+          comment on this same pattern in settings-menu.tsx). The desktop
+          popover panel below is portaled into site-nav.tsx's #nav-search
+          -slot, i.e. it physically lives INSIDE <nav>. <nav> has its own
+          z-40, which makes it a stacking context of its own — so from
+          the page's point of view the portaled panel's z-50 only ranks
+          against other things *inside* that nav bracket, not against
+          this backdrop, which sits outside it. A backdrop at z-45 (tried
+          first) out-ranked the whole nav bracket and sat on top of the
+          panel, silently swallowing every click meant for it — tags,
+          the location box, categories, all of it — while still visually
+          showing the popover underneath. z-30 keeps the backdrop below
+          nav's own z-40 so nav's bracket (panel included) stays on top. */}
       {filtersOpen && (
-        <div className="fixed inset-0 z-[45]" onClick={() => setFiltersOpen(false)} aria-hidden="true" />
+        <div className="fixed inset-0 z-30" onClick={() => setFiltersOpen(false)} aria-hidden="true" />
       )}
 
       {/* Mobile search + filters. 2026-08-28: "уберем вот эту всю некую

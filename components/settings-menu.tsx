@@ -36,6 +36,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { LOCALES, LOCALE_CLASS, LOCALE_TAG, type Locale } from "@/components/t";
 
 type Theme = "light" | "dark" | "auto";
@@ -245,10 +246,32 @@ export function SettingsMenu() {
               catches that first tap (closing on it), so the element
               underneath never sees it at all — a second, genuinely
               separate tap is what reaches it, now that the backdrop (and
-              popover) are gone. z-45 sits above the nav bar (z-40) so
-              this also swallows a stray tap on the nav itself, not just
-              on page content. */}
-          <div className="fixed inset-0 z-[45]" onClick={() => setOpen(false)} aria-hidden="true" />
+              popover) are gone.
+
+              2026-08-28, later same day: that backdrop broke outside-tap
+              -to-close entirely on desktop, in the exact way the OLD
+              "Historical portal note" above warns about — this component
+              renders inside <nav>, which sets `transform: translateZ(0)`,
+              and a transformed ancestor becomes the CONTAINING BLOCK for
+              any `position: fixed` descendant. This backdrop is fixed,
+              so instead of covering the viewport it was silently clipped
+              to nav's own small box (just the header row, ~60-90px
+              tall) — a tap anywhere on the actual page below that never
+              reached it, so the popover just... never closed. Portaling
+              it to document.body escapes nav's box the same way the old
+              mobile sheet used to need a portal for (see that note).
+              z-30 is deliberately BELOW the nav bar's z-40, not above
+              it: the popover panel below is a normal (non-portaled)
+              child of <nav>, so it stacks *inside* nav's own z-40
+              bracket — a body-level backdrop above z-40 would out-rank
+              that whole bracket and sit on top of the panel itself,
+              swallowing clicks meant for it (the exact bug this same
+              backdrop pattern hit in filters-form.tsx's desktop popover,
+              which portals INTO nav instead — see that file's comment). */}
+          {createPortal(
+            <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} aria-hidden="true" />,
+            document.body,
+          )}
           <div className="animate-popover absolute right-0 top-full z-50 mt-2 w-64 max-w-[calc(100vw-2rem)] origin-top-right overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
             {panelBody}
           </div>
