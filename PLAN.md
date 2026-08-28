@@ -945,9 +945,21 @@ still waiting on Andrew.
 behind an "or" divider — visible immediately, not gated on Apple being
 ready.
 
-**Not yet pushed/verified green on Vercel** as of this writing — see the
-build-failure entries above this section for why two earlier pushes
-already failed (both fixed, same day, before this one went out).
+**Third Vercel build attempt also failed, same root cause as the
+`noUncheckedIndexedAccess` one above, one spot missed.**
+`components/account-menu.tsx`'s `readDisplayCookie()` did
+`decodeURIComponent(match[1])` — a regex capture group, which this flag
+also types as possibly `undefined` (same rule, different kind of
+indexing: an array/tuple index, not an object key this time). Fixed with
+an optional-chain read (`match?.[1]`) plus a truthy check before
+decoding. Audited every other new file in this phase for the same
+pattern (`[0]`/`[1]` indexing, `.match()`/`.split()` results) after this
+one — nothing else found.
+
+**Not yet pushed/verified green on Vercel** as of this writing — three
+separate build failures so far, each a different mechanical
+consequence of the same strict tsconfig this project already had
+(`noUncheckedIndexedAccess`), not a design problem with Stage 2 itself.
 
 ## OPEN QUESTIONS — Stage 2, for Aleksandr
 

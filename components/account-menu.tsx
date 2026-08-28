@@ -43,7 +43,12 @@ const ACCOUNT_MENU_STRINGS: Record<AccountMenuStringKey, Record<Locale, string>>
 
 function readDisplayCookie(): string | null {
   const match = document.cookie.match(new RegExp(`(?:^|; )${DISPLAY_COOKIE}=([^;]*)`));
-  return match ? decodeURIComponent(match[1]) : null;
+  // match[1] (a capture group) is typed string | undefined under this
+  // project's noUncheckedIndexedAccess — same class of error as
+  // PLAN.md §6.12/§6.13's other two build failures, caught before
+  // pushing this time.
+  const raw = match?.[1];
+  return raw ? decodeURIComponent(raw) : null;
 }
 
 export function AccountMenu() {
