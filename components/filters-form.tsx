@@ -202,7 +202,8 @@ type FiltersFormStringKey =
   | "filters"
   | "category"
   | "location"
-  | "locationPlaceholder";
+  | "locationPlaceholder"
+  | "reset";
 
 const FILTERS_FORM_STRINGS: Record<FiltersFormStringKey, Record<Locale, string>> = {
   searchPlaceholder: {
@@ -248,6 +249,13 @@ const FILTERS_FORM_STRINGS: Record<FiltersFormStringKey, Record<Locale, string>>
     uk: "Пошук міста...", en: "Search city...", ru: "Поиск города...", de: "Stadt suchen...",
     es: "Buscar ciudad...", fr: "Rechercher une ville...", pl: "Szukaj miasta...",
     ptBR: "Buscar cidade...", zh: "搜索城市...",
+  },
+  // 2026-08-28: "хочешь reset, но можно было одной кнопкой" — clears
+  // category+location+tags together, see resetAllFilters/
+  // resetAllFiltersBody below.
+  reset: {
+    uk: "Скинути", en: "Reset", ru: "Сбросить", de: "Zurücksetzen", es: "Restablecer",
+    fr: "Réinitialiser", pl: "Resetuj", ptBR: "Redefinir", zh: "重置",
   },
 };
 
@@ -476,6 +484,17 @@ export function FiltersForm({
     navigate({ location: null, locationLabel: null });
   }
 
+  // Aleksandr, 2026-08-28: "добавим... кнопку с надписью reset...
+  // смысл такой, чтобы можно было сбросить эти все [фильтры]. Не по
+  // одной отключать" — one button that clears category+location+tags
+  // together instead of undoing each pill/selection individually. Free-
+  // text search is deliberately left alone here — it already has its
+  // own clear (x) button right on the input.
+  function resetAllFilters() {
+    navigate({ category: null, tags: [], location: null, locationLabel: null });
+    setFiltersOpen(false);
+  }
+
   const needle = query.trim().toLowerCase();
   const categorySuggestions = needle
     ? categories.filter((c) => c.text.toLowerCase().includes(needle)).slice(0, MAX_SUGGESTIONS_PER_GROUP)
@@ -599,6 +618,21 @@ export function FiltersForm({
         );
       })}
     </>
+  );
+
+  // 2026-08-28: "добавим... кнопку reset... чтобы можно было сбросить
+  // эти все [фильтры] одной кнопкой" — only rendered once something is
+  // actually active, so an empty popover doesn't carry a dead button.
+  const resetAllFiltersBody = (currentCategory != null || currentLocation != null || currentTags.length > 0) && (
+    <div className="mb-1 flex justify-end px-1 pb-1">
+      <button
+        type="button"
+        onClick={resetAllFilters}
+        className="rounded-full border border-neutral-300 px-3 py-1 text-xs font-medium text-neutral-500 transition hover:border-neutral-400 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-neutral-600 dark:hover:text-neutral-50"
+      >
+        {FILTERS_FORM_STRINGS.reset[lang]}
+      </button>
+    </div>
   );
 
   // 2026-08-28: "В Фильтрах надо добавить фильтрацию через локацию" +
@@ -792,6 +826,7 @@ export function FiltersForm({
                 listener above already closes it. */}
             {filtersOpen && (
               <div className="animate-popover absolute right-0 top-full z-20 mt-2 max-h-[85vh] w-72 max-w-[calc(100vw-2rem)] origin-top-right overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+                {resetAllFiltersBody}
                 {locationSectionBody}
                 {tagChipsBody}
                 {categoryListBody}
@@ -876,6 +911,7 @@ export function FiltersForm({
 
               {filtersOpen && (
                 <div className="animate-popover absolute right-0 top-full z-20 mt-2 max-h-[30rem] w-64 overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+                  {resetAllFiltersBody}
                   {locationSectionBody}
                   {tagChipsBody}
                   {categoryListBody}
