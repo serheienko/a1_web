@@ -19,10 +19,17 @@
 // absolutely centered over the whole bar instead — that keeps it dead
 // center regardless of how wide the search box grows or shrinks,
 // independent of the side columns' own widths.
+//
+// 2026-08-28: dropped the hard `border-b` and added <ProgressiveBlur>
+// below — see that component's own comment. The border read as a flat
+// cutoff line where content just stopped; the fog gradient now does
+// that job itself, so a second, sharper edge on top of it looked
+// redundant/busy instead of crisp.
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ProgressiveBlur } from "@/components/progressive-blur";
 import { SettingsMenu } from "@/components/settings-menu";
 import { T } from "@/components/t";
 
@@ -58,9 +65,10 @@ export function SiteNav() {
 
   return (
     <nav
-      className="sticky top-0 z-40 border-b border-neutral-200 bg-app/80 pt-[env(safe-area-inset-top)] backdrop-blur-xl [will-change:transform] dark:border-neutral-800 dark:bg-black/80"
+      className="sticky top-0 z-40 bg-app/80 pt-[env(safe-area-inset-top)] backdrop-blur-xl [will-change:transform] dark:bg-black/80"
       style={{ transform: "translateZ(0)" }}
     >
+      <ProgressiveBlur />
       <div className="relative flex items-center gap-4 px-4 py-3">
         <div className="flex min-w-0 flex-1 items-center gap-4">
           <Link href="/" className="shrink-0 transition-opacity hover:opacity-80">
