@@ -7,7 +7,7 @@ export default function HomeLoading() {
       <div className="mb-8 h-8 w-48 animate-pulse rounded bg-neutral-200 dark:bg-neutral-800" />
       <ul className="flex flex-col gap-4">
         {Array.from({ length: 5 }).map((_, i) => (
-          <li key={i} className="h-32 animate-pulse rounded-xl bg-neutral-100 dark:bg-neutral-900" />
+          <li key={i} className="h-32 animate-pulse rounded-xl bg-neutral-200 dark:bg-neutral-800" />
         ))}
       </ul>
     </main>
