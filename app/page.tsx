@@ -16,6 +16,7 @@ export const revalidate = 15; // lowered from 60 — 2026-08-26, founder wants p
 
 import type { Metadata } from "next";
 import { fetchFeedPage, toURLSearchParams, parseFeedFilters, hasActiveFilters } from "@/lib/a1/feed";
+import { generateAvatarBlurDataUrl } from "@/lib/avatar-blur";
 import { PostCard } from "@/components/post-card";
 import { LoadMore } from "@/components/load-more";
 import { EmptyState } from "@/components/empty-state";
@@ -48,6 +49,10 @@ export default async function HomePage({ searchParams }: Props) {
   const filters = parseFeedFilters(params);
   const { posts, next, hasMore } = await fetchFeedPage("hiring", undefined, filters);
   const currentCategory = filters.categories?.[0];
+  // Real per-avatar blur (lib/avatar-blur.ts) instead of the generic
+  // shared shimmer — see that file's comment for why this lives here
+  // rather than inside PostCard itself.
+  const avatarBlurs = await Promise.all(posts.map((post) => generateAvatarBlurDataUrl(post.author.avatarUrl)));
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-4 sm:py-16">
@@ -85,9 +90,9 @@ export default async function HomePage({ searchParams }: Props) {
       ) : (
         <>
           <ul className="flex flex-col gap-4">
-            {posts.map((post) => (
+            {posts.map((post, i) => (
               <li key={post.id}>
-                <PostCard post={post} />
+                <PostCard post={post} avatarBlurDataUrl={avatarBlurs[i]} />
               </li>
             ))}
           </ul>

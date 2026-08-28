@@ -26,7 +26,22 @@ import { formatRelativeTime, formatSalary } from "@/lib/format";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { T } from "@/components/t";
 
-export function PostCard({ post }: { post: WebPost }) {
+export function PostCard({
+  post,
+  // Aleksandr, 2026-08-28: "аватары подгружаются не через блюр с разными
+  // цветами" — a real per-avatar blur (see lib/avatar-blur.ts), computed
+  // server-side by whoever already has this post (the feed pages, or
+  // app/api/feed/route.ts for "Load more"). PostCard itself stays a
+  // plain presentational component — no data fetching here — so it can
+  // keep being rendered directly from components/load-more.tsx, a
+  // client component that can't itself await a server-only sharp() call.
+  // Falls back to the generic shimmer when there's no precomputed blur
+  // (still loading, or generation failed) — never breaks the avatar.
+  avatarBlurDataUrl,
+}: {
+  post: WebPost;
+  avatarBlurDataUrl?: string | null;
+}) {
   const locationLabel = post.location ? (
     post.location.display
   ) : post.isRemote ? (
@@ -40,7 +55,15 @@ export function PostCard({ post }: { post: WebPost }) {
   const profileHref = post.author.username ? `/u/${post.author.username}` : null;
 
   const avatarImg = avatarUrl ? (
-    <Image src={avatarUrl} alt="" width={56} height={56} placeholder="blur" blurDataURL={BLUR_DATA_URL} className="h-14 w-14 rounded-full object-cover" />
+    <Image
+      src={avatarUrl}
+      alt=""
+      width={56}
+      height={56}
+      placeholder="blur"
+      blurDataURL={avatarBlurDataUrl ?? BLUR_DATA_URL}
+      className="h-14 w-14 rounded-full object-cover"
+    />
   ) : (
     // eslint-disable-next-line @next/next/no-img-element
     <img

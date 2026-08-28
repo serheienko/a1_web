@@ -6,6 +6,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { fetchFeedPage, parseFeedFilters } from "@/lib/a1/feed";
+import { generateAvatarBlurDataUrl } from "@/lib/avatar-blur";
 import type { WebPostKind } from "@/types/web-post";
 
 const VALID_KINDS: WebPostKind[] = ["hiring", "seeking"];
@@ -25,7 +26,14 @@ export async function GET(request: NextRequest) {
 
   try {
     const page = await fetchFeedPage(kindParam as WebPostKind, cursor, filters);
-    return NextResponse.json(page);
+    // Real per-avatar blur (lib/avatar-blur.ts), same as the initial
+    // server-rendered feed — "Load more" posts arrive over this JSON
+    // endpoint into components/load-more.tsx (a client component), which
+    // can't itself run the server-only sharp() call, so it rides along
+    // as an extra field per post rather than living on WebPost itself.
+    const avatarBlurs = await Promise.all(page.posts.map((post) => generateAvatarBlurDataUrl(post.author.avatarUrl)));
+    const posts = page.posts.map((post, i) => ({ ...post, avatarBlurDataUrl: avatarBlurs[i] }));
+    return NextResponse.json({ ...page, posts });
   } catch (err) {
     console.error("[app/api/feed] fetchFeedPage failed", err);
     return NextResponse.json({ error: "failed to load feed" }, { status: 502 });

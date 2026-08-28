@@ -31,6 +31,7 @@ import {
 } from "@/lib/a1/datasets";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
+import { generateAvatarBlurDataUrl } from "@/lib/avatar-blur";
 import { formatLanguageName } from "@/lib/format";
 import { T, type Locale } from "@/components/t";
 import { VoiceIntroProvider } from "@/components/voice-intro-context";
@@ -263,6 +264,11 @@ export default async function ProfilePage({ params }: Props) {
   const profile = await fetchUserByUsername(username);
   if (!profile) notFound();
 
+  // Real per-avatar blur (lib/avatar-blur.ts) instead of the generic
+  // shared shimmer — same fix as components/post-card.tsx's feed
+  // avatars ("аватары подгружаются не через блюр с разными цветами").
+  const avatarBlurDataUrl = await generateAvatarBlurDataUrl(profile.avatarUrl);
+
   const locationLabel = profile.location ? profile.location.display : null;
 
   // 2026-08-27: only fetched when at least one company actually carries a
@@ -350,7 +356,7 @@ export default async function ProfilePage({ params }: Props) {
               width={150}
               height={150}
               placeholder="blur"
-              blurDataURL={BLUR_DATA_URL}
+              blurDataURL={avatarBlurDataUrl ?? BLUR_DATA_URL}
               className="h-12 w-12 shrink-0 rounded-full object-cover sm:h-[75px] sm:w-[75px]"
             />
           ) : (

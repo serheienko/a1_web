@@ -13,12 +13,16 @@ import type { WebPost, WebPostKind } from "@/types/web-post";
 
 // What /api/feed actually sends over JSON: Date fields arrive as ISO
 // strings, so they need to be revived before this shape is a real WebPost.
+// avatarBlurDataUrl rides along as an extra field (see app/api/feed/
+// route.ts) rather than living on WebPost itself — it's a render-layer
+// artifact (lib/avatar-blur.ts), not real post data.
 type RawFeedPost = Omit<WebPost, "publishedAt" | "updatedAt"> & {
   publishedAt: string;
   updatedAt: string | null;
+  avatarBlurDataUrl: string | null;
 };
 
-function reviveDates(post: RawFeedPost): WebPost {
+function reviveDates(post: RawFeedPost): WebPost & { avatarBlurDataUrl: string | null } {
   return {
     ...post,
     publishedAt: new Date(post.publishedAt),
@@ -43,7 +47,7 @@ export function LoadMore({
   category?: number;
   tags?: string[];
 }) {
-  const [posts, setPosts] = useState<WebPost[]>([]);
+  const [posts, setPosts] = useState<(WebPost & { avatarBlurDataUrl: string | null })[]>([]);
   const [cursor, setCursor] = useState(initialCursor);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [loading, setLoading] = useState(false);
@@ -82,7 +86,7 @@ export function LoadMore({
         <ul className="mt-4 flex flex-col gap-4">
           {posts.map((post) => (
             <li key={post.id}>
-              <PostCard post={post} />
+              <PostCard post={post} avatarBlurDataUrl={post.avatarBlurDataUrl} />
             </li>
           ))}
         </ul>
