@@ -1115,15 +1115,15 @@ assumed:**
 investigation:** the web's code-entry step does not need to match the
 email pixel-for-pixel — "можешь посмотреть на дизайн нашего письма и
 сделать похожее" (look at the email's design and make something
-similar). He sent one more animation for this specifically —
-`HiCatforemail.tgs`, the same waving-cat-with-mouse character shown in
-the actual email screenshot — decoded and committed as
-`public/animations/hi-cat-email-code.json`. This supersedes the
-earlier `phone-verify-code.json` (the telephone-operator cat) for the
-code-entry step, since it's the one that actually matches the email
-he's referencing; `phone-verify-code.json` stays committed but unused
-for now. He is also sending a large-font code style reference
-separately.
+similar) — i.e. big code font + a cat, same spirit, not the same asset.
+He sent `HiCatforemail.tgs` (the waving-cat-with-mouse character) as a
+reference for what's IN THE EMAIL itself, not a replacement animation
+for the site — corrected immediately after an initial
+misunderstanding here. **The website's code-entry step keeps the
+telephone-operator cat**, `public/animations/phone-verify-code.json`
+(from `Phone.tgs`, §6.15 above). `hi-cat-email-code.json` stays
+committed as a decoded reference asset only — not wired into any page.
+He is also sending a large-font code style reference separately.
 
 **Not started building the two new steps yet, deliberately** — three
 required fields and an email-verification flow are exactly the kind of
