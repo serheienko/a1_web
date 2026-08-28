@@ -1111,11 +1111,30 @@ assumed:**
   `verifyEmailConfirm`, never Mailgun itself.
 - The remaining 3 "Я..." dropdown animations — not sent yet.
 
-**Not started building yet, deliberately** — three required fields and
-an email-verification flow are exactly the kind of thing that's
-expensive to get wrong on a live, already-working sign-up flow (real
-users are signing up already, §6.14). Waiting for the two answers above
-before writing the profile-setup step or the code-verification step.
+**2026-08-28, follow-up from Aleksandr after seeing the Mailgun
+investigation:** the web's code-entry step does not need to match the
+email pixel-for-pixel — "можешь посмотреть на дизайн нашего письма и
+сделать похожее" (look at the email's design and make something
+similar). He sent one more animation for this specifically —
+`HiCatforemail.tgs`, the same waving-cat-with-mouse character shown in
+the actual email screenshot — decoded and committed as
+`public/animations/hi-cat-email-code.json`. This supersedes the
+earlier `phone-verify-code.json` (the telephone-operator cat) for the
+code-entry step, since it's the one that actually matches the email
+he's referencing; `phone-verify-code.json` stays committed but unused
+for now. He is also sending a large-font code style reference
+separately.
+
+**Not started building the two new steps yet, deliberately** — three
+required fields and an email-verification flow are exactly the kind of
+thing that's expensive to get wrong on a live, already-working sign-up
+flow (real users are signing up already, §6.14). Still needed before
+writing the code-verification step: the exact request/response shape
+of `account.verifyEmail`/`verifyEmailConfirm` (params, whether the
+code is a string or number, expiry). The debug route's `?openapi=`
+search mode (this section, above) is already deployed (commit
+`54c0bb8`, confirmed green on Vercel) — only blocked on
+`A1_DEBUG_SECRET`'s value to actually call it.
 
 
 ## OPEN QUESTIONS — Stage 2, for Aleksandr
