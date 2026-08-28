@@ -637,7 +637,7 @@ export function FiltersForm({
             value={locationQuery}
             onChange={(e) => onLocationQueryChange(e.target.value)}
             placeholder={FILTERS_FORM_STRINGS.locationPlaceholder[lang]}
-            className="w-full rounded-lg border border-neutral-300 bg-white px-2.5 py-1.5 pr-7 text-sm text-neutral-900 outline-none transition focus:border-accent/40 focus:ring-2 focus:ring-accent/30 dark:border-neutral-700 dark:bg-black dark:text-neutral-100"
+            className="w-full rounded-full border border-neutral-300 bg-white px-3.5 py-1.5 pr-7 text-sm text-neutral-900 outline-none transition focus:border-accent/40 focus:ring-2 focus:ring-accent/30 dark:border-neutral-700 dark:bg-black dark:text-neutral-100"
           />
           {locationSearchPending && (
             <svg
@@ -705,12 +705,16 @@ export function FiltersForm({
 
   return (
     <>
-      {/* Mobile card — unchanged from before the desktop-nav-search
-          redesign, just now gated to mobile only (desktop's search +
-          filters live in the nav via the portal below). */}
-      <div className="mb-8 flex flex-col gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-900 sm:hidden">
+      {/* Mobile search + filters. 2026-08-28: "уберем вот эту всю некую
+          подложку... под серч" — dropped the gray card this used to sit
+          in (border/bg/padding), so the search pill and filter button
+          now float directly on the page background like desktop's do;
+          mb-8 -> mb-4 to bring the feed up a bit now that this block is
+          visually lighter. */}
+      <div className="mb-4 flex flex-col gap-3 sm:hidden">
         <div className="flex flex-wrap gap-3">
           <div className="relative min-w-0 flex-1">
+            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
             <input
               type="text"
               value={query}
@@ -721,8 +725,8 @@ export function FiltersForm({
                 // needs to still fire after this input blurs to it.
                 blurTimeoutRef.current = setTimeout(() => setInputFocused(false), 150);
               }}
-              placeholder={FILTERS_FORM_STRINGS.searchPlaceholder[lang]}
-              className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 pr-8 text-sm text-neutral-900 outline-none transition focus:border-accent/40 focus:ring-2 focus:ring-accent/30 dark:border-neutral-700 dark:bg-black dark:text-neutral-100"
+              placeholder={FILTERS_FORM_STRINGS.searchPlaceholderShort[lang]}
+              className="w-full rounded-full border border-neutral-300 bg-white py-2 pl-9 pr-8 text-sm text-neutral-900 outline-none transition focus:border-accent/40 focus:ring-2 focus:ring-accent/30 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
             />
             {isPending ? (
               <svg
@@ -763,7 +767,7 @@ export function FiltersForm({
                 "relative flex h-10 w-10 items-center justify-center rounded-full border transition " +
                 (currentCategory != null || currentLocation != null || currentTags.length > 0
                   ? "border-accent/40 bg-accent/10 text-accent"
-                  : "border-neutral-300 bg-white text-neutral-500 hover:text-neutral-900 dark:border-neutral-700 dark:bg-black dark:text-neutral-400 dark:hover:text-neutral-50")
+                  : "border-neutral-300 bg-white text-neutral-500 hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50")
               }
             >
               <FilterIcon className="h-5 w-5" />
