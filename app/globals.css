@@ -232,53 +232,21 @@
 
 /*
  * Aleksandr, 2026-08-27: "давайте... сделаем iOS нативные [попапы]... как
- * у iOS снизу" — on narrow screens (below Tailwind's `sm` breakpoint),
- * components/filters-form.tsx's category panel switches from an anchored
- * dropdown to a bottom sheet (fixed to the viewport bottom, slides up),
- * matching the native app's own bottom-sheet pickers. This is the slide-up
- * entrance for that sheet; filters-form.tsx applies it only below `sm`
- * (the anchored-dropdown desktop variant doesn't use it, see
- * `sm:animate-none` at its call site).
+ * у iOS снизу" — narrow-screen popovers (components/settings-menu.tsx's
+ * theme+language panel, components/filters-form.tsx's category/tag
+ * panel) both used to be a bottom sheet here (fixed to the viewport
+ * bottom, slide-up entrance, drag handle, backdrop), matching the native
+ * app's own bottom-sheet pickers.
  *
- * 2026-08-28: components/settings-menu.tsx used to share this pattern for
- * its own mobile bottom sheet, but per Aleksandr ("не хотел bottom sheet
- * ... хочу анкоред попап рядом с кнопкой") it now uses a single anchored
- * popover on every viewport instead — see `popover-in`/`.animate-popover`
- * below.
- */
-@keyframes sheet-up {
-  from {
-    transform: translateY(100%);
-  }
-  to {
-    transform: translateY(0);
-  }
-}
-
-.animate-sheet-up {
-  animation: sheet-up 0.25s cubic-bezier(0.32, 0.72, 0, 1);
-}
-
-@keyframes sheet-backdrop-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.animate-sheet-backdrop {
-  animation: sheet-backdrop-in 0.2s ease-out;
-}
-
-/*
- * Aleksandr, 2026-08-28: entrance for components/settings-menu.tsx's
- * unified anchored popover (theme+language panel) — a light scale+fade
- * "native context menu" feel (like iOS/Safari's own "..." popup), not
- * the sheet-up slide above, since this panel is never pinned to the
- * viewport bottom now. transform-origin: top right matches the panel's
- * `origin-top-right` (it's anchored under the top-right "•••" trigger).
+ * 2026-08-28: dropped for BOTH of them, in two steps — settings-menu.tsx
+ * first ("не хотел bottom sheet... хочу анкоред попап рядом с кнопкой"),
+ * then filters-form.tsx's own mobile category popover the same day
+ * ("мне очень нравится попап с языками и темой... выбор категории
+ * сделай в таком же стиле, сверху и частично, не снизу выезжающий") —
+ * every popover in the app now uses the single `popover-in`/
+ * `.animate-popover` anchored-card entrance below instead, so the old
+ * sheet-up/sheet-backdrop-in keyframes that used to live here were
+ * removed as dead code once nothing referenced them anymore.
  */
 @keyframes popover-in {
   from {
@@ -297,8 +265,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-sheet-up,
-  .animate-sheet-backdrop,
   .animate-popover {
     animation: none;
   }

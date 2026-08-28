@@ -609,18 +609,21 @@ export function FiltersForm({
               )}
             </button>
 
+            {/* Aleksandr, 2026-08-28: "мне очень нравится попап с языками и
+                темой... выбор категории сделай в таком же стиле. Тоже
+                вот так сверху и частично, не снизу выезжающий" — was a
+                fixed-to-viewport-bottom sheet (slide up, backdrop, drag
+                handle), same style components/settings-menu.tsx used to
+                have before its own anchored-popover rework. Same fix
+                here, same reasoning: a compact card anchored right under
+                the filter button (`.animate-popover`, defined in
+                app/globals.css alongside settings-menu.tsx's popover),
+                no backdrop needed since the existing outside-mousedown
+                listener above already closes it. */}
             {filtersOpen && (
-              <>
-                <div
-                  className="animate-sheet-backdrop fixed inset-0 z-40 bg-black/40 sm:hidden"
-                  onClick={() => setFiltersOpen(false)}
-                  aria-hidden="true"
-                />
-                <div className="animate-sheet-up fixed inset-x-0 bottom-0 z-50 max-h-[75vh] overflow-y-auto rounded-t-2xl border-t border-neutral-200 bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl dark:border-neutral-800 dark:bg-neutral-900 sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:top-full sm:z-20 sm:mt-2 sm:max-h-80 sm:w-56 sm:animate-none sm:rounded-lg sm:border sm:p-2 sm:pb-2 sm:shadow-lg">
-                  <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-neutral-300 dark:bg-neutral-700 sm:hidden" aria-hidden="true" />
-                  {categoryListBody}
-                </div>
-              </>
+              <div className="animate-popover absolute right-0 top-full z-20 mt-2 max-h-[70vh] w-72 max-w-[calc(100vw-2rem)] origin-top-right overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+                {categoryListBody}
+              </div>
             )}
           </div>
         </div>
@@ -719,7 +722,7 @@ export function FiltersForm({
               </button>
 
               {filtersOpen && (
-                <div className="absolute right-0 top-full z-20 mt-2 max-h-80 w-64 overflow-y-auto rounded-lg border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+                <div className="animate-popover absolute right-0 top-full z-20 mt-2 max-h-80 w-64 overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
                   {categoryListBody}
                   {tagChipsBody}
                 </div>
