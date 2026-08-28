@@ -675,6 +675,24 @@ is entirely unaffected — `auth.email`/`users.createUser` were never
 part of this restriction — so it ships on its own, and Google/Apple
 follow once his change lands, on whatever timeline he gives.**
 
+### 6.8 Andrew confirmed the fix, same evening: "Client id можно добавить"
+
+Resolved, not just hoped for — he agreed to add a client ID, framed
+exactly as the small addition §6.7 described. **This is no longer
+blocked on Andrew; it's now blocked on our own sequencing:**
+
+1. Aleksandr creates the web Google OAuth client (in the app's existing
+   GCP project, §6.3) and the web Apple Services ID (associated with the
+   app's existing App ID, §6.3).
+2. Sends Andrew the two resulting client IDs.
+3. Andrew adds them to the accepted list.
+4. Only then can Phase 5b's Google/Apple sign-in be tested end-to-end —
+   the client-side code (buttons, SDK wiring) can still be built before
+   that, same as §6.7 already said.
+
+Phase 5a (email+password) has no dependency on any of this and can
+proceed immediately regardless of where steps 1-3 are.
+
 ## OPEN QUESTIONS — Stage 2, for Aleksandr
 
 1. **Google Sign-In needs its own Web-application OAuth Client ID** in
