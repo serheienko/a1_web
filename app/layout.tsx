@@ -119,6 +119,11 @@ const LANG_INIT_SCRIPT = `
 `;
 
 export const metadata: Metadata = {
+  // Absolute base for every relative URL in metadata across the app —
+  // notably the file-convention opengraph-image.tsx/twitter-image
+  // outputs (2026-08-28: added alongside those), which need an absolute
+  // <meta property="og:image"> URL to be usable when a link is shared.
+  metadataBase: new URL("https://jobs.a1appp.com"),
   title: "A1 Web",
   description: "A1 — вакансии и специалисты из приложения A1, в вебе.",
   // Set GOOGLE_SITE_VERIFICATION in Vercel once you create the Search
@@ -138,6 +143,19 @@ export const metadata: Metadata = {
 // plain page background with nothing painted into it.
 export const viewport: Viewport = {
   viewportFit: "cover",
+  // 2026-08-28: partial fix for a dark-theme flash on a hard reload
+  // (repro'd on video) — this tells the browser BOTH color schemes are
+  // supported so its own UA chrome (scrollbars, form controls, the
+  // flash-of-white/black before THEME_INIT_SCRIPT above runs) picks
+  // whichever matches the OS immediately, instead of always assuming
+  // light. Does not fully eliminate the flash for a user with an
+  // explicit stored light/dark choice that differs from their OS
+  // setting — that needs the class read on the server before first
+  // paint, which means reading a cookie in the root layout, which would
+  // force server-dynamic rendering and drop ISR site-wide (app/page.tsx,
+  // app/talents/page.tsx). Aleksandr: leave it here, don't chase the
+  // rest — see PLAN.md's ISR tradeoffs.
+  colorScheme: "light dark",
 };
 
 export default function RootLayout({
