@@ -91,52 +91,45 @@ function pillList(items: string[]) {
 // Типа такие квадратные картинки (такие же как в апке)" — square cover
 // tile matching the app's own Books/Movies/Games picker (Figma node
 // reviewed 2026-08-28). cover comes from lib/covers.ts's best-effort
-// third-party lookups; null falls back to a plain tinted square with the
-// title in ink instead of white text over an image — never a broken
-// image or empty box.
+// third-party lookups; null falls back to a plain tinted square.
 //
-// 2026-08-28 follow-up: "Названия... лучше снизу показывай" — title
-// moved from centered to bottom, over a gradient scrim for legibility.
-// Covers render through next/image (capped quality so Vercel's optimizer
-// keeps each file well under the ~100-150KB target) with a real
-// per-image blurred placeholder from lib/covers.ts, generated from the
-// actual cover's own pixels via sharp — not the generic shared shimmer
-// used elsewhere (see lib/blur-placeholder.ts).
+// 2026-08-28 follow-up: titles moved below the tile instead of overlaid
+// on it (bottom-anchored + gradient scrim), because a long single-word
+// title like "Bloodborne" either overflowed the tile or looked cramped
+// wrapping over the artwork ("с длинными названиями как-то не оч
+// выглядит... может обложки увеличить, или ставить название под
+// ними?"). Caption-below-cover, App-Store/Music-grid style: the full
+// cover shows uncropped by a scrim, and the title gets its own row to
+// wrap onto (line-clamp-2 as a safety net for the rare very long book
+// title) instead of fighting the image for contrast. Covers render
+// through next/image (capped quality so Vercel's optimizer keeps each
+// file well under the ~100-150KB target) with a real per-image blurred
+// placeholder from lib/covers.ts, generated from the actual cover's own
+// pixels via sharp — not the generic shared shimmer used elsewhere (see
+// lib/blur-placeholder.ts).
 function favoriteTile(title: string, subtitle: string | null, cover: CoverImage | null, itemKey: string) {
   return (
-    <div
-      key={itemKey}
-      className="relative flex aspect-square flex-col items-center justify-end overflow-hidden rounded-xl bg-neutral-100 p-3 text-center dark:bg-neutral-800"
-    >
-      {cover && (
-        <Image
-          src={cover.url}
-          alt=""
-          fill
-          quality={60}
-          sizes="(min-width: 640px) 200px, 33vw"
-          className="object-cover"
-          placeholder={cover.blurDataUrl ? "blur" : "empty"}
-          blurDataURL={cover.blurDataUrl ?? undefined}
-        />
-      )}
-      {cover && (
-        <div
-          className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/5 to-transparent"
-          aria-hidden="true"
-        />
-      )}
-      <div className="relative w-full min-w-0">
-        <div
-          className={
-            "break-words text-sm font-semibold uppercase leading-snug tracking-wide " +
-            (cover ? "text-white" : "text-neutral-700 dark:text-neutral-200")
-          }
-        >
+    <div key={itemKey} className="flex flex-col gap-1.5">
+      <div className="relative aspect-square overflow-hidden rounded-xl bg-neutral-100 dark:bg-neutral-800">
+        {cover && (
+          <Image
+            src={cover.url}
+            alt=""
+            fill
+            quality={60}
+            sizes="(min-width: 640px) 200px, 33vw"
+            className="object-cover"
+            placeholder={cover.blurDataUrl ? "blur" : "empty"}
+            blurDataURL={cover.blurDataUrl ?? undefined}
+          />
+        )}
+      </div>
+      <div>
+        <div className="line-clamp-2 text-sm font-medium leading-snug text-neutral-800 dark:text-neutral-200">
           {title}
         </div>
         {subtitle && (
-          <div className={"mt-1 text-xs normal-case " + (cover ? "text-white/80" : "text-neutral-500 dark:text-neutral-400")}>
+          <div className="mt-0.5 line-clamp-1 text-xs text-neutral-500 dark:text-neutral-400">
             {subtitle}
           </div>
         )}
