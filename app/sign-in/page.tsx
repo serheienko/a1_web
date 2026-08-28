@@ -1,0 +1,228 @@
+// app/sign-in/page.tsx
+//
+// Phase 5a (PLAN.md §6.6): the whole first slice of Stage 2 in one page —
+// sign in with an existing email+password account, or create one. On
+// success the two API routes (app/api/auth/sign-in, sign-up) already set
+// both session cookies (lib/a1/session.ts); this page's only job after
+// that is to send the visitor back to "/" with a full navigation
+// (`window.location.href`, not the router) so components/site-nav.tsx
+// remounts and re-reads the client-visible display cookie fresh — it
+// only checks that cookie once on mount, by design, to stay a plain
+// client-side read with no shared auth context to wire up for this
+// phase (PLAN.md "smallest possible slice").
+//
+// Deliberately plain visually — PLAN.md §4 Phase 5 (the *visual* design
+// pass, a different "Phase 5" than this file's Stage-2 "Phase 5a") says
+// not to invest in UI polish before that session; this reuses the same
+// tokens (--color-accent, --radius-card) and input style already
+// established in components/filters-form.tsx rather than inventing a new
+// visual language for one page that will likely be restyled later.
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
+
+type Mode = "sign-in" | "sign-up";
+
+// Same "read the active lang-XX class client-side" trick as
+// components/settings-menu.tsx — <T/> only helps for server-rendered
+// spans, not for values needed as plain strings/props here.
+const STRINGS: Record<string, Record<Locale, string>> = {
+  signInTitle: {
+    uk: "Увійти", en: "Sign in", ru: "Войти", de: "Anmelden", es: "Iniciar sesión",
+    fr: "Se connecter", pl: "Zaloguj się", ptBR: "Entrar", zh: "登录",
+  },
+  signUpTitle: {
+    uk: "Створити акаунт", en: "Create account", ru: "Создать аккаунт", de: "Konto erstellen",
+    es: "Crear cuenta", fr: "Créer un compte", pl: "Utwórz konto", ptBR: "Criar conta", zh: "创建账户",
+  },
+  email: {
+    uk: "Email", en: "Email", ru: "Email", de: "E-Mail", es: "Correo electrónico",
+    fr: "E-mail", pl: "E-mail", ptBR: "E-mail", zh: "邮箱",
+  },
+  password: {
+    uk: "Пароль", en: "Password", ru: "Пароль", de: "Passwort", es: "Contraseña",
+    fr: "Mot de passe", pl: "Hasło", ptBR: "Senha", zh: "密码",
+  },
+  firstName: {
+    uk: "Ім'я", en: "First name", ru: "Имя", de: "Vorname", es: "Nombre",
+    fr: "Prénom", pl: "Imię", ptBR: "Nome", zh: "名",
+  },
+  lastName: {
+    uk: "Прізвище", en: "Last name", ru: "Фамилия", de: "Nachname", es: "Apellido",
+    fr: "Nom", pl: "Nazwisko", ptBR: "Sobrenome", zh: "姓",
+  },
+  submitSignIn: {
+    uk: "Увійти", en: "Sign in", ru: "Войти", de: "Anmelden", es: "Entrar",
+    fr: "Se connecter", pl: "Zaloguj się", ptBR: "Entrar", zh: "登录",
+  },
+  submitSignUp: {
+    uk: "Зареєструватися", en: "Sign up", ru: "Зарегистрироваться", de: "Registrieren",
+    es: "Registrarse", fr: "S'inscrire", pl: "Zarejestruj się", ptBR: "Cadastrar-se", zh: "注册",
+  },
+  switchToSignUp: {
+    uk: "Немає акаунту? Зареєструватися", en: "No account? Sign up", ru: "Нет аккаунта? Зарегистрироваться",
+    de: "Kein Konto? Registrieren", es: "¿Sin cuenta? Regístrate", fr: "Pas de compte ? Inscrivez-vous",
+    pl: "Nie masz konta? Zarejestruj się", ptBR: "Sem conta? Cadastre-se", zh: "还没有账户？去注册",
+  },
+  switchToSignIn: {
+    uk: "Вже є акаунт? Увійти", en: "Already have an account? Sign in", ru: "Уже есть аккаунт? Войти",
+    de: "Schon ein Konto? Anmelden", es: "¿Ya tienes cuenta? Inicia sesión", fr: "Déjà un compte ? Connectez-vous",
+    pl: "Masz już konto? Zaloguj się", ptBR: "Já tem conta? Entrar", zh: "已有账户？去登录",
+  },
+  errorSignIn: {
+    uk: "Не вдалося увійти. Перевірте email і пароль.", en: "Couldn't sign in. Check your email and password.",
+    ru: "Не удалось войти. Проверьте email и пароль.", de: "Anmeldung fehlgeschlagen. E-Mail und Passwort prüfen.",
+    es: "No se pudo iniciar sesión. Revisa tu correo y contraseña.", fr: "Connexion impossible. Vérifiez l'e-mail et le mot de passe.",
+    pl: "Nie udało się zalogować. Sprawdź e-mail i hasło.", ptBR: "Não foi possível entrar. Verifique e-mail e senha.",
+    zh: "登录失败，请检查邮箱和密码。",
+  },
+  errorSignUp: {
+    uk: "Не вдалося зареєструватися. Можливо, такий email вже використовується.",
+    en: "Couldn't create an account. That email may already be in use.",
+    ru: "Не удалось зарегистрироваться. Возможно, этот email уже используется.",
+    de: "Konto konnte nicht erstellt werden. Die E-Mail wird eventuell schon verwendet.",
+    es: "No se pudo crear la cuenta. Puede que ese correo ya esté en uso.",
+    fr: "Impossible de créer un compte. Cet e-mail est peut-être déjà utilisé.",
+    pl: "Nie udało się utworzyć konta. Ten e-mail może być już zajęty.",
+    ptBR: "Não foi possível criar a conta. Esse e-mail já pode estar em uso.",
+    zh: "创建账户失败，该邮箱可能已被使用。",
+  },
+  backHome: {
+    uk: "← На головну", en: "← Back home", ru: "← На главную", de: "← Zur Startseite",
+    es: "← Volver al inicio", fr: "← Retour à l'accueil", pl: "← Strona główna", ptBR: "← Voltar ao início",
+    zh: "← 返回首页",
+  },
+};
+
+function useActiveLocale(): Locale {
+  const [lang, setLang] = useState<Locale>("uk");
+  useEffect(() => {
+    const root = document.documentElement;
+    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
+    if (active) setLang(active);
+  }, []);
+  return lang;
+}
+
+const inputClass =
+  "w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 text-sm text-neutral-900 outline-none transition focus:border-accent/40 focus:ring-2 focus:ring-accent/30 dark:border-neutral-700 dark:bg-black dark:text-neutral-100";
+
+export default function SignInPage() {
+  const lang = useActiveLocale();
+  const [mode, setMode] = useState<Mode>("sign-in");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setPending(true);
+    setError(null);
+
+    const endpoint = mode === "sign-in" ? "/api/auth/sign-in" : "/api/auth/sign-up";
+    const body =
+      mode === "sign-in" ? { email, password } : { email, password, firstName, lastName };
+
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({ ok: false }));
+      if (!res.ok || !data.ok) {
+        setError(mode === "sign-in" ? STRINGS.errorSignIn[lang] : STRINGS.errorSignUp[lang]);
+        setPending(false);
+        return;
+      }
+      // Full navigation on purpose — see the file-level comment above.
+      window.location.href = "/";
+    } catch {
+      setError(mode === "sign-in" ? STRINGS.errorSignIn[lang] : STRINGS.errorSignUp[lang]);
+      setPending(false);
+    }
+  }
+
+  return (
+    <main className="mx-auto flex min-h-[70vh] max-w-sm flex-col justify-center px-4 py-12">
+      <Link href="/" className="mb-6 text-sm text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50">
+        {STRINGS.backHome[lang]}
+      </Link>
+
+      <div className="rounded-card border border-neutral-200 bg-card p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-950">
+        <h1 className="mb-5 font-sans text-xl font-bold text-ink dark:text-neutral-100">
+          {mode === "sign-in" ? STRINGS.signInTitle[lang] : STRINGS.signUpTitle[lang]}
+        </h1>
+
+        <form onSubmit={onSubmit} className="flex flex-col gap-3">
+          {mode === "sign-up" && (
+            <div className="flex gap-3">
+              <input
+                type="text"
+                required
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder={STRINGS.firstName[lang]}
+                className={inputClass}
+                autoComplete="given-name"
+              />
+              <input
+                type="text"
+                required
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder={STRINGS.lastName[lang]}
+                className={inputClass}
+                autoComplete="family-name"
+              />
+            </div>
+          )}
+          <input
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder={STRINGS.email[lang]}
+            className={inputClass}
+            autoComplete="email"
+          />
+          <input
+            type="password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder={STRINGS.password[lang]}
+            className={inputClass}
+            autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
+          />
+
+          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+
+          <button
+            type="submit"
+            disabled={pending}
+            className="mt-1 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+          >
+            {mode === "sign-in" ? STRINGS.submitSignIn[lang] : STRINGS.submitSignUp[lang]}
+          </button>
+        </form>
+
+        <button
+          type="button"
+          onClick={() => {
+            setMode(mode === "sign-in" ? "sign-up" : "sign-in");
+            setError(null);
+          }}
+          className="mt-4 text-sm text-accent transition hover:opacity-70"
+        >
+          {mode === "sign-in" ? STRINGS.switchToSignUp[lang] : STRINGS.switchToSignIn[lang]}
+        </button>
+      </div>
+    </main>
+  );
+}

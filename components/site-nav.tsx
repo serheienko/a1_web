@@ -43,10 +43,17 @@
 // itself (see that file's own comment), but an explicit stacking
 // context on the sticky bar is cheap, safe insurance against this
 // nav ever getting mis-ordered against scrolled content mid-scroll.
+//
+// 2026-08-28: added <AccountMenu/> (Stage 2 / Phase 5a, PLAN.md §6.6) —
+// "signed in as X" or a Sign in link, next to <SettingsMenu>. See that
+// component's own comment for why it reads a plain cookie client-side
+// instead of anything server-derived (keeps this nav, and therefore
+// every page it sits on top of, out of dynamic rendering).
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { AccountMenu } from "@/components/account-menu";
 import { ProgressiveBlur } from "@/components/progressive-blur";
 import { SettingsMenu } from "@/components/settings-menu";
 import { T } from "@/components/t";
@@ -135,6 +142,7 @@ export function SiteNav() {
         </div>
 
         <div className="flex flex-1 items-center justify-end gap-1">
+          <AccountMenu />
           <SettingsMenu />
         </div>
       </div>

@@ -21,6 +21,26 @@ export class A1ApiError extends Error {
     this.httpStatus = httpStatus;
     this.body = body;
   }
+
+  /**
+   * Best-effort extraction of a human-readable message from the error
+   * body. PLAN.md §0's ground-truth table is explicit that 400/401/500
+   * are "declared with no schema" — there is no confirmed error shape to
+   * type against, so this only ever returns a string when the body
+   * happens to parse as JSON with a plain string `message` or `error`
+   * field, and null otherwise. Callers (Stage 2's auth routes) must
+   * always have their own localized fallback for the null case — this is
+   * a debugging aid, not something to trust for user-facing i18n.
+   */
+  get detail(): string | null {
+    try {
+      const parsed = JSON.parse(this.body) as Record<string, unknown>;
+      const candidate = parsed.message ?? parsed.error;
+      return typeof candidate === "string" ? candidate : null;
+    } catch {
+      return null;
+    }
+  }
 }
 
 type Envelope<T> = { ms: number; status: number; data: T };
