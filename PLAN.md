@@ -448,3 +448,178 @@ Figma design system + reference-driven visual design. Until then keep the UI del
 - **Answered:** both live types ship — Jobs (`post-job-employing`) and Talents (`post-job-seeking`), as two separate feeds, mirroring the app.
 - **Still open — privacy of the Talents feed.** In the app a candidate post is seen by logged-in users; on the web it becomes a permanent, Google-indexed page carrying a real person's name, photo and what they are looking for, findable by their current employer. Decide one of: (a) index Talents fully, (b) publish Talents pages but mark them `noindex` so they work as shareable links only, (c) make web visibility an explicit opt-in toggle in the app profile, (d) show Talents on the web without the author's name/photo. Recommendation: **(b) for launch, (c) as the real answer.** This is also a GDPR-shaped question, not only a product one.
 - Languages at launch: English only, or English + Ukrainian with `hreflang`? (Adds ~1 phase.)
+
+---
+
+## 6. Stage 2 — Sign-in & Web Publishing (planning only, not yet built, 2026-08-28)
+
+Aleksandr's own framing, kept close to verbatim because the order matters:
+reading (feed + profiles) stays exactly as open as it is today, no sign-in
+required. Sign-in is required only to publish. Whatever gets created on the
+web (a vacancy, a profile) must appear in the app identically — same
+fields, same data — because both surfaces hit the same backend. Master
+sequence: **auth → profile → publish button → parity check.**
+
+This section is planning, grounded in the live API (verified against
+`https://api.a1appp.com/openapi.json` on 2026-08-28, same source PLAN.md
+§0 already cites) — not a build. Nothing in §0–§5 above changes: the
+public feed/detail pages keep the exact ISR/no-cookies architecture they
+have today. Stage 2 adds a new, separate slice of the site (sign-in,
+profile editor, post editor) that is allowed to be dynamic, because it
+has to be — a signed-in session cannot be served from a shared ISR cache.
+
+### 6.1 Ground truth (verified against the live OpenAPI spec, 2026-08-28)
+
+| Endpoint | Request (required fields unless noted) | Response `data` |
+|---|---|---|
+| `auth.google` | `{ token }` — a Google ID token | same shape as `auth.email`: `{ userId, expiresAt, accessToken, refreshToken }` |
+| `auth.appleId` | `{ token }` — an Apple identity token | same as above |
+| `auth.email` | `{ email, password }` | `{ userId, expiresAt, accessToken, refreshToken }` |
+| `users.createUser` (email/password sign-up) | `{ email, firstName, lastName, password, ... }` — the rest of the profile fields are accepted here too but only these three plus password are required | `{ user, accessToken, refreshToken }` — **signup logs you in directly, no separate `auth.email` call needed after** |
+| `account.updateProfile` | no fields required — send only what changed. Full field surface: `email, firstName, lastName, phoneNumber, occupation, username, voiceIntroduction, photos, expertise, lockingFor, helpfulWith, password, skills, links, languages, workInterests, hobbies, companies, education, favoriteBooks, favoriteMovies, favoriteGames, workStylePreferences (14 sub-axes), bio, location, dob, showDob, showPhoneNumber, showEmailAddress, metadata` | updated user |
+| `account.checkEmail` / `account.checkUsername` | public, no auth — meant to be called live while someone fills in a sign-up form | availability boolean |
+| `account.verifyEmail` / `account.verifyEmailConfirm` | exists — email verification is a real flow, not assumed | — |
+| `posts.createPost` | `{ input }`, a discriminated union (`Resource.PostInput`) across 6 post types. For `post-job-employing`/`post-job-seeking`: **required** `title, content, links, location, media, money, object, tags, categories`. Optional: `hideAuthor, premiumPinDays, premiumHighligh(t), scheduled, draft, apply` | the created `Resource.Post` |
+| `posts.updatePost` | `{ id, input }` — same `PostInput` shape | updated post |
+| `posts.deletePost` | `{ id }` (not yet inspected past existence) | — |
+| `upload.create` | `{ mimetype, bytes, flags?, ttlSeconds?, attributes? }` | **either** `Resource.MediaUploadDestination` `{ id, url, fields }` — a presigned-POST target, upload the file bytes straight from the browser to `url` with `fields`, never through our server — **or** `Resource.MediaUploadUsage` `{ limitBytes, usedBytes, remainingBytes, usedByType, resetAt }` when the account is over its media quota |
+| `upload.confirm` | `{ documentId }` (the `id` from `upload.create`) | the finalized `MediaDocument` — same shape `lib/a1/mappers.ts` already maps on the read side |
+
+`location` on a post is a `WorldLocation._id` (resolve via `locations.search`,
+already built for the feed filters) or `null`. `money` is the same
+`Money.Single / SingleAnnual / Range / RangeAnnual` union as the read side
+(PLAN.md §0.3) — the "post a vacancy" form's salary section needs to
+produce one of those four shapes, not a simplified one, or app-side
+rendering of a web-created post will hit a case it doesn't handle.
+
+### 6.2 The architecture problem this creates
+
+Every page in the app today (§2.1) is built around **zero user sessions**:
+one shared service-account token, server-side only, ISR everywhere, no
+`cookies()`/`headers()` anywhere in the render path — that's *why* `/` and
+`/talents` can revalidate on a timer instead of rendering per-request.
+Stage 2 introduces a second, different kind of authorization: a real
+visitor's own `accessToken`/`refreshToken`, which has to live somewhere
+between requests (a cookie — there is no other option for a browser
+across page loads) and has to be read to answer "is this visitor signed
+in," which is a per-request, dynamic question.
+
+Rule to hold the line on: **only the new sign-in/profile/post-editor
+pages become dynamic. The public feed and detail pages do not change.**
+`lib/a1/auth.ts` already anticipated exactly this split — its
+`Authorizer` interface (§2.1) was designed so a second implementation
+(a per-user, cookie-backed one) can sit next to
+`ServiceAccountAuthorizer` without touching any of the read-side code
+that uses the service account today.
+
+Concretely, still to be designed (implementation, not this section):
+session cookie contents and lifetime (httpOnly + Secure at minimum),
+where the refresh-before-`expiresAt` + retry-once-on-401 logic already
+proven for the service account (§2.3 step 2) gets reused for per-user
+tokens, and the URL scheme for the new pages (a `/sign-in` page, a
+profile editor, a post editor — exact routes not yet decided).
+
+### 6.3 OAuth setup — needs Aleksandr in two consoles before any code can work
+
+Sign-in *code* can be written now; it cannot be *tested* until these
+exist, because Google and Apple both tie a token to the exact origin/app
+that requested it:
+
+1. **Google.** Web Sign-In needs an OAuth 2.0 Client ID of type "Web
+   application" in Google Cloud Console, with `https://jobs.a1appp.com`
+   listed under Authorized JavaScript origins. This is almost certainly
+   a *different* client ID than whatever the mobile app uses (mobile
+   Google Sign-In uses an Android/iOS-type client, not a Web-type one) —
+   check whether one already exists for any other web property before
+   assuming a new one is needed.
+2. **Apple.** Sign in with Apple on the web needs a Services ID
+   (distinct from the app's Bundle ID) registered in the Apple Developer
+   portal, the domain verified via a domain-association file hosted at a
+   specific path, and a Return URL configured. Native iOS Sign in with
+   Apple does not need any of this, so it is very unlikely to already
+   exist.
+3. **Backend confirmation needed either way** — see OPEN QUESTIONS below:
+   does `auth.google`/`auth.appleId` accept ID tokens from more than one
+   client ID per platform, or does adding a web client require a backend
+   change too?
+
+### 6.4 Scope question the form-building depends on
+
+`account.updateProfile`'s field list (6.1) is the same ~25-field, 14-sub-axis
+surface the app's own profile editor exposes. Building all of it in one
+pass is a large form. Whether "adding a profile" (Aleksandr's step 2)
+means that whole editor, or a minimal subset (name, occupation, bio, one
+photo) with the rest deferred, changes the size of phase 6 by a lot —
+flagged as OPEN QUESTIONS #4 below rather than guessed at.
+
+### 6.5 Data-parity is satisfied by construction, with one caveat
+
+Because both the app and the web would call the exact same
+`posts.createPost` / `account.updateProfile` endpoints against the same
+backend, a post or profile created on the web is not a copy that could
+drift from the app's version — it *is* the same record. The only way to
+break Aleksandr's "must appear in the app identically" requirement is to
+invent a web-only field, skip a required one with a fabricated default,
+or map a value into the wrong shape (e.g. a simplified salary that isn't
+actually a valid `Money` variant). Rule for phase 6/7: **the web form's
+fields are exactly the API's fields — no more, no less** — the same
+anti-corruption-layer discipline §2.4 already applies to the read side,
+mirrored outbound.
+
+### 6.6 Proposed phased delivery (mirrors §4's phase style — not started)
+
+- **Phase 5 — Sign-in only.** Email+password, Google, Apple; a session;
+  "signed in as X" in the nav. No profile editing, no publishing yet —
+  smallest possible slice to prove the session architecture (6.2) before
+  building any form on top of it.
+- **Phase 6 — Profile create/edit.** Scope depends on OPEN QUESTIONS #4.
+- **Phase 7 — Post publish/edit/delete.** Jobs first, same
+  Jobs-before-Talents order as Phase 1, including the direct-to-storage
+  image upload flow (6.1's `upload.create`/`upload.confirm`).
+- **Phase 8 — Parity pass.** Create a post on web, confirm it renders
+  correctly in the app; edit a profile on web, confirm the app shows it;
+  and both directions the other way.
+
+## OPEN QUESTIONS — Stage 2, for Aleksandr
+
+1. **Google Sign-In needs its own Web-application OAuth Client ID** in
+   Google Cloud Console with `jobs.a1appp.com` authorized (§6.3). Does
+   one already exist, or do you need to create it?
+2. **Apple Sign-In needs a Services ID + verified domain** in the Apple
+   Developer portal, separate from the app's identifiers (§6.3). Same
+   question.
+3. **Password rules and email verification.** Any minimum password
+   policy the backend enforces, or should the web set its own? Does a
+   web account need to verify its email (`account.verifyEmail` exists)
+   before it can publish, or is that unnecessary?
+4. **Profile editor scope (§6.4):** the full field set `account.
+   updateProfile` accepts, or a minimal subset first (name, occupation,
+   bio, one photo), with skills/languages/favorites/work-style deferred?
+5. **Moderation.** Today nothing reaches the public feed without going
+   through the app (and whatever review that implies). Once anyone can
+   sign up on the web and publish, should a web-created post go live
+   immediately like an app post does, or does it need a review step
+   first?
+6. **Read-side changes.** Does a signed-in visitor get anything new on
+   the existing feed/detail pages as part of Stage 2 (a "my posts" list,
+   edit/delete on their own cards), or is this purely a separate
+   sign-in → editor flow with the public pages untouched for now?
+
+## OPEN QUESTIONS — Stage 2, for the backend developer (Andrew)
+
+1. Do `auth.google` / `auth.appleId` validate the ID token's audience
+   against one fixed client ID per platform? If the web needs its own
+   Google/Apple client ID (very likely — §6.3), can the backend accept
+   tokens from more than one client per platform, or does this need a
+   backend change?
+2. `account.checkEmail` being public suggests it's meant to be called
+   live while a sign-up form is filled in — confirm that's the intended
+   use, and whether `users.createUser` itself also rejects a duplicate
+   email (i.e. whether the check is advisory or the source of truth).
+3. `upload.create` can return a `MediaUploadUsage` object instead of an
+   upload destination when the account is over its media quota (§6.1).
+   What is that quota, and is there a recommended UX for hitting it
+   mid-upload?
+4. Any web-specific rate limiting wanted on `posts.createPost` /
+   `users.createUser`, given the web has no app-store review gate the
+   way the mobile client does?
