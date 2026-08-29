@@ -1122,7 +1122,49 @@ assumed:**
   See OPEN QUESTIONS #8. Sending happens entirely server-side (Andrew's
   infrastructure) — the web only ever calls `account.verifyEmail` /
   `verifyEmailConfirm`, never Mailgun itself.
+- ~~Exact request/response shape of `account.verifyEmail` /
+  `verifyEmailConfirm`~~ — **answered, 2026-08-29**, pulled exact-text
+  from the live `openapi.json` via the `?openapi=` debug-route mode
+  (§ code comment in `app/api/debug/route.ts`):
+  - `POST /v1/account.verifyEmail` — bearer-token auth (acts on the
+    signed-in visitor, no body params at all: `additionalProperties:
+    false` on an otherwise-empty input object). Sends a code to the
+    caller's own email. Returns `OtpOutput`: `{key: string (e.g.
+    "otp_11VuaQ1JL7"), codeLength: integer >= 1, expiresAt:
+    TIMESTAMP_SECONDS}` — all three required. `key` must be carried
+    forward (e.g. in component state or a query param) to the confirm
+    call; `codeLength` tells the UI how many digit boxes to render
+    (matches the 4 seen in both the app screenshots and the real email
+    screenshot's "6747"); `expiresAt` drives the resend countdown
+    instead of a hardcoded 55s guess.
+  - `POST /v1/account.verifyEmailConfirm` — bearer-token auth. Body is
+    `OtpInput`: `{key: string, code: string}`, both required,
+    `additionalProperties: false`. Returns a bare `{type: boolean,
+    const: true}` on success — no extra data, just confirmation. A
+    wrong/expired code presumably comes back as a non-200 (400 is
+    referenced in the same spec block) — exact error shape not yet
+    pulled, but the web only needs to show a generic "wrong code, try
+    again" message either way, so not blocking.
+  - Both endpoints require the visitor's own `accessToken` (via
+    `lib/a1/session.ts`'s `readSession()`), same as the not-yet-written
+    `account.updateProfile` call — confirms `lib/a1/client.ts`'s new
+    `accessToken` override (added alongside this) is the right
+    mechanism, not a guess.
 - The remaining 3 "Я..." dropdown animations — not sent yet.
+
+**Debug-route access note (2026-08-29):** `A1_DEBUG_SECRET` in Vercel
+was of type "Secret" (write-only — Vercel's own UI: "You can't reveal
+this value after saving"), so its original value couldn't be read back
+to use the `?openapi=` debug mode. Rotated it via Vercel's own Rotate
+flow instead (Aleksandr entered the new value himself in the Vercel UI
+— entering secret values is something I won't do myself, by design),
+redeployed without a new commit so the Production function picked up
+the new value, then confirmed the debug route with it. Current value
+is intentionally simple (`test12345abc`) since this whole route is
+already marked TEMPORARY/delete-before-Phase-1 in its own file header
+— not worth a strong value for a route that's getting deleted, but
+noting the actual current value here so a future session isn't stuck
+guessing it again.
 
 **2026-08-28, follow-up from Aleksandr after seeing the Mailgun
 investigation:** the web's code-entry step does not need to match the
