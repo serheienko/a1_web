@@ -106,8 +106,14 @@ export function PostCard({
 
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-3">
-          <h2 className="text-lg font-medium text-neutral-900 dark:text-neutral-50">
-            <Link href={href} className="hover:underline">
+          <h2 className="min-w-0 text-lg font-medium text-neutral-900 dark:text-neutral-50">
+            {/* line-clamp-3, no `block` utility alongside it -- see the
+                line-clamp-6 comment below on post.contentText for why:
+                line-clamp's own `display: -webkit-box` is what makes
+                -webkit-line-clamp actually truncate on real Safari/iOS,
+                and a `block` utility on the same element would win the
+                compiled `display` property and silently undo that. */}
+            <Link href={href} className="line-clamp-3 hover:underline">
               {post.title}
             </Link>
           </h2>
