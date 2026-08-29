@@ -2049,3 +2049,30 @@ evening, none guessed blind: `{ input }` wrapper → root-level fields
 (§6.25), `object` literal needs `-input` suffix (§6.26), drop the
 `input` key entirely (§6.27), strip media's `_id` (§6.28). Watching the
 next live attempt for either success or the next specific mismatch.
+
+### 6.29 Confirmed: strip `mimetype` from media items too (2026-08-29)
+
+Fifth confirmed step in this same chain (§6.25-6.28). With `_id`
+stripped from media (§6.28), the very next live 400 on the same request
+was **"'media.0' has unknown property 'mimetype'"** (request id
+c7qzj-1788032279178-df69f0724538, deployment dpl_5Qjdq7kixZWypTzjWJtC2AXFwPzc,
+2026-08-29 19:37:59 UTC). Same shape-mismatch pattern as `_id`: the
+write side of `posts.createPost` doesn't want every field the read side
+(`upload.confirm`) hands back for a media document.
+
+Fix: `PostInputMediaSchema = MediaDocumentSchema.omit({ _id: true,
+mimetype: true })`. As with §6.28, no `components/post-editor.tsx`
+change needed — zod's default "strip unrecognized keys" behavior drops
+`mimetype` from `parsed.data.input.media` automatically. Per the
+discipline stated in §6.28 itself, only the one confirmed-unwanted field
+(`mimetype`) was removed this round, not a preemptive guess at
+`fileReference`/`date`/`sizes`/`ttl`/`flags`/`attributes`/`object` too —
+if the backend rejects one of those next, that's the next live 400 to
+fix the same way.
+
+Running tally on this one endpoint, all found via real live 400s, none
+guessed blind: `{ input }` wrapper -> root-level fields (§6.25), `object`
+literal needs `-input` suffix (§6.26), drop the `input` key entirely
+(§6.27), strip media's `_id` (§6.28), strip media's `mimetype` (§6.29).
+Watching the next live attempt for either success or the next specific
+mismatch.
