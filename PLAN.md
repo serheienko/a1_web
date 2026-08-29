@@ -1907,3 +1907,55 @@ that next data point: whether `categories` really did leave empty (a
 client bug not yet found) or whether this is a backend-side quirk (e.g.
 a `oneOf` discriminated-union match failing and surfacing an unrelated
 branch's "missing" error) unrelated to what we send at all.
+
+### 6.25 Confirmed: PostInput validates at the request root, not only nested in `input` (2026-08-29)
+
+Live evidence resolved §6.24's open "categories" question completely.
+After §6.24's diagnostic logging shipped, the exact payload
+(`categories: [30]`, non-empty, confirmed) still got the same "root is
+missing required property 'categories'" 400 — ruling out any
+post-editor.tsx client bug. Tried the obvious next hypothesis
+(duplicate `categories` as a sibling of `input`, not only nested inside
+it) and pushed it. The very next live attempt gave a DIFFERENT error:
+**"root is missing required property 'content'"** — `categories` was no
+longer the complaint.
+
+That shift is the proof, not a guess: `categories` sorts alphabetically
+before `content` among `PostInput`'s required keys
+(`categories, content, links, location, media, money, object, tags,
+title`). The backend walks that list against the ROOT of the request
+body and reports the first one still missing there — once `categories`
+existed at the root, it moved on to the next alphabetically-missing key.
+Conclusion: `posts.createPost` (and by the same contract, `updatePost`)
+validates `PostInput` at the top level of the request body, not only
+inside an `input` wrapper. §6.1/PLAN.md §0's `{ input }`-only ground
+truth was incomplete for this endpoint (or the live behavior diverged
+from whatever the OpenAPI spec said at the time it was read).
+
+Fix (commit e432b87): `app/api/posts/create/route.ts` and
+`app/api/posts/update/route.ts` now call `posts.createPost`/
+`posts.updatePost` with every `input` field spread onto the root of the
+call body, alongside keeping `input` itself:
+`{ input: parsed.data.input, ...parsed.data.input }` (plus `id` for
+update). This satisfies whichever shape the backend actually validates
+without needing to guess which — cheap insurance if `input` turns out
+to still matter for something else. Not live-reproduced on the update
+path specifically, only create; applied to both for symmetry per this
+file's own contract ("same PostInput shape update-vs-create").
+
+**Token-revoke mystery, refined (not yet closed):** the same
+reproduction's `[visitor-call] 401 on posts.createPost` diagnostic
+(added in §6.24) logged `tokenAgeMs: 1243246` against the token's own
+`expiresAt` — i.e. the access token had been expired for a completely
+ordinary ~20.7 minutes when this request fired, consistent with a
+normal, expected access-token TTL, not an early/external revocation.
+That rules out "the access token itself expired suspiciously early."
+The mystery narrows to exactly one step: why did `auth.refreshToken`,
+called for what should be a first, unused refresh token, come back
+"Token revoked" instead of issuing a new access token? Still unresolved
+— §6.23's coalescing fix doesn't explain a single, non-concurrent
+refresh failing either. Left as open per §6.23/§6.24's existing
+alternative theory (refresh tokens may be single-use/rotating and this
+session's stored refreshToken had already been consumed by something
+not visible in this window); no new evidence either confirms or
+refutes that today.
