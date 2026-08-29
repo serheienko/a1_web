@@ -2021,3 +2021,31 @@ place hoping it was right — this is the discipline PLAN.md has asked
 for from the start, applied three times in a row on one endpoint.
 Watching the next live attempt to see whether post creation actually
 succeeds now that all three are fixed together.
+
+### 6.28 Confirmed: strip the server-assigned `_id` from media items (2026-08-29)
+
+Fourth confirmed step in this same chain (§6.25–§6.27). With the
+object/wrapper shape fixed, the next live 400 was **"'media.0' has
+unknown property '_id'"**. `PostInputSchema.media` reused
+`MediaDocumentSchema` verbatim (this file's own prior comment: "sending
+exactly what upload.confirm handed back keeps the write side symmetrical
+with the read side") — that assumption was wrong for `_id` specifically:
+the write side doesn't want the server-assigned id echoed back.
+
+Fix (commit 555622f): `PostInputMediaSchema = MediaDocumentSchema.omit({
+_id: true })`, used for `PostInputSchema.media`. zod's default "strip
+unrecognized keys" behavior means `_id` is dropped from
+`parsed.data.input.media` automatically — no change needed in
+`components/post-editor.tsx`, which still builds `media:
+media.map((m) => m.doc)` from whatever `upload.confirm` returned.
+Deliberately didn't touch any other `MediaDocument` field (`mimetype`,
+`fileReference`, `date`, `sizes`, `ttl`, `flags`, `attributes`, `object`)
+since only `_id` was flagged — if the backend rejects another one next,
+that's the next live 400 to fix the same way, not something to
+pre-guess now.
+
+Running tally on this one endpoint, all found via real live 400s in one
+evening, none guessed blind: `{ input }` wrapper → root-level fields
+(§6.25), `object` literal needs `-input` suffix (§6.26), drop the
+`input` key entirely (§6.27), strip media's `_id` (§6.28). Watching the
+next live attempt for either success or the next specific mismatch.
