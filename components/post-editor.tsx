@@ -67,11 +67,50 @@
 //     Надо отображать, что чернетку збережено, наприклад наверху
 //     справа." Posting or scheduling still closes the dialog — those
 //     are a completed action, unlike a draft checkpoint.
+//
+// 2026-08-29, round 3 (Aleksandr, live-testing round 2's build — the
+// salary row broke again on Safari, "5+" was still miscategorized, a
+// blank dialog greeted the user with 3 red errors, tags/categories were
+// still raw English, and the schedule popover clipped itself):
+//   - isExperienceTag() now strips whitespace before testing for a bare
+//     number — the live "5+" tag turned out to be "5 +" (a space before
+//     the plus), which the round-2 regex didn't tolerate.
+//   - Tag pills and the category picker now run through
+//     components/label-translations.ts's translateTagLabel/
+//     translateCategoryLabel (the same tables components/filters-form.tsx
+//     already had for its own dropdowns, pulled into a shared module) —
+//     "формати роботи, тип зайнятості і досвід вокалізувати під кожну
+//     мову," and categories were in the same boat.
+//   - Required-field/min-length hints no longer render the instant the
+//     dialog opens. Each field only shows its red hint once it's been
+//     touched (blurred), and clicking a submit button while something's
+//     missing touches every field at once instead of doing nothing —
+//     "сразу снизу пишет три ошибки... это трабл."
+//   - Salary row rebuilt a second time with CSS Grid instead of flex —
+//     the flex version still broke on Safari specifically (a flex-basis
+//     quirk collapsed the amount input to its native spinner decoration).
+//     Grid's fixed column tracks can't be misread the same way. The
+//     currency select is narrower still and the amount input's native
+//     number-spinner buttons are hidden.
+//   - The schedule popover is now `position: fixed` (computed from the
+//     dialog's and the clock button's bounding rects) instead of
+//     `absolute bottom-full` — the dialog's own `overflow-hidden`
+//     (needed for its rounded corners) was clipping the popover's top
+//     whenever it grew taller than the gap above the footer, and no
+//     amount of scrolling could reveal the clipped part — "не можу
+//     проскроллити і побачити питання до відгуку, поки відкритий
+//     календар." The native <input type="date"> is also gone, replaced
+//     by a month/year <select> pair (picking a year is one click) plus a
+//     day grid — "рік складно вибрати і написати вручну, дай інший
+//     пікер." The footer's own Save-draft/Post buttons now switch to
+//     Cancel/Schedule while the popover is open instead of showing a
+//     second, redundant primary button — "не треба друга синя кнопка."
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import type { Category, Tag, Currency } from "@/lib/a1/datasets";
+import { translateTagLabel, translateCategoryLabel } from "@/components/label-translations";
 
 type PostObject = "post-job-employing" | "post-job-seeking";
 
@@ -138,8 +177,13 @@ const EMPLOYMENT_TYPE_TAGS = new Set(["Full-time", "Part-time", "Contract"]);
 // live data confirmed (2026-08-29) that 2/3/4/5+ years come back as
 // bare "2", "3", "4", "5+", so a bare-number(+) string is ALSO treated
 // as an experience tag, not just anything mentioning "yr"/"exp".
+// 2026-08-29 round 3: "5+" alone still landed in Other tags — the live
+// string turned out to be "5 +" (a space before the plus), which the
+// first version of this regex didn't tolerate. Whitespace is stripped
+// before testing so any spacing variant matches the same way.
 function isExperienceTag(text: string): boolean {
-  return /\bexp\.?\b/i.test(text) || /\byr\.?\b/i.test(text) || /^\d+\+?$/.test(text.trim());
+  const compact = text.replace(/\s+/g, "");
+  return /\bexp\.?\b/i.test(text) || /\byr\.?\b/i.test(text) || /^\d+\+?$/.test(compact);
 }
 
 // 2026-08-29: same "IT first" fix app/onboarding/profile/profile-setup-
@@ -202,6 +246,49 @@ function toTimeInputValue(d: Date): string {
   return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
+// 2026-08-29 round 3: "picker даты стоит старый, він типу не сильно
+// зручний, мілкий, там складно вибрати рік" — the OS-native calendar
+// attached to <input type="date"> can't be restyled or repositioned (it
+// rendered off-screen below the modal, see round 2's header note above)
+// and makes picking a year across a click-tiny month-by-month stepper.
+// Replaced with a fully custom month+year <select> pair (jumping to any
+// valid year is one click) plus a day grid, both driven by these small
+// helpers rather than any native date-picker UI. Locale-aware via Intl
+// rather than a hand-written month/weekday name table for all 9
+// languages, which would be easy to get subtly wrong.
+const LOCALE_BCP47: Record<Locale, string> = {
+  uk: "uk-UA", en: "en-US", ru: "ru-RU", de: "de-DE", es: "es-ES",
+  fr: "fr-FR", pl: "pl-PL", ptBR: "pt-BR", zh: "zh-CN",
+};
+function monthOnlyLabel(year: number, month: number, lang: Locale): string {
+  try {
+    return new Intl.DateTimeFormat(LOCALE_BCP47[lang], { month: "long" }).format(new Date(year, month, 1));
+  } catch {
+    return String(month + 1);
+  }
+}
+function weekdayShortNames(lang: Locale): string[] {
+  try {
+    const fmt = new Intl.DateTimeFormat(LOCALE_BCP47[lang], { weekday: "short" });
+    const days: string[] = [];
+    // 2024-01-01 was a Monday — a fixed Mon-first reference week so the
+    // header always lines up with the Monday-first day grid below.
+    for (let i = 0; i < 7; i++) days.push(fmt.format(new Date(2024, 0, 1 + i)));
+    return days;
+  } catch {
+    return ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+  }
+}
+function buildCalendarCells(year: number, month: number): (Date | null)[] {
+  const first = new Date(year, month, 1);
+  const startOffset = (first.getDay() + 6) % 7; // Sun=0..Sat=6 -> Mon-first offset
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells: (Date | null)[] = [];
+  for (let i = 0; i < startOffset; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
+  return cells;
+}
+
 type StringKey =
   | "createTitle" | "editTitle" | "close"
   | "offerJob" | "findJob"
@@ -216,7 +303,8 @@ type StringKey =
   | "questionsLabel" | "questionPlaceholder"
   | "photoLabel" | "photoTooMany" | "photoTooBig" | "photoUploadFailed"
   | "saveDraft" | "draftSaved" | "post" | "saveChanges" | "schedulePost"
-  | "scheduleConfirm" | "scheduleCancel" | "scheduleToday" | "scheduleTomorrow" | "scheduleIn3Days" | "scheduleInWeek"
+  | "scheduleConfirm" | "scheduleActionCaps" | "scheduleCancel" | "scheduleTimeLabel"
+  | "scheduleToday" | "scheduleTomorrow" | "scheduleIn3Days" | "scheduleInWeek"
   | "scheduleInvalid" | "errorGeneric" | "requiredHint";
 
 const STRINGS: Record<StringKey, Record<Locale, string>> = {
@@ -264,7 +352,9 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   saveChanges: { uk: "ЗБЕРЕГТИ", en: "SAVE", ru: "СОХРАНИТЬ", de: "SPEICHERN", es: "GUARDAR", fr: "ENREGISTRER", pl: "ZAPISZ", ptBR: "SALVAR", zh: "保存" },
   schedulePost: { uk: "Запланувати", en: "Schedule", ru: "Запланировать", de: "Planen", es: "Programar", fr: "Planifier", pl: "Zaplanuj", ptBR: "Agendar", zh: "定时发布" },
   scheduleConfirm: { uk: "Запланувати пост", en: "Schedule Post", ru: "Запланировать пост", de: "Beitrag planen", es: "Programar publicación", fr: "Planifier la publication", pl: "Zaplanuj post", ptBR: "Agendar publicação", zh: "定时发布帖子" },
+  scheduleActionCaps: { uk: "ЗАПЛАНУВАТИ", en: "SCHEDULE", ru: "ЗАПЛАНИРОВАТЬ", de: "PLANEN", es: "PROGRAMAR", fr: "PLANIFIER", pl: "ZAPLANUJ", ptBR: "AGENDAR", zh: "定时发布" },
   scheduleCancel: { uk: "Скасувати", en: "Cancel", ru: "Отмена", de: "Abbrechen", es: "Cancelar", fr: "Annuler", pl: "Anuluj", ptBR: "Cancelar", zh: "取消" },
+  scheduleTimeLabel: { uk: "Час", en: "Time", ru: "Время", de: "Uhrzeit", es: "Hora", fr: "Heure", pl: "Godzina", ptBR: "Hora", zh: "时间" },
   scheduleToday: { uk: "Сьогодні ввечері", en: "This evening", ru: "Сегодня вечером", de: "Heute Abend", es: "Esta noche", fr: "Ce soir", pl: "Dziś wieczorem", ptBR: "Hoje à noite", zh: "今晚" },
   scheduleTomorrow: { uk: "Завтра вранці", en: "Tomorrow morning", ru: "Завтра утром", de: "Morgen früh", es: "Mañana por la mañana", fr: "Demain matin", pl: "Jutro rano", ptBR: "Amanhã de manhã", zh: "明天早上" },
   scheduleIn3Days: { uk: "Через 3 дні", en: "In 3 days", ru: "Через 3 дня", de: "In 3 Tagen", es: "En 3 días", fr: "Dans 3 jours", pl: "Za 3 dni", ptBR: "Em 3 dias", zh: "3天后" },
@@ -425,9 +515,47 @@ export function PostEditor({
   }, [now]);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [schedule, setSchedule] = useState<ScheduleTarget>({ date: toDateInputValue(now), time: toTimeInputValue(now) });
+  // The month/year the calendar grid is currently showing — independent
+  // of `schedule.date` so browsing to a different month doesn't move the
+  // actual selection until a day is clicked. Synced from schedule.date
+  // whenever the popover opens (see the effect below) and updated
+  // directly by the quick-pick buttons.
+  const [calYear, setCalYear] = useState(() => now.getFullYear());
+  const [calMonth, setCalMonth] = useState(() => now.getMonth());
+  // 2026-08-29 round 3: the schedule popover now renders via
+  // `position: fixed` (computed from these refs) instead of being
+  // absolutely positioned inside the dialog — the dialog needs
+  // `overflow-hidden` for its rounded corners, which was silently
+  // clipping the popover whenever it grew taller than the space between
+  // the footer and the top of the dialog ("не можу питання до відгуку
+  // проскроллити вище" — the popover's own top was cut off, not a
+  // scrolling problem). `position: fixed` escapes that clipping
+  // entirely since neither ancestor uses a transform/filter.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const scheduleButtonRef = useRef<HTMLButtonElement>(null);
+  const [schedulePos, setSchedulePos] = useState<{ left: number; right: number; bottom: number; maxHeight: number } | null>(null);
 
   const [pendingAction, setPendingAction] = useState<"post" | "draft" | "schedule" | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // 2026-08-29 round 3: "у меня сразу снизу пишет три ошибки... это
+  // трабл" — the min-length/required hints below used to render the
+  // instant the dialog opened, before the user had typed a single
+  // character. Each field's hint (and its red border) now waits for
+  // that field to be "touched" (blurred at least once), and clicking a
+  // submit button while something's missing touches everything at once
+  // — matching the reference screenshot's "tried to submit, here's
+  // what's wrong" moment instead of greeting an empty form with red text.
+  const [titleTouched, setTitleTouched] = useState(false);
+  const [descriptionTouched, setDescriptionTouched] = useState(false);
+  const [locationTouched, setLocationTouched] = useState(false);
+  const [categoryTouched, setCategoryTouched] = useState(false);
+  function markAllTouched() {
+    setTitleTouched(true);
+    setDescriptionTouched(true);
+    setLocationTouched(true);
+    setCategoryTouched(true);
+  }
 
   useEffect(() => {
     fetch("/api/post-editor/bootstrap")
@@ -625,6 +753,68 @@ export function PostEditor({
     d.setHours(hour, minute, 0, 0);
     if (d.getTime() <= now.getTime()) d.setDate(d.getDate() + 1);
     setSchedule({ date: toDateInputValue(d), time: toTimeInputValue(d) });
+    setCalYear(d.getFullYear());
+    setCalMonth(d.getMonth());
+  }
+
+  const scheduleYearOptions = useMemo(() => {
+    const years: number[] = [];
+    for (let y = now.getFullYear(); y <= maxScheduleDate.getFullYear(); y++) years.push(y);
+    return years;
+  }, [now, maxScheduleDate]);
+
+  const scheduleMonthOptions = useMemo(() => {
+    const minMonth = calYear === now.getFullYear() ? now.getMonth() : 0;
+    const maxMonth = calYear === maxScheduleDate.getFullYear() ? maxScheduleDate.getMonth() : 11;
+    const months: number[] = [];
+    for (let m = minMonth; m <= maxMonth; m++) months.push(m);
+    return months;
+  }, [calYear, now, maxScheduleDate]);
+
+  function onCalYearChange(y: number) {
+    setCalYear(y);
+    const minMonth = y === now.getFullYear() ? now.getMonth() : 0;
+    const maxMonth = y === maxScheduleDate.getFullYear() ? maxScheduleDate.getMonth() : 11;
+    setCalMonth((m) => Math.min(Math.max(m, minMonth), maxMonth));
+  }
+
+  function isDaySelectable(d: Date): boolean {
+    const dOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    const minOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const maxOnly = new Date(maxScheduleDate.getFullYear(), maxScheduleDate.getMonth(), maxScheduleDate.getDate()).getTime();
+    return dOnly >= minOnly && dOnly <= maxOnly;
+  }
+
+  function isSelectedScheduleDay(d: Date): boolean {
+    const parts = schedule.date.split("-").map(Number);
+    const y = parts[0], m = parts[1], dd = parts[2];
+    return y === d.getFullYear() && (m ?? 0) - 1 === d.getMonth() && dd === d.getDate();
+  }
+
+  function selectCalendarDay(d: Date) {
+    if (!isDaySelectable(d)) return;
+    setSchedule((s) => ({ ...s, date: toDateInputValue(d) }));
+  }
+
+  // Computes where the popover lands as fixed-position coordinates, from
+  // the dialog's and the clock button's current bounding rects — see the
+  // schedulePos state comment above for why this replaced simple
+  // `absolute bottom-full` positioning.
+  function openSchedulePopover() {
+    const dlg = dialogRef.current;
+    const btn = scheduleButtonRef.current;
+    if (dlg && btn) {
+      const dlgRect = dlg.getBoundingClientRect();
+      const btnRect = btn.getBoundingClientRect();
+      const margin = 12;
+      setSchedulePos({
+        left: dlgRect.left + 20,
+        right: window.innerWidth - dlgRect.right + 20,
+        bottom: window.innerHeight - btnRect.top + 8,
+        maxHeight: Math.max(240, btnRect.top - margin - 8),
+      });
+    }
+    setScheduleOpen(true);
   }
 
   async function submit(action: "post" | "draft" | "schedule") {
@@ -666,6 +856,23 @@ export function PostEditor({
       });
       const data = await res.json().catch(() => ({ ok: false }));
       if (!res.ok || !data.ok) {
+        // 2026-08-29 round 3: "не получилось сделать пост, обязательные
+        // условия вписал, но не вышло" — couldn't reproduce this live
+        // (no way to sign in as the user from here), but a stray browser
+        // tab was sitting on /sign-in?reason=create-post, which is
+        // exactly what a session that quietly expired while the form was
+        // being filled out looks like. app/api/posts/create's route
+        // already tells us this precisely (`message: "not_signed_in"`
+        // on a 401) — when that's the cause, send the user to sign back
+        // in instead of showing a generic error that gives no next step.
+        // Logged either way so a *different* failure is diagnosable from
+        // the browser console next time, instead of just "something went
+        // wrong."
+        console.error("[post-editor] save failed", { status: res.status, message: data?.message, detail: data?.detail });
+        if (data?.message === "not_signed_in") {
+          window.location.href = "/sign-in?reason=create-post";
+          return;
+        }
         setError(t("errorGeneric", lang));
         setPendingAction(null);
         return;
@@ -694,9 +901,21 @@ export function PostEditor({
     return () => clearTimeout(timer);
   }, [draftSavedAt]);
 
+  useEffect(() => {
+    if (!scheduleOpen) return;
+    const parts = schedule.date.split("-").map(Number);
+    if (parts[0]) setCalYear(parts[0]);
+    if (parts[1]) setCalMonth(parts[1] - 1);
+    // Only re-syncs at the moment the popover opens — deliberately not
+    // keyed on `schedule.date` too, so browsing to a different month
+    // while it's open doesn't keep snapping back to the selected date.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scheduleOpen]);
+
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 sm:items-center sm:p-4" onClick={onClose}>
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
@@ -756,10 +975,11 @@ export function PostEditor({
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              onBlur={() => setTitleTouched(true)}
               placeholder={object === "post-job-employing" ? t("titlePlaceholderHiring", lang) : t("titlePlaceholderSeeking", lang)}
-              className={titleValid || title.length === 0 ? inputClass : invalidInputClass}
+              className={titleTouched && !titleValid ? invalidInputClass : inputClass}
             />
-            {!titleValid && <span className="text-xs text-red-500">{t("titleTooShort", lang, { n: TITLE_MIN })}</span>}
+            {titleTouched && !titleValid && <span className="text-xs text-red-500">{t("titleTooShort", lang, { n: TITLE_MIN })}</span>}
           </div>
 
           <div className="mb-4 flex flex-col gap-1.5">
@@ -775,11 +995,12 @@ export function PostEditor({
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
+              onBlur={() => setDescriptionTouched(true)}
               placeholder={object === "post-job-employing" ? t("descriptionTipsHiring", lang) : t("descriptionTipsSeeking", lang)}
               rows={4}
-              className={(descriptionValid || content.length === 0 ? inputClass : invalidInputClass) + " resize-none"}
+              className={(descriptionTouched && !descriptionValid ? invalidInputClass : inputClass) + " resize-none"}
             />
-            {!descriptionValid && <span className="text-xs text-red-500">{t("descriptionTooShort", lang, { n: DESCRIPTION_MIN })}</span>}
+            {descriptionTouched && !descriptionValid && <span className="text-xs text-red-500">{t("descriptionTooShort", lang, { n: DESCRIPTION_MIN })}</span>}
           </div>
 
           <div className="relative mb-4 flex flex-col gap-1.5">
@@ -798,8 +1019,9 @@ export function PostEditor({
                     type="text"
                     value={locationQuery}
                     onChange={(e) => onLocationQueryChange(e.target.value)}
+                    onBlur={() => setLocationTouched(true)}
                     placeholder={t("locationPlaceholder", lang)}
-                    className={invalidInputClass + " pr-9"}
+                    className={(locationTouched && !location ? invalidInputClass : inputClass) + " pr-9"}
                     autoComplete="off"
                   />
                   {locationPending && <Spinner className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />}
@@ -826,7 +1048,7 @@ export function PostEditor({
                     ))}
                   </div>
                 )}
-                <span className="text-xs text-red-500">{t("requiredField", lang)}</span>
+                {locationTouched && !location && <span className="text-xs text-red-500">{t("requiredField", lang)}</span>}
               </>
             )}
           </div>
@@ -836,7 +1058,7 @@ export function PostEditor({
             <div className="relative">
               <input
                 type="text"
-                value={categoryOpen ? categoryQuery : (category?.text ?? "")}
+                value={categoryOpen ? categoryQuery : (category ? translateCategoryLabel(category.text, lang) : "")}
                 onFocus={(e) => {
                   const rect = e.currentTarget.getBoundingClientRect();
                   const margin = 16;
@@ -849,14 +1071,17 @@ export function PostEditor({
                   setCategoryQuery("");
                 }}
                 onChange={(e) => setCategoryQuery(e.target.value)}
-                onBlur={() => setTimeout(() => setCategoryOpen(false), 120)}
+                onBlur={() => {
+                  setCategoryTouched(true);
+                  setTimeout(() => setCategoryOpen(false), 120);
+                }}
                 placeholder={t("categoryPlaceholder", lang)}
-                className={(category ? inputClass : invalidInputClass) + " pr-9"}
+                className={(categoryTouched && !category ? invalidInputClass : inputClass) + " pr-9"}
                 autoComplete="off"
               />
               <ChevronIcon open={categoryOpen} />
             </div>
-            {!category && <span className="text-xs text-red-500">{t("requiredField", lang)}</span>}
+            {categoryTouched && !category && <span className="text-xs text-red-500">{t("requiredField", lang)}</span>}
             {categoryOpen && (
               <div
                 style={{ maxHeight: categoryMaxHeight }}
@@ -879,7 +1104,7 @@ export function PostEditor({
                     }}
                     className="block w-full px-4 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
                   >
-                    {c.text}
+                    {translateCategoryLabel(c.text, lang)}
                   </button>
                 ))}
               </div>
@@ -897,7 +1122,7 @@ export function PostEditor({
               <div className="flex flex-wrap gap-1.5">
                 {workTypeTags.map((tg) => (
                   <button key={tg.value} type="button" onClick={() => toggleTag(tg.value)} className={pillClass(selectedTags.includes(tg.value))}>
-                    {tg.text}
+                    {translateTagLabel(tg.text, lang)}
                   </button>
                 ))}
               </div>
@@ -910,7 +1135,7 @@ export function PostEditor({
               <div className="flex flex-wrap gap-1.5">
                 {employmentTypeTags.map((tg) => (
                   <button key={tg.value} type="button" onClick={() => toggleTag(tg.value)} className={pillClass(selectedTags.includes(tg.value))}>
-                    {tg.text}
+                    {translateTagLabel(tg.text, lang)}
                   </button>
                 ))}
               </div>
@@ -923,7 +1148,7 @@ export function PostEditor({
               <div className="flex flex-wrap gap-1.5">
                 {experienceTags.map((tg) => (
                   <button key={tg.value} type="button" onClick={() => toggleTag(tg.value)} className={pillClass(selectedTags.includes(tg.value))}>
-                    {tg.text}
+                    {translateTagLabel(tg.text, lang)}
                   </button>
                 ))}
               </div>
@@ -936,7 +1161,7 @@ export function PostEditor({
               <div className="flex flex-wrap gap-1.5">
                 {otherTags.map((tg) => (
                   <button key={tg.value} type="button" onClick={() => toggleTag(tg.value)} className={pillClass(selectedTags.includes(tg.value))}>
-                    {tg.text}
+                    {translateTagLabel(tg.text, lang)}
                   </button>
                 ))}
               </div>
@@ -981,30 +1206,46 @@ export function PostEditor({
             )}
           </div>
 
-          {/* 2026-08-29: salary row rebuilt — the amount input needs
-              `min-w-0` or a flex-1 <input> refuses to shrink below its
-              intrinsic size and pushes everything else out of view
-              (the exact bug reported live). Currency select narrowed,
-              and month/year is now two explicit labeled pills instead
-              of an unlabeled swap icon. */}
+          {/* 2026-08-29 round 3: rebuilt again with CSS Grid instead of
+              flex — the round-2 flex version (flex-1 + min-w-0) still
+              broke on Safari (reported live: the amount input collapsed
+              to its native number-spinner decoration while the currency
+              select silently absorbed the rest of the row's width, a
+              known Safari flex-basis quirk). Three explicit grid
+              columns (1fr / narrow fixed / auto) can't be misread by any
+              browser's flex algorithm the way flex-grow/shrink math can.
+              Currency select narrowed further (w-16, was w-[4.5rem]) and
+              given its own chevron since `appearance-none` drops the
+              native one; the amount input's native up/down spinner
+              buttons are hidden (they were eating into its usable width
+              too) — "USD пікер уже, а само поле зарплата пошире". */}
           <div className="mb-4 flex flex-col gap-1.5">
             <label className={labelClass}>{t("salaryLabel", lang)}</label>
-            <div className="flex min-w-0 gap-1.5">
+            <div className="grid grid-cols-[1fr_4rem_auto] items-stretch gap-1.5">
               <input
                 type="number"
                 min="0"
                 value={salaryAmount}
                 onChange={(e) => setSalaryAmount(e.target.value)}
                 placeholder={t("salaryPlaceholder", lang)}
-                className={inputClass + " min-w-0 flex-1"}
+                className={inputClass + " min-w-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"}
               />
-              <select value={salaryCurrency} onChange={(e) => setSalaryCurrency(e.target.value)} className={inputClass + " w-[4.5rem] shrink-0 px-2"}>
-                {bootstrap.currencies.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {c.value.toUpperCase()}
-                  </option>
-                ))}
-              </select>
+              <div className="relative min-w-0">
+                <select
+                  value={salaryCurrency}
+                  onChange={(e) => setSalaryCurrency(e.target.value)}
+                  className={inputClass + " w-full appearance-none pl-2 pr-5"}
+                >
+                  {bootstrap.currencies.map((c) => (
+                    <option key={c.value} value={c.value}>
+                      {c.value.toUpperCase()}
+                    </option>
+                  ))}
+                </select>
+                <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="pointer-events-none absolute right-1 top-1/2 h-3 w-3 -translate-y-1/2 text-neutral-400 dark:text-neutral-500">
+                  <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
               <div className="flex shrink-0 overflow-hidden rounded-xl border border-neutral-300 dark:border-neutral-700">
                 <button
                   type="button"
@@ -1099,86 +1340,169 @@ export function PostEditor({
         </div>
 
         <div className="relative border-t border-neutral-100 px-5 py-3.5 dark:border-neutral-800">
-          {/* 2026-08-29: custom schedule popover, opening UPWARD above the
-              bottom bar (native OS calendars for datetime-local rendered
-              below the viewport with no way to reach them — reported
-              live), with both inputs clamped to [today, +1 year] AND a
-              numeric re-check in scheduleIsValid() so a hand-typed year
-              like "0002" can never leave the confirm button enabled. */}
-          {scheduleOpen && (
-            <div className="absolute bottom-full left-5 right-5 z-20 mb-2 rounded-2xl border border-neutral-200 bg-white p-3 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
-              <div className="mb-2 flex flex-wrap gap-1.5">
-                <button type="button" onClick={() => applyScheduleQuickPick(0, 18)} className={pillClass(false)}>{t("scheduleToday", lang)}</button>
-                <button type="button" onClick={() => applyScheduleQuickPick(1, 9)} className={pillClass(false)}>{t("scheduleTomorrow", lang)}</button>
-                <button type="button" onClick={() => applyScheduleQuickPick(3, 12)} className={pillClass(false)}>{t("scheduleIn3Days", lang)}</button>
-                <button type="button" onClick={() => applyScheduleQuickPick(7, 12)} className={pillClass(false)}>{t("scheduleInWeek", lang)}</button>
-              </div>
-              <div className="mb-2 flex gap-1.5">
-                <input
-                  type="date"
-                  min={toDateInputValue(now)}
-                  max={toDateInputValue(maxScheduleDate)}
-                  value={schedule.date}
-                  onChange={(e) => setSchedule((s) => ({ ...s, date: e.target.value }))}
-                  className={(scheduleOpen && !scheduleIsValid() ? invalidInputClass : inputClass) + " flex-1 py-2 text-sm"}
-                />
-                <input
-                  type="time"
-                  value={schedule.time}
-                  onChange={(e) => setSchedule((s) => ({ ...s, time: e.target.value }))}
-                  className={inputClass + " w-28 shrink-0 py-2 text-sm"}
-                />
-              </div>
-              {!scheduleIsValid() && <p className="mb-2 text-xs text-red-500">{t("scheduleInvalid", lang)}</p>}
-              <div className="flex justify-end gap-2">
-                <button type="button" onClick={() => setScheduleOpen(false)} className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-50">
-                  {t("scheduleCancel", lang)}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => submit("schedule")}
-                  disabled={!canSubmit || !scheduleIsValid() || pendingAction !== null}
-                  className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
-                >
-                  {t("scheduleConfirm", lang)}
-                </button>
-              </div>
-            </div>
-          )}
-
           {!canSubmit && <p className="mb-2 text-xs text-neutral-400 dark:text-neutral-500">{t("requiredHint", lang)}</p>}
 
+          {/* 2026-08-29 round 3: "если нажимаю запланировать пост, то не
+              надо вторая синяя кнопка" — the popover no longer carries
+              its own Cancel/Schedule buttons. The footer's own two
+              buttons switch role instead: Save-draft becomes Cancel and
+              Post/Save becomes Schedule while the popover is open, since
+              scheduling is the one action that makes sense at that
+              point — see the button row below. */}
           <div className="flex items-center gap-2">
             <button
+              ref={scheduleButtonRef}
               type="button"
-              onClick={() => setScheduleOpen((v) => !v)}
+              onClick={() => (scheduleOpen ? setScheduleOpen(false) : openSchedulePopover())}
               aria-label={t("schedulePost", lang)}
-              disabled={!canSubmit}
               className={
-                "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition disabled:opacity-40 " +
-                (scheduleOpen ? "border-accent bg-accent/10 text-accent" : "border-neutral-300 text-neutral-500 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-50")
+                "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition " +
+                (scheduleOpen ? "border-accent bg-accent/10 text-accent" : "border-neutral-300 text-neutral-500 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-50") +
+                (!canSubmit ? " opacity-50" : "")
               }
             >
               <ClockIcon />
             </button>
-            <button
-              type="button"
-              onClick={() => submit("draft")}
-              disabled={!canSubmit || pendingAction !== null}
-              className="rounded-full border border-neutral-300 px-3.5 py-2 text-xs font-medium text-neutral-600 transition hover:bg-neutral-100 disabled:opacity-40 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
-            >
-              {pendingAction === "draft" ? <Spinner className="h-3.5 w-3.5" /> : t("saveDraft", lang)}
-            </button>
-            <button
-              type="button"
-              onClick={() => submit("post")}
-              disabled={!canSubmit || pendingAction !== null}
-              className="flex-1 rounded-full bg-accent py-2.5 text-sm font-bold tracking-wide text-white transition hover:opacity-90 disabled:opacity-50"
-            >
-              {mode === "edit" || savedPostId ? t("saveChanges", lang) : t("post", lang)}
-            </button>
+            {scheduleOpen ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setScheduleOpen(false)}
+                  className="rounded-full border border-neutral-300 px-3.5 py-2 text-xs font-medium text-neutral-600 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                >
+                  {t("scheduleCancel", lang)}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!canSubmit) { markAllTouched(); return; }
+                    if (!scheduleIsValid()) return;
+                    submit("schedule");
+                  }}
+                  disabled={pendingAction !== null}
+                  className={"flex-1 rounded-full bg-accent py-2.5 text-sm font-bold tracking-wide text-white transition hover:opacity-90 disabled:opacity-50" + (!canSubmit || !scheduleIsValid() ? " opacity-50" : "")}
+                >
+                  {pendingAction === "schedule" ? <Spinner className="mx-auto h-4 w-4" /> : t("scheduleActionCaps", lang)}
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!canSubmit) { markAllTouched(); return; }
+                    submit("draft");
+                  }}
+                  disabled={pendingAction !== null}
+                  className={"rounded-full border border-neutral-300 px-3.5 py-2 text-xs font-medium text-neutral-600 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800" + (!canSubmit ? " opacity-50" : "")}
+                >
+                  {pendingAction === "draft" ? <Spinner className="h-3.5 w-3.5" /> : t("saveDraft", lang)}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!canSubmit) { markAllTouched(); return; }
+                    submit("post");
+                  }}
+                  disabled={pendingAction !== null}
+                  className={"flex-1 rounded-full bg-accent py-2.5 text-sm font-bold tracking-wide text-white transition hover:opacity-90 disabled:opacity-50" + (!canSubmit ? " opacity-50" : "")}
+                >
+                  {pendingAction === "post" ? <Spinner className="mx-auto h-4 w-4" /> : (mode === "edit" || savedPostId ? t("saveChanges", lang) : t("post", lang))}
+                </button>
+              </>
+            )}
           </div>
         </div>
+
+        {/* 2026-08-29 round 3: rendered as `position: fixed` (schedulePos,
+            computed in openSchedulePopover() above) rather than absolutely
+            inside the dialog — the dialog's own `overflow-hidden` (needed
+            for its rounded corners) was silently clipping the popover's
+            top whenever it grew taller than the gap above the footer
+            ("не можу проскроллити і побачити питання до відгуку повністю,
+            поки відкритий календар"). Fixed positioning escapes that
+            clipping entirely. Also replaces the native <input type="date">
+            with a custom month/year <select> pair + day grid — the OS
+            calendar couldn't be restyled, rendered off-screen, and made
+            picking a specific year a multi-click affair ("рік складно
+            вибрати і написати вручну"); scheduleIsValid() still gates the
+            actual submit regardless of what's shown here. */}
+        {scheduleOpen && schedulePos && (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ left: schedulePos.left, right: schedulePos.right, bottom: schedulePos.bottom, maxHeight: schedulePos.maxHeight }}
+            className="fixed z-30 overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-3 shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
+          >
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              <button type="button" onClick={() => applyScheduleQuickPick(0, 18)} className={pillClass(false)}>{t("scheduleToday", lang)}</button>
+              <button type="button" onClick={() => applyScheduleQuickPick(1, 9)} className={pillClass(false)}>{t("scheduleTomorrow", lang)}</button>
+              <button type="button" onClick={() => applyScheduleQuickPick(3, 12)} className={pillClass(false)}>{t("scheduleIn3Days", lang)}</button>
+              <button type="button" onClick={() => applyScheduleQuickPick(7, 12)} className={pillClass(false)}>{t("scheduleInWeek", lang)}</button>
+            </div>
+
+            <div className="mb-2">
+              <div className="mb-1.5 flex items-center gap-1.5">
+                <select
+                  value={calMonth}
+                  onChange={(e) => setCalMonth(Number(e.target.value))}
+                  className={inputClass + " min-w-0 flex-1 py-1.5 text-xs capitalize"}
+                >
+                  {scheduleMonthOptions.map((m) => (
+                    <option key={m} value={m}>{monthOnlyLabel(calYear, m, lang)}</option>
+                  ))}
+                </select>
+                <select
+                  value={calYear}
+                  onChange={(e) => onCalYearChange(Number(e.target.value))}
+                  className={inputClass + " w-20 shrink-0 py-1.5 text-xs"}
+                >
+                  {scheduleYearOptions.map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-7 gap-0.5 text-center">
+                {weekdayShortNames(lang).map((wd, i) => (
+                  <span key={i} className="py-1 text-[10px] font-medium uppercase text-neutral-400 dark:text-neutral-500">{wd}</span>
+                ))}
+                {buildCalendarCells(calYear, calMonth).map((d, i) => {
+                  if (!d) return <span key={"blank" + i} />;
+                  const selectable = isDaySelectable(d);
+                  const selected = isSelectedScheduleDay(d);
+                  return (
+                    <button
+                      key={d.getTime()}
+                      type="button"
+                      disabled={!selectable}
+                      onClick={() => selectCalendarDay(d)}
+                      className={
+                        "rounded-lg py-1.5 text-xs font-medium transition " +
+                        (selected
+                          ? "bg-accent text-white"
+                          : selectable
+                            ? "text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                            : "cursor-default text-neutral-300 dark:text-neutral-700")
+                      }
+                    >
+                      {d.getDate()}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="mb-1 flex flex-col gap-1">
+              <label className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">{t("scheduleTimeLabel", lang)}</label>
+              <input
+                type="time"
+                value={schedule.time}
+                onChange={(e) => setSchedule((s) => ({ ...s, time: e.target.value }))}
+                className={inputClass + " w-full py-2 text-sm"}
+              />
+            </div>
+            {!scheduleIsValid() && <p className="text-xs text-red-500">{t("scheduleInvalid", lang)}</p>}
+          </div>
+        )}
       </div>
     </div>
   );
