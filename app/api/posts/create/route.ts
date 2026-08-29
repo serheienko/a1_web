@@ -29,8 +29,21 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // 2026-08-29 round 5: a confirmed-live 400 ("root is missing
+    // required property 'categories'") happened even with a verified
+    // non-empty categories array inside `input` (logged proof in the
+    // catch block below) — so it isn't a client-side bug in
+    // post-editor.tsx. "root" in that error most likely means the
+    // TOP-LEVEL object sent to posts.createPost, which before this
+    // change had only one key (`input`) — i.e. the backend may want
+    // `categories` as a sibling of `input`, not only nested inside it.
+    // This is a testable hypothesis, not a confirmed fix (no OpenAPI
+    // access to verify against — see PLAN.md §6.24); duplicating it
+    // here is cheap and harmless if wrong, since `input.categories`
+    // still carries the real value either way.
     const { data, refreshedSession } = await callAsVisitor<unknown>("posts.createPost", {
       input: parsed.data.input,
+      categories: parsed.data.input.categories,
     });
     const response = NextResponse.json({ ok: true, post: data });
     if (refreshedSession) setSession(response, refreshedSession);

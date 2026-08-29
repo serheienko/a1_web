@@ -29,9 +29,13 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // 2026-08-29 round 5: see app/api/posts/create/route.ts's matching
+    // comment — same hypothesis fix in case the update path hits the
+    // same "root is missing required property 'categories'" 400.
     const { data, refreshedSession } = await callAsVisitor<unknown>("posts.updatePost", {
       id: parsed.data.id,
       input: parsed.data.input,
+      categories: parsed.data.input.categories,
     });
     const response = NextResponse.json({ ok: true, post: data });
     if (refreshedSession) setSession(response, refreshedSession);
