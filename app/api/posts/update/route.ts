@@ -9,6 +9,7 @@
 // byte-for-byte apart from the method name and the extra `id`.
 
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { PostInputSchema } from "@/lib/a1/schemas";
 import { A1ApiError } from "@/lib/a1/client";
@@ -43,6 +44,15 @@ export async function POST(request: NextRequest) {
       id: parsed.data.id,
       input: parsed.data.input,
     });
+    // 2026-08-30: same reasoning as app/api/posts/create/route.ts's
+    // matching revalidatePath calls -- see that file's comment. A
+    // published post being edited is the case that actually needs the
+    // feed's cached copy invalidated; a draft edit doesn't show there
+    // either way.
+    if (!parsed.data.input.draft) {
+      revalidatePath("/");
+      revalidatePath("/talents");
+    }
     const response = NextResponse.json({ ok: true, post: data });
     if (refreshedSession) setSession(response, refreshedSession);
     return response;

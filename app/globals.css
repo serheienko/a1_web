@@ -280,3 +280,38 @@ html {
     animation: none;
   }
 }
+
+/*
+ * Indeterminate linear progress bar -- Aleksandr, 2026-08-30, sent the
+ * native app's own "Posting"/"Updating" screenshot + a cat Lottie
+ * sticker to match: "прогресс-бар лоудер и надпись posting... и этого
+ * же кота мы можем использовать на апдейтинг." Classic Material-style
+ * indeterminate bar: a shorter bar sliding across a full-width track,
+ * looping -- used by components/post-editor.tsx's posting/updating
+ * banner (PLAN.md §6.40), not tied to any real 0-100% value since the
+ * underlying fetch() gives no progress events to report.
+ */
+@keyframes progress-indeterminate {
+  0% {
+    transform: translateX(-100%) scaleX(0.4);
+  }
+  50% {
+    transform: translateX(20%) scaleX(0.6);
+  }
+  100% {
+    transform: translateX(120%) scaleX(0.4);
+  }
+}
+
+.animate-progress-indeterminate {
+  transform-origin: left center;
+  animation: progress-indeterminate 1.3s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-progress-indeterminate {
+    animation: none;
+    transform: none;
+    width: 40% !important;
+  }
+}

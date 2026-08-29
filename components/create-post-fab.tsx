@@ -36,7 +36,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
 import { PostEditor } from "@/components/post-editor";
@@ -82,6 +82,7 @@ function ChunkyPlusIcon() {
 export function CreatePostFab() {
   const lang = useActiveLocale();
   const pathname = usePathname();
+  const router = useRouter();
   const [email, setEmail] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
 
@@ -114,7 +115,20 @@ export function CreatePostFab() {
         <ChunkyPlusIcon />
       </button>
 
-      {editorOpen && <PostEditor mode="create" onClose={() => setEditorOpen(false)} />}
+      {editorOpen && (
+        <PostEditor
+          mode="create"
+          onClose={() => setEditorOpen(false)}
+          // 2026-08-30 (Aleksandr: "чтобы лента сама типа дергалась, как
+          // бы рефрешилась"): this FAB was the one PostEditor mount point
+          // with no onSaved at all, so a post made from here never
+          // refreshed the feed underneath -- router.refresh() re-renders
+          // the current route's server components against whatever
+          // app/api/posts/create/route.ts's own revalidatePath() calls
+          // just invalidated.
+          onSaved={() => router.refresh()}
+        />
+      )}
     </>
   );
 }

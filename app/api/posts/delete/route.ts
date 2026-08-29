@@ -8,6 +8,7 @@
 // success rather than waiting on a body it can't trust the shape of.
 
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { A1ApiError } from "@/lib/a1/client";
 import { callAsVisitor, NoSessionError } from "@/lib/a1/visitor-call";
@@ -25,6 +26,14 @@ export async function POST(request: NextRequest) {
 
   try {
     const { refreshedSession } = await callAsVisitor<unknown>("posts.deletePost", { id: parsed.data.id });
+    // 2026-08-30: same reasoning as app/api/posts/create/route.ts's
+    // matching revalidatePath calls -- a deleted post should stop
+    // showing on the feed right away rather than sitting in the ISR
+    // cache. Unconditional here (unlike create/update) since we don't
+    // know from just an id whether the deleted post was a draft --
+    // revalidating a path that never had it cached is a no-op anyway.
+    revalidatePath("/");
+    revalidatePath("/talents");
     const response = NextResponse.json({ ok: true });
     if (refreshedSession) setSession(response, refreshedSession);
     return response;

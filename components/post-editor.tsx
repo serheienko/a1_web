@@ -131,6 +131,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import type { Category, Tag, Currency } from "@/lib/a1/datasets";
 import { translateTagLabel, translateCategoryLabel } from "@/components/label-translations";
+import { LottiePlayer } from "@/components/lottie-player";
 
 type PostObject = "post-job-employing" | "post-job-seeking";
 
@@ -188,6 +189,19 @@ type Bootstrap = {
 const EMPTY_BOOTSTRAP: Bootstrap = { categories: [], currencies: [], hiringTags: [], seekingTags: [] };
 
 const TITLE_MIN = 10;
+// Aleksandr, 2026-08-30: "запостил такой заголовок, длинный, и не мог
+// запостить пост... надо вытянуть фактически максимум количества
+// символов на заголовок [из моб. приложения] и поставить также в
+// десктопе." The live failure (Vercel logs, 2026-08-29 23:29 UTC) was
+// just a bare 500 INTERNAL_SERVER_ERROR from posts.createPost with no
+// validation message or character count in it -- so unlike every other
+// PLAN.md fix in this file, there's no confirmed number to copy, only
+// confirmation that SOME cap exists and this app has none client-side
+// today. 120 is a placeholder pending Aleksandr checking the mobile
+// app's own input (its maxLength is presumably a hard stop on typing,
+// per his own description) -- update this the moment that number is
+// known instead of leaving it as a guess.
+const TITLE_MAX = 120;
 const DESCRIPTION_MIN = 30;
 const MAX_PHOTOS = 3;
 const MAX_PHOTO_BYTES = 300 * 1024;
@@ -344,7 +358,8 @@ type StringKey =
   | "scheduleConfirm" | "scheduleActionCaps" | "scheduleCancel" | "scheduleTimeLabel"
   | "scheduleToday" | "scheduleTomorrow" | "scheduleIn3Days" | "scheduleInWeek"
   | "scheduleInvalid" | "errorGeneric" | "requiredHint"
-  | "closeConfirmTitle" | "closeConfirmBody" | "continueEditing";
+  | "closeConfirmTitle" | "closeConfirmBody" | "continueEditing"
+  | "postingLabel" | "updatingLabel";
 
 const STRINGS: Record<StringKey, Record<Locale, string>> = {
   createTitle: { uk: "Новий пост", en: "New post", ru: "Новый пост", de: "Neuer Beitrag", es: "Nueva publicación", fr: "Nouvelle publication", pl: "Nowy post", ptBR: "Nova publicação", zh: "新帖子" },
@@ -408,6 +423,13 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   closeConfirmTitle: { uk: "Зберегти чернетку?", en: "Save as draft?", ru: "Сохранить черновик?", de: "Als Entwurf speichern?", es: "¿Guardar como borrador?", fr: "Enregistrer comme brouillon ?", pl: "Zapisać jako szkic?", ptBR: "Salvar como rascunho?", zh: "保存为草稿吗？" },
   closeConfirmBody: { uk: "Інакше вписані дані буде втрачено.", en: "Otherwise what you entered will be lost.", ru: "Иначе введённые данные будут потеряны.", de: "Andernfalls gehen Ihre Eingaben verloren.", es: "De lo contrario, se perderá lo que escribiste.", fr: "Sinon, les données saisies seront perdues.", pl: "W przeciwnym razie wpisane dane zostaną utracone.", ptBR: "Caso contrário, os dados inseridos serão perdidos.", zh: "否则已填写的内容将会丢失。" },
   continueEditing: { uk: "Продовжити редагування", en: "Continue editing", ru: "Продолжить редактирование", de: "Weiter bearbeiten", es: "Seguir editando", fr: "Continuer la modification", pl: "Kontynuuj edycję", ptBR: "Continuar editando", zh: "继续编辑" },
+  // Aleksandr, 2026-08-30 (native app screenshot + a cat Lottie sticker):
+  // "хочу когда мы создаем пост чтобы страница как бы релоадилась и
+  // показывала нам типа posting... и этого же кота мы можем
+  // использовать на апдейтинг" -- see the postingBannerLabel usage
+  // further down for which of these two shows.
+  postingLabel: { uk: "Публікується...", en: "Posting...", ru: "Публикуется...", de: "Wird veröffentlicht...", es: "Publicando...", fr: "Publication en cours...", pl: "Publikowanie...", ptBR: "Publicando...", zh: "发布中..." },
+  updatingLabel: { uk: "Оновлюється...", en: "Updating...", ru: "Обновляется...", de: "Wird aktualisiert...", es: "Actualizando...", fr: "Mise à jour en cours...", pl: "Aktualizowanie...", ptBR: "Atualizando...", zh: "更新中..." },
 };
 
 function t(key: StringKey, lang: Locale, vars?: Record<string, string | number>): string {
@@ -829,6 +851,15 @@ export function PostEditor({
     onClose();
   }
 
+  // Aleksandr, 2026-08-30 (native app screenshot + a cat Lottie
+  // sticker): drives the posting/updating banner further down, which
+  // replaces the dialog card entirely the instant Post/Save-changes is
+  // clicked (pendingAction is set synchronously at the top of submit(),
+  // before the fetch) -- NOT shown for a draft save, which already has
+  // its own inline "чернетку збережено" checkmark and stays open.
+  const isSubmittingPost = pendingAction === "post" || pendingAction === "schedule";
+  const isUpdatingExisting = mode === "edit" || savedPostId !== null;
+
   function buildMoney(): ExistingMoney {
     const amount = Number(salaryAmount);
     if (!salaryAmount || Number.isNaN(amount) || amount <= 0 || !salaryCurrency) {
@@ -1028,6 +1059,31 @@ export function PostEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scheduleOpen]);
 
+  if (isSubmittingPost) {
+    // Aleksandr, 2026-08-30: replaces the whole dialog the instant
+    // Post/Save-changes is clicked -- no dark backdrop (pointer-events-
+    // none on this wrapper, -auto only on the card itself) so the feed
+    // underneath stays visible and scrollable, matching "чтобы лента
+    // сама типа дергалась, как бы рефрешилась" -- the actual refresh
+    // happens via onSaved() in submit() once the request resolves and
+    // this whole component unmounts.
+    return (
+      <div className="pointer-events-none fixed inset-0 z-[60] flex items-end justify-center p-4 sm:justify-end">
+        <div className="pointer-events-auto flex w-full max-w-xs items-center gap-3 rounded-2xl bg-white p-3 pr-4 shadow-xl ring-1 ring-black/5 dark:bg-neutral-900 dark:ring-white/10">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-neutral-900 dark:text-neutral-50">
+              {isUpdatingExisting ? t("updatingLabel", lang) : t("postingLabel", lang)}
+            </p>
+            <div className="relative mt-1.5 h-1 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
+              <div className="absolute inset-y-0 left-0 w-2/5 rounded-full bg-accent animate-progress-indeterminate" />
+            </div>
+          </div>
+          <LottiePlayer src="/animations/posting-cat.json" size={48} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 sm:items-center sm:p-4" onClick={requestClose}>
       <div
@@ -1139,9 +1195,10 @@ export function PostEditor({
             <input
               type="text"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => setTitle(e.target.value.slice(0, TITLE_MAX))}
               onBlur={() => setTitleTouched(true)}
               placeholder={object === "post-job-employing" ? t("titlePlaceholderHiring", lang) : t("titlePlaceholderSeeking", lang)}
+              maxLength={TITLE_MAX}
               className={titleTouched && !titleValid ? invalidInputClass : inputClass}
             />
             {titleTouched && !titleValid && <span className="text-xs text-red-500">{t("titleTooShort", lang, { n: TITLE_MIN })}</span>}

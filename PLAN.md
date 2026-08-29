@@ -2330,3 +2330,52 @@ for every badge on a page rather than one per card, since a feed page
 can mount dozens of `PostCard`s at once. Wired into `post-card.tsx`
 next to the author's name (not the avatar, which is exactly what
 prompted the confusion).
+
+### 6.40 Title max length (unconfirmed placeholder); Posting/Updating banner with cat animation; feed auto-refresh (2026-08-30)
+
+Three related fixes, one from a live error with no usable number in it,
+two from a native-app screenshot + an animated sticker Aleksandr sent:
+
+- **Title max length**: "запостил такой заголовок, длинный, и не мог
+  запостить пост." Live Vercel logs (2026-08-29 23:29 UTC,
+  `posts.createPost`) show only a bare `500 INTERNAL_SERVER_ERROR` with
+  no validation message or character count — confirms a cap exists
+  server-side, but not what it is. `components/post-editor.tsx` gained
+  `TITLE_MAX = 120` as an explicit placeholder (`maxLength` attribute +
+  a defensive `.slice()` on change) — flagged in its own comment as a
+  guess pending Aleksandr checking the mobile app's own input limit,
+  not a confirmed number like every other fix in this log.
+
+- **Posting/Updating banner**: Aleksandr sent a `.tgs` (Telegram
+  animated sticker — gzipped Lottie JSON) of a cat, decoded and saved as
+  `public/animations/posting-cat.json`, plus a description of the
+  native app's own flow: "хочу... чтобы страница релоадилась и
+  показывала posting... прогресс-бар лоудер и надпись posting...
+  можно справа анимацию... этого же кота используем на апдейтинг."
+  `post-editor.tsx` now renders a small floating card (no dark
+  backdrop — feed stays visible/scrollable underneath) the instant
+  Post/Save-changes is clicked (`pendingAction` is set synchronously
+  before the fetch), replacing the dialog entirely: an indeterminate
+  progress bar + "Публікується.../Оновлюється..." label on the left,
+  the cat animation (via the existing `components/lottie-player.tsx` —
+  already used for onboarding icons, no new player written) on the
+  right. Not shown for a draft save, which already has its own inline
+  confirmation and stays open. `package.json` also picked up a
+  pre-existing inconsistency in the same pass: `lottie-web` (the
+  library `lottie-player.tsx`/`occupation-icon.tsx`/`logo-play.tsx`
+  already `import("lottie-web")` at runtime) was missing from
+  `dependencies` — only the unused, never-imported `lottie-react` was
+  listed. Fixed to declare what the code actually uses.
+
+- **Feed auto-refresh**: the other half of the same request — a
+  published post previously wouldn't appear in the feed until its
+  `revalidate` ISR window naturally passed. `app/api/posts/create`,
+  `update`, and `delete` now call `revalidatePath("/")` and
+  `revalidatePath("/talents")` on success (skipped for a draft
+  save/edit, which never shows in either feed anyway) — same two feed
+  roots `app/api/revalidate/route.ts`'s existing backend-pushed webhook
+  already revalidates. `components/create-post-fab.tsx` was the one
+  `PostEditor` mount point with no `onSaved` at all (post-owner-menu.tsx
+  and my-posts-panel.tsx already had their own), so posting from the
+  main "+" button never refreshed anything behind it — now passes
+  `onSaved={() => router.refresh()}`.

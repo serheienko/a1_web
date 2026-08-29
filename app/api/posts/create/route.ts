@@ -12,6 +12,7 @@
 // because anything here re-renders it.
 
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { PostInputSchema } from "@/lib/a1/schemas";
 import { A1ApiError } from "@/lib/a1/client";
@@ -51,6 +52,18 @@ export async function POST(request: NextRequest) {
     // defensive belt-and-suspenders in e432b87) actively breaks the call.
     // PostInput belongs ONLY at the root — no wrapper at all.
     const { data, refreshedSession } = await callAsVisitor<unknown>("posts.createPost", parsed.data.input);
+    // 2026-08-30 (Aleksandr: "чтобы лента сама типа дергалась, как бы
+    // рефрешилась" after posting): without this, a newly published post
+    // wouldn't show up until the feed pages' own `revalidate` ISR window
+    // naturally expired. Same two feed roots app/api/revalidate/route.ts's
+    // webhook already revalidates on a backend-pushed change -- "/" is
+    // the Jobs feed root (moved from /jobs 2026-08-26), /talents the
+    // other. A draft save doesn't reach here (draft posts don't show in
+    // either feed), so this only fires for a real publish/schedule.
+    if (!parsed.data.input.draft) {
+      revalidatePath("/");
+      revalidatePath("/talents");
+    }
     const response = NextResponse.json({ ok: true, post: data });
     if (refreshedSession) setSession(response, refreshedSession);
     return response;
