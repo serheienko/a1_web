@@ -1568,3 +1568,61 @@ Follow-ups from the same session as §6.17:
 4. Any web-specific rate limiting wanted on `posts.createPost` /
    `users.createUser`, given the web has no app-store review gate the
    way the mobile client does?
+
+### 6.19 Phase 7 implemented: post CRUD (create/edit/delete, drafts + scheduling) (2026-08-29)
+
+Built from 5 reference screenshots of the real mobile-app post-creation
+flow ("давай пилити создание поста, полностью по аналогии приложения.
+Драфты и запланированные посты можно тоже сразу делать"), plus a same-
+day follow-up widening scope from create-only to full CRUD ("посты
+повинні бути CRUD, create / update / delete").
+
+- `components/post-editor.tsx` — the real form, replacing
+  `create-post-fab.tsx`'s stub dialog. Object toggle, title, description
+  (with contextual tips copy), location (via `/api/locations`, reusing
+  `filters-form.tsx`'s own debounced search), category (single pick from
+  `dataset.postCategories`), one link, tag pills sourced straight from
+  `dataset.postTags` (work type / employment type / experience, split by
+  matching against the same English strings `filters-form.tsx`'s
+  `TAG_LABEL_TRANSLATIONS` already keys on) plus up to 5 free-text custom
+  tags in the same flat array, salary (amount + `dataset.currencies` +
+  a month/year toggle → `Money.Single`/`SingleAnnual`), up to 5
+  `apply.questions` entries, up to 5 direct-to-storage photo uploads
+  (`upload.create` → POST to the presigned destination → `upload.confirm`),
+  and three distinct submits (Post / Save draft / Schedule via a native
+  `datetime-local` picker). Handles both create and edit via one
+  `mode`/`initialPost` prop pair.
+- `components/my-posts-panel.tsx` — new "My posts" entry in
+  `avatar-menu.tsx` (the "revisit once needed" §6.6 flagged). Lists the
+  visitor's own posts across all three states, Edit opens the same
+  `PostEditor` prefilled, Delete is a two-step inline confirm.
+- Server: `app/api/posts/{create,update,delete,mine}/route.ts`,
+  `app/api/upload/{create,confirm}/route.ts`,
+  `app/api/post-editor/bootstrap/route.ts` (categories/currencies/tags in
+  one call). All auth-needing calls go through `callAsVisitor`, same
+  shape as `app/api/account/update-profile/route.ts`.
+  `lib/a1/schemas.ts` gained `PostInputSchema` (the write-side mirror of
+  §6.1's documented `posts.createPost` contract); `lib/a1/datasets.ts`
+  gained `fetchCurrencies()`.
+- Deliberately not built: `hideAuthor`/`premiumPinDays`/`premiumHighlight`
+  (no reference screenshot, and the last two names were only ever a
+  guess by convention — left out rather than guessed in), and Range/
+  RangeAnnual salaries (the editor never produces one, but preserves an
+  existing Range salary untouched on an edit rather than dropping it —
+  see `post-editor.tsx`'s `buildMoney()`).
+- Known unverified guess, flagged in code: `apply.questions`' per-item
+  shape (`{ question: string }`) — PLAN.md never had this confirmed past
+  "array of unknown" on the read side, and it's only exercised once a
+  founder actually adds a custom question. Verify against the first live
+  200/400 the same way `Resource.User.Company` was fixed (§6.15).
+
+Same-day, unrelated small fixes bundled into the same commit: the
+avatar-menu trigger button is now a full circle (`rounded-full`, was
+`rounded-xl`) per a live screenshot follow-up — accepted as a one-off
+exception to the "square gradient fill needs rounded-xl" rule the other
+4 cat-avatar call sites still follow, since a 36px nav icon crops fine.
+Occupation cat icons on `/u/[username]` now render via new
+`public/occupations/*-nobg.json` variants (same source animation with
+just the baked-in gradient-square background shape layer stripped out)
+while onboarding keeps the original with-background files — see
+`components/occupation-icon.tsx`'s new `background` prop.
