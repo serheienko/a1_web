@@ -1289,7 +1289,20 @@ wants this resolved** (add a company-name field to this step vs.
 "Отрасль" isn't really `companies[].category` at all) rather than
 sending a placeholder/fake company name to a real backend on a guess.
 Not fixed yet — occupation and expertise still save fine on their own;
-it's specifically the category/industry field that's blocked.
+it's specifically the category/industry field that's blocked. **RESOLVED, same day** — Aleksandr:
+"в приложении мы не спрашиваем про компанию и все нормально
+сохраняется" prompted re-checking the real schema instead of adding a
+name field the app doesn't have. Pulled `Resource.User.Company`'s full
+`required` array from the live openapi.json: `name`, `description`,
+`position`, `turnover`, `employeesCount`, `category`, `link` — all
+seven keys must be PRESENT, but only `category` needs a real value
+(confirmed by iterating live: each fix moved the 400 to the next
+missing key, until sending `{category, name:"", description:"",
+position:null, turnover:null, employeesCount:0, link:null}` returned
+200). Verified end-to-end with a fresh test account (claude-onboarding-
+test2-20260829@neowd.com): sign-up → verify (skipped via the arrow,
+same as a real "can't get the code" case) → profile-setup with IT
+selected → 200 → redirected to "/". Onboarding is fully working now.
 
 **Small UI fixes, 2026-08-29** (Aleksandr, live-testing feedback):
 - Briefcase cat on this step enlarged 50% (72px → 108px).
