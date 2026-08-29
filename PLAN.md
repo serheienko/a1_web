@@ -2278,3 +2278,33 @@ Two more screenshot-driven fixes, UI-only:
   its text (experience tags look like "exp-3-yr" against a text of
   "3") — no live tag list to confirm those value strings against, so
   not guessing at a second table for them yet.
+
+### 6.38 UI: confirm-before-close in the create-post modal (2026-08-29)
+
+Aleksandr, from 3 screenshots of the native app's own "New post" flow
+(the form, its close-confirm prompt, and the resulting Draft Posts
+sheet): "если я заполнил поля и случайно кликнул вне формы, форма
+должна меня спросить 'сохранить черновик'... а то я могу случайно
+нажать, оно выйдет и будет заеб переписывать."
+
+`components/post-editor.tsx` gained:
+- `isDirty` (`mode === "create"` and at least one field has content) —
+  scoped to create mode only; a fresh blank form has nothing worth
+  guarding, and diffing an edit session against its own `initialPost`
+  is a separate, fuzzier problem not asked for here.
+- `requestClose()` — the backdrop click and the header's ✕ now call
+  this instead of `onClose` directly; it opens a small "Зберегти
+  чернетку?" confirm popover when `isDirty`, otherwise closes
+  immediately exactly like before.
+- The popover's two actions: "Зберегти чернетку" (same required-field
+  gate as the footer's own draft button — `markAllTouched()` and stay
+  open if invalid, otherwise save as a draft and THEN close, via a new
+  `submit(action, { closeAfter })` option) and "Продовжити редагування"
+  (just dismisses the popover, per Aleksandr's own 2-button description
+  of the native flow — no separate "discard everything" button added,
+  matching what was actually asked for).
+
+Not yet done (same request, larger scope, next up): the drafts-count
+badge/list in the editor's own header (native app's file-icon-with-
+number, opening a "Draft Posts" sheet) — needs its own design pass,
+tracked separately rather than guessed at in the same commit.

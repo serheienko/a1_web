@@ -343,7 +343,8 @@ type StringKey =
   | "saveDraft" | "draftSaved" | "post" | "saveChanges" | "schedulePost"
   | "scheduleConfirm" | "scheduleActionCaps" | "scheduleCancel" | "scheduleTimeLabel"
   | "scheduleToday" | "scheduleTomorrow" | "scheduleIn3Days" | "scheduleInWeek"
-  | "scheduleInvalid" | "errorGeneric" | "requiredHint";
+  | "scheduleInvalid" | "errorGeneric" | "requiredHint"
+  | "closeConfirmTitle" | "closeConfirmBody" | "continueEditing";
 
 const STRINGS: Record<StringKey, Record<Locale, string>> = {
   createTitle: { uk: "Новий пост", en: "New post", ru: "Новый пост", de: "Neuer Beitrag", es: "Nueva publicación", fr: "Nouvelle publication", pl: "Nowy post", ptBR: "Nova publicação", zh: "新帖子" },
@@ -400,6 +401,13 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   scheduleInvalid: { uk: "Оберіть коректну дату в межах року", en: "Pick a valid date within a year from now", ru: "Выберите корректную дату в пределах года", de: "Wählen Sie ein gültiges Datum innerhalb eines Jahres", es: "Elige una fecha válida dentro de un año", fr: "Choisissez une date valide dans l'année à venir", pl: "Wybierz poprawną datę w ciągu roku", ptBR: "Escolha uma data válida dentro de um ano", zh: "请选择一年内的有效日期" },
   errorGeneric: { uk: "Щось пішло не так. Спробуйте ще раз.", en: "Something went wrong. Please try again.", ru: "Что-то пошло не так. Попробуйте ещё раз.", de: "Etwas ist schiefgelaufen. Bitte erneut versuchen.", es: "Algo salió mal. Inténtalo de nuevo.", fr: "Une erreur est survenue. Réessayez.", pl: "Coś poszło nie tak. Spróbuj ponownie.", ptBR: "Algo deu errado. Tente novamente.", zh: "出了点问题，请重试。" },
   requiredHint: { uk: "Заповніть заголовок, опис, локацію і категорію", en: "Fill in title, description, location and category", ru: "Заполните заголовок, описание, локацию и категорию", de: "Titel, Beschreibung, Standort und Kategorie ausfüllen", es: "Completa título, descripción, ubicación y categoría", fr: "Renseignez titre, description, lieu et catégorie", pl: "Uzupełnij tytuł, opis, lokalizację i kategorię", ptBR: "Preencha título, descrição, localização e categoria", zh: "请填写标题、描述、地点和分类" },
+  // Aleksandr, 2026-08-29 (3 screenshots of the native app's own flow):
+  // "если я заполнил поля и случайно кликнул вне формы, форма должна
+  // меня спросить 'сохранить черновик'... у нас там спрашивает сразу:
+  // save to draft или типа continue" -- see isDirty/requestClose below.
+  closeConfirmTitle: { uk: "Зберегти чернетку?", en: "Save as draft?", ru: "Сохранить черновик?", de: "Als Entwurf speichern?", es: "¿Guardar como borrador?", fr: "Enregistrer comme brouillon ?", pl: "Zapisać jako szkic?", ptBR: "Salvar como rascunho?", zh: "保存为草稿吗？" },
+  closeConfirmBody: { uk: "Інакше вписані дані буде втрачено.", en: "Otherwise what you entered will be lost.", ru: "Иначе введённые данные будут потеряны.", de: "Andernfalls gehen Ihre Eingaben verloren.", es: "De lo contrario, se perderá lo que escribiste.", fr: "Sinon, les données saisies seront perdues.", pl: "W przeciwnym razie wpisane dane zostaną utracone.", ptBR: "Caso contrário, os dados inseridos serão perdidos.", zh: "否则已填写的内容将会丢失。" },
+  continueEditing: { uk: "Продовжити редагування", en: "Continue editing", ru: "Продолжить редактирование", de: "Weiter bearbeiten", es: "Seguir editando", fr: "Continuer la modification", pl: "Kontynuuj edycję", ptBR: "Continuar editando", zh: "继续编辑" },
 };
 
 function t(key: StringKey, lang: Locale, vars?: Record<string, string | number>): string {
@@ -502,6 +510,9 @@ export function PostEditor({
   // one post instead of minting a new one on every "Save draft" click.
   const [savedPostId, setSavedPostId] = useState<string | null>(initialPost?.id ?? null);
   const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
+  // Aleksandr, 2026-08-29: close-with-unsaved-content confirmation --
+  // see isDirty and requestClose() further down for the full story.
+  const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
 
   const [object, setObject] = useState<PostObject>(initialPost?.object ?? "post-job-employing");
   const [title, setTitle] = useState(initialPost?.title ?? "");
@@ -785,6 +796,39 @@ export function PostEditor({
   // three footer buttons exactly as before.
   const isEditingPublishedPost = mode === "edit" && initialPost?.isDraft === false;
 
+  // 2026-08-29 (Aleksandr, 3 screenshots of the native app's "New post"
+  // flow -- create modal, its close-confirm prompt, the resulting Draft
+  // Posts sheet): "если я заполнил поля и случайно кликнул вне формы,
+  // форма должна меня спросить 'сохранить черновик'... а то я могу
+  // случайно нажать, оно выйдет и будет заеб переписывать". Scoped to
+  // mode==="create" only -- a brand-new post with nothing typed yet has
+  // nothing worth prompting about, and diffing an edit session against
+  // its own initialPost is a separate, fuzzier problem (which field
+  // counts as "changed"?) that wasn't asked for here; editing still
+  // closes immediately like before.
+  const isDirty =
+    mode === "create" &&
+    (title.trim().length > 0 ||
+      content.trim().length > 0 ||
+      location !== null ||
+      linkUrl.trim().length > 0 ||
+      selectedTags.length > 0 ||
+      category !== null ||
+      salaryAmount.trim().length > 0 ||
+      questions.length > 0 ||
+      media.length > 0);
+
+  // The single entry point both the backdrop click and the header's ✕
+  // now go through instead of calling onClose() directly -- see the
+  // confirm-close popover rendered near the end of this component.
+  function requestClose() {
+    if (isDirty) {
+      setConfirmCloseOpen(true);
+      return;
+    }
+    onClose();
+  }
+
   function buildMoney(): ExistingMoney {
     const amount = Number(salaryAmount);
     if (!salaryAmount || Number.isNaN(amount) || amount <= 0 || !salaryCurrency) {
@@ -883,7 +927,7 @@ export function PostEditor({
     setScheduleOpen(true);
   }
 
-  async function submit(action: "post" | "draft" | "schedule") {
+  async function submit(action: "post" | "draft" | "schedule", opts?: { closeAfter?: boolean }) {
     if (!canSubmit || pendingAction) return;
     let scheduledSeconds: number | null = null;
     if (action === "schedule") {
@@ -953,7 +997,7 @@ export function PostEditor({
       if (!targetId && newId) setSavedPostId(newId);
 
       onSaved?.();
-      if (action === "draft") {
+      if (action === "draft" && !opts?.closeAfter) {
         // Stay open — see header comment. Show a transient confirmation
         // instead of the dialog just vanishing.
         setDraftSavedAt(Date.now());
@@ -985,7 +1029,7 @@ export function PostEditor({
   }, [scheduleOpen]);
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 sm:items-center sm:p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 sm:items-center sm:p-4" onClick={requestClose}>
       <div
         ref={dialogRef}
         role="dialog"
@@ -1006,11 +1050,60 @@ export function PostEditor({
                 {t("draftSaved", lang)}
               </span>
             )}
-            <button type="button" onClick={onClose} aria-label={t("close", lang)} className="text-neutral-400 transition hover:text-neutral-900 dark:hover:text-neutral-50">
+            <button type="button" onClick={requestClose} aria-label={t("close", lang)} className="text-neutral-400 transition hover:text-neutral-900 dark:hover:text-neutral-50">
               <CloseIcon />
             </button>
           </div>
         </div>
+
+        {confirmCloseOpen && (
+          // Small centered dialog-on-a-dialog, above everything else in
+          // here (z-[70] > the z-[60] backdrop) -- own backdrop click
+          // AND its own stopPropagation so it behaves like a real modal,
+          // not just another row in the form.
+          <div
+            className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4"
+            onClick={() => setConfirmCloseOpen(false)}
+          >
+            <div
+              role="alertdialog"
+              aria-modal="true"
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-xs rounded-2xl bg-white p-5 shadow-xl dark:bg-neutral-900"
+            >
+              <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">{t("closeConfirmTitle", lang)}</p>
+              <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{t("closeConfirmBody", lang)}</p>
+              <div className="mt-4 flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!canSubmit) {
+                      // Same "highlight what's missing" behavior the
+                      // footer's own Save-draft button already has --
+                      // dismiss this popover so the marked-invalid
+                      // fields underneath are actually visible.
+                      markAllTouched();
+                      setConfirmCloseOpen(false);
+                      return;
+                    }
+                    setConfirmCloseOpen(false);
+                    submit("draft", { closeAfter: true });
+                  }}
+                  className="rounded-full bg-accent py-2.5 text-sm font-bold tracking-wide text-white transition hover:opacity-90"
+                >
+                  {t("saveDraft", lang)}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmCloseOpen(false)}
+                  className="rounded-full border border-neutral-300 py-2.5 text-sm font-medium text-neutral-600 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                >
+                  {t("continueEditing", lang)}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
           {/* 2026-08-29: "делай закреплённым, чтобы не заезжало наверх" —
