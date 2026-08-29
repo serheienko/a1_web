@@ -85,7 +85,21 @@ export function PostCard({
     // shadow alone), corner-radius 20 (rounded-card), 16px padding. Dark
     // mode keeps the pre-existing neutral-900/border treatment since no
     // dark-mode screen has been checked yet.
-    <article className="flex items-start gap-4 rounded-card bg-card p-4 shadow-sm transition hover:shadow-md dark:border dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700">
+    //
+    // `relative` here is the containing block for the title link's
+    // "stretched link" ::after below — Aleksandr, 2026-08-29 (annotated
+    // screenshot): everything he circled in green (badge, whitespace,
+    // description, tags) should open the post on tap, while avatar/name
+    // keep opening the profile exactly as before. Rather than nest a
+    // second <a> around the whole card (invalid HTML — no nested
+    // anchors, and would swallow the avatar/name clicks), the title
+    // Link grows an absolutely-positioned `::after` sized to the full
+    // card (`after:inset-0`) via this `relative` anchor. Non-positioned
+    // siblings (badge span, description Link, tag spans) sit below it
+    // in paint order and so click through to it; the avatar Link and
+    // author-name Link are pulled back on top with their own `relative
+    // z-10` so they keep going to the profile, not the post.
+    <article className="relative flex items-start gap-4 rounded-card bg-card p-4 shadow-sm transition hover:shadow-md dark:border dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700">
       {/* 2026-08-28: "нажатие на эту область сейчас открывает профиль...
           мне надо, чтобы оно открывало пост. У нас профиль открывает
           только тап по аватару и тап по имени." — Aleksandr circled a
@@ -98,7 +112,7 @@ export function PostCard({
           profile link. `items-start` on the row keeps every flex child
           (this Link included) sized to its own content instead. */}
       {profileHref ? (
-        <Link href={profileHref} className="shrink-0 self-start transition-opacity hover:opacity-80">
+        <Link href={profileHref} className="relative z-10 shrink-0 self-start transition-opacity hover:opacity-80">
           {avatarImg}
         </Link>
       ) : (
@@ -114,7 +128,10 @@ export function PostCard({
                 -webkit-line-clamp actually truncate on real Safari/iOS,
                 and a `block` utility on the same element would win the
                 compiled `display` property and silently undo that. */}
-            <Link href={href} className="line-clamp-3 hover:underline">
+            <Link
+              href={href}
+              className="line-clamp-3 hover:underline after:absolute after:inset-0 after:z-0 after:content-['']"
+            >
               {post.title}
             </Link>
           </h2>
@@ -132,7 +149,7 @@ export function PostCard({
 
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-faint dark:text-neutral-400">
           {profileHref ? (
-            <Link href={profileHref} className="max-w-[10rem] truncate hover:underline">
+            <Link href={profileHref} className="relative z-10 max-w-[10rem] truncate hover:underline">
               {post.author.name}
             </Link>
           ) : (

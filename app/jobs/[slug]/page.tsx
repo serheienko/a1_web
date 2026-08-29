@@ -111,9 +111,12 @@ export default async function JobDetailPage({ params }: Props) {
         </div>
       )}
 
-      <span className="inline-block rounded-full bg-accent/10 px-2.5 py-1 text-xs font-medium text-accent dark:bg-accent/20">
-        <T uk="Вакансія" en="Job" ru="Вакансия" de="Stellenanzeige" es="Vacante" fr="Offre d'emploi" pl="Oferta pracy" ptBR="Vaga" zh="职位" />
-      </span>
+      <div className="flex items-center justify-between gap-3">
+        <span className="inline-block rounded-full bg-accent/10 px-2.5 py-1 text-xs font-medium text-accent dark:bg-accent/20">
+          <T uk="Вакансія" en="Job" ru="Вакансия" de="Stellenanzeige" es="Vacante" fr="Offre d'emploi" pl="Oferta pracy" ptBR="Vaga" zh="职位" />
+        </span>
+        <PostOwnerMenu postId={post.id} redirectAfterDeleteTo="/jobs" />
+      </div>
 
       <h1 className="mt-3 text-2xl font-semibold text-neutral-900 sm:text-3xl dark:text-neutral-50">{post.title}</h1>
 
@@ -173,7 +176,6 @@ export default async function JobDetailPage({ params }: Props) {
             <span>{formatRelativeTime(post.publishedAt)}</span>
           </div>
         </div>
-        <PostOwnerMenu postId={post.id} redirectAfterDeleteTo="/jobs" />
       </div>
 
       <PostImages images={postImages} />

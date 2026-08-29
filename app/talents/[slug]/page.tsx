@@ -96,9 +96,12 @@ export default async function TalentDetailPage({ params }: Props) {
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-10 sm:py-16">
-      <span className="inline-block rounded-full bg-[#C830FF]/10 px-2.5 py-1 text-xs font-medium text-[#C830FF] dark:bg-[#C830FF]/20">
-        <T uk="Фахівець" en="Talent" ru="Специалист" de="Fachkraft" es="Especialista" fr="Spécialiste" pl="Specjalista" ptBR="Especialista" zh="人才" />
-      </span>
+      <div className="flex items-center justify-between gap-3">
+        <span className="inline-block rounded-full bg-[#C830FF]/10 px-2.5 py-1 text-xs font-medium text-[#C830FF] dark:bg-[#C830FF]/20">
+          <T uk="Фахівець" en="Talent" ru="Специалист" de="Fachkraft" es="Especialista" fr="Spécialiste" pl="Specjalista" ptBR="Especialista" zh="人才" />
+        </span>
+        <PostOwnerMenu postId={post.id} redirectAfterDeleteTo="/talents" />
+      </div>
 
       <h1 className="mt-3 text-2xl font-semibold text-neutral-900 sm:text-3xl dark:text-neutral-50">{post.title}</h1>
 
@@ -158,7 +161,6 @@ export default async function TalentDetailPage({ params }: Props) {
             <span>{formatRelativeTime(post.publishedAt)}</span>
           </div>
         </div>
-        <PostOwnerMenu postId={post.id} redirectAfterDeleteTo="/talents" />
       </div>
 
       <PostImages images={postImages} />

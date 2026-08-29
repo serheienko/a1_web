@@ -2174,3 +2174,30 @@ input: parsed.data.input }`. Lesson carried into the comment itself —
 create and update are NOT guaranteed to share a request shape just
 because they share a body schema (PostInputSchema); don't re-apply one
 endpoint's confirmed fix to the other without its own live evidence.
+
+### 6.34 UI polish: "•••" menu next to the badge, whole feed card opens the post (2026-08-29)
+
+Two more screenshot-driven layout requests, neither backend-confirmed
+(no API involved) — pure client-side layout:
+
+- **PostOwnerMenu placement**: "Кружок с 3 точками вынеси наверх,
+  напротив тега 'job'" — the "•••" Edit/Delete trigger
+  (`components/post-owner-menu.tsx`, added in §6.30) moved in both
+  `app/jobs/[slug]/page.tsx` and `app/talents/[slug]/page.tsx` from
+  sitting next to the author byline to sitting next to the top
+  "Вакансія"/"Job" (or "Фахівець"/"Talent") status badge, in a new
+  shared `flex items-center justify-between` row. No prop or behavior
+  changes to the component itself.
+
+- **Feed card click area**: annotated screenshot circling almost the
+  entire card in green — badge, whitespace, description text, tag
+  pills — meaning all of it should open the post on tap, while the
+  avatar and author name keep opening the profile exactly as before.
+  `components/post-card.tsx`'s title `Link` grows a CSS "stretched
+  link": `after:absolute after:inset-0 after:content-['']` sized to the
+  whole card via a new `relative` on the `<article>`. Non-positioned
+  siblings (badge span, description Link, tag spans) sit below that
+  pseudo-element in paint order and click through to it; the avatar
+  Link and author-name Link get `relative z-10` to stay on top and keep
+  routing to the profile. No nested `<a>` tags (invalid HTML) and no
+  client JS added — still a pure server component.
