@@ -23,6 +23,7 @@ import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { generateImageBlurDataUrl } from "@/lib/avatar-blur";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { T } from "@/components/t";
+import { PostOwnerMenu } from "@/components/post-owner-menu";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -156,6 +157,7 @@ export default async function TalentDetailPage({ params }: Props) {
             <span>{formatRelativeTime(post.publishedAt)}</span>
           </div>
         </div>
+        <PostOwnerMenu postId={post.id} redirectAfterDeleteTo="/talents" />
       </div>
 
       <PostImages images={postImages} />
