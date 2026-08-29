@@ -1315,6 +1315,74 @@ selected → 200 → redirected to "/". Onboarding is fully working now.
   sitting wherever alphabetical/dataset order puts it.
 
 
+
+### 6.16 Phase 5b (Apple): sign-in button implemented (2026-08-29)
+
+Aleksandr, unprompted: "я так понял что мы ничего не ждем от Андрея
+больше и у нас всё есть" — Apple is unblocked the same way Google was
+(§6.11): Andrew added `com.aone.aoneapp.web` (§6.10) to
+`auth.appleId`'s accepted audience list. Built the same evening.
+
+**New files**, mirroring the Google pair exactly:
+- `components/apple-sign-in-button.tsx` — Apple's own "Sign in with
+  Apple JS" (`https://appleid.cdn-apple.com/.../appleid.auth.js`), not
+  the Firebase Auth SDK. Same reasoning as Google's button: no new npm
+  dependency (§0.4), no Firebase project config. `AppleID.auth.init()`
+  + `usePopup: true`, then a plain custom button (Apple's own glyph,
+  inline SVG) calling `AppleID.auth.signIn()` on click — a Promise that
+  resolves with `{authorization: {id_token}}` when `usePopup` is set,
+  verified against Apple's own JS reference (developer.apple.com/
+  documentation/sign_in_with_apple_js), not assumed.
+- `app/api/auth/apple/route.ts` — same shape as the Google route:
+  forwards the token to `auth.appleId`, sets the two session cookies.
+- `lib/a1/decode-jwt-email.ts` — the JWT-email-claim helper that
+  `app/api/auth/google/route.ts` had inline was needed verbatim here
+  too (both Google's and Apple's ID tokens carry a standard OIDC
+  `email` claim), so it moved out to a shared file rather than being
+  copy-pasted a second time.
+- `lib/a1/oauth-public.ts` — added `APPLE_SERVICES_ID` (`com.aone.
+  aoneapp.web`, from §6.10) and `APPLE_REDIRECT_URI`.
+
+**Real, still-open gap — flagged, not silently worked around, per
+§6.10's own "flag if the implementing agent goes a different route"
+note:** §6.10 configured Apple's Services ID assuming the web sign-in
+would go through the Firebase Auth SDK (`signInWithPopup` +
+`OAuthProvider('apple.com')`), so its only registered Return URL today
+is the Firebase generic handler
+(`https://a1-app-9aaf1.firebaseapp.com/__/auth/handler`). This
+implementation bypasses Firebase for Apple, the same way it already
+does for Google (§6.13) — hand-rolled, first-party SDK, direct to our
+own backend. That means Apple's popup flow needs its own Return URL
+under our domain instead: `APPLE_REDIRECT_URI` is set to
+`https://jobs.a1appp.com/sign-in` (the page hosting the button itself —
+no dedicated callback route needed, since Apple's JS SDK completes the
+popup flow via `postMessage` once it reaches that URL). **Aleksandr
+still needs to add this exact URL as an additional Return URL on the
+`com.aone.aoneapp.web` Services ID in Apple Developer** before the
+button will work end-to-end — not done yet, this is a console change
+only he can make (same category as §6.3's original OAuth console
+setup).
+
+**Not yet tested live** (couldn't be, until now — blocked on Andrew).
+Once the Return URL above is added, still to verify:
+- Apple sign-in actually completes and creates/resumes a session.
+- **Cross-provider identity, raised by Aleksandr the same session:**
+  does the SAME email across DIFFERENT sign-in methods resolve to one
+  account or two? Same-method parity is already established by
+  construction (one backend, one users table, §6.3/§6.5) — a plain
+  email+password account is identical from app or web, and Google's
+  `sub` is confirmed same-project (§6.9/§6.11) so it should match the
+  app's Google-created accounts too. Apple's Services ID was deliberately
+  associated with the app's own App ID (§6.10) for the same reason.
+  What's genuinely unconfirmed: sign up by email+password on one
+  platform, then try Google/Apple with an account sharing that same
+  email on the other — does the backend link that to the existing
+  record (by email) or create a second, separate one? Not yet asked of
+  Andrew or tested live; testable by us directly (create a test account
+  by email, then attempt a Google sign-in against the same address)
+  without needing his input, and worth doing once Apple's Return URL is
+  fixed so both providers can be checked in the same pass.
+
 ## OPEN QUESTIONS — Stage 2, for Aleksandr
 
 1. ~~**Google Sign-In needs its own Web-application OAuth Client ID**~~

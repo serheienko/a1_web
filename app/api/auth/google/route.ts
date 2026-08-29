@@ -11,11 +11,16 @@
 // here it's the Google ID token (a JWT) the client already obtained via
 // Google Identity Services (components/google-sign-in-button.tsx), not
 // an email/password pair.
+//
+// decodeEmailFromJwt moved to lib/a1/decode-jwt-email.ts, 2026-08-29
+// (PLAN.md §6.16) — app/api/auth/apple/route.ts needs the exact same
+// logic and it was previously only defined here.
 
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { call, A1ApiError } from "@/lib/a1/client";
 import { setSession } from "@/lib/a1/session";
+import { decodeEmailFromJwt } from "@/lib/a1/decode-jwt-email";
 
 export const runtime = "nodejs";
 
@@ -72,18 +77,5 @@ export async function POST(request: NextRequest) {
       console.error("[api/auth/google] unexpected error:", err);
     }
     return NextResponse.json({ ok: false, message: "sign_in_failed", detail }, { status: 401 });
-  }
-}
-
-/** Best-effort `email` claim out of an unverified JWT's payload segment. */
-function decodeEmailFromJwt(jwt: string): string | null {
-  try {
-    const payload = jwt.split(".")[1];
-    if (!payload) return null;
-    const json = Buffer.from(payload, "base64url").toString("utf8");
-    const claims = JSON.parse(json) as Record<string, unknown>;
-    return typeof claims.email === "string" ? claims.email : null;
-  } catch {
-    return null;
   }
 }

@@ -23,6 +23,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
+import { AppleSignInButton } from "@/components/apple-sign-in-button";
 
 type Mode = "sign-in" | "sign-up";
 
@@ -271,16 +272,16 @@ export default function SignInPage() {
           </button>
         </form>
 
-        {/* Phase 5b (PLAN.md §6.6/§6.11): Google is fully unblocked
-            already — no reason to gate the button behind Apple, which
-            still needs Andrew's backend change. Apple's own button
-            joins here once Phase 5b-Apple is built. */}
+        {/* Phase 5b (PLAN.md §6.6/§6.11/§6.16): both Google and Apple
+            are unblocked now — Andrew accepted both client ids, see
+            PLAN.md §6.16. */}
         <div className="my-6 flex items-center gap-3 text-xs font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-600">
           <div className="h-px flex-1 bg-neutral-200 dark:bg-neutral-800" />
           {STRINGS.orDivider[lang]}
           <div className="h-px flex-1 bg-neutral-200 dark:bg-neutral-800" />
         </div>
         <GoogleSignInButton />
+        <AppleSignInButton />
 
         <p className="mt-6 text-center text-sm">
           <button
