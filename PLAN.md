@@ -1338,11 +1338,12 @@ selected → 200 → redirected to "/". Onboarding is fully working now.
 6. ~~**Read-side changes**~~ — **Answered 2026-08-28: public feed/
    detail pages are not touched.** Purely a separate sign-in → editor
    flow for now. See Phase 7.
-7. **What does the "Я..." (Бизнесмен/Специалист/Фрилансер) onboarding
-   field save as?** See §6.15 — not in `account.updateProfile`'s
-   already-documented field list under any obvious name. Is it a
-   profile field (which one?) or does it just decide whether the
-   person is steered toward creating a Vacancy vs a Talent post?
+7. ~~**What does the "Я..." (Бизнесмен/Специалист/Фрилансер) onboarding
+   field save as?**~~ — **Answered/confirmed live, 2026-08-29:** it's
+   `occupation`, a plain field on `Resource.User` itself (enum
+   entrepreneur/professional/freelancer) — not nested, doesn't steer
+   post type. Confirmed by a real successful `account.updateProfile`
+   call (200) with `occupation` set. See §6.15.
 8. ~~**Which verification-email screenshot?**~~ — **Answered
    2026-08-28: Mailgun.** Aleksandr sent the real received email
    (From: info@a1appp.com, subject "Greetings from A1! Enter this code
