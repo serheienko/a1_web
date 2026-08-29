@@ -34,6 +34,14 @@
 // isn't: prompt() replaces Google's mechanism with a weaker one (One
 // Tap, suppressible); this replaces nothing — Google's button still
 // does the work, just invisibly.
+//
+// 2026-08-29, visual pass round 3 (same ChatGPT-screenshot ask as
+// components/apple-sign-in-button.tsx's own round-3 comment): the
+// invisible OUR-OWN button below switched from the round-2 solid-black
+// look to ChatGPT's white-pill-with-thin-border pattern, matching the
+// Apple button's own round-3 classes exactly — this overlay technique
+// means that visual change costs nothing on the Google side beyond
+// updating this one div's className.
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -180,7 +188,7 @@ export function GoogleSignInButton() {
           through to the real Google button layered on top of it. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none flex w-full items-center justify-center gap-2 rounded-xl border border-black bg-black px-4 py-2.5 text-sm font-medium text-white dark:border-white dark:bg-white dark:text-black"
+        className="pointer-events-none flex w-full items-center justify-center gap-2 rounded-full border border-neutral-300 bg-white px-4 py-3 text-base font-medium text-neutral-900 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-50"
       >
         <GoogleGlyph />
         {STRINGS.label[lang]}

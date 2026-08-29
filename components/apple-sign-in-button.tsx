@@ -26,6 +26,16 @@
 // Firebase, Aleksandr needs to add APPLE_REDIRECT_URI (lib/a1/oauth-
 // public.ts) as an additional Return URL in Apple Developer before this
 // button will work end-to-end. Flagged, not silently worked around.
+//
+// 2026-08-29, visual pass round 3 (Aleksandr, from a ChatGPT sign-in
+// screenshot: "давай такой визуал сделаем как у GPT и кнопки можно
+// скопировать по UI"): dropped the solid-black button (rounds 1/2 had
+// both providers matching each other in black) for ChatGPT's own
+// pattern instead — a white pill with a thin neutral border, full
+// rounded-full corners, and dark text, brand icon at full color/detail.
+// components/google-sign-in-button.tsx's visible overlay button was
+// updated to the exact same classes so the two stay pixel-matched to
+// each other, same as every round before this one.
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -146,7 +156,7 @@ export function AppleSignInButton() {
         type="button"
         onClick={handleClick}
         disabled={pending || !scriptReady}
-        className="flex w-full max-w-[320px] items-center justify-center gap-2 rounded-xl border border-black bg-black px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50 dark:border-white dark:bg-white dark:text-black"
+        className="flex w-full max-w-[320px] items-center justify-center gap-2 rounded-full border border-neutral-300 bg-white px-4 py-3 text-base font-medium text-neutral-900 transition hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-50 dark:hover:bg-neutral-800"
       >
         <AppleGlyph />
         {STRINGS.label[lang]}
@@ -161,7 +171,7 @@ export function AppleSignInButton() {
 // asset/icon-font dependency.
 function AppleGlyph() {
   return (
-    <svg width="16" height="16" viewBox="0 0 170 170" fill="currentColor" aria-hidden="true">
+    <svg width="18" height="18" viewBox="0 0 170 170" fill="currentColor" aria-hidden="true">
       <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.2-2.12-9.98-3.17-14.35-3.17-4.58 0-9.5 1.05-14.77 3.17-5.28 2.13-9.53 3.24-12.77 3.35-4.93 .21-9.84-1.96-14.75-6.52-3.13-2.73-7.05-7.41-11.75-14.04-5.04-7.08-9.18-15.28-12.42-24.62-3.47-10.09-5.21-19.86-5.21-29.32 0-10.84 2.34-20.19 7.03-28.02 3.69-6.29 8.6-11.25 14.75-14.89 6.15-3.64 12.79-5.49 19.94-5.61 3.92 0 9.07 1.21 15.47 3.6 6.38 2.4 10.48 3.61 12.27 3.61 1.34 0 5.89-1.42 13.61-4.25 7.3-2.62 13.46-3.71 18.5-3.28 13.68 1.1 23.96 6.5 30.79 16.21-12.24 7.42-18.29 17.8-18.17 31.11 .11 10.37 3.86 18.99 11.23 25.83 3.34 3.17 7.07 5.63 11.22 7.38-.9 2.61-1.85 5.11-2.85 7.51zM119.11 4.36c0 8.09-2.96 15.65-8.86 22.65-7.12 8.32-15.73 13.13-25.07 12.37-.12-.98-.19-2.01-.19-3.09 0-7.77 3.38-16.09 9.4-22.88 3-3.44 6.82-6.29 11.45-8.56 4.62-2.24 8.99-3.48 13.1-3.68 .12 1.06 .17 2.13 .17 3.19z" />
     </svg>
   );
