@@ -307,13 +307,25 @@ export const PostInputObjectSchema = z.enum([
 ]);
 export type PostInputObject = z.infer<typeof PostInputObjectSchema>;
 
+// 2026-08-29 round 5 (PLAN.md §6.28): CONFIRMED live — with the object/
+// wrapper issues fixed, the next 400 was "'media.0' has unknown property
+// '_id'". The write side rejects the server-assigned `_id` that
+// MediaDocumentSchema carries on the READ side (and that upload.confirm
+// hands back) — `.omit` strips it before the request ever reaches the
+// backend (zod drops unrecognized/omitted keys by default, no change
+// needed where post-editor.tsx builds `media: media.map((m) => m.doc)`).
+// Every other MediaDocument field is kept as-is since only `_id` was
+// flagged; if the backend later rejects another one of them too, that's
+// the next live 400 to fix the same way, not a reason to strip more now.
+export const PostInputMediaSchema = MediaDocumentSchema.omit({ _id: true });
+
 export const PostInputSchema = z.object({
   object: PostInputObjectSchema,
   title: z.string().trim().min(1),
   content: z.string(),
   links: z.array(PostInputLinkSchema),
   location: z.number().nullable(),
-  media: z.array(MediaDocumentSchema),
+  media: z.array(PostInputMediaSchema),
   money: PostInputMoneySchema.nullable(),
   tags: z.array(z.string()),
   categories: z.array(z.number()),
