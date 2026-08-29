@@ -44,10 +44,13 @@ export async function POST(request: NextRequest) {
     // at a time. `input` itself is kept alongside the spread — cheap
     // insurance in case some other part of the contract still reads it
     // from there too.
-    const { data, refreshedSession } = await callAsVisitor<unknown>("posts.createPost", {
-      input: parsed.data.input,
-      ...parsed.data.input,
-    });
+    // 2026-08-29 round 5 (PLAN.md §6.27): CONFIRMED live — with every
+    // required field now present at the root, the backend's next 400 was
+    // "root has unknown property 'input'". additionalProperties is false
+    // at the root, so keeping `input` alongside the spread (added as
+    // defensive belt-and-suspenders in e432b87) actively breaks the call.
+    // PostInput belongs ONLY at the root — no wrapper at all.
+    const { data, refreshedSession } = await callAsVisitor<unknown>("posts.createPost", parsed.data.input);
     const response = NextResponse.json({ ok: true, post: data });
     if (refreshedSession) setSession(response, refreshedSession);
     return response;

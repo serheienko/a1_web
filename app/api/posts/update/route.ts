@@ -34,9 +34,15 @@ export async function POST(request: NextRequest) {
     // PostInput at the root of the request body, not only nested inside
     // `input`. Same fix here for symmetry, though only the create path
     // was actually reproduced live.
+    // 2026-08-29 round 5 (PLAN.md §6.27): see app/api/posts/create/
+    // route.ts's matching comment — confirmed the backend rejects an
+    // extra `input` key at the root (additionalProperties: false).
+    // `id` stays alongside the spread since it isn't part of PostInput
+    // itself; not live-reproduced on this path specifically, but the
+    // exact same reasoning applies per this file's own "same PostInput
+    // shape" contract with create.
     const { data, refreshedSession } = await callAsVisitor<unknown>("posts.updatePost", {
       id: parsed.data.id,
-      input: parsed.data.input,
       ...parsed.data.input,
     });
     const response = NextResponse.json({ ok: true, post: data });
