@@ -138,11 +138,11 @@ export default async function TalentDetailPage({ params }: Props) {
         })()}
         <div className="min-w-0">
           {post.author.username ? (
-            <Link href={`/u/${post.author.username}`} className="font-medium text-neutral-900 hover:underline dark:text-neutral-50">
+            <Link href={`/u/${post.author.username}`} className="block truncate font-medium text-neutral-900 hover:underline dark:text-neutral-50">
               {post.author.name}
             </Link>
           ) : (
-            <span className="font-medium text-neutral-900 dark:text-neutral-50">{post.author.name}</span>
+            <span className="block truncate font-medium text-neutral-900 dark:text-neutral-50">{post.author.name}</span>
           )}
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-faint dark:text-neutral-400">
             <span>{locationLabel}</span>

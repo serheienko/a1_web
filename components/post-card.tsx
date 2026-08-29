@@ -125,11 +125,11 @@ export function PostCard({
 
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-faint dark:text-neutral-400">
           {profileHref ? (
-            <Link href={profileHref} className="hover:underline">
+            <Link href={profileHref} className="max-w-[10rem] truncate hover:underline">
               {post.author.name}
             </Link>
           ) : (
-            <span>{post.author.name}</span>
+            <span className="max-w-[10rem] truncate">{post.author.name}</span>
           )}
           <span aria-hidden="true">·</span>
           <span>{locationLabel}</span>

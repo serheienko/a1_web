@@ -366,9 +366,9 @@ export default async function ProfilePage({ params }: Props) {
             />
           )}
         </VoiceIntroRing>
-        <div>
-          <h1 className="text-xl font-semibold text-neutral-900 sm:text-2xl dark:text-neutral-50">{profile.fullName}</h1>
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">@{profile.username}</p>
+        <div className="min-w-0">
+          <h1 className="truncate text-xl font-semibold text-neutral-900 sm:text-2xl dark:text-neutral-50">{profile.fullName}</h1>
+          <p className="truncate text-sm text-neutral-500 dark:text-neutral-400">@{profile.username}</p>
         </div>
       </div>
 
