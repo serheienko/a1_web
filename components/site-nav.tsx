@@ -49,13 +49,20 @@
 // component's own comment for why it reads a plain cookie client-side
 // instead of anything server-derived (keeps this nav, and therefore
 // every page it sits on top of, out of dynamic rendering).
+//
+// 2026-08-29: replaced <AccountMenu/> + <SettingsMenu/> with a single
+// <AvatarMenu/> (Aleksandr: "вместо кнопок выйти и тд, сделаем
+// модалку") — when signed in, one avatar button opens a panel with
+// email, theme, language, and sign-out; when signed out, AvatarMenu
+// renders the same sign-in link + <SettingsMenu/> pair this nav always
+// had. See components/avatar-menu.tsx's own comment for the full
+// rationale and the known avatar-photo gap.
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { AccountMenu } from "@/components/account-menu";
+import { AvatarMenu } from "@/components/avatar-menu";
 import { ProgressiveBlur } from "@/components/progressive-blur";
-import { SettingsMenu } from "@/components/settings-menu";
 import { T } from "@/components/t";
 
 const NAV_ITEMS = [
@@ -142,8 +149,7 @@ export function SiteNav() {
         </div>
 
         <div className="flex flex-1 items-center justify-end gap-1">
-          <AccountMenu />
-          <SettingsMenu />
+          <AvatarMenu />
         </div>
       </div>
     </nav>

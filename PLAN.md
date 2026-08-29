@@ -1404,6 +1404,78 @@ button for one that can go silently inert isn't worth it for a purely
 cosmetic gap. Not yet re-verified live (same push as whatever Aleksandr
 tests next).
 
+### 6.17 UI polish pass: mobile nav shadow, cat-avatar fill, Google button v2, consolidated avatar menu (2026-08-29)
+
+Aleksandr's next message, sent with 7 mobile screenshots after live-
+testing Apple/Google sign-in: a 5-item backlog. Landed in one commit
+(`9ac210b`) plus this one:
+
+1. **Mobile nav "shadow" bleeding onto search, even without scrolling.**
+   `components/progressive-blur.tsx` — round 4 on this exact complaint
+   (see that file's own comment history). Fix this time: hide the fog
+   effect entirely below `sm` (`heightClassName` default changed from
+   `"h-20 sm:h-32"` to `"hidden sm:block sm:h-32"`), unchanged on
+   desktop, per Aleksandr's own explicit fallback ("или вообще убери
+   ее, чтобы не делала мозги").
+2. **Cat avatars losing their colored fill outside registration.**
+   Root-caused by fetching a live cat image directly
+   (`cats/16.png`) rather than guessing from the complaint: `lib/
+   avatars.ts`'s `pickDefaultCatAvatar` images are square with a full-
+   bleed colored gradient background, not plain circular cutouts.
+   Every call site but registration's own picker was cropping that
+   fill away with `rounded-full`. Fixed the 4 fallback-avatar `<img>`s
+   in `app/u/[username]/page.tsx`, `app/jobs/[slug]/page.tsx`,
+   `app/talents/[slug]/page.tsx`, `components/post-card.tsx` to
+   `rounded-2xl`/`rounded-xl`. Real-photo avatars (the `<Image>` branch
+   at each of those same sites) stay circular — only the cat fallback
+   ever had this bug.
+3. **Google button visual-parity, round 2.** Round 1 (§6.16's
+   follow-up: `filled_black` theme + measured width) wasn't enough —
+   Aleksandr wanted the exact corner radius of the blue Sign-in button
+   and a normal font weight, neither reachable via Google's theme
+   presets (their rendered button is their own iframe content, not
+   restyleable CSS). Rebuilt `components/google-sign-in-button.tsx`
+   with the "invisible overlay" technique instead: a fully custom,
+   `pointer-events-none` button pixel-matched to the Apple button
+   renders visibly, with the real, official Google-rendered widget
+   layered exactly on top at `opacity-0` — a click always lands on
+   Google's actual button and goes through its normal flow, only what's
+   visible changed. Chosen over a fully custom `accounts.id.prompt()`
+   button (rejected in §6.16's follow-up for the same reason it's
+   rejected here: One Tap's dismissal-cooldown risk) because this
+   technique keeps the official widget's reliability while allowing
+   full CSS control.
+4. **Floating "+" create-post button** — scoped (AskUserQuestion:
+   signed-in click opens a placeholder for now, real post-creation form
+   is separate future work) but not yet built.
+5. **Consolidated avatar-menu modal** (resuming an earlier-session
+   spec) — new `components/avatar-menu.tsx`, mounted in
+   `components/site-nav.tsx` in place of `components/account-menu.tsx`
+   + `components/settings-menu.tsx`. Signed in: one avatar button opens
+   a panel with email at top, the same theme (light/dark/auto) and
+   language pickers `settings-menu.tsx` already had, and a red "Sign
+   out" action at the very bottom. Signed out: renders the same sign-in
+   link `account-menu.tsx` always had, plus `<SettingsMenu/>` unchanged
+   next to it — no avatar to attach a panel to yet, and theme/language
+   still need to be reachable while signed out. `components/account-
+   menu.tsx` is now unused (left in place, not deleted, per this repo's
+   own convention for superseded files — see `components/logo-play.tsx`).
+
+   **Known gap, flagged rather than silently worked around:** the
+   avatar always shows the deterministic cat fallback
+   (`pickDefaultCatAvatar`, seeded on the signed-in email — the only
+   stable per-user string available client-side today), never a real
+   uploaded photo. There is no confirmed backend call for "get my own
+   username/photo" — PLAN.md's endpoint table (§6.1) has no `users.
+   getMe`/`account.getProfile`-style read, and `DISPLAY_COOKIE` (`lib/
+   a1/session-constants.ts`) only ever carried the signed-in email.
+   `account.updateProfile` returns a full user, but only on a write.
+   When a real "get my profile" read exists, swap the avatar seed to
+   the real username and add a real-`avatarUrl` branch (same split
+   `app/u/[username]/page.tsx` already does) — `avatar-menu.tsx` is
+   structured so that only needs a new `photoUrl` variable, not a
+   rewrite.
+
 ## OPEN QUESTIONS — Stage 2, for Aleksandr
 
 1. ~~**Google Sign-In needs its own Web-application OAuth Client ID**~~

@@ -1,5 +1,13 @@
 // components/account-menu.tsx
 //
+// UNUSED as of 2026-08-29 — components/site-nav.tsx now mounts
+// components/avatar-menu.tsx instead, which absorbed this component's
+// signed-in-vs-signed-out logic (and components/settings-menu.tsx's,
+// for the signed-out case) into one component. Left in place rather
+// than deleted, same as this repo's other superseded-but-harmless
+// files (see components/logo-play.tsx's own comment) — not imported
+// anywhere, so it isn't bundled.
+//
 // Phase 5a (PLAN.md §6.6): "a session, 'signed in as X' in the nav." Lives
 // in components/site-nav.tsx next to <SettingsMenu>, and follows the
 // exact same constraint that component already documents — reads its
