@@ -243,7 +243,7 @@ export default function OnboardingVerifyPage() {
     <main className="mx-auto flex min-h-[80vh] max-w-sm flex-col justify-center px-4 py-12">
       <div className="rounded-card border border-neutral-200 bg-card p-8 shadow-lg shadow-neutral-900/5 dark:border-neutral-800 dark:bg-neutral-950 dark:shadow-black/40">
         <div className="mb-6 flex justify-center">
-          <LottiePlayer src="/animations/phone-verify-code.json" size={72} />
+          <LottiePlayer src="/animations/phone-verify-code.json" size={120} />
         </div>
 
         <h1 className="mb-1 text-center font-sans text-2xl font-bold tracking-tight text-ink dark:text-neutral-50">
