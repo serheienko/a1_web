@@ -1232,6 +1232,38 @@ available to type-check before pushing (§0.4) — reviewed by hand against
 this codebase's known `noUncheckedIndexedAccess` failure modes, but not
 proven green until Vercel says so.
 
+**Icon-rendering investigation, 2026-08-29** — Aleksandr reported the
+cat icons not showing at all after the first live test
+("Запушил, попробовал на проде... а сразу запустило"). Debugged with
+console instrumentation (render/effect logs in `components/
+lottie-player.tsx`, since there's no local dev server to reproduce
+against — §0.4) directly against production. Finding: **this was never
+a rendering bug** — `useEffect` fires on mount every time, `lottie-web`
+loads and renders correctly, and the exact same behavior was already
+present, unnoticed, on the live `/u/[username]` page. The real cause is
+asset size: the animation JSON files are unusually large for small
+decorative icons —
+`public/occupations/{entrepreneur,freelancer,professional}.json` are
+44-54KB each, `public/animations/briefcase-profile-setup.json` is
+188KB, and `public/animations/phone-verify-code.json` (used by the
+verify-code step) is 348KB. A cold fetch of the larger ones can take
+several real seconds, during which the icon's `<span>` container was
+just an invisible empty box with zero visual feedback — easy to mistake
+for "broken" if you don't wait it out. Fixed the symptom (not the file
+size) by fading the icon in via opacity once `loadAnimation` actually
+resolves, so the delay reads as a deliberate animation-in rather than a
+missing icon; removed the diagnostic console.log calls used to find
+this (kept the existing `console.error` on genuine load failures).
+**Not fixed**: the animation files themselves are still large — worth
+Aleksandr re-exporting them at a lower fidelity/frame count if the
+multi-second cold-load delay matters (e.g. on a throttled mobile
+connection), especially `phone-verify-code.json` (348KB) and
+`hi-cat-email-code.json` (324KB, present in `public/animations/` but,
+as far as this investigation found, not referenced by any page —
+possibly a leftover from choosing between two versions of the
+verify-step animation; flagged rather than deleted, since deleting an
+asset on a guess is worse than leaving an unused file).
+
 
 ## OPEN QUESTIONS — Stage 2, for Aleksandr
 

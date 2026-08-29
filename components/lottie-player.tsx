@@ -14,9 +14,18 @@
 // imperative `loadAnimation()` call has no JSX prop surface to typecheck
 // against, which is the safer shape for a browser-only animation library
 // sitting inside a server-rendered page.
+//
+// 2026-08-29 finding (PLAN.md §6.15): investigated a report of icons not
+// rendering at all in production. They DO render — the animation JSON
+// files themselves are just unusually large for small decorative icons
+// (180-350KB each; public/animations, public/occupations), so on a cold
+// fetch there's a multi-second gap between mount and paint. Fixed the
+// worst part of that (blank box with no feedback) with the opacity
+// fade-in below; the file sizes themselves are an asset-export question,
+// not a code bug, and are flagged in PLAN.md rather than guessed at here.
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export function LottiePlayer({
   src,
@@ -29,10 +38,9 @@ export function LottiePlayer({
   className?: string;
 }) {
   const containerRef = useRef<HTMLSpanElement>(null);
-  console.log("[lottie-player] render", src);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    console.log("[lottie-player] effect fired", src, "ref:", containerRef.current);
     if (!containerRef.current) return;
 
     let cancelled = false;
@@ -49,6 +57,7 @@ export function LottiePlayer({
           autoplay: true,
           animationData,
         });
+        setLoaded(true);
       })
       .catch((err) => {
         // A missing/broken animation file just means no icon shows — same
@@ -71,7 +80,14 @@ export function LottiePlayer({
     <span
       ref={containerRef}
       className={className}
-      style={{ display: "inline-block", width: size, height: size, flexShrink: 0 }}
+      style={{
+        display: "inline-block",
+        width: size,
+        height: size,
+        flexShrink: 0,
+        opacity: loaded ? 1 : 0,
+        transition: "opacity 200ms ease-out",
+      }}
       aria-hidden="true"
     />
   );
