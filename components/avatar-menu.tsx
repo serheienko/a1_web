@@ -48,6 +48,18 @@
 // screenshot: "Sign out сделай без заливки только красный stroke"):
 // switched from a solid red fill to an outline — transparent
 // background, red border + red text, a light red tint only on hover.
+//
+// 2026-08-30 (Aleksandr: "сделать в этой модалке возможность, чтобы мы
+// переходили на этот профиль... посмотреть, что там у нас происходит и
+// могли... нажать на наши посты"): a "View profile" row into this same
+// panel. Still no real whoami endpoint (this file's KNOWN GAP comment
+// above) — app/api/posts/mine/route.ts's summarize() now echoes back
+// `authorUsername` from the FIRST of the visitor's own posts it finds
+// (author: "me" guarantees it's really the visitor's own username), so
+// this fetches that route once per sign-in and only renders the row
+// when a username actually comes back. A visitor with zero posts yet
+// has no way to resolve their own profile URL through this mechanism —
+// the row is simply omitted for them rather than showing a broken link.
 "use client";
 
 import { useEffect, useState } from "react";
@@ -79,7 +91,7 @@ const LANGUAGE_NAMES: Record<Locale, string> = {
   zh: "简体中文",
 };
 
-type AvatarMenuStringKey = "signIn" | "signOut" | "theme" | "language" | "light" | "dark" | "auto" | "myPosts";
+type AvatarMenuStringKey = "signIn" | "signOut" | "theme" | "language" | "light" | "dark" | "auto" | "myPosts" | "viewProfile";
 
 const STRINGS: Record<AvatarMenuStringKey, Record<Locale, string>> = {
   signIn: {
@@ -96,6 +108,11 @@ const STRINGS: Record<AvatarMenuStringKey, Record<Locale, string>> = {
     uk: "Мої пости", en: "My posts", ru: "Мои посты", de: "Meine Beiträge",
     es: "Mis publicaciones", fr: "Mes publications", pl: "Moje posty",
     ptBR: "Minhas publicações", zh: "我的帖子",
+  },
+  viewProfile: {
+    uk: "Переглянути профіль", en: "View profile", ru: "Посмотреть профиль", de: "Profil ansehen",
+    es: "Ver perfil", fr: "Voir le profil", pl: "Zobacz profil",
+    ptBR: "Ver perfil", zh: "查看资料",
   },
   theme: {
     uk: "Тема", en: "Theme", ru: "Тема", de: "Design", es: "Tema",
@@ -180,6 +197,7 @@ export function AvatarMenu() {
   const [signingOut, setSigningOut] = useState(false);
   const [open, setOpen] = useState(false);
   const [myPostsOpen, setMyPostsOpen] = useState(false);
+  const [profileUsername, setProfileUsername] = useState<string | null>(null);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -189,6 +207,29 @@ export function AvatarMenu() {
     setIsGeoUa(root.classList.contains("geo-ua"));
     setEmail(readDisplayCookie());
   }, []);
+
+  // Resolve a "View profile" target once we know the visitor is signed
+  // in — see this file's header comment for why this piggybacks on
+  // /api/posts/mine instead of a dedicated whoami call.
+  useEffect(() => {
+    if (!email) return;
+    let cancelled = false;
+    fetch("/api/posts/mine")
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled || !data?.ok) return;
+        const withUsername = (data.posts as { authorUsername: string | null }[]).find(
+          (p) => p.authorUsername,
+        );
+        if (withUsername) setProfileUsername(withUsername.authorUsername);
+      })
+      .catch(() => {
+        // Best-effort — the row just stays hidden.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [email]);
 
   function selectTheme(next: Theme) {
     setTheme(next);
@@ -330,6 +371,16 @@ export function AvatarMenu() {
             </div>
 
             <div className="my-1 border-t border-neutral-100 dark:border-neutral-800" />
+
+            {profileUsername && (
+              <Link
+                href={`/u/${profileUsername}`}
+                onClick={() => setOpen(false)}
+                className="mb-1.5 block w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-neutral-700 transition hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+              >
+                {STRINGS.viewProfile[lang]}
+              </Link>
+            )}
 
             <button
               type="button"

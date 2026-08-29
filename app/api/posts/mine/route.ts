@@ -54,6 +54,17 @@ function summarize(post: Post) {
     published: post.published,
     scheduled: post.scheduled,
     isDraft: (post.flags & (1 << 7)) !== 0,
+    // 2026-08-30 (Aleksandr: "могли зайти к себе на профиль и
+    // посмотреть, как там у нас всё устроено"): there's still no
+    // "whoami"/get-my-profile endpoint (components/avatar-menu.tsx's own
+    // header comment, 2026-08-29) for the client to learn its own
+    // username from directly. `author: "me"` above guarantees every post
+    // this route returns is the caller's own, so its author.username is
+    // reliably the visitor's own username -- the closest thing to a
+    // whoami this app has today, good enough for a "View my profile"
+    // link, but only for a visitor with at least one post (see
+    // avatar-menu.tsx for how it degrades otherwise).
+    authorUsername: post.author.object === "user-preview" ? (post.author.username ?? null) : null,
   };
 }
 

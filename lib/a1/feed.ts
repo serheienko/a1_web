@@ -126,6 +126,25 @@ export async function fetchEmptyCategoryValues(
   return results.filter((v): v is number => v !== null);
 }
 
+// 2026-08-30 (Aleksandr: "могли... нажать на наши посты и чтобы наши
+// посты отображались такими типа карточками") -- app/u/[username]/
+// page.tsx's own "posts by this author" section, any profile not just
+// the visitor's own. `author` here is the raw user _id (lib/a1/
+// users.ts's fetchUserRawByUsername), not a username or "me" -- confirmed
+// PostsSearchInputSchema accepts any string there, and app/api/posts/
+// mine/route.ts's own `author: "me"` call already proves the field
+// works with no `object` filter (returns both hiring and seeking posts
+// in one call). No `drafts`/`scheduled` flags set, same as the public
+// feed pages' own calls -- a profile page (viewed by anyone, signed in
+// or not) should only ever show what's actually live, regardless of
+// whose profile it is.
+export async function fetchPostsByAuthor(authorId: string, limit = 12): Promise<WebPost[]> {
+  const raw = await call<unknown>("posts.search", { author: authorId, limit });
+  const parsed = PostsSearchOutputSchema.safeParse(raw);
+  if (!parsed.success) return [];
+  return mapPosts(parsed.data.items);
+}
+
 export async function fetchFeedPage(
   kind: WebPostKind,
   cursor?: string | null,

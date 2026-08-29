@@ -8,7 +8,7 @@
 
 import { cache } from "react";
 import { call, A1ApiError } from "./client";
-import { parseUserProfile } from "./schemas";
+import { parseUserProfile, type UserProfileResult } from "./schemas";
 import { mapUserProfile } from "./user-mappers";
 import type { WebProfile } from "@/types/web-profile";
 
@@ -27,9 +27,17 @@ import type { WebProfile } from "@/types/web-profile";
  * unhandled 500 — a wrong or stale /u/<username> URL should 404, not
  * crash the page.
  */
-export const fetchUserByUsername = cache(async function fetchUserByUsername(
+// 2026-08-30: split out of fetchUserByUsername below so app/u/[username]/
+// page.tsx can also get at the raw `_id` (UserProfileSchema only, not the
+// UserHiddenProfile variant, which carries no id) for its own new "posts
+// by this author" section -- posts.search's `author` filter (lib/a1/
+// feed.ts's fetchPostsByAuthor) takes a real user id, not a username, and
+// WebProfile deliberately never exposes raw ids to begin with (PLAN.md
+// §2.4's anti-corruption layer) so this stays server-side only, never
+// reaching a client component.
+export const fetchUserRawByUsername = cache(async function fetchUserRawByUsername(
   username: string,
-): Promise<WebProfile | null> {
+): Promise<UserProfileResult | null> {
   let raw: unknown;
   try {
     raw = await call<unknown>("users.getByUsername", { username });
@@ -37,7 +45,13 @@ export const fetchUserByUsername = cache(async function fetchUserByUsername(
     if (err instanceof A1ApiError) return null;
     throw err;
   }
-  const profile = parseUserProfile(raw);
+  return parseUserProfile(raw);
+});
+
+export const fetchUserByUsername = cache(async function fetchUserByUsername(
+  username: string,
+): Promise<WebProfile | null> {
+  const profile = await fetchUserRawByUsername(username);
   if (!profile) return null;
   return mapUserProfile(profile);
 });

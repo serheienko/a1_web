@@ -21,7 +21,9 @@ import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Image from "next/image";
-import { fetchUserByUsername } from "@/lib/a1/users";
+import { fetchUserByUsername, fetchUserRawByUsername } from "@/lib/a1/users";
+import { fetchPostsByAuthor } from "@/lib/a1/feed";
+import { PostCard } from "@/components/post-card";
 import {
   fetchCompanyCategories,
   fetchHobbyLabels,
@@ -247,6 +249,23 @@ export default async function ProfilePage({ params }: Props) {
   const { username } = await params;
   const profile = await fetchUserByUsername(username);
   if (!profile) notFound();
+
+  // Aleksandr, 2026-08-30: "могли... нажать на наши посты и чтобы наши
+  // посты отображались такими типа карточками" -- reuses the exact same
+  // components/post-card.tsx the feed pages render with, on ANY profile
+  // (this page has never been "my profile" vs "someone else's profile"
+  // -- it's the same route either way). fetchUserRawByUsername is a
+  // second call to users.getByUsername (React's cache() dedups this
+  // against fetchUserByUsername above within the same request -- same
+  // trick lib/a1/posts.ts's own header comment documents), needed only
+  // for the raw `_id` posts.search's `author` filter wants; the
+  // UserHidden variant carries no id at all, so those profiles (already
+  // 404'd by the !profile check above in the normal case, but
+  // fetchUserByUsername and fetchUserRawByUsername can in principle
+  // disagree on nothing here since both parse the same response) just
+  // get an empty post list.
+  const rawProfile = await fetchUserRawByUsername(username);
+  const authorPosts = rawProfile?.object === "user" ? await fetchPostsByAuthor(rawProfile._id) : [];
 
   // Real per-avatar blur (lib/avatar-blur.ts) instead of the generic
   // shared shimmer — same fix as components/post-card.tsx's feed
@@ -632,6 +651,25 @@ export default async function ProfilePage({ params }: Props) {
                 </div>
               </div>
             )}
+          </div>
+        </section>
+      )}
+
+      {authorPosts.length > 0 && (
+        <section className="mt-8">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+            <T uk="Пости" en="Posts" ru="Посты" de="Beiträge" es="Publicaciones" fr="Publications" pl="Posty" ptBR="Publicações" zh="帖子" />
+          </h2>
+          {/* No per-author avatar blur here (unlike the main feed pages
+              and this page's own header above) -- would mean one extra
+              generateAvatarBlurDataUrl() call per post, and PostCard
+              already degrades cleanly to the generic shimmer without
+              one. Revisit if this section ever needs to look as
+              polished as the feed itself. */}
+          <div className="mt-3 flex flex-col gap-4">
+            {authorPosts.map((post) => (
+              <PostCard key={post.id} post={post} />
+            ))}
           </div>
         </section>
       )}
