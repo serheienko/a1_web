@@ -290,8 +290,25 @@ export const PostInputQuestionSchema = z.object({
   question: z.string().trim().min(1),
 });
 
+// 2026-08-29 round 5 (PLAN.md §6.26): CONFIRMED live — posts.createPost
+// rejected `object: "post-job-employing"` (the same literal the READ side
+// uses, PostSchema below) with "'object' must be one of:
+// post-collaborator-input, post-supplier-b2b-input,
+// post-job-employing-input, post-job-seeking-input, post-brainstorm-input,
+// post-meetup-input" — the WRITE side's discriminator has its own
+// "-input"-suffixed literals, distinct from the read side's. Only this
+// schema changes; every other `"post-job-employing"`/`"post-job-seeking"`
+// literal in the codebase (Post/mappers/feed/datasets/sitemap, and
+// components/post-editor.tsx's own `PostObject` UI type) is unaffected —
+// those are all read-side or UI-internal and already verified live.
+export const PostInputObjectSchema = z.enum([
+  "post-job-employing-input",
+  "post-job-seeking-input",
+]);
+export type PostInputObject = z.infer<typeof PostInputObjectSchema>;
+
 export const PostInputSchema = z.object({
-  object: z.enum(["post-job-employing", "post-job-seeking"]),
+  object: PostInputObjectSchema,
   title: z.string().trim().min(1),
   content: z.string(),
   links: z.array(PostInputLinkSchema),

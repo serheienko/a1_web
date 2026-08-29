@@ -869,7 +869,13 @@ export function PostEditor({
     setError(null);
 
     const input: Record<string, unknown> = {
-      object,
+      // 2026-08-29 round 5 (PLAN.md §6.26): the write-side API wants
+      // "post-job-employing-input"/"post-job-seeking-input" — an
+      // "-input"-suffixed sibling of the plain literal used everywhere
+      // else in this component (tabsForKind, labels, PostObject state).
+      // Only this one field needs the suffix; confirmed live via the
+      // exact enum list in the backend's own 400 error.
+      object: `${object}-input`,
       title: title.trim(),
       content: content.trim(),
       links: linkUrl.trim() ? [{ title: "", url: linkUrl.trim() }] : [],
