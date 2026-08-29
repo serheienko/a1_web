@@ -41,6 +41,11 @@
 // bleed colored gradient fill, and rounded-full crops that fill away.
 // Same reasoning applies here — this button would hit the exact same
 // bug if it stayed circular.
+//
+// 2026-08-29, sign-out button follow-up (Aleksandr, from a live mobile
+// screenshot: "Sign out сделай без заливки только красный stroke"):
+// switched from a solid red fill to an outline — transparent
+// background, red border + red text, a light red tint only on hover.
 "use client";
 
 import { useEffect, useState } from "react";
@@ -319,7 +324,7 @@ export function AvatarMenu() {
               type="button"
               onClick={signOut}
               disabled={signingOut}
-              className="mt-1 w-full rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:opacity-50 dark:bg-red-500 dark:hover:bg-red-600"
+              className="mt-1 w-full rounded-lg border border-red-600 bg-transparent px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-500 dark:text-red-500 dark:hover:bg-red-500/10"
             >
               {STRINGS.signOut[lang]}
             </button>
