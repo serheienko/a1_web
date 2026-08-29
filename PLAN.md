@@ -2154,3 +2154,23 @@ going forward. Deliberately NOT touched: components/filters-form.tsx's
 own location search, which reuses this same route to filter the public
 feed by location — filtering by a whole country there is legitimate,
 only the post editor needed the narrower list.
+
+### 6.33 Confirmed: update wants the nested `{ id, input }` shape after all (2026-08-29)
+
+First real edit of an existing post (via the new "•••" > Edit on the
+post detail page, §6.30's PostOwnerMenu) hit `posts.updatePost`'s first
+live 400 ever on this path — **"root is missing required property
+'input'"** (request id fg8xq-1788043772574-4419b686dde6, 2026-08-29
+22:49:32 UTC, after three retries all failing identically). Every
+earlier "fix" to app/api/posts/update/route.ts's request shape had
+copied create's own root-flattening fix (§6.24/§6.25/§6.27) over by
+assumed symmetry — this file's own comment said so explicitly ("not
+live-reproduced on this path specifically"). That assumption was wrong:
+update's root schema requires the `input` key to be PRESENT, the exact
+opposite of what create's schema wants.
+
+Fix: reverted the call body back to the original nested shape, `{ id,
+input: parsed.data.input }`. Lesson carried into the comment itself —
+create and update are NOT guaranteed to share a request shape just
+because they share a body schema (PostInputSchema); don't re-apply one
+endpoint's confirmed fix to the other without its own live evidence.

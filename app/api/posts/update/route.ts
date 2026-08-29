@@ -29,21 +29,19 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // 2026-08-29 round 5: see app/api/posts/create/route.ts's matching
-    // comment (PLAN.md §6.24/§6.25) — confirmed the backend validates
-    // PostInput at the root of the request body, not only nested inside
-    // `input`. Same fix here for symmetry, though only the create path
-    // was actually reproduced live.
-    // 2026-08-29 round 5 (PLAN.md §6.27): see app/api/posts/create/
-    // route.ts's matching comment — confirmed the backend rejects an
-    // extra `input` key at the root (additionalProperties: false).
-    // `id` stays alongside the spread since it isn't part of PostInput
-    // itself; not live-reproduced on this path specifically, but the
-    // exact same reasoning applies per this file's own "same PostInput
-    // shape" contract with create.
+    // 2026-08-29 round 5 (PLAN.md §6.33): CONFIRMED live -- update does
+    // NOT mirror create's shape after all. The "same PostInput shape"
+    // symmetry assumption above (carried over from create's own root-
+    // level fix, PLAN.md §6.24/§6.25/§6.27) was never actually
+    // reproduced on this path and turned out to be wrong: the first
+    // real edit attempt got "root is missing required property
+    // 'input'" -- posts.updatePost wants the NESTED `{ id, input }`
+    // shape this route originally had, not create's flattened root.
+    // Reverted to the nested call; do not re-apply create's flattening
+    // here again without a fresh live 400 proving it's needed.
     const { data, refreshedSession } = await callAsVisitor<unknown>("posts.updatePost", {
       id: parsed.data.id,
-      ...parsed.data.input,
+      input: parsed.data.input,
     });
     const response = NextResponse.json({ ok: true, post: data });
     if (refreshedSession) setSession(response, refreshedSession);
