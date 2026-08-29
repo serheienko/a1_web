@@ -64,8 +64,32 @@ export const TAG_LABEL_TRANSLATIONS: Record<string, Record<Locale, string>> = {
   },
 };
 
+// 2026-08-29 (Aleksandr, screenshot of a feed card's tag pills still
+// reading "remote"/"full-time" in Ukrainian): this table is keyed on
+// tag.TEXT ("Remote") because that's what components/post-editor.tsx's
+// own picker pills have on hand at render time, alongside the matching
+// tag.VALUE it actually stores into a post's `tags` array on save
+// (lib/a1/datasets.ts's Tag = {value, text} -- toggleTag() in
+// post-editor.tsx keys/stores by .value, only ever displays .text). Once
+// a post is saved, the feed card and detail pages (components/
+// tag-label.tsx) only ever see that stored VALUE string back -- for the
+// tags confirmed live so far that's just a lowercased/hyphenated form of
+// the same word ("remote", "full-time", "hybrid", ...), so a case-
+// insensitive fallback against this same table is enough to translate
+// them too, with no separate value-keyed table to keep in sync. Doesn't
+// help a value that isn't just a re-cased version of its text (the
+// experience-tag values look like "exp-3-yr" against a plain-number
+// text of "3") -- not guessing at those without a live tag list to
+// confirm the actual value strings against.
+const TAG_LABEL_TRANSLATIONS_BY_LOWER_KEY: Record<string, Record<Locale, string>> = Object.fromEntries(
+  Object.entries(TAG_LABEL_TRANSLATIONS).map(([key, value]) => [key.toLowerCase(), value]),
+);
+
 export function translateTagLabel(text: string, lang: Locale): string {
-  return TAG_LABEL_TRANSLATIONS[text]?.[lang] ?? text;
+  const exact = TAG_LABEL_TRANSLATIONS[text];
+  if (exact) return exact[lang];
+  const byLowerKey = TAG_LABEL_TRANSLATIONS_BY_LOWER_KEY[text.toLowerCase()];
+  return byLowerKey ? byLowerKey[lang] : text;
 }
 
 // 2026-08-27 follow-up, same reasoning as TAG_LABEL_TRANSLATIONS above:

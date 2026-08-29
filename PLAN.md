@@ -2255,3 +2255,26 @@ Two more screenshot-driven fixes, UI-only:
   mistake, not just its copy into the feed. `app/u/[username]/page.tsx`'s
   default-cat `<img>` is back to `rounded-full`, matching the
   real-photo branch above it.
+
+### 6.37 UI: remove the description (i) tooltip; case-insensitive tag translation fallback (2026-08-29)
+
+- **"Убери (i)"**: removed the small "i" info-bubble next to the
+  "Опис"/Description label in `components/post-editor.tsx` — its tip
+  text keeps living on as the textarea's own placeholder, which already
+  showed the same copy, so nothing it explained is actually lost.
+
+- **Tags still untranslated in the feed**: screenshot showed "remote"
+  and "full-time" still in English with Ukrainian selected, even after
+  §6.34 wired `TagLabel`/`translateTagLabel` into the feed and detail
+  pages. Root cause: `TAG_LABEL_TRANSLATIONS` is keyed on tag.TEXT
+  ("Remote") because that's what `post-editor.tsx`'s own picker has on
+  hand — but `toggleTag()` there stores tag.VALUE into a post's `tags`
+  array (`lib/a1/datasets.ts`'s `Tag = {value, text}`), and that's all
+  the feed/detail pages ever see back. For every tag confirmed live so
+  far, the value is just a lower-cased/hyphenated form of the same word
+  ("remote", "full-time", "hybrid", ...), so `translateTagLabel` now
+  falls back to a case-insensitive match against the same table before
+  giving up. Doesn't fix a value that isn't just a re-cased version of
+  its text (experience tags look like "exp-3-yr" against a text of
+  "3") — no live tag list to confirm those value strings against, so
+  not guessing at a second table for them yet.

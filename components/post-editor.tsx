@@ -1055,15 +1055,11 @@ export function PostEditor({
           </div>
 
           <div className="mb-4 flex flex-col gap-1.5">
-            <div className="flex items-center gap-1.5">
-              <label className={labelClass}>{t("descriptionLabel", lang)}</label>
-              <span
-                title={object === "post-job-employing" ? t("descriptionTipsHiring", lang) : t("descriptionTipsSeeking", lang)}
-                className="flex h-3.5 w-3.5 shrink-0 cursor-help items-center justify-center rounded-full border border-neutral-300 text-[9px] text-neutral-400 dark:border-neutral-600"
-              >
-                i
-              </span>
-            </div>
+            {/* Aleksandr, 2026-08-29: "убери этот знак (i)" -- the "i"
+                info-bubble next to the label is gone; its tip text lives
+                on as the textarea's own placeholder below (unchanged),
+                so nothing about what it explained is lost. */}
+            <label className={labelClass}>{t("descriptionLabel", lang)}</label>
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
