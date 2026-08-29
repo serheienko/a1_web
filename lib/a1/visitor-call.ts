@@ -30,6 +30,42 @@ type AuthRefreshResponse = {
   refreshToken: string;
 };
 
+// 2026-08-29: coalesces concurrent refreshes of the SAME refresh token —
+// mirrors lib/a1/auth.ts's own `inFlight` de-dup for the service account
+// (that module's comment literally says "coalesce concurrent callers
+// into a single login/refresh instead of a stampede"), applied here
+// per-visitor instead of as a single global, since many different
+// visitors' sessions can be in flight on one warm instance at once.
+//
+// Without this: two authenticated calls that both land on an expired
+// access token around the same moment (e.g. a photo upload firing
+// alongside a draft autosave, or two browser tabs open on the same
+// account) each read the SAME not-yet-updated refreshToken from their
+// request's cookie and each try to refresh with it. If the backend's
+// refresh token is single-use/rotating, only the first actually
+// succeeds — every other concurrent attempt gets rejected, and the
+// backend reports that identically to a genuinely revoked token
+// ("TOKEN_VALIDATION_ERROR" / "Token revoked."), with no way to tell a
+// lost race from an actually-dead session from the error alone. This
+// makes only the first caller for a given refreshToken value actually
+// call auth.refreshToken; every other concurrent caller awaits that same
+// promise and reuses its result instead of racing it.
+const inFlightRefreshes = new Map<string, Promise<AuthRefreshResponse>>();
+
+function refreshOnce(refreshToken: string): Promise<AuthRefreshResponse> {
+  const existing = inFlightRefreshes.get(refreshToken);
+  if (existing) return existing;
+  const promise = call<AuthRefreshResponse>(
+    "auth.refreshToken",
+    { refreshToken },
+    { skipAuth: true },
+  ).finally(() => {
+    inFlightRefreshes.delete(refreshToken);
+  });
+  inFlightRefreshes.set(refreshToken, promise);
+  return promise;
+}
+
 export async function callAsVisitor<T>(
   method: string,
   body: unknown = {},
@@ -57,11 +93,7 @@ export async function callAsVisitor<T>(
     // problem no amount of retrying fixes.
     let refreshed: AuthRefreshResponse;
     try {
-      refreshed = await call<AuthRefreshResponse>(
-        "auth.refreshToken",
-        { refreshToken: session.refreshToken },
-        { skipAuth: true },
-      );
+      refreshed = await refreshOnce(session.refreshToken);
     } catch (refreshErr) {
       if (refreshErr instanceof A1ApiError && refreshErr.httpStatus === 401) throw new NoSessionError();
       throw refreshErr;
