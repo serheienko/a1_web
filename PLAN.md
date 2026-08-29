@@ -2379,3 +2379,49 @@ two from a native-app screenshot + an animated sticker Aleksandr sent:
   and my-posts-panel.tsx already had their own), so posting from the
   main "+" button never refreshed anything behind it — now passes
   `onSaved={() => router.refresh()}`.
+
+### 6.41 Own-profile view: posts as cards on `/u/[username]`, "View profile" link in the avatar menu (2026-08-30)
+
+Aleksandr: "давай сделаем... чтобы мы могли зайти к себе на профиль и
+посмотреть, как там у нас всё устроено... могли... нажать на наши
+посты и чтобы наши посты отображались такими карточками тоже... я
+сильно над UI не думал, но думаю, что ты что-то прикольное придумаешь"
+— explicitly left the UI shape up to this pass rather than specifying
+it screenshot-by-screenshot like most of this log's other entries.
+
+Two parts:
+
+- **Posts-as-cards on the profile page.** `app/u/[username]/page.tsx`
+  already builds a mapped `UserProfileResult` for the header/bio/
+  favorites sections; it now also fetches the *raw* profile
+  (`lib/a1/users.ts`'s new `fetchUserRawByUsername`, with the existing
+  `fetchUserByUsername` rebuilt on top of it) purely to get the
+  profile's real `_id`, then calls a new `lib/a1/feed.ts` helper,
+  `fetchPostsByAuthor(authorId)`, which is just `posts.search({
+  author: authorId, limit })` — confirmed viable because
+  `app/api/posts/mine/route.ts` already calls the same endpoint with
+  `author: "me"` and gets both post kinds back in one call, so an
+  arbitrary author id works the same way (`PostsSearchInputSchema`
+  already types `author` as `"me" | string`). Renders with the
+  existing `components/post-card.tsx` — same component the main feed
+  uses, no new card built — in a "Пости"/"Posts" section placed after
+  Favorites, only when there's at least one.
+
+- **"View profile" row in the avatar menu.** `components/avatar-menu.tsx`
+  had no way to point a signed-in visitor at their own `/u/...` URL —
+  its own header comment already documented that there's no real
+  whoami endpoint, only a deterministic cat avatar seeded on email.
+  Rather than add a new backend call, `app/api/posts/mine/route.ts`'s
+  `summarize()` now also echoes `authorUsername` (the real
+  `author.username` off any of the visitor's own posts — `author: "me"`
+  guarantees it's genuinely theirs). The avatar menu fetches
+  `/api/posts/mine` once it knows the visitor is signed in and renders
+  a "Переглянути профіль"/"View profile" link above "Мої пости" only
+  when a username actually came back. A visitor with zero posts still
+  has no way to resolve their own profile URL through this path — the
+  row is simply omitted for them, not shown broken.
+
+Known limitation, unchanged from before this entry: still no real
+"get my profile" endpoint. Once one exists, both of today's
+`authorUsername`/raw-profile-id workarounds can be replaced with a
+direct call.
