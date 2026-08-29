@@ -1626,3 +1626,64 @@ Occupation cat icons on `/u/[username]` now render via new
 just the baked-in gradient-square background shape layer stripped out)
 while onboarding keeps the original with-background files — see
 `components/occupation-icon.tsx`'s new `background` prop.
+
+### 6.20 Post editor: live-testing feedback fixes (2026-08-29)
+
+A batch of 7 live-deploy screenshots plus 2 follow-up messages surfaced
+issues in the 6.19 post editor. All addressed in the same
+`components/post-editor.tsx` (632-line diff) plus a small
+`my-posts-panel.tsx` follow-up:
+
+- Salary row: the amount `<input>` had `flex-1` with no `min-w-0`,
+  so it refused to shrink and pushed the currency `<select>` off-screen
+  — root cause, not a width tweak. Fixed with `min-w-0` on the amount
+  input, `w-[4.5rem]` on the currency select, and a labeled two-button
+  month/year segmented toggle replacing the old swap icon.
+- Photos: capped at 3 (was 5); each is now compressed client-side
+  (`compressImage()` — `createImageBitmap` + canvas + iterative
+  `toBlob` quality stepping, no new dependency) to fit under ~300KB
+  before upload.
+- Tags: `dataset.postTags`'s experience group turned out to be
+  `"1 yr. exp."` followed by bare `"2"`/`"3"`/`"4"`/`"5+"` strings (only
+  the first matched the old "yr"/"exp" substring regex) — confirmed
+  live, not previously documented. `isExperienceTag()` extended with
+  `/^\d+\+?$/` so the bare numbers bucket under Experience instead of
+  Other tags.
+- Category: list now sorted IT-first (mirrors
+  `profile-setup-form.tsx`'s existing logic), gained a rotating chevron,
+  and reuses that same file's viewport-aware drop-up positioning so the
+  dropdown shows more rows comfortably instead of a cramped fixed list.
+- Location: shows a spinner while a debounced search is in flight and
+  a "no results" hint once a completed search returns zero matches,
+  matching the mobile app's own feedback instead of typing into an
+  apparently-dead field.
+- Validation: inline red hints now live-track title (< 10 chars) and
+  description (< 30 chars) — copied from the mobile app's own displayed
+  thresholds — plus permanent "required field" hints under
+  location/category when unset; all four gate the submit buttons
+  (`canSubmit`), not just a submit-time alert.
+- Schedule popover: was a native `datetime-local` input, which (a)
+  rendered its OS calendar below the modal, often off-screen, and
+  (b) accepted keystroke-typed nonsense like year `0002` while leaving
+  the confirm button enabled, since native `min`/`max` attributes don't
+  reliably gate manual entry. Replaced with a custom popover
+  (`absolute bottom-full`, opens upward) with 4 quick-pick chips
+  (today evening / tomorrow morning / +3 days / +1 week) and separate
+  date/time inputs; `min`/`max` attributes are kept as a first line of
+  defense but the actual gate on the confirm button is an independent
+  numeric check (`scheduleIsValid()`), so a malformed typed date can no
+  longer produce an enabled Schedule button.
+- Offer-a-job/Find-a-job toggle wrapped in `sticky top-0` so it stays
+  visible while the form scrolls, instead of scrolling out of view.
+- Save draft previously called `onClose()` unconditionally after any
+  successful save, so (in create mode) every repeated "Save draft"
+  click minted a brand new post via `posts.createPost` with no visible
+  confirmation. Added `savedPostId` state (seeded from
+  `initialPost?.id` in edit mode, filled in after the first successful
+  create) so every later save — draft, post, or schedule — targets the
+  same post via `posts.updatePost`; a draft save no longer closes the
+  dialog and instead shows a "✓ Draft saved" badge next to the header
+  for 3 seconds. `my-posts-panel.tsx`'s `onSaved` prop, previously
+  `() => { setEditing(null); load(); }`, is now just `load` so a draft
+  save from "My posts → New post" also stays open with the same
+  confirmation instead of force-closing.
