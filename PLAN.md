@@ -1843,3 +1843,67 @@ from two machines) revoked the refresh token the web app was holding —
 if "Token revoked" recurs on a single tab with nothing else signed in at
 the same time, this fix wasn't the (or the whole) cause and that theory
 moves up.
+
+### 6.24 Round 5 live retest: revoke recurred (race theory now doubtful) + new "missing categories" 400 (2026-08-29)
+
+Aleksandr pushed §6.23's coalescing fix and retested live. Two findings,
+neither the clean confirmation hoped for:
+
+**"Token revoked" recurred, but is now handled correctly.** Vercel logs
+show `POST /api/upload/create` → 401 at 20:59:36, `External APIs` trace
+showing `upload.create` then `auth.refreshToken` — no `[error]` console
+line at all this time (contrast §6.22's opaque 502), because it now hits
+the `NoSessionError` path cleanly: the client got a real 401 with
+`message: "not_signed_in"` and the post-editor's existing handling sent
+the browser to `/sign-in?reason=create-post` (confirmed — that page was
+open in the reproduction). Aleksandr had to sign back in
+("Токен тоже отвалился, мне пришлось перезайти"), then upload + create
+worked past the auth step entirely.
+
+This occurrence undercuts §6.23's race theory, though: `auth.refreshToken`
+was called exactly once here, for one sequential request (`upload.create`)
+with no concurrent call visible anywhere in the surrounding log window —
+there is nothing for the coalescing fix to have deduplicated. §6.23's own
+"honesty check" flagged exactly this outcome as the falsifying case for
+the race theory and the confirming case for the alternative: something
+external to this app's own request pattern is revoking the refresh token
+(a fixed, shorter-than-expected server-side TTL, or a sign-in elsewhere
+on the same account revoking the old session). Added a diagnostic
+(`lib/a1/visitor-call.ts`, commit 7c19883): logs the token's age against
+its own stated `expiresAt` the next time a 401 happens, so the next
+occurrence tells us whether it was already "expired" by our own
+bookkeeping (points at TTL/proactive-refresh) or still well inside its
+stated window (points at external revocation). Not asking Aleksandr to
+change anything yet — this needs one more real occurrence with the new
+log line present before drawing a conclusion.
+
+**New, unrelated bug: `/api/posts/create` 400 "root is missing required
+property 'categories'".** After signing back in, photo upload succeeded
+(`200`/`200` on create+confirm) but the actual post create failed with
+this backend validation error — a completely different failure from the
+auth issue, on the very next call. Investigated the obvious explanation
+first: `canSubmit` (`components/post-editor.tsx`) already gates every
+submit button on `category !== null`, and the `categories` array sent is
+`category ? [category.value] : []` — if the button was clickable at all
+(and it was; the dialog showed the generic error banner, which only
+render after `submit()` itself runs, not the `markAllTouched()`/required-
+field-hint branch that fires when `canSubmit` is false), a category must
+have been selected, so an empty array reaching the backend doesn't add up
+from reading the client code alone. `category.value` is confirmed
+`z.number()` (`lib/a1/datasets.ts`'s `CategorySchema`), and nothing
+between building `input` and `JSON.stringify`-ing it mutates `categories`.
+
+Couldn't reproduce this live (no way to sign in as Aleksandr from here)
+and Vercel's log viewer on this plan doesn't expose the actual request
+body sent to `api.a1appp.com`, only the error text — so rather than
+guess at a fix that might not be it (this file's own established rule:
+verify against the live failure, don't pre-guess), added a diagnostic
+instead: `app/api/posts/create/route.ts` and `app/api/posts/update/route.ts`
+(commit 7c19883) now log `object`/`categories`/`tags`/whether
+location+money were set whenever the backend rejects the call, so the
+next 400 tells us the exact shape that actually left this route instead
+of what the client code merely appears to construct. Open question until
+that next data point: whether `categories` really did leave empty (a
+client bug not yet found) or whether this is a backend-side quirk (e.g.
+a `oneOf` discriminated-union match failing and surfacing an unrelated
+branch's "missing" error) unrelated to what we send at all.
