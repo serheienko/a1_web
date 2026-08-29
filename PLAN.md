@@ -1264,6 +1264,43 @@ possibly a leftover from choosing between two versions of the
 verify-step animation; flagged rather than deleted, since deleting an
 asset on a guess is worse than leaving an unused file).
 
+**Step order swapped, 2026-08-29** — Aleksandr: "сначала код, потом
+профиль" (verify-by-code first, then profile-setup). Redirects updated:
+sign-up now goes to `/onboarding/verify` first; a correct code moves on
+to `/onboarding/profile`; a successful profile save is now the end of
+onboarding (`/`). The verify page's quiet "skip" arrow now points at
+`/onboarding/profile` instead of `/` — it was always meant to skip just
+that one step (a code that never arrives), not the whole flow.
+
+**Profile-save is currently BROKEN in production, confirmed 2026-08-29**
+— real end-to-end testing (not a guess) hit this live: every submission
+of the "Налаштуйте профіль" step that picks an industry fails with "Не
+вдалося зберегти." Vercel's function logs show the actual backend
+response: `400 INVALID_INPUT "'companies.0' is missing required
+property 'name'"`. Pulled `Resource.User.Company`'s real schema from the
+live openapi.json to confirm — it has a required `name` field (example:
+"Coca-Cola"), i.e. a company entry represents an actual named employer,
+not a bare industry tag. This step never collects a company/employer
+name, so the `companies: [{category}]` shape this route has always sent
+was wrong — not a guess that happened to work, an assumption that was
+flagged as unconfirmed (see the "Built, 2026-08-29" note above) and has
+now been proven wrong by the backend itself. **Asked Aleksandr how he
+wants this resolved** (add a company-name field to this step vs.
+"Отрасль" isn't really `companies[].category` at all) rather than
+sending a placeholder/fake company name to a real backend on a guess.
+Not fixed yet — occupation and expertise still save fine on their own;
+it's specifically the category/industry field that's blocked.
+
+**Small UI fixes, 2026-08-29** (Aleksandr, live-testing feedback):
+- Briefcase cat on this step enlarged 50% (72px → 108px).
+- "Отрасль" dropdown: added a chevron indicator, and it no longer gets
+  cut off by the viewport — it now measures real space above/below the
+  input on open and flips upward + caps its own height to whatever's
+  actually available, instead of always dropping down at a fixed height.
+- "IT" (the single most common answer on a jobs platform) is now always
+  pinned to the top of the category list/search results instead of
+  sitting wherever alphabetical/dataset order puts it.
+
 
 ## OPEN QUESTIONS — Stage 2, for Aleksandr
 

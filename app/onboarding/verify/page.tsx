@@ -189,7 +189,7 @@ export default function OnboardingVerifyPage() {
           setPending(false);
           return;
         }
-        window.location.href = "/";
+        window.location.href = "/onboarding/profile";
       } catch {
         setError(STRINGS.errorGeneric[lang]);
         setPending(false);
@@ -305,7 +305,7 @@ export default function OnboardingVerifyPage() {
         </div>
 
         <Link
-          href="/"
+          href="/onboarding/profile"
           className="mt-6 block text-center text-xs text-neutral-300 hover:text-neutral-500 dark:text-neutral-600 dark:hover:text-neutral-400"
         >
           {/* Deliberately no translated "skip" copy — this isn't meant

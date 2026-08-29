@@ -9,10 +9,11 @@
 //     animated cat icons per option (components/occupation-icon.tsx,
 //     already proven live on /u/[username]).
 //   - expertise: free text — "Роль и навыки".
-//   - category: dataset.companyCategories' numeric id — "Отрасль",
-//     written to companies[0].category (see app/api/account/
-//     update-profile/route.ts's own comment on why, and the open
-//     assumption there).
+//   - category: dataset.companyCategories' numeric id — "Отрасль".
+//     NOT yet actually saved: the backend rejects a companies[] entry
+//     without a "name" (confirmed live, 2026-08-29 — see PLAN.md
+//     §6.15 and app/api/account/update-profile/route.ts), and this
+//     step collects no company name. Open question for Aleksandr.
 //
 // Reuses OCCUPATION_LABELS from app/u/[username]/page.tsx (exported
 // there for this) instead of a second translation table for the same
@@ -126,6 +127,8 @@ export function ProfileSetupForm({ categories }: { categories: Category[] }) {
   const [category, setCategory] = useState<Category | null>(null);
   const [categoryQuery, setCategoryQuery] = useState("");
   const [categoryOpen, setCategoryOpen] = useState(false);
+  const [categoryDropUp, setCategoryDropUp] = useState(false);
+  const [categoryMaxHeight, setCategoryMaxHeight] = useState(224);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const categoryBoxRef = useRef<HTMLDivElement>(null);
@@ -133,7 +136,12 @@ export function ProfileSetupForm({ categories }: { categories: Category[] }) {
   const filteredCategories = useMemo(() => {
     const q = categoryQuery.trim().toLowerCase();
     const list = q ? categories.filter((c) => c.text.toLowerCase().includes(q)) : categories;
-    return list.slice(0, 50);
+    // Aleksandr, 2026-08-29: "IT ставим на первую строку списка" — IT is
+    // the single most common answer on a jobs platform, worth surfacing
+    // first rather than wherever it falls alphabetically/by dataset order.
+    const itIndex = list.findIndex((c) => c.text.trim().toUpperCase() === "IT");
+    const ordered = itIndex > 0 ? [list[itIndex]!, ...list.slice(0, itIndex), ...list.slice(itIndex + 1)] : list;
+    return ordered.slice(0, 50);
   }, [categories, categoryQuery]);
 
   const canSubmit = occupation !== null && expertise.trim().length > 0 && category !== null;
@@ -157,9 +165,10 @@ export function ProfileSetupForm({ categories }: { categories: Category[] }) {
         return;
       }
       // Full navigation, same convention app/sign-in/page.tsx uses after
-      // sign-up/in — the next step (code verification) has its own fresh
-      // server-side fetch of the visitor's session.
-      window.location.href = "/onboarding/verify";
+      // sign-up/in. Aleksandr, 2026-08-29: "сначала код, потом профиль" —
+      // verify-by-code now runs BEFORE this step, so a successful save
+      // here is the end of onboarding.
+      window.location.href = "/";
     } catch {
       setError(STRINGS.errorGeneric[lang]);
       setPending(false);
@@ -226,23 +235,55 @@ export function ProfileSetupForm({ categories }: { categories: Category[] }) {
           {/* Отрасль — searchable dropdown over dataset.companyCategories */}
           <div className="relative flex flex-col gap-1.5" ref={categoryBoxRef}>
             <label htmlFor="category" className={labelClass}>{STRINGS.categoryLabel[lang]}</label>
-            <input
-              id="category"
-              type="text"
-              required
-              value={categoryOpen ? categoryQuery : (category?.text ?? "")}
-              onFocus={() => {
-                setCategoryOpen(true);
-                setCategoryQuery("");
-              }}
-              onChange={(e) => setCategoryQuery(e.target.value)}
-              onBlur={() => setCategoryOpen(false)}
-              placeholder={STRINGS.categoryPlaceholder[lang]}
-              className={inputClass}
-              autoComplete="off"
-            />
+            <div className="relative">
+              <input
+                id="category"
+                type="text"
+                required
+                value={categoryOpen ? categoryQuery : (category?.text ?? "")}
+                onFocus={(e) => {
+                  // Pick whichever side of the input (above/below) has
+                  // more room in the viewport right now, and cap the
+                  // list's height to what's actually available there —
+                  // a fixed max-h-56 dropdown could hang off the bottom
+                  // of the screen with no way to see or scroll to its
+                  // last items.
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const margin = 16;
+                  const spaceBelow = window.innerHeight - rect.bottom - margin;
+                  const spaceAbove = rect.top - margin;
+                  const dropUp = spaceBelow < 160 && spaceAbove > spaceBelow;
+                  setCategoryDropUp(dropUp);
+                  setCategoryMaxHeight(Math.max(120, Math.min(224, dropUp ? spaceAbove : spaceBelow)));
+                  setCategoryOpen(true);
+                  setCategoryQuery("");
+                }}
+                onChange={(e) => setCategoryQuery(e.target.value)}
+                onBlur={() => setCategoryOpen(false)}
+                placeholder={STRINGS.categoryPlaceholder[lang]}
+                className={inputClass + " pr-9"}
+                autoComplete="off"
+              />
+              <svg
+                viewBox="0 0 20 20"
+                fill="none"
+                aria-hidden="true"
+                className={
+                  "pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400 transition-transform dark:text-neutral-500 " +
+                  (categoryOpen ? "rotate-180" : "")
+                }
+              >
+                <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
             {categoryOpen && (
-              <div className="absolute top-full z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-xl border border-neutral-200 bg-white py-1 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+              <div
+                style={{ maxHeight: categoryMaxHeight }}
+                className={
+                  "absolute z-10 w-full overflow-y-auto rounded-xl border border-neutral-200 bg-white py-1 shadow-lg dark:border-neutral-700 dark:bg-neutral-900 " +
+                  (categoryDropUp ? "bottom-full mb-1" : "top-full mt-1")
+                }
+              >
                 {filteredCategories.length === 0 && (
                   <div className="px-4 py-2 text-sm text-neutral-400">{STRINGS.categoryEmpty[lang]}</div>
                 )}

@@ -9,11 +9,19 @@
 // (confirmed against app/u/[username]/page.tsx's pre-existing code —
 // see PLAN.md §6.15's correction note). "Отрасль" (category) has no bare
 // top-level field on Resource.User — it only exists nested inside
-// companies[].category (lib/a1/schemas.ts's UserCompanySchema) — so this
-// sends a single company entry with just that field set. That's a
-// labeled assumption, not a confirmed shape: nothing in PLAN.md §6.1
-// says whether account.updateProfile accepts a companies[] entry missing
-// a name. Revisit if Andrew confirms otherwise.
+// companies[].category (lib/a1/schemas.ts's UserCompanySchema), so this
+// sends a single company entry with just that field set.
+//
+// CONFIRMED BROKEN, 2026-08-29 (live production error, not a guess):
+// the backend rejects this with 400 INVALID_INPUT "'companies.0' is
+// missing required property 'name'" — the live openapi.json's own
+// Resource.User.Company schema requires `name` (e.g. "Coca-Cola") on
+// every companies[] entry, and this step collects no company/employer
+// name. Every real submission from /onboarding/profile fails right now.
+// See PLAN.md §6.15 — asked Aleksandr how he wants this resolved
+// (add a name field vs. this isn't really the right field for
+// "Отрасль" at all) rather than guessing with a placeholder name on
+// real user profiles.
 
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";

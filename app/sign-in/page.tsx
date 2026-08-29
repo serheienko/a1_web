@@ -175,7 +175,7 @@ export default function SignInPage() {
       // profile fields set yet and its email isn't verified — route it
       // through the two onboarding steps first. Sign-in (an existing
       // account) skips straight to "/" as before.
-      window.location.href = mode === "sign-up" ? "/onboarding/profile" : "/";
+      window.location.href = mode === "sign-up" ? "/onboarding/verify" : "/";
     } catch {
       setError(mode === "sign-in" ? STRINGS.errorSignIn[lang] : STRINGS.errorSignUp[lang]);
       setPending(false);
