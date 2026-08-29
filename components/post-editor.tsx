@@ -168,6 +168,14 @@ export type EditablePost = {
   tags: string[];
   money: ExistingMoney;
   media: MediaDoc[];
+  // Optional: whether this post is still a draft (never published). Only
+  // components/post-owner-menu.tsx's MinePost currently supplies this
+  // (from /api/posts/mine) -- see the isEditingPublishedPost comment
+  // below in this file for why the footer's Save-draft/Schedule buttons
+  // read it. Undefined (e.g. mode="create", or any future caller that
+  // doesn't have it) is treated the same as a draft -- never hides the
+  // buttons on missing information.
+  isDraft?: boolean;
 };
 
 type Bootstrap = {
@@ -765,6 +773,17 @@ export function PostEditor({
   const titleValid = title.trim().length >= TITLE_MIN;
   const descriptionValid = content.trim().length >= DESCRIPTION_MIN;
   const canSubmit = titleValid && descriptionValid && location !== null && category !== null;
+
+  // Aleksandr, 2026-08-29 (screenshot of the Edit modal on an already-
+  // live job post): "если пост уже запощен - кнопок 'зберегти чернетку'
+  // и 'запланировать' не должно быть... а зберегти должно быть на всю
+  // ширину" -- draft-save and scheduling only make sense for a post
+  // that hasn't gone out yet. `initialPost.isDraft === false` (strict
+  // check, not just falsy) is the signal: true only when this is a
+  // real edit of a post /api/posts/mine already reported as non-draft.
+  // `undefined` (create mode, or editing an actual draft) keeps all
+  // three footer buttons exactly as before.
+  const isEditingPublishedPost = mode === "edit" && initialPost?.isDraft === false;
 
   function buildMoney(): ExistingMoney {
     const amount = Number(salaryAmount);
@@ -1403,65 +1422,85 @@ export function PostEditor({
               scheduling is the one action that makes sense at that
               point — see the button row below. */}
           <div className="flex items-center gap-2">
-            <button
-              ref={scheduleButtonRef}
-              type="button"
-              onClick={() => (scheduleOpen ? setScheduleOpen(false) : openSchedulePopover())}
-              aria-label={t("schedulePost", lang)}
-              className={
-                "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition " +
-                (scheduleOpen ? "border-accent bg-accent/10 text-accent" : "border-neutral-300 text-neutral-500 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-50") +
-                (!canSubmit ? " opacity-50" : "")
-              }
-            >
-              <ClockIcon />
-            </button>
-            {scheduleOpen ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setScheduleOpen(false)}
-                  className="rounded-full border border-neutral-300 px-3.5 py-2 text-xs font-medium text-neutral-600 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
-                >
-                  {t("scheduleCancel", lang)}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!canSubmit) { markAllTouched(); return; }
-                    if (!scheduleIsValid()) return;
-                    submit("schedule");
-                  }}
-                  disabled={pendingAction !== null}
-                  className={"flex-1 rounded-full bg-accent py-2.5 text-sm font-bold tracking-wide text-white transition hover:opacity-90 disabled:opacity-50" + (!canSubmit || !scheduleIsValid() ? " opacity-50" : "")}
-                >
-                  {pendingAction === "schedule" ? <Spinner className="mx-auto h-4 w-4" /> : t("scheduleActionCaps", lang)}
-                </button>
-              </>
+            {isEditingPublishedPost ? (
+              // Already-published post being edited: no draft-save, no
+              // scheduling (both belong to a post that hasn't gone out
+              // yet) -- just one full-width Save. See
+              // isEditingPublishedPost's own comment above.
+              <button
+                type="button"
+                onClick={() => {
+                  if (!canSubmit) { markAllTouched(); return; }
+                  submit("post");
+                }}
+                disabled={pendingAction !== null}
+                className={"flex-1 rounded-full bg-accent py-2.5 text-sm font-bold tracking-wide text-white transition hover:opacity-90 disabled:opacity-50" + (!canSubmit ? " opacity-50" : "")}
+              >
+                {pendingAction === "post" ? <Spinner className="mx-auto h-4 w-4" /> : t("saveChanges", lang)}
+              </button>
             ) : (
               <>
                 <button
+                  ref={scheduleButtonRef}
                   type="button"
-                  onClick={() => {
-                    if (!canSubmit) { markAllTouched(); return; }
-                    submit("draft");
-                  }}
-                  disabled={pendingAction !== null}
-                  className={"rounded-full border border-neutral-300 px-3.5 py-2 text-xs font-medium text-neutral-600 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800" + (!canSubmit ? " opacity-50" : "")}
+                  onClick={() => (scheduleOpen ? setScheduleOpen(false) : openSchedulePopover())}
+                  aria-label={t("schedulePost", lang)}
+                  className={
+                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition " +
+                    (scheduleOpen ? "border-accent bg-accent/10 text-accent" : "border-neutral-300 text-neutral-500 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-50") +
+                    (!canSubmit ? " opacity-50" : "")
+                  }
                 >
-                  {pendingAction === "draft" ? <Spinner className="h-3.5 w-3.5" /> : t("saveDraft", lang)}
+                  <ClockIcon />
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!canSubmit) { markAllTouched(); return; }
-                    submit("post");
-                  }}
-                  disabled={pendingAction !== null}
-                  className={"flex-1 rounded-full bg-accent py-2.5 text-sm font-bold tracking-wide text-white transition hover:opacity-90 disabled:opacity-50" + (!canSubmit ? " opacity-50" : "")}
-                >
-                  {pendingAction === "post" ? <Spinner className="mx-auto h-4 w-4" /> : (mode === "edit" || savedPostId ? t("saveChanges", lang) : t("post", lang))}
-                </button>
+                {scheduleOpen ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setScheduleOpen(false)}
+                      className="rounded-full border border-neutral-300 px-3.5 py-2 text-xs font-medium text-neutral-600 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                    >
+                      {t("scheduleCancel", lang)}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!canSubmit) { markAllTouched(); return; }
+                        if (!scheduleIsValid()) return;
+                        submit("schedule");
+                      }}
+                      disabled={pendingAction !== null}
+                      className={"flex-1 rounded-full bg-accent py-2.5 text-sm font-bold tracking-wide text-white transition hover:opacity-90 disabled:opacity-50" + (!canSubmit || !scheduleIsValid() ? " opacity-50" : "")}
+                    >
+                      {pendingAction === "schedule" ? <Spinner className="mx-auto h-4 w-4" /> : t("scheduleActionCaps", lang)}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!canSubmit) { markAllTouched(); return; }
+                        submit("draft");
+                      }}
+                      disabled={pendingAction !== null}
+                      className={"rounded-full border border-neutral-300 px-3.5 py-2 text-xs font-medium text-neutral-600 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800" + (!canSubmit ? " opacity-50" : "")}
+                    >
+                      {pendingAction === "draft" ? <Spinner className="h-3.5 w-3.5" /> : t("saveDraft", lang)}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!canSubmit) { markAllTouched(); return; }
+                        submit("post");
+                      }}
+                      disabled={pendingAction !== null}
+                      className={"flex-1 rounded-full bg-accent py-2.5 text-sm font-bold tracking-wide text-white transition hover:opacity-90 disabled:opacity-50" + (!canSubmit ? " opacity-50" : "")}
+                    >
+                      {pendingAction === "post" ? <Spinner className="mx-auto h-4 w-4" /> : (mode === "edit" || savedPostId ? t("saveChanges", lang) : t("post", lang))}
+                    </button>
+                  </>
+                )}
               </>
             )}
           </div>

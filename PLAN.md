@@ -2229,3 +2229,29 @@ square for now since Aleksandr's correction named feed/onboarding/
 profile specifically, not the detail page byline — worth asking about
 separately if it turns out to look inconsistent there too, but not
 guessing at it here.
+
+### 6.36 UI: hide draft-save/schedule when editing an already-published post; revert profile avatar shape too (2026-08-29)
+
+Two more screenshot-driven fixes, UI-only:
+
+- **Edit modal footer**: "если пост уже запощен - кнопок 'зберегти
+  чернетку' и 'запланировать' не должно быть... а зберегти должно быть
+  на всю ширину" — draft-save and scheduling only make sense for a post
+  that hasn't gone out yet. `components/post-editor.tsx`'s
+  `EditablePost` type gained an optional `isDraft?: boolean` (already
+  supplied by `MinePost` in `components/post-owner-menu.tsx`, which is
+  the only `mode="edit"` caller today); a new `isEditingPublishedPost =
+  mode === "edit" && initialPost?.isDraft === false` collapses the
+  footer to a single full-width "Зберегти" button in that case, leaving
+  the existing three-button (clock/draft/post) footer untouched for
+  create mode and for editing an actual draft.
+
+- **Profile avatar shape, reverted**: §6.35 already reverted the feed's
+  default-cat avatars from square back to circle after Aleksandr
+  clarified feed/onboarding/profile are three separate presentations.
+  He's now clarified the profile is ALSO round, not square — the
+  square-crop change (this file's own 2026-08-29 comment, made earlier
+  the same day, reasoning about the gradient-fill asset) was itself the
+  mistake, not just its copy into the feed. `app/u/[username]/page.tsx`'s
+  default-cat `<img>` is back to `rounded-full`, matching the
+  real-photo branch above it.

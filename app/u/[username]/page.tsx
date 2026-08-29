@@ -353,16 +353,17 @@ export default async function ProfilePage({ params }: Props) {
               alt=""
               width={150}
               height={150}
-              // Rounded SQUARE, not a circle, for the default cat avatars
-              // only (real uploaded photos above stay rounded-full).
-              // Aleksandr, 2026-08-29: "при регистрации у них есть цветная
-              // заливка, скругленный квадрат, а уже в профиле они
-              // отображаются без заливки" -- the cats/*.png assets
-              // (lib/avatars.ts) ARE a full-bleed colored-gradient square
-              // with the cat centered; a circle crop (rounded-full) was
-              // cutting the corners off that fill, which is what read as
-              // "no fill" here versus the app's own square presentation.
-              className="h-[72px] w-[72px] shrink-0 rounded-2xl object-cover sm:h-[112.5px] sm:w-[112.5px]"
+              // Rounded-full (circle), matching the real-photo branch
+              // above. Aleksandr, 2026-08-29: reverted an earlier same-
+              // day square-crop change here -- "профиль должен быть без
+              // квадрата, там анимированные коти без фона которые
+              // говорят про роль пользователя" (the profile's own
+              // default-cat presentation is a separate thing, distinct
+              // from the feed's and onboarding's, and was already right
+              // before that square-crop change). See components/
+              // post-card.tsx's PLAN.md §6.35 for the matching feed-side
+              // revert of the same over-generalized fix.
+              className="h-[72px] w-[72px] shrink-0 rounded-full object-cover sm:h-[112.5px] sm:w-[112.5px]"
             />
           )}
         </VoiceIntroRing>
