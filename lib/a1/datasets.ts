@@ -216,3 +216,37 @@ export const fetchWorkStylePreferences = cache(async function fetchWorkStylePref
   const raw = await call<unknown>("dataset.workStylePreferences", {});
   return WorkStylePreferencesOutputSchema.parse(raw);
 });
+
+/**
+ * Aleksandr, 2026-08-29 (post-editor salary field, PLAN.md §6.1's
+ * `posts.createPost`/`Money` union): the currency dropdown for a
+ * vacancy's salary. dataset.currencies is public/no-auth like every
+ * other dataset.* here, and PLAN.md §0.1 already lists it as existing —
+ * nothing in the repo had called it yet. Shape assumed to match every
+ * other flat dataset.* lookup here (`{items: [{value, text}]}` — same
+ * family as postCategories/companyCategories/workInterests), not yet
+ * confirmed against a live response. Falls back to the same four codes
+ * lib/format.ts's CURRENCY_SYMBOLS already hardcodes if the live shape
+ * turns out different or the call fails — the salary field degrades to
+ * "still usable with 4 common currencies," never to "broken," while
+ * this gets corrected once seen live.
+ */
+const CurrencySchema = z.object({ value: z.string(), text: z.string().catch("") }).catchall(z.unknown());
+export type Currency = z.infer<typeof CurrencySchema>;
+const CurrenciesOutputSchema = z.object({ items: z.array(CurrencySchema).catch([]) });
+const FALLBACK_CURRENCIES: Currency[] = [
+  { value: "usd", text: "USD" },
+  { value: "eur", text: "EUR" },
+  { value: "gbp", text: "GBP" },
+  { value: "uah", text: "UAH" },
+];
+
+export const fetchCurrencies = cache(async function fetchCurrencies(): Promise<Currency[]> {
+  const raw = await call<unknown>("dataset.currencies", {});
+  const parsed = CurrenciesOutputSchema.safeParse(raw);
+  if (!parsed.success || parsed.data.items.length === 0) {
+    if (!parsed.success) console.warn("[lib/a1/datasets] currencies failed to parse", parsed.error);
+    return FALLBACK_CURRENCIES;
+  }
+  return parsed.data.items;
+});

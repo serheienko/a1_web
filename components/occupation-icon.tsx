@@ -24,6 +24,20 @@
 // animations that aren't occupation icons. This file is now just the
 // occupation -> URL lookup table on top of it — its own public API
 // (<OccupationIcon occupation="entrepreneur" />) is unchanged.
+//
+// 2026-08-29, Aleksandr, on a live /u/[username] screenshot ("верни тут
+// старые анимации без фона. Они повинні бути різні: при онбордингу з
+// фоном, як зараз, а в профілях без фона"): the three source .json
+// files each bake their colored gradient square in as the LAST shape
+// layer in the composition ("Слой 1"/"Слой 2" — a plain gradient-filled
+// path, confirmed by inspecting each file's layer list, nothing else
+// parents to it). Rather than re-exporting new assets, each file was
+// copied to a `-nobg` sibling with just that one background layer
+// stripped out — same animation, same timing, transparent instead of a
+// colored square behind it. Onboarding (profile-setup-form.tsx) keeps
+// using the original files unchanged; the profile page
+// (app/u/[username]/page.tsx) now passes `background={false}` to get
+// the stripped variant.
 "use client";
 
 import { LottiePlayer } from "./lottie-player";
@@ -34,9 +48,16 @@ const OCCUPATION_ANIMATION_URLS: Record<string, string> = {
   freelancer: "/occupations/freelancer.json",
 };
 
+const OCCUPATION_ANIMATION_URLS_NO_BG: Record<string, string> = {
+  entrepreneur: "/occupations/entrepreneur-nobg.json",
+  professional: "/occupations/professional-nobg.json",
+  freelancer: "/occupations/freelancer-nobg.json",
+};
+
 export function OccupationIcon({
   occupation,
   size = 31,
+  background = true,
 }: {
   occupation: string;
   /** 2026-08-28: "Увеличь на 30% кота который подсвечивает роль
@@ -44,8 +65,12 @@ export function OccupationIcon({
    *  existing call site is unaffected; the onboarding "Я..." dropdown
    *  passes its own size for the bigger trigger-button icon. */
   size?: number;
+  /** 2026-08-29: false renders the transparent `-nobg` variant instead
+   *  of the original colored-square one. Defaults to true so every
+   *  existing call site (onboarding) keeps its current look untouched. */
+  background?: boolean;
 }) {
-  const url = OCCUPATION_ANIMATION_URLS[occupation];
+  const url = (background ? OCCUPATION_ANIMATION_URLS : OCCUPATION_ANIMATION_URLS_NO_BG)[occupation];
   if (!url) return null;
   return <LottiePlayer src={url} size={size} />;
 }

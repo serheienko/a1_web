@@ -34,13 +34,15 @@
 // page.tsx already does) — structured below so that only needs a new
 // `photoUrl` variable, not a rewrite.
 //
-// Cat avatar shape: rounded-xl, not rounded-full — see PLAN.md's
-// 2026-08-29 fix for pickDefaultCatAvatar's other 4 call sites (post-
-// card.tsx, app/u/[username]/page.tsx, app/jobs/[slug]/page.tsx,
-// app/talents/[slug]/page.tsx): those images are square with a full-
-// bleed colored gradient fill, and rounded-full crops that fill away.
-// Same reasoning applies here — this button would hit the exact same
-// bug if it stayed circular.
+// Cat avatar shape: rounded-full here specifically, per Aleksandr's
+// 2026-08-29 follow-up ("аватар тоже наверное сделай круглым") on a live
+// screenshot of this exact button — overrides the rounded-xl choice
+// pickDefaultCatAvatar's other 4 call sites still use (post-card.tsx,
+// app/u/[username]/page.tsx, app/jobs/[slug]/page.tsx, app/talents/
+// [slug]/page.tsx), where the square full-bleed gradient fill still
+// needs to stay uncropped. This one small 36px nav button reads fine
+// cropped to a circle in practice — verify live after deploy, and if a
+// particular seed's crop looks bad, revisit.
 //
 // 2026-08-29, sign-out button follow-up (Aleksandr, from a live mobile
 // screenshot: "Sign out сделай без заливки только красный stroke"):
@@ -55,6 +57,7 @@ import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { LOCALES, LOCALE_CLASS, LOCALE_TAG, type Locale } from "@/components/t";
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
 import { SettingsMenu } from "@/components/settings-menu";
+import { MyPostsPanel } from "@/components/my-posts-panel";
 
 type Theme = "light" | "dark" | "auto";
 
@@ -76,7 +79,7 @@ const LANGUAGE_NAMES: Record<Locale, string> = {
   zh: "简体中文",
 };
 
-type AvatarMenuStringKey = "signIn" | "signOut" | "theme" | "language" | "light" | "dark" | "auto";
+type AvatarMenuStringKey = "signIn" | "signOut" | "theme" | "language" | "light" | "dark" | "auto" | "myPosts";
 
 const STRINGS: Record<AvatarMenuStringKey, Record<Locale, string>> = {
   signIn: {
@@ -86,6 +89,13 @@ const STRINGS: Record<AvatarMenuStringKey, Record<Locale, string>> = {
   signOut: {
     uk: "Вийти", en: "Sign out", ru: "Выйти", de: "Abmelden", es: "Cerrar sesión",
     fr: "Se déconnecter", pl: "Wyloguj się", ptBR: "Sair", zh: "退出",
+  },
+  // 2026-08-29 (Aleksandr: "посты должны быть CRUD, create / update /
+  // delete") — entry point into components/my-posts-panel.tsx.
+  myPosts: {
+    uk: "Мої пости", en: "My posts", ru: "Мои посты", de: "Meine Beiträge",
+    es: "Mis publicaciones", fr: "Mes publications", pl: "Moje posty",
+    ptBR: "Minhas publicações", zh: "我的帖子",
   },
   theme: {
     uk: "Тема", en: "Theme", ru: "Тема", de: "Design", es: "Tema",
@@ -169,6 +179,7 @@ export function AvatarMenu() {
   const [email, setEmail] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
   const [open, setOpen] = useState(false);
+  const [myPostsOpen, setMyPostsOpen] = useState(false);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -238,7 +249,7 @@ export function AvatarMenu() {
         onClick={() => setOpen((v) => !v)}
         aria-label={email}
         aria-expanded={open}
-        className="h-9 w-9 shrink-0 overflow-hidden rounded-xl shadow-sm ring-1 ring-black/5 transition hover:opacity-90 dark:ring-white/10"
+        className="h-9 w-9 shrink-0 overflow-hidden rounded-full shadow-sm ring-1 ring-black/5 transition hover:opacity-90 dark:ring-white/10"
       >
         {/* Always the cat fallback for now — see this file's header
             comment on why a real uploaded photo isn't wired up yet. */}
@@ -322,6 +333,17 @@ export function AvatarMenu() {
 
             <button
               type="button"
+              onClick={() => {
+                setOpen(false);
+                setMyPostsOpen(true);
+              }}
+              className="mb-1.5 w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-neutral-700 transition hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+            >
+              {STRINGS.myPosts[lang]}
+            </button>
+
+            <button
+              type="button"
               onClick={signOut}
               disabled={signingOut}
               className="mt-1 w-full rounded-lg border border-red-600 bg-transparent px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-500 dark:text-red-500 dark:hover:bg-red-500/10"
@@ -331,6 +353,8 @@ export function AvatarMenu() {
           </div>
         </>
       )}
+
+      {myPostsOpen && <MyPostsPanel onClose={() => setMyPostsOpen(false)} />}
     </div>
   );
 }

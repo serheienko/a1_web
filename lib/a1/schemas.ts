@@ -228,6 +228,84 @@ export type PostsSearchOutput = z.infer<typeof PostsSearchOutputSchema>;
  * legacy type or otherwise malformed. Logs the id/object for triage but
  * never throws — the caller keeps going (PLAN.md §5 rule 6).
  */
+// ---------------------------------------------------------------------------
+// posts.createPost / posts.updatePost — write-side input (PLAN.md §6.1,
+// verified against the live OpenAPI spec 2026-08-28). For the two live
+// post types: required `title, content, links, location, media, money,
+// object, tags, categories`; optional `scheduled, draft, apply`.
+// Deliberately excludes `hideAuthor`/`premiumPinDays`/`premiumHighlight`
+// — no reference screenshot or product ask covers them yet, and PLAN.md
+// itself only inferred the last two names by convention, never confirmed
+// them; add them later with their own verification pass, not guessed in
+// now.
+//
+// `location`/`money` are typed nullable (a post can have neither a
+// resolved location nor a salary) even though PLAN.md lists both as
+// "required" — read as "the key must be present", not "must be
+// non-null", same interpretation account.updateProfile's own history
+// already established for optional-shaped required fields. If the
+// backend actually rejects a null value here, that will surface as a
+// live 400 on first use (same detection path as every other
+// PostInput/Company field this project has gotten wrong before) — fix
+// it then, don't pre-guess a fallback value.
+//
+// `media` reuses MediaDocumentSchema itself: upload.confirm (§6.1)
+// returns a real MediaDocument, and the read side already renders
+// `media: MediaDocument[]` on a fetched Post — sending exactly what
+// upload.confirm handed back keeps the write side symmetrical with the
+// read side instead of inventing a slimmer id-only shape.
+//
+// `PostInputMoneySchema` mirrors MoneySchema above field-for-field. Same
+// caveat as MoneySchema's own comment: only the Range variant's literal
+// `object` string is confirmed by name in PLAN.md §0.3; the other three
+// are inferred by naming convention.
+// ---------------------------------------------------------------------------
+
+export const PostInputMoneySchema = z.union([
+  z.object({ unitAmount: z.number(), currency: z.string(), object: z.literal("post-money-single") }),
+  z.object({ unitAmount: z.number(), currency: z.string(), object: z.literal("post-money-single-annual") }),
+  z.object({ unitAmount: z.array(z.number()).length(2), currency: z.string(), object: z.literal("post-money-range") }),
+  z.object({ unitAmount: z.array(z.number()).length(2), currency: z.string(), object: z.literal("post-money-range-annual") }),
+]);
+export type PostInputMoney = z.infer<typeof PostInputMoneySchema>;
+
+export const PostInputLinkSchema = z.object({
+  title: z.string().catch(""),
+  url: z.string().trim().min(1),
+});
+
+/**
+ * `apply.questions`' exact item shape is NOT confirmed — PLAN.md §0.3
+ * only ever saw it on the read side as `z.array(z.unknown())`, and §6.1
+ * doesn't specify the write-side item shape either. `{ question: string
+ * }` is a best-effort guess, not a verified fact — deliberately kept
+ * optional end-to-end (the form only sends this key at all once the
+ * founder actually adds a custom question) so an empty post-creation
+ * flow is never blocked on this guess. Verify against the first live
+ * 400/200 the moment this is actually exercised, same discipline as
+ * Resource.User.Company (this file's own history) — fix the key name
+ * here and nowhere else if it's wrong.
+ */
+export const PostInputQuestionSchema = z.object({
+  question: z.string().trim().min(1),
+});
+
+export const PostInputSchema = z.object({
+  object: z.enum(["post-job-employing", "post-job-seeking"]),
+  title: z.string().trim().min(1),
+  content: z.string(),
+  links: z.array(PostInputLinkSchema),
+  location: z.number().nullable(),
+  media: z.array(MediaDocumentSchema),
+  money: PostInputMoneySchema.nullable(),
+  tags: z.array(z.string()),
+  categories: z.array(z.number()),
+  scheduled: z.number().nullable().optional(),
+  draft: z.boolean().optional(),
+  apply: z.object({ questions: z.array(PostInputQuestionSchema) }).optional(),
+});
+export type PostInput = z.infer<typeof PostInputSchema>;
+
 export function parsePost(raw: unknown): Post | null {
   const result = PostSchema.safeParse(raw);
   if (result.success) return result.data;

@@ -386,7 +386,7 @@ export default async function ProfilePage({ params }: Props) {
           <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-neutral-500 dark:text-neutral-400">
             {occupationLabel && (
               <span className="inline-flex items-center gap-1.5">
-                <OccupationIcon occupation={profile.occupation} />
+                <OccupationIcon occupation={profile.occupation} background={false} />
                 <T {...occupationLabel} />
               </span>
             )}
