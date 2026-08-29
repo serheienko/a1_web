@@ -26,6 +26,7 @@ import { formatRelativeTime, formatSalary } from "@/lib/format";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { T } from "@/components/t";
 import { TagLabel } from "@/components/tag-label";
+import { MyPostBadge } from "@/components/my-post-badge";
 
 export function PostCard({
   post,
@@ -162,6 +163,13 @@ export function PostCard({
           ) : (
             <span className="max-w-[10rem] truncate">{post.author.name}</span>
           )}
+          {/* Aleksandr, 2026-08-29: "надо куда-то добавить значок на
+              карточке, типа что это мой пост" -- next to the name, not
+              on the avatar, since the avatar is exactly what he was
+              (reasonably) confused by; see components/my-post-badge.tsx
+              for why the two can legitimately show different cats for
+              the same account. */}
+          <MyPostBadge postId={post.id} />
           <span aria-hidden="true">·</span>
           <span>{locationLabel}</span>
           {salaryLabel && (

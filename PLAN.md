@@ -2308,3 +2308,25 @@ Not yet done (same request, larger scope, next up): the drafts-count
 badge/list in the editor's own header (native app's file-icon-with-
 number, opening a "Draft Posts" sheet) — needs its own design pass,
 tracked separately rather than guessed at in the same commit.
+
+### 6.39 UI: "this is your post" badge on feed cards (2026-08-29)
+
+Aleksandr, from a screenshot where a feed card's cat avatar (blue) and
+his own nav avatar (purple) didn't match, worried it might be a second
+account: reiterated to him that this is expected (different seed
+strings for the same deterministic cat picker, `pickDefaultCatAvatar` —
+`post-card.tsx` seeds off the author's username/name, `avatar-menu.tsx`
+seeds off email — not a real account mismatch), and he asked for the
+actual fix instead of chasing avatar parity: "надо куда-то добавить
+значок на карточке, типа что это мой пост... в мобильном приложении
+это отображается таким маленьким человечком возле имени."
+
+New `components/my-post-badge.tsx` — a small accent-colored person-icon
+badge, client component (same reasoning as `post-owner-menu.tsx`: no
+server-side-comparable identity between a visitor's session and a
+post's public author), checking `/api/posts/mine` and rendering nothing
+until it resolves or for someone else's post. One shared fetch/promise
+for every badge on a page rather than one per card, since a feed page
+can mount dozens of `PostCard`s at once. Wired into `post-card.tsx`
+next to the author's name (not the avatar, which is exactly what
+prompted the confusion).
