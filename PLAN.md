@@ -2128,3 +2128,29 @@ far — explicitly a guess, not confirmed like §6.25-6.29's fixes were.
 If the backend comes back with "'apply.questions.0.object' must be one
 of: ..." next, that enumeration is the live evidence to correct this
 against — don't guess a second time past that, read the exact error.
+
+### 6.32 Confirmed: a country-level location 400s on create (2026-08-29)
+
+With §6.31's `apply.questions.0.object` fix live, the very next real
+attempt (Find a job, London selected as "London, United Kingdom") hit a
+DIFFERENT error shape than every earlier one in this chain — not
+`INVALID_INPUT` with a field path, but **`{"code":"BAD_REQUEST",
+"message":"You cannot set country as location for a post."}`** (request
+id gwfp9-1788042872846-071609839cc4, 2026-08-29 22:34:33 UTC). Confirms
+`apply.questions` is fully fixed (no complaint about it this time) and
+surfaces a genuinely new rule: `posts.createPost` refuses a
+`WorldLocation` whose own `city` field is empty (a bare country entry,
+not a real city).
+
+lib/a1/locations.ts's `WorldLocationSchema` already carries `city`
+(`.catch("")` when absent) — app/api/locations/route.ts's `{id, label}`
+trim just never forwarded it. Fix: that route now also returns
+`hasCity: loc.city !== ""` per result, and
+components/post-editor.tsx's `searchLocationsClient` drops any result
+with `hasCity === false` before it ever reaches the autocomplete
+dropdown — a visitor physically cannot select a country-only location
+in the post editor anymore, so this 400 shouldn't recur from the editor
+going forward. Deliberately NOT touched: components/filters-form.tsx's
+own location search, which reuses this same route to filter the public
+feed by location — filtering by a whole country there is legitimate,
+only the post editor needed the narrower list.

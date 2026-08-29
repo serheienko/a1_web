@@ -665,7 +665,14 @@ export function PostEditor({
       const res = await fetch(`/api/locations?q=${encodeURIComponent(trimmed)}`);
       const data = await res.json();
       if (requestId === locationRequestIdRef.current) {
-        setLocationResults(Array.isArray(data.results) ? data.results : []);
+        // 2026-08-29 (PLAN.md §6.32): posts.createPost rejects a
+        // country-level location outright -- drop those here so a
+        // visitor can never pick one that would 400 on submit.
+        // components/filters-form.tsx's own location search keeps every
+        // result (filtering the feed by a whole country is legitimate),
+        // this is the one call site that needs the narrower list.
+        const all: { id: number; label: string; hasCity?: boolean }[] = Array.isArray(data.results) ? data.results : [];
+        setLocationResults(all.filter((loc) => loc.hasCity !== false));
         setLocationSearched(true);
       }
     } catch {

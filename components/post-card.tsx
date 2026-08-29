@@ -25,6 +25,7 @@ import type { WebPost } from "@/types/web-post";
 import { formatRelativeTime, formatSalary } from "@/lib/format";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { T } from "@/components/t";
+import { TagLabel } from "@/components/tag-label";
 
 export function PostCard({
   post,
@@ -172,7 +173,7 @@ export function PostCard({
           <div className="mt-3 flex flex-wrap gap-1.5">
             {post.tags.slice(0, 6).map((tag) => (
               <span key={tag} className="rounded-full border border-neutral-200 bg-white px-2.5 py-0.5 text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400">
-                {tag}
+                <TagLabel text={tag} />
               </span>
             ))}
           </div>

@@ -27,6 +27,17 @@ export async function GET(request: NextRequest) {
     const results = locations.map((loc) => ({
       id: loc._id,
       label: [loc.displayName, loc.country].filter(Boolean).join(", ") || loc.displayName || loc.city,
+      // 2026-08-29 (PLAN.md §6.32): posts.createPost rejects a
+      // country-level location outright ("You cannot set country as
+      // location for a post.") -- components/filters-form.tsx's feed
+      // filter still wants every result (filtering by a whole country is
+      // fine there), but components/post-editor.tsx needs to exclude
+      // these before a visitor can even pick one. WorldLocationSchema's
+      // own `city` field (catches to "" when the backend result IS a
+      // bare country) is the only signal available -- exposed here as
+      // one extra boolean rather than the raw city string, so this
+      // route's existing narrow {id, label} contract barely grows.
+      hasCity: loc.city !== "",
     }));
     return NextResponse.json({ results });
   } catch (err) {

@@ -18,6 +18,7 @@ import { generateImageBlurDataUrl } from "@/lib/avatar-blur";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { T } from "@/components/t";
 import { PostOwnerMenu } from "@/components/post-owner-menu";
+import { TagLabel } from "@/components/tag-label";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -189,7 +190,7 @@ export default async function JobDetailPage({ params }: Props) {
         <div className="mt-6 flex flex-wrap gap-1.5">
           {post.tags.map((tag) => (
             <span key={tag} className="rounded-full border border-neutral-200 bg-white px-2.5 py-0.5 text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400">
-              {tag}
+              <TagLabel text={tag} />
             </span>
           ))}
         </div>
