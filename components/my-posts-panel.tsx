@@ -132,10 +132,7 @@ export function MyPostsPanel({ onClose }: { onClose: () => void }) {
         mode={editing === "new" ? "create" : "edit"}
         initialPost={editing === "new" ? undefined : editing}
         onClose={() => setEditing(null)}
-        onSaved={() => {
-          setEditing(null);
-          load();
-        }}
+        onSaved={load}
       />
     );
   }
