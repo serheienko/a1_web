@@ -171,7 +171,11 @@ export default function SignInPage() {
         return;
       }
       // Full navigation on purpose — see the file-level comment above.
-      window.location.href = "/";
+      // Sign-up (PLAN.md §6.15): a brand-new account has none of the
+      // profile fields set yet and its email isn't verified — route it
+      // through the two onboarding steps first. Sign-in (an existing
+      // account) skips straight to "/" as before.
+      window.location.href = mode === "sign-up" ? "/onboarding/profile" : "/";
     } catch {
       setError(mode === "sign-in" ? STRINGS.errorSignIn[lang] : STRINGS.errorSignUp[lang]);
       setPending(false);

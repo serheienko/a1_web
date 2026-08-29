@@ -38,6 +38,7 @@ import { VoiceIntroProvider } from "@/components/voice-intro-context";
 import { VoiceIntroRing } from "@/components/voice-intro-ring";
 import { VoiceIntroPlayer } from "@/components/voice-intro-player";
 import { OccupationIcon } from "@/components/occupation-icon";
+import { OCCUPATION_LABELS } from "@/components/occupation-labels";
 import { fetchBookCoverUrl, fetchMovieCoverUrl, fetchGameCoverUrl, type CoverImage } from "@/lib/covers";
 
 const SITE_URL = "https://jobs.a1appp.com";
@@ -146,34 +147,17 @@ function favoriteTile(title: string, subtitle: string | null, cover: CoverImage 
 // truth for the profile-field -> dataset-field name mapping (they mostly
 // match except workloadAndTaskDelegation/workloadTaskDelegation) — this
 // table only adds the uk/ru section labels on top of it.
-// Aleksandr, 2026-08-27 follow-up: occupation isn't free text — the
+// Aleksandr, 2026-08-27 follow-up: occupation isn't free text -- the
 // openapi spec (Resource.User.Occupation) pins it to exactly these 4
 // values. "none" means the user hasn't set one, so it's intentionally
 // left out of this table (falsy lookup -> row doesn't render at all,
-// same as before). He's also asked for the app's 3 animated cat icons
-// here (one per real value) — not added yet, see the TODO comment below
-// the lookup; need the actual asset files/URLs from him first.
-const OCCUPATION_LABELS: Record<string, Record<Locale, string>> = {
-  entrepreneur: {
-    uk: "Підприємець", en: "Entrepreneur", ru: "Предприниматель", de: "Unternehmer",
-    es: "Emprendedor", fr: "Entrepreneur", pl: "Przedsiębiorca", ptBR: "Empreendedor", zh: "创业者",
-  },
-  // "Professional" here, deliberately not "Specialist" — same Ukrainian/
-  // Russian source words as the post-type badge below ("Фахівець" /
-  // "Специалист"), but this is the OCCUPATION enum value ("employed
-  // professional", as opposed to freelancer/entrepreneur) and the other
-  // is a completely different thing (a talent-post badge) — translating
-  // both to "Specialist" in English etc. would make them read as the
-  // same concept when they aren't.
-  professional: {
-    uk: "Спеціаліст", en: "Professional", ru: "Специалист", de: "Fachkraft",
-    es: "Profesional", fr: "Professionnel", pl: "Specjalista", ptBR: "Profissional", zh: "专业人士",
-  },
-  freelancer: {
-    uk: "Фрілансер", en: "Freelancer", ru: "Фрилансер", de: "Freelancer",
-    es: "Freelancer", fr: "Freelance", pl: "Freelancer", ptBR: "Freelancer", zh: "自由职业者",
-  },
-};
+// same as before).
+//
+// 2026-08-29: the label table itself moved to components/
+// occupation-labels.ts so the onboarding step's client-side form
+// (app/onboarding/profile/profile-setup-form.tsx, PLAN.md §6.15) could
+// import just the labels without pulling this file's server-only data
+// fetching (lib/a1/users, lib/a1/datasets) into a client bundle.
 
 const WORK_STYLE_PREFERENCE_SECTIONS: Array<{ key: keyof typeof WORK_STYLE_DATASET_KEYS } & Record<Locale, string>> = [
   {

@@ -1184,16 +1184,53 @@ Impact вроде") — a bold condensed display font; use a websafe/system
 fallback stack (`Impact, "Arial Narrow Bold", sans-serif`) since it's
 not loaded as a webfont anywhere else in this codebase yet.
 
-**Not started building the two new steps yet, deliberately** — three
-required fields and an email-verification flow are exactly the kind of
-thing that's expensive to get wrong on a live, already-working sign-up
-flow (real users are signing up already, §6.14). Still needed before
-writing the code-verification step: the exact request/response shape
-of `account.verifyEmail`/`verifyEmailConfirm` (params, whether the
-code is a string or number, expiry). The debug route's `?openapi=`
-search mode (this section, above) is already deployed (commit
-`54c0bb8`, confirmed green on Vercel) — only blocked on
-`A1_DEBUG_SECRET`'s value to actually call it.
+**Built, 2026-08-29** — both steps, now that the verifyEmail/
+verifyEmailConfirm shape is confirmed (above). Not yet pushed/verified
+on Vercel as of this commit; see the build-status note once it lands.
+
+New files:
+- `lib/a1/visitor-call.ts` — shared "call the A1 API as the signed-in
+  visitor, refresh the accessToken once on 401" helper, factored out so
+  the three new routes below don't each reimplement the retry dance
+  `lib/a1/client.ts`'s own doc comment says is an accessToken caller's
+  responsibility.
+- `app/api/account/update-profile/route.ts` — writes `{occupation,
+  expertise, companies: [{category}]}` via `account.updateProfile`.
+  The `companies: [{category}]` shape (a company entry with only its
+  category set, no name) is a **labeled assumption, not confirmed** —
+  nothing in §6.1's field list says whether the backend accepts/keeps a
+  nameless company entry. Revisit if Andrew says otherwise, or if a
+  real submission comes back missing the category on the profile page.
+- `app/api/account/verify-email/route.ts` and `.../verify-email-confirm/
+  route.ts` — thin wrappers around the two confirmed endpoints.
+- `app/onboarding/profile/page.tsx` (+ `profile-setup-form.tsx`) — the
+  "Настройте профиль" step: occupation (3 cat-icon options, reusing
+  `components/occupation-icon.tsx`), expertise (free text), and a
+  searchable "Отрасль" dropdown over `dataset.companyCategories`
+  (server-fetched, passed to the client form as props).
+- `app/onboarding/verify/page.tsx` — the code-entry step: `codeLength`
+  digit boxes in Impact font (Aleksandr, 2026-08-28: "Шрифт кода -
+  Impact вроде"; websafe fallback stack since it's not loaded as a
+  webfont elsewhere), the phone-operator cat, a real countdown from
+  `expiresAt` (not a guessed duration), paste-to-fill, and auto-submit
+  once all digits are entered. "Change email" is a placeholder — no
+  confirmed backend way to edit a pending signup's email exists yet, so
+  it just signs out and sends the visitor back to `/sign-in` to
+  re-register; flagged here rather than guessed at silently.
+- `components/occupation-labels.ts` — the uk/en/ru/... occupation-name
+  table, split out of `app/u/[username]/page.tsx` (which now imports it)
+  specifically so the onboarding form (a client component) could import
+  just the labels without pulling that page's server-only data fetching
+  (`lib/a1/users`, `lib/a1/datasets`) into the client bundle — the same
+  class of build failure `lib/a1/session-constants.ts`'s file header
+  already documents, for the same reason.
+
+Wiring: `app/sign-in/page.tsx`'s sign-up branch now redirects to
+`/onboarding/profile` instead of `/` (sign-in still goes straight to
+`/` — only a brand-new account needs onboarding). No local `tsc`
+available to type-check before pushing (§0.4) — reviewed by hand against
+this codebase's known `noUncheckedIndexedAccess` failure modes, but not
+proven green until Vercel says so.
 
 
 ## OPEN QUESTIONS — Stage 2, for Aleksandr
