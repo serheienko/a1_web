@@ -117,8 +117,14 @@ export function SiteNav() {
               page), and hidden below `sm` either way since the portaled
               content itself carries `sm:flex`/mobile-hide classes too
               (belt and suspenders — this wrapper hides it even before that
-              content exists). */}
-          <div id="nav-search-slot" className="hidden min-w-0 flex-1 sm:flex sm:max-w-xs" />
+              content exists).
+
+              2026-08-29: "уменьши поиск на десктопе по ширине на 40%" —
+              cap was `sm:max-w-xs` (20rem/320px); 320px * 0.6 = 192px,
+              i.e. `sm:max-w-[12rem]`. `flex-1` still lets it shrink
+              further on a narrow viewport; this only lowers the ceiling
+              on wide desktop screens. */}
+          <div id="nav-search-slot" className="hidden min-w-0 flex-1 sm:flex sm:max-w-[12rem]" />
         </div>
 
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
