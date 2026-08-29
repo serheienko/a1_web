@@ -49,6 +49,20 @@ export async function POST(request: NextRequest) {
     const detail = err instanceof A1ApiError ? err.detail : null;
     if (err instanceof A1ApiError) {
       console.error("[api/posts/create] failed:", err.httpStatus, err.body.slice(0, 500));
+      // 2026-08-29 round 5: a live 400 ("root is missing required
+      // property 'categories'") came back even though the client-side
+      // canSubmit gate requires a category to be picked. Logging the
+      // exact shape we sent (not just the backend's error) so the next
+      // occurrence tells us whether categories/object/tags really left
+      // this route empty, instead of guessing at the post-editor's
+      // client-side logic.
+      console.error("[api/posts/create] input was:", {
+        object: parsed.data.input.object,
+        categories: parsed.data.input.categories,
+        tags: parsed.data.input.tags,
+        hasLocation: parsed.data.input.location !== null,
+        hasMoney: parsed.data.input.money !== null,
+      });
     } else {
       console.error("[api/posts/create] unexpected error:", err);
     }

@@ -50,6 +50,16 @@ export async function POST(request: NextRequest) {
     const detail = err instanceof A1ApiError ? err.detail : null;
     if (err instanceof A1ApiError) {
       console.error("[api/posts/update] failed:", err.httpStatus, err.body.slice(0, 500));
+      // 2026-08-29 round 5: see app/api/posts/create/route.ts's matching
+      // comment — same diagnostic, in case this same "missing categories"
+      // 400 shows up on the update path too.
+      console.error("[api/posts/update] input was:", {
+        object: parsed.data.input.object,
+        categories: parsed.data.input.categories,
+        tags: parsed.data.input.tags,
+        hasLocation: parsed.data.input.location !== null,
+        hasMoney: parsed.data.input.money !== null,
+      });
     } else {
       console.error("[api/posts/update] unexpected error:", err);
     }

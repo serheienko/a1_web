@@ -79,6 +79,19 @@ export async function callAsVisitor<T>(
   } catch (err) {
     if (!(err instanceof A1ApiError) || err.httpStatus !== 401) throw err;
 
+    // 2026-08-29 round 5: the coalescing fix above didn't stop a live
+    // recurrence of "Token revoked" that involved no concurrent request
+    // at all, which the race theory can't explain. Log how old the
+    // access token actually was (against what auth.refreshToken itself
+    // told us its expiresAt was) so the NEXT occurrence tells us whether
+    // this is a normal expiry we should refresh earlier, or a token
+    // that's revoked well before its stated expiry (which would point
+    // at something external — e.g. a login elsewhere — instead).
+    console.warn("[visitor-call] 401 on", method, {
+      tokenAgeMs: session.expiresAt !== null ? Date.now() - session.expiresAt : null,
+      expiresAt: session.expiresAt,
+    });
+
     // 2026-08-29: live 401s turned out to come in two shapes that both
     // need different handling — an ordinary expired access token
     // (refreshable) and a genuinely revoked/invalid refresh token
