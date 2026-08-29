@@ -888,7 +888,7 @@ export function PostEditor({
       scheduled: scheduledSeconds,
     };
     if (questions.length > 0) {
-      input.apply = { questions: questions.map((q) => ({ question: q })) };
+      input.apply = { questions: questions.map((q) => ({ question: q, object: "apply-question-input" as const })) };
     }
 
     try {

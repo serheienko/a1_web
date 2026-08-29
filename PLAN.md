@@ -2107,3 +2107,24 @@ backend answers with "root is missing required property" for something
 under `media.0` (e.g. it turns out to need `sizes` back for display),
 that's the very next live 400 to read and fix - don't guess further,
 go back to reading exact errors.
+
+### 6.31 Confirmed: application questions need their own `object` too (2026-08-29)
+
+First real post creation with a custom application question ("How r
+u?") hit a brand new field entirely, on `post-job-seeking-input` this
+time (Find a job, not Offer a job) — **"'apply.questions.0' is missing
+required property 'object'"** (request id
+mc7qv-1788033861108-729593446d1e, 2026-08-29 20:04:21 UTC). Every
+earlier fix in this session had been reached with an empty questions
+list, so this path was never exercised live until now.
+
+Unlike the root `object` 400 back in §6.26, this error only says the
+property is missing — it does NOT enumerate the allowed values. Fix
+(schemas.ts's PostInputQuestionSchema, and components/post-editor.tsx's
+one call site building `input.apply`): added `object:
+"apply-question-input"` as a literal, following this file's own
+`<kind>-input` convention for every other write-side discriminator so
+far — explicitly a guess, not confirmed like §6.25-6.29's fixes were.
+If the backend comes back with "'apply.questions.0.object' must be one
+of: ..." next, that enumeration is the live evidence to correct this
+against — don't guess a second time past that, read the exact error.

@@ -278,16 +278,23 @@ export const PostInputLinkSchema = z.object({
  * `apply.questions`' exact item shape is NOT confirmed — PLAN.md §0.3
  * only ever saw it on the read side as `z.array(z.unknown())`, and §6.1
  * doesn't specify the write-side item shape either. `{ question: string
- * }` is a best-effort guess, not a verified fact — deliberately kept
- * optional end-to-end (the form only sends this key at all once the
- * founder actually adds a custom question) so an empty post-creation
- * flow is never blocked on this guess. Verify against the first live
- * 400/200 the moment this is actually exercised, same discipline as
- * Resource.User.Company (this file's own history) — fix the key name
- * here and nowhere else if it's wrong.
+ * }` was a best-effort guess, not a verified fact.
+ *
+ * 2026-08-29 round 5 (PLAN.md §6.31): CONFIRMED live — the guess above
+ * was incomplete. posts.createPost rejected it with "'apply.questions.0'
+ * is missing required property 'object'" the moment a real question was
+ * exercised for the first time. The error only says the property is
+ * missing, not which literal it must equal (unlike the root `object`
+ * enum's own 400, which spelled out every allowed value) — `"apply-
+ * question-input"` below is a best-effort guess following this file's
+ * established `<kind>-input` convention for every other write-side
+ * discriminator, NOT a verified fact. If the backend answers with
+ * "'apply.questions.0.object' must be one of: ..." next, that's the
+ * live evidence to fix this against — don't keep guessing past that.
  */
 export const PostInputQuestionSchema = z.object({
   question: z.string().trim().min(1),
+  object: z.literal("apply-question-input"),
 });
 
 // 2026-08-29 round 5 (PLAN.md §6.26): CONFIRMED live — posts.createPost
