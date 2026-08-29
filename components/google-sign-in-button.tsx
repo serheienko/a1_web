@@ -77,13 +77,48 @@ function useActiveLocale(): Locale {
 
 export function GoogleSignInButton() {
   const lang = useActiveLocale();
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState(false);
   const [scriptReady, setScriptReady] = useState(false);
+  const initedRef = useRef(false);
+
+  // Visual-parity pass, 2026-08-29 (Aleksandr, from a live mobile
+  // screenshot): match components/apple-sign-in-button.tsx's black
+  // button — "outline" → "filled_black" (one of Google's own supported
+  // themes, verified against the JS reference, not guessed) is as close
+  // as the OFFICIAL rendered button gets to Apple's custom one. Font and
+  // exact icon/text layout inside the button stay Google's own — the
+  // rendered button is Google's iframe content, not overridable CSS/
+  // fonts. Rebuilding it as a fully custom clickable button (calling
+  // accounts.id.prompt() on click instead of rendering the real widget)
+  // was considered and rejected: prompt() is the One Tap surface, which
+  // Google suppresses after a user has dismissed it a couple of times
+  // (an exponential per-browser cooldown, separate from — and stricter
+  // than — anything the always-clickable rendered button is subject to).
+  // Trading a guaranteed-to-open button for a sometimes-silently-does-
+  // nothing one isn't a fair trade for a purely cosmetic ask.
+  const [buttonWidth, setButtonWidth] = useState<number | null>(null);
+
+  // Real pixel match instead of a hardcoded guess: measure the same
+  // max-w-[320px] wrapper app/sign-in/page.tsx's other two buttons use,
+  // so this button is exactly as wide as them at every viewport instead
+  // of only "close enough" at the one width it happened to be tested at.
+  useEffect(() => {
+    function measure() {
+      const w = wrapperRef.current?.clientWidth;
+      // Google's own documented ceiling (js-reference: "the maximum
+      // width is 400 pixels").
+      if (w) setButtonWidth(Math.min(400, Math.round(w)));
+    }
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
 
   useEffect(() => {
-    if (!scriptReady || !containerRef.current || !window.google) return;
-
+    if (!scriptReady || !window.google || initedRef.current) return;
+    initedRef.current = true;
     window.google.accounts.id.initialize({
       client_id: GOOGLE_WEB_CLIENT_ID,
       callback: async (response) => {
@@ -105,10 +140,17 @@ export function GoogleSignInButton() {
         }
       },
     });
+  }, [scriptReady]);
 
+  useEffect(() => {
+    if (!scriptReady || !containerRef.current || !window.google || !buttonWidth) return;
+    // renderButton appends into the node rather than replacing its
+    // content — clear it first so a resize (a new width) redraws one
+    // button instead of stacking a second one on top.
+    containerRef.current.innerHTML = "";
     window.google.accounts.id.renderButton(containerRef.current, {
       type: "standard",
-      theme: "outline",
+      theme: "filled_black",
       size: "large",
       text: "continue_with",
       // "rectangular" (not the default "pill") to match the site's own
@@ -116,18 +158,18 @@ export function GoogleSignInButton() {
       // fully round stadium shape — a deliberate visual-polish pass,
       // 2026-08-28.
       shape: "rectangular",
-      width: 320,
+      width: buttonWidth,
     });
-  }, [scriptReady]);
+  }, [scriptReady, buttonWidth]);
 
   return (
-    <div className="flex flex-col items-center gap-2">
+    <div ref={wrapperRef} className="mx-auto flex w-full max-w-[320px] flex-col items-center gap-2">
       <Script
         src="https://accounts.google.com/gsi/client"
         strategy="afterInteractive"
         onReady={() => setScriptReady(true)}
       />
-      <div ref={containerRef} />
+      <div ref={containerRef} className="w-full" />
       {error && <p className="text-sm text-red-600 dark:text-red-400">{STRINGS.error[lang]}</p>}
     </div>
   );

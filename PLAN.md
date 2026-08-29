@@ -1383,6 +1383,27 @@ Once the Return URL above is added, still to verify:
   without needing his input, and worth doing once Apple's Return URL is
   fixed so both providers can be checked in the same pass.
 
+
+**Visual-parity follow-up, 2026-08-29** (Aleksandr, from a live mobile
+screenshot after testing the new Apple button): asked for the Google
+button to match Apple's — black background, nicer font, logo aligned
+the same way, same width as the Apple and blue Sign-in buttons.
+`components/google-sign-in-button.tsx`: switched `theme` from
+`"outline"` to `"filled_black"` (one of Google's own documented themes)
+and made `width` a real measurement of the same `max-w-[320px]` wrapper
+the other two buttons use (was a hardcoded `320` guess) so it matches at
+every viewport, not just the one it was eyeballed at. **Not changed,
+and flagged rather than silently attempted:** the button's font and
+exact icon/text layout are Google's own — it renders inside Google's
+iframe, which isn't restyleable CSS. Building a fully custom button
+(styled entirely by us, triggering sign-in via `accounts.id.prompt()`
+on click) was considered and rejected: `prompt()` is the One Tap
+surface, which Google suppresses with a growing cooldown after a user
+dismisses it a couple of times — trading the always-reliable rendered
+button for one that can go silently inert isn't worth it for a purely
+cosmetic gap. Not yet re-verified live (same push as whatever Aleksandr
+tests next).
+
 ## OPEN QUESTIONS — Stage 2, for Aleksandr
 
 1. ~~**Google Sign-In needs its own Web-application OAuth Client ID**~~
