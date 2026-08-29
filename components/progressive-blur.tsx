@@ -99,7 +99,18 @@ function maskFor(layer: Layer) {
   return `linear-gradient(to top, transparent ${a}%, black ${b}%, black ${c}%, transparent ${d}%)`;
 }
 
-export function ProgressiveBlur({ heightClassName = "h-20 sm:h-32" }: { heightClassName?: string }) {
+// 2026-08-29 (round 4): Aleksandr, again -- "она дефолтно залазит на
+// search, даже без скролла... или вообще убери её, чтобы не делала
+// мозги." Three rounds of re-tuning this strip's mobile height (see the
+// round-3 comment above) still weren't enough once the search bar sits
+// this close under the nav on the feed pages -- there's no height short
+// of "basically off" that both reads as a real fog effect AND clears a
+// search box sitting right at the top of the page with zero scroll.
+// Taking the explicit fallback he offered: gone on mobile entirely
+// (`hidden`), unchanged on desktop (`sm:block`) where it was already
+// confirmed to look right and there's no tight neighboring UI for it to
+// bleed onto.
+export function ProgressiveBlur({ heightClassName = "hidden sm:block sm:h-32" }: { heightClassName?: string }) {
   return (
     <div
       className={`pointer-events-none absolute inset-x-0 top-full ${heightClassName}`}

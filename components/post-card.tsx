@@ -71,7 +71,9 @@ export function PostCard({
       alt=""
       width={56}
       height={56}
-      className="h-14 w-14 rounded-full object-cover"
+      // Rounded square, not a circle -- see app/u/[username]/page.tsx's
+      // comment on the same fix, 2026-08-29.
+      className="h-14 w-14 rounded-xl object-cover"
     />
   );
 

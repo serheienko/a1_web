@@ -353,7 +353,16 @@ export default async function ProfilePage({ params }: Props) {
               alt=""
               width={150}
               height={150}
-              className="h-[72px] w-[72px] shrink-0 rounded-full object-cover sm:h-[112.5px] sm:w-[112.5px]"
+              // Rounded SQUARE, not a circle, for the default cat avatars
+              // only (real uploaded photos above stay rounded-full).
+              // Aleksandr, 2026-08-29: "при регистрации у них есть цветная
+              // заливка, скругленный квадрат, а уже в профиле они
+              // отображаются без заливки" -- the cats/*.png assets
+              // (lib/avatars.ts) ARE a full-bleed colored-gradient square
+              // with the cat centered; a circle crop (rounded-full) was
+              // cutting the corners off that fill, which is what read as
+              // "no fill" here versus the app's own square presentation.
+              className="h-[72px] w-[72px] shrink-0 rounded-2xl object-cover sm:h-[112.5px] sm:w-[112.5px]"
             />
           )}
         </VoiceIntroRing>

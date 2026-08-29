@@ -17,6 +17,23 @@
 // assumed: initialize({client_id, callback}), the callback receives a
 // CredentialResponse whose .credential is the encoded JWT ID token —
 // exactly what app/api/auth/google/route.ts forwards to auth.google.
+//
+// 2026-08-29, visual-parity pass round 2 (Aleksandr, after round 1's
+// `theme: "filled_black"` still wasn't enough — wanted the exact same
+// corner radius as the blue Sign-in button and a normal font weight,
+// neither of which Google's rendered widget lets CSS touch, since it's
+// their own iframe content): switched to the "invisible overlay"
+// pattern used across the industry for a fully custom Google button —
+// render OUR OWN button, pixel-identical to Apple's (same classes, same
+// icon size/position, same border-radius, same font), then lay the
+// REAL Google-rendered button on top with opacity 0. A click still
+// lands on Google's actual, official button and goes through its
+// normal, always-reliable flow — nothing about auth.google's contract
+// changes, only what's visible changed. This is why the fully-custom-
+// via-prompt() idea from round 1's comment was rejected but this one
+// isn't: prompt() replaces Google's mechanism with a weaker one (One
+// Tap, suppressible); this replaces nothing — Google's button still
+// does the work, just invisibly.
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -49,9 +66,14 @@ declare global {
 
 // Literal key union, not Record<string, ...> — see app/sign-in/page.tsx's
 // SignInStringKey comment for why.
-type GoogleButtonStringKey = "error";
+type GoogleButtonStringKey = "label" | "error";
 
 const STRINGS: Record<GoogleButtonStringKey, Record<Locale, string>> = {
+  label: {
+    uk: "Продовжити з Google", en: "Continue with Google", ru: "Продолжить с Google",
+    de: "Weiter mit Google", es: "Continuar con Google", fr: "Continuer avec Google",
+    pl: "Kontynuuj z Google", ptBR: "Continuar com o Google", zh: "继续使用 Google",
+  },
   error: {
     uk: "Не вдалося увійти через Google. Спробуйте ще раз.",
     en: "Couldn't sign in with Google. Please try again.",
@@ -82,28 +104,12 @@ export function GoogleSignInButton() {
   const [error, setError] = useState(false);
   const [scriptReady, setScriptReady] = useState(false);
   const initedRef = useRef(false);
-
-  // Visual-parity pass, 2026-08-29 (Aleksandr, from a live mobile
-  // screenshot): match components/apple-sign-in-button.tsx's black
-  // button — "outline" → "filled_black" (one of Google's own supported
-  // themes, verified against the JS reference, not guessed) is as close
-  // as the OFFICIAL rendered button gets to Apple's custom one. Font and
-  // exact icon/text layout inside the button stay Google's own — the
-  // rendered button is Google's iframe content, not overridable CSS/
-  // fonts. Rebuilding it as a fully custom clickable button (calling
-  // accounts.id.prompt() on click instead of rendering the real widget)
-  // was considered and rejected: prompt() is the One Tap surface, which
-  // Google suppresses after a user has dismissed it a couple of times
-  // (an exponential per-browser cooldown, separate from — and stricter
-  // than — anything the always-clickable rendered button is subject to).
-  // Trading a guaranteed-to-open button for a sometimes-silently-does-
-  // nothing one isn't a fair trade for a purely cosmetic ask.
   const [buttonWidth, setButtonWidth] = useState<number | null>(null);
 
-  // Real pixel match instead of a hardcoded guess: measure the same
-  // max-w-[320px] wrapper app/sign-in/page.tsx's other two buttons use,
-  // so this button is exactly as wide as them at every viewport instead
-  // of only "close enough" at the one width it happened to be tested at.
+  // Measures the same box our own visible button fills, so the
+  // invisible real Google button underneath covers exactly the same
+  // area — no dead edges that look clickable but aren't, no real
+  // button peeking out past our custom one.
   useEffect(() => {
     function measure() {
       const w = wrapperRef.current?.clientWidth;
@@ -150,27 +156,73 @@ export function GoogleSignInButton() {
     containerRef.current.innerHTML = "";
     window.google.accounts.id.renderButton(containerRef.current, {
       type: "standard",
-      theme: "filled_black",
+      // Theme/shape/text below don't matter for how this LOOKS anymore
+      // (opacity-0 in the JSX) — kept as sensible, valid values since
+      // they still shape the real click target's size via `width`.
+      theme: "outline",
       size: "large",
       text: "continue_with",
-      // "rectangular" (not the default "pill") to match the site's own
-      // rounded-xl inputs/buttons (app/sign-in/page.tsx) rather than a
-      // fully round stadium shape — a deliberate visual-polish pass,
-      // 2026-08-28.
       shape: "rectangular",
       width: buttonWidth,
     });
   }, [scriptReady, buttonWidth]);
 
   return (
-    <div ref={wrapperRef} className="mx-auto flex w-full max-w-[320px] flex-col items-center gap-2">
+    <div ref={wrapperRef} className="relative mx-auto flex w-full max-w-[320px] flex-col items-center gap-2">
       <Script
         src="https://accounts.google.com/gsi/client"
         strategy="afterInteractive"
         onReady={() => setScriptReady(true)}
       />
-      <div ref={containerRef} className="w-full" />
+      {/* Purely visual — pixel-matched to components/apple-sign-in-
+          button.tsx's button (same radius, weight, icon size) per
+          Aleksandr's ask. pointer-events-none so a click always falls
+          through to the real Google button layered on top of it. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none flex w-full items-center justify-center gap-2 rounded-xl border border-black bg-black px-4 py-2.5 text-sm font-medium text-white dark:border-white dark:bg-white dark:text-black"
+      >
+        <GoogleGlyph />
+        {STRINGS.label[lang]}
+      </div>
+      {/* The real, official Google button — invisible, sized to cover
+          the same box as the button above, and the thing that actually
+          receives the click. */}
+      <div ref={containerRef} className="absolute inset-0 top-0 h-full w-full overflow-hidden opacity-0" />
       {error && <p className="text-sm text-red-600 dark:text-red-400">{STRINGS.error[lang]}</p>}
     </div>
+  );
+}
+
+// Google's official 4-color "G" glyph (the version they ship inside
+// their own rendered button), reproduced here so the purely-visual
+// button above matches it exactly rather than approximating with a
+// generic icon.
+function GoogleGlyph() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+      <path
+        fill="#FFC107"
+        d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12
+        c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24
+        c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"
+      />
+      <path
+        fill="#FF3D00"
+        d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039
+        l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"
+      />
+      <path
+        fill="#4CAF50"
+        d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36
+        c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"
+      />
+      <path
+        fill="#1976D2"
+        d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571
+        c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24
+        C44,22.659,43.862,21.35,43.611,20.083z"
+      />
+    </svg>
   );
 }

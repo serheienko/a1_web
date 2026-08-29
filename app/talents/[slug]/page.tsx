@@ -123,7 +123,9 @@ export default async function TalentDetailPage({ params }: Props) {
               alt=""
               width={48}
               height={48}
-              className="h-12 w-12 shrink-0 rounded-full object-cover"
+              // Rounded square, not a circle -- see app/u/[username]/
+              // page.tsx's comment on the same fix, 2026-08-29.
+              className="h-12 w-12 shrink-0 rounded-xl object-cover"
             />
           );
           return post.author.username ? (
