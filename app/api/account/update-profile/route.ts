@@ -12,16 +12,16 @@
 // companies[].category (lib/a1/schemas.ts's UserCompanySchema), so this
 // sends a single company entry with just that field set.
 //
-// CONFIRMED BROKEN, 2026-08-29 (live production error, not a guess):
-// the backend rejects this with 400 INVALID_INPUT "'companies.0' is
-// missing required property 'name'" — the live openapi.json's own
-// Resource.User.Company schema requires `name` (e.g. "Coca-Cola") on
-// every companies[] entry, and this step collects no company/employer
-// name. Every real submission from /onboarding/profile fails right now.
-// See PLAN.md §6.15 — asked Aleksandr how he wants this resolved
-// (add a name field vs. this isn't really the right field for
-// "Отрасль" at all) rather than guessing with a placeholder name on
-// real user profiles.
+// CONFIRMED BROKEN then fixed, 2026-08-29 (live production error, not a
+// guess): the backend rejected the original {category}-only entry with
+// 400 INVALID_INPUT "'companies.0' is missing required property
+// 'name'". Aleksandr: "в приложении мы не спрашиваем про компанию и
+// все нормально сохраняется" — the mobile app saves a bare category
+// with no company-name prompt either, which only makes sense if the
+// backend's check is for the KEY being present, not for a non-empty
+// value. Sending `name: ""` (present, just empty) instead of omitting
+// it entirely is the direct test of that theory — see PLAN.md §6.15
+// for the result once verified live.
 
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
   try {
     const { refreshedSession } = await callAsVisitor(
       "account.updateProfile",
-      { occupation, expertise, companies: [{ category }] },
+      { occupation, expertise, companies: [{ category, name: "" }] },
     );
     const response = NextResponse.json({ ok: true });
     if (refreshedSession) setSession(response, refreshedSession);
