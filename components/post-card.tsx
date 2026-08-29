@@ -72,9 +72,16 @@ export function PostCard({
       alt=""
       width={56}
       height={56}
-      // Rounded square, not a circle -- see app/u/[username]/page.tsx's
-      // comment on the same fix, 2026-08-29.
-      className="h-14 w-14 rounded-xl object-cover"
+      // Rounded-full (circle) here, NOT the rounded-square treatment
+      // app/u/[username]/page.tsx uses. Aleksandr, 2026-08-29 (correcting
+      // an earlier same-day change of mine): that square fix was for the
+      // PROFILE page specifically, not the feed -- "в ленте все коты
+      // круглые и с фоном без анимации" (feed cats are round, with the
+      // fill, no animation). Feed, onboarding, and profile are three
+      // different presentations of the same default cat asset and don't
+      // all need to match -- don't re-generalize one context's fix to
+      // another without it being confirmed for that context too.
+      className="h-14 w-14 rounded-full object-cover"
     />
   );
 

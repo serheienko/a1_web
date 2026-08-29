@@ -2201,3 +2201,31 @@ Two more screenshot-driven layout requests, neither backend-confirmed
   Link and author-name Link get `relative z-10` to stay on top and keep
   routing to the profile. No nested `<a>` tags (invalid HTML) and no
   client JS added — still a pure server component.
+
+### 6.35 Fix: feed default-cat avatars went square by mistake (2026-08-29)
+
+Screenshot: two feed cards side by side, one avatar circular (real
+photo), the other a rounded square (default cat) — read as "why is one
+of these rectangular?" Root cause was mine, not the backend: §6.34's
+predecessor edit (and, it turns out, the original avatar-shape pass
+earlier the same day) had generalized the rounded-square treatment from
+`app/u/[username]/page.tsx`'s profile header into `components/
+post-card.tsx`'s feed cards too, on the assumption they should match.
+
+Aleksandr corrected this directly: feed, onboarding, and profile are
+three separate presentations of the same default-cat asset, not one
+shape to keep in sync — feed cats are round with the fill showing and
+no animation, onboarding cats are square and animated, profile cats
+have no fill background and their own different animation. Only the
+profile page's square treatment was ever actually requested; the feed
+was never supposed to change.
+
+Fix: `components/post-card.tsx`'s default-avatar `<img>` back to
+`rounded-full`, matching real-photo avatars in the same card.
+`app/u/[username]/page.tsx` (profile) is untouched — still square, per
+the original request. Left `app/jobs/[slug]/page.tsx` and
+`app/talents/[slug]/page.tsx`'s post-detail byline avatars as rounded
+square for now since Aleksandr's correction named feed/onboarding/
+profile specifically, not the detail page byline — worth asking about
+separately if it turns out to look inconsistent there too, but not
+guessing at it here.
