@@ -1687,3 +1687,71 @@ issues in the 6.19 post editor. All addressed in the same
   `() => { setEditing(null); load(); }`, is now just `load` so a draft
   save from "My posts → New post" also stays open with the same
   confirmation instead of force-closing.
+
+### 6.21 Post editor: round-3 feedback (Safari layout, i18n, validation, custom calendar) (2026-08-29)
+
+A second live-testing pass (7 screenshots + 2 follow-up messages) turned
+up issues round 2 (§6.20) didn't catch, plus two new asks:
+
+- The salary row's round-2 flex fix (`min-w-0` + `flex-1`) still broke,
+  this time only on Safari — a flex-basis quirk collapsed the amount
+  input to just its native spinner decoration while the currency select
+  silently absorbed the row's width. Rebuilt with CSS Grid
+  (`grid-cols-[1fr_4rem_auto]`), whose fixed column tracks can't be
+  misread by either browser's flex algorithm the same way. Currency
+  select narrower still (`w-16`, appearance-none + a custom chevron
+  since that also drops the native one), and the amount input's
+  native number-spinner buttons are hidden (`[appearance:textfield]`
+  + the two `::-webkit-*-spin-button` pseudo-elements).
+- `isExperienceTag()`'s bare-number regex didn't match the live "5+"
+  tag because the actual string is "5 +" (a space before the plus) —
+  now strips whitespace before testing.
+- New: `components/label-translations.ts` extracts
+  `TAG_LABEL_TRANSLATIONS`/`translateTagLabel` and
+  `CATEGORY_LABEL_TRANSLATIONS`/`translateCategoryLabel` out of
+  `components/filters-form.tsx` (which now imports them instead of
+  keeping its own copy) so `post-editor.tsx` can translate its tag
+  pills (work type / employment type / experience) and category names
+  into all 9 languages too — previously rendered as raw English,
+  never localized at all.
+- New: required-field/min-length hints no longer render the instant
+  the dialog opens (they used to greet a blank form with 3 red
+  errors). Each field (title/description/location/category) tracks
+  its own "touched" state, set on blur; a submit attempt while
+  something's missing calls `markAllTouched()` so all four surface at
+  once, matching the reference screenshot's "tried to submit" moment
+  instead of an idle empty form.
+- Schedule popover is now `position: fixed`, its coordinates computed
+  in `openSchedulePopover()` from the dialog's and the clock button's
+  `getBoundingClientRect()`, instead of `absolute bottom-full` inside
+  the dialog. The dialog needs `overflow-hidden` for its rounded
+  corners, which was clipping the popover's top whenever it grew
+  taller than the gap above the footer — no amount of scrolling could
+  reveal the clipped part, since it was the popover being cut, not
+  content being out of view. `position: fixed` escapes an ancestor's
+  `overflow-hidden` unless that ancestor sets a transform/filter/
+  perspective (this dialog doesn't), so this works regardless of DOM
+  nesting.
+- The native `<input type="date">` inside that popover is gone —
+  its OS calendar couldn't be restyled or repositioned, and picking a
+  specific year meant clicking a tiny stepper repeatedly. Replaced
+  with a month `<select>` + year `<select>` pair (any valid year is
+  one click) plus a day grid, both driven by `Intl.DateTimeFormat`
+  for month/weekday names rather than a hand-written 9-language table.
+  `scheduleIsValid()` still gates the actual submit regardless of what
+  the picker shows.
+- The popover's own Cancel/Schedule buttons are gone too — the
+  footer's existing Save-draft/Post buttons now switch to
+  Cancel/Schedule (via `t("scheduleActionCaps", lang)`) while the
+  popover is open, since scheduling is the one action that makes
+  sense at that point and a second primary button was redundant.
+- On a failed create/update, `not_signed_in` (the visitor session
+  expired) now redirects to `/sign-in?reason=create-post` instead of
+  showing the generic error with no next step; anything else is
+  `console.error`'d with the backend's `message`/`detail` so a repeat
+  failure is diagnosable from the browser console. Couldn't reproduce
+  the reported "couldn't post despite filling everything in" live (no
+  way to sign in as the founder from here) — a stray browser tab
+  sitting on that exact sign-in URL was the only lead, hence this fix
+  being a reasoned guess rather than a confirmed root cause. Worth
+  confirming against the next live occurrence, if any.
