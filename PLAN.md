@@ -1755,3 +1755,45 @@ up issues round 2 (§6.20) didn't catch, plus two new asks:
   sitting on that exact sign-in URL was the only lead, hence this fix
   being a reasoned guess rather than a confirmed root cause. Worth
   confirming against the next live occurrence, if any.
+
+### 6.22 Root cause found: revoked refresh tokens weren't triggering re-sign-in (2026-08-29)
+
+§6.21 guessed at a session-expiry cause for "Щось пішло не так" without
+being able to reproduce it live. This time Aleksandr reproduced both
+that error AND a new "Не вдалося завантажити фото" (photo upload)
+failure, and Vercel's function logs named the real cause directly:
+
+```
+[api/posts/create] failed: 401 {"code":"TOKEN_VALIDATION_ERROR","message":"Token revoked.","status":401}
+[api/upload/create] failed: 401 {"code":"TOKEN_VALIDATION_ERROR","message":"Token revoked.","status":401}
+```
+
+The External-APIs trace on the first log line showed `auth.refreshToken`
+WAS called (`callAsVisitor`'s existing 401-retry logic did fire) — its
+own attempt just also got rejected with the same "Token revoked." 401.
+`lib/a1/visitor-call.ts`'s `callAsVisitor` had no handling for that: an
+A1ApiError thrown by the refresh call itself (or by the retried original
+call) bubbled straight out of the try/catch as an unrecognized error,
+which every calling route's generic catch-all turned into an opaque 502
+— never reaching the `NoSessionError` branch that would have told the
+client to send the visitor back to `/sign-in`.
+
+Fixed: `callAsVisitor` now wraps both the refresh call and the retried
+call in their own try/catch, and a 401 from either one converts to
+`NoSessionError` — a revoked refresh token can never succeed no matter
+how many times it's retried, so there's nothing to gain by surfacing the
+raw error instead of routing through the same "session's dead" path a
+missing cookie already takes. All 9 routes calling `callAsVisitor`
+(`account.updateProfile`, both email-verification routes, all four
+`posts.*` routes, both `upload.*` routes) now also `clearSession()` when
+returning `not_signed_in`, so a dead cookie doesn't keep tripping the
+same failure on every later call instead of letting a fresh sign-in
+through. `components/post-editor.tsx`'s photo-upload path
+(`handleFileSelected`) gained the same not-signed-in redirect
+`submit()` already had, via a small shared `isNotSignedIn()` helper.
+
+Open question this doesn't answer: WHY the refresh token got revoked in
+the first place (normal 60-day expiry per `lib/a1/session.ts`'s own
+comment, a manual sign-out/session-revoke elsewhere, or something else)
+— out of scope here since the actual bug (silently surfacing the wrong
+error instead of prompting a fresh sign-in) is fixed regardless of cause.
