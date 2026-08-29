@@ -1989,3 +1989,35 @@ examples of PLAN.md's own long-standing rule: verify against the first
 live 400, fix the exact shape, don't keep guessing blind. Not yet
 confirmed end-to-end (post successfully created) — that's the next
 live attempt to watch for.
+
+### 6.27 Confirmed: drop the `input` wrapper entirely — PostInput lives only at the root (2026-08-29)
+
+Third confirmed step in this same live-debugging chain (§6.25, §6.26).
+With every required field present at the root and `object` carrying the
+correct `-input`-suffixed literal, the next live 400 was **"root has
+unknown property 'input'"** — the backend enforces
+`additionalProperties: false` at the root, so §6.25's defensive
+belt-and-suspenders (`{ input: parsed.data.input, ...parsed.data.input
+}`, keeping `input` "just in case") had itself become the one thing
+still wrong.
+
+Fix (commit 1f9cf84): dropped `input` entirely.
+`app/api/posts/create/route.ts` now calls
+`callAsVisitor<unknown>("posts.createPost", parsed.data.input)` — the
+whole `PostInput` object IS the request body, no wrapper. `posts/update`
+keeps `id` as a root sibling (it isn't part of `PostInput`) alongside
+the spread, dropping `input` there too. Not reproduced live on the
+update path specifically, applied for symmetry per this route's own
+documented "same PostInput shape as create" contract.
+
+This closes out the three-part shape mystery that started at §6.24:
+PLAN.md's `{ input }`-wrapped ground truth for `posts.createPost` was
+wrong on THIS live backend (whatever the OpenAPI spec said when §0/§6.1
+were written), the `object` literal needed an `-input` suffix distinct
+from the read side, and the request body is `PostInput` directly with
+no wrapper and no extra keys. Each of the three fixes was driven by an
+exact, different, verified live error message, not a guess kept in
+place hoping it was right — this is the discipline PLAN.md has asked
+for from the start, applied three times in a row on one endpoint.
+Watching the next live attempt to see whether post creation actually
+succeeds now that all three are fixed together.
