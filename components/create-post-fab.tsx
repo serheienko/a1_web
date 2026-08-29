@@ -31,13 +31,23 @@
 // light / #0c8ce9 dark), the same "2 брендовых синих в зависимости от
 // темы" Aleksandr asked for, not two new hardcoded hexes.
 //
-// Icon: a chunky, rounded-cap plus (thick stroke + round linecaps) on a
-// rounded-square (not fully circular) button, matching the mobile app's
-// own FAB from Aleksandr's reference screenshot ("мне крест нравится
-// более пухлый с скругленными углами, вот как у нас в апке").
+// Icon: a chunky, rounded-cap plus (thick stroke + round linecaps).
+//
+// 2026-08-29 follow-up (Aleksandr, from a live mobile screenshot of
+// /sign-in: the FAB sat directly on top of the Apple button): (1)
+// hidden on /sign-in specifically — nothing to create a post from on an
+// auth screen, and there's no room for it there anyway; (2) button
+// shape switched from rounded-2xl (rounded-square) to rounded-full (a
+// full circle) — "убирай тогда синюю кнопку [с этого экрана] и сделай
+// ее круглой". `usePathname` is safe to use here specifically because
+// this is already a client component mounted directly (not something
+// that would newly force server-dynamic rendering) — same reasoning
+// components/site-nav.tsx already relies on for its own `usePathname`
+// call.
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
 
@@ -97,12 +107,18 @@ function ChunkyPlusIcon() {
 
 export function CreatePostFab() {
   const lang = useActiveLocale();
+  const pathname = usePathname();
   const [email, setEmail] = useState<string | null>(null);
   const [stubOpen, setStubOpen] = useState(false);
 
   useEffect(() => {
     setEmail(readDisplayCookie());
   }, []);
+
+  // Nothing to create a post from on the auth screen itself, and the
+  // FAB has nowhere to sit there without overlapping the sign-in
+  // buttons (confirmed via a live mobile screenshot).
+  if (pathname?.startsWith("/sign-in")) return null;
 
   function handleClick() {
     if (email) {
@@ -118,7 +134,7 @@ export function CreatePostFab() {
         type="button"
         onClick={handleClick}
         aria-label={STRINGS.label[lang]}
-        className="fixed right-5 z-40 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent text-white shadow-lg shadow-accent/30 transition hover:opacity-90 active:scale-95"
+        className="fixed right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-lg shadow-accent/30 transition hover:opacity-90 active:scale-95"
         style={{ bottom: "calc(1.25rem + env(safe-area-inset-bottom))" }}
       >
         <ChunkyPlusIcon />
