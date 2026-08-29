@@ -139,7 +139,10 @@ export function ProfileSetupForm({ categories }: { categories: Category[] }) {
     // Aleksandr, 2026-08-29: "IT ставим на первую строку списка" — IT is
     // the single most common answer on a jobs platform, worth surfacing
     // first rather than wherever it falls alphabetically/by dataset order.
-    const itIndex = list.findIndex((c) => c.text.trim().toUpperCase() === "IT");
+    // `text` carries a leading emoji (lib/a1/datasets.ts: "💾IT", not a
+    // bare "IT") — strip everything but letters before comparing, or
+    // this match silently never fires.
+    const itIndex = list.findIndex((c) => c.text.replace(/[^a-zA-Z]/g, "").toUpperCase() === "IT");
     const ordered = itIndex > 0 ? [list[itIndex]!, ...list.slice(0, itIndex), ...list.slice(itIndex + 1)] : list;
     return ordered.slice(0, 50);
   }, [categories, categoryQuery]);

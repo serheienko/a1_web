@@ -12,16 +12,20 @@
 // companies[].category (lib/a1/schemas.ts's UserCompanySchema), so this
 // sends a single company entry with just that field set.
 //
-// CONFIRMED BROKEN then fixed, 2026-08-29 (live production error, not a
-// guess): the backend rejected the original {category}-only entry with
-// 400 INVALID_INPUT "'companies.0' is missing required property
-// 'name'". Aleksandr: "в приложении мы не спрашиваем про компанию и
-// все нормально сохраняется" — the mobile app saves a bare category
-// with no company-name prompt either, which only makes sense if the
-// backend's check is for the KEY being present, not for a non-empty
-// value. Sending `name: ""` (present, just empty) instead of omitting
-// it entirely is the direct test of that theory — see PLAN.md §6.15
-// for the result once verified live.
+// CONFIRMED BROKEN then fixed, 2026-08-29 (live production errors, not
+// a guess — iterated against the real backend, one missing-required-
+// property error at a time): Resource.User.Company's actual openapi
+// schema (pulled live) requires ALL of name, description, position,
+// turnover, employeesCount, category, link to be PRESENT — but only
+// `category` has to be a real value; the rest accept empty/null and the
+// backend accepts that (confirmed: the 400 errors moved on to the next
+// missing key each time one was added, and stopped once all seven were
+// present). Aleksandr confirmed this matches the mobile app: "в
+// приложении мы не спрашиваем про компанию и все нормально
+// сохраняется" — it also creates a nameless placeholder company entry
+// carrying just the category. `employeesCount` sends 0 rather than
+// null since its schema shows a bare "integer" type (no null variant),
+// unlike the other nullable fields.
 
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -47,7 +51,21 @@ export async function POST(request: NextRequest) {
   try {
     const { refreshedSession } = await callAsVisitor(
       "account.updateProfile",
-      { occupation, expertise, companies: [{ category, name: "" }] },
+      {
+        occupation,
+        expertise,
+        companies: [
+          {
+            category,
+            name: "",
+            description: "",
+            position: null,
+            turnover: null,
+            employeesCount: 0,
+            link: null,
+          },
+        ],
+      },
     );
     const response = NextResponse.json({ ok: true });
     if (refreshedSession) setSession(response, refreshedSession);
