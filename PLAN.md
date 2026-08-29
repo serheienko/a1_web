@@ -1959,3 +1959,33 @@ alternative theory (refresh tokens may be single-use/rotating and this
 session's stored refreshToken had already been consumed by something
 not visible in this window); no new evidence either confirms or
 refutes that today.
+
+### 6.26 Confirmed: write-side `object` literal needs an "-input" suffix (2026-08-29)
+
+Immediate follow-up to §6.25's fix. With `categories`/`content` now
+reaching the request root correctly, the very next live attempt gave a
+brand-new, extremely specific 400: `'object' must be one of:
+post-collaborator-input, post-supplier-b2b-input,
+post-job-employing-input, post-job-seeking-input, post-brainstorm-input,
+post-meetup-input`. The backend's write-side discriminator uses its own
+`"-input"`-suffixed literal set — `post-job-employing`/`post-job-seeking`
+(no suffix) is what the READ side returns on a fetched `Post.object` and
+what this whole codebase otherwise uses (mappers, feed, datasets,
+sitemap, `components/post-editor.tsx`'s own `PostObject` UI type) — but
+`posts.createPost`/`updatePost` wanted the `-input` variant instead.
+
+Fix (commit ee1ee7a): `lib/a1/schemas.ts`'s `PostInputSchema.object` now
+validates against `PostInputObjectSchema` (`"post-job-employing-input"`
+/ `"post-job-seeking-input"`), and `components/post-editor.tsx`'s
+`submit()` appends `-input` only at the point it builds the
+create/update payload (`` `${object}-input` ``) — every other place in
+the app keeps using the plain literal unchanged, since those are all
+verified-correct read-side/UI usages, not this write-side field.
+
+This is the second of two backend-shape surprises found back-to-back on
+the very first real live attempts at this endpoint (root-vs-nested
+`input`, §6.25; now the discriminator's literal set) — both textbook
+examples of PLAN.md's own long-standing rule: verify against the first
+live 400, fix the exact shape, don't keep guessing blind. Not yet
+confirmed end-to-end (post successfully created) — that's the next
+live attempt to watch for.
