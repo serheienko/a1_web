@@ -29,21 +29,24 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // 2026-08-29 round 5: a confirmed-live 400 ("root is missing
-    // required property 'categories'") happened even with a verified
-    // non-empty categories array inside `input` (logged proof in the
-    // catch block below) — so it isn't a client-side bug in
-    // post-editor.tsx. "root" in that error most likely means the
-    // TOP-LEVEL object sent to posts.createPost, which before this
-    // change had only one key (`input`) — i.e. the backend may want
-    // `categories` as a sibling of `input`, not only nested inside it.
-    // This is a testable hypothesis, not a confirmed fix (no OpenAPI
-    // access to verify against — see PLAN.md §6.24); duplicating it
-    // here is cheap and harmless if wrong, since `input.categories`
-    // still carries the real value either way.
+    // 2026-08-29 round 5: CONFIRMED (PLAN.md §6.24/§6.25) — adding just
+    // `categories` as a root-level sibling of `input` made the backend's
+    // 400 move from "root is missing required property 'categories'" to
+    // "...'content'" on the very next attempt. `categories` sorts before
+    // `content` alphabetically among PostInput's required keys — this
+    // isn't a coincidence, it's the backend walking its required-property
+    // list in order and hitting the next one still missing at the root.
+    // Conclusion: `posts.createPost`/`posts.updatePost` validate PostInput
+    // at the TOP LEVEL of the request body, not only nested inside
+    // `input` — PLAN.md's `{ input }`-only ground truth was wrong (or
+    // incomplete) for this endpoint. Spreading every field onto the root
+    // fixes all of them at once instead of chasing the alphabet one 400
+    // at a time. `input` itself is kept alongside the spread — cheap
+    // insurance in case some other part of the contract still reads it
+    // from there too.
     const { data, refreshedSession } = await callAsVisitor<unknown>("posts.createPost", {
       input: parsed.data.input,
-      categories: parsed.data.input.categories,
+      ...parsed.data.input,
     });
     const response = NextResponse.json({ ok: true, post: data });
     if (refreshedSession) setSession(response, refreshedSession);

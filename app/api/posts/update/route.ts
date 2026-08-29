@@ -30,12 +30,14 @@ export async function POST(request: NextRequest) {
 
   try {
     // 2026-08-29 round 5: see app/api/posts/create/route.ts's matching
-    // comment — same hypothesis fix in case the update path hits the
-    // same "root is missing required property 'categories'" 400.
+    // comment (PLAN.md §6.24/§6.25) — confirmed the backend validates
+    // PostInput at the root of the request body, not only nested inside
+    // `input`. Same fix here for symmetry, though only the create path
+    // was actually reproduced live.
     const { data, refreshedSession } = await callAsVisitor<unknown>("posts.updatePost", {
       id: parsed.data.id,
       input: parsed.data.input,
-      categories: parsed.data.input.categories,
+      ...parsed.data.input,
     });
     const response = NextResponse.json({ ok: true, post: data });
     if (refreshedSession) setSession(response, refreshedSession);
