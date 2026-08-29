@@ -48,11 +48,15 @@ export function LottiePlayer({
           animationData,
         });
       })
-      .catch(() => {
+      .catch((err) => {
         // A missing/broken animation file just means no icon shows — same
         // silent-degrade choice occupation-icon.tsx made, for the same
         // reason: this is always decorative, never the only carrier of
-        // information on the page.
+        // information on the page. Logged (not swallowed silently) after
+        // 2026-08-29's onboarding rollout showed empty icon slots in
+        // production with no visible error anywhere — needed a real
+        // console message to diagnose instead of guessing.
+        console.error("[components/lottie-player] failed to load", src, err);
       });
 
     return () => {
