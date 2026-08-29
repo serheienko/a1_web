@@ -51,7 +51,8 @@ type SignInStringKey =
   | "errorSignIn"
   | "errorSignUp"
   | "backHome"
-  | "orDivider";
+  | "orDivider"
+  | "createPostNotice";
 
 const STRINGS: Record<SignInStringKey, Record<Locale, string>> = {
   signInTitle: {
@@ -123,6 +124,21 @@ const STRINGS: Record<SignInStringKey, Record<Locale, string>> = {
     uk: "або", en: "or", ru: "или", de: "oder", es: "o",
     fr: "ou", pl: "lub", ptBR: "ou", zh: "或",
   },
+  // Shown only when arrived via components/create-post-fab.tsx's
+  // signed-out click (?reason=create-post) — see this page's own
+  // `showCreatePostNotice` state below for why it's not shown by
+  // default on a plain visit to this page.
+  createPostNotice: {
+    uk: "Щоб створити пост, зареєструйтесь або увійдіть.",
+    en: "To create a post, please sign up or sign in.",
+    ru: "Чтобы создать пост, зарегистрируйтесь или войдите.",
+    de: "Um einen Beitrag zu erstellen, registrieren Sie sich oder melden Sie sich an.",
+    es: "Para crear una publicación, regístrate o inicia sesión.",
+    fr: "Pour créer une publication, inscrivez-vous ou connectez-vous.",
+    pl: "Aby utworzyć post, zarejestruj się lub zaloguj.",
+    ptBR: "Para criar uma publicação, cadastre-se ou entre.",
+    zh: "要创建帖子，请注册或登录。",
+  },
 };
 
 function useActiveLocale(): Locale {
@@ -149,6 +165,21 @@ export default function SignInPage() {
   const [lastName, setLastName] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 2026-08-29: true only when arrived via components/create-post-
+  // fab.tsx's signed-out click, never on a plain visit to /sign-in —
+  // see components/create-post-fab.tsx's own comment for the full
+  // rationale ("текст показываем только после нажатия на кнопку с +").
+  // Read with a plain URLSearchParams over `window.location.search` in
+  // an effect rather than next/navigation's useSearchParams — same
+  // "avoid a Next hook that needs a Suspense boundary for one purely
+  // cosmetic client read" reasoning this page already applies to locale/
+  // theme (see useActiveLocale above).
+  const [showCreatePostNotice, setShowCreatePostNotice] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setShowCreatePostNotice(params.get("reason") === "create-post");
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -206,6 +237,12 @@ export default function SignInPage() {
         <h1 className="mb-6 text-center font-sans text-2xl font-bold tracking-tight text-ink dark:text-neutral-50">
           {mode === "sign-in" ? STRINGS.signInTitle[lang] : STRINGS.signUpTitle[lang]}
         </h1>
+
+        {showCreatePostNotice && (
+          <p className="-mt-3 mb-6 rounded-xl bg-accent/10 px-3 py-2 text-center text-sm text-accent">
+            {STRINGS.createPostNotice[lang]}
+          </p>
+        )}
 
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
           {mode === "sign-up" && (

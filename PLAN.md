@@ -1476,6 +1476,32 @@ testing Apple/Google sign-in: a 5-item backlog. Landed in one commit
    structured so that only needs a new `photoUrl` variable, not a
    rewrite.
 
+### 6.18 Sign-out button outline restyle + floating create-post button (2026-08-29)
+
+Follow-ups from the same session as §6.17:
+
+- **Sign-out button, outline instead of solid fill** (`components/
+  avatar-menu.tsx`, from a live mobile screenshot: "Sign out сделай без
+  заливки только красный stroke") — transparent background, red border
+  + red text, a light red tint only on hover.
+- **Floating create-post "+" button** (`components/create-post-fab.tsx`,
+  new; mounted in `app/layout.tsx` next to `<SiteNav/>` so it shows on
+  every page, signed in or not). Signed out: clicking navigates to
+  `/sign-in?reason=create-post` — `app/sign-in/page.tsx` now checks that
+  query param (plain `URLSearchParams` over `window.location.search` in
+  an effect, not `useSearchParams`, for the same Suspense-avoidance
+  reason this page already reads locale/theme that way) and shows one
+  extra line above the form, only on that path, never on a plain visit.
+  Signed in: opens a stub dialog ("this feature is coming soon") —
+  scope explicitly cut down via AskUserQuestion, the real post-creation
+  form is separate future work. Button color is `bg-accent`, the site's
+  existing CSS variable for "the brand blue for the current theme"
+  (#335ef7 light / #0c8ce9 dark) — not two new hardcoded hexes, already
+  what Aleksandr's "2 брендовых синих в зависимости от темы" ask
+  amounts to. Icon is a thick-stroke, round-linecap plus on a rounded-
+  square button, matching the mobile app's own FAB from his reference
+  screenshot.
+
 ## OPEN QUESTIONS — Stage 2, for Aleksandr
 
 1. ~~**Google Sign-In needs its own Web-application OAuth Client ID**~~

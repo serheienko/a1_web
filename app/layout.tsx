@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/next";
 import Script from "next/script";
 import "./globals.css";
 import { SiteNav } from "@/components/site-nav";
+import { CreatePostFab } from "@/components/create-post-fab";
 
 // Commissioner: the real typeface used in the Figma mockups (confirmed via
 // Inspect on "Feed Preview White", 2026-08-26), not a generic system stack.
@@ -170,6 +171,11 @@ export default function RootLayout({
         <Script id="lang-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: LANG_INIT_SCRIPT }} />
         <SiteNav />
         {children}
+        {/* 2026-08-29: floating "+" create-post button, mounted globally
+            here next to <SiteNav/> for the same reason that one is —
+            shown on every page, signed in or not (Aleksandr: "С логином
+            и без"). See components/create-post-fab.tsx's own comment. */}
+        <CreatePostFab />
         <Analytics />
       </body>
     </html>
