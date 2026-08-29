@@ -29,8 +29,10 @@ export function LottiePlayer({
   className?: string;
 }) {
   const containerRef = useRef<HTMLSpanElement>(null);
+  console.log("[lottie-player] render", src);
 
   useEffect(() => {
+    console.log("[lottie-player] effect fired", src, "ref:", containerRef.current);
     if (!containerRef.current) return;
 
     let cancelled = false;
