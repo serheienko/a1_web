@@ -2076,3 +2076,34 @@ literal needs `-input` suffix (§6.26), drop the `input` key entirely
 (§6.27), strip media's `_id` (§6.28), strip media's `mimetype` (§6.29).
 Watching the next live attempt for either success or the next specific
 mismatch.
+
+### 6.30 Confirmed `date` too, then a deliberate jump to `fileReference`-only (2026-08-29)
+
+New deployment (dpl_4aExvNd8ZDX33j7UWaXRx5X6WkQP) confirmed the `_id` and
+`mimetype` fixes from §6.28-6.29 both landed and both stayed fixed - the
+next live 400 moved to a THIRD field: **"'media.0' has unknown property
+'date'"** (request id bwjwh-1788032961114-e482054acc84, 2026-08-29
+19:49:21 UTC).
+
+That's three confirmed rejections in a row (`_id`, `mimetype`, `date`),
+all of them exactly the fields a client never invents and a media
+pipeline computes server-side. Given how slow and how demoralizing each
+one-field-per-round-trip cycle is for live testing, this round breaks
+from the strict "only fix what's confirmed" discipline used in
+§6.25-6.29 and makes a reasoned jump instead of waiting for `sizes`,
+`ttl`, `flags`, `attributes`, and `object` to fail one at a time too:
+every remaining `MediaDocumentSchema` field besides `fileReference` is
+server-derived metadata (`sizes` = computed thumbnail variants, `ttl`/
+`flags` = internal state, `attributes` = server annotations, `object` =
+a discriminator upload.confirm itself sets). `fileReference` is the only
+field that is genuinely "which file does this post point to" - the one
+piece of information the client actually owns.
+
+Fix: `PostInputMediaSchema = MediaDocumentSchema.pick({ fileReference:
+true })` - media items now send `{ fileReference }` and nothing else.
+This is a hypothesis, clearly weaker evidence than §6.25-6.29 (only 3 of
+7 excluded fields are individually confirmed), not a certainty. If the
+backend answers with "root is missing required property" for something
+under `media.0` (e.g. it turns out to need `sizes` back for display),
+that's the very next live 400 to read and fix - don't guess further,
+go back to reading exact errors.

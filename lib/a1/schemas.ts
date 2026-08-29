@@ -317,7 +317,7 @@ export type PostInputObject = z.infer<typeof PostInputObjectSchema>;
 // Every other MediaDocument field is kept as-is since only `_id` was
 // flagged; if the backend later rejects another one of them too, that's
 // the next live 400 to fix the same way, not a reason to strip more now.
-export const PostInputMediaSchema = MediaDocumentSchema.omit({ _id: true, mimetype: true });
+export const PostInputMediaSchema = MediaDocumentSchema.pick({ fileReference: true });
 
 export const PostInputSchema = z.object({
   object: PostInputObjectSchema,
