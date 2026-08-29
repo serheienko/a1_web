@@ -17,9 +17,16 @@
 // its imperative `loadAnimation()` call has no JSX prop surface to
 // typecheck against, which is the safer shape for a browser-only
 // animation library sitting inside a server-rendered page.
+//
+// 2026-08-28: extracted the actual rendering into components/
+// lottie-player.tsx (generic src/size) once the onboarding flow
+// (PLAN.md §6.15) needed the same rendering path for two more
+// animations that aren't occupation icons. This file is now just the
+// occupation -> URL lookup table on top of it — its own public API
+// (<OccupationIcon occupation="entrepreneur" />) is unchanged.
 "use client";
 
-import { useEffect, useRef } from "react";
+import { LottiePlayer } from "./lottie-player";
 
 const OCCUPATION_ANIMATION_URLS: Record<string, string> = {
   entrepreneur: "/occupations/entrepreneur.json",
@@ -27,50 +34,18 @@ const OCCUPATION_ANIMATION_URLS: Record<string, string> = {
   freelancer: "/occupations/freelancer.json",
 };
 
-export function OccupationIcon({ occupation }: { occupation: string }) {
+export function OccupationIcon({
+  occupation,
+  size = 31,
+}: {
+  occupation: string;
+  /** 2026-08-28: "Увеличь на 30% кота который подсвечивает роль
+   *  пользователя" — 24px -> ~31px, kept as the default so every
+   *  existing call site is unaffected; the onboarding "Я..." dropdown
+   *  passes its own size for the bigger trigger-button icon. */
+  size?: number;
+}) {
   const url = OCCUPATION_ANIMATION_URLS[occupation];
-  const containerRef = useRef<HTMLSpanElement>(null);
-
-  useEffect(() => {
-    if (!url || !containerRef.current) return;
-
-    let cancelled = false;
-    let anim: { destroy: () => void } | null = null;
-
-    Promise.all([import("lottie-web"), fetch(url).then((res) => res.json())])
-      .then(([lottieModule, animationData]) => {
-        if (cancelled || !containerRef.current) return;
-        const lottie = lottieModule.default;
-        anim = lottie.loadAnimation({
-          container: containerRef.current,
-          renderer: "svg",
-          loop: true,
-          autoplay: true,
-          animationData,
-        });
-      })
-      .catch(() => {
-        // A missing/broken animation file just means no icon — the text
-        // label next to it (rendered by the caller) still carries the
-        // information, so this fails silently rather than showing a
-        // broken-image placeholder.
-      });
-
-    return () => {
-      cancelled = true;
-      anim?.destroy();
-    };
-  }, [url]);
-
   if (!url) return null;
-
-  return (
-    // 2026-08-28: "Увеличь на 30% кота который подсвечивает роль
-    // пользователя" — 24px -> ~31px.
-    <span
-      ref={containerRef}
-      className="inline-block h-[31px] w-[31px] shrink-0"
-      aria-hidden="true"
-    />
-  );
+  return <LottiePlayer src={url} size={size} />;
 }

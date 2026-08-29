@@ -84,16 +84,32 @@ async function unwrap<T>(method: string, res: Response): Promise<T> {
  * `skipAuth: true` for the handful of public endpoints (auth.email,
  * auth.refreshToken, dataset.*) — lib/a1/auth.ts uses this to avoid calling
  * itself while logging in.
+ *
+ * Pass `accessToken` for a call that must act AS THE SIGNED-IN VISITOR
+ * (e.g. account.updateProfile) rather than as the service account — the
+ * two must never be mixed, since the service account is a distinct A1
+ * user (PLAN.md §2.1), not a privileged proxy for arbitrary users. First
+ * used in Phase 6 (profile-setup onboarding step, PLAN.md §6.15); the
+ * 401-retry-via-invalidate() dance is deliberately skipped in this mode
+ * — that logic belongs to the service account's own module-level token
+ * cache (lib/a1/auth.ts) and does not apply to a per-visitor token, which
+ * has no cache here to invalidate. A caller passing accessToken is
+ * responsible for its own auth.refreshToken retry on 401 (see
+ * app/api/account/update-profile/route.ts).
  */
 export async function call<T>(
   method: string,
   body: unknown = {},
-  opts: { skipAuth?: boolean } = {},
+  opts: { skipAuth?: boolean; accessToken?: string } = {},
 ): Promise<T> {
-  const headers = opts.skipAuth ? {} : await authorizer.headers();
+  const headers = opts.skipAuth
+    ? {}
+    : opts.accessToken
+      ? { authorization: `Bearer ${opts.accessToken}` }
+      : await authorizer.headers();
   let res = await doFetch(method, body, headers);
 
-  if (!opts.skipAuth && res.status === 401) {
+  if (!opts.skipAuth && !opts.accessToken && res.status === 401) {
     authorizer.invalidate();
     const retryHeaders = await authorizer.headers();
     res = await doFetch(method, body, retryHeaders);

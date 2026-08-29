@@ -1084,26 +1084,39 @@ assumed:**
   2026-08-27: his mobile-app walkthrough video showed a company card
   with 'IT' as a labeled category" — the same word appears first in
   this new screenshot's list too).
-- `occupation` is a plain string field, confirmed directly against the
-  live `openapi.json` schema, 2026-08-28: `{"occupation": {"type":
-  "string", "description": "User occupation", "example": "Software
-  Engineer"}}`. So the free-text "Роль и навыки" field maps cleanly
-  to `occupation` — a single string, not a structured list — unless
-  Aleksandr says the app actually splits "role" and "skills" into two
-  separate stored things here.
+- ~~`occupation` is a plain string field~~ — **correction, caught
+  before anything was wired: this was wrong.** A WebFetch summary of
+  the live openapi.json (lossy on a document this large — see the
+  earlier `?openapi=` debug-route addition, built for exactly this
+  reason) returned `occupation`'s generic-looking description text,
+  which doesn't match what this codebase already had confirmed the
+  hard way: `app/u/[username]/page.tsx`'s own 2026-08-27 comment
+  states plainly that "occupation isn't free text — the openapi spec
+  (Resource.User.Occupation) pins it to exactly these 4 values"
+  (`entrepreneur` / `professional` / `freelancer` / `none`) — which is
+  exactly the enum the existing `OCCUPATION_LABELS` lookup and
+  `<OccupationIcon>` already use, both live on `/u/[username]` today.
+  **So `occupation` is "Я..." (тип пользователя), not "Роль и
+  навыки"** — the opposite of what this section said before. The
+  free-text "Роль и навыки" field maps to `expertise` instead
+  (`z.string().nullable()` in schemas.ts, rendered as plain text with
+  no icon on the profile page — consistent with free text, not an
+  enum). Moral: a full close read of a schema already in this
+  codebase beats a summarizer's pass over the same document — should
+  have checked `app/u/[username]/page.tsx` and `schemas.ts` before
+  stating this as confirmed.
 
 **Not yet resolved — genuinely unknown, not guessed:**
-- What backend field(s) "Я..." (Бизнесмен/Специалист/Фрилансер) writes
-  to. Nothing in `account.updateProfile`'s already-documented field
-  list (§6.1) obviously matches a 3-value "user type" enum by name.
-  Two real possibilities that need a real answer, not a guess: (a) it's
-  a stored profile attribute (candidate field names from §6.1:
-  `expertise`, `lockingFor`/`helpfulWith`, or the catch-all `metadata`),
-  or (b) it's not a stored field at all — just a UI branch that decides
-  whether the person is steered toward creating a Vacancy post or a
-  Talent post (PLAN.md §6.1's `post-job-seeking` vs the not-yet-existing
-  `post-job-employing` tag key). Asked Aleksandr; may need Andrew if
-  Aleksandr doesn't know the literal field either.
+- ~~What backend field(s) "Я..." writes to~~ — **answered: `occupation`**.
+  Confirmed by reading `app/u/[username]/page.tsx`'s own pre-existing
+  code/comments (dated 2026-08-27, predating this correction): the real
+  openapi spec pins `occupation` to exactly the 3 values Aleksandr's
+  screenshot shows (`entrepreneur`/`professional`/`freelancer`, plus
+  `none`), and it's what drives the cat-icon+label badge on live profile
+  pages today. So "Я..." (тип пользователя) → `occupation`. This
+  flips the earlier (wrong) conclusion below — see the correction note
+  above: `expertise` is the free-text "Роль и навыки" field instead,
+  not "Я...".
 - ~~Which service actually sends the verification email/code~~ —
   **answered: Mailgun**, confirmed via `a1appp.com`'s own SPF record.
   See OPEN QUESTIONS #8. Sending happens entirely server-side (Andrew's
@@ -1124,6 +1137,10 @@ telephone-operator cat**, `public/animations/phone-verify-code.json`
 (from `Phone.tgs`, §6.15 above). `hi-cat-email-code.json` stays
 committed as a decoded reference asset only — not wired into any page.
 He is also sending a large-font code style reference separately.
+**Font for the big code display, confirmed: "Impact"** ("Шрифт кода -
+Impact вроде") — a bold condensed display font; use a websafe/system
+fallback stack (`Impact, "Arial Narrow Bold", sans-serif`) since it's
+not loaded as a webfont anywhere else in this codebase yet.
 
 **Not started building the two new steps yet, deliberately** — three
 required fields and an email-verification flow are exactly the kind of
