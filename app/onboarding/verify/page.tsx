@@ -95,7 +95,13 @@ function useActiveLocale(): Locale {
 function readDisplayEmail(): string {
   if (typeof document === "undefined") return "";
   const match = document.cookie.match(new RegExp(`(?:^|; )${DISPLAY_COOKIE}=([^;]*)`));
-  return match ? decodeURIComponent(match[1]) : "";
+  // match[1] (a capture group) is typed string | undefined under this
+  // project's noUncheckedIndexedAccess — same class of error as
+  // components/account-menu.tsx's own readDisplayCookie() already
+  // documents, and PLAN.md §6.12/§6.13's other build failures. Missed it
+  // here despite that precedent existing in the same codebase.
+  const raw = match?.[1];
+  return raw ? decodeURIComponent(raw) : "";
 }
 
 const DEFAULT_CODE_LENGTH = 4;
