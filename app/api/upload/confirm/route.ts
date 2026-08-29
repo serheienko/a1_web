@@ -12,7 +12,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { A1ApiError } from "@/lib/a1/client";
 import { callAsVisitor, NoSessionError } from "@/lib/a1/visitor-call";
-import { setSession } from "@/lib/a1/session";
+import { setSession, clearSession } from "@/lib/a1/session";
 import { MediaDocumentSchema } from "@/lib/a1/schemas";
 
 export const runtime = "nodejs";
@@ -39,7 +39,14 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (err) {
     if (err instanceof NoSessionError) {
-      return NextResponse.json({ ok: false, message: "not_signed_in" }, { status: 401 });
+      // The visitor's session cookie is unusable (never existed, or its
+      // refresh token was itself rejected by the backend — see
+      // lib/a1/visitor-call.ts's callAsVisitor for when that happens) —
+      // clear it so a stale cookie does not keep silently failing every
+      // later call instead of sending the visitor back to /sign-in.
+      const response = NextResponse.json({ ok: false, message: "not_signed_in" }, { status: 401 });
+      clearSession(response);
+      return response;
     }
     const detail = err instanceof A1ApiError ? err.detail : null;
     if (err instanceof A1ApiError) {

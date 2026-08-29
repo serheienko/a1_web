@@ -105,6 +105,26 @@
 //     пікер." The footer's own Save-draft/Post buttons now switch to
 //     Cancel/Schedule while the popover is open instead of showing a
 //     second, redundant primary button — "не треба друга синя кнопка."
+//
+// 2026-08-29, round 4 (Aleksandr reproduced both "не вдалося завантажити
+// фото" and "щось пішло не так" live; Vercel's function logs named the
+// actual cause — round 3's guess wasn't it): every one of these routes'
+// callAsVisitor() call came back 401 `{"code":"TOKEN_VALIDATION_ERROR",
+// "message":"Token revoked."}`, and the External-APIs trace showed
+// auth.refreshToken WAS attempted — its own retry attempt just also got
+// a 401, which bubbled up as a raw, unrecognized A1ApiError (502) instead
+// of the existing not_signed_in handling ever kicking in. Fixed in
+// lib/a1/visitor-call.ts: callAsVisitor now catches a 401 from either the
+// refresh call itself or the retried original call and converts it to
+// NoSessionError — a revoked refresh token can never succeed no matter
+// how many times it's retried, so there's nothing to gain by surfacing
+// the raw error instead of routing through the same "session's dead,
+// sign back in" path a missing cookie already takes. All 9 routes using
+// callAsVisitor now also clearSession() on that path, so the dead cookie
+// doesn't keep tripping the same failure on every later call. The photo
+// upload path (handleFileSelected(), previously only checked by
+// submit()) now redirects to /sign-in the same way, via a small shared
+// isNotSignedIn() helper.
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -234,6 +254,16 @@ async function compressImage(file: File): Promise<File> {
   } catch {
     return file;
   }
+}
+
+// 2026-08-29 round 4: shared by handleFileSelected() and submit() —
+// both hit the same backend routes, both can hit the same "session's
+// refresh token was itself revoked" case (see lib/a1/visitor-call.ts's
+// callAsVisitor), and both should react the same way: send the visitor
+// back to sign in instead of a generic "couldn't upload"/"something went
+// wrong" that gives no path forward.
+function isNotSignedIn(data: unknown): boolean {
+  return typeof data === "object" && data !== null && (data as { message?: unknown }).message === "not_signed_in";
 }
 
 function pad2(n: number): string {
@@ -678,6 +708,11 @@ export function PostEditor({
       });
       const createData = await createRes.json();
       if (!createRes.ok || !createData.ok || !createData.result?.url) {
+        if (isNotSignedIn(createData)) {
+          window.location.href = "/sign-in?reason=create-post";
+          return;
+        }
+        console.error("[post-editor] photo upload/create failed", { status: createRes.status, message: createData?.message, detail: createData?.detail });
         setError(t("photoUploadFailed", lang));
         setUploading(false);
         return;
@@ -699,6 +734,11 @@ export function PostEditor({
       });
       const confirmData = await confirmRes.json();
       if (!confirmRes.ok || !confirmData.ok) {
+        if (isNotSignedIn(confirmData)) {
+          window.location.href = "/sign-in?reason=create-post";
+          return;
+        }
+        console.error("[post-editor] photo upload/confirm failed", { status: confirmRes.status, message: confirmData?.message, detail: confirmData?.detail });
         setError(t("photoUploadFailed", lang));
         setUploading(false);
         return;

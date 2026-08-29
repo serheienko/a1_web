@@ -43,11 +43,29 @@ export async function callAsVisitor<T>(
   } catch (err) {
     if (!(err instanceof A1ApiError) || err.httpStatus !== 401) throw err;
 
-    const refreshed = await call<AuthRefreshResponse>(
-      "auth.refreshToken",
-      { refreshToken: session.refreshToken },
-      { skipAuth: true },
-    );
+    // 2026-08-29: live 401s turned out to come in two shapes that both
+    // need different handling — an ordinary expired access token
+    // (refreshable) and a genuinely revoked/invalid refresh token
+    // (Vercel logs: "TOKEN_VALIDATION_ERROR" / "Token revoked.", seen on
+    // both posts.createPost and upload.create). The second kind can
+    // never succeed no matter how many times it's retried, so
+    // auth.refreshToken itself throwing 401 here — or the retried call
+    // still 401ing with a "fresh" token — both now become NoSessionError
+    // instead of an opaque 502, so callers fall into their existing
+    // not_signed_in handling (clear the cookie, send the visitor back to
+    // /sign-in) rather than surfacing "something went wrong" for a
+    // problem no amount of retrying fixes.
+    let refreshed: AuthRefreshResponse;
+    try {
+      refreshed = await call<AuthRefreshResponse>(
+        "auth.refreshToken",
+        { refreshToken: session.refreshToken },
+        { skipAuth: true },
+      );
+    } catch (refreshErr) {
+      if (refreshErr instanceof A1ApiError && refreshErr.httpStatus === 401) throw new NoSessionError();
+      throw refreshErr;
+    }
     const nextSession: SessionState = {
       userId: refreshed.userId || session.userId,
       email: session.email,
@@ -55,7 +73,12 @@ export async function callAsVisitor<T>(
       refreshToken: refreshed.refreshToken,
       expiresAt: refreshed.expiresAt * 1000,
     };
-    const data = await call<T>(method, body, { accessToken: nextSession.accessToken });
-    return { data, refreshedSession: nextSession };
+    try {
+      const data = await call<T>(method, body, { accessToken: nextSession.accessToken });
+      return { data, refreshedSession: nextSession };
+    } catch (retryErr) {
+      if (retryErr instanceof A1ApiError && retryErr.httpStatus === 401) throw new NoSessionError();
+      throw retryErr;
+    }
   }
 }
