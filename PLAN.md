@@ -1797,3 +1797,49 @@ the first place (normal 60-day expiry per `lib/a1/session.ts`'s own
 comment, a manual sign-out/session-revoke elsewhere, or something else)
 — out of scope here since the actual bug (silently surfacing the wrong
 error instead of prompting a fresh sign-in) is fixed regardless of cause.
+
+### 6.23 Why the token got revoked: likely a refresh-token race, not real expiry (2026-08-29)
+
+§6.22 fixed the symptom (a revoked-token 401 wasn't triggering
+re-sign-in) but left WHY it got revoked as an open question. Answer,
+with the caveat below on confidence: almost certainly a race in our own
+refresh logic, not a backend policy or an actual 60-day expiry.
+
+The tell: `lib/a1/auth.ts` (the separate service-account bridge) already
+has an `inFlight` promise cache with a comment reading "coalesce
+concurrent callers into a single login/refresh instead of a stampede" —
+i.e. this exact class of bug was already found and fixed once in this
+codebase, just for the OTHER token (the shared service account), never
+for the per-visitor one in `lib/a1/visitor-call.ts`. The mechanism:
+`readSession()` reads the visitor's refreshToken fresh from the request's
+own cookie every time, so two authenticated requests that both arrive
+while the access token is expired — a photo upload firing alongside a
+draft autosave, two browser tabs on the same account, or simply several
+of the post editor's own calls landing close together — each see the
+SAME not-yet-rotated refreshToken and each call `auth.refreshToken` with
+it. If that endpoint's refresh token is single-use/rotating (typical for
+this kind of flow, though never confirmed in PLAN.md's ground truth),
+only the first of those concurrent calls actually succeeds; every other
+one gets rejected, and the backend reports that identically to a
+genuinely dead session (`TOKEN_VALIDATION_ERROR` / `"Token revoked."`)
+— there's no way to tell "lost a race" from "actually revoked" apart
+from the error text alone.
+
+Fixed in the same commit as this note (§6.22's follow-up): `callAsVisitor`
+now coalesces concurrent refreshes of the same refreshToken value through
+one shared in-flight promise, the same pattern `lib/a1/auth.ts` already
+uses — only the first caller for a given token actually calls
+`auth.refreshToken`; everyone else awaits and reuses that result instead
+of racing it.
+
+Honesty check on confidence: this is a strong circumstantial case (an
+identical bug already existed and was fixed once in this exact codebase
+for the sibling auth path), not a confirmed root cause — there is no
+direct evidence (no backend docs, no reproduced race in a live session)
+that this is what actually happened on 2026-08-29. The other live
+possibility, not ruled out: the backend enforces one active session per
+account and a login from elsewhere (another tab, another device, testing
+from two machines) revoked the refresh token the web app was holding —
+if "Token revoked" recurs on a single tab with nothing else signed in at
+the same time, this fix wasn't the (or the whole) cause and that theory
+moves up.
