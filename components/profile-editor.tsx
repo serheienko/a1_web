@@ -349,14 +349,16 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   // компанії" / "Your position in company", not the shorter "Посада" /
   // "Role / title" this used to say.
   companyPositionTitlePlaceholder: { uk: "Ваша посада в компанії", en: "Your position in company", ru: "Ваша должность в компании", de: "Ihre Position im Unternehmen", es: "Tu puesto en la empresa", fr: "Votre poste dans l'entreprise", pl: "Twoje stanowisko w firmie", ptBR: "Seu cargo na empresa", zh: "您在公司的职位" },
-  // 2026-08-30, live-testing feedback ("Надо время в компании полями
-  // 'from', 'to'"): superseding the earlier literal "Start"/"End" (which
-  // matched the mobile app's own, apparently-never-localized labels) --
-  // this explicit follow-up asked for From/To specifically, properly
-  // translated per locale this time since it's this app's own naming
-  // choice rather than an attempt to mirror the mobile app's wording.
-  companyPositionStartPlaceholder: { uk: "Від", en: "From", ru: "От", de: "Von", es: "Desde", fr: "De", pl: "Od", ptBR: "De", zh: "从" },
-  companyPositionEndPlaceholder: { uk: "До", en: "To", ru: "До", de: "Bis", es: "Hasta", fr: "À", pl: "Do", ptBR: "Até", zh: "至" },
+  // 2026-08-30, live-testing feedback: briefly renamed to From/To, then
+  // reverted the same day after follow-up screenshots showed the mobile
+  // app's own "Start"/"End" labels in more detail (an expanding calendar
+  // widget under each) -- asked whether to build that calendar too or
+  // just keep plain text fields under the mobile app's actual naming;
+  // answer was text fields, Start/End. Matching the mobile app's own
+  // apparently-never-localized literal English wording, same reasoning
+  // as this file's other "match the mobile app" renames today.
+  companyPositionStartPlaceholder: { uk: "Start", en: "Start", ru: "Start", de: "Start", es: "Start", fr: "Start", pl: "Start", ptBR: "Start", zh: "Start" },
+  companyPositionEndPlaceholder: { uk: "End", en: "End", ru: "End", de: "End", es: "End", fr: "End", pl: "End", ptBR: "End", zh: "End" },
   // 2026-08-30, live-testing feedback: "отдельная кнопка 'present' которая
   // будет показывать, что до сейчас" -- see PRESENT_SENTINEL's own
   // comment for how this toggle is represented in positionEnd.
