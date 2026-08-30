@@ -251,14 +251,25 @@ export function ProfileTabs({
       <div hidden={tab !== "posts"} className="mt-2.5">
         {ownDrafts.length > 0 && (
           <div className="mb-4 flex flex-col gap-4">
-            {ownDrafts.map(({ post, status }) => (
-              <PostCard
-                key={post.id}
-                post={post}
-                statusBadge={{ label: STRINGS[status === "draft" ? "statusDraft" : "statusScheduled"][lang], className: STATUS_BADGE_CLASS }}
-                onOpen={ownEditable[post.id] ? () => setEditingPost(ownEditable[post.id]) : undefined}
-              />
-            ))}
+            {ownDrafts.map(({ post, status }) => {
+              // Read once into a local so TS narrows this to
+              // `EditablePost` (not `EditablePost | undefined`) inside
+              // the ternary below -- indexing ownEditable[post.id]
+              // twice inline is what broke the production build just
+              // now: `setEditingPost` only accepts `EditablePost |
+              // null`, and repeating the index expression doesn't
+              // narrow away the `| undefined` TS infers from a plain
+              // object index access.
+              const editable = ownEditable[post.id];
+              return (
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  statusBadge={{ label: STRINGS[status === "draft" ? "statusDraft" : "statusScheduled"][lang], className: STATUS_BADGE_CLASS }}
+                  onOpen={editable ? () => setEditingPost(editable) : undefined}
+                />
+              );
+            })}
           </div>
         )}
         {posts}
