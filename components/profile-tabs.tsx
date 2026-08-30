@@ -292,7 +292,33 @@ export function ProfileTabs({
           sm:max-w-3xl cap and side padding, mx-auto'd inside the
           full-bleed wrapper. Mobile (`sm:` prefix) is untouched, same
           convention as <main>'s own fixed width already uses. */}
-      <div hidden={tab !== "posts"} className="mt-2.5 sm:relative sm:left-1/2 sm:w-screen sm:-translate-x-1/2">
+      {/* 2026-08-30, live-testing feedback ("Edit / Del не нажимаются"):
+          this breakout wrapper's own `-translate-x-1/2` was the actual
+          cause -- a CSS `transform` establishes a new stacking context
+          on WHATEVER element carries it, no z-index required. Every
+          card rendered inside here (both `ownDrafts` above and the
+          server-rendered `{posts}` below, including their own
+          PostOwnerMenu's `z-40` wrapper -- see post-card.tsx's own
+          comment on that) ended up nested inside this wrapper's new
+          stacking context, so their z-40 could only ever win against
+          siblings INSIDE that same context; from the OUTSIDE, this
+          entire wrapper counts as one z-index:auto box being compared
+          against components/post-owner-menu.tsx's click-outside
+          backdrop (a `fixed z-30` div portaled straight to
+          document.body) -- and an auto-z-index box always paints below
+          a positive-z-index one, so the backdrop won regardless of the
+          z-40 inside. Only reproduces at `sm:` widths and up, since the
+          transform (and this whole breakout trick) is mobile-excluded
+          by design -- exactly what the screenshot showed, a windowed
+          desktop viewport. Fix: swap the transform for an equivalent
+          margin-based full-bleed (`-ml-[50vw]` instead of
+          `-translate-x-1/2` on a `left-1/2, w-screen` box is the same
+          arithmetic -- both shift a 100vw-wide box left by half its own
+          width -- but a plain negative margin doesn't create a stacking
+          context the way transform does), so this wrapper stops being a
+          stacking-context root at all and the z-40 fix inside it can
+          finally be compared directly against the backdrop as intended. */}
+      <div hidden={tab !== "posts"} className="mt-2.5 sm:relative sm:left-1/2 sm:w-screen sm:-ml-[50vw]">
         <div className="sm:mx-auto sm:max-w-3xl sm:px-4">
           {ownDrafts.length > 0 && (
             <div className="mb-4 flex flex-col gap-4">
