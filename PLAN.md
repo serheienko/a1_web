@@ -2627,3 +2627,19 @@ Aleksandr, from a screenshot of §6.44's merged account block: "поставь
   usual policy — see account-menu.tsx's own history), rather than
   deleting it, specifically so drafts/scheduled have somewhere to go
   back to if that gap turns out to matter later.
+
+### 6.46 Post editor: "close without saving" option (2026-08-30)
+
+Aleksandr, mid-session, screenshot of the §6.41 close-confirm popover:
+"давай ещё кнопку добавим... если я просто хочу закрыть, но ничего
+сохранять там не хочу."
+
+- The popover only offered two choices: save as draft, or continue
+  editing — no way to just discard and close. Added a third, visually
+  quieter text-button ("Закрити без збереження" / "Close without
+  saving") beneath the other two, that calls `onClose()` directly —
+  the exact same path `requestClose()` already takes when the form
+  isn't dirty at all, just reached explicitly instead of only via the
+  "nothing was typed" shortcut.
+- No new state, no new confirmation-of-the-confirmation — one click
+  discards and closes, matching what the user asked for plainly.
