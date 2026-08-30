@@ -158,15 +158,21 @@ export function ProfileTabs({
 
   return (
     <div className="mt-6">
-      {/* Aleksandr, 2026-08-30, screenshot of this exact pill: "сделай
-          заливку кнопки полностью FFFFF 100%, а то она теряется" --
-          bg-white/100 forces Tailwind's opacity-variable-based
-          background color to a literal fully opaque white (bypassing
-          --tw-bg-opacity entirely) on the active tab below, rather than
-          relying on plain `bg-white`, in case something upstream was
-          ever leaving that variable less than 1 and washing it out
-          against the light-gray pill behind it. */}
-      <div className="flex gap-1 rounded-full bg-neutral-100 p-1 dark:bg-neutral-800">
+      {/* Aleksandr, 2026-08-30: "сделай заливку кнопки полностью FFFFF
+          100%, а то она теряется" -- first pass (bg-white/100) was
+          already, measurably, pure #FFFFFF (confirmed by sampling the
+          live screenshot's pixels: 255,255,255 exactly) -- the real
+          complaint wasn't opacity, it was that white-on-nearly-white
+          (bg-neutral-100 container, ~245,245,245) barely reads as
+          "highlighted" at all. He then pointed at site-nav.tsx's own
+          Вакансії/Фахівці switcher as the exact effect he wants copied:
+          a plain WHITE outer pill with the active tab tinted
+          `bg-accent/15 text-accent` (light blue), not a
+          gray-container-with-white-tab scheme -- copied byte-for-byte
+          from that component below (container: `bg-white
+          dark:bg-neutral-900`; active button: `bg-accent/15
+          text-accent`) instead of inventing a new treatment here. */}
+      <div className="flex gap-1 rounded-full bg-white p-1 dark:bg-neutral-900">
         <button
           type="button"
           onClick={() => setTab("bio")}
@@ -174,8 +180,8 @@ export function ProfileTabs({
           className={
             "flex-1 rounded-full py-2 text-sm font-medium transition " +
             (tab === "bio"
-              ? "bg-white/100 text-neutral-900 shadow-sm dark:bg-neutral-700 dark:text-neutral-50"
-              : "text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200")
+              ? "bg-accent/15 text-accent"
+              : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50")
           }
         >
           <T uk="Про мене" en="Bio" ru="О себе" de="Bio" es="Bio" fr="Bio" pl="Bio" ptBR="Bio" zh="简介" />
@@ -187,8 +193,8 @@ export function ProfileTabs({
           className={
             "flex-1 rounded-full py-2 text-sm font-medium transition " +
             (tab === "posts"
-              ? "bg-white/100 text-neutral-900 shadow-sm dark:bg-neutral-700 dark:text-neutral-50"
-              : "text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200")
+              ? "bg-accent/15 text-accent"
+              : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50")
           }
         >
           <T uk="Пости" en="Posts" ru="Посты" de="Beiträge" es="Publicaciones" fr="Publications" pl="Posty" ptBR="Publicações" zh="帖子" />

@@ -2912,3 +2912,45 @@ click alone) was wrong per Aleksandr's follow-up: "если ничего не
 `maxWidth` effect back to `inputFocused` alone (matching §6.47); the
 filter BUTTON's own `h-8`/`h-9` size toggle keeps using `searchExpanded`
 so it still grows on its own click regardless of the search box.
+
+### 6.55 Avatar menu: geometry-based close (not just enter/leave events); "Про мене/Пости" pill matches the Вакансії/Фахівці accent-tint style; search box no longer collapses under an open filter popover (2026-08-30)
+
+Aleksandr, live, twice in a row: "меню при наведении на аватар по
+прежнему не исчезает." My own live testing in his Chrome session
+(§6.54) had found the panel DOES close correctly for a normal,
+continuous cursor path, but a single large/fast cursor jump could
+leave `handleMouseLeave` never called at all -- the browser's
+mouseout->mouseleave synthesis depends on `relatedTarget` walking the
+DOM tree correctly, and at least one real cursor path wasn't
+delivering that event to the wrapper. Rather than keep chasing
+individual paths, added a second, independent closing mechanism that
+doesn't depend on enter/leave event semantics at all: while `open`, a
+`document`-level `mousemove` listener directly compares the cursor's
+raw coordinates against the trigger button's and panel's own
+`getBoundingClientRect()` (unioned, 4px margin) and schedules/cancels
+the same close timer based on pure geometry. This can't silently fail
+to fire the way a missed native event can -- it backstops
+onMouseEnter/onMouseLeave rather than replacing them.
+
+Separately, re-litigated the "Про мене"/"Пости" tab pill twice in one
+sitting: pixel-sampled his screenshot and confirmed the active tab WAS
+already pure `#FFFFFF` (255,255,255) -- the real complaint was
+contrast, not opacity, since the gray container (~245,245,245) and the
+page background (~242,242,247) are barely distinguishable from white
+to begin with. He pointed at site-nav.tsx's own Вакансії/Фахівці
+switcher wanting "абсолютно такой же эффект" -- copied that scheme
+byte-for-byte (white container, active tab `bg-accent/15 text-accent`)
+after briefly going back and forth on whether to keep the old
+gray-container scheme.
+
+Also: `components/filters-form.tsx`'s search-box widen-on-focus
+effect went through a third revision this same conversation. §6.54
+reverted it to `inputFocused` alone so a bare Filters click (no prior
+search focus) wouldn't widen the box -- but that meant clicking
+Filters blurs the input, and after the existing 150ms blur delay the
+box SHRINKS back down while the filter popover is still open under it:
+"при нажатии на фильтры, ты сворачиваешь поиск... хотя бы не
+сворачивай поиск." Reverted back to `searchExpanded` (`inputFocused ||
+filtersOpen`) per his explicit "фиг с ним с длиной, но не закрывай
+поиск" -- the box no longer collapses out from under an open filter
+popover, accepting that Filters alone now also widens it.

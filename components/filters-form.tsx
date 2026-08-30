@@ -248,34 +248,36 @@ export function FiltersForm({
   // the single source of truth for the resting width. +55%, the middle
   // of the 50-60% range asked for; site-nav.tsx adds the transition so
   // this reads as a smooth widen, not a jump.
-  // 2026-08-30 follow-up (Aleksandr): first pass tied this same
-  // `maxWidth` widen to `searchExpanded` (below) so clicking Filters
-  // alone would ALSO widen the search box -- reported back as wrong:
-  // "я не это хотел... если ничего не трогаешь с поиском, нажал
+  // 2026-08-30, two rounds of back-and-forth on this one:
+  // Round 1 tied this `maxWidth` widen to `searchExpanded` (below), so
+  // clicking Filters alone also widened the search box -- reported as
+  // wrong: "я не это хотел... если ничего не трогаешь с поиском, нажал
   // фильтры -- оно просто по ширине короткого фильтра разошлось [только
-  // кнопка]... а если уже нажал input, что-то ввёл, и при этом открыл
-  // фильтры -- тогда по всей ширине." So the search box's own width
-  // reverts to `inputFocused` alone (exactly like §6.47 originally
-  // shipped it) -- opening Filters by itself must NOT widen the search
-  // box. `searchExpanded` below still grows the FILTER BUTTON on its
-  // own click (that part was never in question), and naturally still
-  // reads as "both wide" whenever the input already has focus and you
-  // then open Filters, since `inputFocused` alone already widens the
-  // box in that case.
-  useEffect(() => {
-    if (!navSlot) return;
-    navSlot.style.maxWidth = inputFocused ? "18.6rem" : "";
-  }, [navSlot, inputFocused]);
-
+  // кнопка]". Round 2 reverted this effect to `inputFocused` alone --
+  // but that meant clicking Filters (a normal DOM focus change) blurs
+  // the input, which after its own 150ms delay flips `inputFocused`
+  // false and SHRINKS the search box back down while the filter
+  // popover is still sitting open under it: "при нажатии на фильтры, ты
+  // сворачиваешь поиск... хотя бы не сворачивай поиск". That regression
+  // matters more than the round-1 nuance he's now waiving ("фиг с ним с
+  // длиной, но не закрывай поиск") -- back to `searchExpanded` here
+  // (declared right below, before this needs it), so the box never
+  // collapses out from under an open filter popover, at the cost of
+  // also widening on a bare Filters click with no prior search focus.
+  //
   // Aleksandr, 2026-08-30, screen recording: "ширина фильтра должна
   // тоже подстраиваться при расширенном поиске" (§6.51) -- then found
   // clicking Filters blurs the search input first (an ordinary DOM
   // focus change), which independently fires the 150ms-delayed
-  // setInputFocused(false) below and collapsed this button back to its
-  // resting size right as the filter popover opened. Only the BUTTON's
-  // own size keys off this combined flag -- the search box's width
-  // above deliberately does not (see that effect's own comment).
+  // setInputFocused(false) below and collapsed the filter button back
+  // to its resting size right as the filter popover opened. Same
+  // combined flag now drives the search box's own width too, below.
   const searchExpanded = inputFocused || filtersOpen;
+
+  useEffect(() => {
+    if (!navSlot) return;
+    navSlot.style.maxWidth = searchExpanded ? "18.6rem" : "";
+  }, [navSlot, searchExpanded]);
 
   // <T/> (components/t.tsx) can't help with attribute values or <option>
   // text — CSS can't conditionally show/hide inside those — so this one

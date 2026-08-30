@@ -242,6 +242,8 @@ export function AvatarMenu() {
   const [rendered, setRendered] = useState(false);
   const [visible, setVisible] = useState(false);
   const hoverCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const panelOuterRef = useRef<HTMLDivElement | null>(null);
   const HOVER_CLOSE_DELAY_MS = 200;
   const CLOSE_TRANSITION_MS = 150;
 
@@ -273,6 +275,52 @@ export function AvatarMenu() {
   function handleMouseLeave() {
     hoverCloseTimerRef.current = setTimeout(() => setOpen(false), HOVER_CLOSE_DELAY_MS);
   }
+
+  // 2026-08-30 follow-up (Aleksandr, live, twice): "по прежнему не
+  // исчезает" -- onMouseEnter/onMouseLeave above rely on the browser
+  // synthesizing enter/leave from native mouseover/mouseout, which in
+  // turn depends on `relatedTarget` walking the DOM tree correctly.
+  // Live testing in his own Chrome session confirmed the panel DOES
+  // close correctly for a normal, continuous cursor path -- but found
+  // at least one real path (fast/large cursor jump) where the browser
+  // never delivers a leave event to this wrapper at all, leaving
+  // `handleMouseLeave` uncalled and the panel stuck open until a click.
+  // Rather than chase every such path individually, this adds a
+  // second, independent closing mechanism that doesn't depend on
+  // enter/leave semantics at all: while `open`, track raw
+  // `mousemove` on `document` and directly compare the cursor's
+  // coordinates against the trigger button's and the panel's own
+  // `getBoundingClientRect()` (unioned, with a small margin so landing
+  // exactly on an edge pixel doesn't flicker). If the cursor is outside
+  // both, schedule the same close timer used above; if it re-enters
+  // either, cancel it. This is authoritative geometry, not an event
+  // chain -- it cannot silently fail to fire the way a missed
+  // mouseout/relatedTarget computation can, and it doesn't replace
+  // onMouseEnter/onMouseLeave above (cheap, correct in the common case)
+  // so much as backstop them for whatever browser/input-path
+  // combination was dropping the leave event.
+  useEffect(() => {
+    if (!open) return;
+    const margin = 4;
+    function isInside(rect: DOMRect | undefined, x: number, y: number) {
+      if (!rect) return false;
+      return x >= rect.left - margin && x <= rect.right + margin && y >= rect.top - margin && y <= rect.bottom + margin;
+    }
+    function handleDocMouseMove(e: MouseEvent) {
+      const triggerRect = wrapperRef.current?.getBoundingClientRect();
+      const panelRect = panelOuterRef.current?.getBoundingClientRect();
+      if (isInside(triggerRect, e.clientX, e.clientY) || isInside(panelRect, e.clientX, e.clientY)) {
+        if (hoverCloseTimerRef.current) {
+          clearTimeout(hoverCloseTimerRef.current);
+          hoverCloseTimerRef.current = null;
+        }
+      } else if (!hoverCloseTimerRef.current) {
+        hoverCloseTimerRef.current = setTimeout(() => setOpen(false), HOVER_CLOSE_DELAY_MS);
+      }
+    }
+    document.addEventListener("mousemove", handleDocMouseMove);
+    return () => document.removeEventListener("mousemove", handleDocMouseMove);
+  }, [open]);
   const [profileUsername, setProfileUsername] = useState<string | null>(null);
   // Aleksandr, 2026-08-30 (live screenshot): "может быть поставь не
   // цветная векторное синее, поставь аватар, персональный этот
@@ -372,7 +420,7 @@ export function AvatarMenu() {
   const languageOptions = LOCALES.filter((l) => !(isGeoUa && l === "ru"));
 
   return (
-    <div className="relative shrink-0" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+    <div className="relative shrink-0" ref={wrapperRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -413,7 +461,7 @@ export function AvatarMenu() {
               what used to be a dead-space gap. All the actual card
               styling that used to live on this same div moved to the
               inner child div below. */}
-          <div className="absolute right-0 top-full z-50 w-72 max-w-[calc(100vw-2rem)] origin-top-right pt-2">
+          <div className="absolute right-0 top-full z-50 w-72 max-w-[calc(100vw-2rem)] origin-top-right pt-2" ref={panelOuterRef}>
             <div
               className={
                 "overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-2 shadow-lg transition duration-150 ease-out dark:border-neutral-700 dark:bg-neutral-900 " +
