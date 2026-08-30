@@ -18,12 +18,14 @@ import { fetchPostById } from "@/lib/a1/posts";
 import { slugify, parseSlugId } from "@/lib/seo/slug";
 import Image from "next/image";
 import { PostImages } from "@/components/post-images";
-import { formatRelativeTime, formatSalary, truncateAtWordBoundary } from "@/lib/format";
+import { truncateAtWordBoundary } from "@/lib/format";
+import { RelativeTime, SalaryLabel } from "@/components/locale-format";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { generateImageBlurDataUrl } from "@/lib/avatar-blur";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { T } from "@/components/t";
 import { PostOwnerMenu } from "@/components/post-owner-menu";
+import { profileHref } from "@/lib/profile-href";
 import { TagLabel } from "@/components/tag-label";
 
 const SITE_URL = "https://jobs.a1appp.com";
@@ -134,7 +136,7 @@ export default async function TalentDetailPage({ params }: Props) {
             />
           );
           return post.author.username ? (
-            <Link href={`/u/${post.author.username}`} className="shrink-0 transition-opacity hover:opacity-80">
+            <Link href={profileHref(post.author.username)} className="shrink-0 transition-opacity hover:opacity-80">
               {avatarImg}
             </Link>
           ) : (
@@ -143,7 +145,7 @@ export default async function TalentDetailPage({ params }: Props) {
         })()}
         <div className="min-w-0">
           {post.author.username ? (
-            <Link href={`/u/${post.author.username}`} className="block truncate font-medium text-neutral-900 hover:underline dark:text-neutral-50">
+            <Link href={profileHref(post.author.username)} className="block truncate font-medium text-neutral-900 hover:underline dark:text-neutral-50">
               {post.author.name}
             </Link>
           ) : (
@@ -154,11 +156,15 @@ export default async function TalentDetailPage({ params }: Props) {
             {post.salary && (
               <>
                 <span aria-hidden="true">·</span>
-                <span>{formatSalary(post.salary)}</span>
+                <span>
+                  <SalaryLabel salary={post.salary} />
+                </span>
               </>
             )}
             <span aria-hidden="true">·</span>
-            <span>{formatRelativeTime(post.publishedAt)}</span>
+            <span>
+              <RelativeTime date={post.publishedAt} />
+            </span>
           </div>
         </div>
       </div>

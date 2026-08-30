@@ -77,7 +77,7 @@ import { WORK_STYLE_PREFERENCE_SECTIONS } from "@/components/work-style-labels";
 // below are `import type` only, which TypeScript fully erases, so those
 // two are safe to pull from lib/a1/datasets.ts itself.
 import { WORK_STYLE_DATASET_KEYS } from "@/lib/work-style-keys";
-import { translateHobbyGroup, translateHobbyItem, translateWorkInterest, translateWorkStyleOption } from "@/lib/pill-translations";
+import { translateHobbyGroup, translateHobbyItem, translateWorkInterest, translateWorkStyleOption, translateCompanyCategory } from "@/lib/pill-translations";
 import type { Category, WorkStylePreferencesDataset } from "@/lib/a1/datasets";
 import type { EditableProfile, MediaDocument } from "@/lib/a1/schemas";
 // Plain bit math, no dependency chain — safe to import into this client
@@ -314,7 +314,10 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   addLink: { uk: "Додати посилання", en: "Add link", ru: "Добавить ссылку", de: "Link hinzufügen", es: "Añadir enlace", fr: "Ajouter un lien", pl: "Dodaj link", ptBR: "Adicionar link", zh: "添加链接" },
   companyNamePlaceholder: { uk: "Назва компанії", en: "Company name", ru: "Название компании", de: "Firmenname", es: "Nombre de la empresa", fr: "Nom de l'entreprise", pl: "Nazwa firmy", ptBR: "Nome da empresa", zh: "公司名称" },
   companyDescriptionPlaceholder: { uk: "Опис компанії", en: "Company description", ru: "Описание компании", de: "Unternehmensbeschreibung", es: "Descripción de la empresa", fr: "Description de l'entreprise", pl: "Opis firmy", ptBR: "Descrição da empresa", zh: "公司简介" },
-  companyCategoryPlaceholder: { uk: "Галузь", en: "Industry", ru: "Отрасль", de: "Branche", es: "Industria", fr: "Secteur", pl: "Branża", ptBR: "Setor", zh: "行业" },
+  // 2026-08-30, live-testing feedback: "поменяй нейминг на 'сфера
+  // діяльності'" -- uk-only rename, the other locales' wording wasn't in
+  // question.
+  companyCategoryPlaceholder: { uk: "Сфера діяльності", en: "Industry", ru: "Отрасль", de: "Branche", es: "Industria", fr: "Secteur", pl: "Branża", ptBR: "Setor", zh: "行业" },
   companyCategoryEmpty: { uk: "Нічого не знайдено", en: "No matches", ru: "Ничего не найдено", de: "Keine Treffer", es: "Sin resultados", fr: "Aucun résultat", pl: "Brak wyników", ptBR: "Nenhum resultado", zh: "无匹配结果" },
   companyPositionTitlePlaceholder: { uk: "Посада", en: "Role / title", ru: "Должность", de: "Position", es: "Puesto", fr: "Poste", pl: "Stanowisko", ptBR: "Cargo", zh: "职位" },
   companyPositionStartPlaceholder: { uk: "Початок (напр. 2020)", en: "Start (e.g. 2020)", ru: "Начало (напр. 2020)", de: "Beginn (z. B. 2020)", es: "Inicio (p. ej. 2020)", fr: "Début (ex. 2020)", pl: "Początek (np. 2020)", ptBR: "Início (ex.: 2020)", zh: "开始时间(如 2020)" },
@@ -624,6 +627,25 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
   const [showPhone, setShowPhone] = useState(false);
   const [showDob, setShowDob] = useState(false);
   const [rawFlags, setRawFlags] = useState(0);
+  // 2026-08-30, live-testing feedback ("не сохраняется профиль"):
+  // handleSave used to send username/phoneNumber/dob unconditionally on
+  // every save, even when the visitor never touched them. Confirmed
+  // suspect, not confirmed live (no network access to the real API this
+  // session): on the account this was reported against, `username`
+  // bootstraps to a long backend-GENERATED value (e.g.
+  // "a1_149785988204331011") — resubmitting that exact string as a
+  // "change" on every save is new behavior this session added (the
+  // field didn't exist before), and a manually-settable username field
+  // very plausibly enforces stricter rules (max length chief among
+  // them) than whatever internal process generated that default. These
+  // refs capture the bootstrapped originals so handleSave can send each
+  // of the three only when it actually differs from what the visitor
+  // started with — never resending an untouched, possibly-invalid
+  // system default back at the one endpoint that validates it as a
+  // fresh user submission.
+  const originalUsernameRef = useRef("");
+  const originalPhoneRef = useRef("");
+  const originalDobRef = useRef("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [bio, setBio] = useState("");
@@ -719,6 +741,9 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
         setPhoneNumber(p.phoneNumber ?? "");
         setDob(p.dob ?? "");
         setRawFlags(p.flags);
+        originalUsernameRef.current = p.username ?? "";
+        originalPhoneRef.current = p.phoneNumber ?? "";
+        originalDobRef.current = p.dob ?? "";
         setShowPhone(canShowPhone(p.flags));
         setShowDob(canShowDob(p.flags));
         setFirstName(p.firstName);
@@ -1254,20 +1279,41 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
     // Schema-required min(1) if present at all (see ProfileInputSchema's
     // own comment) — omit entirely rather than send "" and fail the
     // whole save the same way an empty occupation would.
-    if (username.trim()) body.username = username.trim();
-    body.phoneNumber = phoneNumber.trim() || null;
-    body.dob = dob.trim() || null;
+    //
+    // 2026-08-30, live-testing feedback ("не сохраняется профиль"):
+    // username/phoneNumber/dob now only go in the payload when they
+    // actually differ from what bootstrap loaded (see
+    // originalUsernameRef's own comment near the state declarations for
+    // why) — matching account.updateProfile's own documented contract
+    // ("no fields required -- send only what changed", per
+    // app/api/account/whoami/route.ts's comment) instead of resending
+    // an untouched, possibly backend-generated value as if the visitor
+    // had just typed it.
+    const trimmedUsername = username.trim();
+    if (trimmedUsername && trimmedUsername !== originalUsernameRef.current) {
+      body.username = trimmedUsername;
+    }
+    const trimmedPhone = phoneNumber.trim();
+    if (trimmedPhone !== originalPhoneRef.current) {
+      body.phoneNumber = trimmedPhone || null;
+    }
+    const trimmedDob = dob.trim();
+    if (trimmedDob !== originalDobRef.current) {
+      body.dob = trimmedDob || null;
+    }
     // Read-modify-write: flip ONLY the two bits this dialog knows about,
     // on top of rawFlags exactly as bootstrapped — see this file's own
     // SHOW_PHONE_NUMBER/SHOW_DOB comment near the state declarations and
     // ProfileInputSchema.flags's comment for why every other bit
-    // (FAVORED/BLOCKED/PREMIUM/etc.) must round-trip untouched.
+    // (FAVORED/BLOCKED/PREMIUM/etc.) must round-trip untouched. Sent
+    // only when it actually changes from rawFlags, same "don't resend
+    // an untouched value" reasoning as the three fields above.
     const SHOW_PHONE_NUMBER = 1 << 1;
     const SHOW_DOB = 1 << 3;
     let nextFlags = rawFlags;
     nextFlags = showPhone ? nextFlags | SHOW_PHONE_NUMBER : nextFlags & ~SHOW_PHONE_NUMBER;
     nextFlags = showDob ? nextFlags | SHOW_DOB : nextFlags & ~SHOW_DOB;
-    body.flags = nextFlags;
+    if (nextFlags !== rawFlags) body.flags = nextFlags;
 
     try {
       const res = await fetch("/api/account/profile-editor/update", {
@@ -1281,6 +1327,16 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
           window.location.href = "/sign-in?reason=edit-profile";
           return;
         }
+        // 2026-08-30, live-testing feedback ("не сохраняется профиль"):
+        // the route already forwards the real API's error detail as
+        // `data.detail` (app/api/account/profile-editor/update/route.ts),
+        // but nothing surfaced it anywhere -- the user only ever saw the
+        // generic saveFailed copy below, with no way for either of us to
+        // tell WHICH field the backend actually rejected. Logging it
+        // doesn't fix the underlying cause on its own, but the next
+        // report of this can now come with real diagnostic detail from
+        // the browser console instead of another guess.
+        console.error("[profile-editor] save failed:", data.message, data.detail);
         setSaveErrorKey("saveFailed");
         setSaving(false);
         return;
@@ -1296,10 +1352,20 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
   const filteredCompanyCategories = useMemo(() => {
     const categories = bootstrap?.companyCategories ?? [];
     const q = categoryQuery.trim().toLowerCase();
-    const list = q ? categories.filter((c) => c.text.toLowerCase().includes(q)) : categories;
+    // 2026-08-30: now that the dropdown displays translateCompanyCategory's
+    // Ukrainian text (see this file's own companyCategoryPlaceholder
+    // comment), matching only against the backend's raw English `c.text`
+    // would silently break search for anyone typing what they actually
+    // see on screen -- e.g. typing "будів" would no longer find
+    // "Будівництво" (displayed) / "Construction" (raw). Match against
+    // both so search keeps working regardless of which one the visitor
+    // typed.
+    const list = q
+      ? categories.filter((c) => c.text.toLowerCase().includes(q) || translateCompanyCategory(c.text, lang).toLowerCase().includes(q))
+      : categories;
     const itIndex = list.findIndex((c) => c.text.replace(/[^a-zA-Z]/g, "").toUpperCase() === "IT");
     return (itIndex > 0 ? [list[itIndex]!, ...list.slice(0, itIndex), ...list.slice(itIndex + 1)] : list).slice(0, 50);
-  }, [bootstrap, categoryQuery]);
+  }, [bootstrap, categoryQuery, lang]);
 
   const languageDisplayNames = useMemo(() => {
     try {
@@ -1746,7 +1812,7 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
                 <div className="relative">
                   <input
                     type="text"
-                    value={openCategoryRow === company.id ? categoryQuery : (company.category?.text ?? "")}
+                    value={openCategoryRow === company.id ? categoryQuery : (company.category ? translateCompanyCategory(company.category.text, lang) : "")}
                     onFocus={() => {
                       setOpenCategoryRow(company.id);
                       setCategoryQuery("");
@@ -1778,7 +1844,7 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
                           }}
                           className="block w-full px-4 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
                         >
-                          {c.text}
+                          {translateCompanyCategory(c.text, lang)}
                         </button>
                       ))}
                     </div>

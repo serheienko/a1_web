@@ -24,6 +24,15 @@
 // file" is completely unchanged; only what gets handed to that pipeline
 // is now the cropped result instead of the raw file.
 //
+// 2026-08-30 follow-up, live-testing feedback: "Нажатие на edit должно
+// сразу открывать подгрузку фото" — the pencil badge used to open a
+// small modal with its own "Завантажити нове фото" button, which then
+// had to be clicked AGAIN to actually open the OS file picker. That
+// extra step is gone: the pencil button itself triggers the hidden
+// file input directly, so this modal never appears at all until a file
+// has actually been picked (at which point it shows the crop step,
+// see the comment above this).
+//
 // Same whoami-gating trick as components/edit-profile-button.tsx (this
 // file's own sibling) — renders nothing until it's confirmed to be the
 // signed-in visitor's own profile.
@@ -56,7 +65,7 @@ const MIN_ZOOM = 1;
 const MAX_ZOOM = 3;
 
 type StringKey =
-  | "editPhoto" | "uploading" | "uploadFailed" | "loadFailed" | "close" | "changePhoto"
+  | "editPhoto" | "uploading" | "uploadFailed" | "loadFailed" | "close"
   | "adjustPhoto" | "zoomLabel" | "save" | "back";
 
 const STRINGS: Record<StringKey, Record<Locale, string>> = {
@@ -69,7 +78,6 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   uploadFailed: { uk: "Не вдалося завантажити фото", en: "Couldn't upload photo", ru: "Не удалось загрузить фото", de: "Foto-Upload fehlgeschlagen", es: "No se pudo subir la foto", fr: "Échec de l'envoi de la photo", pl: "Nie udało się przesłać zdjęcia", ptBR: "Não foi possível enviar a foto", zh: "照片上传失败" },
   loadFailed: { uk: "Не вдалося завантажити профіль", en: "Couldn't load your profile", ru: "Не удалось загрузить профиль", de: "Profil konnte nicht geladen werden", es: "No se pudo cargar el perfil", fr: "Impossible de charger le profil", pl: "Nie udało się załadować profilu", ptBR: "Não foi possível carregar o perfil", zh: "无法加载资料" },
   close: { uk: "Закрити", en: "Close", ru: "Закрыть", de: "Schließen", es: "Cerrar", fr: "Fermer", pl: "Zamknij", ptBR: "Fechar", zh: "关闭" },
-  changePhoto: { uk: "Завантажити нове фото", en: "Upload new photo", ru: "Загрузить новое фото", de: "Neues Foto hochladen", es: "Subir nueva foto", fr: "Envoyer une nouvelle photo", pl: "Prześlij nowe zdjęcie", ptBR: "Enviar nova foto", zh: "上传新照片" },
   adjustPhoto: { uk: "Кадрування фото", en: "Crop photo", ru: "Кадрирование фото", de: "Foto zuschneiden", es: "Recortar foto", fr: "Recadrer la photo", pl: "Kadrowanie zdjęcia", ptBR: "Cortar foto", zh: "裁剪照片" },
   zoomLabel: { uk: "Масштаб", en: "Zoom", ru: "Масштаб", de: "Zoom", es: "Zoom", fr: "Zoom", pl: "Powiększenie", ptBR: "Zoom", zh: "缩放" },
   save: { uk: "Зберегти", en: "Save", ru: "Сохранить", de: "Speichern", es: "Guardar", fr: "Enregistrer", pl: "Zapisz", ptBR: "Salvar", zh: "保存" },
@@ -282,6 +290,13 @@ export function AvatarEditButton({ username, className }: { username: string; cl
     setNaturalSize(null);
     setCenter(null);
     setPreviewUrl(URL.createObjectURL(file));
+    // 2026-08-30, live-testing feedback ("нажатие на edit должно сразу
+    // открывать подгрузку фото"): the pencil button now jumps straight to
+    // the OS file picker (skipping the old "click here to upload" landing
+    // step inside this modal), so the modal itself only ever needs to
+    // open once a file has actually been picked -- opening it here, right
+    // after previewUrl is set, is what makes the crop step appear at all.
+    setOpen(true);
   }
 
   function cancelCrop() {
@@ -434,7 +449,7 @@ export function AvatarEditButton({ username, className }: { username: string; cl
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => fileInputRef.current?.click()}
         aria-label={t("editPhoto", lang)}
         title={t("editPhoto", lang)}
         className={
@@ -444,6 +459,10 @@ export function AvatarEditButton({ username, className }: { username: string; cl
       >
         <PencilIcon />
       </button>
+      {/* Always mounted (not just while the crop modal is open) so the
+          pencil button above can trigger it directly on click, with no
+          intermediate "now click here to actually pick a file" step. */}
+      <input ref={fileInputRef} type="file" accept="image/*" onChange={onPickFile} className="hidden" />
       {open && (
         <div
           className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4"
@@ -459,7 +478,11 @@ export function AvatarEditButton({ username, className }: { username: string; cl
           >
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">
-                {previewUrl ? t("adjustPhoto", lang) : t("editPhoto", lang)}
+                {/* The modal only ever opens once a file has been picked
+                    (see onPickFile's setOpen(true) call above), so
+                    previewUrl is always set here -- no landing-step title
+                    to fall back to anymore. */}
+                {t("adjustPhoto", lang)}
               </h2>
               <button
                 type="button"
@@ -475,79 +498,79 @@ export function AvatarEditButton({ username, className }: { username: string; cl
               </button>
             </div>
 
-            {previewUrl ? (
-              <div className="flex flex-col items-center gap-3">
-                {/* Square crop viewport: drag to reposition, wheel/slider
-                    to zoom. `touch-none` stops the browser's own
-                    scroll/pan gesture from fighting the pointer-drag
-                    handlers below on mobile. `overflow-hidden` is what
-                    actually crops the oversized <img> to this square. */}
-                <div
-                  ref={viewportRef}
-                  onPointerDown={onPointerDown}
-                  onPointerMove={onPointerMove}
-                  onPointerUp={onPointerUp}
-                  onPointerCancel={onPointerUp}
-                  className="relative touch-none select-none overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800"
-                  style={{ width: CROP_SIZE, height: CROP_SIZE, cursor: naturalSize ? "grab" : "default" }}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element -- object-URL preview, not a real remote asset next/image would help with */}
-                  <img
-                    ref={imgRef}
-                    src={previewUrl}
-                    alt=""
-                    draggable={false}
-                    onLoad={handleImageLoad}
-                    style={imgStyle}
-                  />
-                </div>
-
-                <div className="flex w-full items-center gap-2">
-                  <span className="shrink-0 text-xs text-neutral-500 dark:text-neutral-400">{t("zoomLabel", lang)}</span>
-                  <input
-                    type="range"
-                    min={MIN_ZOOM}
-                    max={MAX_ZOOM}
-                    step={0.01}
-                    value={zoom}
-                    disabled={!naturalSize}
-                    onChange={(e) => onZoomChange(Number(e.target.value))}
-                    className="flex-1 accent-accent"
-                  />
-                </div>
-
-                <div className="flex w-full gap-2">
-                  <button
-                    type="button"
-                    disabled={uploading}
-                    onClick={cancelCrop}
-                    className="flex-1 rounded-full border border-neutral-300 py-2 text-sm font-medium text-neutral-600 transition hover:bg-neutral-50 disabled:opacity-60 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
-                  >
-                    {t("back", lang)}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={uploading || !naturalSize}
-                    onClick={confirmCrop}
-                    className="flex-1 rounded-full bg-accent py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
-                  >
-                    {uploading ? t("uploading", lang) : t("save", lang)}
-                  </button>
-                </div>
+            {/* This modal only ever mounts once a file has been picked
+                (see onPickFile's setOpen(true) call), so previewUrl is
+                always set by the time we get here -- no more "click here
+                to pick a file" landing branch. */}
+            <div className="flex flex-col items-center gap-3">
+              {/* Square crop viewport: drag to reposition, wheel/slider
+                  to zoom. `touch-none` stops the browser's own
+                  scroll/pan gesture from fighting the pointer-drag
+                  handlers below on mobile. `overflow-hidden` is what
+                  actually crops the oversized <img> to this square. */}
+              <div
+                ref={viewportRef}
+                onPointerDown={onPointerDown}
+                onPointerMove={onPointerMove}
+                onPointerUp={onPointerUp}
+                onPointerCancel={onPointerUp}
+                className="relative touch-none select-none overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800"
+                style={{ width: CROP_SIZE, height: CROP_SIZE, cursor: naturalSize ? "grab" : "default" }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element -- object-URL preview, not a real remote asset next/image would help with */}
+                <img
+                  ref={imgRef}
+                  src={previewUrl ?? undefined}
+                  alt=""
+                  draggable={false}
+                  onLoad={handleImageLoad}
+                  style={imgStyle}
+                />
               </div>
-            ) : (
-              <>
-                <input ref={fileInputRef} type="file" accept="image/*" onChange={onPickFile} className="hidden" />
+
+              <div className="flex w-full items-center gap-2">
+                <span className="shrink-0 text-xs text-neutral-500 dark:text-neutral-400">{t("zoomLabel", lang)}</span>
+                <input
+                  type="range"
+                  min={MIN_ZOOM}
+                  max={MAX_ZOOM}
+                  step={0.01}
+                  value={zoom}
+                  disabled={!naturalSize}
+                  onChange={(e) => onZoomChange(Number(e.target.value))}
+                  className="flex-1 accent-accent"
+                />
+              </div>
+
+              <div className="flex w-full gap-2">
                 <button
                   type="button"
                   disabled={uploading}
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex w-full items-center justify-center gap-2 rounded-full bg-accent py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+                  onClick={() => {
+                    // 2026-08-30: with the old "pick a file" landing step
+                    // gone, there's nothing left for this button to go
+                    // "back" to inside the modal -- cancelCrop() alone
+                    // used to just clear previewUrl and fall through to
+                    // that landing view. Now it has to close the modal
+                    // too, same as the × button; the pencil re-opens the
+                    // file picker fresh if the visitor wants to try again.
+                    setOpen(false);
+                    cancelCrop();
+                  }}
+                  className="flex-1 rounded-full border border-neutral-300 py-2 text-sm font-medium text-neutral-600 transition hover:bg-neutral-50 disabled:opacity-60 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
                 >
-                  {t("changePhoto", lang)}
+                  {t("back", lang)}
                 </button>
-              </>
-            )}
+                <button
+                  type="button"
+                  disabled={uploading || !naturalSize}
+                  onClick={confirmCrop}
+                  className="flex-1 rounded-full bg-accent py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+                >
+                  {uploading ? t("uploading", lang) : t("save", lang)}
+                </button>
+              </div>
+            </div>
             {error && <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p>}
           </div>
         </div>

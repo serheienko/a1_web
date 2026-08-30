@@ -71,9 +71,9 @@ function readDisplayCookie(): string | null {
 // rather than the thin, sharp-cornered plus a default icon set would
 // give — deliberately not reused from anywhere else in this app since
 // nothing else needed this weight.
-function ChunkyPlusIcon() {
+function ChunkyPlusIcon({ className }: { className?: string } = {}) {
   return (
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={className}>
       <path d="M12 5v14M5 12h14" />
     </svg>
   );
@@ -105,14 +105,20 @@ export function CreatePostFab() {
 
   return (
     <>
+      {/* 2026-08-30, live-testing feedback: "Крестик на закрытик крутится
+          при наведении, а создание поста нет, а я просил чтобы ты его
+          сделал" -- same hover-rotate treatment already on the profile
+          editor's close icon (see this codebase's CloseIcon/`group-hover:
+          rotate-90` usage), applied here too: `group` on the button,
+          `group-hover:rotate-90` on the icon itself. */}
       <button
         type="button"
         onClick={handleClick}
         aria-label={STRINGS.label[lang]}
-        className="fixed right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-lg shadow-accent/30 transition hover:opacity-90 active:scale-95"
+        className="group fixed right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-lg shadow-accent/30 transition hover:opacity-90 active:scale-95"
         style={{ bottom: "calc(1.25rem + env(safe-area-inset-bottom))" }}
       >
-        <ChunkyPlusIcon />
+        <ChunkyPlusIcon className="transition-transform duration-200 ease-out group-hover:rotate-90" />
       </button>
 
       {editorOpen && (

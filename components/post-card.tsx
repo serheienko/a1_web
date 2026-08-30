@@ -23,12 +23,13 @@ import Image from "next/image";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import Link from "next/link";
 import type { WebPost } from "@/types/web-post";
-import { formatRelativeTime, formatSalary } from "@/lib/format";
+import { RelativeTime, SalaryLabel } from "@/components/locale-format";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { T } from "@/components/t";
 import { TagLabel } from "@/components/tag-label";
 import { MyPostBadge } from "@/components/my-post-badge";
 import { PostOwnerMenu } from "@/components/post-owner-menu";
+import { profileHref as buildProfileHref } from "@/lib/profile-href";
 
 export function PostCard({
   post,
@@ -94,10 +95,24 @@ export function PostCard({
   ) : (
     <T uk="Не вказано" en="Not specified" ru="Не указано" de="Nicht angegeben" es="No especificado" fr="Non précisé" pl="Nie podano" ptBR="Não especificado" zh="未指定" />
   );
-  const salaryLabel = post.salary ? formatSalary(post.salary) : null;
+  // 2026-08-30: used to be `formatSalary(post.salary)` computed once here
+  // as a plain string -- now that formatSalary needs a locale (see
+  // components/locale-format.tsx's own comment for why), the actual text
+  // renders per-locale down in the JSX via <SalaryLabel>. This flag only
+  // needs to answer "is there anything to show at all" (independent of
+  // locale -- emptiness only depends on min/max being present, matching
+  // formatSalary's own `single == null` check), so the "·" separator next
+  // to it doesn't render on its own with nothing after it.
+  const hasSalary = post.salary != null && (post.salary.min != null || post.salary.max != null);
   const href = `/${post.kind === "hiring" ? "jobs" : "talents"}/${post.slug}`;
   const avatarUrl = post.author.avatarUrl;
-  const profileHref = post.author.username ? `/u/${post.author.username}` : null;
+  // 2026-08-30: renders through lib/profile-href.ts's own escaping (see
+  // that file's header comment) rather than a bare template string --
+  // the exact bug it exists to prevent was found via this app's own
+  // "View profile" link in components/avatar-menu.tsx, and any post
+  // author's username is just as capable of containing a literal "."
+  // as that account was.
+  const profileHref = post.author.username ? buildProfileHref(post.author.username) : null;
 
   const avatarImg = avatarUrl ? (
     <Image
@@ -179,20 +194,35 @@ export function PostCard({
                 -webkit-line-clamp actually truncate on real Safari/iOS,
                 and a `block` utility on the same element would win the
                 compiled `display` property and silently undo that. */}
+            {/* 2026-08-30, live-testing feedback: "не надо чтобы заголовок
+                подчеркивался линией при наведении на пост в других местах,
+                линия только при наведении на сам заголовок" -- hover:underline
+                used to live on this same button/Link that also carries the
+                full-card `after:inset-0` overlay (see this section's own
+                comment above for why that overlay exists and why it's sized
+                to the whole card, not just this box). A pseudo-element's
+                painted area still counts as part of its owner's box for
+                :hover purposes, so hovering ANYWHERE on the card was
+                triggering :hover -- and therefore the underline -- on this
+                element. Moving hover:underline onto a plain nested <span>
+                fixes it: that span's own box is just the title text itself
+                (unaffected by the sibling-in-paint-order ::after), so it
+                only goes underlined when the pointer is actually over the
+                title's own glyphs. */}
             {onOpen ? (
               <button
                 type="button"
                 onClick={onOpen}
-                className="text-left cursor-pointer line-clamp-3 hover:underline after:absolute after:inset-0 after:z-0 after:content-['']"
+                className="text-left cursor-pointer line-clamp-3 after:absolute after:inset-0 after:z-0 after:content-['']"
               >
-                {post.title}
+                <span className="hover:underline">{post.title}</span>
               </button>
             ) : (
               <Link
                 href={href}
-                className="line-clamp-3 hover:underline after:absolute after:inset-0 after:z-0 after:content-['']"
+                className="line-clamp-3 after:absolute after:inset-0 after:z-0 after:content-['']"
               >
-                {post.title}
+                <span className="hover:underline">{post.title}</span>
               </Link>
             )}
           </h2>
@@ -299,14 +329,18 @@ export function PostCard({
           {!ownerMenu && <MyPostBadge postId={post.id} />}
           <span aria-hidden="true">·</span>
           <span>{locationLabel}</span>
-          {salaryLabel && (
+          {hasSalary && (
             <>
               <span aria-hidden="true">·</span>
-              <span>{salaryLabel}</span>
+              <span>
+                <SalaryLabel salary={post.salary!} />
+              </span>
             </>
           )}
           <span aria-hidden="true">·</span>
-          <span>{formatRelativeTime(post.publishedAt)}</span>
+          <span>
+            <RelativeTime date={post.publishedAt} />
+          </span>
         </div>
 
         {/* Aleksandr, 2026-08-27: "подрезать отображаемый текст в фиде

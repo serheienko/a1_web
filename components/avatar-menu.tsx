@@ -65,6 +65,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { createPortal } from "react-dom";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
+import { profileHref } from "@/lib/profile-href";
 import { LOCALES, LOCALE_CLASS, LOCALE_TAG, type Locale } from "@/components/t";
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
 import { SettingsMenu } from "@/components/settings-menu";
@@ -406,7 +407,7 @@ export function AvatarMenu() {
             <div className="overflow-hidden rounded-xl bg-neutral-50 dark:bg-neutral-800/60">
               {profileUsername ? (
                 <Link
-                  href={`/u/${profileUsername}`}
+                  href={profileHref(profileUsername)}
                   onClick={() => setOpen(false)}
                   className="flex items-center gap-2.5 px-2.5 py-2.5 transition hover:bg-neutral-100 dark:hover:bg-neutral-800"
                 >

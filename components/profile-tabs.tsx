@@ -39,6 +39,7 @@ import { LOCALES, LOCALE_CLASS, T, type Locale } from "@/components/t";
 import { PostCard } from "@/components/post-card";
 import { PostEditor, type EditablePost } from "@/components/post-editor";
 import type { WebPost } from "@/types/web-post";
+import { profileHref } from "@/lib/profile-href";
 
 type StringKey = "statusDraft" | "statusScheduled";
 
@@ -303,7 +304,7 @@ export function ProfileTabs({
                     post={post}
                     statusBadge={{ label: STRINGS[status === "draft" ? "statusDraft" : "statusScheduled"][lang], className: STATUS_BADGE_CLASS }}
                     onOpen={editable ? () => setEditingPost(editable) : undefined}
-                    ownerMenu={{ redirectAfterDeleteTo: `/u/${profileUsername}` }}
+                    ownerMenu={{ redirectAfterDeleteTo: profileHref(profileUsername) }}
                   />
                 );
               })}

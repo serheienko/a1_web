@@ -33,6 +33,7 @@ import {
   WORK_STYLE_DATASET_KEYS,
 } from "@/lib/a1/datasets";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
+import { profileHref } from "@/lib/profile-href";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { generateAvatarBlurDataUrl } from "@/lib/avatar-blur";
 import { formatLanguageName } from "@/lib/format";
@@ -63,8 +64,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: `${profile.fullName} | A1`,
     description,
-    alternates: { canonical: `${SITE_URL}/u/${profile.username}` },
-    openGraph: { title: profile.fullName, description, type: "profile", url: `${SITE_URL}/u/${profile.username}` },
+    alternates: { canonical: `${SITE_URL}${profileHref(profile.username)}` },
+    openGraph: { title: profile.fullName, description, type: "profile", url: `${SITE_URL}${profileHref(profile.username)}` },
   };
 }
 
@@ -631,7 +632,7 @@ export default async function ProfilePage({ params }: Props) {
               // visitor's own -- see post-card.tsx's own comment on
               // ownerMenu for why PostOwnerMenu self-gates to nothing on
               // someone else's post.
-              ownerMenu={{ redirectAfterDeleteTo: `/u/${profile.username}` }}
+              ownerMenu={{ redirectAfterDeleteTo: profileHref(profile.username) }}
             />
           ))}
         </div>

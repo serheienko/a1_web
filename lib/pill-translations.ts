@@ -169,9 +169,11 @@ export function translateHobbyItem(group: string, text: string, lang: Locale): s
 
 // ---------------- Work style preferences (Стиль роботи) ----------------
 // Source: 9f629035-image.png, "Стиль роботи" section of our own editor,
-// live-tested 2026-08-30 -- 9 of the 14 sections were visible in that
-// one screenshot (the other 5 need their own confirmed screenshot
-// before being added here). Keyed by the WORK_STYLE_DATASET_KEYS value
+// live-tested 2026-08-30 -- that screenshot had 9 of the 14 sections; the
+// remaining 5 (decisionMakingStyle, preferredCollaborationStyle,
+// partnershipPreference, preferredWorkingEnvironment, learningStyle) came
+// from a follow-up screenshot the same day. Keyed by the
+// WORK_STYLE_DATASET_KEYS value
 // (lib/work-style-keys.ts) for the same same-word-different-section
 // reason as Hobbies above -- e.g. "Balanced" means something different
 // in workLifeBalance ("зосереджений порівну на роботі й особистому")
@@ -229,8 +231,71 @@ const WORK_STYLE_OPTION_UK: Record<string, Record<string, string>> = {
     "Balanced": "Збалансовано",
     "Delegated": "Делегую",
   },
+  // 2026-08-30, live-testing feedback ("А че ты только часть локализации
+  // сделал?"): the remaining 5 of the 14 Work Style sections, confirmed
+  // via a follow-up screenshot showing their exact English option values
+  // (the section headers themselves -- "Стиль прийняття рішень", "Стиль
+  // співпраці", "Партнерство", "Бажане робоче середовище", "Стиль
+  // навчання" -- were already localized before this; only these options
+  // underneath them weren't).
+  decisionMakingStyle: {
+    "Data-driven": "На основі даних",
+    "Intuitive": "Інтуїтивний",
+    "Consensus-based": "На основі консенсусу",
+  },
+  preferredCollaborationStyle: {
+    "Remote": "Віддалено",
+    "In-person": "Особисто",
+    "Hybrid": "Гібридний формат",
+  },
+  partnershipPreference: {
+    "Equal": "Рівноправне",
+    "Silent": "Мовчазне",
+    "Majority": "За більшістю",
+    "Expertise / Connections": "За експертизою/зв'язками",
+  },
+  preferredWorkingEnvironment: {
+    "Remote": "Віддалено",
+    "Office": "В офісі",
+    "Hybrid": "Гібридний формат",
+  },
+  learningStyle: {
+    "Self-directed": "Самостійне навчання",
+    "Workshops": "Воркшопи",
+    "Peer learning": "Навчання з колегами",
+    "Mentorship": "Менторство",
+  },
 };
 
 export function translateWorkStyleOption(datasetKey: string, text: string, lang: Locale): string {
   return pick(WORK_STYLE_OPTION_UK[datasetKey], text, lang);
+}
+
+// ---------------- Company categories (Сфера діяльності) ----------------
+// 2026-08-30, live-testing feedback: "Локализуй 'галузь' и поменяй
+// нейминг на 'сфера діяльності'" -- the Companies section's category
+// picker (component/profile-editor.tsx's companyCategoryPlaceholder,
+// backed by dataset.companyCategories per lib/a1/datasets.ts) had the
+// same unlocalized-English-pill problem as Work interests/Hobbies/Work
+// style above, plus the label itself needed renaming from "Галузь" to
+// "Сфера діяльності".
+//
+// dataset.companyCategories is its OWN backend endpoint, separate from
+// dataset.workInterests (see lib/a1/datasets.ts) -- NOT confirmed to
+// return identical values, just confirmed (via the report's own
+// screenshot) to overlap on the five below, which happen to have the
+// exact same English spelling as their Work Interests counterparts.
+// Deliberately its own dictionary rather than reusing
+// translateWorkInterest directly, so a future divergence between the two
+// endpoints' values doesn't silently mistranslate one from the other.
+const COMPANY_CATEGORY_UK: Record<string, string> = {
+  "IT": "ІТ",
+  "Agriculture": "Сільське господарство",
+  "Accounting": "Бухгалтерія",
+  "Advertising": "Реклама",
+  "Construction": "Будівництво",
+};
+
+export function translateCompanyCategory(text: string, lang: Locale): string {
+  return pick(COMPANY_CATEGORY_UK, text, lang);
 }

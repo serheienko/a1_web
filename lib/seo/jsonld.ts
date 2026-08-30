@@ -5,6 +5,7 @@
 // JobPosting there is a structured-data policy violation.
 
 import type { WebPost } from "@/types/web-post";
+import { profileHref } from "@/lib/profile-href";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -55,7 +56,7 @@ export function buildJobPostingJsonLd(post: WebPost): Record<string, unknown> {
     hiringOrganization: {
       "@type": "Organization",
       name: post.author.name,
-      ...(post.author.username ? { sameAs: `${SITE_URL}/u/${post.author.username}` } : {}),
+      ...(post.author.username ? { sameAs: `${SITE_URL}${profileHref(post.author.username)}` } : {}),
     },
     // We don't have a web application flow (PLAN.md §3.3 "directApply" row).
     directApply: false,
