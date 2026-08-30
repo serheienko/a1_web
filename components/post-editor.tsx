@@ -536,6 +536,13 @@ export function PostEditor({
 
   const [object, setObject] = useState<PostObject>(initialPost?.object ?? "post-job-employing");
   const [title, setTitle] = useState(initialPost?.title ?? "");
+  // See TITLE_MAX's own comment -- belt-and-suspenders clamp for any
+  // path that sets `title` past the limit without going through the
+  // input's own onChange handler (dictation/composition input on
+  // mobile has been observed doing exactly that).
+  useEffect(() => {
+    if (title.length > TITLE_MAX) setTitle(title.slice(0, TITLE_MAX));
+  }, [title]);
   const [content, setContent] = useState(initialPost?.content ?? "");
 
   const [location, setLocation] = useState<{ id: number; label: string } | null>(initialPost?.location ?? null);
@@ -605,6 +612,18 @@ export function PostEditor({
   const [schedulePos, setSchedulePos] = useState<{ left: number; right: number; bottom: number; maxHeight: number } | null>(null);
 
   const [pendingAction, setPendingAction] = useState<"post" | "draft" | "schedule" | null>(null);
+  // Aleksandr, 2026-08-30 ("не было анимации... прогресс-бар, постинг
+  // надписи, всё такое. Этого не было"): the banner below WAS mounting
+  // -- but posts.createPost is often faster than the ~250KB posting-
+  // cat.json can fetch+parse (components/lottie-player.tsx's own
+  // 2026-08-29 finding: these Lottie JSON files take multiple seconds
+  // on a cold fetch), so the whole banner (including the still-loading,
+  // still-invisible cat) could mount and unmount again before a human
+  // eye registers it. pendingSinceRef timestamps the moment the banner
+  // appears; submit() holds it on screen for at least MIN_BANNER_MS
+  // regardless of how fast the actual API call was.
+  const pendingSinceRef = useRef<number | null>(null);
+  const MIN_BANNER_MS = 900;
   const [error, setError] = useState<string | null>(null);
 
   // 2026-08-29 round 3: "у меня сразу снизу пишет три ошибки... это
@@ -625,6 +644,20 @@ export function PostEditor({
     setLocationTouched(true);
     setCategoryTouched(true);
   }
+
+  // Aleksandr, 2026-08-30, same finding as pendingSinceRef above: warm
+  // the posting-cat animation's own fetch + lottie-web module import as
+  // soon as the editor opens, not only once Post/Save is actually
+  // clicked -- by the time isSubmittingPost's banner mounts, this is
+  // very likely already sitting in the browser's HTTP cache and the
+  // module already loaded, instead of racing the create/update request
+  // from a cold start. Fire-and-forget: components/lottie-player.tsx
+  // does its own fetch+import too and already degrades silently if
+  // either fails, so there is nothing to await or handle here.
+  useEffect(() => {
+    import("lottie-web").catch(() => {});
+    fetch("/animations/posting-cat.json").catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetch("/api/post-editor/bootstrap")
@@ -965,6 +998,7 @@ export function PostEditor({
     }
 
     setPendingAction(action);
+    pendingSinceRef.current = Date.now();
     setError(null);
 
     const input: Record<string, unknown> = {
@@ -975,7 +1009,7 @@ export function PostEditor({
       // Only this one field needs the suffix; confirmed live via the
       // exact enum list in the backend's own 400 error.
       object: `${object}-input`,
-      title: title.trim(),
+      title: title.trim().slice(0, TITLE_MAX),
       content: content.trim(),
       links: linkUrl.trim() ? [{ title: "", url: linkUrl.trim() }] : [],
       location: location?.id ?? null,
@@ -1024,6 +1058,16 @@ export function PostEditor({
       }
       const newId = (data.post as { _id?: string } | undefined)?._id;
       if (!targetId && newId) setSavedPostId(newId);
+
+      // Give the posting/updating banner (and its cat animation) a
+      // fair chance to actually be seen -- see pendingSinceRef's own
+      // comment above.
+      if (action === "post" || action === "schedule") {
+        const elapsed = Date.now() - (pendingSinceRef.current ?? Date.now());
+        if (elapsed < MIN_BANNER_MS) {
+          await new Promise((resolve) => setTimeout(resolve, MIN_BANNER_MS - elapsed));
+        }
+      }
 
       onSaved?.();
       if (action === "draft" && !opts?.closeAfter) {
