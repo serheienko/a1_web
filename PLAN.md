@@ -3090,35 +3090,65 @@ Aleksandr, please click into a draft or a scheduled post from your own
 profile's "Пости" tab after this deploys and confirm the editor opens
 instead of a 404.
 
-### 6.60 OPEN: same draft/scheduled parity needed in the native Flutter app (2026-08-30)
+### 6.60 OPEN (spec only, NOT to be implemented from this repo): same draft/scheduled parity needed in the native Flutter app (2026-08-30)
 
 Aleksandr, after §6.59's web fix: "запланированные посты и черновики
 должны абсолютно идентично отображаться в приложении... как я тебе и
 говорил, в общих постах просто подсвечивается бейджиком... тут должна
 быть чёткая же тема... должны между собой полностью дружить и быть на
-100% правильно подвязаны" -- the native app (separate cross-platform
-Flutter/Dart codebase, NOT this repo -- confirmed live, its code isn't
-on this Mac right now) needs the same two things §6.59 just gave the
-web profile's "Пости" tab:
+100% правильно подвязаны" -- wanted the same two things §6.59 just
+gave the web profile's "Пости" tab, done on the native app too.
 
-1. A draft/scheduled post shows the same kind of small gray status
-   badge as web (uk: "Чернетка"/"Заплановано", en: "Draft"/"Scheduled",
-   replacing the colored Jobs/Talent pill), wherever the app lists a
-   user's own posts.
-2. Tapping into your OWN draft or scheduled post from that list must
-   open it for editing in place -- NOT attempt to navigate to the
-   public post screen, which doesn't exist yet for an unpublished post
-   (this was the exact 404 bug §6.59 fixed on web: post-card.tsx's
-   Links unconditionally pointed at `/jobs|talents/:slug`, which the
-   backend only serves once published).
+He later shared the actual Flutter/Dart app repo (`aone_private-chat_dev_v2_merge`,
+plus its backend `aone-api-private-main`) read-only for this
+investigation -- then drew a hard line once the findings below were in:
+"я в приложении ничего не делаю, я не разработчик... фронтенд и бэкенд
+[апп-команда] всё коммитят, ведут репозитории... делай так, чтобы на
+приложении вообще ничего не менялось... не хочу ломать... надо просто
+это связать. Если что, потом подфиксим как-то." So this section is a
+precise handoff spec for whoever maintains that app repo -- NO code in
+it was touched or will be from this session, on principle, regardless
+of how small a fix looks.
 
-Not investigated or fixed here -- no access to that codebase from this
-session (`A1 App Story` on this Mac turned out to be design-reference
-screenshots only, not source; the actual Flutter repo isn't currently
-on this machine). `/api/posts/mine` (this repo) already returns
-`isDraft` and `scheduled`/`published` timestamps per post -- whatever
-endpoint/model the Flutter app reads its own posts from should have
-the equivalent fields already, since it's the same backend
-(api.a1appp.com). Whoever picks this up in the Flutter codebase: check
-its own "my posts"/profile list screen against these two points and
-its own equivalent of `EditablePost`/edit-mode entry point.
+**Confirmed live in that repo** (read-only, this session):
+
+1. The own-profile "Posts" tab is `_buildPostsTabSliver()` in
+   `lib/features/settings/presentation/components/logged_user_account_screen.dart`.
+   It fetches via `context.read<A1Repos>().posts.makeMyPosts()`
+   (`lib/core/rest_repository/concrete/a1_posts.dart`), which passes
+   `excludeDraftPosts: true` -- drafts are explicitly filtered out of
+   this list client-side (`_postSearchJsonIsDraft()` checks the
+   `draft` field returned by the shared `/v1/posts.search` backend
+   call and drops the post entirely). Drafts are currently only
+   reachable through the separate "Drafts" sheet opened from the post
+   creator (`lib/features/posts/post_draft/draft_posts_sheet.dart`).
+2. Scheduled-but-unpublished posts are NOT filtered by that same
+   check, so they DO appear in this tab today -- but with no status
+   badge: the shared `PostCard` widget
+   (`lib/core/common_widgets/cards/post_card.dart`) already has
+   `isDraft`/`scheduledAt` params that render exactly this kind of
+   label (already used by `draft_posts_sheet.dart` and by a chat
+   reply-draft indicator) -- `_buildPostsTabSliver()`'s own
+   `PostCard(...)` call just never passes them.
+3. Tapping any card in this tab always calls its `onPressed`, which
+   unconditionally does
+   `context.pushNamed(_previewRouteForFeedType(post.feedType), extra: {'id': ..., 'preview': ...})`
+   -- the public preview route, with no branch for "this is my own
+   unpublished post." Exact same class of bug §6.59 fixed on web
+   (post-card.tsx's Links unconditionally pointing at a public URL
+   that doesn't exist yet for an unpublished post). A working
+   edit-entry point already exists elsewhere in this codebase to route
+   to instead: `DetailsNavigation.goToPostEditor()` in
+   `lib/features/favourites/view/details_navigation.dart`.
+
+**What the fix would look like** (for the app team, not for this
+session): stop excluding drafts in `makeMyPosts()` (or fetch them
+separately and merge, like this repo's own `/api/posts/mine` does),
+pass `isDraft`/`scheduledAt` through to `PostCard(...)` in
+`_buildPostsTabSliver()`, and branch `onPressed` to call
+`DetailsNavigation.goToPostEditor()` instead of the preview route for
+the user's own draft/scheduled posts.
+
+No backend changes needed -- `/v1/posts.search` already returns the
+`draft`/`scheduled` fields this app reads client-side, same as this
+repo's `/api/posts/mine` already does server-side.
