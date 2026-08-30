@@ -173,6 +173,28 @@ function UserIcon() {
   );
 }
 
+// Aleksandr, 2026-08-30 (live screenshot: "профиль и посты сливаются с
+// выбором языка... надо поднимать выше, это более нужная информация"):
+// small icons so the new merged account block below reads as its own
+// distinct thing at a glance, not just more text rows in the same list
+// as theme/language.
+function ChevronRightIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0 text-neutral-300 dark:text-neutral-600">
+      <path d="M9 6l6 6-6 6" />
+    </svg>
+  );
+}
+
+function PostsIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="4" y="3" width="16" height="18" rx="2" />
+      <path d="M8 8h8M8 12h8M8 16h5" />
+    </svg>
+  );
+}
+
 // Same circular icon-button style account-menu.tsx used for its
 // signed-out "Sign in" link, kept byte-for-byte so nothing shifts in the
 // signed-out layout.
@@ -311,8 +333,52 @@ export function AvatarMenu() {
             document.body,
           )}
           <div className="animate-popover absolute right-0 top-full z-50 mt-2 w-72 max-w-[calc(100vw-2rem)] origin-top-right overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
-            <div className="truncate px-2 py-2 text-sm font-medium text-neutral-900 dark:text-neutral-50" title={email}>
-              {email}
+            {/* Aleksandr, 2026-08-30: "мои посты и просмотр профиля
+                должны жить в одном месте... поднять выше, это более
+                нужная информация" -- one grouped, tinted block instead
+                of two plain text rows buried below theme/language. */}
+            <div className="overflow-hidden rounded-xl bg-neutral-50 dark:bg-neutral-800/60">
+              {profileUsername ? (
+                <Link
+                  href={`/u/${profileUsername}`}
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-2.5 px-2.5 py-2.5 transition hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent">
+                    <UserIcon />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-neutral-900 dark:text-neutral-50" title={email}>
+                      {email}
+                    </span>
+                    <span className="block text-xs text-accent">{STRINGS.viewProfile[lang]}</span>
+                  </span>
+                  <ChevronRightIcon />
+                </Link>
+              ) : (
+                <div className="flex items-center gap-2.5 px-2.5 py-2.5">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-neutral-500 dark:bg-neutral-700 dark:text-neutral-400">
+                    <UserIcon />
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-neutral-900 dark:text-neutral-50" title={email}>
+                    {email}
+                  </span>
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  setMyPostsOpen(true);
+                }}
+                className="flex w-full items-center gap-2.5 border-t border-neutral-200/70 px-2.5 py-2.5 text-left text-sm font-medium text-neutral-700 transition hover:bg-neutral-100 dark:border-neutral-700/70 dark:text-neutral-300 dark:hover:bg-neutral-800"
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-neutral-500 dark:bg-neutral-700 dark:text-neutral-400">
+                  <PostsIcon />
+                </span>
+                {STRINGS.myPosts[lang]}
+              </button>
             </div>
 
             <div className="my-1 border-t border-neutral-100 dark:border-neutral-800" />
@@ -371,27 +437,6 @@ export function AvatarMenu() {
             </div>
 
             <div className="my-1 border-t border-neutral-100 dark:border-neutral-800" />
-
-            {profileUsername && (
-              <Link
-                href={`/u/${profileUsername}`}
-                onClick={() => setOpen(false)}
-                className="mb-1.5 block w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-neutral-700 transition hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
-              >
-                {STRINGS.viewProfile[lang]}
-              </Link>
-            )}
-
-            <button
-              type="button"
-              onClick={() => {
-                setOpen(false);
-                setMyPostsOpen(true);
-              }}
-              className="mb-1.5 w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-neutral-700 transition hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
-            >
-              {STRINGS.myPosts[lang]}
-            </button>
 
             <button
               type="button"

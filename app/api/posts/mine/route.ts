@@ -23,6 +23,7 @@ import { A1ApiError } from "@/lib/a1/client";
 import { callAsVisitor, NoSessionError } from "@/lib/a1/visitor-call";
 import { setSession, clearSession } from "@/lib/a1/session";
 import { parsePost, type Post } from "@/lib/a1/schemas";
+import { isArchived } from "@/lib/a1/post-flags";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -87,6 +88,12 @@ export async function GET() {
     }
 
     const posts = Array.from(collected.values())
+      // 2026-08-30 (see lib/a1/post-flags.ts's isArchived comment): a
+      // deleted post is a soft-delete on this backend (the ARCHIVED
+      // flag bit), not removed from posts.search's results, so it has
+      // to be filtered out here explicitly -- this route deliberately
+      // reads the raw Post, bypassing mapPosts()'s equivalent filter.
+      .filter((post) => !isArchived(post.flags))
       .sort((a, b) => b.created - a.created)
       .map(summarize);
 

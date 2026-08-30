@@ -24,6 +24,7 @@ import Image from "next/image";
 import { fetchUserByUsername, fetchUserRawByUsername } from "@/lib/a1/users";
 import { fetchPostsByAuthor } from "@/lib/a1/feed";
 import { PostCard } from "@/components/post-card";
+import { ProfileTabs } from "@/components/profile-tabs";
 import {
   fetchCompanyCategories,
   fetchHobbyLabels,
@@ -426,6 +427,15 @@ export default async function ProfilePage({ params }: Props) {
         );
       })()}
 
+      {/* Aleksandr, 2026-08-30: "должны быть просто две кнопки...
+          первая -- это bio, а второе -- посты" -- ProfileTabs
+          (components/profile-tabs.tsx) is the client-side tab
+          switch; everything below was already fetched/rendered
+          server-side either way, this only decides which half is
+          visible. */}
+      <ProfileTabs
+        bio={
+          <>
       {profile.bio && <p className="mt-6 whitespace-pre-wrap text-neutral-700 dark:text-neutral-300">{profile.bio}</p>}
 
       {(profile.phone || profile.email || profile.dob) && (
@@ -654,25 +664,31 @@ export default async function ProfilePage({ params }: Props) {
           </div>
         </section>
       )}
-
-      {authorPosts.length > 0 && (
-        <section className="mt-8">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
-            <T uk="Пости" en="Posts" ru="Посты" de="Beiträge" es="Publicaciones" fr="Publications" pl="Posty" ptBR="Publicações" zh="帖子" />
-          </h2>
+          </>
+        }
+        posts={
+          <>
+      {authorPosts.length > 0 ? (
+        <div className="flex flex-col gap-4">
           {/* No per-author avatar blur here (unlike the main feed pages
               and this page's own header above) -- would mean one extra
               generateAvatarBlurDataUrl() call per post, and PostCard
               already degrades cleanly to the generic shimmer without
               one. Revisit if this section ever needs to look as
               polished as the feed itself. */}
-          <div className="mt-3 flex flex-col gap-4">
-            {authorPosts.map((post) => (
-              <PostCard key={post.id} post={post} />
-            ))}
-          </div>
-        </section>
+          {authorPosts.map((post) => (
+            <PostCard key={post.id} post={post} />
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">
+          <T uk="Поки що немає опублікованих постів" en="No published posts yet" ru="Пока нет опубликованных постов" de="Noch keine veröffentlichten Beiträge" es="Aún no hay publicaciones" fr="Aucune publication pour le moment" pl="Brak opublikowanych postów" ptBR="Ainda não há publicações" zh="暂无已发布的帖子" />
+        </p>
       )}
+          </>
+        }
+        postsCount={authorPosts.length}
+      />
     </main>
     </VoiceIntroProvider>
   );

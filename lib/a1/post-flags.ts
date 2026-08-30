@@ -51,3 +51,18 @@ export function authorIsHidden(flags: number): boolean {
 export function isArchivedOrDraft(flags: number): boolean {
   return (flags & ARCHIVED) !== 0 || (flags & DRAFT) !== 0;
 }
+
+// Aleksandr, 2026-08-30 (live report, "Мої пости" panel: "вот эти
+// посты, они все удалённые, сверху ты их зачем-то показал"):
+// app/api/posts/mine/route.ts deliberately bypasses mapPosts() (and so
+// isArchivedOrDraft above) to keep drafts/scheduled posts visible to
+// their own author, which the public feed's mapper always excludes --
+// but that meant it never excluded ARCHIVED (this backend's delete,
+// confirmed by posts.deletePost's own PLAN.md entry sitting right next
+// to this bit's definition) either, so a post the visitor had already
+// deleted kept showing up there, mislabeled "Опубліковано". This
+// isolates just the ARCHIVED check so "mine" can drop deleted posts
+// while still keeping drafts.
+export function isArchived(flags: number): boolean {
+  return (flags & ARCHIVED) !== 0;
+}
