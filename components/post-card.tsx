@@ -257,8 +257,16 @@ export function PostCard({
               on the avatar, since the avatar is exactly what he was
               (reasonably) confused by; see components/my-post-badge.tsx
               for why the two can legitimately show different cats for
-              the same account. */}
-          <MyPostBadge postId={post.id} />
+              the same account.
+              Aleksandr, 2026-08-30: "в наших постах у нас в профиле не
+              показывай иконку что это наш пост, нет смысла, только в
+              общем фиде" -- pointless on a profile page (every post
+              there is either obviously yours -- it's your own profile --
+              or, on someone else's profile, never yours at all), so gate
+              it on the same `ownerMenu` signal that already tells this
+              component "we're being rendered on a profile page" (see
+              that prop's own comment below). */}
+          {!ownerMenu && <MyPostBadge postId={post.id} />}
           <span aria-hidden="true">·</span>
           <span>{locationLabel}</span>
           {salaryLabel && (
