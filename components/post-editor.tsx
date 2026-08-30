@@ -346,7 +346,7 @@ type StringKey =
   | "descriptionLabel" | "descriptionTipsHiring" | "descriptionTipsSeeking" | "descriptionTooShort"
   | "locationLabel" | "locationPlaceholder" | "locationEmpty" | "requiredField"
   | "categoryLabel" | "categoryPlaceholder" | "categoryEmpty"
-  | "linkLabel" | "linkPlaceholder"
+  | "linkLabel" | "linkPlaceholder" | "linkInvalid"
   | "workType" | "employmentType" | "experience" | "otherTags"
   | "customTagPlaceholder" | "addCount"
   | "salaryLabel" | "salaryPlaceholder" | "perMonth" | "perYear"
@@ -383,6 +383,11 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   categoryEmpty: { uk: "Нічого не знайдено", en: "No matches", ru: "Ничего не найдено", de: "Keine Treffer", es: "Sin resultados", fr: "Aucun résultat", pl: "Brak wyników", ptBR: "Nenhum resultado", zh: "无匹配结果" },
   linkLabel: { uk: "Посилання", en: "Link", ru: "Ссылка", de: "Link", es: "Enlace", fr: "Lien", pl: "Link", ptBR: "Link", zh: "链接" },
   linkPlaceholder: { uk: "https://...", en: "https://...", ru: "https://...", de: "https://...", es: "https://...", fr: "https://...", pl: "https://...", ptBR: "https://...", zh: "https://..." },
+  linkInvalid: {
+    uk: "Введіть коректне посилання (наприклад, site.com)", en: "Enter a valid link (e.g. site.com)", ru: "Введите корректную ссылку (например, site.com)",
+    de: "Geben Sie einen gültigen Link ein (z. B. site.com)", es: "Introduce un enlace válido (p. ej., site.com)", fr: "Saisissez un lien valide (ex. site.com)",
+    pl: "Wpisz poprawny link (np. site.com)", ptBR: "Insira um link válido (ex.: site.com)", zh: "请输入有效链接（例如 site.com）",
+  },
   workType: { uk: "Формат роботи", en: "Work type", ru: "Формат работы", de: "Arbeitsform", es: "Modalidad", fr: "Mode de travail", pl: "Tryb pracy", ptBR: "Modalidade", zh: "工作方式" },
   employmentType: { uk: "Тип зайнятості", en: "Employment type", ru: "Тип занятости", de: "Beschäftigungsart", es: "Tipo de empleo", fr: "Type de contrat", pl: "Rodzaj zatrudnienia", ptBR: "Tipo de contrato", zh: "雇佣类型" },
   experience: { uk: "Досвід", en: "Experience", ru: "Опыт", de: "Erfahrung", es: "Experiencia", fr: "Expérience", pl: "Doświadczenie", ptBR: "Experiência", zh: "经验" },
@@ -679,11 +684,13 @@ export function PostEditor({
   const [descriptionTouched, setDescriptionTouched] = useState(false);
   const [locationTouched, setLocationTouched] = useState(false);
   const [categoryTouched, setCategoryTouched] = useState(false);
+  const [linkTouched, setLinkTouched] = useState(false);
   function markAllTouched() {
     setTitleTouched(true);
     setDescriptionTouched(true);
     setLocationTouched(true);
     setCategoryTouched(true);
+    setLinkTouched(true);
   }
 
   // Aleksandr, 2026-08-30, same finding as pendingSinceRef above: warm
@@ -877,7 +884,17 @@ export function PostEditor({
 
   const titleValid = title.trim().length >= TITLE_MIN;
   const descriptionValid = content.trim().length >= DESCRIPTION_MIN;
-  const canSubmit = titleValid && descriptionValid && location !== null && category !== null;
+  // Aleksandr, 2026-08-30, two screenshots of a broken link on a published
+  // post: "В создании пост показывай ошибку, если ссылка заполняется без
+  // .com или еще чего то. Я написал просто link и оно ушло в пост" --
+  // optional field (empty is fine, same as before), but a non-empty value
+  // has to at least look like a domain: requires a dot followed by a
+  // letters-only TLD of 2+ chars, so a bare word like "link" fails while
+  // "link.com" or "https://link.com/path" pass. Deliberately not trying to
+  // be a real RFC 3986 validator -- just enough to catch exactly the
+  // "forgot the domain part" case Aleksandr hit.
+  const linkValid = linkUrl.trim().length === 0 || /^(https?:\/\/)?([a-z0-9-]+\.)+[a-z]{2,}(:\d+)?(\/[^\s]*)?$/i.test(linkUrl.trim());
+  const canSubmit = titleValid && descriptionValid && location !== null && category !== null && linkValid;
 
   // Aleksandr, 2026-08-29 (screenshot of the Edit modal on an already-
   // live job post): "если пост уже запощен - кнопок 'зберегти чернетку'
@@ -1101,7 +1118,15 @@ export function PostEditor({
       object: `${object}-input`,
       title: title.trim().slice(0, TITLE_MAX),
       content: content.trim(),
-      links: linkUrl.trim() ? [{ title: "", url: linkUrl.trim() }] : [],
+      // 2026-08-30: linkValid (gating canSubmit above) only confirms this
+      // looks like a domain, e.g. "site.com" with no scheme -- confirmed
+      // via app/jobs/[slug]/page.tsx that a schemeless value renders as
+      // `<a href="site.com">`, which the browser resolves as a RELATIVE
+      // link off the current post's own URL, not an absolute one. Adding
+      // https:// here (only when a scheme isn't already there) is what
+      // actually makes the link work when clicked, not just pass
+      // validation.
+      links: linkUrl.trim() ? [{ title: "", url: /^https?:\/\//i.test(linkUrl.trim()) ? linkUrl.trim() : `https://${linkUrl.trim()}` }] : [],
       location: location?.id ?? null,
       media: media.map((m) => m.doc),
       money: buildMoney(),
@@ -1553,7 +1578,15 @@ export function PostEditor({
 
           <div className="mb-4 flex flex-col gap-1.5">
             <label className={labelClass}>{t("linkLabel", lang)}</label>
-            <input type="url" value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder={t("linkPlaceholder", lang)} className={inputClass} />
+            <input
+              type="url"
+              value={linkUrl}
+              onChange={(e) => setLinkUrl(e.target.value)}
+              onBlur={() => setLinkTouched(true)}
+              placeholder={t("linkPlaceholder", lang)}
+              className={linkTouched && !linkValid ? invalidInputClass : inputClass}
+            />
+            {linkTouched && !linkValid && <span className="text-xs text-red-500">{t("linkInvalid", lang)}</span>}
           </div>
 
           {workTypeTags.length > 0 && (
