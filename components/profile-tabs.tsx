@@ -255,8 +255,26 @@ export function ProfileTabs({
           not something specific to the draft card, so the gap goes on
           this shared wrapper -- covers ownDrafts below AND the
           server-rendered `posts` after it, for every card either way,
-          not just the first one. */}
-      <div hidden={tab !== "posts"} className="mt-2.5">
+          not just the first one.
+
+          2026-08-30 follow-up, live screenshot of a long title wrapping
+          into a 5-line block: "используй ширину карточек такую же как
+          в фиде, чтобы не делать лишний вертикальный скролл" -- this
+          whole page is deliberately fixed at sm:w-[420px] (see <main>'s
+          own long comment in app/u/[username]/page.tsx for exactly why
+          that fixed width exists and why a fluid one kept breaking), but
+          that width was tuned for the PROFILE HEADER's left-aligned rows
+          (name/bio/skill bars), not for cards that need to match the
+          feed's own sm:max-w-3xl (48rem/768px). Breaking just this div
+          out to that width with a negative margin is safe specifically
+          BECAUSE the parent is a literal fixed px value, not a fluid
+          one -- the offset is exact, not a guess: (768 - 420) / 2 =
+          174px each side. min(...) caps the width at the viewport minus
+          a small margin too, so a desktop window narrower than ~816px
+          shrinks this block instead of forcing horizontal overflow.
+          Mobile (`sm:` prefix) is untouched, same convention as <main>'s
+          own fixed width already uses. */}
+      <div hidden={tab !== "posts"} className="mt-2.5 sm:-mx-[174px] sm:w-[min(48rem,calc(100vw_-_2rem))]">
         {ownDrafts.length > 0 && (
           <div className="mb-4 flex flex-col gap-4">
             {ownDrafts.map(({ post, status }) => {
