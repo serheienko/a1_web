@@ -3089,3 +3089,36 @@ this session's cloud container or the linked Mac to install one) --
 Aleksandr, please click into a draft or a scheduled post from your own
 profile's "Пости" tab after this deploys and confirm the editor opens
 instead of a 404.
+
+### 6.60 OPEN: same draft/scheduled parity needed in the native Flutter app (2026-08-30)
+
+Aleksandr, after §6.59's web fix: "запланированные посты и черновики
+должны абсолютно идентично отображаться в приложении... как я тебе и
+говорил, в общих постах просто подсвечивается бейджиком... тут должна
+быть чёткая же тема... должны между собой полностью дружить и быть на
+100% правильно подвязаны" -- the native app (separate cross-platform
+Flutter/Dart codebase, NOT this repo -- confirmed live, its code isn't
+on this Mac right now) needs the same two things §6.59 just gave the
+web profile's "Пости" tab:
+
+1. A draft/scheduled post shows the same kind of small gray status
+   badge as web (uk: "Чернетка"/"Заплановано", en: "Draft"/"Scheduled",
+   replacing the colored Jobs/Talent pill), wherever the app lists a
+   user's own posts.
+2. Tapping into your OWN draft or scheduled post from that list must
+   open it for editing in place -- NOT attempt to navigate to the
+   public post screen, which doesn't exist yet for an unpublished post
+   (this was the exact 404 bug §6.59 fixed on web: post-card.tsx's
+   Links unconditionally pointed at `/jobs|talents/:slug`, which the
+   backend only serves once published).
+
+Not investigated or fixed here -- no access to that codebase from this
+session (`A1 App Story` on this Mac turned out to be design-reference
+screenshots only, not source; the actual Flutter repo isn't currently
+on this machine). `/api/posts/mine` (this repo) already returns
+`isDraft` and `scheduled`/`published` timestamps per post -- whatever
+endpoint/model the Flutter app reads its own posts from should have
+the equivalent fields already, since it's the same backend
+(api.a1appp.com). Whoever picks this up in the Flutter codebase: check
+its own "my posts"/profile list screen against these two points and
+its own equivalent of `EditablePost`/edit-mode entry point.
