@@ -2425,3 +2425,99 @@ Known limitation, unchanged from before this entry: still no real
 "get my profile" endpoint. Once one exists, both of today's
 `authorUsername`/raw-profile-id workarounds can be replaced with a
 direct call.
+
+### 6.42 CONFIRMED: two production deploys silently failed to build (2026-08-30)
+
+Aleksandr reported three things missing/broken right after testing a live
+deploy — the Posting/Updating cat banner never appeared, the profile
+link he'd filled in at post creation wasn't showing on the post page,
+and a garbled duplicate-looking title. Checked Vercel's Deployments tab
+directly rather than guessing: the two most recent production builds
+(`d75de66` "Add title max length, Posting/Updating banner..." and
+`a516f77` "PLAN.md: document §6.41...") both show **Build Failed**,
+`npm run build` exiting 1 — the live site was still serving `d3021da`,
+everything from §6.38 onward (the badge, confirm-close, banner, title
+limit, feed auto-refresh, and §6.41's whole profile feature) never
+actually reached production. That fully explains the cat banner not
+showing; it does not explain the missing link (see §6.43) or the
+garbled title, which looks like the character-limit correctly
+truncating a test string typed/pasted twice, not a bug.
+
+Root cause (from the build's own log, not a guess): `TS2367` at
+`components/post-editor.tsx:1585` — `"'\"draft\" | null'` and
+`'"post"'` have no overlap". `isSubmittingPost` (§6.40) is
+`pendingAction === "post" || pendingAction === "schedule"`, and the new
+`if (isSubmittingPost) return <banner>;` early return means
+TypeScript's control-flow narrowing on aliased conditions rules out
+`"post"`/`"schedule"` for `pendingAction` everywhere below it in the
+function — so the three leftover `pendingAction === "post" ? <Spinner/>
+: ...` / `pendingAction === "schedule" ? <Spinner/> : ...` ternaries
+inside the footer buttons became genuinely unreachable code once the
+banner replaces the whole dialog during submission, and `next build`'s
+real type-check (not just syntax) caught it. This session's usual
+pre-commit check (`tsc --noEmit` filtered to `error TS1[0-9]{3}:`,
+syntax only, chosen because no `node_modules` is installable here or on
+the device — npm registry 403s both places) does not run this class of
+check, so it slipped through both commits.
+
+Fixed by deleting the three dead ternaries (the buttons just show their
+label directly now — correct, since the pending-spinner state they
+guarded can no longer be reached while this JSX renders at all).
+Process fix for future changes touching this file: also run the same
+`npx tsc` invocation WITHOUT the `TS1` filter and read past the
+`TS2307`/`TS7006` "Cannot find module"/"implicitly any" noise (expected
+without `node_modules`) for other codes like `TS2367` — that noise
+doesn't hide same-file control-flow errors like this one, only ones
+that need real library types.
+
+Also fixed while in this file, from a live mobile screenshot
+(Aleksandr: "На мобильном чуть поломался UI с годом и временем. Уменьши
+ширину"): the schedule popover's year `<select>` was rendering at
+nearly full width, squeezing the month `<select>` next to it down to
+just its disclosure arrow. Cause: `inputClass` already bakes in
+`w-full`; appending `w-20` has identical CSS specificity, so which one
+wins in the compiled stylesheet is decided by Tailwind's fixed utility
+order, not by source order in the className string — `w-full` was
+winning. Fixed with Tailwind's `!` (important) modifier on the
+intended override (`!w-20`), which cannot lose that fight regardless of
+build order; applied the same fix to the time `<input>` (was also
+inheriting `inputClass`'s `w-full`, stretching edge-to-edge) with
+`!w-32`.
+
+Separately, Aleksandr confirmed `TITLE_MAX = 120` (§6.40) against the
+mobile app's own limit ("да, вроде такой лимит и есть") — no longer a
+placeholder, comment updated to say so.
+
+### 6.43 Always-available profile link; missing post link finally rendered (2026-08-30)
+
+Two corrections to §6.41 the moment Aleksandr saw it live:
+
+- **"Просмотр профиля" was gated on having a post.** §6.41's first pass
+  resolved the visitor's own username from `/api/posts/mine`'s
+  `authorUsername`, which only exists if they have at least one post.
+  Aleksandr: "должна быть возможность всегда посмотреть свой профиль."
+  Since PLAN.md's endpoint table still has no dedicated "get my
+  profile" read, the only authenticated call that returns a full user
+  object at all is `account.updateProfile` — documented as "no fields
+  required — send only what changed" (§6.1). New route
+  `app/api/account/whoami` calls it with a genuinely empty `{}` as a
+  no-op "read" and parses the response with the same `parseUserProfile`
+  `users.getByUsername` already uses. **Flagged, not presented as
+  confirmed**: no code in this project has ever actually parsed
+  `account.updateProfile`'s response body before (the existing
+  update-profile route discards it), so assuming it returns the same
+  `Resource.User` shape is an inference from the endpoint table, not
+  something proven live yet — `parseUserProfile` fails closed (link
+  just stays hidden) rather than throwing if that guess is wrong.
+  Needs a live check: open the avatar menu signed in with zero posts
+  and confirm "Переглянути профіль" appears.
+
+- **The link field has never been shown anywhere.** Aleksandr: "в
+  отображении поста нет ссылки, хотя я заполнял при создании." Not a
+  regression — `components/post-editor.tsx` has always collected it
+  (`linkUrl` → `links: [{ title: "", url }]`) and `lib/a1/mappers.ts`
+  has always carried `WebPost.links` through, but neither
+  `app/jobs/[slug]/page.tsx` nor `app/talents/[slug]/page.tsx` ever had
+  any markup for it. Added a "Посилання"/"Link" section to both, right
+  after the description, rendering each link as an `<a target="_blank"
+  rel="noopener noreferrer nofollow">`.
