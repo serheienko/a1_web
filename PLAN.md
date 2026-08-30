@@ -2596,3 +2596,34 @@ Three more live reports after §6.42/§6.43 finally reached production:
     confirmed by reading the fetched `WebProfile` shape, not guessed.
     Worth Aleksandr double-checking he filled in that profile under the
     same account he's viewing.
+
+### 6.45 Avatar menu: real photo, drop the duplicate "Мої пости" row (2026-08-30)
+
+Aleksandr, from a screenshot of §6.44's merged account block: "поставь
+не цветная векторное синее, поставь аватар, персональный этот профиль...
+мои посты можно убрать, потому что сейчас будет унифицировано: нажимаем
+персональный профиль, а там уже есть мои посты, не обязательно
+дублировать."
+
+- `app/api/account/whoami` now also returns `avatarUrl`, built the same
+  way every other real-photo-or-cat-fallback spot in this app already
+  does (`buildMediaProxyUrl(profile.photos[0])`) — this closes the exact
+  gap `components/avatar-menu.tsx`'s own KNOWN GAP comment flagged
+  before this route existed. Also confirms, now live (Aleksandr's own
+  screenshot showed "Переглянути профіль" working end to end), that
+  §6.43's flagged guess about `account.updateProfile({})`'s response
+  shape was right.
+- `avatar-menu.tsx`: the merged block's icon and the nav's own 36px
+  avatar button both now show that real photo when whoami resolves one,
+  falling back to the deterministic cat otherwise — previously the nav
+  button always showed the cat regardless, so the two didn't even agree
+  with each other.
+- Removed the "Мої пости" row and its `MyPostsPanel` mount entirely.
+  **Tradeoff worth flagging**: `components/my-posts-panel.tsx` was the
+  only place that showed drafts/scheduled posts (with inline edit/
+  delete) — the profile's own Posts tab (§6.44) only shows already-
+  published posts, matching the public feed by design. Left
+  `my-posts-panel.tsx` in place, unused but working (this project's
+  usual policy — see account-menu.tsx's own history), rather than
+  deleting it, specifically so drafts/scheduled have somewhere to go
+  back to if that gap turns out to matter later.
