@@ -222,6 +222,34 @@ export function FiltersForm({
   const [filtersOpen, setFiltersOpen] = useState(false);
   const filtersRef = useRef<HTMLDivElement>(null);
   const desktopFiltersRef = useRef<HTMLDivElement>(null);
+  // 2026-08-30, final round on the search-widen-vs-Filters saga:
+  // Aleksandr's actual spec needs BOTH halves at once, which a single
+  // `inputFocused || filtersOpen` flag can't express: "если ничего не
+  // трогаешь с поиском [и он в состоянии покоя], нажал фильтры -- не
+  // расширяй поиск" (this round, screenshot of the RESTING search box)
+  // vs. the previous round's "при нажатии на фильтры, ты сворачиваешь
+  // поиск... не сворачивай" for when it WAS already focused/widened.
+  // The two onClick handlers below capture whether the input was
+  // actually focused at the exact moment Filters was opened (still
+  // reliable to read here even though clicking the button also blurs
+  // the input -- that blur only *schedules* `setInputFocused(false)`
+  // after a 150ms timeout, it doesn't happen synchronously, so
+  // `inputFocused` in this closure still reflects its pre-click value).
+  // That single decision then LATCHES for as long as the popover stays
+  // open, so a later blur can't retroactively collapse a box that was
+  // already legitimately wide when Filters opened.
+  const [keepWideForFilters, setKeepWideForFilters] = useState(false);
+  useEffect(() => {
+    if (!filtersOpen) setKeepWideForFilters(false);
+  }, [filtersOpen]);
+
+  function toggleFilters() {
+    setFiltersOpen((v) => {
+      const next = !v;
+      if (next) setKeepWideForFilters(inputFocused);
+      return next;
+    });
+  }
 
   // 2026-08-28: the desktop search box lives in components/site-nav.tsx's
   // DOM subtree via a portal — null until that slot is found client-side
@@ -248,36 +276,35 @@ export function FiltersForm({
   // the single source of truth for the resting width. +55%, the middle
   // of the 50-60% range asked for; site-nav.tsx adds the transition so
   // this reads as a smooth widen, not a jump.
-  // 2026-08-30, two rounds of back-and-forth on this one:
-  // Round 1 tied this `maxWidth` widen to `searchExpanded` (below), so
-  // clicking Filters alone also widened the search box -- reported as
-  // wrong: "я не это хотел... если ничего не трогаешь с поиском, нажал
-  // фильтры -- оно просто по ширине короткого фильтра разошлось [только
-  // кнопка]". Round 2 reverted this effect to `inputFocused` alone --
-  // but that meant clicking Filters (a normal DOM focus change) blurs
-  // the input, which after its own 150ms delay flips `inputFocused`
-  // false and SHRINKS the search box back down while the filter
-  // popover is still sitting open under it: "при нажатии на фильтры, ты
-  // сворачиваешь поиск... хотя бы не сворачивай поиск". That regression
-  // matters more than the round-1 nuance he's now waiving ("фиг с ним с
-  // длиной, но не закрывай поиск") -- back to `searchExpanded` here
-  // (declared right below, before this needs it), so the box never
-  // collapses out from under an open filter popover, at the cost of
-  // also widening on a bare Filters click with no prior search focus.
   //
-  // Aleksandr, 2026-08-30, screen recording: "ширина фильтра должна
-  // тоже подстраиваться при расширенном поиске" (§6.51) -- then found
-  // clicking Filters blurs the search input first (an ordinary DOM
-  // focus change), which independently fires the 150ms-delayed
-  // setInputFocused(false) below and collapsed the filter button back
-  // to its resting size right as the filter popover opened. Same
-  // combined flag now drives the search box's own width too, below.
+  // 2026-08-30, this took four rounds to pin down -- his actual spec
+  // needs BOTH of these true at once, which no single boolean can
+  // express:
+  //   (a) clicking Filters on a RESTING (unfocused) search box must
+  //       NOT widen it -- "если ничего не трогаешь с поиском, нажал
+  //       фильтры -- не расширяй поиск" (confirmed again with a
+  //       screenshot of the resting box specifically).
+  //   (b) clicking Filters while the box is ALREADY focused/widened
+  //       must NOT collapse it back down -- "при нажатии на фильтры,
+  //       ты сворачиваешь поиск... не сворачивай". Filters blurs the
+  //       input as an ordinary side effect of moving focus to the
+  //       button, and that blur's existing 150ms delay would otherwise
+  //       flip `inputFocused` false while the popover is still open.
+  // `keepWideForFilters` (declared above, set by `toggleFilters`) is
+  // the resolution: it captures whether the input was ACTUALLY focused
+  // at the exact moment Filters was opened, and that decision then
+  // latches for as long as the popover stays open, immune to the
+  // blur that click itself causes. The filter BUTTON's own size still
+  // uses the simpler `searchExpanded` below (inputFocused || filtersOpen)
+  // -- growing the button on every Filters click was never in question,
+  // only the search box's width was.
   const searchExpanded = inputFocused || filtersOpen;
+  const searchBoxWide = inputFocused || (filtersOpen && keepWideForFilters);
 
   useEffect(() => {
     if (!navSlot) return;
-    navSlot.style.maxWidth = searchExpanded ? "18.6rem" : "";
-  }, [navSlot, searchExpanded]);
+    navSlot.style.maxWidth = searchBoxWide ? "18.6rem" : "";
+  }, [navSlot, searchBoxWide]);
 
   // <T/> (components/t.tsx) can't help with attribute values or <option>
   // text — CSS can't conditionally show/hide inside those — so this one
@@ -747,7 +774,7 @@ export function FiltersForm({
           <div className="relative shrink-0" ref={filtersRef}>
             <button
               type="button"
-              onClick={() => setFiltersOpen((v) => !v)}
+              onClick={toggleFilters}
               aria-label={FILTERS_FORM_STRINGS.filters[lang]}
               aria-expanded={filtersOpen}
               className={
@@ -844,7 +871,7 @@ export function FiltersForm({
             <div className="relative shrink-0" ref={desktopFiltersRef}>
               <button
                 type="button"
-                onClick={() => setFiltersOpen((v) => !v)}
+                onClick={toggleFilters}
                 aria-label={FILTERS_FORM_STRINGS.filters[lang]}
                 aria-expanded={filtersOpen}
                 className={

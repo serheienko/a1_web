@@ -2965,3 +2965,28 @@ server-rendered `posts` after it sat flush against the pill switcher
 above. Added `mt-2.5` (10px) to the shared `hidden={tab !== "posts"}`
 wrapper so every card in the list gets the same breathing room, not
 just the first one.
+
+### 6.57 Search box width vs Filters: needed both halves at once (2026-08-30)
+
+Fourth round on this one. Aleksandr, screenshot of the RESTING search
+box: "в таком положении при нажатии на фильтры не расширяй поиск" --
+confirming a bare Filters click on an unfocused box must NOT widen it.
+That's exactly what §6.54 already did (`inputFocused` alone) -- but
+§6.54 broke the OTHER half §6.55 had just fixed: if the box was
+already focused/widened, clicking Filters blurs the input, and after
+its own 150ms delay `inputFocused` flips false and collapses the box
+while the popover is still open ("сворачиваешь поиск... не
+сворачивай"). A single boolean can't satisfy both requirements at
+once, so this adds a second piece of state, `keepWideForFilters`,
+set by a new shared `toggleFilters()` handler (replacing the inline
+`setFiltersOpen((v) => !v)` in both the mobile and desktop filter
+buttons): when Filters OPENS, it captures whatever `inputFocused`
+happens to be at that exact moment (still reliably the pre-click value
+-- the blur only *schedules* `setInputFocused(false)` via its own
+150ms timeout, it isn't synchronous) and that decision then latches
+for as long as the popover stays open, reset only when it closes. The
+search box's own width now reads `inputFocused || (filtersOpen &&
+keepWideForFilters)`; the filter BUTTON's own size keeps using the
+simpler `inputFocused || filtersOpen` (`searchExpanded`) -- growing
+the button on every Filters click was never in question, only the
+search box's width was.
