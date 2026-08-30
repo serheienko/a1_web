@@ -86,7 +86,24 @@ export function ProfileTabs({
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/account/whoami")
+
+    // Pulled into a named function so it can also be re-run when a
+    // post is created/edited/scheduled from anywhere else on the page
+    // (the "+" FAB, in components/create-post-fab.tsx, is mounted
+    // globally in the root layout -- entirely outside this component's
+    // tree). Aleksandr, 2026-08-30 (screen recording): scheduled a
+    // post from the FAB, the editor closed and the "Публікується..."
+    // banner ran, but the newly-scheduled post never showed up here --
+    // only a full page reload brought it in. Root cause: this effect
+    // only ever fetched once, on mount; nothing told it a save had
+    // happened. components/post-editor.tsx now dispatches a plain
+    // "a1:post-saved" window event right after every successful save
+    // (post, draft, or schedule, from every entry point it has) --
+    // listening for that here and re-running the same fetch chain
+    // closes the gap without this component needing to know which
+    // editor instance did the saving.
+    function load() {
+      fetch("/api/account/whoami")
       .then((r) => r.json())
       .then((data) => {
         if (cancelled || !data.ok || data.username !== profileUsername) return null;
@@ -151,8 +168,13 @@ export function ProfileTabs({
         // Signed out, or either call failed -- no drafts/scheduled
         // section, same as before this feature existed.
       });
+    }
+
+    load();
+    window.addEventListener("a1:post-saved", load);
     return () => {
       cancelled = true;
+      window.removeEventListener("a1:post-saved", load);
     };
   }, [profileUsername]);
 

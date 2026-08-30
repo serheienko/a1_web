@@ -357,7 +357,7 @@ type StringKey =
   | "scheduleToday" | "scheduleTomorrow" | "scheduleIn3Days" | "scheduleInWeek"
   | "scheduleInvalid" | "errorGeneric" | "requiredHint"
   | "closeConfirmTitle" | "closeConfirmBody" | "continueEditing" | "discardClose"
-  | "postingLabel" | "updatingLabel";
+  | "postingLabel" | "updatingLabel" | "schedulingLabel";
 
 const STRINGS: Record<StringKey, Record<Locale, string>> = {
   createTitle: { uk: "Новий пост", en: "New post", ru: "Новый пост", de: "Neuer Beitrag", es: "Nueva publicación", fr: "Nouvelle publication", pl: "Nowy post", ptBR: "Nova publicação", zh: "新帖子" },
@@ -434,6 +434,7 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   // further down for which of these two shows.
   postingLabel: { uk: "Публікується...", en: "Posting...", ru: "Публикуется...", de: "Wird veröffentlicht...", es: "Publicando...", fr: "Publication en cours...", pl: "Publikowanie...", ptBR: "Publicando...", zh: "发布中..." },
   updatingLabel: { uk: "Оновлюється...", en: "Updating...", ru: "Обновляется...", de: "Wird aktualisiert...", es: "Actualizando...", fr: "Mise à jour en cours...", pl: "Aktualizowanie...", ptBR: "Atualizando...", zh: "更新中..." },
+  schedulingLabel: { uk: "Планується...", en: "Scheduling...", ru: "Планируется...", de: "Wird geplant...", es: "Programando...", fr: "Planification en cours...", pl: "Planowanie...", ptBR: "Agendando...", zh: "计划中..." },
 };
 
 function t(key: StringKey, lang: Locale, vars?: Record<string, string | number>): string {
@@ -1060,6 +1061,7 @@ export function PostEditor({
         }
         setError(t("errorGeneric", lang));
         setPendingAction(null);
+        setScheduleOpen(false);
         return;
       }
       const newId = (data.post as { _id?: string } | undefined)?._id;
@@ -1076,6 +1078,9 @@ export function PostEditor({
       }
 
       onSaved?.();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("a1:post-saved"));
+      }
       if (action === "draft" && !opts?.closeAfter) {
         // Stay open — see header comment. Show a transient confirmation
         // instead of the dialog just vanishing.
@@ -1087,6 +1092,7 @@ export function PostEditor({
     } catch {
       setError(t("errorGeneric", lang));
       setPendingAction(null);
+      setScheduleOpen(false);
     }
   }
 
@@ -1129,7 +1135,11 @@ export function PostEditor({
         <div className="pointer-events-auto flex w-full max-w-xs items-center gap-3 rounded-2xl bg-white p-3 pr-4 shadow-xl ring-1 ring-black/5 dark:bg-neutral-900 dark:ring-white/10">
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium text-neutral-900 dark:text-neutral-50">
-              {isUpdatingExisting ? t("updatingLabel", lang) : t("postingLabel", lang)}
+              {pendingAction === "schedule"
+                ? t("schedulingLabel", lang)
+                : isUpdatingExisting
+                  ? t("updatingLabel", lang)
+                  : t("postingLabel", lang)}
             </p>
             <div className="relative mt-1.5 h-1 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
               <div className="absolute inset-y-0 left-0 w-2/5 rounded-full bg-accent animate-progress-indeterminate" />
