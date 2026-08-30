@@ -2521,3 +2521,78 @@ Two corrections to §6.41 the moment Aleksandr saw it live:
   any markup for it. Added a "Посилання"/"Link" section to both, right
   after the description, rendering each link as an `<a target="_blank"
   rel="noopener noreferrer nofollow">`.
+
+### 6.44 Posting banner actually visible; title-length defense-in-depth; profile page redesign (2026-08-30)
+
+Three more live reports after §6.42/§6.43 finally reached production:
+
+- **"Кот с прогресс-баром тоже не появился."** The banner WAS mounting —
+  `components/lottie-player.tsx`'s own 2026-08-29 finding (PLAN.md
+  §6.15) already documented why: its Lottie JSON files are 180-350KB
+  (`posting-cat.json` is ~247KB) and take a real, sometimes multi-second
+  fetch+parse on a cold load. `posts.createPost` itself is usually
+  faster than that, so the whole banner — including the still-invisible,
+  still-loading cat — could mount and get torn down by `onClose()`
+  before a human eye registers it. Fixed two ways: (1)
+  `components/post-editor.tsx` now preloads `lottie-web` and
+  `posting-cat.json` the moment the editor opens (a plain fire-and-
+  forget `useEffect`), not only once Post is clicked, so the asset is
+  very likely already cached by the time the banner needs it; (2)
+  `pendingSinceRef` timestamps when the banner appears, and `submit()`
+  now holds it on screen for at least 900ms regardless of how fast the
+  API call actually was, so it's guaranteed visible even on a fast
+  connection or a cache miss.
+
+- **Title still exceeded 120 chars and the create call failed.**
+  `maxLength` + slice-on-`onChange` (§6.40) only reliably clamp a plain
+  keystroke or paste; this is at least the second live report of a
+  mobile input (this session's pattern strongly suggests voice
+  dictation) putting more than that into the field anyway — some
+  composition/dictation insert paths don't go through the same
+  synchronous per-chunk `onChange` clamp. Fixed with two more layers:
+  a `useEffect` that reactively re-clamps `title` on every change
+  regardless of how it got set, and `title.trim().slice(0, TITLE_MAX)`
+  at the actual submit call, so whatever is sent to `posts.createPost`/
+  `updatePost` can never exceed the limit even if the visible input
+  briefly did.
+
+- **Profile page + avatar menu redesign**, from Aleksandr's screenshots
+  and: "мои посты и просмотр профиля должны жить в одном месте...
+  поднять выше... должны быть просто две кнопки, как в мобильном
+  приложении — bio и посты."
+  - `components/avatar-menu.tsx`: "Переглянути профіль" and "Мої
+    пости" were two plain text rows easy to miss among theme/language.
+    Merged into one visually distinct, icon-led block (tinted
+    background, person-circle icon + email + "Переглянути профіль"
+    subtitle + chevron, "Мої пости" row underneath with its own icon),
+    moved to the very top of the panel, right where email used to sit
+    alone.
+  - New `components/profile-tabs.tsx` (client component, `hidden`-
+    based toggle, no extra fetch) splits `/u/[username]` into exactly
+    two tabs matching the native app: "Про мене"/Bio (everything that
+    was already there — bio text, work experience, skills, languages,
+    hobbies, favorites, etc., all still individually conditional on
+    having data) and "Пости"/Posts (the §6.41 post-cards grid, now with
+    an empty state instead of just vanishing when there are none). The
+    identity header (avatar, name, username, occupation/location line)
+    stays above the tabs, unchanged.
+  - **"Вот эти посты, они все удалённі, ты их зачем-то показал"** — a
+    real bug, not a testing artifact: `app/api/posts/mine/route.ts`
+    deliberately reads the raw `Post` (bypassing `mapPosts()`'s public-
+    feed filtering) so it can show drafts/scheduled posts to their own
+    author — but that meant it never excluded the ARCHIVED flag bit
+    either (this backend's delete, per `lib/a1/post-flags.ts`'s own
+    OpenAPI-sourced bit table), so an already-deleted post kept
+    reappearing in "Мої пости", mislabeled "Опубліковано". New
+    `isArchived()` helper in `post-flags.ts`; `mine`'s route now
+    filters it out before returning the list.
+  - **Not changed, on purpose**: the "World 2"-only profile Aleksandr
+    flagged ("я скорее всего заполнял мою сущность, а она не
+    отображается") — the page already conditionally renders bio,
+    occupation, expertise, work experience, skills, etc. whenever
+    `WebProfile` actually has them (each section is its own `profile.X
+    && ...` check, unchanged by this pass). That specific test account
+    ("AI Ex") just doesn't have those fields filled in server-side —
+    confirmed by reading the fetched `WebProfile` shape, not guessed.
+    Worth Aleksandr double-checking he filled in that profile under the
+    same account he's viewing.
