@@ -1139,7 +1139,7 @@ export function PostEditor({
         role="dialog"
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-xl dark:bg-neutral-950 sm:max-w-lg sm:rounded-3xl"
+        className="relative flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-xl dark:bg-neutral-950 sm:max-w-lg sm:rounded-3xl"
       >
         <div className="flex items-center justify-between border-b border-neutral-100 px-5 py-4 dark:border-neutral-800">
           <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-50">
@@ -1219,7 +1219,27 @@ export function PostEditor({
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+        <div className="relative flex-1 overflow-y-auto px-5 py-4">
+          {/* Aleksandr, 2026-08-30 (2 screenshots of the schedule popover
+              open over this form): "надо чтобы, когда мы нажимаем внутри
+              первой модалки вне календаря, где угодно... неактивные
+              кнопки, чтобы она закрывалась" -- the popover's own
+              stopPropagation only ever stopped ITS OWN clicks from
+              reaching the level-1 dialog's requestClose; a click on a
+              format pill, blank padding, etc. here had no effect on the
+              popover at all. Scoped to just this scrollable form area
+              (not the header or footer) so the footer's own Cancel/
+              Schedule buttons -- the popover's real actions -- keep
+              working untouched; z-20 sits above this area's own sticky
+              z-10 header but below the popover's z-30, so the popover
+              (visually on top) still gets its own clicks -- browsers
+              hit-test whichever element is topmost at that pixel, not
+              DOM order -- while anything else in this area hits this
+              overlay instead of whatever's behind it, closing the
+              popover without also activating that underlying control. */}
+          {scheduleOpen && (
+            <div className="absolute inset-0 z-20" onClick={() => setScheduleOpen(false)} aria-hidden="true" />
+          )}
           {/* 2026-08-29: "делай закреплённым, чтобы не заезжало наверх" —
               sticky inside the scroll container so this toggle (and the
               header/description copy it drives) stays visible instead of
