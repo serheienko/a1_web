@@ -3,7 +3,11 @@
 // Our own domain type. The UI imports ONLY from here, never from
 // lib/a1/schemas.ts — see PLAN.md §2.4 (the anti-corruption layer).
 // Anything not listed below cannot leak to the browser: no emails, no
-// `flags`, no `apply.questions`, no raw `author._id`.
+// `flags`, no raw `author._id`. `apply.questions` is the one exception,
+// and only its question TEXT (see WebPost.applyQuestions below and
+// lib/a1/mappers.ts's own comment on why) -- 2026-08-30, Aleksandr:
+// "мы не запилили эту штуку с вопросами. Пока для MVP просто показывай
+// их в посте и всё, потом допилим полноценно".
 
 export type WebPostKind = "hiring" | "seeking";
 
@@ -58,4 +62,5 @@ export type WebPost = {
   links: WebPostLink[];
   viewCount: number;
   hasApplyForm: boolean;
+  applyQuestions: string[];
 };

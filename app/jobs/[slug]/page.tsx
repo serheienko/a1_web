@@ -227,6 +227,23 @@ export default async function JobDetailPage({ params }: Props) {
           </div>
         </div>
       )}
+
+      {/* Aleksandr, 2026-08-30: "мы не запилили эту штуку с вопросами.
+          Пока для MVP просто показывай их в посте и всё, потом допилим
+          полноценно" -- plain read-only list, no answer inputs / apply
+          flow yet, that's the "допилим полноценно" part for later. */}
+      {post.applyQuestions.length > 0 && (
+        <div className="mt-6">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+            <T uk="Питання до відгуку" en="Application questions" ru="Вопросы к отклику" de="Bewerbungsfragen" es="Preguntas de postulación" fr="Questions de candidature" pl="Pytania do zgłoszenia" ptBR="Perguntas de candidatura" zh="申请问题" />
+          </h2>
+          <ul className="mt-2 flex flex-col gap-1 text-neutral-700 dark:text-neutral-300">
+            {post.applyQuestions.map((q, i) => (
+              <li key={i}>{q}</li>
+            ))}
+          </ul>
+        </div>
+      )}
     </main>
   );
 }

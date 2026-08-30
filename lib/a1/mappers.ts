@@ -26,6 +26,34 @@ function fromUnixSeconds(seconds: number): Date {
   return new Date(seconds * 1000);
 }
 
+/**
+ * `post.apply.questions` is typed `z.array(z.unknown())` on the read
+ * side (lib/a1/schemas.ts) -- its exact item shape was never confirmed
+ * live, only the WRITE side's `{ question, object: "apply-question-
+ * input" }` was (PLAN.md §6.31/§6.32). Rather than guess the read shape
+ * matches the write shape, this accepts either a bare string OR an
+ * object with a string `question` field, and silently drops (logging
+ * for the next live triage, PLAN.md §5 rule 6 style) anything else --
+ * same "never throws, log and move on" posture as parsePost. MVP only:
+ * 2026-08-30, Aleksandr, "Пока для MVP просто показывай их в посте и
+ * всё, потом допилим полноценно".
+ */
+function mapApplyQuestions(apply: Post["apply"]): string[] {
+  if (!apply) return [];
+  const out: string[] = [];
+  for (const raw of apply.questions) {
+    if (typeof raw === "string" && raw.trim()) {
+      out.push(raw.trim());
+    } else if (raw && typeof raw === "object" && "question" in raw && typeof (raw as { question: unknown }).question === "string") {
+      const text = (raw as { question: string }).question.trim();
+      if (text) out.push(text);
+    } else {
+      console.error("[mappers] unrecognized apply.questions item shape", raw);
+    }
+  }
+  return out;
+}
+
 function mapAuthor(author: Post["author"], flags: number): WebPostAuthor {
   if (authorIsHidden(flags) || author.object !== "user-preview") {
     // Covers the documented UserHidden variant and any shape our schema
@@ -180,6 +208,7 @@ export function mapPost(post: Post): WebPost | null {
     links: post.links,
     viewCount: post.viewCount,
     hasApplyForm: post.apply != null,
+    applyQuestions: mapApplyQuestions(post.apply),
   };
 }
 
@@ -222,6 +251,7 @@ export function mapOwnPost(post: Post): WebPost | null {
     links: post.links,
     viewCount: post.viewCount,
     hasApplyForm: post.apply != null,
+    applyQuestions: mapApplyQuestions(post.apply),
   };
 }
 
