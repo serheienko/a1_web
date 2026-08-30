@@ -3152,3 +3152,67 @@ the user's own draft/scheduled posts.
 No backend changes needed -- `/v1/posts.search` already returns the
 `draft`/`scheduled` fields this app reads client-side, same as this
 repo's `/api/posts/mine` already does server-side.
+
+### 6.61 Second live-testing batch, 2026-08-30: profile editor overhaul + profile "Пости" tab menu/centering bugs
+
+A 29-item feedback batch from one round of live testing against the
+deployed profile editor (15 screenshots + a 24s screen recording of the
+real mobile app's own profile-editing screen, used throughout as ground
+truth for labels/caps/wording rather than guessing). This sandbox had no
+network access to the real API at any point in this batch (a direct curl
+to api.a1appp.com returned a 403 from the egress proxy, from both this
+session and Aleksandr's own Mac) -- every fix below is either confirmed
+against a screenshot/video frame, or root-caused by static code review
+with the reasoning written out in the file's own comment; anything that
+couldn't be pinned down that way is called out as such rather than
+guessed at. Full reasoning for each item lives in the comment at its own
+change site -- this entry is an index, not a duplicate of it.
+
+**components/profile-editor.tsx and its new companions** (commit
+"Profile editor: fix save-blocking bug, occupation naming, add
+username/phone/DOB/avatar-crop/voice-upload, localize dataset pills"):
+save-blocking validation for companies missing a category (§ open
+question below on whether this was really the cause -- never confirmed
+live, only inferred from this repo's own already-documented "category
+must be real" backend constraint); occupation label correction
+("Бізнесмен"/"Фахівець"); a username field; Voice Intro moved to the top
+of the dialog with a 120s cap (was 60s) and a new "upload an audio file"
+option; phone + date-of-birth fields with USER_FLAG-backed visibility
+toggles; company/links field-width and label fixes; Languages capped at
+10 and Hobbies at 5 (matching the real app, confirmed on video); an
+icon-only edit-profile button and a new avatar quick-edit badge with a
+real crop-and-zoom step (`components/avatar-edit-button.tsx`); a hover
+rotate on the dialog's close icon; and client-side EN->UK translation
+for the Hobbies/Work-Interests/Work-Style dataset pill values
+(`lib/pill-translations.ts` -- deliberately not exhaustive, see that
+file's own header comment for exactly which sections/groups have
+confirmed translations and which still fall back to English).
+
+**components/post-card.tsx, components/post-owner-menu.tsx,
+components/profile-tabs.tsx** (commit "Fix profile Пости tab: '•••' menu
+clicks swallowed by its own backdrop, and card list off-center on
+windowed desktop widths"): the reported "can't actually click
+Edit/Delete on the profile's own posts" bug was a z-index stacking
+bug -- post-card.tsx's z-10 wrapper around `<PostOwnerMenu>` was LOWER
+than that menu's own z-30 click-outside backdrop, so the backdrop
+(invisible) painted above the popover and swallowed every click on it;
+bumped to z-40, mirroring components/settings-menu.tsx's own documented
+fix for the identical pattern. The delete-then-redirect logic itself
+(`redirectAfterDeleteTo` vs. `window.location.pathname`) was already
+correct on review -- it was simply unreachable because of the click bug
+above. Separately, the profile's own Пости tab's card-width breakout (an
+earlier fix widening its cards to match the feed's own width) used a
+hardcoded `-mx-[174px]` that didn't re-center correctly once its own
+width-clamp kicked in below ~816px window width; replaced with a
+viewport-relative full-bleed technique that centers correctly at any
+width.
+
+**Not independently confirmed, flagged rather than silently assumed
+correct:**
+- The profile-save failure's exact cause (missing company category) is
+  this session's best inference from evidence already in this repo, not
+  something reproduced live against the real backend this round either.
+- Only 9 of the real app's 14 Work Style preference sections, and only
+  5 of its (evidently more than 5) Hobbies groups, had a real screenshot
+  to translate from -- the rest still render in English until a
+  screenshot of them turns up.
