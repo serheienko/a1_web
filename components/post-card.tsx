@@ -196,14 +196,16 @@ export function PostCard({
               </Link>
             )}
           </h2>
-          {/* 2026-08-30: stacked into a column (badge, then the "•••"
-              menu right under it) once ownerMenu is passed -- Aleksandr
-              pointed at exactly this spot ("по-ідеї можна під слово
-              Чернетка, і вакансія"). Plain `<>...</>` (no extra wrapper)
-              when ownerMenu is unset, so every other caller keeps the
-              exact same DOM/spacing it already had. */}
+          {/* 2026-08-30: badge and the "•••" menu side by side in the
+              top-right corner, 10px apart -- Aleksandr first had these
+              stacked in a column (see the git history on this comment
+              for that reasoning), then live on a draft card: "давай
+              попробуем вообще вынести ··· из карточки и поставить 10 px
+              рядом с бейджами в правой верхней точке". Plain `<>...</>`
+              (no extra wrapper) when ownerMenu is unset, so every other
+              caller keeps the exact same DOM/spacing it already had. */}
           {ownerMenu ? (
-            <div className="flex shrink-0 flex-col items-end gap-1.5">
+            <div className="flex shrink-0 flex-row items-center gap-[10px]">
               {statusBadge ? (
                 <span className={"shrink-0 rounded-full px-2.5 py-1 text-xs font-medium " + statusBadge.className}>
                   {statusBadge.label}
