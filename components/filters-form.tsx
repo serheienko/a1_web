@@ -234,6 +234,25 @@ export function FiltersForm({
     setNavSlot(document.getElementById("nav-search-slot"));
   }, []);
 
+  // Aleksandr, 2026-08-30 (screenshot of this same compact desktop box):
+  // "базово поиск такой ширины как сейчас, но при нажатии на него
+  // развидвался, добавлялось процентов 50-60 ширины" -- the 12rem cap
+  // above (2026-08-29's "уменьши на 40%") should only apply at rest;
+  // focus should widen it. #nav-search-slot is a plain host div living
+  // in site-nav.tsx's own DOM subtree, outside this component's React
+  // tree (see the portal comment above) -- its width can't be driven by
+  // a className computed here, so this reaches through the element
+  // reference itself with an inline style, which wins over the
+  // Tailwind sm:max-w-[12rem] class already on it. Cleared (not just
+  // set to the same 12rem) when unfocused so the underlying class stays
+  // the single source of truth for the resting width. +55%, the middle
+  // of the 50-60% range asked for; site-nav.tsx adds the transition so
+  // this reads as a smooth widen, not a jump.
+  useEffect(() => {
+    if (!navSlot) return;
+    navSlot.style.maxWidth = inputFocused ? "18.6rem" : "";
+  }, [navSlot, inputFocused]);
+
   // <T/> (components/t.tsx) can't help with attribute values or <option>
   // text — CSS can't conditionally show/hide inside those — so this one
   // client component reads the lang-ru class directly, same way

@@ -130,8 +130,17 @@ export function SiteNav() {
               cap was `sm:max-w-xs` (20rem/320px); 320px * 0.6 = 192px,
               i.e. `sm:max-w-[12rem]`. `flex-1` still lets it shrink
               further on a narrow viewport; this only lowers the ceiling
-              on wide desktop screens. */}
-          <div id="nav-search-slot" className="hidden min-w-0 flex-1 sm:flex sm:max-w-[12rem]" />
+              on wide desktop screens. 
+
+              2026-08-30: "при нажатии на него развидвался, добавлялось
+              процентов 50-60 ширины" — components/filters-form.tsx now
+              pushes an inline max-width onto this same element on focus
+              (it holds the ref via document.getElementById, since the
+              portaled content lives inside but is a separate React
+              tree) and clears it on blur, so the 12rem above stays the
+              resting width and this transition is just what makes that
+              change read as a widen instead of a jump. */}
+          <div id="nav-search-slot" className="hidden min-w-0 flex-1 transition-[max-width] duration-200 ease-out sm:flex sm:max-w-[12rem]" />
         </div>
 
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
