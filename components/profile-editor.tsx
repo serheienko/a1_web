@@ -149,8 +149,8 @@ type StringKey =
   | "linkTitlePlaceholder" | "linkUrlPlaceholder" | "addLink"
   | "companyNamePlaceholder" | "companyDescriptionPlaceholder" | "companyCategoryPlaceholder"
   | "companyCategoryEmpty" | "companyPositionTitlePlaceholder" | "companyPositionStartPlaceholder"
-  | "companyPositionEndPlaceholder" | "companyEmployeesPlaceholder" | "companyTurnoverPlaceholder"
-  | "companyFoundedPlaceholder" | "companyLinkUrlPlaceholder"
+  | "companyPositionEndPlaceholder" | "companyEmployeesPlaceholder"
+  | "companyLinkUrlPlaceholder"
   | "addCompany" | "companyUntitled"
   | "educationPlaceholder" | "addEducation"
   | "skillNamePlaceholder" | "skillLevelLabel" | "addSkill"
@@ -313,23 +313,46 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   linkUrlPlaceholder: { uk: "https://…", en: "https://…", ru: "https://…", de: "https://…", es: "https://…", fr: "https://…", pl: "https://…", ptBR: "https://…", zh: "https://…" },
   addLink: { uk: "Додати посилання", en: "Add link", ru: "Добавить ссылку", de: "Link hinzufügen", es: "Añadir enlace", fr: "Ajouter un lien", pl: "Dodaj link", ptBR: "Adicionar link", zh: "添加链接" },
   companyNamePlaceholder: { uk: "Назва компанії", en: "Company name", ru: "Название компании", de: "Firmenname", es: "Nombre de la empresa", fr: "Nom de l'entreprise", pl: "Nazwa firmy", ptBR: "Nome da empresa", zh: "公司名称" },
-  companyDescriptionPlaceholder: { uk: "Опис компанії", en: "Company description", ru: "Описание компании", de: "Unternehmensbeschreibung", es: "Descripción de la empresa", fr: "Description de l'entreprise", pl: "Opis firmy", ptBR: "Descrição da empresa", zh: "公司简介" },
+  // 2026-08-30, live-testing feedback: "Подредактируй поля в «компании»,
+  // должны быть только эти и нейминг должен совпадать" -- this key still
+  // says "description" for historical reasons (matches the backend
+  // field's own name, see ProfileInputCompanySchema.description's
+  // comment in lib/a1/schemas.ts), but the visible label now matches the
+  // mobile app's last field on this screen, "Додаткова інформація"/
+  // "Additional info" -- confirmed via the mobile app's own screenshot,
+  // both uk and en.
+  companyDescriptionPlaceholder: { uk: "Додаткова інформація", en: "Additional info", ru: "Дополнительная информация", de: "Zusätzliche Informationen", es: "Información adicional", fr: "Informations complémentaires", pl: "Dodatkowe informacje", ptBR: "Informações adicionais", zh: "附加信息" },
   // 2026-08-30, live-testing feedback: "поменяй нейминг на 'сфера
-  // діяльності'" -- uk-only rename, the other locales' wording wasn't in
-  // question.
-  companyCategoryPlaceholder: { uk: "Сфера діяльності", en: "Industry", ru: "Отрасль", de: "Branche", es: "Industria", fr: "Secteur", pl: "Branża", ptBR: "Setor", zh: "行业" },
+  // діяльності'", then confirmed against the mobile app's own English
+  // screenshot ("Sphere of activity") the same day -- both uk and en now
+  // match the mobile app exactly.
+  companyCategoryPlaceholder: { uk: "Сфера діяльності", en: "Sphere of activity", ru: "Отрасль", de: "Branche", es: "Industria", fr: "Secteur", pl: "Branża", ptBR: "Setor", zh: "行业" },
   companyCategoryEmpty: { uk: "Нічого не знайдено", en: "No matches", ru: "Ничего не найдено", de: "Keine Treffer", es: "Sin resultados", fr: "Aucun résultat", pl: "Brak wyników", ptBR: "Nenhum resultado", zh: "无匹配结果" },
-  companyPositionTitlePlaceholder: { uk: "Посада", en: "Role / title", ru: "Должность", de: "Position", es: "Puesto", fr: "Poste", pl: "Stanowisko", ptBR: "Cargo", zh: "职位" },
-  companyPositionStartPlaceholder: { uk: "Початок (напр. 2020)", en: "Start (e.g. 2020)", ru: "Начало (напр. 2020)", de: "Beginn (z. B. 2020)", es: "Inicio (p. ej. 2020)", fr: "Début (ex. 2020)", pl: "Początek (np. 2020)", ptBR: "Início (ex.: 2020)", zh: "开始时间(如 2020)" },
-  companyPositionEndPlaceholder: { uk: "Кінець (або «дотепер»)", en: "End (or \"present\")", ru: "Конец (или «по н.в.»)", de: "Ende (oder „heute“)", es: "Fin (o «actualidad»)", fr: "Fin (ou « aujourd'hui »)", pl: "Koniec (lub „obecnie”)", ptBR: "Fim (ou \"atual\")", zh: "结束时间(或“至今”)" },
-  // 2026-08-30, live-testing feedback ("Поля в компании какие не
-  // поместились сократи, но типа 'кількість співробітників' на 'к-сть
-  // співроб.'"): shortened per that exact example — these render inside
-  // a cramped grid-cols-3 row alongside a native number-input spinner, so
-  // the fuller phrasing was clipping.
-  companyEmployeesPlaceholder: { uk: "К-сть співроб.", en: "# employees", ru: "Кол-во сотр.", de: "Mitarb.-Zahl", es: "Nº empleados", fr: "Nb employés", pl: "Liczba prac.", ptBR: "Nº funcionários", zh: "员工人数" },
-  companyTurnoverPlaceholder: { uk: "Оборот/рік", en: "Turnover/yr", ru: "Оборот/год", de: "Umsatz/Jahr", es: "Facturación/año", fr: "CA/an", pl: "Obrót/rok", ptBR: "Faturamento/ano", zh: "年营业额" },
-  companyFoundedPlaceholder: { uk: "Рік засн.", en: "Founded", ru: "Год осн.", de: "Gründung", es: "Fundación", fr: "Création", pl: "Rok zał.", ptBR: "Fundação", zh: "成立年份" },
+  // 2026-08-30, live-testing feedback ("нейминг должен совпадать"),
+  // confirmed against the mobile app's own screenshot: "Ваша посада в
+  // компанії" / "Your position in company", not the shorter "Посада" /
+  // "Role / title" this used to say.
+  companyPositionTitlePlaceholder: { uk: "Ваша посада в компанії", en: "Your position in company", ru: "Ваша должность в компании", de: "Ihre Position im Unternehmen", es: "Tu puesto en la empresa", fr: "Votre poste dans l'entreprise", pl: "Twoje stanowisko w firmie", ptBR: "Seu cargo na empresa", zh: "您在公司的职位" },
+  // 2026-08-30, live-testing feedback ("нейминг должен совпадать"): the
+  // mobile app's own screenshot shows the bare English words "Start"/
+  // "End" as the field labels even in its Ukrainian screen (no "(напр.
+  // 2020)"/"(или «по н.в.»)" hint, and apparently never localized to
+  // "Початок"/"Кінець" on that side either) -- matching that literally
+  // rather than guessing a "better" translation these fields never
+  // actually had. positionEnd stays a free-text field here (see this
+  // company block's own comment above) -- leave it blank for an ongoing
+  // role, there's no separate "Present" toggle on the web yet.
+  companyPositionStartPlaceholder: { uk: "Start", en: "Start", ru: "Start", de: "Start", es: "Start", fr: "Start", pl: "Start", ptBR: "Start", zh: "Start" },
+  companyPositionEndPlaceholder: { uk: "End", en: "End", ru: "End", de: "End", es: "End", fr: "End", pl: "End", ptBR: "End", zh: "End" },
+  // 2026-08-30, live-testing feedback ("нейминг должен совпадать"): back
+  // to the full "Кількість співробітників"/"Number of employees" per the
+  // mobile app's own screenshot -- the 2026-08-30 "К-сть співроб." shortening
+  // above was only needed because this used to share a cramped
+  // grid-cols-3 row with Turnover/Founded (both removed just now, see
+  // this company block's own comment, since neither exists in the
+  // mobile app's form); alone in its own full-width row, the full
+  // phrasing fits fine.
+  companyEmployeesPlaceholder: { uk: "Кількість співробітників", en: "Number of employees", ru: "Количество сотрудников", de: "Anzahl der Mitarbeiter", es: "Número de empleados", fr: "Nombre d'employés", pl: "Liczba pracowników", ptBR: "Número de funcionários", zh: "员工人数" },
   // 2026-08-30, live-testing feedback ("Назва посилання 2 поля поломались,
   // должно быть просто 'посилання'"): this used to be two fields (a link
   // title + a URL) — collapsed to the single field below. `linkTitle`
@@ -1795,6 +1818,28 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
                     <TrashIcon />
                   </button>
                 </div>
+                {/* 2026-08-30, live-testing feedback: "Подредактируй поля в
+                    «компании», должны быть только эти и нейминг должен
+                    совпадать" -- attached screenshots of the mobile app's
+                    own "Додати компанію"/"Add Company" screen: Company
+                    name, Start, End (+ a "Present" toggle), Sphere of
+                    activity, Your position in company, Number of
+                    employees, Link, Additional info -- 8 fields, in that
+                    order. Reordered to match and dropped Turnover/Founded
+                    year below, which don't exist anywhere in the mobile
+                    app's UI (ProfileInputCompanySchema still accepts both
+                    -- turnover as a required-but-nullable key, est as
+                    fully optional -- so removing their inputs and always
+                    sending null for them, same as the mobile client
+                    presumably already does, is safe; see this file's
+                    Company type/handleSave's own comment on that schema
+                    for the "every key must still be present" constraint
+                    that's why turnover isn't simply deleted from the
+                    payload-building code below). Not replicating the
+                    "Present" toggle itself -- End stays a free-text field
+                    here, left blank for an ongoing role -- that's a
+                    separate widget-behavior change from the field-list/
+                    naming fix actually asked for. */}
                 <input
                   type="text"
                   value={company.name}
@@ -1802,13 +1847,22 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
                   placeholder={t("companyNamePlaceholder", lang)}
                   className={inputClass}
                 />
-                <textarea
-                  value={company.description}
-                  onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, description: e.target.value } : c))); markDirty(); }}
-                  placeholder={t("companyDescriptionPlaceholder", lang)}
-                  rows={2}
-                  className={inputClass + " resize-none"}
-                />
+                <div className="grid grid-cols-2 gap-1.5">
+                  <input
+                    type="text"
+                    value={company.positionStart}
+                    onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, positionStart: e.target.value } : c))); markDirty(); }}
+                    placeholder={t("companyPositionStartPlaceholder", lang)}
+                    className={inputClass}
+                  />
+                  <input
+                    type="text"
+                    value={company.positionEnd}
+                    onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, positionEnd: e.target.value } : c))); markDirty(); }}
+                    placeholder={t("companyPositionEndPlaceholder", lang)}
+                    className={inputClass}
+                  />
+                </div>
                 <div className="relative">
                   <input
                     type="text"
@@ -1850,61 +1904,34 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
                     </div>
                   )}
                 </div>
-                <div className="grid grid-cols-3 gap-1.5">
-                  <input
-                    type="text"
-                    value={company.positionTitle}
-                    onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, positionTitle: e.target.value } : c))); markDirty(); }}
-                    placeholder={t("companyPositionTitlePlaceholder", lang)}
-                    className={inputClass}
-                  />
-                  <input
-                    type="text"
-                    value={company.positionStart}
-                    onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, positionStart: e.target.value } : c))); markDirty(); }}
-                    placeholder={t("companyPositionStartPlaceholder", lang)}
-                    className={inputClass}
-                  />
-                  <input
-                    type="text"
-                    value={company.positionEnd}
-                    onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, positionEnd: e.target.value } : c))); markDirty(); }}
-                    placeholder={t("companyPositionEndPlaceholder", lang)}
-                    className={inputClass}
-                  />
-                </div>
-                <div className="grid grid-cols-3 gap-1.5">
-                  <input
-                    type="number"
-                    min="0"
-                    value={company.employeesCount}
-                    onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, employeesCount: e.target.value } : c))); markDirty(); }}
-                    placeholder={t("companyEmployeesPlaceholder", lang)}
-                    className={inputClass}
-                  />
-                  <input
-                    type="number"
-                    min="0"
-                    value={company.turnover}
-                    onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, turnover: e.target.value } : c))); markDirty(); }}
-                    placeholder={t("companyTurnoverPlaceholder", lang)}
-                    className={inputClass}
-                  />
-                  <input
-                    type="number"
-                    min="0"
-                    value={company.est}
-                    onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, est: e.target.value } : c))); markDirty(); }}
-                    placeholder={t("companyFoundedPlaceholder", lang)}
-                    className={inputClass}
-                  />
-                </div>
+                <input
+                  type="text"
+                  value={company.positionTitle}
+                  onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, positionTitle: e.target.value } : c))); markDirty(); }}
+                  placeholder={t("companyPositionTitlePlaceholder", lang)}
+                  className={inputClass}
+                />
+                <input
+                  type="number"
+                  min="0"
+                  value={company.employeesCount}
+                  onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, employeesCount: e.target.value } : c))); markDirty(); }}
+                  placeholder={t("companyEmployeesPlaceholder", lang)}
+                  className={inputClass}
+                />
                 <input
                   type="text"
                   value={company.linkUrl}
                   onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, linkUrl: e.target.value } : c))); markDirty(); }}
                   placeholder={t("companyLinkUrlPlaceholder", lang)}
                   className={inputClass}
+                />
+                <textarea
+                  value={company.description}
+                  onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, description: e.target.value } : c))); markDirty(); }}
+                  placeholder={t("companyDescriptionPlaceholder", lang)}
+                  rows={2}
+                  className={inputClass + " resize-none"}
                 />
               </div>
             ))}
