@@ -2818,3 +2818,50 @@ Deliberately scoped to just this component, not the 3 other places
 sharing the `.animate-popover` entrance class (settings-menu.tsx,
 post-owner-menu.tsx, filters-form.tsx's filter popover) — only the
 avatar menu was asked for.
+
+### 6.53 Avatar hover-menu: real fade transition + fixed the dead-zone gap; filter width stays expanded after clicking Filters (2026-08-30)
+
+Aleksandr, after testing §6.52's hover-open avatar menu, reported two
+separate real bugs in the same message, plus a regression in §6.51's
+filter-button widening:
+
+1. "появляется не плавно... прям скопируй, как у вас (Claude), даже в
+   плоти" — the panel's entrance never actually animated. Root cause:
+   the previous version mounted the panel (`{rendered && (...)}`)
+   already carrying its OPEN opacity/scale classes in the very same
+   commit that `open` became true, so the browser never painted a
+   "closed" frame for the CSS `transition` to animate away from — it
+   just popped straight to the open state. Fixed with a second state,
+   `visible`, that starts false on every mount: `rendered` mounts the
+   node, then a `requestAnimationFrame` (guaranteed to fire only after
+   that closed-style frame has actually painted) flips `visible` true,
+   so the opacity/scale change is now a real transition on both open
+   and close, matching how Claude's own left-sidebar hover panel does
+   it.
+2. "не исчезает всегда... по горизонтали сверху исчезает, вниз по
+   вертикали не исчезает, зависает" — root cause: the panel sat a real
+   `mt-2` MARGIN below the avatar button. A margin is unpainted space
+   with no element in it, so whether `mouseleave`/`mouseenter` fire
+   correctly while the cursor crosses that gap depends on the exact
+   pixel path and speed — genuinely racy, not fixable with a longer
+   delay (that's a band-aid over the same raciness, not a fix). Fixed
+   by eliminating the dead zone itself: the outer positioning wrapper
+   now uses `pt-2` PADDING (not margin) and starts flush at
+   `top-full`, so the hoverable rectangle is physically continuous
+   from the button's bottom edge straight into the panel — no gap the
+   cursor can "leave" through at all. The actual visible card styling
+   (background, border, rounded corners, shadow) moved to an inner
+   child div so the padding itself stays invisible.
+3. "при нажатии на поиск, а потом нажатии на фильтры, фильтры
+   оставляют такую же ширину, как и были" — §6.51 tied both the search
+   box's focus-widen and the filter button's own size-grow to
+   `inputFocused` alone. Clicking the filter button blurs the search
+   input first (an ordinary DOM focus change), which independently
+   fired the pre-existing 150ms-delayed `setInputFocused(false)` and
+   collapsed both back to resting size right as the filter popover
+   opened. Fixed in `components/filters-form.tsx` with
+   `searchExpanded = inputFocused || filtersOpen`, now driving both the
+   search box's `maxWidth` effect and the filter button's `h-8 w-8` /
+   `h-9 w-9` toggle — everything now stays expanded for as long as
+   either the input is genuinely focused or the filter popover itself
+   is open.
