@@ -234,7 +234,15 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   // 2026-08-30, live-testing feedback: "Пропущено поля телефон і дата
   // народження (ці поля можна ховати з профілю тогглом)."
   phoneLabel: { uk: "Телефон", en: "Phone", ru: "Телефон", de: "Telefon", es: "Teléfono", fr: "Téléphone", pl: "Telefon", ptBR: "Telefone", zh: "电话" },
-  phonePlaceholder: { uk: "+380…", en: "+380…", ru: "+380…", de: "+380…", es: "+380…", fr: "+380…", pl: "+380…", ptBR: "+380…", zh: "+380…" },
+  // 2026-08-30, live-testing feedback: "тут, наверное, не показывай плюс
+  // три восемь ноль, потому что это код Украины, а он может быть же
+  // любым каким-то другим" -- "+380…" hard-coded Ukraine's own country
+  // code as if every visitor's number started with it. Swapped for a
+  // country-neutral instruction (include your own country code) instead
+  // of guessing at a "generic-looking" fake number, since any digit
+  // string here (+1…, +44…, etc.) would just repeat the same mistake for
+  // a different country.
+  phonePlaceholder: { uk: "+код країни і номер", en: "+country code and number", ru: "+код страны и номер", de: "+Landesvorwahl und Nummer", es: "+código de país y número", fr: "+indicatif du pays et numéro", pl: "+numer kierunkowy kraju i numer", ptBR: "+código do país e número", zh: "+国家代码和号码" },
   dobLabel: { uk: "Дата народження", en: "Date of birth", ru: "Дата рождения", de: "Geburtsdatum", es: "Fecha de nacimiento", fr: "Date de naissance", pl: "Data urodzenia", ptBR: "Data de nascimento", zh: "出生日期" },
   showOnProfile: { uk: "Показувати в профілі", en: "Show on profile", ru: "Показывать в профиле", de: "Im Profil anzeigen", es: "Mostrar en el perfil", fr: "Afficher sur le profil", pl: "Pokaż w profilu", ptBR: "Mostrar no perfil", zh: "在资料中显示" },
   firstNameLabel: { uk: "Ім'я", en: "First name", ru: "Имя", de: "Vorname", es: "Nombre", fr: "Prénom", pl: "Imię", ptBR: "Nome", zh: "名字" },
