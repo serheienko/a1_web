@@ -248,10 +248,20 @@ export function FiltersForm({
   // the single source of truth for the resting width. +55%, the middle
   // of the 50-60% range asked for; site-nav.tsx adds the transition so
   // this reads as a smooth widen, not a jump.
+  // 2026-08-30 follow-up (Aleksandr): "при нажатии на поиск, а потом на
+  // фильтры, фильтры оставляют такую же ширину, как и были" -- clicking
+  // the filter button blurs the search input first (a normal DOM focus
+  // change), which fired the 150ms-delayed setInputFocused(false)
+  // (below) and collapsed this back to its resting width right out from
+  // under the now-open filter popover. Stays expanded while EITHER the
+  // input is actually focused OR the filter popover itself is open, not
+  // input focus alone.
+  const searchExpanded = inputFocused || filtersOpen;
+
   useEffect(() => {
     if (!navSlot) return;
-    navSlot.style.maxWidth = inputFocused ? "18.6rem" : "";
-  }, [navSlot, inputFocused]);
+    navSlot.style.maxWidth = searchExpanded ? "18.6rem" : "";
+  }, [navSlot, searchExpanded]);
 
   // <T/> (components/t.tsx) can't help with attribute values or <option>
   // text — CSS can't conditionally show/hide inside those — so this one
@@ -828,13 +838,16 @@ export function FiltersForm({
                   // "ширина фильтра должна тоже подстраиваться при
                   // расширенном поиске" -- this button used to stay a
                   // fixed h-8 w-8 regardless of the search box's own
-                  // focus-widen (above). Reuses the same `inputFocused`
-                  // state driving that widen so both animate together;
-                  // stays circular (h-9 w-9, not a wider oval) since a
-                  // single centered icon has nowhere sensible to grow
-                  // into an oval.
+                  // focus-widen (above). Reuses `searchExpanded` (not
+                  // `inputFocused` alone -- see that variable's own
+                  // 2026-08-30 follow-up comment) so both animate
+                  // together and both stay expanded while the filter
+                  // popover itself is open, even after the search input
+                  // has blurred; stays circular (h-9 w-9, not a wider
+                  // oval) since a single centered icon has nowhere
+                  // sensible to grow into an oval.
                   "relative flex items-center justify-center rounded-full border transition-all " +
-                  (inputFocused ? "h-9 w-9" : "h-8 w-8") + " " +
+                  (searchExpanded ? "h-9 w-9" : "h-8 w-8") + " " +
                   (currentCategory != null || currentTags.length > 0 || currentLocation != null
                     ? "border-accent/40 bg-accent/10 text-accent"
                     : "border-neutral-300 bg-white text-neutral-500 hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50")

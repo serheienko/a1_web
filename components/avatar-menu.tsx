@@ -203,25 +203,44 @@ export function AvatarMenu() {
   // Aleksandr, 2026-08-30: "у вас (Claude) это сделано для левого меню...
   // наводишь на кнопку, не нажимаешь, оно появляется. Если ушёл не
   // выбрав, исчезает плавно, с opacity. Хочу такое же при наведении на
-  // аватара." Two independent pieces:
-  // (a) hover-intent open/close on the wrapper below (onMouseEnter/
-  //     onMouseLeave) alongside the existing onClick toggle -- click
-  //     still works as before (mobile has no hover at all), hover is
-  //     additive, not a replacement. The close side has a short delay,
-  //     not an instant setOpen(false): this panel sits `mt-2` below the
-  //     button, a real gap the cursor crosses on the way down to it --
-  //     without a delay, that gap would flash-close the panel every
-  //     time before the pointer lands back inside it.
-  // (b) `rendered` here mirrors `open` but lags it on the way to false,
-  //     so the panel stays mounted a beat longer than `open` itself --
-  //     long enough to actually PLAY an opacity/scale transition down
-  //     to 0 instead of just vanishing the instant `open` flips (which
-  //     is all the old plain `{open && (...)}` below ever did, hover or
-  //     not). `animate-popover` (used elsewhere in this codebase) only
-  //     ever animated the OPEN direction for exactly that reason; this
-  //     replaces it here with a two-way transition instead of adding a
-  //     mismatched keyframe-out on top of it.
+  // аватара." First pass had two real bugs, both reported back with a
+  // screen recording:
+  //
+  // 1) "не исчезает всегда... по горизонтали сверху исчезает, вниз по
+  //    вертикали не исчезает, зависает" -- the panel sat `mt-2` below
+  //    the button, a real gap where NOTHING is painted. Whether a
+  //    mouseleave/re-entering mouseenter fires correctly while crossing
+  //    that dead strip depends on the exact pixels the cursor happens to
+  //    cross and how fast -- exactly the "sometimes works, sometimes
+  //    doesn't, direction-dependent" symptom described. The robust fix
+  //    used by basically every hover-menu isn't a longer delay (still
+  //    racy), it's removing the dead zone: the outer positioning wrapper
+  //    below now uses `pt-2` (padding) instead of `mt-2` (margin) and
+  //    starts flush at `top-full`, so the hoverable rectangle is
+  //    CONTINUOUS from the button's bottom edge through to the visible
+  //    card -- there is no pixel in between that belongs to neither. The
+  //    visible card (background/border/shadow) is a separate inner div
+  //    so the padding itself stays invisible.
+  // 2) "появляется не плавно... скопируй точно, как у вас" -- mounting
+  //    the panel already at its OPEN opacity/scale (which the previous
+  //    version did, since `open` was already true the instant `rendered`
+  //    flipped true in the same commit) gives CSS nothing to transition
+  //    FROM -- a transition only plays on a CHANGE after paint, not on
+  //    an element's very first frame. `visible` is the fix: the panel
+  //    mounts in its closed style, then a rAF (guaranteed to run only
+  //    after that closed frame has actually painted) flips it to open,
+  //    so the opacity/scale change is a real, animated transition
+  //    exactly like a native hover-card rather than a pop.
+  //
+  // Hover-intent open/close (onMouseEnter/onMouseLeave on the wrapper)
+  // is additive to the existing onClick toggle -- click still works as
+  // before, which matters since mobile has no hover at all. The close
+  // side keeps a short delay (not instant setOpen(false)): even with the
+  // dead-zone gone, a brief grace period is still what makes "moved
+  // toward the panel and back" or a jittery cursor path feel forgiving
+  // rather than twitchy.
   const [rendered, setRendered] = useState(false);
+  const [visible, setVisible] = useState(false);
   const hoverCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const HOVER_CLOSE_DELAY_MS = 200;
   const CLOSE_TRANSITION_MS = 150;
@@ -229,8 +248,10 @@ export function AvatarMenu() {
   useEffect(() => {
     if (open) {
       setRendered(true);
-      return;
+      const raf = requestAnimationFrame(() => setVisible(true));
+      return () => cancelAnimationFrame(raf);
     }
+    setVisible(false);
     const timer = setTimeout(() => setRendered(false), CLOSE_TRANSITION_MS);
     return () => clearTimeout(timer);
   }, [open]);
@@ -382,12 +403,23 @@ export function AvatarMenu() {
               <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} aria-hidden="true" />,
               document.body,
             )}
-          <div
-            className={
-              "absolute right-0 top-full z-50 mt-2 w-72 max-w-[calc(100vw-2rem)] origin-top-right overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-2 shadow-lg transition duration-150 ease-out dark:border-neutral-700 dark:bg-neutral-900 " +
-              (open ? "opacity-100 scale-100" : "pointer-events-none opacity-0 scale-95")
-            }
-          >
+          {/* Outer wrapper: `pt-2` PADDING (not `mt-2` margin) is the
+              actual fix for the "hangs open / closes inconsistently"
+              bug -- see this component's state-block comment above. The
+              wrapper itself stays visually invisible (no background/
+              border/shadow of its own) so it doesn't change how the
+              panel looks; it only extends the real, continuous
+              mouse-hoverable rectangle from the button down through
+              what used to be a dead-space gap. All the actual card
+              styling that used to live on this same div moved to the
+              inner child div below. */}
+          <div className="absolute right-0 top-full z-50 w-72 max-w-[calc(100vw-2rem)] origin-top-right pt-2">
+            <div
+              className={
+                "overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-2 shadow-lg transition duration-150 ease-out dark:border-neutral-700 dark:bg-neutral-900 " +
+                (visible ? "opacity-100 scale-100" : "pointer-events-none opacity-0 scale-95")
+              }
+            >
             {/* Aleksandr, 2026-08-30: "мои посты и просмотр профиля
                 должны жить в одном месте... поднять выше, это более
                 нужная информация" -- one grouped, tinted block instead
@@ -493,6 +525,7 @@ export function AvatarMenu() {
             >
               {STRINGS.signOut[lang]}
             </button>
+            </div>
           </div>
         </>
       )}
