@@ -1114,9 +1114,18 @@ export function PostEditor({
     // underneath stays visible and scrollable, matching "чтобы лента
     // сама типа дергалась, как бы рефрешилась" -- the actual refresh
     // happens via onSaved() in submit() once the request resolves and
-    // this whole component unmounts.
+    // this whole component unmounts. This swap IS the editor closing --
+    // the big multi-field form is gone the instant this branch renders,
+    // leaving only this small card.
+    //
+    // 2026-08-30 (screen recording): "появляется справа... надо, чтобы
+    // по центру сверху над лентой показывалась эта штука" -- was
+    // `items-end ... sm:justify-end` (bottom on mobile, bottom-right on
+    // desktop); moved to top-center on every viewport, with enough
+    // top padding to clear the sticky nav bar (site-nav.tsx) instead of
+    // sitting flush under/behind it.
     return (
-      <div className="pointer-events-none fixed inset-0 z-[60] flex items-end justify-center p-4 sm:justify-end">
+      <div className="pointer-events-none fixed inset-0 z-[60] flex items-start justify-center p-4 pt-20">
         <div className="pointer-events-auto flex w-full max-w-xs items-center gap-3 rounded-2xl bg-white p-3 pr-4 shadow-xl ring-1 ring-black/5 dark:bg-neutral-900 dark:ring-white/10">
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium text-neutral-900 dark:text-neutral-50">
