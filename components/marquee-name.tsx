@@ -11,6 +11,15 @@
 // before this component existed — no duplicated text in the DOM, no
 // animation, nothing measurably different.
 //
+// Aleksandr, 2026-08-30 follow-up: "марки на десктопе не нужен, только
+// на моб, если имя не помещается на экран... там имя всегда поместится,
+// экран же очень широкий" — desktop is deliberately never considered for
+// marquee, even if some pathological name+layout combination could make
+// it overflow there. Below MOBILE_BREAKPOINT_PX it behaves exactly as
+// before (measure + marquee when overflowing); at or above it, it never
+// measures into marquee mode and always renders the plain truncated
+// heading.
+//
 // Deliberately independent of the gradient-fill feature itself (still
 // waiting on the backend field to persist it in, plus Figma's exact
 // color codes) so this can ship on its own; the two will likely end up
@@ -23,6 +32,11 @@
 
 import { useEffect, useRef, useState } from "react";
 
+// Matches the codebase's Tailwind "sm:" breakpoint (640px) used right at
+// this component's own call site (text-xl sm:text-2xl) — below this is
+// "mobile" for marquee purposes, at/above it marquee is disabled outright.
+const MOBILE_BREAKPOINT_PX = 640;
+
 export function MarqueeName({ text, className }: { text: string; className?: string }) {
   const containerRef = useRef<HTMLHeadingElement>(null);
   const measureRef = useRef<HTMLSpanElement>(null);
@@ -34,6 +48,12 @@ export function MarqueeName({ text, className }: { text: string; className?: str
       const container = containerRef.current;
       const span = measureRef.current;
       if (!container || !span) return;
+      // Desktop is always wide enough for a name to fit — never even
+      // consider marquee mode there, regardless of measured overflow.
+      if (window.innerWidth >= MOBILE_BREAKPOINT_PX) {
+        setOverflowing(false);
+        return;
+      }
       // +1px tolerance for sub-pixel rounding so a name that JUST fits
       // doesn't flicker into marquee mode.
       const over = span.scrollWidth > container.clientWidth + 1;
