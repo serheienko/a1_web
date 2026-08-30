@@ -2774,3 +2774,47 @@ active tab's `bg-white` to `bg-white/100` — forces Tailwind's
 opacity-variable-based background color to a literal, fully opaque
 white regardless of what `--tw-bg-opacity` happened to resolve to,
 rather than trusting the plain utility class.
+
+### 6.52 Profile-page crash fix + scoped error boundary; avatar menu opens on hover (2026-08-30)
+
+Aleksandr, screen recording: reloading a profile page right after §6.50
+(own drafts/scheduled in the Пости tab) shipped crashed the whole page,
+showing "Не вдалося завантажити вакансії" — obviously wrong copy for a
+profile page, which is what led to finding the real cause. There is no
+`app/u/[username]/error.tsx`, so any crash there bubbles to the root
+`app/error.tsx`, whose text is hardcoded for the jobs feed.
+
+Root cause in `components/profile-tabs.tsx`: its fetch chain checked
+`data.ok` before calling `setOwnDrafts(data.draftsAndScheduled)`, but
+never checked that `draftsAndScheduled` was actually present — a
+response from just before §6.50 shipped (a tab with a cached response,
+or a request racing the rolling deploy) returns `{ ok: true, posts }`
+with no `draftsAndScheduled` field at all, since that field didn't
+exist yet. `setOwnDrafts(undefined)` then crashed the very next render
+at `ownDrafts.length`/`ownDrafts.map`. Fixed by validating
+`Array.isArray(data.draftsAndScheduled)` before using it — an
+unexpected shape now just means "no drafts/scheduled shown", same as
+before this feature existed, instead of taking the page down.
+
+Also added `app/u/[username]/error.tsx`, mirroring `app/jobs/error.tsx`'s
+own pattern but with wording that actually fits a profile page — a
+backstop so any *other* future crash there gets a sensible message
+instead of reusing the jobs-feed one.
+
+Separately, same conversation: "у вас (Claude) это сделано для левого
+меню... наводишь на кнопку, не нажимаешь, оно появляется, если ушёл не
+выбрав — исчезает плавно, с opacity. Хочу такое же на аватара."
+`components/avatar-menu.tsx` now opens on `onMouseEnter` (additive to
+the existing `onClick` toggle, which still matters for touch) with a
+200ms delayed close on `onMouseLeave` — the panel sits a real `mt-2`
+gap below the button, and without that delay the cursor crossing that
+gap on the way down would flash-close it before landing back inside.
+Also replaced the old instant `{open && (...)}` unmount with a
+`rendered` state that lags `open` by ~150ms on the way to false, so the
+panel actually plays an opacity/scale-down transition instead of
+vanishing outright — this applies to every way the menu closes (hover-
+away, a link click, the backdrop), not just the new hover path.
+Deliberately scoped to just this component, not the 3 other places
+sharing the `.animate-popover` entrance class (settings-menu.tsx,
+post-owner-menu.tsx, filters-form.tsx's filter popover) — only the
+avatar menu was asked for.
