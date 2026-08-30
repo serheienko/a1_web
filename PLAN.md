@@ -2718,3 +2718,42 @@ the pre-fix JS bundle before that deploy finished propagating, since a
 already-open tab doesn't pick up a new deploy without a reload. Flagged
 rather than "fixed" again blind — needs Aleksandr to hard-refresh and
 retest before this is touched further.
+
+### 6.50 Profile "Пости" tab: own drafts/scheduled posts with a gray badge (2026-08-30)
+
+Aleksandr, closing the loop §6.45 left open: "во вкладке посты,
+черновики, просто помечаем плашечкой draft, там где у тебя сейчас, ну,
+другой: Jobs... Мы помечаем другим цветом, типа сереньким draft,
+черновики, запланированные scheduled — это уже у нас решенный вопрос."
+§6.45 removed the avatar-menu's "Мої пости" row on the theory that the
+profile's own Posts tab already unified everything into one place — it
+didn't: that tab (§6.44) only ever showed already-published posts,
+matching the public feed by design, so drafts/scheduled lost their only
+home.
+
+- `lib/a1/mappers.ts`: new exported `mapOwnPost()` — identical field
+  mapping to `mapPost()`, but only excludes ARCHIVED (soft-deleted),
+  not DRAFT/SCHEDULED like the public-facing gate does. Only ever safe
+  to call on the signed-in visitor's own posts (enforced by its caller
+  always being `posts.search({ author: "me" })`).
+- `app/api/posts/mine/route.ts`: new `draftsAndScheduled` field
+  alongside the existing `posts` (left byte-for-byte unchanged for
+  `my-posts-panel.tsx`/`post-owner-menu.tsx`) — each entry a
+  `{ post: WebPost, status: "draft" | "scheduled" }` via `mapOwnPost()`.
+- `components/post-card.tsx`: new optional `statusBadge` prop that
+  replaces the colored Jobs/Talent pill with a plain one when set.
+  Unset for every existing caller (feeds, load-more) — no visual change
+  there.
+- `components/profile-tabs.tsx`: on mount, calls `/api/account/whoami`
+  and compares its username against the `profileUsername` prop (new,
+  from `app/u/[username]/page.tsx`) — only on a match (this IS the
+  visitor's own profile) does it fetch `/api/posts/mine` and render its
+  `draftsAndScheduled` cards above the server-rendered published list,
+  each with a small gray badge ("Чернетка"/"Заплановано", same
+  translated labels `my-posts-panel.tsx` already had). Silently does
+  nothing for a signed-out visitor or anyone else's profile — same
+  posts-only view as before for those.
+- Deliberately did NOT fold `my-posts-panel.tsx`'s inline edit/delete
+  into this view — Aleksandr's message asked specifically about the
+  status badge, not the CRUD actions; that file is still left in place,
+  unused, if that turns out to be wanted too.
