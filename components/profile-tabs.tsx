@@ -113,7 +113,38 @@ export function ProfileTabs({
         // shown" -- same as before this feature existed -- instead of
         // taking the whole page down.
         if (Array.isArray(data.draftsAndScheduled)) {
-          setOwnDrafts(data.draftsAndScheduled as MinePostCard[]);
+          // 2026-08-30 follow-up (Aleksandr, live: opening/reloading a
+          // profile with a draft crashed with "Не вдалося завантажити
+          // профіль" again even after the Array.isArray guard above --
+          // reproduced live, console showed "TypeError: e.getTime is
+          // not a function" from lib/format.ts's formatRelativeTime(),
+          // called by PostCard with `post.publishedAt`. Root cause:
+          // WebPost's `publishedAt`/`updatedAt` are typed as `Date`,
+          // which holds for `posts` (server-rendered, passed down as a
+          // prop -- Next's RSC payload keeps real Date instances across
+          // that boundary), but NOT for this array -- it crossed a
+          // plain `fetch().json()` from a CLIENT component, and
+          // `JSON.stringify` on the API route turned those Dates into
+          // ISO strings with nothing on this end to revive them.
+          // `ownDrafts` is also rendered into the DOM even while the
+          // "Про мене" tab is active (this whole section only gets
+          // `hidden`, not unmounted -- see this component's own header
+          // comment on why), so the crash could happen right after
+          // opening the profile, before ever touching the "Пости" tab,
+          // matching every "просто открыл профиль и упало" report so
+          // far. Reviving both fields back into real Date objects here
+          // keeps this array honoring the same WebPost contract the
+          // server-rendered `posts` prop already does, instead of
+          // quietly handing PostCard a string where its type says Date.
+          const revived = (data.draftsAndScheduled as MinePostCard[]).map((card) => ({
+            ...card,
+            post: {
+              ...card.post,
+              publishedAt: new Date(card.post.publishedAt),
+              updatedAt: card.post.updatedAt ? new Date(card.post.updatedAt) : null,
+            },
+          }));
+          setOwnDrafts(revived);
         }
       })
       .catch(() => {

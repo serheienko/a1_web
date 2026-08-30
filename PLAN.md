@@ -2865,3 +2865,50 @@ filter-button widening:
    `h-9 w-9` toggle — everything now stays expanded for as long as
    either the input is genuinely focused or the filter popover itself
    is open.
+
+### 6.54 Real fix for the profile-page crash (Date fields lost across a client fetch); search width reverted to focus-only (2026-08-30)
+
+Aleksandr reported the profile crash was STILL happening after §6.52's
+`Array.isArray(data.draftsAndScheduled)` guard, specifically when a
+draft exists ("если есть драфты"). Reproduced live in his real Chrome
+session (jobs.a1appp.com, signed-in account, a saved draft post):
+opening or reloading the profile crashed to "Не вдалося завантажити
+профіль" every time, console showing `TypeError: e.getTime is not a
+function` thrown from `lib/format.ts`'s `formatRelativeTime()`, called
+by `PostCard` with `post.publishedAt`.
+
+Real root cause, different from §6.52's: `WebPost.publishedAt` /
+`updatedAt` are typed as `Date`. That holds for the server-rendered
+`posts` prop (Next's RSC payload preserves real `Date` instances across
+that particular boundary), but NOT for `ownDrafts` in
+`components/profile-tabs.tsx` -- that array comes from a plain client
+`fetch("/api/posts/mine").then(r => r.json())` in a client component,
+and `NextResponse.json()` on the API route serializes `Date` objects to
+ISO strings with nothing on the client reviving them back.
+`Array.isArray` only checked the array itself existed, not that its
+contents matched the `WebPost` contract -- so `PostCard` received a
+string where its prop type promised a `Date`, and crashed formatting a
+"posted N days ago" label. This also explains why it crashed on a
+plain page load, before ever clicking "Пости": that section only gets
+`hidden` when its tab isn't active (see this component's own header
+comment on why), it's still mounted and rendered.
+
+Fixed by reviving both fields with `new Date(...)` right after the
+`Array.isArray` check, before `setOwnDrafts` -- `ownDrafts` now honors
+the same `WebPost` contract the server-rendered `posts` prop already
+does.
+
+Separately confirmed live (same session) that the "Про мене"/"Пости"
+tab pill IS correctly fully opaque white per §6.51's `bg-white/100` --
+Aleksandr couldn't have seen this on his own profile since it always
+crashed first; verified directly on a draft-free profile in light
+theme.
+
+Also, §6.53's `searchExpanded` change (search box widens on Filters
+click alone) was wrong per Aleksandr's follow-up: "если ничего не
+трогаешь с поиском, нажал фильтры -- оно просто по ширине короткого
+фильтра разошлось [только кнопка]... если уже нажал input и при этом
+открыл фильтры -- тогда по всей ширине." Reverted the search box's own
+`maxWidth` effect back to `inputFocused` alone (matching §6.47); the
+filter BUTTON's own `h-8`/`h-9` size toggle keeps using `searchExpanded`
+so it still grows on its own click regardless of the search box.
