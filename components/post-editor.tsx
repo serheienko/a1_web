@@ -194,13 +194,11 @@ const TITLE_MIN = 10;
 // символов на заголовок [из моб. приложения] и поставить также в
 // десктопе." The live failure (Vercel logs, 2026-08-29 23:29 UTC) was
 // just a bare 500 INTERNAL_SERVER_ERROR from posts.createPost with no
-// validation message or character count in it -- so unlike every other
-// PLAN.md fix in this file, there's no confirmed number to copy, only
-// confirmation that SOME cap exists and this app has none client-side
-// today. 120 is a placeholder pending Aleksandr checking the mobile
-// app's own input (its maxLength is presumably a hard stop on typing,
-// per his own description) -- update this the moment that number is
-// known instead of leaving it as a guess.
+// validation message or character count in it, so 120 first went in as
+// an unconfirmed placeholder -- Aleksandr has since checked the mobile
+// app's own input against this and confirmed 120 is right ("да, вроде
+// такой лимит и есть"), so this is now a real confirmed limit like
+// every other PLAN.md fix in this file, not a guess.
 const TITLE_MAX = 120;
 const DESCRIPTION_MIN = 30;
 const MAX_PHOTOS = 3;
@@ -1582,7 +1580,7 @@ export function PostEditor({
                 disabled={pendingAction !== null}
                 className={"flex-1 rounded-full bg-accent py-2.5 text-sm font-bold tracking-wide text-white transition hover:opacity-90 disabled:opacity-50" + (!canSubmit ? " opacity-50" : "")}
               >
-                {pendingAction === "post" ? <Spinner className="mx-auto h-4 w-4" /> : t("saveChanges", lang)}
+                {t("saveChanges", lang)}
               </button>
             ) : (
               <>
@@ -1618,7 +1616,7 @@ export function PostEditor({
                       disabled={pendingAction !== null}
                       className={"flex-1 rounded-full bg-accent py-2.5 text-sm font-bold tracking-wide text-white transition hover:opacity-90 disabled:opacity-50" + (!canSubmit || !scheduleIsValid() ? " opacity-50" : "")}
                     >
-                      {pendingAction === "schedule" ? <Spinner className="mx-auto h-4 w-4" /> : t("scheduleActionCaps", lang)}
+                      {t("scheduleActionCaps", lang)}
                     </button>
                   </>
                 ) : (
@@ -1643,7 +1641,7 @@ export function PostEditor({
                       disabled={pendingAction !== null}
                       className={"flex-1 rounded-full bg-accent py-2.5 text-sm font-bold tracking-wide text-white transition hover:opacity-90 disabled:opacity-50" + (!canSubmit ? " opacity-50" : "")}
                     >
-                      {pendingAction === "post" ? <Spinner className="mx-auto h-4 w-4" /> : (mode === "edit" || savedPostId ? t("saveChanges", lang) : t("post", lang))}
+                      {mode === "edit" || savedPostId ? t("saveChanges", lang) : t("post", lang)}
                     </button>
                   </>
                 )}
@@ -1692,7 +1690,18 @@ export function PostEditor({
                 <select
                   value={calYear}
                   onChange={(e) => onCalYearChange(Number(e.target.value))}
-                  className={inputClass + " w-20 shrink-0 py-1.5 text-xs"}
+                  // Aleksandr, 2026-08-30 (mobile screenshot): this select
+                  // was rendering nearly full-width, squeezing the month
+                  // select next to it down to just its disclosure arrow.
+                  // Root cause: inputClass already bakes in `w-full`, and
+                  // an appended `w-20` has the SAME CSS specificity (both
+                  // are single-class width rules) -- which one wins is
+                  // decided by their order in Tailwind's compiled
+                  // stylesheet, not by the order they're written in this
+                  // className string, and here `w-full` was winning. `!`
+                  // (Tailwind's important modifier) forces this w-20 to
+                  // actually apply regardless of that ordering.
+                  className={inputClass + " !w-20 shrink-0 py-1.5 text-xs"}
                 >
                   {scheduleYearOptions.map((y) => (
                     <option key={y} value={y}>{y}</option>
@@ -1735,7 +1744,11 @@ export function PostEditor({
                 type="time"
                 value={schedule.time}
                 onChange={(e) => setSchedule((s) => ({ ...s, time: e.target.value }))}
-                className={inputClass + " w-full py-2 text-sm"}
+                // Aleksandr, 2026-08-30: "уменьши ширину" -- was
+                // stretching edge-to-edge (inputClass's own `w-full`);
+                // `!w-32` is plenty for an HH:MM value and matches the
+                // compact treatment now used for the year select above.
+                className={inputClass + " !w-32 py-2 text-sm"}
               />
             </div>
             {!scheduleIsValid() && <p className="text-xs text-red-500">{t("scheduleInvalid", lang)}</p>}
