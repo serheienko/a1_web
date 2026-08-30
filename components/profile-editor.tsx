@@ -111,6 +111,13 @@ const MAX_LANGUAGES = 10;
 const MAX_HOBBIES = 5;
 const MAX_COMPANIES = 10;
 
+// 2026-08-30, live-testing feedback ("отдельная кнопка 'present' которая
+// будет показывать, что до сейчас"): the value written into a company's
+// positionEnd field when the "Present" toggle is on -- see the Companies
+// section's own isPositionOngoing comment for why this is a plain string
+// sentinel rather than a dedicated boolean field.
+const PRESENT_SENTINEL = "Present";
+
 const OCCUPATION_VALUES = ["entrepreneur", "professional", "freelancer"] as const;
 type OccupationValue = (typeof OCCUPATION_VALUES)[number];
 
@@ -150,7 +157,7 @@ type StringKey =
   | "linkTitlePlaceholder" | "linkUrlPlaceholder" | "addLink"
   | "companyNamePlaceholder" | "companyDescriptionPlaceholder" | "companyCategoryPlaceholder"
   | "companyCategoryEmpty" | "companyPositionTitlePlaceholder" | "companyPositionStartPlaceholder"
-  | "companyPositionEndPlaceholder" | "companyEmployeesPlaceholder"
+  | "companyPositionEndPlaceholder" | "companyPresent" | "companyEmployeesPlaceholder"
   | "companyLinkUrlPlaceholder"
   | "addCompany" | "companyUntitled"
   | "educationPlaceholder" | "addEducation"
@@ -342,17 +349,18 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   // компанії" / "Your position in company", not the shorter "Посада" /
   // "Role / title" this used to say.
   companyPositionTitlePlaceholder: { uk: "Ваша посада в компанії", en: "Your position in company", ru: "Ваша должность в компании", de: "Ihre Position im Unternehmen", es: "Tu puesto en la empresa", fr: "Votre poste dans l'entreprise", pl: "Twoje stanowisko w firmie", ptBR: "Seu cargo na empresa", zh: "您在公司的职位" },
-  // 2026-08-30, live-testing feedback ("нейминг должен совпадать"): the
-  // mobile app's own screenshot shows the bare English words "Start"/
-  // "End" as the field labels even in its Ukrainian screen (no "(напр.
-  // 2020)"/"(или «по н.в.»)" hint, and apparently never localized to
-  // "Початок"/"Кінець" on that side either) -- matching that literally
-  // rather than guessing a "better" translation these fields never
-  // actually had. positionEnd stays a free-text field here (see this
-  // company block's own comment above) -- leave it blank for an ongoing
-  // role, there's no separate "Present" toggle on the web yet.
-  companyPositionStartPlaceholder: { uk: "Start", en: "Start", ru: "Start", de: "Start", es: "Start", fr: "Start", pl: "Start", ptBR: "Start", zh: "Start" },
-  companyPositionEndPlaceholder: { uk: "End", en: "End", ru: "End", de: "End", es: "End", fr: "End", pl: "End", ptBR: "End", zh: "End" },
+  // 2026-08-30, live-testing feedback ("Надо время в компании полями
+  // 'from', 'to'"): superseding the earlier literal "Start"/"End" (which
+  // matched the mobile app's own, apparently-never-localized labels) --
+  // this explicit follow-up asked for From/To specifically, properly
+  // translated per locale this time since it's this app's own naming
+  // choice rather than an attempt to mirror the mobile app's wording.
+  companyPositionStartPlaceholder: { uk: "Від", en: "From", ru: "От", de: "Von", es: "Desde", fr: "De", pl: "Od", ptBR: "De", zh: "从" },
+  companyPositionEndPlaceholder: { uk: "До", en: "To", ru: "До", de: "Bis", es: "Hasta", fr: "À", pl: "Do", ptBR: "Até", zh: "至" },
+  // 2026-08-30, live-testing feedback: "отдельная кнопка 'present' которая
+  // будет показывать, что до сейчас" -- see PRESENT_SENTINEL's own
+  // comment for how this toggle is represented in positionEnd.
+  companyPresent: { uk: "Дотепер", en: "Present", ru: "По наст. время", de: "Aktuell", es: "Actual", fr: "Actuel", pl: "Obecnie", ptBR: "Atual", zh: "至今" },
   // 2026-08-30, live-testing feedback ("нейминг должен совпадать"): back
   // to the full "Кількість співробітників"/"Number of employees" per the
   // mobile app's own screenshot -- the 2026-08-30 "К-сть співроб." shortening
@@ -1884,11 +1892,14 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
                     Company type/handleSave's own comment on that schema
                     for the "every key must still be present" constraint
                     that's why turnover isn't simply deleted from the
-                    payload-building code below). Not replicating the
-                    "Present" toggle itself -- End stays a free-text field
-                    here, left blank for an ongoing role -- that's a
-                    separate widget-behavior change from the field-list/
-                    naming fix actually asked for. */}
+                    payload-building code below).
+                    2026-08-30 follow-up ("Надо время в компании полями
+                    'from', 'to' и отдельная кнопка 'present'"): Start/End
+                    renamed to From/To, and the "Present" toggle IS now
+                    implemented below (superseding the "not replicating"
+                    note this comment used to have) -- see
+                    isPositionOngoing's own comment just below for how
+                    it's represented without a dedicated backend field. */}
                 <input
                   type="text"
                   value={company.name}
@@ -1896,22 +1907,64 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
                   placeholder={t("companyNamePlaceholder", lang)}
                   className={inputClass}
                 />
-                <div className="grid grid-cols-2 gap-1.5">
-                  <input
-                    type="text"
-                    value={company.positionStart}
-                    onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, positionStart: e.target.value } : c))); markDirty(); }}
-                    placeholder={t("companyPositionStartPlaceholder", lang)}
-                    className={inputClass}
-                  />
-                  <input
-                    type="text"
-                    value={company.positionEnd}
-                    onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, positionEnd: e.target.value } : c))); markDirty(); }}
-                    placeholder={t("companyPositionEndPlaceholder", lang)}
-                    className={inputClass}
-                  />
-                </div>
+                {(() => {
+                  // ProfileInputPositionSchema.end is just a plain
+                  // nullable string -- there's no dedicated "is this
+                  // ongoing" boolean anywhere in the backend shape (see
+                  // lib/a1/schemas.ts). Rather than inventing a new
+                  // client-only field that handleSave would then have to
+                  // remember to translate back into *something* on save,
+                  // "Present" reuses the same positionEnd string field as
+                  // a sentinel value: pressing the toggle just writes the
+                  // literal English word "Present" into it (always
+                  // English, regardless of UI language -- it's a stored
+                  // data value now, not display text, same as how a
+                  // visitor could always free-type the word "present"
+                  // into this field even before this toggle existed). The
+                  // input itself shows the properly localized word while
+                  // that sentinel is active, and disables editing so it
+                  // can't drift out of sync with the toggle.
+                  // Case-insensitive: an existing company loaded from the
+                  // backend (set from the mobile app, or a visitor who
+                  // free-typed the word before this toggle existed) could
+                  // plausibly have "present"/"PRESENT" rather than this
+                  // component's own exact "Present" casing.
+                  const isPositionOngoing = company.positionEnd.trim().toLowerCase() === PRESENT_SENTINEL.toLowerCase();
+                  return (
+                    <>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <input
+                          type="text"
+                          value={company.positionStart}
+                          onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, positionStart: e.target.value } : c))); markDirty(); }}
+                          placeholder={t("companyPositionStartPlaceholder", lang)}
+                          className={inputClass}
+                        />
+                        <input
+                          type="text"
+                          value={isPositionOngoing ? t("companyPresent", lang) : company.positionEnd}
+                          onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, positionEnd: e.target.value } : c))); markDirty(); }}
+                          placeholder={t("companyPositionEndPlaceholder", lang)}
+                          disabled={isPositionOngoing}
+                          className={inputClass + (isPositionOngoing ? " opacity-60" : "")}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCompanies((prev) =>
+                            prev.map((c) => (c.id === company.id ? { ...c, positionEnd: isPositionOngoing ? "" : PRESENT_SENTINEL } : c)),
+                          );
+                          markDirty();
+                        }}
+                        aria-pressed={isPositionOngoing}
+                        className={pillClass(isPositionOngoing) + " self-start"}
+                      >
+                        {t("companyPresent", lang)}
+                      </button>
+                    </>
+                  );
+                })()}
                 <div className="relative">
                   <input
                     type="text"
