@@ -2990,3 +2990,50 @@ keepWideForFilters)`; the filter BUTTON's own size keeps using the
 simpler `inputFocused || filtersOpen` (`searchExpanded`) -- growing
 the button on every Filters click was never in question, only the
 search box's width was.
+
+### 6.58 Scheduled posts invisible until reload + error hidden behind the schedule calendar (2026-08-30)
+
+Aleksandr, screen recording: scheduled a post from the "+" FAB; the
+posting-cat banner ran for under a second, then the full "Новий пост"
+form reappeared with the exact same field values and the schedule
+calendar still open, no visible error -- looking like the schedule
+action and the "Зберегти чернетку?" close-confirm were fighting each
+other. Two separate, confirmed bugs, both fixed here:
+
+1. components/profile-tabs.tsx fetches drafts/scheduled posts once on
+   mount only. Scheduling (or drafting, or editing) a post from
+   anywhere else on the page -- the FAB lives in the root layout,
+   entirely outside this component's tree -- never told it to refetch,
+   so the new "Заплановано" card was invisible until a full page
+   reload. Reproduced live: scheduled a test post, it was missing from
+   "Пости" until reloading the profile, then appeared correctly with
+   the right badge. Fix: components/post-editor.tsx now dispatches a
+   plain `window.dispatchEvent(new Event("a1:post-saved"))` right
+   after every successful save (post/draft/schedule, from every entry
+   point this editor has), and profile-tabs.tsx's fetch chain is now a
+   named `load()` function called both on mount and on that event.
+
+2. On a failed submit, `scheduleOpen` was never reset to false. The
+   error message (`{error}`) renders earlier in the dialog's scrollable
+   area, and the schedule popover is `position: fixed`, anchored near
+   the footer -- when scheduling fails with the calendar still open,
+   the calendar stays open on top of the reappeared form and sits
+   exactly where the error text would be, hiding it completely. This
+   is the best explanation I have for what the recording shows -- I
+   could NOT reproduce the underlying request failure itself live (my
+   own test schedule, same account type, succeeded cleanly end to
+   end), so the actual cause of THAT particular failure is still
+   unconfirmed; labeling this explicitly per PLAN's no-blind-guessing
+   rule. Fixed the visibility bug regardless: both the `!res.ok` branch
+   and the `catch` block in submit() now also call
+   `setScheduleOpen(false)`, so a real failure shows its error instead
+   of silently reverting behind the calendar. If this recurs, a
+   screenshot with the form visible (or the browser console) will tell
+   us what's actually failing server-side.
+
+Also, per the same recording ("текст возле кота можно сделать
+'планирую', и локализовать на всі мови"): added a schedule-specific
+banner label, `schedulingLabel` ("Планується..." uk, matching the
+existing passive-voice pattern of "Публікується.../Оновлюється..."),
+shown whenever `pendingAction === "schedule"`, localized across all 9
+languages, instead of reusing the generic "Публікується...".
