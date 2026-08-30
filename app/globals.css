@@ -315,3 +315,39 @@ html {
     width: 40% !important;
   }
 }
+
+/*
+ * Name marquee -- Aleksandr, 2026-08-30 (mobile app screen recording of
+ * the gradient-name picker): a display name too long for its container
+ * auto-scrolls right-to-left instead of just truncating with an
+ * ellipsis -- "текст бежал слева направо, потому что слишком длинное
+ * было имя... применился маркиз, просто не поместилось." Scoped to
+ * components/marquee-name.tsx, which only renders this track at all
+ * once it's measured the name as actually overflowing -- a short name
+ * never gets this class, never duplicates its text, never animates.
+ * That component renders two copies of the name back to back; a
+ * translateX to exactly -50% is the standard seamless-loop marquee
+ * trick -- at -50% the second copy sits exactly where the first one
+ * started, so the loop point is invisible. The actual per-name speed is
+ * set inline (animation-duration) by that component, scaled to the
+ * name's measured width -- this class only supplies a sane fallback.
+ */
+@keyframes marquee-name {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee-name {
+  animation: marquee-name 10s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee-name {
+    animation: none;
+    transform: none;
+  }
+}

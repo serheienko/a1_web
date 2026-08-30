@@ -526,3 +526,152 @@ export function parseUserProfile(raw: unknown): UserProfileResult | null {
   console.warn("[lib/a1/schemas] dropped unparseable user profile");
   return null;
 }
+
+// ---------------------------------------------------------------------------
+// account.updateProfile — write-side input for the full profile editor
+// (components/profile-editor.tsx, 2026-08-30). Every top-level key is
+// OPTIONAL — account.updateProfile's own documented contract is "no fields
+// required, send only what changed" (app/api/account/update-profile/
+// route.ts's original comment), and the editor only ever includes the
+// sections the visitor actually touched in a given save, same spirit as
+// PostInput but partial rather than a full replace.
+//
+// `companies[]` is the one exception: when present, EVERY sub-field below
+// must be present on each entry (not just non-null) — this is CONFIRMED
+// live, 2026-08-29, the hard way (see update-profile/route.ts's own
+// history: the backend 400'd on each missing key in turn until all seven
+// of name/description/position/turnover/employeesCount/category/link were
+// sent). `est` (founding year) was never exercised by that confirmation
+// pass — onboarding's own company entry never set one — so it's included
+// here purely by name-symmetry with the read side's UserCompanySchema.est,
+// NOT independently confirmed; if the backend 400s on it specifically,
+// that's the next live error to fix this against.
+// ---------------------------------------------------------------------------
+
+export const ProfileInputLinkSchema = z.object({
+  title: z.string().catch(""),
+  url: z.string().trim().min(1),
+});
+
+export const ProfileInputPositionSchema = z.object({
+  description: z.string().nullable(),
+  start: z.string().nullable(),
+  end: z.string().nullable(),
+});
+
+export const ProfileInputCompanySchema = z.object({
+  name: z.string(),
+  description: z.string().nullable(),
+  position: ProfileInputPositionSchema.nullable(),
+  turnover: z.number().nullable(),
+  employeesCount: z.number(),
+  category: z.number().nullable(),
+  link: ProfileInputLinkSchema.nullable(),
+  est: z.number().nullable().optional(),
+});
+
+export const ProfileInputSkillSchema = z.object({
+  value: z.string().trim().min(1),
+  level: z.number().min(0).max(100),
+});
+
+export const ProfileInputLanguageSchema = z.object({
+  value: z.string().trim().min(1),
+  level: z.number().min(0).max(4),
+});
+
+export const ProfileInputBookSchema = z.object({
+  title: z.string().trim().min(1),
+  author: z.string().catch(""),
+});
+
+export const ProfileInputTitleSchema = z.object({
+  title: z.string().trim().min(1),
+});
+
+// Same shape as PostInputMediaSchema (MediaDocumentSchema.pick({
+// fileReference: true})) — inferred by symmetry with the confirmed
+// posts.createPost/updatePost fix (this file's own comment on
+// PostInputMediaSchema), not independently confirmed for account.
+// updateProfile's photos/voiceIntroduction fields yet.
+export const ProfileInputMediaSchema = MediaDocumentSchema.pick({ fileReference: true });
+
+const ProfileInputWorkStylePreferencesSchema = z.object({
+  workEnvironment: z.array(z.number()),
+  personalityType: z.array(z.number()),
+  workLifeBalance: z.array(z.number()),
+  workStyle: z.array(z.number()),
+  workAvailability: z.array(z.number()),
+  projectType: z.array(z.number()),
+  leadershipStyle: z.array(z.number()),
+  riskTolerance: z.array(z.number()),
+  workloadAndTaskDelegation: z.array(z.number()),
+  decisionMakingStyle: z.array(z.number()),
+  preferredCollaborationStyle: z.array(z.number()),
+  partnershipPreference: z.array(z.number()),
+  preferredWorkingEnvironment: z.array(z.number()),
+  learningStyle: z.array(z.number()),
+});
+
+export const ProfileInputOccupationSchema = z.enum(["entrepreneur", "professional", "freelancer"]);
+
+export const ProfileInputSchema = z.object({
+  firstName: z.string().trim().optional(),
+  lastName: z.string().trim().optional(),
+  occupation: ProfileInputOccupationSchema.optional(),
+  expertise: z.string().trim().optional(),
+  bio: z.string().optional(),
+  profileTitle: z.string().trim().nullable().optional(),
+  location: z.number().nullable().optional(),
+  photos: z.array(ProfileInputMediaSchema).optional(),
+  voiceIntroduction: ProfileInputMediaSchema.nullable().optional(),
+  links: z.array(ProfileInputLinkSchema).optional(),
+  companies: z.array(ProfileInputCompanySchema).optional(),
+  education: z.array(z.string()).optional(),
+  skills: z.array(ProfileInputSkillSchema).optional(),
+  languages: z.array(ProfileInputLanguageSchema).optional(),
+  hobbies: z.array(z.number()).optional(),
+  workInterests: z.array(z.number()).optional(),
+  favoriteBooks: z.array(ProfileInputBookSchema).optional(),
+  favoriteMovies: z.array(ProfileInputTitleSchema).optional(),
+  favoriteGames: z.array(ProfileInputTitleSchema).optional(),
+  workStylePreferences: ProfileInputWorkStylePreferencesSchema.optional(),
+});
+export type ProfileInput = z.infer<typeof ProfileInputSchema>;
+
+// ---------------------------------------------------------------------------
+// Full editable snapshot of the SIGNED-IN visitor's own profile — the data
+// components/profile-editor.tsx prefills its form from. Deliberately wider
+// than WebProfile (types/web-profile.ts): the editor needs the raw
+// MediaDocument objects for photos/voiceIntroduction (to resend unchanged
+// alongside a new upload, and to know each existing photo's fileReference
+// well enough to drop it) and the raw dataset ids everywhere, none of
+// which WebProfile exposes (PLAN.md §2.4 anti-corruption layer — that type
+// is for rendering someone else's profile, not for round-tripping the
+// owner's own). This is returned ONLY by app/api/account/profile-editor/
+// bootstrap/route.ts, which calls account.updateProfile({}) the same
+// no-op-read trick app/api/account/whoami/route.ts already uses, and is
+// never handed to any page that renders another visitor's profile.
+export const EditableProfileSchema = z.object({
+  firstName: z.string().catch(""),
+  lastName: z.string().catch(""),
+  occupation: z.string().catch(""),
+  expertise: z.string().nullable().catch(null),
+  bio: z.string().catch(""),
+  profileTitle: z.string().nullable().catch(null),
+  photos: z.array(MediaDocumentSchema).catch([]),
+  voiceIntroduction: MediaDocumentSchema.nullable().catch(null),
+  location: WorldLocationSchema.nullable().catch(null),
+  links: z.array(UserLinkSchema).catch([]),
+  companies: z.array(UserCompanySchema).catch([]),
+  education: z.array(z.string()).catch([]),
+  skills: z.array(UserSkillSchema).catch([]),
+  languages: z.array(UserLanguageSchema).catch([]),
+  hobbies: z.array(z.number()).catch([]),
+  workInterests: z.array(z.number()).catch([]),
+  favoriteBooks: z.array(FavoriteBookSchema).catch([]),
+  favoriteMovies: z.array(FavoriteTitleSchema).catch([]),
+  favoriteGames: z.array(FavoriteTitleSchema).catch([]),
+  workStylePreferences: WorkStylePreferencesSchema.catch(EMPTY_WORK_STYLE_PREFERENCES),
+});
+export type EditableProfile = z.infer<typeof EditableProfileSchema>;

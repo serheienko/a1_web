@@ -8,6 +8,7 @@ import { cache } from "react";
 import { z } from "zod";
 import { call } from "./client";
 import { decodeHtmlEntities } from "../format";
+import { WORK_STYLE_DATASET_KEYS as WORK_STYLE_DATASET_KEYS_RAW } from "../work-style-keys";
 
 const CategorySchema = z.object({
   value: z.number(),
@@ -195,22 +196,14 @@ export type WorkStylePreferencesDataset = z.infer<typeof WorkStylePreferencesOut
 
 // User-field key -> dataset key. Every key maps to itself except the one
 // confirmed rename above.
-export const WORK_STYLE_DATASET_KEYS = {
-  workEnvironment: "workEnvironment",
-  personalityType: "personalityType",
-  workLifeBalance: "workLifeBalance",
-  workStyle: "workStyle",
-  workAvailability: "workAvailability",
-  projectType: "projectType",
-  leadershipStyle: "leadershipStyle",
-  riskTolerance: "riskTolerance",
-  workloadAndTaskDelegation: "workloadTaskDelegation",
-  decisionMakingStyle: "decisionMakingStyle",
-  preferredCollaborationStyle: "preferredCollaborationStyle",
-  partnershipPreference: "partnershipPreference",
-  preferredWorkingEnvironment: "preferredWorkingEnvironment",
-  learningStyle: "learningStyle",
-} as const satisfies Record<string, keyof WorkStylePreferencesDataset>;
+//
+// 2026-08-30: the actual mapping literal moved to lib/work-style-keys.ts
+// so a client component (components/profile-editor.tsx) could import it
+// without pulling this module's server-only fetch chain into a client
+// bundle — see that file's own header comment. Re-exported here through
+// a `satisfies` check so every existing server-side caller of THIS
+// export (app/u/[username]/page.tsx) is unaffected.
+export const WORK_STYLE_DATASET_KEYS = WORK_STYLE_DATASET_KEYS_RAW satisfies Record<string, keyof WorkStylePreferencesDataset>;
 
 export const fetchWorkStylePreferences = cache(async function fetchWorkStylePreferences(): Promise<WorkStylePreferencesDataset> {
   const raw = await call<unknown>("dataset.workStylePreferences", {});

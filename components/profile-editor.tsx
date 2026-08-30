@@ -1,0 +1,1862 @@
+// components/profile-editor.tsx
+//
+// 2026-08-30 (Aleksandr, from two screenshots of his own "Al Ex" profile
+// card): the full profile-editing dialog — every field
+// account.updateProfile accepts (ProfileInputSchema / EditableProfileSchema,
+// lib/a1/schemas.ts), not a phased subset. "Да, со всех полей." Modeled
+// directly on components/post-editor.tsx's own dialog (same chrome, same
+// bootstrap-then-edit-then-save shape, same client-side compression
+// approach for photos) since that component is this codebase's only
+// precedent for "a big multi-section CRUD dialog talking to the A1 API."
+//
+// Field-by-field requirements, all from that same message:
+//   - Photos: max 3, client-compressed to ~200-300KB each — copies
+//     post-editor.tsx's compressImage() verbatim (same constants, same
+//     canvas-resize-then-step-down-JPEG-quality approach). The first
+//     photo doubles as the profile avatar (lib/a1/user-mappers.ts:
+//     avatarUrl = photos[0]) — called out in the section hint rather
+//     than left as a silent surprise.
+//   - Voice intro: "Голосовая визитка у нас тоже проходит звуковую
+//     очистку и сжимается, посмотри как это у нас сделано" — turned out
+//     nothing existed to look at (components/voice-intro-context.tsx is
+//     playback-only, confirmed by full read). Built fresh below:
+//     getUserMedia's raw mic stream is routed through a small live
+//     Web Audio graph (highpass filter to cut low rumble, then a
+//     DynamicsCompressorNode to even out loudness — literally "audio
+//     cleanup + compression") before MediaRecorder ever sees it, and
+//     the recorder itself encodes opus at a capped 64kbps — a second,
+//     file-size sense of "compression" — instead of the browser's much
+//     larger default bitrate. No mobile-app internals were available to
+//     reverse-engineer here (native app code, not this web repo), so
+//     this is a from-scratch design matching the ASK ("cleaned up and
+//     compressed"), not a port of an existing implementation.
+//   - Edit-button placement: see components/edit-profile-button.tsx and
+//     its call site in app/u/[username]/page.tsx.
+//   - Favorite books/movies/games: this dialog only collects title(+
+//     author) text — the attractive cover art the profile page renders
+//     (lib/covers.ts, resolved by title against OpenLibrary/TMDB/RAWG)
+//     is a RENDER-time lookup, confirmed by reading that file and its
+//     one call site (app/u/[username]/page.tsx's favoriteTile()); there
+//     is no cover-picking UI to build here.
+//   - Occupation: "та же штука, что и при онбординге, там у нас
+//     коты-анимации с фоном" — reuses <OccupationIcon background={true}>,
+//     the ORIGINAL (non-"-nobg") variant app/onboarding/profile/
+//     profile-setup-form.tsx already uses, not the plain profile-page
+//     background={false} one.
+//   - "Поля естественно тоже должны быть CRUD" — every list field
+//     (links, companies, education, skills, languages, favorites) has
+//     its own add/edit/remove controls in this dialog's local state.
+//     Deliberately NOT one API call per list-item edit though: this
+//     dialog holds the visitor's whole editable profile as one local
+//     snapshot (bootstrapped once from GET /api/account/profile-editor/
+//     bootstrap) and a single "Save" button persists the entire
+//     snapshot via POST /api/account/profile-editor/update — the CRUD
+//     the request asked for is real (add/edit/remove any entry, freely,
+//     before saving), it just batches into one write, the same way this
+//     component's own form fields already would.
+//
+// Explicitly OUT of scope here: the animated-gradient display name
+// Aleksandr also asked for ("На имя можнно настраивать прикольный
+// градиент с анимацией") — confirmed via exhaustive search that nothing
+// like it exists anywhere in this web codebase yet, and he's sending a
+// screenshot/video of the mobile app's version before this attempts to
+// reverse-engineer or replicate it. Not built here; revisit once that
+// reference material arrives.
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { LOCALES, LOCALE_CLASS, LOCALE_TAG, type Locale } from "@/components/t";
+import { OccupationIcon } from "@/components/occupation-icon";
+import { OCCUPATION_LABELS } from "@/components/occupation-labels";
+import { WORK_STYLE_PREFERENCE_SECTIONS } from "@/components/work-style-labels";
+// Value import from the client-safe standalone module, NOT lib/a1/
+// datasets.ts directly — that file's own real dependency chain (lib/a1/
+// client.ts -> lib/a1/auth.ts, the server-only service-account token
+// cache) must never end up in this "use client" component's bundle. See
+// lib/work-style-keys.ts's header comment. Category/WorkStylePreferencesDataset
+// below are `import type` only, which TypeScript fully erases, so those
+// two are safe to pull from lib/a1/datasets.ts itself.
+import { WORK_STYLE_DATASET_KEYS } from "@/lib/work-style-keys";
+import type { Category, WorkStylePreferencesDataset } from "@/lib/a1/datasets";
+import type { EditableProfile, MediaDocument } from "@/lib/a1/schemas";
+
+// ---------------------------------------------------------------------------
+// Constants shared with components/post-editor.tsx's own photo handling —
+// same numbers, same reasoning ("фото повинні стискатися і зберігатися в
+// розмірі макс 200-300 кб на шт").
+// ---------------------------------------------------------------------------
+const MAX_PHOTOS = 3;
+const MAX_PHOTO_BYTES = 300 * 1024;
+const MAX_PHOTO_DIMENSION = 1600;
+const VOICE_MAX_SECONDS = 60;
+const VOICE_MIME_CANDIDATES = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
+const VOICE_BITRATE = 64000;
+
+const OCCUPATION_VALUES = ["entrepreneur", "professional", "freelancer"] as const;
+type OccupationValue = (typeof OCCUPATION_VALUES)[number];
+
+// A curated common-language list for the searchable picker below —
+// Resource.User.languages[].value is a bare ISO 639-1 code with no
+// dataset.* lookup of its own (confirmed: lib/format.ts's
+// formatLanguageName() already resolves these via Intl.DisplayNames
+// rather than a backend-provided list), so there is nothing to fetch
+// here. This is deliberately a practical subset, not the full ISO list —
+// a language missing from it can still be typed directly into the
+// filter box (see languageOptions below, which always includes an exact
+// typed code even if unlisted).
+const COMMON_LANGUAGE_CODES = [
+  "en", "es", "fr", "de", "it", "pt", "ru", "uk", "pl", "zh", "ja", "ko", "ar", "hi", "tr",
+  "nl", "sv", "no", "da", "fi", "cs", "el", "he", "th", "vi", "id", "ms", "ro", "hu", "bg",
+  "hr", "sk", "sr", "fa", "ur", "bn", "ta", "sw", "et", "lt", "lv", "sl",
+];
+
+// ---------------------------------------------------------------------------
+// i18n — same STRINGS/t() pattern as components/post-editor.tsx.
+// ---------------------------------------------------------------------------
+type StringKey =
+  | "dialogTitle" | "close" | "save" | "saving" | "saveFailed" | "notSignedIn"
+  | "closeConfirmTitle" | "closeConfirmBody" | "continueEditing" | "discardClose"
+  | "sectionBasic" | "sectionPhotos" | "sectionVoice" | "sectionLinks" | "sectionCompanies"
+  | "sectionEducation" | "sectionSkills" | "sectionLanguages" | "sectionHobbies"
+  | "sectionInterests" | "sectionFavorites" | "sectionWorkStyle"
+  | "firstNameLabel" | "lastNameLabel" | "bioLabel" | "bioPlaceholder"
+  | "profileTitleLabel" | "profileTitlePlaceholder" | "occupationLabel"
+  | "expertiseLabel" | "expertisePlaceholder" | "locationLabel" | "locationPlaceholder"
+  | "locationEmpty" | "locationSearching" | "locationClear"
+  | "photoHint" | "photoTooMany" | "photoTooBig" | "photoUploadFailed"
+  | "voiceHint" | "recordStart" | "recordStop" | "recordUploading" | "recordFailed"
+  | "removeVoice" | "micDenied" | "recordNotSupported" | "playVoice"
+  | "linkTitlePlaceholder" | "linkUrlPlaceholder" | "addLink"
+  | "companyNamePlaceholder" | "companyDescriptionPlaceholder" | "companyCategoryPlaceholder"
+  | "companyCategoryEmpty" | "companyPositionTitlePlaceholder" | "companyPositionStartPlaceholder"
+  | "companyPositionEndPlaceholder" | "companyEmployeesPlaceholder" | "companyTurnoverPlaceholder"
+  | "companyFoundedPlaceholder" | "companyLinkTitlePlaceholder" | "companyLinkUrlPlaceholder"
+  | "addCompany" | "companyUntitled"
+  | "educationPlaceholder" | "addEducation"
+  | "skillNamePlaceholder" | "skillLevelLabel" | "addSkill"
+  | "languagePlaceholder" | "languageLevelLabel" | "levelBeginner" | "levelElementary"
+  | "levelIntermediate" | "levelAdvanced" | "levelNative" | "addLanguage"
+  | "favoriteBooksLabel" | "favoriteMoviesLabel" | "favoriteGamesLabel"
+  | "titlePlaceholder" | "authorPlaceholder" | "addItem"
+  | "addAria" | "removeAria" | "loadFailed";
+
+const STRINGS: Record<StringKey, Record<Locale, string>> = {
+  dialogTitle: {
+    uk: "Редагувати профіль", en: "Edit profile", ru: "Редактировать профиль", de: "Profil bearbeiten",
+    es: "Editar perfil", fr: "Modifier le profil", pl: "Edytuj profil", ptBR: "Editar perfil", zh: "编辑资料",
+  },
+  close: { uk: "Закрити", en: "Close", ru: "Закрыть", de: "Schließen", es: "Cerrar", fr: "Fermer", pl: "Zamknij", ptBR: "Fechar", zh: "关闭" },
+  save: { uk: "Зберегти", en: "Save", ru: "Сохранить", de: "Speichern", es: "Guardar", fr: "Enregistrer", pl: "Zapisz", ptBR: "Salvar", zh: "保存" },
+  saving: { uk: "Зберігаємо…", en: "Saving…", ru: "Сохраняем…", de: "Speichern…", es: "Guardando…", fr: "Enregistrement…", pl: "Zapisywanie…", ptBR: "Salvando…", zh: "保存中…" },
+  saveFailed: {
+    uk: "Не вдалося зберегти. Спробуйте ще раз.", en: "Couldn't save. Please try again.",
+    ru: "Не удалось сохранить. Попробуйте ещё раз.", de: "Speichern fehlgeschlagen. Bitte erneut versuchen.",
+    es: "No se pudo guardar. Inténtalo de nuevo.", fr: "Échec de l'enregistrement. Réessayez.",
+    pl: "Nie udało się zapisać. Spróbuj ponownie.", ptBR: "Não foi possível salvar. Tente novamente.", zh: "保存失败,请重试。",
+  },
+  notSignedIn: {
+    uk: "Сесію завершено. Увійдіть ще раз.", en: "Your session ended. Please sign in again.",
+    ru: "Сессия завершена. Войдите ещё раз.", de: "Sitzung beendet. Bitte erneut anmelden.",
+    es: "Tu sesión terminó. Inicia sesión de nuevo.", fr: "Session terminée. Reconnectez-vous.",
+    pl: "Sesja wygasła. Zaloguj się ponownie.", ptBR: "Sessão encerrada. Faça login novamente.", zh: "会话已结束,请重新登录。",
+  },
+  closeConfirmTitle: {
+    uk: "Закрити без збереження?", en: "Close without saving?", ru: "Закрыть без сохранения?",
+    de: "Ohne Speichern schließen?", es: "¿Cerrar sin guardar?", fr: "Fermer sans enregistrer ?",
+    pl: "Zamknąć bez zapisywania?", ptBR: "Fechar sem salvar?", zh: "不保存就关闭?",
+  },
+  closeConfirmBody: {
+    uk: "Ваші зміни в профілі не буде збережено.", en: "Your profile changes won't be saved.",
+    ru: "Ваши изменения в профиле не будут сохранены.", de: "Ihre Profiländerungen werden nicht gespeichert.",
+    es: "No se guardarán los cambios en tu perfil.", fr: "Vos modifications de profil ne seront pas enregistrées.",
+    pl: "Zmiany w profilu nie zostaną zapisane.", ptBR: "Suas alterações de perfil não serão salvas.", zh: "您的资料更改将不会保存。",
+  },
+  continueEditing: { uk: "Продовжити редагування", en: "Continue editing", ru: "Продолжить редактирование", de: "Weiter bearbeiten", es: "Seguir editando", fr: "Continuer à modifier", pl: "Kontynuuj edycję", ptBR: "Continuar editando", zh: "继续编辑" },
+  discardClose: { uk: "Закрити без збереження", en: "Discard and close", ru: "Закрыть без сохранения", de: "Verwerfen und schließen", es: "Descartar y cerrar", fr: "Ignorer et fermer", pl: "Odrzuć i zamknij", ptBR: "Descartar e fechar", zh: "放弃并关闭" },
+  sectionBasic: { uk: "Основне", en: "Basics", ru: "Основное", de: "Grundlagen", es: "Datos básicos", fr: "Informations de base", pl: "Podstawy", ptBR: "Informações básicas", zh: "基本信息" },
+  sectionPhotos: { uk: "Фото", en: "Photos", ru: "Фото", de: "Fotos", es: "Fotos", fr: "Photos", pl: "Zdjęcia", ptBR: "Fotos", zh: "照片" },
+  sectionVoice: { uk: "Голосова візитка", en: "Voice intro", ru: "Голосовая визитка", de: "Sprachvorstellung", es: "Presentación de voz", fr: "Présentation vocale", pl: "Wizytówka głosowa", ptBR: "Apresentação em áudio", zh: "语音简介" },
+  sectionLinks: { uk: "Посилання", en: "Links", ru: "Ссылки", de: "Links", es: "Enlaces", fr: "Liens", pl: "Linki", ptBR: "Links", zh: "链接" },
+  sectionCompanies: { uk: "Компанії", en: "Companies", ru: "Компании", de: "Unternehmen", es: "Empresas", fr: "Entreprises", pl: "Firmy", ptBR: "Empresas", zh: "公司" },
+  sectionEducation: { uk: "Освіта", en: "Education", ru: "Образование", de: "Ausbildung", es: "Educación", fr: "Formation", pl: "Edukacja", ptBR: "Educação", zh: "教育经历" },
+  sectionSkills: { uk: "Навички", en: "Skills", ru: "Навыки", de: "Fähigkeiten", es: "Habilidades", fr: "Compétences", pl: "Umiejętności", ptBR: "Habilidades", zh: "技能" },
+  sectionLanguages: { uk: "Мови", en: "Languages", ru: "Языки", de: "Sprachen", es: "Idiomas", fr: "Langues", pl: "Języki", ptBR: "Idiomas", zh: "语言" },
+  sectionHobbies: { uk: "Хобі", en: "Hobbies", ru: "Хобби", de: "Hobbys", es: "Aficiones", fr: "Loisirs", pl: "Hobby", ptBR: "Hobbies", zh: "爱好" },
+  sectionInterests: { uk: "Інтереси в роботі", en: "Work interests", ru: "Интересы в работе", de: "Berufliche Interessen", es: "Intereses laborales", fr: "Intérêts professionnels", pl: "Zainteresowania zawodowe", ptBR: "Interesses profissionais", zh: "工作兴趣" },
+  sectionFavorites: { uk: "Улюблене", en: "Favorites", ru: "Избранное", de: "Favoriten", es: "Favoritos", fr: "Favoris", pl: "Ulubione", ptBR: "Favoritos", zh: "收藏" },
+  sectionWorkStyle: { uk: "Стиль роботи", en: "Work style", ru: "Стиль работы", de: "Arbeitsstil", es: "Estilo de trabajo", fr: "Style de travail", pl: "Styl pracy", ptBR: "Estilo de trabalho", zh: "工作风格" },
+  firstNameLabel: { uk: "Ім'я", en: "First name", ru: "Имя", de: "Vorname", es: "Nombre", fr: "Prénom", pl: "Imię", ptBR: "Nome", zh: "名字" },
+  lastNameLabel: { uk: "Прізвище", en: "Last name", ru: "Фамилия", de: "Nachname", es: "Apellido", fr: "Nom", pl: "Nazwisko", ptBR: "Sobrenome", zh: "姓氏" },
+  bioLabel: { uk: "Про себе", en: "Bio", ru: "О себе", de: "Über mich", es: "Biografía", fr: "Bio", pl: "O mnie", ptBR: "Bio", zh: "简介" },
+  bioPlaceholder: {
+    uk: "Розкажіть трохи про себе", en: "Tell people a bit about yourself", ru: "Расскажите немного о себе",
+    de: "Erzählen Sie etwas über sich", es: "Cuéntanos un poco sobre ti", fr: "Parlez un peu de vous",
+    pl: "Opowiedz o sobie", ptBR: "Conte um pouco sobre você", zh: "简单介绍一下自己",
+  },
+  profileTitleLabel: { uk: "Заголовок профілю", en: "Profile title", ru: "Заголовок профиля", de: "Profiltitel", es: "Título del perfil", fr: "Titre du profil", pl: "Tytuł profilu", ptBR: "Título do perfil", zh: "个人主页标题" },
+  profileTitlePlaceholder: {
+    uk: "Наприклад, «Senior Frontend розробник»", en: "e.g. \"Senior Frontend Developer\"",
+    ru: "Например, «Senior Frontend разработчик»", de: "z. B. „Senior Frontend-Entwickler“",
+    es: "Ej.: «Desarrollador Frontend Senior»", fr: "Ex. : « Développeur Frontend Senior »",
+    pl: "Np. „Senior Frontend Developer”", ptBR: "Ex.: \"Desenvolvedor Frontend Sênior\"", zh: "例如“高级前端开发工程师”",
+  },
+  occupationLabel: { uk: "Я...", en: "I am a...", ru: "Я...", de: "Ich bin...", es: "Soy...", fr: "Je suis...", pl: "Jestem...", ptBR: "Eu sou...", zh: "我是..." },
+  expertiseLabel: { uk: "Роль і навички", en: "Role & skills", ru: "Роль и навыки", de: "Rolle & Fähigkeiten", es: "Rol y habilidades", fr: "Rôle et compétences", pl: "Rola i umiejętności", ptBR: "Função e habilidades", zh: "角色与技能" },
+  expertisePlaceholder: {
+    uk: "Розробник, Засновник, Дизайнер", en: "Developer, Founder, Designer", ru: "Разработчик, Основатель, Дизайнер",
+    de: "Entwickler, Gründer, Designer", es: "Desarrollador, Fundador, Diseñador", fr: "Développeur, Fondateur, Designer",
+    pl: "Programista, Założyciel, Projektant", ptBR: "Desenvolvedor, Fundador, Designer", zh: "开发者、创始人、设计师",
+  },
+  locationLabel: { uk: "Місцезнаходження", en: "Location", ru: "Местоположение", de: "Standort", es: "Ubicación", fr: "Localisation", pl: "Lokalizacja", ptBR: "Localização", zh: "所在地" },
+  locationPlaceholder: { uk: "Пошук міста", en: "Search for a city", ru: "Поиск города", de: "Stadt suchen", es: "Buscar ciudad", fr: "Rechercher une ville", pl: "Szukaj miasta", ptBR: "Buscar cidade", zh: "搜索城市" },
+  locationEmpty: { uk: "Нічого не знайдено", en: "No matches", ru: "Ничего не найдено", de: "Keine Treffer", es: "Sin resultados", fr: "Aucun résultat", pl: "Brak wyników", ptBR: "Nenhum resultado", zh: "无匹配结果" },
+  locationSearching: { uk: "Пошук…", en: "Searching…", ru: "Поиск…", de: "Suche…", es: "Buscando…", fr: "Recherche…", pl: "Szukanie…", ptBR: "Buscando…", zh: "搜索中…" },
+  locationClear: { uk: "Очистити", en: "Clear", ru: "Очистить", de: "Löschen", es: "Borrar", fr: "Effacer", pl: "Wyczyść", ptBR: "Limpar", zh: "清除" },
+  photoHint: {
+    uk: "До 3 фото. Перше фото — ваш аватар. Стискаються автоматично.",
+    en: "Up to 3 photos. The first one is your avatar. Compressed automatically.",
+    ru: "До 3 фото. Первое фото — ваш аватар. Сжимаются автоматически.",
+    de: "Bis zu 3 Fotos. Das erste ist Ihr Avatar. Wird automatisch komprimiert.",
+    es: "Hasta 3 fotos. La primera es tu avatar. Se comprimen automáticamente.",
+    fr: "Jusqu'à 3 photos. La première est votre avatar. Compression automatique.",
+    pl: "Do 3 zdjęć. Pierwsze to Twój awatar. Kompresowane automatycznie.",
+    ptBR: "Até 3 fotos. A primeira é seu avatar. Compactadas automaticamente.",
+    zh: "最多 3 张照片。第一张将作为头像,会自动压缩。",
+  },
+  photoTooMany: { uk: "Максимум 3 фото", en: "Maximum 3 photos", ru: "Максимум 3 фото", de: "Maximal 3 Fotos", es: "Máximo 3 fotos", fr: "3 photos maximum", pl: "Maksymalnie 3 zdjęcia", ptBR: "Máximo de 3 fotos", zh: "最多 3 张照片" },
+  photoTooBig: { uk: "Файл занадто великий", en: "File is too large", ru: "Файл слишком большой", de: "Datei ist zu groß", es: "El archivo es demasiado grande", fr: "Le fichier est trop volumineux", pl: "Plik jest zbyt duży", ptBR: "O arquivo é muito grande", zh: "文件过大" },
+  photoUploadFailed: { uk: "Не вдалося завантажити фото", en: "Couldn't upload photo", ru: "Не удалось загрузить фото", de: "Foto-Upload fehlgeschlagen", es: "No se pudo subir la foto", fr: "Échec de l'envoi de la photo", pl: "Nie udało się przesłać zdjęcia", ptBR: "Não foi possível enviar a foto", zh: "照片上传失败" },
+  voiceHint: {
+    uk: `До ${VOICE_MAX_SECONDS} с. Запис автоматично очищується від шуму та стискається.`,
+    en: `Up to ${VOICE_MAX_SECONDS}s. The recording is automatically cleaned up and compressed.`,
+    ru: `До ${VOICE_MAX_SECONDS} с. Запись автоматически очищается от шума и сжимается.`,
+    de: `Bis zu ${VOICE_MAX_SECONDS}s. Die Aufnahme wird automatisch bereinigt und komprimiert.`,
+    es: `Hasta ${VOICE_MAX_SECONDS}s. La grabación se limpia y comprime automáticamente.`,
+    fr: `Jusqu'à ${VOICE_MAX_SECONDS}s. L'enregistrement est nettoyé et compressé automatiquement.`,
+    pl: `Do ${VOICE_MAX_SECONDS}s. Nagranie jest automatycznie oczyszczane i kompresowane.`,
+    ptBR: `Até ${VOICE_MAX_SECONDS}s. A gravação é limpa e compactada automaticamente.`,
+    zh: `最长 ${VOICE_MAX_SECONDS} 秒。录音会自动降噪并压缩。`,
+  },
+  recordStart: { uk: "Записати", en: "Record", ru: "Записать", de: "Aufnehmen", es: "Grabar", fr: "Enregistrer", pl: "Nagraj", ptBR: "Gravar", zh: "录音" },
+  recordStop: { uk: "Зупинити", en: "Stop", ru: "Остановить", de: "Stopp", es: "Detener", fr: "Arrêter", pl: "Zatrzymaj", ptBR: "Parar", zh: "停止" },
+  recordUploading: { uk: "Завантаження…", en: "Uploading…", ru: "Загрузка…", de: "Wird hochgeladen…", es: "Subiendo…", fr: "Envoi…", pl: "Przesyłanie…", ptBR: "Enviando…", zh: "上传中…" },
+  recordFailed: { uk: "Не вдалося записати або завантажити", en: "Couldn't record or upload", ru: "Не удалось записать или загрузить", de: "Aufnahme oder Upload fehlgeschlagen", es: "No se pudo grabar o subir", fr: "Échec de l'enregistrement ou de l'envoi", pl: "Nie udało się nagrać lub przesłać", ptBR: "Não foi possível gravar ou enviar", zh: "录音或上传失败" },
+  removeVoice: { uk: "Видалити запис", en: "Remove recording", ru: "Удалить запись", de: "Aufnahme entfernen", es: "Eliminar grabación", fr: "Supprimer l'enregistrement", pl: "Usuń nagranie", ptBR: "Remover gravação", zh: "删除录音" },
+  micDenied: { uk: "Немає доступу до мікрофона", en: "Microphone access denied", ru: "Нет доступа к микрофону", de: "Kein Mikrofonzugriff", es: "Acceso al micrófono denegado", fr: "Accès au microphone refusé", pl: "Brak dostępu do mikrofonu", ptBR: "Acesso ao microfone negado", zh: "无法访问麦克风" },
+  recordNotSupported: { uk: "Запис не підтримується цим браузером", en: "Recording isn't supported in this browser", ru: "Запись не поддерживается этим браузером", de: "Aufnahme wird von diesem Browser nicht unterstützt", es: "La grabación no es compatible con este navegador", fr: "L'enregistrement n'est pas pris en charge par ce navigateur", pl: "Nagrywanie nie jest obsługiwane w tej przeglądarce", ptBR: "A gravação não é compatível com este navegador", zh: "此浏览器不支持录音" },
+  playVoice: { uk: "Відтворити", en: "Play", ru: "Воспроизвести", de: "Abspielen", es: "Reproducir", fr: "Lire", pl: "Odtwórz", ptBR: "Reproduzir", zh: "播放" },
+  linkTitlePlaceholder: { uk: "Назва (необов'язково)", en: "Title (optional)", ru: "Название (необязательно)", de: "Titel (optional)", es: "Título (opcional)", fr: "Titre (facultatif)", pl: "Nazwa (opcjonalnie)", ptBR: "Título (opcional)", zh: "标题(可选)" },
+  linkUrlPlaceholder: { uk: "https://…", en: "https://…", ru: "https://…", de: "https://…", es: "https://…", fr: "https://…", pl: "https://…", ptBR: "https://…", zh: "https://…" },
+  addLink: { uk: "Додати посилання", en: "Add link", ru: "Добавить ссылку", de: "Link hinzufügen", es: "Añadir enlace", fr: "Ajouter un lien", pl: "Dodaj link", ptBR: "Adicionar link", zh: "添加链接" },
+  companyNamePlaceholder: { uk: "Назва компанії", en: "Company name", ru: "Название компании", de: "Firmenname", es: "Nombre de la empresa", fr: "Nom de l'entreprise", pl: "Nazwa firmy", ptBR: "Nome da empresa", zh: "公司名称" },
+  companyDescriptionPlaceholder: { uk: "Опис компанії", en: "Company description", ru: "Описание компании", de: "Unternehmensbeschreibung", es: "Descripción de la empresa", fr: "Description de l'entreprise", pl: "Opis firmy", ptBR: "Descrição da empresa", zh: "公司简介" },
+  companyCategoryPlaceholder: { uk: "Галузь", en: "Industry", ru: "Отрасль", de: "Branche", es: "Industria", fr: "Secteur", pl: "Branża", ptBR: "Setor", zh: "行业" },
+  companyCategoryEmpty: { uk: "Нічого не знайдено", en: "No matches", ru: "Ничего не найдено", de: "Keine Treffer", es: "Sin resultados", fr: "Aucun résultat", pl: "Brak wyników", ptBR: "Nenhum resultado", zh: "无匹配结果" },
+  companyPositionTitlePlaceholder: { uk: "Посада", en: "Role / title", ru: "Должность", de: "Position", es: "Puesto", fr: "Poste", pl: "Stanowisko", ptBR: "Cargo", zh: "职位" },
+  companyPositionStartPlaceholder: { uk: "Початок (напр. 2020)", en: "Start (e.g. 2020)", ru: "Начало (напр. 2020)", de: "Beginn (z. B. 2020)", es: "Inicio (p. ej. 2020)", fr: "Début (ex. 2020)", pl: "Początek (np. 2020)", ptBR: "Início (ex.: 2020)", zh: "开始时间(如 2020)" },
+  companyPositionEndPlaceholder: { uk: "Кінець (або «дотепер»)", en: "End (or \"present\")", ru: "Конец (или «по н.в.»)", de: "Ende (oder „heute“)", es: "Fin (o «actualidad»)", fr: "Fin (ou « aujourd'hui »)", pl: "Koniec (lub „obecnie”)", ptBR: "Fim (ou \"atual\")", zh: "结束时间(或“至今”)" },
+  companyEmployeesPlaceholder: { uk: "Кількість співробітників", en: "Number of employees", ru: "Количество сотрудников", de: "Anzahl der Mitarbeiter", es: "Número de empleados", fr: "Nombre d'employés", pl: "Liczba pracowników", ptBR: "Número de funcionários", zh: "员工人数" },
+  companyTurnoverPlaceholder: { uk: "Річний оборот", en: "Annual turnover", ru: "Годовой оборот", de: "Jahresumsatz", es: "Facturación anual", fr: "Chiffre d'affaires annuel", pl: "Roczny obrót", ptBR: "Faturamento anual", zh: "年营业额" },
+  companyFoundedPlaceholder: { uk: "Рік заснування", en: "Year founded", ru: "Год основания", de: "Gründungsjahr", es: "Año de fundación", fr: "Année de création", pl: "Rok założenia", ptBR: "Ano de fundação", zh: "成立年份" },
+  companyLinkTitlePlaceholder: { uk: "Назва посилання", en: "Link title", ru: "Название ссылки", de: "Linktitel", es: "Título del enlace", fr: "Titre du lien", pl: "Nazwa linku", ptBR: "Título do link", zh: "链接名称" },
+  companyLinkUrlPlaceholder: { uk: "Сайт компанії", en: "Company website", ru: "Сайт компании", de: "Unternehmenswebsite", es: "Sitio web de la empresa", fr: "Site de l'entreprise", pl: "Strona firmy", ptBR: "Site da empresa", zh: "公司网站" },
+  addCompany: { uk: "Додати компанію", en: "Add company", ru: "Добавить компанию", de: "Unternehmen hinzufügen", es: "Añadir empresa", fr: "Ajouter une entreprise", pl: "Dodaj firmę", ptBR: "Adicionar empresa", zh: "添加公司" },
+  companyUntitled: { uk: "Без назви", en: "Untitled company", ru: "Без названия", de: "Ohne Namen", es: "Sin nombre", fr: "Sans nom", pl: "Bez nazwy", ptBR: "Sem nome", zh: "未命名公司" },
+  educationPlaceholder: { uk: "Навчальний заклад", en: "School or university", ru: "Учебное заведение", de: "Bildungseinrichtung", es: "Centro educativo", fr: "Établissement scolaire", pl: "Placówka edukacyjna", ptBR: "Instituição de ensino", zh: "教育机构" },
+  addEducation: { uk: "Додати освіту", en: "Add education", ru: "Добавить образование", de: "Ausbildung hinzufügen", es: "Añadir educación", fr: "Ajouter une formation", pl: "Dodaj edukację", ptBR: "Adicionar educação", zh: "添加教育经历" },
+  skillNamePlaceholder: { uk: "Навичка", en: "Skill", ru: "Навык", de: "Fähigkeit", es: "Habilidad", fr: "Compétence", pl: "Umiejętność", ptBR: "Habilidade", zh: "技能" },
+  skillLevelLabel: { uk: "Рівень", en: "Level", ru: "Уровень", de: "Niveau", es: "Nivel", fr: "Niveau", pl: "Poziom", ptBR: "Nível", zh: "水平" },
+  addSkill: { uk: "Додати навичку", en: "Add skill", ru: "Добавить навык", de: "Fähigkeit hinzufügen", es: "Añadir habilidad", fr: "Ajouter une compétence", pl: "Dodaj umiejętność", ptBR: "Adicionar habilidade", zh: "添加技能" },
+  languagePlaceholder: { uk: "Пошук мови", en: "Search languages", ru: "Поиск языка", de: "Sprache suchen", es: "Buscar idioma", fr: "Rechercher une langue", pl: "Szukaj języka", ptBR: "Buscar idioma", zh: "搜索语言" },
+  languageLevelLabel: { uk: "Рівень", en: "Level", ru: "Уровень", de: "Niveau", es: "Nivel", fr: "Niveau", pl: "Poziom", ptBR: "Nível", zh: "水平" },
+  levelBeginner: { uk: "Початковий", en: "Beginner", ru: "Начальный", de: "Anfänger", es: "Principiante", fr: "Débutant", pl: "Początkujący", ptBR: "Iniciante", zh: "初级" },
+  levelElementary: { uk: "Базовий", en: "Elementary", ru: "Базовый", de: "Grundkenntnisse", es: "Elemental", fr: "Élémentaire", pl: "Podstawowy", ptBR: "Elementar", zh: "基础" },
+  levelIntermediate: { uk: "Середній", en: "Intermediate", ru: "Средний", de: "Mittelstufe", es: "Intermedio", fr: "Intermédiaire", pl: "Średnio zaawansowany", ptBR: "Intermediário", zh: "中级" },
+  levelAdvanced: { uk: "Просунутий", en: "Advanced", ru: "Продвинутый", de: "Fortgeschritten", es: "Avanzado", fr: "Avancé", pl: "Zaawansowany", ptBR: "Avançado", zh: "高级" },
+  levelNative: { uk: "Рідна", en: "Native", ru: "Родной", de: "Muttersprache", es: "Nativo", fr: "Langue maternelle", pl: "Ojczysty", ptBR: "Nativo", zh: "母语" },
+  addLanguage: { uk: "Додати мову", en: "Add language", ru: "Добавить язык", de: "Sprache hinzufügen", es: "Añadir idioma", fr: "Ajouter une langue", pl: "Dodaj język", ptBR: "Adicionar idioma", zh: "添加语言" },
+  favoriteBooksLabel: { uk: "Улюблені книги", en: "Favorite books", ru: "Любимые книги", de: "Lieblingsbücher", es: "Libros favoritos", fr: "Livres préférés", pl: "Ulubione książki", ptBR: "Livros favoritos", zh: "喜爱的书籍" },
+  favoriteMoviesLabel: { uk: "Улюблені фільми", en: "Favorite movies", ru: "Любимые фильмы", de: "Lieblingsfilme", es: "Películas favoritas", fr: "Films préférés", pl: "Ulubione filmy", ptBR: "Filmes favoritos", zh: "喜爱的电影" },
+  favoriteGamesLabel: { uk: "Улюблені ігри", en: "Favorite games", ru: "Любимые игры", de: "Lieblingsspiele", es: "Juegos favoritos", fr: "Jeux préférés", pl: "Ulubione gry", ptBR: "Jogos favoritos", zh: "喜爱的游戏" },
+  titlePlaceholder: { uk: "Назва", en: "Title", ru: "Название", de: "Titel", es: "Título", fr: "Titre", pl: "Tytuł", ptBR: "Título", zh: "标题" },
+  authorPlaceholder: { uk: "Автор (необов'язково)", en: "Author (optional)", ru: "Автор (необязательно)", de: "Autor (optional)", es: "Autor (opcional)", fr: "Auteur (facultatif)", pl: "Autor (opcjonalnie)", ptBR: "Autor (opcional)", zh: "作者(可选)" },
+  addItem: { uk: "Додати", en: "Add", ru: "Добавить", de: "Hinzufügen", es: "Añadir", fr: "Ajouter", pl: "Dodaj", ptBR: "Adicionar", zh: "添加" },
+  addAria: { uk: "Додати", en: "Add", ru: "Добавить", de: "Hinzufügen", es: "Añadir", fr: "Ajouter", pl: "Dodaj", ptBR: "Adicionar", zh: "添加" },
+  removeAria: { uk: "Видалити", en: "Remove", ru: "Удалить", de: "Entfernen", es: "Eliminar", fr: "Supprimer", pl: "Usuń", ptBR: "Remover", zh: "删除" },
+  loadFailed: {
+    uk: "Не вдалося завантажити профіль для редагування.", en: "Couldn't load your profile for editing.",
+    ru: "Не удалось загрузить профиль для редактирования.", de: "Profil konnte nicht zum Bearbeiten geladen werden.",
+    es: "No se pudo cargar tu perfil para editar.", fr: "Impossible de charger le profil à modifier.",
+    pl: "Nie udało się wczytać profilu do edycji.", ptBR: "Não foi possível carregar o perfil para edição.", zh: "无法加载资料以进行编辑。",
+  },
+};
+
+function t(key: StringKey, lang: Locale): string {
+  return STRINGS[key][lang];
+}
+
+function useActiveLocale(): Locale {
+  const [lang, setLang] = useState<Locale>("uk");
+  useEffect(() => {
+    const root = document.documentElement;
+    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
+    if (active) setLang(active);
+  }, []);
+  return lang;
+}
+
+// ---------------------------------------------------------------------------
+// Shared visual classes — copied from components/post-editor.tsx so this
+// dialog reads as the same design language.
+// ---------------------------------------------------------------------------
+const inputClass =
+  "w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 text-sm text-neutral-900 outline-none transition focus:border-accent/40 focus:ring-2 focus:ring-accent/30 dark:border-neutral-700 dark:bg-black dark:text-neutral-100";
+const labelClass = "text-xs font-medium text-neutral-500 dark:text-neutral-400";
+const pillClass = (active: boolean) =>
+  "rounded-full border px-3 py-1.5 text-xs font-medium transition " +
+  (active
+    ? "border-accent bg-accent/10 text-accent"
+    : "border-neutral-300 text-neutral-600 hover:border-neutral-400 dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-neutral-600");
+
+function CloseIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  );
+}
+function TrashIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13" />
+    </svg>
+  );
+}
+function PlusIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className={"h-4 w-4 shrink-0 text-neutral-400 transition-transform dark:text-neutral-500 " + (open ? "rotate-180" : "")}>
+      <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function Spinner({ className }: { className?: string }) {
+  return (
+    <svg className={"animate-spin " + (className ?? "h-4 w-4")} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.25" />
+      <path d="M22 12a10 10 0 0 0-10-10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+    </svg>
+  );
+}
+function MicIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="9" y="2" width="6" height="12" rx="3" />
+      <path d="M5 10v1a7 7 0 0 0 14 0v-1M12 18v4M9 22h6" />
+    </svg>
+  );
+}
+function StopSquareIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <rect x="5" y="5" width="14" height="14" rx="2" />
+    </svg>
+  );
+}
+function PlayIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M8 5.14v13.72c0 .84.93 1.36 1.65.92l10.57-6.86a1.06 1.06 0 0 0 0-1.84L9.65 4.22C8.93 3.78 8 4.3 8 5.14Z" />
+    </svg>
+  );
+}
+
+function newId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  return Math.random().toString(36).slice(2);
+}
+
+// Same helper components/post-editor.tsx's handleFileSelected() uses, for
+// the same reason: a 401 whose refresh attempt also failed converts to
+// this well-known message server-side (lib/a1/visitor-call.ts), and every
+// caller should react to it by sending the visitor back to sign in
+// instead of showing a generic upload/save error.
+function isNotSignedIn(data: unknown): boolean {
+  return typeof data === "object" && data !== null && (data as { message?: unknown }).message === "not_signed_in";
+}
+
+// Verbatim from components/post-editor.tsx (2026-08-29 round 2's own
+// header comment explains the numbers): resize to a 1600px long edge,
+// re-encode as JPEG, step quality down until under ~280KB. Falls back to
+// the original file on any failure.
+async function compressImage(file: File): Promise<File> {
+  if (!file.type.startsWith("image/") || typeof createImageBitmap !== "function") return file;
+  try {
+    const bitmap = await createImageBitmap(file);
+    let { width, height } = bitmap;
+    if (width > MAX_PHOTO_DIMENSION || height > MAX_PHOTO_DIMENSION) {
+      const scale = MAX_PHOTO_DIMENSION / Math.max(width, height);
+      width = Math.round(width * scale);
+      height = Math.round(height * scale);
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    bitmap.close?.();
+
+    let blob: Blob | null = null;
+    let quality = 0.85;
+    for (let i = 0; i < 6; i++) {
+      blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+      if (!blob || blob.size <= MAX_PHOTO_BYTES || quality <= 0.35) break;
+      quality -= 0.15;
+    }
+    if (!blob) return file;
+    const base = file.name.replace(/\.\w+$/, "") || "photo";
+    return new File([blob], `${base}.jpg`, { type: "image/jpeg" });
+  } catch {
+    return file;
+  }
+}
+
+// Preview URL for a MediaDocument the profile already has (loaded from
+// the bootstrap route), same inline route + query-string shape
+// components/post-editor.tsx already uses for a post's existing media
+// (app/api/media/[docId]/route.ts's own `size` param defaults to
+// "size-photo" when omitted, which lib/a1/user-mappers.ts's
+// buildMediaProxyUrl() already relies on for the voice intro too — see
+// that file's own comment on why an audio doc gets the same param).
+function mediaUrl(doc: MediaDocument): string {
+  return `/api/media/${doc._id}?ref=${encodeURIComponent(doc.fileReference)}`;
+}
+
+function pad2(n: number): string {
+  return n < 10 ? `0${n}` : String(n);
+}
+function formatSeconds(total: number): string {
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${pad2(m)}:${pad2(s)}`;
+}
+
+// ---------------------------------------------------------------------------
+// Collapsible section wrapper — every field group below is one of these.
+// ---------------------------------------------------------------------------
+function Section({
+  title,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="border-b border-neutral-100 py-3 dark:border-neutral-800">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between text-left text-sm font-semibold text-neutral-900 dark:text-neutral-50"
+      >
+        {title}
+        <ChevronIcon open={open} />
+      </button>
+      {open && <div className="mt-3 flex flex-col gap-3">{children}</div>}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Local editable shapes — mirrors of the read-side EditableProfile's own
+// array item shapes, plus a client-only `id` for stable React keys and a
+// couple of fields kept as strings (numbers-as-typed, parsed on save)
+// so a half-typed number never fights the input's own cursor.
+// ---------------------------------------------------------------------------
+type EditableLink = { id: string; title: string; url: string };
+type EditableCompany = {
+  id: string;
+  name: string;
+  description: string;
+  positionTitle: string;
+  positionStart: string;
+  positionEnd: string;
+  employeesCount: string;
+  category: Category | null;
+  turnover: string;
+  est: string;
+  linkTitle: string;
+  linkUrl: string;
+};
+type EditableSkill = { id: string; value: string; level: number };
+type EditableLanguage = { id: string; value: string; level: number };
+type EditableBook = { id: string; title: string; author: string };
+type EditableTitleItem = { id: string; title: string };
+type EditableLocation = { id: number; label: string };
+
+type Bootstrap = {
+  profile: EditableProfile;
+  companyCategories: Category[];
+  hobbyGroups: { group: string; items: { value: number; text: string }[] }[];
+  workInterests: Category[];
+  workStylePreferences: WorkStylePreferencesDataset;
+};
+
+export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const lang = useActiveLocale();
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
+
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+  const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
+  const [dirty, setDirty] = useState(false);
+
+  // ---- basic info ----
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [bio, setBio] = useState("");
+  const [profileTitle, setProfileTitle] = useState("");
+  const [occupation, setOccupation] = useState<OccupationValue | "">("");
+  const [expertise, setExpertise] = useState("");
+  const [location, setLocation] = useState<EditableLocation | null>(null);
+  const [locationQuery, setLocationQuery] = useState("");
+  const [locationOpen, setLocationOpen] = useState(false);
+  const [locationResults, setLocationResults] = useState<EditableLocation[]>([]);
+  const [locationPending, setLocationPending] = useState(false);
+  const [locationSearched, setLocationSearched] = useState(false);
+  const locationDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const locationRequestIdRef = useRef(0);
+
+  // ---- photos ----
+  const [photos, setPhotos] = useState<MediaDocument[]>([]);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
+  // ---- voice intro ----
+  const [voiceDoc, setVoiceDoc] = useState<MediaDocument | null>(null);
+  const [voicePreviewUrl, setVoicePreviewUrl] = useState<string | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordSeconds, setRecordSeconds] = useState(0);
+  const [voiceUploading, setVoiceUploading] = useState(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const micStreamRef = useRef<MediaStream | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const recordChunksRef = useRef<Blob[]>([]);
+  const recordTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ---- CRUD lists ----
+  const [links, setLinks] = useState<EditableLink[]>([]);
+  const [companies, setCompanies] = useState<EditableCompany[]>([]);
+  const [education, setEducation] = useState<{ id: string; value: string }[]>([]);
+  const [skills, setSkills] = useState<EditableSkill[]>([]);
+  const [languages, setLanguages] = useState<EditableLanguage[]>([]);
+  const [favoriteBooks, setFavoriteBooks] = useState<EditableBook[]>([]);
+  const [favoriteMovies, setFavoriteMovies] = useState<EditableTitleItem[]>([]);
+  const [favoriteGames, setFavoriteGames] = useState<EditableTitleItem[]>([]);
+
+  // ---- multi-select sets ----
+  const [selectedHobbies, setSelectedHobbies] = useState<Set<number>>(new Set());
+  const [selectedWorkInterests, setSelectedWorkInterests] = useState<Set<number>>(new Set());
+  const [workStylePrefs, setWorkStylePrefs] = useState<Record<string, Set<number>>>({});
+
+  // Company-category searchable picker (per-row open state keyed by
+  // company id, same combobox pattern app/onboarding/profile/profile-
+  // setup-form.tsx uses for this exact same dataset).
+  const [openCategoryRow, setOpenCategoryRow] = useState<string | null>(null);
+  const [categoryQuery, setCategoryQuery] = useState("");
+
+  // Language searchable picker.
+  const [languagePickerOpen, setLanguagePickerOpen] = useState<string | null>(null);
+  const [languageQuery, setLanguageQuery] = useState("");
+
+  function markDirty() {
+    setDirty(true);
+  }
+
+  // -------------------------------------------------------------------
+  // Bootstrap
+  // -------------------------------------------------------------------
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/account/profile-editor/bootstrap")
+      .then((r) => r.json())
+      .then((data: { ok: boolean; message?: string } & Partial<Bootstrap>) => {
+        if (cancelled) return;
+        if (!data.ok || !data.profile) {
+          if (isNotSignedIn(data)) {
+            window.location.href = "/sign-in?reason=edit-profile";
+            return;
+          }
+          setLoadError(true);
+          setLoading(false);
+          return;
+        }
+        const p = data.profile;
+        setFirstName(p.firstName);
+        setLastName(p.lastName);
+        setBio(p.bio);
+        setProfileTitle(p.profileTitle ?? "");
+        setOccupation(OCCUPATION_VALUES.includes(p.occupation as OccupationValue) ? (p.occupation as OccupationValue) : "");
+        setExpertise(p.expertise ?? "");
+        setLocation(
+          p.location
+            ? { id: p.location._id, label: [p.location.displayName, p.location.country].filter(Boolean).join(", ") || p.location.displayName }
+            : null,
+        );
+        setPhotos(p.photos);
+        setVoiceDoc(p.voiceIntroduction);
+        setLinks(p.links.map((l) => ({ id: newId(), title: l.title, url: l.url })));
+        const companyCategories = data.companyCategories ?? [];
+        setCompanies(
+          p.companies.map((c) => {
+            // A plain `c.category != null ? companyCategories.find(cat =>
+            // cat.value === c.category) : null` loses TS's narrowing of
+            // c.category the moment it's read inside the nested .find()
+            // callback (a fresh function scope) -- capturing it into its
+            // own local first keeps the null-check meaningful instead of
+            // silently falling back to `Category | null | undefined`.
+            const categoryId = c.category;
+            const category = categoryId != null ? (companyCategories.find((cat) => cat.value === categoryId) ?? null) : null;
+            return {
+              id: newId(),
+              name: c.name,
+              description: c.description ?? "",
+              positionTitle: c.position?.description ?? "",
+              positionStart: c.position?.start ?? "",
+              positionEnd: c.position?.end ?? "",
+              employeesCount: c.employeesCount != null ? String(c.employeesCount) : "",
+              category,
+              turnover: "",
+              est: c.est != null ? String(c.est) : "",
+              linkTitle: c.link?.title ?? "",
+              linkUrl: c.link?.url ?? "",
+            };
+          }),
+        );
+        setEducation(p.education.map((value) => ({ id: newId(), value })));
+        setSkills(p.skills.map((s) => ({ id: newId(), value: s.value, level: s.level })));
+        setLanguages(p.languages.map((l) => ({ id: newId(), value: l.value, level: l.level })));
+        setFavoriteBooks(p.favoriteBooks.map((b) => ({ id: newId(), title: b.title, author: b.author })));
+        setFavoriteMovies(p.favoriteMovies.map((m) => ({ id: newId(), title: m.title })));
+        setFavoriteGames(p.favoriteGames.map((g) => ({ id: newId(), title: g.title })));
+        setSelectedHobbies(new Set(p.hobbies));
+        setSelectedWorkInterests(new Set(p.workInterests));
+        const wsp: Record<string, Set<number>> = {};
+        for (const key of Object.keys(WORK_STYLE_DATASET_KEYS) as (keyof typeof WORK_STYLE_DATASET_KEYS)[]) {
+          wsp[key] = new Set(p.workStylePreferences[key]);
+        }
+        setWorkStylePrefs(wsp);
+        setBootstrap({
+          profile: p,
+          companyCategories,
+          hobbyGroups: data.hobbyGroups ?? [],
+          workInterests: data.workInterests ?? [],
+          workStylePreferences: data.workStylePreferences as WorkStylePreferencesDataset,
+        });
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLoadError(true);
+          setLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Body-scroll lock while open, same convention as post-editor.tsx.
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
+  // Stop any in-progress recording / free the mic if the dialog unmounts
+  // mid-recording (closed, navigated away, etc.) — otherwise the mic
+  // stream and the audio graph nodes leak.
+  useEffect(() => {
+    return () => {
+      if (recordTimerRef.current) clearInterval(recordTimerRef.current);
+      micStreamRef.current?.getTracks().forEach((tr) => tr.stop());
+      audioCtxRef.current?.close().catch(() => {});
+    };
+  }, []);
+
+  function requestClose() {
+    if (dirty && !saving) {
+      setConfirmCloseOpen(true);
+      return;
+    }
+    onClose();
+  }
+
+  // -------------------------------------------------------------------
+  // Location search — same debounced-fetch shape as components/post-
+  // editor.tsx's own searchLocationsClient / onLocationQueryChange.
+  // -------------------------------------------------------------------
+  async function searchLocationsClient(q: string) {
+    const trimmed = q.trim();
+    if (trimmed.length < 2) {
+      setLocationResults([]);
+      setLocationPending(false);
+      setLocationSearched(false);
+      return;
+    }
+    const requestId = ++locationRequestIdRef.current;
+    setLocationPending(true);
+    try {
+      const res = await fetch(`/api/locations?q=${encodeURIComponent(trimmed)}`);
+      const data = await res.json();
+      if (requestId === locationRequestIdRef.current) {
+        const all: { id: number; label: string; hasCity?: boolean }[] = Array.isArray(data.results) ? data.results : [];
+        setLocationResults(all.filter((loc) => loc.hasCity !== false));
+        setLocationSearched(true);
+      }
+    } catch {
+      if (requestId === locationRequestIdRef.current) {
+        setLocationResults([]);
+        setLocationSearched(true);
+      }
+    } finally {
+      if (requestId === locationRequestIdRef.current) setLocationPending(false);
+    }
+  }
+  function onLocationQueryChange(value: string) {
+    setLocationQuery(value);
+    setLocationSearched(false);
+    if (locationDebounceRef.current) clearTimeout(locationDebounceRef.current);
+    locationDebounceRef.current = setTimeout(() => searchLocationsClient(value), 350);
+  }
+
+  // -------------------------------------------------------------------
+  // Photos
+  // -------------------------------------------------------------------
+  async function handlePhotoSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (photos.length >= MAX_PHOTOS) {
+      setPhotoError(t("photoTooMany", lang));
+      return;
+    }
+    if (file.size > 25 * 1024 * 1024) {
+      setPhotoError(t("photoTooBig", lang));
+      return;
+    }
+    setPhotoError(null);
+    setPhotoUploading(true);
+    try {
+      const compressed = await compressImage(file);
+      const createRes = await fetch("/api/upload/create", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ mimetype: compressed.type || "application/octet-stream", bytes: compressed.size }),
+      });
+      const createData = await createRes.json();
+      if (!createRes.ok || !createData.ok || !createData.result?.url) {
+        if (isNotSignedIn(createData)) {
+          window.location.href = "/sign-in?reason=edit-profile";
+          return;
+        }
+        setPhotoError(t("photoUploadFailed", lang));
+        setPhotoUploading(false);
+        return;
+      }
+      const { id, url, fields } = createData.result as { id: string; url: string; fields: Record<string, string> };
+      const formData = new FormData();
+      for (const [key, value] of Object.entries(fields ?? {})) formData.append(key, value);
+      formData.append("file", compressed);
+      const uploadRes = await fetch(url, { method: "POST", body: formData });
+      if (!uploadRes.ok) {
+        setPhotoError(t("photoUploadFailed", lang));
+        setPhotoUploading(false);
+        return;
+      }
+      const confirmRes = await fetch("/api/upload/confirm", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ documentId: id }),
+      });
+      const confirmData = await confirmRes.json();
+      if (!confirmRes.ok || !confirmData.ok) {
+        if (isNotSignedIn(confirmData)) {
+          window.location.href = "/sign-in?reason=edit-profile";
+          return;
+        }
+        setPhotoError(t("photoUploadFailed", lang));
+        setPhotoUploading(false);
+        return;
+      }
+      setPhotos((prev) => [...prev, confirmData.media as MediaDocument]);
+      markDirty();
+    } catch {
+      setPhotoError(t("photoUploadFailed", lang));
+    } finally {
+      setPhotoUploading(false);
+    }
+  }
+  function removePhoto(index: number) {
+    setPhotos((prev) => prev.filter((_, i) => i !== index));
+    markDirty();
+  }
+
+  // -------------------------------------------------------------------
+  // Voice intro — record through a live cleanup/compression graph, then
+  // upload through the exact same create/confirm flow as a photo.
+  // -------------------------------------------------------------------
+  async function startRecording() {
+    setVoiceError(null);
+    if (typeof MediaRecorder === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      setVoiceError(t("recordNotSupported", lang));
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micStreamRef.current = stream;
+
+      // The actual "cleanup + compression" graph: a highpass filter
+      // strips low-frequency rumble/handling noise below speech range,
+      // then a DynamicsCompressorNode evens out loud/quiet parts
+      // (normalizes level, gently gates very quiet background noise
+      // between words) — both applied live, before MediaRecorder ever
+      // sees the signal, so the recorded file is already cleaned up,
+      // not just re-encoded smaller.
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const ctx = new AudioCtx();
+      audioCtxRef.current = ctx;
+      const source = ctx.createMediaStreamSource(stream);
+      const highpass = ctx.createBiquadFilter();
+      highpass.type = "highpass";
+      highpass.frequency.value = 100;
+      const compressor = ctx.createDynamicsCompressor();
+      compressor.threshold.value = -28;
+      compressor.knee.value = 24;
+      compressor.ratio.value = 8;
+      compressor.attack.value = 0.003;
+      compressor.release.value = 0.25;
+      const dest = ctx.createMediaStreamDestination();
+      source.connect(highpass);
+      highpass.connect(compressor);
+      compressor.connect(dest);
+
+      // File-size "compression" in the literal sense: a capped opus
+      // bitrate (64kbps) instead of whatever a browser's own default
+      // would pick, same spirit as compressImage()'s JPEG-quality cap
+      // above, just for audio.
+      const mimeType = VOICE_MIME_CANDIDATES.find((m) => MediaRecorder.isTypeSupported(m));
+      const recorder = mimeType
+        ? new MediaRecorder(dest.stream, { mimeType, audioBitsPerSecond: VOICE_BITRATE })
+        : new MediaRecorder(dest.stream);
+      recordChunksRef.current = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordChunksRef.current.push(e.data);
+      };
+      recorder.onstop = () => {
+        const blob = new Blob(recordChunksRef.current, { type: recorder.mimeType || "audio/webm" });
+        stream.getTracks().forEach((tr) => tr.stop());
+        ctx.close().catch(() => {});
+        micStreamRef.current = null;
+        audioCtxRef.current = null;
+        void uploadVoice(blob, recorder.mimeType || "audio/webm");
+      };
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setIsRecording(true);
+      setRecordSeconds(0);
+      recordTimerRef.current = setInterval(() => {
+        setRecordSeconds((s) => {
+          const next = s + 1;
+          if (next >= VOICE_MAX_SECONDS) stopRecording();
+          return next;
+        });
+      }, 1000);
+    } catch {
+      setVoiceError(t("micDenied", lang));
+    }
+  }
+
+  function stopRecording() {
+    if (recordTimerRef.current) {
+      clearInterval(recordTimerRef.current);
+      recordTimerRef.current = null;
+    }
+    setIsRecording(false);
+    mediaRecorderRef.current?.stop();
+  }
+
+  async function uploadVoice(blob: Blob, mimeType: string) {
+    setVoiceUploading(true);
+    try {
+      const ext = mimeType.includes("mp4") ? "m4a" : "webm";
+      const file = new File([blob], `voice-intro.${ext}`, { type: mimeType });
+      const createRes = await fetch("/api/upload/create", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ mimetype: file.type || "application/octet-stream", bytes: file.size }),
+      });
+      const createData = await createRes.json();
+      if (!createRes.ok || !createData.ok || !createData.result?.url) {
+        if (isNotSignedIn(createData)) {
+          window.location.href = "/sign-in?reason=edit-profile";
+          return;
+        }
+        setVoiceError(t("recordFailed", lang));
+        return;
+      }
+      const { id, url, fields } = createData.result as { id: string; url: string; fields: Record<string, string> };
+      const formData = new FormData();
+      for (const [key, value] of Object.entries(fields ?? {})) formData.append(key, value);
+      formData.append("file", file);
+      const uploadRes = await fetch(url, { method: "POST", body: formData });
+      if (!uploadRes.ok) {
+        setVoiceError(t("recordFailed", lang));
+        return;
+      }
+      const confirmRes = await fetch("/api/upload/confirm", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ documentId: id }),
+      });
+      const confirmData = await confirmRes.json();
+      if (!confirmRes.ok || !confirmData.ok) {
+        if (isNotSignedIn(confirmData)) {
+          window.location.href = "/sign-in?reason=edit-profile";
+          return;
+        }
+        setVoiceError(t("recordFailed", lang));
+        return;
+      }
+      setVoiceDoc(confirmData.media as MediaDocument);
+      setVoicePreviewUrl(URL.createObjectURL(blob));
+      markDirty();
+    } catch {
+      setVoiceError(t("recordFailed", lang));
+    } finally {
+      setVoiceUploading(false);
+    }
+  }
+
+  function removeVoice() {
+    setVoiceDoc(null);
+    setVoicePreviewUrl(null);
+    markDirty();
+  }
+
+  // -------------------------------------------------------------------
+  // Save
+  // -------------------------------------------------------------------
+  async function handleSave() {
+    if (saving) return;
+    setSaving(true);
+    setSaveError(false);
+
+    const companiesPayload = companies
+      .filter((c) => c.name.trim() !== "" || c.category !== null)
+      .map((c) => {
+        const hasPosition = c.positionTitle.trim() !== "" || c.positionStart.trim() !== "" || c.positionEnd.trim() !== "";
+        const employeesCount = c.employeesCount.trim() ? Math.max(0, Math.trunc(Number(c.employeesCount)) || 0) : 0;
+        const turnover = c.turnover.trim() ? Number(c.turnover) : null;
+        const est = c.est.trim() ? Number(c.est) : null;
+        return {
+          name: c.name.trim(),
+          description: c.description.trim() || null,
+          position: hasPosition
+            ? { description: c.positionTitle.trim() || null, start: c.positionStart.trim() || null, end: c.positionEnd.trim() || null }
+            : null,
+          turnover: Number.isFinite(turnover) ? turnover : null,
+          employeesCount,
+          category: c.category ? c.category.value : null,
+          link: c.linkUrl.trim() ? { title: c.linkTitle.trim(), url: c.linkUrl.trim() } : null,
+          est: est !== null && Number.isFinite(est) ? est : null,
+        };
+      });
+
+    const workStylePreferences: Record<string, number[]> = {};
+    for (const key of Object.keys(WORK_STYLE_DATASET_KEYS)) {
+      workStylePreferences[key] = Array.from(workStylePrefs[key] ?? []);
+    }
+
+    const body: Record<string, unknown> = {
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      expertise: expertise.trim(),
+      bio,
+      profileTitle: profileTitle.trim() || null,
+      location: location ? location.id : null,
+      photos: photos.map((p) => ({ fileReference: p.fileReference })),
+      voiceIntroduction: voiceDoc ? { fileReference: voiceDoc.fileReference } : null,
+      links: links.filter((l) => l.url.trim() !== "").map((l) => ({ title: l.title.trim(), url: l.url.trim() })),
+      companies: companiesPayload,
+      education: education.map((e) => e.value.trim()).filter(Boolean),
+      skills: skills.filter((s) => s.value.trim() !== "").map((s) => ({ value: s.value.trim(), level: s.level })),
+      languages: languages.filter((l) => l.value.trim() !== "").map((l) => ({ value: l.value.trim(), level: l.level })),
+      hobbies: Array.from(selectedHobbies),
+      workInterests: Array.from(selectedWorkInterests),
+      favoriteBooks: favoriteBooks.filter((b) => b.title.trim() !== "").map((b) => ({ title: b.title.trim(), author: b.author.trim() })),
+      favoriteMovies: favoriteMovies.filter((m) => m.title.trim() !== "").map((m) => ({ title: m.title.trim() })),
+      favoriteGames: favoriteGames.filter((g) => g.title.trim() !== "").map((g) => ({ title: g.title.trim() })),
+      workStylePreferences,
+    };
+    if (occupation) body.occupation = occupation;
+
+    try {
+      const res = await fetch("/api/account/profile-editor/update", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({ ok: false }));
+      if (!res.ok || !data.ok) {
+        if (isNotSignedIn(data)) {
+          window.location.href = "/sign-in?reason=edit-profile";
+          return;
+        }
+        setSaveError(true);
+        setSaving(false);
+        return;
+      }
+      setDirty(false);
+      onSaved();
+    } catch {
+      setSaveError(true);
+      setSaving(false);
+    }
+  }
+
+  const filteredCompanyCategories = useMemo(() => {
+    const categories = bootstrap?.companyCategories ?? [];
+    const q = categoryQuery.trim().toLowerCase();
+    const list = q ? categories.filter((c) => c.text.toLowerCase().includes(q)) : categories;
+    const itIndex = list.findIndex((c) => c.text.replace(/[^a-zA-Z]/g, "").toUpperCase() === "IT");
+    return (itIndex > 0 ? [list[itIndex]!, ...list.slice(0, itIndex), ...list.slice(itIndex + 1)] : list).slice(0, 50);
+  }, [bootstrap, categoryQuery]);
+
+  const languageDisplayNames = useMemo(() => {
+    try {
+      return new Intl.DisplayNames([LOCALE_TAG[lang]], { type: "language" });
+    } catch {
+      return null;
+    }
+  }, [lang]);
+  function languageName(code: string): string {
+    try {
+      const name = languageDisplayNames?.of(code.toLowerCase());
+      return name ? name.charAt(0).toUpperCase() + name.slice(1) : code.toUpperCase();
+    } catch {
+      return code.toUpperCase();
+    }
+  }
+  const languageOptions = useMemo(() => {
+    const q = languageQuery.trim().toLowerCase();
+    const list = COMMON_LANGUAGE_CODES.map((code) => ({ code, name: languageName(code) }));
+    if (!q) return list.slice(0, 30);
+    const filtered = list.filter((l) => l.name.toLowerCase().includes(q) || l.code.includes(q));
+    // Exact typed code always available even if it's outside the curated list.
+    if (filtered.length === 0 && /^[a-z]{2,3}$/i.test(q)) return [{ code: q, name: languageName(q) }];
+    return filtered.slice(0, 30);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [languageQuery, lang]);
+  const LEVEL_LABELS: [StringKey, StringKey, StringKey, StringKey, StringKey] = [
+    "levelBeginner", "levelElementary", "levelIntermediate", "levelAdvanced", "levelNative",
+  ];
+
+  if (loading) {
+    return (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
+        <Spinner className="h-8 w-8 text-white" />
+      </div>
+    );
+  }
+
+  if (loadError || !bootstrap) {
+    return (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+        <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xs rounded-2xl bg-white p-5 text-center shadow-xl dark:bg-neutral-900">
+          <p className="text-sm text-neutral-700 dark:text-neutral-300">{t("loadFailed", lang)}</p>
+          <button type="button" onClick={onClose} className="mt-4 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white">
+            {t("close", lang)}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 sm:items-center sm:p-4" onClick={requestClose}>
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        onClick={(e) => e.stopPropagation()}
+        className="relative flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-xl dark:bg-neutral-950 sm:max-w-lg sm:rounded-3xl"
+      >
+        <div className="flex items-center justify-between border-b border-neutral-100 px-5 py-4 dark:border-neutral-800">
+          <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-50">{t("dialogTitle", lang)}</h2>
+          <button type="button" onClick={requestClose} aria-label={t("close", lang)} className="text-neutral-400 transition hover:text-neutral-900 dark:hover:text-neutral-50">
+            <CloseIcon />
+          </button>
+        </div>
+
+        {confirmCloseOpen && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4" onClick={() => setConfirmCloseOpen(false)}>
+            <div role="alertdialog" aria-modal="true" onClick={(e) => e.stopPropagation()} className="w-full max-w-xs rounded-2xl bg-white p-5 shadow-xl dark:bg-neutral-900">
+              <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">{t("closeConfirmTitle", lang)}</p>
+              <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{t("closeConfirmBody", lang)}</p>
+              <div className="mt-4 flex flex-col gap-2">
+                <button type="button" onClick={() => setConfirmCloseOpen(false)} className="rounded-full bg-accent py-2.5 text-sm font-bold tracking-wide text-white transition hover:opacity-90">
+                  {t("continueEditing", lang)}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConfirmCloseOpen(false);
+                    onClose();
+                  }}
+                  className="rounded-full py-2.5 text-sm font-medium text-neutral-500 transition hover:text-red-600 dark:text-neutral-400 dark:hover:text-red-400"
+                >
+                  {t("discardClose", lang)}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="relative flex-1 overflow-y-auto px-5 py-1" onChange={markDirty}>
+          {/* ---------------- Basic info ---------------- */}
+          <Section title={t("sectionBasic", lang)} defaultOpen>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex flex-col gap-1.5">
+                <label className={labelClass}>{t("firstNameLabel", lang)}</label>
+                <input type="text" value={firstName} onChange={(e) => { setFirstName(e.target.value); markDirty(); }} className={inputClass} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className={labelClass}>{t("lastNameLabel", lang)}</label>
+                <input type="text" value={lastName} onChange={(e) => { setLastName(e.target.value); markDirty(); }} className={inputClass} />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className={labelClass}>{t("bioLabel", lang)}</label>
+              <textarea
+                value={bio}
+                onChange={(e) => { setBio(e.target.value); markDirty(); }}
+                placeholder={t("bioPlaceholder", lang)}
+                rows={3}
+                className={inputClass + " resize-none"}
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className={labelClass}>{t("profileTitleLabel", lang)}</label>
+              <input
+                type="text"
+                value={profileTitle}
+                onChange={(e) => { setProfileTitle(e.target.value); markDirty(); }}
+                placeholder={t("profileTitlePlaceholder", lang)}
+                className={inputClass}
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <span className={labelClass}>{t("occupationLabel", lang)}</span>
+              <div className="grid grid-cols-3 gap-2">
+                {OCCUPATION_VALUES.map((value) => {
+                  const selected = occupation === value;
+                  const label = OCCUPATION_LABELS[value]?.[lang] ?? value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => { setOccupation(value); markDirty(); }}
+                      aria-pressed={selected}
+                      className={
+                        "flex flex-col items-center gap-1.5 rounded-xl border px-2 py-3 text-center text-xs font-medium transition " +
+                        (selected
+                          ? "border-accent bg-accent/10 text-accent"
+                          : "border-neutral-300 text-neutral-600 hover:border-neutral-400 dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-neutral-600")
+                      }
+                    >
+                      <OccupationIcon occupation={value} size={36} background />
+                      <span>{label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className={labelClass}>{t("expertiseLabel", lang)}</label>
+              <input
+                type="text"
+                value={expertise}
+                onChange={(e) => { setExpertise(e.target.value); markDirty(); }}
+                placeholder={t("expertisePlaceholder", lang)}
+                className={inputClass}
+              />
+            </div>
+
+            <div className="relative flex flex-col gap-1.5">
+              <label className={labelClass}>{t("locationLabel", lang)}</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={locationOpen ? locationQuery : (location?.label ?? "")}
+                  onFocus={() => {
+                    setLocationOpen(true);
+                    setLocationQuery("");
+                  }}
+                  onChange={(e) => onLocationQueryChange(e.target.value)}
+                  onBlur={() => setTimeout(() => setLocationOpen(false), 120)}
+                  placeholder={t("locationPlaceholder", lang)}
+                  className={inputClass + " pr-9"}
+                  autoComplete="off"
+                />
+                {locationPending && <Spinner className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />}
+              </div>
+              {locationOpen && locationQuery.trim().length >= 2 && (
+                <div className="absolute top-full z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-xl border border-neutral-200 bg-white py-1 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+                  {locationPending && <div className="px-4 py-2 text-sm text-neutral-400">{t("locationSearching", lang)}</div>}
+                  {!locationPending && locationSearched && locationResults.length === 0 && (
+                    <div className="px-4 py-2 text-sm text-neutral-400">{t("locationEmpty", lang)}</div>
+                  )}
+                  {locationResults.map((loc) => (
+                    <button
+                      key={loc.id}
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setLocation(loc);
+                        setLocationOpen(false);
+                        markDirty();
+                      }}
+                      className="block w-full px-4 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                    >
+                      {loc.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {location && (
+                <button
+                  type="button"
+                  onClick={() => { setLocation(null); markDirty(); }}
+                  className="self-start text-xs font-medium text-neutral-400 underline-offset-2 hover:text-neutral-600 hover:underline dark:hover:text-neutral-300"
+                >
+                  {t("locationClear", lang)}
+                </button>
+              )}
+            </div>
+          </Section>
+
+          {/* ---------------- Photos ---------------- */}
+          <Section title={t("sectionPhotos", lang)}>
+            <p className="text-xs text-neutral-400 dark:text-neutral-500">{t("photoHint", lang)}</p>
+            <div className="flex flex-wrap gap-2">
+              {photos.map((doc, i) => (
+                <div key={doc._id + i} className="relative h-20 w-20 overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-700">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={mediaUrl(doc)} alt="" className="h-full w-full object-cover" />
+                  {i === 0 && (
+                    <span className="absolute bottom-0.5 left-0.5 rounded-full bg-black/60 px-1.5 py-0.5 text-[9px] font-medium text-white">★</span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => removePhoto(i)}
+                    aria-label={t("removeAria", lang)}
+                    className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-black/60 text-white"
+                  >
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden="true">
+                      <path d="M6 6l12 12M18 6L6 18" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+              {photos.length < MAX_PHOTOS && (
+                <button
+                  type="button"
+                  onClick={() => photoInputRef.current?.click()}
+                  disabled={photoUploading}
+                  className="flex h-20 w-20 items-center justify-center rounded-xl border border-dashed border-neutral-300 text-neutral-400 transition hover:border-neutral-400 hover:text-neutral-600 disabled:opacity-50 dark:border-neutral-600 dark:text-neutral-500"
+                >
+                  {photoUploading ? <Spinner className="h-5 w-5" /> : <PlusIcon />}
+                </button>
+              )}
+            </div>
+            <input ref={photoInputRef} type="file" accept="image/*" onChange={handlePhotoSelected} className="hidden" />
+            {photoError && <p className="text-sm text-red-600 dark:text-red-400">{photoError}</p>}
+          </Section>
+
+          {/* ---------------- Voice intro ---------------- */}
+          <Section title={t("sectionVoice", lang)}>
+            <p className="text-xs text-neutral-400 dark:text-neutral-500">{t("voiceHint", lang)}</p>
+            <div className="flex items-center gap-3">
+              {voiceDoc ? (
+                <>
+                  <audio
+                    controls
+                    src={voicePreviewUrl ?? mediaUrl(voiceDoc)}
+                    className="h-9 max-w-[220px] flex-1"
+                  />
+                  <button
+                    type="button"
+                    onClick={removeVoice}
+                    aria-label={t("removeVoice", lang)}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-neutral-300 text-neutral-500 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-400 dark:hover:bg-neutral-800"
+                  >
+                    <TrashIcon />
+                  </button>
+                </>
+              ) : isRecording ? (
+                <button
+                  type="button"
+                  onClick={stopRecording}
+                  className="flex items-center gap-2 rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
+                >
+                  <StopSquareIcon />
+                  {t("recordStop", lang)} · {formatSeconds(recordSeconds)}
+                </button>
+              ) : voiceUploading ? (
+                <span className="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400">
+                  <Spinner className="h-4 w-4" /> {t("recordUploading", lang)}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={startRecording}
+                  className="flex items-center gap-2 rounded-full border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                >
+                  <MicIcon />
+                  {t("recordStart", lang)}
+                </button>
+              )}
+            </div>
+            {voiceError && <p className="text-sm text-red-600 dark:text-red-400">{voiceError}</p>}
+          </Section>
+
+          {/* ---------------- Links ---------------- */}
+          <Section title={t("sectionLinks", lang)}>
+            {links.map((link) => (
+              <div key={link.id} className="flex items-center gap-1.5">
+                <input
+                  type="text"
+                  value={link.title}
+                  onChange={(e) => { setLinks((prev) => prev.map((l) => (l.id === link.id ? { ...l, title: e.target.value } : l))); markDirty(); }}
+                  placeholder={t("linkTitlePlaceholder", lang)}
+                  className={inputClass + " w-2/5"}
+                />
+                <input
+                  type="text"
+                  value={link.url}
+                  onChange={(e) => { setLinks((prev) => prev.map((l) => (l.id === link.id ? { ...l, url: e.target.value } : l))); markDirty(); }}
+                  placeholder={t("linkUrlPlaceholder", lang)}
+                  className={inputClass + " flex-1"}
+                />
+                <button type="button" onClick={() => { setLinks((prev) => prev.filter((l) => l.id !== link.id)); markDirty(); }} aria-label={t("removeAria", lang)} className="shrink-0 text-neutral-400 hover:text-red-600">
+                  <TrashIcon />
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setLinks((prev) => [...prev, { id: newId(), title: "", url: "" }])}
+              className="flex items-center gap-1.5 self-start rounded-xl border border-dashed border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-500 transition hover:border-neutral-400 hover:text-neutral-700 dark:border-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+            >
+              <PlusIcon /> {t("addLink", lang)}
+            </button>
+          </Section>
+
+          {/* ---------------- Companies ---------------- */}
+          <Section title={t("sectionCompanies", lang)}>
+            {companies.map((company) => (
+              <div key={company.id} className="flex flex-col gap-2 rounded-xl border border-neutral-200 p-3 dark:border-neutral-800">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">
+                    {company.name.trim() || t("companyUntitled", lang)}
+                  </span>
+                  <button type="button" onClick={() => { setCompanies((prev) => prev.filter((c) => c.id !== company.id)); markDirty(); }} aria-label={t("removeAria", lang)} className="text-neutral-400 hover:text-red-600">
+                    <TrashIcon />
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  value={company.name}
+                  onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, name: e.target.value } : c))); markDirty(); }}
+                  placeholder={t("companyNamePlaceholder", lang)}
+                  className={inputClass}
+                />
+                <textarea
+                  value={company.description}
+                  onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, description: e.target.value } : c))); markDirty(); }}
+                  placeholder={t("companyDescriptionPlaceholder", lang)}
+                  rows={2}
+                  className={inputClass + " resize-none"}
+                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={openCategoryRow === company.id ? categoryQuery : (company.category?.text ?? "")}
+                    onFocus={() => {
+                      setOpenCategoryRow(company.id);
+                      setCategoryQuery("");
+                    }}
+                    onChange={(e) => setCategoryQuery(e.target.value)}
+                    onBlur={() => setTimeout(() => setOpenCategoryRow((cur) => (cur === company.id ? null : cur)), 120)}
+                    placeholder={t("companyCategoryPlaceholder", lang)}
+                    className={inputClass}
+                    autoComplete="off"
+                  />
+                  {openCategoryRow === company.id && (
+                    <div className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-neutral-200 bg-white py-1 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+                      {filteredCompanyCategories.length === 0 && <div className="px-4 py-2 text-sm text-neutral-400">{t("companyCategoryEmpty", lang)}</div>}
+                      {filteredCompanyCategories.map((c) => (
+                        <button
+                          key={c.value}
+                          type="button"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            setCompanies((prev) => prev.map((row) => (row.id === company.id ? { ...row, category: c } : row)));
+                            setOpenCategoryRow(null);
+                            markDirty();
+                          }}
+                          className="block w-full px-4 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                        >
+                          {c.text}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <input
+                    type="text"
+                    value={company.positionTitle}
+                    onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, positionTitle: e.target.value } : c))); markDirty(); }}
+                    placeholder={t("companyPositionTitlePlaceholder", lang)}
+                    className={inputClass}
+                  />
+                  <input
+                    type="text"
+                    value={company.positionStart}
+                    onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, positionStart: e.target.value } : c))); markDirty(); }}
+                    placeholder={t("companyPositionStartPlaceholder", lang)}
+                    className={inputClass}
+                  />
+                  <input
+                    type="text"
+                    value={company.positionEnd}
+                    onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, positionEnd: e.target.value } : c))); markDirty(); }}
+                    placeholder={t("companyPositionEndPlaceholder", lang)}
+                    className={inputClass}
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <input
+                    type="number"
+                    min="0"
+                    value={company.employeesCount}
+                    onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, employeesCount: e.target.value } : c))); markDirty(); }}
+                    placeholder={t("companyEmployeesPlaceholder", lang)}
+                    className={inputClass}
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    value={company.turnover}
+                    onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, turnover: e.target.value } : c))); markDirty(); }}
+                    placeholder={t("companyTurnoverPlaceholder", lang)}
+                    className={inputClass}
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    value={company.est}
+                    onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, est: e.target.value } : c))); markDirty(); }}
+                    placeholder={t("companyFoundedPlaceholder", lang)}
+                    className={inputClass}
+                  />
+                </div>
+                <div className="flex gap-1.5">
+                  <input
+                    type="text"
+                    value={company.linkTitle}
+                    onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, linkTitle: e.target.value } : c))); markDirty(); }}
+                    placeholder={t("companyLinkTitlePlaceholder", lang)}
+                    className={inputClass + " w-2/5"}
+                  />
+                  <input
+                    type="text"
+                    value={company.linkUrl}
+                    onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, linkUrl: e.target.value } : c))); markDirty(); }}
+                    placeholder={t("companyLinkUrlPlaceholder", lang)}
+                    className={inputClass + " flex-1"}
+                  />
+                </div>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() =>
+                setCompanies((prev) => [
+                  ...prev,
+                  { id: newId(), name: "", description: "", positionTitle: "", positionStart: "", positionEnd: "", employeesCount: "", category: null, turnover: "", est: "", linkTitle: "", linkUrl: "" },
+                ])
+              }
+              className="flex items-center gap-1.5 self-start rounded-xl border border-dashed border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-500 transition hover:border-neutral-400 hover:text-neutral-700 dark:border-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+            >
+              <PlusIcon /> {t("addCompany", lang)}
+            </button>
+          </Section>
+
+          {/* ---------------- Education ---------------- */}
+          <Section title={t("sectionEducation", lang)}>
+            {education.map((row) => (
+              <div key={row.id} className="flex items-center gap-1.5">
+                <input
+                  type="text"
+                  value={row.value}
+                  onChange={(e) => { setEducation((prev) => prev.map((r) => (r.id === row.id ? { ...r, value: e.target.value } : r))); markDirty(); }}
+                  placeholder={t("educationPlaceholder", lang)}
+                  className={inputClass}
+                />
+                <button type="button" onClick={() => { setEducation((prev) => prev.filter((r) => r.id !== row.id)); markDirty(); }} aria-label={t("removeAria", lang)} className="shrink-0 text-neutral-400 hover:text-red-600">
+                  <TrashIcon />
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setEducation((prev) => [...prev, { id: newId(), value: "" }])}
+              className="flex items-center gap-1.5 self-start rounded-xl border border-dashed border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-500 transition hover:border-neutral-400 hover:text-neutral-700 dark:border-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+            >
+              <PlusIcon /> {t("addEducation", lang)}
+            </button>
+          </Section>
+
+          {/* ---------------- Skills ---------------- */}
+          <Section title={t("sectionSkills", lang)}>
+            {skills.map((skill) => (
+              <div key={skill.id} className="flex flex-col gap-1 rounded-xl border border-neutral-200 p-2.5 dark:border-neutral-800">
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    value={skill.value}
+                    onChange={(e) => { setSkills((prev) => prev.map((s) => (s.id === skill.id ? { ...s, value: e.target.value } : s))); markDirty(); }}
+                    placeholder={t("skillNamePlaceholder", lang)}
+                    className={inputClass}
+                  />
+                  <button type="button" onClick={() => { setSkills((prev) => prev.filter((s) => s.id !== skill.id)); markDirty(); }} aria-label={t("removeAria", lang)} className="shrink-0 text-neutral-400 hover:text-red-600">
+                    <TrashIcon />
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 px-1">
+                  <span className={labelClass}>{t("skillLevelLabel", lang)}</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={skill.level}
+                    onChange={(e) => { setSkills((prev) => prev.map((s) => (s.id === skill.id ? { ...s, level: Number(e.target.value) } : s))); markDirty(); }}
+                    className="flex-1 accent-accent"
+                  />
+                  <span className="w-8 text-right text-xs text-neutral-500 dark:text-neutral-400">{skill.level}%</span>
+                </div>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setSkills((prev) => [...prev, { id: newId(), value: "", level: 50 }])}
+              className="flex items-center gap-1.5 self-start rounded-xl border border-dashed border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-500 transition hover:border-neutral-400 hover:text-neutral-700 dark:border-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+            >
+              <PlusIcon /> {t("addSkill", lang)}
+            </button>
+          </Section>
+
+          {/* ---------------- Languages ---------------- */}
+          <Section title={t("sectionLanguages", lang)}>
+            {languages.map((entry) => (
+              <div key={entry.id} className="flex items-center gap-1.5">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    value={languagePickerOpen === entry.id ? languageQuery : (entry.value ? languageName(entry.value) : "")}
+                    onFocus={() => {
+                      setLanguagePickerOpen(entry.id);
+                      setLanguageQuery("");
+                    }}
+                    onChange={(e) => setLanguageQuery(e.target.value)}
+                    onBlur={() => setTimeout(() => setLanguagePickerOpen((cur) => (cur === entry.id ? null : cur)), 120)}
+                    placeholder={t("languagePlaceholder", lang)}
+                    className={inputClass}
+                    autoComplete="off"
+                  />
+                  {languagePickerOpen === entry.id && (
+                    <div className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-neutral-200 bg-white py-1 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+                      {languageOptions.map((opt) => (
+                        <button
+                          key={opt.code}
+                          type="button"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            setLanguages((prev) => prev.map((l) => (l.id === entry.id ? { ...l, value: opt.code } : l)));
+                            setLanguagePickerOpen(null);
+                            markDirty();
+                          }}
+                          className="block w-full px-4 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                        >
+                          {opt.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <select
+                  value={entry.level}
+                  onChange={(e) => { setLanguages((prev) => prev.map((l) => (l.id === entry.id ? { ...l, level: Number(e.target.value) } : l))); markDirty(); }}
+                  className={inputClass + " w-36 shrink-0"}
+                >
+                  {LEVEL_LABELS.map((key, i) => (
+                    <option key={key} value={i}>
+                      {t(key, lang)}
+                    </option>
+                  ))}
+                </select>
+                <button type="button" onClick={() => { setLanguages((prev) => prev.filter((l) => l.id !== entry.id)); markDirty(); }} aria-label={t("removeAria", lang)} className="shrink-0 text-neutral-400 hover:text-red-600">
+                  <TrashIcon />
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setLanguages((prev) => [...prev, { id: newId(), value: "", level: 2 }])}
+              className="flex items-center gap-1.5 self-start rounded-xl border border-dashed border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-500 transition hover:border-neutral-400 hover:text-neutral-700 dark:border-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+            >
+              <PlusIcon /> {t("addLanguage", lang)}
+            </button>
+          </Section>
+
+          {/* ---------------- Hobbies ---------------- */}
+          <Section title={t("sectionHobbies", lang)}>
+            {bootstrap.hobbyGroups.map((group) => (
+              <div key={group.group} className="flex flex-col gap-1.5">
+                {group.group && <span className={labelClass}>{group.group}</span>}
+                <div className="flex flex-wrap gap-1.5">
+                  {group.items.map((item) => {
+                    const active = selectedHobbies.has(item.value);
+                    return (
+                      <button
+                        key={item.value}
+                        type="button"
+                        onClick={() => {
+                          setSelectedHobbies((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(item.value)) next.delete(item.value);
+                            else next.add(item.value);
+                            return next;
+                          });
+                          markDirty();
+                        }}
+                        aria-pressed={active}
+                        className={pillClass(active)}
+                      >
+                        {item.text}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </Section>
+
+          {/* ---------------- Work interests ---------------- */}
+          <Section title={t("sectionInterests", lang)}>
+            <div className="flex flex-wrap gap-1.5">
+              {bootstrap.workInterests.map((item) => {
+                const active = selectedWorkInterests.has(item.value);
+                return (
+                  <button
+                    key={item.value}
+                    type="button"
+                    onClick={() => {
+                      setSelectedWorkInterests((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(item.value)) next.delete(item.value);
+                        else next.add(item.value);
+                        return next;
+                      });
+                      markDirty();
+                    }}
+                    aria-pressed={active}
+                    className={pillClass(active)}
+                  >
+                    {item.text}
+                  </button>
+                );
+              })}
+            </div>
+          </Section>
+
+          {/* ---------------- Favorites ---------------- */}
+          <Section title={t("sectionFavorites", lang)}>
+            <div className="flex flex-col gap-1.5">
+              <span className={labelClass}>{t("favoriteBooksLabel", lang)}</span>
+              {favoriteBooks.map((book) => (
+                <div key={book.id} className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    value={book.title}
+                    onChange={(e) => { setFavoriteBooks((prev) => prev.map((b) => (b.id === book.id ? { ...b, title: e.target.value } : b))); markDirty(); }}
+                    placeholder={t("titlePlaceholder", lang)}
+                    className={inputClass + " w-1/2"}
+                  />
+                  <input
+                    type="text"
+                    value={book.author}
+                    onChange={(e) => { setFavoriteBooks((prev) => prev.map((b) => (b.id === book.id ? { ...b, author: e.target.value } : b))); markDirty(); }}
+                    placeholder={t("authorPlaceholder", lang)}
+                    className={inputClass + " flex-1"}
+                  />
+                  <button type="button" onClick={() => { setFavoriteBooks((prev) => prev.filter((b) => b.id !== book.id)); markDirty(); }} aria-label={t("removeAria", lang)} className="shrink-0 text-neutral-400 hover:text-red-600">
+                    <TrashIcon />
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setFavoriteBooks((prev) => [...prev, { id: newId(), title: "", author: "" }])}
+                className="flex items-center gap-1.5 self-start rounded-xl border border-dashed border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-500 transition hover:border-neutral-400 hover:text-neutral-700 dark:border-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+              >
+                <PlusIcon /> {t("addItem", lang)}
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <span className={labelClass}>{t("favoriteMoviesLabel", lang)}</span>
+              {favoriteMovies.map((movie) => (
+                <div key={movie.id} className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    value={movie.title}
+                    onChange={(e) => { setFavoriteMovies((prev) => prev.map((m) => (m.id === movie.id ? { ...m, title: e.target.value } : m))); markDirty(); }}
+                    placeholder={t("titlePlaceholder", lang)}
+                    className={inputClass}
+                  />
+                  <button type="button" onClick={() => { setFavoriteMovies((prev) => prev.filter((m) => m.id !== movie.id)); markDirty(); }} aria-label={t("removeAria", lang)} className="shrink-0 text-neutral-400 hover:text-red-600">
+                    <TrashIcon />
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setFavoriteMovies((prev) => [...prev, { id: newId(), title: "" }])}
+                className="flex items-center gap-1.5 self-start rounded-xl border border-dashed border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-500 transition hover:border-neutral-400 hover:text-neutral-700 dark:border-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+              >
+                <PlusIcon /> {t("addItem", lang)}
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <span className={labelClass}>{t("favoriteGamesLabel", lang)}</span>
+              {favoriteGames.map((game) => (
+                <div key={game.id} className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    value={game.title}
+                    onChange={(e) => { setFavoriteGames((prev) => prev.map((g) => (g.id === game.id ? { ...g, title: e.target.value } : g))); markDirty(); }}
+                    placeholder={t("titlePlaceholder", lang)}
+                    className={inputClass}
+                  />
+                  <button type="button" onClick={() => { setFavoriteGames((prev) => prev.filter((g) => g.id !== game.id)); markDirty(); }} aria-label={t("removeAria", lang)} className="shrink-0 text-neutral-400 hover:text-red-600">
+                    <TrashIcon />
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setFavoriteGames((prev) => [...prev, { id: newId(), title: "" }])}
+                className="flex items-center gap-1.5 self-start rounded-xl border border-dashed border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-500 transition hover:border-neutral-400 hover:text-neutral-700 dark:border-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+              >
+                <PlusIcon /> {t("addItem", lang)}
+              </button>
+            </div>
+          </Section>
+
+          {/* ---------------- Work style preferences ---------------- */}
+          <Section title={t("sectionWorkStyle", lang)}>
+            {WORK_STYLE_PREFERENCE_SECTIONS.map((section) => {
+              const datasetKey = WORK_STYLE_DATASET_KEYS[section.key];
+              const options = bootstrap.workStylePreferences[datasetKey] ?? [];
+              if (options.length === 0) return null;
+              const selected = workStylePrefs[section.key] ?? new Set<number>();
+              return (
+                <div key={section.key} className="flex flex-col gap-1.5">
+                  <span className={labelClass}>{section[lang]}</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {options.map((opt) => {
+                      const active = selected.has(opt.value);
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => {
+                            setWorkStylePrefs((prev) => {
+                              const nextSet = new Set(prev[section.key] ?? []);
+                              if (nextSet.has(opt.value)) nextSet.delete(opt.value);
+                              else nextSet.add(opt.value);
+                              return { ...prev, [section.key]: nextSet };
+                            });
+                            markDirty();
+                          }}
+                          aria-pressed={active}
+                          className={pillClass(active)}
+                        >
+                          {opt.text}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </Section>
+        </div>
+
+        <div className="border-t border-neutral-100 px-5 py-3.5 dark:border-neutral-800">
+          {saveError && <p className="mb-2 text-xs text-red-600 dark:text-red-400">{t("saveFailed", lang)}</p>}
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="w-full rounded-full bg-accent py-3 text-sm font-bold tracking-wide text-white transition hover:opacity-90 disabled:opacity-60"
+          >
+            {saving ? (
+              <span className="flex items-center justify-center gap-2">
+                <Spinner className="h-4 w-4 text-white" /> {t("saving", lang)}
+              </span>
+            ) : (
+              t("save", lang)
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
