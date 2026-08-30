@@ -61,7 +61,7 @@
 // whenever a username comes back, with or without any posts.
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { createPortal } from "react-dom";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
@@ -200,6 +200,58 @@ export function AvatarMenu() {
   const [email, setEmail] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
   const [open, setOpen] = useState(false);
+  // Aleksandr, 2026-08-30: "у вас (Claude) это сделано для левого меню...
+  // наводишь на кнопку, не нажимаешь, оно появляется. Если ушёл не
+  // выбрав, исчезает плавно, с opacity. Хочу такое же при наведении на
+  // аватара." Two independent pieces:
+  // (a) hover-intent open/close on the wrapper below (onMouseEnter/
+  //     onMouseLeave) alongside the existing onClick toggle -- click
+  //     still works as before (mobile has no hover at all), hover is
+  //     additive, not a replacement. The close side has a short delay,
+  //     not an instant setOpen(false): this panel sits `mt-2` below the
+  //     button, a real gap the cursor crosses on the way down to it --
+  //     without a delay, that gap would flash-close the panel every
+  //     time before the pointer lands back inside it.
+  // (b) `rendered` here mirrors `open` but lags it on the way to false,
+  //     so the panel stays mounted a beat longer than `open` itself --
+  //     long enough to actually PLAY an opacity/scale transition down
+  //     to 0 instead of just vanishing the instant `open` flips (which
+  //     is all the old plain `{open && (...)}` below ever did, hover or
+  //     not). `animate-popover` (used elsewhere in this codebase) only
+  //     ever animated the OPEN direction for exactly that reason; this
+  //     replaces it here with a two-way transition instead of adding a
+  //     mismatched keyframe-out on top of it.
+  const [rendered, setRendered] = useState(false);
+  const hoverCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const HOVER_CLOSE_DELAY_MS = 200;
+  const CLOSE_TRANSITION_MS = 150;
+
+  useEffect(() => {
+    if (open) {
+      setRendered(true);
+      return;
+    }
+    const timer = setTimeout(() => setRendered(false), CLOSE_TRANSITION_MS);
+    return () => clearTimeout(timer);
+  }, [open]);
+
+  useEffect(() => {
+    return () => {
+      if (hoverCloseTimerRef.current) clearTimeout(hoverCloseTimerRef.current);
+    };
+  }, []);
+
+  function handleMouseEnter() {
+    if (hoverCloseTimerRef.current) {
+      clearTimeout(hoverCloseTimerRef.current);
+      hoverCloseTimerRef.current = null;
+    }
+    setOpen(true);
+  }
+
+  function handleMouseLeave() {
+    hoverCloseTimerRef.current = setTimeout(() => setOpen(false), HOVER_CLOSE_DELAY_MS);
+  }
   const [profileUsername, setProfileUsername] = useState<string | null>(null);
   // Aleksandr, 2026-08-30 (live screenshot): "может быть поставь не
   // цветная векторное синее, поставь аватар, персональный этот
@@ -299,7 +351,7 @@ export function AvatarMenu() {
   const languageOptions = LOCALES.filter((l) => !(isGeoUa && l === "ru"));
 
   return (
-    <div className="relative shrink-0">
+    <div className="relative shrink-0" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -313,7 +365,7 @@ export function AvatarMenu() {
         <img src={profileAvatarUrl ?? pickDefaultCatAvatar(email)} alt="" className="h-full w-full object-cover" />
       </button>
 
-      {open && (
+      {rendered && (
         <>
           {/* Same portal-backdrop trick as settings-menu.tsx, for the
               same reason — this sits inside site-nav.tsx's
@@ -321,12 +373,21 @@ export function AvatarMenu() {
               containing block for a `position: fixed` descendant, so a
               non-portaled backdrop would be clipped to the nav's own
               small box instead of covering the page. See that
-              component's own comment for the full history. */}
-          {createPortal(
-            <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} aria-hidden="true" />,
-            document.body,
-          )}
-          <div className="animate-popover absolute right-0 top-full z-50 mt-2 w-72 max-w-[calc(100vw-2rem)] origin-top-right overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+              component's own comment for the full history. Tied to
+              `open`, not `rendered` -- once closing has started, clicks
+              elsewhere on the page should work immediately, not be
+              swallowed by a backdrop for a fading-out panel. */}
+          {open &&
+            createPortal(
+              <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} aria-hidden="true" />,
+              document.body,
+            )}
+          <div
+            className={
+              "absolute right-0 top-full z-50 mt-2 w-72 max-w-[calc(100vw-2rem)] origin-top-right overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-2 shadow-lg transition duration-150 ease-out dark:border-neutral-700 dark:bg-neutral-900 " +
+              (open ? "opacity-100 scale-100" : "pointer-events-none opacity-0 scale-95")
+            }
+          >
             {/* Aleksandr, 2026-08-30: "мои посты и просмотр профиля
                 должны жить в одном месте... поднять выше, это более
                 нужная информация" -- one grouped, tinted block instead

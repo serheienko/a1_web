@@ -95,7 +95,26 @@ export function ProfileTabs({
       })
       .then((data) => {
         if (cancelled || !data || !data.ok) return;
-        setOwnDrafts(data.draftsAndScheduled as MinePostCard[]);
+        // Aleksandr, 2026-08-30 (screen recording): reloading a profile
+        // right after this shipped crashed the whole page -- root cause,
+        // confirmed by inspection rather than reproduced directly (this
+        // sandbox can't hit the live API): a tab that already had
+        // /api/posts/mine's OLD response cached, or a request that raced
+        // a rolling deploy, gets back `{ ok: true, posts }` with no
+        // `draftsAndScheduled` field at all (it didn't exist before this
+        // feature). `data.ok` alone doesn't guarantee that field's
+        // shape -- setOwnDrafts(undefined) then crashed on the very next
+        // render's `ownDrafts.length`/`ownDrafts.map`, with no
+        // profile-specific error boundary to catch it (app/error.tsx is
+        // the global fallback, hence the unrelated "не вдалося
+        // завантажити вакансії" copy in what was actually a profile-page
+        // crash). Validating the shape here, not just `data.ok`, means
+        // any unexpected response degrades to "no drafts/scheduled
+        // shown" -- same as before this feature existed -- instead of
+        // taking the whole page down.
+        if (Array.isArray(data.draftsAndScheduled)) {
+          setOwnDrafts(data.draftsAndScheduled as MinePostCard[]);
+        }
       })
       .catch(() => {
         // Signed out, or either call failed -- no drafts/scheduled
