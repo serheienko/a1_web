@@ -15,23 +15,28 @@
 // "read": nothing changes, the backend just echoes back the current
 // user.
 //
-// IMPORTANT, flagged rather than presented as confirmed like the rest
-// of this codebase's fixes: no prior code in this project has ever
-// actually parsed account.updateProfile's response body (the existing
-// /api/account/update-profile route discards it and returns only `{ ok:
-// true }`), so "it returns the same Resource.User shape
-// UserProfileSchema already parses for users.getByUsername" is an
-// inference from PLAN.md's endpoint table, not something confirmed live
-// yet. parseUserProfile() fails closed (returns null on any
-// unrecognized shape) rather than throwing, so a wrong guess here
-// degrades to "View profile" link hidden, not a crash -- but this
-// specifically needs a live check after deploy (open the avatar menu
-// signed in with zero posts and confirm the link appears).
+// CONFIRMED live, 2026-08-30 (Aleksandr's own screenshot of the avatar
+// menu showing "Переглянути профіль" working, and the profile page it
+// linked to rendering real data): account.updateProfile({}) really does
+// return the same Resource.User shape UserProfileSchema already parses
+// for users.getByUsername. parseUserProfile() still fails closed
+// (returns null on any unrecognized shape) rather than throwing, so a
+// future backend change here degrades to the link/avatar just not
+// showing rather than a crash.
+//
+// 2026-08-30 follow-up (Aleksandr, live screenshot of the merged
+// account block): "поставь не цветная векторное синее, а аватар,
+// персональный" -- also returns avatarUrl now, same buildMediaProxyUrl
+// pipeline every other real-photo-or-cat-fallback spot in this app
+// already uses (lib/a1/mappers.ts, lib/a1/user-mappers.ts), closing the
+// exact gap this file's own KNOWN GAP comment (components/avatar-
+// menu.tsx) flagged before this route existed.
 import { NextResponse } from "next/server";
 import { A1ApiError } from "@/lib/a1/client";
 import { callAsVisitor, NoSessionError } from "@/lib/a1/visitor-call";
 import { setSession, clearSession } from "@/lib/a1/session";
 import { parseUserProfile } from "@/lib/a1/schemas";
+import { buildMediaProxyUrl } from "@/lib/a1/mappers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,7 +46,9 @@ export async function GET() {
     const { data, refreshedSession } = await callAsVisitor<unknown>("account.updateProfile", {});
     const profile = parseUserProfile(data);
     const username = profile?.object === "user" ? profile.username : null;
-    const response = NextResponse.json({ ok: true, username });
+    const avatarDoc = profile?.object === "user" ? profile.photos[0] : null;
+    const avatarUrl = avatarDoc ? buildMediaProxyUrl(avatarDoc) : null;
+    const response = NextResponse.json({ ok: true, username, avatarUrl });
     if (refreshedSession) setSession(response, refreshedSession);
     return response;
   } catch (err) {

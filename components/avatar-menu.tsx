@@ -68,7 +68,6 @@ import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { LOCALES, LOCALE_CLASS, LOCALE_TAG, type Locale } from "@/components/t";
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
 import { SettingsMenu } from "@/components/settings-menu";
-import { MyPostsPanel } from "@/components/my-posts-panel";
 
 type Theme = "light" | "dark" | "auto";
 
@@ -90,7 +89,7 @@ const LANGUAGE_NAMES: Record<Locale, string> = {
   zh: "简体中文",
 };
 
-type AvatarMenuStringKey = "signIn" | "signOut" | "theme" | "language" | "light" | "dark" | "auto" | "myPosts" | "viewProfile";
+type AvatarMenuStringKey = "signIn" | "signOut" | "theme" | "language" | "light" | "dark" | "auto" | "viewProfile";
 
 const STRINGS: Record<AvatarMenuStringKey, Record<Locale, string>> = {
   signIn: {
@@ -100,13 +99,6 @@ const STRINGS: Record<AvatarMenuStringKey, Record<Locale, string>> = {
   signOut: {
     uk: "Вийти", en: "Sign out", ru: "Выйти", de: "Abmelden", es: "Cerrar sesión",
     fr: "Se déconnecter", pl: "Wyloguj się", ptBR: "Sair", zh: "退出",
-  },
-  // 2026-08-29 (Aleksandr: "посты должны быть CRUD, create / update /
-  // delete") — entry point into components/my-posts-panel.tsx.
-  myPosts: {
-    uk: "Мої пости", en: "My posts", ru: "Мои посты", de: "Meine Beiträge",
-    es: "Mis publicaciones", fr: "Mes publications", pl: "Moje posty",
-    ptBR: "Minhas publicações", zh: "我的帖子",
   },
   viewProfile: {
     uk: "Переглянути профіль", en: "View profile", ru: "Посмотреть профиль", de: "Profil ansehen",
@@ -186,15 +178,6 @@ function ChevronRightIcon() {
   );
 }
 
-function PostsIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="4" y="3" width="16" height="18" rx="2" />
-      <path d="M8 8h8M8 12h8M8 16h5" />
-    </svg>
-  );
-}
-
 // Same circular icon-button style account-menu.tsx used for its
 // signed-out "Sign in" link, kept byte-for-byte so nothing shifts in the
 // signed-out layout.
@@ -217,8 +200,16 @@ export function AvatarMenu() {
   const [email, setEmail] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
   const [open, setOpen] = useState(false);
-  const [myPostsOpen, setMyPostsOpen] = useState(false);
   const [profileUsername, setProfileUsername] = useState<string | null>(null);
+  // Aleksandr, 2026-08-30 (live screenshot): "может быть поставь не
+  // цветная векторное синее, поставь аватар, персональный этот
+  // профиль" -- app/api/account/whoami now also returns a real
+  // avatarUrl (same buildMediaProxyUrl pipeline as every other real-
+  // photo-or-cat-fallback spot in this app), closing the gap this
+  // file's own header comment used to flag. Shared between the nav
+  // button and the merged account row below so they never show two
+  // different pictures for the same account.
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -243,7 +234,9 @@ export function AvatarMenu() {
     fetch("/api/account/whoami")
       .then((r) => r.json())
       .then((data) => {
-        if (!cancelled && data?.ok && data.username) setProfileUsername(data.username);
+        if (cancelled || !data?.ok) return;
+        if (data.username) setProfileUsername(data.username);
+        if (data.avatarUrl) setProfileAvatarUrl(data.avatarUrl);
       })
       .catch(() => {
         // Best-effort — the row just stays hidden.
@@ -314,9 +307,10 @@ export function AvatarMenu() {
         aria-expanded={open}
         className="h-9 w-9 shrink-0 overflow-hidden rounded-full shadow-sm ring-1 ring-black/5 transition hover:opacity-90 dark:ring-white/10"
       >
-        {/* Always the cat fallback for now — see this file's header
-            comment on why a real uploaded photo isn't wired up yet. */}
-        <img src={pickDefaultCatAvatar(email)} alt="" className="h-full w-full object-cover" />
+        {/* Real uploaded photo when whoami resolved one, cat fallback
+            otherwise (e.g. still loading, or no photo set) -- see
+            profileAvatarUrl's own comment above. */}
+        <img src={profileAvatarUrl ?? pickDefaultCatAvatar(email)} alt="" className="h-full w-full object-cover" />
       </button>
 
       {open && (
@@ -344,9 +338,12 @@ export function AvatarMenu() {
                   onClick={() => setOpen(false)}
                   className="flex items-center gap-2.5 px-2.5 py-2.5 transition hover:bg-neutral-100 dark:hover:bg-neutral-800"
                 >
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent">
-                    <UserIcon />
-                  </span>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={profileAvatarUrl ?? pickDefaultCatAvatar(email)}
+                    alt=""
+                    className="h-8 w-8 shrink-0 rounded-full object-cover"
+                  />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium text-neutral-900 dark:text-neutral-50" title={email}>
                       {email}
@@ -357,28 +354,17 @@ export function AvatarMenu() {
                 </Link>
               ) : (
                 <div className="flex items-center gap-2.5 px-2.5 py-2.5">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-neutral-500 dark:bg-neutral-700 dark:text-neutral-400">
-                    <UserIcon />
-                  </span>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={profileAvatarUrl ?? pickDefaultCatAvatar(email)}
+                    alt=""
+                    className="h-8 w-8 shrink-0 rounded-full object-cover"
+                  />
                   <span className="min-w-0 flex-1 truncate text-sm font-medium text-neutral-900 dark:text-neutral-50" title={email}>
                     {email}
                   </span>
                 </div>
               )}
-
-              <button
-                type="button"
-                onClick={() => {
-                  setOpen(false);
-                  setMyPostsOpen(true);
-                }}
-                className="flex w-full items-center gap-2.5 border-t border-neutral-200/70 px-2.5 py-2.5 text-left text-sm font-medium text-neutral-700 transition hover:bg-neutral-100 dark:border-neutral-700/70 dark:text-neutral-300 dark:hover:bg-neutral-800"
-              >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-neutral-500 dark:bg-neutral-700 dark:text-neutral-400">
-                  <PostsIcon />
-                </span>
-                {STRINGS.myPosts[lang]}
-              </button>
             </div>
 
             <div className="my-1 border-t border-neutral-100 dark:border-neutral-800" />
@@ -450,7 +436,6 @@ export function AvatarMenu() {
         </>
       )}
 
-      {myPostsOpen && <MyPostsPanel onClose={() => setMyPostsOpen(false)} />}
     </div>
   );
 }

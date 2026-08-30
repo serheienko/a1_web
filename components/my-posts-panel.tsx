@@ -5,8 +5,19 @@
 // since PLAN.md §6.6's Phase 7 had explicitly deferred any "my posts"
 // entry point ("a signed-in visitor's only new surface is the separate
 // sign-in/profile/post-editor flow... revisit once that flow itself
-// needs a 'my posts' entry point" — this is that revisit). Reachable
-// from components/avatar-menu.tsx's panel, one new row above Sign out.
+// needs a 'my posts' entry point" — this is that revisit). Was reachable
+// from components/avatar-menu.tsx's panel, one row above Sign out.
+//
+// UNUSED as of 2026-08-30 (PLAN.md §6.44's follow-up): Aleksandr, once
+// the avatar menu's "Переглянути профіль" and profile page's own Posts
+// tab existed, asked to drop this as a duplicate entry point ("мы
+// нажимаем персональный профиль, а там уже есть мои посты... не
+// обязательно дублировать"). Left in place rather than deleted (this
+// project's usual policy for a component with no remaining call site,
+// see account-menu.tsx's own history) since it's still the only UI that
+// shows drafts/scheduled posts at all — the profile's Posts tab only
+// shows already-published ones, matching the public feed. If drafts/
+// scheduled ever need a home again, this is a working one.
 //
 // Lists every post the signed-in visitor owns, across all three states
 // (published / draft / scheduled — app/api/posts/mine/route.ts already
