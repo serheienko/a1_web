@@ -299,3 +299,91 @@ const COMPANY_CATEGORY_UK: Record<string, string> = {
 export function translateCompanyCategory(text: string, lang: Locale): string {
   return pick(COMPANY_CATEGORY_UK, text, lang);
 }
+
+// ---------------- Location country name ----------------
+// 2026-08-30, live-testing feedback (profile header screenshot, UK
+// locale selected): "Berlin, Germany - нужна локализация" -- same shape
+// of bug as everything else in this file: lib/a1/user-mappers.ts's
+// mapLocation() and lib/a1/mappers.ts's post-location equivalent both
+// just forward the backend's own `city`/`country`/`displayName` fields
+// verbatim (see components/locale-format.tsx's LocationLabel, the new
+// call site for this), and that backend data is plain English/Latin
+// place names with no locale awareness at all -- confirmed by the
+// screenshot itself (Ukrainian selected, "Германия"/"Німеччина" never
+// shown, only "Germany").
+//
+// City names are deliberately left untranslated here -- "Berlin" isn't
+// a UI string, it's the literal name of the place, and this app has no
+// geo-name transliteration service to render it correctly in every
+// script this app supports (uk/ru readably could go phonetic, but
+// de/es/fr/pl/ptBR/zh proper transliteration of arbitrary world cities
+// is a real localization feature this codebase doesn't have and
+// shouldn't fake with guesses). Only the COUNTRY word gets translated --
+// a small, finite, enumerable set, exactly like COMPANY_CATEGORY_UK
+// above -- via localizeLocationDisplay's targeted suffix-replace on the
+// backend's own pre-formatted `display` string, so an unrecognized
+// format (or an unlisted country) safely falls through to the original
+// text unchanged instead of risking a mangled string.
+//
+// Not exhaustive -- only countries actually seen in this session's own
+// test data (Ukraine, Germany) plus the rest of a reasonably common
+// jobs-platform set (major EU/US/neighboring countries). Add more as
+// real accounts surface them; the pick()/fallback pattern makes that
+// safe to do incrementally.
+const COUNTRY_UK: Record<string, string> = {
+  Ukraine: "Україна",
+  Germany: "Німеччина",
+  Poland: "Польща",
+  "United States": "США",
+  "United Kingdom": "Велика Британія",
+  France: "Франція",
+  Spain: "Іспанія",
+  Italy: "Італія",
+  Netherlands: "Нідерланди",
+  Portugal: "Португалія",
+  Belgium: "Бельгія",
+  Austria: "Австрія",
+  Switzerland: "Швейцарія",
+  "Czech Republic": "Чехія",
+  Slovakia: "Словаччина",
+  Romania: "Румунія",
+  Bulgaria: "Болгарія",
+  Hungary: "Угорщина",
+  Lithuania: "Литва",
+  Latvia: "Латвія",
+  Estonia: "Естонія",
+  Sweden: "Швеція",
+  Norway: "Норвегія",
+  Denmark: "Данія",
+  Finland: "Фінляндія",
+  Ireland: "Ірландія",
+  Greece: "Греція",
+  Turkey: "Туреччина",
+  Canada: "Канада",
+  Georgia: "Грузія",
+  Moldova: "Молдова",
+  Cyprus: "Кіпр",
+  "United Arab Emirates": "ОАЕ",
+};
+
+export function translateCountry(text: string, lang: Locale): string {
+  return pick(COUNTRY_UK, text, lang);
+}
+
+// `display` is the backend's own pre-assembled string (e.g. "Berlin,
+// Germany" or, per lib/a1/user-mappers.ts/lib/a1/mappers.ts, possibly
+// just a bare country with no city) -- there's no documented format
+// contract for it, so this only ever replaces a literal trailing match
+// of the raw `country` value and leaves everything else in `display`
+// (city, any region, punctuation) untouched. No match -> `display`
+// returned as-is, same as today.
+export function localizeLocationDisplay(display: string, country: string | null | undefined, lang: Locale): string {
+  if (!country) return display;
+  const translated = translateCountry(country, lang);
+  if (translated === country) return display;
+  if (display === country) return translated;
+  if (display.endsWith(country)) {
+    return display.slice(0, display.length - country.length) + translated;
+  }
+  return display;
+}

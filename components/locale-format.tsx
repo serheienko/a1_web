@@ -18,6 +18,7 @@
 // decide which one is visible. Zero client JS needed per post.
 import { LOCALES, LOCALE_VISIBILITY_CLASS } from "@/components/t";
 import { formatRelativeTime, formatSalary } from "@/lib/format";
+import { localizeLocationDisplay } from "@/lib/pill-translations";
 import type { WebPostSalary } from "@/types/web-post";
 
 export function RelativeTime({ date }: { date: Date }) {
@@ -38,6 +39,27 @@ export function SalaryLabel({ salary }: { salary: WebPostSalary }) {
       {LOCALES.map((locale) => (
         <span key={locale} className={LOCALE_VISIBILITY_CLASS[locale]}>
           {formatSalary(salary, locale)}
+        </span>
+      ))}
+    </>
+  );
+}
+
+// 2026-08-30, live-testing feedback: "Berlin, Germany - нужна
+// локализация" -- same server-side-hidden-spans trick as RelativeTime/
+// SalaryLabel above, since app/u/[username]/page.tsx and
+// components/post-card.tsx are both server components with no
+// server-side "current locale" (see this file's own header comment for
+// why). `display` is the backend's pre-formatted "city, country"
+// string; only the country portion gets swapped per-locale, via
+// lib/pill-translations.ts's localizeLocationDisplay -- see that
+// function's own comment for why city names stay untranslated.
+export function LocationLabel({ display, country }: { display: string; country?: string | null }) {
+  return (
+    <>
+      {LOCALES.map((locale) => (
+        <span key={locale} className={LOCALE_VISIBILITY_CLASS[locale]}>
+          {localizeLocationDisplay(display, country, locale)}
         </span>
       ))}
     </>

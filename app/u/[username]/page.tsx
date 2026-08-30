@@ -37,6 +37,7 @@ import { profileHref } from "@/lib/profile-href";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { generateAvatarBlurDataUrl } from "@/lib/avatar-blur";
 import { formatLanguageName } from "@/lib/format";
+import { LocationLabel } from "@/components/locale-format";
 import { T, type Locale } from "@/components/t";
 import { VoiceIntroProvider } from "@/components/voice-intro-context";
 import { VoiceIntroRing } from "@/components/voice-intro-ring";
@@ -362,7 +363,9 @@ export default async function ProfilePage({ params }: Props) {
             {locationLabel && (
               <>
                 {occupationLabel && <span aria-hidden="true">·</span>}
-                <span>{locationLabel}</span>
+                <span>
+                  <LocationLabel display={profile.location!.display} country={profile.location!.country} />
+                </span>
               </>
             )}
             {profile.expertise && (

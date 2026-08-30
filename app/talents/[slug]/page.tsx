@@ -19,7 +19,7 @@ import { slugify, parseSlugId } from "@/lib/seo/slug";
 import Image from "next/image";
 import { PostImages } from "@/components/post-images";
 import { truncateAtWordBoundary } from "@/lib/format";
-import { RelativeTime, SalaryLabel } from "@/components/locale-format";
+import { RelativeTime, SalaryLabel, LocationLabel } from "@/components/locale-format";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { generateImageBlurDataUrl } from "@/lib/avatar-blur";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
@@ -88,8 +88,10 @@ export default async function TalentDetailPage({ params }: Props) {
     Promise.all(post.images.map(async (img) => ({ ...img, blurDataUrl: await generateImageBlurDataUrl(img.url) }))),
   ]);
 
+  // 2026-08-30, live-testing feedback ("Berlin, Germany - нужна
+  // локализация") -- see components/locale-format.tsx's LocationLabel.
   const locationLabel = post.location ? (
-    post.location.display
+    <LocationLabel display={post.location.display} country={post.location.country} />
   ) : post.isRemote ? (
     <T uk="Віддалено" en="Remote" ru="Удалённо" de="Remote" es="Remoto" fr="À distance" pl="Zdalnie" ptBR="Remoto" zh="远程" />
   ) : (
