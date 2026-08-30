@@ -3037,3 +3037,55 @@ banner label, `schedulingLabel` ("Планується..." uk, matching the
 existing passive-voice pattern of "Публікується.../Оновлюється..."),
 shown whenever `pendingAction === "schedule"`, localized across all 9
 languages, instead of reusing the generic "Публікується...".
+
+### 6.59 Draft/scheduled post click 404s from the profile's "Пости" tab (2026-08-30)
+
+Aleksandr, after §6.58 shipped: "з чернеткою і запланованим все одно
+траблы" with 4 screenshots of the "Новий пост" dialog showing "Щось
+пішло не так. Спробуйте ще раз." on submit. Investigated live with the
+exact field values from the screenshots (category, link, format,
+employment, experience, salary) on both the immediate-publish and
+schedule paths -- both succeeded cleanly, HTTP 200, no console/network
+errors. Could NOT reproduce that specific submit failure; per PLAN's
+no-blind-guessing rule this is reported as unreproduced, not as fixed.
+If it recurs, a screenshot of the browser console (F12) at the moment
+of the error is what's actually needed next.
+
+While reproducing it, found and fixed a separate, real, confirmed bug
+in the same area that is very plausibly what's actually being
+experienced as ongoing "траблы": clicking into your OWN draft or
+scheduled post from the profile's "Пости" tab always led to "Сторінку
+не знайдено" (404). Reproduced live twice (a freshly scheduled test
+post, and an older orphaned draft left over from an earlier session --
+the draft could not even be deleted because of this same bug, no
+reachable UI path to it otherwise).
+
+Root cause: components/post-card.tsx unconditionally builds
+`href = /{jobs|talents}/{slug}` and points both the title and the
+whole-card click area (`after:inset-0`) at it, with no awareness of
+whether the post is actually published yet -- the backend only serves
+that route once a post is published, so any draft/scheduled post
+404s. profile-tabs.tsx's ownDrafts cards render through this exact
+same PostCard with no click-interception at all.
+
+Fix, reusing what already existed rather than adding new backend work:
+`app/api/posts/mine/route.ts` already returns both `draftsAndScheduled`
+(what profile-tabs.tsx displays) and `posts` (the same underlying
+posts, EditablePost-shaped -- already what components/my-posts-panel.tsx
+feeds into `<PostEditor mode="edit">`) from one response. profile-tabs.tsx
+now also keeps `posts` keyed by id (`ownEditable`), and passes a new
+`onOpen` prop to PostCard for each of its own draft/scheduled cards,
+opening `<PostEditor mode="edit" initialPost={...} />` in place instead
+of navigating. post-card.tsx's title and content areas now render a
+`<button onClick={onOpen}>` instead of `<Link href>` whenever `onOpen`
+is passed (every other caller -- public feeds, load-more -- doesn't
+pass it and keeps the exact same `<Link>` behavior as before). Avatar
+and author-name links are untouched either way.
+
+Not yet re-tested live end to end after this fix (no local build
+tooling available in this pass -- `node_modules` isn't installed on
+the connected folder and the npm registry isn't reachable from either
+this session's cloud container or the linked Mac to install one) --
+Aleksandr, please click into a draft or a scheduled post from your own
+profile's "Пости" tab after this deploys and confirm the editor opens
+instead of a 404.

@@ -50,10 +50,26 @@ export function PostCard({
   // other caller (the public feeds, load-more) leaves it unset and gets
   // the normal colored badge exactly as before.
   statusBadge,
+  // 2026-08-30 (root cause of "з чернеткою і запланованим все одно
+  // траблы"): clicking a draft/scheduled card from the profile's own
+  // "Пости" tab always 404'd, because the title/content Links below
+  // unconditionally point at the PUBLIC post URL (`/jobs/:slug` or
+  // `/talents/:slug`), which the backend only serves once a post is
+  // actually published -- confirmed live by creating a scheduled test
+  // post and clicking into it twice. Only components/profile-tabs.tsx
+  // passes this, only for its own ownDrafts cards (draft/scheduled,
+  // never published): when set, the title and content areas open the
+  // post editor in place instead of navigating to a URL that doesn't
+  // exist yet, mirroring components/my-posts-panel.tsx's existing (but
+  // unused) setEditing(post) -> <PostEditor mode="edit"> pattern.
+  // Avatar/author-name links are untouched -- the author's public
+  // profile exists regardless of this post's status.
+  onOpen,
 }: {
   post: WebPost;
   avatarBlurDataUrl?: string | null;
   statusBadge?: { label: ReactNode; className: string } | null;
+  onOpen?: () => void;
 }) {
   const locationLabel = post.location ? (
     post.location.display
@@ -147,12 +163,22 @@ export function PostCard({
                 -webkit-line-clamp actually truncate on real Safari/iOS,
                 and a `block` utility on the same element would win the
                 compiled `display` property and silently undo that. */}
-            <Link
-              href={href}
-              className="line-clamp-3 hover:underline after:absolute after:inset-0 after:z-0 after:content-['']"
-            >
-              {post.title}
-            </Link>
+            {onOpen ? (
+              <button
+                type="button"
+                onClick={onOpen}
+                className="text-left cursor-pointer line-clamp-3 hover:underline after:absolute after:inset-0 after:z-0 after:content-['']"
+              >
+                {post.title}
+              </button>
+            ) : (
+              <Link
+                href={href}
+                className="line-clamp-3 hover:underline after:absolute after:inset-0 after:z-0 after:content-['']"
+              >
+                {post.title}
+              </Link>
+            )}
           </h2>
           {statusBadge ? (
             <span className={"shrink-0 rounded-full px-2.5 py-1 text-xs font-medium " + statusBadge.className}>
@@ -211,12 +237,22 @@ export function PostCard({
             `block` utility on the same element wins the display
             property in the compiled CSS and overrides -webkit-box back
             to block, which is exactly what breaks clamping on WebKit. */}
-        <Link
-          href={href}
-          className="mt-3 line-clamp-6 text-sm text-ink transition-opacity hover:opacity-80 dark:text-neutral-400"
-        >
-          {post.contentText}
-        </Link>
+        {onOpen ? (
+          <button
+            type="button"
+            onClick={onOpen}
+            className="text-left cursor-pointer mt-3 line-clamp-6 text-sm text-ink transition-opacity hover:opacity-80 dark:text-neutral-400"
+          >
+            {post.contentText}
+          </button>
+        ) : (
+          <Link
+            href={href}
+            className="mt-3 line-clamp-6 text-sm text-ink transition-opacity hover:opacity-80 dark:text-neutral-400"
+          >
+            {post.contentText}
+          </Link>
+        )}
 
         {post.tags.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1.5">

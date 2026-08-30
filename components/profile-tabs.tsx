@@ -37,6 +37,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { LOCALES, LOCALE_CLASS, T, type Locale } from "@/components/t";
 import { PostCard } from "@/components/post-card";
+import { PostEditor, type EditablePost } from "@/components/post-editor";
 import type { WebPost } from "@/types/web-post";
 
 type StringKey = "statusDraft" | "statusScheduled";
@@ -83,6 +84,15 @@ export function ProfileTabs({
   const [tab, setTab] = useState<"bio" | "posts">("bio");
   const lang = useActiveLocale();
   const [ownDrafts, setOwnDrafts] = useState<MinePostCard[]>([]);
+  // 2026-08-30: /api/posts/mine's `posts` array is the same
+  // EditablePost-shaped summary components/my-posts-panel.tsx already
+  // feeds straight into <PostEditor mode="edit">. Keyed by id so a
+  // click on one of ownDrafts's cards (below) can look up its full
+  // editable data and open the same editor in place, instead of
+  // navigating to a public URL that doesn't exist for an unpublished
+  // post -- see components/post-card.tsx's onOpen prop.
+  const [ownEditable, setOwnEditable] = useState<Record<string, EditablePost>>({});
+  const [editingPost, setEditingPost] = useState<EditablePost | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -163,6 +173,11 @@ export function ProfileTabs({
           }));
           setOwnDrafts(revived);
         }
+        if (Array.isArray(data.posts)) {
+          const byId: Record<string, EditablePost> = {};
+          for (const p of data.posts as EditablePost[]) byId[p.id] = p;
+          setOwnEditable(byId);
+        }
       })
       .catch(() => {
         // Signed out, or either call failed -- no drafts/scheduled
@@ -241,12 +256,27 @@ export function ProfileTabs({
                 key={post.id}
                 post={post}
                 statusBadge={{ label: STRINGS[status === "draft" ? "statusDraft" : "statusScheduled"][lang], className: STATUS_BADGE_CLASS }}
+                onOpen={ownEditable[post.id] ? () => setEditingPost(ownEditable[post.id]) : undefined}
               />
             ))}
           </div>
         )}
         {posts}
       </div>
+      {editingPost && (
+        // No onSaved wired here on purpose: components/post-editor.tsx
+        // already dispatches "a1:post-saved" on every successful save,
+        // and this component's own useEffect above already listens for
+        // that event and re-runs load() -- `load` itself lives inside
+        // that effect's closure, out of reach from here. Passing it
+        // through some extra plumbing would just duplicate a refresh
+        // that already happens.
+        <PostEditor
+          mode="edit"
+          initialPost={editingPost}
+          onClose={() => setEditingPost(null)}
+        />
+      )}
     </div>
   );
 }
