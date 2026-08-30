@@ -7,7 +7,7 @@
 // email-leak class of bug becomes structurally impossible.
 
 import { NULL_LOCATION_MEANS_REMOTE, PUBLISH_ONLY_NATIVE, isNativePost } from "./config";
-import { authorIsHidden, isArchivedOrDraft } from "./post-flags";
+import { authorIsHidden, isArchived, isArchivedOrDraft } from "./post-flags";
 import { parsePost, type Post, type MediaSize } from "./schemas";
 import { slugify } from "../seo/slug";
 import type {
@@ -173,6 +173,48 @@ export function mapPost(post: Post): WebPost | null {
     isRemote,
     // Label lookup needs dataset.postCategories — lands with lib/a1/datasets.ts
     // in Phase 3. Placeholder label until then.
+    categories: post.categories.map((id) => ({ id, label: String(id) })),
+    tags: post.tags,
+    salary: mapSalary(post.money),
+    images: mapImages(post),
+    links: post.links,
+    viewCount: post.viewCount,
+    hasApplyForm: post.apply != null,
+  };
+}
+
+/**
+ * Same field mapping as mapPost(), for the ONE place a draft or
+ * scheduled-not-yet-published post is allowed to render as a WebPost
+ * card: the visitor's own "Пости" tab (app/u/[username]/page.tsx via
+ * components/profile-tabs.tsx) showing their own not-yet-live posts
+ * with a status badge, per PLAN.md §6.50. Deliberately only excludes
+ * ARCHIVED (soft-deleted) — not the DRAFT/SCHEDULED bits mapPost()'s
+ * isArchivedOrDraft() gate also excludes — since a draft or scheduled
+ * post is exactly what this is for. Safe only because the caller
+ * (app/api/posts/mine/route.ts) already scopes posts.search to
+ * `author: "me"`, i.e. always the signed-in visitor's own post; this
+ * must never be used for any other author's posts.
+ */
+export function mapOwnPost(post: Post): WebPost | null {
+  if (isArchived(post.flags)) {
+    return null;
+  }
+
+  const { location, isRemote } = mapLocation(post);
+
+  return {
+    id: post._id,
+    kind: post.object === "post-job-employing" ? "hiring" : "seeking",
+    title: post.title,
+    slug: slugify(post.title, post._id),
+    contentText: post.content,
+    contentHtml: paragraphWrap(post.content),
+    publishedAt: fromUnixSeconds(post.published ?? post.created),
+    updatedAt: post.updated ? fromUnixSeconds(post.updated) : null,
+    author: mapAuthor(post.author, post.flags),
+    location,
+    isRemote,
     categories: post.categories.map((id) => ({ id, label: String(id) })),
     tags: post.tags,
     salary: mapSalary(post.money),

@@ -18,6 +18,7 @@
 // anonymous author (isAnonymous, no username) has no profile page, so
 // falls back to plain, unlinked text/image.
 
+import type { ReactNode } from "react";
 import Image from "next/image";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import Link from "next/link";
@@ -40,9 +41,19 @@ export function PostCard({
   // Falls back to the generic shimmer when there's no precomputed blur
   // (still loading, or generation failed) — never breaks the avatar.
   avatarBlurDataUrl,
+  // 2026-08-30 (Aleksandr, own-profile "Пости" tab showing drafts/
+  // scheduled posts alongside published ones): "во вкладке посты,
+  // черновики, просто помечаем плашечкой draft... запланированные
+  // scheduled... сереньким" -- replaces the colored Jobs/Talent pill
+  // below with a small gray one when set, for a post that isn't (yet)
+  // actually live. Only components/profile-tabs.tsx passes this; every
+  // other caller (the public feeds, load-more) leaves it unset and gets
+  // the normal colored badge exactly as before.
+  statusBadge,
 }: {
   post: WebPost;
   avatarBlurDataUrl?: string | null;
+  statusBadge?: { label: ReactNode; className: string } | null;
 }) {
   const locationLabel = post.location ? (
     post.location.display
@@ -143,16 +154,22 @@ export function PostCard({
               {post.title}
             </Link>
           </h2>
-          <span
-            className={
-              "shrink-0 rounded-full px-2.5 py-1 text-xs font-medium " +
-              (post.kind === "hiring"
-                ? "bg-accent/10 text-accent dark:bg-accent/20"
-                : "bg-[#C830FF]/10 text-[#C830FF] dark:bg-[#C830FF]/20")
-            }
-          >
-            {post.kind === "hiring" ? <T uk="Вакансія" en="Job" ru="Вакансия" de="Stellenanzeige" es="Vacante" fr="Offre d'emploi" pl="Oferta pracy" ptBR="Vaga" zh="职位" /> : <T uk="Фахівець" en="Talent" ru="Специалист" de="Fachkraft" es="Especialista" fr="Spécialiste" pl="Specjalista" ptBR="Especialista" zh="人才" />}
-          </span>
+          {statusBadge ? (
+            <span className={"shrink-0 rounded-full px-2.5 py-1 text-xs font-medium " + statusBadge.className}>
+              {statusBadge.label}
+            </span>
+          ) : (
+            <span
+              className={
+                "shrink-0 rounded-full px-2.5 py-1 text-xs font-medium " +
+                (post.kind === "hiring"
+                  ? "bg-accent/10 text-accent dark:bg-accent/20"
+                  : "bg-[#C830FF]/10 text-[#C830FF] dark:bg-[#C830FF]/20")
+              }
+            >
+              {post.kind === "hiring" ? <T uk="Вакансія" en="Job" ru="Вакансия" de="Stellenanzeige" es="Vacante" fr="Offre d'emploi" pl="Oferta pracy" ptBR="Vaga" zh="职位" /> : <T uk="Фахівець" en="Talent" ru="Специалист" de="Fachkraft" es="Especialista" fr="Spécialiste" pl="Specjalista" ptBR="Especialista" zh="人才" />}
+            </span>
+          )}
         </div>
 
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-faint dark:text-neutral-400">

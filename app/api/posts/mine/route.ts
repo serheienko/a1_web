@@ -24,6 +24,8 @@ import { callAsVisitor, NoSessionError } from "@/lib/a1/visitor-call";
 import { setSession, clearSession } from "@/lib/a1/session";
 import { parsePost, type Post } from "@/lib/a1/schemas";
 import { isArchived } from "@/lib/a1/post-flags";
+import { mapOwnPost } from "@/lib/a1/mappers";
+import type { WebPost } from "@/types/web-post";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -69,6 +71,29 @@ function summarize(post: Post) {
   };
 }
 
+// 2026-08-30 (Aleksandr: "во вкладке посты, черновики, просто помечаем
+// плашечкой draft... запланированные scheduled — это уже у нас
+// решенный вопрос"): components/profile-tabs.tsx's own "Пости" tab, on
+// the visitor's OWN profile only, shows drafts/scheduled posts
+// alongside already-published ones, styled exactly like a feed card
+// (components/post-card.tsx) but with a gray status pill instead of the
+// colored Jobs/Talent one. mapOwnPost() (lib/a1/mappers.ts) is the one
+// place allowed to map a draft/scheduled post to a WebPost at all; this
+// exists only to attach the badge's status alongside it, kept as a
+// SEPARATE field from `posts` above so the editor-shape summaries this
+// route has returned since the CRUD panel work stay byte-for-byte
+// unchanged for any existing caller.
+export type MinePostCard = { post: WebPost; status: "draft" | "scheduled" };
+
+function toCard(post: Post): MinePostCard | null {
+  const isDraft = (post.flags & (1 << 7)) !== 0;
+  const isScheduledUnpublished = post.scheduled != null && post.published == null;
+  if (!isDraft && !isScheduledUnpublished) return null;
+  const mapped = mapOwnPost(post);
+  if (!mapped) return null;
+  return { post: mapped, status: isDraft ? "draft" : "scheduled" };
+}
+
 export async function GET() {
   try {
     let refreshed = null;
@@ -87,17 +112,21 @@ export async function GET() {
       }
     }
 
-    const posts = Array.from(collected.values())
+    const nonArchived = Array.from(collected.values())
       // 2026-08-30 (see lib/a1/post-flags.ts's isArchived comment): a
       // deleted post is a soft-delete on this backend (the ARCHIVED
       // flag bit), not removed from posts.search's results, so it has
       // to be filtered out here explicitly -- this route deliberately
       // reads the raw Post, bypassing mapPosts()'s equivalent filter.
       .filter((post) => !isArchived(post.flags))
-      .sort((a, b) => b.created - a.created)
-      .map(summarize);
+      .sort((a, b) => b.created - a.created);
 
-    const response = NextResponse.json({ ok: true, posts });
+    const posts = nonArchived.map(summarize);
+    const draftsAndScheduled = nonArchived
+      .map(toCard)
+      .filter((card): card is MinePostCard => card !== null);
+
+    const response = NextResponse.json({ ok: true, posts, draftsAndScheduled });
     if (refreshed) setSession(response, refreshed);
     return response;
   } catch (err) {

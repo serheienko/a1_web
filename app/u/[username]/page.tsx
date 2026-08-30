@@ -688,6 +688,7 @@ export default async function ProfilePage({ params }: Props) {
           </>
         }
         postsCount={authorPosts.length}
+        profileUsername={profile.username}
       />
     </main>
     </VoiceIntroProvider>
