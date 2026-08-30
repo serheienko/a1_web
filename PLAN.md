@@ -2757,3 +2757,20 @@ home.
   into this view — Aleksandr's message asked specifically about the
   status badge, not the CRUD actions; that file is still left in place,
   unused, if that turns out to be wanted too.
+
+### 6.51 Filter button grows with the search box; profile tab pill forced opaque white (2026-08-30)
+
+Aleksandr, screen recording of §6.47's search-widen-on-focus: "ширина
+фильтра должна тоже подстраиваться при расширенном поиске." Asked which
+of two readings he meant (the button itself growing vs. the outer
+container growing further) — picked growing the button. It now goes
+h-8 w-8 → h-9 w-9 on the same `inputFocused` state already driving the
+search box's own widen (§6.47), staying circular rather than becoming
+an oval (nowhere sensible for a single centered icon to grow into).
+
+Separately, profile screenshot of the Про мене/Пости tab pill: "сделай
+заливку кнопки полностью FFFFF 100%, а то она теряется." Switched the
+active tab's `bg-white` to `bg-white/100` — forces Tailwind's
+opacity-variable-based background color to a literal, fully opaque
+white regardless of what `--tw-bg-opacity` happened to resolve to,
+rather than trusting the plain utility class.
