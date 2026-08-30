@@ -108,6 +108,14 @@ export function ProfileTabs({
 
   return (
     <div className="mt-6">
+      {/* Aleksandr, 2026-08-30, screenshot of this exact pill: "сделай
+          заливку кнопки полностью FFFFF 100%, а то она теряется" --
+          bg-white/100 forces Tailwind's opacity-variable-based
+          background color to a literal fully opaque white (bypassing
+          --tw-bg-opacity entirely) on the active tab below, rather than
+          relying on plain `bg-white`, in case something upstream was
+          ever leaving that variable less than 1 and washing it out
+          against the light-gray pill behind it. */}
       <div className="flex gap-1 rounded-full bg-neutral-100 p-1 dark:bg-neutral-800">
         <button
           type="button"
@@ -116,7 +124,7 @@ export function ProfileTabs({
           className={
             "flex-1 rounded-full py-2 text-sm font-medium transition " +
             (tab === "bio"
-              ? "bg-white text-neutral-900 shadow-sm dark:bg-neutral-700 dark:text-neutral-50"
+              ? "bg-white/100 text-neutral-900 shadow-sm dark:bg-neutral-700 dark:text-neutral-50"
               : "text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200")
           }
         >
@@ -129,7 +137,7 @@ export function ProfileTabs({
           className={
             "flex-1 rounded-full py-2 text-sm font-medium transition " +
             (tab === "posts"
-              ? "bg-white text-neutral-900 shadow-sm dark:bg-neutral-700 dark:text-neutral-50"
+              ? "bg-white/100 text-neutral-900 shadow-sm dark:bg-neutral-700 dark:text-neutral-50"
               : "text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200")
           }
         >
