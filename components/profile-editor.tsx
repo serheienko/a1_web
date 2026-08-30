@@ -80,6 +80,7 @@ import { WORK_STYLE_DATASET_KEYS } from "@/lib/work-style-keys";
 import { translateHobbyGroup, translateHobbyItem, translateWorkInterest, translateWorkStyleOption, translateCompanyCategory } from "@/lib/pill-translations";
 import type { Category, WorkStylePreferencesDataset } from "@/lib/a1/datasets";
 import type { EditableProfile, MediaDocument } from "@/lib/a1/schemas";
+import { PhotoCropModal } from "@/components/photo-crop-modal";
 // Plain bit math, no dependency chain — safe to import into this client
 // component the same way lib/work-style-keys.ts is (see that file's own
 // header comment for the class of bug this avoids).
@@ -697,6 +698,13 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
   const [photoUploading, setPhotoUploading] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  // 2026-08-30, live-testing feedback ("При подгрузке фото должен
+  // открываться редактор с центрированием"): the file picked from
+  // photoInputRef used to go straight into the upload pipeline. Now it's
+  // held here until the crop step (see PhotoCropModal below) produces
+  // the actual cropped File to upload -- null means the modal isn't
+  // showing.
+  const [pendingPhotoFile, setPendingPhotoFile] = useState<File | null>(null);
   const voiceFileInputRef = useRef<HTMLInputElement>(null);
 
   // ---- voice intro ----
@@ -920,7 +928,12 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
   // -------------------------------------------------------------------
   // Photos
   // -------------------------------------------------------------------
-  async function handlePhotoSelected(e: React.ChangeEvent<HTMLInputElement>) {
+  // 2026-08-30, live-testing feedback ("При подгрузке фото должен
+  // открываться редактор с центрированием"): this used to kick off the
+  // upload pipeline directly. Now it just validates the pick and hands
+  // the raw file to PhotoCropModal -- the actual upload (below, in
+  // uploadCroppedPhoto) only runs once the visitor confirms a crop.
+  function handlePhotoSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
@@ -933,9 +946,14 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
       return;
     }
     setPhotoError(null);
+    setPendingPhotoFile(file);
+  }
+
+  async function uploadCroppedPhoto(cropped: File) {
+    setPhotoError(null);
     setPhotoUploading(true);
     try {
-      const compressed = await compressImage(file);
+      const compressed = await compressImage(cropped);
       const createRes = await fetch("/api/upload/create", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -978,6 +996,11 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
       }
       setPhotos((prev) => [...prev, confirmData.media as MediaDocument]);
       markDirty();
+      // Only close the crop modal once the upload actually succeeded --
+      // on failure it stays open (with photoError set above) so the
+      // visitor can just retry the same crop instead of re-picking and
+      // re-adjusting the file from scratch.
+      setPendingPhotoFile(null);
     } catch {
       setPhotoError(t("photoUploadFailed", lang));
     } finally {
@@ -1779,7 +1802,25 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
               )}
             </div>
             <input ref={photoInputRef} type="file" accept="image/*" onChange={handlePhotoSelected} className="hidden" />
-            {photoError && <p className="text-sm text-red-600 dark:text-red-400">{photoError}</p>}
+            {/* Error shown here too (not just inside the crop modal)
+                since photoTooMany/photoTooBig can fire before the modal
+                ever opens (handlePhotoSelected returns early, before
+                setPendingPhotoFile). */}
+            {photoError && !pendingPhotoFile && <p className="text-sm text-red-600 dark:text-red-400">{photoError}</p>}
+            {pendingPhotoFile && (
+              <PhotoCropModal
+                file={pendingPhotoFile}
+                lang={lang}
+                confirming={photoUploading}
+                error={photoError}
+                onCancel={() => {
+                  if (photoUploading) return;
+                  setPendingPhotoFile(null);
+                  setPhotoError(null);
+                }}
+                onConfirm={uploadCroppedPhoto}
+              />
+            )}
           </Section>
 
           {/* ---------------- Links ---------------- */}
