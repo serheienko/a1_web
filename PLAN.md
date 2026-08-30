@@ -2954,3 +2954,14 @@ box SHRINKS back down while the filter popover is still open under it:
 filtersOpen`) per his explicit "фиг с ним с длиной, но не закрывай
 поиск" -- the box no longer collapses out from under an open filter
 popover, accepting that Filters alone now also widens it.
+
+### 6.56 10px gap between the profile tab pill and the posts list (2026-08-30)
+
+Aleksandr, live screenshot: "опусти на 10 px вниз черновик" -- then
+clarified it's about the whole posts list, not just the draft card:
+"в смысле весь пост... и все остальные посты какие будут." The tab
+content had no top margin at all, so both `ownDrafts` and the
+server-rendered `posts` after it sat flush against the pill switcher
+above. Added `mt-2.5` (10px) to the shared `hidden={tab !== "posts"}`
+wrapper so every card in the list gets the same breathing room, not
+just the first one.

@@ -203,7 +203,15 @@ export function ProfileTabs({
       </div>
 
       <div hidden={tab !== "bio"}>{bio}</div>
-      <div hidden={tab !== "posts"}>
+      {/* Aleksandr, 2026-08-30, live screenshot: "опусти на 10 px вниз
+          черновик" -- clarified right after ("в смысле весь пост... и
+          все остальные посты какие будут") that this is about the
+          whole posts list sitting flush against the tab pill above,
+          not something specific to the draft card, so the gap goes on
+          this shared wrapper -- covers ownDrafts below AND the
+          server-rendered `posts` after it, for every card either way,
+          not just the first one. */}
+      <div hidden={tab !== "posts"} className="mt-2.5">
         {ownDrafts.length > 0 && (
           <div className="mb-4 flex flex-col gap-4">
             {ownDrafts.map(({ post, status }) => (
