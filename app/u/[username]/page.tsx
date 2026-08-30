@@ -44,6 +44,7 @@ import { OccupationIcon } from "@/components/occupation-icon";
 import { OCCUPATION_LABELS } from "@/components/occupation-labels";
 import { WORK_STYLE_PREFERENCE_SECTIONS } from "@/components/work-style-labels";
 import { EditProfileButton } from "@/components/edit-profile-button";
+import { AvatarEditButton } from "@/components/avatar-edit-button";
 import { MarqueeName } from "@/components/marquee-name";
 import { fetchBookCoverUrl, fetchMovieCoverUrl, fetchGameCoverUrl, type CoverImage } from "@/lib/covers";
 
@@ -280,7 +281,16 @@ export default async function ProfilePage({ params }: Props) {
           nothing there needed to change — only the badge's own fixed
           sizing did. */}
       <div className="flex items-center gap-4 sm:gap-8">
-        <VoiceIntroRing>
+        {/* 2026-08-30, live-testing feedback: "Возле аватара тоже додай
+            таку штуку для редагування, щоб можна було швидко поміняти" —
+            a small pencil badge pinned to the avatar's own corner,
+            opening components/avatar-edit-button.tsx's own lightweight
+            modal (separate from the full profile editor). `relative` on
+            this wrapper (not on VoiceIntroRing itself, whose own layout
+            this shouldn't touch) is what lets the badge position against
+            the avatar specifically. */}
+        <div className="relative shrink-0">
+          <VoiceIntroRing>
           {profile.avatarUrl ? (
             <Image
               src={profile.avatarUrl}
@@ -311,7 +321,9 @@ export default async function ProfilePage({ params }: Props) {
               className="h-[72px] w-[72px] shrink-0 rounded-full object-cover sm:h-[112.5px] sm:w-[112.5px]"
             />
           )}
-        </VoiceIntroRing>
+          </VoiceIntroRing>
+          <AvatarEditButton username={profile.username} className="absolute bottom-0 right-0" />
+        </div>
         <div className="min-w-0">
           <MarqueeName text={profile.fullName} className="text-xl font-semibold text-neutral-900 sm:text-2xl dark:text-neutral-50" />
           <p className="truncate text-sm text-neutral-500 dark:text-neutral-400">@{profile.username}</p>

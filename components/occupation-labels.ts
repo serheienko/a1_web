@@ -9,20 +9,26 @@
 // already documents, for exactly this reason.
 import type { Locale } from "./t";
 
-// "Professional" here, deliberately not "Specialist" — same Ukrainian/
-// Russian source words as the post-type badge on /u/[username]
-// ("Фахівець" / "Специалист"), but this is the OCCUPATION enum value
-// ("employed professional", as opposed to freelancer/entrepreneur) and
-// the other is a completely different thing (a talent-post badge) —
-// translating both to "Specialist" in English etc. would make them read
-// as the same concept when they aren't.
+// 2026-08-30 CORRECTION (Aleksandr, live-testing feedback, screenshots of
+// the real app): "Діяльність пофіксі неймінг, сделай такой же как в
+// апке, надо: Бізнесмен, Фахівець, Фрілансер" — the uk wording below
+// used to read "Підприємець"/"Спеціаліст" on the deliberate theory (see
+// the superseded comment this replaced) that "Фахівець" was already
+// spoken for by the post-type badge on /u/[username] and reusing it here
+// would blur two different concepts. That theory was wrong: the real app
+// DOES use "Фахівець" for this occupation value, confirmed directly by
+// Aleksandr against the app itself, not inferred — corrected to match.
+// Only uk changed; the other eight locales were never flagged and are
+// left as they were (best-effort translations of the old uk wording, not
+// independently confirmed against the app's own localization for those
+// languages).
 export const OCCUPATION_LABELS: Record<string, Record<Locale, string>> = {
   entrepreneur: {
-    uk: "Підприємець", en: "Entrepreneur", ru: "Предприниматель", de: "Unternehmer",
+    uk: "Бізнесмен", en: "Entrepreneur", ru: "Предприниматель", de: "Unternehmer",
     es: "Emprendedor", fr: "Entrepreneur", pl: "Przedsiębiorca", ptBR: "Empreendedor", zh: "创业者",
   },
   professional: {
-    uk: "Спеціаліст", en: "Professional", ru: "Специалист", de: "Fachkraft",
+    uk: "Фахівець", en: "Professional", ru: "Специалист", de: "Fachkraft",
     es: "Profesional", fr: "Professionnel", pl: "Specjalista", ptBR: "Profissional", zh: "专业人士",
   },
   freelancer: {

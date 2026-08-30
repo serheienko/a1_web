@@ -1,0 +1,236 @@
+// lib/pill-translations.ts
+//
+// 2026-08-30, live-testing feedback: "чому хобі, інтереси в роботі і
+// стиль роботи англійською? У додатку все українською" -- the three
+// dataset-backed pill pickers in components/profile-editor.tsx (Hobbies,
+// Work interests, Work style preferences) render whatever `text` the
+// backend's dataset.* endpoints return, which is English, unlike every
+// other label in this dialog. Confirmed two ways, neither of them a
+// guess: (1) our OWN web editor's screenshots from this same feedback
+// batch show the raw English pills (e.g. "Agriculture, Accounting,
+// Advertising..." under "Інтереси в роботі" -- a Ukrainian section
+// title with English pill values inside it); (2) the mobile app's own
+// hobby pills, in the attached screen recording, render in Ukrainian
+// ("Сальса, Хайкінг, Піші прогулянки"). There is no `lang`/locale
+// parameter documented or evidenced anywhere in lib/a1/datasets.ts's
+// existing `dataset.*` calls (all called with a bare `{}`), and network
+// access to the real backend is blocked from every environment
+// available this session (confirmed via a direct curl attempt returning
+// a 403 from the egress proxy, both from the cloud sandbox and from
+// Aleksandr's own Mac) -- so there was no way to test whether the
+// backend secretly accepts one. Given that, the mobile app most likely
+// keeps its own client-side translation table for these exact same
+// dataset values rather than getting them pre-translated from the
+// server. This file is that same approach for the web: a plain,
+// client-safe (no lib/a1/client.ts import chain) static EN -> UK
+// dictionary for every pill value actually confirmed against a real
+// screenshot, keyed defensively (by dataset section, not just the bare
+// English string) so that same-spelled options in different sections
+// (e.g. "Balanced" appears in both workLifeBalance and
+// workloadAndTaskDelegation, "Painting" appears in both the Arts and
+// DIY hobby groups) can carry different, section-correct translations
+// instead of colliding.
+//
+// Deliberately NOT exhaustive: only Hobbies groups actually visible in
+// a screenshot (5 of "presumably more" -- see the live-testing feedback
+// screenshot ad107c42-image.png, which itself may have more below the
+// fold), only 9 of the profile page's 14 Work Style sections (the other
+// 5 -- decisionMakingStyle, preferredCollaborationStyle,
+// partnershipPreference, preferredWorkingEnvironment, learningStyle --
+// never appeared in any attached screenshot's visible viewport), and
+// only the 39 Work Interests categories that were all visible in one
+// screenshot (a6891bf0-image.png). Anything not in these tables falls
+// back to the backend's own English `text` unchanged -- exactly today's
+// behavior -- rather than guessing a translation with no evidence
+// behind it. Only "uk" gets a translation; every other locale keeps the
+// backend's English text, same as before this file existed, since no
+// other language's real in-app wording was available to confirm against.
+import type { Locale } from "@/components/t";
+
+function pick(dict: Record<string, string> | undefined, text: string, lang: Locale): string {
+  if (lang !== "uk" || !dict) return text;
+  return dict[text] ?? text;
+}
+
+// ---------------- Work interests (Інтереси в роботі) ----------------
+// Source: a6891bf0-image.png, "Інтереси в роботі" section of our own
+// editor, live-tested 2026-08-30 -- all 39 categories visible in one
+// screenshot, so this table is the complete confirmed set (there could
+// still be more beyond what that one dataset snapshot returned).
+const WORK_INTERESTS_UK: Record<string, string> = {
+  "Agriculture": "Сільське господарство",
+  "Accounting": "Бухгалтерія",
+  "Advertising": "Реклама",
+  "Construction": "Будівництво",
+  "Cryptocurrencies": "Криптовалюти",
+  "B2B": "B2B",
+  "Health": "Здоров'я",
+  "Distribution": "Дистрибуція",
+  "Consulting": "Консалтинг",
+  "E-commerce": "Електронна комерція",
+  "Fashion": "Мода",
+  "Media": "Медіа",
+  "Real Estate": "Нерухомість",
+  "Public catering": "Громадське харчування",
+  "Transport": "Транспорт",
+  "Trading": "Трейдинг",
+  "Sports": "Спорт",
+  "Entertainment": "Розваги",
+  "Wholesale trading": "Оптова торгівля",
+  "Logistics": "Логістика",
+  "Finances": "Фінанси",
+  "Education": "Освіта",
+  "Commodities": "Товари",
+  "Design": "Дизайн",
+  "Home Appliances": "Побутова техніка",
+  "Business Services": "Бізнес-послуги",
+  "Import & Export": "Імпорт та експорт",
+  "Packaging & Printing": "Упаковка та друк",
+  "Beauty & Personal Care": "Краса та догляд за собою",
+  "IT": "ІТ",
+  "Manufacturing": "Виробництво",
+  "Events organization": "Організація подій",
+  "Medicine": "Медицина",
+  "Retail": "Роздрібна торгівля",
+  "Marketing": "Маркетинг",
+  "Food & beverages": "Їжа та напої",
+  "Service industry": "Сфера послуг",
+  "Rental Services": "Послуги оренди",
+  "Travel": "Подорожі",
+};
+
+export function translateWorkInterest(text: string, lang: Locale): string {
+  return pick(WORK_INTERESTS_UK, text, lang);
+}
+
+// ---------------- Hobbies (Хобі) ----------------
+// Source: ad107c42-image.png, "Хобі" section of our own editor,
+// live-tested 2026-08-30. Keyed by the backend's own group name (as
+// rendered in group.group) so items with the same English spelling in
+// two different groups (e.g. "Painting") get the translation correct
+// for THAT group, not whichever one happens to be looked up first.
+const HOBBY_GROUP_UK: Record<string, string> = {
+  "Arts and Crafts": "Мистецтво та рукоділля",
+  "Collecting and Hobbies": "Колекціонування та хобі",
+  "Cooking and Baking": "Кулінарія та випічка",
+  "DIY and Home Improvement": "Рукоділля та ремонт дому",
+  "Fashion and Style": "Мода та стиль",
+};
+
+const HOBBY_ITEMS_UK: Record<string, Record<string, string>> = {
+  "Arts and Crafts": {
+    "Arts": "Мистецтво",
+    "Drawing": "Малювання",
+    "Knitting": "В'язання",
+    "Origami": "Орігамі",
+    "Painting": "Живопис",
+    "Photography": "Фотографія",
+    "Pottery": "Гончарство",
+    "Sculpting": "Скульптура",
+    "Sewing": "Шиття",
+  },
+  "Collecting and Hobbies": {
+    "Antiquing": "Пошук антикваріату",
+    "Coin Collecting": "Колекціонування монет",
+    "Comic Book Collecting": "Колекціонування коміксів",
+    "Model Building": "Збірка моделей",
+    "Stamp Collecting": "Колекціонування марок",
+  },
+  "Cooking and Baking": {
+    "Baking": "Випічка",
+    "BBQ": "Барбекю",
+    "Cake Decorating": "Декорування тортів",
+    "Cooking": "Кулінарія",
+    "Recipe Experimentation": "Експерименти з рецептами",
+  },
+  "DIY and Home Improvement": {
+    "Furniture Restoration": "Реставрація меблів",
+    "Gardening Projects": "Садівництво",
+    "Home Renovation": "Ремонт дому",
+    "Painting": "Малярні роботи",
+    "Wood Crafts": "Вироби з дерева",
+  },
+  "Fashion and Style": {
+    "DIY Fashion Projects": "Мода своїми руками",
+    "Fashion Design": "Дизайн одягу",
+    "Fashion Photography": "Фотографія моди",
+    "Fashion Shows": "Показ мод",
+    "Modelling": "Моделінг",
+  },
+};
+
+export function translateHobbyGroup(group: string, lang: Locale): string {
+  return pick(HOBBY_GROUP_UK, group, lang);
+}
+
+export function translateHobbyItem(group: string, text: string, lang: Locale): string {
+  return pick(HOBBY_ITEMS_UK[group], text, lang);
+}
+
+// ---------------- Work style preferences (Стиль роботи) ----------------
+// Source: 9f629035-image.png, "Стиль роботи" section of our own editor,
+// live-tested 2026-08-30 -- 9 of the 14 sections were visible in that
+// one screenshot (the other 5 need their own confirmed screenshot
+// before being added here). Keyed by the WORK_STYLE_DATASET_KEYS value
+// (lib/work-style-keys.ts) for the same same-word-different-section
+// reason as Hobbies above -- e.g. "Balanced" means something different
+// in workLifeBalance ("зосереджений порівну на роботі й особистому")
+// than in workloadTaskDelegation ("порівну розподіляю завдання").
+const WORK_STYLE_OPTION_UK: Record<string, Record<string, string>> = {
+  workEnvironment: {
+    "Remote": "Віддалено",
+    "Office-based": "В офісі",
+    "Hybrid": "Гібридний формат",
+  },
+  personalityType: {
+    "Visionary": "Візіонер",
+    "Executor": "Виконавець",
+    "Innovator": "Новатор",
+    "Organizer": "Організатор",
+  },
+  workLifeBalance: {
+    "Work-focused": "Орієнтований на роботу",
+    "Balanced": "Збалансований",
+    "Life-focused": "Орієнтований на особисте життя",
+  },
+  workStyle: {
+    "Independent": "Самостійний",
+    "Team": "Командний",
+    "Flexible": "Гнучкий",
+  },
+  workAvailability: {
+    "Full-time": "Повна зайнятість",
+    "Part-time": "Часткова зайнятість",
+    "Ad hoc": "За потреби",
+    "Specific hours": "Певні години",
+  },
+  projectType: {
+    "One-time": "Разовий",
+    "Ongoing collaboration": "Постійна співпраця",
+    "Task-based": "За завданнями",
+  },
+  leadershipStyle: {
+    "Hands-On": "Практичний",
+    "Delegative": "Делегувальний",
+    "Supportive": "Підтримувальний",
+    "Strategic": "Стратегічний",
+  },
+  riskTolerance: {
+    "High": "Високе",
+    "Moderate": "Помірне",
+    "Risk-averse": "Обережне",
+  },
+  // Dataset key per lib/work-style-keys.ts's own comment: the user's
+  // field is workloadAndTaskDelegation, but the dataset lookup key
+  // (what components/profile-editor.tsx actually indexes
+  // bootstrap.workStylePreferences with) is workloadTaskDelegation.
+  workloadTaskDelegation: {
+    "Hands-on": "Виконую сам",
+    "Balanced": "Збалансовано",
+    "Delegated": "Делегую",
+  },
+};
+
+export function translateWorkStyleOption(datasetKey: string, text: string, lang: Locale): string {
+  return pick(WORK_STYLE_OPTION_UK[datasetKey], text, lang);
+}

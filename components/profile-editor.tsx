@@ -77,8 +77,13 @@ import { WORK_STYLE_PREFERENCE_SECTIONS } from "@/components/work-style-labels";
 // below are `import type` only, which TypeScript fully erases, so those
 // two are safe to pull from lib/a1/datasets.ts itself.
 import { WORK_STYLE_DATASET_KEYS } from "@/lib/work-style-keys";
+import { translateHobbyGroup, translateHobbyItem, translateWorkInterest, translateWorkStyleOption } from "@/lib/pill-translations";
 import type { Category, WorkStylePreferencesDataset } from "@/lib/a1/datasets";
 import type { EditableProfile, MediaDocument } from "@/lib/a1/schemas";
+// Plain bit math, no dependency chain — safe to import into this client
+// component the same way lib/work-style-keys.ts is (see that file's own
+// header comment for the class of bug this avoids).
+import { canShowPhone, canShowDob } from "@/lib/a1/user-flags";
 
 // ---------------------------------------------------------------------------
 // Constants shared with components/post-editor.tsx's own photo handling —
@@ -88,9 +93,22 @@ import type { EditableProfile, MediaDocument } from "@/lib/a1/schemas";
 const MAX_PHOTOS = 3;
 const MAX_PHOTO_BYTES = 300 * 1024;
 const MAX_PHOTO_DIMENSION = 1600;
-const VOICE_MAX_SECONDS = 60;
+// 2026-08-30, live-testing feedback: "вона кстати не до 60, а до 120 сек" —
+// the voice intro's real limit is double what this was built against.
+const VOICE_MAX_SECONDS = 120;
 const VOICE_MIME_CANDIDATES = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
 const VOICE_BITRATE = 64000;
+
+// 2026-08-30, live-testing feedback ("Языки можно добавлять до 10",
+// "Хоби до 5", "Компании вроде до 10 (проверь)") — caps on the three
+// list fields that can otherwise grow unbounded. None of these are
+// independently confirmed against a real backend-side limit (the ask was
+// phrased as Aleksandr's own recollection, "вроде", for companies
+// specifically) — enforced here as a client-side UX cap either way,
+// consistent with the fixed MAX_PHOTOS above.
+const MAX_LANGUAGES = 10;
+const MAX_HOBBIES = 5;
+const MAX_COMPANIES = 10;
 
 const OCCUPATION_VALUES = ["entrepreneur", "professional", "freelancer"] as const;
 type OccupationValue = (typeof OCCUPATION_VALUES)[number];
@@ -114,23 +132,25 @@ const COMMON_LANGUAGE_CODES = [
 // i18n — same STRINGS/t() pattern as components/post-editor.tsx.
 // ---------------------------------------------------------------------------
 type StringKey =
-  | "dialogTitle" | "close" | "save" | "saving" | "saveFailed" | "notSignedIn"
+  | "dialogTitle" | "close" | "save" | "saving" | "saveFailed" | "saveFailedCategoryRequired" | "notSignedIn"
   | "closeConfirmTitle" | "closeConfirmBody" | "continueEditing" | "discardClose"
   | "sectionBasic" | "sectionPhotos" | "sectionVoice" | "sectionLinks" | "sectionCompanies"
   | "sectionEducation" | "sectionSkills" | "sectionLanguages" | "sectionHobbies"
   | "sectionInterests" | "sectionFavorites" | "sectionWorkStyle"
+  | "usernameLabel" | "usernamePlaceholder"
+  | "phoneLabel" | "phonePlaceholder" | "dobLabel" | "showOnProfile"
   | "firstNameLabel" | "lastNameLabel" | "bioLabel" | "bioPlaceholder"
   | "profileTitleLabel" | "profileTitlePlaceholder" | "occupationLabel"
   | "expertiseLabel" | "expertisePlaceholder" | "locationLabel" | "locationPlaceholder"
   | "locationEmpty" | "locationSearching" | "locationClear"
   | "photoHint" | "photoTooMany" | "photoTooBig" | "photoUploadFailed"
-  | "voiceHint" | "recordStart" | "recordStop" | "recordUploading" | "recordFailed"
+  | "voiceHint" | "recordStart" | "recordStop" | "recordUploading" | "recordFailed" | "uploadAudioFile" | "processingAudio"
   | "removeVoice" | "micDenied" | "recordNotSupported" | "playVoice"
   | "linkTitlePlaceholder" | "linkUrlPlaceholder" | "addLink"
   | "companyNamePlaceholder" | "companyDescriptionPlaceholder" | "companyCategoryPlaceholder"
   | "companyCategoryEmpty" | "companyPositionTitlePlaceholder" | "companyPositionStartPlaceholder"
   | "companyPositionEndPlaceholder" | "companyEmployeesPlaceholder" | "companyTurnoverPlaceholder"
-  | "companyFoundedPlaceholder" | "companyLinkTitlePlaceholder" | "companyLinkUrlPlaceholder"
+  | "companyFoundedPlaceholder" | "companyLinkUrlPlaceholder"
   | "addCompany" | "companyUntitled"
   | "educationPlaceholder" | "addEducation"
   | "skillNamePlaceholder" | "skillLevelLabel" | "addSkill"
@@ -153,6 +173,27 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
     ru: "Не удалось сохранить. Попробуйте ещё раз.", de: "Speichern fehlgeschlagen. Bitte erneut versuchen.",
     es: "No se pudo guardar. Inténtalo de nuevo.", fr: "Échec de l'enregistrement. Réessayez.",
     pl: "Nie udało się zapisać. Spróbuj ponownie.", ptBR: "Não foi possível salvar. Tente novamente.", zh: "保存失败,请重试。",
+  },
+  // 2026-08-30, live-testing feedback: a company that has anything typed
+  // into it (name, description, position, etc.) but no category selected
+  // used to be sent to account.updateProfile with `category: null` — this
+  // codebase already confirmed once, the hard way (app/api/account/
+  // update-profile/route.ts's own header comment), that the backend's
+  // Company shape requires category to be a REAL value, not merely
+  // present-but-null like every other company sub-field. Sending one
+  // broke the entire profile save with no field-level indication of why.
+  // Caught client-side now (see handleSave's own validation) instead of
+  // round-tripping to the backend to find out again.
+  saveFailedCategoryRequired: {
+    uk: "Оберіть категорію компанії, позначеної нижче — без неї профіль не зберігається.",
+    en: "Pick a category for the company marked below — the profile can't save without it.",
+    ru: "Выберите категорию компании, отмеченной ниже — без неё профиль не сохранится.",
+    de: "Wählen Sie eine Kategorie für das unten markierte Unternehmen — ohne sie kann das Profil nicht gespeichert werden.",
+    es: "Elige una categoría para la empresa marcada abajo — el perfil no se puede guardar sin ella.",
+    fr: "Choisissez une catégorie pour l'entreprise indiquée ci-dessous — le profil ne peut pas être enregistré sans elle.",
+    pl: "Wybierz kategorię firmy zaznaczonej poniżej — bez tego profilu nie da się zapisać.",
+    ptBR: "Escolha uma categoria para a empresa marcada abaixo — o perfil não pode ser salvo sem ela.",
+    zh: "请为下方标记的公司选择一个类别——否则无法保存资料。",
   },
   notSignedIn: {
     uk: "Сесію завершено. Увійдіть ще раз.", en: "Your session ended. Please sign in again.",
@@ -185,6 +226,17 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   sectionInterests: { uk: "Інтереси в роботі", en: "Work interests", ru: "Интересы в работе", de: "Berufliche Interessen", es: "Intereses laborales", fr: "Intérêts professionnels", pl: "Zainteresowania zawodowe", ptBR: "Interesses profissionais", zh: "工作兴趣" },
   sectionFavorites: { uk: "Улюблене", en: "Favorites", ru: "Избранное", de: "Favoriten", es: "Favoritos", fr: "Favoris", pl: "Ulubione", ptBR: "Favoritos", zh: "收藏" },
   sectionWorkStyle: { uk: "Стиль роботи", en: "Work style", ru: "Стиль работы", de: "Arbeitsstil", es: "Estilo de trabajo", fr: "Style de travail", pl: "Styl pracy", ptBR: "Estilo de trabalho", zh: "工作风格" },
+  // 2026-08-30, live-testing feedback: "Ти пропустив нікнейм?" — added,
+  // see EditableProfileSchema/ProfileInputSchema's own comments on why
+  // this wasn't already there and why the write side isn't confirmed.
+  usernameLabel: { uk: "Нікнейм", en: "Username", ru: "Никнейм", de: "Benutzername", es: "Nombre de usuario", fr: "Nom d'utilisateur", pl: "Nazwa użytkownika", ptBR: "Nome de usuário", zh: "用户名" },
+  usernamePlaceholder: { uk: "напр. alex_dev", en: "e.g. alex_dev", ru: "напр. alex_dev", de: "z. B. alex_dev", es: "p. ej. alex_dev", fr: "ex. alex_dev", pl: "np. alex_dev", ptBR: "ex.: alex_dev", zh: "例如 alex_dev" },
+  // 2026-08-30, live-testing feedback: "Пропущено поля телефон і дата
+  // народження (ці поля можна ховати з профілю тогглом)."
+  phoneLabel: { uk: "Телефон", en: "Phone", ru: "Телефон", de: "Telefon", es: "Teléfono", fr: "Téléphone", pl: "Telefon", ptBR: "Telefone", zh: "电话" },
+  phonePlaceholder: { uk: "+380…", en: "+380…", ru: "+380…", de: "+380…", es: "+380…", fr: "+380…", pl: "+380…", ptBR: "+380…", zh: "+380…" },
+  dobLabel: { uk: "Дата народження", en: "Date of birth", ru: "Дата рождения", de: "Geburtsdatum", es: "Fecha de nacimiento", fr: "Date de naissance", pl: "Data urodzenia", ptBR: "Data de nascimento", zh: "出生日期" },
+  showOnProfile: { uk: "Показувати в профілі", en: "Show on profile", ru: "Показывать в профиле", de: "Im Profil anzeigen", es: "Mostrar en el perfil", fr: "Afficher sur le profil", pl: "Pokaż w profilu", ptBR: "Mostrar no perfil", zh: "在资料中显示" },
   firstNameLabel: { uk: "Ім'я", en: "First name", ru: "Имя", de: "Vorname", es: "Nombre", fr: "Prénom", pl: "Imię", ptBR: "Nome", zh: "名字" },
   lastNameLabel: { uk: "Прізвище", en: "Last name", ru: "Фамилия", de: "Nachname", es: "Apellido", fr: "Nom", pl: "Nazwisko", ptBR: "Sobrenome", zh: "姓氏" },
   bioLabel: { uk: "Про себе", en: "Bio", ru: "О себе", de: "Über mich", es: "Biografía", fr: "Bio", pl: "O mnie", ptBR: "Bio", zh: "简介" },
@@ -200,8 +252,16 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
     es: "Ej.: «Desarrollador Frontend Senior»", fr: "Ex. : « Développeur Frontend Senior »",
     pl: "Np. „Senior Frontend Developer”", ptBR: "Ex.: \"Desenvolvedor Frontend Sênior\"", zh: "例如“高级前端开发工程师”",
   },
-  occupationLabel: { uk: "Я...", en: "I am a...", ru: "Я...", de: "Ich bin...", es: "Soy...", fr: "Je suis...", pl: "Jestem...", ptBR: "Eu sou...", zh: "我是..." },
-  expertiseLabel: { uk: "Роль і навички", en: "Role & skills", ru: "Роль и навыки", de: "Rolle & Fähigkeiten", es: "Rol y habilidades", fr: "Rôle et compétences", pl: "Rola i umiejętności", ptBR: "Função e habilidades", zh: "角色与技能" },
+  // 2026-08-30, live-testing feedback: "там де 'я' — надо 'діяльність'".
+  // Only uk changed, same conservative scope as OCCUPATION_LABELS' own
+  // 2026-08-30 correction right above it in this dialog.
+  occupationLabel: { uk: "Діяльність", en: "I am a...", ru: "Я...", de: "Ich bin...", es: "Soy...", fr: "Je suis...", pl: "Jestem...", ptBR: "Eu sou...", zh: "我是..." },
+  // 2026-08-30, live-testing feedback: "Роль і навички — вроде у нас
+  // називається 'професійна роль'" — Aleksandr's own phrasing was hedged
+  // ("вроде", "I think"), not a flat correction, but it's the only lead
+  // available without app access from this session; renamed to match.
+  // Re-check against the app directly if this turns out wrong.
+  expertiseLabel: { uk: "Професійна роль", en: "Professional role", ru: "Профессиональная роль", de: "Berufliche Rolle", es: "Rol profesional", fr: "Rôle professionnel", pl: "Rola zawodowa", ptBR: "Função profissional", zh: "职业角色" },
   expertisePlaceholder: {
     uk: "Розробник, Засновник, Дизайнер", en: "Developer, Founder, Designer", ru: "Разработчик, Основатель, Дизайнер",
     de: "Entwickler, Gründer, Designer", es: "Desarrollador, Fundador, Diseñador", fr: "Développeur, Fondateur, Designer",
@@ -240,6 +300,10 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   recordStart: { uk: "Записати", en: "Record", ru: "Записать", de: "Aufnehmen", es: "Grabar", fr: "Enregistrer", pl: "Nagraj", ptBR: "Gravar", zh: "录音" },
   recordStop: { uk: "Зупинити", en: "Stop", ru: "Остановить", de: "Stopp", es: "Detener", fr: "Arrêter", pl: "Zatrzymaj", ptBR: "Parar", zh: "停止" },
   recordUploading: { uk: "Завантаження…", en: "Uploading…", ru: "Загрузка…", de: "Wird hochgeladen…", es: "Subiendo…", fr: "Envoi…", pl: "Przesyłanie…", ptBR: "Enviando…", zh: "上传中…" },
+  // 2026-08-30, live-testing feedback: "В голосовій візитці треба додати
+  // можливість підвантажити аудіофайл."
+  uploadAudioFile: { uk: "Завантажити файл", en: "Upload file", ru: "Загрузить файл", de: "Datei hochladen", es: "Subir archivo", fr: "Envoyer un fichier", pl: "Prześlij plik", ptBR: "Enviar arquivo", zh: "上传文件" },
+  processingAudio: { uk: "Обробка звуку…", en: "Processing audio…", ru: "Обработка звука…", de: "Audio wird verarbeitet…", es: "Procesando audio…", fr: "Traitement audio…", pl: "Przetwarzanie dźwięku…", ptBR: "Processando áudio…", zh: "处理音频中…" },
   recordFailed: { uk: "Не вдалося записати або завантажити", en: "Couldn't record or upload", ru: "Не удалось записать или загрузить", de: "Aufnahme oder Upload fehlgeschlagen", es: "No se pudo grabar o subir", fr: "Échec de l'enregistrement ou de l'envoi", pl: "Nie udało się nagrać lub przesłać", ptBR: "Não foi possível gravar ou enviar", zh: "录音或上传失败" },
   removeVoice: { uk: "Видалити запис", en: "Remove recording", ru: "Удалить запись", de: "Aufnahme entfernen", es: "Eliminar grabación", fr: "Supprimer l'enregistrement", pl: "Usuń nagranie", ptBR: "Remover gravação", zh: "删除录音" },
   micDenied: { uk: "Немає доступу до мікрофона", en: "Microphone access denied", ru: "Нет доступа к микрофону", de: "Kein Mikrofonzugriff", es: "Acceso al micrófono denegado", fr: "Accès au microphone refusé", pl: "Brak dostępu do mikrofonu", ptBR: "Acesso ao microfone negado", zh: "无法访问麦克风" },
@@ -255,11 +319,22 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   companyPositionTitlePlaceholder: { uk: "Посада", en: "Role / title", ru: "Должность", de: "Position", es: "Puesto", fr: "Poste", pl: "Stanowisko", ptBR: "Cargo", zh: "职位" },
   companyPositionStartPlaceholder: { uk: "Початок (напр. 2020)", en: "Start (e.g. 2020)", ru: "Начало (напр. 2020)", de: "Beginn (z. B. 2020)", es: "Inicio (p. ej. 2020)", fr: "Début (ex. 2020)", pl: "Początek (np. 2020)", ptBR: "Início (ex.: 2020)", zh: "开始时间(如 2020)" },
   companyPositionEndPlaceholder: { uk: "Кінець (або «дотепер»)", en: "End (or \"present\")", ru: "Конец (или «по н.в.»)", de: "Ende (oder „heute“)", es: "Fin (o «actualidad»)", fr: "Fin (ou « aujourd'hui »)", pl: "Koniec (lub „obecnie”)", ptBR: "Fim (ou \"atual\")", zh: "结束时间(或“至今”)" },
-  companyEmployeesPlaceholder: { uk: "Кількість співробітників", en: "Number of employees", ru: "Количество сотрудников", de: "Anzahl der Mitarbeiter", es: "Número de empleados", fr: "Nombre d'employés", pl: "Liczba pracowników", ptBR: "Número de funcionários", zh: "员工人数" },
-  companyTurnoverPlaceholder: { uk: "Річний оборот", en: "Annual turnover", ru: "Годовой оборот", de: "Jahresumsatz", es: "Facturación anual", fr: "Chiffre d'affaires annuel", pl: "Roczny obrót", ptBR: "Faturamento anual", zh: "年营业额" },
-  companyFoundedPlaceholder: { uk: "Рік заснування", en: "Year founded", ru: "Год основания", de: "Gründungsjahr", es: "Año de fundación", fr: "Année de création", pl: "Rok założenia", ptBR: "Ano de fundação", zh: "成立年份" },
-  companyLinkTitlePlaceholder: { uk: "Назва посилання", en: "Link title", ru: "Название ссылки", de: "Linktitel", es: "Título del enlace", fr: "Titre du lien", pl: "Nazwa linku", ptBR: "Título do link", zh: "链接名称" },
-  companyLinkUrlPlaceholder: { uk: "Сайт компанії", en: "Company website", ru: "Сайт компании", de: "Unternehmenswebsite", es: "Sitio web de la empresa", fr: "Site de l'entreprise", pl: "Strona firmy", ptBR: "Site da empresa", zh: "公司网站" },
+  // 2026-08-30, live-testing feedback ("Поля в компании какие не
+  // поместились сократи, но типа 'кількість співробітників' на 'к-сть
+  // співроб.'"): shortened per that exact example — these render inside
+  // a cramped grid-cols-3 row alongside a native number-input spinner, so
+  // the fuller phrasing was clipping.
+  companyEmployeesPlaceholder: { uk: "К-сть співроб.", en: "# employees", ru: "Кол-во сотр.", de: "Mitarb.-Zahl", es: "Nº empleados", fr: "Nb employés", pl: "Liczba prac.", ptBR: "Nº funcionários", zh: "员工人数" },
+  companyTurnoverPlaceholder: { uk: "Оборот/рік", en: "Turnover/yr", ru: "Оборот/год", de: "Umsatz/Jahr", es: "Facturación/año", fr: "CA/an", pl: "Obrót/rok", ptBR: "Faturamento/ano", zh: "年营业额" },
+  companyFoundedPlaceholder: { uk: "Рік засн.", en: "Founded", ru: "Год осн.", de: "Gründung", es: "Fundación", fr: "Création", pl: "Rok zał.", ptBR: "Fundação", zh: "成立年份" },
+  // 2026-08-30, live-testing feedback ("Назва посилання 2 поля поломались,
+  // должно быть просто 'посилання'"): this used to be two fields (a link
+  // title + a URL) — collapsed to the single field below. `linkTitle`
+  // itself is NOT removed from EditableCompany/handleSave: an existing
+  // company's title (if the mobile app or an earlier save ever set one)
+  // still round-trips unedited instead of being silently wiped, it's just
+  // no longer exposed as its own input here.
+  companyLinkUrlPlaceholder: { uk: "Посилання", en: "Link", ru: "Ссылка", de: "Link", es: "Enlace", fr: "Lien", pl: "Link", ptBR: "Link", zh: "链接" },
   addCompany: { uk: "Додати компанію", en: "Add company", ru: "Добавить компанию", de: "Unternehmen hinzufügen", es: "Añadir empresa", fr: "Ajouter une entreprise", pl: "Dodaj firmę", ptBR: "Adicionar empresa", zh: "添加公司" },
   companyUntitled: { uk: "Без назви", en: "Untitled company", ru: "Без названия", de: "Ohne Namen", es: "Sin nombre", fr: "Sans nom", pl: "Bez nazwy", ptBR: "Sem nome", zh: "未命名公司" },
   educationPlaceholder: { uk: "Навчальний заклад", en: "School or university", ru: "Учебное заведение", de: "Bildungseinrichtung", es: "Centro educativo", fr: "Établissement scolaire", pl: "Placówka edukacyjna", ptBR: "Instituição de ensino", zh: "教育机构" },
@@ -318,9 +393,9 @@ const pillClass = (active: boolean) =>
     ? "border-accent bg-accent/10 text-accent"
     : "border-neutral-300 text-neutral-600 hover:border-neutral-400 dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-neutral-600");
 
-function CloseIcon() {
+function CloseIcon({ className }: { className?: string } = {}) {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true" className={className}>
       <path d="M6 6l12 12M18 6L6 18" />
     </svg>
   );
@@ -359,6 +434,13 @@ function MicIcon() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <rect x="9" y="2" width="6" height="12" rx="3" />
       <path d="M5 10v1a7 7 0 0 0 14 0v-1M12 18v4M9 22h6" />
+    </svg>
+  );
+}
+function UploadIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 16V4M7 9l5-5 5 5M4 20h16" />
     </svg>
   );
 }
@@ -520,11 +602,28 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
 
   const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState(false);
+  // Holds which error string to show, or null for "no error" — a plain
+  // boolean stopped being enough once handleSave gained a second,
+  // more specific failure message (saveFailedCategoryRequired below).
+  const [saveErrorKey, setSaveErrorKey] = useState<StringKey | null>(null);
+  // Client-only ids of company rows with content but no category picked —
+  // see handleSave and STRINGS.saveFailedCategoryRequired's own comment.
+  const [invalidCompanyIds, setInvalidCompanyIds] = useState<Set<string>>(new Set());
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
   const [dirty, setDirty] = useState(false);
 
   // ---- basic info ----
+  const [username, setUsername] = useState("");
+  // 2026-08-30, live-testing feedback: phone/DOB, each hideable from the
+  // public profile via lib/a1/user-flags.ts's SHOW_PHONE_NUMBER/SHOW_DOB
+  // bits. `rawFlags` holds the visitor's full flags int exactly as
+  // bootstrapped so handleSave can flip just these two bits without
+  // touching any other one (see ProfileInputSchema.flags's own comment).
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [dob, setDob] = useState("");
+  const [showPhone, setShowPhone] = useState(false);
+  const [showDob, setShowDob] = useState(false);
+  const [rawFlags, setRawFlags] = useState(0);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [bio, setBio] = useState("");
@@ -545,6 +644,7 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
   const [photoUploading, setPhotoUploading] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const voiceFileInputRef = useRef<HTMLInputElement>(null);
 
   // ---- voice intro ----
   const [voiceDoc, setVoiceDoc] = useState<MediaDocument | null>(null);
@@ -552,6 +652,14 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
   const [isRecording, setIsRecording] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
   const [voiceUploading, setVoiceUploading] = useState(false);
+  // 2026-08-30, live-testing feedback: "В голосовій візитці треба додати
+  // можливість підвантажити аудіофайл, і теж його стискати й обробляти" —
+  // a separate state from voiceUploading since this phase (decode ->
+  // offline-render through the SAME highpass+compressor graph
+  // startRecording uses -> real-time re-encode) happens BEFORE
+  // uploadVoice()'s own upload phase even starts, and can itself take as
+  // long as the clip's duration (see handleVoiceFileSelected below).
+  const [voiceProcessing, setVoiceProcessing] = useState(false);
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
@@ -607,6 +715,12 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
           return;
         }
         const p = data.profile;
+        setUsername(p.username ?? "");
+        setPhoneNumber(p.phoneNumber ?? "");
+        setDob(p.dob ?? "");
+        setRawFlags(p.flags);
+        setShowPhone(canShowPhone(p.flags));
+        setShowDob(canShowDob(p.flags));
         setFirstName(p.firstName);
         setLastName(p.lastName);
         setBio(p.bio);
@@ -903,6 +1017,92 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
     mediaRecorderRef.current?.stop();
   }
 
+  // 2026-08-30, live-testing feedback: "В голосовій візитці треба додати
+  // можливість підвантажити аудіофайл, і теж його стискати й обробляти."
+  // Runs an uploaded file through the exact same "cleanup + compression"
+  // signal chain startRecording() builds for the live mic (highpass ->
+  // DynamicsCompressor), then re-encodes it through the same capped-
+  // bitrate MediaRecorder path — there is no way to get a browser's
+  // MediaRecorder to encode a plain AudioBuffer directly, so this plays
+  // the decoded file back in real time into a MediaStreamDestination and
+  // records THAT, same mechanism as the live-mic path, just fed by a
+  // BufferSourceNode instead of getUserMedia. That means processing one
+  // takes as long as the clip itself (up to VOICE_MAX_SECONDS) — shown to
+  // the visitor via voiceProcessing rather than pretending it's instant.
+  async function handleVoiceFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setVoiceError(null);
+    if (typeof MediaRecorder === "undefined" || typeof AudioContext === "undefined") {
+      setVoiceError(t("recordNotSupported", lang));
+      return;
+    }
+    setVoiceProcessing(true);
+    try {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const arrayBuffer = await file.arrayBuffer();
+      const decodeCtx = new AudioCtx();
+      let decoded: AudioBuffer;
+      try {
+        decoded = await decodeCtx.decodeAudioData(arrayBuffer);
+      } finally {
+        void decodeCtx.close().catch(() => {});
+      }
+
+      const ctx = new AudioCtx();
+      // Cap at VOICE_MAX_SECONDS, same limit startRecording() enforces
+      // live via its own interval timer — a long uploaded file is
+      // trimmed rather than rejected outright.
+      const maxSamples = Math.min(decoded.length, Math.floor(VOICE_MAX_SECONDS * decoded.sampleRate));
+      let bufferToPlay = decoded;
+      if (maxSamples < decoded.length) {
+        const trimmed = ctx.createBuffer(decoded.numberOfChannels, maxSamples, decoded.sampleRate);
+        for (let ch = 0; ch < decoded.numberOfChannels; ch++) {
+          trimmed.copyToChannel(decoded.getChannelData(ch).subarray(0, maxSamples), ch);
+        }
+        bufferToPlay = trimmed;
+      }
+
+      const source = ctx.createBufferSource();
+      source.buffer = bufferToPlay;
+      const highpass = ctx.createBiquadFilter();
+      highpass.type = "highpass";
+      highpass.frequency.value = 100;
+      const compressor = ctx.createDynamicsCompressor();
+      compressor.threshold.value = -28;
+      compressor.knee.value = 24;
+      compressor.ratio.value = 8;
+      compressor.attack.value = 0.003;
+      compressor.release.value = 0.25;
+      const dest = ctx.createMediaStreamDestination();
+      source.connect(highpass);
+      highpass.connect(compressor);
+      compressor.connect(dest);
+
+      const mimeType = VOICE_MIME_CANDIDATES.find((m) => MediaRecorder.isTypeSupported(m));
+      const recorder = mimeType
+        ? new MediaRecorder(dest.stream, { mimeType, audioBitsPerSecond: VOICE_BITRATE })
+        : new MediaRecorder(dest.stream);
+      const chunks: Blob[] = [];
+      recorder.ondataavailable = (ev) => {
+        if (ev.data.size > 0) chunks.push(ev.data);
+      };
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
+        void ctx.close().catch(() => {});
+        setVoiceProcessing(false);
+        void uploadVoice(blob, recorder.mimeType || "audio/webm");
+      };
+      source.onended = () => recorder.stop();
+      recorder.start();
+      source.start();
+    } catch {
+      setVoiceProcessing(false);
+      setVoiceError(t("recordFailed", lang));
+    }
+  }
+
   async function uploadVoice(blob: Blob, mimeType: string) {
     setVoiceUploading(true);
     try {
@@ -966,11 +1166,45 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
   // -------------------------------------------------------------------
   async function handleSave() {
     if (saving) return;
-    setSaving(true);
-    setSaveError(false);
+    setSaveErrorKey(null);
+    setInvalidCompanyIds(new Set());
 
-    const companiesPayload = companies
-      .filter((c) => c.name.trim() !== "" || c.category !== null)
+    // A company row counts as "touched" the moment ANY of its fields has
+    // something in it — including just a selected category, matching how
+    // app/api/account/update-profile/route.ts's own confirmed-working
+    // category-only entry looks (name/description left blank on purpose).
+    const touchedCompanies = companies.filter(
+      (c) =>
+        c.name.trim() !== "" ||
+        c.description.trim() !== "" ||
+        c.positionTitle.trim() !== "" ||
+        c.positionStart.trim() !== "" ||
+        c.positionEnd.trim() !== "" ||
+        c.employeesCount.trim() !== "" ||
+        c.turnover.trim() !== "" ||
+        c.est.trim() !== "" ||
+        c.linkUrl.trim() !== "" ||
+        c.category !== null,
+    );
+    // CONFIRMED (app/api/account/update-profile/route.ts's own header
+    // comment, live 400s from 2026-08-29): the backend's Company shape
+    // accepts every sub-field empty/null EXCEPT category, which must be a
+    // real value the moment a company entry is sent at all. A row with
+    // anything else typed in but no category picked used to go out as
+    // `category: null` and fail the WHOLE profile save with no
+    // field-level indication of why — this is the most likely explanation
+    // for "почему-то не вышло сохранить" after a long edit session. Block
+    // the save client-side instead of round-tripping to find out again.
+    const missingCategory = touchedCompanies.filter((c) => c.category === null);
+    if (missingCategory.length > 0) {
+      setInvalidCompanyIds(new Set(missingCategory.map((c) => c.id)));
+      setSaveErrorKey("saveFailedCategoryRequired");
+      return;
+    }
+
+    setSaving(true);
+
+    const companiesPayload = touchedCompanies
       .map((c) => {
         const hasPosition = c.positionTitle.trim() !== "" || c.positionStart.trim() !== "" || c.positionEnd.trim() !== "";
         const employeesCount = c.employeesCount.trim() ? Math.max(0, Math.trunc(Number(c.employeesCount)) || 0) : 0;
@@ -1017,6 +1251,23 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
       workStylePreferences,
     };
     if (occupation) body.occupation = occupation;
+    // Schema-required min(1) if present at all (see ProfileInputSchema's
+    // own comment) — omit entirely rather than send "" and fail the
+    // whole save the same way an empty occupation would.
+    if (username.trim()) body.username = username.trim();
+    body.phoneNumber = phoneNumber.trim() || null;
+    body.dob = dob.trim() || null;
+    // Read-modify-write: flip ONLY the two bits this dialog knows about,
+    // on top of rawFlags exactly as bootstrapped — see this file's own
+    // SHOW_PHONE_NUMBER/SHOW_DOB comment near the state declarations and
+    // ProfileInputSchema.flags's comment for why every other bit
+    // (FAVORED/BLOCKED/PREMIUM/etc.) must round-trip untouched.
+    const SHOW_PHONE_NUMBER = 1 << 1;
+    const SHOW_DOB = 1 << 3;
+    let nextFlags = rawFlags;
+    nextFlags = showPhone ? nextFlags | SHOW_PHONE_NUMBER : nextFlags & ~SHOW_PHONE_NUMBER;
+    nextFlags = showDob ? nextFlags | SHOW_DOB : nextFlags & ~SHOW_DOB;
+    body.flags = nextFlags;
 
     try {
       const res = await fetch("/api/account/profile-editor/update", {
@@ -1030,14 +1281,14 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
           window.location.href = "/sign-in?reason=edit-profile";
           return;
         }
-        setSaveError(true);
+        setSaveErrorKey("saveFailed");
         setSaving(false);
         return;
       }
       setDirty(false);
       onSaved();
     } catch {
-      setSaveError(true);
+      setSaveErrorKey("saveFailed");
       setSaving(false);
     }
   }
@@ -1111,8 +1362,10 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
       >
         <div className="flex items-center justify-between border-b border-neutral-100 px-5 py-4 dark:border-neutral-800">
           <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-50">{t("dialogTitle", lang)}</h2>
-          <button type="button" onClick={requestClose} aria-label={t("close", lang)} className="text-neutral-400 transition hover:text-neutral-900 dark:hover:text-neutral-50">
-            <CloseIcon />
+          {/* 2026-08-30, live-testing feedback: "При наведенні додай легку
+              анімацію, поверни хрестик на 90 градусів." */}
+          <button type="button" onClick={requestClose} aria-label={t("close", lang)} className="group text-neutral-400 transition hover:text-neutral-900 dark:hover:text-neutral-50">
+            <CloseIcon className="transition-transform duration-200 ease-out group-hover:rotate-90" />
           </button>
         </div>
 
@@ -1141,8 +1394,135 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
         )}
 
         <div className="relative flex-1 overflow-y-auto px-5 py-1" onChange={markDirty}>
+          {/* ---------------- Voice intro ---------------- */}
+          {/* 2026-08-30, live-testing feedback: "Голосова візитка поставь
+              наверх, це крута фіча" — moved to the very first section in
+              the dialog (was between Photos and Links). defaultOpen now
+              lives here instead of on Basic info, since this is the
+              section being led with. */}
+          <Section title={t("sectionVoice", lang)} defaultOpen>
+            <p className="text-xs text-neutral-400 dark:text-neutral-500">{t("voiceHint", lang)}</p>
+            <div className="flex items-center gap-3">
+              {voiceDoc ? (
+                <>
+                  <audio
+                    controls
+                    src={voicePreviewUrl ?? mediaUrl(voiceDoc)}
+                    className="h-9 max-w-[220px] flex-1"
+                  />
+                  <button
+                    type="button"
+                    onClick={removeVoice}
+                    aria-label={t("removeVoice", lang)}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-neutral-300 text-neutral-500 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-400 dark:hover:bg-neutral-800"
+                  >
+                    <TrashIcon />
+                  </button>
+                </>
+              ) : isRecording ? (
+                <button
+                  type="button"
+                  onClick={stopRecording}
+                  className="flex items-center gap-2 rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
+                >
+                  <StopSquareIcon />
+                  {t("recordStop", lang)} · {formatSeconds(recordSeconds)}
+                </button>
+              ) : voiceUploading ? (
+                <span className="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400">
+                  <Spinner className="h-4 w-4" /> {t("recordUploading", lang)}
+                </span>
+              ) : voiceProcessing ? (
+                <span className="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400">
+                  <Spinner className="h-4 w-4" /> {t("processingAudio", lang)}
+                </span>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={startRecording}
+                    className="flex items-center gap-2 rounded-full border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                  >
+                    <MicIcon />
+                    {t("recordStart", lang)}
+                  </button>
+                  {/* 2026-08-30, live-testing feedback: "В голосовій
+                      візитці треба додати можливість підвантажити
+                      аудіофайл, і теж його стискати й обробляти" — runs
+                      the same cleanup+compression chain as a live
+                      recording, see handleVoiceFileSelected's own
+                      comment. */}
+                  <button
+                    type="button"
+                    onClick={() => voiceFileInputRef.current?.click()}
+                    className="flex items-center gap-2 rounded-full border border-dashed border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-500 transition hover:border-neutral-400 hover:text-neutral-700 dark:border-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+                  >
+                    <UploadIcon />
+                    {t("uploadAudioFile", lang)}
+                  </button>
+                  <input ref={voiceFileInputRef} type="file" accept="audio/*" onChange={handleVoiceFileSelected} className="hidden" />
+                </>
+              )}
+            </div>
+            {voiceError && <p className="text-sm text-red-600 dark:text-red-400">{voiceError}</p>}
+          </Section>
+
           {/* ---------------- Basic info ---------------- */}
-          <Section title={t("sectionBasic", lang)} defaultOpen>
+          <Section title={t("sectionBasic", lang)}>
+            <div className="flex flex-col gap-1.5">
+              <label className={labelClass}>{t("usernameLabel", lang)}</label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => { setUsername(e.target.value); markDirty(); }}
+                placeholder={t("usernamePlaceholder", lang)}
+                className={inputClass}
+              />
+            </div>
+
+            {/* 2026-08-30, live-testing feedback: phone/DOB, each hideable
+                from the public profile — see ProfileInputSchema.flags's
+                own comment on why the toggle flips a bit in a
+                read-preserved `rawFlags` rather than sending a fresh
+                value. */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex flex-col gap-1.5">
+                <label className={labelClass}>{t("phoneLabel", lang)}</label>
+                <input
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={(e) => { setPhoneNumber(e.target.value); markDirty(); }}
+                  placeholder={t("phonePlaceholder", lang)}
+                  className={inputClass}
+                />
+                <button
+                  type="button"
+                  onClick={() => { setShowPhone((v) => !v); markDirty(); }}
+                  aria-pressed={showPhone}
+                  className={pillClass(showPhone) + " self-start"}
+                >
+                  {t("showOnProfile", lang)}
+                </button>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className={labelClass}>{t("dobLabel", lang)}</label>
+                <input
+                  type="date"
+                  value={dob}
+                  onChange={(e) => { setDob(e.target.value); markDirty(); }}
+                  className={inputClass}
+                />
+                <button
+                  type="button"
+                  onClick={() => { setShowDob((v) => !v); markDirty(); }}
+                  aria-pressed={showDob}
+                  className={pillClass(showDob) + " self-start"}
+                >
+                  {t("showOnProfile", lang)}
+                </button>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-2">
               <div className="flex flex-col gap-1.5">
                 <label className={labelClass}>{t("firstNameLabel", lang)}</label>
@@ -1305,53 +1685,6 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
             {photoError && <p className="text-sm text-red-600 dark:text-red-400">{photoError}</p>}
           </Section>
 
-          {/* ---------------- Voice intro ---------------- */}
-          <Section title={t("sectionVoice", lang)}>
-            <p className="text-xs text-neutral-400 dark:text-neutral-500">{t("voiceHint", lang)}</p>
-            <div className="flex items-center gap-3">
-              {voiceDoc ? (
-                <>
-                  <audio
-                    controls
-                    src={voicePreviewUrl ?? mediaUrl(voiceDoc)}
-                    className="h-9 max-w-[220px] flex-1"
-                  />
-                  <button
-                    type="button"
-                    onClick={removeVoice}
-                    aria-label={t("removeVoice", lang)}
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-neutral-300 text-neutral-500 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-400 dark:hover:bg-neutral-800"
-                  >
-                    <TrashIcon />
-                  </button>
-                </>
-              ) : isRecording ? (
-                <button
-                  type="button"
-                  onClick={stopRecording}
-                  className="flex items-center gap-2 rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
-                >
-                  <StopSquareIcon />
-                  {t("recordStop", lang)} · {formatSeconds(recordSeconds)}
-                </button>
-              ) : voiceUploading ? (
-                <span className="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400">
-                  <Spinner className="h-4 w-4" /> {t("recordUploading", lang)}
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={startRecording}
-                  className="flex items-center gap-2 rounded-full border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
-                >
-                  <MicIcon />
-                  {t("recordStart", lang)}
-                </button>
-              )}
-            </div>
-            {voiceError && <p className="text-sm text-red-600 dark:text-red-400">{voiceError}</p>}
-          </Section>
-
           {/* ---------------- Links ---------------- */}
           <Section title={t("sectionLinks", lang)}>
             {links.map((link) => (
@@ -1361,14 +1694,14 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
                   value={link.title}
                   onChange={(e) => { setLinks((prev) => prev.map((l) => (l.id === link.id ? { ...l, title: e.target.value } : l))); markDirty(); }}
                   placeholder={t("linkTitlePlaceholder", lang)}
-                  className={inputClass + " w-2/5"}
+                  className={inputClass + " flex-1 basis-0"}
                 />
                 <input
                   type="text"
                   value={link.url}
                   onChange={(e) => { setLinks((prev) => prev.map((l) => (l.id === link.id ? { ...l, url: e.target.value } : l))); markDirty(); }}
                   placeholder={t("linkUrlPlaceholder", lang)}
-                  className={inputClass + " flex-1"}
+                  className={inputClass + " flex-1 basis-0"}
                 />
                 <button type="button" onClick={() => { setLinks((prev) => prev.filter((l) => l.id !== link.id)); markDirty(); }} aria-label={t("removeAria", lang)} className="shrink-0 text-neutral-400 hover:text-red-600">
                   <TrashIcon />
@@ -1420,8 +1753,8 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
                     }}
                     onChange={(e) => setCategoryQuery(e.target.value)}
                     onBlur={() => setTimeout(() => setOpenCategoryRow((cur) => (cur === company.id ? null : cur)), 120)}
-                    placeholder={t("companyCategoryPlaceholder", lang)}
-                    className={inputClass}
+                    placeholder={t("companyCategoryPlaceholder", lang) + " *"}
+                    className={inputClass + (invalidCompanyIds.has(company.id) ? " border-red-500 focus:border-red-500 dark:border-red-500" : "")}
                     autoComplete="off"
                   />
                   {openCategoryRow === company.id && (
@@ -1435,6 +1768,12 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
                             e.preventDefault();
                             setCompanies((prev) => prev.map((row) => (row.id === company.id ? { ...row, category: c } : row)));
                             setOpenCategoryRow(null);
+                            setInvalidCompanyIds((prev) => {
+                              if (!prev.has(company.id)) return prev;
+                              const next = new Set(prev);
+                              next.delete(company.id);
+                              return next;
+                            });
                             markDirty();
                           }}
                           className="block w-full px-4 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
@@ -1494,36 +1833,29 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
                     className={inputClass}
                   />
                 </div>
-                <div className="flex gap-1.5">
-                  <input
-                    type="text"
-                    value={company.linkTitle}
-                    onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, linkTitle: e.target.value } : c))); markDirty(); }}
-                    placeholder={t("companyLinkTitlePlaceholder", lang)}
-                    className={inputClass + " w-2/5"}
-                  />
-                  <input
-                    type="text"
-                    value={company.linkUrl}
-                    onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, linkUrl: e.target.value } : c))); markDirty(); }}
-                    placeholder={t("companyLinkUrlPlaceholder", lang)}
-                    className={inputClass + " flex-1"}
-                  />
-                </div>
+                <input
+                  type="text"
+                  value={company.linkUrl}
+                  onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, linkUrl: e.target.value } : c))); markDirty(); }}
+                  placeholder={t("companyLinkUrlPlaceholder", lang)}
+                  className={inputClass}
+                />
               </div>
             ))}
-            <button
-              type="button"
-              onClick={() =>
-                setCompanies((prev) => [
-                  ...prev,
-                  { id: newId(), name: "", description: "", positionTitle: "", positionStart: "", positionEnd: "", employeesCount: "", category: null, turnover: "", est: "", linkTitle: "", linkUrl: "" },
-                ])
-              }
-              className="flex items-center gap-1.5 self-start rounded-xl border border-dashed border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-500 transition hover:border-neutral-400 hover:text-neutral-700 dark:border-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
-            >
-              <PlusIcon /> {t("addCompany", lang)}
-            </button>
+            {companies.length < MAX_COMPANIES && (
+              <button
+                type="button"
+                onClick={() =>
+                  setCompanies((prev) => [
+                    ...prev,
+                    { id: newId(), name: "", description: "", positionTitle: "", positionStart: "", positionEnd: "", employeesCount: "", category: null, turnover: "", est: "", linkTitle: "", linkUrl: "" },
+                  ])
+                }
+                className="flex items-center gap-1.5 self-start rounded-xl border border-dashed border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-500 transition hover:border-neutral-400 hover:text-neutral-700 dark:border-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+              >
+                <PlusIcon /> {t("addCompany", lang)}
+              </button>
+            )}
           </Section>
 
           {/* ---------------- Education ---------------- */}
@@ -1631,7 +1963,14 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
                 <select
                   value={entry.level}
                   onChange={(e) => { setLanguages((prev) => prev.map((l) => (l.id === entry.id ? { ...l, level: Number(e.target.value) } : l))); markDirty(); }}
-                  className={inputClass + " w-36 shrink-0"}
+                  // 2026-08-30, live-testing feedback ("Мови: надо полечить
+                  // поле по ширине, дати більше місця для назви мови") —
+                  // this used to reserve a fixed 144px (w-36) for the level
+                  // dropdown, squeezing the language-name input next to it.
+                  // Narrowed to 108px (w-27 doesn't exist in the default
+                  // scale, using w-28) and dropped to text-xs so the level
+                  // words still fit without stealing width the name needs.
+                  className={inputClass + " w-28 shrink-0 px-2 text-xs"}
                 >
                   {LEVEL_LABELS.map((key, i) => (
                     <option key={key} value={i}>
@@ -1644,40 +1983,47 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
                 </button>
               </div>
             ))}
-            <button
-              type="button"
-              onClick={() => setLanguages((prev) => [...prev, { id: newId(), value: "", level: 2 }])}
-              className="flex items-center gap-1.5 self-start rounded-xl border border-dashed border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-500 transition hover:border-neutral-400 hover:text-neutral-700 dark:border-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
-            >
-              <PlusIcon /> {t("addLanguage", lang)}
-            </button>
+            {languages.length < MAX_LANGUAGES && (
+              <button
+                type="button"
+                onClick={() => setLanguages((prev) => [...prev, { id: newId(), value: "", level: 2 }])}
+                className="flex items-center gap-1.5 self-start rounded-xl border border-dashed border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-500 transition hover:border-neutral-400 hover:text-neutral-700 dark:border-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+              >
+                <PlusIcon /> {t("addLanguage", lang)}
+              </button>
+            )}
           </Section>
 
           {/* ---------------- Hobbies ---------------- */}
-          <Section title={t("sectionHobbies", lang)}>
+          {/* 2026-08-30, live-testing feedback: "Хоби до 5" — the counter
+              in the title mirrors how MAX_PHOTOS' limit is communicated
+              via photoHint elsewhere in this dialog. */}
+          <Section title={`${t("sectionHobbies", lang)} (${selectedHobbies.size}/${MAX_HOBBIES})`}>
             {bootstrap.hobbyGroups.map((group) => (
               <div key={group.group} className="flex flex-col gap-1.5">
-                {group.group && <span className={labelClass}>{group.group}</span>}
+                {group.group && <span className={labelClass}>{translateHobbyGroup(group.group, lang)}</span>}
                 <div className="flex flex-wrap gap-1.5">
                   {group.items.map((item) => {
                     const active = selectedHobbies.has(item.value);
+                    const atLimit = !active && selectedHobbies.size >= MAX_HOBBIES;
                     return (
                       <button
                         key={item.value}
                         type="button"
+                        disabled={atLimit}
                         onClick={() => {
                           setSelectedHobbies((prev) => {
                             const next = new Set(prev);
                             if (next.has(item.value)) next.delete(item.value);
-                            else next.add(item.value);
+                            else if (next.size < MAX_HOBBIES) next.add(item.value);
                             return next;
                           });
                           markDirty();
                         }}
                         aria-pressed={active}
-                        className={pillClass(active)}
+                        className={pillClass(active) + (atLimit ? " cursor-not-allowed opacity-40" : "")}
                       >
-                        {item.text}
+                        {translateHobbyItem(group.group, item.text, lang)}
                       </button>
                     );
                   })}
@@ -1707,7 +2053,7 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
                     aria-pressed={active}
                     className={pillClass(active)}
                   >
-                    {item.text}
+                    {translateWorkInterest(item.text, lang)}
                   </button>
                 );
               })}
@@ -1725,14 +2071,14 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
                     value={book.title}
                     onChange={(e) => { setFavoriteBooks((prev) => prev.map((b) => (b.id === book.id ? { ...b, title: e.target.value } : b))); markDirty(); }}
                     placeholder={t("titlePlaceholder", lang)}
-                    className={inputClass + " w-1/2"}
+                    className={inputClass + " flex-1 basis-0"}
                   />
                   <input
                     type="text"
                     value={book.author}
                     onChange={(e) => { setFavoriteBooks((prev) => prev.map((b) => (b.id === book.id ? { ...b, author: e.target.value } : b))); markDirty(); }}
                     placeholder={t("authorPlaceholder", lang)}
-                    className={inputClass + " flex-1"}
+                    className={inputClass + " flex-1 basis-0"}
                   />
                   <button type="button" onClick={() => { setFavoriteBooks((prev) => prev.filter((b) => b.id !== book.id)); markDirty(); }} aria-label={t("removeAria", lang)} className="shrink-0 text-neutral-400 hover:text-red-600">
                     <TrashIcon />
@@ -1828,7 +2174,7 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
                           aria-pressed={active}
                           className={pillClass(active)}
                         >
-                          {opt.text}
+                          {translateWorkStyleOption(datasetKey, opt.text, lang)}
                         </button>
                       );
                     })}
@@ -1840,7 +2186,7 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
         </div>
 
         <div className="border-t border-neutral-100 px-5 py-3.5 dark:border-neutral-800">
-          {saveError && <p className="mb-2 text-xs text-red-600 dark:text-red-400">{t("saveFailed", lang)}</p>}
+          {saveErrorKey && <p className="mb-2 text-xs text-red-600 dark:text-red-400">{t(saveErrorKey, lang)}</p>}
           <button
             type="button"
             onClick={handleSave}

@@ -616,6 +616,27 @@ const ProfileInputWorkStylePreferencesSchema = z.object({
 export const ProfileInputOccupationSchema = z.enum(["entrepreneur", "professional", "freelancer"]);
 
 export const ProfileInputSchema = z.object({
+  // NOT independently confirmed that account.updateProfile accepts a
+  // username change (unlike every other field in this schema, which was
+  // exercised against a live 400 at some point — see this file's own
+  // history). Usernames are also the one field here where the backend
+  // plausibly does its own uniqueness/format validation that a generic
+  // "no fields required" contract wouldn't cover. If this 400s, that's
+  // the next live error to fix against, not a reason to have skipped
+  // adding the field the visitor explicitly asked for.
+  username: z.string().trim().min(1).optional(),
+  // NOT independently confirmed that account.updateProfile accepts
+  // phoneNumber/dob/flags writes (same caveat as username above) — these
+  // three are read-only-tested via EditableProfileSchema so far, never
+  // round-tripped through a real save. `flags` is sent as a full
+  // read-modify-write of the value EditableProfileSchema handed back
+  // (see components/profile-editor.tsx's handleSave), not a guess at
+  // what the visitor "should" have — this dialog does not understand
+  // most of that bitmask (FAVORED/BLOCKED/PREMIUM/etc.) and must not
+  // invent a value for it.
+  phoneNumber: z.string().trim().nullable().optional(),
+  dob: z.string().trim().nullable().optional(),
+  flags: z.number().optional(),
   firstName: z.string().trim().optional(),
   lastName: z.string().trim().optional(),
   occupation: ProfileInputOccupationSchema.optional(),
@@ -653,6 +674,30 @@ export type ProfileInput = z.infer<typeof ProfileInputSchema>;
 // no-op-read trick app/api/account/whoami/route.ts already uses, and is
 // never handed to any page that renders another visitor's profile.
 export const EditableProfileSchema = z.object({
+  // 2026-08-30, live-testing feedback: "Ти пропустив нікнейм?" — the
+  // first build of this editor omitted username entirely. It's not in
+  // UserProfileSchema's own list of fields deliberately withheld from
+  // EditableProfileSchema above (email/phoneNumber/dob/etc., all kept out
+  // on purpose for privacy reasons that don't apply to a username) — this
+  // was a plain oversight, not a deliberate exclusion, so it's added the
+  // same way every other field here is.
+  username: z.string().nullable().catch(null),
+  // 2026-08-30, live-testing feedback: "Пропущено поля телефон і дата
+  // народження (ці поля можна ховати з профілю тогглом)." UserProfileSchema's
+  // own header comment lists phoneNumber/dob as deliberately withheld
+  // from THAT schema (the PUBLIC read side, gated behind lib/a1/
+  // user-flags.ts's SHOW_* bits so a stranger can't see them uninvited).
+  // That reasoning doesn't apply here: EditableProfileSchema is only ever
+  // returned to the signed-in visitor about their OWN profile (this
+  // file's own header comment), so the owner editing their own phone/dob
+  // — and the raw `flags` bitmask needed to read/write the SHOW_PHONE_
+  // NUMBER / SHOW_DOB toggle bits without clobbering the OTHER bits in
+  // that same int (FAVORED/BLOCKED/PREMIUM/etc., none of which this
+  // dialog understands or should touch) — is exactly the right place to
+  // add them.
+  phoneNumber: z.string().nullable().catch(null),
+  dob: z.string().nullable().catch(null),
+  flags: z.number().catch(0),
   firstName: z.string().catch(""),
   lastName: z.string().catch(""),
   occupation: z.string().catch(""),

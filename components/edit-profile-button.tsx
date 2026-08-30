@@ -75,16 +75,20 @@ export function EditProfileButton({ username, className }: { username: string; c
 
   return (
     <>
+      {/* 2026-08-30, live-testing feedback: "В профілі зроби просто іконку
+          олівця, це достатньо" — dropped the text label, kept it as an
+          accessible name via aria-label/title instead of visible text. */}
       <button
         type="button"
         onClick={() => setOpen(true)}
+        aria-label={STRINGS.editProfile[lang]}
+        title={STRINGS.editProfile[lang]}
         className={
-          "inline-flex items-center gap-1.5 rounded-full border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-600 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800 " +
+          "inline-flex h-8 w-8 items-center justify-center rounded-full border border-neutral-300 text-neutral-600 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800 " +
           (className ?? "")
         }
       >
         <PencilIcon />
-        <span className="hidden sm:inline">{STRINGS.editProfile[lang]}</span>
       </button>
       {open && (
         <ProfileEditor
