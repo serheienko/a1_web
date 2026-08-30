@@ -123,6 +123,23 @@ export function PostOwnerMenu({
         setDeleting(false);
         return;
       }
+      // 2026-08-30, live-testing feedback ("после удаления должно
+      // возвращать туда откуда удалили, а не всегда в одно место"):
+      // this redirectAfterDeleteTo/window.location.pathname comparison
+      // already IS exactly that -- /jobs or /talents from the two
+      // detail-page call sites (app/jobs/[slug]/page.tsx, app/talents/
+      // [slug]/page.tsx), or back to /u/:username (via a no-op refresh,
+      // since you're already there) from both of the profile page's own
+      // lists (app/u/[username]/page.tsx's published posts, components/
+      // profile-tabs.tsx's own drafts/scheduled). Reviewed and left
+      // unchanged: the reported failure to delete at all was actually
+      // components/post-card.tsx's z-index bug (see that file's own
+      // comment on the "•••" wrapper) making this code unreachable from
+      // the profile page in the first place -- an invisible backdrop
+      // was swallowing every click on Edit/Delete before either one
+      // could ever run. Fixing that (not this function) is what makes
+      // the redirect below actually observable there.
+      //
       // 2026-08-30: mounted inline on a card that's already sitting on
       // `redirectAfterDeleteTo` (the profile feed use above), a
       // router.push to the exact current URL is a well-known Next.js

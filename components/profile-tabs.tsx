@@ -265,33 +265,52 @@ export function ProfileTabs({
           that fixed width exists and why a fluid one kept breaking), but
           that width was tuned for the PROFILE HEADER's left-aligned rows
           (name/bio/skill bars), not for cards that need to match the
-          feed's own sm:max-w-3xl (48rem/768px). Breaking just this div
-          out to that width with a negative margin is safe specifically
-          BECAUSE the parent is a literal fixed px value, not a fluid
-          one -- the offset is exact, not a guess: (768 - 420) / 2 =
-          174px each side. min(...) caps the width at the viewport minus
-          a small margin too, so a desktop window narrower than ~816px
-          shrinks this block instead of forcing horizontal overflow.
-          Mobile (`sm:` prefix) is untouched, same convention as <main>'s
-          own fixed width already uses. */}
-      <div hidden={tab !== "posts"} className="mt-2.5 sm:-mx-[174px] sm:w-[min(48rem,calc(100vw_-_2rem))]">
-        {ownDrafts.length > 0 && (
-          <div className="mb-4 flex flex-col gap-4">
-            {ownDrafts.map(({ post, status }) => {
-              const editable = ownEditable[post.id];
-              return (
-                <PostCard
-                  key={post.id}
-                  post={post}
-                  statusBadge={{ label: STRINGS[status === "draft" ? "statusDraft" : "statusScheduled"][lang], className: STATUS_BADGE_CLASS }}
-                  onOpen={editable ? () => setEditingPost(editable) : undefined}
-                  ownerMenu={{ redirectAfterDeleteTo: `/u/${profileUsername}` }}
-                />
-              );
-            })}
-          </div>
-        )}
-        {posts}
+          feed's own sm:max-w-3xl (48rem/768px).
+
+          2026-08-30, live-testing feedback: "по центру карточки постов
+          зроби" -- the first pass at this breakout (a fixed `-mx-[174px]`,
+          computed as (768 - 420) / 2 against the 420px parent) is a real
+          centering bug, found by re-deriving the math rather than by
+          reproducing it live: that -174px offset is only correct once
+          the block's own width has actually reached the full 768px cap.
+          The old `sm:w-[min(48rem,calc(100vw_-_2rem))]` clause shrinks
+          the width on any window under ~816px wide (already anticipated
+          by the previous comment, above) but the -174px margin does NOT
+          shrink alongside it, so on exactly the window sizes that
+          clause exists for (roughly 640-816px -- a resized/tiled desktop
+          browser, not full-screen) the block's left edge sits up to
+          ~34px further left than its right edge is from the viewport's
+          right side: visibly off-center, not just "smaller than the
+          feed." Switched to the standard viewport-relative full-bleed
+          technique instead of a parent-relative offset: `left-1/2
+          -translate-x-1/2 w-screen` centers this wrapper on the
+          VIEWPORT directly, independent of the fixed-width parent's own
+          size or position, so there's no longer a magic number tied to
+          420px that can drift out of sync with it. The `max-w-3xl`
+          (48rem/768px) + `px-4` inner div reproduces the feed's own
+          sm:max-w-3xl cap and side padding, mx-auto'd inside the
+          full-bleed wrapper. Mobile (`sm:` prefix) is untouched, same
+          convention as <main>'s own fixed width already uses. */}
+      <div hidden={tab !== "posts"} className="mt-2.5 sm:relative sm:left-1/2 sm:w-screen sm:-translate-x-1/2">
+        <div className="sm:mx-auto sm:max-w-3xl sm:px-4">
+          {ownDrafts.length > 0 && (
+            <div className="mb-4 flex flex-col gap-4">
+              {ownDrafts.map(({ post, status }) => {
+                const editable = ownEditable[post.id];
+                return (
+                  <PostCard
+                    key={post.id}
+                    post={post}
+                    statusBadge={{ label: STRINGS[status === "draft" ? "statusDraft" : "statusScheduled"][lang], className: STATUS_BADGE_CLASS }}
+                    onOpen={editable ? () => setEditingPost(editable) : undefined}
+                    ownerMenu={{ redirectAfterDeleteTo: `/u/${profileUsername}` }}
+                  />
+                );
+              })}
+            </div>
+          )}
+          {posts}
+        </div>
       </div>
       {editingPost && (
         // No onSaved wired here on purpose: components/post-editor.tsx

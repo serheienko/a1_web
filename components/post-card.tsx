@@ -222,10 +222,38 @@ export function PostCard({
                   {post.kind === "hiring" ? <T uk="Вакансія" en="Job" ru="Вакансия" de="Stellenanzeige" es="Vacante" fr="Offre d'emploi" pl="Oferta pracy" ptBR="Vaga" zh="职位" /> : <T uk="Фахівець" en="Talent" ru="Специалист" de="Fachkraft" es="Especialista" fr="Spécialiste" pl="Specjalista" ptBR="Especialista" zh="人才" />}
                 </span>
               )}
+              {/* 2026-08-30, live-testing feedback: "•••" не працює
+                  (не вдається обрати "видалити"/"редагувати") on the
+                  profile page's own Пости tab -- root-caused by static
+                  review (this sandbox has no network access to the real
+                  API to reproduce it live), not guessed: z-10 clears
+                  this card's own title-link stretch overlay
+                  (`after:z-0` on the <h2> Link/button above), but
+                  components/post-owner-menu.tsx's own dropdown ALSO
+                  renders a full-viewport click-outside backdrop
+                  portaled to document.body at z-30 (see that file's
+                  header comment). Because this div sets its own
+                  non-auto z-index, it becomes the stacking-context root
+                  for everything inside it (the popover's z-50 is only
+                  ever compared against z-30 from OUTSIDE this div, not
+                  the other way around) -- and 10 < 30, so the backdrop
+                  paints above the whole bracket, menu included. The
+                  menu still visibly opens (the backdrop itself is
+                  transparent), but every click on "Редагувати"/
+                  "Видалити" actually lands on the invisible backdrop
+                  instead and just closes the menu -- exactly the
+                  reported symptom. components/settings-menu.tsx hit
+                  this identical pattern already (its own comment: "a
+                  body-level backdrop above z-40 would out-rank that
+                  whole bracket and sit on top of the panel itself,
+                  swallowing clicks meant for it") and solves it by
+                  keeping its containing bracket (<nav>, z-40) ABOVE its
+                  own backdrop (z-30) -- z-40 here for the same reason,
+                  not an arbitrary bump. */}
               <PostOwnerMenu
                 postId={post.id}
                 redirectAfterDeleteTo={ownerMenu.redirectAfterDeleteTo}
-                className="relative z-10 shrink-0"
+                className="relative z-40 shrink-0"
               />
             </div>
           ) : statusBadge ? (
