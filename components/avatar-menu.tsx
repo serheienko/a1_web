@@ -52,14 +52,13 @@
 // 2026-08-30 (Aleksandr: "сделать в этой модалке возможность, чтобы мы
 // переходили на этот профиль... посмотреть, что там у нас происходит и
 // могли... нажать на наши посты"): a "View profile" row into this same
-// panel. Still no real whoami endpoint (this file's KNOWN GAP comment
-// above) — app/api/posts/mine/route.ts's summarize() now echoes back
-// `authorUsername` from the FIRST of the visitor's own posts it finds
-// (author: "me" guarantees it's really the visitor's own username), so
-// this fetches that route once per sign-in and only renders the row
-// when a username actually comes back. A visitor with zero posts yet
-// has no way to resolve their own profile URL through this mechanism —
-// the row is simply omitted for them rather than showing a broken link.
+// panel. First pass piggybacked on /api/posts/mine's author id, which
+// only resolved for a visitor with at least one post — Aleksandr caught
+// that immediately ("должна быть возможность всегда посмотреть свой
+// профиль"), so this now calls the dedicated /api/account/whoami route
+// instead (see that route's own comment for how it gets a username with
+// still no real whoami endpoint on the backend) and renders the row
+// whenever a username comes back, with or without any posts.
 "use client";
 
 import { useEffect, useState } from "react";
@@ -209,19 +208,20 @@ export function AvatarMenu() {
   }, []);
 
   // Resolve a "View profile" target once we know the visitor is signed
-  // in — see this file's header comment for why this piggybacks on
-  // /api/posts/mine instead of a dedicated whoami call.
+  // in. Aleksandr, 2026-08-30, correcting my first pass at this (which
+  // piggybacked on /api/posts/mine and so only worked for a visitor with
+  // at least one post): "должна быть возможность всегда посмотреть свой
+  // профиль" — now calls the dedicated /api/account/whoami route
+  // instead, which resolves independently of whether the visitor has
+  // ever posted anything (see that route's own comment for how it gets
+  // a username with no whoami endpoint to call).
   useEffect(() => {
     if (!email) return;
     let cancelled = false;
-    fetch("/api/posts/mine")
+    fetch("/api/account/whoami")
       .then((r) => r.json())
       .then((data) => {
-        if (cancelled || !data?.ok) return;
-        const withUsername = (data.posts as { authorUsername: string | null }[]).find(
-          (p) => p.authorUsername,
-        );
-        if (withUsername) setProfileUsername(withUsername.authorUsername);
+        if (!cancelled && data?.ok && data.username) setProfileUsername(data.username);
       })
       .catch(() => {
         // Best-effort — the row just stays hidden.

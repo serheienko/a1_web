@@ -199,6 +199,34 @@ export default async function JobDetailPage({ params }: Props) {
       )}
 
       <div className="mt-6 whitespace-pre-wrap text-neutral-700 dark:text-neutral-300">{post.contentText}</div>
+
+      {/* Aleksandr, 2026-08-30 (live report: "в отображении поста нет
+          ссылки, хотя я заполнял при создании"): components/post-
+          editor.tsx has always collected a link (linkUrl -> `links: [{
+          title: "", url }]` on submit, PostInputSchema's `links` field)
+          and lib/a1/mappers.ts has always carried WebPost.links through
+          from the raw post -- there was just never any UI on either
+          detail page that rendered it. Real gap, not a regression. */}
+      {post.links.length > 0 && (
+        <div className="mt-6">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+            <T uk="Посилання" en="Link" ru="Ссылка" de="Link" es="Enlace" fr="Lien" pl="Link" ptBR="Link" zh="链接" />
+          </h2>
+          <div className="mt-2 flex flex-col gap-1">
+            {post.links.map((link, i) => (
+              <a
+                key={i}
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+                className="break-all text-accent hover:underline"
+              >
+                {link.title || link.url}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
     </main>
   );
 }
