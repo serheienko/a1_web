@@ -2068,7 +2068,25 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
           <Section title={t("sectionLanguages", lang)}>
             {languages.map((entry) => (
               <div key={entry.id} className="flex items-center gap-1.5">
-                <div className="relative flex-1">
+                {/* 2026-08-30, live-testing feedback ("Криво в выборе
+                    языка"): a flex item's default min-width is `auto`,
+                    which for a <select> resolves to the width its widest
+                    <option> text needs to render (here, "Intermediate"),
+                    NOT 0 -- so despite the level <select> below having an
+                    explicit `w-28`, the browser was still growing it past
+                    that to fit "Intermediate", stealing width from this
+                    sibling. Two knock-on effects, both visible in the
+                    screenshot at once: this name-input got squeezed down
+                    to almost nothing, and the language dropdown below it
+                    (w-full, relative to this now-tiny wrapper) rendered
+                    as a sliver too narrow to show more than 2-3 letters
+                    of each language name, with the real Hobbies/Work
+                    interests/Favorites section headers showing through
+                    the space it should have covered. `min-w-0` here
+                    (flex items only shrink to their min-width, not
+                    automatically to 0) is what actually lets `flex-1`
+                    win the width back. */}
+                <div className="relative min-w-0 flex-1">
                   <input
                     type="text"
                     value={languagePickerOpen === entry.id ? languageQuery : (entry.value ? languageName(entry.value) : "")}
@@ -2112,7 +2130,15 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
                   // Narrowed to 108px (w-27 doesn't exist in the default
                   // scale, using w-28) and dropped to text-xs so the level
                   // words still fit without stealing width the name needs.
-                  className={inputClass + " w-28 shrink-0 px-2 text-xs"}
+                  //
+                  // 2026-08-30 follow-up ("Криво в выборе языка"): w-28
+                  // alone wasn't enough -- a <select>'s default flex
+                  // min-width is its widest <option> text ("Intermediate"
+                  // here), which can exceed 112px and force this wider
+                  // than w-28 says, at the sibling name-input's expense
+                  // (see that div's own comment for the full chain). This
+                  // min-w-0 is what makes w-28 the real, final width.
+                  className={inputClass + " w-28 min-w-0 shrink-0 px-2 text-xs"}
                 >
                   {LEVEL_LABELS.map((key, i) => (
                     <option key={key} value={i}>
