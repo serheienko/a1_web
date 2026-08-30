@@ -356,7 +356,7 @@ type StringKey =
   | "scheduleConfirm" | "scheduleActionCaps" | "scheduleCancel" | "scheduleTimeLabel"
   | "scheduleToday" | "scheduleTomorrow" | "scheduleIn3Days" | "scheduleInWeek"
   | "scheduleInvalid" | "errorGeneric" | "requiredHint"
-  | "closeConfirmTitle" | "closeConfirmBody" | "continueEditing"
+  | "closeConfirmTitle" | "closeConfirmBody" | "continueEditing" | "discardClose"
   | "postingLabel" | "updatingLabel";
 
 const STRINGS: Record<StringKey, Record<Locale, string>> = {
@@ -421,6 +421,12 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   closeConfirmTitle: { uk: "Зберегти чернетку?", en: "Save as draft?", ru: "Сохранить черновик?", de: "Als Entwurf speichern?", es: "¿Guardar como borrador?", fr: "Enregistrer comme brouillon ?", pl: "Zapisać jako szkic?", ptBR: "Salvar como rascunho?", zh: "保存为草稿吗？" },
   closeConfirmBody: { uk: "Інакше вписані дані буде втрачено.", en: "Otherwise what you entered will be lost.", ru: "Иначе введённые данные будут потеряны.", de: "Andernfalls gehen Ihre Eingaben verloren.", es: "De lo contrario, se perderá lo que escribiste.", fr: "Sinon, les données saisies seront perdues.", pl: "W przeciwnym razie wpisane dane zostaną utracone.", ptBR: "Caso contrário, os dados inseridos serão perdidos.", zh: "否则已填写的内容将会丢失。" },
   continueEditing: { uk: "Продовжити редагування", en: "Continue editing", ru: "Продолжить редактирование", de: "Weiter bearbeiten", es: "Seguir editando", fr: "Continuer la modification", pl: "Kontynuuj edycję", ptBR: "Continuar editando", zh: "继续编辑" },
+  // Aleksandr, 2026-08-30: "давай ещё кнопку добавим... если я просто
+  // хочу закрыть, но ничего сохранять не хочу" -- a third option in the
+  // same popover that discards everything and closes, bypassing the
+  // draft save entirely (calls onClose() directly, same as the no-op
+  // "not dirty" path in requestClose() above).
+  discardClose: { uk: "Закрити без збереження", en: "Close without saving", ru: "Закрыть без сохранения", de: "Ohne Speichern schließen", es: "Cerrar sin guardar", fr: "Fermer sans enregistrer", pl: "Zamknij bez zapisywania", ptBR: "Fechar sem salvar", zh: "不保存并关闭" },
   // Aleksandr, 2026-08-30 (native app screenshot + a cat Lottie sticker):
   // "хочу когда мы создаем пост чтобы страница как бы релоадилась и
   // показывала нам типа posting... и этого же кота мы можем
@@ -1197,6 +1203,16 @@ export function PostEditor({
                   className="rounded-full border border-neutral-300 py-2.5 text-sm font-medium text-neutral-600 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
                 >
                   {t("continueEditing", lang)}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConfirmCloseOpen(false);
+                    onClose();
+                  }}
+                  className="rounded-full py-2.5 text-sm font-medium text-neutral-500 transition hover:text-red-600 dark:text-neutral-400 dark:hover:text-red-400"
+                >
+                  {t("discardClose", lang)}
                 </button>
               </div>
             </div>
