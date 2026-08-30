@@ -61,7 +61,29 @@ function useActiveLocale(): Locale {
   return lang;
 }
 
-export function PostOwnerMenu({ postId, redirectAfterDeleteTo }: { postId: string; redirectAfterDeleteTo: string }) {
+export function PostOwnerMenu({
+  postId,
+  redirectAfterDeleteTo,
+  // 2026-08-30 (Aleksandr: "добавь 3 точки для редактирования и
+  // удаления прямо в общ ленту в профиле, чтобы було не обов'язково
+  // переходити в пост... по-ідеї можна під слово Чернетка, і вакансія")
+  // -- this same self-contained "•••" (it already does its own
+  // /api/posts/mine ownership check and renders nothing when the post
+  // isn't the visitor's own, exactly like components/my-post-badge.tsx
+  // already does on every card) is now also mounted directly inside
+  // components/post-card.tsx, nested under the status/kind badge
+  // instead of standing alone at the top of a detail page.
+  // `className` lets that call site override the positioning wrapper
+  // without touching the two existing detail-page call sites
+  // (app/jobs/[slug]/page.tsx, app/talents/[slug]/page.tsx), which keep
+  // the original "ml-auto shrink-0 self-start" untouched via the
+  // default below.
+  className = "relative ml-auto shrink-0 self-start",
+}: {
+  postId: string;
+  redirectAfterDeleteTo: string;
+  className?: string;
+}) {
   const lang = useActiveLocale();
   const router = useRouter();
   const [mine, setMine] = useState<MinePost | null>(null);
@@ -101,7 +123,30 @@ export function PostOwnerMenu({ postId, redirectAfterDeleteTo }: { postId: strin
         setDeleting(false);
         return;
       }
-      router.push(redirectAfterDeleteTo);
+      // 2026-08-30: mounted inline on a card that's already sitting on
+      // `redirectAfterDeleteTo` (the profile feed use above), a
+      // router.push to the exact current URL is a well-known Next.js
+      // no-op — it doesn't re-run the server component, so the deleted
+      // card would keep showing until a manual reload. router.refresh()
+      // is the actual "re-fetch this route's server data" call for that
+      // case; push only makes sense when the target genuinely differs
+      // (the two existing detail-page call sites, which send you back
+      // to /jobs or /talents after deleting the post you were just on).
+      // The client-side drafts/scheduled list in components/profile-
+      // tabs.tsx doesn't come from a server component at all — it's its
+      // own fetch, refreshed by the same "a1:post-saved"-style window
+      // event post-editor.tsx already uses for saves, mirrored here as
+      // "a1:post-deleted" so that list drops the card immediately too.
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("a1:post-deleted", { detail: { id: postId } }));
+        if (redirectAfterDeleteTo === window.location.pathname) {
+          router.refresh();
+        } else {
+          router.push(redirectAfterDeleteTo);
+        }
+      } else {
+        router.push(redirectAfterDeleteTo);
+      }
     } catch {
       setDeleteError(true);
       setDeleting(false);
@@ -122,7 +167,7 @@ export function PostOwnerMenu({ postId, redirectAfterDeleteTo }: { postId: strin
   }
 
   return (
-    <div className="relative ml-auto shrink-0 self-start">
+    <div className={className}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}

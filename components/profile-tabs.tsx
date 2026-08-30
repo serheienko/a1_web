@@ -187,9 +187,17 @@ export function ProfileTabs({
 
     load();
     window.addEventListener("a1:post-saved", load);
+    // 2026-08-30: components/post-owner-menu.tsx's new inline "•••" (see
+    // its own comment) fires this after a successful delete -- the
+    // draft/scheduled list above is this component's own client-side
+    // fetch, not server-rendered, so router.refresh() alone (also called
+    // by post-owner-menu.tsx when it detects it's already on this exact
+    // profile URL) doesn't touch it; re-running the same `load()` does.
+    window.addEventListener("a1:post-deleted", load);
     return () => {
       cancelled = true;
       window.removeEventListener("a1:post-saved", load);
+      window.removeEventListener("a1:post-deleted", load);
     };
   }, [profileUsername]);
 
@@ -251,25 +259,15 @@ export function ProfileTabs({
       <div hidden={tab !== "posts"} className="mt-2.5">
         {ownDrafts.length > 0 && (
           <div className="mb-4 flex flex-col gap-4">
-            {ownDrafts.map(({ post, status }) => {
-              // Read once into a local so TS narrows this to
-              // `EditablePost` (not `EditablePost | undefined`) inside
-              // the ternary below -- indexing ownEditable[post.id]
-              // twice inline is what broke the production build just
-              // now: `setEditingPost` only accepts `EditablePost |
-              // null`, and repeating the index expression doesn't
-              // narrow away the `| undefined` TS infers from a plain
-              // object index access.
-              const editable = ownEditable[post.id];
-              return (
-                <PostCard
-                  key={post.id}
-                  post={post}
-                  statusBadge={{ label: STRINGS[status === "draft" ? "statusDraft" : "statusScheduled"][lang], className: STATUS_BADGE_CLASS }}
-                  onOpen={editable ? () => setEditingPost(editable) : undefined}
-                />
-              );
-            })}
+            {ownDrafts.map(({ post, status }) => (
+              <PostCard
+                key={post.id}
+                post={post}
+                statusBadge={{ label: STRINGS[status === "draft" ? "statusDraft" : "statusScheduled"][lang], className: STATUS_BADGE_CLASS }}
+                onOpen={ownEditable[post.id] ? () => setEditingPost(ownEditable[post.id]) : undefined}
+                ownerMenu={{ redirectAfterDeleteTo: `/u/${profileUsername}` }}
+              />
+            ))}
           </div>
         )}
         {posts}

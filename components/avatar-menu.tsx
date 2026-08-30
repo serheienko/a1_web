@@ -68,6 +68,7 @@ import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { LOCALES, LOCALE_CLASS, LOCALE_TAG, type Locale } from "@/components/t";
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
 import { SettingsMenu } from "@/components/settings-menu";
+import { useHoverPanel } from "@/lib/use-hover-panel";
 
 type Theme = "light" | "dark" | "auto";
 
@@ -239,88 +240,18 @@ export function AvatarMenu() {
   // dead-zone gone, a brief grace period is still what makes "moved
   // toward the panel and back" or a jittery cursor path feel forgiving
   // rather than twitchy.
-  const [rendered, setRendered] = useState(false);
-  const [visible, setVisible] = useState(false);
-  const hoverCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 2026-08-30 follow-up: extracted into lib/use-hover-panel.ts once
+  // Aleksandr asked for components/filters-form.tsx's filter button to
+  // get "такой же идентичный эффект... надо переиспользовать, чтобы
+  // работало идентично" -- see that hook's own header comment for the
+  // two real bugs (dead-zone gap, no-transition-on-mount) and the
+  // no-leave-event edge case that shaped it; this call site is
+  // unchanged behavior, just relocated.
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const panelOuterRef = useRef<HTMLDivElement | null>(null);
-  const HOVER_CLOSE_DELAY_MS = 200;
-  const CLOSE_TRANSITION_MS = 150;
-
-  useEffect(() => {
-    if (open) {
-      setRendered(true);
-      const raf = requestAnimationFrame(() => setVisible(true));
-      return () => cancelAnimationFrame(raf);
-    }
-    setVisible(false);
-    const timer = setTimeout(() => setRendered(false), CLOSE_TRANSITION_MS);
-    return () => clearTimeout(timer);
-  }, [open]);
-
-  useEffect(() => {
-    return () => {
-      if (hoverCloseTimerRef.current) clearTimeout(hoverCloseTimerRef.current);
-    };
-  }, []);
-
-  function handleMouseEnter() {
-    if (hoverCloseTimerRef.current) {
-      clearTimeout(hoverCloseTimerRef.current);
-      hoverCloseTimerRef.current = null;
-    }
-    setOpen(true);
-  }
-
-  function handleMouseLeave() {
-    hoverCloseTimerRef.current = setTimeout(() => setOpen(false), HOVER_CLOSE_DELAY_MS);
-  }
-
-  // 2026-08-30 follow-up (Aleksandr, live, twice): "по прежнему не
-  // исчезает" -- onMouseEnter/onMouseLeave above rely on the browser
-  // synthesizing enter/leave from native mouseover/mouseout, which in
-  // turn depends on `relatedTarget` walking the DOM tree correctly.
-  // Live testing in his own Chrome session confirmed the panel DOES
-  // close correctly for a normal, continuous cursor path -- but found
-  // at least one real path (fast/large cursor jump) where the browser
-  // never delivers a leave event to this wrapper at all, leaving
-  // `handleMouseLeave` uncalled and the panel stuck open until a click.
-  // Rather than chase every such path individually, this adds a
-  // second, independent closing mechanism that doesn't depend on
-  // enter/leave semantics at all: while `open`, track raw
-  // `mousemove` on `document` and directly compare the cursor's
-  // coordinates against the trigger button's and the panel's own
-  // `getBoundingClientRect()` (unioned, with a small margin so landing
-  // exactly on an edge pixel doesn't flicker). If the cursor is outside
-  // both, schedule the same close timer used above; if it re-enters
-  // either, cancel it. This is authoritative geometry, not an event
-  // chain -- it cannot silently fail to fire the way a missed
-  // mouseout/relatedTarget computation can, and it doesn't replace
-  // onMouseEnter/onMouseLeave above (cheap, correct in the common case)
-  // so much as backstop them for whatever browser/input-path
-  // combination was dropping the leave event.
-  useEffect(() => {
-    if (!open) return;
-    const margin = 4;
-    function isInside(rect: DOMRect | undefined, x: number, y: number) {
-      if (!rect) return false;
-      return x >= rect.left - margin && x <= rect.right + margin && y >= rect.top - margin && y <= rect.bottom + margin;
-    }
-    function handleDocMouseMove(e: MouseEvent) {
-      const triggerRect = wrapperRef.current?.getBoundingClientRect();
-      const panelRect = panelOuterRef.current?.getBoundingClientRect();
-      if (isInside(triggerRect, e.clientX, e.clientY) || isInside(panelRect, e.clientX, e.clientY)) {
-        if (hoverCloseTimerRef.current) {
-          clearTimeout(hoverCloseTimerRef.current);
-          hoverCloseTimerRef.current = null;
-        }
-      } else if (!hoverCloseTimerRef.current) {
-        hoverCloseTimerRef.current = setTimeout(() => setOpen(false), HOVER_CLOSE_DELAY_MS);
-      }
-    }
-    document.addEventListener("mousemove", handleDocMouseMove);
-    return () => document.removeEventListener("mousemove", handleDocMouseMove);
-  }, [open]);
+  const { rendered, visible, handleMouseEnter, handleMouseLeave } = useHoverPanel(open, setOpen, [
+    { trigger: wrapperRef, panel: panelOuterRef },
+  ]);
   const [profileUsername, setProfileUsername] = useState<string | null>(null);
   // Aleksandr, 2026-08-30 (live screenshot): "может быть поставь не
   // цветная векторное синее, поставь аватар, персональный этот

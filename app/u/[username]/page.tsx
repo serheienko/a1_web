@@ -677,7 +677,15 @@ export default async function ProfilePage({ params }: Props) {
               one. Revisit if this section ever needs to look as
               polished as the feed itself. */}
           {authorPosts.map((post) => (
-            <PostCard key={post.id} post={post} />
+            <PostCard
+              key={post.id}
+              post={post}
+              // 2026-08-30: safe to pass on every profile, not just the
+              // visitor's own -- see post-card.tsx's own comment on
+              // ownerMenu for why PostOwnerMenu self-gates to nothing on
+              // someone else's post.
+              ownerMenu={{ redirectAfterDeleteTo: `/u/${profile.username}` }}
+            />
           ))}
         </div>
       ) : (

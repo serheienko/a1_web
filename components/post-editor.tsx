@@ -357,7 +357,8 @@ type StringKey =
   | "scheduleToday" | "scheduleTomorrow" | "scheduleIn3Days" | "scheduleInWeek"
   | "scheduleInvalid" | "errorGeneric" | "requiredHint"
   | "closeConfirmTitle" | "closeConfirmBody" | "continueEditing" | "discardClose"
-  | "postingLabel" | "updatingLabel" | "schedulingLabel";
+  | "postingLabel" | "updatingLabel" | "schedulingLabel"
+  | "deletePost" | "confirmDeleteTitle" | "confirmDeleteBody" | "deleteFailed";
 
 const STRINGS: Record<StringKey, Record<Locale, string>> = {
   createTitle: { uk: "Новий пост", en: "New post", ru: "Новый пост", de: "Neuer Beitrag", es: "Nueva publicación", fr: "Nouvelle publication", pl: "Nowy post", ptBR: "Nova publicação", zh: "新帖子" },
@@ -435,6 +436,19 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   postingLabel: { uk: "Публікується...", en: "Posting...", ru: "Публикуется...", de: "Wird veröffentlicht...", es: "Publicando...", fr: "Publication en cours...", pl: "Publikowanie...", ptBR: "Publicando...", zh: "发布中..." },
   updatingLabel: { uk: "Оновлюється...", en: "Updating...", ru: "Обновляется...", de: "Wird aktualisiert...", es: "Actualizando...", fr: "Mise à jour en cours...", pl: "Aktualizowanie...", ptBR: "Atualizando...", zh: "更新中..." },
   schedulingLabel: { uk: "Планується...", en: "Scheduling...", ru: "Планируется...", de: "Wird geplant...", es: "Programando...", fr: "Planification en cours...", pl: "Planowanie...", ptBR: "Agendando...", zh: "计划中..." },
+  // 2026-08-30 (Aleksandr, live screenshot of the Edit modal on an
+  // actual existing draft): "вместо 'зберегти чернетку', если это уже
+  // чернетка - надо поставить кнопку 'удалить'... надо ж добавить ще
+  // одну кнопку 'опублікувати'... итого: Запланувати / Видалити /
+  // Зберегти / Опублікувати" -- see isEditingExistingDraft's own
+  // comment further down for the exact footer this produces. Text
+  // matches components/post-owner-menu.tsx's existing Delete strings
+  // verbatim (same action, same confirm-before-destructive pattern),
+  // not reinvented here.
+  deletePost: { uk: "Видалити", en: "Delete", ru: "Удалить", de: "Löschen", es: "Eliminar", fr: "Supprimer", pl: "Usuń", ptBR: "Excluir", zh: "删除" },
+  confirmDeleteTitle: { uk: "Точно видалити чернетку?", en: "Delete this draft for good?", ru: "Точно удалить черновик?", de: "Diesen Entwurf wirklich löschen?", es: "¿Eliminar este borrador definitivamente?", fr: "Supprimer définitivement ce brouillon ?", pl: "Na pewno usunąć ten szkic?", ptBR: "Excluir este rascunho definitivamente?", zh: "确定要永久删除这份草稿吗？" },
+  confirmDeleteBody: { uk: "Цю дію не можна скасувати.", en: "This can't be undone.", ru: "Это действие нельзя отменить.", de: "Das kann nicht rückgängig gemacht werden.", es: "Esta acción no se puede deshacer.", fr: "Cette action est irréversible.", pl: "Tej czynności nie można cofnąć.", ptBR: "Essa ação não pode ser desfeita.", zh: "此操作无法撤销。" },
+  deleteFailed: { uk: "Не вдалося видалити", en: "Couldn't delete", ru: "Не удалось удалить", de: "Löschen fehlgeschlagen", es: "No se pudo eliminar", fr: "Échec de la suppression", pl: "Nie udało się usunąć", ptBR: "Não foi possível excluir", zh: "删除失败" },
 };
 
 function t(key: StringKey, lang: Locale, vars?: Record<string, string | number>): string {
@@ -476,6 +490,20 @@ function ClockIcon() {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="12" cy="12" r="9" />
       <path d="M12 7v5l3 3" />
+    </svg>
+  );
+}
+// 2026-08-30: same visual weight/stroke as ClockIcon right above (both
+// sit in the same round icon-button slot in the footer) -- see
+// isEditingExistingDraft's own comment further down for where this is
+// used.
+function TrashIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 7h16" />
+      <path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13" />
+      <path d="M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3" />
+      <path d="M10 11v6M14 11v6" />
     </svg>
   );
 }
@@ -540,6 +568,12 @@ export function PostEditor({
   // Aleksandr, 2026-08-29: close-with-unsaved-content confirmation --
   // see isDirty and requestClose() further down for the full story.
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
+  // 2026-08-30: delete-from-within-the-editor, only reachable when
+  // isEditingExistingDraft further down is true -- see that constant's
+  // own comment for the full footer this feeds.
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState(false);
 
   const [object, setObject] = useState<PostObject>(initialPost?.object ?? "post-job-employing");
   const [title, setTitle] = useState(initialPost?.title ?? "");
@@ -855,6 +889,55 @@ export function PostEditor({
   // `undefined` (create mode, or editing an actual draft) keeps all
   // three footer buttons exactly as before.
   const isEditingPublishedPost = mode === "edit" && initialPost?.isDraft === false;
+
+  // 2026-08-30 (Aleksandr, live screenshot of this exact modal open on
+  // an actual draft): "вместо 'зберегти чернетку', если это уже
+  // чернетка - надо поставить кнопку 'удалить'", then refining it
+  // further in the same breath once he'd thought about what else was
+  // missing: "надо ж по идее добавить еще одну кнопку 'опубліковати'...
+  // удалить можно просто сделать круглую иконку с мусоркою, чтобы
+  // сохранить место... итого: Запланувати / Видалити / Зберегти /
+  // Опублікувати". True only for a real edit of an EXISTING draft
+  // (never create mode, never a scheduled/published post being edited —
+  // those keep their own existing footers untouched below). Feeds four
+  // slots in the same row: the existing schedule-clock icon, a new
+  // trash-icon delete button right after it, the existing "Зберегти
+  // чернетку" pill (unchanged — still just re-saves as a draft), and
+  // the existing big blue button relabeled from "ЗБЕРЕГТИ" to
+  // "ОПУБЛІКУВАТИ" below (its submit("post") action already sets
+  // draft:false either way — editing a draft's "Save" button already
+  // silently published it before this, just under a misleading label).
+  const isEditingExistingDraft = mode === "edit" && initialPost?.isDraft === true && !!initialPost?.id;
+
+  async function handleDeleteConfirmed() {
+    if (!initialPost?.id) return;
+    setDeleteError(false);
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/posts/delete", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id: initialPost.id }),
+      });
+      const data = await res.json().catch(() => ({ ok: false }));
+      if (!res.ok || !data.ok) {
+        setDeleteError(true);
+        setDeleting(false);
+        return;
+      }
+      // Same event components/post-owner-menu.tsx's own delete now
+      // dispatches, so whatever list opened this editor (currently only
+      // components/profile-tabs.tsx's drafts/scheduled section) drops
+      // the card without needing a prop threaded through here.
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("a1:post-deleted", { detail: { id: initialPost.id } }));
+      }
+      onClose();
+    } catch {
+      setDeleteError(true);
+      setDeleting(false);
+    }
+  }
 
   // 2026-08-29 (Aleksandr, 3 screenshots of the native app's "New post"
   // flow -- create modal, its close-confirm prompt, the resulting Draft
@@ -1232,6 +1315,48 @@ export function PostEditor({
                   className="rounded-full py-2.5 text-sm font-medium text-neutral-500 transition hover:text-red-600 dark:text-neutral-400 dark:hover:text-red-400"
                 >
                   {t("discardClose", lang)}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 2026-08-30: same dialog-on-a-dialog pattern as confirmCloseOpen
+            right above (its own comment explains the z-[70]/backdrop
+            choice) -- reused verbatim here for the new delete action, one
+            extra tap away from the trash-icon button in the footer, same
+            as components/post-owner-menu.tsx's existing delete confirm
+            step for the detail-page "•••" menu. */}
+        {confirmDeleteOpen && (
+          <div
+            className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4"
+            onClick={() => !deleting && setConfirmDeleteOpen(false)}
+          >
+            <div
+              role="alertdialog"
+              aria-modal="true"
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-xs rounded-2xl bg-white p-5 shadow-xl dark:bg-neutral-900"
+            >
+              <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">{t("confirmDeleteTitle", lang)}</p>
+              <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{t("confirmDeleteBody", lang)}</p>
+              {deleteError && <p className="mt-2 text-xs text-red-600 dark:text-red-400">{t("deleteFailed", lang)}</p>}
+              <div className="mt-4 flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={handleDeleteConfirmed}
+                  disabled={deleting}
+                  className="rounded-full bg-red-600 py-2.5 text-sm font-bold tracking-wide text-white transition hover:bg-red-700 disabled:opacity-60"
+                >
+                  {deleting ? <Spinner className="mx-auto h-4 w-4 text-white" /> : t("deletePost", lang)}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeleteOpen(false)}
+                  disabled={deleting}
+                  className="rounded-full border border-neutral-300 py-2.5 text-sm font-medium text-neutral-600 transition hover:bg-neutral-100 disabled:opacity-60 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                >
+                  {t("scheduleCancel", lang)}
                 </button>
               </div>
             </div>
@@ -1696,6 +1821,23 @@ export function PostEditor({
                 >
                   <ClockIcon />
                 </button>
+                {/* 2026-08-30: see isEditingExistingDraft's own comment
+                    above -- round icon button (not a labelled pill) "чтобы
+                    сохранить место" now that this row has four things in
+                    it instead of three. Hidden while the schedule popover
+                    branch below is showing, same as the draft/post pair
+                    it sits next to. */}
+                {isEditingExistingDraft && !scheduleOpen && (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeleteOpen(true)}
+                    aria-label={t("deletePost", lang)}
+                    disabled={pendingAction !== null}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-neutral-300 text-neutral-500 transition hover:border-red-300 hover:bg-red-50 hover:text-red-600 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-red-900 dark:hover:bg-red-500/10 dark:hover:text-red-500"
+                  >
+                    <TrashIcon />
+                  </button>
+                )}
                 {scheduleOpen ? (
                   <>
                     <button
@@ -1740,7 +1882,11 @@ export function PostEditor({
                       disabled={pendingAction !== null}
                       className={"flex-1 rounded-full bg-accent py-2.5 text-sm font-bold tracking-wide text-white transition hover:opacity-90 disabled:opacity-50" + (!canSubmit ? " opacity-50" : "")}
                     >
-                      {mode === "edit" || savedPostId ? t("saveChanges", lang) : t("post", lang)}
+                      {isEditingExistingDraft
+                        ? t("post", lang)
+                        : mode === "edit" || savedPostId
+                          ? t("saveChanges", lang)
+                          : t("post", lang)}
                     </button>
                   </>
                 )}

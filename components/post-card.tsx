@@ -28,6 +28,7 @@ import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { T } from "@/components/t";
 import { TagLabel } from "@/components/tag-label";
 import { MyPostBadge } from "@/components/my-post-badge";
+import { PostOwnerMenu } from "@/components/post-owner-menu";
 
 export function PostCard({
   post,
@@ -65,11 +66,26 @@ export function PostCard({
   // Avatar/author-name links are untouched -- the author's public
   // profile exists regardless of this post's status.
   onOpen,
+  // 2026-08-30 (Aleksandr: "добавь 3 точки для редактирования и удаления
+  // прямо в общ ленту в профиле, чтобы було не обов'язково переходити в
+  // пост... по-ідеї можна під слово Чернетка, і вакансія") -- optional,
+  // so every other caller (public feeds, load-more) is unaffected.
+  // components/post-owner-menu.tsx already does its own /api/posts/mine
+  // ownership check and renders nothing for a post that isn't the
+  // signed-in visitor's own (same self-gating pattern as the MyPostBadge
+  // above), so it's safe for BOTH profile-tab call sites to pass this
+  // unconditionally: app/u/[username]/page.tsx's published-posts list is
+  // shown on every profile (owner's own or someone else's) and the menu
+  // simply stays invisible on a stranger's posts; components/profile-
+  // tabs.tsx's own ownDrafts list only ever renders on the visitor's own
+  // profile in the first place.
+  ownerMenu,
 }: {
   post: WebPost;
   avatarBlurDataUrl?: string | null;
   statusBadge?: { label: ReactNode; className: string } | null;
   onOpen?: () => void;
+  ownerMenu?: { redirectAfterDeleteTo: string };
 }) {
   const locationLabel = post.location ? (
     post.location.display
@@ -180,7 +196,37 @@ export function PostCard({
               </Link>
             )}
           </h2>
-          {statusBadge ? (
+          {/* 2026-08-30: stacked into a column (badge, then the "•••"
+              menu right under it) once ownerMenu is passed -- Aleksandr
+              pointed at exactly this spot ("по-ідеї можна під слово
+              Чернетка, і вакансія"). Plain `<>...</>` (no extra wrapper)
+              when ownerMenu is unset, so every other caller keeps the
+              exact same DOM/spacing it already had. */}
+          {ownerMenu ? (
+            <div className="flex shrink-0 flex-col items-end gap-1.5">
+              {statusBadge ? (
+                <span className={"shrink-0 rounded-full px-2.5 py-1 text-xs font-medium " + statusBadge.className}>
+                  {statusBadge.label}
+                </span>
+              ) : (
+                <span
+                  className={
+                    "shrink-0 rounded-full px-2.5 py-1 text-xs font-medium " +
+                    (post.kind === "hiring"
+                      ? "bg-accent/10 text-accent dark:bg-accent/20"
+                      : "bg-[#C830FF]/10 text-[#C830FF] dark:bg-[#C830FF]/20")
+                  }
+                >
+                  {post.kind === "hiring" ? <T uk="Вакансія" en="Job" ru="Вакансия" de="Stellenanzeige" es="Vacante" fr="Offre d'emploi" pl="Oferta pracy" ptBR="Vaga" zh="职位" /> : <T uk="Фахівець" en="Talent" ru="Специалист" de="Fachkraft" es="Especialista" fr="Spécialiste" pl="Specjalista" ptBR="Especialista" zh="人才" />}
+                </span>
+              )}
+              <PostOwnerMenu
+                postId={post.id}
+                redirectAfterDeleteTo={ownerMenu.redirectAfterDeleteTo}
+                className="relative z-10 shrink-0"
+              />
+            </div>
+          ) : statusBadge ? (
             <span className={"shrink-0 rounded-full px-2.5 py-1 text-xs font-medium " + statusBadge.className}>
               {statusBadge.label}
             </span>

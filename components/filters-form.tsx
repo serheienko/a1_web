@@ -73,6 +73,7 @@ import { FilterIcon } from "@/components/filter-icon";
 import { ClearIcon } from "@/components/clear-icon";
 import { SearchIcon } from "@/components/search-icon";
 import { translateTagLabel, translateCategoryLabel } from "@/components/label-translations";
+import { useHoverPanel } from "@/lib/use-hover-panel";
 
 const MAX_SUGGESTIONS_PER_GROUP = 5;
 
@@ -222,6 +223,29 @@ export function FiltersForm({
   const [filtersOpen, setFiltersOpen] = useState(false);
   const filtersRef = useRef<HTMLDivElement>(null);
   const desktopFiltersRef = useRef<HTMLDivElement>(null);
+  // 2026-08-30 (Aleksandr: "Сделай для фильтров такой же идентичный
+  // эффект при наведении на кнопку как и на аватар... навел, он
+  // открылся > убрал курсор из области > скрылся... Надо переиспользовать,
+  // чтобы работало идентично") -- lib/use-hover-panel.ts, extracted from
+  // components/avatar-menu.tsx's own hover-intent implementation for
+  // exactly this reason. Two ref pairs, not one, because only one of the
+  // mobile/desktop trigger+popover pairs below is ever visible per
+  // viewport (the other is CSS-`hidden`, still mounted) while both share
+  // this one `filtersOpen` boolean -- see this file's own top comment.
+  // The existing onClick toggle (toggleFilters, unchanged below) stays
+  // additive to this, same as avatar-menu.tsx's click toggle stayed next
+  // to its own hover handlers -- mobile has no hover at all.
+  const filtersPanelRef = useRef<HTMLDivElement>(null);
+  const desktopFiltersPanelRef = useRef<HTMLDivElement>(null);
+  const {
+    rendered: filtersRendered,
+    visible: filtersVisible,
+    handleMouseEnter: handleFiltersMouseEnter,
+    handleMouseLeave: handleFiltersMouseLeave,
+  } = useHoverPanel(filtersOpen, setFiltersOpen, [
+    { trigger: filtersRef, panel: filtersPanelRef },
+    { trigger: desktopFiltersRef, panel: desktopFiltersPanelRef },
+  ]);
   // 2026-08-30, final round on the search-widen-vs-Filters saga:
   // Aleksandr's actual spec needs BOTH halves at once, which a single
   // `inputFocused || filtersOpen` flag can't express: "если ничего не
@@ -771,7 +795,12 @@ export function FiltersForm({
 
             {suggestionsDropdown}
           </div>
-          <div className="relative shrink-0" ref={filtersRef}>
+          <div
+            className="relative shrink-0"
+            ref={filtersRef}
+            onMouseEnter={handleFiltersMouseEnter}
+            onMouseLeave={handleFiltersMouseLeave}
+          >
             <button
               type="button"
               onClick={toggleFilters}
@@ -800,13 +829,26 @@ export function FiltersForm({
                 handle), same style components/settings-menu.tsx used to
                 have before its own anchored-popover rework. Same fix
                 here, same reasoning: a compact card anchored right under
-                the filter button (`.animate-popover`, defined in
-                app/globals.css alongside settings-menu.tsx's popover).
-                Closing on an outside tap is the full-viewport backdrop
-                rendered at the top of this component's return, not a
-                listener here — see that comment. */}
-            {filtersOpen && (
-              <div className="animate-popover absolute right-0 top-full z-50 mt-2 max-h-[85vh] w-72 max-w-[calc(100vw-2rem)] origin-top-right overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+                the filter button. Closing on an outside tap is the
+                full-viewport backdrop rendered at the top of this
+                component's return, not a listener here — see that
+                comment.
+                2026-08-30: swapped the old `animate-popover` (fade-in
+                only, instant unmount on close) for the same
+                rendered/visible fade-in-AND-out components/avatar-menu.tsx
+                uses via the hook above — "исчезает плавно, с opacity" was
+                the literal ask, and an instant unmount can't do that.
+                `panelRef` is this same outer node -- see this file's own
+                comment above on why the hook needs the real popover
+                rect, not just the trigger's. */}
+            {filtersRendered && (
+              <div
+                ref={filtersPanelRef}
+                className={
+                  "absolute right-0 top-full z-50 mt-2 max-h-[85vh] w-72 max-w-[calc(100vw-2rem)] origin-top-right overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-2 shadow-lg transition duration-150 ease-out dark:border-neutral-700 dark:bg-neutral-900 " +
+                  (filtersVisible ? "opacity-100 scale-100" : "pointer-events-none opacity-0 scale-95")
+                }
+              >
                 {resetAllFiltersBody}
                 {locationSectionBody}
                 {tagChipsBody}
@@ -868,7 +910,12 @@ export function FiltersForm({
               {suggestionsDropdown}
             </div>
 
-            <div className="relative shrink-0" ref={desktopFiltersRef}>
+            <div
+              className="relative shrink-0"
+              ref={desktopFiltersRef}
+              onMouseEnter={handleFiltersMouseEnter}
+              onMouseLeave={handleFiltersMouseLeave}
+            >
               <button
                 type="button"
                 onClick={toggleFilters}
@@ -905,8 +952,17 @@ export function FiltersForm({
                 )}
               </button>
 
-              {filtersOpen && (
-                <div className="animate-popover absolute right-0 top-full z-50 mt-2 max-h-[30rem] w-64 overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+              {/* 2026-08-30: same rendered/visible fade this file's mobile
+                  popover above now uses, same reason -- see that block's
+                  own comment. */}
+              {filtersRendered && (
+                <div
+                  ref={desktopFiltersPanelRef}
+                  className={
+                    "absolute right-0 top-full z-50 mt-2 max-h-[30rem] w-64 overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-2 shadow-lg transition duration-150 ease-out dark:border-neutral-700 dark:bg-neutral-900 " +
+                    (filtersVisible ? "opacity-100 scale-100" : "pointer-events-none opacity-0 scale-95")
+                  }
+                >
                   {resetAllFiltersBody}
                   {locationSectionBody}
                   {tagChipsBody}
