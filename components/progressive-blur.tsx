@@ -1,5 +1,11 @@
 // components/progressive-blur.tsx
 //
+// UNUSED as of 2026-08-30: components/site-nav.tsx no longer renders
+// this (Aleksandr: "убери полностью тень отсюда сверху", after four
+// rounds of retuning below never landed on a look he liked). Left in
+// place, not deleted, in case a fog/blur header treatment is wanted
+// again later -- see site-nav.tsx's 2026-08-30 comment.
+//
 // 2026-08-28: "хочу такой же эффект, как у шапки в моём мобильном
 // приложении — частично блюр, частично туманка" — Aleksandr pointed at
 // the Claude app's nav header, where content scrolling up doesn't just

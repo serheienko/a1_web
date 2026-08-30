@@ -26,6 +26,15 @@
 // that job itself, so a second, sharper edge on top of it looked
 // redundant/busy instead of crisp.
 //
+// 2026-08-30: removed <ProgressiveBlur> entirely (Aleksandr, desktop
+// screenshot of this bar over the Вакансії feed: "убери полностью тень
+// отсюда сверху") -- four rounds of retuning it (see progressive-
+// blur.tsx's own history: mask-math fix, mobile height cut twice, then
+// hidden on mobile outright) never landed on a look he was happy with
+// on desktop either, and this time the ask was to drop it, not tune it
+// again. components/progressive-blur.tsx is left in place, unused, in
+// case a flat `border-b` or some other treatment is wanted here later.
+//
 // 2026-08-28: tried moving the logo into components/logo-play.tsx for a
 // one-shot Lottie "play" effect on click. Reverted the same day: the
 // animation's crop/scale came out wrong in a way that only showed up
@@ -62,7 +71,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AvatarMenu } from "@/components/avatar-menu";
-import { ProgressiveBlur } from "@/components/progressive-blur";
 import { T } from "@/components/t";
 
 const NAV_ITEMS = [
@@ -100,7 +108,6 @@ export function SiteNav() {
       className="sticky top-0 z-40 isolate bg-app/80 pt-[env(safe-area-inset-top)] backdrop-blur-xl [will-change:transform] dark:bg-black/80"
       style={{ transform: "translateZ(0)" }}
     >
-      <ProgressiveBlur />
       <div className="relative flex items-center gap-4 px-4 py-3">
         <div className="flex min-w-0 flex-1 items-center gap-4">
           <Link href="/" className="shrink-0 transition-opacity hover:opacity-80">
