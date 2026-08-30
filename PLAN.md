@@ -2643,3 +2643,78 @@ Aleksandr, mid-session, screenshot of the §6.41 close-confirm popover:
   "nothing was typed" shortcut.
 - No new state, no new confirmation-of-the-confirmation — one click
   discards and closes, matching what the user asked for plainly.
+
+### 6.47 Top nav: drop the fog/shadow effect; search box widens on focus (2026-08-30)
+
+Aleksandr, desktop screenshot of the bar over the Вакансії feed: "убери
+полностью тень отсюда сверху." components/progressive-blur.tsx had
+already gone through four rounds of retuning (mask-math fix, mobile
+height cut twice, hidden on mobile outright — see that file's own
+history) without ever landing on a look he was happy with on desktop
+either. This time removed `<ProgressiveBlur>` from site-nav.tsx entirely
+rather than tuning again; the component itself is left in place, unused.
+
+Separately, same bar: "базово поиск такой ширины как сейчас, но при
+нажатии на него развидвался, добавлялось процентов 50-60 ширины." The
+compact desktop search box's 12rem resting cap (2026-08-29) now stays
+exactly that at rest; components/filters-form.tsx pushes an inline
+max-width (18.6rem, +55%) onto the `#nav-search-slot` host element
+(reached via the same `document.getElementById` ref this component
+already held for the portal) when the input is focused, and clears it
+on blur so the CSS class stays the single source of truth for the
+resting width. site-nav.tsx adds a transition on that element so the
+change reads as a widen, not a jump.
+
+### 6.48 Post editor: schedule popover closes on any other click in the form (2026-08-30)
+
+Aleksandr, 2 screenshots of the schedule/calendar popover open over the
+form: "надо чтобы, когда мы нажимаем внутри первой модалки вне
+календаря, где угодно... неактивные кнопки, чтобы она закрывалась."
+The popover already stopped ITS OWN clicks from reaching the level-1
+dialog's requestClose, but nothing closed the popover itself when a
+click landed elsewhere in the form (a format pill, blank padding).
+
+Added an invisible overlay scoped to just the scrollable form area
+(between the header and footer) — z-20, above that area's own sticky
+z-10 category toggle, below the popover's own z-30 so the popover still
+gets its own clicks (browsers hit-test whichever element is topmost at
+that pixel, not DOM order). Deliberately NOT covering the header or
+footer, so the footer's Cancel/Schedule buttons — the popover's real
+actions — and the header's close button keep working exactly as before.
+
+### 6.49 Posting/updating banner: top-center over the feed, not bottom-right (2026-08-30)
+
+Aleksandr, screen recording of a post being created: "появляется
+справа... надо, чтобы по центром сверху над лентой показывалась эта
+штука." The banner (§6.44's minimum-visibility fix) was positioned
+`items-end ... sm:justify-end` — bottom-center on mobile, bottom-right
+on desktop. Moved to `items-start justify-center` on every viewport
+with top padding to clear the sticky nav bar.
+
+Worth noting explicitly: the same message also asked that "the post
+[modal] should close" when posting — it already does, structurally.
+`isSubmittingPost` replaces PostEditor's entire return value with just
+this small card the instant Post/Save is clicked; the big multi-field
+form is unmounted at that point, not hidden behind or beside it. That
+was likely read as "still open" only because the small card that
+replaces it was tucked in a corner instead of taking the form's place
+up top — the position fix above should make the close itself legible
+too.
+
+Same recording also re-showed the §6.44 title-length bug (pasting a
+long title, hitting Post, "Щось пішло не так"). Re-inspected
+components/post-editor.tsx's title handling directly rather than
+re-guessing a fix: the onChange clamp (`e.target.value.slice(0,
+TITLE_MAX)`), the reactive useEffect re-clamp, and the submit-time
+`.slice(0, TITLE_MAX)` from §6.44 are all still exactly in place and
+look correct — a paste fires the same onChange with the full pasted
+string in `e.target.value`, clamped before it ever reaches state. Cross-
+checked against Vercel: `ba5f091` (which includes §6.44's fix, commit
+738db0d) was the latest Ready production deployment, built ~2 minutes
+before this recording's own timestamp (ffprobe: 2026-08-30T05:21:18Z
+vs. the deployment's own "12m ago" read moments after). Likely
+explanation, not confirmed: the recorded tab was already loaded with
+the pre-fix JS bundle before that deploy finished propagating, since a
+already-open tab doesn't pick up a new deploy without a reload. Flagged
+rather than "fixed" again blind — needs Aleksandr to hard-refresh and
+retest before this is touched further.
