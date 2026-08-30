@@ -259,15 +259,18 @@ export function ProfileTabs({
       <div hidden={tab !== "posts"} className="mt-2.5">
         {ownDrafts.length > 0 && (
           <div className="mb-4 flex flex-col gap-4">
-            {ownDrafts.map(({ post, status }) => (
-              <PostCard
-                key={post.id}
-                post={post}
-                statusBadge={{ label: STRINGS[status === "draft" ? "statusDraft" : "statusScheduled"][lang], className: STATUS_BADGE_CLASS }}
-                onOpen={ownEditable[post.id] ? () => setEditingPost(ownEditable[post.id]) : undefined}
-                ownerMenu={{ redirectAfterDeleteTo: `/u/${profileUsername}` }}
-              />
-            ))}
+            {ownDrafts.map(({ post, status }) => {
+              const editable = ownEditable[post.id];
+              return (
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  statusBadge={{ label: STRINGS[status === "draft" ? "statusDraft" : "statusScheduled"][lang], className: STATUS_BADGE_CLASS }}
+                  onOpen={editable ? () => setEditingPost(editable) : undefined}
+                  ownerMenu={{ redirectAfterDeleteTo: `/u/${profileUsername}` }}
+                />
+              );
+            })}
           </div>
         )}
         {posts}
