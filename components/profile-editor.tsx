@@ -891,7 +891,16 @@ export function ProfileEditor({
         setUsername(p.username ?? "");
         setPhoneNumber(p.phoneNumber ?? "");
         setDob(toDateInputValue(p.dob));
-        setRawFlags(p.flags);
+        // 2026-08-31: this called setRawFlags(p.flags), a setter for a
+        // rawFlags state variable that this file's own 2026-08-30/31
+        // comment above (on the phoneNumber/dob state block) says was
+        // deliberately removed -- flags are read directly into
+        // showPhone/showDob via canShowPhone/canShowDob just below,
+        // nothing else in this file reads a rawFlags state. The setter
+        // call was dead code left behind by that removal; it referenced
+        // a name that no longer exists, which is what broke `npm run
+        // build` (Vercel: "Cannot find name setRawFlags") on every
+        // commit since whichever push removed the state declaration.
         originalUsernameRef.current = p.username ?? "";
         originalPhoneRef.current = p.phoneNumber ?? "";
         originalDobRef.current = toDateInputValue(p.dob);
