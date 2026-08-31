@@ -509,6 +509,21 @@ function newId(): string {
   return Math.random().toString(36).slice(2);
 }
 
+// 2026-08-31, live repro of "не сохраняется профиль" (the same session
+// that found handleSave's `flags` bug below): account.updateProfile
+// round-trips `dob` as a full ISO datetime ("1995-12-01T00:00:00.000Z"),
+// confirmed against a throwaway test account, even though a save only
+// ever sends the bare "YYYY-MM-DD" an `<input type="date">` produces.
+// That mismatch made a previously-saved birth date silently render as an
+// EMPTY field on reopen -- a native date input rejects anything that
+// isn't exactly YYYY-MM-DD and just shows blank, no error -- which reads
+// exactly like "my date of birth didn't save" even though it did. Slicing
+// to the first 10 characters is a no-op for an already-bare date string,
+// so this is safe either way the backend happens to answer.
+function toDateInputValue(dob: string | null): string {
+  return dob ? dob.slice(0, 10) : "";
+}
+
 // Same helper components/post-editor.tsx's handleFileSelected() uses, for
 // the same reason: a 401 whose refresh attempt also failed converts to
 // this well-known message server-side (lib/a1/visitor-call.ts), and every
@@ -799,11 +814,11 @@ export function ProfileEditor({
         const p = data.profile;
         setUsername(p.username ?? "");
         setPhoneNumber(p.phoneNumber ?? "");
-        setDob(p.dob ?? "");
+        setDob(toDateInputValue(p.dob));
         setRawFlags(p.flags);
         originalUsernameRef.current = p.username ?? "";
         originalPhoneRef.current = p.phoneNumber ?? "";
-        originalDobRef.current = p.dob ?? "";
+        originalDobRef.current = toDateInputValue(p.dob);
         setShowPhone(canShowPhone(p.flags));
         setShowDob(canShowDob(p.flags));
         setFirstName(p.firstName);
@@ -1383,19 +1398,24 @@ export function ProfileEditor({
     if (trimmedDob !== originalDobRef.current) {
       body.dob = trimmedDob || null;
     }
-    // Read-modify-write: flip ONLY the two bits this dialog knows about,
-    // on top of rawFlags exactly as bootstrapped — see this file's own
-    // SHOW_PHONE_NUMBER/SHOW_DOB comment near the state declarations and
-    // ProfileInputSchema.flags's comment for why every other bit
-    // (FAVORED/BLOCKED/PREMIUM/etc.) must round-trip untouched. Sent
-    // only when it actually changes from rawFlags, same "don't resend
-    // an untouched value" reasoning as the three fields above.
-    const SHOW_PHONE_NUMBER = 1 << 1;
-    const SHOW_DOB = 1 << 3;
-    let nextFlags = rawFlags;
-    nextFlags = showPhone ? nextFlags | SHOW_PHONE_NUMBER : nextFlags & ~SHOW_PHONE_NUMBER;
-    nextFlags = showDob ? nextFlags | SHOW_DOB : nextFlags & ~SHOW_DOB;
-    if (nextFlags !== rawFlags) body.flags = nextFlags;
+    // 2026-08-31, live repro of "не сохраняется профиль" (screenshot:
+    // "Couldn't save. Please try again." the moment either "Show on
+    // profile" pill was touched): account.updateProfile does NOT accept
+    // `flags` at all -- confirmed live against a throwaway test account,
+    // the real backend error is "root has unknown property 'flags'".
+    // That's a full-request rejection, not a per-field one, so touching
+    // either pill used to fail the ENTIRE save (every other section too,
+    // not just phone/dob visibility) with no indication of why beyond
+    // the generic saveFailed copy. The read side (EditableProfileSchema.
+    // flags, canShowPhone/canShowDob) and the two pills stay as they are
+    // -- they still reflect whatever the account's real flags are -- but
+    // this dialog no longer has a confirmed way to WRITE that bitmask,
+    // so it must not try. Clicking a pill still updates local state
+    // (showPhone/showDob) for a coherent-looking dialog, it just isn't
+    // persisted yet; that's a known gap, not a silent data loss, since
+    // nothing here previously worked either (see the SHOW_PHONE_NUMBER/
+    // SHOW_DOB comment near the state declarations: "never round-tripped
+    // through a real save" until this same live test disproved it).
 
     try {
       const res = await fetch("/api/account/profile-editor/update", {
