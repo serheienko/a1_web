@@ -97,10 +97,35 @@ function extractContactUsers(raw: unknown): Record<string, ContactUserSummary> {
 export async function GET() {
   try {
     const { data, refreshedSession } = await callAsVisitor<unknown>("contacts.search", {});
+    // TEMP, 2026-08-31: live report ("Все аватарки не совпадают") says
+    // every linked contact still falls back to the placeholder avatar
+    // even though this route's own extractContactUsers should be
+    // resolving them from contacts.search's `users` array -- and the
+    // code reads correct on review (schema matches users.getByUsername's
+    // own, already-working shape). Rather than keep guessing blind,
+    // dump a SHALLOW, non-sensitive shape of the raw response (top-level
+    // keys + one sample user's own top-level keys, not full values) so
+    // the actual live shape can be compared against what this file
+    // assumes. Same "probe, read the real shape, delete" pattern this
+    // session already used for contacts.addContact -- remove this block
+    // (and the `_debug` key below) once the mismatch is found.
+    const rawObj = data && typeof data === "object" ? (data as Record<string, unknown>) : null;
+    const rawUsers = Array.isArray(rawObj?.users) ? (rawObj!.users as unknown[]) : null;
+    const debug = {
+      rawTopLevelKeys: rawObj ? Object.keys(rawObj) : null,
+      rawUsersIsArray: Array.isArray(rawObj?.users),
+      rawUsersLength: rawUsers?.length ?? null,
+      firstRawUserKeys: rawUsers?.[0] && typeof rawUsers[0] === "object" ? Object.keys(rawUsers[0] as object) : null,
+      firstRawUserObjectField: rawUsers?.[0] && typeof rawUsers[0] === "object" ? (rawUsers[0] as Record<string, unknown>).object : null,
+      firstRawContactUserField: Array.isArray(rawObj?.contacts) && (rawObj!.contacts as unknown[])[0]
+        ? ((rawObj!.contacts as unknown[])[0] as Record<string, unknown>).user
+        : null,
+    };
     const response = NextResponse.json({
       ok: true,
       contacts: extractContacts(data),
       contactUsers: extractContactUsers(data),
+      _debug: debug,
     });
     if (refreshedSession) setSession(response, refreshedSession);
     return response;

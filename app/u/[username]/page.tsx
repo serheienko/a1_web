@@ -327,32 +327,34 @@ export default async function ProfilePage({ params }: Props) {
           )}
           </VoiceIntroRing>
           <AvatarEditButton username={profile.username} className="absolute bottom-0 right-0" />
+          {/* 2026-08-31, live-testing feedback ("Не подрезай так имя
+              жестко... если мешает иконка то двигай"): EditProfileButton/
+              AddContactButton used to sit in the name row itself
+              (ml-auto, shrink-0), which meant every pixel they took was a
+              pixel MarqueeName's own overflow-truncate/marquee logic
+              never got to use -- a moderately long display name (see the
+              live "Aleksandr..." repro) hit an ellipsis well before it
+              actually ran out of room on the SCREEN, just out of room in
+              its own narrowed flex column. Moved both onto the avatar
+              itself instead, as a second corner badge opposite
+              AvatarEditButton (same `absolute` pattern, top-right instead
+              of bottom-right) -- still exactly where Aleksandr originally
+              asked for edit ("справа... к правому краю", 2026-08-30), just
+              anchored to the avatar's own right edge rather than
+              competing with the name text for the row's width. The name
+              block below is now the row's only flex-worthy child and can
+              claim the whole remaining width. */}
+          <EditProfileButton username={profile.username} className="absolute right-0 top-0" />
+          <AddContactButton
+            username={profile.username}
+            profileUserId={rawProfile?.object === "user" ? rawProfile._id : null}
+            className="absolute right-0 top-0"
+          />
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <MarqueeName text={profile.fullName} className="text-xl font-semibold text-neutral-900 sm:text-2xl dark:text-neutral-50" />
           <p className="truncate text-sm text-neutral-500 dark:text-neutral-400">@{profile.username}</p>
         </div>
-        {/* Aleksandr, 2026-08-30 (2 screenshots of this exact header):
-            "Само редактирование кнопкой думаю можно добавить в вот
-            справа от Al Ex к правому краю" -- pinned to the far right of
-            this row (ml-auto), not next to the name text itself, so it
-            stays put regardless of how long the display name is. Renders
-            nothing at all for anyone but the profile's own owner -- see
-            components/edit-profile-button.tsx's own whoami-gating
-            comment, same pattern components/profile-tabs.tsx already
-            uses for its own owner-only drafts section. */}
-        <EditProfileButton username={profile.username} className="ml-auto shrink-0 self-start" />
-        {/* 2026-08-31: "давай где-то что-то накидаешь... одну кнопку
-            пока, типа вот на профилях: добавить в контакты" — first-pass
-            placement, right where EditProfileButton sits for the profile
-            owner (the two are mutually exclusive: one profile only ever
-            shows one of them). Rough sketch per his own framing, likely
-            to move once he's seen it live. */}
-        <AddContactButton
-          username={profile.username}
-          profileUserId={rawProfile?.object === "user" ? rawProfile._id : null}
-          className="ml-auto shrink-0 self-start"
-        />
       </div>
 
       {/* Fuller player element — speed + scrubbing — for the same clip
