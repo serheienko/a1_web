@@ -256,15 +256,31 @@ export default async function ProfilePage({ params }: Props) {
         toward the 672px `max-w-2xl` ceiling, and every other narrower
         row (name, skills, bio) was left-heavy inside that wide box all
         over again — "Опять съехал блок влево". A fixed width sidesteps
-        the whole shrink-to-fit dance instead of chasing it: ~420px
-        matches both his Figma measurement (~426px) and the box's own
-        previous natural width (~392px), and no future row — no matter
-        how wide its own content wants to be — can ever hijack the
-        container's width again, since the container no longer measures
-        its children to decide its own size. Mobile is untouched —
-        `w-full` below max-w-2xl, `sm:w-[420px]` only kicks in at the
-        desktop breakpoint. */}
-    <main className="mx-auto w-full max-w-2xl px-4 py-10 sm:w-[420px] sm:py-16">
+        the whole shrink-to-fit dance instead of chasing it: no future
+        row — no matter how wide its own content wants to be — can ever
+        hijack the container's width again, since the container no
+        longer measures its children to decide its own size (the
+        Favorites grid above is `grid-cols-3`, a fixed column count, not
+        shrink-to-fit, so it can't do this regardless of the number
+        below). Mobile is untouched — `w-full` below max-w-2xl.
+
+        2026-08-31, live-testing feedback (screenshot, "Aleksandr…" still
+        cut off; MarqueeName's own desktop branch now wraps instead of
+        truncating — see that component's own comment — but a merely
+        two-line name still isn't what was asked for): "зачем мы
+        придумали такую верстку на десктопе?? у нас что ширины экрана не
+        хватает??? Нам надо, чтобы на десктопе помещалось ПОЛНОЕ ИМЯ".
+        Fair — the original ~420px (Figma's ~426px measurement) was sized
+        for the AVATAR ROW's minimum, not for fitting a full display name
+        on one line next to a 112.5px avatar; there was no reason to
+        stay that narrow once the ask became "the name must fit", since
+        a fixed px width doesn't care what number it is (see above) and
+        desktop plainly has the room. Widened to 640px — comfortably fits
+        a normal-length full name on one line at text-2xl/font-semibold
+        next to the avatar+gap, while MarqueeName's wrap-instead-of-
+        truncate fallback still catches the rare pathologically long one
+        instead of clipping it. */}
+    <main className="mx-auto w-full max-w-2xl px-4 py-10 sm:w-[640px] sm:py-16">
       {/* Avatar sized off Instagram's own profile page as reference
           (Aleksandr, 2026-08-26): originally ~96px mobile / 150px
           desktop. Aleksandr, 2026-08-27, after seeing the voice-intro
