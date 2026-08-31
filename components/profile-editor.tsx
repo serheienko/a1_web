@@ -543,6 +543,76 @@ function toDateInputValue(dob: string | null): string {
   return dob ? dob.slice(0, 10) : "";
 }
 
+// DOB needs real day precision (unlike Companies' From/To -- see
+// parseYearMonth's own comment for why those only need month+year), so
+// this is its own parse/build pair rather than reusing that one.
+function parseFullDate(value: string): { year: string; month: string; day: string } {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  return m ? { year: m[1]!, month: m[2]!, day: m[3]! } : { year: "", month: "", day: "" };
+}
+function buildFullDate(year: string, month: string, day: string): string {
+  return year && month && day ? `${year}-${month}-${day}` : "";
+}
+const DOB_DAY_OPTIONS: string[] = Array.from({ length: 31 }, (_, i) => pad2(i + 1));
+// A century back from this year -- generous enough for any real
+// visitor's birth year without needing to bound it more precisely than
+// the native date input already didn't.
+const DOB_YEAR_OPTIONS: string[] = (() => {
+  const max = new Date().getFullYear();
+  const years: string[] = [];
+  for (let y = max; y >= max - 100; y--) years.push(String(y));
+  return years;
+})();
+
+// 2026-08-31, live-testing feedback: the Companies "From"/"To" dates used
+// to be a native `<input type="date">` (matching the DOB field), but even
+// after the min-w-0 overflow fix (see the grid wrapper's own comment a
+// few lines below) Aleksandr's actual phone still showed the two fields
+// wildly unequal in width/height -- native date-input chrome renders
+// differently enough across browsers/OSes that we can't reliably pin its
+// box to match a plain text input's, no matter how much CSS is thrown at
+// it (same root cause as the DOB field's own "странная" sizing, filed as
+// a separate note there). His fix: "раздели это поле, сделай двумя
+// просто селекторами, типа равносценными по ширине" -- split each date
+// into two plain <select> elements (month, year) instead, which render
+// with completely ordinary, predictable box sizing everywhere. Nobody
+// picks an exact DAY for "started working here" anyway, so month+year is
+// no loss of precision that matters. Storage format is unchanged -- still
+// the same plain "YYYY-MM-DD" string (day pinned to "01", which nothing
+// downstream reads) so handleSave/PRESENT_SENTINEL/isPositionOngoing all
+// keep working exactly as before; only the editor's own inputs change.
+function parseYearMonth(value: string): { year: string; month: string } {
+  const m = /^(\d{4})-(\d{2})/.exec(value);
+  return m ? { year: m[1]!, month: m[2]! } : { year: "", month: "" };
+}
+function buildYearMonth(year: string, month: string): string {
+  return year && month ? `${year}-${month}-01` : "";
+}
+// A reasonable career span -- 1960 through next year (someone entering a
+// role that starts shortly) -- rather than trying to bound it any more
+// precisely than the native date input already didn't.
+function careerYearOptions(): string[] {
+  const max = new Date().getFullYear() + 1;
+  const years: string[] = [];
+  for (let y = max; y >= 1960; y--) years.push(String(y));
+  return years;
+}
+// Localized month abbreviations via Intl rather than hand-translating 12
+// months across 9 locales -- same approach this file already uses for
+// language display names (see languageDisplayNames below).
+function monthSelectOptions(lang: Locale): { value: string; label: string }[] {
+  let fmt: Intl.DateTimeFormat;
+  try {
+    fmt = new Intl.DateTimeFormat(LOCALE_TAG[lang], { month: "short" });
+  } catch {
+    fmt = new Intl.DateTimeFormat("en", { month: "short" });
+  }
+  return Array.from({ length: 12 }, (_, i) => {
+    const label = fmt.format(new Date(2000, i, 1));
+    return { value: pad2(i + 1), label: label.charAt(0).toUpperCase() + label.slice(1) };
+  });
+}
+
 // 2026-08-31, live-testing feedback ("Показывай ошибку если нет
 // расширения"): the Links section's URL field (and each company's own
 // link field) took any plain text at all, including something with no
@@ -1600,6 +1670,13 @@ export function ProfileEditor({
     return (itIndex > 0 ? [list[itIndex]!, ...list.slice(0, itIndex), ...list.slice(itIndex + 1)] : list).slice(0, 50);
   }, [bootstrap, categoryQuery, lang]);
 
+  // Companies From/To month+year selects (see parseYearMonth's own
+  // comment) -- computed once per render rather than inside each
+  // company's own JSX block below, since every company shares the same
+  // option lists.
+  const companyMonthOptions = useMemo(() => monthSelectOptions(lang), [lang]);
+  const companyYearOptions = useMemo(() => careerYearOptions(), []);
+
   const languageDisplayNames = useMemo(() => {
     try {
       return new Intl.DisplayNames([LOCALE_TAG[lang]], { type: "language" });
@@ -1819,29 +1896,86 @@ export function ProfileEditor({
                   {t("showOnProfile", lang)}
                 </button>
               </div>
-              {/* 2026-08-31, live-testing feedback (mobile screenshot:
-                  "Верстка даты рождения уехала", the field's native
-                  calendar UI blowing out past the dialog's right edge):
-                  a native `<input type="date">`'s rendered content (the
-                  day/month/year segments) has its own intrinsic
-                  min-width, and neither `w-full` on the input nor
-                  `grid-cols-2` on the row above shrinks a grid/flex item
-                  below that on their own -- a grid item's default
-                  min-width is `auto` (its content's natural size), not
-                  0, so the column happily grows past its 50% share and
-                  pushes the dialog into horizontal scroll instead of
-                  wrapping the input. `min-w-0` here (the grid item) plus
-                  on the input itself (see below) breaks that chain at
-                  both levels so `w-full` can actually clamp it to the
-                  column's real width. */}
+              {/* 2026-08-31: the min-w-0 fix below (mobile screenshot:
+                  "Верстка даты рождения уехала") only patched the
+                  overflow, not the underlying cause -- Aleksandr's
+                  actual phone still rendered this field visibly taller
+                  and wider than the Phone field next to it ("поле
+                  телефон и дата рождения — тоже разные по ширине и по
+                  высоте. Дата рождения слишком высокая и широкая...
+                  сделай таким же, как телефон"): a native
+                  `<input type="date">`'s box (segmented day/month/year,
+                  its own font metrics and padding) just isn't something
+                  CSS can reliably pin to match a plain text input's
+                  across browsers -- same root cause as the Companies
+                  From/To dates a bit below (see parseFullDate's own
+                  comment), which got the same treatment: three plain
+                  <select>s (day/month/year) using the exact same
+                  `inputClass` as the Phone input, so the two fields are
+                  now sized by identical CSS instead of one native
+                  control's own opinion about its size. */}
               <div className="flex min-w-0 flex-col gap-1.5">
                 <label className={labelClass}>{t("dobLabel", lang)}</label>
-                <input
-                  type="date"
-                  value={dob}
-                  onChange={(e) => { setDob(e.target.value); markDirty(); }}
-                  className={inputClass + " min-w-0"}
-                />
+                <div className="grid grid-cols-[1fr_1fr_1.3fr] gap-1">
+                  {/* appearance-none on all three: without it, this
+                      environment's dark mode rendered the closed
+                      select's own text using the browser's native
+                      widget color instead of the CSS `color` we set --
+                      invisible-looking (near-white text painted by the
+                      native control anyway, just apparently on a
+                      near-matching background in this rendering path),
+                      confirmed by toggling appearance-none on/off on a
+                      live copy of this exact markup and watching the
+                      text appear/disappear. Custom-styling around it
+                      entirely sidesteps relying on the native widget's
+                      own color decisions, same reasoning as moving off
+                      type="date" in the first place. */}
+                  <select
+                    value={parseFullDate(dob).day}
+                    onChange={(e) => {
+                      const { year, month } = parseFullDate(dob);
+                      setDob(buildFullDate(year || String(new Date().getFullYear() - 25), month || "01", e.target.value));
+                      markDirty();
+                    }}
+                    aria-label={t("dobLabel", lang)}
+                    className={inputClass + " min-w-0 appearance-none px-1 text-xs"}
+                  >
+                    <option value="">—</option>
+                    {DOB_DAY_OPTIONS.map((d) => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={parseFullDate(dob).month}
+                    onChange={(e) => {
+                      const { year, day } = parseFullDate(dob);
+                      setDob(buildFullDate(year || String(new Date().getFullYear() - 25), e.target.value, day || "01"));
+                      markDirty();
+                    }}
+                    aria-label={t("dobLabel", lang)}
+                    className={inputClass + " min-w-0 appearance-none px-1 text-xs"}
+                  >
+                    <option value="">—</option>
+                    {companyMonthOptions.map((m) => (
+                      <option key={m.value} value={m.value}>{m.value}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={parseFullDate(dob).year}
+                    onChange={(e) => {
+                      const { month, day } = parseFullDate(dob);
+                      setDob(buildFullDate(e.target.value, month || "01", day || "01"));
+                      markDirty();
+                    }}
+                    aria-label={t("dobLabel", lang)}
+                    className={inputClass + " min-w-0 appearance-none px-1 text-xs"}
+                  >
+                    <option value="">—</option>
+                    {DOB_YEAR_OPTIONS.map((y) => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+                </div>
                 <button
                   type="button"
                   onClick={() => { setShowDob((v) => !v); markDirty(); }}
@@ -2137,40 +2271,86 @@ export function ProfileEditor({
                   const isPositionOngoing = company.positionEnd.trim().toLowerCase() === PRESENT_SENTINEL.toLowerCase();
                   return (
                     <>
-                      {/* 2026-08-31, live-testing feedback ("Тут надо
-                          календарь поставить такой же как в ДР"): these
-                          used to be free-text inputs, unlike the DOB field
-                          a few sections up which already used the native
-                          `type="date"` picker -- switched to match. The
-                          End field can't literally display the PRESENT_
-                          SENTINEL string as a date value (a native date
-                          input just renders blank for anything that isn't
-                          exactly YYYY-MM-DD), so it shows empty+disabled
-                          while ongoing instead -- the "Дотепер"/Present
-                          pill right below is what actually communicates
-                          that state, same as it always has. */}
-                      {/* min-w-0 on both the row and the two date
-                          inputs: same overflow fix as the DOB field
-                          above (see that field's own comment) -- a
-                          native date input's intrinsic content width
-                          otherwise blows the grid column out past the
-                          dialog edge. */}
-                      <div className="grid grid-cols-2 gap-1.5">
-                        <input
-                          type="date"
-                          value={company.positionStart}
-                          onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, positionStart: e.target.value } : c))); markDirty(); }}
-                          placeholder={t("companyPositionStartPlaceholder", lang)}
-                          className={inputClass + " min-w-0"}
-                        />
-                        <input
-                          type="date"
-                          value={isPositionOngoing ? "" : company.positionEnd}
-                          onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, positionEnd: e.target.value } : c))); markDirty(); }}
-                          placeholder={t("companyPositionEndPlaceholder", lang)}
-                          disabled={isPositionOngoing}
-                          className={inputClass + " min-w-0" + (isPositionOngoing ? " opacity-60" : "")}
-                        />
+                      {/* 2026-08-31: went through THREE shapes in one day
+                          -- free-text, then a native type="date" picker
+                          ("Тут надо календарь поставить такой же как в
+                          ДР"), and now these month+year select pairs
+                          (parseYearMonth's own comment above has the
+                          full story on why the date-input attempt got
+                          replaced). Each row is one date; month and year
+                          are two ordinary <select>s the same width via
+                          grid-cols-2, so there's no native-control sizing
+                          left to fight. The End row goes blank+disabled
+                          while "Present" is on, same as before. */}
+                      <div className="flex flex-col gap-1.5">
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <select
+                            value={parseYearMonth(company.positionStart).month}
+                            onChange={(e) => {
+                              const { year } = parseYearMonth(company.positionStart);
+                              const nextYear = year || String(new Date().getFullYear());
+                              setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, positionStart: buildYearMonth(nextYear, e.target.value) } : c)));
+                              markDirty();
+                            }}
+                            aria-label={t("companyPositionStartPlaceholder", lang)}
+                            className={inputClass + " appearance-none"}
+                          >
+                            <option value="">—</option>
+                            {companyMonthOptions.map((m) => (
+                              <option key={m.value} value={m.value}>{m.label}</option>
+                            ))}
+                          </select>
+                          <select
+                            value={parseYearMonth(company.positionStart).year}
+                            onChange={(e) => {
+                              const { month } = parseYearMonth(company.positionStart);
+                              setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, positionStart: buildYearMonth(e.target.value, month || "01") } : c)));
+                              markDirty();
+                            }}
+                            aria-label={t("companyPositionStartPlaceholder", lang)}
+                            className={inputClass + " appearance-none"}
+                          >
+                            <option value="">—</option>
+                            {companyYearOptions.map((y) => (
+                              <option key={y} value={y}>{y}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <select
+                            value={isPositionOngoing ? "" : parseYearMonth(company.positionEnd).month}
+                            onChange={(e) => {
+                              const { year } = parseYearMonth(company.positionEnd);
+                              const nextYear = year || String(new Date().getFullYear());
+                              setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, positionEnd: buildYearMonth(nextYear, e.target.value) } : c)));
+                              markDirty();
+                            }}
+                            disabled={isPositionOngoing}
+                            aria-label={t("companyPositionEndPlaceholder", lang)}
+                            className={inputClass + " appearance-none" + (isPositionOngoing ? " opacity-60" : "")}
+                          >
+                            <option value="">—</option>
+                            {companyMonthOptions.map((m) => (
+                              <option key={m.value} value={m.value}>{m.label}</option>
+                            ))}
+                          </select>
+                          <select
+                            value={isPositionOngoing ? "" : parseYearMonth(company.positionEnd).year}
+                            onChange={(e) => {
+                              const { month } = parseYearMonth(company.positionEnd);
+                              setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, positionEnd: buildYearMonth(e.target.value, month || "01") } : c)));
+                              markDirty();
+                            }}
+                            disabled={isPositionOngoing}
+                            aria-label={t("companyPositionEndPlaceholder", lang)}
+                            className={inputClass + " appearance-none" + (isPositionOngoing ? " opacity-60" : "")}
+                          >
+                            <option value="">—</option>
+                            {companyYearOptions.map((y) => (
+                              <option key={y} value={y}>{y}</option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
                       <button
                         type="button"
