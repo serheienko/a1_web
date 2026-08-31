@@ -140,6 +140,16 @@ export default async function JobDetailPage({ params }: Props) {
               placeholder="blur"
               blurDataURL={authorAvatarBlurDataUrl ?? BLUR_DATA_URL}
               className="h-12 w-12 shrink-0 rounded-full object-cover"
+              // 2026-08-31 (live report: "сломалось отображение аватаров"):
+              // avatarUrl is our own /api/media proxy, already served at a
+              // fixed, pre-sized JPEG (see that route's `size` param) --
+              // routing it through Vercel's Image Optimizer too just burns
+              // through the Hobby plan's optimization quota one more time
+              // per unique avatar, and once that's exhausted every
+              // /_next/image request site-wide starts failing (402/404),
+              // which is exactly what broke every avatar at once. Same fix
+              // applied everywhere else this proxy feeds an <Image>.
+              unoptimized
             />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
