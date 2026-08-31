@@ -296,15 +296,18 @@ export default async function ProfilePage({ params }: Props) {
           automatically (its viewBox is relative, not fixed pixels), so
           nothing there needed to change — only the badge's own fixed
           sizing did. */}
-      <div className="flex items-center gap-4 sm:gap-8">
-        {/* `relative` on this wrapper lets EditProfileButton position
-            itself against the avatar's own corner (right-0 top-0) below.
-            2026-08-31: reverted a separate avatar-only pencil badge
-            (AvatarEditButton, bottom-right corner) that briefly lived
-            here too -- Aleksandr: "2 иконки редактора... уберите обе,
-            одну из них ставим на правый край как раньше и было, чтобы
-            редактировать профиль" -- back to a single edit-profile
-            pencil badge. */}
+      <div className="relative flex items-center gap-4 sm:gap-8">
+        {/* `relative` moved here (from the avatar-only wrapper) so
+            EditProfileButton/AddContactButton, below, can pin to this
+            whole row's right edge instead of the avatar's own corner --
+            Aleksandr, 2026-08-31, after trying the avatar-corner
+            placement live: "лучше все таки поставить иконку
+            редактирования профиля справа, чуть выше имени". Since the
+            row is `items-center` and the avatar is taller than the
+            two-line name block, right-0/top-0 here lands noticeably
+            above the name's own vertical center, matching that. `relative`
+            stays on this avatar wrapper too -- it's what the weekly cat
+            badge's own `left-full` positioning (below) is anchored to. */}
         <div className="relative shrink-0">
           <VoiceIntroRing>
           {profile.avatarUrl ? (
@@ -345,28 +348,6 @@ export default async function ProfilePage({ params }: Props) {
             />
           )}
           </VoiceIntroRing>
-          {/* 2026-08-31, live-testing feedback ("Не подрезай так имя
-              жестко... если мешает иконка то двигай"): EditProfileButton/
-              AddContactButton used to sit in the name row itself
-              (ml-auto, shrink-0), which meant every pixel they took was a
-              pixel MarqueeName's own overflow-truncate/marquee logic
-              never got to use -- a moderately long display name (see the
-              live "Aleksandr..." repro) hit an ellipsis well before it
-              actually ran out of room on the SCREEN, just out of room in
-              its own narrowed flex column. Moved both onto the avatar's
-              own top-right corner instead --
-              still exactly where Aleksandr originally asked for edit
-              ("справа... к правому краю", 2026-08-30), just
-              anchored to the avatar's own right edge rather than
-              competing with the name text for the row's width. The name
-              block below is now the row's only flex-worthy child and can
-              claim the whole remaining width. */}
-          <EditProfileButton username={profile.username} className="absolute right-0 top-0" />
-          <AddContactButton
-            username={profile.username}
-            profileUserId={rawProfile?.object === "user" ? rawProfile._id : null}
-            className="absolute right-0 top-0"
-          />
           {/* Aleksandr, 2026-08-31: "Возле аватара нашего профиля справа
               хочу показывать маленького анимированного кота, который
               будет рандомно раз в неделю меняться с другими анимациями...
@@ -389,6 +370,15 @@ export default async function ProfilePage({ params }: Props) {
           <MarqueeName text={profile.fullName} className="text-xl font-semibold text-neutral-900 sm:text-2xl dark:text-neutral-50" />
           <p className="truncate text-sm text-neutral-500 dark:text-neutral-400">@{profile.username}</p>
         </div>
+        {/* EditProfileButton/AddContactButton (mutually exclusive: own
+            profile vs. someone else's) pinned to this row's own right
+            edge -- see the comment on the row div above. */}
+        <EditProfileButton username={profile.username} className="absolute right-0 top-0" />
+        <AddContactButton
+          username={profile.username}
+          profileUserId={rawProfile?.object === "user" ? rawProfile._id : null}
+          className="absolute right-0 top-0"
+        />
       </div>
 
       {/* Fuller player element — speed + scrubbing — for the same clip
