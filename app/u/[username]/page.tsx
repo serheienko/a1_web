@@ -49,6 +49,7 @@ import { EditProfileButton } from "@/components/edit-profile-button";
 import { AddContactButton } from "@/components/add-contact-button";
 import { AvatarEditButton } from "@/components/avatar-edit-button";
 import { MarqueeName } from "@/components/marquee-name";
+import { FavoriteCover } from "@/components/favorite-cover";
 import { fetchBookCoverUrl, fetchMovieCoverUrl, fetchGameCoverUrl, type CoverImage } from "@/lib/covers";
 
 const SITE_URL = "https://jobs.a1appp.com";
@@ -120,22 +121,15 @@ function pillList(items: string[]) {
 // pixels via sharp — not the generic shared shimmer used elsewhere (see
 // lib/blur-placeholder.ts).
 function favoriteTile(title: string, subtitle: string | null, cover: CoverImage | null, itemKey: string) {
+  // 2026-08-31, live-testing feedback ("Если не находит медиа - не
+  // показываем серый квадратик, только название"): this box used to
+  // render unconditionally even with no cover, producing an empty gray
+  // square. See components/favorite-cover.tsx's own header comment for
+  // the full story, including the runtime-load-failure half of this fix
+  // that couldn't live in this server component.
   return (
     <div key={itemKey} className="flex flex-col gap-1.5">
-      <div className="relative aspect-square overflow-hidden rounded-xl bg-neutral-100 dark:bg-neutral-800">
-        {cover && (
-          <Image
-            src={cover.url}
-            alt=""
-            fill
-            quality={60}
-            sizes="(min-width: 640px) 200px, 33vw"
-            className="object-cover"
-            placeholder={cover.blurDataUrl ? "blur" : "empty"}
-            blurDataURL={cover.blurDataUrl ?? undefined}
-          />
-        )}
-      </div>
+      {cover && <FavoriteCover cover={cover} />}
       <div>
         <div className="line-clamp-2 text-sm font-medium leading-snug text-neutral-800 dark:text-neutral-200">
           {title}
@@ -581,7 +575,15 @@ export default async function ProfilePage({ params }: Props) {
 
       {workStyleDataset && (
         <section className="mt-8">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Переваги в роботі" en="Work preferences" ru="Предпочтения в работе" de="Arbeitspräferenzen" es="Preferencias laborales" fr="Préférences de travail" pl="Preferencje zawodowe" ptBR="Preferências de trabalho" zh="工作偏好" /></h2>
+          {/* 2026-08-31, live-testing feedback ("Тут надо Стиль роботи, а
+              не Переваги"): this public-profile heading had its own copy
+              of the string, separate from components/profile-editor.tsx's
+              sectionWorkStyle -- the two drifted out of sync (editor says
+              "Стиль роботи"/"Work style", this said "Переваги в роботі"/
+              "Work preferences"). Copied verbatim from sectionWorkStyle
+              across all 9 locales instead of just fixing uk, so the same
+              mismatch doesn't quietly persist in every other language. */}
+          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Стиль роботи" en="Work style" ru="Стиль работы" de="Arbeitsstil" es="Estilo de trabajo" fr="Style de travail" pl="Styl pracy" ptBR="Estilo de trabalho" zh="工作风格" /></h2>
           <div className="mt-4 flex flex-col gap-4">
             {WORK_STYLE_PREFERENCE_SECTIONS.map(({ key, ...section }) => {
               const ids = profile.workStylePreferences[key];

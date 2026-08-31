@@ -30,6 +30,54 @@ html {
 }
 
 /*
+ * 2026-08-31, live screen recording ("Есть какая-то хрень на всех инпут
+ * филдах. Когда я нажимаю на ввод они автоматически приближаются, и
+ * получается сдвигается вся разметка на мобе"): standard Mobile Safari
+ * behavior, not a bug in any one component -- it force-zooms the whole
+ * page in on focus whenever the focused field's computed font-size is
+ * under 16px, then leaves that zoom in place until manually pinched back
+ * out, which is exactly the "everything shifts" effect the recording
+ * shows. Every text-entry field across the app (profile editor, post
+ * editor, sign-in, onboarding, search/filter inputs) shares the same
+ * text-sm utility for its font-size -- 0.875rem, which computes to
+ * ~14.9px even after the mobile root bump below (17px × 0.875) -- so this
+ * hit literally every field, matching "на всех инпут филдах" exactly.
+ * Same reasoning as that root-font-size change further down (its own
+ * comment): fix it in ONE place instead of hand-editing every input/
+ * textarea/select's className across every form component, where it's
+ * easy to miss one or drift out of sync later. `1rem` keeps this tied to
+ * the same scale the rest of the site's type already uses (17px mobile /
+ * 18px desktop, both comfortably past the 16px zoom threshold) rather
+ * than a bare hardcoded 16px. `!important` is deliberate, not sloppy: an
+ * unlayered rule in this file already wins over a Tailwind utility class
+ * under Tailwind v4's own cascade-layer ordering, but that's an easy
+ * thing to get wrong reasoning about after the fact, and getting it wrong
+ * here means this bug silently comes back — belt and suspenders. Pinch-
+ * zoom itself is intentionally left fully enabled (no maximum-scale/
+ * user-scalable in app/layout.tsx's viewport export) — this only removes
+ * the unwanted AUTO-zoom, not real zoom access for anyone who needs it.
+ *
+ * 2026-08-31, same-day follow-up ("Тут наебнулось с языками опять с
+ * полями"): `select` included above was a mistake, not just an extra
+ * precaution -- focusing a <select> on iOS opens the native wheel picker,
+ * never the on-screen keyboard, so it was never subject to this zoom bug
+ * in the first place and never needed a font-size floor. Forcing one on
+ * anyway broke components/profile-editor.tsx's language-level dropdown
+ * (that select's own comment: deliberately narrowed to `w-28` +
+ * `text-xs` specifically so its options fit in a small fixed width next
+ * to the language-name field) and would have equally broken
+ * components/post-editor.tsx's month/year schedule pickers (the exact
+ * same narrow-select-plus-text-xs pattern, `!w-20 ... text-xs`) the next
+ * time either got focused on a real phone. Dropped `select` from this
+ * rule entirely rather than special-casing each affected select back
+ * up to text-xs one at a time — it was unnecessary here to begin with.
+ */
+input,
+textarea {
+  font-size: 1rem !important;
+}
+
+/*
  * Class-based dark mode (2026-08-26): Aleksandr wants a manual light/dark
  * toggle in the UI, not just OS-level prefers-color-scheme. This redefines
  * Tailwind's `dark:` variant to key off a `.dark`/`.light` class on <html>

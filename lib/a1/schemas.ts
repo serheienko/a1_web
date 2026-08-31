@@ -664,18 +664,26 @@ export const ProfileInputSchema = z.object({
   // the next live error to fix against, not a reason to have skipped
   // adding the field the visitor explicitly asked for.
   username: z.string().trim().min(1).optional(),
-  // NOT independently confirmed that account.updateProfile accepts
-  // phoneNumber/dob/flags writes (same caveat as username above) — these
-  // three are read-only-tested via EditableProfileSchema so far, never
-  // round-tripped through a real save. `flags` is sent as a full
-  // read-modify-write of the value EditableProfileSchema handed back
-  // (see components/profile-editor.tsx's handleSave), not a guess at
-  // what the visitor "should" have — this dialog does not understand
-  // most of that bitmask (FAVORED/BLOCKED/PREMIUM/etc.) and must not
-  // invent a value for it.
   phoneNumber: z.string().trim().nullable().optional(),
   dob: z.string().trim().nullable().optional(),
-  flags: z.number().optional(),
+  // 2026-08-31, live repro of "Показывать тел в профиле не отображает"
+  // (Aleksandr, on a real account — @Al_farouj): the "Show on profile"
+  // pills for phone/DOB updated local state only and were never actually
+  // sent anywhere, so toggling them and hitting Save did nothing to the
+  // backend. The 2026-08-31 `flags` fix above (see this schema's own
+  // history) stopped the whole-save-breaking crash by no longer sending
+  // a raw `flags` bitmask at all — account.updateProfile rejects `flags`
+  // outright ("unknown property") — but that also meant the two pills
+  // silently stopped persisting, a regression nobody caught until this
+  // report. The real fix, per PLAN.md §6.1's field-surface table (sourced
+  // from the backend's own live OpenAPI spec): account.updateProfile
+  // does NOT take a bitmask on write at all — it takes `showDob` /
+  // `showPhoneNumber` (and `showEmailAddress`, unused here — this dialog
+  // has no email-visibility toggle) as their own plain top-level
+  // booleans, same shape as every other field. No read-modify-write of
+  // someone else's bits needed.
+  showPhoneNumber: z.boolean().optional(),
+  showDob: z.boolean().optional(),
   firstName: z.string().trim().optional(),
   lastName: z.string().trim().optional(),
   occupation: ProfileInputOccupationSchema.optional(),

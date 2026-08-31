@@ -47,9 +47,37 @@
 // other language's real in-app wording was available to confirm against.
 import type { Locale } from "@/components/t";
 
+// 2026-08-31, live-testing feedback ("Тут надо локализация, уже говорил
+// пару раз" -- on Work interests, but it's the same root cause on Company
+// categories too): every dictionary below was built from a screenshot of
+// this app's OWN (English) rendering, keyed by the bare English word --
+// "Agriculture", "Accounting", etc. That was already wrong the moment it
+// shipped, just invisibly so: dataset.workInterests/dataset.
+// companyCategories don't actually return a bare English word, they
+// return the emoji glued onto the SAME string ("🌾 Agriculture", "🔢
+// Accounting" -- confirmed live this session by fetching
+// /api/account/profile-editor/bootstrap directly and reading
+// companyCategories back: {"value":1,"text":"🌾 Agriculture",...}). So
+// `dict["🌾 Agriculture"]` was never going to find `dict["Agriculture"]`
+// -- every single lookup in WORK_INTERESTS_UK/COMPANY_CATEGORY_UK missed
+// and silently fell through to the untranslated original, which is
+// exactly what every live screenshot since this file existed has shown
+// (including the one that prompted this fix) despite the dictionaries
+// looking complete and correct on paper. Hobbies/work style options
+// aren't affected -- their own dataset values never carried an emoji
+// prefix to begin with -- but splitting it off here rather than in each
+// call site means it's fixed once for every current and future pick()
+// caller, not just the two known-broken ones.
+const EMOJI_PREFIX_RE = /^(\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*)\s+/u;
+
 function pick(dict: Record<string, string> | undefined, text: string, lang: Locale): string {
   if (lang !== "uk" || !dict) return text;
-  return dict[text] ?? text;
+  const match = text.match(EMOJI_PREFIX_RE);
+  if (!match) return dict[text] ?? text;
+  const prefix = match[0];
+  const rest = text.slice(prefix.length);
+  const translated = dict[rest];
+  return translated !== undefined ? prefix + translated : text;
 }
 
 // ---------------- Work interests (Інтереси в роботі) ----------------

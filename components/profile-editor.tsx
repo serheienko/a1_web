@@ -140,7 +140,7 @@ const COMMON_LANGUAGE_CODES = [
 // i18n — same STRINGS/t() pattern as components/post-editor.tsx.
 // ---------------------------------------------------------------------------
 type StringKey =
-  | "dialogTitle" | "close" | "save" | "saving" | "saveFailed" | "saveFailedCategoryRequired" | "notSignedIn"
+  | "dialogTitle" | "close" | "save" | "saving" | "saveFailed" | "saveFailedCategoryRequired" | "saveFailedInvalidLink" | "notSignedIn"
   | "closeConfirmTitle" | "closeConfirmBody" | "continueEditing" | "discardClose"
   | "sectionBasic" | "sectionPhotos" | "sectionVoice" | "sectionLinks" | "sectionCompanies"
   | "sectionEducation" | "sectionSkills" | "sectionLanguages" | "sectionHobbies"
@@ -202,6 +202,25 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
     pl: "Wybierz kategorię firmy zaznaczonej poniżej — bez tego profilu nie da się zapisać.",
     ptBR: "Escolha uma categoria para a empresa marcada abaixo — o perfil não pode ser salvo sem ela.",
     zh: "请为下方标记的公司选择一个类别——否则无法保存资料。",
+  },
+  // 2026-08-31, live-testing feedback ("Показывай ошибку если нет
+  // расширения [у ссылки]"): the URL fields (top-level Links section and
+  // each company's own link) accepted any plain text at all -- e.g. the
+  // literal word "Link" (screenshot: someone had typed it straight into
+  // the URL field, whether by mistake or a stray autofill) -- with zero
+  // feedback that it isn't a usable link. Caught client-side in
+  // handleSave now, same "block + highlight the offending row(s)" pattern
+  // as saveFailedCategoryRequired above, via isPlausibleUrl().
+  saveFailedInvalidLink: {
+    uk: "Посилання, позначене нижче, не схоже на справжню URL-адресу (потрібен домен із розширенням, напр. .com).",
+    en: "The link marked below doesn't look like a real URL (needs a domain with an extension, e.g. .com).",
+    ru: "Ссылка, отмеченная ниже, не похожа на настоящий URL (нужен домен с расширением, напр. .com).",
+    de: "Der unten markierte Link sieht nicht wie eine echte URL aus (braucht eine Domain mit Endung, z. B. .com).",
+    es: "El enlace marcado abajo no parece una URL real (necesita un dominio con extensión, p. ej. .com).",
+    fr: "Le lien indiqué ci-dessous ne ressemble pas à une vraie URL (il faut un domaine avec une extension, p. ex. .com).",
+    pl: "Link zaznaczony poniżej nie wygląda na prawdziwy adres URL (potrzebna domena z rozszerzeniem, np. .com).",
+    ptBR: "O link marcado abaixo não parece uma URL real (precisa de um domínio com extensão, ex.: .com).",
+    zh: "下方标记的链接看起来不是有效的网址(需要带扩展名的域名,例如 .com)。",
   },
   notSignedIn: {
     uk: "Сесію завершено. Увійдіть ще раз.", en: "Your session ended. Please sign in again.",
@@ -524,6 +543,42 @@ function toDateInputValue(dob: string | null): string {
   return dob ? dob.slice(0, 10) : "";
 }
 
+// 2026-08-31, live-testing feedback ("Показывай ошибку если нет
+// расширения"): the Links section's URL field (and each company's own
+// link field) took any plain text at all, including something with no
+// domain in it whatsoever (a live screenshot showed the literal word
+// "Link" typed straight in). This is deliberately loose, not a strict
+// RFC 3986 check -- it exists to catch "clearly not a URL" (no dot, no
+// host) rather than to reject every unusual-but-real domain. A bare
+// `new URL()` call alone isn't enough: `new URL("https://Link")` parses
+// fine (hostname "link", zero dots) since the URL spec doesn't require a
+// TLD, which is exactly the case this was written to catch -- so the
+// hostname is additionally required to contain a dot, with a final
+// label that's letters-only and at least two characters (an actual
+// extension, not just any two characters after a dot).
+//
+// 2026-08-31, follow-up: this definition went missing from the version
+// that reached origin/main -- handleSave/JSX below already referenced
+// isPlausibleUrl (STRINGS.saveFailedInvalidLink, invalidLinkIds, etc.
+// all shipped), but the function itself never landed, which meant every
+// profile save was throwing "isPlausibleUrl is not defined" in
+// production. Restoring it here.
+function isPlausibleUrl(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return true; // empty is fine -- these fields are optional
+  const candidate = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmed) ? trimmed : `https://${trimmed}`;
+  let hostname: string;
+  try {
+    hostname = new URL(candidate).hostname;
+  } catch {
+    return false;
+  }
+  if (!hostname) return false;
+  const labels = hostname.split(".");
+  const tld = labels[labels.length - 1];
+  return labels.length >= 2 && /^[a-zA-Z]{2,}$/.test(tld);
+}
+
 // Same helper components/post-editor.tsx's handleFileSelected() uses, for
 // the same reason: a 401 whose refresh attempt also failed converts to
 // this well-known message server-side (lib/a1/visitor-call.ts), and every
@@ -680,21 +735,28 @@ export function ProfileEditor({
   // Client-only ids of company rows with content but no category picked —
   // see handleSave and STRINGS.saveFailedCategoryRequired's own comment.
   const [invalidCompanyIds, setInvalidCompanyIds] = useState<Set<string>>(new Set());
+  // Same idea, for URL fields that don't look like a real link — see
+  // handleSave and isPlausibleUrl()/STRINGS.saveFailedInvalidLink. Two
+  // separate sets since a link and a company are different row types
+  // with different ids (a company can be flagged for a bad category AND
+  // a bad link at once, so this can't reuse invalidCompanyIds).
+  const [invalidLinkIds, setInvalidLinkIds] = useState<Set<string>>(new Set());
+  const [invalidCompanyLinkIds, setInvalidCompanyLinkIds] = useState<Set<string>>(new Set());
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
   const [dirty, setDirty] = useState(false);
 
   // ---- basic info ----
   const [username, setUsername] = useState("");
-  // 2026-08-30, live-testing feedback: phone/DOB, each hideable from the
-  // public profile via lib/a1/user-flags.ts's SHOW_PHONE_NUMBER/SHOW_DOB
-  // bits. `rawFlags` holds the visitor's full flags int exactly as
-  // bootstrapped so handleSave can flip just these two bits without
-  // touching any other one (see ProfileInputSchema.flags's own comment).
+  // 2026-08-30/31, live-testing feedback: phone/DOB, each hideable from
+  // the public profile via lib/a1/user-flags.ts's SHOW_PHONE_NUMBER/
+  // SHOW_DOB bits for the READ side. For WRITE, account.updateProfile
+  // takes its own plain `showPhoneNumber`/`showDob` booleans (see
+  // ProfileInputSchema's own comment) — no bitmask read-modify-write
+  // needed, so no raw flags int is kept in state any more.
   const [phoneNumber, setPhoneNumber] = useState("");
   const [dob, setDob] = useState("");
   const [showPhone, setShowPhone] = useState(false);
   const [showDob, setShowDob] = useState(false);
-  const [rawFlags, setRawFlags] = useState(0);
   // 2026-08-30, live-testing feedback ("не сохраняется профиль"):
   // handleSave used to send username/phoneNumber/dob unconditionally on
   // every save, even when the visitor never touched them. Confirmed
@@ -714,6 +776,11 @@ export function ProfileEditor({
   const originalUsernameRef = useRef("");
   const originalPhoneRef = useRef("");
   const originalDobRef = useRef("");
+  // Same "only send what actually changed" reasoning as the three refs
+  // above, applied to the showPhoneNumber/showDob booleans (2026-08-31
+  // fix — see ProfileInputSchema's comment on those two fields).
+  const originalShowPhoneRef = useRef(false);
+  const originalShowDobRef = useRef(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [bio, setBio] = useState("");
@@ -851,8 +918,17 @@ export function ProfileEditor({
               name: c.name,
               description: c.description ?? "",
               positionTitle: c.position?.description ?? "",
-              positionStart: c.position?.start ?? "",
-              positionEnd: c.position?.end ?? "",
+              // 2026-08-31, live-testing feedback ("Тут надо календарь
+              // поставить такой же как в ДР" -- switching these two to
+              // `type="date"` below, same as DOB): reuse toDateInputValue
+              // here for the exact same reason DOB needed it (this file's
+              // own comment on that helper) -- if the backend ever hands
+              // back a full ISO timestamp rather than a bare date, a
+              // native date input silently renders blank on anything that
+              // isn't exactly YYYY-MM-DD, which reads as "my dates didn't
+              // save" even though they did.
+              positionStart: toDateInputValue(c.position?.start ?? null),
+              positionEnd: toDateInputValue(c.position?.end ?? null),
               employeesCount: c.employeesCount != null ? String(c.employeesCount) : "",
               category,
               turnover: "",
@@ -1283,6 +1359,8 @@ export function ProfileEditor({
     if (saving) return;
     setSaveErrorKey(null);
     setInvalidCompanyIds(new Set());
+    setInvalidLinkIds(new Set());
+    setInvalidCompanyLinkIds(new Set());
 
     // A company row counts as "touched" the moment ANY of its fields has
     // something in it — including just a selected category, matching how
@@ -1314,6 +1392,22 @@ export function ProfileEditor({
     if (missingCategory.length > 0) {
       setInvalidCompanyIds(new Set(missingCategory.map((c) => c.id)));
       setSaveErrorKey("saveFailedCategoryRequired");
+      return;
+    }
+
+    // 2026-08-31, live-testing feedback ("Показывай ошибку если нет
+    // расширения"): same "block + highlight, don't round-trip to the
+    // backend to find out" pattern as the category check just above,
+    // for URL fields that don't look like a real link (isPlausibleUrl's
+    // own comment). Checked after the category block, not before —
+    // category is the one that used to break the ENTIRE save, so it
+    // stays the higher-priority error to surface first.
+    const badLinks = links.filter((l) => !isPlausibleUrl(l.url));
+    const badCompanyLinks = touchedCompanies.filter((c) => !isPlausibleUrl(c.linkUrl));
+    if (badLinks.length > 0 || badCompanyLinks.length > 0) {
+      setInvalidLinkIds(new Set(badLinks.map((l) => l.id)));
+      setInvalidCompanyLinkIds(new Set(badCompanyLinks.map((c) => c.id)));
+      setSaveErrorKey("saveFailedInvalidLink");
       return;
     }
 
@@ -1667,11 +1761,11 @@ export function ProfileEditor({
               />
             </div>
 
-            {/* 2026-08-30, live-testing feedback: phone/DOB, each hideable
-                from the public profile — see ProfileInputSchema.flags's
-                own comment on why the toggle flips a bit in a
-                read-preserved `rawFlags` rather than sending a fresh
-                value. */}
+            {/* 2026-08-30/31, live-testing feedback: phone/DOB, each
+                hideable from the public profile — see
+                ProfileInputSchema's showPhoneNumber/showDob comment for
+                why this sends its own two plain booleans on save rather
+                than a flags bitmask. */}
             <div className="grid grid-cols-2 gap-2">
               <div className="flex flex-col gap-1.5">
                 <label className={labelClass}>{t("phoneLabel", lang)}</label>
@@ -1906,7 +2000,7 @@ export function ProfileEditor({
                   value={link.url}
                   onChange={(e) => { setLinks((prev) => prev.map((l) => (l.id === link.id ? { ...l, url: e.target.value } : l))); markDirty(); }}
                   placeholder={t("linkUrlPlaceholder", lang)}
-                  className={inputClass + " flex-1 basis-0"}
+                  className={inputClass + " flex-1 basis-0" + (invalidLinkIds.has(link.id) ? " border-red-500 focus:border-red-500 dark:border-red-500" : "")}
                 />
                 <button type="button" onClick={() => { setLinks((prev) => prev.filter((l) => l.id !== link.id)); markDirty(); }} aria-label={t("removeAria", lang)} className="shrink-0 text-neutral-400 hover:text-red-600">
                   <TrashIcon />
@@ -1991,17 +2085,29 @@ export function ProfileEditor({
                   const isPositionOngoing = company.positionEnd.trim().toLowerCase() === PRESENT_SENTINEL.toLowerCase();
                   return (
                     <>
+                      {/* 2026-08-31, live-testing feedback ("Тут надо
+                          календарь поставить такой же как в ДР"): these
+                          used to be free-text inputs, unlike the DOB field
+                          a few sections up which already used the native
+                          `type="date"` picker -- switched to match. The
+                          End field can't literally display the PRESENT_
+                          SENTINEL string as a date value (a native date
+                          input just renders blank for anything that isn't
+                          exactly YYYY-MM-DD), so it shows empty+disabled
+                          while ongoing instead -- the "Дотепер"/Present
+                          pill right below is what actually communicates
+                          that state, same as it always has. */}
                       <div className="grid grid-cols-2 gap-1.5">
                         <input
-                          type="text"
+                          type="date"
                           value={company.positionStart}
                           onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, positionStart: e.target.value } : c))); markDirty(); }}
                           placeholder={t("companyPositionStartPlaceholder", lang)}
                           className={inputClass}
                         />
                         <input
-                          type="text"
-                          value={isPositionOngoing ? t("companyPresent", lang) : company.positionEnd}
+                          type="date"
+                          value={isPositionOngoing ? "" : company.positionEnd}
                           onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, positionEnd: e.target.value } : c))); markDirty(); }}
                           placeholder={t("companyPositionEndPlaceholder", lang)}
                           disabled={isPositionOngoing}
@@ -2085,7 +2191,7 @@ export function ProfileEditor({
                   value={company.linkUrl}
                   onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, linkUrl: e.target.value } : c))); markDirty(); }}
                   placeholder={t("companyLinkUrlPlaceholder", lang)}
-                  className={inputClass}
+                  className={inputClass + (invalidCompanyLinkIds.has(company.id) ? " border-red-500 focus:border-red-500 dark:border-red-500" : "")}
                 />
                 <textarea
                   value={company.description}
