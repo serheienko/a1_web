@@ -1323,7 +1323,14 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
       lastName: lastName.trim(),
       expertise: expertise.trim(),
       bio,
-      profileTitle: profileTitle.trim() || null,
+      // Backend contract fix, 2026-08-31 (live "'profileTitle' must be
+      // of type object" 502 -- see lib/a1/schemas.ts's ProfileTitleSchema
+      // comment for the full evidence): account.updateProfile wants this
+      // as {object:"empty"} or {object:"profile-title", text}, never a
+      // bare string/null.
+      profileTitle: profileTitle.trim()
+        ? { object: "profile-title" as const, text: profileTitle.trim() }
+        : { object: "empty" as const },
       location: location ? location.id : null,
       photos: photos.map((p) => ({ fileReference: p.fileReference })),
       voiceIntroduction: voiceDoc ? { fileReference: voiceDoc.fileReference } : null,

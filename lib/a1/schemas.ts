@@ -474,6 +474,36 @@ const FavoriteTitleSchema = z.object({
   title: z.string().catch(""),
 });
 
+// profileTitle comes back from the real backend as a discriminated-union
+// object, not a plain string -- confirmed live 2026-08-31: a save that
+// sent `profileTitle` as a bare string 502'd with "'profileTitle' must be
+// of type object" (see components/profile-editor.tsx's fix at the same
+// date). Cross-checked against aone-api-private's own source (UserService.
+// ts's _buildProfileStatus, UserModel.d.ts's ProfileTitle type) and a real
+// serialized user fixture in its Flutter test suite: the wire shape is
+// {object:"empty"} | {object:"profile-title", text} |
+// {object:"profile-title-until", text, until} -- never a bare string. The
+// old `z.string().nullable().catch(null)` here silently read every real
+// profileTitle back as null (the object failed z.string() and .catch(null)
+// swallowed the mismatch) in addition to failing to save -- this schema
+// fixes the read side; ProfileInputSchema below fixes the write side. A
+// bare string is still accepted (harmless fallback, not the confirmed
+// shape) in case some other path ever sends one.
+const ProfileTitleSchema = z
+  .union([
+    z.string(),
+    z.object({ object: z.literal("empty") }),
+    z.object({ object: z.literal("profile-title"), text: z.string() }),
+    z.object({ object: z.literal("profile-title-until"), text: z.string(), until: z.number().optional() }),
+  ])
+  .nullable()
+  .catch(null)
+  .transform((v) => {
+    if (v == null) return null;
+    if (typeof v === "string") return v || null;
+    return "text" in v ? v.text : null;
+  });
+
 export const UserProfileSchema = z.object({
   _id: z.string(),
   username: z.string().nullable().catch(null),
@@ -482,7 +512,7 @@ export const UserProfileSchema = z.object({
   occupation: z.string().catch(""),
   expertise: z.string().nullable().catch(null),
   bio: z.string().catch(""),
-  profileTitle: z.string().nullable().catch(null),
+  profileTitle: ProfileTitleSchema,
   photos: z.array(MediaDocumentSchema).catch([]),
   voiceIntroduction: MediaDocumentSchema.nullable().catch(null),
   location: WorldLocationSchema.nullable().catch(null),
@@ -615,6 +645,15 @@ const ProfileInputWorkStylePreferencesSchema = z.object({
 
 export const ProfileInputOccupationSchema = z.enum(["entrepreneur", "professional", "freelancer"]);
 
+// Outgoing counterpart to ProfileTitleSchema above -- what we actually
+// send back to account.updateProfile. "profile-title-until" deliberately
+// left out: nothing in the profile editor UI sets a temporary/expiring
+// title, so there's nothing that would ever construct one.
+const ProfileTitleInputSchema = z.union([
+  z.object({ object: z.literal("empty") }),
+  z.object({ object: z.literal("profile-title"), text: z.string() }),
+]);
+
 export const ProfileInputSchema = z.object({
   // NOT independently confirmed that account.updateProfile accepts a
   // username change (unlike every other field in this schema, which was
@@ -642,7 +681,7 @@ export const ProfileInputSchema = z.object({
   occupation: ProfileInputOccupationSchema.optional(),
   expertise: z.string().trim().optional(),
   bio: z.string().optional(),
-  profileTitle: z.string().trim().nullable().optional(),
+  profileTitle: ProfileTitleInputSchema.optional(),
   location: z.number().nullable().optional(),
   photos: z.array(ProfileInputMediaSchema).optional(),
   voiceIntroduction: ProfileInputMediaSchema.nullable().optional(),
@@ -703,7 +742,7 @@ export const EditableProfileSchema = z.object({
   occupation: z.string().catch(""),
   expertise: z.string().nullable().catch(null),
   bio: z.string().catch(""),
-  profileTitle: z.string().nullable().catch(null),
+  profileTitle: ProfileTitleSchema,
   photos: z.array(MediaDocumentSchema).catch([]),
   voiceIntroduction: MediaDocumentSchema.nullable().catch(null),
   location: WorldLocationSchema.nullable().catch(null),
