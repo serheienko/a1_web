@@ -84,12 +84,21 @@ function mapLocation(post: Post): { location: WebPostLocation | null; isRemote: 
     return { location: null, isRemote: NULL_LOCATION_MEANS_REMOTE };
   }
   const loc = post.location;
+  // Same Worldwide-sentinel (`_id === 0`) + finite-pair validation as
+  // lib/a1/user-mappers.ts's mapLocation() — see that file's comment.
+  // 2026-08-31, mirroring the profile map for the job post's own location
+  // (Aleksandr's screenshot of the mobile app's job detail page).
+  const coordinates =
+    loc._id !== 0 && loc.coordinates.length === 2 && loc.coordinates.every((n) => Number.isFinite(n))
+      ? (loc.coordinates as [number, number])
+      : null;
   return {
     location: {
       city: loc.city,
       region: loc.adm_level_1,
       country: loc.country,
       display: loc.displayName,
+      coordinates,
     },
     isRemote: false,
   };
