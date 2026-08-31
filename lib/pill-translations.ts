@@ -133,16 +133,39 @@ export function translateWorkInterest(text: string, lang: Locale): string {
 
 // ---------------- Hobbies (Хобі) ----------------
 // Source: ad107c42-image.png, "Хобі" section of our own editor,
-// live-tested 2026-08-30. Keyed by the backend's own group name (as
+// live-tested 2026-08-30 (first 5 groups only). 2026-08-31 follow-up
+// ("Нет локализации" on a screenshot showing 14 more untranslated
+// groups -- Fitness and Exercise, Games and Entertainment, etc.):
+// dataset.hobbyGroups actually returns 19 groups total, not the 5 that
+// happened to be visible in the original screenshot -- confirmed by
+// fetching /api/account/profile-editor/bootstrap directly on the live,
+// authenticated account and reading hobbyGroups back in full. All 19
+// are covered below now. Keyed by the backend's own group name (as
 // rendered in group.group) so items with the same English spelling in
-// two different groups (e.g. "Painting") get the translation correct
-// for THAT group, not whichever one happens to be looked up first.
+// two different groups (e.g. "Painting" in Arts and Crafts vs. DIY and
+// Home Improvement, "Camping"/"Hiking"/"Running" which each appear in
+// two different groups here too) get the translation correct for THAT
+// group, not whichever one happens to be looked up first.
 const HOBBY_GROUP_UK: Record<string, string> = {
   "Arts and Crafts": "Мистецтво та рукоділля",
   "Collecting and Hobbies": "Колекціонування та хобі",
   "Cooking and Baking": "Кулінарія та випічка",
   "DIY and Home Improvement": "Рукоділля та ремонт дому",
   "Fashion and Style": "Мода та стиль",
+  "Fitness and Exercise": "Фітнес та тренування",
+  "Games and Entertainment": "Ігри та розваги",
+  "Gardening and Plant Care": "Садівництво та догляд за рослинами",
+  "Mindfulness and Relaxation": "Усвідомленість та релаксація",
+  "Motor Sports": "Автомотоспорт",
+  "Music and Dance": "Музика та танці",
+  "Outdoor Activities": "Активний відпочинок на природі",
+  "Reading and Writing": "Читання та письмо",
+  "Socializing and Networking": "Спілкування та нетворкінг",
+  "Sports": "Спорт",
+  "Technology and Gadgets": "Технології та гаджети",
+  "Theatre and Performing Arts": "Театр та виконавське мистецтво",
+  "Travel and Exploration": "Подорожі та дослідження",
+  "Water Activities": "Водні активності",
 };
 
 const HOBBY_ITEMS_UK: Record<string, Record<string, string>> = {
@@ -184,6 +207,135 @@ const HOBBY_ITEMS_UK: Record<string, Record<string, string>> = {
     "Fashion Photography": "Фотографія моди",
     "Fashion Shows": "Показ мод",
     "Modelling": "Моделінг",
+  },
+  "Fitness and Exercise": {
+    "Pilates": "Пілатес",
+    "Running": "Біг",
+    "Weightlifting": "Тяжка атлетика",
+    "Zumba": "Зумба",
+  },
+  "Games and Entertainment": {
+    "Board Games": "Настільні ігри",
+    "Bowling": "Боулінг",
+    "Card Games": "Карткові ігри",
+    "Escape Rooms": "Квест-кімнати",
+    "Laser Tag": "Лазертаг",
+    "Paintball": "Пейнтбол",
+    "Puzzle Games": "Ігри-головоломки",
+    "Video Games": "Відеоігри",
+  },
+  "Gardening and Plant Care": {
+    "Flower Arranging": "Флористика",
+    "Gardening": "Садівництво",
+    "Vegetable Gardening": "Городництво",
+  },
+  "Mindfulness and Relaxation": {
+    "Breathing Exercises": "Дихальні вправи",
+    "Meditation": "Медитація",
+    "Mindful Walking": "Усвідомлені прогулянки",
+    "Spa and Wellness": "Спа та велнес",
+    "Tai Chi": "Тайцзи",
+    "Yoga": "Йога",
+  },
+  "Motor Sports": {
+    "Drag Racing": "Драг-рейсинг",
+    "Drifting": "Дрифт",
+    "Karting": "Картинг",
+    "Motorcycle Racing": "Мотогонки",
+    "Off-Roading": "Позашляхові поїздки",
+  },
+  "Music and Dance": {
+    "Dancing": "Танці",
+    "DJing": "Діджеїнг",
+    "Karaoke": "Караоке",
+    "Latin Dance": "Латиноамериканські танці",
+    "Music Production": "Музичне продюсування",
+    "Playing Instruments": "Гра на музичних інструментах",
+    "Salsa": "Сальса",
+    "Singing": "Спів",
+    "Swing": "Свінг",
+    "Tango": "Танго",
+  },
+  "Outdoor Activities": {
+    "Camping": "Кемпінг",
+    "Canoeing": "Каное",
+    "Climbing": "Скелелазіння",
+    "Fishing": "Риболовля",
+    "Hiking": "Хайкінг",
+    "Horseback Riding": "Кінна їзда",
+    "Paddleboarding": "Сапбординг",
+    "Sailing": "Вітрильний спорт",
+    "Skiing": "Гірські лижі",
+    "Snowboarding": "Сноубординг",
+    "Surfing": "Серфінг",
+  },
+  "Reading and Writing": {
+    "Blogging": "Блогінг",
+    "Fiction": "Художня література",
+    "Journaling": "Ведення щоденника",
+    "Non-fiction": "Науково-популярна література",
+    "Poetry": "Поезія",
+    "Reading": "Читання",
+  },
+  "Socializing and Networking": {
+    "Meetups": "Мітапи",
+    "Networking": "Нетворкінг",
+    "Social Clubs": "Соціальні клуби",
+    "Social Events": "Соціальні заходи",
+    "Volunteer Work": "Волонтерство",
+  },
+  "Sports": {
+    "Athletics": "Легка атлетика",
+    "Badminton": "Бадмінтон",
+    "Baseball": "Бейсбол",
+    "Basketball": "Баскетбол",
+    "Billiards": "Більярд",
+    "Cricket": "Крикет",
+    "Cycling": "Велоспорт",
+    "Football": "Американський футбол",
+    "Golf": "Гольф",
+    "Ironman": "Айронмен",
+    "Martial Arts": "Бойові мистецтва",
+    "Paragliding": "Парапланеризм",
+    "Rafting": "Рафтинг",
+    "Rugby": "Регбі",
+    "Running": "Біг",
+    "Skydiving": "Скайдайвінг",
+    "Soccer": "Футбол",
+    "Tennis": "Теніс",
+    "Volleyball": "Волейбол",
+    "Wingsuiting": "Вінгсьютинг",
+  },
+  "Technology and Gadgets": {
+    "AR": "Доповнена реальність",
+    "Coding and Programming": "Кодинг та програмування",
+    "Drone Flying": "Керування дронами",
+    "Robotics": "Робототехніка",
+    "VR": "Віртуальна реальність",
+  },
+  "Theatre and Performing Arts": {
+    "Art Galleries": "Мистецькі галереї",
+    "Comedy": "Комедія",
+    "Concerts": "Концерти",
+    "Dance Performance": "Танцювальні виступи",
+    "Museum": "Музеї",
+    "Stand-up Comedy": "Стендап",
+    "Theatre": "Театр",
+  },
+  "Travel and Exploration": {
+    "Backpacking": "Бекпекінг",
+    "Camping": "Кемпінг",
+    "Hiking": "Хайкінг",
+    "Hot Air Ballooning": "Політ на повітряній кулі",
+    "Road Trips": "Автомандрівки",
+    "Safari Tours": "Сафарі-тури",
+    "Sightseeing": "Огляд визначних місць",
+  },
+  "Water Activities": {
+    "Scuba Diving": "Дайвінг",
+    "Snorkeling": "Сноркелінг",
+    "Water Polo": "Водне поло",
+    "Water Skiing": "Водні лижі",
   },
 };
 
