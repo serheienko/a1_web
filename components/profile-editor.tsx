@@ -1819,13 +1819,28 @@ export function ProfileEditor({
                   {t("showOnProfile", lang)}
                 </button>
               </div>
-              <div className="flex flex-col gap-1.5">
+              {/* 2026-08-31, live-testing feedback (mobile screenshot:
+                  "Верстка даты рождения уехала", the field's native
+                  calendar UI blowing out past the dialog's right edge):
+                  a native `<input type="date">`'s rendered content (the
+                  day/month/year segments) has its own intrinsic
+                  min-width, and neither `w-full` on the input nor
+                  `grid-cols-2` on the row above shrinks a grid/flex item
+                  below that on their own -- a grid item's default
+                  min-width is `auto` (its content's natural size), not
+                  0, so the column happily grows past its 50% share and
+                  pushes the dialog into horizontal scroll instead of
+                  wrapping the input. `min-w-0` here (the grid item) plus
+                  on the input itself (see below) breaks that chain at
+                  both levels so `w-full` can actually clamp it to the
+                  column's real width. */}
+              <div className="flex min-w-0 flex-col gap-1.5">
                 <label className={labelClass}>{t("dobLabel", lang)}</label>
                 <input
                   type="date"
                   value={dob}
                   onChange={(e) => { setDob(e.target.value); markDirty(); }}
-                  className={inputClass}
+                  className={inputClass + " min-w-0"}
                 />
                 <button
                   type="button"
@@ -2131,13 +2146,19 @@ export function ProfileEditor({
                           while ongoing instead -- the "Дотепер"/Present
                           pill right below is what actually communicates
                           that state, same as it always has. */}
+                      {/* min-w-0 on both the row and the two date
+                          inputs: same overflow fix as the DOB field
+                          above (see that field's own comment) -- a
+                          native date input's intrinsic content width
+                          otherwise blows the grid column out past the
+                          dialog edge. */}
                       <div className="grid grid-cols-2 gap-1.5">
                         <input
                           type="date"
                           value={company.positionStart}
                           onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, positionStart: e.target.value } : c))); markDirty(); }}
                           placeholder={t("companyPositionStartPlaceholder", lang)}
-                          className={inputClass}
+                          className={inputClass + " min-w-0"}
                         />
                         <input
                           type="date"
@@ -2145,7 +2166,7 @@ export function ProfileEditor({
                           onChange={(e) => { setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, positionEnd: e.target.value } : c))); markDirty(); }}
                           placeholder={t("companyPositionEndPlaceholder", lang)}
                           disabled={isPositionOngoing}
-                          className={inputClass + (isPositionOngoing ? " opacity-60" : "")}
+                          className={inputClass + " min-w-0" + (isPositionOngoing ? " opacity-60" : "")}
                         />
                       </div>
                       <button
