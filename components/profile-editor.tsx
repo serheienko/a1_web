@@ -638,7 +638,18 @@ type Bootstrap = {
   workStylePreferences: WorkStylePreferencesDataset;
 };
 
-export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+export function ProfileEditor({
+  onClose,
+  onSaved,
+}: {
+  onClose: () => void;
+  // 2026-08-31, live report ("После сохранения профиля -- страница не
+  // найдена"): passes the NEW username when this save actually changed
+  // it, so the caller (components/edit-profile-button.tsx) can navigate
+  // there instead of refreshing the current (now-stale) `/u/oldUsername`
+  // route -- see that file's own onSaved comment for the full story.
+  onSaved: (newUsername?: string) => void;
+}) {
   const lang = useActiveLocale();
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -1413,7 +1424,10 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
         return;
       }
       setDirty(false);
-      onSaved();
+      // Only pass a username when this save actually changed it (i.e. it
+      // was included in `body` above) -- an unrelated save (bio, photos,
+      // etc.) must not trigger a navigation.
+      onSaved(typeof body.username === "string" ? body.username : undefined);
     } catch {
       setSaveErrorKey("saveFailed");
       setSaving(false);
