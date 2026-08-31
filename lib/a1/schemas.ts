@@ -759,3 +759,23 @@ export const EditableProfileSchema = z.object({
   workStylePreferences: WorkStylePreferencesSchema.catch(EMPTY_WORK_STYLE_PREFERENCES),
 });
 export type EditableProfile = z.infer<typeof EditableProfileSchema>;
+
+// contacts.addContact / contacts.search response shape (aone-api-private
+// apps/api-server-modern/src/services/contacts/ContactService.ts's
+// _toDtoObject, confirmed 2026-08-31 reading the backend source directly
+// since PLAN.md's endpoint table doesn't cover contacts.* at all — v1.0
+// scope explicitly excluded contacts, PLAN.md line 36). `user` is the
+// linked platform user's id when this contact was added via
+// {user: <id>} (our only call shape right now — see
+// app/api/contacts/add/route.ts); it's null for a phone-book-only
+// contact, which this app never creates.
+export const ContactSchema = z.object({
+    _id: z.string(),
+    user: z.string().nullable().catch(null),
+    firstName: z.string().catch(""),
+    lastName: z.string().catch(""),
+    phone: z.string().nullable().catch(null),
+    flags: z.number().catch(0),
+    object: z.literal("contact"),
+});
+export type Contact = z.infer<typeof ContactSchema>;
