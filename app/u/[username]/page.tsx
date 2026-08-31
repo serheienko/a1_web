@@ -47,7 +47,6 @@ import { OCCUPATION_LABELS } from "@/components/occupation-labels";
 import { WORK_STYLE_PREFERENCE_SECTIONS } from "@/components/work-style-labels";
 import { EditProfileButton } from "@/components/edit-profile-button";
 import { AddContactButton } from "@/components/add-contact-button";
-import { AvatarEditButton } from "@/components/avatar-edit-button";
 import { MarqueeName } from "@/components/marquee-name";
 import { FavoriteCover } from "@/components/favorite-cover";
 import { fetchBookCoverUrl, fetchMovieCoverUrl, fetchGameCoverUrl, type CoverImage } from "@/lib/covers";
@@ -294,14 +293,14 @@ export default async function ProfilePage({ params }: Props) {
           nothing there needed to change — only the badge's own fixed
           sizing did. */}
       <div className="flex items-center gap-4 sm:gap-8">
-        {/* 2026-08-30, live-testing feedback: "Возле аватара тоже додай
-            таку штуку для редагування, щоб можна було швидко поміняти" —
-            a small pencil badge pinned to the avatar's own corner,
-            opening components/avatar-edit-button.tsx's own lightweight
-            modal (separate from the full profile editor). `relative` on
-            this wrapper (not on VoiceIntroRing itself, whose own layout
-            this shouldn't touch) is what lets the badge position against
-            the avatar specifically. */}
+        {/* `relative` on this wrapper lets EditProfileButton position
+            itself against the avatar's own corner (right-0 top-0) below.
+            2026-08-31: reverted a separate avatar-only pencil badge
+            (AvatarEditButton, bottom-right corner) that briefly lived
+            here too -- Aleksandr: "2 иконки редактора... уберите обе,
+            одну из них ставим на правый край как раньше и было, чтобы
+            редактировать профиль" -- back to a single edit-profile
+            pencil badge. */}
         <div className="relative shrink-0">
           <VoiceIntroRing>
           {profile.avatarUrl ? (
@@ -342,7 +341,6 @@ export default async function ProfilePage({ params }: Props) {
             />
           )}
           </VoiceIntroRing>
-          <AvatarEditButton username={profile.username} className="absolute bottom-0 right-0" />
           {/* 2026-08-31, live-testing feedback ("Не подрезай так имя
               жестко... если мешает иконка то двигай"): EditProfileButton/
               AddContactButton used to sit in the name row itself
@@ -351,11 +349,10 @@ export default async function ProfilePage({ params }: Props) {
               never got to use -- a moderately long display name (see the
               live "Aleksandr..." repro) hit an ellipsis well before it
               actually ran out of room on the SCREEN, just out of room in
-              its own narrowed flex column. Moved both onto the avatar
-              itself instead, as a second corner badge opposite
-              AvatarEditButton (same `absolute` pattern, top-right instead
-              of bottom-right) -- still exactly where Aleksandr originally
-              asked for edit ("справа... к правому краю", 2026-08-30), just
+              its own narrowed flex column. Moved both onto the avatar's
+              own top-right corner instead --
+              still exactly where Aleksandr originally asked for edit
+              ("справа... к правому краю", 2026-08-30), just
               anchored to the avatar's own right edge rather than
               competing with the name text for the row's width. The name
               block below is now the row's only flex-worthy child and can
