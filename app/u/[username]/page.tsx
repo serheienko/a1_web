@@ -302,6 +302,13 @@ export default async function ProfilePage({ params }: Props) {
               placeholder="blur"
               blurDataURL={avatarBlurDataUrl ?? BLUR_DATA_URL}
               className="h-[72px] w-[72px] shrink-0 rounded-full object-cover sm:h-[112.5px] sm:w-[112.5px]"
+              // 2026-08-31 (live report: "сломалось отображение аватаров"):
+              // see app/jobs/[slug]/page.tsx's identical comment -- same
+              // /api/media proxy, same Vercel Image Optimizer quota fix.
+              // (The Favorites cover art just above stays on the optimizer
+              // -- those are third-party OpenLibrary/TMDB/RAWG images that
+              // genuinely benefit from it and aren't the quota driver.)
+              unoptimized
             />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
