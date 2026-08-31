@@ -21,6 +21,7 @@ import { T } from "@/components/t";
 import { PostOwnerMenu } from "@/components/post-owner-menu";
 import { profileHref } from "@/lib/profile-href";
 import { TagLabel } from "@/components/tag-label";
+import { LocationMap } from "@/components/location-map";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -185,6 +186,14 @@ export default async function JobDetailPage({ params }: Props) {
           </div>
         </div>
       </div>
+
+      {/* 2026-08-31: same decorative OpenStreetMap embed as the profile
+          page (app/u/[username]/page.tsx), here for the job post's own
+          location instead of a person's -- Aleksandr's screenshot of the
+          mobile app's job detail page showing a map under the description. */}
+      {post.location?.coordinates && (
+        <LocationMap coordinates={post.location.coordinates} label={post.location.display} />
+      )}
 
       <PostImages images={postImages} />
 
