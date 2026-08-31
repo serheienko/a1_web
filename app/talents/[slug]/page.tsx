@@ -20,6 +20,7 @@ import Image from "next/image";
 import { PostImages } from "@/components/post-images";
 import { truncateAtWordBoundary } from "@/lib/format";
 import { RelativeTime, SalaryLabel, LocationLabel } from "@/components/locale-format";
+import { LocationMap } from "@/components/location-map";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { generateImageBlurDataUrl } from "@/lib/avatar-blur";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
@@ -196,6 +197,24 @@ export default async function TalentDetailPage({ params }: Props) {
       )}
 
       <div className="mt-6 whitespace-pre-wrap text-neutral-700 dark:text-neutral-300">{post.contentText}</div>
+
+      {/* 2026-08-31, live-testing feedback ("А че у Фахівців нет карт
+          снизу?"): app/jobs/[slug]/page.tsx got this same decorative
+          OpenStreetMap-then-Google-Maps embed (see that file's own
+          2026-08-31 comment on it) when the map was pulled off the
+          profile page and given to "posts" instead -- "должна бути тільки
+          в постах" wasn't specific to job posts, and this talent/specialist
+          detail page IS a post (fetchPostById, same WebPost shape,
+          post.location already carries the same coordinates/display this
+          needs), it just never got the actual <LocationMap> JSX wired in.
+          Same placement (below the main text) and same coordinates-gate
+          as the job post page, so a talent post with no resolvable
+          location (or the "Worldwide" sentinel, which mapLocation()
+          already turns into coordinates: null) simply skips this, exactly
+          like a job post would. */}
+      {post.location?.coordinates && (
+        <LocationMap coordinates={post.location.coordinates} label={post.location.display} />
+      )}
 
       {/* Aleksandr, 2026-08-30 (live report: "в отображении поста нет
           ссылки, хотя я заполнял при создании"): components/post-
