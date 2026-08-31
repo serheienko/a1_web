@@ -23,6 +23,7 @@ export type WebPostLocation = {
   region: string;
   country: string;
   display: string;
+  coordinates: [number, number] | null;
 };
 
 export type WebPostSalary = {

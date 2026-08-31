@@ -235,6 +235,10 @@ export function PostImages({ images }: { images: GalleryImage[] }) {
             placeholder="blur"
             blurDataURL={img.blurDataUrl ?? BLUR_DATA_URL}
             className="w-full"
+            // 2026-08-31 (live report: "сломалось отображение аватаров"):
+            // see app/jobs/[slug]/page.tsx's identical comment -- same
+            // /api/media proxy, same Vercel Image Optimizer quota fix.
+            unoptimized
           />
         </button>
         {lightbox}
@@ -266,6 +270,10 @@ export function PostImages({ images }: { images: GalleryImage[] }) {
               placeholder="blur"
               blurDataURL={img.blurDataUrl ?? BLUR_DATA_URL}
               className="object-cover"
+              // 2026-08-31 (live report: "сломалось отображение аватаров"):
+              // see app/jobs/[slug]/page.tsx's identical comment -- same
+              // /api/media proxy, same Vercel Image Optimizer quota fix.
+              unoptimized
             />
           </button>
         ))}

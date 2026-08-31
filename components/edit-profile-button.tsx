@@ -20,6 +20,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { ProfileEditor } from "@/components/profile-editor";
+import { profileHref } from "@/lib/profile-href";
 
 type StringKey = "editProfile";
 
@@ -93,7 +94,7 @@ export function EditProfileButton({ username, className }: { username: string; c
       {open && (
         <ProfileEditor
           onClose={() => setOpen(false)}
-          onSaved={() => {
+          onSaved={(newUsername) => {
             setOpen(false);
             // The public profile above is server-rendered (fetchUserByUsername,
             // revalidate = 60) -- router.refresh() re-runs that fetch against
@@ -103,7 +104,17 @@ export function EditProfileButton({ username, className }: { username: string; c
             // own "a1:post-saved" event, in case some future component wants
             // to react to a profile save without owning the refresh itself.
             window.dispatchEvent(new Event("a1:profile-saved"));
-            router.refresh();
+            // 2026-08-31, live report ("После сохранения профиля --
+            // страница не найдена"): a save that changes the username
+            // makes THIS route's fetchUserByUsername(username) start
+            // returning null, so a plain router.refresh() here would just
+            // re-run notFound() on the now-stale /u/oldUsername page.
+            // Redirect to the new profile URL instead in that case.
+            if (newUsername && newUsername !== username) {
+              router.replace(profileHref(newUsername));
+            } else {
+              router.refresh();
+            }
           }}
         />
       )}

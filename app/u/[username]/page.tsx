@@ -46,7 +46,7 @@ import { OccupationIcon } from "@/components/occupation-icon";
 import { OCCUPATION_LABELS } from "@/components/occupation-labels";
 import { WORK_STYLE_PREFERENCE_SECTIONS } from "@/components/work-style-labels";
 import { EditProfileButton } from "@/components/edit-profile-button";
-import { LocationMap } from "@/components/location-map";
+import { AddContactButton } from "@/components/add-contact-button";
 import { AvatarEditButton } from "@/components/avatar-edit-button";
 import { MarqueeName } from "@/components/marquee-name";
 import { fetchBookCoverUrl, fetchMovieCoverUrl, fetchGameCoverUrl, type CoverImage } from "@/lib/covers";
@@ -303,6 +303,13 @@ export default async function ProfilePage({ params }: Props) {
               placeholder="blur"
               blurDataURL={avatarBlurDataUrl ?? BLUR_DATA_URL}
               className="h-[72px] w-[72px] shrink-0 rounded-full object-cover sm:h-[112.5px] sm:w-[112.5px]"
+              // 2026-08-31 (live report: "сломалось отображение аватаров"):
+              // see app/jobs/[slug]/page.tsx's identical comment -- same
+              // /api/media proxy, same Vercel Image Optimizer quota fix.
+              // (The Favorites cover art just above stays on the optimizer
+              // -- those are third-party OpenLibrary/TMDB/RAWG images that
+              // genuinely benefit from it and aren't the quota driver.)
+              unoptimized
             />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
@@ -341,6 +348,17 @@ export default async function ProfilePage({ params }: Props) {
             comment, same pattern components/profile-tabs.tsx already
             uses for its own owner-only drafts section. */}
         <EditProfileButton username={profile.username} className="ml-auto shrink-0 self-start" />
+        {/* 2026-08-31: "давай где-то что-то накидаешь... одну кнопку
+            пока, типа вот на профилях: добавить в контакты" — first-pass
+            placement, right where EditProfileButton sits for the profile
+            owner (the two are mutually exclusive: one profile only ever
+            shows one of them). Rough sketch per his own framing, likely
+            to move once he's seen it live. */}
+        <AddContactButton
+          username={profile.username}
+          profileUserId={rawProfile?.object === "user" ? rawProfile._id : null}
+          className="ml-auto shrink-0 self-start"
+        />
       </div>
 
       {/* Fuller player element — speed + scrubbing — for the same clip
@@ -379,15 +397,10 @@ export default async function ProfilePage({ params }: Props) {
         );
       })()}
 
-      {/* Aleksandr, 2026-08-31: "чтобы когда человек указал просте
-          локацию, внизу отображалась карта" -- decorative only, so it's
-          gated on real coordinates existing at all (mapLocation()
-          already turns the backend's "Worldwide" sentinel into
-          coordinates: null) rather than on anything about the profile
-          layout above. */}
-      {profile.location?.coordinates && (
-        <LocationMap coordinates={profile.location.coordinates} label={profile.location.display} />
-      )}
+      {/* Aleksandr, 2026-08-31: "убери карту из профиля совсем, должна
+          быть только в постах" -- the profile map from the previous
+          message was reverted; LocationMap now only renders on the job
+          post detail page (app/jobs/[slug]/page.tsx). */}
 
       {/* Aleksandr, 2026-08-30: "должны быть просто две кнопки...
           первая -- это bio, а второе -- посты" -- ProfileTabs

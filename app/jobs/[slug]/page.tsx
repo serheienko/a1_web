@@ -21,6 +21,7 @@ import { T } from "@/components/t";
 import { PostOwnerMenu } from "@/components/post-owner-menu";
 import { profileHref } from "@/lib/profile-href";
 import { TagLabel } from "@/components/tag-label";
+import { LocationMap } from "@/components/location-map";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -139,6 +140,16 @@ export default async function JobDetailPage({ params }: Props) {
               placeholder="blur"
               blurDataURL={authorAvatarBlurDataUrl ?? BLUR_DATA_URL}
               className="h-12 w-12 shrink-0 rounded-full object-cover"
+              // 2026-08-31 (live report: "сломалось отображение аватаров"):
+              // avatarUrl is our own /api/media proxy, already served at a
+              // fixed, pre-sized JPEG (see that route's `size` param) --
+              // routing it through Vercel's Image Optimizer too just burns
+              // through the Hobby plan's optimization quota one more time
+              // per unique avatar, and once that's exhausted every
+              // /_next/image request site-wide starts failing (402/404),
+              // which is exactly what broke every avatar at once. Same fix
+              // applied everywhere else this proxy feeds an <Image>.
+              unoptimized
             />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
@@ -207,6 +218,16 @@ export default async function JobDetailPage({ params }: Props) {
       )}
 
       <div className="mt-6 whitespace-pre-wrap text-neutral-700 dark:text-neutral-300">{post.contentText}</div>
+
+      {/* 2026-08-31: same decorative OpenStreetMap embed as before, but
+          moved below the main text ("после основного текста, а не сверху")
+          instead of up near the header -- decorative-only, gated on real
+          coordinates existing (mapLocation() already turns the backend's
+          "Worldwide" sentinel into coordinates: null). Also removed from
+          the profile page entirely per the same message -- job posts only. */}
+      {post.location?.coordinates && (
+        <LocationMap coordinates={post.location.coordinates} label={post.location.display} />
+      )}
 
       {/* Aleksandr, 2026-08-30 (live report: "в отображении поста нет
           ссылки, хотя я заполнял при создании"): components/post-

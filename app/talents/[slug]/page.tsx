@@ -124,6 +124,10 @@ export default async function TalentDetailPage({ params }: Props) {
               placeholder="blur"
               blurDataURL={authorAvatarBlurDataUrl ?? BLUR_DATA_URL}
               className="h-12 w-12 shrink-0 rounded-full object-cover"
+              // 2026-08-31 (live report: "сломалось отображение аватаров"):
+              // see app/jobs/[slug]/page.tsx's identical comment -- same
+              // /api/media proxy, same Vercel Image Optimizer quota fix.
+              unoptimized
             />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element

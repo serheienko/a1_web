@@ -509,6 +509,21 @@ function newId(): string {
   return Math.random().toString(36).slice(2);
 }
 
+// 2026-08-31, live repro of "не сохраняется профиль" (the same session
+// that found handleSave's `flags` bug below): account.updateProfile
+// round-trips `dob` as a full ISO datetime ("1995-12-01T00:00:00.000Z"),
+// confirmed against a throwaway test account, even though a save only
+// ever sends the bare "YYYY-MM-DD" an `<input type="date">` produces.
+// That mismatch made a previously-saved birth date silently render as an
+// EMPTY field on reopen -- a native date input rejects anything that
+// isn't exactly YYYY-MM-DD and just shows blank, no error -- which reads
+// exactly like "my date of birth didn't save" even though it did. Slicing
+// to the first 10 characters is a no-op for an already-bare date string,
+// so this is safe either way the backend happens to answer.
+function toDateInputValue(dob: string | null): string {
+  return dob ? dob.slice(0, 10) : "";
+}
+
 // Same helper components/post-editor.tsx's handleFileSelected() uses, for
 // the same reason: a 401 whose refresh attempt also failed converts to
 // this well-known message server-side (lib/a1/visitor-call.ts), and every
@@ -638,7 +653,18 @@ type Bootstrap = {
   workStylePreferences: WorkStylePreferencesDataset;
 };
 
-export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+export function ProfileEditor({
+  onClose,
+  onSaved,
+}: {
+  onClose: () => void;
+  // 2026-08-31, live report ("После сохранения профиля -- страница не
+  // найдена"): passes the NEW username when this save actually changed
+  // it, so the caller (components/edit-profile-button.tsx) can navigate
+  // there instead of refreshing the current (now-stale) `/u/oldUsername`
+  // route -- see that file's own onSaved comment for the full story.
+  onSaved: (newUsername?: string) => void;
+}) {
   const lang = useActiveLocale();
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -788,11 +814,11 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
         const p = data.profile;
         setUsername(p.username ?? "");
         setPhoneNumber(p.phoneNumber ?? "");
-        setDob(p.dob ?? "");
+        setDob(toDateInputValue(p.dob));
         setRawFlags(p.flags);
         originalUsernameRef.current = p.username ?? "";
         originalPhoneRef.current = p.phoneNumber ?? "";
-        originalDobRef.current = p.dob ?? "";
+        originalDobRef.current = toDateInputValue(p.dob);
         setShowPhone(canShowPhone(p.flags));
         setShowDob(canShowDob(p.flags));
         setFirstName(p.firstName);
@@ -1299,11 +1325,27 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
         const employeesCount = c.employeesCount.trim() ? Math.max(0, Math.trunc(Number(c.employeesCount)) || 0) : 0;
         const turnover = c.turnover.trim() ? Number(c.turnover) : null;
         const est = c.est.trim() ? Number(c.est) : null;
+        // 2026-08-31, live-testing ("протестируй edge cases"): the
+        // backend's Company.position.end is a real ISO-8601 date field —
+        // confirmed live it rejects the literal string PRESENT_SENTINEL
+        // ("Present") outright ("'companies.0.position.end' Invalid
+        // date_iso8601 format."), which fails the WHOLE profile save, not
+        // just this one field, the same class of bug as the `flags` fix
+        // above. The backend has no separate "still ongoing" boolean
+        // (UserCompanyPositionSchema only has description/start/end), so
+        // `end: null` IS how "no end date" — i.e. still working there —
+        // is represented; the "Present" pill is a purely local-state
+        // sentinel that must never reach the wire as text. One accepted
+        // cost: since the backend can't tell "explicitly marked ongoing"
+        // apart from "end date just never set", the Present pill won't
+        // re-highlight itself after a reload — re-toggle it if needed.
+        const trimmedEnd = c.positionEnd.trim();
+        const isOngoing = trimmedEnd.toLowerCase() === PRESENT_SENTINEL.toLowerCase();
         return {
           name: c.name.trim(),
           description: c.description.trim() || null,
           position: hasPosition
-            ? { description: c.positionTitle.trim() || null, start: c.positionStart.trim() || null, end: c.positionEnd.trim() || null }
+            ? { description: c.positionTitle.trim() || null, start: c.positionStart.trim() || null, end: isOngoing ? null : trimmedEnd || null }
             : null,
           turnover: Number.isFinite(turnover) ? turnover : null,
           employeesCount,
@@ -1372,19 +1414,24 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
     if (trimmedDob !== originalDobRef.current) {
       body.dob = trimmedDob || null;
     }
-    // Read-modify-write: flip ONLY the two bits this dialog knows about,
-    // on top of rawFlags exactly as bootstrapped — see this file's own
-    // SHOW_PHONE_NUMBER/SHOW_DOB comment near the state declarations and
-    // ProfileInputSchema.flags's comment for why every other bit
-    // (FAVORED/BLOCKED/PREMIUM/etc.) must round-trip untouched. Sent
-    // only when it actually changes from rawFlags, same "don't resend
-    // an untouched value" reasoning as the three fields above.
-    const SHOW_PHONE_NUMBER = 1 << 1;
-    const SHOW_DOB = 1 << 3;
-    let nextFlags = rawFlags;
-    nextFlags = showPhone ? nextFlags | SHOW_PHONE_NUMBER : nextFlags & ~SHOW_PHONE_NUMBER;
-    nextFlags = showDob ? nextFlags | SHOW_DOB : nextFlags & ~SHOW_DOB;
-    if (nextFlags !== rawFlags) body.flags = nextFlags;
+    // 2026-08-31, live repro of "не сохраняется профиль" (screenshot:
+    // "Couldn't save. Please try again." the moment either "Show on
+    // profile" pill was touched): account.updateProfile does NOT accept
+    // `flags` at all -- confirmed live against a throwaway test account,
+    // the real backend error is "root has unknown property 'flags'".
+    // That's a full-request rejection, not a per-field one, so touching
+    // either pill used to fail the ENTIRE save (every other section too,
+    // not just phone/dob visibility) with no indication of why beyond
+    // the generic saveFailed copy. The read side (EditableProfileSchema.
+    // flags, canShowPhone/canShowDob) and the two pills stay as they are
+    // -- they still reflect whatever the account's real flags are -- but
+    // this dialog no longer has a confirmed way to WRITE that bitmask,
+    // so it must not try. Clicking a pill still updates local state
+    // (showPhone/showDob) for a coherent-looking dialog, it just isn't
+    // persisted yet; that's a known gap, not a silent data loss, since
+    // nothing here previously worked either (see the SHOW_PHONE_NUMBER/
+    // SHOW_DOB comment near the state declarations: "never round-tripped
+    // through a real save" until this same live test disproved it).
 
     try {
       const res = await fetch("/api/account/profile-editor/update", {
@@ -1413,7 +1460,10 @@ export function ProfileEditor({ onClose, onSaved }: { onClose: () => void; onSav
         return;
       }
       setDirty(false);
-      onSaved();
+      // Only pass a username when this save actually changed it (i.e. it
+      // was included in `body` above) -- an unrelated save (bio, photos,
+      // etc.) must not trigger a navigation.
+      onSaved(typeof body.username === "string" ? body.username : undefined);
     } catch {
       setSaveErrorKey("saveFailed");
       setSaving(false);

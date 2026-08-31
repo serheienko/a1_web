@@ -2,25 +2,24 @@
 //
 // Aleksandr, 2026-08-31: "давай сделаем прикольную штуку, чтобы когда
 // человек указал просте локацию, внизу отображалась карта. Это просто
-// визуально, типа симпатично" — a small embedded map under a profile's
+// визуально, типа симпатично" — a small embedded map under a job post's
 // location, purely decorative (no click-to-explore product requirement
 // behind it yet). Renders only when the caller has real coordinates —
-// lib/a1/user-mappers.ts's mapLocation() already resolves the backend's
+// lib/a1/mappers.ts's mapLocation() already resolves the backend's
 // "Worldwide" sentinel (_id === 0, no real coordinates) to `null` here,
 // so this component doesn't need to know that rule exists.
 //
-// Uses OpenStreetMap's own free, keyless embed (openstreetmap.org/export
-// /embed.html) rather than a static-tile image service or the Google
-// Maps JS SDK: no API key to provision, no billing to set up in Vercel
-// for what both look and product intent are "a decorative snapshot, not
-// an interactive map picker" — the profile-editor's actual location
-// *picker* (a different, pre-existing feature) is untouched by this.
-// bbox is a fixed +-0.05 degree box around the point (~5-10km depending
-// on latitude) — enough to read the city/neighborhood-scale
-// surroundings without the marker sitting alone on an empty tile.
+// 2026-08-31 (same day, follow-up): "переключи на гугл мапс, мы юзаем
+// его в апке" -- switched from the OpenStreetMap embed to Google Maps'
+// own free, keyless "q=...&output=embed" iframe (no API key/billing to
+// set up in Vercel, same "decorative snapshot, not an interactive picker"
+// intent as before) so the web matches the mobile app's map provider.
+//
+// 2026-08-31 (same day, second follow-up): "убери карту из профиля
+// совсем, должна быть только в постах" -- LocationMap was pulled off
+// the profile page (app/u/[username]/page.tsx) entirely; the only
+// caller left is the job post detail page (app/jobs/[slug]/page.tsx).
 import { T } from "@/components/t";
-
-const BBOX_DELTA = 0.05;
 
 export function LocationMap({
   coordinates,
@@ -30,9 +29,8 @@ export function LocationMap({
   label: string;
 }) {
   const [lng, lat] = coordinates;
-  const bbox = [lng - BBOX_DELTA, lat - BBOX_DELTA, lng + BBOX_DELTA, lat + BBOX_DELTA].join(",");
-  const embedSrc = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&marker=${lat},${lng}&layer=mapnik`;
-  const viewHref = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=13/${lat}/${lng}`;
+  const embedSrc = `https://www.google.com/maps?q=${lat},${lng}&z=13&output=embed`;
+  const viewHref = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
 
   return (
     <div className="mt-4 overflow-hidden rounded-2xl border border-neutral-200 dark:border-neutral-700">

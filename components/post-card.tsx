@@ -128,6 +128,12 @@ export function PostCard({
       placeholder="blur"
       blurDataURL={avatarBlurDataUrl ?? BLUR_DATA_URL}
       className="h-14 w-14 rounded-full object-cover"
+      // 2026-08-31 (live report: "сломалось отображение аватаров"): see
+      // app/jobs/[slug]/page.tsx's identical comment -- same /api/media
+      // proxy, same Vercel Image Optimizer quota fix. This card renders
+      // once per feed post, so it's the single biggest source of
+      // optimizer transformations on the site.
+      unoptimized
     />
   ) : (
     // eslint-disable-next-line @next/next/no-img-element
