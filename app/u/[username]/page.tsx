@@ -46,7 +46,6 @@ import { OccupationIcon } from "@/components/occupation-icon";
 import { OCCUPATION_LABELS } from "@/components/occupation-labels";
 import { WORK_STYLE_PREFERENCE_SECTIONS } from "@/components/work-style-labels";
 import { EditProfileButton } from "@/components/edit-profile-button";
-import { LocationMap } from "@/components/location-map";
 import { AvatarEditButton } from "@/components/avatar-edit-button";
 import { MarqueeName } from "@/components/marquee-name";
 import { fetchBookCoverUrl, fetchMovieCoverUrl, fetchGameCoverUrl, type CoverImage } from "@/lib/covers";
@@ -379,16 +378,11 @@ export default async function ProfilePage({ params }: Props) {
         );
       })()}
 
-      {/* Aleksandr, 2026-08-31: "чтобы когда человек указал просте
-                локацию, внизу отображалась карта" -- decorative only, so it's
-                          gated on real coordinates existing at all (mapLocation()
-                                    already turns the backend's "Worldwide" sentinel into
-                                              coordinates: null) rather than on anything about the profile
-                                                        layout above. */}
-      {profile.location?.coordinates && (
-              <LocationMap coordinates={profile.location.coordinates} label={profile.location.display} />
-            )}
-      
+      {/* Aleksandr, 2026-08-31: "убери карту из профиля совсем, должна
+          быть только в постах" -- the profile map from the previous
+          message was reverted; LocationMap now only renders on the job
+          post detail page (app/jobs/[slug]/page.tsx). */}
+
       {/* Aleksandr, 2026-08-30: "должны быть просто две кнопки...
           первая -- это bio, а второе -- посты" -- ProfileTabs
           (components/profile-tabs.tsx) is the client-side tab
