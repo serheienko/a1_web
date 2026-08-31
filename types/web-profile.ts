@@ -42,6 +42,16 @@ export type WebProfileLocation = {
   region: string;
   country: string;
   display: string;
+  // [lng, lat], GeoJSON order (confirmed against aone-api-private's
+  // LocationService.ts / refreshCoordinates.ts, 2026-08-31) — null for
+  // both "no location set" and the backend's own _id===0 "Worldwide"
+  // sentinel (which carries no real coordinates), so a null check here
+  // is the one place that needs to know about that sentinel at all
+  // (lib/a1/user-mappers.ts's mapLocation). Used by
+  // components/location-map.tsx to render a small embedded map under a
+  // profile's location — Aleksandr, 2026-08-31: "чтобы когда человек
+  // указал просто локацию, внизу отображалась карта".
+  coordinates: [number, number] | null;
 };
 
 export type WebProfileBook = {

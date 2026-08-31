@@ -27,14 +27,35 @@ function mapLink(link: { title: string; url: string } | null): WebProfileLink | 
 }
 
 function mapLocation(
-  location: { city: string; adm_level_1: string; country: string; displayName: string } | null,
+  location: {
+    _id: number;
+    city: string;
+    adm_level_1: string;
+    country: string;
+    displayName: string;
+    coordinates: number[];
+  } | null,
 ): WebProfileLocation | null {
   if (!location) return null;
+  // _id === 0 is the backend's own "Worldwide" sentinel (confirmed in
+  // aone-api-private's LocationService.ts _toDtoObject, 2026-08-31) —
+  // it carries no real coordinates, so there is nothing to pin on a map
+  // even when the array isn't empty. Otherwise require exactly the
+  // [lng, lat] pair WorldLocationSchema's `.catch([])` promises on a
+  // malformed value, both finite — never trust an external API's shape
+  // enough to hand a NaN or a lone element straight to an <iframe> src.
+  const coordinates =
+    location._id !== 0 &&
+    location.coordinates.length === 2 &&
+    location.coordinates.every((n) => Number.isFinite(n))
+      ? (location.coordinates as [number, number])
+      : null;
   return {
     city: location.city,
     region: location.adm_level_1,
     country: location.country,
     display: location.displayName,
+    coordinates,
   };
 }
 
