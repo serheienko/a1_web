@@ -48,6 +48,7 @@ import { callAsVisitor, NoSessionError } from "@/lib/a1/visitor-call";
 import { setSession, clearSession } from "@/lib/a1/session";
 import { ContactSchema, parseUserProfile, type Contact } from "@/lib/a1/schemas";
 import { buildMediaProxyUrl } from "@/lib/a1/mappers";
+import { generateAvatarBlurDataUrl } from "@/lib/avatar-blur";
 
 export const runtime = "nodejs";
 
@@ -55,6 +56,16 @@ type ContactUserSummary = {
   username: string | null;
   fullName: string;
   avatarUrl: string | null;
+  // 2026-08-31, live-testing feedback (contacts screenshot, avatars
+  // showing blank while loading): a real per-avatar blur preview,
+  // same lib/avatar-blur.ts helper every other avatar/photo in this
+  // app already uses (profile header, post author, job/talent
+  // author) -- computed here server-side since it needs to fetch and
+  // downsize the actual photo bytes, which a client component can't
+  // do. Null (fetch failed, or this contact has no linked-user photo
+  // at all) falls back to the shared generic shimmer client-side, the
+  // same convention every other call site uses.
+  avatarBlurDataUrl: string | null;
 };
 
 function extractContacts(raw: unknown): Contact[] {
@@ -76,56 +87,60 @@ function extractContacts(raw: unknown): Contact[] {
 
 // See this file's own 2026-08-31 comment above — `raw.users` alongside
 // `raw.contacts`, same defensive "drop what doesn't parse" rule.
-function extractContactUsers(raw: unknown): Record<string, ContactUserSummary> {
+//
+// Async (unlike the rest of this file's small helpers) because it also
+// fetches+downsizes each linked contact's real avatar for the blur
+// placeholder (see ContactUserSummary's own comment) -- done as one
+// Promise.all pass over every resolved contact-user rather than
+// sequentially, since generateAvatarBlurDataUrl is a real network fetch
+// per avatar and a contact list can have plenty of rows.
+async function extractContactUsers(raw: unknown): Promise<Record<string, ContactUserSummary>> {
   const out: Record<string, ContactUserSummary> = {};
   if (!raw || typeof raw !== "object") return out;
   const list = (raw as Record<string, unknown>).users;
   if (!Array.isArray(list)) return out;
+  const entries: { id: string; summary: ContactUserSummary }[] = [];
   for (const item of list) {
     const profile = parseUserProfile(item);
     if (!profile || profile.object !== "user") continue; // user-hidden/user-empty: no usable data
     const fullName = [profile.firstName, profile.lastName].filter(Boolean).join(" ").trim();
-    out[profile._id] = {
-      username: profile.username,
-      fullName: fullName || profile.username || "",
-      avatarUrl: profile.photos[0] ? buildMediaProxyUrl(profile.photos[0]) : null,
-    };
+    entries.push({
+      id: profile._id,
+      summary: {
+        username: profile.username,
+        fullName: fullName || profile.username || "",
+        avatarUrl: profile.photos[0] ? buildMediaProxyUrl(profile.photos[0]) : null,
+        avatarBlurDataUrl: null,
+      },
+    });
   }
+  await Promise.all(
+    entries.map(async ({ summary }) => {
+      if (summary.avatarUrl) {
+        summary.avatarBlurDataUrl = await generateAvatarBlurDataUrl(summary.avatarUrl);
+      }
+    }),
+  );
+  for (const { id, summary } of entries) out[id] = summary;
   return out;
 }
 
 export async function GET() {
   try {
     const { data, refreshedSession } = await callAsVisitor<unknown>("contacts.search", {});
-    // TEMP, 2026-08-31: live report ("Все аватарки не совпадают") says
-    // every linked contact still falls back to the placeholder avatar
-    // even though this route's own extractContactUsers should be
-    // resolving them from contacts.search's `users` array -- and the
-    // code reads correct on review (schema matches users.getByUsername's
-    // own, already-working shape). Rather than keep guessing blind,
-    // dump a SHALLOW, non-sensitive shape of the raw response (top-level
-    // keys + one sample user's own top-level keys, not full values) so
-    // the actual live shape can be compared against what this file
-    // assumes. Same "probe, read the real shape, delete" pattern this
-    // session already used for contacts.addContact -- remove this block
-    // (and the `_debug` key below) once the mismatch is found.
-    const rawObj = data && typeof data === "object" ? (data as Record<string, unknown>) : null;
-    const rawUsers = Array.isArray(rawObj?.users) ? (rawObj!.users as unknown[]) : null;
-    const debug = {
-      rawTopLevelKeys: rawObj ? Object.keys(rawObj) : null,
-      rawUsersIsArray: Array.isArray(rawObj?.users),
-      rawUsersLength: rawUsers?.length ?? null,
-      firstRawUserKeys: rawUsers?.[0] && typeof rawUsers[0] === "object" ? Object.keys(rawUsers[0] as object) : null,
-      firstRawUserObjectField: rawUsers?.[0] && typeof rawUsers[0] === "object" ? (rawUsers[0] as Record<string, unknown>).object : null,
-      firstRawContactUserField: Array.isArray(rawObj?.contacts) && (rawObj!.contacts as unknown[])[0]
-        ? ((rawObj!.contacts as unknown[])[0] as Record<string, unknown>).user
-        : null,
-    };
+    // The temp `_debug` probe that used to live here (2026-08-31, "Все
+    // аватарки не совпадают") is gone -- it turned out the real cause
+    // wasn't a data-shape mismatch (this file's own extractContactUsers
+    // was already reading contacts.search's `users` array correctly),
+    // it was that every deploy since the fix that added this endpoint's
+    // logic had been silently failing to build on Vercel (an unrelated
+    // TypeScript error elsewhere in the app) -- see components/profile-
+    // editor.tsx's isPlausibleUrl/setRawFlags fix commits. Confirmed
+    // live once a build actually shipped: names resolve correctly.
     const response = NextResponse.json({
       ok: true,
       contacts: extractContacts(data),
-      contactUsers: extractContactUsers(data),
-      _debug: debug,
+      contactUsers: await extractContactUsers(data),
     });
     if (refreshedSession) setSession(response, refreshedSession);
     return response;

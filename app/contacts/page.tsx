@@ -28,9 +28,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { profileHref } from "@/lib/profile-href";
+import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { T } from "@/components/t";
 import type { Contact } from "@/lib/a1/schemas";
 
@@ -40,6 +42,9 @@ type ContactUserSummary = {
   username: string | null;
   fullName: string;
   avatarUrl: string | null;
+  // See app/api/contacts/list/route.ts's own ContactUserSummary comment
+  // -- a real per-avatar blur preview, computed server-side there.
+  avatarBlurDataUrl: string | null;
 };
 
 function contactName(contact: Contact, linkedUser: ContactUserSummary | undefined): string {
@@ -148,8 +153,39 @@ export default function ContactsPage() {
             const avatarSrc = linkedUser?.avatarUrl ?? pickDefaultCatAvatar(contact._id);
             const row = (
               <div className="flex items-center gap-3 rounded-xl px-2 py-2.5 hover:bg-neutral-50 dark:hover:bg-neutral-900">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={avatarSrc} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
+                {/* 2026-08-31, live-testing feedback ("подгузку аватаров
+                    тоже сделай через блюр лейзи лоад"): was a plain <img>
+                    with no loading state at all, so a slow/external avatar
+                    fetch (the default cat placeholder lives on S3, a real
+                    linked-user photo goes through the /api/media proxy)
+                    just showed blank space until it finished -- exactly
+                    what that screenshot caught. Switched to next/image,
+                    same blur-while-loading treatment as every other avatar
+                    in this app (profile header, post author, job/talent
+                    author): a real per-photo blur when this contact has a
+                    linked-user avatar (computed server-side in the list
+                    route, see its own comment), the shared generic shimmer
+                    for the cat default (a static illustration, not worth a
+                    real blur fetch). Lazy loading is next/image's own
+                    default (no `priority` set), matching the "лейзи лоад"
+                    ask without an extra prop. `unoptimized` for the same
+                    reason app/u/[username]/page.tsx's own avatar Image has
+                    it -- these come from an external S3 bucket AND a
+                    same-origin proxy that next/image's remote-pattern
+                    allow-list doesn't cover, and a contact list can have
+                    many rows, which would burn through Vercel's Image
+                    Optimizer quota exactly like the live incident that
+                    fix's comment documents. */}
+                <Image
+                  src={avatarSrc}
+                  alt=""
+                  width={40}
+                  height={40}
+                  className="h-10 w-10 shrink-0 rounded-full object-cover"
+                  placeholder="blur"
+                  blurDataURL={linkedUser?.avatarBlurDataUrl ?? BLUR_DATA_URL}
+                  unoptimized
+                />
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium text-neutral-900 dark:text-neutral-50">
                     {contactName(contact, linkedUser)}
