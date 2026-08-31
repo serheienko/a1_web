@@ -34,11 +34,29 @@ export function LocationMap({
 
   return (
     <div className="mt-4 overflow-hidden rounded-2xl border border-neutral-200 dark:border-neutral-700">
+      {/* 2026-08-31, live-testing feedback ("а карты можно на ночной режим
+          тоже переключать в зависимости от темы?"): this is Google's free
+          keyless "output=embed" iframe (see the file-level comment above
+          for why -- no API key/billing), which has no dark-mode/style
+          parameter of its own, unlike the full Maps JS/Static API (which
+          DOES support a custom night-mode `style=` array but needs a
+          billed API key + a Vercel env var -- a bigger setup change than
+          this decorative snapshot map warrants). Standard workaround for
+          exactly this situation: CSS-invert the iframe itself in dark
+          mode (invert + hue-rotate to put the hue back the right way
+          round, plus a touch of brightness/contrast so it doesn't look
+          blown out) -- verified live on an actual job page by forcing
+          .dark on <html> and eyeballing the result: streets/water/parks
+          render as a convincing dark map and labels/pins stay legible;
+          the only casualty is the small "Google" wordmark and the
+          satellite-preview thumbnail rendering with inverted colors too,
+          which reads as a minor, acceptable trade-off for a purely
+          decorative element with no interactive requirement. */}
       <iframe
         title={label}
         src={embedSrc}
         loading="lazy"
-        className="h-[220px] w-full border-0 sm:h-[280px]"
+        className="h-[220px] w-full border-0 dark:invert dark:hue-rotate-180 dark:brightness-95 dark:contrast-[.9] sm:h-[280px]"
       />
       <div className="flex items-center justify-between gap-2 bg-white px-4 py-2 text-sm text-neutral-500 dark:bg-neutral-900 dark:text-neutral-400">
         <span className="truncate">{label}</span>
