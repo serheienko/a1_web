@@ -63,37 +63,39 @@ export function VoiceIntroRing({ children }: { children: ReactNode }) {
       {/* Ring overlay: a faint full track underneath (so the ring never
           fully disappears once a clip finishes), plus a solid accent arc
           on top representing what's LEFT to listen to — full at rest,
-          then eaten away as it plays. Aleksandr, 2026-08-27: "она из
-          полной... должна становиться пустой по мере прослушивания"
-          (should go from full to empty as it plays, not the reverse) —
-          a negative dashoffset is what erodes the arc from its start
-          point instead of growing it.
+          then eaten away clockwise starting at 12 o'clock as it plays.
+          Aleksandr, 2026-08-27: "она из полной... должна становиться
+          пустой по мере прослушивания" (should go from full to empty as
+          it plays, not the reverse) — a negative dashoffset is what
+          erodes the arc from its start point instead of growing it.
           
-          2026-08-31, live-testing feedback ("кольцо должно ехать слева
-          направо. Из заполненного в пустое" -- the ring should travel
-          left to right, from filled to empty): an SVG <circle>'s own
-          path starts at 3 o'clock (east) and is stroked clockwise, so
-          -rotate-90 (as it was) moved the start to 12 o'clock, making
-          the erosion begin at the TOP and eat away first through the
-          right side -- not a left-to-right motion. -rotate-180 moves
-          that same start point to 9 o'clock (west/left) instead; the
-          stroke is still traced clockwise from there, so the first
-          (most visible) half of playback erases the arc sweeping west
-          -> north -> east, i.e. across the TOP from left to right,
-          exactly as asked -- verified before committing with a
-          Canvas2D replica of this exact geometry (same SIZE/STROKE,
-          rotate(-180deg) as ctx.rotate, same dasharray/dashoffset
-          formula), hit-testing isPointInStroke() at 10-degree
-          increments around the ring at progress=0.10: the eaten wedge
-          landed at 270-310 degrees (measured clockwise from 12) --
-          i.e. starting exactly at 9 o'clock/west and eating clockwise
-          toward 12 -- versus the old -rotate-90's wedge landing at
-          0-35 degrees (starting at 12/top instead). Real playback
-          can't be screenshotted mid-animation, so this was the closest
-          available substitute for actually watching it play. */}
+          2026-08-31: a same-day round trip on this exact rotate value.
+          First read of "кольцо должно ехать слева направо" (the ring
+          should travel left to right) was taken as "move the START
+          point off of 12 o'clock", and changed this to -rotate-180
+          (start at 9 o'clock/west instead). Aleksandr caught that on
+          the actual live ring right after: "Ты сделал прослушивание
+          опять каким-то странным) Должно начинаться в заполненном
+          состоянии с 12 часов, слева-направо" -- 12 o'clock IS the
+          correct start point; "слева-направо" describes the SWEEP
+          direction from there (erode towards 3 o'clock first, i.e.
+          rightward across the top from the 12 o'clock anchor), which
+          is exactly what plain -rotate-90 already did before either
+          change. So this is a straight revert back to -rotate-90.
+          
+          Confirmed this time by literally rendering both variants (a
+          plain HTML/SVG copy of this exact markup -- same SIZE/STROKE/
+          dasharray/dashoffset formula) live on the page at several
+          progress values and screenshotting them side by side, rather
+          than trusting a Canvas2D stand-in or hand-derived geometry
+          again: -rotate-90 visibly starts the erosion right at 12
+          o'clock and eats rightward/clockwise (12->3->6->9) as
+          progress increases, matching Aleksandr's description exactly;
+          -rotate-180 visibly starts at 9 o'clock instead, which is
+          what he flagged as "странным" (weird). */}
       <svg
         viewBox={`0 0 ${SIZE} ${SIZE}`}
-        className="pointer-events-none absolute inset-0 h-full w-full -rotate-180"
+        className="pointer-events-none absolute inset-0 h-full w-full -rotate-90"
         aria-hidden="true"
       >
         <defs>
