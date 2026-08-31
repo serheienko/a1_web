@@ -575,7 +575,16 @@ function isPlausibleUrl(value: string): boolean {
   }
   if (!hostname) return false;
   const labels = hostname.split(".");
-  const tld = labels[labels.length - 1];
+  // 2026-08-31: labels[...] types as string | undefined under this
+  // project's tsconfig (noUncheckedIndexedAccess) even though the guard
+  // below (labels.length >= 2) makes it unreachable as undefined in
+  // practice -- TS doesn't narrow across the two statements. This one
+  // line broke `npm run build` on Vercel for every commit since this
+  // function was restored (4bb9463) -- every push since then silently
+  // failed to deploy while looking fine locally/in review. The ?? "" is
+  // purely to satisfy the type; an empty string still correctly fails
+  // the regex test below either way.
+  const tld = labels[labels.length - 1] ?? "";
   return labels.length >= 2 && /^[a-zA-Z]{2,}$/.test(tld);
 }
 
