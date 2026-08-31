@@ -2412,9 +2412,20 @@ export function ProfileEditor({
                   // min-width is its widest <option> text ("Intermediate"
                   // here), which can exceed 112px and force this wider
                   // than w-28 says, at the sibling name-input's expense
-                  // (see that div's own comment for the full chain). This
-                  // min-w-0 is what makes w-28 the real, final width.
-                  className={inputClass + " w-28 min-w-0 shrink-0 px-2 text-xs"}
+                  // (see that div's own comment for the full chain).
+                  // min-w-0 was believed to fix that but didn't -- 2026-
+                  // 08-31 live re-test (Aleksandr: "Мови до сих пор не
+                  // полечины") found the REAL cause with getComputedStyle
+                  // on the live page: this select's rendered width was
+                  // 571px, not 112px. `inputClass` itself starts with
+                  // `w-full`, and Tailwind's generated stylesheet happens
+                  // to emit `.w-full` AFTER `.w-28` -- so `w-full` wins
+                  // the cascade regardless of class-list order (min-w-0
+                  // only bounds flex-shrink, it can't resolve a same-
+                  // specificity `width` conflict). `!w-28` (Tailwind's
+                  // important-modifier) is what actually forces this to
+                  // 112px now, confirmed against the same live account.
+                  className={inputClass + " !w-28 min-w-0 shrink-0 px-2 text-xs"}
                 >
                   {LEVEL_LABELS.map((key, i) => (
                     <option key={key} value={i}>
