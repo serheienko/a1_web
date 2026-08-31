@@ -318,8 +318,32 @@ export function ProfileTabs({
           context the way transform does), so this wrapper stops being a
           stacking-context root at all and the z-40 fix inside it can
           finally be compared directly against the backdrop as intended. */}
-      <div hidden={tab !== "posts"} className="mt-2.5 sm:relative sm:left-1/2 sm:w-screen sm:-ml-[50vw]">
-        <div className="sm:mx-auto sm:max-w-3xl sm:px-4">
+      {/* 2026-08-31, live-testing feedback ("Уехала надпись 'нет
+          постов'"): the breakout above (w-screen/-ml-[50vw], centered on
+          the VIEWPORT) exists so real post cards can match the feed's
+          own wider sm:max-w-3xl column instead of being squeezed into
+          this page's narrow sm:w-[420px] profile column -- see this
+          file's own long comment on that wrapper. The empty-state
+          message below has no reason to stretch into that same wide,
+          differently-centered box: with no cards to widen for, it just
+          sat at the wide box's own left edge, which -- since that box
+          is centered on the viewport rather than on the narrow column
+          everything else in this page uses -- reliably lands well to
+          the left of the avatar/name/tabs above it, reading as "the
+          text drifted off" rather than as a deliberate layout. Only
+          apply the breakout once there's an actual card list backing
+          it (own drafts, fetched client-side, or the server-rendered
+          published posts) -- the empty state stays in normal flow,
+          same width and alignment as the rest of the profile. */}
+      {(() => {
+        const hasAnyPosts = ownDrafts.length > 0 || postsCount > 0;
+        const wrapperClass = hasAnyPosts
+          ? "mt-2.5 sm:relative sm:left-1/2 sm:w-screen sm:-ml-[50vw]"
+          : "mt-2.5";
+        const innerClass = hasAnyPosts ? "sm:mx-auto sm:max-w-3xl sm:px-4" : "";
+        return (
+      <div hidden={tab !== "posts"} className={wrapperClass}>
+        <div className={innerClass}>
           {ownDrafts.length > 0 && (
             <div className="mb-4 flex flex-col gap-4">
               {ownDrafts.map(({ post, status }) => {
@@ -339,6 +363,8 @@ export function ProfileTabs({
           {posts}
         </div>
       </div>
+        );
+      })()}
       {editingPost && (
         // No onSaved wired here on purpose: components/post-editor.tsx
         // already dispatches "a1:post-saved" on every successful save,
