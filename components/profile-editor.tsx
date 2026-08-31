@@ -1704,16 +1704,32 @@ export function ProfileEditor({
             <div className="flex items-center gap-3">
               {voiceDoc ? (
                 <>
+                  {/* 2026-08-31, live-testing feedback ("Сделай аудио
+                      почти на всю ширину, + иконка удаления. Будет
+                      удобнее... Отцентрируй иконку удаления относительно
+                      аудиополя"): the old `max-w-[220px]` capped the
+                      native player to a narrow strip with most of the
+                      dialog's width sitting empty next to it. `min-w-0`
+                      (not just `flex-1`) is what actually lets it fill
+                      that space -- without it a flex item's default
+                      min-width is its content's natural size, which can
+                      still refuse to shrink/grow as expected in some
+                      browsers. The trash button's own height dropped
+                      from h-8 to h-9 to exactly match the audio
+                      element's, so `items-center` on this row centers
+                      them on the same line instead of two different-
+                      height boxes that only looked aligned by
+                      coincidence. */}
                   <audio
                     controls
                     src={voicePreviewUrl ?? mediaUrl(voiceDoc)}
-                    className="h-9 max-w-[220px] flex-1"
+                    className="h-9 min-w-0 flex-1"
                   />
                   <button
                     type="button"
                     onClick={removeVoice}
                     aria-label={t("removeVoice", lang)}
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-neutral-300 text-neutral-500 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-400 dark:hover:bg-neutral-800"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-neutral-300 text-neutral-500 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-400 dark:hover:bg-neutral-800"
                   >
                     <TrashIcon />
                   </button>
