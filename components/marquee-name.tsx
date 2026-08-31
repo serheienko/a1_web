@@ -17,8 +17,25 @@
 // marquee, even if some pathological name+layout combination could make
 // it overflow there. Below MOBILE_BREAKPOINT_PX it behaves exactly as
 // before (measure + marquee when overflowing); at or above it, it never
-// measures into marquee mode and always renders the plain truncated
-// heading.
+// measures into marquee mode.
+//
+// Aleksandr, 2026-08-31, live-testing feedback (2 desktop screenshots,
+// "Aleksandr…", "Alexay Fa…" both cut off with an ellipsis): "имена все
+// равно подрезаны, показывай полное нормальное имя, особенно на
+// десктопе... а иконку редактировать двигай куда угодно, но не обрезай
+// так имя". The "экран же очень широкий" assumption above turned out
+// false in practice — app/u/[username]/page.tsx's own <main> is a fixed
+// `sm:w-[420px]` column (deliberately, to stop the Favorites tile grid
+// from hijacking the page's width — see that file's own comment), so the
+// name's actual available width on desktop is nowhere near the full
+// screen. Moving EditProfileButton/AddContactButton onto the avatar's own
+// corner (this same commit's page.tsx change) freed up some of that
+// column, but a genuinely long name still doesn't fit on one line at
+// 420px. Since marquee is still off-limits on desktop per the above, the
+// only way left to show the FULL name there is to let it wrap onto a
+// second line instead of ellipsis-truncating — see the plain-heading
+// branch below, which now truncates (single line, ellipsis) only below
+// MOBILE_BREAKPOINT_PX and wraps (no truncation at all) at/above it.
 //
 // Deliberately independent of the gradient-fill feature itself (still
 // waiting on the backend field to persist it in, plus Figma's exact
@@ -78,7 +95,7 @@ export function MarqueeName({ text, className }: { text: string; className?: str
   }, [text]);
 
   return (
-    <h1 ref={containerRef} className={"relative min-w-0 overflow-hidden " + (className ?? "")}>
+    <h1 ref={containerRef} className={"relative min-w-0 overflow-hidden sm:overflow-visible " + (className ?? "")}>
       {/* Always-mounted, invisible measuring copy — absolutely positioned
           out of flow so it never affects layout, but its natural
           (unwrapped) width is what decides whether the visible content
@@ -98,7 +115,7 @@ export function MarqueeName({ text, className }: { text: string; className?: str
           <span aria-hidden="true" className={"shrink-0 whitespace-nowrap pr-10 " + (className ?? "")}>{text}</span>
         </div>
       ) : (
-        <span className={"block truncate " + (className ?? "")}>{text}</span>
+        <span className={"block truncate sm:overflow-visible sm:text-clip sm:whitespace-normal sm:break-words " + (className ?? "")}>{text}</span>
       )}
     </h1>
   );
