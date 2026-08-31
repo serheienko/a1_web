@@ -47,8 +47,6 @@ import { OCCUPATION_LABELS } from "@/components/occupation-labels";
 import { WORK_STYLE_PREFERENCE_SECTIONS } from "@/components/work-style-labels";
 import { EditProfileButton } from "@/components/edit-profile-button";
 import { AddContactButton } from "@/components/add-contact-button";
-import { LottiePlayer } from "@/components/lottie-player";
-import { pickWeeklyCatAnimation } from "@/lib/weekly-cat-animation";
 import { MarqueeName } from "@/components/marquee-name";
 import { FavoriteCover } from "@/components/favorite-cover";
 import { fetchBookCoverUrl, fetchMovieCoverUrl, fetchGameCoverUrl, type CoverImage } from "@/lib/covers";
@@ -196,8 +194,6 @@ export default async function ProfilePage({ params }: Props) {
   // shared shimmer — same fix as components/post-card.tsx's feed
   // avatars ("аватары подгружаются не через блюр с разными цветами").
   const avatarBlurDataUrl = await generateAvatarBlurDataUrl(profile.avatarUrl);
-  // See the LottiePlayer usage below for context on this one.
-  const weeklyCatAnimation = pickWeeklyCatAnimation();
 
   const locationLabel = profile.location ? profile.location.display : null;
 
@@ -348,23 +344,14 @@ export default async function ProfilePage({ params }: Props) {
             />
           )}
           </VoiceIntroRing>
-          {/* Aleksandr, 2026-08-31: "Возле аватара нашего профиля справа
-              хочу показывать маленького анимированного кота, который
-              будет рандомно раз в неделю меняться с другими анимациями...
-              Можно поставить +-20 px левее от аватара" — desktop-only
-              (`hidden sm:block`, his own framing: "будет жить только в
-              десктопе"), positioned just outside the avatar's right edge
-              (`left-full`) then pulled 20px back toward it
-              (`-translate-x-5`), literally "20px to the left of" a
-              right-side placement. lib/weekly-cat-animation.ts picks one
-              of his 8 supplied stickers by ISO week number so it's the
-              same for everyone all week and flips on Monday, not
-              re-randomized per page load. */}
-          <LottiePlayer
-            src={weeklyCatAnimation}
-            size={40}
-            className="pointer-events-none absolute left-full top-1/2 hidden -translate-x-5 -translate-y-1/2 sm:block"
-          />
+          {/* 2026-08-31: the weekly-rotating cat badge that briefly lived
+              here moved to components/avatar-menu.tsx instead --
+              Aleksandr, after seeing it live: "я имел в виду верхнюю
+              [аватарку], которая в правом верхнем углу... до этого кота
+              ты меня поселил возле моей основной аватарки, а я не это
+              хотел... тот [эту, основную] не трогай, там кот не должен
+              быть." See that file's own comment for the actual
+              placement. */}
         </div>
         <div className="min-w-0 flex-1">
           <MarqueeName text={profile.fullName} className="text-xl font-semibold text-neutral-900 sm:text-2xl dark:text-neutral-50" />

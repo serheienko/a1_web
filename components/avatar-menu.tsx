@@ -70,6 +70,8 @@ import { LOCALES, LOCALE_CLASS, LOCALE_TAG, type Locale } from "@/components/t";
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
 import { SettingsMenu } from "@/components/settings-menu";
 import { useHoverPanel } from "@/lib/use-hover-panel";
+import { LottiePlayer } from "@/components/lottie-player";
+import { pickWeeklyCatAnimation } from "@/lib/weekly-cat-animation";
 
 type Theme = "light" | "dark" | "auto";
 
@@ -372,7 +374,20 @@ export function AvatarMenu() {
   const languageOptions = LOCALES.filter((l) => !(isGeoUa && l === "ru"));
 
   return (
-    <div className="relative shrink-0" ref={wrapperRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+    <div className="relative flex shrink-0 items-center gap-2" ref={wrapperRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+      {/* Aleksandr, 2026-08-31: "хочу показывать маленького анимированного
+          кота" -- first pass put this next to the big profile-page
+          avatar (app/u/[username]/page.tsx), which he corrected: "я имел
+          в виду верхнюю [аватарку], которая в правом верхнем углу" --
+          THIS nav-bar avatar button, not the profile one. Desktop-only
+          (his own framing: "будет жить только в десктопе"), sitting
+          immediately to the button's left (not overlapping it, unlike
+          the profile-page attempt -- this one's a real click target, so
+          covering part of it would hurt usability) rather than
+          absolutely-positioned. lib/weekly-cat-animation.ts (shared with
+          nothing else currently) picks one of his 8 supplied stickers by
+          ISO week number, same for everyone all week, flipping Monday. */}
+      <LottiePlayer src={pickWeeklyCatAnimation()} size={28} className="hidden sm:block" />
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
