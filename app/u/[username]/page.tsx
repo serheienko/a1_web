@@ -46,6 +46,7 @@ import { OccupationIcon } from "@/components/occupation-icon";
 import { OCCUPATION_LABELS } from "@/components/occupation-labels";
 import { WORK_STYLE_PREFERENCE_SECTIONS } from "@/components/work-style-labels";
 import { EditProfileButton } from "@/components/edit-profile-button";
+import { AddContactButton } from "@/components/add-contact-button";
 import { AvatarEditButton } from "@/components/avatar-edit-button";
 import { MarqueeName } from "@/components/marquee-name";
 import { fetchBookCoverUrl, fetchMovieCoverUrl, fetchGameCoverUrl, type CoverImage } from "@/lib/covers";
@@ -347,6 +348,17 @@ export default async function ProfilePage({ params }: Props) {
             comment, same pattern components/profile-tabs.tsx already
             uses for its own owner-only drafts section. */}
         <EditProfileButton username={profile.username} className="ml-auto shrink-0 self-start" />
+        {/* 2026-08-31: "давай где-то что-то накидаешь... одну кнопку
+            пока, типа вот на профилях: добавить в контакты" — first-pass
+            placement, right where EditProfileButton sits for the profile
+            owner (the two are mutually exclusive: one profile only ever
+            shows one of them). Rough sketch per his own framing, likely
+            to move once he's seen it live. */}
+        <AddContactButton
+          username={profile.username}
+          profileUserId={rawProfile?.object === "user" ? rawProfile._id : null}
+          className="ml-auto shrink-0 self-start"
+        />
       </div>
 
       {/* Fuller player element — speed + scrubbing — for the same clip
