@@ -224,13 +224,24 @@ export function AddContactButton({
       aria-label={label}
       aria-pressed={isAdded}
       title={label}
+      // 2026-08-31, live-testing feedback (mobile screenshot, "с иконками
+      // редактирования на мобе фигня какая-то вышла"): same issue as
+      // components/edit-profile-button.tsx's own 2026-08-31 comment --
+      // this button's light-border/no-fill states were designed to sit
+      // next to the name text, not as a badge over the avatar photo
+      // app/u/[username]/page.tsx now places it on. Kept all three status
+      // colors (neutral/added/error) so "added to contacts" and "failed"
+      // still read at a glance, but every state now uses the same solid-
+      // dark-badge-with-white-cutout-border shape components/avatar-edit-
+      // button.tsx's pencil badge uses, instead of a thin colored outline
+      // that all but disappears against a photo.
       className={
-        "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition disabled:cursor-default disabled:opacity-60 " +
+        "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-white text-white shadow-sm transition disabled:cursor-default disabled:opacity-60 dark:border-black " +
         (isError
-          ? "border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-900/20"
+          ? "bg-red-600/90 hover:bg-red-700/90"
           : isAdded
-            ? "border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-red-50 hover:border-red-300 hover:text-red-600 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 dark:hover:bg-red-900/20 dark:hover:border-red-700 dark:hover:text-red-400"
-            : "border-neutral-300 text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800") +
+            ? "bg-emerald-600/90 hover:bg-red-600/90"
+            : "bg-neutral-900/80 hover:bg-neutral-900") +
         " " +
         (className ?? "")
       }

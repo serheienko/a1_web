@@ -78,14 +78,28 @@ export function EditProfileButton({ username, className }: { username: string; c
     <>
       {/* 2026-08-30, live-testing feedback: "В профілі зроби просто іконку
           олівця, це достатньо" — dropped the text label, kept it as an
-          accessible name via aria-label/title instead of visible text. */}
+          accessible name via aria-label/title instead of visible text.
+
+          2026-08-31, live-testing feedback (mobile screenshot, "с иконками
+          редактирования на мобе фигня какая-то вышла"): this outline/no-fill
+          style was designed for sitting next to the name text, on the
+          page's own background. app/u/[username]/page.tsx's 2026-08-31
+          header rework (see that file's own comment) moved this button
+          onto the avatar's corner instead, as a badge over a photo -- the
+          same treatment components/avatar-edit-button.tsx's pencil badge
+          already uses there. Left with its old style, a thin gray outline
+          over a photo just reads as a faint, broken-looking ring; this
+          copies AvatarEditButton's exact badge classes (solid dark fill,
+          white cutout border matching the page background) so the two
+          avatar-corner badges look like one consistent design instead of
+          two different button styles collided together. */}
       <button
         type="button"
         onClick={() => setOpen(true)}
         aria-label={STRINGS.editProfile[lang]}
         title={STRINGS.editProfile[lang]}
         className={
-          "inline-flex h-8 w-8 items-center justify-center rounded-full border border-neutral-300 text-neutral-600 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800 " +
+          "flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-neutral-900/80 text-white shadow-sm transition hover:bg-neutral-900 dark:border-black " +
           (className ?? "")
         }
       >
