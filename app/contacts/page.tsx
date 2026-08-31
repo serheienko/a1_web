@@ -14,26 +14,36 @@
 // button.tsx's whoami call documents for why that's a client-side
 // concern here, not a server one.
 //
-// Each Contact (lib/a1/schemas.ts's ContactSchema) currently only
-// carries firstName/lastName/phone — no username, no photo — so a
-// contact added via the new "Add to contacts" button (a platform user,
-// not a phone-book entry) can't yet link through to that person's
-// profile or show their real avatar here. Flagged rather than silently
-// worked around: once contacts.search's real response shape is
-// confirmed live (see that route's own comment), extend ContactSchema
-// with whatever it actually returns for a platform-linked contact and
-// wire the row up to profileHref() the same way every other person-row
-// in this app does.
+// Each Contact (lib/a1/schemas.ts's ContactSchema) only ever carries
+// firstName/lastName/phone — no photo, and only a raw `user` id, not a
+// username. 2026-08-31, live-testing feedback ("Арина в контактах
+// сохраняется почему то с другим аватаром"): app/api/contacts/list/
+// route.ts now separately resolves every platform-linked contact's real
+// profile (contacts.search's own `users` array, confirmed live against
+// aone-api-private's source — see that route's comment) and returns it
+// here as `contactUsers`, keyed by user id. A contact with no match
+// there (a phone-book entry with no linked user, or a linked account
+// that no longer resolves) falls back to the same generated
+// pickDefaultCatAvatar placeholder as before.
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
+import { profileHref } from "@/lib/profile-href";
 import { T } from "@/components/t";
 import type { Contact } from "@/lib/a1/schemas";
 
 type LoadState = "loading" | "signed-out" | "error" | "ready";
 
-function contactName(contact: Contact): string {
+type ContactUserSummary = {
+  username: string | null;
+  fullName: string;
+  avatarUrl: string | null;
+};
+
+function contactName(contact: Contact, linkedUser: ContactUserSummary | undefined): string {
+  if (linkedUser?.fullName) return linkedUser.fullName;
   const name = `${contact.firstName} ${contact.lastName}`.trim();
   if (name) return name;
   if (contact.phone) return contact.phone;
@@ -43,6 +53,7 @@ function contactName(contact: Contact): string {
 export default function ContactsPage() {
   const [state, setState] = useState<LoadState>("loading");
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [contactUsers, setContactUsers] = useState<Record<string, ContactUserSummary>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -59,6 +70,7 @@ export default function ContactsPage() {
           return;
         }
         setContacts(data.contacts ?? []);
+        setContactUsers(data.contactUsers ?? {});
         setState("ready");
       })
       .catch(() => {
@@ -131,20 +143,29 @@ export default function ContactsPage() {
 
       {state === "ready" && contacts.length > 0 && (
         <div className="mt-6 flex flex-col gap-1">
-          {contacts.map((contact) => (
-            <div key={contact._id} className="flex items-center gap-3 rounded-xl px-2 py-2.5 hover:bg-neutral-50 dark:hover:bg-neutral-900">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={pickDefaultCatAvatar(contact._id)}
-                alt=""
-                className="h-10 w-10 shrink-0 rounded-full object-cover"
-              />
-              <div className="min-w-0">
-                <div className="truncate text-sm font-medium text-neutral-900 dark:text-neutral-50">{contactName(contact)}</div>
-                {contact.phone && <div className="truncate text-xs text-neutral-500 dark:text-neutral-400">{contact.phone}</div>}
+          {contacts.map((contact) => {
+            const linkedUser = contact.user ? contactUsers[contact.user] : undefined;
+            const avatarSrc = linkedUser?.avatarUrl ?? pickDefaultCatAvatar(contact._id);
+            const row = (
+              <div className="flex items-center gap-3 rounded-xl px-2 py-2.5 hover:bg-neutral-50 dark:hover:bg-neutral-900">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={avatarSrc} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-medium text-neutral-900 dark:text-neutral-50">
+                    {contactName(contact, linkedUser)}
+                  </div>
+                  {contact.phone && <div className="truncate text-xs text-neutral-500 dark:text-neutral-400">{contact.phone}</div>}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+            return linkedUser?.username ? (
+              <Link key={contact._id} href={profileHref(linkedUser.username)}>
+                {row}
+              </Link>
+            ) : (
+              <div key={contact._id}>{row}</div>
+            );
+          })}
         </div>
       )}
     </main>
