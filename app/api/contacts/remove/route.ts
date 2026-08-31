@@ -2,23 +2,29 @@
 //
 // 2026-08-31: pairs with app/api/contacts/add/route.ts — "и сделай
 // возможность при повторном тапе убрать из контактов" (Aleksandr, on the
-// icon-only add-contact button). Same live-testing situation add/
-// route.ts's own comment describes for contacts.addContact: aone-api-
-// private's contacts.* methods were never in PLAN.md's confirmed
-// endpoint table (§6.1, contacts was out of scope for v1.0), so this
-// route's method name/body shape is a first guess from the addContact
-// naming convention (`contacts.addContact` takes `{ user: <id> }`) —
-// NOT independently confirmed against a live call the way addContact now
-// is. If the real method name or field differs, this will surface as a
-// live 502 with `detail` set to the backend's actual error (same
-// A1ApiError.detail plumbing every route here uses) — fix the method
-// name/body then, not by guessing further.
+// icon-only add-contact button). aone-api-private's contacts.* methods
+// were never in PLAN.md's confirmed endpoint table (§6.1, contacts was
+// out of scope for v1.0), so unlike every other route in this app this
+// one's method name genuinely couldn't be read from source ahead of
+// time — confirmed live instead, the same way contacts.addContact was
+// confirmed for add/route.ts. First guesses (`contacts.removeContact`,
+// then a batch of other addContact-style names) all came back "Unknown
+// method" from the live backend. The real method is
+// `contacts.deleteContacts` — plural, unlike every singular contacts.*
+// method this app otherwise calls — and it takes `{ ids: [<contactId>,
+// ...] }`, not a single `id`/`contact` field; "root is missing required
+// property 'ids'" from a live call is what gave that away. Found via a
+// temporary generic method-probe route (POST any method name + body
+// through callAsVisitor, added and removed again in this same session)
+// rather than redeploying once per guess.
 //
 // Takes the contact's own `_id` (Contact.object === "contact", from
 // contacts.search / the addContact response — see lib/a1/schemas.ts's
 // ContactSchema), not the linked platform user's id: a Contact row is
 // what actually gets deleted, and `_id` is the only field guaranteed to
-// identify a specific one.
+// identify a specific one. This route only ever sends a single-element
+// `ids` array — nothing in this app deletes more than one contact at a
+// time yet.
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { A1ApiError } from "@/lib/a1/client";
@@ -39,8 +45,8 @@ export async function POST(request: NextRequest) {
   const { contactId } = parsed.data;
 
   try {
-    const { refreshedSession } = await callAsVisitor<unknown>("contacts.removeContact", {
-      id: contactId,
+    const { refreshedSession } = await callAsVisitor<unknown>("contacts.deleteContacts", {
+      ids: [contactId],
     });
     const response = NextResponse.json({ ok: true });
     if (refreshedSession) setSession(response, refreshedSession);
