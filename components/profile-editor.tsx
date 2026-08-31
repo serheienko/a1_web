@@ -1325,11 +1325,27 @@ export function ProfileEditor({
         const employeesCount = c.employeesCount.trim() ? Math.max(0, Math.trunc(Number(c.employeesCount)) || 0) : 0;
         const turnover = c.turnover.trim() ? Number(c.turnover) : null;
         const est = c.est.trim() ? Number(c.est) : null;
+        // 2026-08-31, live-testing ("протестируй edge cases"): the
+        // backend's Company.position.end is a real ISO-8601 date field —
+        // confirmed live it rejects the literal string PRESENT_SENTINEL
+        // ("Present") outright ("'companies.0.position.end' Invalid
+        // date_iso8601 format."), which fails the WHOLE profile save, not
+        // just this one field, the same class of bug as the `flags` fix
+        // above. The backend has no separate "still ongoing" boolean
+        // (UserCompanyPositionSchema only has description/start/end), so
+        // `end: null` IS how "no end date" — i.e. still working there —
+        // is represented; the "Present" pill is a purely local-state
+        // sentinel that must never reach the wire as text. One accepted
+        // cost: since the backend can't tell "explicitly marked ongoing"
+        // apart from "end date just never set", the Present pill won't
+        // re-highlight itself after a reload — re-toggle it if needed.
+        const trimmedEnd = c.positionEnd.trim();
+        const isOngoing = trimmedEnd.toLowerCase() === PRESENT_SENTINEL.toLowerCase();
         return {
           name: c.name.trim(),
           description: c.description.trim() || null,
           position: hasPosition
-            ? { description: c.positionTitle.trim() || null, start: c.positionStart.trim() || null, end: c.positionEnd.trim() || null }
+            ? { description: c.positionTitle.trim() || null, start: c.positionStart.trim() || null, end: isOngoing ? null : trimmedEnd || null }
             : null,
           turnover: Number.isFinite(turnover) ? turnover : null,
           employeesCount,
