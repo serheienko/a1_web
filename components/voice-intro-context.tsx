@@ -81,8 +81,21 @@ export function VoiceIntroProvider({ url, children }: { url: string | null; chil
     setRevealed(true);
     const audio = audioRef.current;
     if (!audio) return;
-    if (audio.paused) void audio.play();
-    else audio.pause();
+    if (audio.paused) {
+      // Aleksandr (screen recording, 2026-08-31): after a clip finishes,
+      // the ring/scrubber should sit EMPTY (fully played), not snap back
+      // to full -- see onEnded below, which used to force this rewind
+      // immediately on end instead of on the NEXT play. `audio.ended` is
+      // only true right after natural completion; a manual pause never
+      // sets it, so this never affects a normal resume-from-pause tap.
+      if (audio.ended) {
+        audio.currentTime = 0;
+        setCurrentTime(0);
+      }
+      void audio.play();
+    } else {
+      audio.pause();
+    }
   }, []);
 
   const seek = useCallback((time: number) => {
@@ -122,8 +135,18 @@ export function VoiceIntroProvider({ url, children }: { url: string | null; chil
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
         onEnded={() => {
+          // 2026-08-31 fix (screen recording: ring flashed back to a
+          // full circle the instant a clip finished, instead of ending
+          // empty like Aleksandr wants -- "запись слева направо бежит
+          // от полной к пустой"): this used to force currentTime back to
+          // 0 right here, which is exactly what produced that flash --
+          // progress = currentTime/duration became 0 = full ring, right
+          // when it should read 1 = empty. Now it reflects the real
+          // "fully played" position instead, and the rewind-to-0 only
+          // happens when the NEXT play starts (see toggle() above).
           setPlaying(false);
-          setCurrentTime(0);
+          const audio = audioRef.current;
+          if (audio && Number.isFinite(audio.duration)) setCurrentTime(audio.duration);
         }}
         onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
         className="hidden"
