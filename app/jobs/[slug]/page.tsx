@@ -187,14 +187,6 @@ export default async function JobDetailPage({ params }: Props) {
         </div>
       </div>
 
-      {/* 2026-08-31: same decorative OpenStreetMap embed as the profile
-          page (app/u/[username]/page.tsx), here for the job post's own
-          location instead of a person's -- Aleksandr's screenshot of the
-          mobile app's job detail page showing a map under the description. */}
-      {post.location?.coordinates && (
-        <LocationMap coordinates={post.location.coordinates} label={post.location.display} />
-      )}
-
       <PostImages images={postImages} />
 
       {/* Aleksandr, 2026-08-27: "поднять теги наверх, перед основным
@@ -216,6 +208,16 @@ export default async function JobDetailPage({ params }: Props) {
       )}
 
       <div className="mt-6 whitespace-pre-wrap text-neutral-700 dark:text-neutral-300">{post.contentText}</div>
+
+      {/* 2026-08-31: same decorative OpenStreetMap embed as before, but
+          moved below the main text ("после основного текста, а не сверху")
+          instead of up near the header -- decorative-only, gated on real
+          coordinates existing (mapLocation() already turns the backend's
+          "Worldwide" sentinel into coordinates: null). Also removed from
+          the profile page entirely per the same message -- job posts only. */}
+      {post.location?.coordinates && (
+        <LocationMap coordinates={post.location.coordinates} label={post.location.display} />
+      )}
 
       {/* Aleksandr, 2026-08-30 (live report: "в отображении поста нет
           ссылки, хотя я заполнял при создании"): components/post-
