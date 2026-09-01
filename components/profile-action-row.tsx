@@ -1,0 +1,521 @@
+// components/profile-action-row.tsx
+//
+// 2026-09-01 (Aleksandr, 3 screenshots from the native app: someone
+// else's profile with a row of 4 buttons -- add contact / share /
+// message / "•••" -- and that "•••" opening Save/Mute/Block): "тебе
+// ещё скину визуал... я хочу, чтобы ты поставил вот этот блок кнопок
+// у нас [в веб-профиле]... у нас сейчас есть возле, например, Sabrina
+// Sofia Bennett, там где зелёная иконка добавить пользователя, мы её
+// убираем и вместо неё ставим вот этот ряд из четырёх кнопок." Master
+// plan agreed live before building this: Mute/Block are UI-only stubs
+// for now (no backend endpoint exists anywhere in this app or PLAN.md
+// for either -- confirmed by search, not assumed), Message stays a
+// stub the same way it already is on post-viewer-menu.tsx's post-detail
+// row, and unlike the native app's own "•••" (icons on the right), this
+// follows the web's own newer convention -- icons on the LEFT of each
+// row, same as post-viewer-menu.tsx already does.
+//
+// Replaces components/add-contact-button.tsx's standalone corner badge
+// entirely (app/u/[username]/page.tsx no longer mounts that component)
+// -- this row's own first button reimplements the exact same
+// contacts.addContact/removeContact toggle inline instead. Sits as its
+// own full-width row between the occupation/location line and
+// <ProfileTabs>, matching the native screenshot's own stacking order
+// (avatar/name -> role/location -> this row -> Про мене/Дописи tabs).
+// If that turns out to look cramped once live, the agreed fallback is
+// to push ProfileTabs and the "+" create-post FAB further down -- not
+// attempted preemptively here, only if the plain insertion reads badly.
+//
+// Four equal cells (`grid grid-cols-4`, same convention app/my-activity/
+// page.tsx's own 3-tab pill switcher just established) rather than the
+// mobile screenshot's exact native chrome -- icon-only, no visible
+// labels (aria-label/title carry the accessible name), first cell
+// filled `bg-accent` as the primary CTA, the other three the same
+// neutral bordered-white style post-viewer-menu.tsx's own "•••" trigger
+// already uses.
+//
+// Save reuses the exact shared favorites system app/api/favorites/
+// {add,remove,users}/route.ts already expose for "Збережені
+// користувачі" (favorites.addFavorites/deleteFavorites already routes
+// a USER_ID-prefixed id to UserService -- see add/route.ts's own
+// comment) -- saving someone from their profile here is the same
+// action, and now shows up in /my-activity's "Збережені користувачі"
+// tab too, closing the loop that route's own header comment left open
+// ("сохранённых пользователей еще сделаем, в профиле будут кнопки").
+//
+// The "added to contacts" visual state below is a placeholder
+// (white/bordered pill, checkmark that swaps to a remove icon on
+// hover -- the same interaction components/add-contact-button.tsx's
+// own comment already worked out live) -- Aleksandr said a VK-style
+// reference screenshot for that exact state is coming separately; swap
+// only the "on" branch's classes/icon once that arrives, the rest of
+// this file's shape shouldn't need to change.
+"use client";
+
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
+import { authFetch } from "@/lib/auth-fetch";
+import type { Contact } from "@/lib/a1/schemas";
+
+type StringKey =
+  | "addContact"
+  | "removeContact"
+  | "shareProfile"
+  | "linkCopied"
+  | "message"
+  | "menuLabel"
+  | "saveProfile"
+  | "unsaveProfile"
+  | "mute"
+  | "block"
+  | "actionFailed";
+
+const STRINGS: Record<StringKey, Record<Locale, string>> = {
+  addContact: {
+    uk: "Додати в контакти", en: "Add to contacts", ru: "Добавить в контакты",
+    de: "Zu Kontakten hinzufügen", es: "Añadir a contactos", fr: "Ajouter aux contacts",
+    pl: "Dodaj do kontaktów", ptBR: "Adicionar aos contatos", zh: "添加到联系人",
+  },
+  removeContact: {
+    uk: "Прибрати з контактів", en: "Remove from contacts", ru: "Убрать из контактов",
+    de: "Aus Kontakten entfernen", es: "Quitar de contactos", fr: "Retirer des contacts",
+    pl: "Usuń z kontaktów", ptBR: "Remover dos contatos", zh: "从联系人中移除",
+  },
+  shareProfile: {
+    uk: "Поділитися профілем", en: "Share profile", ru: "Поделиться профилем",
+    de: "Profil teilen", es: "Compartir perfil", fr: "Partager le profil",
+    pl: "Udostępnij profil", ptBR: "Compartilhar perfil", zh: "分享资料",
+  },
+  linkCopied: {
+    uk: "Посилання скопійовано", en: "Link copied", ru: "Ссылка скопирована",
+    de: "Link kopiert", es: "Enlace copiado", fr: "Lien copié",
+    pl: "Link skopiowany", ptBR: "Link copiado", zh: "链接已复制",
+  },
+  message: { uk: "Повідомлення", en: "Message", ru: "Сообщение", de: "Nachricht", es: "Mensaje", fr: "Message", pl: "Wiadomość", ptBR: "Mensagem", zh: "消息" },
+  menuLabel: { uk: "Дії", en: "Actions", ru: "Действия", de: "Aktionen", es: "Acciones", fr: "Actions", pl: "Działania", ptBR: "Ações", zh: "操作" },
+  saveProfile: {
+    uk: "Зберегти профіль", en: "Save profile", ru: "Сохранить профиль",
+    de: "Profil speichern", es: "Guardar perfil", fr: "Enregistrer le profil",
+    pl: "Zapisz profil", ptBR: "Salvar perfil", zh: "保存资料",
+  },
+  unsaveProfile: {
+    uk: "Прибрати зі збережених", en: "Remove from saved", ru: "Убрать из сохранённых",
+    de: "Aus Gespeichertem entfernen", es: "Quitar de guardados", fr: "Retirer des enregistrés",
+    pl: "Usuń z zapisanych", ptBR: "Remover dos salvos", zh: "从已保存中移除",
+  },
+  // 2026-09-01: UI-only stubs -- there is no mute/block endpoint anywhere
+  // in this app, aone-api-private, or PLAN.md (checked, not assumed).
+  // Rows are real and clickable so the menu doesn't look broken, but
+  // click handlers just close the menu -- see this file's own header
+  // comment.
+  mute: { uk: "Приглушити", en: "Mute", ru: "Заглушить", de: "Stummschalten", es: "Silenciar", fr: "Mettre en sourdine", pl: "Wycisz", ptBR: "Silenciar", zh: "静音" },
+  block: { uk: "Заблокувати", en: "Block", ru: "Заблокировать", de: "Blockieren", es: "Bloquear", fr: "Bloquer", pl: "Zablokuj", ptBR: "Bloquear", zh: "屏蔽" },
+  actionFailed: { uk: "Не вдалося. Спробуйте ще раз", en: "Failed — try again", ru: "Не удалось. Попробуйте ещё раз", de: "Fehlgeschlagen — erneut versuchen", es: "Error — inténtalo de nuevo", fr: "Échec — réessayez", pl: "Nie udało się — spróbuj ponownie", ptBR: "Falhou — tente novamente", zh: "失败，请重试" },
+};
+
+function useActiveLocale(): Locale {
+  const [lang, setLang] = useState<Locale>("uk");
+  useEffect(() => {
+    const root = document.documentElement;
+    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
+    if (active) setLang(active);
+  }, []);
+  return lang;
+}
+
+type ToggleStatus = "loading" | "idle" | "on" | "busy" | "error";
+
+// Same PersonAdd/Check/PersonRemove trio components/add-contact-
+// button.tsx already uses (idle -> filled "+", added -> checkmark,
+// hover-while-added -> a remove icon hinting at the toggle) -- kept
+// visually identical to that proven interaction rather than inventing
+// a new one, just recolored to fit this row (see the button markup
+// below).
+function PersonAddIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+      <circle cx="9" cy="8" r="4" />
+      <path d="M2 21c0-4 3.1-6 7-6s7 2 7 6" />
+      <path d="M19 8v6M16 11h6" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+      <path d="M20 6L9 17l-5-5" />
+    </svg>
+  );
+}
+
+function PersonRemoveIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+      <circle cx="9" cy="8" r="4" />
+      <path d="M2 21c0-4 3.1-6 7-6s7 2 7 6" />
+      <path d="M16 11h6" />
+    </svg>
+  );
+}
+
+function ShareIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+      <circle cx="18" cy="5" r="3" />
+      <circle cx="6" cy="12" r="3" />
+      <circle cx="18" cy="19" r="3" />
+      <path d="M8.6 10.6l6.8-3.2M8.6 13.4l6.8 3.2" />
+    </svg>
+  );
+}
+
+function MessageIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+    </svg>
+  );
+}
+
+function DotsIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden="true">
+      <circle cx="4" cy="10" r="1.7" />
+      <circle cx="10" cy="10" r="1.7" />
+      <circle cx="16" cy="10" r="1.7" />
+    </svg>
+  );
+}
+
+function BookmarkIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
+function BookmarkFilledIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
+function MuteIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+      <path d="M11 5 6 9H3v6h3l5 4V5z" />
+      <path d="M16 9l5 6M21 9l-5 6" />
+    </svg>
+  );
+}
+
+function BlockIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M5.5 5.5l13 13" />
+    </svg>
+  );
+}
+
+const CELL_BUTTON_CLASS =
+  "flex h-11 w-full items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-600 transition hover:text-neutral-900 disabled:cursor-default disabled:opacity-60 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50";
+
+export function ProfileActionRow({
+  username,
+  profileUserId,
+  shareUrl,
+  shareTitle,
+}: {
+  username: string;
+  profileUserId: string | null;
+  shareUrl: string;
+  shareTitle: string;
+}) {
+  const lang = useActiveLocale();
+  const [visible, setVisible] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const [contactStatus, setContactStatus] = useState<ToggleStatus>("loading");
+  const [contactId, setContactId] = useState<string | null>(null);
+  const [contactHovering, setContactHovering] = useState(false);
+
+  const [saveStatus, setSaveStatus] = useState<ToggleStatus>("loading");
+
+  const [shareFeedback, setShareFeedback] = useState(false);
+
+  // Same gating as components/add-contact-button.tsx (and post-viewer-
+  // menu.tsx's own "message row" gate): signed in AND looking at
+  // someone else's profile. Own profile / signed-out visitor -> this
+  // whole row renders nothing, same as the badge it replaces did.
+  useEffect(() => {
+    let cancelled = false;
+    authFetch("/api/account/whoami")
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled || !data?.ok) return;
+        if (data.username && data.username !== username) setVisible(true);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [username]);
+
+  useEffect(() => {
+    if (!profileUserId) {
+      setContactStatus("idle");
+      return;
+    }
+    let cancelled = false;
+    authFetch("/api/contacts/list")
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        if (!data?.ok) {
+          setContactStatus("idle");
+          return;
+        }
+        const existing = (data.contacts as Contact[] | undefined)?.find((c) => c.user === profileUserId);
+        if (existing) {
+          setContactId(existing._id);
+          setContactStatus("on");
+        } else {
+          setContactStatus("idle");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setContactStatus("idle");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [profileUserId]);
+
+  // Initial "already saved" state -- app/api/favorites/users/route.ts's
+  // own `id` field is the raw backend _id, same shape profileUserId
+  // already is (see that route's comment), so a direct id compare is
+  // enough; no separate "is this user favorited" endpoint needed.
+  useEffect(() => {
+    if (!profileUserId) {
+      setSaveStatus("idle");
+      return;
+    }
+    let cancelled = false;
+    authFetch("/api/favorites/users")
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        if (!data?.ok) {
+          setSaveStatus("idle");
+          return;
+        }
+        const saved = (data.users as Array<{ id: string }> | undefined)?.some((u) => u.id === profileUserId);
+        setSaveStatus(saved ? "on" : "idle");
+      })
+      .catch(() => {
+        if (!cancelled) setSaveStatus("idle");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [profileUserId]);
+
+  if (!visible || !profileUserId) return null;
+
+  async function toggleContact() {
+    if (contactStatus === "busy" || !profileUserId) return;
+    if (contactStatus === "on") {
+      if (!contactId) return;
+      setContactStatus("busy");
+      try {
+        const res = await authFetch("/api/contacts/remove", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contactId }),
+        });
+        const data = await res.json().catch(() => null);
+        if (data?.ok) {
+          setContactId(null);
+          setContactStatus("idle");
+        } else {
+          setContactStatus("error");
+        }
+      } catch {
+        setContactStatus("error");
+      }
+      return;
+    }
+    setContactStatus("busy");
+    try {
+      const res = await authFetch("/api/contacts/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: profileUserId }),
+      });
+      const data = await res.json().catch(() => null);
+      if (data?.ok) {
+        setContactId(data.contact?._id ?? null);
+        setContactStatus("on");
+      } else {
+        setContactStatus("error");
+      }
+    } catch {
+      setContactStatus("error");
+    }
+  }
+
+  async function toggleSave() {
+    if (saveStatus === "busy" || !profileUserId) return;
+    const wasOn = saveStatus === "on";
+    setSaveStatus("busy");
+    try {
+      const res = await authFetch(wasOn ? "/api/favorites/remove" : "/api/favorites/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: profileUserId }),
+      });
+      const data = await res.json().catch(() => null);
+      setSaveStatus(data?.ok ? (wasOn ? "idle" : "on") : "error");
+    } catch {
+      setSaveStatus("error");
+    }
+    setMenuOpen(false);
+  }
+
+  async function shareProfile() {
+    if (typeof navigator !== "undefined" && "share" in navigator) {
+      try {
+        await navigator.share({ title: shareTitle, url: shareUrl });
+        return;
+      } catch {
+        // Cancelled the share sheet, or the browser rejected it — fall
+        // through to clipboard copy, same as post-viewer-menu.tsx's
+        // sharePost().
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setShareFeedback(true);
+      setTimeout(() => setShareFeedback(false), 2000);
+    } catch {
+      // Nothing more to fall back to.
+    }
+  }
+
+  const contactError = contactStatus === "error";
+  const contactAdded = contactStatus === "on" || contactError;
+  const contactLabel = contactError ? STRINGS.actionFailed[lang] : contactAdded ? STRINGS.removeContact[lang] : STRINGS.addContact[lang];
+  const contactShowRemoveIcon = contactAdded && contactHovering && !contactError;
+
+  const saveLabel = saveStatus === "error" ? STRINGS.actionFailed[lang] : saveStatus === "on" ? STRINGS.unsaveProfile[lang] : STRINGS.saveProfile[lang];
+  const saveIcon = saveStatus === "on" ? <BookmarkFilledIcon /> : <BookmarkIcon />;
+
+  return (
+    <div className="mt-4 grid grid-cols-4 gap-2">
+      {/* Add/remove contact — the same toggle components/add-contact-
+          button.tsx used to run as a standalone corner badge, now the
+          primary (accent-filled) cell of this row. "Added" state is a
+          placeholder — see this file's own header comment; will swap
+          once the VK-style reference lands. */}
+      <button
+        type="button"
+        onClick={toggleContact}
+        onMouseEnter={() => setContactHovering(true)}
+        onMouseLeave={() => setContactHovering(false)}
+        disabled={contactStatus === "busy" || contactStatus === "loading"}
+        aria-label={contactLabel}
+        aria-pressed={contactAdded}
+        title={contactLabel}
+        className={
+          "flex h-11 w-full items-center justify-center rounded-xl transition disabled:cursor-default disabled:opacity-60 " +
+          (contactError
+            ? "bg-red-600 text-white hover:bg-red-700"
+            : contactAdded
+              ? "border border-neutral-200 bg-white text-accent hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:hover:text-neutral-50"
+              : "bg-accent text-white hover:bg-accent/90")
+        }
+      >
+        {contactAdded ? (contactShowRemoveIcon ? <PersonRemoveIcon /> : <CheckIcon />) : <PersonAddIcon />}
+      </button>
+
+      <button
+        type="button"
+        onClick={shareProfile}
+        aria-label={shareFeedback ? STRINGS.linkCopied[lang] : STRINGS.shareProfile[lang]}
+        title={shareFeedback ? STRINGS.linkCopied[lang] : STRINGS.shareProfile[lang]}
+        className={CELL_BUTTON_CLASS}
+      >
+        <ShareIcon />
+      </button>
+
+      <button
+        type="button"
+        // Pure stub — no chats yet, same as post-viewer-menu.tsx's own
+        // Message row.
+        onClick={() => {}}
+        aria-label={STRINGS.message[lang]}
+        title={STRINGS.message[lang]}
+        className={CELL_BUTTON_CLASS}
+      >
+        <MessageIcon />
+      </button>
+
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setMenuOpen((v) => !v)}
+          aria-label={STRINGS.menuLabel[lang]}
+          aria-expanded={menuOpen}
+          className={CELL_BUTTON_CLASS}
+        >
+          <DotsIcon />
+        </button>
+
+        {menuOpen && (
+          <>
+            {createPortal(
+              <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)} aria-hidden="true" />,
+              document.body,
+            )}
+            <div className="animate-popover absolute right-0 top-full z-50 mt-2 w-56 max-w-[calc(100vw-2rem)] origin-top-right overflow-hidden rounded-2xl border border-neutral-200 bg-white p-1.5 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+              <button
+                type="button"
+                onClick={toggleSave}
+                disabled={saveStatus === "busy" || saveStatus === "loading"}
+                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 transition hover:bg-accent/10 hover:text-accent disabled:opacity-60 dark:text-neutral-300"
+              >
+                {saveIcon}
+                {saveLabel}
+              </button>
+              {/* Mute/Block — UI-only stubs, see this file's own header
+                  comment on why (no backend endpoint exists for either
+                  today). Still close the menu like every real row does. */}
+              <button
+                type="button"
+                onClick={() => setMenuOpen(false)}
+                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 transition hover:bg-accent/10 hover:text-accent dark:text-neutral-300"
+              >
+                <MuteIcon />
+                {STRINGS.mute[lang]}
+              </button>
+              <button
+                type="button"
+                onClick={() => setMenuOpen(false)}
+                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-red-600 transition hover:bg-red-50 dark:hover:bg-red-950/30"
+              >
+                <BlockIcon />
+                {STRINGS.block[lang]}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

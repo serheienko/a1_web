@@ -46,7 +46,7 @@ import { OccupationIcon } from "@/components/occupation-icon";
 import { OCCUPATION_LABELS } from "@/components/occupation-labels";
 import { WORK_STYLE_PREFERENCE_SECTIONS } from "@/components/work-style-labels";
 import { EditProfileButton } from "@/components/edit-profile-button";
-import { AddContactButton } from "@/components/add-contact-button";
+import { ProfileActionRow } from "@/components/profile-action-row";
 import { MarqueeName } from "@/components/marquee-name";
 import { FavoriteCover } from "@/components/favorite-cover";
 import { fetchBookCoverUrl, fetchMovieCoverUrl, fetchGameCoverUrl, type CoverImage } from "@/lib/covers";
@@ -357,15 +357,14 @@ export default async function ProfilePage({ params }: Props) {
           <MarqueeName text={profile.fullName} className="text-xl font-semibold text-neutral-900 sm:text-2xl dark:text-neutral-50" />
           <p className="truncate text-sm text-neutral-500 dark:text-neutral-400">@{profile.username}</p>
         </div>
-        {/* EditProfileButton/AddContactButton (mutually exclusive: own
-            profile vs. someone else's) pinned to this row's own right
-            edge -- see the comment on the row div above. */}
+        {/* EditProfileButton (own profile only) stays pinned to this
+            row's own right edge -- see the comment on the row div above.
+            The old AddContactButton corner badge that used to sit right
+            next to it is gone: 2026-09-01 (Aleksandr, 3 native-app
+            screenshots), that single icon is replaced by the full
+            <ProfileActionRow> below (add contact / share / message /
+            "•••") instead of living up here. */}
         <EditProfileButton username={profile.username} className="absolute right-0 top-0" />
-        <AddContactButton
-          username={profile.username}
-          profileUserId={rawProfile?.object === "user" ? rawProfile._id : null}
-          className="absolute right-0 top-0"
-        />
       </div>
 
       {/* Fuller player element — speed + scrubbing — for the same clip
@@ -408,6 +407,28 @@ export default async function ProfilePage({ params }: Props) {
           быть только в постах" -- the profile map from the previous
           message was reverted; LocationMap now only renders on the job
           post detail page (app/jobs/[slug]/page.tsx). */}
+
+      {/* 2026-09-01 (Aleksandr, 3 native-app screenshots: someone
+          else's profile with a row of 4 buttons -- add contact / share
+          / message / "•••" (Save/Mute/Block) -- right below role/
+          location): "у нас сейчас есть возле... зелёная иконка добавить
+          пользователя, мы её убираем и вместо неё ставим вот этот ряд
+          из четырёх кнопок." Renders nothing for your own profile or a
+          signed-out visitor, same gating components/add-contact-
+          button.tsx (the badge it replaces) already had -- see
+          components/profile-action-row.tsx's own header comment for
+          the full plan, including why Mute/Block are UI-only stubs.
+          Sits here, between role/location and the tabs below, matching
+          the native screenshot's own stacking order; if that reads as
+          cramped once live, the agreed fallback is pushing ProfileTabs
+          and the "+" create-post FAB further down as a follow-up, not
+          attempted preemptively. */}
+      <ProfileActionRow
+        username={profile.username}
+        profileUserId={rawProfile?.object === "user" ? rawProfile._id : null}
+        shareUrl={`${SITE_URL}${profileHref(profile.username)}`}
+        shareTitle={profile.fullName}
+      />
 
       {/* Aleksandr, 2026-08-30: "должны быть просто две кнопки...
           первая -- это bio, а второе -- посты" -- ProfileTabs
