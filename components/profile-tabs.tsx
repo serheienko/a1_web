@@ -243,7 +243,7 @@ export function ProfileTabs({
               : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50")
           }
         >
-          <T uk="Пости" en="Posts" ru="Посты" de="Beiträge" es="Publicaciones" fr="Publications" pl="Posty" ptBR="Publicações" zh="帖子" />
+          <T uk="Дописи" en="Posts" ru="Публикации" de="Beiträge" es="Publicaciones" fr="Publications" pl="Posty" ptBR="Publicações" zh="帖子" />
           {postsCount > 0 ? ` (${postsCount})` : ""}
         </button>
       </div>

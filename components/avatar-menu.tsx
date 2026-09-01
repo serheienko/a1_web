@@ -93,7 +93,7 @@ const LANGUAGE_NAMES: Record<Locale, string> = {
   zh: "简体中文",
 };
 
-type AvatarMenuStringKey = "signIn" | "signOut" | "theme" | "language" | "light" | "dark" | "auto" | "viewProfile";
+type AvatarMenuStringKey = "signIn" | "signOut" | "theme" | "language" | "light" | "dark" | "auto" | "viewProfile" | "contacts";
 
 const STRINGS: Record<AvatarMenuStringKey, Record<Locale, string>> = {
   signIn: {
@@ -108,6 +108,16 @@ const STRINGS: Record<AvatarMenuStringKey, Record<Locale, string>> = {
     uk: "Переглянути профіль", en: "View profile", ru: "Посмотреть профиль", de: "Profil ansehen",
     es: "Ver perfil", fr: "Voir le profil", pl: "Zobacz profil",
     ptBR: "Ver perfil", zh: "查看资料",
+  },
+  // 2026-08-31, first-pass placement for app/contacts/page.tsx (Aleksandr:
+  // "где-то у нас какую-то контактную книгу... я пока не сильно знаю UI,
+  // где и как это расположить") — restored as its own plain row per
+  // 2026-09-01 follow-up ("контакты оставим как есть") once the tabbed
+  // Мої дописи/Збережені experience moved into components/contacts-panel.tsx
+  // below it.
+  contacts: {
+    uk: "Контакти", en: "Contacts", ru: "Контакты", de: "Kontakte", es: "Contactos",
+    fr: "Contacts", pl: "Kontakty", ptBR: "Contatos", zh: "联系人",
   },
   theme: {
     uk: "Тема", en: "Theme", ru: "Тема", de: "Design", es: "Tema",
@@ -165,6 +175,18 @@ function UserIcon() {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="12" cy="8" r="4" />
       <path d="M4 20c0-4 3.6-6 8-6s8 2 8 6" />
+    </svg>
+  );
+}
+
+// 2026-08-31, app/contacts/page.tsx's entry point — same 18px/viewBox-24/
+// stroke-2 style as ThemeIcon/UserIcon above.
+function ContactsIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="9" cy="7" r="4" />
+      <path d="M2 21c0-4 3.1-6 7-6s7 2 7 6" />
+      <path d="M19 8v6M16 11h6" />
     </svg>
   );
 }
@@ -449,16 +471,24 @@ export function AvatarMenu() {
 
             <div className="my-1 border-t border-neutral-100 dark:border-neutral-800" />
 
-            {/* 2026-09-01 (Aleksandr: "Контакты я имею ввиду именно в
-                модалке, которая всплывает после наведения на аватар" --
-                "В самих контактах должны быть только контакты" -- "Отсюда
-                убери табы, только список контактов"): the actual
-                Контакти/Збережені пости/Збережені користувачі content
-                lives HERE now, embedded directly in this hover/tap
-                panel, not as link-out rows to app/contacts/page.tsx
-                (that page went back to a single tab-less list -- see
-                its own header comment). onNavigate closes this panel
-                the same way every other row in it already does. */}
+            <Link
+              href="/contacts"
+              onClick={() => setOpen(false)}
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-neutral-700 transition hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+            >
+              <ContactsIcon />
+              {STRINGS.contacts[lang]}
+            </Link>
+
+            {/* 2026-09-01 (Aleksandr: "Давай сделаем по аналогии 'ТЕМЫ',
+                3 кнопки горизонтально и текст под ними, но контакты
+                оставим как есть, а на 3 кнопки выведем: Мои публикации /
+                Сохраненные публикации / Сохраненные пользователи"): the
+                tabbed Мої дописи/Збережені experience lives here, below
+                the plain Контакти row above -- see components/contacts-
+                panel.tsx's own header comment for the full history.
+                onNavigate closes this panel the same way every other
+                row in it already does. */}
             <ContactsPanel onNavigate={() => setOpen(false)} />
 
             <div className="my-1 border-t border-neutral-100 dark:border-neutral-800" />

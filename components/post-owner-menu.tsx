@@ -43,7 +43,7 @@ type MinePost = EditablePost & {
 type StringKey = "menuLabel" | "edit" | "delete" | "confirmDelete" | "cancel" | "deleteFailed";
 
 const STRINGS: Record<StringKey, Record<Locale, string>> = {
-  menuLabel: { uk: "Дії з постом", en: "Post actions", ru: "Действия с постом", de: "Beitragsaktionen", es: "Acciones de la publicación", fr: "Actions sur la publication", pl: "Działania na poście", ptBR: "Ações da publicação", zh: "帖子操作" },
+  menuLabel: { uk: "Дії з дописом", en: "Post actions", ru: "Действия с публикацией", de: "Beitragsaktionen", es: "Acciones de la publicación", fr: "Actions sur la publication", pl: "Działania na poście", ptBR: "Ações da publicação", zh: "帖子操作" },
   edit: { uk: "Редагувати", en: "Edit", ru: "Редактировать", de: "Bearbeiten", es: "Editar", fr: "Modifier", pl: "Edytuj", ptBR: "Editar", zh: "编辑" },
   delete: { uk: "Видалити", en: "Delete", ru: "Удалить", de: "Löschen", es: "Eliminar", fr: "Supprimer", pl: "Usuń", ptBR: "Excluir", zh: "删除" },
   confirmDelete: { uk: "Точно видалити?", en: "Delete for good?", ru: "Точно удалить?", de: "Wirklich löschen?", es: "¿Eliminar definitivamente?", fr: "Supprimer définitivement ?", pl: "Na pewno usunąć?", ptBR: "Excluir definitivamente?", zh: "确定要删除吗？" },

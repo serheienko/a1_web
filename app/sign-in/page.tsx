@@ -129,9 +129,9 @@ const STRINGS: Record<SignInStringKey, Record<Locale, string>> = {
   // `showCreatePostNotice` state below for why it's not shown by
   // default on a plain visit to this page.
   createPostNotice: {
-    uk: "Щоб створити пост, зареєструйтесь або увійдіть.",
+    uk: "Щоб створити допис, зареєструйтесь або увійдіть.",
     en: "To create a post, please sign up or sign in.",
-    ru: "Чтобы создать пост, зарегистрируйтесь или войдите.",
+    ru: "Чтобы создать публикацию, зарегистрируйтесь или войдите.",
     de: "Um einen Beitrag zu erstellen, registrieren Sie sich oder melden Sie sich an.",
     es: "Para crear una publicación, regístrate o inicia sesión.",
     fr: "Pour créer une publication, inscrivez-vous ou connectez-vous.",

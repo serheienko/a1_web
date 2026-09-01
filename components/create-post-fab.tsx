@@ -45,7 +45,7 @@ type FabStringKey = "label";
 
 const STRINGS: Record<FabStringKey, Record<Locale, string>> = {
   label: {
-    uk: "Створити пост", en: "Create post", ru: "Создать пост", de: "Beitrag erstellen",
+    uk: "Створити допис", en: "Create post", ru: "Создать публикацию", de: "Beitrag erstellen",
     es: "Crear publicación", fr: "Créer une publication", pl: "Utwórz post",
     ptBR: "Criar publicação", zh: "创建帖子",
   },

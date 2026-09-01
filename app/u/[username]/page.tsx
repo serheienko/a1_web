@@ -680,7 +680,7 @@ export default async function ProfilePage({ params }: Props) {
         </div>
       ) : (
         <p className="text-sm text-neutral-500 dark:text-neutral-400">
-          <T uk="Поки що немає опублікованих постів" en="No published posts yet" ru="Пока нет опубликованных постов" de="Noch keine veröffentlichten Beiträge" es="Aún no hay publicaciones" fr="Aucune publication pour le moment" pl="Brak opublikowanych postów" ptBR="Ainda não há publicações" zh="暂无已发布的帖子" />
+          <T uk="Поки що немає опублікованих дописів" en="No published posts yet" ru="Пока нет опубликованных публикаций" de="Noch keine veröffentlichten Beiträge" es="Aún no hay publicaciones" fr="Aucune publication pour le moment" pl="Brak opublikowanych postów" ptBR="Ainda não há publicações" zh="暂无已发布的帖子" />
         </p>
       )}
           </>

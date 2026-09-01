@@ -49,11 +49,11 @@ type StringKey =
   | "edit" | "delete" | "confirmDelete" | "cancel" | "deleteFailed";
 
 const STRINGS: Record<StringKey, Record<Locale, string>> = {
-  title: { uk: "Мої пости", en: "My posts", ru: "Мои посты", de: "Meine Beiträge", es: "Mis publicaciones", fr: "Mes publications", pl: "Moje posty", ptBR: "Minhas publicações", zh: "我的帖子" },
+  title: { uk: "Мої дописи", en: "My posts", ru: "Мои публикации", de: "Meine Beiträge", es: "Mis publicaciones", fr: "Mes publications", pl: "Moje posty", ptBR: "Minhas publicações", zh: "我的帖子" },
   close: { uk: "Закрити", en: "Close", ru: "Закрыть", de: "Schließen", es: "Cerrar", fr: "Fermer", pl: "Zamknij", ptBR: "Fechar", zh: "关闭" },
-  newPost: { uk: "+ Новий пост", en: "+ New post", ru: "+ Новый пост", de: "+ Neuer Beitrag", es: "+ Nueva publicación", fr: "+ Nouvelle publication", pl: "+ Nowy post", ptBR: "+ Nova publicação", zh: "+ 新帖子" },
-  empty: { uk: "У вас ще немає постів", en: "You don't have any posts yet", ru: "У вас пока нет постов", de: "Sie haben noch keine Beiträge", es: "Aún no tienes publicaciones", fr: "Vous n'avez pas encore de publications", pl: "Nie masz jeszcze postów", ptBR: "Você ainda não tem publicações", zh: "您还没有帖子" },
-  loadError: { uk: "Не вдалося завантажити пости", en: "Couldn't load posts", ru: "Не удалось загрузить посты", de: "Beiträge konnten nicht geladen werden", es: "No se pudieron cargar las publicaciones", fr: "Impossible de charger les publications", pl: "Nie udało się załadować postów", ptBR: "Não foi possível carregar as publicações", zh: "无法加载帖子" },
+  newPost: { uk: "+ Новий допис", en: "+ New post", ru: "+ Новая публикация", de: "+ Neuer Beitrag", es: "+ Nueva publicación", fr: "+ Nouvelle publication", pl: "+ Nowy post", ptBR: "+ Nova publicação", zh: "+ 新帖子" },
+  empty: { uk: "У вас ще немає дописів", en: "You don't have any posts yet", ru: "У вас пока нет публикаций", de: "Sie haben noch keine Beiträge", es: "Aún no tienes publicaciones", fr: "Vous n'avez pas encore de publications", pl: "Nie masz jeszcze postów", ptBR: "Você ainda não tem publicações", zh: "您还没有帖子" },
+  loadError: { uk: "Не вдалося завантажити дописи", en: "Couldn't load posts", ru: "Не удалось загрузить публикации", de: "Beiträge konnten nicht geladen werden", es: "No se pudieron cargar las publicaciones", fr: "Impossible de charger les publications", pl: "Nie udało się załadować postów", ptBR: "Não foi possível carregar as publicações", zh: "无法加载帖子" },
   jobs: { uk: "Вакансія", en: "Job", ru: "Вакансия", de: "Job", es: "Empleo", fr: "Emploi", pl: "Praca", ptBR: "Vaga", zh: "职位" },
   talents: { uk: "Резюме", en: "Profile", ru: "Резюме", de: "Profil", es: "Perfil", fr: "Profil", pl: "Profil", ptBR: "Perfil", zh: "简历" },
   statusPublished: { uk: "Опубліковано", en: "Published", ru: "Опубликовано", de: "Veröffentlicht", es: "Publicado", fr: "Publié", pl: "Opublikowano", ptBR: "Publicado", zh: "已发布" },

@@ -361,8 +361,8 @@ type StringKey =
   | "deletePost" | "confirmDeleteTitle" | "confirmDeleteBody" | "deleteFailed";
 
 const STRINGS: Record<StringKey, Record<Locale, string>> = {
-  createTitle: { uk: "Новий пост", en: "New post", ru: "Новый пост", de: "Neuer Beitrag", es: "Nueva publicación", fr: "Nouvelle publication", pl: "Nowy post", ptBR: "Nova publicação", zh: "新帖子" },
-  editTitle: { uk: "Редагувати пост", en: "Edit post", ru: "Редактировать пост", de: "Beitrag bearbeiten", es: "Editar publicación", fr: "Modifier la publication", pl: "Edytuj post", ptBR: "Editar publicação", zh: "编辑帖子" },
+  createTitle: { uk: "Новий допис", en: "New post", ru: "Новая публикация", de: "Neuer Beitrag", es: "Nueva publicación", fr: "Nouvelle publication", pl: "Nowy post", ptBR: "Nova publicação", zh: "新帖子" },
+  editTitle: { uk: "Редагувати допис", en: "Edit post", ru: "Редактировать публикацию", de: "Beitrag bearbeiten", es: "Editar publicación", fr: "Modifier la publication", pl: "Edytuj post", ptBR: "Editar publicação", zh: "编辑帖子" },
   close: { uk: "Закрити", en: "Close", ru: "Закрыть", de: "Schließen", es: "Cerrar", fr: "Fermer", pl: "Zamknij", ptBR: "Fechar", zh: "关闭" },
   offerJob: { uk: "Пропоную роботу", en: "Offer a job", ru: "Предлагаю работу", de: "Job anbieten", es: "Ofrecer empleo", fr: "Offrir un emploi", pl: "Oferuję pracę", ptBR: "Oferecer emprego", zh: "提供工作" },
   findJob: { uk: "Шукаю роботу", en: "Find a job", ru: "Ищу работу", de: "Job suchen", es: "Buscar empleo", fr: "Chercher un emploi", pl: "Szukam pracy", ptBR: "Procurar emprego", zh: "找工作" },
@@ -409,7 +409,7 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   post: { uk: "ОПУБЛІКУВАТИ", en: "POST", ru: "ОПУБЛИКОВАТЬ", de: "VERÖFFENTLICHEN", es: "PUBLICAR", fr: "PUBLIER", pl: "OPUBLIKUJ", ptBR: "PUBLICAR", zh: "发布" },
   saveChanges: { uk: "ЗБЕРЕГТИ", en: "SAVE", ru: "СОХРАНИТЬ", de: "SPEICHERN", es: "GUARDAR", fr: "ENREGISTRER", pl: "ZAPISZ", ptBR: "SALVAR", zh: "保存" },
   schedulePost: { uk: "Запланувати", en: "Schedule", ru: "Запланировать", de: "Planen", es: "Programar", fr: "Planifier", pl: "Zaplanuj", ptBR: "Agendar", zh: "定时发布" },
-  scheduleConfirm: { uk: "Запланувати пост", en: "Schedule Post", ru: "Запланировать пост", de: "Beitrag planen", es: "Programar publicación", fr: "Planifier la publication", pl: "Zaplanuj post", ptBR: "Agendar publicação", zh: "定时发布帖子" },
+  scheduleConfirm: { uk: "Запланувати допис", en: "Schedule Post", ru: "Запланировать публикацию", de: "Beitrag planen", es: "Programar publicación", fr: "Planifier la publication", pl: "Zaplanuj post", ptBR: "Agendar publicação", zh: "定时发布帖子" },
   scheduleActionCaps: { uk: "ЗАПЛАНУВАТИ", en: "SCHEDULE", ru: "ЗАПЛАНИРОВАТЬ", de: "PLANEN", es: "PROGRAMAR", fr: "PLANIFIER", pl: "ZAPLANUJ", ptBR: "AGENDAR", zh: "定时发布" },
   scheduleCancel: { uk: "Скасувати", en: "Cancel", ru: "Отмена", de: "Abbrechen", es: "Cancelar", fr: "Annuler", pl: "Anuluj", ptBR: "Cancelar", zh: "取消" },
   scheduleTimeLabel: { uk: "Час", en: "Time", ru: "Время", de: "Uhrzeit", es: "Hora", fr: "Heure", pl: "Godzina", ptBR: "Hora", zh: "时间" },
