@@ -168,12 +168,15 @@ function PersonRemoveIcon() {
 }
 
 function ShareIcon() {
+  // Aleksandr, 2026-09-01, screenshot of this row's own Share button in
+  // the app: it's the iOS "square and arrow up" glyph, not the 3-node
+  // share-nodes icon this used to borrow from post-viewer-menu.tsx's
+  // SharePostIcon. Swapped to match.
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
-      <circle cx="18" cy="5" r="3" />
-      <circle cx="6" cy="12" r="3" />
-      <circle cx="18" cy="19" r="3" />
-      <path d="M8.6 10.6l6.8-3.2M8.6 13.4l6.8 3.2" />
+      <path d="M12 15V3" />
+      <path d="M7.5 7.5 12 3l4.5 4.5" />
+      <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" />
     </svg>
   );
 }
@@ -485,7 +488,7 @@ export function ProfileActionRow({
           (contactErrored
             ? "bg-red-600 text-white hover:bg-red-700"
             : contactAdded
-              ? "border border-neutral-200 bg-white text-accent hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:hover:text-neutral-50"
+              ? "border border-neutral-200 bg-white text-neutral-600 hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50"
               : "bg-accent text-white hover:bg-accent/90")
         }
       >
