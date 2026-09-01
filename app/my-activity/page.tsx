@@ -214,13 +214,25 @@ export default function MyActivityPage() {
           pill switcher (also reused byte-for-byte by components/
           profile-tabs.tsx's Bio/Дописи toggle: white rounded-full
           container, `bg-accent/15 text-accent` active tab). Copied the
-          same convention here rather than inventing a third one, just
-          smaller (py-1.5/text-xs, `flex-1` still splits the row evenly)
-          since three labels ("Мої дописи" / "Збережені дописи" /
-          "Збережені користувачі") are meaningfully longer than either
-          of those two-tab callers' own labels and need to fit one line
-          each without wrapping. */}
-      <div className="mt-6 flex gap-1 rounded-full bg-white p-1 dark:bg-neutral-900">
+          same convention here rather than inventing a third one.
+          First pass used `flex-1 whitespace-nowrap`, which held each
+          button to its full one-line content width (flex items default
+          to `min-width: auto`) -- on an actual phone (real screenshot,
+          not this sandbox's simulated viewport) "Збережені
+          користувачі" alone was wider than its 1/3 share, so the whole
+          row overflowed straight off the right edge of the screen
+          instead of shrinking. Aleksandr, live screenshot: "Не влезло.
+          На моб делай в 2 ряда, если не помещается и увеличивай высоту
+          кнопки" -- `grid grid-cols-3` (equal thirds, no min-width
+          escape hatch the way flex has) plus dropping `whitespace-
+          nowrap` lets a too-narrow button wrap its own label to a
+          second line instead of pushing the row wider than the
+          viewport; `py-2` (up from `py-1.5`) gives that wrapped
+          two-line state room to breathe instead of clipping, and reads
+          fine as slightly-taller-than-strictly-needed on the common
+          case where everything still fits on one line (desktop, or
+          shorter locales). */}
+      <div className="mt-6 grid grid-cols-3 gap-1 rounded-full bg-white p-1 dark:bg-neutral-900">
         {TAB_ORDER.map((t) => (
           <button
             key={t}
@@ -228,7 +240,7 @@ export default function MyActivityPage() {
             onClick={() => setTab(t)}
             aria-pressed={tab === t}
             className={
-              "flex-1 whitespace-nowrap rounded-full px-2 py-1.5 text-center text-xs font-medium transition sm:text-sm " +
+              "min-w-0 rounded-full px-2 py-2 text-center text-xs font-medium leading-tight transition sm:text-sm " +
               (tab === t
                 ? "bg-accent/15 text-accent"
                 : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50")
