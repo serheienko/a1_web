@@ -130,6 +130,21 @@ function tabButtonClass(active: boolean): string {
 export default function ContactsPage() {
   const [tab, setTab] = useState<Tab>("contacts");
 
+  // 2026-09-01 (Aleksandr: two new rows in components/avatar-menu.tsx,
+  // "Збережені пости"/"Збережені користувачі", right under "Контакти")
+  // -- those link here as /contacts?tab=posts / ?tab=users so this page
+  // opens straight to the right tab instead of always landing on
+  // Контакти first. Read from window.location.search in an effect
+  // rather than next/navigation's useSearchParams -- same reasoning
+  // this file's useEffect-based useActiveLocale-style patterns already
+  // follow elsewhere in this app: keeps this plain client-only, no
+  // Suspense-boundary requirement to satisfy for a single query read on
+  // mount.
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get("tab");
+    if (requested === "posts" || requested === "users") setTab(requested);
+  }, []);
+
   const [state, setState] = useState<LoadState>("loading");
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactUsers, setContactUsers] = useState<Record<string, ContactUserSummary>>({});

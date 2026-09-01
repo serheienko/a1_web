@@ -92,7 +92,7 @@ const LANGUAGE_NAMES: Record<Locale, string> = {
   zh: "简体中文",
 };
 
-type AvatarMenuStringKey = "signIn" | "signOut" | "theme" | "language" | "light" | "dark" | "auto" | "viewProfile" | "contacts";
+type AvatarMenuStringKey = "signIn" | "signOut" | "theme" | "language" | "light" | "dark" | "auto" | "viewProfile" | "contacts" | "savedPosts" | "savedUsers";
 
 const STRINGS: Record<AvatarMenuStringKey, Record<Locale, string>> = {
   signIn: {
@@ -115,6 +115,21 @@ const STRINGS: Record<AvatarMenuStringKey, Record<Locale, string>> = {
   contacts: {
     uk: "Контакти", en: "Contacts", ru: "Контакты", de: "Kontakte", es: "Contactos",
     fr: "Contacts", pl: "Kontakty", ptBR: "Contatos", zh: "联系人",
+  },
+  // 2026-09-01 (Aleksandr: "я хочу, чтобы ты под контактами поставил
+  // два таба: сохраненные посты, сохраненные пользователи") -- two more
+  // entry-point rows right under Контакти, same styling, deep-linking
+  // into app/contacts/page.tsx's existing tab switcher via ?tab= rather
+  // than duplicating that page's own fetch/render logic here.
+  savedPosts: {
+    uk: "Збережені пости", en: "Saved posts", ru: "Сохранённые посты", de: "Gespeicherte Beiträge",
+    es: "Publicaciones guardadas", fr: "Publications enregistrées", pl: "Zapisane posty",
+    ptBR: "Publicações salvas", zh: "已保存帖子",
+  },
+  savedUsers: {
+    uk: "Збережені користувачі", en: "Saved users", ru: "Сохранённые пользователи", de: "Gespeicherte Nutzer",
+    es: "Usuarios guardados", fr: "Utilisateurs enregistrés", pl: "Zapisani użytkownicy",
+    ptBR: "Usuários salvos", zh: "已保存用户",
   },
   theme: {
     uk: "Тема", en: "Theme", ru: "Тема", de: "Design", es: "Tema",
@@ -184,6 +199,32 @@ function ContactsIcon() {
       <circle cx="9" cy="7" r="4" />
       <path d="M2 21c0-4 3.1-6 7-6s7 2 7 6" />
       <path d="M19 8v6M16 11h6" />
+    </svg>
+  );
+}
+
+// Same 18px/viewBox-24/stroke-2 style as every other icon in this file.
+// Bookmark shape matches components/post-viewer-menu.tsx's own
+// BookmarkIcon -- "saved" reads the same way in both places.
+function SavedPostsIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
+// Deliberately a two-person group, not another single-person glyph --
+// ContactsIcon right above it is already a single person, and this row
+// sits directly under it, so it needs to read as visually distinct at
+// a glance, not just a text difference.
+function SavedUsersIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="8" cy="8" r="3" />
+      <path d="M2 20c0-3.3 2.7-5 6-5s6 1.7 6 5" />
+      <circle cx="17" cy="8" r="2.6" />
+      <path d="M15.5 10.4c2.6.3 4.5 1.8 4.5 4.6" />
     </svg>
   );
 }
@@ -480,6 +521,22 @@ export function AvatarMenu() {
             >
               <ContactsIcon />
               {STRINGS.contacts[lang]}
+            </Link>
+            <Link
+              href="/contacts?tab=posts"
+              onClick={() => setOpen(false)}
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-neutral-700 transition hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+            >
+              <SavedPostsIcon />
+              {STRINGS.savedPosts[lang]}
+            </Link>
+            <Link
+              href="/contacts?tab=users"
+              onClick={() => setOpen(false)}
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-neutral-700 transition hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+            >
+              <SavedUsersIcon />
+              {STRINGS.savedUsers[lang]}
             </Link>
 
             <div className="my-1 border-t border-neutral-100 dark:border-neutral-800" />
