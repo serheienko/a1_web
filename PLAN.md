@@ -3374,3 +3374,33 @@ page.tsx's favoriteTile) and a cover URL that resolved server-side but
 onError, previously `return null`). favoriteTile() now takes an
 explicit `kind: "book" | "movie" | "game"` param (all three call sites
 updated) so the fallback icon matches the section it's in.
+
+### 6.65 Chat messages 400: `peer` -> `peerTo` (confirmed live via Vercel Logs, 2026-09-01)
+
+Aleksandr opened a real chat live ("Що робимо далі по чатам? Поки
+повідомлення з чату не підгружає" -- screenshot: "Не вдалося
+завантажити повідомлення" in the chat window). `/api/chats/messages`
+was 502ing every call. `packages/types` is still unreadable under this
+session's persistent EDEADLK lock, so per §6.62's own rule ("confirm on
+first live error, don't guess further") the next step was reading the
+real backend response instead of guessing again -- Vercel's Logs page
+(https://vercel.com/serheienko-7585/a1-web/logs) has the actual
+serverless `console.error` output, including chat-server's real HTTP
+body:
+
+    [api/chats/messages] failed: 400 {"ms":0,"error":true,"code":"INVALID_INPUT","message":"root is missing required property 'peerTo'","status":400}
+
+So `messages.getMessages`'s peer field is named `peerTo`, not `peer` --
+fixed in app/api/chats/messages/route.ts. The VALUE shape
+(`peerForChat(chatId)`, i.e. `{ object: "peer-chat", chat: chatId }`)
+is untouched and still just a guess pending its own live confirmation --
+only the wrapping field name was wrong.
+
+Pre-emptively applied the identical `peer` -> `peerTo` rename to
+app/api/chats/send/route.ts (`messages.send`) and app/api/chats/typing/
+route.ts (`messages.sendAction`) too, since all three are `messages.*`
+calls against the same chat-server and near-certainly share one naming
+convention -- but this part is NOT independently confirmed yet, only
+inferred from messages.getMessages's real error. First live send/typing
+attempt is what actually confirms or refutes it; if either still 502s,
+that response body is the next thing to read, not another guess.

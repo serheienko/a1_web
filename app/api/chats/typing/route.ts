@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const { refreshedSession } = await callAsVisitor<unknown>("messages.sendAction", {
-      peer: peerForChat(parsed.data.chatId),
+      peerTo: peerForChat(parsed.data.chatId),
       action: "typing",
     });
     const response = NextResponse.json({ ok: true });

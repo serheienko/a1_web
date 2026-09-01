@@ -1,11 +1,18 @@
 // app/api/chats/messages/route.ts
 //
 // Phase 1 web chat (Aleksandr, 2026-09-01). GET ?chat=<chatId> -- proxies
-// chat-server's `messages.getMessages` for one chat's history. Peer is
-// always `{ object: "peer-chat", chat: chatId }`, confirmed via
+// chat-server's `messages.getMessages` for one chat's history. Peer
+// value is `{ object: "peer-chat", chat: chatId }`, confirmed via
 // useChat.ts's own lastMessage lookup (see lib/a1/chat-schemas.ts's
 // header) -- there's no separate peer-user-addressed stream for a
 // personal chat's own messages, only for identifying its participants.
+//
+// FIELD NAME CONFIRMED LIVE (2026-09-01): first real call 400'd with
+// "root is missing required property 'peerTo'" (seen via Vercel Logs),
+// so the request field is `peerTo`, not `peer` -- fixed below. Value
+// shape (`peerForChat(chatId)`) is unchanged/still a guess, just the
+// wrapping field name was wrong. This is the first live confirmation
+// under this file's "confirm on first live error" plan (PLAN.md §6.62).
 //
 // This is the MVP polling transport (PLAN.md's chat master plan,
 // "поллинг для MVP"): the client (app/chats/[chatId]/page.tsx) re-calls
@@ -36,7 +43,7 @@ export async function GET(request: NextRequest) {
     // the other side's without an extra request.
     const session = await readSession();
     const { data, refreshedSession } = await callAsVisitor<unknown>("messages.getMessages", {
-      peer: peerForChat(chatId),
+      peerTo: peerForChat(chatId),
       limit: 50,
     });
 

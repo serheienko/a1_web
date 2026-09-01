@@ -11,6 +11,14 @@
 // and cheap to drop later if it turns out to reject unknown fields
 // instead (that would surface as an immediate 502 here, not a silent
 // failure).
+//
+// FIELD NAME (2026-09-01): messages.getMessages turned out to want the
+// peer under `peerTo`, not `peer` (confirmed live via Vercel Logs --
+// see app/api/chats/messages/route.ts's header). Applying the same
+// rename here pre-emptively since messages.* almost certainly shares
+// one naming convention -- still unconfirmed for THIS endpoint
+// specifically until a real send is tried; if it 502s with a 'peerTo'-
+// shaped complaint instead, that's the next thing to read.
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { A1ApiError } from "@/lib/a1/client";
@@ -34,7 +42,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const { data, refreshedSession } = await callAsVisitor<unknown>("messages.send", {
-      peer: peerForChat(chatId),
+      peerTo: peerForChat(chatId),
       message: text,
       randomId: crypto.randomUUID(),
     });
