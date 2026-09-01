@@ -41,7 +41,7 @@ export default function ChatsPage() {
     let cancelled = false;
 
     async function load() {
-      if (inFlight.current || document.hidden) return;
+      if (inFlight.current) return;
       inFlight.current = true;
       try {
         const res = await authFetch("/api/chats/list");
@@ -64,8 +64,17 @@ export default function ChatsPage() {
       }
     }
 
+    // Initial load always runs, even in a background/unfocused tab --
+    // only the recurring poll below skips while hidden (2026-09-01
+    // live-testing bug: the old code checked document.hidden inside
+    // load() itself, which also silently skipped the very FIRST fetch
+    // whenever this page happened to mount in a tab that wasn't
+    // frontmost -- the list just sat on "Loading..." forever with no
+    // error and no request ever sent).
     load();
-    const timer = window.setInterval(load, POLL_MS);
+    const timer = window.setInterval(() => {
+      if (!document.hidden) load();
+    }, POLL_MS);
     const onVisible = () => {
       if (!document.hidden) load();
     };

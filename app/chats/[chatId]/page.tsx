@@ -51,7 +51,7 @@ export default function ChatWindowPage() {
   const scrollAnchorRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
-    if (inFlight.current || document.hidden) return;
+    if (inFlight.current) return;
     inFlight.current = true;
     try {
       const res = await authFetch(`/api/chats/messages?chat=${encodeURIComponent(chatId)}`);
@@ -76,9 +76,12 @@ export default function ChatWindowPage() {
 
   useEffect(() => {
     let cancelled = false;
+    // Same 2026-09-01 fix as app/chats/page.tsx's own load() -- initial
+    // load must run even in a background/unfocused tab; only the
+    // recurring poll skips while hidden.
     load();
     const timer = window.setInterval(() => {
-      if (!cancelled) load();
+      if (!cancelled && !document.hidden) load();
     }, POLL_MS);
     const onVisible = () => {
       if (!document.hidden) load();
