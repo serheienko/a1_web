@@ -3312,3 +3312,43 @@ Not build-tested locally (no `node_modules` on the connected Mac, same
 gap §6.59's own comment already notes) -- next step is Aleksandr
 pushing this via GitHub Desktop and a live Vercel build + signed-in
 test of /chats.
+
+### 6.63 Contacts: "Chat" icon per row, opens/creates the personal chat (2026-09-01)
+
+Aleksandr: "в контактах добавь кнопку 'написать', т е не текст, а
+просто напротив имени добавь иконку чатов и раздели на 2 нажатия:
+аватар и определенная ширина поля - переход на акк, а чат иконка -
+открыть чат. Строка выбора (подсветка) мне нравится как сейчас."
+
+app/contacts/page.tsx: each row's outer highlighted pill (unchanged
+hover/select styling, per his explicit "нравится как сейчас") now
+wraps two separate click targets instead of being one big `<Link>`:
+avatar+name+phone -> profile (same as before), plus a new trailing chat
+icon -> app/api/chats/open, shown only when `contact.user` is set (a
+phone-book-only entry has no platform account to message). Failure
+flashes the icon red for ~2s -- same flashError() convention
+components/profile-action-row.tsx's own contact/save buttons already
+use (§ ProfileActionRow toggle-bug fix, this same file's earlier
+entries).
+
+New `POST /api/chats/open` ({userId} -> {chatId}): first checks
+GET-chats.getChats-equivalent logic for an EXISTING personal chat with
+that user (same Chat/otherParticipantUserId helpers app/api/chats/list/
+route.ts already uses -- this half is on the same confirmed-ish footing
+as the rest of Phase 1). Only when none exists does it fall back to
+`chats.createChat` with a guessed `{ users: [userId] }` body -- that
+method's own request/response type file hit the same packages/types
+read-lock as everything else in this chat feature (see lib/a1/chat-
+schemas.ts's header), so this is explicitly the least-confirmed part of
+today's change. `extractCreatedChatId()` (chat-schemas.ts) parses the
+create response defensively (direct Chat, `{chat:...}` wrapper, or a
+bare `_id`) so a slightly-off wrapper key still resolves.
+
+**Aleksandr's live-testing question this same round, answered:** does
+/chats actually show real data synced with the mobile app? Yes in
+principle -- this proxies the SAME chat-server the app talks to, not a
+separate system, so there's no "sync" step to build. Whether it
+actually renders real chats depends entirely on whether §6.62's
+best-guess field names for messages.getMessages/chats.getChats matched
+the real backend -- not independently confirmed as of this entry
+either; first live screenshot of a populated /chats will settle it.

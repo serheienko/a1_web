@@ -39,9 +39,25 @@
 // there (a phone-book entry with no linked user, or a linked account
 // that no longer resolves) falls back to the same generated
 // pickDefaultCatAvatar placeholder as before.
+//
+// 2026-09-01 (Aleksandr: "добавь кнопку 'написать'... не текст, а
+// просто напротив имени добавь иконку чатов и раздели на 2 нажатия:
+// аватар и определенная ширина поля - переход на акк, а чат иконка -
+// открыть чат"): each row is now two separate click targets inside the
+// same highlighted pill (he explicitly likes the current hover/select
+// styling as-is, so that stays on the OUTER row -- only the inner
+// structure splits). The chat icon only appears for a platform-linked
+// contact (contact.user set) -- a phone-book-only entry has no account
+// to message. It calls the new POST /api/chats/open (finds an existing
+// personal chat with that user, or creates one -- see that route's own
+// comment for exactly how uncertain the "creates one" half still is)
+// and navigates to the resulting /chats/<id>. Failure flashes the icon
+// red for ~2s, same flashError() convention components/profile-action-
+// row.tsx already uses for its own contact/save-toggle buttons.
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
@@ -62,6 +78,16 @@ type ContactUserSummary = {
   avatarBlurDataUrl: string | null;
 };
 
+// Same speech-bubble glyph as components/avatar-menu.tsx's ChatsIcon /
+// components/chats-fab.tsx's ChatsIcon, just this row's own icon size.
+function ChatIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 20l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+    </svg>
+  );
+}
+
 function contactName(contact: Contact, linkedUser: ContactUserSummary | undefined): string {
   if (linkedUser?.fullName) return linkedUser.fullName;
   const name = `${contact.firstName} ${contact.lastName}`.trim();
@@ -74,6 +100,32 @@ export default function ContactsPage() {
   const [state, setState] = useState<LoadState>("loading");
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactUsers, setContactUsers] = useState<Record<string, ContactUserSummary>>({});
+  const router = useRouter();
+  const [openingChatFor, setOpeningChatFor] = useState<string | null>(null);
+  const [chatErrorFor, setChatErrorFor] = useState<string | null>(null);
+
+  async function openChat(userId: string) {
+    if (openingChatFor) return;
+    setOpeningChatFor(userId);
+    try {
+      const res = await authFetch("/api/chats/open", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
+      const data = await res.json().catch(() => null);
+      if (data?.ok && typeof data.chatId === "string") {
+        router.push(`/chats/${data.chatId}`);
+        return;
+      }
+      throw new Error("open_failed");
+    } catch {
+      setChatErrorFor(userId);
+      window.setTimeout(() => setChatErrorFor((v) => (v === userId ? null : v)), 2200);
+    } finally {
+      setOpeningChatFor(null);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -171,8 +223,8 @@ export default function ContactsPage() {
           {contacts.map((contact) => {
             const linkedUser = contact.user ? contactUsers[contact.user] : undefined;
             const avatarSrc = linkedUser?.avatarUrl ?? pickDefaultCatAvatar(contact._id);
-            const row = (
-              <div className="flex items-center gap-3 rounded-xl px-2 py-2.5 hover:bg-neutral-50 dark:hover:bg-neutral-900">
+            const profileBody = (
+              <>
                 <Image
                   src={avatarSrc}
                   alt=""
@@ -189,14 +241,46 @@ export default function ContactsPage() {
                   </div>
                   {contact.phone && <div className="truncate text-xs text-neutral-500 dark:text-neutral-400">{contact.phone}</div>}
                 </div>
-              </div>
+              </>
             );
-            return linkedUser?.username ? (
-              <Link key={contact._id} href={profileHref(linkedUser.username)}>
-                {row}
-              </Link>
-            ) : (
-              <div key={contact._id}>{row}</div>
+            const isOpeningThisChat = openingChatFor === contact.user;
+            const chatErrored = chatErrorFor === contact.user;
+            return (
+              // Same hover/highlight styling this row always had --
+              // Aleksandr: "строка выбора (подсветка) мне нравится как
+              // сейчас" -- it just now wraps two separate click targets
+              // instead of being one big Link itself.
+              <div
+                key={contact._id}
+                className="flex items-center gap-1 rounded-xl px-2 py-1 hover:bg-neutral-50 dark:hover:bg-neutral-900"
+              >
+                {linkedUser?.username ? (
+                  <Link
+                    href={profileHref(linkedUser.username)}
+                    className="flex min-w-0 flex-1 items-center gap-3 rounded-lg py-1.5"
+                  >
+                    {profileBody}
+                  </Link>
+                ) : (
+                  <div className="flex min-w-0 flex-1 items-center gap-3 py-1.5">{profileBody}</div>
+                )}
+                {contact.user && (
+                  <button
+                    type="button"
+                    onClick={() => openChat(contact.user!)}
+                    disabled={isOpeningThisChat}
+                    aria-label="Chat"
+                    className={
+                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition disabled:opacity-50 " +
+                      (chatErrored
+                        ? "text-red-500"
+                        : "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-50")
+                    }
+                  >
+                    <ChatIcon />
+                  </button>
+                )}
+              </div>
             );
           })}
         </div>

@@ -201,6 +201,27 @@ export function extractChatUsers(raw: unknown): Record<string, ChatUser> {
   return out;
 }
 
+// chats.createChat's response shape is entirely unconfirmed (that
+// method's own file, chats/chats.createChat.ts, hit the same read-lock
+// as everything else under packages/types this session -- see this
+// file's header). Accepts either the created Chat directly, a
+// `{chat: ...}` wrapper (the shape contacts.search's own `{contacts,
+// users}` pattern would suggest if this backend is consistent about
+// it), or -- last resort -- just grabs a top-level `_id` string so a
+// slightly different wrapper key still resolves instead of failing the
+// whole "start a chat" action.
+export function extractCreatedChatId(raw: unknown): string | null {
+  const direct = ChatSchema.safeParse(raw);
+  if (direct.success) return direct.data._id;
+  if (raw && typeof raw === "object") {
+    const obj = raw as Record<string, unknown>;
+    const nested = ChatSchema.safeParse(obj.chat);
+    if (nested.success) return nested.data._id;
+    if (typeof obj._id === "string") return obj._id;
+  }
+  return null;
+}
+
 // Same shape family as extractChats -- messages.getMessages's response,
 // unconfirmed exact wrapper key (`items` vs `messages`).
 export function extractMessages(raw: unknown): ChatMessage[] {
