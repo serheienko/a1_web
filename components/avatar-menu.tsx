@@ -70,6 +70,7 @@ import { LOCALES, LOCALE_CLASS, LOCALE_TAG, type Locale } from "@/components/t";
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
 import { SettingsMenu } from "@/components/settings-menu";
 import { useHoverPanel } from "@/lib/use-hover-panel";
+import { authFetch } from "@/lib/auth-fetch";
 
 type Theme = "light" | "dark" | "auto";
 
@@ -304,7 +305,12 @@ export function AvatarMenu() {
   useEffect(() => {
     if (!email) return;
     let cancelled = false;
-    fetch("/api/account/whoami")
+    // authFetch, not a bare fetch: on /contacts, app/contacts/
+    // page.tsx fires its own list fetch at roughly the same moment
+    // this effect fires -- see lib/auth-fetch.ts for why racing two
+    // authenticated fetches could make ONE of them (wrongly) throw
+    // away the session after the access token expires.
+    authFetch("/api/account/whoami")
       .then((r) => r.json())
       .then((data) => {
         if (cancelled || !data?.ok) return;

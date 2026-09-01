@@ -35,6 +35,7 @@ import { profileHref } from "@/lib/profile-href";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { T } from "@/components/t";
 import type { Contact } from "@/lib/a1/schemas";
+import { authFetch } from "@/lib/auth-fetch";
 
 type LoadState = "loading" | "signed-out" | "error" | "ready";
 
@@ -62,7 +63,12 @@ export default function ContactsPage() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/contacts/list")
+    // authFetch, not a bare fetch: avatar-menu.tsx fires its own
+    // whoami call on every page (including this one) at roughly the
+    // same moment -- see lib/auth-fetch.ts for why racing two
+    // authenticated fetches here could make this page (wrongly) look
+    // signed-out after the access token expires.
+    authFetch("/api/contacts/list")
       .then(async (res) => {
         if (cancelled) return;
         if (res.status === 401) {
