@@ -3352,3 +3352,25 @@ actually renders real chats depends entirely on whether §6.62's
 best-guess field names for messages.getMessages/chats.getChats matched
 the real backend -- not independently confirmed as of this entry
 either; first live screenshot of a populated /chats will settle it.
+
+### 6.64 Favorites grid: no-cover tiles now keep the same square slot (2026-09-01)
+
+Aleksandr, live screenshot (The Witcher next to Mafia in the Games
+row): "там де не знайшло обкладинку показується просто текст, але він
+випадає із загального блоку" -- the 2026-08-31 fix (§ this file, "Если
+не находит медиа - не показываем серый квадратик, только название")
+was right to stop rendering a literally-empty gray box, but it also
+skipped the square tile entirely for a title with no cover, which broke
+grid alignment against tiles right next to it that DID resolve one.
+
+Fix, kept both constraints at once: a no-cover tile keeps the exact
+same `aspect-square rounded-xl` slot, now filled with a muted
+category-appropriate icon (book/film/game-controller,
+components/favorite-cover.tsx's new `FavoriteCoverFallback`) instead of
+either an empty box or nothing at all. Covers both failure modes --
+lib/covers.ts finding no match at all (server-side, app/u/[username]/
+page.tsx's favoriteTile) and a cover URL that resolved server-side but
+404'd at load time in the browser (client-side, FavoriteCover's own
+onError, previously `return null`). favoriteTile() now takes an
+explicit `kind: "book" | "movie" | "game"` param (all three call sites
+updated) so the fallback icon matches the section it's in.

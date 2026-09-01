@@ -48,7 +48,7 @@ import { WORK_STYLE_PREFERENCE_SECTIONS } from "@/components/work-style-labels";
 import { EditProfileButton } from "@/components/edit-profile-button";
 import { ProfileActionRow } from "@/components/profile-action-row";
 import { MarqueeName } from "@/components/marquee-name";
-import { FavoriteCover } from "@/components/favorite-cover";
+import { FavoriteCover, FavoriteCoverFallback, type FavoriteKind } from "@/components/favorite-cover";
 import { fetchBookCoverUrl, fetchMovieCoverUrl, fetchGameCoverUrl, type CoverImage } from "@/lib/covers";
 
 const SITE_URL = "https://jobs.a1appp.com";
@@ -119,16 +119,25 @@ function pillList(items: string[]) {
 // placeholder from lib/covers.ts, generated from the actual cover's own
 // pixels via sharp — not the generic shared shimmer used elsewhere (see
 // lib/blur-placeholder.ts).
-function favoriteTile(title: string, subtitle: string | null, cover: CoverImage | null, itemKey: string) {
-  // 2026-08-31, live-testing feedback ("Если не находит медиа - не
-  // показываем серый квадратик, только название"): this box used to
-  // render unconditionally even with no cover, producing an empty gray
-  // square. See components/favorite-cover.tsx's own header comment for
-  // the full story, including the runtime-load-failure half of this fix
-  // that couldn't live in this server component.
+function favoriteTile(
+  title: string,
+  subtitle: string | null,
+  cover: CoverImage | null,
+  itemKey: string,
+  kind: FavoriteKind,
+) {
+  // 2026-09-01, live screenshot ("там де не знайшло обкладинку
+  // показується просто текст, але він випадає із загального блоку"): a
+  // tile with no cover used to skip the square box entirely, which
+  // broke the grid next to tiles that DID find one (The Witcher vs
+  // Mafia in the same Games row). Now every tile keeps the same square
+  // slot -- a real cover when lib/covers.ts found one, a muted
+  // category-icon fallback (components/favorite-cover.tsx's
+  // FavoriteCoverFallback) otherwise -- so the grid always lines up
+  // regardless of which titles had art.
   return (
     <div key={itemKey} className="flex flex-col gap-1.5">
-      {cover && <FavoriteCover cover={cover} />}
+      {cover ? <FavoriteCover cover={cover} kind={kind} /> : <FavoriteCoverFallback kind={kind} />}
       <div>
         <div className="line-clamp-2 text-sm font-medium leading-snug text-neutral-800 dark:text-neutral-200">
           {title}
@@ -647,7 +656,7 @@ export default async function ProfilePage({ params }: Props) {
                 <h3 className="text-sm text-neutral-500 dark:text-neutral-400"><T uk="Книги" en="Books" ru="Книги" de="Bücher" es="Libros" fr="Livres" pl="Książki" ptBR="Livros" zh="书籍" /></h3>
                 <div className="mt-2 grid grid-cols-3 gap-3">
                   {profile.favoriteBooks.map((book, i) =>
-                    favoriteTile(book.title, book.author || null, bookCovers[i] ?? null, `book-${i}`),
+                    favoriteTile(book.title, book.author || null, bookCovers[i] ?? null, `book-${i}`, "book"),
                   )}
                 </div>
               </div>
@@ -657,7 +666,7 @@ export default async function ProfilePage({ params }: Props) {
                 <h3 className="text-sm text-neutral-500 dark:text-neutral-400"><T uk="Фільми" en="Movies" ru="Фильмы" de="Filme" es="Películas" fr="Films" pl="Filmy" ptBR="Filmes" zh="电影" /></h3>
                 <div className="mt-2 grid grid-cols-3 gap-3">
                   {profile.favoriteMovies.map((movie, i) =>
-                    favoriteTile(movie.title, null, movieCovers[i] ?? null, `movie-${i}`),
+                    favoriteTile(movie.title, null, movieCovers[i] ?? null, `movie-${i}`, "movie"),
                   )}
                 </div>
               </div>
@@ -667,7 +676,7 @@ export default async function ProfilePage({ params }: Props) {
                 <h3 className="text-sm text-neutral-500 dark:text-neutral-400"><T uk="Ігри" en="Games" ru="Игры" de="Spiele" es="Juegos" fr="Jeux" pl="Gry" ptBR="Jogos" zh="游戏" /></h3>
                 <div className="mt-2 grid grid-cols-3 gap-3">
                   {profile.favoriteGames.map((game, i) =>
-                    favoriteTile(game.title, null, gameCovers[i] ?? null, `game-${i}`),
+                    favoriteTile(game.title, null, gameCovers[i] ?? null, `game-${i}`, "game"),
                   )}
                 </div>
               </div>
