@@ -95,7 +95,15 @@ const TAG_LABEL_TRANSLATIONS_BY_LOWER_KEY: Record<string, Record<Locale, string>
   // through to the raw-text fallback below -- add it as an explicit
   // alias onto the same "On-site" translations rather than guessing at
   // any other backend value that might not follow the pattern.
-  "no-site": TAG_LABEL_TRANSLATIONS["On-site"],
+  // Non-null assertion: this file's tsconfig has noUncheckedIndexedAccess
+  // on (see lib/a1/mappers.ts's translateCategoryLabel comment for the
+  // same pattern) -- bracket access into TAG_LABEL_TRANSLATIONS types as
+  // Record<Locale, string> | undefined even for a key that's a literal
+  // entry two lines above, since the declared type is Record<string, ...>.
+  // Confirmed live: the first build after this line shipped without the
+  // "!" failed on exactly this (Vercel: "Type 'Record<Locale, string> |
+  // undefined' is not assignable to type 'Record<Locale, string>'").
+  "no-site": TAG_LABEL_TRANSLATIONS["On-site"]!,
 };
 
 export function translateTagLabel(text: string, lang: Locale): string {
