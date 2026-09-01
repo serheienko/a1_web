@@ -251,8 +251,24 @@ export function ProfileActionRow({
   const [contactStatus, setContactStatus] = useState<ToggleStatus>("loading");
   const [contactId, setContactId] = useState<string | null>(null);
   const [contactHovering, setContactHovering] = useState(false);
+  // Aleksandr, 2026-09-01, real phone screenshot: after a failed toggle
+  // the button got stuck red with no way to remove the contact. Root
+  // cause -- "error" used to be a whole extra ToggleStatus value, and
+  // toggleContact() only ever took the "remove" branch when contactStatus
+  // === "on"; once a failed action pushed status to "error" every future
+  // click fell through to the "add" branch even if the contact was (or
+  // still was, after a failed *remove*) actually already added, so a
+  // failed remove could never be retried. Now "error" is a transient
+  // flash on top of the real on/idle status (see flashContactError()
+  // below) instead of a status of its own -- the real status never
+  // changes on failure, so the next click always retries the same
+  // action that just failed.
+  const [contactErrored, setContactErrored] = useState(false);
 
   const [saveStatus, setSaveStatus] = useState<ToggleStatus>("loading");
+  // Same fix as contactErrored above -- toggleSave() had the identical
+  // bug (wasOn computed from saveStatus === "on", which "error" broke).
+  const [saveErrored, setSaveErrored] = useState(false);
 
   const [shareFeedback, setShareFeedback] = useState(false);
 
@@ -335,6 +351,11 @@ export function ProfileActionRow({
 
   if (!visible || !profileUserId) return null;
 
+  function flashContactError() {
+    setContactErrored(true);
+    window.setTimeout(() => setContactErrored(false), 2200);
+  }
+
   async function toggleContact() {
     if (contactStatus === "busy" || !profileUserId) return;
     if (contactStatus === "on") {
@@ -351,10 +372,14 @@ export function ProfileActionRow({
           setContactId(null);
           setContactStatus("idle");
         } else {
-          setContactStatus("error");
+          // Removal failed -- the contact is still there, so stay "on"
+          // (not "error") so the next click retries the remove, not add.
+          setContactStatus("on");
+          flashContactError();
         }
       } catch {
-        setContactStatus("error");
+        setContactStatus("on");
+        flashContactError();
       }
       return;
     }
@@ -370,11 +395,19 @@ export function ProfileActionRow({
         setContactId(data.contact?._id ?? null);
         setContactStatus("on");
       } else {
-        setContactStatus("error");
+        // Same idea in reverse: stay "idle" so the next click retries add.
+        setContactStatus("idle");
+        flashContactError();
       }
     } catch {
-      setContactStatus("error");
+      setContactStatus("idle");
+      flashContactError();
     }
+  }
+
+  function flashSaveError() {
+    setSaveErrored(true);
+    window.setTimeout(() => setSaveErrored(false), 2200);
   }
 
   async function toggleSave() {
@@ -388,9 +421,18 @@ export function ProfileActionRow({
         body: JSON.stringify({ id: profileUserId }),
       });
       const data = await res.json().catch(() => null);
-      setSaveStatus(data?.ok ? (wasOn ? "idle" : "on") : "error");
+      if (data?.ok) {
+        setSaveStatus(wasOn ? "idle" : "on");
+      } else {
+        // Stay at the real (pre-attempt) status so a retry repeats the
+        // same action instead of flipping to the opposite one -- same
+        // fix as toggleContact()'s flashContactError() above.
+        setSaveStatus(wasOn ? "on" : "idle");
+        flashSaveError();
+      }
     } catch {
-      setSaveStatus("error");
+      setSaveStatus(wasOn ? "on" : "idle");
+      flashSaveError();
     }
     setMenuOpen(false);
   }
@@ -415,12 +457,11 @@ export function ProfileActionRow({
     }
   }
 
-  const contactError = contactStatus === "error";
-  const contactAdded = contactStatus === "on" || contactError;
-  const contactLabel = contactError ? STRINGS.actionFailed[lang] : contactAdded ? STRINGS.removeContact[lang] : STRINGS.addContact[lang];
-  const contactShowRemoveIcon = contactAdded && contactHovering && !contactError;
+  const contactAdded = contactStatus === "on";
+  const contactLabel = contactErrored ? STRINGS.actionFailed[lang] : contactAdded ? STRINGS.removeContact[lang] : STRINGS.addContact[lang];
+  const contactShowRemoveIcon = contactAdded && contactHovering && !contactErrored;
 
-  const saveLabel = saveStatus === "error" ? STRINGS.actionFailed[lang] : saveStatus === "on" ? STRINGS.unsaveProfile[lang] : STRINGS.saveProfile[lang];
+  const saveLabel = saveErrored ? STRINGS.actionFailed[lang] : saveStatus === "on" ? STRINGS.unsaveProfile[lang] : STRINGS.saveProfile[lang];
   const saveIcon = saveStatus === "on" ? <BookmarkFilledIcon /> : <BookmarkIcon />;
 
   return (
@@ -441,7 +482,7 @@ export function ProfileActionRow({
         title={contactLabel}
         className={
           "flex h-11 w-full items-center justify-center rounded-full transition disabled:cursor-default disabled:opacity-60 " +
-          (contactError
+          (contactErrored
             ? "bg-red-600 text-white hover:bg-red-700"
             : contactAdded
               ? "border border-neutral-200 bg-white text-accent hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:hover:text-neutral-50"
