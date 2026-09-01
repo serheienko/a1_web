@@ -201,12 +201,26 @@ export default function MyActivityPage() {
   const activeState = tab === "mine" ? mineState : tab === "posts" ? postsState : usersState;
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-4 py-10 sm:py-16">
+    <main className="mx-auto w-full max-w-3xl px-4 py-10 sm:py-16">
       <h1 className="text-2xl font-semibold text-neutral-900 sm:text-3xl dark:text-neutral-50">
         <T uk="Моя активність" en="My Activity" ru="Моя активность" de="Meine Aktivität" es="Mi actividad" fr="Mon activité" pl="Moja aktywność" ptBR="Minha atividade" zh="我的动态" />
       </h1>
 
-      <div className="mt-6 flex gap-6 border-b border-neutral-200 dark:border-neutral-800">
+      {/* Aleksandr, 2026-09-01, live screenshot of the underline version:
+          "сделай, пожалуйста, это такими же красивыми горизонтальными
+          табами, как вот у нас сверху, например, вакансии в шапке...
+          можешь чуть сделать, меньше, чтобы оно всё поместилось
+          красивенько" -- points at site-nav.tsx's own Вакансії/Фахівці
+          pill switcher (also reused byte-for-byte by components/
+          profile-tabs.tsx's Bio/Дописи toggle: white rounded-full
+          container, `bg-accent/15 text-accent` active tab). Copied the
+          same convention here rather than inventing a third one, just
+          smaller (py-1.5/text-xs, `flex-1` still splits the row evenly)
+          since three labels ("Мої дописи" / "Збережені дописи" /
+          "Збережені користувачі") are meaningfully longer than either
+          of those two-tab callers' own labels and need to fit one line
+          each without wrapping. */}
+      <div className="mt-6 flex gap-1 rounded-full bg-white p-1 dark:bg-neutral-900">
         {TAB_ORDER.map((t) => (
           <button
             key={t}
@@ -214,10 +228,10 @@ export default function MyActivityPage() {
             onClick={() => setTab(t)}
             aria-pressed={tab === t}
             className={
-              "border-b-2 pb-3 text-sm font-medium transition " +
+              "flex-1 whitespace-nowrap rounded-full px-2 py-1.5 text-center text-xs font-medium transition sm:text-sm " +
               (tab === t
-                ? "border-accent text-accent"
-                : "border-transparent text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200")
+                ? "bg-accent/15 text-accent"
+                : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50")
             }
           >
             {tabLabel(t, lang)}
