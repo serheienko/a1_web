@@ -92,7 +92,7 @@ const LANGUAGE_NAMES: Record<Locale, string> = {
   zh: "简体中文",
 };
 
-type AvatarMenuStringKey = "signIn" | "signOut" | "theme" | "language" | "light" | "dark" | "auto" | "viewProfile" | "contacts" | "myActivity";
+type AvatarMenuStringKey = "signIn" | "signOut" | "theme" | "language" | "light" | "dark" | "auto" | "viewProfile" | "contacts" | "myActivity" | "chats";
 
 const STRINGS: Record<AvatarMenuStringKey, Record<Locale, string>> = {
   signIn: {
@@ -134,6 +134,15 @@ const STRINGS: Record<AvatarMenuStringKey, Record<Locale, string>> = {
   // Мої дописи/Збережені experience moved into components/contacts-panel.tsx
   // below it (that panel has since been deleted; the tabs now live at
   // app/my-activity/page.tsx, opened by the "My Activity" row above).
+  // 2026-09-01, Phase 1 of the web chat feature (Aleksandr: "я хочу
+  // добавить еще веб-версию чата") -- same plain link-row treatment as
+  // myActivity/contacts above, opening app/chats/page.tsx. Placement is
+  // provisional, same "first pass, react to it live" framing app/
+  // contacts/page.tsx's own entry point got.
+  chats: {
+    uk: "Чати", en: "Chats", ru: "Чаты", de: "Chats", es: "Chats",
+    fr: "Discussions", pl: "Czaty", ptBR: "Conversas", zh: "聊天",
+  },
   contacts: {
     uk: "Контакти", en: "Contacts", ru: "Контакты", de: "Kontakte", es: "Contactos",
     fr: "Contacts", pl: "Kontakty", ptBR: "Contatos", zh: "联系人",
@@ -206,6 +215,16 @@ function ContactsIcon() {
       <circle cx="9" cy="7" r="4" />
       <path d="M2 21c0-4 3.1-6 7-6s7 2 7 6" />
       <path d="M19 8v6M16 11h6" />
+    </svg>
+  );
+}
+
+// 2026-09-01, app/chats/page.tsx's entry point -- speech-bubble glyph,
+// same 18px/viewBox-24/stroke-2 style as the icons around it.
+function ChatsIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 20l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
     </svg>
   );
 }
@@ -515,6 +534,15 @@ export function AvatarMenu() {
             >
               <MyActivityIcon />
               {STRINGS.myActivity[lang]}
+            </Link>
+
+            <Link
+              href="/chats"
+              onClick={() => setOpen(false)}
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-neutral-700 transition hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+            >
+              <ChatsIcon />
+              {STRINGS.chats[lang]}
             </Link>
 
             <Link

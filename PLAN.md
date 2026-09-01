@@ -3216,3 +3216,99 @@ correct:**
   5 of its (evidently more than 5) Hobbies groups, had a real screenshot
   to translate from -- the rest still render in English until a
   screenshot of them turns up.
+
+### 6.62 Web chat, Phase 1: polling-based data layer + basic UI (2026-09-01)
+
+Aleksandr: "я хочу добавить еще веб-версию чата... такие же примерно
+полноценные чаты, как у нас в приложении... можно и шарить файлы, и
+создавать таблицы для подсчета, и добавлять фотографии... они же должны
+каким-то образом синхронизироваться между нашим приложением. Вообще в
+целом скажи, реально ли это?" Answer given live: yes -- the same backend
+monorepo (aone-api-private-main, shared read-only per §6.60's standing
+"don't touch this repo" rule) already runs a dedicated chat-server
+microservice (own MongoDB, separate from api-server-modern) with a
+working reference web client already built against it
+(apps/chat-app -- Vue 3), so this is "wire a second client to an
+existing, working chat backend," not build chat from scratch.
+
+**Architecture decision (Aleksandr asked directly: "А ты какой бы
+выбрал и почему?"):** polling for MVP, not a WebSocket relay, recommended
+and agreed. Reasoning: the whole data layer + UI is transport-agnostic
+(same code either way, only "how updates arrive" differs), a relay is a
+new always-on service (this app has none today -- Vercel serverless can't
+host a persistent WS server) that would delay a first working result and
+risks rework once real chat-server connection details are confirmed,
+and polling needs zero new infrastructure -- it's the exact same
+callAsVisitor pattern every other route in this app already uses.
+Swapping the transport later (Phase 2, a small relay on Aleksandr's
+existing Railway api-service) changes nothing about the UI/data layer
+built here.
+
+**Confirmed vs inferred, read before touching any of this code:**
+chat-server's own request/response types
+(packages/types/methods/*.d.ts) could NOT be read this session -- every
+attempt (cat, python open(), cp, immediate + waited retries) hit the
+same `Resource deadlock avoided` (EDEADLK) OS error specifically on
+that mount (isolated to a1_app -- a1_web's own files read fine
+throughout). What's actually confirmed comes from two files that DID
+read cleanly: apps/chat-app/src/composables/useChat.ts and useWs.ts
+(the reference Vue chat client) -- Chat's _id/title/flags/participants/
+lastMessage fields, the Peer discriminated union (peer-user/peer-chat),
+and that messages are always addressed via `{object:"peer-chat",
+chat: chatId}` even inside a personal 1:1 chat. Everything else
+(Message's exact fields, every method's exact request body, whether
+chats.getChats/messages.getMessages return a side `users` array like
+contacts.search's confirmed `{contacts, users}` shape) is this
+session's best inference, documented inline at each call site in
+lib/a1/chat-schemas.ts -- same "confirm on first live 502, don't guess
+further" rule already applied to contacts.search
+(app/api/contacts/list/route.ts). None of this has been tested against
+the real backend yet -- Aleksandr, first live test of /chats after this
+deploys will tell us which guesses were wrong; expect at least one
+field-name fix once real data comes back.
+
+**What Phase 1 delivers:**
+- `lib/a1/chat-schemas.ts` / `lib/a1/chat-mappers.ts`: zod schemas
+  (Chat, ChatUser, ChatMessage, Peer), defensive extraction (drop what
+  doesn't parse rather than fail the whole list, same rule as posts/
+  contacts), and display resolution (personal-chat title/photo from the
+  other participant, falling back to the chat's own title + a generated
+  cat avatar).
+- Four proxy routes, all through callAsVisitor like every other
+  authenticated route: `GET /api/chats/list` (chats.getChats),
+  `GET /api/chats/messages?chat=<id>` (messages.getMessages),
+  `POST /api/chats/send` (messages.send), `POST /api/chats/typing`
+  (messages.sendAction, fire-and-forget).
+- `app/chats/page.tsx` (chat list, 5s poll) and
+  `app/chats/[chatId]/page.tsx` (message thread, 3s poll, send box,
+  typing-action ping on input) -- both client components polling like
+  app/contacts/page.tsx, both pause polling on `document.hidden`.
+- A new "Чати" row in components/avatar-menu.tsx, above Контакти --
+  placement is provisional, same "first pass, react to it live" framing
+  app/contacts/page.tsx's own entry point got.
+
+**Explicitly NOT in this pass** (per Aleksandr's own list -- files,
+photos, stickers, gifs, "tables for counting" -- plus typing INDICATOR
+DISPLAY, all deferred):
+- Receiving/showing another participant's typing indicator: sending our
+  own works (POST /api/chats/typing), but chat-server almost certainly
+  only delivers that to the other side as a live WS event
+  (MessageSendActionEvent, seen in packages/types/events/) -- polling
+  messages.getMessages will never surface it. Needs Phase 2's realtime
+  transport.
+- Any media (photos, files, stickers, gifs), reactions, message
+  editing/deleting, group-chat creation, or starting a brand-new chat
+  with a contact who has none yet (chats.createChat's shape is
+  unconfirmed and out of scope for this pass).
+- "Таблицы для подсчета" (tables for counting) -- not found anywhere in
+  the explored chat-server method/event catalog. Not clear yet what
+  this refers to; needs Aleksandr to clarify before it can be scoped at
+  all (possibly the Flutter app's leisure/brainstorm features, seen only
+  as unread directory names during this research -- unconfirmed).
+- WS/relay realtime delivery itself (Phase 2, only once this MVP is
+  confirmed working against the real backend).
+
+Not build-tested locally (no `node_modules` on the connected Mac, same
+gap §6.59's own comment already notes) -- next step is Aleksandr
+pushing this via GitHub Desktop and a live Vercel build + signed-in
+test of /chats.
