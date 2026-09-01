@@ -2009,19 +2009,16 @@ export function ProfileEditor({
               />
             </div>
 
-            {/* 2026-08-31: dropped this field from the editor entirely --
-                Aleksandr, on being told profileTitle is a real backend
-                field (confirmed against aone-api-private's own
-                UserService.ts/UserModel.d.ts, see lib/a1/schemas.ts's
-                ProfileTitleSchema comment) with no equivalent screen in
-                the mobile app: "убери это поле из веб-редактора, раз в
-                мобилке его нет и это может путать". `profileTitle`
-                state/load/save are all left exactly as they were --
-                still loaded from the account on open and resent
-                unchanged on save -- so an existing value (e.g. the
-                "Frontend dev" line under the name on the public profile)
-                is neither editable here any more nor silently wiped by
-                a save from this dialog. */}
+            <div className="flex flex-col gap-1.5">
+              <label className={labelClass}>{t("profileTitleLabel", lang)}</label>
+              <input
+                type="text"
+                value={profileTitle}
+                onChange={(e) => { setProfileTitle(e.target.value); markDirty(); }}
+                placeholder={t("profileTitlePlaceholder", lang)}
+                className={inputClass}
+              />
+            </div>
 
             <div className="flex flex-col gap-1.5">
               <span className={labelClass}>{t("occupationLabel", lang)}</span>
