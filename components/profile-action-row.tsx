@@ -231,7 +231,7 @@ function BlockIcon() {
 }
 
 const CELL_BUTTON_CLASS =
-  "flex h-11 w-full items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-600 transition hover:text-neutral-900 disabled:cursor-default disabled:opacity-60 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50";
+  "flex h-11 w-full items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 transition hover:text-neutral-900 disabled:cursor-default disabled:opacity-60 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50";
 
 export function ProfileActionRow({
   username,
@@ -440,7 +440,7 @@ export function ProfileActionRow({
         aria-pressed={contactAdded}
         title={contactLabel}
         className={
-          "flex h-11 w-full items-center justify-center rounded-xl transition disabled:cursor-default disabled:opacity-60 " +
+          "flex h-11 w-full items-center justify-center rounded-full transition disabled:cursor-default disabled:opacity-60 " +
           (contactError
             ? "bg-red-600 text-white hover:bg-red-700"
             : contactAdded
