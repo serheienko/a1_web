@@ -18,11 +18,19 @@
 // mapPosts()/mapPost() already drop anything not live regardless, and
 // a compact dropdown preview has no business surfacing an unpublished
 // draft the way the dedicated profile tab does.
+//
+// 2026-09-01 (Aleksandr, screen recording of this tab's avatars popping
+// in flat gray instead of blurring in "как и все другие аватары"):
+// added the same real per-avatar blur app/api/feed/route.ts already
+// computes for the main feed -- every author here is "me" (a single
+// avatarUrl), so generateAvatarBlurDataUrl's react cache() dedup means
+// this is one extra fetch+sharp() per request, not one per post.
 import { NextResponse } from "next/server";
 import { A1ApiError } from "@/lib/a1/client";
 import { callAsVisitor, NoSessionError } from "@/lib/a1/visitor-call";
 import { setSession, clearSession } from "@/lib/a1/session";
 import { mapPosts } from "@/lib/a1/mappers";
+import { generateAvatarBlurDataUrl } from "@/lib/avatar-blur";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,7 +43,9 @@ export async function GET() {
       author: "me",
       limit: 100,
     });
-    const posts = mapPosts(data.items ?? []);
+    const mapped = mapPosts(data.items ?? []);
+    const avatarBlurs = await Promise.all(mapped.map((post) => generateAvatarBlurDataUrl(post.author.avatarUrl)));
+    const posts = mapped.map((post, i) => ({ ...post, avatarBlurDataUrl: avatarBlurs[i] }));
 
     const response = NextResponse.json({ ok: true, posts });
     if (refreshedSession) setSession(response, refreshedSession);

@@ -54,12 +54,20 @@ type SavedUser = {
   avatarBlurDataUrl: string | null;
 };
 
+// avatarBlurDataUrl rides along per post the same way components/
+// load-more.tsx's own RawFeedPost documents (a render-layer artifact
+// from lib/avatar-blur.ts, not real post data) -- both app/api/posts/
+// mine-feed/route.ts and app/api/favorites/posts/route.ts compute it
+// server-side now (2026-09-01: avatars here used to pop straight from
+// PostCard's generic gray shimmer fallback to the real photo instead
+// of blurring in like every other feed's avatars).
 type RawSavedPost = Omit<WebPost, "publishedAt" | "updatedAt"> & {
   publishedAt: string;
   updatedAt: string | null;
+  avatarBlurDataUrl: string | null;
 };
 
-function revivePostDates(post: RawSavedPost): WebPost {
+function revivePostDates(post: RawSavedPost): WebPost & { avatarBlurDataUrl: string | null } {
   return {
     ...post,
     publishedAt: new Date(post.publishedAt),
@@ -106,11 +114,11 @@ export default function MyActivityPage() {
   const [tab, setTab] = useState<Tab>("mine");
 
   const [mineState, setMineState] = useState<LoadState>("loading");
-  const [minePosts, setMinePosts] = useState<WebPost[]>([]);
+  const [minePosts, setMinePosts] = useState<(WebPost & { avatarBlurDataUrl: string | null })[]>([]);
   const mineFetched = useRef(false);
 
   const [postsState, setPostsState] = useState<LoadState>("loading");
-  const [posts, setPosts] = useState<WebPost[]>([]);
+  const [posts, setPosts] = useState<(WebPost & { avatarBlurDataUrl: string | null })[]>([]);
   const postsFetched = useRef(false);
 
   const [usersState, setUsersState] = useState<LoadState>("loading");
@@ -294,7 +302,7 @@ export default function MyActivityPage() {
         <ul className="mt-6 flex flex-col gap-3">
           {minePosts.map((post) => (
             <li key={post.id}>
-              <PostCard post={post} />
+              <PostCard post={post} avatarBlurDataUrl={post.avatarBlurDataUrl} />
             </li>
           ))}
         </ul>
@@ -309,7 +317,7 @@ export default function MyActivityPage() {
         <ul className="mt-6 flex flex-col gap-3">
           {posts.map((post) => (
             <li key={post.id}>
-              <PostCard post={post} />
+              <PostCard post={post} avatarBlurDataUrl={post.avatarBlurDataUrl} />
             </li>
           ))}
         </ul>

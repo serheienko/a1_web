@@ -11,16 +11,21 @@
 // every feed/profile route already uses, so the tab can render with the
 // existing components/post-card.tsx unmodified.
 //
-// No avatarBlurDataUrl computed here (unlike app/api/feed/route.ts) —
-// components/profile-tabs.tsx's own client-fetched `ownDrafts` list
-// already established that PostCard degrades fine to the generic
-// shimmer placeholder without one; not worth an extra sharp() fetch
-// per author for a list that's usually short and visited rarely.
+// 2026-09-01 (Aleksandr, screen recording of this tab's avatars popping
+// in flat gray instead of blurring in "как и все другие аватары"):
+// this used to skip avatarBlurDataUrl on purpose (see this file's own
+// prior comment above about not being "worth an extra sharp() fetch
+// per author for a list that's usually short and visited rarely"),
+// degrading to PostCard's generic shimmer fallback. That reads visibly
+// different from the real per-avatar blur every other feed has, so
+// it's wired up now too, same as app/api/feed/route.ts and app/api/
+// posts/mine-feed/route.ts.
 import { NextResponse } from "next/server";
 import { A1ApiError } from "@/lib/a1/client";
 import { callAsVisitor, NoSessionError } from "@/lib/a1/visitor-call";
 import { setSession, clearSession } from "@/lib/a1/session";
 import { mapPosts } from "@/lib/a1/mappers";
+import { generateAvatarBlurDataUrl } from "@/lib/avatar-blur";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,7 +38,9 @@ export async function GET() {
       favorited: true,
       limit: 100,
     });
-    const posts = mapPosts(data.items ?? []);
+    const mapped = mapPosts(data.items ?? []);
+    const avatarBlurs = await Promise.all(mapped.map((post) => generateAvatarBlurDataUrl(post.author.avatarUrl)));
+    const posts = mapped.map((post, i) => ({ ...post, avatarBlurDataUrl: avatarBlurs[i] }));
 
     const response = NextResponse.json({ ok: true, posts });
     if (refreshedSession) setSession(response, refreshedSession);
