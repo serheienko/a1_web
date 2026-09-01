@@ -5,6 +5,7 @@ import Script from "next/script";
 import "./globals.css";
 import { SiteNav } from "@/components/site-nav";
 import { CreatePostFab } from "@/components/create-post-fab";
+import { ChatsFab } from "@/components/chats-fab";
 
 // Commissioner: the real typeface used in the Figma mockups (confirmed via
 // Inspect on "Feed Preview White", 2026-08-26), not a generic system stack.
@@ -175,6 +176,12 @@ export default function RootLayout({
             here next to <SiteNav/> for the same reason that one is —
             shown on every page, signed in or not (Aleksandr: "С логином
             и без"). See components/create-post-fab.tsx's own comment. */}
+        {/* 2026-09-01 (Aleksandr: "хочу еще сделать кнопку чатов над
+            кнопкой создать пост, фиксированную"): mounted right after
+            CreatePostFab so it sits directly above it -- see
+            components/chats-fab.tsx's own comment for the exact offset
+            math and why it hides on /chats itself. */}
+        <ChatsFab />
         <CreatePostFab />
         <Analytics />
       </body>

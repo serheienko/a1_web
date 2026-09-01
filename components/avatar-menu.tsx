@@ -583,7 +583,13 @@ export function AvatarMenu() {
             <div className="px-2 pb-1.5 pt-2 text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
               {STRINGS.language[lang]}
             </div>
-            <div className="max-h-52 overflow-y-auto">
+            {/* 2026-09-01 (Aleksandr, live screenshot: "сделай высоту окна
+                где именно языки... ниже, где-то на 30%, т е сделай чтобы
+                помещалось 4 языка, а остальное скролл"): max-h-52 (208px,
+                ~6 rows) -> max-h-36 (144px, ~4 rows at this list's own
+                py-2/text-sm row height) -- a ~31% cut, everything past
+                the 4th language scrolls same as before. */}
+            <div className="max-h-36 overflow-y-auto">
               {languageOptions.map((l) => {
                 const isSelected = l === lang;
                 return (
