@@ -327,6 +327,27 @@ export function AvatarMenu() {
   const { rendered, visible, handleMouseEnter, handleMouseLeave } = useHoverPanel(open, setOpen, [
     { trigger: wrapperRef, panel: panelOuterRef },
   ]);
+  // 2026-09-01 (Aleksandr, live screenshot: "чем мы можем показать, что
+  // языки можно скроллить и есть еще?" -- after the max-h-36 cut above
+  // landed exactly on a 4-row boundary with no partial row peeking
+  // through, the list just looked like it ended at the 4th language,
+  // not like it scrolled). A bottom edge-fade (same trick iOS pickers/
+  // Notion dropdowns use) that's hidden once actually scrolled to the
+  // bottom -- langMoreBelow starts true (there IS more below on open)
+  // and the scroll handler keeps it honest as the visitor scrolls.
+  const langScrollRef = useRef<HTMLDivElement>(null);
+  const [langMoreBelow, setLangMoreBelow] = useState(true);
+  const updateLangMoreBelow = () => {
+    const el = langScrollRef.current;
+    if (!el) return;
+    setLangMoreBelow(el.scrollHeight - el.scrollTop - el.clientHeight > 1);
+  };
+  // `rendered` (not `open`) -- this panel unmounts/remounts with the
+  // hover-panel's own open/close animation (see useHoverPanel above),
+  // so re-measure every time it's actually back in the DOM.
+  useEffect(() => {
+    updateLangMoreBelow();
+  }, [rendered]);
   const [profileUsername, setProfileUsername] = useState<string | null>(null);
   // Aleksandr, 2026-08-30 (live screenshot): "может быть поставь не
   // цветная векторное синее, поставь аватар, персональный этот
@@ -589,30 +610,35 @@ export function AvatarMenu() {
                 ~6 rows) -> max-h-36 (144px, ~4 rows at this list's own
                 py-2/text-sm row height) -- a ~31% cut, everything past
                 the 4th language scrolls same as before. */}
-            <div className="max-h-36 overflow-y-auto">
-              {languageOptions.map((l) => {
-                const isSelected = l === lang;
-                return (
-                  <button
-                    key={l}
-                    type="button"
-                    onClick={() => selectLocale(l)}
-                    className={
-                      "flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition " +
-                      (isSelected
-                        ? "bg-accent/10 text-accent"
-                        : "text-neutral-700 hover:bg-accent/10 hover:text-accent dark:text-neutral-300")
-                    }
-                  >
-                    <span>{LANGUAGE_NAMES[l]}</span>
-                    {isSelected && (
-                      <svg viewBox="0 0 16 16" fill="none" className="h-4 w-4 shrink-0" aria-hidden="true">
-                        <path d="M3 8.5l3 3 7-7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    )}
-                  </button>
-                );
-              })}
+            <div className="relative">
+              <div ref={langScrollRef} onScroll={updateLangMoreBelow} className="max-h-36 overflow-y-auto">
+                {languageOptions.map((l) => {
+                  const isSelected = l === lang;
+                  return (
+                    <button
+                      key={l}
+                      type="button"
+                      onClick={() => selectLocale(l)}
+                      className={
+                        "flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition " +
+                        (isSelected
+                          ? "bg-accent/10 text-accent"
+                          : "text-neutral-700 hover:bg-accent/10 hover:text-accent dark:text-neutral-300")
+                      }
+                    >
+                      <span>{LANGUAGE_NAMES[l]}</span>
+                      {isSelected && (
+                        <svg viewBox="0 0 16 16" fill="none" className="h-4 w-4 shrink-0" aria-hidden="true">
+                          <path d="M3 8.5l3 3 7-7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              {langMoreBelow && (
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-7 rounded-b-md bg-gradient-to-t from-white to-transparent dark:from-neutral-900" />
+              )}
             </div>
 
             <div className="my-1 border-t border-neutral-100 dark:border-neutral-800" />

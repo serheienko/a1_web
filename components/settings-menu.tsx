@@ -35,7 +35,7 @@
 // — that trap no longer applies and the portal is gone.)
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { LOCALES, LOCALE_CLASS, LOCALE_TAG, type Locale } from "@/components/t";
 
@@ -116,6 +116,23 @@ export function SettingsMenu() {
   const [theme, setTheme] = useState<Theme | null>(null);
   const [lang, setLang] = useState<Locale | null>(null);
   const [isGeoUa, setIsGeoUa] = useState(false);
+  // 2026-09-01 (Aleksandr, live screenshot: "чем мы можем показать, что
+  // языки можно скроллить и есть еще?") -- same bottom edge-fade as
+  // components/avatar-menu.tsx's own language list, this panel's signed-
+  // out sibling. See that file's comment for the full reasoning.
+  const langScrollRef = useRef<HTMLDivElement>(null);
+  const [langMoreBelow, setLangMoreBelow] = useState(true);
+  const updateLangMoreBelow = () => {
+    const el = langScrollRef.current;
+    if (!el) return;
+    setLangMoreBelow(el.scrollHeight - el.scrollTop - el.clientHeight > 1);
+  };
+  // This panel only mounts while `open` (unlike avatar-menu.tsx's
+  // always-mounted-but-opacity-toggled one) -- re-measure each time it
+  // actually enters the DOM.
+  useEffect(() => {
+    updateLangMoreBelow();
+  }, [open]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -198,30 +215,35 @@ export function SettingsMenu() {
           default py-2), so the two max-h values below are picked
           per-breakpoint to land on ~4 rows each, matching avatar-menu.
           tsx's max-h-36 rather than reusing one number for both. */}
-      <div className="max-h-36 overflow-y-auto sm:max-h-32">
-        {languageOptions.map((l) => {
-          const isSelected = l === lang;
-          return (
-            <button
-              key={l}
-              type="button"
-              onClick={() => selectLocale(l)}
-              className={
-                "flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition sm:py-1.5 " +
-                (isSelected
-                  ? "bg-accent/10 text-accent"
-                  : "text-neutral-700 hover:bg-accent/10 hover:text-accent dark:text-neutral-300")
-              }
-            >
-              <span>{LANGUAGE_NAMES[l]}</span>
-              {isSelected && (
-                <svg viewBox="0 0 16 16" fill="none" className="h-4 w-4 shrink-0" aria-hidden="true">
-                  <path d="M3 8.5l3 3 7-7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              )}
-            </button>
-          );
-        })}
+      <div className="relative">
+        <div ref={langScrollRef} onScroll={updateLangMoreBelow} className="max-h-36 overflow-y-auto sm:max-h-32">
+          {languageOptions.map((l) => {
+            const isSelected = l === lang;
+            return (
+              <button
+                key={l}
+                type="button"
+                onClick={() => selectLocale(l)}
+                className={
+                  "flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition sm:py-1.5 " +
+                  (isSelected
+                    ? "bg-accent/10 text-accent"
+                    : "text-neutral-700 hover:bg-accent/10 hover:text-accent dark:text-neutral-300")
+                }
+              >
+                <span>{LANGUAGE_NAMES[l]}</span>
+                {isSelected && (
+                  <svg viewBox="0 0 16 16" fill="none" className="h-4 w-4 shrink-0" aria-hidden="true">
+                    <path d="M3 8.5l3 3 7-7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        {langMoreBelow && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 rounded-b-md bg-gradient-to-t from-white to-transparent dark:from-neutral-900" />
+        )}
       </div>
     </>
   );
