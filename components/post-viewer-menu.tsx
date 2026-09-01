@@ -113,6 +113,68 @@ function DotsIcon() {
   );
 }
 
+// 2026-09-01 (Aleksandr, dropdown screenshot: "Добавь соответствующие
+// иконки левой стороны в эту модалку") — one small leading icon per
+// row, same stroke-based style as MessageIcon above. Contact and save
+// each swap between two variants to reflect on/off state, matching
+// their label swap (add/remove, save/unsave) just above.
+function UserPlusIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M19 8v6M22 11h-6" />
+    </svg>
+  );
+}
+
+function UserMinusIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 11h-6" />
+    </svg>
+  );
+}
+
+function ContactCardIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+      <rect x="2" y="5" width="20" height="14" rx="2" />
+      <circle cx="8" cy="12" r="2" />
+      <path d="M14 10h4M14 14h4M5.5 16.3c.6-1 1.7-1.7 2.8-1.7" />
+    </svg>
+  );
+}
+
+function BookmarkIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
+function BookmarkFilledIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
+function SharePostIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+      <circle cx="18" cy="5" r="3" />
+      <circle cx="6" cy="12" r="3" />
+      <circle cx="18" cy="19" r="3" />
+      <path d="M8.6 10.6l6.8-3.2M8.6 13.4l6.8 3.2" />
+    </svg>
+  );
+}
+
 export function PostViewerMenu({
   postId,
   authorUserId,
@@ -298,6 +360,8 @@ export function PostViewerMenu({
     contactStatus === "error" ? STRINGS.actionFailed[lang] : contactStatus === "on" ? STRINGS.removeContact[lang] : STRINGS.addContact[lang];
   const saveLabel =
     saveStatus === "error" ? STRINGS.actionFailed[lang] : saveStatus === "on" ? STRINGS.unsavePost[lang] : STRINGS.savePost[lang];
+  const contactIcon = contactStatus === "on" ? <UserMinusIcon /> : <UserPlusIcon />;
+  const saveIcon = saveStatus === "on" ? <BookmarkFilledIcon /> : <BookmarkIcon />;
 
   return (
     <div className="mt-4 flex items-center gap-2">
@@ -334,8 +398,9 @@ export function PostViewerMenu({
                   type="button"
                   onClick={toggleContact}
                   disabled={contactStatus === "busy" || contactStatus === "loading"}
-                  className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-neutral-700 transition hover:bg-accent/10 hover:text-accent disabled:opacity-60 dark:text-neutral-300"
+                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 transition hover:bg-accent/10 hover:text-accent disabled:opacity-60 dark:text-neutral-300"
                 >
+                  {contactIcon}
                   {contactLabel}
                 </button>
               )}
@@ -344,23 +409,26 @@ export function PostViewerMenu({
                 // Stub — real chat-drop later, same as the Message button
                 // above. Still closes the menu, like every other row.
                 onClick={() => setOpen(false)}
-                className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-neutral-700 transition hover:bg-accent/10 hover:text-accent dark:text-neutral-300"
+                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 transition hover:bg-accent/10 hover:text-accent dark:text-neutral-300"
               >
+                <ContactCardIcon />
                 {STRINGS.shareContact[lang]}
               </button>
               <button
                 type="button"
                 onClick={toggleSave}
                 disabled={saveStatus === "busy" || saveStatus === "loading"}
-                className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-neutral-700 transition hover:bg-accent/10 hover:text-accent disabled:opacity-60 dark:text-neutral-300"
+                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 transition hover:bg-accent/10 hover:text-accent disabled:opacity-60 dark:text-neutral-300"
               >
+                {saveIcon}
                 {saveLabel}
               </button>
               <button
                 type="button"
                 onClick={sharePost}
-                className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-neutral-700 transition hover:bg-accent/10 hover:text-accent dark:text-neutral-300"
+                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 transition hover:bg-accent/10 hover:text-accent dark:text-neutral-300"
               >
+                <SharePostIcon />
                 {shareFeedback ? STRINGS.linkCopied[lang] : STRINGS.sharePost[lang]}
               </button>
             </div>

@@ -81,9 +81,22 @@ export const TAG_LABEL_TRANSLATIONS: Record<string, Record<Locale, string>> = {
 // experience-tag values look like "exp-3-yr" against a plain-number
 // text of "3") -- not guessing at those without a live tag list to
 // confirm the actual value strings against.
-const TAG_LABEL_TRANSLATIONS_BY_LOWER_KEY: Record<string, Record<Locale, string>> = Object.fromEntries(
-  Object.entries(TAG_LABEL_TRANSLATIONS).map(([key, value]) => [key.toLowerCase(), value]),
-);
+const TAG_LABEL_TRANSLATIONS_BY_LOWER_KEY: Record<string, Record<Locale, string>> = {
+  ...Object.fromEntries(
+    Object.entries(TAG_LABEL_TRANSLATIONS).map(([key, value]) => [key.toLowerCase(), value]),
+  ),
+  // 2026-09-01 (Aleksandr, post-detail screenshot: "Какая то трабла с
+  // тегами? Что значи no-site?"): the backend's real stored VALUE for
+  // the "On-site" work-format tag is literally "no-site" (see
+  // aone-api-private's constants/post-tags.ts -- `{ value: 'no-site',
+  // text: l('dataset.post_tags.no-site', 'On-site') }`), not a
+  // lowercased/hyphenated form of its own text like every other tag
+  // here ("remote", "full-time", ...). That mismatch is why it fell
+  // through to the raw-text fallback below -- add it as an explicit
+  // alias onto the same "On-site" translations rather than guessing at
+  // any other backend value that might not follow the pattern.
+  "no-site": TAG_LABEL_TRANSLATIONS["On-site"],
+};
 
 export function translateTagLabel(text: string, lang: Locale): string {
   const exact = TAG_LABEL_TRANSLATIONS[text];
