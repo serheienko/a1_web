@@ -43,13 +43,14 @@
 // tab too, closing the loop that route's own header comment left open
 // ("сохранённых пользователей еще сделаем, в профиле будут кнопки").
 //
-// The "added to contacts" visual state below is a placeholder
-// (white/bordered pill, checkmark that swaps to a remove icon on
-// hover -- the same interaction components/add-contact-button.tsx's
-// own comment already worked out live) -- Aleksandr said a VK-style
-// reference screenshot for that exact state is coming separately; swap
-// only the "on" branch's classes/icon once that arrives, the rest of
-// this file's shape shouldn't need to change.
+// The "added to contacts" visual state (white/bordered pill, checkmark
+// that swaps to a remove icon on hover -- the same interaction
+// components/add-contact-button.tsx's own comment already worked out
+// live) is now final: Aleksandr sent the promised reference screenshot
+// (2026-09-01, the app's own profile for "Anna Bond") showing the
+// "added" badge as a circled checkmark, not a bare checkmark glyph --
+// see CheckIcon()'s own comment below. Pill shape/colors already
+// matched; only the glyph needed to change.
 "use client";
 
 import { useEffect, useState } from "react";
@@ -143,9 +144,15 @@ function PersonAddIcon() {
 }
 
 function CheckIcon() {
+  // Aleksandr, 2026-09-01: sent a reference screenshot of the app's own
+  // "added" button — its badge is a circled checkmark (like iOS's
+  // checkmark.circle), not a bare checkmark glyph. Swapping the icon to
+  // match; this is the definitive visual for the "contactAdded" cell
+  // below (was a placeholder pending exactly this reference).
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
-      <path d="M20 6L9 17l-5-5" />
+      <circle cx="12" cy="12" r="9" />
+      <path d="M8 12.3l2.6 2.6L16 9" />
     </svg>
   );
 }
@@ -420,9 +427,9 @@ export function ProfileActionRow({
     <div className="mt-4 grid grid-cols-4 gap-2">
       {/* Add/remove contact — the same toggle components/add-contact-
           button.tsx used to run as a standalone corner badge, now the
-          primary (accent-filled) cell of this row. "Added" state is a
-          placeholder — see this file's own header comment; will swap
-          once the VK-style reference lands. */}
+          primary (accent-filled) cell of this row. "Added" state's
+          circled-checkmark badge matches the reference screenshot —
+          see this file's own header comment and CheckIcon(). */}
       <button
         type="button"
         onClick={toggleContact}
