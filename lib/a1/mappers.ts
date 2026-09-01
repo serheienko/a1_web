@@ -58,7 +58,7 @@ function mapAuthor(author: Post["author"], flags: number): WebPostAuthor {
   if (authorIsHidden(flags) || author.object !== "user-preview") {
     // Covers the documented UserHidden variant and any shape our schema
     // couldn't match — PLAN.md §0.3: "must render as Anonymous, never crash."
-    return { name: "Anonymous", username: null, avatarUrl: null, isAnonymous: true };
+    return { userId: null, name: "Anonymous", username: null, avatarUrl: null, isAnonymous: true };
   }
   // Deliberately NOT `author.photo` — confirmed live twice now (once on
   // 2026-08-26 against a raw response, and again via a screen recording
@@ -72,6 +72,11 @@ function mapAuthor(author: Post["author"], flags: number): WebPostAuthor {
   // photos — resolved fresh at actual view time, never stale.
   const avatarDoc = author.photos[0];
   return {
+    // Raw UserPreview._id, unprefixed-format-agnostic — this is the same
+    // id string contacts.addContact/favorites.addFavorites expect (see
+    // app/api/contacts/add/route.ts's own comment on that contract), so
+    // it's passed straight through rather than reshaped.
+    userId: author._id,
     name: author.fullName || "Anonymous",
     username: author.username ?? null,
     avatarUrl: avatarDoc ? buildMediaProxyUrl(avatarDoc) : null,

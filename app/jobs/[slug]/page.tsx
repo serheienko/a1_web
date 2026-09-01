@@ -19,6 +19,7 @@ import { generateImageBlurDataUrl } from "@/lib/avatar-blur";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { T } from "@/components/t";
 import { PostOwnerMenu } from "@/components/post-owner-menu";
+import { PostViewerMenu } from "@/components/post-viewer-menu";
 import { profileHref } from "@/lib/profile-href";
 import { TagLabel } from "@/components/tag-label";
 import { LocationMap } from "@/components/location-map";
@@ -196,6 +197,14 @@ export default async function JobDetailPage({ params }: Props) {
           </div>
         </div>
       </div>
+
+      <PostViewerMenu
+        postId={post.id}
+        authorUserId={post.author.userId}
+        authorUsername={post.author.username}
+        shareUrl={`${SITE_URL}/jobs/${canonicalSlug}`}
+        shareTitle={post.title}
+      />
 
       <PostImages images={postImages} />
 

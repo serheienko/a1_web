@@ -66,3 +66,19 @@ export function isArchivedOrDraft(flags: number): boolean {
 export function isArchived(flags: number): boolean {
   return (flags & ARCHIVED) !== 0;
 }
+
+// 2026-09-01: unlike the comment above says for the anonymous
+// service-account reads (fetchPostById/mapPosts — FAVORED is genuinely
+// meaningless there, since that account never favorites anything),
+// this bit IS meaningful on an authenticated callAsVisitor call, where
+// it reflects the real signed-in visitor. Used by
+// app/api/favorites/list/route.ts, itself the initial-state check
+// behind the post-detail page's "Зберегти пост" toggle
+// (components/post-viewer-menu.tsx) — mirrors how
+// components/add-contact-button.tsx resolves its own initial toggle
+// state from app/api/contacts/list/route.ts.
+const FAVORED = 1 << 4;
+
+export function isFavorited(flags: number): boolean {
+  return (flags & FAVORED) !== 0;
+}

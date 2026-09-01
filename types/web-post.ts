@@ -12,6 +12,11 @@
 export type WebPostKind = "hiring" | "seeking";
 
 export type WebPostAuthor = {
+  // 2026-09-01: added alongside the post-detail "..." menu's "Додати
+  // контакт" action (contacts.addContact needs the target user's id,
+  // not just their username/name) -- null for the UserHidden/anonymous
+  // branch, same as avatarUrl/username above.
+  userId: string | null;
   name: string;
   username: string | null;
   avatarUrl: string | null;
