@@ -3,20 +3,22 @@
 // я пока не сильно знаю UI, где и как это расположить").
 //
 // 2026-09-01: briefly grew a 3-tab switcher (Контакти/Збережені пости/
-// Збережені користувачі) here, then Aleksandr redirected it: "Контакты
-// я имею ввиду именно в модалке, которая всплывает после наведения на
-// аватар" ... "В самих контактах должны быть только контакты" ...
-// "Отсюда убери табы, только список контактов" — the tabbed experience
-// now lives embedded in components/avatar-menu.tsx's own hover/tap
-// panel (see components/contacts-panel.tsx, which that component
-// mounts directly), and this page goes back to being exactly what it
-// was before: a single, tab-less contacts list. Kept as its own route
-// regardless (not folded away) since it's still a real, linkable page —
-// just no longer where the saved-posts/saved-users tabs live.
+// Збережені користувачі) here, then Aleksandr redirected it twice more
+// the same day: "Контакты я имею ввиду именно в модалке, которая
+// всплывает после наведения на аватар" ... "В самих контактах должны
+// быть только контакты" ... "Отсюда убери табы, только список
+// контактов" (tabs moved into components/avatar-menu.tsx's own
+// hover/tap panel, embedded directly), then finally "мы в самой
+// модалке ничего не отображаем... My Activity откроет одну страницу"
+// (tabs moved back out, this time to their own page — app/my-activity/
+// page.tsx). This page has stayed a single, tab-less contacts list
+// through all of that. Kept as its own route regardless (not folded
+// away) since it's still a real, linkable page — just never where the
+// saved-posts/saved-users tabs live.
 //
 // Explicitly a rough first pass per his own framing ("накидаешь, потом
 // пересделаем") — both the page's own layout AND its entry point
-// (components/avatar-menu.tsx's new "Контакти" row) are placeholders to
+// (components/avatar-menu.tsx's "Контакти" row) are placeholders to
 // react to live, not a settled design.
 //
 // Client component, not a server one: unlike every feed/profile page in

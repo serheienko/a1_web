@@ -67,7 +67,6 @@ import { createPortal } from "react-dom";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { profileHref } from "@/lib/profile-href";
 import { LOCALES, LOCALE_CLASS, LOCALE_TAG, type Locale } from "@/components/t";
-import { ContactsPanel } from "@/components/contacts-panel";
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
 import { SettingsMenu } from "@/components/settings-menu";
 import { useHoverPanel } from "@/lib/use-hover-panel";
@@ -93,7 +92,7 @@ const LANGUAGE_NAMES: Record<Locale, string> = {
   zh: "简体中文",
 };
 
-type AvatarMenuStringKey = "signIn" | "signOut" | "theme" | "language" | "light" | "dark" | "auto" | "viewProfile" | "contacts";
+type AvatarMenuStringKey = "signIn" | "signOut" | "theme" | "language" | "light" | "dark" | "auto" | "viewProfile" | "contacts" | "myActivity";
 
 const STRINGS: Record<AvatarMenuStringKey, Record<Locale, string>> = {
   signIn: {
@@ -109,12 +108,32 @@ const STRINGS: Record<AvatarMenuStringKey, Record<Locale, string>> = {
     es: "Ver perfil", fr: "Voir le profil", pl: "Zobacz profil",
     ptBR: "Ver perfil", zh: "查看资料",
   },
+  // 2026-09-01 (Aleksandr, second thoughts on the same panel: "надо
+  // сделать это такими просто отдельными строчками, как сейчас у нас
+  // контакты, и под ним контакты отображать отдельно. А этот My Activity
+  // уже отображать тремя табами. Но ещё раз: мы в самой модалке ничего
+  // не отображаем. Это всё кнопки-ссылки, которые ведут на страницу.")
+  // -- reverses the same-day "embed the tabs directly in the dropdown"
+  // pass (components/contacts-panel.tsx, since deleted, had that
+  // history): the panel goes back to being link rows only, no fetching,
+  // no lists rendered inline. This row is the new one, sitting above
+  // the Контакти row below it; it points at app/my-activity/page.tsx,
+  // which is where the Мої дописи/Збережені дописи/Збережені
+  // користувачі tabs actually live now (as real page tabs, styled after
+  // the native app's own My posts/Saved posts/Saved users screen he
+  // screenshotted, not the Тема-style 3-button grid this dropdown briefly
+  // had).
+  myActivity: {
+    uk: "Моя активність", en: "My Activity", ru: "Моя активность", de: "Meine Aktivität",
+    es: "Mi actividad", fr: "Mon activité", pl: "Moja aktywność", ptBR: "Minha atividade", zh: "我的动态",
+  },
   // 2026-08-31, first-pass placement for app/contacts/page.tsx (Aleksandr:
   // "где-то у нас какую-то контактную книгу... я пока не сильно знаю UI,
   // где и как это расположить") — restored as its own plain row per
   // 2026-09-01 follow-up ("контакты оставим как есть") once the tabbed
   // Мої дописи/Збережені experience moved into components/contacts-panel.tsx
-  // below it.
+  // below it (that panel has since been deleted; the tabs now live at
+  // app/my-activity/page.tsx, opened by the "My Activity" row above).
   contacts: {
     uk: "Контакти", en: "Contacts", ru: "Контакты", de: "Kontakte", es: "Contactos",
     fr: "Contacts", pl: "Kontakty", ptBR: "Contatos", zh: "联系人",
@@ -187,6 +206,18 @@ function ContactsIcon() {
       <circle cx="9" cy="7" r="4" />
       <path d="M2 21c0-4 3.1-6 7-6s7 2 7 6" />
       <path d="M19 8v6M16 11h6" />
+    </svg>
+  );
+}
+
+// 2026-09-01, app/my-activity/page.tsx's entry point -- same 18px/
+// viewBox-24/stroke-2 style as the icons above. Document/list glyph so
+// it reads distinctly from ContactsIcon's people glyph.
+function MyActivityIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="4" y="3" width="16" height="18" rx="2" />
+      <path d="M8 8h8M8 12h8M8 16h5" />
     </svg>
   );
 }
@@ -471,6 +502,21 @@ export function AvatarMenu() {
 
             <div className="my-1 border-t border-neutral-100 dark:border-neutral-800" />
 
+            {/* 2026-09-01 (Aleksandr, final word on this same panel):
+                both of these are plain link rows -- nothing fetches or
+                renders inline here anymore. My Activity sits above
+                Контакти, in that order, and opens app/my-activity/
+                page.tsx, which is where the three tabs (Мої дописи/
+                Збережені дописи/Збережені користувачі) actually live. */}
+            <Link
+              href="/my-activity"
+              onClick={() => setOpen(false)}
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-neutral-700 transition hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+            >
+              <MyActivityIcon />
+              {STRINGS.myActivity[lang]}
+            </Link>
+
             <Link
               href="/contacts"
               onClick={() => setOpen(false)}
@@ -479,17 +525,6 @@ export function AvatarMenu() {
               <ContactsIcon />
               {STRINGS.contacts[lang]}
             </Link>
-
-            {/* 2026-09-01 (Aleksandr: "Давай сделаем по аналогии 'ТЕМЫ',
-                3 кнопки горизонтально и текст под ними, но контакты
-                оставим как есть, а на 3 кнопки выведем: Мои публикации /
-                Сохраненные публикации / Сохраненные пользователи"): the
-                tabbed Мої дописи/Збережені experience lives here, below
-                the plain Контакти row above -- see components/contacts-
-                panel.tsx's own header comment for the full history.
-                onNavigate closes this panel the same way every other
-                row in it already does. */}
-            <ContactsPanel onNavigate={() => setOpen(false)} />
 
             <div className="my-1 border-t border-neutral-100 dark:border-neutral-800" />
 
