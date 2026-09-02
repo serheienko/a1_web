@@ -166,7 +166,7 @@ export function FabAuthPrompt({
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
         className={
-          "animate-popover-up fixed right-5 z-[70] max-h-[85vh] overflow-y-auto rounded-2xl bg-white shadow-xl dark:bg-neutral-900 " +
+          "animate-popover-up fixed right-5 z-[70] max-h-[85vh] overflow-y-auto rounded-2xl border border-neutral-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900 " +
           (expanded ? "w-80 max-w-[calc(100vw-2rem)] p-5" : "w-64 max-w-[calc(100vw-2rem)] p-4")
         }
         style={{ bottom: FAB_POPOVER_BOTTOM }}

@@ -101,7 +101,7 @@ export function DraftsPicker({
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
         ref={panelRef}
-        className="animate-popover-up fixed right-5 z-[70] flex max-h-[70vh] w-72 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl bg-white shadow-xl dark:bg-neutral-900"
+        className="animate-popover-up fixed right-5 z-[70] flex max-h-[70vh] w-72 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
         style={{ bottom: POPOVER_BOTTOM }}
       >
         <div className="flex items-center justify-between px-4 pt-4">
