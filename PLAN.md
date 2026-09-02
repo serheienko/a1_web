@@ -3703,3 +3703,43 @@ route papering over a missing required field.
 Not live-tested at all yet -- no UI calls this route's new `contacts`
 field, and nothing's been pushed. Next: Aleksandr's picker UI, then a
 real end-to-end send.
+
+### 6.73 Backend-only: sending a calculation/quote in a message (2026-09-02)
+
+Aleksandr, right after the contact-attachment entry above, with a
+native-app screenshot of an invoice-style card (Description / Cost /
+Qty / Subt columns, a note field, a running total): "поищи плз, у нас
+есть еще такая фича, calculations". Same explicit "backend only, UI
+later" scope.
+
+This one turned out structurally different from the paperclip's photo/
+file/contact attachments: it's not `media` at all.
+Resource.RichText.Calculation is a member of the `entities` union --
+the SAME array plain message text already lives in as `entity-text`
+(see MessageSchema's own header comment on where real text lives) --
+confirmed off the OpenAPI spec: `{ note, currency, rows: [{quantity,
+unitAmount, description}], object: "entity-calculation" }`, all of
+note/currency/rows required (rows may be `[]`, matching the reference
+screenshot's own "0 USD, no rows yet" state, but the key itself must
+be present). `unitAmount` is documented as an integer in CENTS -- this
+app's own salary-amount formatter (lib/format.ts's formatAmount,
+used by post-editor.tsx) works in whole units, so a future calculator
+UI must not reuse it unmodified for this.
+
+app/api/chats/send/route.ts gained an optional `calculation` field.
+Because `entities` is where plain text canonically lives too, sending
+BOTH a flat `message` string and an explicit `entities` array on the
+same request is untested territory -- rather than guess how (or
+whether) chat-server would reconcile the two, a typed caption
+alongside a calculation is folded into the SAME `entities` array as
+its own `entity-text` item, and `message` is left unset whenever
+`entities` is being sent at all. Read side got the mirror
+(MessageCalculationSchema / messageCalculation() in
+lib/a1/chat-schemas.ts) -- returns at most one calculation per message
+(every example in the spec shows one, unlike media which is an array).
+
+Not live-tested (nothing pushed yet, same as the contact-attachment
+plumbing above). Next: Aleksandr's calculator-form UI (add/remove row,
+currency picker, running total), then a real end-to-end send -- and
+specifically worth checking then whether `message` + `entities`
+together actually behaves the way this entry assumed it might not.
