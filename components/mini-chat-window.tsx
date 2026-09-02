@@ -33,6 +33,7 @@ import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import {
   extractMessages,
   extractMessageText,
+  messageDateMs,
   messageTickState,
   type ChatMessage,
 } from "@/lib/a1/chat-schemas";
@@ -44,6 +45,39 @@ const POLL_MS = 3000;
 // -- the peer's read position changes far less often than messages do,
 // so this only asks every 2nd poll tick instead of every single one.
 const READ_STATE_EVERY = 2;
+
+// 2026-09-02 (Aleksandr, reference screenshot of the native chat's own
+// bubbles: "Надо показвать время сообщений, как у нас в чате на
+// мобиле") -- same plain toLocaleTimeString formatting components/
+// chats-flyout.tsx's own formatTime() already uses, duplicated here
+// rather than imported (this file's own header explains why it never
+// shares code with that file).
+function formatTime(ms: number): string {
+  if (!ms) return "";
+  try {
+    return new Date(ms).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  } catch {
+    return "";
+  }
+}
+
+// 2026-09-02 (Aleksandr, live screenshot: the paperclip button itself
+// turning into a spinner -- "Тут не должно показывать загрузку) ее
+// надо показывать на медиа, которое отправляется, но кстати картинка
+// не отправилась" -- both a UX correction AND a real bug: the old
+// version uploaded and sent in one shot with no staged preview, so a
+// slow/failed upload had nothing visible to retry and the button's own
+// spinner was the only feedback). Now a proper staged attachment,
+// mirroring app/chats/[chatId]/page.tsx's own PendingAttachment
+// pattern trimmed to a single image: pick -> thumbnail appears
+// immediately with a spinner OVER the thumbnail (not the paperclip) ->
+// upload finishes -> Send button includes it. The paperclip itself goes
+// back to just opening the file picker.
+type MiniAttachment = {
+  previewUrl: string;
+  status: "uploading" | "ready" | "error";
+  fileReference?: string;
+};
 
 export function MiniChatWindow({ target, onClose }: { target: ChatFlyoutOpenTarget; onClose: () => void }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -58,8 +92,7 @@ export function MiniChatWindow({ target, onClose }: { target: ChatFlyoutOpenTarg
   const listRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [attachUploading, setAttachUploading] = useState(false);
-  const [attachErrored, setAttachErrored] = useState(false);
+  const [attachment, setAttachment] = useState<MiniAttachment | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -133,14 +166,23 @@ export function MiniChatWindow({ target, onClose }: { target: ChatFlyoutOpenTarg
 
   async function handleSend() {
     const text = draft.trim();
-    if (!text || sending) return;
+    const readyAttachment = attachment && attachment.status === "ready" ? attachment : null;
+    if ((!text && !readyAttachment) || sending) return;
     setSending(true);
     setDraft("");
+    if (readyAttachment) {
+      URL.revokeObjectURL(readyAttachment.previewUrl);
+      setAttachment(null);
+    }
     try {
       const res = await authFetch("/api/chats/send", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ chatId: target.routeParam, text }),
+        body: JSON.stringify({
+          chatId: target.routeParam,
+          text: text || undefined,
+          media: readyAttachment?.fileReference ? [{ fileReference: readyAttachment.fileReference }] : undefined,
+        }),
       });
       const data = await res.json().catch(() => null);
       if (data?.ok && data.message) {
@@ -168,9 +210,9 @@ export function MiniChatWindow({ target, onClose }: { target: ChatFlyoutOpenTarg
   // page -- an uncompressed upload is the one accepted trade-off for
   // staying self-contained.
   async function handleAttach(file: File) {
-    if (attachUploading) return;
-    setAttachUploading(true);
-    setAttachErrored(false);
+    if (attachment) URL.revokeObjectURL(attachment.previewUrl);
+    const previewUrl = URL.createObjectURL(file);
+    setAttachment({ previewUrl, status: "uploading" });
     try {
       const createRes = await authFetch("/api/upload/create", {
         method: "POST",
@@ -193,23 +235,18 @@ export function MiniChatWindow({ target, onClose }: { target: ChatFlyoutOpenTarg
       const confirmData = await confirmRes.json().catch(() => null);
       const fileReference = confirmData?.media?.fileReference as string | undefined;
       if (!confirmRes.ok || !confirmData?.ok || !fileReference) throw new Error("confirm_failed");
-      const sendRes = await authFetch("/api/chats/send", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ chatId: target.routeParam, media: [{ fileReference }] }),
-      });
-      const sendData = await sendRes.json().catch(() => null);
-      if (sendData?.ok && sendData.message) {
-        setMessages((prev) => [...prev, sendData.message as ChatMessage]);
-      } else {
-        throw new Error("send_failed");
-      }
+      // Guard against a stale response landing after the user already
+      // removed/replaced this attachment (compare by previewUrl, the
+      // one thing that's stable for this specific pick).
+      setAttachment((prev) => (prev && prev.previewUrl === previewUrl ? { ...prev, status: "ready", fileReference } : prev));
     } catch {
-      setAttachErrored(true);
-      window.setTimeout(() => setAttachErrored(false), 2200);
-    } finally {
-      setAttachUploading(false);
+      setAttachment((prev) => (prev && prev.previewUrl === previewUrl ? { ...prev, status: "error" } : prev));
     }
+  }
+
+  function removeAttachment() {
+    if (attachment) URL.revokeObjectURL(attachment.previewUrl);
+    setAttachment(null);
   }
 
   return createPortal(
@@ -251,6 +288,12 @@ export function MiniChatWindow({ target, onClose }: { target: ChatFlyoutOpenTarg
           const mine = myUserId !== null && msg.fromId === myUserId;
           const text = extractMessageText(msg);
           if (!text) return null;
+          // 2026-09-02 (Aleksandr, reference screenshot of the native
+          // chat's own bubbles: "Надо показвать время сообщений, как у
+          // нас в чате на мобиле") -- bubbles here used to carry no
+          // timestamp at all (only mine ones got a ticks row). Now every
+          // bubble with a real date shows one, ticks stay mine-only.
+          const dateMs = messageDateMs(msg);
           return (
             <div key={msg._id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
               <div
@@ -261,9 +304,14 @@ export function MiniChatWindow({ target, onClose }: { target: ChatFlyoutOpenTarg
                 }`}
               >
                 <div className="whitespace-pre-wrap break-words">{text}</div>
-                {mine && (
-                  <div className="mt-0.5 flex justify-end">
-                    <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7px] w-3 text-white/80" />
+                {(dateMs > 0 || mine) && (
+                  <div
+                    className={`mt-0.5 flex items-center justify-end gap-1 text-[10px] ${
+                      mine ? "text-white/80" : "text-[#989aa6] dark:text-[#8d8d93]"
+                    }`}
+                  >
+                    {dateMs > 0 && <span>{formatTime(dateMs)}</span>}
+                    {mine && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7px] w-3" />}
                   </div>
                 )}
               </div>
@@ -272,73 +320,119 @@ export function MiniChatWindow({ target, onClose }: { target: ChatFlyoutOpenTarg
         })}
       </div>
 
-      <div className="flex shrink-0 items-end gap-2 border-t border-neutral-100 px-2.5 py-2 dark:border-neutral-800">
-        {/* 2026-09-02 (Aleksandr, "Sofia Benett" screenshot: "надо
-            добавить скрепку слева, а кота поставить справа как в
-            обычных чатах") -- paperclip now leads the row, cat icon
-            moved inside the pill's own trailing edge, matching
-            app/chats/[chatId]/page.tsx's own compose bar order. */}
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={attachUploading}
-          aria-label="Attach"
-          title={attachErrored ? "Failed -- try again" : "Attach"}
-          className={
-            "flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition disabled:opacity-40 " +
-            (attachErrored
-              ? "text-red-500 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
-              : "text-neutral-400 hover:bg-black/5 hover:text-neutral-600 dark:text-[#8d8d93] dark:hover:bg-white/10 dark:hover:text-neutral-200")
-          }
-        >
-          {attachUploading ? (
-            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeOpacity="0.25" />
-              <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-            </svg>
-          ) : (
-            <ChatPaperclipGlyph className="h-4 w-4" />
-          )}
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            e.target.value = "";
-            if (file) void handleAttach(file);
-          }}
-        />
-        <div className="group flex min-h-[36px] flex-1 items-center gap-1.5 rounded-full bg-[#f2f2f7] px-3 py-1.5 dark:bg-[#1c1c1e]">
-          <textarea
-            ref={textareaRef}
-            rows={1}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleSend();
-              }
+      <div className="flex shrink-0 flex-col gap-2 border-t border-neutral-100 px-2.5 py-2 dark:border-neutral-800">
+        {/* 2026-09-02 (Aleksandr, live screenshot: the paperclip button
+            itself was showing a spinner -- "Тут не должно показывать
+            загрузку) ее надо показывать на медиа, которое отправляется"
+            -- staged thumbnail instead, same overlay-spinner/remove-x
+            convention app/chats/[chatId]/page.tsx's own attachment strip
+            already uses, just a single item instead of an array. */}
+        {attachment && (
+          <div className="flex justify-start">
+            <div className="group relative">
+              {/* eslint-disable-next-line @next/next/no-img-element -- a
+                  local blob: URL preview, not a next/image remote src. */}
+              <img src={attachment.previewUrl} alt="" className="h-16 w-16 rounded-xl object-cover" />
+              {attachment.status === "uploading" && (
+                <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/30">
+                  <svg className="h-5 w-5 animate-spin text-white" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeOpacity="0.25" />
+                    <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+                  </svg>
+                </div>
+              )}
+              {attachment.status === "error" && (
+                <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-red-500/70">
+                  <span className="text-[10px] font-medium text-white">Failed</span>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={removeAttachment}
+                aria-label="Remove attachment"
+                className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white transition hover:bg-black/80"
+              >
+                <svg viewBox="0 0 24 24" fill="none" className="h-3 w-3" aria-hidden="true">
+                  <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
+        <div className="flex items-end gap-2">
+          {/* 2026-09-02 (Aleksandr: "надо добавить скрепку слева, а кота
+              поставить справа как в обычных чатах" + "надо тут тоже
+              анимации при наведении на иконки") -- paperclip leads the
+              row (matching app/chats/[chatId]/page.tsx's own compose
+              order) and now wiggles on hover via the SAME `group` +
+              animate-paperclip-wiggle pair that page's own
+              ChatPaperclipButton already uses (app/globals.css). */}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={sending}
+            aria-label="Attach"
+            className="group flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-neutral-400 transition hover:bg-black/5 hover:text-neutral-600 disabled:opacity-40 dark:text-[#8d8d93] dark:hover:bg-white/10 dark:hover:text-neutral-200"
+          >
+            <ChatPaperclipGlyph className="h-4 w-4 animate-paperclip-wiggle" />
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (file) void handleAttach(file);
             }}
-            placeholder=""
-            className="max-h-24 min-h-[18px] flex-1 resize-none bg-transparent text-[13.5px] leading-[18px] text-[#262a34] outline-none placeholder:text-[#989aa6] dark:text-white"
           />
-          <ChatCatFieldIcon className="h-4 w-4 shrink-0 text-neutral-400 dark:text-[#adafbb]" />
+          <div className="flex min-h-[36px] flex-1 items-center gap-1.5 rounded-full bg-[#f2f2f7] px-3 py-1.5 dark:bg-[#1c1c1e]">
+            <textarea
+              ref={textareaRef}
+              rows={1}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
+              placeholder=""
+              // 2026-09-02 (Aleksandr, live screenshot: a Cyrillic "у"'s
+              // descender getting clipped by the pill's own bottom edge)
+              // -- leading-[18px] on 13.5px text left no room below the
+              // baseline for a descender; leading-5 (20px, same value
+              // app/chats/[chatId]/page.tsx's own textarea already uses)
+              // fixes it. min-h matched to the same 20px so the single-
+              // line pill height doesn't visibly jump.
+              className="max-h-24 min-h-[20px] flex-1 resize-none bg-transparent text-[13.5px] leading-5 text-[#262a34] outline-none placeholder:text-[#989aa6] dark:text-white"
+            />
+            {/* group: own small wrapper (not the whole pill, which would
+                fire on every keystroke) -- same reasoning app/chats/
+                [chatId]/page.tsx's own cat-icon wrapper comment gives.
+                This particular glyph has no chat-cat-pupil sub-paths for
+                the eye-dart treatment that page's icon supports, so it
+                reuses ChatsFab's own generic animate-chat-wiggle
+                (rotate+scale) instead -- still a real hover reaction,
+                just a different motion. */}
+            <div className="group shrink-0">
+              <ChatCatFieldIcon className="h-4 w-4 animate-chat-wiggle text-neutral-400 dark:text-[#adafbb]" />
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleSend}
+            disabled={sending || attachment?.status === "uploading" || (!draft.trim() && attachment?.status !== "ready")}
+            aria-label="Send"
+            className="group flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#335ef7] text-white transition hover:brightness-110 active:scale-95 disabled:opacity-40 disabled:hover:brightness-100 dark:bg-[#0c8ce9]"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="animate-send-arrow">
+              <path d="M4 12h15M13 5l7 7-7 7" />
+            </svg>
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={handleSend}
-          disabled={!draft.trim() || sending}
-          aria-label="Send"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#335ef7] text-white transition hover:brightness-110 active:scale-95 disabled:opacity-40 disabled:hover:brightness-100 dark:bg-[#0c8ce9]"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M4 12h15M13 5l7 7-7 7" />
-          </svg>
-        </button>
       </div>
     </div>,
     document.body,
