@@ -5,11 +5,14 @@
 // right, for creating a post — shown whether signed in or not
 // ("С логином и без").
 //
-// Signed OUT: clicking navigates to /sign-in?reason=create-post rather
-// than opening anything here. app/sign-in/page.tsx checks for that
-// query param and shows one extra line above the form — "to create a
-// post, sign up or sign in" — but ONLY on that path, never on a plain
-// visit to /sign-in.
+// Signed OUT: clicking used to navigate straight to /sign-in?reason=
+// create-post. 2026-09-02 (Aleksandr: "не уводи со страницы... покажи
+// модалку прямо над кнопками") -- now opens components/fab-auth-
+// prompt.tsx's small anchored popover instead, right above this
+// button; ITS OWN sign-in CTA still routes to /sign-in?reason=create-
+// post, so app/sign-in/page.tsx's existing "to create a post, sign up
+// or sign in" notice line still shows up once the visitor follows
+// through.
 //
 // Signed IN: clicking now opens the real components/post-editor.tsx in
 // mode="create" (2026-08-29, replacing the earlier stub dialog —
@@ -40,6 +43,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
 import { PostEditor } from "@/components/post-editor";
+import { FabAuthPrompt } from "@/components/fab-auth-prompt";
 
 type FabStringKey = "label";
 
@@ -85,6 +89,7 @@ export function CreatePostFab() {
   const router = useRouter();
   const [email, setEmail] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
+  const [authPromptOpen, setAuthPromptOpen] = useState(false);
 
   useEffect(() => {
     setEmail(readDisplayCookie());
@@ -101,11 +106,15 @@ export function CreatePostFab() {
   // same route, for the same reason (see that file's own comment).
   if (pathname?.startsWith("/sign-in") || pathname?.startsWith("/chats")) return null;
 
+  // 2026-09-02 (Aleksandr: "В незалогиненых тоже показывай модалку на
+  // обе кнопки и не уводи со страницы") -- this used to navigate
+  // straight to /sign-in on a signed-out click. Now it opens the
+  // anchored auth-prompt popover instead, right above this button.
   function handleClick() {
     if (email) {
       setEditorOpen(true);
     } else {
-      window.location.href = "/sign-in?reason=create-post";
+      setAuthPromptOpen(true);
     }
   }
 
@@ -141,6 +150,12 @@ export function CreatePostFab() {
           onSaved={() => router.refresh()}
         />
       )}
+
+      <FabAuthPrompt
+        open={authPromptOpen}
+        onClose={() => setAuthPromptOpen(false)}
+        signInHref="/sign-in?reason=create-post"
+      />
     </>
   );
 }

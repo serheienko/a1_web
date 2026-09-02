@@ -1,0 +1,145 @@
+// components/fab-auth-prompt.tsx
+//
+// 2026-09-02 (Aleksandr: "В незалогиненых тоже показывай модалку на обе
+// кнопки и не уводи со страницы. В этом случае лучше показать модалку
+// прямо над кнопками, чтобы место клика было не далеко и не надо было
+// водить мышкой") -- components/chats-fab.tsx and components/create-
+// post-fab.tsx both used to send a signed-out visitor away from the
+// page entirely: ChatsFab was a plain `<Link href="/chats">` with no
+// auth check at all, and CreatePostFab did `window.location.href =
+// "/sign-in?reason=create-post"`. Both replaced with this: a small
+// popover anchored right above the FAB stack, instead of components/
+// profile-action-row.tsx's own full-screen centered `authPromptOpen`
+// dialog -- that one's fine when it opens from content the visitor was
+// already reading mid-page, but these two buttons live pinned in the
+// bottom-right corner, so popping a dialog up in the screen's center
+// would put it far from where the visitor's hand already is.
+//
+// Same copy shape as that dialog (title/body/CTA/cancel + the cat-blink
+// animation), just restyled as a compact anchored card with a pointer
+// tail instead of a full-screen dialog, and with a `signInHref` prop so
+// each FAB can keep routing to its own existing `?reason=` notice on
+// /sign-in (create-post keeps its dedicated copy; chats reuses the
+// generic profile-action one -- there's no meaningfully different
+// notice needed for "wanted to open chats" once you're signed out).
+"use client";
+
+import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
+import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
+import { useEffect, useState } from "react";
+import { LottiePlayer } from "@/components/lottie-player";
+
+type FabAuthPromptStringKey = "title" | "body" | "signInCta" | "cancel";
+
+const STRINGS: Record<FabAuthPromptStringKey, Record<Locale, string>> = {
+  title: {
+    uk: "Увійдіть, щоб продовжити", en: "Sign in to continue", ru: "Войдите, чтобы продолжить",
+    de: "Melden Sie sich an, um fortzufahren", es: "Inicia sesión para continuar", fr: "Connectez-vous pour continuer",
+    pl: "Zaloguj się, aby kontynuować", ptBR: "Entre para continuar", zh: "登录以继续",
+  },
+  body: {
+    uk: "Зареєструйтесь або увійдіть, щоб продовжити.",
+    en: "Sign up or sign in to continue.",
+    ru: "Зарегистрируйтесь или войдите, чтобы продолжить.",
+    de: "Registrieren oder anmelden, um fortzufahren.",
+    es: "Regístrate o inicia sesión para continuar.",
+    fr: "Inscrivez-vous ou connectez-vous pour continuer.",
+    pl: "Zarejestruj się lub zaloguj, aby kontynuować.",
+    ptBR: "Cadastre-se ou entre para continuar.",
+    zh: "注册或登录即可继续。",
+  },
+  signInCta: {
+    uk: "Увійти або зареєструватися", en: "Sign in or sign up", ru: "Войти или зарегистрироваться",
+    de: "Anmelden oder registrieren", es: "Iniciar sesión o registrarse", fr: "Se connecter ou s'inscrire",
+    pl: "Zaloguj się lub zarejestruj", ptBR: "Entrar ou cadastrar-se", zh: "登录或注册",
+  },
+  cancel: {
+    uk: "Скасувати", en: "Cancel", ru: "Отмена", de: "Abbrechen", es: "Cancelar",
+    fr: "Annuler", pl: "Anuluj", ptBR: "Cancelar", zh: "取消",
+  },
+};
+
+function useActiveLocale(): Locale {
+  const [lang, setLang] = useState<Locale>("uk");
+  useEffect(() => {
+    const root = document.documentElement;
+    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
+    if (active) setLang(active);
+  }, []);
+  return lang;
+}
+
+// Sits directly above the FAB stack: components/create-post-fab.tsx's
+// button is 56px tall starting at 1.25rem off the bottom, components/
+// chats-fab.tsx's own button is 48px tall starting 12px above that --
+// so the top edge of that two-button stack sits 1.25rem + 56px + 12px +
+// 48px up from the bottom, and this card's own bottom offset adds one
+// more 12px gap on top of that.
+const FAB_POPOVER_BOTTOM =
+  "calc(1.25rem + 56px + 12px + 48px + 12px + env(safe-area-inset-bottom))";
+
+export function FabAuthPrompt({
+  open,
+  onClose,
+  signInHref,
+}: {
+  open: boolean;
+  onClose: () => void;
+  /** Where the sign-in CTA routes to -- carries this FAB's own `?reason=` notice. */
+  signInHref: string;
+}) {
+  const lang = useActiveLocale();
+  const router = useRouter();
+
+  if (!open) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[70]" onClick={onClose}>
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        onClick={(e) => e.stopPropagation()}
+        className="fixed right-5 z-[70] w-64 rounded-2xl bg-white p-4 shadow-xl dark:bg-neutral-900"
+        style={{ bottom: FAB_POPOVER_BOTTOM }}
+      >
+        <div className="mb-2 flex justify-center">
+          <LottiePlayer src="/animations/cat-blink.json" size={48} />
+        </div>
+        <p className="text-center text-sm font-semibold text-neutral-900 dark:text-neutral-50">
+          {STRINGS.title[lang]}
+        </p>
+        <p className="mt-1 text-center text-xs text-neutral-500 dark:text-neutral-400">
+          {STRINGS.body[lang]}
+        </p>
+        <div className="mt-3 flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              router.push(signInHref);
+            }}
+            className="rounded-full bg-accent py-2 text-sm font-bold tracking-wide text-white transition hover:opacity-90"
+          >
+            {STRINGS.signInCta[lang]}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full border border-neutral-300 py-2 text-xs font-medium text-neutral-600 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+          >
+            {STRINGS.cancel[lang]}
+          </button>
+        </div>
+        {/* Pointer tail aiming down at the FAB stack, same speech-bubble
+            trick as any CSS-only callout: a rotated square, same fill
+            as the card, half-hidden below its bottom edge. */}
+        <div
+          className="absolute -bottom-1.5 right-8 h-3 w-3 rotate-45 bg-white dark:bg-neutral-900"
+          aria-hidden="true"
+        />
+      </div>
+    </div>,
+    document.body,
+  );
+}

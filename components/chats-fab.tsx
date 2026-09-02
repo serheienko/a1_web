@@ -37,6 +37,8 @@ import Link from "next/link";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { subscribeAccountMenuOpen, getAccountMenuOpenSnapshot } from "@/lib/account-menu-open";
+import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
+import { FabAuthPrompt } from "@/components/fab-auth-prompt";
 
 type FabStringKey = "label";
 
@@ -57,6 +59,12 @@ function useActiveLocale(): Locale {
   return lang;
 }
 
+function readDisplayCookie(): string | null {
+  const match = document.cookie.match(new RegExp(`(?:^|; )${DISPLAY_COOKIE}=([^;]*)`));
+  const raw = match?.[1];
+  return raw ? decodeURIComponent(raw) : null;
+}
+
 // Speech-bubble glyph -- same shape as components/avatar-menu.tsx's own
 // ChatsIcon, just scaled up to this button's icon size.
 function ChatsIcon() {
@@ -75,8 +83,51 @@ export function ChatsFab() {
   // mismatches hydration -- same reasoning as any other client-only UI
   // toggle in this app.
   const accountMenuOpen = useSyncExternalStore(subscribeAccountMenuOpen, getAccountMenuOpenSnapshot, () => false);
+  const [email, setEmail] = useState<string | null>(null);
+  const [authPromptOpen, setAuthPromptOpen] = useState(false);
+
+  useEffect(() => {
+    setEmail(readDisplayCookie());
+  }, []);
 
   if (pathname?.startsWith("/sign-in") || pathname?.startsWith("/chats")) return null;
+
+  const buttonClassName = `fixed right-5 z-40 flex h-12 w-12 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-700 shadow-lg transition duration-200 hover:bg-neutral-50 active:scale-95 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800 ${
+    accountMenuOpen ? "pointer-events-none opacity-0" : "opacity-100"
+  }`;
+  // Stacked directly above CreatePostFab: that button sits at
+  // `1.25rem + safe-area` and is 56px (h-14) tall, so this one's own
+  // bottom offset is that same 1.25rem, plus the FAB's height, plus a
+  // 12px gap between them.
+  const buttonStyle = { bottom: "calc(1.25rem + 56px + 12px + env(safe-area-inset-bottom))" };
+
+  // 2026-09-02 (Aleksandr: "В незалогиненых тоже показывай модалку на
+  // обе кнопки и не уводи со страницы") -- signed out, this used to be
+  // a plain Link straight to /chats. Now it opens the same anchored
+  // auth-prompt popover components/create-post-fab.tsx shows, instead
+  // of navigating anywhere.
+  if (!email) {
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => setAuthPromptOpen(true)}
+          aria-label={STRINGS.label[lang]}
+          aria-hidden={accountMenuOpen}
+          tabIndex={accountMenuOpen ? -1 : undefined}
+          className={buttonClassName}
+          style={buttonStyle}
+        >
+          <ChatsIcon />
+        </button>
+        <FabAuthPrompt
+          open={authPromptOpen}
+          onClose={() => setAuthPromptOpen(false)}
+          signInHref="/sign-in?reason=profile-action"
+        />
+      </>
+    );
+  }
 
   return (
     <Link
@@ -84,14 +135,8 @@ export function ChatsFab() {
       aria-label={STRINGS.label[lang]}
       aria-hidden={accountMenuOpen}
       tabIndex={accountMenuOpen ? -1 : undefined}
-      // Stacked directly above CreatePostFab: that button sits at
-      // `1.25rem + safe-area` and is 56px (h-14) tall, so this one's
-      // own bottom offset is that same 1.25rem, plus the FAB's height,
-      // plus a 12px gap between them.
-      className={`fixed right-5 z-40 flex h-12 w-12 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-700 shadow-lg transition duration-200 hover:bg-neutral-50 active:scale-95 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800 ${
-        accountMenuOpen ? "pointer-events-none opacity-0" : "opacity-100"
-      }`}
-      style={{ bottom: "calc(1.25rem + 56px + 12px + env(safe-area-inset-bottom))" }}
+      className={buttonClassName}
+      style={buttonStyle}
     >
       <ChatsIcon />
     </Link>
