@@ -103,60 +103,92 @@ export const ChatParticipantSchema = z
   .catchall(z.unknown());
 export type ChatParticipant = z.infer<typeof ChatParticipantSchema>;
 
-// Message shape is entirely UNCONFIRMED (messages_send.d.ts /
-// messages_getMessages.d.ts hit the same deadlock as everything else
-// under packages/types this session). `_id` mirrors every other
-// timestamped resource already confirmed in this repo (Post, Contact
-// both have it); `message` as the text field name matches this
-// backend's own `messages.*` method-naming convention (send/getMessages/
-// saveDraft all say "message", never "content" or "body"); `fromId`
-// mirrors the Peer shape already confirmed via useChat.ts. Every field
-// below is optional or has a .catch() specifically so a wrong guess
-// degrades one message to an empty bubble instead of dropping it or
-// failing the whole list -- fix the field name here the moment a live
-// response disagrees.
-//
-// `unread` (2026-09-02, chat UI redesign per Figma): guessed boolean
-// for per-message read/delivered state so the web bubble can show the
-// same single-vs-double checkmark the app does ("покажем статус read,
-// delivered, вот этими галочками, там две или одна"). Chat-server's
-// real field could just as easily be a `status` enum -- this is
-// unconfirmed, first live response that disagrees wins.
-export const MessageSchema = z
+// Message shape CONFIRMED LIVE 2026-09-02 (Vercel Logs, real
+// messages.send + messages.getMessages responses -- Aleksandr: "чат не
+// работает и не синхронизируется с апкой" / "история прошлых чатов
+// тоже не подвязывается"): this whole shape was guessed wrong on the
+// first pass below it (_id as a string, a flat `message` text field, a
+// standalone `fromId` field, `date` as a numeric epoch) -- none of
+// that existed, which is why extractMessages() silently returned []
+// for every real payload (zod's safeParse rejected `_id: 3` against
+// `z.string()` with no .catch() on that one field, dropping the whole
+// message). A real message looks like:
+//   { _id: 3, flags: 1,
+//     peerFrom: { object: "peer-user", user: "usr_..." },
+//     peerTo: { object: "peer-chat", chat: "<chatId>" },
+//     date: "2026-09-02T10:51:31.567Z",
+//     entities: [{ object: "entity-text", text: "Hi! How r u?" }],
+//     media: [], reactions: [], object: "message",
+//     forwardFrom: null, replyTo: null, editedAt: null, __v: 0 }
+// `_id` is a per-chat sequential NUMBER, not a Mongo ObjectId string --
+// coerced to a string below so every existing call site (React keys,
+// `===` comparisons) keeps working unchanged. `fromId` doesn't exist as
+// its own field either; it's derived from `peerFrom.user` via the
+// .transform() below, again so every read site (`msg.fromId`) needed no
+// changes of its own.
+const MessageEntitySchema = z
   .object({
-    _id: z.string(),
+    object: z.string().catch(""),
+    text: z.string().optional(),
+  })
+  .catchall(z.unknown());
+
+const RawMessageSchema = z
+  .object({
+    _id: z.union([z.string(), z.number()]).transform((v) => String(v)),
     chat: z.string().optional(),
-    fromId: z.string().nullable().catch(null),
-    message: z.string().catch(""),
-    // Unconfirmed unit (seconds vs ms) -- messageDateMs() below guesses
-    // from magnitude rather than assuming.
-    date: z.number().catch(0),
+    flags: z.number().catch(0),
+    peerFrom: PeerSchema.nullable().catch(null),
+    peerTo: PeerSchema.nullable().catch(null),
+    date: z.string().catch(""),
+    entities: z.array(MessageEntitySchema).catch([]),
     media: z.array(z.unknown()).catch([]),
+    // Never seen on a real message yet (see the confirmed shape above --
+    // there's no read/delivered field at all today), kept only because
+    // messageTickState() below already treats its absence as the safe
+    // "delivered, not read" default -- costs nothing to keep, and picks
+    // this up for free the moment chat-server actually sends it.
     unread: z.boolean().optional(),
   })
   .catchall(z.unknown());
+
+export const MessageSchema = RawMessageSchema.transform((msg) => ({
+  ...msg,
+  fromId: msg.peerFrom && msg.peerFrom.object === "peer-user" ? msg.peerFrom.user : null,
+}));
 export type ChatMessage = z.infer<typeof MessageSchema>;
 
-// Best-effort text extraction: some real messages may carry the text
-// under a different field name than `message` above (sticker/media-only
-// messages may have none at all). Never throws; empty string means
-// "render the media/attachment area only, no text bubble" once media
-// rendering exists (not in this Phase 1 pass -- see PLAN.md).
+// Real text lives under `entities` (an array of typed spans -- only
+// `entity-text` carries a `.text` string; other entity types are just
+// passed through by MessageEntitySchema's catchall and ignored here) --
+// NOT a flat `message`/`text`/`content`/`body` field, which is what
+// this function guessed before the shape above was confirmed live.
+// Multiple entity-text entities (if a message ever has more than one)
+// are concatenated in order. Never throws; empty string means "render
+// the media/attachment area only, no text bubble" once media rendering
+// exists (not in this Phase 1 pass -- see PLAN.md).
 export function extractMessageText(msg: ChatMessage): string {
+  const fromEntities = msg.entities
+    .filter((e) => e.object === "entity-text" && typeof e.text === "string")
+    .map((e) => e.text as string)
+    .join("");
+  if (fromEntities) return fromEntities;
+  // Kept as a fallback for any message shape this session hasn't seen a
+  // live example of yet -- costs nothing, never fires against the
+  // confirmed shape above.
   const raw = msg as unknown as Record<string, unknown>;
   const candidate = raw.message ?? raw.text ?? raw.content ?? raw.body;
   return typeof candidate === "string" ? candidate : "";
 }
 
-// Same "seconds vs ms, guess from magnitude" trick as lib/a1/mappers.ts
-// already applies elsewhere in this codebase for timestamp fields this
-// backend hasn't documented a unit for. A unix-seconds value for "now"
-// is currently ~1.8e9; a unix-ms value is ~1.8e12 -- 1e12 cleanly splits
-// the two with room to spare either direction.
+// `date` is a plain ISO 8601 string on every real message (see the
+// confirmed shape above), not a numeric epoch -- replaces the old
+// "guess seconds vs ms from magnitude" trick, which never applied here
+// to begin with.
 export function messageDateMs(msg: ChatMessage): number {
-  const raw = msg.date;
-  if (!raw) return 0;
-  return raw > 1_000_000_000_000 ? raw : raw * 1000;
+  if (!msg.date) return 0;
+  const ms = Date.parse(msg.date);
+  return Number.isNaN(ms) ? 0 : ms;
 }
 
 // Read/delivered tick state for one of MY OWN messages (never rendered

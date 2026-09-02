@@ -21,7 +21,7 @@ import { z } from "zod";
 import { A1ApiError } from "@/lib/a1/client";
 import { callAsVisitor, NoSessionError } from "@/lib/a1/visitor-call";
 import { setSession, clearSession } from "@/lib/a1/session";
-import { peerForRouteParam } from "@/lib/a1/chat-schemas";
+import { peerForRouteParam, MessageSchema } from "@/lib/a1/chat-schemas";
 
 export const runtime = "nodejs";
 
@@ -43,12 +43,12 @@ export async function POST(request: NextRequest) {
       message: text,
     });
 
-    // TEMP DEBUG 2026-09-02 -- same investigation as messages/route.ts's
-    // own debug log; want to see messages.send's real response shape
-    // too (does it echo the created message back? with what fields?).
-    // Remove alongside that one once chat-schemas.ts is fixed.
-    console.error("CHAT_DEBUG raw messages.send response:", JSON.stringify(data).slice(0, 2000));
-    const response = NextResponse.json({ ok: true, raw: data });
+    // 2026-09-02: echoes the real created message back (parsed through
+    // the now shape-confirmed MessageSchema -- see lib/a1/chat-schemas.ts)
+    // instead of the raw payload, in case a future pass wants to append
+    // it optimistically rather than waiting for the next poll tick.
+    const parsedMessage = MessageSchema.safeParse(data);
+    const response = NextResponse.json({ ok: true, message: parsedMessage.success ? parsedMessage.data : null });
     if (refreshedSession) setSession(response, refreshedSession);
     return response;
   } catch (err) {
