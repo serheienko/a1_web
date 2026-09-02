@@ -65,6 +65,7 @@ import { useRouter } from "next/navigation";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
 import type { Contact } from "@/lib/a1/schemas";
+import { LottiePlayer } from "@/components/lottie-player";
 
 type StringKey =
   | "addContact"
@@ -738,6 +739,17 @@ export function ProfileActionRow({
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-xs rounded-2xl bg-white p-5 shadow-xl dark:bg-neutral-900"
           >
+            {/* 2026-09-02 (Aleksandr, uploaded Blink.tgs: "давай в этот попап
+                сверху добавим по центру анимацию нашего кота... +-10-20%
+                меньше чем аватар") -- decompressed to public/animations/
+                cat-blink.json, same lib/weekly-cat-animation.ts pack
+                convention. 64px vs. the profile avatar's own 72/112.5px
+                (app/u/[username]/page.tsx) lands in that range. The
+                animation itself is round with a transparent background,
+                so it sits on the card without needing a square frame. */}
+            <div className="mb-3 flex justify-center">
+              <LottiePlayer src="/animations/cat-blink.json" size={64} />
+            </div>
             <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">{STRINGS.authPromptTitle[lang]}</p>
             <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{STRINGS.authPromptBody[lang]}</p>
             <div className="mt-4 flex flex-col gap-2">

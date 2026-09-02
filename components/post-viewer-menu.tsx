@@ -58,6 +58,7 @@ import { useRouter } from "next/navigation";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
 import type { Contact } from "@/lib/a1/schemas";
+import { LottiePlayer } from "@/components/lottie-player";
 
 type StringKey =
   | "message"
@@ -523,6 +524,12 @@ export function PostViewerMenu({
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-xs rounded-2xl bg-white p-5 shadow-xl dark:bg-neutral-900"
           >
+            {/* Same cat-blink.json animation as components/profile-action-
+                row.tsx's identical popup -- see that file's comment for
+                the full "why". */}
+            <div className="mb-3 flex justify-center">
+              <LottiePlayer src="/animations/cat-blink.json" size={64} />
+            </div>
             <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">{STRINGS.authPromptTitle[lang]}</p>
             <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{STRINGS.authPromptBody[lang]}</p>
             <div className="mt-4 flex flex-col gap-2">
