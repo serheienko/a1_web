@@ -27,11 +27,12 @@
 // and maintain.
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { PostEditor, type EditablePost } from "@/components/post-editor";
+import { useHoverPanel } from "@/lib/use-hover-panel";
 
 type MinePost = EditablePost & {
   created: number;
@@ -115,6 +116,25 @@ export function PostOwnerMenu({
   const [editing, setEditing] = useState(false);
   const [deleteError, setDeleteError] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // 2026-09-02 (Aleksandr, screenshot of this exact menu: "Этот попап
+  // тоже сделай по наведению на °°°") -- same lib/use-hover-panel.ts
+  // hook components/profile-action-row.tsx's own "•••" menu already
+  // uses (that file's header has the full "why" -- shared, identical
+  // hover mechanics everywhere this app has a "•••" popover). Click
+  // still toggles `open` directly, same as before; hover is additive.
+  const triggerRef = useRef<HTMLDivElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const { rendered, visible, handleMouseEnter, handleMouseLeave } = useHoverPanel(open, setOpen, [
+    { trigger: triggerRef, panel: panelRef },
+  ]);
+  // The confirm-delete step used to only ever reset via the backdrop's
+  // own onClick (a click outside the menu). Now that the menu can also
+  // close from a hover-leave timeout, this makes sure "Точно видалити?"
+  // doesn't silently survive a close-by-hover and reappear pre-armed
+  // the next time this same post's menu is hovered open again.
+  useEffect(() => {
+    if (!open) setConfirming(false);
+  }, [open]);
 
   useEffect(() => {
     let cancelled = false;
@@ -207,7 +227,7 @@ export function PostOwnerMenu({
   }
 
   return (
-    <div className={className}>
+    <div className={className} ref={triggerRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -222,24 +242,39 @@ export function PostOwnerMenu({
         </svg>
       </button>
 
-      {open && (
+      {rendered && (
         <>
           {/* Same click-outside-to-close backdrop as components/settings-menu.tsx
               — see that file's own comment for why a portaled full-viewport
               backdrop (rather than a plain outside-mousedown listener) is
               what's needed here. */}
-          {createPortal(
-            <div
-              className="fixed inset-0 z-30"
-              onClick={() => {
-                setOpen(false);
-                setConfirming(false);
-              }}
-              aria-hidden="true"
-            />,
-            document.body,
-          )}
-          <div className="animate-popover absolute right-0 top-full z-50 mt-2 w-52 max-w-[calc(100vw-2rem)] origin-top-right overflow-hidden rounded-2xl border border-neutral-200 bg-white p-1.5 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+          {open &&
+            createPortal(
+              <div
+                className="fixed inset-0 z-30"
+                onClick={() => setOpen(false)}
+                aria-hidden="true"
+              />,
+              document.body,
+            )}
+          {/* pt-2 (padding, not margin) keeps the hoverable rectangle
+              continuous from the trigger's bottom edge through to this
+              panel -- see lib/use-hover-panel.ts's own header for why a
+              margin gap there makes the close side flaky. The visible
+              card is the separate inner div so the padding itself stays
+              invisible. */}
+          <div
+            className="absolute right-0 top-full z-50 w-52 max-w-[calc(100vw-2rem)] origin-top-right pt-2"
+            ref={panelRef}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+          >
+          <div
+            className={
+              "overflow-hidden rounded-2xl border border-neutral-200 bg-white p-1.5 shadow-lg transition duration-150 ease-out dark:border-neutral-700 dark:bg-neutral-900 " +
+              (visible ? "opacity-100 scale-100" : "pointer-events-none opacity-0 scale-95")
+            }
+          >
             {confirming ? (
               <div className="p-1.5">
                 <p className="mb-2 px-1 text-xs text-neutral-500 dark:text-neutral-400">{STRINGS.confirmDelete[lang]}</p>
@@ -286,6 +321,7 @@ export function PostOwnerMenu({
                 </button>
               </>
             )}
+          </div>
           </div>
         </>
       )}
