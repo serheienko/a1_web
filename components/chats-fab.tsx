@@ -33,13 +33,14 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import Link from "next/link";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { subscribeAccountMenuOpen, getAccountMenuOpenSnapshot } from "@/lib/account-menu-open";
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
 import { FabAuthPrompt } from "@/components/fab-auth-prompt";
 import { useHoverPanel } from "@/lib/use-hover-panel";
+import { ChatsFlyout, type ChatFlyoutOpenTarget } from "@/components/chats-flyout";
+import { MiniChatWindow } from "@/components/mini-chat-window";
 
 type FabStringKey = "label";
 
@@ -115,6 +116,27 @@ export function ChatsFab() {
   const { handleMouseEnter, handleMouseLeave } = useHoverPanel(authPromptOpen, setAuthPromptOpen, [
     { trigger: triggerRef, panel: panelRef },
   ]);
+  // 2026-09-02 ("the Facebook one" -- see components/chats-flyout.tsx's
+  // own header): the SIGNED-IN version of this button used to be a
+  // plain `<Link href="/chats">`. Now it opens components/chats-
+  // flyout.tsx's own recent-chats popover instead, same hover-panel
+  // mechanics as the signed-out auth prompt just above, on its own
+  // trigger/panel ref pair (kept separate from authPromptOpen's since
+  // only one of the two is ever relevant for a given signed-in/out
+  // state, but sharing one `open` boolean across two different popover
+  // components would fight over what "open" even means).
+  const flyoutTriggerRef = useRef<HTMLButtonElement>(null);
+  const flyoutPanelRef = useRef<HTMLDivElement>(null);
+  const [flyoutOpen, setFlyoutOpen] = useState(false);
+  const { handleMouseEnter: handleFlyoutEnter, handleMouseLeave: handleFlyoutLeave } = useHoverPanel(
+    flyoutOpen,
+    setFlyoutOpen,
+    [{ trigger: flyoutTriggerRef, panel: flyoutPanelRef }],
+  );
+  // Only one mini chat window open at a time in this pass (Aleksandr's
+  // own "по максимуму" scope, see chats-flyout.tsx's header) -- picking
+  // a different chat just swaps this to the new target.
+  const [activeChat, setActiveChat] = useState<ChatFlyoutOpenTarget | null>(null);
 
   useEffect(() => {
     setEmail(readDisplayCookie());
@@ -166,15 +188,30 @@ export function ChatsFab() {
   }
 
   return (
-    <Link
-      href="/chats"
-      aria-label={STRINGS.label[lang]}
-      aria-hidden={accountMenuOpen}
-      tabIndex={accountMenuOpen ? -1 : undefined}
-      className={buttonClassName}
-      style={buttonStyle}
-    >
-      <ChatsIcon className="animate-chat-wiggle" />
-    </Link>
+    <>
+      <button
+        type="button"
+        ref={flyoutTriggerRef}
+        onClick={() => setFlyoutOpen((v) => !v)}
+        onMouseEnter={handleFlyoutEnter}
+        onMouseLeave={handleFlyoutLeave}
+        aria-label={STRINGS.label[lang]}
+        aria-hidden={accountMenuOpen}
+        tabIndex={accountMenuOpen ? -1 : undefined}
+        className={buttonClassName}
+        style={buttonStyle}
+      >
+        <ChatsIcon className="animate-chat-wiggle" />
+      </button>
+      <ChatsFlyout
+        open={flyoutOpen}
+        onClose={() => setFlyoutOpen(false)}
+        panelRef={flyoutPanelRef}
+        onMouseEnter={handleFlyoutEnter}
+        onMouseLeave={handleFlyoutLeave}
+        onOpenChat={(target) => setActiveChat(target)}
+      />
+      {activeChat && <MiniChatWindow target={activeChat} onClose={() => setActiveChat(null)} />}
+    </>
   );
 }
