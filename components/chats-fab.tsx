@@ -19,12 +19,24 @@
 // pinned to the bottom of that page's own layout, which a fixed button
 // stack in the same corner would sit on top of, and linking to /chats
 // while already somewhere under /chats is redundant regardless.
+//
+// 2026-09-02 (live mobile screenshot, Aleksandr: "пусть иконка чаты...
+// плавно исчезает затуханием, потому что сейчас она оверлапится на
+// модалку в мобильной версии, и... UX wise тоже бессмысленно, потому
+// что сверху есть кнопка чатов в самой модалке"): fades out (opacity +
+// pointer-events, not unmounted -- unmounting would skip the transition
+// entirely, same "needs a real closed frame to animate from" lesson
+// lib/use-hover-panel.ts already applies) whenever the avatar/settings
+// account panel is open, via lib/account-menu-open.ts's tiny shared
+// store -- see that file's own header for why a plain external store
+// instead of Context.
 "use client";
 
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { subscribeAccountMenuOpen, getAccountMenuOpenSnapshot } from "@/lib/account-menu-open";
 
 type FabStringKey = "label";
 
@@ -58,6 +70,11 @@ function ChatsIcon() {
 export function ChatsFab() {
   const lang = useActiveLocale();
   const pathname = usePathname();
+  // Server-rendered snapshot is always "closed" (the store starts
+  // false and only ever flips client-side from a click), so this never
+  // mismatches hydration -- same reasoning as any other client-only UI
+  // toggle in this app.
+  const accountMenuOpen = useSyncExternalStore(subscribeAccountMenuOpen, getAccountMenuOpenSnapshot, () => false);
 
   if (pathname?.startsWith("/sign-in") || pathname?.startsWith("/chats")) return null;
 
@@ -65,11 +82,15 @@ export function ChatsFab() {
     <Link
       href="/chats"
       aria-label={STRINGS.label[lang]}
+      aria-hidden={accountMenuOpen}
+      tabIndex={accountMenuOpen ? -1 : undefined}
       // Stacked directly above CreatePostFab: that button sits at
       // `1.25rem + safe-area` and is 56px (h-14) tall, so this one's
       // own bottom offset is that same 1.25rem, plus the FAB's height,
       // plus a 12px gap between them.
-      className="fixed right-5 z-40 flex h-12 w-12 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-700 shadow-lg transition hover:bg-neutral-50 active:scale-95 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+      className={`fixed right-5 z-40 flex h-12 w-12 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-700 shadow-lg transition duration-200 hover:bg-neutral-50 active:scale-95 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800 ${
+        accountMenuOpen ? "pointer-events-none opacity-0" : "opacity-100"
+      }`}
       style={{ bottom: "calc(1.25rem + 56px + 12px + env(safe-area-inset-bottom))" }}
     >
       <ChatsIcon />

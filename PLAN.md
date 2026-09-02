@@ -3473,3 +3473,29 @@ so this is unverified beyond manual review until Vercel's build +
 Aleksandr's live check): whether the new zod shapes actually parse a
 real chats.getChats response, whether the preview/unread/draft guesses
 resolve to anything, and the visual result on a real chat.
+
+### 6.67 ChatsFab fades out while the account panel is open (2026-09-02)
+
+Aleksandr, live mobile screenshot of the avatar menu open over the Jobs
+feed: "пусть иконка чаты над созданием поста плавно исчезает
+затуханием, потому что сейчас она оверлапится на модалку в мобильной
+версии... UX wise тоже бессмысленно, потому что сверху есть кнопка
+чатов в самой модалке." Root cause: components/chats-fab.tsx is a fixed
+button mounted as a SIBLING of components/site-nav.tsx in app/
+layout.tsx (see chats-fab.tsx's own 2026-09-01 header), so it had no
+way to know when components/avatar-menu.tsx's (signed in) or
+components/settings-menu.tsx's (signed out) own panel was open -- on
+mobile that panel's "Chats" row sits right where this button already
+is.
+
+Fix: lib/account-menu-open.ts, a tiny module-level external store
+(subscribe/getSnapshot via useSyncExternalStore) rather than React
+Context -- Context would need a provider wrapping SiteNav AND ChatsFab
+AND CreatePostFab together in app/layout.tsx just to thread one
+boolean between two otherwise-unrelated sibling trees; a plain global
+store needs no shared tree position. Both avatar-menu.tsx and
+settings-menu.tsx now mirror their own `open` state into it; chats-fab.tsx
+reads it and fades itself out (opacity + pointer-events, kept mounted
+so the transition actually plays -- unmounting would skip it, same
+lesson lib/use-hover-panel.ts already applies for the panels
+themselves) instead of overlapping either panel.

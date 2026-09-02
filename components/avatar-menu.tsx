@@ -70,6 +70,7 @@ import { LOCALES, LOCALE_CLASS, LOCALE_TAG, type Locale } from "@/components/t";
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
 import { SettingsMenu } from "@/components/settings-menu";
 import { useHoverPanel } from "@/lib/use-hover-panel";
+import { setAccountMenuOpen } from "@/lib/account-menu-open";
 import { authFetch } from "@/lib/auth-fetch";
 
 type Theme = "light" | "dark" | "auto";
@@ -327,6 +328,16 @@ export function AvatarMenu() {
   const { rendered, visible, handleMouseEnter, handleMouseLeave } = useHoverPanel(open, setOpen, [
     { trigger: wrapperRef, panel: panelOuterRef },
   ]);
+  // 2026-09-02 (Aleksandr, live mobile screenshot: this panel's own
+  // "Chats" row sits under components/chats-fab.tsx's fixed button on
+  // mobile) -- mirror `open` into the shared store that button reads,
+  // so it can fade itself out while this panel is up instead of
+  // overlapping it. See lib/account-menu-open.ts's own header for why
+  // a plain external store rather than Context.
+  useEffect(() => {
+    setAccountMenuOpen(open);
+    return () => setAccountMenuOpen(false);
+  }, [open]);
   // 2026-09-01 (Aleksandr, live screenshot: "чем мы можем показать, что
   // языки можно скроллить и есть еще?" -- after the max-h-36 cut above
   // landed exactly on a 4-row boundary with no partial row peeking

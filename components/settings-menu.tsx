@@ -36,6 +36,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { setAccountMenuOpen } from "@/lib/account-menu-open";
 import { createPortal } from "react-dom";
 import { LOCALES, LOCALE_CLASS, LOCALE_TAG, type Locale } from "@/components/t";
 
@@ -132,6 +133,16 @@ export function SettingsMenu() {
   // actually enters the DOM.
   useEffect(() => {
     updateLangMoreBelow();
+  }, [open]);
+
+  // 2026-09-02 (Aleksandr, live mobile screenshot -- same fix as
+  // components/avatar-menu.tsx's signed-in panel, this is its signed-
+  // out sibling): mirror `open` into the shared store components/
+  // chats-fab.tsx reads, so that fixed button fades out while THIS
+  // panel is up too, not just the avatar one.
+  useEffect(() => {
+    setAccountMenuOpen(open);
+    return () => setAccountMenuOpen(false);
   }, [open]);
 
   useEffect(() => {
