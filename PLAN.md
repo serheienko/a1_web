@@ -3571,3 +3571,34 @@ Not yet live-tested beyond manual review -- same caveat as §6.66 (no
 local node_modules/tsc on this machine). Next: Aleksandr pushes,
 verify a brand-new contact's chat icon (Contacts AND profile page) both
 land on a working, sendable chat window.
+
+### 6.70 Build was silently broken since the chat UI redesign -- found by reading a failed Vercel deployment's build log directly (2026-09-02)
+
+While live-testing §6.69's fix (Aleksandr, driving via the Claude for Chrome
+extension in his own logged-in browser -- clicking through Contacts and a
+profile page's Message button, both still 502ing after the push):
+production turned out to still be running a 9-hour-old deployment. Every
+commit since §6.66's chat UI redesign (c50b1fb) -- including §6.67, and
+today's §6.69 chats/open fix -- had been failing `next build` on Vercel,
+silently, because nobody had checked deployment status after pushing.
+
+Root cause, read directly from the failed deployment's build log (Vercel's
+own dashboard build-log panel didn't respond to automated clicks this
+session; pulled the same data via its own `/api/v3/deployments/{id}/events`
+endpoint instead, fetched from an authenticated tab): app/chats/[chatId]/
+page.tsx:269, `messageDateMs(messages[i - 1])` -- this project's tsconfig.json
+has `noUncheckedIndexedAccess: true`, so `messages[i - 1]` types as
+`ChatMessage | undefined`, and messageDateMs() (lib/a1/chat-schemas.ts)
+doesn't accept undefined. A plain TS2345, never anything to do with §6.69's
+actual chats.createChat fix -- that fix was correct all along, it just never
+shipped.
+
+Fixed with an explicit guard (`prevMsg = i > 0 ? messages[i - 1] : undefined;
+prevMs = prevMsg ? messageDateMs(prevMsg) : 0`) instead of the inline index
+expression. Grepped app/chats, app/api/chats, lib/a1/chat-schemas.ts and the
+chat/profile-action-row components for the same `[i ± 1]`-without-guard
+shape -- this was the only instance.
+
+Lesson for this session's own workflow, not just the code: "committed" is not
+"shipped" -- after a push, check the actual Vercel deployment status (not
+just that the push succeeded) before telling Aleksandr something is fixed.

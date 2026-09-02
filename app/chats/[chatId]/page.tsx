@@ -266,7 +266,16 @@ export default function ChatWindowPage() {
               const mine = myUserId !== null && msg.fromId === myUserId;
               const text = extractMessageText(msg);
               const ms = messageDateMs(msg);
-              const prevMs = i > 0 ? messageDateMs(messages[i - 1]) : 0;
+              // 2026-09-02: messages[i - 1] types as ChatMessage | undefined
+              // under this project's noUncheckedIndexedAccess (tsconfig.json)
+              // -- messageDateMs doesn't accept undefined, so this was a
+              // silent `next build` failure (TS2345 at this exact line) that
+              // blocked every deploy since this file's own 2026-09-02 Figma
+              // redesign pass landed, discovered only now by reading a failed
+              // deployment's build log directly (Vercel dashboard's own build
+              // log panel wasn't automatable this round -- see PLAN.md).
+              const prevMsg = i > 0 ? messages[i - 1] : undefined;
+              const prevMs = prevMsg ? messageDateMs(prevMsg) : 0;
               const showDate = i === 0 || !sameDay(ms, prevMs);
               return (
                 <div key={msg._id}>
