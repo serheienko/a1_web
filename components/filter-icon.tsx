@@ -10,7 +10,7 @@
 // to match visually pixel-for-pixel without needing the raw path data.
 export function FilterIcon({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 18" fill="none" className={className} aria-hidden="true">
+    <svg viewBox="0 0 24 18" fill="none" className={`animate-filter-adjust ${className ?? ""}`} aria-hidden="true">
       <line x1="7" y1="1" x2="7" y2="17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
       <line x1="17" y1="1" x2="17" y2="17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
       <circle cx="7" cy="6" r="2.5" className="fill-white dark:fill-black" stroke="currentColor" strokeWidth="2" />

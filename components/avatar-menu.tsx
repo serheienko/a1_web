@@ -201,7 +201,7 @@ function ThemeIcon({ theme }: { theme: Theme }) {
 
 function UserIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="animate-person-hop">
       <circle cx="12" cy="8" r="4" />
       <path d="M4 20c0-4 3.6-6 8-6s8 2 8 6" />
     </svg>
@@ -451,7 +451,7 @@ export function AvatarMenu() {
   if (!email) {
     return (
       <div className="flex items-center gap-1">
-        <Link href="/sign-in" aria-label={STRINGS.signIn[lang]} className={ICON_BUTTON_CLASS + " w-9"}>
+        <Link href="/sign-in" aria-label={STRINGS.signIn[lang]} className={ICON_BUTTON_CLASS + " w-9 group"}>
           <UserIcon />
           <span className="hidden text-sm font-medium sm:inline">{STRINGS.signIn[lang]}</span>
         </Link>

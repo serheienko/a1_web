@@ -177,7 +177,7 @@ type ToggleStatus = "loading" | "idle" | "on" | "busy" | "error";
 // below).
 function PersonAddIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 animate-person-hop" aria-hidden="true">
       <circle cx="9" cy="8" r="4" />
       <path d="M2 21c0-4 3.1-6 7-6s7 2 7 6" />
       <path d="M19 8v6M16 11h6" />
@@ -192,7 +192,7 @@ function CheckIcon() {
   // match; this is the definitive visual for the "contactAdded" cell
   // below (was a placeholder pending exactly this reference).
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 animate-person-hop" aria-hidden="true">
       <circle cx="12" cy="12" r="9" />
       <path d="M8 12.3l2.6 2.6L16 9" />
     </svg>
@@ -201,7 +201,7 @@ function CheckIcon() {
 
 function PersonRemoveIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 animate-person-hop" aria-hidden="true">
       <circle cx="9" cy="8" r="4" />
       <path d="M2 21c0-4 3.1-6 7-6s7 2 7 6" />
       <path d="M16 11h6" />
@@ -215,7 +215,7 @@ function ShareIcon() {
   // share-nodes icon this used to borrow from post-viewer-menu.tsx's
   // SharePostIcon. Swapped to match.
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 animate-share-lift" aria-hidden="true">
       <path d="M12 15V3" />
       <path d="M7.5 7.5 12 3l4.5 4.5" />
       <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" />
@@ -225,7 +225,7 @@ function ShareIcon() {
 
 function MessageIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 animate-chat-wiggle" aria-hidden="true">
       <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
     </svg>
   );
@@ -233,7 +233,7 @@ function MessageIcon() {
 
 function DotsIcon() {
   return (
-    <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden="true">
+    <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5 animate-dots-bounce" aria-hidden="true">
       <circle cx="4" cy="10" r="1.7" />
       <circle cx="10" cy="10" r="1.7" />
       <circle cx="16" cy="10" r="1.7" />
@@ -243,7 +243,7 @@ function DotsIcon() {
 
 function BookmarkIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 animate-bookmark-swing" aria-hidden="true">
       <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
     </svg>
   );
@@ -251,7 +251,7 @@ function BookmarkIcon() {
 
 function BookmarkFilledIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4 animate-bookmark-swing" aria-hidden="true">
       <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
     </svg>
   );
@@ -276,7 +276,7 @@ function BlockIcon() {
 }
 
 const CELL_BUTTON_CLASS =
-  "flex h-11 w-full items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 transition hover:text-neutral-900 disabled:cursor-default disabled:opacity-60 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50";
+  "group flex h-11 w-full items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 transition hover:text-neutral-900 disabled:cursor-default disabled:opacity-60 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50";
 
 export function ProfileActionRow({
   username,
@@ -613,7 +613,7 @@ export function ProfileActionRow({
         aria-pressed={contactAdded}
         title={contactLabel}
         className={
-          "flex h-11 w-full items-center justify-center rounded-full transition disabled:cursor-default disabled:opacity-60 " +
+          "group flex h-11 w-full items-center justify-center rounded-full transition disabled:cursor-default disabled:opacity-60 " +
           (contactErrored
             ? "bg-red-600 text-white hover:bg-red-700"
             : contactAdded
@@ -642,7 +642,7 @@ export function ProfileActionRow({
         title={chatErrored ? STRINGS.actionFailed[lang] : STRINGS.message[lang]}
         className={
           chatErrored
-            ? "flex h-11 w-full items-center justify-center rounded-full bg-red-600 text-white transition hover:bg-red-700 disabled:cursor-default disabled:opacity-60"
+            ? "group flex h-11 w-full items-center justify-center rounded-full bg-red-600 text-white transition hover:bg-red-700 disabled:cursor-default disabled:opacity-60"
             : CELL_BUTTON_CLASS
         }
       >

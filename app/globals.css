@@ -454,6 +454,154 @@ textarea {
 }
 
 /*
+ * 2026-09-02 (Aleksandr, after the chat-bubble-wiggle above:
+ * "Добавь анимации на эти иконки тоже теперь, у тебя круто получилось
+ * с иконкой чатов... Надо како-то моушн на увійти, °°° (анимацию сразу
+ * делай во всех местах на сайте), и иконку фильтров" + "Тут тоже
+ * иконка сообщений" + "В профиле тоже на все 4 иконки") -- five more
+ * `group-hover` icon treatments, same convention as `.animate-chat-
+ * wiggle` above (a keyframe, not a Tailwind transition utility, so an
+ * asymmetric glyph still reads as a deliberate gesture rather than a
+ * mechanical rotation): every button/link that wraps one of these
+ * icons gets a plain `group` class added at its call site, this file
+ * never targets a component by name. `.animate-chat-wiggle` itself is
+ * reused as-is for every OTHER speech-bubble icon in the app
+ * (components/post-viewer-menu.tsx's and components/profile-action-
+ * row.tsx's own MessageIcon -- same path data as components/chats-
+ * fab.tsx's ChatsIcon) -- no new keyframe needed there, only a class
+ * added at each new call site.
+ */
+
+/* "•••" (components/settings-menu.tsx's trigger, and DotsIcon in
+   post-viewer-menu.tsx / profile-action-row.tsx) -- the three dots
+   bounce in a left-to-right wave, like they're about to say something.
+   Targets the actual <circle> children (nth-child, not a class per
+   dot) so every existing three-circle dots icon in the app picks this
+   up for free just by adding `.animate-dots-bounce` to the <svg>. */
+@keyframes dots-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+.group:hover .animate-dots-bounce circle:nth-child(1) {
+  animation: dots-bounce 0.55s ease-in-out;
+}
+.group:hover .animate-dots-bounce circle:nth-child(2) {
+  animation: dots-bounce 0.55s ease-in-out 0.08s;
+}
+.group:hover .animate-dots-bounce circle:nth-child(3) {
+  animation: dots-bounce 0.55s ease-in-out 0.16s;
+}
+
+/* Person glyphs ("Увійти" in components/avatar-menu.tsx, "Додати"/
+   contact-add in components/profile-action-row.tsx and post-viewer-
+   menu.tsx's own dropdown) -- a friendly little hop + squash, like the
+   icon is waving you in. */
+@keyframes person-hop {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  35% {
+    transform: translateY(-2.5px) scale(1.06);
+  }
+  60% {
+    transform: translateY(0.5px) scale(0.97);
+  }
+  80% {
+    transform: translateY(-1px) scale(1.02);
+  }
+}
+
+.group:hover .animate-person-hop {
+  animation: person-hop 0.45s ease-in-out;
+}
+
+/* Share glyph (components/profile-action-row.tsx's ShareIcon, the iOS
+   "square and arrow up" shape) -- the arrow lifts up and settles back,
+   like the icon itself is being handed off. */
+@keyframes share-lift {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-3px);
+  }
+  70% {
+    transform: translateY(0.5px);
+  }
+}
+
+.group:hover .animate-share-lift {
+  animation: share-lift 0.4s ease-out;
+}
+
+/* Bookmark/save glyph -- swings from its top edge like a page-corner
+   flag catching a breeze, instead of a generic scale/rotate that
+   ignores where the shape is actually anchored. */
+@keyframes bookmark-swing {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-12deg);
+  }
+  55% {
+    transform: rotate(8deg);
+  }
+  80% {
+    transform: rotate(-4deg);
+  }
+}
+
+.group:hover .animate-bookmark-swing {
+  transform-origin: top center;
+  animation: bookmark-swing 0.5s ease-in-out;
+}
+
+/* components/filter-icon.tsx's two slider handles -- each little
+   circle nudges up its own track, staggered so they read as being
+   adjusted rather than moving in lockstep. Same nth-child trick as the
+   dots above: line, line, circle, circle in source order, so the
+   handles are the 3rd/4th children. */
+@keyframes filter-nudge {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+.group:hover .animate-filter-adjust circle:nth-child(3) {
+  animation: filter-nudge 0.45s ease-in-out;
+}
+.group:hover .animate-filter-adjust circle:nth-child(4) {
+  animation: filter-nudge 0.45s ease-in-out 0.12s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .group:hover .animate-dots-bounce circle:nth-child(1),
+  .group:hover .animate-dots-bounce circle:nth-child(2),
+  .group:hover .animate-dots-bounce circle:nth-child(3),
+  .group:hover .animate-person-hop,
+  .group:hover .animate-share-lift,
+  .group:hover .animate-bookmark-swing,
+  .group:hover .animate-filter-adjust circle:nth-child(3),
+  .group:hover .animate-filter-adjust circle:nth-child(4) {
+    animation: none;
+  }
+}
+
+/*
  * Indeterminate linear progress bar -- Aleksandr, 2026-08-30, sent the
  * native app's own "Posting"/"Updating" screenshot + a cat Lottie
  * sticker to match: "прогресс-бар лоудер и надпись posting... и этого

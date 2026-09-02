@@ -807,7 +807,7 @@ export function FiltersForm({
               aria-label={FILTERS_FORM_STRINGS.filters[lang]}
               aria-expanded={filtersOpen}
               className={
-                "relative flex h-10 w-10 items-center justify-center rounded-full border transition " +
+                "group relative flex h-10 w-10 items-center justify-center rounded-full border transition " +
                 (currentCategory != null || currentLocation != null || currentTags.length > 0
                   ? "border-accent/40 bg-accent/10 text-accent"
                   : "border-neutral-300 bg-white text-neutral-500 hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50")
@@ -936,7 +936,7 @@ export function FiltersForm({
                   // has blurred; stays circular (h-9 w-9, not a wider
                   // oval) since a single centered icon has nowhere
                   // sensible to grow into an oval.
-                  "relative flex items-center justify-center rounded-full border transition-all " +
+                  "group relative flex items-center justify-center rounded-full border transition-all " +
                   (searchExpanded ? "h-9 w-9" : "h-8 w-8") + " " +
                   (currentCategory != null || currentTags.length > 0 || currentLocation != null
                     ? "border-accent/40 bg-accent/10 text-accent"
