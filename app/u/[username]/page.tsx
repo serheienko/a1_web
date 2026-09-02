@@ -57,7 +57,7 @@ import { EditProfileButton } from "@/components/edit-profile-button";
 // share the actual browser error, since remote testing can't see one).
 import { ProfileActionRow } from "@/components/profile-action-row";
 import { MarqueeName } from "@/components/marquee-name";
-import { FavoriteCover, FavoriteCoverFallback, type FavoriteKind } from "@/components/favorite-cover";
+import { FavoriteCover, FavoriteCoverFallback, FavoriteFallbackPill, type FavoriteKind } from "@/components/favorite-cover";
 import { fetchBookCoverUrl, fetchMovieCoverUrl, fetchGameCoverUrl, type CoverImage } from "@/lib/covers";
 
 const SITE_URL = "https://jobs.a1appp.com";
@@ -175,6 +175,46 @@ function favoriteTile(
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// 2026-09-02 (Aleksandr, voice note: "цей темний квадрат, він якийсь
+// невиликойний... зроби пілюлю, як стиль роботи вище, тільки
+// двохповерхову" -- see components/favorite-cover.tsx's own
+// FavoriteFallbackPill comment for the full context): splits each
+// category's items into two groups BEFORE rendering -- `cover !== null`
+// (a real cover lib/covers.ts actually found) keeps the existing
+// square-tile grid via favoriteTile() above, unchanged; `cover === null`
+// (nothing found at all) renders as a wrapped row of FavoriteFallbackPill
+// chips instead of a square icon tile. Deliberately NOT touching what
+// happens when a found cover's own URL fails to load in the browser at
+// runtime -- FavoriteCover's own onError still falls back to the square
+// FavoriteCoverFallback icon there, preserving the grid-alignment fix
+// that tile's header comment describes (a wide pill sitting in a grid
+// row next to real square covers would break the same way).
+function favoriteCategory(
+  heading: ReactNode,
+  kind: FavoriteKind,
+  items: { title: string; subtitle: string | null; cover: CoverImage | null; key: string }[],
+) {
+  const withCover = items.filter((it) => it.cover !== null);
+  const withoutCover = items.filter((it) => it.cover === null);
+  return (
+    <div key={kind}>
+      <h3 className="text-sm text-neutral-500 dark:text-neutral-400">{heading}</h3>
+      {withCover.length > 0 && (
+        <div className="mt-2 grid grid-cols-3 gap-3">
+          {withCover.map((it) => favoriteTile(it.title, it.subtitle, it.cover, it.key, kind))}
+        </div>
+      )}
+      {withoutCover.length > 0 && (
+        <div className={`flex flex-wrap gap-2 ${withCover.length > 0 ? "mt-3" : "mt-2"}`}>
+          {withoutCover.map((it) => (
+            <FavoriteFallbackPill key={it.key} kind={kind} title={it.title} subtitle={it.subtitle} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -722,36 +762,24 @@ export default async function ProfilePage({ params }: Props) {
         <section className="mt-8">
           <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Улюблене" en="Favorites" ru="Любимое" de="Favoriten" es="Favoritos" fr="Favoris" pl="Ulubione" ptBR="Favoritos" zh="最爱" /></h2>
           <div className="mt-3 flex flex-col gap-6">
-            {profile.favoriteBooks.length > 0 && (
-              <div>
-                <h3 className="text-sm text-neutral-500 dark:text-neutral-400"><T uk="Книги" en="Books" ru="Книги" de="Bücher" es="Libros" fr="Livres" pl="Książki" ptBR="Livros" zh="书籍" /></h3>
-                <div className="mt-2 grid grid-cols-3 gap-3">
-                  {profile.favoriteBooks.map((book, i) =>
-                    favoriteTile(book.title, book.author || null, bookCovers[i] ?? null, `book-${i}`, "book"),
-                  )}
-                </div>
-              </div>
-            )}
-            {profile.favoriteMovies.length > 0 && (
-              <div>
-                <h3 className="text-sm text-neutral-500 dark:text-neutral-400"><T uk="Фільми" en="Movies" ru="Фильмы" de="Filme" es="Películas" fr="Films" pl="Filmy" ptBR="Filmes" zh="电影" /></h3>
-                <div className="mt-2 grid grid-cols-3 gap-3">
-                  {profile.favoriteMovies.map((movie, i) =>
-                    favoriteTile(movie.title, null, movieCovers[i] ?? null, `movie-${i}`, "movie"),
-                  )}
-                </div>
-              </div>
-            )}
-            {profile.favoriteGames.length > 0 && (
-              <div>
-                <h3 className="text-sm text-neutral-500 dark:text-neutral-400"><T uk="Ігри" en="Games" ru="Игры" de="Spiele" es="Juegos" fr="Jeux" pl="Gry" ptBR="Jogos" zh="游戏" /></h3>
-                <div className="mt-2 grid grid-cols-3 gap-3">
-                  {profile.favoriteGames.map((game, i) =>
-                    favoriteTile(game.title, null, gameCovers[i] ?? null, `game-${i}`, "game"),
-                  )}
-                </div>
-              </div>
-            )}
+            {profile.favoriteBooks.length > 0 &&
+              favoriteCategory(
+                <T uk="Книги" en="Books" ru="Книги" de="Bücher" es="Libros" fr="Livres" pl="Książki" ptBR="Livros" zh="书籍" />,
+                "book",
+                profile.favoriteBooks.map((b, i) => ({ title: b.title, subtitle: b.author || null, cover: bookCovers[i] ?? null, key: `book-${i}` })),
+              )}
+            {profile.favoriteMovies.length > 0 &&
+              favoriteCategory(
+                <T uk="Фільми" en="Movies" ru="Фильмы" de="Filme" es="Películas" fr="Films" pl="Filmy" ptBR="Filmes" zh="电影" />,
+                "movie",
+                profile.favoriteMovies.map((m, i) => ({ title: m.title, subtitle: null, cover: movieCovers[i] ?? null, key: `movie-${i}` })),
+              )}
+            {profile.favoriteGames.length > 0 &&
+              favoriteCategory(
+                <T uk="Ігри" en="Games" ru="Игры" de="Spiele" es="Juegos" fr="Jeux" pl="Gry" ptBR="Jogos" zh="游戏" />,
+                "game",
+                profile.favoriteGames.map((g, i) => ({ title: g.title, subtitle: null, cover: gameCovers[i] ?? null, key: `game-${i}` })),
+              )}
           </div>
         </section>
       )}

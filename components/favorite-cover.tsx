@@ -27,27 +27,31 @@ import type { CoverImage } from "@/lib/covers";
 
 export type FavoriteKind = "book" | "movie" | "game";
 
-function BookIcon() {
+// 2026-09-02: `size` made overridable (was a hardcoded 28) so the same
+// three icons can also sit inside components/favorite-cover.tsx's own
+// FavoriteFallbackPill below at a smaller, pill-appropriate size instead
+// of forking a second copy of each glyph.
+function BookIcon({ size = 28 }: { size?: number } = {}) {
   return (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H12v18H5.5A1.5 1.5 0 0 1 4 19.5v-15Z" />
       <path d="M20 4.5A1.5 1.5 0 0 0 18.5 3H12v18h6.5a1.5 1.5 0 0 0 1.5-1.5v-15Z" />
     </svg>
   );
 }
 
-function MovieIcon() {
+function MovieIcon({ size = 28 }: { size?: number } = {}) {
   return (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <rect x="3" y="5" width="18" height="14" rx="2" />
       <path d="M3 9h18M8 5 6 9M13 5l-2 4M18 5l-2 4" />
     </svg>
   );
 }
 
-function GameIcon() {
+function GameIcon({ size = 28 }: { size?: number } = {}) {
   return (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M7 9v4M5 11h4" />
       <circle cx="16" cy="10" r="0.9" fill="currentColor" stroke="none" />
       <circle cx="18" cy="12.5" r="0.9" fill="currentColor" stroke="none" />
@@ -56,7 +60,7 @@ function GameIcon() {
   );
 }
 
-const KIND_ICON: Record<FavoriteKind, () => ReactElement> = {
+const KIND_ICON: Record<FavoriteKind, (props?: { size?: number }) => ReactElement> = {
   book: BookIcon,
   movie: MovieIcon,
   game: GameIcon,
@@ -78,6 +82,50 @@ export function FavoriteCoverFallback({ kind }: { kind: FavoriteKind }) {
   return (
     <div className="flex aspect-square items-center justify-center rounded-xl bg-white text-neutral-300 dark:bg-neutral-900 dark:text-neutral-600">
       <Icon />
+    </div>
+  );
+}
+
+// 2026-09-02 (Aleksandr, voice note on this exact square fallback:
+// "цей темний квадрат, він якийсь невиликойний... зроби пілюлю, як у
+// нас стиль роботи вище, тільки вона буде двохповерхова" -- a two-
+// story pill like the Work Style chips (app/u/[username]/page.tsx's
+// own WORK_STYLE_PREFERENCE_SECTIONS block) instead of this square icon
+// tile): used ONLY for an item lib/covers.ts never found a cover for at
+// all (cover === null at render time, decided server-side) -- an item
+// whose cover URL was found but fails to actually load in the browser
+// still falls back to the square FavoriteCoverFallback above via
+// FavoriteCover's own onError, preserving the exact grid-alignment fix
+// that tile's own header comment describes (mixing a wide pill into a
+// grid row that still has real square covers next to it would
+// reintroduce that same "breaks the grid" bug). app/u/[username]/
+// page.tsx's render splits each category's items on `cover !== null`
+// for exactly this reason -- see that file's own comment where it does.
+// "Two-story": icon on the left, title on top, the (optional) subtitle
+// -- an author, for books -- as its own smaller line underneath, no
+// truncation the way the grid tile's line-clamp needs (a pill can just
+// wrap or grow, it isn't sharing a fixed-width grid cell with anything).
+export function FavoriteFallbackPill({
+  kind,
+  title,
+  subtitle,
+}: {
+  kind: FavoriteKind;
+  title: string;
+  subtitle?: string | null;
+}) {
+  const Icon = KIND_ICON[kind];
+  return (
+    <div className="flex items-center gap-2.5 rounded-2xl border border-neutral-200 bg-neutral-50 px-3.5 py-2 dark:border-neutral-800 dark:bg-neutral-900/60">
+      <span className="shrink-0 text-neutral-400 dark:text-neutral-500">
+        <Icon size={18} />
+      </span>
+      <div className="flex min-w-0 flex-col">
+        <span className="text-sm font-medium leading-snug text-neutral-800 dark:text-neutral-200">{title}</span>
+        {subtitle && (
+          <span className="text-xs leading-snug text-neutral-400 dark:text-neutral-500">{subtitle}</span>
+        )}
+      </div>
     </div>
   );
 }
