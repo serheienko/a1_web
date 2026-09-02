@@ -142,7 +142,20 @@ export function CreatePostFab() {
     try {
       const res = await fetch("/api/posts/mine");
       const data = await res.json();
-      const draftPosts: DraftPost[] = (data.posts ?? []).filter((p: DraftPost & { isDraft?: boolean }) => p.isDraft);
+      // 2026-09-02 (Aleksandr: "Запланированные посты тоже показывай
+      // тут" -- this popover used to only ever surface actual drafts):
+      // /api/posts/mine's own summarize() already returns scheduled/
+      // published on every entry in `posts` (see that route's own
+      // toCard()/isScheduledUnpublished for the identical condition on
+      // its separate draftsAndScheduled array) -- mirrored here rather
+      // than switching this fetch to draftsAndScheduled, since this
+      // popover feeds components/post-editor.tsx's EditablePost mode
+      // ("edit" against the real post id), which needs the editor-
+      // shaped summarize() fields (content, links, location, ...), not
+      // draftsAndScheduled's WebPost-shaped card.
+      const draftPosts: DraftPost[] = (data.posts ?? []).filter(
+        (p: DraftPost) => p.isDraft || (p.scheduled != null && p.published == null),
+      );
       if (draftPosts.length > 0) {
         setDrafts(draftPosts);
         setDraftsPickerOpen(true);

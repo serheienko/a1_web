@@ -30,15 +30,26 @@ import { createPortal } from "react-dom";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { useEffect, useState, type RefObject } from "react";
 import type { EditablePost } from "@/components/post-editor";
+import { formatRelativeTime } from "@/lib/format";
 
 export type DraftPost = EditablePost & { created: number };
 
-type StringKey = "title" | "newPost" | "openIt";
+type StringKey = "title" | "newPost" | "openIt" | "scheduledFor";
 
 const STRINGS: Record<StringKey, Record<Locale, string>> = {
+  // 2026-09-02 (Aleksandr: "Запланированные посты тоже показывай тут"):
+  // this popover used to only ever hold drafts, hence the old plain
+  // "Чернетки" title -- now that components/create-post-fab.tsx also
+  // feeds it scheduled-not-yet-published posts (see that file's own
+  // comment), a title naming only drafts would be wrong for half of
+  // what can show up in it.
   title: {
-    uk: "Чернетки", en: "Drafts", ru: "Черновики", de: "Entwürfe", es: "Borradores",
-    fr: "Brouillons", pl: "Szkice", ptBR: "Rascunhos", zh: "草稿",
+    uk: "Мої дописи", en: "My posts", ru: "Мои публикации", de: "Meine Beiträge", es: "Mis publicaciones",
+    fr: "Mes publications", pl: "Moje posty", ptBR: "Minhas publicações", zh: "我的帖子",
+  },
+  scheduledFor: {
+    uk: "Заплановано", en: "Scheduled", ru: "Запланировано", de: "Geplant", es: "Programado",
+    fr: "Planifié", pl: "Zaplanowano", ptBR: "Agendado", zh: "已定时",
   },
   newPost: {
     uk: "+ Новий допис", en: "+ New post", ru: "+ Новая публикация", de: "+ Neuer Beitrag",
@@ -119,19 +130,40 @@ export function DraftsPicker({
         </div>
 
         <div className="mt-2 flex-1 overflow-y-auto px-2 py-1.5">
-          {drafts.map((draft) => (
-            <button
-              key={draft.id}
-              type="button"
-              onClick={() => onSelectDraft(draft)}
-              className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition hover:bg-neutral-100 dark:hover:bg-neutral-800"
-            >
-              <DraftIcon />
-              <span className="min-w-0 flex-1 truncate text-sm text-neutral-700 dark:text-neutral-300">
-                {draft.title || STRINGS.openIt[lang]}
-              </span>
-            </button>
-          ))}
+          {drafts.map((draft) => {
+            // See the `title` STRINGS comment above -- a row here is
+            // either a real draft or a scheduled-not-yet-published post
+            // (app/api/posts/mine's own isScheduledUnpublished condition,
+            // mirrored here since DraftPost carries the same
+            // scheduled/published fields components/post-editor.tsx's
+            // EditablePost does). Showing the actual scheduled time
+            // (formatRelativeTime -- "through 3 hours" style, not just a
+            // static label) is Aleksandr's own "убедись, что они реально
+            // будут выходить в запланированное время" ask made visible:
+            // if this reads wrong, it was set wrong, right here where
+            // it's easy to check.
+            const isScheduled = !draft.isDraft && draft.scheduled != null && draft.published == null;
+            return (
+              <button
+                key={draft.id}
+                type="button"
+                onClick={() => onSelectDraft(draft)}
+                className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              >
+                <DraftIcon />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm text-neutral-700 dark:text-neutral-300">
+                    {draft.title || STRINGS.openIt[lang]}
+                  </span>
+                  {isScheduled && (
+                    <span className="mt-0.5 block truncate text-xs text-accent">
+                      {STRINGS.scheduledFor[lang]} · {formatRelativeTime(new Date(draft.scheduled! * 1000), lang)}
+                    </span>
+                  )}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
         <div className="border-t border-neutral-100 p-2 dark:border-neutral-800">
