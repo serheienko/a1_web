@@ -54,6 +54,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
 import type { Contact } from "@/lib/a1/schemas";
@@ -68,7 +69,11 @@ type StringKey =
   | "unsavePost"
   | "sharePost"
   | "linkCopied"
-  | "actionFailed";
+  | "actionFailed"
+  | "authPromptTitle"
+  | "authPromptBody"
+  | "signInCta"
+  | "cancel";
 
 const STRINGS: Record<StringKey, Record<Locale, string>> = {
   message: { uk: "Повідомлення", en: "Message", ru: "Сообщение", de: "Nachricht", es: "Mensaje", fr: "Message", pl: "Wiadomość", ptBR: "Mensagem", zh: "消息" },
@@ -81,6 +86,37 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   sharePost: { uk: "Поділитися дописом", en: "Share post", ru: "Поделиться публикацией", de: "Beitrag teilen", es: "Compartir publicación", fr: "Partager la publication", pl: "Udostępnij post", ptBR: "Compartilhar publicação", zh: "分享帖子" },
   linkCopied: { uk: "Посилання скопійовано", en: "Link copied", ru: "Ссылка скопирована", de: "Link kopiert", es: "Enlace copiado", fr: "Lien copié", pl: "Link skopiowany", ptBR: "Link copiado", zh: "链接已复制" },
   actionFailed: { uk: "Не вдалося. Спробуйте ще раз", en: "Failed — try again", ru: "Не удалось. Попробуйте ещё раз", de: "Fehlgeschlagen — erneut versuchen", es: "Error — inténtalo de nuevo", fr: "Échec — réessayez", pl: "Nie udało się — spróbuj ponownie", ptBR: "Falhou — tente novamente", zh: "失败，请重试" },
+  // 2026-09-02 (Aleksandr: "в сами посты надо тоже добавить те же самые
+  // кнопки, которые есть в залогиненом состоянии и там показывать такой
+  // же попап при нажатии") -- same in-place popup as components/
+  // profile-action-row.tsx's own authPromptTitle/Body/signInCta/cancel,
+  // shown instead of performing the real action when a signed-out
+  // visitor taps Message / Add contact / Save post.
+  authPromptTitle: {
+    uk: "Увійдіть, щоб продовжити", en: "Sign in to continue", ru: "Войдите, чтобы продолжить",
+    de: "Melden Sie sich an, um fortzufahren", es: "Inicia sesión para continuar", fr: "Connectez-vous pour continuer",
+    pl: "Zaloguj się, aby kontynuować", ptBR: "Entre para continuar", zh: "登录以继续",
+  },
+  authPromptBody: {
+    uk: "Зареєструйтесь або увійдіть, щоб написати повідомлення, додати в контакти чи зберегти допис.",
+    en: "Sign up or sign in to message, add to contacts, or save this post.",
+    ru: "Зарегистрируйтесь или войдите, чтобы написать сообщение, добавить в контакты или сохранить публикацию.",
+    de: "Registrieren oder anmelden, um zu schreiben, zu Kontakten hinzuzufügen oder zu speichern.",
+    es: "Regístrate o inicia sesión para enviar mensajes, añadir a contactos o guardar esta publicación.",
+    fr: "Inscrivez-vous ou connectez-vous pour envoyer un message, ajouter aux contacts ou enregistrer cette publication.",
+    pl: "Zarejestruj się lub zaloguj, aby napisać wiadomość, dodać do kontaktów lub zapisać post.",
+    ptBR: "Cadastre-se ou entre para enviar mensagem, adicionar aos contatos ou salvar a publicação.",
+    zh: "注册或登录即可发消息、添加联系人或保存此帖子。",
+  },
+  signInCta: {
+    uk: "Увійти або зареєструватися", en: "Sign in or sign up", ru: "Войти или зарегистрироваться",
+    de: "Anmelden oder registrieren", es: "Iniciar sesión o registrarse", fr: "Se connecter ou s'inscrire",
+    pl: "Zaloguj się lub zarejestruj", ptBR: "Entrar ou cadastrar-se", zh: "登录或注册",
+  },
+  cancel: {
+    uk: "Скасувати", en: "Cancel", ru: "Отмена", de: "Abbrechen", es: "Cancelar",
+    fr: "Annuler", pl: "Anuluj", ptBR: "Cancelar", zh: "取消",
+  },
 };
 
 function useActiveLocale(): Locale {
@@ -189,8 +225,16 @@ export function PostViewerMenu({
   shareTitle: string;
 }) {
   const lang = useActiveLocale();
-  const [visible, setVisible] = useState(false);
+  const router = useRouter();
+  // 2026-09-02: was a single `visible` boolean gated on "signed in AND
+  // viewing someone else's post" -- now a state machine so a signed-out
+  // visitor still sees the row (per Aleksandr's request, same treatment
+  // as components/profile-action-row.tsx already got), just with real
+  // actions gated behind the authPromptOpen popup below instead of the
+  // fetches that only make sense for "other".
+  const [viewerStatus, setViewerStatus] = useState<"loading" | "self" | "other" | "anon" | "error">("loading");
   const [open, setOpen] = useState(false);
+  const [authPromptOpen, setAuthPromptOpen] = useState(false);
 
   // Contact toggle — same shape as components/add-contact-button.tsx's
   // status machine, reimplemented here as a text row (see this file's
@@ -209,17 +253,23 @@ export function PostViewerMenu({
     authFetch("/api/account/whoami")
       .then((r) => r.json())
       .then((data) => {
-        if (cancelled || !data?.ok) return;
-        if (data.username && data.username !== authorUsername) setVisible(true);
+        if (cancelled) return;
+        if (!data?.ok) {
+          setViewerStatus("anon");
+          return;
+        }
+        setViewerStatus(data.username && data.username === authorUsername ? "self" : "other");
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!cancelled) setViewerStatus("error");
+      });
     return () => {
       cancelled = true;
     };
   }, [authorUsername]);
 
   useEffect(() => {
-    if (!authorUserId) {
+    if (!authorUserId || viewerStatus !== "other") {
       setContactStatus("idle");
       return;
     }
@@ -246,9 +296,13 @@ export function PostViewerMenu({
     return () => {
       cancelled = true;
     };
-  }, [authorUserId]);
+  }, [authorUserId, viewerStatus]);
 
   useEffect(() => {
+    if (viewerStatus !== "other") {
+      setSaveStatus("idle");
+      return;
+    }
     let cancelled = false;
     authFetch("/api/favorites/list")
       .then((r) => r.json())
@@ -266,11 +320,18 @@ export function PostViewerMenu({
     return () => {
       cancelled = true;
     };
-  }, [postId]);
+  }, [postId, viewerStatus]);
 
-  if (!visible) return null;
+  if (viewerStatus === "loading" || viewerStatus === "self" || viewerStatus === "error") {
+    return null;
+  }
+  const isAnon = viewerStatus === "anon";
 
   async function toggleContact() {
+    if (isAnon) {
+      setAuthPromptOpen(true);
+      return;
+    }
     if (contactStatus === "busy" || !authorUserId) return;
     if (contactStatus === "on") {
       if (!contactId) return;
@@ -313,6 +374,10 @@ export function PostViewerMenu({
   }
 
   async function toggleSave() {
+    if (isAnon) {
+      setAuthPromptOpen(true);
+      return;
+    }
     if (saveStatus === "busy") return;
     const wasOn = saveStatus === "on";
     setSaveStatus("busy");
@@ -364,11 +429,16 @@ export function PostViewerMenu({
   const saveIcon = saveStatus === "on" ? <BookmarkFilledIcon /> : <BookmarkIcon />;
 
   return (
+    <>
     <div className="mt-4 flex items-center gap-2">
       <button
         type="button"
-        // Pure stub — no chats yet, see this file's header comment.
-        onClick={() => {}}
+        // Stub for a signed-in viewer (no chats-from-post yet, see this
+        // file's header comment) -- for a signed-out one, same auth
+        // popup every other real action in this row shows.
+        onClick={() => {
+          if (isAnon) setAuthPromptOpen(true);
+        }}
         className="flex flex-1 items-center justify-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-accent transition hover:bg-accent/5 dark:border-neutral-700 dark:bg-neutral-900"
       >
         <MessageIcon />
@@ -407,8 +477,12 @@ export function PostViewerMenu({
               <button
                 type="button"
                 // Stub — real chat-drop later, same as the Message button
-                // above. Still closes the menu, like every other row.
-                onClick={() => setOpen(false)}
+                // above. Still closes the menu, like every other row --
+                // for a signed-out visitor, opens the auth popup instead.
+                onClick={() => {
+                  setOpen(false);
+                  if (isAnon) setAuthPromptOpen(true);
+                }}
                 className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 transition hover:bg-accent/10 hover:text-accent dark:text-neutral-300"
               >
                 <ContactCardIcon />
@@ -436,5 +510,44 @@ export function PostViewerMenu({
         )}
       </div>
     </div>
+
+    {authPromptOpen &&
+      createPortal(
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setAuthPromptOpen(false)}
+        >
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-xs rounded-2xl bg-white p-5 shadow-xl dark:bg-neutral-900"
+          >
+            <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">{STRINGS.authPromptTitle[lang]}</p>
+            <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{STRINGS.authPromptBody[lang]}</p>
+            <div className="mt-4 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthPromptOpen(false);
+                  router.push("/sign-in?reason=profile-action");
+                }}
+                className="rounded-full bg-accent py-2.5 text-sm font-bold tracking-wide text-white transition hover:opacity-90"
+              >
+                {STRINGS.signInCta[lang]}
+              </button>
+              <button
+                type="button"
+                onClick={() => setAuthPromptOpen(false)}
+                className="rounded-full border border-neutral-300 py-2.5 text-sm font-medium text-neutral-600 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+              >
+                {STRINGS.cancel[lang]}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+    </>
   );
 }
