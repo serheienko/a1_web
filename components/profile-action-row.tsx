@@ -282,11 +282,17 @@ export function ProfileActionRow({
   profileUserId,
   shareUrl,
   shareTitle,
+  avatarUrl,
 }: {
   username: string;
   profileUserId: string | null;
   shareUrl: string;
   shareTitle: string;
+  // 2026-09-02: passed through to /chats/[chatId]'s own ?title=&avatar=
+  // query params on openChat() below, so the chat header has a name/
+  // avatar to show right away instead of "--" (Aleksandr: "возле
+  // аватарки нет имени почему-то").
+  avatarUrl?: string | null;
 }) {
   const lang = useActiveLocale();
   const [viewerStatus, setViewerStatus] = useState<"loading" | "self" | "other" | "anon" | "error">("loading");
@@ -564,7 +570,11 @@ export function ProfileActionRow({
       });
       const data = await res.json().catch(() => null);
       if (data?.ok && typeof data.chatId === "string") {
-        router.push(`/chats/${data.chatId}`);
+        const qs = new URLSearchParams();
+        if (shareTitle) qs.set("title", shareTitle);
+        if (avatarUrl) qs.set("avatar", avatarUrl);
+        const suffix = qs.toString() ? `?${qs.toString()}` : "";
+        router.push(`/chats/${data.chatId}${suffix}`);
         return;
       }
       throw new Error("open_failed");

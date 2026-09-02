@@ -104,7 +104,7 @@ export default function ContactsPage() {
   const [openingChatFor, setOpeningChatFor] = useState<string | null>(null);
   const [chatErrorFor, setChatErrorFor] = useState<string | null>(null);
 
-  async function openChat(userId: string) {
+  async function openChat(userId: string, title?: string, avatarUrl?: string | null) {
     if (openingChatFor) return;
     setOpeningChatFor(userId);
     try {
@@ -115,7 +115,16 @@ export default function ContactsPage() {
       });
       const data = await res.json().catch(() => null);
       if (data?.ok && typeof data.chatId === "string") {
-        router.push(`/chats/${data.chatId}`);
+        // 2026-09-02: pass title/avatar through so the chat header (task
+        // this excerpt, Aleksandr: "возле аватарки нет имени почему-то")
+        // has something to show immediately instead of "--" -- same
+        // ?title=&avatar= convention app/chats/page.tsx already builds
+        // its own chat links with.
+        const qs = new URLSearchParams();
+        if (title) qs.set("title", title);
+        if (avatarUrl) qs.set("avatar", avatarUrl);
+        const suffix = qs.toString() ? `?${qs.toString()}` : "";
+        router.push(`/chats/${data.chatId}${suffix}`);
         return;
       }
       throw new Error("open_failed");
@@ -267,7 +276,7 @@ export default function ContactsPage() {
                 {contact.user && (
                   <button
                     type="button"
-                    onClick={() => openChat(contact.user!)}
+                    onClick={() => openChat(contact.user!, contactName(contact, linkedUser), linkedUser?.avatarUrl)}
                     disabled={isOpeningThisChat}
                     aria-label="Chat"
                     className={

@@ -445,6 +445,7 @@ export default async function ProfilePage({ params }: Props) {
         profileUserId={rawProfile?.object === "user" ? rawProfile._id : null}
         shareUrl={`${SITE_URL}${profileHref(profile.username)}`}
         shareTitle={profile.fullName}
+        avatarUrl={profile.avatarUrl}
       />
 
       {/* Aleksandr, 2026-08-30: "должны быть просто две кнопки...
