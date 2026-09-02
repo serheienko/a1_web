@@ -22,13 +22,26 @@
 // /sign-in (create-post keeps its dedicated copy; chats reuses the
 // generic profile-action one -- there's no meaningfully different
 // notice needed for "wanted to open chats" once you're signed out).
+//
+// 2026-09-02 (Aleksandr: "давай не будем уходить на новую страницу при
+// регистрации, а... мы тут же просто будем увеличивать высоту этого
+// попапа и добавим все элементы, которые нам нужны... даже иконка
+// [лотти-кота] можно убрать, потому что у нас типа слева логотип A1")
+// -- pressing the CTA below used to `router.push(signInHref)` away to
+// /sign-in entirely. Now it flips `expanded` instead: the intro copy
+// (Lottie/title/body/CTA/cancel) swaps for components/inline-auth-form.
+// tsx's own compact form right inside this same card, which just grows
+// to fit it -- no navigation, no losing the FAB stack underneath. Reset
+// back to the collapsed intro every time the popover closes (`open`
+// flips false), so reopening it later starts from the same short pitch
+// again rather than resuming mid-form.
 "use client";
 
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { useEffect, useState, type RefObject } from "react";
 import { LottiePlayer } from "@/components/lottie-player";
+import { InlineAuthForm } from "@/components/inline-auth-form";
 
 type FabAuthPromptStringKey = "title" | "body" | "signInCta" | "cancel";
 
@@ -113,7 +126,11 @@ export function FabAuthPrompt({
   onMouseLeave?: () => void;
 }) {
   const lang = useActiveLocale();
-  const router = useRouter();
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!open) setExpanded(false);
+  }, [open]);
 
   if (!open) return null;
 
@@ -148,37 +165,43 @@ export function FabAuthPrompt({
         ref={panelRef}
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
-        className="animate-popover-up fixed right-5 z-[70] w-64 rounded-2xl bg-white p-4 shadow-xl dark:bg-neutral-900"
+        className={
+          "animate-popover-up fixed right-5 z-[70] max-h-[85vh] overflow-y-auto rounded-2xl bg-white shadow-xl dark:bg-neutral-900 " +
+          (expanded ? "w-80 max-w-[calc(100vw-2rem)] p-5" : "w-64 max-w-[calc(100vw-2rem)] p-4")
+        }
         style={{ bottom: FAB_POPOVER_BOTTOM }}
       >
-        <div className="mb-2 flex justify-center">
-          <LottiePlayer src="/animations/cat-blink.json" size={48} />
-        </div>
-        <p className="text-center text-sm font-semibold text-neutral-900 dark:text-neutral-50">
-          {STRINGS.title[lang]}
-        </p>
-        <p className="mt-1 text-center text-xs text-neutral-500 dark:text-neutral-400">
-          {STRINGS.body[lang]}
-        </p>
-        <div className="mt-3 flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              onClose();
-              router.push(signInHref);
-            }}
-            className="rounded-full bg-accent py-2 text-sm font-bold tracking-wide text-white transition hover:opacity-90"
-          >
-            {STRINGS.signInCta[lang]}
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full border border-neutral-300 py-2 text-xs font-medium text-neutral-600 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
-          >
-            {STRINGS.cancel[lang]}
-          </button>
-        </div>
+        {expanded ? (
+          <InlineAuthForm lang={lang} compact />
+        ) : (
+          <>
+            <div className="mb-2 flex justify-center">
+              <LottiePlayer src="/animations/cat-blink.json" size={48} />
+            </div>
+            <p className="text-center text-sm font-semibold text-neutral-900 dark:text-neutral-50">
+              {STRINGS.title[lang]}
+            </p>
+            <p className="mt-1 text-center text-xs text-neutral-500 dark:text-neutral-400">
+              {STRINGS.body[lang]}
+            </p>
+            <div className="mt-3 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => setExpanded(true)}
+                className="rounded-full bg-accent py-2 text-sm font-bold tracking-wide text-white transition hover:opacity-90"
+              >
+                {STRINGS.signInCta[lang]}
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-full border border-neutral-300 py-2 text-xs font-medium text-neutral-600 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+              >
+                {STRINGS.cancel[lang]}
+              </button>
+            </div>
+          </>
+        )}
         {/* Pointer tail aiming down at the FAB stack, same speech-bubble
             trick as any CSS-only callout: a rotated square, same fill
             as the card, half-hidden below its bottom edge. */}

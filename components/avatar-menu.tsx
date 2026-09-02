@@ -70,6 +70,7 @@ import { LOCALES, LOCALE_CLASS, LOCALE_TAG, type Locale } from "@/components/t";
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
 import { SettingsMenu } from "@/components/settings-menu";
 import { useHoverPanel } from "@/lib/use-hover-panel";
+import { InlineAuthForm } from "@/components/inline-auth-form";
 import { setAccountMenuOpen } from "@/lib/account-menu-open";
 import { authFetch } from "@/lib/auth-fetch";
 
@@ -448,13 +449,55 @@ export function AvatarMenu() {
     }
   }
 
+  // 2026-09-02 (Aleksandr: "тут тоже при наведении на UVT (Увійти) тоже
+  // будем делать всплывающую модалку... e-mail, пароль, ОR, продовжити
+  // з Google, продовжити з Apple... і зареєструватися... не треба на
+  // окрему сторінку виводити") -- reuses this same component's own
+  // hover-panel plumbing (`open`/`wrapperRef`/`panelOuterRef`/`rendered`/
+  // `visible`, already declared above for the signed-in dropdown) since
+  // only one of the two branches ever renders per mount. Straight to
+  // components/inline-auth-form.tsx's form on hover, unlike components/
+  // fab-auth-prompt.tsx's own two-step version -- this button's whole
+  // job IS signing in, so there's no separate short pitch to show
+  // first. A plain tap with no prior hover (touch devices, where hover
+  // never fires) still just navigates through the Link as before.
   if (!email) {
     return (
       <div className="flex items-center gap-1">
-        <Link href="/sign-in" aria-label={STRINGS.signIn[lang]} className={ICON_BUTTON_CLASS + " w-9 group"}>
-          <UserIcon />
-          <span className="hidden text-sm font-medium sm:inline">{STRINGS.signIn[lang]}</span>
-        </Link>
+        <div className="relative shrink-0" ref={wrapperRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+          <Link
+            href="/sign-in"
+            aria-label={STRINGS.signIn[lang]}
+            aria-expanded={open}
+            onClick={(e) => {
+              if (open) e.preventDefault();
+            }}
+            className={ICON_BUTTON_CLASS + " w-9 group"}
+          >
+            <UserIcon />
+            <span className="hidden text-sm font-medium sm:inline">{STRINGS.signIn[lang]}</span>
+          </Link>
+
+          {rendered && (
+            <>
+              {open &&
+                createPortal(
+                  <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} aria-hidden="true" />,
+                  document.body,
+                )}
+              <div className="absolute right-0 top-full z-50 w-80 max-w-[calc(100vw-2rem)] origin-top-right pt-2" ref={panelOuterRef}>
+                <div
+                  className={
+                    "max-h-[85vh] overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-5 shadow-lg transition duration-150 ease-out dark:border-neutral-700 dark:bg-neutral-900 " +
+                    (visible ? "opacity-100 scale-100" : "pointer-events-none opacity-0 scale-95")
+                  }
+                >
+                  <InlineAuthForm lang={lang} compact />
+                </div>
+              </div>
+            </>
+          )}
+        </div>
         <SettingsMenu />
       </div>
     );
