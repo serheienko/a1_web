@@ -4001,3 +4001,84 @@ needed its own section:
 
 Six separate commits, one per fix, each tsc-clean before landing. Not
 live-tested yet (needs a push).
+
+### 6.78 Skeleton loading + a full rework of the mini chat window (2026-09-02)
+
+- **Skeleton loading for chats** (components/chats-flyout.tsx,
+  app/chats/page.tsx): "Сделай подгузку чатов и чат листа через
+  скелетон лоад" -- both surfaces showed a bare "Loading…" line while
+  chats.getChats resolved. Replaced with pulse-animated placeholder
+  rows shaped like the real rows (avatar circle + two text-line
+  blocks) -- 8 rows in the flyout popover (matches its own §6.77
+  fixed-height convention), 6 in the full /chats page.
+- **Mini chat window, comprehensive fix** (components/mini-chat-
+  window.tsx): four more live-testing reports against this window,
+  addressed together since they all touch the same compose bar:
+  - "Надо тут тоже анимации при наведении на иконки" -- paperclip
+    wiggle, send-arrow nudge, cat wiggle on hover, reusing the same
+    CSS classes app/globals.css already defines for the main chat
+    page's own icons (animate-paperclip-wiggle, animate-send-arrow,
+    animate-chat-wiggle -- this window's ChatCatFieldIcon has no
+    pupil sub-paths, so it gets the generic wiggle rather than the
+    main page's pupil-dart animation).
+  - "Подрезается текст в инпуте" -- Cyrillic descenders were getting
+    clipped in the compose textarea; fixed with leading-5 + a
+    min-h-[20px] floor instead of the tighter line-height it had.
+  - "Тут не должно показывать загрузку) ее надо показывать на медиа,
+    которое отправляется, но кстати картинка не отправилась.." -- two
+    separate problems in one report. The UX complaint: attaching an
+    image put the paperclip BUTTON itself into a spinner state,
+    instead of showing progress on the attached media. The bug: the
+    image genuinely failed to send. Rather than keep patching the
+    original one-shot "upload then immediately send" flow (attach
+    -> upload -> auto-send, no intermediate state), rebuilt it as a
+    staged attachment -- mirrors the ALREADY-PROVEN pattern
+    app/chats/[chatId]/page.tsx's own PendingAttachment already uses:
+    pick a file, show its thumbnail with a spinner overlay while
+    create/upload/confirm run, then an explicit Send commits it
+    (with a retry-by-remove-and-reattach path via a visible error
+    state + remove button on failure). Chose the rewrite over further
+    debugging of the original because the schema/response shapes
+    involved (SendInput, the upload/create quota_exceeded shape) all
+    checked out fine on inspection -- the one-shot flow's own
+    tightly-coupled upload+send timing was the more likely fault, and
+    porting the working pattern is safer than continuing to guess at
+    the original's exact race.
+  - "Надо показвать время сообщений, как у нас в чате на мобиле" --
+    each bubble now shows an inline timestamp (+ read ticks on own
+    messages) in the same footer-row style the native app uses,
+    reusing messageDateMs/MessageTicks from lib/a1/chat-schemas and
+    components/chat/icons.tsx respectively (same helpers the main
+    chat page already relies on).
+
+Two commits (skeleton loading, mini-chat-window rework), both
+tsc-clean. The attach-flow fix specifically has not been re-confirmed
+live by Aleksandr yet -- watch for follow-up feedback once he can test
+it after the next push.
+
+### 6.79 Media proxy route: retry on transient failure (fixes flaky avatars) (2026-09-02)
+
+"Че то по всему сайту периодически отваливаются аватарки, после
+релоада появляются" -- avatars (and any other image) across the whole
+site would intermittently render as next/image's broken placeholder,
+recoverable only by a manual page reload.
+
+Root cause: app/api/media/[docId]/route.ts is the one route every
+image on the site resolves through (a signed download URL via a live
+media.getUrl call, then a 302 redirect), and it made that call exactly
+once per image with no retry. A single transient timeout or network
+hiccup there produced a 502, which next/image has no built-in recovery
+from -- it does not retry a failed src on its own, so only a full page
+reload (which re-issues the request) fixed it. This matches the report
+precisely: a genuinely bad fileReference or a real 404 would fail
+identically every time, reload or not, which isn't what was reported.
+
+Fix: a small in-process retry (up to 3 attempts, short backoff) around
+just the media.getUrl call in this one route, rather than adding retry
+logic to lib/a1/client.ts's shared call() -- that function backs every
+endpoint in the app, and a blanket retry-on-any-failure policy there is
+a much bigger behavior change than this one hot, high-fanout, idempotent
+GET actually needs.
+
+tsc-clean. Not live-tested yet (needs a push, same as everything else
+this session).
