@@ -59,7 +59,7 @@
 // matched; only the glyph needed to change.
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
@@ -67,6 +67,7 @@ import { authFetch } from "@/lib/auth-fetch";
 import type { Contact } from "@/lib/a1/schemas";
 import { LottiePlayer } from "@/components/lottie-player";
 import { InlineAuthForm } from "@/components/inline-auth-form";
+import { useHoverPanel } from "@/lib/use-hover-panel";
 
 type StringKey =
   | "addContact"
@@ -299,6 +300,22 @@ export function ProfileActionRow({
   const lang = useActiveLocale();
   const [viewerStatus, setViewerStatus] = useState<"loading" | "self" | "other" | "anon" | "error">("loading");
   const [menuOpen, setMenuOpen] = useState(false);
+  // 2026-09-02 (Aleksandr, live screenshot of the "•••" menu: "сделай
+  // чтобы эта модалка тоже появлялась при наведении") -- same hover-
+  // intent mechanics as components/avatar-menu.tsx / filters-form.tsx
+  // (lib/use-hover-panel.ts's own header has the two real bugs this
+  // hook exists to avoid re-introducing: a dead hover-zone between
+  // trigger and panel, and mounting the panel already at its OPEN
+  // opacity/scale so CSS has nothing to transition from). Click still
+  // works exactly as before -- hover is additive, and mobile has no
+  // hover at all.
+  const menuTriggerRef = useRef<HTMLDivElement | null>(null);
+  const menuPanelRef = useRef<HTMLDivElement | null>(null);
+  const { rendered: menuRendered, visible: menuVisible, handleMouseEnter: menuMouseEnter, handleMouseLeave: menuMouseLeave } = useHoverPanel(
+    menuOpen,
+    setMenuOpen,
+    [{ trigger: menuTriggerRef, panel: menuPanelRef }],
+  );
   // 2026-09-02: shown over the page (not a /sign-in redirect) when a
   // signed-out visitor taps a real action -- see the JSX at the bottom
   // of this component and the isAnon guards in toggleContact/toggleSave/
@@ -681,7 +698,7 @@ export function ProfileActionRow({
           {saveIcon}
         </button>
       ) : (
-      <div className="relative">
+      <div className="relative" ref={menuTriggerRef} onMouseEnter={menuMouseEnter} onMouseLeave={menuMouseLeave}>
         <button
           type="button"
           onClick={() => setMenuOpen((v) => !v)}
@@ -692,48 +709,68 @@ export function ProfileActionRow({
           <DotsIcon />
         </button>
 
-        {menuOpen && (
+        {menuRendered && (
           <>
-            {createPortal(
-              <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)} aria-hidden="true" />,
-              document.body,
-            )}
-            <div className="animate-popover absolute right-0 top-full z-50 mt-2 w-56 max-w-[calc(100vw-2rem)] origin-top-right overflow-hidden rounded-2xl border border-neutral-200 bg-white p-1.5 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
-              <button
-                type="button"
-                onClick={toggleSave}
-                disabled={saveStatus === "busy" || saveStatus === "loading"}
-                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 transition hover:bg-accent/10 hover:text-accent disabled:opacity-60 dark:text-neutral-300"
+            {menuOpen &&
+              createPortal(
+                <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)} aria-hidden="true" />,
+                document.body,
+              )}
+            {/* pt-2 (padding, not the old mt-2 margin) keeps the
+                hoverable rectangle continuous from the trigger's bottom
+                edge through to this panel -- see lib/use-hover-panel.ts's
+                own header for why a margin gap there used to make the
+                close side flaky. The visible card (background/border/
+                shadow/transition) is the separate inner div so that
+                padding itself stays invisible. */}
+            <div
+              className="absolute right-0 top-full z-50 w-56 max-w-[calc(100vw-2rem)] origin-top-right pt-2"
+              ref={menuPanelRef}
+              onMouseEnter={menuMouseEnter}
+              onMouseLeave={menuMouseLeave}
+            >
+              <div
+                className={
+                  "overflow-hidden rounded-2xl border border-neutral-200 bg-white p-1.5 shadow-lg transition duration-150 ease-out dark:border-neutral-700 dark:bg-neutral-900 " +
+                  (menuVisible ? "opacity-100 scale-100" : "pointer-events-none opacity-0 scale-95")
+                }
               >
-                {saveIcon}
-                {saveLabel}
-              </button>
-              {/* Mute/Block — UI-only stubs, see this file's own header
-                  comment on why (no backend endpoint exists for either
-                  today). 2026-09-02 (Aleksandr: "в не залогиненом
-                  состоянии надо убрать вимкнути звук и заблокувати") --
-                  neither makes sense for a signed-out visitor (nothing
-                  of theirs to mute/block yet), so both are hidden for
-                  isAnon; Save still shows and routes through the same
-                  auth popup as the other real actions. */}
-              <>
                 <button
                   type="button"
-                  onClick={() => setMenuOpen(false)}
-                  className="group flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 transition hover:bg-accent/10 hover:text-accent dark:text-neutral-300"
+                  onClick={toggleSave}
+                  disabled={saveStatus === "busy" || saveStatus === "loading"}
+                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 transition hover:bg-accent/10 hover:text-accent disabled:opacity-60 dark:text-neutral-300"
                 >
-                  <MuteIcon />
-                  {STRINGS.mute[lang]}
+                  {saveIcon}
+                  {saveLabel}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setMenuOpen(false)}
-                  className="group flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-red-600 transition hover:bg-red-50 dark:hover:bg-red-950/30"
-                >
-                  <BlockIcon />
-                  {STRINGS.block[lang]}
-                </button>
-              </>
+                {/* Mute/Block — UI-only stubs, see this file's own header
+                    comment on why (no backend endpoint exists for either
+                    today). 2026-09-02 (Aleksandr: "в не залогиненом
+                    состоянии надо убрать вимкнути звук и заблокувати") --
+                    neither makes sense for a signed-out visitor (nothing
+                    of theirs to mute/block yet), so both are hidden for
+                    isAnon; Save still shows and routes through the same
+                    auth popup as the other real actions. */}
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setMenuOpen(false)}
+                    className="group flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 transition hover:bg-accent/10 hover:text-accent dark:text-neutral-300"
+                  >
+                    <MuteIcon />
+                    {STRINGS.mute[lang]}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMenuOpen(false)}
+                    className="group flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-red-600 transition hover:bg-red-50 dark:hover:bg-red-950/30"
+                  >
+                    <BlockIcon />
+                    {STRINGS.block[lang]}
+                  </button>
+                </>
+              </div>
             </div>
           </>
         )}
