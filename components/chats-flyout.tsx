@@ -301,11 +301,11 @@ export function ChatsFlyout({
       style={{ bottom: FLYOUT_BOTTOM }}
     >
       <div className="flex shrink-0 items-center justify-between border-b border-neutral-100 px-4 py-3 dark:border-neutral-800">
-        <span className="text-[15px] font-semibold text-neutral-900 dark:text-neutral-50">{STRINGS.title[lang]}</span>
+        <span className="text-[17px] font-semibold text-neutral-900 dark:text-neutral-50">{STRINGS.title[lang]}</span>
         <Link
           href="/chats"
           onClick={onClose}
-          className="text-[13px] font-medium text-[#335ef7] hover:opacity-80 dark:text-[#0c8ce9]"
+          className="text-[15px] font-medium text-[#335ef7] hover:opacity-80 dark:text-[#0c8ce9]"
         >
           {STRINGS.viewAll[lang]}
         </Link>
@@ -320,7 +320,7 @@ export function ChatsFlyout({
             onChange={(e) => setQuery(e.target.value)}
             placeholder={STRINGS.searchPlaceholder[lang]}
             aria-label={STRINGS.searchPlaceholder[lang]}
-            className="w-full rounded-full bg-[#f2f2f7] py-2 pl-8 pr-3 text-[13px] text-[#262a34] outline-none transition placeholder:text-[#989aa6] focus:ring-2 focus:ring-accent/30 dark:bg-neutral-800 dark:text-white dark:placeholder:text-[#8d8d93]"
+            className="w-full rounded-full bg-[#f2f2f7] py-2 pl-8 pr-3 text-[15px] text-[#262a34] outline-none transition placeholder:text-[#989aa6] focus:ring-2 focus:ring-accent/30 dark:bg-neutral-800 dark:text-white dark:placeholder:text-[#8d8d93]"
           />
         </div>
       </div>
@@ -334,10 +334,10 @@ export function ChatsFlyout({
           </div>
         )}
         {state === "error" && chats.length === 0 && (
-          <p className="px-2 py-4 text-center text-[13px] text-[#989aa6] dark:text-[#8d8d93]">{STRINGS.error[lang]}</p>
+          <p className="px-2 py-4 text-center text-[15px] text-[#989aa6] dark:text-[#8d8d93]">{STRINGS.error[lang]}</p>
         )}
         {state === "ready" && filteredChats.length === 0 && matchingContacts.length === 0 && (
-          <p className="px-2 py-4 text-center text-[13px] text-[#989aa6] dark:text-[#8d8d93]">
+          <p className="px-2 py-4 text-center text-[15px] text-[#989aa6] dark:text-[#8d8d93]">
             {trimmed ? STRINGS.noResults[lang] : STRINGS.empty[lang]}
           </p>
         )}
@@ -369,12 +369,12 @@ export function ChatsFlyout({
             />
             <div className="min-w-0 flex-1">
               <div className="flex items-baseline justify-between gap-2">
-                <div className="truncate text-[14px] font-medium text-[#262a34] dark:text-white">{chat.title || "—"}</div>
+                <div className="truncate text-[16px] font-medium text-[#262a34] dark:text-white">{chat.title || "—"}</div>
                 {chat.previewDateMs > 0 && (
-                  <span className="shrink-0 text-[11px] text-[#989aa6] dark:text-[#8d8d93]">{formatTime(chat.previewDateMs)}</span>
+                  <span className="shrink-0 text-[13px] text-[#989aa6] dark:text-[#8d8d93]">{formatTime(chat.previewDateMs)}</span>
                 )}
               </div>
-              <div className="flex items-center gap-1 truncate text-[12.5px] text-[#989aa6] dark:text-[#8d8d93]">
+              <div className="flex items-center gap-1 truncate text-[14.5px] text-[#989aa6] dark:text-[#8d8d93]">
                 {chat.previewMine && chat.previewTick && (
                   <MessageTicks
                     state={chat.previewTick}
@@ -385,7 +385,7 @@ export function ChatsFlyout({
               </div>
             </div>
             {chat.unreadCount > 0 && (
-              <span className="flex h-4.5 min-w-4.5 shrink-0 items-center justify-center rounded-full bg-[#335ef7] px-1 text-[10.5px] font-medium text-white dark:bg-[#0c8ce9]">
+              <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[#335ef7] px-1 text-[12.5px] font-medium text-white dark:bg-[#0c8ce9]">
                 {chat.unreadCount > 99 ? "99+" : chat.unreadCount}
               </span>
             )}
@@ -394,7 +394,7 @@ export function ChatsFlyout({
 
         {matchingContacts.length > 0 && (
           <>
-            <div className="mt-2 px-2.5 pb-1 text-[11px] font-medium uppercase tracking-wide text-[#989aa6] dark:text-[#8d8d93]">
+            <div className="mt-2 px-2.5 pb-1 text-[13px] font-medium uppercase tracking-wide text-[#989aa6] dark:text-[#8d8d93]">
               {STRINGS.contactsHeading[lang]}
             </div>
             {matchingContacts.map((c) => (
@@ -423,7 +423,7 @@ export function ChatsFlyout({
                   blurDataURL={c.avatarBlurDataUrl ?? BLUR_DATA_URL}
                   unoptimized
                 />
-                <div className="min-w-0 flex-1 truncate text-[14px] font-medium text-[#262a34] dark:text-white">{c.title || "—"}</div>
+                <div className="min-w-0 flex-1 truncate text-[16px] font-medium text-[#262a34] dark:text-white">{c.title || "—"}</div>
               </button>
             ))}
           </>

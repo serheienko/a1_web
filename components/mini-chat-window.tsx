@@ -267,7 +267,7 @@ export function MiniChatWindow({ target, onClose }: { target: ChatFlyoutOpenTarg
           blurDataURL={target.avatarBlurDataUrl ?? BLUR_DATA_URL}
           unoptimized
         />
-        <div className="min-w-0 flex-1 truncate text-[14px] font-medium text-[#262a34] dark:text-white">{target.title || "—"}</div>
+        <div className="min-w-0 flex-1 truncate text-[16px] font-medium text-[#262a34] dark:text-white">{target.title || "—"}</div>
         <button
           type="button"
           onClick={onClose}
@@ -282,7 +282,7 @@ export function MiniChatWindow({ target, onClose }: { target: ChatFlyoutOpenTarg
 
       <div ref={listRef} className="flex-1 space-y-1.5 overflow-y-auto px-3 py-2.5">
         {loadState === "loading" && messages.length === 0 && (
-          <p className="mt-4 text-center text-[12.5px] text-[#989aa6] dark:text-[#8d8d93]">…</p>
+          <p className="mt-4 text-center text-[14.5px] text-[#989aa6] dark:text-[#8d8d93]">…</p>
         )}
         {messages.map((msg) => {
           const mine = myUserId !== null && msg.fromId === myUserId;
@@ -297,7 +297,7 @@ export function MiniChatWindow({ target, onClose }: { target: ChatFlyoutOpenTarg
           return (
             <div key={msg._id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
               <div
-                className={`max-w-[80%] rounded-2xl px-3 py-1.5 text-[13.5px] leading-snug ${
+                className={`max-w-[80%] rounded-2xl px-3 py-1.5 text-[15.5px] leading-snug ${
                   mine
                     ? "rounded-br-sm bg-[#335ef7] text-white dark:bg-[#0c8ce9]"
                     : "rounded-bl-sm bg-[#f2f2f7] text-[#262a34] dark:bg-neutral-800 dark:text-white"
@@ -306,7 +306,7 @@ export function MiniChatWindow({ target, onClose }: { target: ChatFlyoutOpenTarg
                 <div className="whitespace-pre-wrap break-words">{text}</div>
                 {(dateMs > 0 || mine) && (
                   <div
-                    className={`mt-0.5 flex items-center justify-end gap-1 text-[10px] ${
+                    className={`mt-0.5 flex items-center justify-end gap-1 text-[12px] ${
                       mine ? "text-white/80" : "text-[#989aa6] dark:text-[#8d8d93]"
                     }`}
                   >
@@ -343,7 +343,7 @@ export function MiniChatWindow({ target, onClose }: { target: ChatFlyoutOpenTarg
               )}
               {attachment.status === "error" && (
                 <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-red-500/70">
-                  <span className="text-[10px] font-medium text-white">Failed</span>
+                  <span className="text-[12px] font-medium text-white">Failed</span>
                 </div>
               )}
               <button
@@ -407,7 +407,7 @@ export function MiniChatWindow({ target, onClose }: { target: ChatFlyoutOpenTarg
               // app/chats/[chatId]/page.tsx's own textarea already uses)
               // fixes it. min-h matched to the same 20px so the single-
               // line pill height doesn't visibly jump.
-              className="max-h-24 min-h-[20px] flex-1 resize-none bg-transparent text-[13.5px] leading-5 text-[#262a34] outline-none placeholder:text-[#989aa6] dark:text-white"
+              className="max-h-24 min-h-[20px] flex-1 resize-none bg-transparent text-[15.5px] leading-5 text-[#262a34] outline-none placeholder:text-[#989aa6] dark:text-white"
             />
             {/* group: own small wrapper (not the whole pill, which would
                 fire on every keystroke) -- same reasoning app/chats/
