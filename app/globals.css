@@ -588,6 +588,112 @@ textarea {
   animation: filter-nudge 0.45s ease-in-out 0.12s;
 }
 
+/* Mute glyph (components/profile-action-row.tsx's MuteIcon) -- a
+   quick side-to-side shake, like the icon itself is silencing a
+   sound. */
+@keyframes mute-shake {
+  0%,
+  100% {
+    transform: translateX(0) rotate(0deg);
+  }
+  25% {
+    transform: translateX(-1.5px) rotate(-6deg);
+  }
+  50% {
+    transform: translateX(1.5px) rotate(5deg);
+  }
+  75% {
+    transform: translateX(-1px) rotate(-3deg);
+  }
+}
+
+.group:hover .animate-mute-shake {
+  animation: mute-shake 0.4s ease-in-out;
+}
+
+/* Block glyph (components/profile-action-row.tsx's BlockIcon) -- a
+   firmer shake than mute, reads as a "no" gesture. */
+@keyframes block-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20%,
+  60% {
+    transform: translateX(-2.5px);
+  }
+  40%,
+  80% {
+    transform: translateX(2.5px);
+  }
+}
+
+.group:hover .animate-block-shake {
+  animation: block-shake 0.4s ease-in-out;
+}
+
+/* Theme glyphs (components/avatar-menu.tsx's ThemeIcon: light/dark/
+   auto) -- one shared pop + spin for all three variants, so switching
+   themes feels tactile without needing a one-off animation per icon. */
+@keyframes theme-pop {
+  0%,
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+  40% {
+    transform: rotate(-14deg) scale(1.12);
+  }
+  70% {
+    transform: rotate(8deg) scale(0.96);
+  }
+}
+
+.group:hover .animate-theme-pop {
+  animation: theme-pop 0.45s ease-in-out;
+}
+
+/* Edit/Delete glyphs (components/post-owner-menu.tsx) -- the pencil
+   gives a little writing wiggle anchored at its tip, the trash lid
+   wobbles like it's about to pop open. */
+@keyframes pencil-write {
+  0%,
+  100% {
+    transform: rotate(0deg) translateY(0);
+  }
+  30% {
+    transform: rotate(-10deg) translateY(-1px);
+  }
+  60% {
+    transform: rotate(6deg) translateY(0.5px);
+  }
+}
+
+.group:hover .animate-pencil-write {
+  transform-origin: bottom left;
+  animation: pencil-write 0.45s ease-in-out;
+}
+
+@keyframes trash-wobble {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  30% {
+    transform: rotate(-8deg);
+  }
+  60% {
+    transform: rotate(6deg);
+  }
+  85% {
+    transform: rotate(-2deg);
+  }
+}
+
+.group:hover .animate-trash-wobble {
+  transform-origin: top center;
+  animation: trash-wobble 0.45s ease-in-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .group:hover .animate-dots-bounce circle:nth-child(1),
   .group:hover .animate-dots-bounce circle:nth-child(2),
@@ -596,7 +702,12 @@ textarea {
   .group:hover .animate-share-lift,
   .group:hover .animate-bookmark-swing,
   .group:hover .animate-filter-adjust circle:nth-child(3),
-  .group:hover .animate-filter-adjust circle:nth-child(4) {
+  .group:hover .animate-filter-adjust circle:nth-child(4),
+  .group:hover .animate-mute-shake,
+  .group:hover .animate-block-shake,
+  .group:hover .animate-theme-pop,
+  .group:hover .animate-pencil-write,
+  .group:hover .animate-trash-wobble {
     animation: none;
   }
 }

@@ -61,6 +61,29 @@ function useActiveLocale(): Locale {
   return lang;
 }
 
+// 2026-09-02 (Aleksandr: "на редагувати и выдалить слева иконки тоже")
+// -- same leading-icon-on-the-left convention post-viewer-menu.tsx's
+// own dropdown already uses.
+function PencilIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 animate-pencil-write" aria-hidden="true">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 animate-trash-wobble" aria-hidden="true">
+      <path d="M3 6h18" />
+      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6M14 11v6" />
+    </svg>
+  );
+}
+
 export function PostOwnerMenu({
   postId,
   redirectAfterDeleteTo,
@@ -190,9 +213,9 @@ export function PostOwnerMenu({
         onClick={() => setOpen((v) => !v)}
         aria-label={STRINGS.menuLabel[lang]}
         aria-expanded={open}
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-neutral-500 shadow-sm ring-1 ring-black/5 transition hover:text-neutral-900 dark:bg-neutral-800 dark:text-neutral-400 dark:ring-white/10 dark:hover:text-neutral-50"
+        className="group flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-neutral-500 shadow-sm ring-1 ring-black/5 transition hover:text-neutral-900 dark:bg-neutral-800 dark:text-neutral-400 dark:ring-white/10 dark:hover:text-neutral-50"
       >
-        <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden="true">
+        <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5 animate-dots-bounce" aria-hidden="true">
           <circle cx="4" cy="10" r="1.7" />
           <circle cx="10" cy="10" r="1.7" />
           <circle cx="16" cy="10" r="1.7" />
@@ -248,15 +271,17 @@ export function PostOwnerMenu({
                     setOpen(false);
                     setEditing(true);
                   }}
-                  className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-neutral-700 transition hover:bg-accent/10 hover:text-accent dark:text-neutral-300"
+                  className="group flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 transition hover:bg-accent/10 hover:text-accent dark:text-neutral-300"
                 >
+                  <PencilIcon />
                   {STRINGS.edit[lang]}
                 </button>
                 <button
                   type="button"
                   onClick={() => setConfirming(true)}
-                  className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-red-600 transition hover:bg-red-50 dark:text-red-500 dark:hover:bg-red-500/10"
+                  className="group flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-red-600 transition hover:bg-red-50 dark:text-red-500 dark:hover:bg-red-500/10"
                 >
+                  <TrashIcon />
                   {STRINGS.delete[lang]}
                 </button>
               </>

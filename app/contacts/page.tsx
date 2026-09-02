@@ -82,7 +82,7 @@ type ContactUserSummary = {
 // components/chats-fab.tsx's ChatsIcon, just this row's own icon size.
 function ChatIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-chat-wiggle" aria-hidden="true">
       <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 20l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
     </svg>
   );
@@ -281,7 +281,7 @@ export default function ContactsPage() {
                     disabled={isOpeningThisChat}
                     aria-label="Chat"
                     className={
-                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition disabled:opacity-50 " +
+                      "group flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition disabled:opacity-50 " +
                       (chatErrored
                         ? "text-red-500"
                         : "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-50")

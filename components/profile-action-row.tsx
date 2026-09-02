@@ -259,7 +259,7 @@ function BookmarkFilledIcon() {
 
 function MuteIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 animate-mute-shake" aria-hidden="true">
       <path d="M11 5 6 9H3v6h3l5 4V5z" />
       <path d="M16 9l5 6M21 9l-5 6" />
     </svg>
@@ -268,7 +268,7 @@ function MuteIcon() {
 
 function BlockIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 animate-block-shake" aria-hidden="true">
       <circle cx="12" cy="12" r="9" />
       <path d="M5.5 5.5l13 13" />
     </svg>
@@ -707,7 +707,7 @@ export function ProfileActionRow({
                 <button
                   type="button"
                   onClick={() => setMenuOpen(false)}
-                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 transition hover:bg-accent/10 hover:text-accent dark:text-neutral-300"
+                  className="group flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 transition hover:bg-accent/10 hover:text-accent dark:text-neutral-300"
                 >
                   <MuteIcon />
                   {STRINGS.mute[lang]}
@@ -715,7 +715,7 @@ export function ProfileActionRow({
                 <button
                   type="button"
                   onClick={() => setMenuOpen(false)}
-                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-red-600 transition hover:bg-red-50 dark:hover:bg-red-950/30"
+                  className="group flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-red-600 transition hover:bg-red-50 dark:hover:bg-red-950/30"
                 >
                   <BlockIcon />
                   {STRINGS.block[lang]}
