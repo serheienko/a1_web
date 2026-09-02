@@ -59,19 +59,100 @@ export const ChatParticipantSchema = z
   .catchall(z.unknown());
 export type ChatParticipant = z.infer<typeof ChatParticipantSchema>;
 
+// Message shape is entirely UNCONFIRMED (messages_send.d.ts /
+// messages_getMessages.d.ts hit the same deadlock as everything else
+// under packages/types this session). `_id` mirrors every other
+// timestamped resource already confirmed in this repo (Post, Contact
+// both have it); `message` as the text field name matches this
+// backend's own `messages.*` method-naming convention (send/getMessages/
+// saveDraft all say "message", never "content" or "body"); `fromId`
+// mirrors the Peer shape already confirmed via useChat.ts. Every field
+// below is optional or has a .catch() specifically so a wrong guess
+// degrades one message to an empty bubble instead of dropping it or
+// failing the whole list -- fix the field name here the moment a live
+// response disagrees.
+//
+// `unread` (2026-09-02, chat UI redesign per Figma): guessed boolean
+// for per-message read/delivered state so the web bubble can show the
+// same single-vs-double checkmark the app does ("покажем статус read,
+// delivered, вот этими галочками, там две или одна"). Chat-server's
+// real field could just as easily be a `status` enum -- this is
+// unconfirmed, first live response that disagrees wins.
+export const MessageSchema = z
+  .object({
+    _id: z.string(),
+    chat: z.string().optional(),
+    fromId: z.string().nullable().catch(null),
+    message: z.string().catch(""),
+    // Unconfirmed unit (seconds vs ms) -- messageDateMs() below guesses
+    // from magnitude rather than assuming.
+    date: z.number().catch(0),
+    media: z.array(z.unknown()).catch([]),
+    unread: z.boolean().optional(),
+  })
+  .catchall(z.unknown());
+export type ChatMessage = z.infer<typeof MessageSchema>;
+
+// Best-effort text extraction: some real messages may carry the text
+// under a different field name than `message` above (sticker/media-only
+// messages may have none at all). Never throws; empty string means
+// "render the media/attachment area only, no text bubble" once media
+// rendering exists (not in this Phase 1 pass -- see PLAN.md).
+export function extractMessageText(msg: ChatMessage): string {
+  const raw = msg as unknown as Record<string, unknown>;
+  const candidate = raw.message ?? raw.text ?? raw.content ?? raw.body;
+  return typeof candidate === "string" ? candidate : "";
+}
+
+// Same "seconds vs ms, guess from magnitude" trick as lib/a1/mappers.ts
+// already applies elsewhere in this codebase for timestamp fields this
+// backend hasn't documented a unit for. A unix-seconds value for "now"
+// is currently ~1.8e9; a unix-ms value is ~1.8e12 -- 1e12 cleanly splits
+// the two with room to spare either direction.
+export function messageDateMs(msg: ChatMessage): number {
+  const raw = msg.date;
+  if (!raw) return 0;
+  return raw > 1_000_000_000_000 ? raw : raw * 1000;
+}
+
+// Read/delivered tick state for one of MY OWN messages (never rendered
+// for the other side's messages -- Aleksandr, 2026-09-02: "если это
+// тебе прислали, то галочек нет вовсе"). `unread === false` -> read
+// (double, tinted); `unread === true` or absent -> sent/delivered
+// (double, muted) -- absent-means-delivered is the safer default over
+// absent-means-read, since a wrong guess here just under-tints a tick
+// rather than falsely claiming something was read.
+export type MessageTickState = "read" | "delivered";
+export function messageTickState(msg: ChatMessage): MessageTickState {
+  return msg.unread === false ? "read" : "delivered";
+}
+
 // Confirmed via useChat.ts: _id, title, flags, participants, lastMessage
 // (a message id -- NOT an embedded message object, useChat.ts looks it
 // up separately in its messages store). Everything else this backend's
 // Chat resource might carry (photo, unreadCount, pinnedMessage, ...) is
 // unconfirmed -- caught by .catchall so an unrecognized extra field
 // never fails parsing; nothing here assumes those fields exist.
+//
+// 2026-09-02 (chat UI redesign per Figma -- list row needs a message
+// preview, unread badge, and red draft text): `lastMessage` is widened
+// to accept the confirmed bare-id string OR a full embedded message
+// object, in case chats.getChats actually already returns the latter
+// and the old `z.string()`-only guess was silently discarding it via
+// its own `.catch(null)`. `unreadCount`/`draft` are new best-effort
+// guesses (common field names for this shape of feature) with no
+// precedent in useChat.ts at all -- read via chatUnreadCount()/
+// chatDraftText() below, which fall back to "nothing to show" rather
+// than a wrong number/string.
 export const ChatSchema = z
   .object({
     _id: z.string(),
     title: z.string().catch(""),
     flags: z.number().catch(0),
     participants: z.array(ChatParticipantSchema).catch([]),
-    lastMessage: z.string().nullable().catch(null),
+    lastMessage: z.union([z.string(), MessageSchema]).nullable().catch(null),
+    unreadCount: z.number().catch(0).optional(),
+    draft: z.union([z.string(), z.object({ message: z.string().catch("") }).catchall(z.unknown())]).nullable().optional(),
     object: z.string().optional(),
   })
   .catchall(z.unknown());
@@ -99,54 +180,6 @@ export const ChatUserSchema = z
   .catchall(z.unknown());
 export type ChatUser = z.infer<typeof ChatUserSchema>;
 
-// Message shape is entirely UNCONFIRMED (messages_send.d.ts /
-// messages_getMessages.d.ts hit the same deadlock as everything else
-// under packages/types this session). `_id` mirrors every other
-// timestamped resource already confirmed in this repo (Post, Contact
-// both have it); `message` as the text field name matches this
-// backend's own `messages.*` method-naming convention (send/getMessages/
-// saveDraft all say "message", never "content" or "body"); `fromId`
-// mirrors the Peer shape already confirmed via useChat.ts. Every field
-// below is optional or has a .catch() specifically so a wrong guess
-// degrades one message to an empty bubble instead of dropping it or
-// failing the whole list -- fix the field name here the moment a live
-// response disagrees.
-export const MessageSchema = z
-  .object({
-    _id: z.string(),
-    chat: z.string().optional(),
-    fromId: z.string().nullable().catch(null),
-    message: z.string().catch(""),
-    // Unconfirmed unit (seconds vs ms) -- messageDateMs() in
-    // chat-mappers.ts guesses from magnitude rather than assuming.
-    date: z.number().catch(0),
-    media: z.array(z.unknown()).catch([]),
-  })
-  .catchall(z.unknown());
-export type ChatMessage = z.infer<typeof MessageSchema>;
-
-// Best-effort text extraction: some real messages may carry the text
-// under a different field name than `message` above (sticker/media-only
-// messages may have none at all). Never throws; empty string means
-// "render the media/attachment area only, no text bubble" once media
-// rendering exists (not in this Phase 1 pass -- see PLAN.md).
-export function extractMessageText(msg: ChatMessage): string {
-  const raw = msg as unknown as Record<string, unknown>;
-  const candidate = raw.message ?? raw.text ?? raw.content ?? raw.body;
-  return typeof candidate === "string" ? candidate : "";
-}
-
-// Same "seconds vs ms, guess from magnitude" trick as lib/a1/mappers.ts
-// already applies elsewhere in this codebase for timestamp fields this
-// backend hasn't documented a unit for. A unix-seconds value for "now"
-// is currently ~1.8e9; a unix-ms value is ~1.8e12 -- 1e12 cleanly splits
-// the two with room to spare either direction.
-export function messageDateMs(msg: ChatMessage): number {
-  const raw = msg.date;
-  if (!raw) return 0;
-  return raw > 1_000_000_000_000 ? raw : raw * 1000;
-}
-
 export function isPersonalChat(chat: Chat): boolean {
   return (chat.flags & CHAT_FLAG_PERSONAL) === CHAT_FLAG_PERSONAL;
 }
@@ -160,6 +193,31 @@ export function otherParticipantUserId(chat: Chat, myUserId: string | null): str
     (p) => p.object === "peer-user" && p.user && p.user !== myUserId,
   );
   return other?.user ?? null;
+}
+
+// Resolves chat.lastMessage into a list-row preview, only when it came
+// back as an embedded object (see ChatSchema's own comment) -- null
+// when it's still just a bare id, same "degrade to nothing" rule as
+// every other guessed field here.
+export type ChatLastMessagePreview = { text: string; dateMs: number; fromId: string | null };
+export function chatLastMessagePreview(chat: Chat): ChatLastMessagePreview | null {
+  const lm = chat.lastMessage;
+  if (!lm || typeof lm === "string") return null;
+  return { text: extractMessageText(lm), dateMs: messageDateMs(lm), fromId: lm.fromId };
+}
+
+export function chatUnreadCount(chat: Chat): number {
+  return typeof chat.unreadCount === "number" && chat.unreadCount > 0 ? chat.unreadCount : 0;
+}
+
+// Red "Draft: ..." line (Aleksandr, 2026-09-02: "показываем также draft
+// message, типа красным, если ты набрал сообщение, но не отправил") --
+// only rendered when this resolves to non-empty text.
+export function chatDraftText(chat: Chat): string {
+  const d = chat.draft;
+  if (!d) return "";
+  if (typeof d === "string") return d;
+  return d.message ?? "";
 }
 
 // Defensive extraction for chats.getChats's response -- unconfirmed

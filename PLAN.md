@@ -3404,3 +3404,72 @@ convention -- but this part is NOT independently confirmed yet, only
 inferred from messages.getMessages's real error. First live send/typing
 attempt is what actually confirms or refutes it; if either still 502s,
 that response body is the next thing to read, not another guess.
+
+### 6.66 Chat UI: real Figma design pulled in (2026-09-02)
+
+Aleksandr: "я хочу, чтобы ты использовал определённый UI для чатов,
+такой же, как у нас в приложении" -- shared a Figma link
+(figma.com/design/Oj0YzUaOvfRdxtqGXUp4TE/A1-Claude, node 24360:7305).
+Figma connector was installed but disabled for this chat; user enabled
+it, then `get_design_context`/`get_variable_defs`/`download_assets`
+pulled the real frames: "(1) No msgs" (empty inbox), "(3) Chat view +
+Typing indicator", "(2) Chats general" (populated list) -- plus the
+confirmed design-token pairs (light/dark) for backgrounds, text, brand
+accent, and message-bubble colors. All colors below are those exact
+Figma variables, not eyeballed from the screenshot.
+
+Per Aleksandr's own call this round: chats follow the SITE's light/dark
+toggle rather than being locked to the Figma mockups' black-only frames
+(only the empty-state frame was actually light in Figma; list/chat-view
+frames were dark-only mockups). Light-mode equivalents for values Figma
+only gave a dark token for (own-bubble bg, received-bubble bg, the
+input/button chrome) are inferred from Brand Colors/Primary Light and
+this app's existing input styling -- flagged inline in the new files,
+worth eyeballing once live.
+
+Assets: Figma's own asset URLs (figma.com/api/mcp/asset/...) are
+blocked by this session's egress allowlist from both the cloud sandbox
+AND local device_bash -- worked around by fetching them through the
+Claude-in-Chrome browser (a live Figma tab's own `fetch()`, base64-
+encoded back over the MCP boundary), which has normal internet access.
+The empty-state illustration shipped as public/chat/empty-chat.png
+(real exported PNG); every icon (paperclip, mic, back arrow, read/
+delivered ticks, the "our cat" glyph inside the message input) is the
+real exported SVG path data, inlined as React components in the new
+components/chat/icons.tsx -- not hand-drawn approximations. The one
+exception is the typing-indicator dots, hand-built as 3 CSS-animated
+dots rather than tracing a static PNG snapshot of one animation frame
+(components/chat/icons.tsx's own header explains why).
+
+Data-dependent parts of the list row (message preview text, read/
+delivered ticks, unread badge, red draft line) needed fields this
+session's chat-server integration never confirmed chats.getChats
+actually returns -- `lastMessage` was previously typed as a bare id
+string only (useChat.ts's own confirmed shape) with a `.catch(null)`
+that would have silently swallowed a real embedded-object response.
+lib/a1/chat-schemas.ts's ChatSchema now accepts EITHER shape for
+`lastMessage`, plus new best-effort-guessed `unreadCount`/`draft`
+fields -- same "degrade to nothing rather than guess wrong and break"
+rule as every other unconfirmed field in this file; a wrong guess here
+just means the list row looks like it did before this pass (title +
+avatar only), never a 502. Per-message read/delivered ticks in the chat
+window itself use a new guessed `unread` boolean on MessageSchema
+(messageTickState()) -- same rule.
+
+New files: components/chat/icons.tsx (all the exported icons above).
+Changed: lib/a1/chat-schemas.ts (widened ChatSchema + new preview/
+unread/draft helpers + MessageSchema.unread), app/api/chats/list/
+route.ts (surfaces the new fields), app/chats/page.tsx (empty state =
+exact Figma illustration/copy; row layout = avatar/title/preview/
+ticks/unread/draft), app/chats/[chatId]/page.tsx (header with back-
+circle + avatar + name + typing pill wired but inert until Phase 2's
+WS relay exists; bubbles with tails/ticks/date separators; input bar
+with paperclip/cat-icon-field/mic, mic swaps to a send button once
+there's text -- that swap itself is a UX inference, not from Figma,
+matching how Telegram/WhatsApp do the same swap).
+
+Not yet live-tested (no local node_modules on this machine to run tsc,
+so this is unverified beyond manual review until Vercel's build +
+Aleksandr's live check): whether the new zod shapes actually parse a
+real chats.getChats response, whether the preview/unread/draft guesses
+resolve to anything, and the visual result on a real chat.

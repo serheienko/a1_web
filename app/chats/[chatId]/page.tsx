@@ -4,7 +4,17 @@
 // app/api/chats/messages/route.ts and app/api/chats/typing/route.ts's
 // own headers for exactly what that does and doesn't cover yet
 // (notably: sending a typing action works, SEEING the other side's
-// typing indicator does not, until Phase 2's realtime relay exists).
+// typing indicator does not, until Phase 2's realtime relay exists --
+// the header's typing pill below is wired up but has nothing live to
+// show yet, see its own comment).
+//
+// 2026-09-02: visual pass to match the app's own chat UI (Aleksandr:
+// "хочу использовать определённый UI для чатов, такой же, как у нас в
+// приложении"), pulled from Figma (node 24360:7305, "(3) Chat view +
+// Typing indicator") via the Figma MCP -- exact colors/spacing/icons
+// for the parts that data layer already supports; see PLAN.md's
+// 2026-09-02 chat-UI entry for what's still guessed (per-message read
+// ticks) vs load-bearing on the existing polling transport.
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -15,7 +25,13 @@ import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { T } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
-import { extractMessageText, messageDateMs, type ChatMessage } from "@/lib/a1/chat-schemas";
+import {
+  extractMessageText,
+  messageDateMs,
+  messageTickState,
+  type ChatMessage,
+} from "@/lib/a1/chat-schemas";
+import { ChatBackArrow, ChatCatFieldIcon, ChatMicButton, ChatPaperclipButton, ChatTypingDots, MessageTicks } from "@/components/chat/icons";
 
 type LoadState = "loading" | "signed-out" | "error" | "ready";
 
@@ -34,6 +50,21 @@ function formatTime(ms: number): string {
   }
 }
 
+function formatDateLabel(ms: number): string {
+  if (!ms) return "";
+  try {
+    return new Date(ms).toLocaleDateString(undefined, { month: "long", day: "numeric" });
+  } catch {
+    return "";
+  }
+}
+
+function sameDay(aMs: number, bMs: number): boolean {
+  const a = new Date(aMs);
+  const b = new Date(bMs);
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
 export default function ChatWindowPage() {
   const params = useParams<{ chatId: string }>();
   const searchParams = useSearchParams();
@@ -49,6 +80,13 @@ export default function ChatWindowPage() {
   const inFlight = useRef(false);
   const lastTypingSentAt = useRef(0);
   const scrollAnchorRef = useRef<HTMLDivElement>(null);
+
+  // Not wired to anything live yet -- chat-server's typing events are
+  // WS-only (this file's own header, and app/api/chats/typing/route.ts's
+  // header), so this always reads false until Phase 2's realtime relay
+  // exists. Left as real state (not deleted) so the header's pill below
+  // just starts working the day that relay lands, no markup changes.
+  const [peerTyping] = useState(false);
 
   const load = useCallback(async () => {
     if (inFlight.current) return;
@@ -141,40 +179,44 @@ export default function ChatWindowPage() {
   }
 
   return (
-    <main className="mx-auto flex h-[calc(100dvh-4rem)] w-full max-w-2xl flex-col px-4 py-6 sm:py-8">
-      <div className="flex items-center gap-3 border-b border-neutral-100 pb-4 dark:border-neutral-800">
+    <div className="flex h-[100dvh] flex-col bg-[#f2f2f7] text-[#262a34] dark:bg-black dark:text-white">
+      <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-black/5 bg-[#f2f2f7]/90 px-4 py-3 backdrop-blur-md dark:border-white/10 dark:bg-black/80">
         <Link
           href="/chats"
           aria-label="Back"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800"
+          className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-[#335ef7] backdrop-blur-sm transition hover:bg-neutral-50 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80 dark:text-[#0c8ce9] dark:hover:bg-[#1c1c1e]"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M15 18l-6-6 6-6" />
-          </svg>
+          <ChatBackArrow />
         </Link>
         <Image
           src={headerAvatar}
           alt=""
-          width={36}
-          height={36}
-          className="h-9 w-9 shrink-0 rounded-full object-cover"
+          width={42}
+          height={42}
+          className="h-[42px] w-[42px] shrink-0 rounded-full object-cover"
           placeholder="blur"
           blurDataURL={BLUR_DATA_URL}
           unoptimized
         />
-        <div className="min-w-0 truncate text-sm font-medium text-neutral-900 dark:text-neutral-50">
-          {headerTitle || "—"}
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[15px] font-medium leading-tight">{headerTitle || "—"}</div>
+          {peerTyping && (
+            <div className="flex items-center gap-1.5 text-[13px] font-medium text-[#335ef7] dark:text-[#0c8ce9]">
+              <T uk="набирає" en="typing" ru="печатает" de="tippt" es="escribiendo" fr="écrit" pl="pisze" ptBR="digitando" zh="正在输入" />
+              <ChatTypingDots />
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="mt-4 flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto px-4 py-4">
         {state === "loading" && (
-          <p className="mt-6 text-center text-sm text-neutral-500 dark:text-neutral-400">
+          <p className="mt-6 text-center text-sm text-[#989aa6] dark:text-[#adafbb]">
             <T uk="Завантаження…" en="Loading…" ru="Загрузка…" de="Wird geladen…" es="Cargando…" fr="Chargement…" pl="Ładowanie…" ptBR="Carregando…" zh="加载中…" />
           </p>
         )}
         {state === "signed-out" && (
-          <p className="mt-6 text-center text-sm text-neutral-500 dark:text-neutral-400">
+          <p className="mt-6 text-center text-sm text-[#989aa6] dark:text-[#adafbb]">
             <T
               uk="Увійдіть, щоб побачити цей чат."
               en="Sign in to see this chat."
@@ -189,7 +231,7 @@ export default function ChatWindowPage() {
           </p>
         )}
         {state === "error" && (
-          <p className="mt-6 text-center text-sm text-neutral-500 dark:text-neutral-400">
+          <p className="mt-6 text-center text-sm text-[#989aa6] dark:text-[#adafbb]">
             <T
               uk="Не вдалося завантажити повідомлення."
               en="Couldn't load messages."
@@ -204,7 +246,7 @@ export default function ChatWindowPage() {
           </p>
         )}
         {state === "ready" && messages.length === 0 && (
-          <p className="mt-6 text-center text-sm text-neutral-500 dark:text-neutral-400">
+          <p className="mt-6 text-center text-sm text-[#989aa6] dark:text-[#adafbb]">
             <T
               uk="Повідомлень ще немає. Напишіть перше!"
               en="No messages yet. Say hi!"
@@ -219,26 +261,37 @@ export default function ChatWindowPage() {
           </p>
         )}
         {state === "ready" && messages.length > 0 && (
-          <div className="flex flex-col gap-2">
-            {messages.map((msg) => {
+          <div className="flex flex-col gap-1.5">
+            {messages.map((msg, i) => {
               const mine = myUserId !== null && msg.fromId === myUserId;
               const text = extractMessageText(msg);
+              const ms = messageDateMs(msg);
+              const prevMs = i > 0 ? messageDateMs(messages[i - 1]) : 0;
+              const showDate = i === 0 || !sameDay(ms, prevMs);
               return (
-                <div key={msg._id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-                  <div
-                    className={`max-w-[75%] rounded-2xl px-3.5 py-2 text-sm ${
-                      mine
-                        ? "bg-neutral-900 text-neutral-50 dark:bg-neutral-50 dark:text-neutral-900"
-                        : "bg-neutral-100 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-50"
-                    }`}
-                  >
-                    <div className="whitespace-pre-wrap break-words">{text || "…"}</div>
+                <div key={msg._id}>
+                  {showDate && (
+                    <div className="my-3 flex justify-center">
+                      <span className="rounded-full bg-black/5 px-3 py-1 text-[13px] font-medium text-[#262a34] backdrop-blur-sm dark:bg-white/10 dark:text-white">
+                        {formatDateLabel(ms)}
+                      </span>
+                    </div>
+                  )}
+                  <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                     <div
-                      className={`mt-0.5 text-right text-[10px] ${
-                        mine ? "text-neutral-300 dark:text-neutral-600" : "text-neutral-400 dark:text-neutral-500"
+                      className={`max-w-[78%] rounded-[18px] px-3 py-2 text-[15px] leading-snug ${
+                        mine ? "rounded-tr-[6px] bg-[#335ef7] text-white dark:bg-[#009bff]" : "rounded-tl-[6px] bg-white text-[#262a34] dark:bg-[#1a1a1a] dark:text-white"
                       }`}
                     >
-                      {formatTime(messageDateMs(msg))}
+                      <div className="whitespace-pre-wrap break-words">{text || "…"}</div>
+                      <div
+                        className={`mt-0.5 flex items-center justify-end gap-1 text-[11px] ${
+                          mine ? "text-white/70" : "text-[#989aa6] dark:text-[#adafbb]"
+                        }`}
+                      >
+                        <span>{formatTime(ms)}</span>
+                        {mine && <MessageTicks state={messageTickState(msg)} className="h-[7.77px] w-3.5" />}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -250,36 +303,46 @@ export default function ChatWindowPage() {
       </div>
 
       {state !== "signed-out" && (
-        <div className="mt-3 flex items-end gap-2 border-t border-neutral-100 pt-3 dark:border-neutral-800">
-          <textarea
-            value={draft}
-            onChange={(e) => {
-              setDraft(e.target.value);
-              announceTyping();
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                send();
-              }
-            }}
-            rows={1}
-            placeholder="…"
-            className="min-h-[40px] flex-1 resize-none rounded-xl border border-neutral-200 bg-transparent px-3 py-2 text-sm text-neutral-900 outline-none focus:border-neutral-400 dark:border-neutral-700 dark:text-neutral-50 dark:focus:border-neutral-500"
-          />
-          <button
-            type="button"
-            onClick={send}
-            disabled={!draft.trim() || sending}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-neutral-900 text-neutral-50 transition disabled:opacity-40 dark:bg-neutral-50 dark:text-neutral-900"
-            aria-label="Send"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M12 19V5M5 12l7-7 7 7" />
-            </svg>
-          </button>
+        <div className="border-t border-black/5 bg-[#f2f2f7]/90 px-4 py-3 backdrop-blur-md dark:border-white/10 dark:bg-black/80">
+          <div className="flex items-end gap-2">
+            <ChatPaperclipButton disabled={sending} />
+            <div className="flex min-h-[38px] flex-1 items-center gap-2 rounded-[21px] border border-neutral-200 bg-white/90 px-3.5 py-2 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
+              <textarea
+                value={draft}
+                onChange={(e) => {
+                  setDraft(e.target.value);
+                  announceTyping();
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    send();
+                  }
+                }}
+                rows={1}
+                placeholder="Message"
+                className="min-h-[20px] flex-1 resize-none bg-transparent text-[15px] text-[#262a34] outline-none placeholder:text-[#989aa6] dark:text-white dark:placeholder:text-[#98989f]"
+              />
+              <ChatCatFieldIcon className="h-5 w-5 shrink-0 text-[#989aa6] dark:text-[#adafbb]" />
+            </div>
+            {draft.trim() ? (
+              <button
+                type="button"
+                onClick={send}
+                disabled={sending}
+                aria-label="Send"
+                className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full bg-[#335ef7] text-white transition disabled:opacity-40 dark:bg-[#0c8ce9]"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M12 19V5M5 12l7-7 7 7" />
+                </svg>
+              </button>
+            ) : (
+              <ChatMicButton disabled={sending} />
+            )}
+          </div>
         </div>
       )}
-    </main>
+    </div>
   );
 }
