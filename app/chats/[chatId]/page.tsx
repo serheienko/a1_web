@@ -180,15 +180,24 @@ export default function ChatWindowPage() {
 
   return (
     <div className="flex h-[100dvh] flex-col bg-[#f2f2f7] text-[#262a34] dark:bg-black dark:text-white">
-      {/* 2026-09-02 (Aleksandr, screen recording: back button and avatar
-          sat pinned to the far-left edge on a wide screen, way off from
-          the centered message column below) -- same mx-auto max-w-2xl
-          container app/chats/page.tsx, app/u/[username]/page.tsx and
-          app/jobs/[slug]/page.tsx all already center their own content
-          in, so the header row lines up with the messages/input below
-          on every screen width instead of spanning full-bleed. */}
+      {/* 2026-09-02 (Aleksandr, screen recording + follow-up: "Поставь
+          аватар и имя по центру 'вакансії і фахівці', а кнопку назад
+          примерно на уровне нижней скрепки"): back button stays a
+          normal in-flow item in this max-w-2xl row (so it lines up with
+          the compose bar's own max-w-2xl row -- its first child, the
+          paperclip button, sits at the same x as this one below), but
+          avatar+name are pulled OUT of that row and absolutely centered
+          over the header's full width instead -- same "pointer-events-
+          none absolute inset-0 flex items-center justify-center" trick
+          components/site-nav.tsx already uses to keep ITS OWN centered
+          tabs pill dead-center regardless of what's in the side
+          columns (see that file's own header comment for the technique
+          in full). The relative row below stays mx-auto max-w-2xl (a
+          box that's itself centered on the page), so centering inside
+          it lands at the same page-x as the nav bar's own full-width-
+          centered tabs. */}
       <div className="sticky top-0 z-10 border-b border-black/5 bg-[#f2f2f7]/90 backdrop-blur-md dark:border-white/10 dark:bg-black/80">
-        <div className="mx-auto flex w-full max-w-2xl items-center gap-3 px-4 py-3">
+        <div className="relative mx-auto flex w-full max-w-2xl items-center px-4 py-3">
           <Link
             href="/chats"
             aria-label="Back"
@@ -196,24 +205,27 @@ export default function ChatWindowPage() {
           >
             <ChatBackArrow />
           </Link>
-          <Image
-            src={headerAvatar}
-            alt=""
-            width={42}
-            height={42}
-            className="h-[42px] w-[42px] shrink-0 rounded-full object-cover"
-            placeholder="blur"
-            blurDataURL={BLUR_DATA_URL}
-            unoptimized
-          />
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-[15px] font-medium leading-tight">{headerTitle || "—"}</div>
-            {peerTyping && (
-              <div className="flex items-center gap-1.5 text-[13px] font-medium text-[#335ef7] dark:text-[#0c8ce9]">
-                <T uk="набирає" en="typing" ru="печатает" de="tippt" es="escribiendo" fr="écrit" pl="pisze" ptBR="digitando" zh="正在输入" />
-                <ChatTypingDots />
-              </div>
-            )}
+
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center gap-3 px-4 py-3">
+            <Image
+              src={headerAvatar}
+              alt=""
+              width={42}
+              height={42}
+              className="pointer-events-auto h-[42px] w-[42px] shrink-0 rounded-full object-cover"
+              placeholder="blur"
+              blurDataURL={BLUR_DATA_URL}
+              unoptimized
+            />
+            <div className="pointer-events-auto min-w-0 max-w-[50vw]">
+              <div className="truncate text-[15px] font-medium leading-tight">{headerTitle || "—"}</div>
+              {peerTyping && (
+                <div className="flex items-center gap-1.5 text-[13px] font-medium text-[#335ef7] dark:text-[#0c8ce9]">
+                  <T uk="набирає" en="typing" ru="печатает" de="tippt" es="escribiendo" fr="écrit" pl="pisze" ptBR="digitando" zh="正在输入" />
+                  <ChatTypingDots />
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -338,7 +350,7 @@ export default function ChatWindowPage() {
           className="fixed inset-x-0 bottom-0 z-20 border-t border-black/5 bg-[#f2f2f7]/90 px-4 py-3 backdrop-blur-md dark:border-white/10 dark:bg-black/80"
           style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
         >
-          <div className="mx-auto flex w-full max-w-xs items-center gap-2">
+          <div className="mx-auto flex w-full max-w-2xl items-center gap-2">
             <ChatPaperclipButton disabled={sending} />
             <div className="flex min-h-[42px] flex-1 items-center gap-2 rounded-[21px] border border-neutral-200 bg-white/90 px-3.5 py-2 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
               <textarea
