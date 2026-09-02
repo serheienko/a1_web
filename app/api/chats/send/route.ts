@@ -43,6 +43,11 @@ export async function POST(request: NextRequest) {
       message: text,
     });
 
+    // TEMP DEBUG 2026-09-02 -- same investigation as messages/route.ts's
+    // own debug log; want to see messages.send's real response shape
+    // too (does it echo the created message back? with what fields?).
+    // Remove alongside that one once chat-schemas.ts is fixed.
+    console.error("CHAT_DEBUG raw messages.send response:", JSON.stringify(data).slice(0, 2000));
     const response = NextResponse.json({ ok: true, raw: data });
     if (refreshedSession) setSession(response, refreshedSession);
     return response;

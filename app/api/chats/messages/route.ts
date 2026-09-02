@@ -53,7 +53,18 @@ export async function GET(request: NextRequest) {
       limit: 50,
     });
 
+    // TEMP DEBUG 2026-09-02 (Aleksandr: "пока чаты не работают, ничего
+    // никуда не уходит, история прошлых чатов тоже не подвязывается") --
+    // extractMessages()'s field-name guesses (chat-schemas.ts's own
+    // header admits _id/fromId/message/the top-level envelope shape are
+    // all UNCONFIRMED) are the prime suspect: a wrong guess silently
+    // degrades to an empty list rather than throwing, which looks
+    // exactly like "nothing works" from the browser. Logging the real
+    // raw response once here to confirm/fix the guess against a real
+    // live payload -- remove once chat-schemas.ts is updated to match.
+    console.error("CHAT_DEBUG raw messages.getMessages response:", JSON.stringify(data).slice(0, 4000));
     const messages = extractMessages(data);
+    console.error("CHAT_DEBUG extracted count:", messages.length, "of raw array length", Array.isArray(data) ? data.length : (data && typeof data === "object" ? Object.keys(data as object) : typeof data));
     const response = NextResponse.json({ ok: true, messages, myUserId: session?.userId ?? null });
     if (refreshedSession) setSession(response, refreshedSession);
     return response;
