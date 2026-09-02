@@ -213,6 +213,13 @@ export default function ChatWindowPage() {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const inFlight = useRef(false);
+  // 2026-09-02 (Aleksandr: "когда я отвечаю с моба и читаю это на
+  // вебе, оно не отмечается у меня на мобильном, что сообщение
+  // прочитано") -- highest message _id this tab has already told
+  // chat-server about via messages.markAsRead (app/api/chats/mark-read/
+  // route.ts), so load() below only ever calls it again once a NEWER
+  // message shows up, never redundantly on every poll tick.
+  const lastMarkedReadId = useRef(0);
   const lastTypingSentAt = useRef(0);
   const messagesScrollRef = useRef<HTMLDivElement>(null);
   // 2026-09-02 (Aleksandr: "input field должен по высоте увеличиваться
@@ -302,6 +309,31 @@ export default function ChatWindowPage() {
       const resolvedMyUserId: string | null = data.myUserId ?? null;
       setMessages(fetched);
       setMyUserId(resolvedMyUserId);
+      // Only while the tab is actually visible -- marking a message
+      // "read" from a poll tick in a backgrounded tab would be a lie,
+      // same reasoning app/chats/page.tsx's own poll timer already
+      // applies to skip polling entirely while hidden (this page's
+      // own poll timer below does too; this extra check only matters
+      // for the INITIAL load, which -- like that page's -- runs even
+      // in a background tab so messages are ready the moment it's
+      // foregrounded, without also falsely marking them read yet).
+      if (!document.hidden && fetched.length > 0) {
+        const highestId = Math.max(...fetched.map((m) => Number(m._id)).filter((n) => !Number.isNaN(n)));
+        if (highestId > lastMarkedReadId.current) {
+          lastMarkedReadId.current = highestId;
+          authFetch("/api/chats/mark-read", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ chat: chatId, lastMessage: highestId }),
+          }).catch(() => {
+            // Best-effort -- a failed mark-read just means the peer's
+            // tick stays single a bit longer; the NEXT poll tick's
+            // highestId is still > whatever chat-server last recorded,
+            // so this naturally retries itself without extra bookkeeping.
+            lastMarkedReadId.current = 0;
+          });
+        }
+      }
       // Drop any pending (optimistic) entry that a real message now
       // covers -- same sender + same text, and the real one dated at or
       // after the pending one was created (a few seconds of slack for
