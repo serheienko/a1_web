@@ -19,7 +19,28 @@
 // совсем, должна быть только в постах" -- LocationMap was pulled off
 // the profile page (app/u/[username]/page.tsx) entirely; the only
 // caller left is the job post detail page (app/jobs/[slug]/page.tsx).
+//
+// 2026-09-02 (Aleksandr, screenshot of a job page mid-load: "А мы можем
+// карты тоже подгружать через blur как аватары?"): the map iframe used
+// to just be a blank box (the page's own dark background showing
+// through) until Google's embed finished loading -- there was no
+// placeholder of any kind, unlike every <Image> in this app (avatars,
+// post photos), which all blur-up from lib/blur-placeholder.ts's shared
+// BLUR_DATA_URL shimmer while the real image loads. Can't reuse
+// next/image's own `placeholder="blur"` prop here -- this isn't an
+// <Image>, it's a cross-origin <iframe> -- so this reproduces the same
+// look by hand: BLUR_DATA_URL rendered as a scaled-up, CSS-blurred
+// background layer stacked ON TOP of the iframe (which still starts
+// loading immediately underneath, same as before), faded out via
+// `onLoad` once Google's embed actually finishes -- the same "blurred
+// placeholder fades to reveal the real thing" beat, just built from a
+// background-image instead of next/image's built-in mechanism, since
+// an iframe has no such mechanism of its own to hook into.
+"use client";
+
+import { useState } from "react";
 import { T } from "@/components/t";
+import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 
 export function LocationMap({
   coordinates,
@@ -31,6 +52,7 @@ export function LocationMap({
   const [lng, lat] = coordinates;
   const embedSrc = `https://www.google.com/maps?q=${lat},${lng}&z=13&output=embed`;
   const viewHref = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+  const [loaded, setLoaded] = useState(false);
 
   return (
     <div className="mt-4 overflow-hidden rounded-2xl border border-neutral-200 dark:border-neutral-700">
@@ -52,12 +74,26 @@ export function LocationMap({
           satellite-preview thumbnail rendering with inverted colors too,
           which reads as a minor, acceptable trade-off for a purely
           decorative element with no interactive requirement. */}
-      <iframe
-        title={label}
-        src={embedSrc}
-        loading="lazy"
-        className="h-[220px] w-full border-0 dark:invert dark:hue-rotate-180 dark:brightness-95 dark:contrast-[.9] sm:h-[280px]"
-      />
+      <div className="relative h-[220px] w-full sm:h-[280px]">
+        <iframe
+          title={label}
+          src={embedSrc}
+          loading="lazy"
+          onLoad={() => setLoaded(true)}
+          className="h-full w-full border-0 dark:invert dark:hue-rotate-180 dark:brightness-95 dark:contrast-[.9]"
+        />
+        {/* Blur-up placeholder, same shared shimmer + "blur it with CSS,
+            scale up so the blur doesn't show hard edges" trick
+            next/image applies automatically for placeholder="blur" --
+            see this file's 2026-09-02 header comment above. */}
+        <div
+          aria-hidden="true"
+          className={`pointer-events-none absolute inset-0 scale-110 bg-cover bg-center blur-xl transition-opacity duration-300 ${
+            loaded ? "opacity-0" : "opacity-100"
+          }`}
+          style={{ backgroundImage: `url(${BLUR_DATA_URL})` }}
+        />
+      </div>
       <div className="flex items-center justify-between gap-2 bg-white px-4 py-2 text-sm text-neutral-500 dark:bg-neutral-900 dark:text-neutral-400">
         <span className="truncate">{label}</span>
         <a
