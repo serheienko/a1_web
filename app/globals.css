@@ -375,6 +375,50 @@ textarea {
 }
 
 /*
+ * 2026-09-02 (Aleksandr, screenshot of the two stacked FABs: "На иконку
+ * сообщения можно тоже добавить какую-то прикольную анимацию при
+ * наведении, что то похожее как на (+)") -- components/create-post-
+ * fab.tsx's own "+" spins 90deg on `group-hover` (a plain Tailwind
+ * utility, no keyframe needed since a symmetric plus looks identical
+ * rotated). A speech bubble doesn't have that symmetry -- a plain
+ * rotate just looks tipped over -- so components/chats-fab.tsx's own
+ * ChatsIcon gets an actual keyframe instead: a couple of quick tilts
+ * with a touch of scale, like the bubble is shaking for attention (the
+ * same kind of motion a chat app's own unread-badge bounce goes for).
+ * `.group:hover` (not a bare `:hover` on the icon itself) so it only
+ * plays while the FAB button itself is hovered, matching every other
+ * `group-hover:` icon treatment in this app.
+ */
+@keyframes chat-bubble-wiggle {
+  0%,
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+  15% {
+    transform: rotate(-14deg) scale(1.08);
+  }
+  35% {
+    transform: rotate(11deg) scale(1.08);
+  }
+  55% {
+    transform: rotate(-7deg) scale(1.04);
+  }
+  75% {
+    transform: rotate(4deg) scale(1.02);
+  }
+}
+
+.group:hover .animate-chat-wiggle {
+  animation: chat-bubble-wiggle 0.5s ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .group:hover .animate-chat-wiggle {
+    animation: none;
+  }
+}
+
+/*
  * Indeterminate linear progress bar -- Aleksandr, 2026-08-30, sent the
  * native app's own "Posting"/"Updating" screenshot + a cat Lottie
  * sticker to match: "прогресс-бар лоудер и надпись posting... и этого

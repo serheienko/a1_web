@@ -35,10 +35,11 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { subscribeAccountMenuOpen, getAccountMenuOpenSnapshot } from "@/lib/account-menu-open";
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
 import { FabAuthPrompt } from "@/components/fab-auth-prompt";
+import { useHoverPanel } from "@/lib/use-hover-panel";
 
 type FabStringKey = "label";
 
@@ -67,9 +68,23 @@ function readDisplayCookie(): string | null {
 
 // Speech-bubble glyph -- same shape as components/avatar-menu.tsx's own
 // ChatsIcon, just scaled up to this button's icon size.
-function ChatsIcon() {
+//
+// 2026-09-02 (Aleksandr, screenshot of the two stacked FABs: "На иконку
+// сообщения можно тоже добавить какую-то прикольную анимацию при
+// наведении, что то похожее как на (+)"): components/create-post-fab.tsx's
+// own "+" spins 90deg on hover -- a plain rotate reads fine on a
+// symmetric plus, but a speech bubble rotated 90deg just looks knocked
+// over, not "playful". Went with a quick wiggle instead (see globals.css's
+// chat-bubble-wiggle keyframe) -- two or three little tilts with a touch
+// of scale, like the bubble is shaking to get your attention, the same
+// motion a chat app's own unread-badge bounce goes for. Takes a
+// className (only ChunkyPlusIcon's own pattern in create-post-fab.tsx
+// had this before) so the caller decides whether the hover trigger is
+// this icon's own `group` or not -- both call sites below share one
+// `group` button, so both just pass "animate-chat-wiggle" and get it.
+function ChatsIcon({ className }: { className?: string } = {}) {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={className}>
       <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 20l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
     </svg>
   );
@@ -85,6 +100,21 @@ export function ChatsFab() {
   const accountMenuOpen = useSyncExternalStore(subscribeAccountMenuOpen, getAccountMenuOpenSnapshot, () => false);
   const [email, setEmail] = useState<string | null>(null);
   const [authPromptOpen, setAuthPromptOpen] = useState(false);
+  // 2026-09-02 (Aleksandr: "давай в разлогиненом стейте тоже добавим к
+  // этим попапс эффект появления при наведении, без клика") -- same
+  // hook components/avatar-menu.tsx/components/settings-menu.tsx use,
+  // just with the trigger/panel as two separate elements (this button
+  // and components/fab-auth-prompt.tsx's portaled card) instead of one
+  // shared wrapping div, since the popover portals to document.body and
+  // so isn't a DOM descendant of this button the way avatar-menu.tsx's
+  // panel is of its own wrapper -- see fab-auth-prompt.tsx's own comment
+  // on its panelRef/onMouseEnter/onMouseLeave props for why both need
+  // the handlers wired explicitly.
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const { handleMouseEnter, handleMouseLeave } = useHoverPanel(authPromptOpen, setAuthPromptOpen, [
+    { trigger: triggerRef, panel: panelRef },
+  ]);
 
   useEffect(() => {
     setEmail(readDisplayCookie());
@@ -92,7 +122,7 @@ export function ChatsFab() {
 
   if (pathname?.startsWith("/sign-in") || pathname?.startsWith("/chats")) return null;
 
-  const buttonClassName = `fixed right-5 z-40 flex h-12 w-12 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-700 shadow-lg transition duration-200 hover:bg-neutral-50 active:scale-95 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800 ${
+  const buttonClassName = `group fixed right-5 z-40 flex h-12 w-12 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-700 shadow-lg transition duration-200 hover:bg-neutral-50 active:scale-95 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800 ${
     accountMenuOpen ? "pointer-events-none opacity-0" : "opacity-100"
   }`;
   // Stacked directly above CreatePostFab: that button sits at
@@ -111,19 +141,25 @@ export function ChatsFab() {
       <>
         <button
           type="button"
+          ref={triggerRef}
           onClick={() => setAuthPromptOpen(true)}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
           aria-label={STRINGS.label[lang]}
           aria-hidden={accountMenuOpen}
           tabIndex={accountMenuOpen ? -1 : undefined}
           className={buttonClassName}
           style={buttonStyle}
         >
-          <ChatsIcon />
+          <ChatsIcon className="animate-chat-wiggle" />
         </button>
         <FabAuthPrompt
           open={authPromptOpen}
           onClose={() => setAuthPromptOpen(false)}
           signInHref="/sign-in?reason=profile-action"
+          panelRef={panelRef}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
         />
       </>
     );
@@ -138,7 +174,7 @@ export function ChatsFab() {
       className={buttonClassName}
       style={buttonStyle}
     >
-      <ChatsIcon />
+      <ChatsIcon className="animate-chat-wiggle" />
     </Link>
   );
 }

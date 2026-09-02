@@ -38,12 +38,13 @@
 // rounded-2xl to rounded-full (a full circle).
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
 import { PostEditor } from "@/components/post-editor";
 import { FabAuthPrompt } from "@/components/fab-auth-prompt";
+import { useHoverPanel } from "@/lib/use-hover-panel";
 
 type FabStringKey = "label";
 
@@ -90,6 +91,19 @@ export function CreatePostFab() {
   const [email, setEmail] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [authPromptOpen, setAuthPromptOpen] = useState(false);
+  // 2026-09-02 (Aleksandr: "давай в разлогиненом стейте тоже добавим к
+  // этим попапс эффект появления при наведении, без клика") -- same
+  // hook/wiring as components/chats-fab.tsx's own signed-out button;
+  // see that file's comment on why trigger+panel need explicit handlers
+  // instead of one shared wrapping div (fab-auth-prompt.tsx portals to
+  // document.body). Guarded to the signed-out branch only in the
+  // handlers below -- hovering this button while signed in should never
+  // pop the auth prompt, only a click should open the post editor.
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const { handleMouseEnter, handleMouseLeave } = useHoverPanel(authPromptOpen, setAuthPromptOpen, [
+    { trigger: triggerRef, panel: panelRef },
+  ]);
 
   useEffect(() => {
     setEmail(readDisplayCookie());
@@ -128,7 +142,14 @@ export function CreatePostFab() {
           `group-hover:rotate-90` on the icon itself. */}
       <button
         type="button"
+        ref={triggerRef}
         onClick={handleClick}
+        onMouseEnter={() => {
+          if (!email) handleMouseEnter();
+        }}
+        onMouseLeave={() => {
+          if (!email) handleMouseLeave();
+        }}
         aria-label={STRINGS.label[lang]}
         className="group fixed right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-lg shadow-accent/30 transition hover:opacity-90 active:scale-95"
         style={{ bottom: "calc(1.25rem + env(safe-area-inset-bottom))" }}
@@ -155,6 +176,9 @@ export function CreatePostFab() {
         open={authPromptOpen}
         onClose={() => setAuthPromptOpen(false)}
         signInHref="/sign-in?reason=create-post"
+        panelRef={panelRef}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
       />
     </>
   );

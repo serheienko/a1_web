@@ -57,13 +57,14 @@
 // (see lib/auth-fetch.ts's own header comment for the full story).
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
 import type { Contact } from "@/lib/a1/schemas";
 import { LottiePlayer } from "@/components/lottie-player";
+import { useHoverPanel } from "@/lib/use-hover-panel";
 
 type StringKey =
   | "message"
@@ -252,6 +253,38 @@ export function PostViewerMenu({
   const [authPromptOpen, setAuthPromptOpen] = useState(false);
   const [openingChat, setOpeningChat] = useState(false);
   const [chatErrored, setChatErrored] = useState(false);
+
+  // 2026-09-02 (Aleksandr: "И сюда, на сообщение и °°°" -- same hover-
+  // appear effect asked for on components/chats-fab.tsx/components/
+  // create-post-fab.tsx's own FABs, now on this row too):
+  //
+  // - the "•••" dropdown opens on hover the same way components/
+  //   settings-menu.tsx's own trigger now does -- it's a plain (non-
+  //   portaled) DOM descendant of the wrapping `relative` div below, so
+  //   one pair of handlers on that wrapper covers trigger+panel both,
+  //   universally (signed-in or anon -- the dropdown itself is real for
+  //   everyone, only a few of the rows INSIDE it gate on isAnon).
+  // - the Message button only ever DOES something for a signed-in
+  //   "other" visitor (opens a real chat) -- hovering it shouldn't pop
+  //   anything then, same as you wouldn't want a "Send" button to fire
+  //   on hover. For an anon visitor it already opens this same
+  //   authPromptOpen popup on click (see openChat() below); hovering it
+  //   now opens that same popup too, gated to isAnon in the handlers
+  //   attached to the button further down (isAnon isn't known yet at
+  //   this point in the component, so the gating happens at the call
+  //   site, not here).
+  const dotsWrapperRef = useRef<HTMLDivElement>(null);
+  const dotsPanelRef = useRef<HTMLDivElement>(null);
+  const { handleMouseEnter: handleDotsMouseEnter, handleMouseLeave: handleDotsMouseLeave } = useHoverPanel(open, setOpen, [
+    { trigger: dotsWrapperRef, panel: dotsPanelRef },
+  ]);
+  const messageTriggerRef = useRef<HTMLButtonElement>(null);
+  const authPromptPanelRef = useRef<HTMLDivElement>(null);
+  const { handleMouseEnter: handleAuthPromptMouseEnter, handleMouseLeave: handleAuthPromptMouseLeave } = useHoverPanel(
+    authPromptOpen,
+    setAuthPromptOpen,
+    [{ trigger: messageTriggerRef, panel: authPromptPanelRef }],
+  );
 
   // Contact toggle — same shape as components/add-contact-button.tsx's
   // status machine, reimplemented here as a text row (see this file's
@@ -486,7 +519,14 @@ export function PostViewerMenu({
     <div className="mt-4 flex items-center gap-2">
       <button
         type="button"
+        ref={messageTriggerRef}
         onClick={openChat}
+        onMouseEnter={() => {
+          if (isAnon) handleAuthPromptMouseEnter();
+        }}
+        onMouseLeave={() => {
+          if (isAnon) handleAuthPromptMouseLeave();
+        }}
         disabled={openingChat}
         aria-label={chatErrored ? STRINGS.actionFailed[lang] : STRINGS.message[lang]}
         className={
@@ -499,7 +539,7 @@ export function PostViewerMenu({
         {chatErrored ? STRINGS.actionFailed[lang] : STRINGS.message[lang]}
       </button>
 
-      <div className="relative shrink-0">
+      <div className="relative shrink-0" ref={dotsWrapperRef} onMouseEnter={handleDotsMouseEnter} onMouseLeave={handleDotsMouseLeave}>
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
@@ -516,7 +556,10 @@ export function PostViewerMenu({
               <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} aria-hidden="true" />,
               document.body,
             )}
-            <div className="animate-popover absolute right-0 top-full z-50 mt-2 w-64 max-w-[calc(100vw-2rem)] origin-top-right overflow-hidden rounded-2xl border border-neutral-200 bg-white p-1.5 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+            <div
+              ref={dotsPanelRef}
+              className="animate-popover absolute right-0 top-full z-50 mt-2 w-64 max-w-[calc(100vw-2rem)] origin-top-right overflow-hidden rounded-2xl border border-neutral-200 bg-white p-1.5 shadow-lg dark:border-neutral-700 dark:bg-neutral-900"
+            >
               {authorUserId && (
                 <button
                   type="button"
@@ -575,6 +618,9 @@ export function PostViewerMenu({
             role="alertdialog"
             aria-modal="true"
             onClick={(e) => e.stopPropagation()}
+            ref={authPromptPanelRef}
+            onMouseEnter={handleAuthPromptMouseEnter}
+            onMouseLeave={handleAuthPromptMouseLeave}
             className="animate-modal-in w-full max-w-xs rounded-2xl bg-white p-5 shadow-xl dark:bg-neutral-900"
           >
             {/* Same cat-blink.json animation as components/profile-action-

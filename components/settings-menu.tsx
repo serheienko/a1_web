@@ -39,6 +39,7 @@ import { useEffect, useRef, useState } from "react";
 import { setAccountMenuOpen } from "@/lib/account-menu-open";
 import { createPortal } from "react-dom";
 import { LOCALES, LOCALE_CLASS, LOCALE_TAG, type Locale } from "@/components/t";
+import { useHoverPanel } from "@/lib/use-hover-panel";
 
 type Theme = "light" | "dark" | "auto";
 
@@ -114,6 +115,21 @@ function ThemeIcon({ theme }: { theme: Theme }) {
 
 export function SettingsMenu() {
   const [open, setOpen] = useState(false);
+  // 2026-09-02 (Aleksandr, screenshot of the signed-out top nav: "Еще на
+  // кнопку °°° возле увійти") -- same hover-intent effect components/
+  // avatar-menu.tsx's own avatar button already has (this is that
+  // button's signed-out sibling, see this file's header comment), via
+  // the shared lib/use-hover-panel.ts hook. Unlike components/fab-auth-
+  // prompt.tsx's popover, this panel is a plain (non-portaled) DOM
+  // descendant of the wrapping `relative` div below, so one pair of
+  // handlers on that wrapper covers both the trigger and the panel --
+  // no separate ref/handlers needed on the panel itself, same as
+  // avatar-menu.tsx's own wrapperRef/panelOuterRef pair.
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const { handleMouseEnter, handleMouseLeave } = useHoverPanel(open, setOpen, [
+    { trigger: wrapperRef, panel: panelRef },
+  ]);
   const [theme, setTheme] = useState<Theme | null>(null);
   const [lang, setLang] = useState<Locale | null>(null);
   const [isGeoUa, setIsGeoUa] = useState(false);
@@ -260,7 +276,7 @@ export function SettingsMenu() {
   );
 
   return (
-    <div className="relative shrink-0">
+    <div className="relative shrink-0" ref={wrapperRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -314,7 +330,10 @@ export function SettingsMenu() {
             <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} aria-hidden="true" />,
             document.body,
           )}
-          <div className="animate-popover absolute right-0 top-full z-50 mt-2 w-64 max-w-[calc(100vw-2rem)] origin-top-right overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+          <div
+            ref={panelRef}
+            className="animate-popover absolute right-0 top-full z-50 mt-2 w-64 max-w-[calc(100vw-2rem)] origin-top-right overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900"
+          >
             {panelBody}
           </div>
         </>

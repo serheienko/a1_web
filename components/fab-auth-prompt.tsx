@@ -27,7 +27,7 @@
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type RefObject } from "react";
 import { LottiePlayer } from "@/components/lottie-player";
 
 type FabAuthPromptStringKey = "title" | "body" | "signInCta" | "cancel";
@@ -83,11 +83,34 @@ export function FabAuthPrompt({
   open,
   onClose,
   signInHref,
+  panelRef,
+  onMouseEnter,
+  onMouseLeave,
 }: {
   open: boolean;
   onClose: () => void;
   /** Where the sign-in CTA routes to -- carries this FAB's own `?reason=` notice. */
   signInHref: string;
+  /**
+   * 2026-09-02 (Aleksandr: "давай в разлогиненом стейте тоже добавим к
+   * этим попапс эффект появления при наведении, без клика на кнопки
+   * 'создать пост' и 'чат'"): hover-intent support, additive to the
+   * existing click-to-open trigger. This component doesn't own the
+   * hover state itself -- lib/use-hover-panel.ts's useHoverPanel does,
+   * one instance per FAB in components/chats-fab.tsx / components/
+   * create-post-fab.tsx -- it just exposes the card's own DOM node and
+   * forwards the enter/leave handlers, the same way every other hover-
+   * panel call site in this app (components/avatar-menu.tsx, components/
+   * settings-menu.tsx) needs both the trigger AND the panel wired to
+   * the SAME handlers so moving the cursor from one to the other never
+   * starts the close-delay timer. Portaled to document.body (unlike
+   * those two, which nest the panel inside the trigger's own relative
+   * wrapper), so it can't rely on one shared wrapping element -- the
+   * panel needs its own explicit handlers instead.
+   */
+  panelRef?: RefObject<HTMLDivElement | null>;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }) {
   const lang = useActiveLocale();
   const router = useRouter();
@@ -100,6 +123,9 @@ export function FabAuthPrompt({
         role="alertdialog"
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
+        ref={panelRef}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
         className="animate-popover-up fixed right-5 z-[70] w-64 rounded-2xl bg-white p-4 shadow-xl dark:bg-neutral-900"
         style={{ bottom: FAB_POPOVER_BOTTOM }}
       >
