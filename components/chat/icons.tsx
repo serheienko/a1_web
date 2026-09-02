@@ -227,10 +227,18 @@ function ChatRoundIconButton({
   );
 }
 
+// 2026-09-02 (Aleksandr: "увеличь иконки скрепки и микрофона на 50%")
+// -- both glyphs above are already verbatim Figma exports (node
+// 24360:8468 for the paperclip, 24360:8469 for the mic -- confirmed
+// live against the file this session, same path data, same viewBox),
+// so there's no shape to re-pull, only size: 13px -> 19.5px (paperclip)
+// and 20px -> 30px (mic), each exactly x1.5 of what they were. The 44px
+// round button they sit in (ChatRoundIconButton, unchanged) still has
+// comfortable padding around either at this size.
 export function ChatPaperclipButton(props: { onClick?: () => void; disabled?: boolean }) {
   return (
     <ChatRoundIconButton label="Attach" {...props}>
-      <ChatPaperclipGlyph className="h-[13px] w-[13px] animate-paperclip-wiggle" />
+      <ChatPaperclipGlyph className="h-[19.5px] w-[19.5px] animate-paperclip-wiggle" />
     </ChatRoundIconButton>
   );
 }
@@ -241,7 +249,7 @@ export function ChatMicButton(props: { onClick?: () => void; disabled?: boolean 
       {/* 2026-09-02 (Aleksandr: "добавь анимацию микрофону") -- same
           `.group:hover .animate-X` convention (app/globals.css) as the
           paperclip right next to it. */}
-      <ChatMicGlyph className="h-5 w-5 animate-mic-pulse" />
+      <ChatMicGlyph className="h-[30px] w-[30px] animate-mic-pulse" />
     </ChatRoundIconButton>
   );
 }
