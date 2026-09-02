@@ -58,6 +58,20 @@ export function formatLanguageName(code: string): string {
 /** "3 hours ago" / "2 days ago", etc — in the given locale, relative to
  *  now. See getRtf's own comment above for why this takes a locale
  *  instead of hard-coding one. */
+// Daily upload quota message (Aleksandr, 2026-09-02) -- binary units
+// (1024, not 1000, matching every OS's own "MB" for a byte count), no
+// decimals under 1MB for readability, one decimal place once it rounds
+// to a single-digit MB figure (matches the reference screenshot's own
+// "94 KB" style -- "9.4 MB" reads better than a bare "9 MB" when the
+// true figure could be anywhere from 8.5 to 9.49).
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${Math.round(bytes)} B`;
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${Math.round(kb)} KB`;
+  const mb = kb / 1024;
+  return `${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB`;
+}
+
 export function formatRelativeTime(date: Date, locale: Locale): string {
   const diffSeconds = (date.getTime() - Date.now()) / 1000;
   const abs = Math.abs(diffSeconds);

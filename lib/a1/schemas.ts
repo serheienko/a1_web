@@ -51,6 +51,40 @@ export const MediaDocumentSchema = z.object({
 });
 export type MediaDocument = z.infer<typeof MediaDocumentSchema>;
 
+// Daily upload quota (Aleksandr, 2026-09-02, native-app screenshot of a
+// "Daily Uploads" screen -- "94 KB / 20 MB", a progress bar, "Available
+// again in 3m": "лимит по daily uploads на 1 пользователя 20 мб день,
+// на вэбе надо тоже прокинуть... каждый медиа файл подсчитывается и
+// лочится потом, если дневной больше 20 мб день. Возьми всю логику с
+// моб версии") -- CONFIRMED via the OpenAPI spec:
+// Method.v1_upload_create_output is `anyOf [MediaUploadDestination,
+// MediaUploadUsage]` -- when the caller is already at/over quota,
+// upload.create (app/api/upload/create/route.ts) returns THIS instead
+// of somewhere to actually upload to, discriminated by `object`
+// ("media-upload-usage" vs the destination's own "media-upload-
+// destination"). The exact same shape comes back from `upload.getUsage`
+// (a dedicated read-only method, no input at all) -- see
+// app/api/upload/usage/route.ts, which wraps that one directly for an
+// on-demand check outside of an actual upload attempt.
+export const MediaUploadUsageSchema = z.object({
+  limitBytes: z.number(),
+  usedBytes: z.number(),
+  remainingBytes: z.number(),
+  usedByType: z
+    .object({
+      image: z.number().catch(0),
+      video: z.number().catch(0),
+      others: z.number().catch(0),
+    })
+    .catch({ image: 0, video: 0, others: 0 }),
+  // Unix timestamp in SECONDS (this backend's own TIMESTAMP_SECONDS
+  // convention, same as everywhere else in this codebase that already
+  // multiplies by 1000 before handing a value to `new Date(...)`).
+  resetAt: z.number(),
+  object: z.literal("media-upload-usage"),
+});
+export type MediaUploadUsage = z.infer<typeof MediaUploadUsageSchema>;
+
 export const UserPreviewSchema = z.object({
   _id: z.string(),
   fullName: z.string().catch(""),

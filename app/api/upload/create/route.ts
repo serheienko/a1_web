@@ -5,16 +5,30 @@
 // destination (`{ id, url, fields }` — the client then POSTs the raw
 // file bytes straight to `url` with `fields`, never back through our
 // server, per PLAN.md's explicit "never through our server") OR a
-// MediaUploadUsage object when the account is over its media quota —
-// this route doesn't need to tell those two apart, it just forwards
-// whichever one the backend returned and lets the post-editor's upload
-// code branch on the presence of `url`.
-
+// MediaUploadUsage object when the account is over its media quota.
+//
+// 2026-09-02 (Aleksandr, native-app screenshot of a "Daily Uploads"
+// screen: "лимит по daily uploads на 1 пользователя 20 мб день, на
+// вэбе надо тоже прокинуть... каждый медиа файл подсчитывается и
+// лочится потом, если дневной больше 20 мб день. Возьми всю логику с
+// моб версии") -- this route USED TO just forward whichever of the two
+// shapes came back and let each caller infer "quota exceeded" purely
+// from the ABSENCE of `.url` (functionally correct -- an upload attempt
+// already failed either way -- but told the visitor nothing about why,
+// unlike the native app's own explicit "94 KB / 20 MB, available again
+// in 3m" messaging). Now discriminates the two by their own `object`
+// tag (MediaUploadUsageSchema/lib/a1/schemas.ts, confirmed against the
+// OpenAPI spec) and returns a distinct `quota_exceeded` response
+// carrying the real usage figures, so every caller (post-editor.tsx,
+// profile-editor.tsx, avatar-edit-button.tsx, app/chats/[chatId]/
+// page.tsx) can show something as informative as the native app does
+// instead of a generic upload-failed message.
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { A1ApiError } from "@/lib/a1/client";
 import { callAsVisitor, NoSessionError } from "@/lib/a1/visitor-call";
 import { setSession, clearSession } from "@/lib/a1/session";
+import { MediaUploadUsageSchema } from "@/lib/a1/schemas";
 
 export const runtime = "nodejs";
 
@@ -31,6 +45,12 @@ export async function POST(request: NextRequest) {
 
   try {
     const { data, refreshedSession } = await callAsVisitor<unknown>("upload.create", parsed.data);
+    const usageParsed = MediaUploadUsageSchema.safeParse(data);
+    if (usageParsed.success) {
+      const response = NextResponse.json({ ok: false, message: "quota_exceeded", usage: usageParsed.data });
+      if (refreshedSession) setSession(response, refreshedSession);
+      return response;
+    }
     const response = NextResponse.json({ ok: true, result: data });
     if (refreshedSession) setSession(response, refreshedSession);
     return response;
