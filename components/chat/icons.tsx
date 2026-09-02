@@ -220,7 +220,7 @@ function ChatRoundIconButton({
       onClick={onClick}
       disabled={disabled}
       aria-label={label}
-      className={`group flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-neutral-400 backdrop-blur-sm transition hover:border-neutral-300 hover:text-neutral-600 disabled:opacity-40 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80 dark:text-[#adafbb] dark:hover:border-[#3a3a3a] dark:hover:text-white ${className}`}
+      className={`group flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-neutral-400 backdrop-blur-sm transition hover:border-neutral-300 hover:text-neutral-600 disabled:opacity-40 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80 dark:text-[#adafbb] dark:hover:border-[#3a3a3a] dark:hover:text-white ${className}`}
     >
       {children}
     </button>
@@ -238,7 +238,10 @@ export function ChatPaperclipButton(props: { onClick?: () => void; disabled?: bo
 export function ChatMicButton(props: { onClick?: () => void; disabled?: boolean }) {
   return (
     <ChatRoundIconButton label="Voice message" {...props}>
-      <ChatMicGlyph className="h-5 w-5" />
+      {/* 2026-09-02 (Aleksandr: "добавь анимацию микрофону") -- same
+          `.group:hover .animate-X` convention (app/globals.css) as the
+          paperclip right next to it. */}
+      <ChatMicGlyph className="h-5 w-5 animate-mic-pulse" />
     </ChatRoundIconButton>
   );
 }

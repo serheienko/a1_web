@@ -906,7 +906,7 @@ export default function ChatWindowPage() {
               stays exactly where it started. */}
           <div className="mx-auto flex w-full max-w-[470px] items-end gap-2">
             <ChatPaperclipButton disabled={sending} />
-            <div className="flex min-h-[42px] flex-1 items-end gap-2 rounded-[21px] border border-neutral-200 bg-white/90 px-3.5 py-2 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
+            <div className="flex min-h-[44px] flex-1 items-end gap-2 rounded-[22px] border border-neutral-200 bg-white/90 px-3.5 py-2 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
               <textarea
                 ref={textareaRef}
                 value={draft}
@@ -949,7 +949,7 @@ export default function ChatWindowPage() {
                 // анимацию на саму стрелку") -- group + hover:brightness
                 // for the button itself, animate-send-arrow (app/
                 // globals.css) nudges the arrow glyph on that same hover.
-                className="group flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-[#335ef7] text-white transition hover:brightness-110 active:scale-95 disabled:opacity-40 disabled:hover:brightness-100 dark:bg-[#0c8ce9]"
+                className="group flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full bg-[#335ef7] text-white transition hover:brightness-110 active:scale-95 disabled:opacity-40 disabled:hover:brightness-100 dark:bg-[#0c8ce9]"
               >
                 <svg
                   width="16"
