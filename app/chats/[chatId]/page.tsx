@@ -201,7 +201,7 @@ export default function ChatWindowPage() {
   const [sending, setSending] = useState(false);
   const inFlight = useRef(false);
   const lastTypingSentAt = useRef(0);
-  const scrollAnchorRef = useRef<HTMLDivElement>(null);
+  const messagesScrollRef = useRef<HTMLDivElement>(null);
   // Mirrors pendingMessages for the "online" listener below (registered
   // once, so it can't close over a fresh `pendingMessages` each render)
   // and guards against retrying the same bubble twice if a poll tick's
@@ -303,8 +303,24 @@ export default function ChatWindowPage() {
     };
   }, [load]);
 
+  // 2026-09-02 (Aleksandr, screen recording: "Новое сообщение должно
+  // подниматься выше, чем сейчас") -- scrollIntoView({block: "end"}) on
+  // scrollAnchorRef (a marker sitting right after the last message,
+  // BEFORE this container's own pb-28) aligns the ANCHOR's bottom edge
+  // with the scroll container's bottom edge -- which reaches the very
+  // bottom of the screen, since the compose bar below is `fixed` and
+  // no longer reserves flex space of its own (see that bar's own
+  // comment). That put the newest message flush with the screen's
+  // absolute bottom edge, hidden behind the compose bar, instead of
+  // sitting pb-28's own 112px above it the way the empty/loading states
+  // already do. Scrolling the container to its real scrollHeight
+  // (which DOES include that trailing padding) instead of scrolling an
+  // inner element into view is what actually respects it, and doesn't
+  // need to hardcode the compose bar's own height (which varies with
+  // env(safe-area-inset-bottom) across devices) to match pb-28 against.
   useEffect(() => {
-    scrollAnchorRef.current?.scrollIntoView({ block: "end" });
+    const el = messagesScrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [messages.length, pendingMessages.length]);
 
   // 2026-09-02 (Aleksandr, follow-up on the optimistic-send fix above:
@@ -559,7 +575,7 @@ export default function ChatWindowPage() {
           comment) so the last message/empty-state text never sits
           underneath it. Content itself is capped at the same max-w-2xl
           as the header right above. */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 pb-28">
+      <div ref={messagesScrollRef} className="flex-1 overflow-y-auto px-4 py-4 pb-28">
         <div className="mx-auto w-full max-w-2xl">
         {state === "loading" && (
           <p className="mt-6 text-center text-sm text-[#989aa6] dark:text-[#adafbb]">
@@ -776,7 +792,6 @@ export default function ChatWindowPage() {
                 </div>
               );
             })}
-            <div ref={scrollAnchorRef} />
           </div>
         )}
         </div>
