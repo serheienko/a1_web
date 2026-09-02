@@ -666,23 +666,32 @@ export function ProfileActionRow({
               </button>
               {/* Mute/Block — UI-only stubs, see this file's own header
                   comment on why (no backend endpoint exists for either
-                  today). Still close the menu like every real row does. */}
-              <button
-                type="button"
-                onClick={() => setMenuOpen(false)}
-                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 transition hover:bg-accent/10 hover:text-accent dark:text-neutral-300"
-              >
-                <MuteIcon />
-                {STRINGS.mute[lang]}
-              </button>
-              <button
-                type="button"
-                onClick={() => setMenuOpen(false)}
-                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-red-600 transition hover:bg-red-50 dark:hover:bg-red-950/30"
-              >
-                <BlockIcon />
-                {STRINGS.block[lang]}
-              </button>
+                  today). 2026-09-02 (Aleksandr: "в не залогиненом
+                  состоянии надо убрать вимкнути звук и заблокувати") --
+                  neither makes sense for a signed-out visitor (nothing
+                  of theirs to mute/block yet), so both are hidden for
+                  isAnon; Save still shows and routes through the same
+                  auth popup as the other real actions. */}
+              {!isAnon && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 transition hover:bg-accent/10 hover:text-accent dark:text-neutral-300"
+                  >
+                    <MuteIcon />
+                    {STRINGS.mute[lang]}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-red-600 transition hover:bg-red-50 dark:hover:bg-red-950/30"
+                  >
+                    <BlockIcon />
+                    {STRINGS.block[lang]}
+                  </button>
+                </>
+              )}
             </div>
           </>
         )}
