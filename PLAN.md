@@ -3814,3 +3814,51 @@ Not live-tested end-to-end yet (needs Aleksandr to push via GitHub
 Desktop first, then either hit the real limit naturally or have it
 lowered temporarily server-side to verify the UI). tsc-clean, all 4
 client files reviewed diff-by-diff before commit.
+
+### 6.75 "Daily Uploads" popup -- the actual screen for §6.74's quota numbers (2026-09-02)
+
+Aleksandr, right after §6.74's client-side quota surfacing: "Ок, а как ты
+UI отрисуешь? Надо чтобы попапы +- совпадали с мобом, + был прогресс бар
+и тд". §6.74 only ever showed the quota as inline text (byte figures +
+reset countdown appended to an error message); this is the dedicated
+popup that mirrors the native app's own "Daily Uploads" screen -- big
+figure, progress bar, per-category breakdown.
+
+Confirmed scope with Aleksandr via AskUserQuestion before building (all
+three answered "Рекомендую"):
+
+1. **Bar semantics.** The reference screenshot's bar reads as ~99.5%
+   filled at only 0.5% used -- not a plain "used" bar (which would look
+   almost empty at that ratio). Built as a real segmented bar instead:
+   one flex-basis colored slice per non-zero `usedByType` category, plus
+   a flex-1 grey slice for the remainder. At low usage the grey
+   "available" slice naturally dominates the fill, matching the
+   screenshot exactly, without the code actually inverting what a
+   storage bar means (it's a completely normal used-segments +
+   free-segment bar; it just LOOKS "mostly available" when usage is
+   tiny, same as the reference).
+2. **Entry point.** A small stack/disk icon (new `ChatStorageIcon`,
+   components/chat/icons.tsx) in the top-right corner of the chat attach
+   popover (app/chats/[chatId]/page.tsx) -- same corner the reference
+   screenshot's own icon sits in. Deliberately chat-only for this pass;
+   post-editor.tsx / profile-editor.tsx / avatar-edit-button.tsx's own
+   quota-exceeded text banners (§6.74) do NOT link to this popup yet.
+3. **Legend granularity.** Breaks down all three of the backend's
+   `usedByType` buckets (image/video/others, labeled Photos/Videos/
+   Files) instead of collapsing to the screenshot's literal single
+   "Files" row -- stays accurate once someone's usage actually spans
+   more than one media type, at the cost of always showing 3 rows even
+   when 2 are at 0%.
+
+New components/daily-uploads-modal.tsx: self-contained modal (own
+loading/error/retry state), fetches `GET /api/upload/usage` -- the
+endpoint app/api/upload/usage/route.ts already exposed in §6.74 but
+nothing had called yet. Follows this codebase's standard modal shell
+(`fixed inset-0 z-[70]` backdrop + centered rounded-2xl card, same as
+components/photo-crop-modal.tsx), not a pixel copy of the native app's
+own near-black full-screen navigation -- structure and data parity, not
+literal visual parity, per Aleksandr's own "+-" in his request.
+
+Not live-tested yet (needs a push). Next, if Aleksandr wants it: link
+this same popup from the other three upload surfaces' quota banners
+instead of just the chat attach popover.
