@@ -263,7 +263,25 @@ export const ChatSchema = z
       .nullable()
       .catch(null),
     unreadCount: z.number().catch(0).optional(),
-    draft: z.union([z.string(), z.object({ message: z.string().catch("") }).catchall(z.unknown())]).nullable().optional(),
+    // 2026-09-02: widened to also carry `entities` -- the one real
+    // draft payload seen live so far (Vercel Logs, CHAT_LIST_DEBUG) had
+    // an empty `message` AND empty `entities`, so which one actually
+    // carries real text was never confirmed either way. Given a real
+    // MESSAGE's text turned out to live in `entities` and NOT a flat
+    // field (see MessageSchema's own header), a draft -- same
+    // `draft-message` object family -- almost certainly follows the
+    // same convention. chatDraftText() below now checks both, entities
+    // first, so this is right the moment a non-empty draft is seen
+    // either way.
+    draft: z
+      .union([
+        z.string(),
+        z
+          .object({ message: z.string().catch(""), entities: z.array(MessageEntitySchema).catch([]) })
+          .catchall(z.unknown()),
+      ])
+      .nullable()
+      .optional(),
     object: z.string().optional(),
   })
   .catchall(z.unknown());
@@ -323,12 +341,18 @@ export function chatUnreadCount(chat: Chat): number {
 
 // Red "Draft: ..." line (Aleksandr, 2026-09-02: "показываем также draft
 // message, типа красным, если ты набрал сообщение, но не отправил") --
-// only rendered when this resolves to non-empty text.
+// only rendered when this resolves to non-empty text. Entities first,
+// same fallback order as extractMessageText -- see the draft field's
+// own schema comment above for why.
 export function chatDraftText(chat: Chat): string {
   const d = chat.draft;
   if (!d) return "";
   if (typeof d === "string") return d;
-  return d.message ?? "";
+  const fromEntities = d.entities
+    .filter((e) => e.object === "entity-text" && typeof e.text === "string")
+    .map((e) => e.text as string)
+    .join("");
+  return fromEntities || d.message || "";
 }
 
 // Defensive extraction for chats.getChats's response -- unconfirmed

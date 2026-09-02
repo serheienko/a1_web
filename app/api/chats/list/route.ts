@@ -24,12 +24,38 @@
 // line, read ticks, unread badge, red draft text): the response now
 // also carries previewText/previewMine/previewDateMs/previewTick/
 // unreadCount/draftText, sourced from lib/a1/chat-schemas.ts's newly
-// widened ChatSchema (chatLastMessagePreview/chatUnreadCount/
-// chatDraftText -- see that file's header for exactly what's confirmed
-// vs guessed here). Every one of these degrades to "" / 0 / null when
-// the real chats.getChats response doesn't carry that field under the
-// guessed name -- never a 502, just a plainer row, same as before this
-// pass.
+// widened ChatSchema (chatUnreadCount/chatDraftText -- see that file's
+// header for exactly what's confirmed vs guessed here). Every one of
+// these degrades to "" / 0 / null when the real chats.getChats response
+// doesn't carry that field under the guessed name -- never a 502, just
+// a plainer row, same as before this pass.
+//
+// 2026-09-02 follow-up (Aleksandr, live screenshot after the two fixes
+// above shipped: "Сюда надо добавить: 1. Имена 2. Актуальные аватары
+// 3. Текст последнего сообщения 4. Дата/время 5. Статус... прочитано/не
+// прочитано 6. Draft"): every row was still showing "—" and no preview,
+// because of the two gaps this file already flagged --
+// chats.getChats's response has no embedded `users` side array AND
+// `lastMessage` is only ever a bare numeric id, never an embedded
+// message object (confirmed live, see ChatSchema's own comment). Both
+// resolved here now with two EXTRA calls per list load, not guessed
+// past their first live response:
+//   - users.search with an `{ids: [...]}` filter, for every distinct
+//     "other participant" id across this visitor's personal chats --
+//     `ids` is an unconfirmed param name (app/api/favorites/users/
+//     route.ts's own use of users.search only ever confirmed
+//     `{favorited: true}`, not an id filter), but resolving names is
+//     best-effort here: a 400/empty result just leaves names as "—",
+//     exactly like before this pass, never a 502 for the whole list.
+//   - messages.getMessages (already fully confirmed live, see app/api/
+//     chats/messages/route.ts) with `{peerTo: peerForChat(chat._id),
+//     limit: 1}` per chat whose lastMessage is a bare id, to get the
+//     real preview text/date/read-state -- the SAME endpoint the chat
+//     window itself already polls, just asking for one message instead
+//     of the recent window.
+// Both run in parallel (Promise.all) across all of a visitor's chats --
+// fine at today's chat counts; worth revisiting if that ever grows into
+// the hundreds.
 import { NextResponse } from "next/server";
 import { A1ApiError } from "@/lib/a1/client";
 import { callAsVisitor, NoSessionError } from "@/lib/a1/visitor-call";
@@ -37,12 +63,75 @@ import { setSession, clearSession, readSession } from "@/lib/a1/session";
 import {
   extractChats,
   extractChatUsers,
-  chatLastMessagePreview,
+  extractMessages,
+  extractMessageText,
+  messageDateMs,
+  messageTickState,
   chatUnreadCount,
   chatDraftText,
-  messageTickState,
+  otherParticipantUserId,
+  peerForChat,
+  type Chat,
+  type ChatUser,
+  type ChatMessage,
 } from "@/lib/a1/chat-schemas";
 import { resolveChatDisplay, pickChatAvatar } from "@/lib/a1/chat-mappers";
+import { parseUserProfile } from "@/lib/a1/schemas";
+import { buildMediaProxyUrl } from "@/lib/a1/mappers";
+
+// Best-effort name/avatar resolution for every distinct "other
+// participant" id across `chats` -- see this file's own header comment
+// for why `ids` is an unconfirmed users.search filter, and why a
+// failure here degrades to "—" rows rather than a 502.
+async function resolveChatUsers(chats: Chat[], myUserId: string | null): Promise<Record<string, ChatUser>> {
+  const ids = Array.from(
+    new Set(chats.map((chat) => otherParticipantUserId(chat, myUserId)).filter((id): id is string => Boolean(id))),
+  );
+  if (ids.length === 0) return {};
+  try {
+    const { data } = await callAsVisitor<{ items?: unknown[] }>("users.search", { ids, limit: ids.length });
+    const out: Record<string, ChatUser> = {};
+    for (const raw of data?.items ?? []) {
+      const profile = parseUserProfile(raw);
+      if (!profile || profile.object !== "user") continue;
+      out[profile._id] = {
+        _id: profile._id,
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+        username: profile.username,
+        photo: profile.photos[0] ? buildMediaProxyUrl(profile.photos[0]) : null,
+      };
+    }
+    return out;
+  } catch (err) {
+    console.error("[api/chats/list] users.search failed (names/avatars stay unresolved):", err);
+    return {};
+  }
+}
+
+// Real last-message text/date/read-state for every chat whose
+// `lastMessage` is only a bare id (every real chat today, see this
+// file's own header comment) -- one messages.getMessages call per such
+// chat, in parallel, each asking for just the most recent message.
+async function resolveLastMessages(chats: Chat[]): Promise<Map<string, ChatMessage | null>> {
+  const entries = await Promise.all(
+    chats
+      .filter((chat) => typeof chat.lastMessage === "string")
+      .map(async (chat) => {
+        try {
+          const { data } = await callAsVisitor<unknown>("messages.getMessages", {
+            peerTo: peerForChat(chat._id),
+            limit: 1,
+          });
+          return [chat._id, extractMessages(data).at(-1) ?? null] as const;
+        } catch (err) {
+          console.error("[api/chats/list] messages.getMessages failed for", chat._id, ":", err);
+          return [chat._id, null] as const;
+        }
+      }),
+  );
+  return new Map(entries);
+}
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -58,18 +147,30 @@ export async function GET() {
     const { data, refreshedSession } = await callAsVisitor<unknown>("chats.getChats", {});
 
     const chats = extractChats(data);
-    const users = extractChatUsers(data);
+    // Two best-effort resolution passes, in parallel with each other --
+    // see this file's own header comment. `users` merges chats.getChats'
+    // own (always-empty-today) side array with whatever users.search
+    // resolved, so a future backend change that starts embedding users
+    // directly keeps working without touching this route again.
+    const [resolvedUsers, lastMessages] = await Promise.all([
+      resolveChatUsers(chats, myUserId),
+      resolveLastMessages(chats),
+    ]);
+    const users = { ...extractChatUsers(data), ...resolvedUsers };
     const items = chats
       .map((chat) => {
         const display = resolveChatDisplay(chat, myUserId, users);
         const lm = chat.lastMessage;
-        const preview = chatLastMessagePreview(chat);
-        const previewMine = preview !== null && myUserId !== null && preview.fromId === myUserId;
-        // lm is only ever the embedded-message shape when preview
-        // resolved (chatLastMessagePreview returns null for the plain
-        // bare-id string case) -- this guard mirrors that instead of
-        // casting.
-        const previewTick = previewMine && lm !== null && typeof lm === "object" ? messageTickState(lm) : null;
+        // The embedded-object shape (`lm` already a full ChatMessage) has
+        // never been seen live -- every real chat's lastMessage is a bare
+        // id, resolved via resolveLastMessages above -- but handling it
+        // here too costs nothing and keeps this correct if that ever
+        // changes.
+        const resolvedMessage: ChatMessage | null =
+          lm && typeof lm === "object" ? lm : typeof lm === "string" ? (lastMessages.get(chat._id) ?? null) : null;
+        const previewFromId = resolvedMessage?.fromId ?? null;
+        const previewMine = previewFromId !== null && myUserId !== null && previewFromId === myUserId;
+        const previewTick = previewMine && resolvedMessage ? messageTickState(resolvedMessage) : null;
         return {
           id: chat._id,
           title: display.title,
@@ -77,9 +178,9 @@ export async function GET() {
           username: display.otherUsername,
           isPersonal: display.isPersonal,
           lastMessageId: typeof lm === "string" ? lm : (lm?._id ?? null),
-          previewText: preview?.text ?? "",
+          previewText: resolvedMessage ? extractMessageText(resolvedMessage) : "",
           previewMine,
-          previewDateMs: preview?.dateMs ?? 0,
+          previewDateMs: resolvedMessage ? messageDateMs(resolvedMessage) : 0,
           previewTick,
           unreadCount: chatUnreadCount(chat),
           draftText: chatDraftText(chat),
