@@ -168,7 +168,7 @@ export function ChatCatFieldIcon({ className = "h-5 w-5" }: { className?: string
   );
 }
 
-function ChatPaperclipGlyph({ className }: { className?: string }) {
+export function ChatPaperclipGlyph({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 21.6 22.6" fill="none" className={className ?? "h-[13px] w-[13px]"} aria-hidden="true">
       <path

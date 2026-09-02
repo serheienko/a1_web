@@ -36,7 +36,7 @@ import {
   messageTickState,
   type ChatMessage,
 } from "@/lib/a1/chat-schemas";
-import { MessageTicks, ChatCatFieldIcon } from "@/components/chat/icons";
+import { MessageTicks, ChatCatFieldIcon, ChatPaperclipGlyph } from "@/components/chat/icons";
 import type { ChatFlyoutOpenTarget } from "@/components/chats-flyout";
 
 const POLL_MS = 3000;
@@ -57,6 +57,9 @@ export function MiniChatWindow({ target, onClose }: { target: ChatFlyoutOpenTarg
   const lastMarkedReadId = useRef(0);
   const listRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [attachUploading, setAttachUploading] = useState(false);
+  const [attachErrored, setAttachErrored] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -153,6 +156,62 @@ export function MiniChatWindow({ target, onClose }: { target: ChatFlyoutOpenTarg
     }
   }
 
+  // 2026-09-02 (Aleksandr, "Sofia Benett" screenshot: "надо добавить
+  // скрепку слева, а кота поставить справа как в обычных чатах") -- a
+  // real paperclip, not just repositioned chrome: mirrors app/chats/
+  // [chatId]/page.tsx's own three-step image-attach flow (create -> PUT
+  // to the signed URL -> confirm -> fileReference), trimmed down to a
+  // single image sent immediately (no staged preview strip -- this
+  // window has no room for one). Deliberately skips that page's own
+  // compressAttachmentImage() -- a local, non-exported helper there,
+  // and this file's own header explains why it never imports from that
+  // page -- an uncompressed upload is the one accepted trade-off for
+  // staying self-contained.
+  async function handleAttach(file: File) {
+    if (attachUploading) return;
+    setAttachUploading(true);
+    setAttachErrored(false);
+    try {
+      const createRes = await authFetch("/api/upload/create", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ mimetype: file.type || "application/octet-stream", bytes: file.size }),
+      });
+      const createData = await createRes.json().catch(() => null);
+      if (!createRes.ok || !createData?.ok || !createData.result?.url) throw new Error("create_failed");
+      const { id, url, fields } = createData.result as { id: string; url: string; fields: Record<string, string> };
+      const formData = new FormData();
+      for (const [key, value] of Object.entries(fields ?? {})) formData.append(key, value);
+      formData.append("file", file);
+      const uploadRes = await fetch(url, { method: "POST", body: formData });
+      if (!uploadRes.ok) throw new Error("upload_failed");
+      const confirmRes = await authFetch("/api/upload/confirm", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ documentId: id }),
+      });
+      const confirmData = await confirmRes.json().catch(() => null);
+      const fileReference = confirmData?.media?.fileReference as string | undefined;
+      if (!confirmRes.ok || !confirmData?.ok || !fileReference) throw new Error("confirm_failed");
+      const sendRes = await authFetch("/api/chats/send", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ chatId: target.routeParam, media: [{ fileReference }] }),
+      });
+      const sendData = await sendRes.json().catch(() => null);
+      if (sendData?.ok && sendData.message) {
+        setMessages((prev) => [...prev, sendData.message as ChatMessage]);
+      } else {
+        throw new Error("send_failed");
+      }
+    } catch {
+      setAttachErrored(true);
+      window.setTimeout(() => setAttachErrored(false), 2200);
+    } finally {
+      setAttachUploading(false);
+    }
+  }
+
   return createPortal(
     <div
       role="dialog"
@@ -214,8 +273,45 @@ export function MiniChatWindow({ target, onClose }: { target: ChatFlyoutOpenTarg
       </div>
 
       <div className="flex shrink-0 items-end gap-2 border-t border-neutral-100 px-2.5 py-2 dark:border-neutral-800">
+        {/* 2026-09-02 (Aleksandr, "Sofia Benett" screenshot: "надо
+            добавить скрепку слева, а кота поставить справа как в
+            обычных чатах") -- paperclip now leads the row, cat icon
+            moved inside the pill's own trailing edge, matching
+            app/chats/[chatId]/page.tsx's own compose bar order. */}
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={attachUploading}
+          aria-label="Attach"
+          title={attachErrored ? "Failed -- try again" : "Attach"}
+          className={
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition disabled:opacity-40 " +
+            (attachErrored
+              ? "text-red-500 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+              : "text-neutral-400 hover:bg-black/5 hover:text-neutral-600 dark:text-[#8d8d93] dark:hover:bg-white/10 dark:hover:text-neutral-200")
+          }
+        >
+          {attachUploading ? (
+            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeOpacity="0.25" />
+              <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+            </svg>
+          ) : (
+            <ChatPaperclipGlyph className="h-4 w-4" />
+          )}
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file) void handleAttach(file);
+          }}
+        />
         <div className="group flex min-h-[36px] flex-1 items-center gap-1.5 rounded-full bg-[#f2f2f7] px-3 py-1.5 dark:bg-[#1c1c1e]">
-          <ChatCatFieldIcon className="h-4 w-4 shrink-0 text-neutral-400 dark:text-[#adafbb]" />
           <textarea
             ref={textareaRef}
             rows={1}
@@ -230,6 +326,7 @@ export function MiniChatWindow({ target, onClose }: { target: ChatFlyoutOpenTarg
             placeholder=""
             className="max-h-24 min-h-[18px] flex-1 resize-none bg-transparent text-[13.5px] leading-[18px] text-[#262a34] outline-none placeholder:text-[#989aa6] dark:text-white"
           />
+          <ChatCatFieldIcon className="h-4 w-4 shrink-0 text-neutral-400 dark:text-[#adafbb]" />
         </div>
         <button
           type="button"
