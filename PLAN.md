@@ -3602,3 +3602,67 @@ shape -- this was the only instance.
 Lesson for this session's own workflow, not just the code: "committed" is not
 "shipped" -- after a push, check the actual Vercel deployment status (not
 just that the push succeeded) before telling Aleksandr something is fixed.
+
+### 6.71 Chat attachments: photo/file via the paperclip button (2026-09-02)
+
+Aleksandr, after §6.66-70's chat UI/bugfix pass, with a native app
+screenshot of an attachment bottom-sheet ("Photos / Files / Meetings /
+Calculations / Contacts"): "поискать теперь в коде всё что у нас живет
+на скрепке и приготовиться к имплементации" -- the paperclip
+(components/chat/icons.tsx's ChatPaperclipButton) had been purely
+decorative since §6.66's redesign, no onClick at all.
+
+Confirmed the backend contract off chat-server's own OpenAPI spec
+before writing anything (not guessed): `messages.send`'s MessageInput
+has an optional `media: MessageInput.Media[]` array; the variant this
+pass sends is `MessageInput.Media.Document = { fileReference, object:
+"media-document-input" }`. Upload/Media turned out to be ONE unified
+service shared across api_server/chat_server/media_server (the spec's
+own description says so explicitly) -- meaning app/api/upload/create +
+.../confirm (built for post/profile photos, §Stage-2-era) needed zero
+changes to be reusable here too, same create -> POST-to-S3 -> confirm
+flow components/post-editor.tsx's handleFileSelected already runs.
+Read side: a real message's `media[]` entries are
+`Resource.Message.Media.Document` -- same fields, but tagged
+`object: "media-doc"` (not upload.confirm's own "media-document"),
+kept as a separate schema in lib/a1/chat-schemas.ts
+(MessageMediaDocumentSchema) rather than reusing lib/a1/schemas.ts's
+MediaDocumentSchema for exactly that reason.
+
+Scope, agreed with Aleksandr up front rather than guessed: Photos +
+Files only for this pass. The reference screenshot's other three rows
+(Meetings, Calculations, Contacts) each need their own real feature
+behind them (a meeting scheduler, a calculation-request flow, a
+contact picker) -- wiring the button to nothing there would be worse
+than not having it, so they're left off the attach menu entirely for
+now rather than shown disabled or unimplemented.
+
+Chosen UI: tapping the paperclip opens a small 2-row menu ("Фото" /
+"Файл") anchored right above it (same "no mouse travel" placement
+components/fab-auth-prompt.tsx already established), each opening its
+own hidden `<input type=file>` (accept="image/*" vs unrestricted).
+Compose bar shows upload-progress thumbnails/chips (spinner while
+in flight, red overlay + remove button on failure) above the input row
+-- a message can now send with attachments and no typed caption at all
+(MessageInput.message is optional on the backend). Message bubbles
+render an image attachment inline (proxied through the existing
+/api/media/[docId] route, same as post photos) or a file as a
+download chip with its filename (falls back to a localized "Document"
+label -- not confirmed live whether chat-server actually echoes back
+an `attribute-filename` for an upload from this app's own
+create/confirm routes, since neither route sets one explicitly).
+
+Self-review follow-up (before Aleksandr had even pushed §6.71's first
+commit, reading the diff back cold): a pending bubble's local image
+preview (`URL.createObjectURL`) blob: URL was never revoked once the
+real message reconciled it away -- fixed by revoking at the exact
+point a pending entry drops out of `pendingMessages`. The Send button
+also stayed clickable-but-a-no-op when every attachment had failed to
+upload and nothing was typed -- now disabled in that state too.
+
+Not yet live-tested (nothing pushed yet as of this entry -- same
+"committed is not shipped" caveat §6.70 already learned the hard way).
+Next: Aleksandr pushes via GitHub Desktop, verify on a real deployment
+-- send a photo, send a PDF, send an attachment with no caption, retry
+a failed upload's *message* (not the upload itself -- there's no
+retry-the-upload-in-place affordance yet, only remove-and-repick).
