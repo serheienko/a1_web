@@ -104,6 +104,26 @@ const NAV_ITEMS = [
 export function SiteNav() {
   const pathname = usePathname();
   const navRef = useRef<HTMLElement>(null);
+  // 2026-09-02 (Aleksandr, live screenshot of a chat opened on mobile:
+  // "давай эту верхнюю часть вообще уберем... поднимем Софию Беннетт,
+  // стрелку назад и её аватар... стрелка назад будет возвращаться туда,
+  // где пользователь был, и мы сделаем больше свободного места на
+  // экране"): app/chats/[chatId]/page.tsx already has its own full
+  // header (back arrow + peer name + avatar, sticky right under this
+  // bar) -- on a small phone screen, stacking this bar's own logo/tabs/
+  // account row ABOVE that second header just eats vertical space for
+  // no benefit, since that page's own back arrow already does this
+  // bar's one useful job (getting back to where you were) for this
+  // specific route. Hidden below `sm` only for a chat's own detail
+  // route -- NOT the bare "/chats" list page, which still needs this
+  // bar's normal top-level navigation -- and still shown at `sm` and up
+  // (desktop has the room, and its 3-column layout was never the
+  // problem here). The `--site-nav-h` ResizeObserver below picks the
+  // height change up automatically the moment this class actually
+  // hides the bar (0 rendered height -> 0 published var), so app/chats/
+  // [chatId]/page.tsx's own `calc(100dvh - var(--site-nav-h))` sizing
+  // needs no change of its own to claim the freed space.
+  const isChatDetailRoute = pathname?.startsWith("/chats/") ?? false;
 
   // 2026-09-02 (Aleksandr, live screenshot: app/chats/[chatId]/page.tsx's
   // own header -- back arrow + peer name + avatar -- was getting
@@ -145,7 +165,9 @@ export function SiteNav() {
   return (
     <nav
       ref={navRef}
-      className="sticky top-0 z-40 isolate bg-app/80 pt-[env(safe-area-inset-top)] backdrop-blur-xl [will-change:transform] dark:bg-black/80"
+      className={`${
+        isChatDetailRoute ? "hidden sm:block " : ""
+      }sticky top-0 z-40 isolate bg-app/80 pt-[env(safe-area-inset-top)] backdrop-blur-xl [will-change:transform] dark:bg-black/80`}
       style={{ transform: "translateZ(0)" }}
     >
       <div className="relative flex items-center gap-4 px-4 py-3">

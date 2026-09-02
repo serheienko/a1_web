@@ -604,7 +604,16 @@ export default function ChatWindowPage() {
           fail-open convention this file's other guessed-shape reads
           use. max-w-[470px] still matches the compose bar's own row so
           the back button tracks the paperclip's x. */}
-      <div className="sticky top-0 z-10 border-b border-black/5 bg-[#f2f2f7]/90 backdrop-blur-md dark:border-white/10 dark:bg-black/80">
+      {/* 2026-09-02 (Aleksandr: "верхнюю часть с логотипом уберём на
+          мобильном, поднимем имя/стрелку/аватар") -- components/site-
+          nav.tsx now hides itself below `sm` on this exact route, which
+          also means IT no longer contributes its own `pt-[env(safe-
+          area-inset-top)]` notch padding on mobile. This header becomes
+          the topmost fixed chrome in that case, so it takes over that
+          padding itself -- `sm:pt-0` drops it again at the breakpoint
+          where site-nav reappears and already reserves that space,
+          avoiding a doubled-up gap on desktop. */}
+      <div className="sticky top-0 z-10 border-b border-black/5 bg-[#f2f2f7]/90 pt-[env(safe-area-inset-top)] backdrop-blur-md dark:border-white/10 dark:bg-black/80 sm:pt-0">
         <div className="relative mx-auto flex w-full max-w-[470px] items-center px-4 py-3">
           <Link
             href="/chats"
