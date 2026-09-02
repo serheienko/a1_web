@@ -25,18 +25,54 @@
 // server-side, see that file's header, and simply don't render if the
 // real chats.getChats response doesn't carry them under the guessed
 // names. See PLAN.md's 2026-09-02 entry for the full writeup.
+//
+// 2026-09-02 follow-up (Aleksandr: "Зайди в Фигму, там есть UI который
+// я хочу чтобы был в чат-листе" -- the same node, 24360:8794, "(2)
+// Chats general", the populated-list screen): the one piece of that
+// screen this pass hadn't picked up yet was the search bar sitting
+// right under the header -- confirmed via get_design_context to be a
+// plain rounded-pill "Search" field with a leading magnifier, present
+// on both the empty and populated states. Filters the already-fetched
+// `chats` list client-side (title + preview text) -- there's no
+// dedicated chats-search endpoint to call instead, same MVP tradeoff
+// this whole feature already runs on (poll instead of a WS relay). The
+// icon row above THAT in Figma (hamburger / app logo / messenger) and
+// the bottom floating pill (bell / grid / messenger / avatar) are the
+// native app's own chrome, not this page's -- components/site-nav.tsx
+// already covers that role here, so neither is reproduced.
 "use client";
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
-import { T } from "@/components/t";
+import { T, LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
 import { MessageTicks } from "@/components/chat/icons";
 import { LottiePlayer } from "@/components/lottie-player";
+import { SearchIcon } from "@/components/search-icon";
 
 type LoadState = "loading" | "signed-out" | "error" | "ready";
+
+// Same JS-usable-locale pattern as app/chats/[chatId]/page.tsx's own
+// useActiveLocale (copied from components/profile-action-row.tsx) --
+// needed here because the search placeholder has to reach an <input>'s
+// `placeholder`/`aria-label` attributes as a plain string, not the <T>
+// component's server-rendered-all-locales-at-once markup.
+function useActiveLocale(): Locale {
+  const [lang, setLang] = useState<Locale>("uk");
+  useEffect(() => {
+    const root = document.documentElement;
+    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
+    if (active) setLang(active);
+  }, []);
+  return lang;
+}
+
+const SEARCH_PLACEHOLDER_STRINGS: Record<Locale, string> = {
+  uk: "Пошук", en: "Search", ru: "Поиск", de: "Suche", es: "Buscar",
+  fr: "Rechercher", pl: "Szukaj", ptBR: "Pesquisar", zh: "搜索",
+};
 
 type ChatListItem = {
   id: string;
@@ -77,8 +113,10 @@ function formatTime(ms: number): string {
 }
 
 export default function ChatsPage() {
+  const lang = useActiveLocale();
   const [state, setState] = useState<LoadState>("loading");
   const [chats, setChats] = useState<ChatListItem[]>([]);
+  const [query, setQuery] = useState("");
   const inFlight = useRef(false);
 
   useEffect(() => {
@@ -130,6 +168,19 @@ export default function ChatsPage() {
     };
   }, []);
 
+  // 2026-09-02 (Figma search bar, see this file's own header comment) --
+  // client-side filter over the already-fetched list, title + preview
+  // text, case-insensitive. Empty query short-circuits to the full list
+  // so the common "not searching" path never re-allocates a filtered
+  // array.
+  const trimmedQuery = query.trim().toLowerCase();
+  const filteredChats = trimmedQuery
+    ? chats.filter(
+        (chat) =>
+          chat.title.toLowerCase().includes(trimmedQuery) || chat.previewText.toLowerCase().includes(trimmedQuery),
+      )
+    : chats;
+
   return (
     <div className="flex min-h-[100dvh] flex-col bg-[#f2f2f7] dark:bg-black">
       {/* 2026-09-02 (Aleksandr, screenshot: "подвинь блок по центру
@@ -145,6 +196,23 @@ export default function ChatsPage() {
         <h1 className="text-2xl font-semibold text-[#262a34] sm:text-3xl dark:text-white">
           <T uk="Чати" en="Chats" ru="Чаты" de="Chats" es="Chats" fr="Discussions" pl="Czaty" ptBR="Conversas" zh="聊天" />
         </h1>
+
+        {/* 2026-09-02 (Figma node 24360:8794, see this file's own header
+            comment) -- shown on both the empty and populated states,
+            matching the Figma screen for each. */}
+        {state === "ready" && (
+          <div className="relative mt-4 shrink-0">
+            <SearchIcon className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#989aa6] dark:text-[#8d8d93]" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={SEARCH_PLACEHOLDER_STRINGS[lang]}
+              aria-label={SEARCH_PLACEHOLDER_STRINGS[lang]}
+              className="w-full rounded-full bg-white py-2.5 pl-10 pr-4 text-[16px] text-[#262a34] outline-none transition placeholder:text-[#989aa6] focus:ring-2 focus:ring-accent/30 dark:bg-neutral-900 dark:text-white dark:placeholder:text-[#8d8d93]"
+            />
+          </div>
+        )}
 
         {state === "loading" && (
           <p className="mt-6 text-sm text-[#989aa6] dark:text-[#adafbb]">
@@ -227,9 +295,25 @@ export default function ChatsPage() {
           </div>
         )}
 
-        {state === "ready" && chats.length > 0 && (
+        {state === "ready" && chats.length > 0 && filteredChats.length === 0 && (
+          <p className="mt-6 text-sm text-[#989aa6] dark:text-[#8d8d93]">
+            <T
+              uk="Нічого не знайдено"
+              en="No results found"
+              ru="Ничего не найдено"
+              de="Keine Ergebnisse gefunden"
+              es="No se encontraron resultados"
+              fr="Aucun résultat trouvé"
+              pl="Nie znaleziono wyników"
+              ptBR="Nenhum resultado encontrado"
+              zh="未找到结果"
+            />
+          </p>
+        )}
+
+        {state === "ready" && filteredChats.length > 0 && (
           <div className="mt-6 flex flex-col gap-1">
-            {chats.map((chat) => (
+            {filteredChats.map((chat) => (
               <Link
                 key={chat.id}
                 // Title/avatar ride along in the query string so the chat
