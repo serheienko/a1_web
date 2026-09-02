@@ -38,7 +38,8 @@ import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { generateAvatarBlurDataUrl } from "@/lib/avatar-blur";
 import { formatLanguageName } from "@/lib/format";
 import { LocationLabel } from "@/components/locale-format";
-import { T, type Locale } from "@/components/t";
+import { T, LOCALES, type Locale } from "@/components/t";
+import { translateWorkStyleOption } from "@/lib/pill-translations";
 import { VoiceIntroProvider } from "@/components/voice-intro-context";
 import { VoiceIntroRing } from "@/components/voice-intro-ring";
 import { VoiceIntroPlayer } from "@/components/voice-intro-player";
@@ -657,30 +658,59 @@ export default async function ProfilePage({ params }: Props) {
           <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Стиль роботи" en="Work style" ru="Стиль работы" de="Arbeitsstil" es="Estilo de trabajo" fr="Style de travail" pl="Styl pracy" ptBR="Estilo de trabalho" zh="工作风格" /></h2>
           {/* 2026-09-02 (Aleksandr, live screenshot: "чтобы показувався
               частково горизонтально, типа по 3-4 шт если помещается" --
-              AskUserQuestion, picked "Компактные карточки"): each
-              label+pill pair used to be its own full-width row in a
-              flex-col stack, so even a one-word pill like "Team" claimed
-              the whole row. Grid auto-fill instead -- every section
-              becomes its own small bordered card sized to fit its own
-              content (minmax(140px, 1fr)), so several sit side by side
-              wherever there's room instead of always stacking one per
-              line. */}
-          <div className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
+              AskUserQuestion round 1, picked "Компактные карточки"):
+              tried as its own bordered card per section first
+              (grid-cols-[repeat(auto-fill,minmax(140px,1fr))]). Rejected
+              on sight once live ("Не, ну это плохо :))") -- a card's
+              height is driven by how many values THAT section has, so a
+              one-value card next to a four-value card read as a jagged,
+              uneven brick wall rather than the "красиво" result the
+              screenshot asked for.
+              Round 2: flat inline chips instead of cards -- one
+              "Label: value1, value2" pill per section, no card
+              container, no per-section height variance at all (every
+              chip is exactly one line tall regardless of how many
+              values it holds). flex-wrap still fits "3-4 per row where
+              it fits" the same way the original request asked for, just
+              by natural wrapping instead of a grid -- every chip being
+              the same height is what actually reads as tidy instead of
+              jagged. */}
+          <div className="mt-4 flex flex-wrap gap-2">
             {WORK_STYLE_PREFERENCE_SECTIONS.map(({ key, ...section }) => {
               const ids = profile.workStylePreferences[key];
               if (ids.length === 0) return null;
-              const options = workStyleDataset[WORK_STYLE_DATASET_KEYS[key]];
+              const datasetKey = WORK_STYLE_DATASET_KEYS[key];
+              const options = workStyleDataset[datasetKey];
               const labels = ids
                 .map((id) => options.find((o) => o.value === id)?.text ?? null)
                 .filter((v): v is string => Boolean(v));
               if (labels.length === 0) return null;
+              // Localization (Aleksandr: "+ надо локализация на всю эту
+              // историю"): lib/pill-translations.ts's
+              // translateWorkStyleOption() already has this exact table
+              // (built for components/profile-editor.tsx's own edit-mode
+              // pills); it needs a `lang` to translate INTO, which that
+              // client component gets from useActiveLocale() but this
+              // server component has no equivalent for -- so, same as
+              // every other string on this page, this precomputes the
+              // joined value list for all 9 locales up front (only "uk"
+              // ever actually differs from the raw English text -- see
+              // that function's own header -- but building the full
+              // record keeps this correct even if that ever changes) and
+              // hands it to T as one Record<Locale, string>.
+              const valueVariants = Object.fromEntries(
+                LOCALES.map((locale) => [
+                  locale,
+                  labels.map((label) => translateWorkStyleOption(datasetKey, label, locale)).join(", "),
+                ]),
+              ) as Record<Locale, string>;
               return (
                 <div
                   key={key}
-                  className="rounded-2xl border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-900/60"
+                  className="flex items-center gap-1.5 rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-sm dark:border-neutral-800 dark:bg-neutral-900/60"
                 >
-                  <h3 className="text-xs text-neutral-500 dark:text-neutral-400"><T {...section} /></h3>
-                  <div className="mt-1.5">{pillList(labels)}</div>
+                  <span className="text-neutral-400 dark:text-neutral-500"><T {...section} />:</span>
+                  <span className="text-neutral-700 dark:text-neutral-200"><T {...valueVariants} /></span>
                 </div>
               );
             })}
