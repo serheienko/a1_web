@@ -88,6 +88,19 @@ export default function ChatWindowPage() {
   // just starts working the day that relay lands, no markup changes.
   const [peerTyping] = useState(false);
 
+  // 2026-09-02 (Aleksandr, mobile-app empty-state screenshot: "Ток
+  // вместо tap в тексте походу надо click? На десктоп") -- the greeting
+  // copy below needs to say "tap" on a touch device and "click" on a
+  // mouse/trackpad one. No server-side signal for this (unlike locale,
+  // which app/globals.css's lang-XX: variants pick per-request), so it
+  // starts assuming touch (this app's stated mobile-first default, same
+  // as useActiveLocale() below defaulting to "uk") and corrects once
+  // mounted if the real pointer is fine (mouse/trackpad).
+  const [isTouch, setIsTouch] = useState(true);
+  useEffect(() => {
+    setIsTouch(window.matchMedia("(pointer: coarse)").matches);
+  }, []);
+
   const load = useCallback(async () => {
     if (inFlight.current) return;
     inFlight.current = true;
@@ -273,19 +286,60 @@ export default function ChatWindowPage() {
           </p>
         )}
         {state === "ready" && messages.length === 0 && (
-          <p className="mt-6 text-center text-sm text-[#989aa6] dark:text-[#adafbb]">
-            <T
-              uk="Повідомлень ще немає. Напишіть перше!"
-              en="No messages yet. Say hi!"
-              ru="Пока нет сообщений. Напишите первое!"
-              de="Noch keine Nachrichten. Schreib die erste!"
-              es="Aún no hay mensajes. ¡Escribe el primero!"
-              fr="Pas encore de messages. Écrivez le premier !"
-              pl="Brak wiadomości. Napisz pierwszą!"
-              ptBR="Ainda sem mensagens. Escreva a primeira!"
-              zh="暂无消息，来打个招呼吧！"
-            />
-          </p>
+          // 2026-09-02 (Aleksandr, screenshot of the mobile app's own
+          // empty state: "ставим надпись по центру и добавляем
+          // анимацию" -- bold headline + lighter instruction line,
+          // both centered, matching that reference): the animated
+          // greeting cat itself is a separate follow-up ("в след
+          // сообщении скину анимацию этого кота") -- once that .tgs is
+          // decompressed into public/animations/ the same way
+          // cat-blink.json was, it renders here via components/lottie-
+          // player.tsx (same convention every other cat animation in
+          // this app already uses), tap/click-able to send the
+          // greeting text. Left as a plain centered text block for now
+          // so this doesn't point at a file that doesn't exist yet.
+          <div className="mt-10 flex flex-col items-center gap-2 px-6 text-center">
+            <p className="text-[15px] font-semibold text-[#262a34] dark:text-white">
+              <T
+                uk="Повідомлень ще немає…"
+                en="No messages here yet…"
+                ru="Пока нет сообщений…"
+                de="Noch keine Nachrichten…"
+                es="Aún no hay mensajes…"
+                fr="Pas encore de messages…"
+                pl="Jeszcze brak wiadomości…"
+                ptBR="Ainda sem mensagens…"
+                zh="暂无消息…"
+              />
+            </p>
+            <p className="max-w-[240px] text-sm text-[#989aa6] dark:text-[#adafbb]">
+              {isTouch ? (
+                <T
+                  uk="Напишіть повідомлення або торкніться привітання нижче"
+                  en="Send a message or tap the greeting below"
+                  ru="Напишите сообщение или коснитесь приветствия ниже"
+                  de="Schreib eine Nachricht oder tippe unten auf die Begrüßung"
+                  es="Escribe un mensaje o toca el saludo de abajo"
+                  fr="Écrivez un message ou touchez le message d'accueil ci-dessous"
+                  pl="Napisz wiadomość lub dotknij powitania poniżej"
+                  ptBR="Envie uma mensagem ou toque na saudação abaixo"
+                  zh="发送消息或点击下方的问候语"
+                />
+              ) : (
+                <T
+                  uk="Напишіть повідомлення або натисніть на привітання нижче"
+                  en="Send a message or click the greeting below"
+                  ru="Напишите сообщение или нажмите на приветствие ниже"
+                  de="Schreib eine Nachricht oder klicke unten auf die Begrüßung"
+                  es="Escribe un mensaje o haz clic en el saludo de abajo"
+                  fr="Écrivez un message ou cliquez sur le message d'accueil ci-dessous"
+                  pl="Napisz wiadomość lub kliknij powitanie poniżej"
+                  ptBR="Envie uma mensagem ou clique na saudação abaixo"
+                  zh="发送消息或点击下方的问候语"
+                />
+              )}
+            </p>
+          </div>
         )}
         {state === "ready" && messages.length > 0 && (
           <div className="flex flex-col gap-1.5">
