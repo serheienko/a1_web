@@ -3666,3 +3666,40 @@ Next: Aleksandr pushes via GitHub Desktop, verify on a real deployment
 -- send a photo, send a PDF, send an attachment with no caption, retry
 a failed upload's *message* (not the upload itself -- there's no
 retry-the-upload-in-place affordance yet, only remove-and-repick).
+
+### 6.72 Backend-only: sending a contact as a chat attachment (2026-09-02)
+
+Aleksandr, straight after the previous entry: "прокинь пока на бэке
+возможность отправлять контакты. Актуальный UI я потом тебе покажу" --
+explicitly scoped to data-layer plumbing only, no picker or
+message-bubble UI this pass (he'll bring a real design for that
+separately, same as the paperclip/mic icons came from Figma earlier).
+
+Confirmed off the same OpenAPI spec as the attachments work above:
+MessageInput.Media.Contact / Resource.Message.Media.Contact are both
+`{ userId, phoneNumber, firstName, lastName, object: "media-contact" }`
+with all four non-object fields required -- unlike the document
+variant, the literal tag is the SAME on both the send and read side
+here, no mismatch to track. app/api/chats/send/route.ts's `SendInput`
+gained a parallel `contacts` array (max 5), merged into the same
+`media[]` payload the existing `media` (document) array already
+builds -- chat-server's MessageInput.Media is a 7-way union keyed by
+`object`, so mixing a document and a contact in one send is allowed by
+the spec, just not yet exercised live. lib/a1/chat-schemas.ts got the
+read-side mirror (MessageMediaContactSchema / messageContactMedia())
+so whenever the picker UI lands, rendering a received contact card
+doesn't need this confirmation work redone.
+
+Noted in both files' comments rather than solved here (a UI concern,
+not a backend one): the obvious source once a picker exists is
+/api/contacts/list's own Contact rows (`user` -> userId, `phone` ->
+phoneNumber) -- but contacts.addContact never collects a phone number
+itself, so a Contact's `phone` is only ever populated when the linked
+platform user has one on their own profile. A contact with no phone on
+file simply cannot be sent this way (the backend requires it); the
+future picker will need to filter or grey those out rather than this
+route papering over a missing required field.
+
+Not live-tested at all yet -- no UI calls this route's new `contacts`
+field, and nothing's been pushed. Next: Aleksandr's picker UI, then a
+real end-to-end send.
