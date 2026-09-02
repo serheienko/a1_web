@@ -293,10 +293,6 @@ export function ProfileActionRow({
 
   const [shareFeedback, setShareFeedback] = useState(false);
 
-  // Same gating as components/add-contact-button.tsx (and post-viewer-
-  // menu.tsx's own "message row" gate): signed in AND looking at
-  // someone else's profile. Own profile / signed-out visitor -> this
-  // whole row renders nothing, same as the badge it replaces did.
   // 2026-09-02 (Aleksandr: show this row to signed-out visitors too --
   // "можно показывать и когда не залогинен, просто при нажатии на
   // каждую кнопку показывать попап залогиньтесь или зайдите" -- a
