@@ -655,7 +655,17 @@ export default async function ProfilePage({ params }: Props) {
               across all 9 locales instead of just fixing uk, so the same
               mismatch doesn't quietly persist in every other language. */}
           <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Стиль роботи" en="Work style" ru="Стиль работы" de="Arbeitsstil" es="Estilo de trabajo" fr="Style de travail" pl="Styl pracy" ptBR="Estilo de trabalho" zh="工作风格" /></h2>
-          <div className="mt-4 flex flex-col gap-4">
+          {/* 2026-09-02 (Aleksandr, live screenshot: "чтобы показувався
+              частково горизонтально, типа по 3-4 шт если помещается" --
+              AskUserQuestion, picked "Компактные карточки"): each
+              label+pill pair used to be its own full-width row in a
+              flex-col stack, so even a one-word pill like "Team" claimed
+              the whole row. Grid auto-fill instead -- every section
+              becomes its own small bordered card sized to fit its own
+              content (minmax(140px, 1fr)), so several sit side by side
+              wherever there's room instead of always stacking one per
+              line. */}
+          <div className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
             {WORK_STYLE_PREFERENCE_SECTIONS.map(({ key, ...section }) => {
               const ids = profile.workStylePreferences[key];
               if (ids.length === 0) return null;
@@ -665,8 +675,11 @@ export default async function ProfilePage({ params }: Props) {
                 .filter((v): v is string => Boolean(v));
               if (labels.length === 0) return null;
               return (
-                <div key={key}>
-                  <h3 className="text-sm text-neutral-500 dark:text-neutral-400"><T {...section} /></h3>
+                <div
+                  key={key}
+                  className="rounded-2xl border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-900/60"
+                >
+                  <h3 className="text-xs text-neutral-500 dark:text-neutral-400"><T {...section} /></h3>
                   <div className="mt-1.5">{pillList(labels)}</div>
                 </div>
               );
