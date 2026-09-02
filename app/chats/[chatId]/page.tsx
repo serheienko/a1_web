@@ -29,11 +29,25 @@ import { authFetch } from "@/lib/auth-fetch";
 import { LottiePlayer } from "@/components/lottie-player";
 import {
   extractMessageText,
+  isImageMediaDocument,
+  mediaDocumentFileName,
   messageDateMs,
+  messageDocumentMedia,
   messageTickState,
   type ChatMessage,
 } from "@/lib/a1/chat-schemas";
-import { ChatBackArrow, ChatCatFieldIcon, ChatMicButton, ChatPaperclipButton, ChatTypingDots, MessageTicks } from "@/components/chat/icons";
+import { buildMediaProxyUrl } from "@/lib/a1/mappers";
+import {
+  ChatAttachmentSpinner,
+  ChatBackArrow,
+  ChatCatFieldIcon,
+  ChatFileAttachIcon,
+  ChatMicButton,
+  ChatPaperclipButton,
+  ChatPhotoAttachIcon,
+  ChatTypingDots,
+  MessageTicks,
+} from "@/components/chat/icons";
 
 type LoadState = "loading" | "signed-out" | "error" | "ready";
 
@@ -57,7 +71,36 @@ type LoadState = "loading" | "signed-out" | "error" | "ready";
 // for). A 401 is NOT put into this state at all -- see attemptSend --
 // that's not a network hiccup, it's "you're signed out", and retrying
 // it silently forever would just be wrong.
-type PendingMessage = ChatMessage & { pending: true; localId: string; failed: boolean };
+// One attachment mid-upload or ready to send from the compose bar --
+// local-only, never sent to the server as-is (only `fileReference`
+// survives into the messages.send POST once `status === "ready"`, see
+// send() below). `previewUrl` is a local blob: URL (images only) so the
+// thumbnail shows instantly, before the upload round-trip even starts.
+type PendingAttachment = {
+  localId: string;
+  kind: "image" | "file";
+  fileName: string;
+  mimetype: string;
+  previewUrl?: string;
+  status: "uploading" | "ready" | "error";
+  fileReference?: string;
+};
+
+type PendingMessage = ChatMessage & {
+  pending: true;
+  localId: string;
+  failed: boolean;
+  // Attachment feature (2026-09-02, Aleksandr: "поискать теперь в коде
+  // всё что у нас живет на скрепке и приготовиться к имплементации") --
+  // the confirmed uploads this bubble was sent with, kept in their local
+  // upload-preview shape (not the server's MessageMediaDocument shape --
+  // see lib/a1/chat-schemas.ts's own comment on why those two shapes
+  // differ) so the optimistic bubble renders the exact same thumbnail
+  // the compose bar was just showing, with zero extra network
+  // round-trip, until load()'s own reconciliation swaps this bubble for
+  // the real message.
+  pendingAttachments?: PendingAttachment[];
+};
 
 function isPendingMessage(msg: ChatMessage | PendingMessage): msg is PendingMessage {
   return (msg as PendingMessage).pending === true;
@@ -83,6 +126,53 @@ function NotSentIcon() {
       <circle cx="12" cy="16.3" r="1.15" fill="white" />
     </svg>
   );
+}
+
+// Attachment feature (2026-09-02): same compression target as
+// components/post-editor.tsx's own compressImage (Aleksandr: "фото
+// повинні стискатися і зберігатися в розмірі макс 200-300 кб на шт."),
+// duplicated here rather than imported -- this session's established
+// "self-contained widget" convention (see components/chats-flyout.tsx /
+// mini-chat-window.tsx's own header comments): a modest amount of
+// duplicated logic beats risking a regression on post-editor.tsx, an
+// already-shipped page, by sharing code with it while building
+// unsupervised.
+const MAX_ATTACHMENT_PHOTO_DIMENSION = 1600;
+const MAX_ATTACHMENT_PHOTO_BYTES = 280 * 1024;
+const MAX_ATTACHMENT_FILE_BYTES = 25 * 1024 * 1024;
+const MAX_ATTACHMENTS_PER_MESSAGE = 10;
+
+async function compressAttachmentImage(file: File): Promise<File> {
+  if (!file.type.startsWith("image/") || typeof createImageBitmap !== "function") return file;
+  try {
+    const bitmap = await createImageBitmap(file);
+    let { width, height } = bitmap;
+    if (width > MAX_ATTACHMENT_PHOTO_DIMENSION || height > MAX_ATTACHMENT_PHOTO_DIMENSION) {
+      const scale = MAX_ATTACHMENT_PHOTO_DIMENSION / Math.max(width, height);
+      width = Math.round(width * scale);
+      height = Math.round(height * scale);
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    bitmap.close?.();
+
+    let blob: Blob | null = null;
+    let quality = 0.85;
+    for (let i = 0; i < 6; i++) {
+      blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+      if (!blob || blob.size <= MAX_ATTACHMENT_PHOTO_BYTES || quality <= 0.35) break;
+      quality -= 0.15;
+    }
+    if (!blob) return file;
+    const base = file.name.replace(/\.\w+$/, "") || "photo";
+    return new File([blob], `${base}.jpg`, { type: "image/jpeg" });
+  } catch {
+    return file;
+  }
 }
 
 const POLL_MS = 3000;
@@ -213,6 +303,17 @@ export default function ChatWindowPage() {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const inFlight = useRef(false);
+  // Attachment feature: pending compose-bar attachments (see
+  // PendingAttachment's own comment above) plus the attach-menu open
+  // state and the two hidden <input type=file> refs it drives -- one
+  // per native "Photos" / "Files" row from the reference screenshot
+  // that started this (its "Meetings"/"Calculations"/"Contacts" rows
+  // are out of scope for this pass).
+  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
+  const [attachMenuOpen, setAttachMenuOpen] = useState(false);
+  const attachMenuRef = useRef<HTMLDivElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   // 2026-09-02 (Aleksandr: "когда я отвечаю с моба и читаю это на
   // вебе, оно не отмечается у меня на мобильном, что сообщение
   // прочитано") -- highest message _id this tab has already told
@@ -476,12 +577,20 @@ export default function ChatWindowPage() {
   // anything else (marks `failed`, left on screen with NotSentIcon
   // instead of a tick, picked up again by retryAllFailed the next time
   // there's actually a network to retry on).
-  async function attemptSend(localId: string, text: string) {
+  async function attemptSend(localId: string, text: string, media?: { fileReference: string }[]) {
     try {
       const res = await authFetch("/api/chats/send", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ chatId, text }),
+        // Attachment feature: `text` may now be empty (attachment-only
+        // send) and `media` may be present -- app/api/chats/send/
+        // route.ts's own SendInput requires at least one of the two, and
+        // only forwards whichever is actually present to messages.send.
+        body: JSON.stringify({
+          chatId,
+          text: text || undefined,
+          media: media && media.length > 0 ? media : undefined,
+        }),
       });
       if (res.ok) {
         load();
@@ -509,7 +618,10 @@ export default function ChatWindowPage() {
     retryingIds.current.add(p.localId);
     setPendingMessages((prev) => prev.map((m) => (m.localId === p.localId ? { ...m, failed: false } : m)));
     try {
-      await attemptSend(p.localId, extractMessageText(p));
+      const media = p.pendingAttachments
+        ?.filter((a) => a.status === "ready" && a.fileReference)
+        .map((a) => ({ fileReference: a.fileReference as string }));
+      await attemptSend(p.localId, extractMessageText(p), media);
     } finally {
       retryingIds.current.delete(p.localId);
     }
@@ -556,6 +668,93 @@ export default function ChatWindowPage() {
     setOpenPendingId(null);
   }
 
+  useEffect(() => {
+    if (!attachMenuOpen) return;
+    function handleDocClick(e: MouseEvent) {
+      if (attachMenuRef.current && !attachMenuRef.current.contains(e.target as Node)) {
+        setAttachMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleDocClick);
+    return () => document.removeEventListener("mousedown", handleDocClick);
+  }, [attachMenuOpen]);
+
+  // Runs the same create -> upload -> confirm flow components/post-
+  // editor.tsx's handleFileSelected already uses for post photos --
+  // confirmed reusable as-is for chat attachments this session (Upload/
+  // Media is one unified service shared across every backend service,
+  // not duplicated per service -- see app/api/upload/create/route.ts).
+  // `kind` only affects client-side compression/preview; the two upload
+  // routes themselves don't care which button triggered the pick.
+  async function handleAttachFile(file: File, kind: "image" | "file") {
+    if (attachments.length >= MAX_ATTACHMENTS_PER_MESSAGE) return;
+    if (kind === "file" && file.size > MAX_ATTACHMENT_FILE_BYTES) return;
+    const localId = `att-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const toUpload = kind === "image" ? await compressAttachmentImage(file) : file;
+    const previewUrl = kind === "image" ? URL.createObjectURL(toUpload) : undefined;
+    setAttachments((prev) => [
+      ...prev,
+      {
+        localId,
+        kind,
+        fileName: file.name,
+        mimetype: toUpload.type || "application/octet-stream",
+        previewUrl,
+        status: "uploading",
+      },
+    ]);
+    try {
+      const createRes = await authFetch("/api/upload/create", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ mimetype: toUpload.type || "application/octet-stream", bytes: toUpload.size }),
+      });
+      const createData = await createRes.json();
+      if (!createRes.ok || !createData.ok || !createData.result?.url) {
+        setAttachments((prev) => prev.map((a) => (a.localId === localId ? { ...a, status: "error" as const } : a)));
+        return;
+      }
+      const { id, url, fields } = createData.result as { id: string; url: string; fields: Record<string, string> };
+      const formData = new FormData();
+      for (const [key, value] of Object.entries(fields ?? {})) formData.append(key, value);
+      formData.append("file", toUpload);
+      const uploadRes = await fetch(url, { method: "POST", body: formData });
+      if (!uploadRes.ok) {
+        setAttachments((prev) => prev.map((a) => (a.localId === localId ? { ...a, status: "error" as const } : a)));
+        return;
+      }
+      const confirmRes = await authFetch("/api/upload/confirm", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ documentId: id }),
+      });
+      const confirmData = await confirmRes.json();
+      const fileReference = confirmData?.media?.fileReference as string | undefined;
+      if (!confirmRes.ok || !confirmData.ok || !fileReference) {
+        setAttachments((prev) => prev.map((a) => (a.localId === localId ? { ...a, status: "error" as const } : a)));
+        return;
+      }
+      setAttachments((prev) =>
+        prev.map((a) => (a.localId === localId ? { ...a, status: "ready" as const, fileReference } : a)),
+      );
+    } catch {
+      setAttachments((prev) => prev.map((a) => (a.localId === localId ? { ...a, status: "error" as const } : a)));
+    }
+  }
+
+  function removeAttachment(localId: string) {
+    setAttachments((prev) => {
+      const target = prev.find((a) => a.localId === localId);
+      if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((a) => a.localId !== localId);
+    });
+  }
+
+  function onPickAttachment(kind: "image" | "file") {
+    setAttachMenuOpen(false);
+    (kind === "image" ? photoInputRef : fileInputRef).current?.click();
+  }
+
   function announceTyping() {
     const now = Date.now();
     if (now - lastTypingSentAt.current < TYPING_THROTTLE_MS) return;
@@ -571,9 +770,20 @@ export default function ChatWindowPage() {
 
   async function send(overrideText?: string) {
     const text = (overrideText ?? draft).trim();
-    if (!text || sending) return;
+    // Attachment feature: only ready (fully uploaded+confirmed)
+    // attachments are ever sent -- a message can go out with zero typed
+    // text as long as at least one is ready (MessageInput.message is
+    // optional, see app/api/chats/send/route.ts). uploadingCount guards
+    // the Enter-key path the same way the send button's own `disabled`
+    // does below (see that JSX) -- send() is never called mid-upload.
+    const readyAttachments = attachments.filter((a) => a.status === "ready" && a.fileReference);
+    const uploadingCount = attachments.filter((a) => a.status === "uploading").length;
+    if ((!text && readyAttachments.length === 0) || uploadingCount > 0 || sending) return;
     setSending(true);
-    if (!overrideText) setDraft("");
+    if (!overrideText) {
+      setDraft("");
+      setAttachments([]);
+    }
     // Optimistic bubble, shown the instant the POST is fired -- see the
     // `pendingMessages` state comment above for why (load() right after
     // send() used to sometimes race chat-server's own indexing and show
@@ -588,15 +798,20 @@ export default function ChatWindowPage() {
       peerFrom: myUserId ? { object: "peer-user", user: myUserId } : null,
       peerTo: null,
       date: new Date().toISOString(),
-      entities: [{ object: "entity-text", text }],
+      entities: text ? [{ object: "entity-text", text }] : [],
       media: [],
       fromId: myUserId,
       pending: true,
       localId,
       failed: false,
+      pendingAttachments: readyAttachments.length > 0 ? readyAttachments : undefined,
     };
     setPendingMessages((prev) => [...prev, optimistic]);
-    await attemptSend(localId, text);
+    await attemptSend(
+      localId,
+      text,
+      readyAttachments.map((a) => ({ fileReference: a.fileReference as string })),
+    );
     setSending(false);
   }
 
@@ -866,6 +1081,14 @@ export default function ChatWindowPage() {
               // above for what `failed` means and how it clears.
               const pending = isPendingMessage(msg) ? msg : null;
               const popoverOpen = pending !== null && openPendingId === pending.localId;
+              // Attachment feature: a pending (not-yet-reconciled) bubble
+              // renders its own local upload previews (pendingAttachments,
+              // set by send() -- instant, no round-trip); a real message
+              // renders whatever chat-server actually stored, parsed via
+              // messageDocumentMedia (lib/a1/chat-schemas.ts).
+              const docMedia = pending ? [] : messageDocumentMedia(msg);
+              const pendingAttachments = pending?.pendingAttachments ?? [];
+              const hasMedia = docMedia.length > 0 || pendingAttachments.length > 0;
               return (
                 <div key={msg._id}>
                   {showDate && (
@@ -884,7 +1107,64 @@ export default function ChatWindowPage() {
                         mine ? "rounded-tr-[6px] bg-[#335ef7] text-white dark:bg-[#009bff]" : "rounded-tl-[6px] bg-white text-[#262a34] dark:bg-[#1a1a1a] dark:text-white"
                       } ${pending?.failed ? "opacity-70" : ""}`}
                     >
-                      <div className="whitespace-pre-wrap break-words">{text || "…"}</div>
+                      {pendingAttachments.length > 0 && (
+                        <div className="mb-1 flex flex-col gap-1.5">
+                          {pendingAttachments.map((a) => (
+                            <div key={a.localId} className="relative overflow-hidden rounded-xl">
+                              {a.kind === "image" && a.previewUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element -- a
+                                // local blob: URL, never a next/image-eligible remote src.
+                                <img src={a.previewUrl} alt="" className="max-h-64 w-full object-cover" />
+                              ) : (
+                                <div
+                                  className={`flex items-center gap-2 rounded-xl px-2.5 py-2 ${
+                                    mine ? "bg-white/15" : "bg-black/5 dark:bg-white/10"
+                                  }`}
+                                >
+                                  <ChatFileAttachIcon className="h-5 w-5 shrink-0" />
+                                  <span className="truncate text-[14px]">{a.fileName}</span>
+                                </div>
+                              )}
+                              {a.status === "uploading" && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                  <ChatAttachmentSpinner className="h-6 w-6 text-white" />
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {docMedia.length > 0 && (
+                        <div className="mb-1 flex flex-col gap-1.5">
+                          {docMedia.map((doc) =>
+                            isImageMediaDocument(doc) ? (
+                              // eslint-disable-next-line @next/next/no-img-element -- proxied
+                              // through /api/media, not a next/image-configured remote host.
+                              <img
+                                key={doc._id}
+                                src={buildMediaProxyUrl(doc)}
+                                alt=""
+                                className="max-h-64 w-full rounded-xl object-cover"
+                              />
+                            ) : (
+                              <a
+                                key={doc._id}
+                                href={buildMediaProxyUrl(doc)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={`flex items-center gap-2 rounded-xl px-2.5 py-2 transition hover:opacity-80 ${
+                                  mine ? "bg-white/15" : "bg-black/5 dark:bg-white/10"
+                                }`}
+                              >
+                                <ChatFileAttachIcon className="h-5 w-5 shrink-0" />
+                                <span className="truncate text-[14px]">{mediaDocumentFileName(doc) || doc.mimetype}</span>
+                              </a>
+                            ),
+                          )}
+                        </div>
+                      )}
+                      {text && <div className="whitespace-pre-wrap break-words">{text}</div>}
+                      {!text && !hasMedia && <div className="whitespace-pre-wrap break-words">…</div>}
                       <div
                         className={`mt-0.5 flex items-center justify-end gap-1 text-[11px] ${
                           mine ? "text-white/70" : "text-[#989aa6] dark:text-[#adafbb]"
@@ -990,8 +1270,118 @@ export default function ChatWindowPage() {
               keeps every sibling glued to the row's bottom edge instead,
               so only the textarea grows upward and everything else
               stays exactly where it started. */}
+          {/* Attachment feature: compose-bar preview strip for
+              not-yet-sent attachments -- thumbnails for photos, a small
+              filename chip for files, a spinner overlay while each one's
+              own create/upload/confirm round-trip is still in flight (see
+              handleAttachFile above), and a remove (x) button either way.
+              Only rendered while attachments actually exist so it costs
+              nothing on the far more common plain-text send. */}
+          {attachments.length > 0 && (
+            <div className="mx-auto mb-2 flex w-full max-w-[470px] flex-wrap gap-2">
+              {attachments.map((a) => (
+                <div key={a.localId} className="group relative">
+                  {a.kind === "image" && a.previewUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- a
+                    // local blob: URL preview, not a next/image remote src.
+                    <img
+                      src={a.previewUrl}
+                      alt=""
+                      className="h-16 w-16 rounded-xl object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-16 w-40 items-center gap-2 rounded-xl border border-neutral-200 bg-white/90 px-2.5 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
+                      <ChatFileAttachIcon className="h-5 w-5 shrink-0 text-[#989aa6] dark:text-[#adafbb]" />
+                      <span className="truncate text-[12px] text-[#262a34] dark:text-white">{a.fileName}</span>
+                    </div>
+                  )}
+                  {a.status === "uploading" && (
+                    <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/30">
+                      <ChatAttachmentSpinner className="h-6 w-6 text-white" />
+                    </div>
+                  )}
+                  {a.status === "error" && (
+                    <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-red-500/70">
+                      <span className="text-[11px] font-medium text-white">
+                        <T uk="Помилка" en="Failed" ru="Ошибка" de="Fehler" es="Error" fr="Erreur" pl="Błąd" ptBR="Erro" zh="失败" />
+                      </span>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => removeAttachment(a.localId)}
+                    aria-label="Remove attachment"
+                    className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white transition hover:bg-black/80"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" className="h-3 w-3" aria-hidden="true">
+                      <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="mx-auto flex w-full max-w-[470px] items-end gap-2">
-            <ChatPaperclipButton disabled={sending} />
+            <div ref={attachMenuRef} className="relative">
+              <ChatPaperclipButton
+                disabled={sending || attachments.length >= MAX_ATTACHMENTS_PER_MESSAGE}
+                onClick={() => setAttachMenuOpen((v) => !v)}
+              />
+              {/* Attach menu (2026-09-02): mirrors the reference native
+                  app's bottom-sheet ("Photos / Files / Meetings /
+                  Calculations / Contacts") scoped down to the two rows
+                  this pass actually implements -- Meetings/Calculations
+                  need their own separate features to attach anything
+                  real, and Contacts needs its own contact-picker UI, so
+                  both are left for a later pass rather than wired to
+                  nothing. Anchored above the button (same "popover sits
+                  right at the click, no mouse travel" reasoning as
+                  components/fab-auth-prompt.tsx), not portaled -- this
+                  page has no backdrop/z-index conflict a plain absolute
+                  popover would run into, unlike that FAB's own corner
+                  case. */}
+              {attachMenuOpen && (
+                <div className="animate-popover-up absolute bottom-full left-0 z-10 mb-2 w-44 overflow-hidden rounded-2xl bg-white py-1.5 shadow-xl dark:bg-neutral-900">
+                  <button
+                    type="button"
+                    onClick={() => onPickAttachment("image")}
+                    className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+                  >
+                    <ChatPhotoAttachIcon className="h-5 w-5 text-[#335ef7] dark:text-[#0c8ce9]" />
+                    <T uk="Фото" en="Photo" ru="Фото" de="Foto" es="Foto" fr="Photo" pl="Zdjęcie" ptBR="Foto" zh="照片" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onPickAttachment("file")}
+                    className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+                  >
+                    <ChatFileAttachIcon className="h-5 w-5 text-[#335ef7] dark:text-[#0c8ce9]" />
+                    <T uk="Файл" en="File" ru="Файл" de="Datei" es="Archivo" fr="Fichier" pl="Plik" ptBR="Arquivo" zh="文件" />
+                  </button>
+                </div>
+              )}
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (file) void handleAttachFile(file, "image");
+                }}
+              />
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (file) void handleAttachFile(file, "file");
+                }}
+              />
+            </div>
             <div className="flex min-h-[44px] flex-1 items-end gap-2 rounded-[22px] border border-neutral-200 bg-white/90 px-3.5 py-2 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
               <textarea
                 ref={textareaRef}
@@ -1024,11 +1414,11 @@ export default function ChatWindowPage() {
                 <ChatCatFieldIcon className="h-5 w-5 text-[#989aa6] dark:text-[#adafbb]" />
               </div>
             </div>
-            {draft.trim() ? (
+            {draft.trim() || attachments.length > 0 ? (
               <button
                 type="button"
                 onClick={() => send()}
-                disabled={sending}
+                disabled={sending || attachments.some((a) => a.status === "uploading")}
                 aria-label="Send"
                 // 2026-09-02 (Aleksandr: "при наведении на кнопку отправки
                 // сделай какой-то ховер, чтобы она ярче становилась...

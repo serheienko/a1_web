@@ -273,3 +273,58 @@ export function ChatTypingDots({ className = "" }: { className?: string }) {
     </span>
   );
 }
+
+// Attachment feature (2026-09-02, Aleksandr: "поискать теперь в коде
+// всё что у нас живет на скрепке и приготовиться к имплементации") --
+// no Figma export exists for these (the reference was a native app
+// screenshot, not a design file node), so the three below are hand-built
+// like ChatTypingDots above, kept simple and line-based to sit
+// comfortably next to the real Figma exports elsewhere in this file.
+
+// Attach-menu row icon: a picture frame with a small "peak" (mountain +
+// sun), the universal "photo" glyph.
+export function ChatPhotoAttachIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <rect x="3" y="4" width="18" height="16" rx="3" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="8.5" cy="9.5" r="1.6" fill="currentColor" />
+      <path
+        d="M4.5 16.5 9 12l3.2 3.2L15.5 12 19.5 16.5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+// Attach-menu row icon + message-bubble file-chip icon: a dog-eared
+// document page.
+export function ChatFileAttachIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <path
+        d="M6.5 3.5h7l4 4v12.5a1 1 0 0 1-1 1h-10a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <path d="M13.5 3.5V7a1 1 0 0 0 1 1H17.5" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// Small circular spinner overlaid on an uploading attachment preview --
+// same two-arc construction as app/chats/[chatId]/page.tsx's own
+// SendingSpinner (kept as a separate copy here rather than exported
+// cross-file, same "self-contained, don't risk a shared regression"
+// convention this session's other new components already follow).
+export function ChatAttachmentSpinner({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={`animate-spin ${className}`} aria-hidden="true">
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" strokeOpacity="0.3" />
+      <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+    </svg>
+  );
+}

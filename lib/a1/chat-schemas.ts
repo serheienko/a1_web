@@ -182,6 +182,83 @@ export const MessageSchema = RawMessageSchema.transform((msg) => ({
 }));
 export type ChatMessage = z.infer<typeof MessageSchema>;
 
+// Message attachments (Aleksandr, 2026-09-02: "поискать теперь в коде
+// всё что у нас живет на скрепке и приготовиться к имплементации") --
+// CONFIRMED against chat-server's own OpenAPI spec (Resource.Message.
+// Media.Document / MessageInput.Media.Document), not guessed: a real
+// document attachment on a message looks like
+//   { _id: "...", mimetype: "image/png", fileReference: "...",
+//     date: 1234567890, sizes: [{object:"size-photo", w, h, bytes}, ...],
+//     attributes: [{object:"attribute-filename", fileName: "..."}, ...],
+//     object: "media-doc" }
+// -- note the literal `object` value ("media-doc") differs from
+// lib/a1/schemas.ts's own MediaDocumentSchema ("media-document", the
+// upload.confirm RESPONSE shape for a not-yet-sent upload); both
+// describe the same underlying MediaDocument resource, just tagged
+// differently depending which endpoint returned it. Kept as its own
+// schema here rather than reusing that one so this file doesn't need to
+// reach into lib/a1/schemas.ts's own literal, and so a future mismatch
+// between the two endpoints' shapes fails independently.
+const MessageMediaAttributeSchema = z
+  .object({ object: z.string().catch(""), fileName: z.string().optional() })
+  .catchall(z.unknown());
+
+const MessageMediaSizeSchema = z
+  .object({
+    object: z.string().optional(),
+    w: z.number().optional(),
+    h: z.number().optional(),
+    bytes: z.number().optional(),
+  })
+  .catchall(z.unknown());
+
+export const MessageMediaDocumentSchema = z
+  .object({
+    _id: z.union([z.string(), z.number()]).transform((v) => String(v)),
+    mimetype: z.string().catch("application/octet-stream"),
+    fileReference: z.string(),
+    sizes: z.array(MessageMediaSizeSchema).catch([]),
+    attributes: z.array(MessageMediaAttributeSchema).catch([]),
+    object: z.literal("media-doc"),
+  })
+  .catchall(z.unknown());
+export type MessageMediaDocument = z.infer<typeof MessageMediaDocumentSchema>;
+
+// `msg.media` is only ever validated as `z.unknown()` at the top level
+// (RawMessageSchema, above) -- chat-server's Resource.Message.Media is a
+// 7-way union (document / deleted-document / contact / meet / meet-
+// invite / post / user, see the OpenAPI spec) and this Phase 1 pass only
+// ever SENDS the document variant (see app/api/chats/send/route.ts), so
+// this is the only variant worth parsing back out on the read side too --
+// every other media kind (a shared contact, a meeting invite, ...) is
+// silently skipped here rather than guessed at, same fail-closed
+// convention as extractMessages() itself.
+export function messageDocumentMedia(msg: ChatMessage): MessageMediaDocument[] {
+  const out: MessageMediaDocument[] = [];
+  for (const item of msg.media) {
+    const parsed = MessageMediaDocumentSchema.safeParse(item);
+    if (parsed.success) out.push(parsed.data);
+  }
+  return out;
+}
+
+export function isImageMediaDocument(doc: MessageMediaDocument): boolean {
+  return doc.mimetype.startsWith("image/");
+}
+
+// The uploaded file's original name, when the backend echoed one back
+// via an `attribute-filename` entry (see components/post-editor.tsx's
+// own upload flow -- this app's upload.create/confirm routes don't set
+// this themselves, so it's whatever chat-server itself derives/stores).
+// Empty string (never undefined) when absent, so call sites can always
+// fall back to a generic "Document" label without an extra null check.
+export function mediaDocumentFileName(doc: MessageMediaDocument): string {
+  const attr = doc.attributes.find(
+    (a) => a.object === "attribute-filename" && typeof a.fileName === "string",
+  );
+  return (attr?.fileName as string | undefined) ?? "";
+}
+
 // Real text lives under `entities` (an array of typed spans -- only
 // `entity-text` carries a `.text` string; other entity types are just
 // passed through by MessageEntitySchema's catchall and ignored here) --

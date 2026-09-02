@@ -25,23 +25,44 @@ import { peerForRouteParam, MessageSchema } from "@/lib/a1/chat-schemas";
 
 export const runtime = "nodejs";
 
-const SendInput = z.object({
-  chatId: z.string().trim().min(1),
-  text: z.string().trim().min(1).max(4000),
-});
+const SendInput = z
+  .object({
+    chatId: z.string().trim().min(1),
+    text: z.string().trim().max(4000).optional(),
+    // 2026-09-02 (Aleksandr: "поискать теперь в коде всё что у нас
+    // живет на скрепке и приготовиться к имплементации") -- one entry
+    // per attachment already uploaded+confirmed via /api/upload/create
+    // + /api/upload/confirm (the same two routes post-editor.tsx and
+    // profile-editor.tsx already use for photos -- confirmed reusable
+    // here too, since Upload/Media is one unified service shared across
+    // every backend service per the OpenAPI spec's own description, not
+    // something chat-server duplicates). Only `fileReference` is needed
+    // from the confirmed MediaDocument -- see the `media` mapping below
+    // for the exact MessageInput.Media.Document shape chat-server wants.
+    media: z.array(z.object({ fileReference: z.string().trim().min(1) })).max(10).optional(),
+  })
+  .refine((v) => (v.text && v.text.length > 0) || (v.media && v.media.length > 0), {
+    message: "empty_message",
+  });
 
 export async function POST(request: NextRequest) {
   const parsed = SendInput.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ ok: false, message: "invalid_input" }, { status: 400 });
   }
-  const { chatId, text } = parsed.data;
+  const { chatId, text, media } = parsed.data;
 
   try {
-    const { data, refreshedSession } = await callAsVisitor<unknown>("messages.send", {
-      peerTo: peerForRouteParam(chatId),
-      message: text,
-    });
+    // `message` and `media` are both optional on MessageInput (only
+    // `peerTo` is required -- confirmed against the OpenAPI spec), so an
+    // attachment-only send (no caption typed) omits `message` entirely
+    // instead of sending an empty string.
+    const payload: Record<string, unknown> = { peerTo: peerForRouteParam(chatId) };
+    if (text) payload.message = text;
+    if (media && media.length > 0) {
+      payload.media = media.map((m) => ({ fileReference: m.fileReference, object: "media-document-input" }));
+    }
+    const { data, refreshedSession } = await callAsVisitor<unknown>("messages.send", payload);
 
     // 2026-09-02: echoes the real created message back (parsed through
     // the now shape-confirmed MessageSchema -- see lib/a1/chat-schemas.ts)
