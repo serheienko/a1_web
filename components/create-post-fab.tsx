@@ -93,7 +93,13 @@ export function CreatePostFab() {
   // Nothing to create a post from on the auth screen itself, and the
   // FAB has nowhere to sit there without overlapping the sign-in
   // buttons (confirmed via a live mobile screenshot).
-  if (pathname?.startsWith("/sign-in")) return null;
+  //
+  // 2026-09-02 (Aleksandr, live mobile screenshot of an open chat: this
+  // button sat right on top of the compose bar's own send/mic icon,
+  // and "create a post" makes no sense mid-conversation anyway) --
+  // same pathname guard components/chats-fab.tsx already has for the
+  // same route, for the same reason (see that file's own comment).
+  if (pathname?.startsWith("/sign-in") || pathname?.startsWith("/chats")) return null;
 
   function handleClick() {
     if (email) {
