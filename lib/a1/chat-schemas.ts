@@ -259,6 +259,39 @@ export function mediaDocumentFileName(doc: MessageMediaDocument): string {
   return (attr?.fileName as string | undefined) ?? "";
 }
 
+// Shared-contact attachment (Aleksandr, 2026-09-02: "прокинь пока на
+// бэке возможность отправлять контакты. Актуальный UI я потом тебе
+// покажу") -- CONFIRMED against the OpenAPI spec, Resource.Message.
+// Media.Contact: `{ userId, phoneNumber, firstName, lastName,
+// object: "media-contact" }`, all five required. Same literal
+// "media-contact" on both the send side (MessageInput.Media.Contact)
+// and this read side, unlike the document variant above -- no
+// send-vs-read tag mismatch to account for here. This is data-layer
+// only for now, per Aleksandr's own framing -- no picker UI, no
+// message-bubble rendering yet; see app/api/chats/send/route.ts's own
+// comment for the send-side half.
+export const MessageMediaContactSchema = z
+  .object({
+    userId: z.string(),
+    phoneNumber: z.string().catch(""),
+    firstName: z.string().catch(""),
+    lastName: z.string().catch(""),
+    object: z.literal("media-contact"),
+  })
+  .catchall(z.unknown());
+export type MessageMediaContact = z.infer<typeof MessageMediaContactSchema>;
+
+// Same "only the variant we actually send" convention as
+// messageDocumentMedia above.
+export function messageContactMedia(msg: ChatMessage): MessageMediaContact[] {
+  const out: MessageMediaContact[] = [];
+  for (const item of msg.media) {
+    const parsed = MessageMediaContactSchema.safeParse(item);
+    if (parsed.success) out.push(parsed.data);
+  }
+  return out;
+}
+
 // Real text lives under `entities` (an array of typed spans -- only
 // `entity-text` carries a `.text` string; other entity types are just
 // passed through by MessageEntitySchema's catchall and ignored here) --

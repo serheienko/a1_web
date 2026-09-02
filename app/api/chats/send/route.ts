@@ -40,28 +40,64 @@ const SendInput = z
     // from the confirmed MediaDocument -- see the `media` mapping below
     // for the exact MessageInput.Media.Document shape chat-server wants.
     media: z.array(z.object({ fileReference: z.string().trim().min(1) })).max(10).optional(),
+    // 2026-09-02 (Aleksandr: "прокинь пока на бэке возможность
+    // отправлять контакты. Актуальный UI я потом тебе покажу") -- one
+    // entry per shared platform-contact, confirmed against
+    // MessageInput.Media.Contact: all four fields required by
+    // chat-server, no partial contact card allowed. The obvious source
+    // for these once a picker UI exists is /api/contacts/list's own
+    // `Contact` rows (lib/a1/schemas.ts) -- `user` -> userId, `phone` ->
+    // phoneNumber, `firstName`/`lastName` straight across -- but a
+    // Contact whose `phone` is null (this app doesn't collect one at
+    // add-time, see app/api/contacts/add/route.ts's own header; it only
+    // ever comes from the linked user's own profile, if they set one)
+    // simply can't be sent this way -- that UI will need to filter or
+    // grey those out, not something this route can paper over given the
+    // backend's own required field.
+    contacts: z
+      .array(
+        z.object({
+          userId: z.string().trim().min(1),
+          phoneNumber: z.string().trim().min(1),
+          firstName: z.string().trim().min(1),
+          lastName: z.string().trim().min(1),
+        }),
+      )
+      .max(5)
+      .optional(),
   })
-  .refine((v) => (v.text && v.text.length > 0) || (v.media && v.media.length > 0), {
-    message: "empty_message",
-  });
+  .refine(
+    (v) => (v.text && v.text.length > 0) || (v.media && v.media.length > 0) || (v.contacts && v.contacts.length > 0),
+    { message: "empty_message" },
+  );
 
 export async function POST(request: NextRequest) {
   const parsed = SendInput.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ ok: false, message: "invalid_input" }, { status: 400 });
   }
-  const { chatId, text, media } = parsed.data;
+  const { chatId, text, media, contacts } = parsed.data;
 
   try {
     // `message` and `media` are both optional on MessageInput (only
     // `peerTo` is required -- confirmed against the OpenAPI spec), so an
     // attachment-only send (no caption typed) omits `message` entirely
-    // instead of sending an empty string.
+    // instead of sending an empty string. `media` itself is a single
+    // array mixing whichever attachment variants are present -- chat-
+    // server's own MessageInput.Media is a 7-way union keyed by
+    // `object`, so a document and a contact can both go out in the same
+    // message's media[] (untested combination so far, but nothing in
+    // the spec suggests it's disallowed).
     const payload: Record<string, unknown> = { peerTo: peerForRouteParam(chatId) };
     if (text) payload.message = text;
+    const mediaItems: Record<string, unknown>[] = [];
     if (media && media.length > 0) {
-      payload.media = media.map((m) => ({ fileReference: m.fileReference, object: "media-document-input" }));
+      mediaItems.push(...media.map((m) => ({ fileReference: m.fileReference, object: "media-document-input" })));
     }
+    if (contacts && contacts.length > 0) {
+      mediaItems.push(...contacts.map((c) => ({ ...c, object: "media-contact" })));
+    }
+    if (mediaItems.length > 0) payload.media = mediaItems;
     const { data, refreshedSession } = await callAsVisitor<unknown>("messages.send", payload);
 
     // 2026-09-02: echoes the real created message back (parsed through
