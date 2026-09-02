@@ -202,6 +202,19 @@ export default function ChatWindowPage() {
   const inFlight = useRef(false);
   const lastTypingSentAt = useRef(0);
   const messagesScrollRef = useRef<HTMLDivElement>(null);
+  // 2026-09-02 (Aleksandr: "input field должен по высоте увеличиваться
+  // по мере того как мы пишем текст... в мобильной версии максимум
+  // плюс 4-5 строк, в веб-версии строк на 7") -- textareaRef drives the
+  // scrollHeight-based auto-grow effect below; composeBarRef/
+  // composeBarHeight mirror components/site-nav.tsx's own ResizeObserver
+  // pattern (published there as --site-nav-h) so the message list's
+  // bottom padding always matches the compose bar's REAL height instead
+  // of the old fixed pb-28, which only ever accounted for a single-line
+  // bar -- a grown textarea would otherwise sit on top of (and the fixed
+  // bar would cover) the last message or two.
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const composeBarRef = useRef<HTMLDivElement>(null);
+  const [composeBarHeight, setComposeBarHeight] = useState(112);
   // Mirrors pendingMessages for the "online" listener below (registered
   // once, so it can't close over a fresh `pendingMessages` each render)
   // and guards against retrying the same bubble twice if a poll tick's
@@ -231,6 +244,32 @@ export default function ChatWindowPage() {
   useEffect(() => {
     setIsTouch(window.matchMedia("(pointer: coarse)").matches);
   }, []);
+
+  useEffect(() => {
+    const el = composeBarRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setComposeBarHeight(el.offsetHeight));
+    ro.observe(el);
+    setComposeBarHeight(el.offsetHeight);
+    return () => ro.disconnect();
+  }, [state]);
+
+  // TEXTAREA_LINE_PX matches the textarea's own leading-5 (20px) class
+  // below. Resets to "auto" first so a deleted line can shrink the box
+  // back down, not just grow it -- scrollHeight only ever reports the
+  // content's natural height against whatever height is currently set,
+  // so it has to be cleared before re-measuring on every keystroke.
+  const TEXTAREA_LINE_PX = 20;
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const maxLines = isTouch ? 6 : 7;
+    const maxHeight = TEXTAREA_LINE_PX * maxLines;
+    const next = Math.min(el.scrollHeight, maxHeight);
+    el.style.height = `${next}px`;
+    el.style.overflowY = el.scrollHeight > maxHeight ? "auto" : "hidden";
+  }, [draft, isTouch]);
 
   const load = useCallback(async () => {
     if (inFlight.current) return;
@@ -570,10 +609,14 @@ export default function ChatWindowPage() {
         </div>
       </div>
 
-      {/* 2026-09-02: pb-28 clears the now-fixed compose bar below (it no
-          longer takes up flex space of its own -- see that bar's own
-          comment) so the last message/empty-state text never sits
-          underneath it.
+      {/* 2026-09-02: bottom padding clears the now-fixed compose bar below
+          (it no longer takes up flex space of its own -- see that bar's
+          own comment) so the last message/empty-state text never sits
+          underneath it. Used to be a flat pb-28 (112px, enough for the
+          bar's original single-line height); now matches the compose
+          bar's REAL live height instead (composeBarHeight, above) now
+          that the textarea itself can grow up to 6-7 lines tall -- see
+          the ResizeObserver effect next to isTouch's own for why.
           2026-09-02, follow-up (Aleksandr: "Здорово, как ты" и "Привет"
           слишком далеко друг от друга... приблизь их") -- this stayed at
           the old max-w-2xl (672px) when the compose bar and header row
@@ -583,7 +626,11 @@ export default function ChatWindowPage() {
           nothing else on the page still uses that width. Matching it to
           the same 470px keeps every row -- header, messages, compose --
           on one consistent column width. */}
-      <div ref={messagesScrollRef} className="flex-1 overflow-y-auto px-4 py-4 pb-28">
+      <div
+        ref={messagesScrollRef}
+        className="flex-1 overflow-y-auto px-4 pt-4"
+        style={{ paddingBottom: `${composeBarHeight + 16}px` }}
+      >
         <div className="mx-auto w-full max-w-[470px]">
         {state === "loading" && (
           <p className="mt-6 text-center text-sm text-[#989aa6] dark:text-[#adafbb]">
@@ -719,7 +766,7 @@ export default function ChatWindowPage() {
                       role={pending ? "button" : undefined}
                       tabIndex={pending ? 0 : undefined}
                       onClick={pending ? () => setOpenPendingId(pending.localId) : undefined}
-                      className={`animate-message-in max-w-[78%] rounded-[18px] px-3 py-2 text-[15px] leading-snug ${pending ? "cursor-pointer" : ""} ${
+                      className={`animate-message-in max-w-[78%] rounded-[18px] px-3 py-2 text-[17px] leading-snug ${pending ? "cursor-pointer" : ""} ${
                         mine ? "rounded-tr-[6px] bg-[#335ef7] text-white dark:bg-[#009bff]" : "rounded-tl-[6px] bg-white text-[#262a34] dark:bg-[#1a1a1a] dark:text-white"
                       } ${pending?.failed ? "opacity-70" : ""}`}
                     >
@@ -815,6 +862,7 @@ export default function ChatWindowPage() {
         // 470px is now the single source of truth, matched by the header
         // row above so the back button tracks the paperclip's x.
         <div
+          ref={composeBarRef}
           className="fixed inset-x-0 bottom-0 z-20 border-t border-black/5 bg-[#f2f2f7]/90 px-4 py-3 backdrop-blur-md dark:border-white/10 dark:bg-black/80"
           style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
         >
@@ -822,6 +870,7 @@ export default function ChatWindowPage() {
             <ChatPaperclipButton disabled={sending} />
             <div className="flex min-h-[42px] flex-1 items-center gap-2 rounded-[21px] border border-neutral-200 bg-white/90 px-3.5 py-2 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
               <textarea
+                ref={textareaRef}
                 value={draft}
                 onChange={(e) => {
                   setDraft(e.target.value);
@@ -835,7 +884,7 @@ export default function ChatWindowPage() {
                 }}
                 rows={1}
                 placeholder="Message"
-                className="min-h-[20px] flex-1 resize-none bg-transparent text-[15px] text-[#262a34] outline-none placeholder:text-[#989aa6] dark:text-white dark:placeholder:text-[#98989f]"
+                className="flex-1 resize-none bg-transparent text-[17px] leading-5 text-[#262a34] outline-none placeholder:text-[#989aa6] dark:text-white dark:placeholder:text-[#98989f]"
               />
               <ChatCatFieldIcon className="h-5 w-5 shrink-0 text-[#989aa6] dark:text-[#adafbb]" />
             </div>
