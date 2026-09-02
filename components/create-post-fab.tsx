@@ -44,6 +44,7 @@ import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
 import { PostEditor } from "@/components/post-editor";
 import { FabAuthPrompt } from "@/components/fab-auth-prompt";
+import { DraftsPicker, type DraftPost } from "@/components/drafts-picker";
 import { useHoverPanel } from "@/lib/use-hover-panel";
 
 type FabStringKey = "label";
@@ -90,7 +91,16 @@ export function CreatePostFab() {
   const router = useRouter();
   const [email, setEmail] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
+  const [editingDraft, setEditingDraft] = useState<DraftPost | null>(null);
   const [authPromptOpen, setAuthPromptOpen] = useState(false);
+  // 2026-09-02 (Aleksandr: "коли я повертаюся назад, у мене немає
+  // ніяких чернеток... а має бути написано, типу, чернетки") -- see
+  // components/drafts-picker.tsx's own header comment for the full
+  // story. `null` = not checked yet / none found (go straight to a
+  // blank editor, unchanged); a non-empty array shows the picker
+  // first instead.
+  const [drafts, setDrafts] = useState<DraftPost[] | null>(null);
+  const [draftsPickerOpen, setDraftsPickerOpen] = useState(false);
   // 2026-09-02 (Aleksandr: "давай в разлогиненом стейте тоже добавим к
   // этим попапс эффект появления при наведении, без клика") -- same
   // hook/wiring as components/chats-fab.tsx's own signed-out button;
@@ -124,12 +134,26 @@ export function CreatePostFab() {
   // обе кнопки и не уводи со страницы") -- this used to navigate
   // straight to /sign-in on a signed-out click. Now it opens the
   // anchored auth-prompt popover instead, right above this button.
-  function handleClick() {
-    if (email) {
-      setEditorOpen(true);
-    } else {
+  async function handleClick() {
+    if (!email) {
       setAuthPromptOpen(true);
+      return;
     }
+    try {
+      const res = await fetch("/api/posts/mine");
+      const data = await res.json();
+      const draftPosts: DraftPost[] = (data.posts ?? []).filter((p: DraftPost & { isDraft?: boolean }) => p.isDraft);
+      if (draftPosts.length > 0) {
+        setDrafts(draftPosts);
+        setDraftsPickerOpen(true);
+        return;
+      }
+    } catch {
+      // Same "never let a broken drafts lookup block posting" fallback
+      // as below -- open a blank editor same as always.
+    }
+    setEditingDraft(null);
+    setEditorOpen(true);
   }
 
   return (
@@ -159,8 +183,12 @@ export function CreatePostFab() {
 
       {editorOpen && (
         <PostEditor
-          mode="create"
-          onClose={() => setEditorOpen(false)}
+          mode={editingDraft ? "edit" : "create"}
+          initialPost={editingDraft ?? undefined}
+          onClose={() => {
+            setEditorOpen(false);
+            setEditingDraft(null);
+          }}
           // 2026-08-30 (Aleksandr: "чтобы лента сама типа дергалась, как
           // бы рефрешилась"): this FAB was the one PostEditor mount point
           // with no onSaved at all, so a post made from here never
@@ -179,6 +207,22 @@ export function CreatePostFab() {
         panelRef={panelRef}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
+      />
+
+      <DraftsPicker
+        open={draftsPickerOpen}
+        drafts={drafts ?? []}
+        onClose={() => setDraftsPickerOpen(false)}
+        onSelectDraft={(draft) => {
+          setDraftsPickerOpen(false);
+          setEditingDraft(draft);
+          setEditorOpen(true);
+        }}
+        onNewPost={() => {
+          setDraftsPickerOpen(false);
+          setEditingDraft(null);
+          setEditorOpen(true);
+        }}
       />
     </>
   );
