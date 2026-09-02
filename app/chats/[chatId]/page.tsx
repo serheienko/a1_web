@@ -180,36 +180,51 @@ export default function ChatWindowPage() {
 
   return (
     <div className="flex h-[100dvh] flex-col bg-[#f2f2f7] text-[#262a34] dark:bg-black dark:text-white">
-      <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-black/5 bg-[#f2f2f7]/90 px-4 py-3 backdrop-blur-md dark:border-white/10 dark:bg-black/80">
-        <Link
-          href="/chats"
-          aria-label="Back"
-          className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-[#335ef7] backdrop-blur-sm transition hover:bg-neutral-50 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80 dark:text-[#0c8ce9] dark:hover:bg-[#1c1c1e]"
-        >
-          <ChatBackArrow />
-        </Link>
-        <Image
-          src={headerAvatar}
-          alt=""
-          width={42}
-          height={42}
-          className="h-[42px] w-[42px] shrink-0 rounded-full object-cover"
-          placeholder="blur"
-          blurDataURL={BLUR_DATA_URL}
-          unoptimized
-        />
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-[15px] font-medium leading-tight">{headerTitle || "—"}</div>
-          {peerTyping && (
-            <div className="flex items-center gap-1.5 text-[13px] font-medium text-[#335ef7] dark:text-[#0c8ce9]">
-              <T uk="набирає" en="typing" ru="печатает" de="tippt" es="escribiendo" fr="écrit" pl="pisze" ptBR="digitando" zh="正在输入" />
-              <ChatTypingDots />
-            </div>
-          )}
+      {/* 2026-09-02 (Aleksandr, screen recording: back button and avatar
+          sat pinned to the far-left edge on a wide screen, way off from
+          the centered message column below) -- same mx-auto max-w-2xl
+          container app/chats/page.tsx, app/u/[username]/page.tsx and
+          app/jobs/[slug]/page.tsx all already center their own content
+          in, so the header row lines up with the messages/input below
+          on every screen width instead of spanning full-bleed. */}
+      <div className="sticky top-0 z-10 border-b border-black/5 bg-[#f2f2f7]/90 backdrop-blur-md dark:border-white/10 dark:bg-black/80">
+        <div className="mx-auto flex w-full max-w-2xl items-center gap-3 px-4 py-3">
+          <Link
+            href="/chats"
+            aria-label="Back"
+            className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-[#335ef7] backdrop-blur-sm transition hover:bg-neutral-50 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80 dark:text-[#0c8ce9] dark:hover:bg-[#1c1c1e]"
+          >
+            <ChatBackArrow />
+          </Link>
+          <Image
+            src={headerAvatar}
+            alt=""
+            width={42}
+            height={42}
+            className="h-[42px] w-[42px] shrink-0 rounded-full object-cover"
+            placeholder="blur"
+            blurDataURL={BLUR_DATA_URL}
+            unoptimized
+          />
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[15px] font-medium leading-tight">{headerTitle || "—"}</div>
+            {peerTyping && (
+              <div className="flex items-center gap-1.5 text-[13px] font-medium text-[#335ef7] dark:text-[#0c8ce9]">
+                <T uk="набирає" en="typing" ru="печатает" de="tippt" es="escribiendo" fr="écrit" pl="pisze" ptBR="digitando" zh="正在输入" />
+                <ChatTypingDots />
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4">
+      {/* 2026-09-02: pb-28 clears the now-fixed compose bar below (it no
+          longer takes up flex space of its own -- see that bar's own
+          comment) so the last message/empty-state text never sits
+          underneath it. Content itself is capped at the same max-w-2xl
+          as the header right above. */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 pb-28">
+        <div className="mx-auto w-full max-w-2xl">
         {state === "loading" && (
           <p className="mt-6 text-center text-sm text-[#989aa6] dark:text-[#adafbb]">
             <T uk="Завантаження…" en="Loading…" ru="Загрузка…" de="Wird geladen…" es="Cargando…" fr="Chargement…" pl="Ładowanie…" ptBR="Carregando…" zh="加载中…" />
@@ -309,13 +324,23 @@ export default function ChatWindowPage() {
             <div ref={scrollAnchorRef} />
           </div>
         )}
+        </div>
       </div>
 
       {state !== "signed-out" && (
-        <div className="border-t border-black/5 bg-[#f2f2f7]/90 px-4 py-3 backdrop-blur-md dark:border-white/10 dark:bg-black/80">
-          <div className="flex items-end gap-2">
+        // 2026-09-02, live-testing feedback (video + 2 screenshots): compose
+        // bar was drifting down the page instead of staying put -- now
+        // `fixed` to the viewport bottom, same pattern as the "+" create-post
+        // FAB (see create-post-fab.tsx: fixed + safe-area-inset-bottom via
+        // inline style). Row itself narrowed to roughly the width of the
+        // "Повідомлень ще немає..." empty-state text, per that same feedback.
+        <div
+          className="fixed inset-x-0 bottom-0 z-20 border-t border-black/5 bg-[#f2f2f7]/90 px-4 py-3 backdrop-blur-md dark:border-white/10 dark:bg-black/80"
+          style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
+        >
+          <div className="mx-auto flex w-full max-w-xs items-center gap-2">
             <ChatPaperclipButton disabled={sending} />
-            <div className="flex min-h-[38px] flex-1 items-center gap-2 rounded-[21px] border border-neutral-200 bg-white/90 px-3.5 py-2 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
+            <div className="flex min-h-[42px] flex-1 items-center gap-2 rounded-[21px] border border-neutral-200 bg-white/90 px-3.5 py-2 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
               <textarea
                 value={draft}
                 onChange={(e) => {
@@ -340,7 +365,7 @@ export default function ChatWindowPage() {
                 onClick={send}
                 disabled={sending}
                 aria-label="Send"
-                className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full bg-[#335ef7] text-white transition disabled:opacity-40 dark:bg-[#0c8ce9]"
+                className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-[#335ef7] text-white transition disabled:opacity-40 dark:bg-[#0c8ce9]"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M12 19V5M5 12l7-7 7 7" />

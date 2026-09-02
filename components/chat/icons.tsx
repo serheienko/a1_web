@@ -215,7 +215,7 @@ function ChatRoundIconButton({
       onClick={onClick}
       disabled={disabled}
       aria-label={label}
-      className={`flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-neutral-400 backdrop-blur-sm transition hover:text-neutral-600 disabled:opacity-40 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80 dark:text-[#adafbb] dark:hover:text-white ${className}`}
+      className={`flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-neutral-400 backdrop-blur-sm transition hover:text-neutral-600 disabled:opacity-40 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80 dark:text-[#adafbb] dark:hover:text-white ${className}`}
     >
       {children}
     </button>
