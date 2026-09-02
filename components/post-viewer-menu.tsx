@@ -11,7 +11,12 @@
 //
 //   [ Повідомлення ]  [ ••• ]
 //
-// Left is a pure stub for now (no chats yet — see the button below).
+// 2026-09-02 (Aleksandr: "Сделай функциональной кнопку 'сообщения' из
+// страниц постов"): Left is no longer a stub -- openChat() below
+// mirrors components/profile-action-row.tsx's own openChat() exactly
+// (same POST /api/chats/open, same flash-red-on-failure convention),
+// scoped to this post's authorUserId instead of a profile page's own
+// profileUserId.
 // The "•••" opens a dropdown with, in this exact order (Поскаржитись
 // deliberately excluded — "це попозже"):
 //   - Додати контакт        — functional (contacts.addContact, already
@@ -216,12 +221,21 @@ export function PostViewerMenu({
   postId,
   authorUserId,
   authorUsername,
+  authorName,
+  authorAvatarUrl,
   shareUrl,
   shareTitle,
 }: {
   postId: string;
   authorUserId: string | null;
   authorUsername: string | null;
+  // 2026-09-02: passed through to /chats/[chatId]'s own ?title=&avatar=
+  // query params on openChat() below, same as components/profile-
+  // action-row.tsx's own avatarUrl prop -- the chat header needs the
+  // POST AUTHOR's name/avatar, which isn't the same thing as this
+  // component's existing shareTitle (the post's own title).
+  authorName?: string | null;
+  authorAvatarUrl?: string | null;
   shareUrl: string;
   shareTitle: string;
 }) {
@@ -236,6 +250,8 @@ export function PostViewerMenu({
   const [viewerStatus, setViewerStatus] = useState<"loading" | "self" | "other" | "anon" | "error">("loading");
   const [open, setOpen] = useState(false);
   const [authPromptOpen, setAuthPromptOpen] = useState(false);
+  const [openingChat, setOpeningChat] = useState(false);
+  const [chatErrored, setChatErrored] = useState(false);
 
   // Contact toggle — same shape as components/add-contact-button.tsx's
   // status machine, reimplemented here as a text row (see this file's
@@ -327,6 +343,42 @@ export function PostViewerMenu({
     return null;
   }
   const isAnon = viewerStatus === "anon";
+
+  // 2026-09-02 (Aleksandr: "Сделай функциональной кнопку 'сообщения' из
+  // страниц постов") -- same POST /api/chats/open + flash-red-on-
+  // failure pattern components/profile-action-row.tsx's own openChat()
+  // already uses, scoped to authorUserId instead of profileUserId.
+  async function openChat() {
+    if (isAnon) {
+      setAuthPromptOpen(true);
+      return;
+    }
+    if (openingChat || !authorUserId) return;
+    setOpeningChat(true);
+    try {
+      const res = await authFetch("/api/chats/open", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: authorUserId }),
+      });
+      const data = await res.json().catch(() => null);
+      if (data?.ok && typeof data.chatId === "string") {
+        const qs = new URLSearchParams();
+        if (authorName) qs.set("title", authorName);
+        if (authorAvatarUrl) qs.set("avatar", authorAvatarUrl);
+        if (authorUsername) qs.set("username", authorUsername);
+        const suffix = qs.toString() ? `?${qs.toString()}` : "";
+        router.push(`/chats/${data.chatId}${suffix}`);
+        return;
+      }
+      throw new Error("open_failed");
+    } catch {
+      setChatErrored(true);
+      window.setTimeout(() => setChatErrored(false), 2200);
+    } finally {
+      setOpeningChat(false);
+    }
+  }
 
   async function toggleContact() {
     if (isAnon) {
@@ -434,16 +486,17 @@ export function PostViewerMenu({
     <div className="mt-4 flex items-center gap-2">
       <button
         type="button"
-        // Stub for a signed-in viewer (no chats-from-post yet, see this
-        // file's header comment) -- for a signed-out one, same auth
-        // popup every other real action in this row shows.
-        onClick={() => {
-          if (isAnon) setAuthPromptOpen(true);
-        }}
-        className="flex flex-1 items-center justify-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-accent transition hover:bg-accent/5 dark:border-neutral-700 dark:bg-neutral-900"
+        onClick={openChat}
+        disabled={openingChat}
+        aria-label={chatErrored ? STRINGS.actionFailed[lang] : STRINGS.message[lang]}
+        className={
+          chatErrored
+            ? "flex flex-1 items-center justify-center gap-2 rounded-full bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-default disabled:opacity-60"
+            : "flex flex-1 items-center justify-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-accent transition hover:bg-accent/5 disabled:cursor-default disabled:opacity-60 dark:border-neutral-700 dark:bg-neutral-900"
+        }
       >
         <MessageIcon />
-        {STRINGS.message[lang]}
+        {chatErrored ? STRINGS.actionFailed[lang] : STRINGS.message[lang]}
       </button>
 
       <div className="relative shrink-0">
