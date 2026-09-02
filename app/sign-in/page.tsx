@@ -52,7 +52,8 @@ type SignInStringKey =
   | "errorSignUp"
   | "backHome"
   | "orDivider"
-  | "createPostNotice";
+  | "createPostNotice"
+  | "profileActionNotice";
 
 const STRINGS: Record<SignInStringKey, Record<Locale, string>> = {
   signInTitle: {
@@ -139,6 +140,22 @@ const STRINGS: Record<SignInStringKey, Record<Locale, string>> = {
     ptBR: "Para criar uma publicação, cadastre-se ou entre.",
     zh: "要创建帖子，请注册或登录。",
   },
+  // 2026-09-02: shown when arrived via components/profile-action-row.tsx's
+  // signed-out click on Add contact / Message / Save (?reason=
+  // profile-action) -- same pattern as createPostNotice above, just for
+  // the profile action row Aleksandr asked to keep visible (not hidden)
+  // for signed-out visitors, gating the real actions on sign-in instead.
+  profileActionNotice: {
+    uk: "Щоб скористатися цією дією, зареєструйтесь або увійдіть.",
+    en: "To use this action, please sign up or sign in.",
+    ru: "Чтобы воспользоваться этим действием, зарегистрируйтесь или войдите.",
+    de: "Um diese Aktion zu nutzen, registrieren Sie sich oder melden Sie sich an.",
+    es: "Para usar esta acción, regístrate o inicia sesión.",
+    fr: "Pour utiliser cette action, inscrivez-vous ou connectez-vous.",
+    pl: "Aby skorzystać z tej funkcji, zarejestruj się lub zaloguj.",
+    ptBR: "Para usar esta ação, cadastre-se ou entre.",
+    zh: "要使用此功能，请注册或登录。",
+  },
 };
 
 function useActiveLocale(): Locale {
@@ -175,10 +192,12 @@ export default function SignInPage() {
   // cosmetic client read" reasoning this page already applies to locale/
   // theme (see useActiveLocale above).
   const [showCreatePostNotice, setShowCreatePostNotice] = useState(false);
+  const [showProfileActionNotice, setShowProfileActionNotice] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     setShowCreatePostNotice(params.get("reason") === "create-post");
+    setShowProfileActionNotice(params.get("reason") === "profile-action");
   }, []);
 
   async function onSubmit(e: React.FormEvent) {
@@ -241,6 +260,12 @@ export default function SignInPage() {
         {showCreatePostNotice && (
           <p className="-mt-3 mb-6 rounded-xl bg-accent/10 px-3 py-2 text-center text-sm text-accent">
             {STRINGS.createPostNotice[lang]}
+          </p>
+        )}
+
+        {showProfileActionNotice && (
+          <p className="-mt-3 mb-6 rounded-xl bg-accent/10 px-3 py-2 text-center text-sm text-accent">
+            {STRINGS.profileActionNotice[lang]}
           </p>
         )}
 

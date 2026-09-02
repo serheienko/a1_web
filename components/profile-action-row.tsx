@@ -255,7 +255,7 @@ export function ProfileActionRow({
   shareTitle: string;
 }) {
   const lang = useActiveLocale();
-  const [visible, setVisible] = useState(false);
+  const [viewerStatus, setViewerStatus] = useState<"loading" | "self" | "other" | "anon" | "error">("loading");
   const [menuOpen, setMenuOpen] = useState(false);
 
   // 2026-09-02 (Aleksandr, live screenshots of a real profile: "зроби,
@@ -297,18 +297,28 @@ export function ProfileActionRow({
   // menu.tsx's own "message row" gate): signed in AND looking at
   // someone else's profile. Own profile / signed-out visitor -> this
   // whole row renders nothing, same as the badge it replaces did.
+  // 2026-09-02 (Aleksandr: show this row to signed-out visitors too --
+  // "можно показывать и когда не залогинен, просто при нажатии на
+  // каждую кнопку показывать попап залогиньтесь или зайдите" -- a
+  // signed-out click on a real action now routes to /sign-in instead of
+  // performing it, same ?reason= pattern components/create-post-fab.tsx
+  // already established, rather than hiding the whole row like before.
+  // Own profile still hides this row entirely (components/edit-profile-
+  // button.tsx covers that case).
   useEffect(() => {
-    console.error("PAR_DEBUG effect fired", { username });
     let cancelled = false;
     authFetch("/api/account/whoami")
       .then((r) => r.json())
       .then((data) => {
-        console.error("PAR_DEBUG whoami resolved", { cancelled, data, username });
-        if (cancelled || !data?.ok) return;
-        if (data.username && data.username !== username) setVisible(true);
+        if (cancelled) return;
+        if (!data?.ok) {
+          setViewerStatus("anon");
+          return;
+        }
+        setViewerStatus(data.username && data.username === username ? "self" : "other");
       })
-      .catch((err) => {
-        console.error("PAR_DEBUG whoami errored", err);
+      .catch(() => {
+        if (!cancelled) setViewerStatus("error");
       });
     return () => {
       cancelled = true;
@@ -316,7 +326,7 @@ export function ProfileActionRow({
   }, [username]);
 
   useEffect(() => {
-    if (!profileUserId) {
+    if (!profileUserId || viewerStatus !== "other") {
       setContactStatus("idle");
       return;
     }
@@ -343,14 +353,14 @@ export function ProfileActionRow({
     return () => {
       cancelled = true;
     };
-  }, [profileUserId]);
+  }, [profileUserId, viewerStatus]);
 
   // Initial "already saved" state -- app/api/favorites/users/route.ts's
   // own `id` field is the raw backend _id, same shape profileUserId
   // already is (see that route's comment), so a direct id compare is
   // enough; no separate "is this user favorited" endpoint needed.
   useEffect(() => {
-    if (!profileUserId) {
+    if (!profileUserId || viewerStatus !== "other") {
       setSaveStatus("idle");
       return;
     }
@@ -372,17 +382,23 @@ export function ProfileActionRow({
     return () => {
       cancelled = true;
     };
-  }, [profileUserId]);
+  }, [profileUserId, viewerStatus]);
 
-  // TEMP DEBUG 2026-09-02 (Aleksandr, "Запушил, тестируй" -- the row
-  // is silently not rendering for any 3rd-party profile on prod, no
-  // console errors, no network calls for its own effects at all --
-  // this unconditional log (runs on every render, before the early
-  // return) is here ONLY to see the actual visible/profileUserId
-  // values live. Remove once the real cause is found.
-  console.error("PAR_DEBUG", { visible, profileUserId, username });
-
-  if (!visible || !profileUserId) return null;
+  // 2026-09-02: root cause of the old "silently never renders" bug
+  // turned out to be exactly what this row's gating already implied --
+  // `visible` stayed false forever for anyone not signed in as a
+  // DIFFERENT user, INCLUDING every signed-out visitor, so the row's
+  // early "return null" below just never went away for them (confirmed
+  // against Vercel's own server logs: this render ran fine on every
+  // request server-side, the debug log just never had anything to show
+  // since visible was always false there too -- there was no bug in
+  // React or hydration, just a permanently-false gate). Aleksandr's
+  // call once that was clear: show the row to signed-out visitors too
+  // instead of hiding it -- see the effect above and isAnon below.
+  if (viewerStatus === "loading" || viewerStatus === "self" || viewerStatus === "error" || !profileUserId) {
+    return null;
+  }
+  const isAnon = viewerStatus === "anon";
 
   function flashContactError() {
     setContactErrored(true);
@@ -390,6 +406,10 @@ export function ProfileActionRow({
   }
 
   async function toggleContact() {
+    if (isAnon) {
+      window.location.href = "/sign-in?reason=profile-action";
+      return;
+    }
     if (contactStatus === "busy" || !profileUserId) return;
     if (contactStatus === "on") {
       if (!contactId) return;
@@ -444,6 +464,10 @@ export function ProfileActionRow({
   }
 
   async function toggleSave() {
+    if (isAnon) {
+      window.location.href = "/sign-in?reason=profile-action";
+      return;
+    }
     if (saveStatus === "busy" || !profileUserId) return;
     const wasOn = saveStatus === "on";
     setSaveStatus("busy");
@@ -491,6 +515,10 @@ export function ProfileActionRow({
   }
 
   async function openChat() {
+    if (isAnon) {
+      window.location.href = "/sign-in?reason=profile-action";
+      return;
+    }
     if (openingChat || !profileUserId) return;
     setOpeningChat(true);
     try {
