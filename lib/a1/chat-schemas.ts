@@ -292,6 +292,52 @@ export function messageContactMedia(msg: ChatMessage): MessageMediaContact[] {
   return out;
 }
 
+// Calculation/quote attachment (Aleksandr, 2026-09-02, native-app
+// screenshot of an invoice-style card with Description/Cost/Qty/Subt
+// columns: "поищи плз, у нас есть еще такая фича, calculations") --
+// CONFIRMED against the OpenAPI spec, but a meaningfully DIFFERENT
+// shape of "attachment" than the two above: it's not a media.getUrl-
+// style resource at all, it's Resource.RichText.Calculation -- a
+// member of the `entities` union (same array `entity-text` already
+// lives in), not `media`. Same literal on both send and read (no
+// MessageInput-vs-Resource split): `{ note, currency, rows: [{
+// quantity, unitAmount (integer cents), description }], object:
+// "entity-calculation" }`. Data-layer only for now, same as the
+// contact attachment above -- Aleksandr wants to bring his own
+// calculator-form UI (add/remove row, currency picker, running total)
+// separately; see app/api/chats/send/route.ts's own comment for the
+// send-side half and why it does NOT also set `message` when a
+// calculation is being sent.
+const MessageCalculationRowSchema = z
+  .object({
+    quantity: z.number().catch(0),
+    unitAmount: z.number().catch(0),
+    description: z.string().nullable().optional(),
+  })
+  .catchall(z.unknown());
+
+export const MessageCalculationSchema = z
+  .object({
+    note: z.string().catch(""),
+    currency: z.string().catch(""),
+    rows: z.array(MessageCalculationRowSchema).catch([]),
+    object: z.literal("entity-calculation"),
+  })
+  .catchall(z.unknown());
+export type MessageCalculation = z.infer<typeof MessageCalculationSchema>;
+
+// Unlike messageDocumentMedia/messageContactMedia (an array -- several
+// documents or contacts can ride one message), every real example in
+// the OpenAPI spec shows at most one calculation per message, so this
+// returns the first match (or null) rather than a list.
+export function messageCalculation(msg: ChatMessage): MessageCalculation | null {
+  for (const item of msg.entities) {
+    const parsed = MessageCalculationSchema.safeParse(item);
+    if (parsed.success) return parsed.data;
+  }
+  return null;
+}
+
 // Real text lives under `entities` (an array of typed spans -- only
 // `entity-text` carries a `.text` string; other entity types are just
 // passed through by MessageEntitySchema's catchall and ignored here) --

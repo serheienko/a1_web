@@ -65,9 +65,45 @@ const SendInput = z
       )
       .max(5)
       .optional(),
+    // 2026-09-02 (Aleksandr, native-app screenshot of an invoice card
+    // with Description/Cost/Qty/Subt columns: "поищи плз, у нас есть
+    // еще такая фича, calculations") -- confirmed against
+    // Resource.RichText.Calculation: a QUOTE, not a media attachment --
+    // it rides in `entities` (the same array plain message text already
+    // lives in as `entity-text`), not `media`. `unitAmount` is
+    // documented as integer CENTS ("$1.50" -> 150) -- this app's own
+    // post-editor salary amounts (lib/format.ts's formatAmount) are
+    // whole units, not cents, so a future calculator UI must NOT reuse
+    // that formatter unmodified. `note`/`currency`/`rows` are all
+    // required by chat-server (rows may be an empty array -- the
+    // reference screenshot's own "0 USD" state before any row is added
+    // -- but the key itself must be present).
+    calculation: z
+      .object({
+        note: z.string().trim().max(200),
+        currency: z
+          .string()
+          .trim()
+          .length(3)
+          .transform((v) => v.toLowerCase()),
+        rows: z
+          .array(
+            z.object({
+              quantity: z.number().int().min(1),
+              unitAmount: z.number().int().min(0),
+              description: z.string().trim().max(300).nullable().optional(),
+            }),
+          )
+          .max(50),
+      })
+      .optional(),
   })
   .refine(
-    (v) => (v.text && v.text.length > 0) || (v.media && v.media.length > 0) || (v.contacts && v.contacts.length > 0),
+    (v) =>
+      (v.text && v.text.length > 0) ||
+      (v.media && v.media.length > 0) ||
+      (v.contacts && v.contacts.length > 0) ||
+      v.calculation !== undefined,
     { message: "empty_message" },
   );
 
@@ -76,7 +112,7 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ ok: false, message: "invalid_input" }, { status: 400 });
   }
-  const { chatId, text, media, contacts } = parsed.data;
+  const { chatId, text, media, contacts, calculation } = parsed.data;
 
   try {
     // `message` and `media` are both optional on MessageInput (only
@@ -89,7 +125,6 @@ export async function POST(request: NextRequest) {
     // message's media[] (untested combination so far, but nothing in
     // the spec suggests it's disallowed).
     const payload: Record<string, unknown> = { peerTo: peerForRouteParam(chatId) };
-    if (text) payload.message = text;
     const mediaItems: Record<string, unknown>[] = [];
     if (media && media.length > 0) {
       mediaItems.push(...media.map((m) => ({ fileReference: m.fileReference, object: "media-document-input" })));
@@ -98,6 +133,35 @@ export async function POST(request: NextRequest) {
       mediaItems.push(...contacts.map((c) => ({ ...c, object: "media-contact" })));
     }
     if (mediaItems.length > 0) payload.media = mediaItems;
+    if (calculation) {
+      // A calculation lives in `entities`, not `media` -- and unlike
+      // `media` (a separate top-level field from `message`), `entities`
+      // is where plain message TEXT itself canonically lives too (a
+      // real stored message's text is `entities: [{object:"entity-
+      // text",...}]`, confirmed in MessageSchema's own header comment).
+      // Whether chat-server would even accept both a flat `message`
+      // string AND an explicit `entities` array on the same send, and
+      // if so how it reconciles them, is NOT confirmed -- rather than
+      // guess, a caption typed alongside a calculation is folded into
+      // this SAME entities array as its own entity-text, and `message`
+      // is left unset whenever `entities` is being sent. Revisit this
+      // the moment it's actually live-tested (nothing has pushed yet).
+      const entities: Record<string, unknown>[] = [];
+      if (text) entities.push({ object: "entity-text", text });
+      entities.push({
+        object: "entity-calculation",
+        note: calculation.note,
+        currency: calculation.currency,
+        rows: calculation.rows.map((r) => ({
+          quantity: r.quantity,
+          unitAmount: r.unitAmount,
+          description: r.description ?? null,
+        })),
+      });
+      payload.entities = entities;
+    } else if (text) {
+      payload.message = text;
+    }
     const { data, refreshedSession } = await callAsVisitor<unknown>("messages.send", payload);
 
     // 2026-09-02: echoes the real created message back (parsed through
