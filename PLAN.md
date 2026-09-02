@@ -3862,3 +3862,81 @@ literal visual parity, per Aleksandr's own "+-" in his request.
 Not live-tested yet (needs a push). Next, if Aleksandr wants it: link
 this same popup from the other three upload surfaces' quota banners
 instead of just the chat attach popover.
+
+### 6.76 Contact attachments get their real UI -- picker + sent-card, built from screenshots alone (2026-09-02)
+
+Follow-up to §6.72 (backend-only contact plumbing, UI explicitly
+deferred to Aleksandr at the time). This time he sent 3 native-app
+screenshots (the Contacts picker, twice, plus a "sent contact" card
+inside a forwarded-message bubble: name, occupation pill, phone row,
+rocket-icon expertise row, a "Message" button) and asked directly:
+"можешь отсюда и взять? Или тебе лучше дать именно из фигмы?"
+
+Answer given and acted on: screenshots were enough, no Figma needed --
+confirmed by first researching what this repo already had rather than
+guessing from pixels. That research turned up real, reusable
+infrastructure:
+
+- `GET /api/contacts/list` already existed (built earlier, 2026-08-31,
+  for app/contacts/page.tsx's own "contact book") -- wraps
+  contacts.search, already resolves each contact's linked platform user
+  via parseUserProfile, already returns a `contactUsers` summary map.
+  Extended it with `occupation`/`expertise` (the full UserProfile was
+  already being parsed there, those two fields just weren't copied into
+  the old narrower summary) -- covers the picker's rows AND a
+  just-picked contact's optimistic card preview with zero new
+  round-trips.
+- `POST /api/chats/open` already existed too (same 2026-08-31 pass) --
+  finds-or-creates a personal chat with a userId. Reused as-is for the
+  new card's "Message" button (openChatWithUser in app/chats/[chatId]/
+  page.tsx, same pattern app/contacts/page.tsx's own chat icon already
+  uses).
+- app/u/[username]/page.tsx already established which fields the
+  screenshot's pills/rows actually are: `occupation` (one of 3 values,
+  components/occupation-labels.ts) is the pill, `expertise` is the
+  freeform rocket-icon line -- confirmed by reading that page's own
+  rendering rather than guessing from a raster screenshot.
+
+New this pass:
+
+- `POST /api/users/summaries` (new route): batch `users.getUsers` by
+  id, for resolving occupation/expertise/avatar on an ALREADY-sent
+  contact-media message -- distinct from /api/contacts/list because a
+  received contact message can reference someone who was never in MY
+  contacts.search results at all (something a collocutor forwarded).
+  Deliberately whitelists its response (no phoneNumber/email/dob passed
+  through) since it bypasses lib/a1/user-mappers.ts's own SHOW_*-flag
+  privacy gate built for the single-profile page.
+- `components/chat/contact-message-card.tsx`: the actual card --
+  avatar, name, occupation pill, phone, expertise, "Message" button.
+  Confirmed via AskUserQuestion: only the Message button is a click
+  target (Aleksandr: "Функциональный тап только по кнопке message"),
+  not the whole card like app/contacts/page.tsx's own two-target rows.
+- `components/chat/contacts-picker-modal.tsx`: alphabetically grouped
+  (matching the screenshot's letter headers), client-side search filter,
+  multi-pick up to 5 (chat-server's own SendInput cap, confirmed against
+  app/api/chats/send/route.ts -- NOT the 10-item media cap, a real bug
+  caught and fixed before commit: first wired it to the wrong constant).
+  Contacts with no phone number are filtered out of the list ENTIRELY
+  (also an AskUserQuestion-confirmed decision) -- phoneNumber is
+  required by chat-server's own MessageInput.Media.Contact, so an
+  unlinked/phone-less contact literally cannot be sent this way.
+- app/chats/[chatId]/page.tsx: new "Contact" row in the attach popover
+  (third row, next to Фото/Файл); `pendingContacts` state + compose-bar
+  chips (avatar + name + remove); send()/attemptSend()/retryOne() now
+  thread a `contacts` array through to /api/chats/send; message-bubble
+  rendering for both the pending/optimistic and the real
+  messageContactMedia case; a guarded batch-fetch effect
+  (`attemptedContactIdsRef`) so a permanently-unresolvable contact
+  (deleted account) doesn't refire /api/users/summaries on every 3s poll
+  tick forever.
+
+Deliberately deferred (scope cut, not an oversight): the reference
+card's SECOND pill (a workInterests category tag, e.g. "B2B"/"Media" in
+Aleksandr's screenshots) -- needs a category-id -> label dataset lookup
+(dataset.workInterests) this pass doesn't build. Only the occupation
+pill + expertise line ship. If Aleksandr wants pixel-exact parity later,
+that's the next piece.
+
+Not live-tested yet (needs a push, same as everything else this
+session). tsc-clean; every file's diff reviewed before commit.
