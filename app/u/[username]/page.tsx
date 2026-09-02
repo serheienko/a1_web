@@ -46,30 +46,20 @@ import { OccupationIcon } from "@/components/occupation-icon";
 import { OCCUPATION_LABELS } from "@/components/occupation-labels";
 import { WORK_STYLE_PREFERENCE_SECTIONS } from "@/components/work-style-labels";
 import { EditProfileButton } from "@/components/edit-profile-button";
-import dynamic from "next/dynamic";
+// 2026-09-02: WAS briefly routed through next/dynamic() here to try to
+// dodge a suspected chunk-loading race (see PLAN.md) -- reverted, that
+// attempt produced a DIFFERENT broken RSC payload (a stray "$L40"
+// reference pointing at an unrelated element, not at this component)
+// rather than fixing anything, so it was a regression, not a fix. Back
+// to the plain import while the real cause is still being tracked down
+// with the user directly (asked them to run `npm run dev` locally and
+// share the actual browser error, since remote testing can't see one).
+import { ProfileActionRow } from "@/components/profile-action-row";
 import { MarqueeName } from "@/components/marquee-name";
 import { FavoriteCover, FavoriteCoverFallback, type FavoriteKind } from "@/components/favorite-cover";
 import { fetchBookCoverUrl, fetchMovieCoverUrl, fetchGameCoverUrl, type CoverImage } from "@/lib/covers";
 
 const SITE_URL = "https://jobs.a1appp.com";
-
-// 2026-09-02 (Aleksandr live-tested this on prod after 3525acd: the row
-// never rendered for ANY 3rd-party profile -- server correctly sends the
-// element with a real profileUserId, the JS chunk loads fine, the webpack
-// module resolves fine when required by hand from the console, yet React
-// never invokes the component and never logs any error -- consistent with
-// a known Next.js/Flight bug where a client reference sharing the SAME
-// chunk as the page's own bootstrap script can wait forever on a script
-// "load" event that already fired before the listener attached. Forcing
-// this one import through next/dynamic() splits it into its own
-// explicitly-async chunk instead of inlining it into page.tsx's bundle,
-// which sidesteps that race. ssr: true keeps the existing SSR-then-
-// hydrate behavior (the component itself already renders null until its
-// own client-side effects resolve, so there is no extra flash either way).
-const ProfileActionRow = dynamic(
-  () => import("@/components/profile-action-row").then((m) => m.ProfileActionRow),
-  { ssr: true },
-);
 
 type Props = { params: Promise<{ username: string }> };
 
