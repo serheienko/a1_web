@@ -125,6 +125,33 @@ export default function ChatsPage() {
   const [chats, setChats] = useState<ChatListItem[]>([]);
   const [query, setQuery] = useState("");
   const inFlight = useRef(false);
+  // 2026-09-02 (Aleksandr: "Аватары в чатах все равно моргают раз в 5
+  // сек") -- root-caused live via Chrome devtools: chat.avatarUrl (built
+  // in app/api/chats/list/route.ts from the OTHER participant's photo
+  // doc, via lib/a1/mappers.ts's buildMediaProxyUrl) embeds that photo
+  // doc's own `fileReference` as a query param, and a live A/B fetch of
+  // /api/chats/list ten seconds apart proved that fileReference string
+  // itself comes back DIFFERENT each call for the exact same photo
+  // (contacts.search apparently re-signs/rotates it server-side, out of
+  // our control) -- while avatarBlurDataUrl and everything else stayed
+  // byte-identical between those two calls. So every single 5s poll
+  // handed the very same avatar a brand-new /api/media/... URL, and the
+  // browser correctly treated that as a genuinely different image to
+  // load, causing exactly the periodic blink Aleksandr saw -- confirmed
+  // via a live MutationObserver: the <img>'s own src attribute was being
+  // rewritten on every poll tick even though nothing about the photo had
+  // changed. Since the very first avatarUrl we ever see for a chat is
+  // already a real, working, freshly-resolved link (and app/api/media's
+  // own route caches ITS redirect response for 24h, so an older-but-
+  // still-valid fileReference keeps serving fine), the fix is to simply
+  // stop asking the <img> to re-resolve a link it already has: this map
+  // pins each chat's avatarUrl to whatever value we first saw for it,
+  // and every later poll reuses that pinned value instead of the fresh
+  // (but pointlessly different) one the API just returned. A real new
+  // profile photo only shows up after a full page reload, same
+  // acceptable tradeoff every other avatar spot on this site already
+  // makes (nothing here polls a photo's own "did it change" signal).
+  const pinnedAvatarUrls = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
     let cancelled = false;
@@ -144,7 +171,14 @@ export default function ChatsPage() {
           setState((prev) => (prev === "ready" ? prev : "error"));
           return;
         }
-        setChats(data.chats ?? []);
+        const rawChats: ChatListItem[] = data.chats ?? [];
+        const stabilized = rawChats.map((chat) => {
+          const pinned = pinnedAvatarUrls.current.get(chat.id);
+          if (pinned) return chat.avatarUrl === pinned ? chat : { ...chat, avatarUrl: pinned };
+          pinnedAvatarUrls.current.set(chat.id, chat.avatarUrl);
+          return chat;
+        });
+        setChats(stabilized);
         setState("ready");
       } catch {
         if (!cancelled) setState((prev) => (prev === "ready" ? prev : "error"));
