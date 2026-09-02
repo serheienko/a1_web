@@ -235,6 +235,39 @@ export default function ChatWindowPage() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const composeBarRef = useRef<HTMLDivElement>(null);
   const [composeBarHeight, setComposeBarHeight] = useState(112);
+  // 2026-09-02 (Aleksandr, live screenshot with the keyboard open: "у
+  // нас, когда открывается это, уезжает наверх София Беннетт, стрелочка
+  // и аватар. Они должны быть зафиксированными тоже сверху") -- this
+  // header used to be `sticky top-0` *inside* this page's own flex
+  // column, which is exactly why it scrolled away: focusing the compose
+  // textarea makes iOS Safari force-scroll the document to keep that
+  // field clear of the keyboard, and a `sticky` element just rides along
+  // with whatever ancestor actually did the scrolling. The compose bar
+  // right below stayed correctly pinned through the same keyboard-open
+  // moment because it's `position: fixed` (real viewport, not this
+  // column) -- so the header gets the identical treatment below (see
+  // its own JSX), truly fixed on mobile where it now also owns the top
+  // of the screen (components/site-nav.tsx hides itself there on this
+  // route). Kept `sticky` at `sm:` and up, unchanged -- desktop was
+  // never the problem, and switching it to `fixed` there would need its
+  // own top offset math against site-nav's real height for no benefit.
+  // headerHeight/headerRef mirror composeBarHeight/composeBarRef's own
+  // ResizeObserver just below, so the message list can pad its top by
+  // this header's REAL rendered height (which varies by device, thanks
+  // to `env(safe-area-inset-top)`) instead of a guessed constant -- but
+  // only while the header is actually `fixed` and out of normal flow;
+  // see isMobileNav below for why.
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [headerHeight, setHeaderHeight] = useState(64);
+  // Same one-shot `matchMedia` read as isTouch below (this file's own
+  // established pattern) -- decides whether the header above is
+  // currently rendered `fixed` (mobile, out of flow, needs the message
+  // list's top padding driven by headerHeight) or `sticky` (desktop,
+  // still in flow, already pushes the message list down on its own).
+  const [isMobileNav, setIsMobileNav] = useState(true);
+  useEffect(() => {
+    setIsMobileNav(!window.matchMedia("(min-width: 640px)").matches);
+  }, []);
   // Mirrors pendingMessages for the "online" listener below (registered
   // once, so it can't close over a fresh `pendingMessages` each render)
   // and guards against retrying the same bubble twice if a poll tick's
@@ -271,6 +304,15 @@ export default function ChatWindowPage() {
     const ro = new ResizeObserver(() => setComposeBarHeight(el.offsetHeight));
     ro.observe(el);
     setComposeBarHeight(el.offsetHeight);
+    return () => ro.disconnect();
+  }, [state]);
+
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setHeaderHeight(el.offsetHeight));
+    ro.observe(el);
+    setHeaderHeight(el.offsetHeight);
     return () => ro.disconnect();
   }, [state]);
 
@@ -613,7 +655,10 @@ export default function ChatWindowPage() {
           padding itself -- `sm:pt-0` drops it again at the breakpoint
           where site-nav reappears and already reserves that space,
           avoiding a doubled-up gap on desktop. */}
-      <div className="sticky top-0 z-10 border-b border-black/5 bg-[#f2f2f7]/90 pt-[env(safe-area-inset-top)] backdrop-blur-md dark:border-white/10 dark:bg-black/80 sm:pt-0">
+      <div
+        ref={headerRef}
+        className="fixed inset-x-0 top-0 z-10 border-b border-black/5 bg-[#f2f2f7]/90 pt-[env(safe-area-inset-top)] backdrop-blur-md dark:border-white/10 dark:bg-black/80 sm:sticky sm:pt-0"
+      >
         <div className="relative mx-auto flex w-full max-w-[470px] items-center px-4 py-3">
           <Link
             href="/chats"
@@ -698,7 +743,7 @@ export default function ChatWindowPage() {
       <div
         ref={messagesScrollRef}
         className="flex-1 overflow-y-auto px-4 pt-4"
-        style={{ paddingBottom: `${composeBarHeight + 16}px` }}
+        style={{ paddingBottom: `${composeBarHeight + 16}px`, paddingTop: isMobileNav ? `${headerHeight + 16}px` : undefined }}
       >
         <div className="mx-auto w-full max-w-[470px]">
         {state === "loading" && (
