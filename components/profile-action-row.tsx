@@ -77,7 +77,11 @@ type StringKey =
   | "unsaveProfile"
   | "mute"
   | "block"
-  | "actionFailed";
+  | "actionFailed"
+  | "authPromptTitle"
+  | "authPromptBody"
+  | "signInCta"
+  | "cancel";
 
 const STRINGS: Record<StringKey, Record<Locale, string>> = {
   addContact: {
@@ -120,6 +124,36 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   mute: { uk: "Вимкнути звук", en: "Mute", ru: "Заглушить", de: "Stummschalten", es: "Silenciar", fr: "Mettre en sourdine", pl: "Wycisz", ptBR: "Silenciar", zh: "静音" },
   block: { uk: "Заблокувати", en: "Block", ru: "Заблокировать", de: "Blockieren", es: "Bloquear", fr: "Bloquer", pl: "Zablokuj", ptBR: "Bloquear", zh: "屏蔽" },
   actionFailed: { uk: "Не вдалося. Спробуйте ще раз", en: "Failed — try again", ru: "Не удалось. Попробуйте ещё раз", de: "Fehlgeschlagen — erneut versuchen", es: "Error — inténtalo de nuevo", fr: "Échec — réessayez", pl: "Nie udało się — spróbuj ponownie", ptBR: "Falhou — tente novamente", zh: "失败，请重试" },
+  // 2026-09-02 (Aleksandr: "не уводить на страницу, а показывать попап
+  // поверх действия" -- NOT a redirect to /sign-in, a popup right over
+  // the current page): shown instead of performing the real action when
+  // a signed-out visitor taps Add contact / Message / Save -- see
+  // authPromptOpen below.
+  authPromptTitle: {
+    uk: "Увійдіть, щоб продовжити", en: "Sign in to continue", ru: "Войдите, чтобы продолжить",
+    de: "Melden Sie sich an, um fortzufahren", es: "Inicia sesión para continuar", fr: "Connectez-vous pour continuer",
+    pl: "Zaloguj się, aby kontynuować", ptBR: "Entre para continuar", zh: "登录以继续",
+  },
+  authPromptBody: {
+    uk: "Зареєструйтесь або увійдіть, щоб написати повідомлення, додати в контакти чи зберегти профіль.",
+    en: "Sign up or sign in to message, add to contacts, or save this profile.",
+    ru: "Зарегистрируйтесь или войдите, чтобы написать сообщение, добавить в контакты или сохранить профиль.",
+    de: "Registrieren oder anmelden, um zu schreiben, zu Kontakten hinzuzufügen oder zu speichern.",
+    es: "Regístrate o inicia sesión para enviar mensajes, añadir a contactos o guardar este perfil.",
+    fr: "Inscrivez-vous ou connectez-vous pour envoyer un message, ajouter aux contacts ou enregistrer ce profil.",
+    pl: "Zarejestruj się lub zaloguj, aby napisać wiadomość, dodać do kontaktów lub zapisać profil.",
+    ptBR: "Cadastre-se ou entre para enviar mensagem, adicionar aos contatos ou salvar o perfil.",
+    zh: "注册或登录即可发消息、添加联系人或保存此资料。",
+  },
+  signInCta: {
+    uk: "Увійти або зареєструватися", en: "Sign in or sign up", ru: "Войти или зарегистрироваться",
+    de: "Anmelden oder registrieren", es: "Iniciar sesión o registrarse", fr: "Se connecter ou s'inscrire",
+    pl: "Zaloguj się lub zarejestruj", ptBR: "Entrar ou cadastrar-se", zh: "登录或注册",
+  },
+  cancel: {
+    uk: "Скасувати", en: "Cancel", ru: "Отмена", de: "Abbrechen", es: "Cancelar",
+    fr: "Annuler", pl: "Anuluj", ptBR: "Cancelar", zh: "取消",
+  },
 };
 
 function useActiveLocale(): Locale {
@@ -257,6 +291,11 @@ export function ProfileActionRow({
   const lang = useActiveLocale();
   const [viewerStatus, setViewerStatus] = useState<"loading" | "self" | "other" | "anon" | "error">("loading");
   const [menuOpen, setMenuOpen] = useState(false);
+  // 2026-09-02: shown over the page (not a /sign-in redirect) when a
+  // signed-out visitor taps a real action -- see the JSX at the bottom
+  // of this component and the isAnon guards in toggleContact/toggleSave/
+  // openChat below.
+  const [authPromptOpen, setAuthPromptOpen] = useState(false);
 
   // 2026-09-02 (Aleksandr, live screenshots of a real profile: "зроби,
   // щоб іконка чатів у профілях тепер відкривала чат з ними") -- same
@@ -403,7 +442,7 @@ export function ProfileActionRow({
 
   async function toggleContact() {
     if (isAnon) {
-      window.location.href = "/sign-in?reason=profile-action";
+      setAuthPromptOpen(true);
       return;
     }
     if (contactStatus === "busy" || !profileUserId) return;
@@ -461,7 +500,7 @@ export function ProfileActionRow({
 
   async function toggleSave() {
     if (isAnon) {
-      window.location.href = "/sign-in?reason=profile-action";
+      setAuthPromptOpen(true);
       return;
     }
     if (saveStatus === "busy" || !profileUserId) return;
@@ -512,7 +551,7 @@ export function ProfileActionRow({
 
   async function openChat() {
     if (isAnon) {
-      window.location.href = "/sign-in?reason=profile-action";
+      setAuthPromptOpen(true);
       return;
     }
     if (openingChat || !profileUserId) return;
@@ -545,6 +584,7 @@ export function ProfileActionRow({
   const saveIcon = saveStatus === "on" ? <BookmarkFilledIcon /> : <BookmarkIcon />;
 
   return (
+    <>
     <div className="mt-4 grid grid-cols-4 gap-2">
       {/* Add/remove contact — the same toggle components/add-contact-
           button.tsx used to run as a standalone corner badge, now the
@@ -648,5 +688,44 @@ export function ProfileActionRow({
         )}
       </div>
     </div>
+
+    {authPromptOpen &&
+      createPortal(
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setAuthPromptOpen(false)}
+        >
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-xs rounded-2xl bg-white p-5 shadow-xl dark:bg-neutral-900"
+          >
+            <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">{STRINGS.authPromptTitle[lang]}</p>
+            <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{STRINGS.authPromptBody[lang]}</p>
+            <div className="mt-4 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthPromptOpen(false);
+                  router.push("/sign-in?reason=profile-action");
+                }}
+                className="rounded-full bg-accent py-2.5 text-sm font-bold tracking-wide text-white transition hover:opacity-90"
+              >
+                {STRINGS.signInCta[lang]}
+              </button>
+              <button
+                type="button"
+                onClick={() => setAuthPromptOpen(false)}
+                className="rounded-full border border-neutral-300 py-2.5 text-sm font-medium text-neutral-600 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+              >
+                {STRINGS.cancel[lang]}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+    </>
   );
 }
