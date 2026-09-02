@@ -124,7 +124,7 @@ export default function SignInPage() {
           menu.tsx's signed-out nav button) -- this page is just that
           component's own chrome (back link, card, full-page layout). */}
       <div className="rounded-card border border-neutral-200 bg-card p-8 shadow-lg shadow-neutral-900/5 dark:border-neutral-800 dark:bg-neutral-950 dark:shadow-black/40">
-        <InlineAuthForm lang={lang} notice={notice} />
+        <InlineAuthForm lang={lang} notice={notice} returnTo="/" />
       </div>
     </main>
   );

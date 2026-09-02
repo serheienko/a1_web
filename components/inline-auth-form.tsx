@@ -128,6 +128,7 @@ export function InlineAuthForm({
   notice,
   compact = false,
   initialMode = "sign-in",
+  returnTo,
 }: {
   /** Pass the caller's own already-resolved locale when it has one (avoids a
    * second, redundant document.documentElement class scan on mount). */
@@ -135,6 +136,22 @@ export function InlineAuthForm({
   notice?: string;
   compact?: boolean;
   initialMode?: AuthMode;
+  /**
+   * 2026-09-02 (Aleksandr: "все логины должны после залогинювання
+   * оставаться на тій сторінці, на якій ти був, не повинно уводити на
+   * інші сторінки") -- where a successful SIGN-IN (not sign-up, which
+   * still needs /onboarding/verify) sends the visitor. Every inline
+   * popover usage (components/fab-auth-prompt.tsx, components/avatar-
+   * menu.tsx's nav button, components/profile-action-row.tsx and
+   * components/post-viewer-menu.tsx's centered dialogs) leaves this
+   * unset on purpose, so it falls back to reloading the CURRENT URL --
+   * the visitor never navigated away in the first place, so "the page
+   * they were on" is just wherever this popover happens to be mounted.
+   * app/sign-in/page.tsx is the one exception: visiting that page IS a
+   * real navigation away from wherever the visitor started, so it pins
+   * this to "/" explicitly rather than reloading /sign-in itself.
+   */
+  returnTo?: string;
 }) {
   const detectedLang = useActiveLocale();
   const lang = langProp ?? detectedLang;
@@ -172,12 +189,16 @@ export function InlineAuthForm({
         setPending(false);
         return;
       }
-      // Full navigation on purpose, same as app/sign-in/page.tsx always
-      // did -- components/site-nav.tsx only reads its display cookie
-      // once on mount, so a client-side route change wouldn't pick up
-      // the new session. Sign-up goes through onboarding first, an
-      // existing account skips straight to "/".
-      window.location.href = mode === "sign-up" ? "/onboarding/verify" : "/";
+      // Full navigation on purpose -- components/site-nav.tsx only reads
+      // its display cookie once on mount, so a client-side route change
+      // wouldn't pick up the new session. Sign-up still goes through
+      // onboarding first (a brand-new account needs that regardless of
+      // where the form was opened from); sign-in returns to `returnTo`
+      // if the caller pinned one, otherwise reloads whatever page this
+      // form is already sitting on -- see the `returnTo` prop's own
+      // comment above.
+      window.location.href =
+        mode === "sign-up" ? "/onboarding/verify" : returnTo ?? window.location.pathname + window.location.search;
     } catch {
       setError(mode === "sign-in" ? INLINE_AUTH_STRINGS.errorSignIn[lang] : INLINE_AUTH_STRINGS.errorSignUp[lang]);
       setPending(false);

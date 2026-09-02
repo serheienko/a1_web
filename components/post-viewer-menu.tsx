@@ -64,6 +64,7 @@ import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
 import type { Contact } from "@/lib/a1/schemas";
 import { LottiePlayer } from "@/components/lottie-player";
+import { InlineAuthForm } from "@/components/inline-auth-form";
 import { useHoverPanel } from "@/lib/use-hover-panel";
 
 type StringKey =
@@ -251,6 +252,18 @@ export function PostViewerMenu({
   const [viewerStatus, setViewerStatus] = useState<"loading" | "self" | "other" | "anon" | "error">("loading");
   const [open, setOpen] = useState(false);
   const [authPromptOpen, setAuthPromptOpen] = useState(false);
+  // 2026-09-02 (Aleksandr: "все логины должны после залогинювання
+  // оставаться на той странице на которой ты был... тут тоже не уводи
+  // человека на отдельную страницу, показывай регистрацію/логін прям
+  // там модалкою") -- expands this same centered dialog into components/
+  // inline-auth-form.tsx's real form in place, mirroring components/
+  // fab-auth-prompt.tsx's own expand-in-place pattern. Reset back to
+  // the short pitch every time the dialog closes, same reasoning as
+  // that file's own comment.
+  const [authFormExpanded, setAuthFormExpanded] = useState(false);
+  useEffect(() => {
+    if (!authPromptOpen) setAuthFormExpanded(false);
+  }, [authPromptOpen]);
   const [openingChat, setOpeningChat] = useState(false);
   const [chatErrored, setChatErrored] = useState(false);
 
@@ -608,35 +621,41 @@ export function PostViewerMenu({
             role="alertdialog"
             aria-modal="true"
             onClick={(e) => e.stopPropagation()}
-            className="animate-modal-in w-full max-w-xs rounded-2xl bg-white p-5 shadow-xl dark:bg-neutral-900"
+            className={
+              "animate-modal-in max-h-[85vh] w-full overflow-y-auto rounded-2xl bg-white shadow-xl dark:bg-neutral-900 " +
+              (authFormExpanded ? "max-w-sm p-6" : "max-w-xs p-5")
+            }
           >
-            {/* Same cat-blink.json animation as components/profile-action-
-                row.tsx's identical popup -- see that file's comment for
-                the full "why". */}
-            <div className="mb-3 flex justify-center">
-              <LottiePlayer src="/animations/cat-blink.json" size={64} />
-            </div>
-            <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">{STRINGS.authPromptTitle[lang]}</p>
-            <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{STRINGS.authPromptBody[lang]}</p>
-            <div className="mt-4 flex flex-col gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthPromptOpen(false);
-                  router.push("/sign-in?reason=profile-action");
-                }}
-                className="rounded-full bg-accent py-2.5 text-sm font-bold tracking-wide text-white transition hover:opacity-90"
-              >
-                {STRINGS.signInCta[lang]}
-              </button>
-              <button
-                type="button"
-                onClick={() => setAuthPromptOpen(false)}
-                className="rounded-full border border-neutral-300 py-2.5 text-sm font-medium text-neutral-600 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
-              >
-                {STRINGS.cancel[lang]}
-              </button>
-            </div>
+            {authFormExpanded ? (
+              <InlineAuthForm lang={lang} compact />
+            ) : (
+              <>
+                {/* Same cat-blink.json animation as components/profile-action-
+                    row.tsx's identical popup -- see that file's comment for
+                    the full "why". */}
+                <div className="mb-3 flex justify-center">
+                  <LottiePlayer src="/animations/cat-blink.json" size={64} />
+                </div>
+                <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">{STRINGS.authPromptTitle[lang]}</p>
+                <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{STRINGS.authPromptBody[lang]}</p>
+                <div className="mt-4 flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAuthFormExpanded(true)}
+                    className="rounded-full bg-accent py-2.5 text-sm font-bold tracking-wide text-white transition hover:opacity-90"
+                  >
+                    {STRINGS.signInCta[lang]}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAuthPromptOpen(false)}
+                    className="rounded-full border border-neutral-300 py-2.5 text-sm font-medium text-neutral-600 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                  >
+                    {STRINGS.cancel[lang]}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>,
         document.body,

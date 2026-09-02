@@ -66,6 +66,7 @@ import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
 import type { Contact } from "@/lib/a1/schemas";
 import { LottiePlayer } from "@/components/lottie-player";
+import { InlineAuthForm } from "@/components/inline-auth-form";
 
 type StringKey =
   | "addContact"
@@ -303,6 +304,18 @@ export function ProfileActionRow({
   // of this component and the isAnon guards in toggleContact/toggleSave/
   // openChat below.
   const [authPromptOpen, setAuthPromptOpen] = useState(false);
+  // 2026-09-02 (Aleksandr: "все логины должны после залогинювання
+  // оставаться на той странице на которой ты был... тут тоже не уводи
+  // человека на отдельную страницу, показывай регистрацію/логін прям
+  // там модалкою") -- expands this same centered dialog into components/
+  // inline-auth-form.tsx's real form in place, mirroring components/
+  // fab-auth-prompt.tsx's own expand-in-place pattern. Reset back to
+  // the short pitch every time the dialog closes, same reasoning as
+  // that file's own comment.
+  const [authFormExpanded, setAuthFormExpanded] = useState(false);
+  useEffect(() => {
+    if (!authPromptOpen) setAuthFormExpanded(false);
+  }, [authPromptOpen]);
 
   // 2026-09-02 (Aleksandr, live screenshots of a real profile: "зроби,
   // щоб іконка чатів у профілях тепер відкривала чат з ними") -- same
@@ -738,40 +751,46 @@ export function ProfileActionRow({
             role="alertdialog"
             aria-modal="true"
             onClick={(e) => e.stopPropagation()}
-            className="animate-modal-in w-full max-w-xs rounded-2xl bg-white p-5 shadow-xl dark:bg-neutral-900"
+            className={
+              "animate-modal-in max-h-[85vh] w-full overflow-y-auto rounded-2xl bg-white shadow-xl dark:bg-neutral-900 " +
+              (authFormExpanded ? "max-w-sm p-6" : "max-w-xs p-5")
+            }
           >
-            {/* 2026-09-02 (Aleksandr, uploaded Blink.tgs: "давай в этот попап
-                сверху добавим по центру анимацию нашего кота... +-10-20%
-                меньше чем аватар") -- decompressed to public/animations/
-                cat-blink.json, same lib/weekly-cat-animation.ts pack
-                convention. 64px vs. the profile avatar's own 72/112.5px
-                (app/u/[username]/page.tsx) lands in that range. The
-                animation itself is round with a transparent background,
-                so it sits on the card without needing a square frame. */}
-            <div className="mb-3 flex justify-center">
-              <LottiePlayer src="/animations/cat-blink.json" size={64} />
-            </div>
-            <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">{STRINGS.authPromptTitle[lang]}</p>
-            <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{STRINGS.authPromptBody[lang]}</p>
-            <div className="mt-4 flex flex-col gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthPromptOpen(false);
-                  router.push("/sign-in?reason=profile-action");
-                }}
-                className="rounded-full bg-accent py-2.5 text-sm font-bold tracking-wide text-white transition hover:opacity-90"
-              >
-                {STRINGS.signInCta[lang]}
-              </button>
-              <button
-                type="button"
-                onClick={() => setAuthPromptOpen(false)}
-                className="rounded-full border border-neutral-300 py-2.5 text-sm font-medium text-neutral-600 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
-              >
-                {STRINGS.cancel[lang]}
-              </button>
-            </div>
+            {authFormExpanded ? (
+              <InlineAuthForm lang={lang} compact />
+            ) : (
+              <>
+                {/* 2026-09-02 (Aleksandr, uploaded Blink.tgs: "давай в этот попап
+                    сверху добавим по центру анимацию нашего кота... +-10-20%
+                    меньше чем аватар") -- decompressed to public/animations/
+                    cat-blink.json, same lib/weekly-cat-animation.ts pack
+                    convention. 64px vs. the profile avatar's own 72/112.5px
+                    (app/u/[username]/page.tsx) lands in that range. The
+                    animation itself is round with a transparent background,
+                    so it sits on the card without needing a square frame. */}
+                <div className="mb-3 flex justify-center">
+                  <LottiePlayer src="/animations/cat-blink.json" size={64} />
+                </div>
+                <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">{STRINGS.authPromptTitle[lang]}</p>
+                <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{STRINGS.authPromptBody[lang]}</p>
+                <div className="mt-4 flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAuthFormExpanded(true)}
+                    className="rounded-full bg-accent py-2.5 text-sm font-bold tracking-wide text-white transition hover:opacity-90"
+                  >
+                    {STRINGS.signInCta[lang]}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAuthPromptOpen(false)}
+                    className="rounded-full border border-neutral-300 py-2.5 text-sm font-medium text-neutral-600 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                  >
+                    {STRINGS.cancel[lang]}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>,
         document.body,
