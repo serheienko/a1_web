@@ -118,7 +118,29 @@ export function FabAuthPrompt({
   if (!open) return null;
 
   return createPortal(
-    <div className="animate-backdrop-in fixed inset-0 z-[70]" onClick={onClose}>
+    // 2026-09-02 (Aleksandr, screen recording: signed-out, clicking a FAB
+    // caused "зацикливание и постоянное мигание" -- the popover opening
+    // and closing in a rapid loop, and the trigger icon's own hover
+    // animation "колбасило" along with it): this backdrop used to be
+    // z-[70], ABOVE the FAB trigger buttons (components/chats-fab.tsx /
+    // components/create-post-fab.tsx, both z-40). The instant the
+    // popover opened, this full-viewport backdrop became the topmost
+    // element under the cursor -- even though the cursor never moved --
+    // so the browser fired a real `mouseleave` on the trigger button
+    // (it's no longer what's under the pointer). That started this
+    // popover's own close-delay timer; once it fired, the backdrop
+    // unmounted, the trigger became topmost again, a real `mouseenter`
+    // fired, and the popover reopened -- forever, each open/close also
+    // replaying the trigger icon's own hover animation (create-post-
+    // fab.tsx's rotate, chats-fab.tsx's wiggle). z-30 (below the
+    // trigger's z-40, same as components/settings-menu.tsx's own
+    // backdrop deliberately sitting below its z-40 nav) fixes the cause
+    // structurally: the trigger now stays visually topmost while this
+    // popover is open, so hovering it never toggles away from itself.
+    // Still well above ordinary page content for outside-click-to-
+    // dismiss, and still below this popover's own card (z-[70] below,
+    // unchanged -- only the backdrop needed to move).
+    <div className="animate-backdrop-in fixed inset-0 z-30" onClick={onClose}>
       <div
         role="alertdialog"
         aria-modal="true"

@@ -40,22 +40,41 @@
 // message object (confirmed live, see ChatSchema's own comment). Both
 // resolved here now with two EXTRA calls per list load, not guessed
 // past their first live response:
-//   - users.search with an `{ids: [...]}` filter, for every distinct
-//     "other participant" id across this visitor's personal chats --
-//     `ids` is an unconfirmed param name (app/api/favorites/users/
-//     route.ts's own use of users.search only ever confirmed
-//     `{favorited: true}`, not an id filter), but resolving names is
-//     best-effort here: a 400/empty result just leaves names as "—",
-//     exactly like before this pass, never a 502 for the whole list.
 //   - messages.getMessages (already fully confirmed live, see app/api/
 //     chats/messages/route.ts) with `{peerTo: peerForChat(chat._id),
 //     limit: 1}` per chat whose lastMessage is a bare id, to get the
 //     real preview text/date/read-state -- the SAME endpoint the chat
 //     window itself already polls, just asking for one message instead
 //     of the recent window.
+//   - contacts.search (see resolveChatUsers() below for why, after a
+//     first guess at this didn't pan out).
 // Both run in parallel (Promise.all) across all of a visitor's chats --
 // fine at today's chat counts; worth revisiting if that ever grows into
 // the hundreds.
+//
+// 2026-09-02, second follow-up (Aleksandr, live screenshot: names/
+// avatars STILL "—" after the pass above shipped): the first attempt at
+// resolveChatUsers() guessed `users.search({ ids: [...], limit })` as a
+// batch id-lookup filter. Confirmed WRONG live, via Vercel Logs, the
+// same way every other guess in this file gets checked: the backend
+// rejected it outright -- `{"code":"INVALID_INPUT","message":"root has
+// unknown property 'ids'"}`, a 400 on every single request. users.search
+// only has one confirmed accepted shape anywhere in this app
+// (`{favorited: true, limit}`, app/api/favorites/users/route.ts) and
+// apparently isn't a general id-lookup endpoint at all. Rather than
+// guess a second id-filter name blind and risk the exact same silent-
+// failure loop, this now reuses the ONE already-CONFIRMED batch user-
+// profile source in the app: contacts.search's own `users` side array
+// (app/api/contacts/list/route.ts's own header has the confirmation --
+// read directly off aone-api-private's ContactService source, not
+// guessed). Real tradeoff, stated plainly: this only resolves a chat
+// partner who is ALSO a saved contact -- a chat with someone never
+// added as a contact still falls back to "—", same as before this
+// pass, until a real users-by-id endpoint gets confirmed. Given every
+// personal chat on this platform today is reachable only from a
+// profile/contacts row that already offers "Add contact" right next to
+// "Message", that covers the overwhelming majority case without
+// guessing further.
 import { NextResponse } from "next/server";
 import { A1ApiError } from "@/lib/a1/client";
 import { callAsVisitor, NoSessionError } from "@/lib/a1/visitor-call";
@@ -81,30 +100,36 @@ import { buildMediaProxyUrl } from "@/lib/a1/mappers";
 
 // Best-effort name/avatar resolution for every distinct "other
 // participant" id across `chats` -- see this file's own header comment
-// for why `ids` is an unconfirmed users.search filter, and why a
-// failure here degrades to "—" rows rather than a 502.
+// for the users.search dead end and why contacts.search is the fix
+// instead. `ids` here only narrows which resolved contacts are worth
+// mapping (contacts.search itself takes no filter, same `{}` request
+// app/api/contacts/list/route.ts already sends) -- a chat partner not
+// in `ids` is simply never looked at, never a reason to skip the call.
 async function resolveChatUsers(chats: Chat[], myUserId: string | null): Promise<Record<string, ChatUser>> {
-  const ids = Array.from(
-    new Set(chats.map((chat) => otherParticipantUserId(chat, myUserId)).filter((id): id is string => Boolean(id))),
+  const ids = new Set(
+    chats.map((chat) => otherParticipantUserId(chat, myUserId)).filter((id): id is string => Boolean(id)),
   );
-  if (ids.length === 0) return {};
+  if (ids.size === 0) return {};
   try {
-    const { data } = await callAsVisitor<{ items?: unknown[] }>("users.search", { ids, limit: ids.length });
+    const { data } = await callAsVisitor<unknown>("contacts.search", {});
+    const usersRaw = data && typeof data === "object" ? (data as Record<string, unknown>).users : undefined;
     const out: Record<string, ChatUser> = {};
-    for (const raw of data?.items ?? []) {
-      const profile = parseUserProfile(raw);
-      if (!profile || profile.object !== "user") continue;
-      out[profile._id] = {
-        _id: profile._id,
-        firstName: profile.firstName,
-        lastName: profile.lastName,
-        username: profile.username,
-        photo: profile.photos[0] ? buildMediaProxyUrl(profile.photos[0]) : null,
-      };
+    if (Array.isArray(usersRaw)) {
+      for (const raw of usersRaw) {
+        const profile = parseUserProfile(raw);
+        if (!profile || profile.object !== "user" || !ids.has(profile._id)) continue;
+        out[profile._id] = {
+          _id: profile._id,
+          firstName: profile.firstName,
+          lastName: profile.lastName,
+          username: profile.username,
+          photo: profile.photos[0] ? buildMediaProxyUrl(profile.photos[0]) : null,
+        };
+      }
     }
     return out;
   } catch (err) {
-    console.error("[api/chats/list] users.search failed (names/avatars stay unresolved):", err);
+    console.error("[api/chats/list] contacts.search failed (names/avatars stay unresolved):", err);
     return {};
   }
 }
