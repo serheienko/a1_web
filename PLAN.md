@@ -4169,3 +4169,39 @@ been a red herring about WHERE the crash is, not evidence it's jobs-
 related; the actual unhandled exception has not been found yet. Four
 separate commits this entry, each tsc-clean. Not live-tested yet (needs
 a push).
+
+### 6.82 Mini chat window header rework -- back arrow, click-to-profile, tap-outside-closes (2026-09-02)
+
+- **Header layout** (components/mini-chat-window.tsx): "Поставь имя по
+  центру, аватар справа и стрелку назад слева, как в больших чатах" --
+  rebuilt to mirror app/chats/[chatId]/page.tsx's own header structure
+  (absolutely-centered name over a relative row, back arrow in normal
+  flow on the left, avatar pushed right via ml-auto) instead of the old
+  avatar-left / title / X-close row. The X close button is gone
+  entirely, matching the big chat page having none.
+- **Click-to-profile** ("Нажатие на аватар и имя в мелкой модалке с
+  чатами должно переходить на профиль"): both the name and avatar link
+  to lib/profile-href.ts's profileHref(target.username) when a username
+  is known (same ?username= resolution app/api/chats/list/route.ts's
+  resolveChatDisplay already does for the big chat page), closing both
+  popups on click so the floating window isn't left stranded over the
+  destination page.
+- **Tap outside closes everything** (components/chats-fab.tsx): back
+  arrow now means "return to the list" (setActiveChat(null) +
+  setFlyoutOpen(true)), not "close" -- so a real full-close needed a new
+  place to live. A document-level mousedown listener, active only while
+  the flyout or the mini window is open, closes both on any click
+  outside the flyout's trigger/panel and outside the mini chat window's
+  own new panelRef. Covers touch taps, which lib/use-hover-panel.ts's
+  existing mouse-leave-based close never did.
+
+Still open from Aleksandr's same message: the flyout/mini-window
+avatars are STILL showing next/image's broken-image glyph in his
+screenshots. Leading theory, not yet confirmed live: this matches
+§6.79's media.getUrl retry fix exactly (a failed avatar with no
+recovery until reload) -- if that commit (and everything since) hasn't
+been pushed/deployed yet, these screenshots may just be pre-fix
+production. Needs either a push+redeploy check or a live authenticated
+network trace to confirm either way.
+
+Two commits, both tsc-clean. Not live-tested yet (needs a push).
