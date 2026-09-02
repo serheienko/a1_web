@@ -23,6 +23,19 @@
 // worst part of that (blank box with no feedback) with the opacity
 // fade-in below; the file sizes themselves are an asset-export question,
 // not a code bug, and are flagged in PLAN.md rather than guessed at here.
+//
+// 2026-09-02 (Aleksandr, live screen recording: "Сделай подгрузку
+// анимации через блюр, чтобы мы не ловили этот пустой стейт"): the
+// opacity-0-then-1 fade above still left a flat, empty box for that
+// same multi-second gap -- nothing wrong exactly, but nothing there
+// either, which is what "пустой стейт" (empty state) meant here. Two
+// changes: (1) a soft blurred accent-colored placeholder now fills that
+// gap instead of blank space, gently pulsing so it doesn't read as
+// frozen/broken; (2) the real animation no longer just fades its
+// opacity in, it blurs INTO focus too (filter: blur(14px) -> blur(0)
+// alongside the opacity transition) -- "подгрузка через блюр" literally
+// -- so the whole sequence reads as one continuous resolve rather than
+// a placeholder being swapped out from under real content.
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -78,17 +91,44 @@ export function LottiePlayer({
 
   return (
     <span
-      ref={containerRef}
       className={className}
       style={{
+        position: "relative",
         display: "inline-block",
         width: size,
         height: size,
         flexShrink: 0,
-        opacity: loaded ? 1 : 0,
-        transition: "opacity 200ms ease-out",
       }}
-      aria-hidden="true"
-    />
+    >
+      {/* Blurred placeholder -- fills the loading gap with something
+          instead of nothing, blur-fades out once the real animation is
+          ready. animate-pulse (Tailwind's built-in opacity pulse) keeps
+          it reading as "loading", not "stuck". */}
+      <span
+        aria-hidden="true"
+        className="animate-pulse"
+        style={{
+          position: "absolute",
+          inset: 0,
+          borderRadius: "9999px",
+          background: "radial-gradient(circle, var(--color-accent, #335ef7) 0%, transparent 70%)",
+          filter: "blur(12px)",
+          opacity: loaded ? 0 : 0.18,
+          transition: "opacity 320ms ease-out",
+          pointerEvents: "none",
+        }}
+      />
+      <span
+        ref={containerRef}
+        style={{
+          position: "absolute",
+          inset: 0,
+          opacity: loaded ? 1 : 0,
+          filter: loaded ? "blur(0px)" : "blur(14px)",
+          transition: "opacity 320ms ease-out, filter 320ms ease-out",
+        }}
+        aria-hidden="true"
+      />
+    </span>
   );
 }

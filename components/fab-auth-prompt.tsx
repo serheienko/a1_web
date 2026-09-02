@@ -95,12 +95,12 @@ export function FabAuthPrompt({
   if (!open) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[70]" onClick={onClose}>
+    <div className="animate-backdrop-in fixed inset-0 z-[70]" onClick={onClose}>
       <div
         role="alertdialog"
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
-        className="fixed right-5 z-[70] w-64 rounded-2xl bg-white p-4 shadow-xl dark:bg-neutral-900"
+        className="animate-popover-up fixed right-5 z-[70] w-64 rounded-2xl bg-white p-4 shadow-xl dark:bg-neutral-900"
         style={{ bottom: FAB_POPOVER_BOTTOM }}
       >
         <div className="mb-2 flex justify-center">

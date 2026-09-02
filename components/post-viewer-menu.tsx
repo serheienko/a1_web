@@ -568,14 +568,14 @@ export function PostViewerMenu({
     {authPromptOpen &&
       createPortal(
         <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4"
+          className="animate-backdrop-in fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4"
           onClick={() => setAuthPromptOpen(false)}
         >
           <div
             role="alertdialog"
             aria-modal="true"
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-xs rounded-2xl bg-white p-5 shadow-xl dark:bg-neutral-900"
+            className="animate-modal-in w-full max-w-xs rounded-2xl bg-white p-5 shadow-xl dark:bg-neutral-900"
           >
             {/* Same cat-blink.json animation as components/profile-action-
                 row.tsx's identical popup -- see that file's comment for

@@ -323,8 +323,53 @@ textarea {
   animation: popover-in 0.12s ease-out;
 }
 
+/*
+ * 2026-09-02 (Aleksandr: "добавь эффект появления модалок в кнопки °°°
+ * возле аватара и сверху... И для залогиненых и для не залогиненых") --
+ * components/profile-action-row.tsx's and components/post-viewer-
+ * menu.tsx's "•••" dropdowns already had the entrance above
+ * (.animate-popover, anchored top-right). What didn't: the signed-out
+ * authPromptOpen dialog those same two files show (and components/fab-
+ * auth-prompt.tsx's popover) -- both popped in with zero transition.
+ * Same popover-in keyframe, two more transform-origins for the two
+ * different anchor shapes:
+ *   .animate-modal-in     -- centered dialogs (authPromptOpen)
+ *   .animate-popover-up   -- anchored bottom-right, growing UP off a
+ *                             trigger (components/fab-auth-prompt.tsx,
+ *                             which sits above the FAB stack rather
+ *                             than below a top-row trigger)
+ * plus .animate-backdrop-in for the dimmed overlay behind each, so the
+ * whole thing fades in together rather than the backdrop snapping to
+ * full opacity instantly while only the card animates.
+ */
+.animate-modal-in {
+  transform-origin: center;
+  animation: popover-in 0.15s ease-out;
+}
+
+.animate-popover-up {
+  transform-origin: bottom right;
+  animation: popover-in 0.15s ease-out;
+}
+
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-backdrop-in {
+  animation: backdrop-in 0.15s ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .animate-popover {
+  .animate-popover,
+  .animate-modal-in,
+  .animate-popover-up,
+  .animate-backdrop-in {
     animation: none;
   }
 }
