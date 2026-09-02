@@ -529,7 +529,7 @@ export function PostViewerMenu({
         {chatErrored ? STRINGS.actionFailed[lang] : STRINGS.message[lang]}
       </button>
 
-      <div className="group relative z-40 shrink-0" ref={dotsWrapperRef} onMouseEnter={handleDotsMouseEnter} onMouseLeave={handleDotsMouseLeave}>
+      <div className="dots-trigger-group relative z-40 shrink-0" ref={dotsWrapperRef} onMouseEnter={handleDotsMouseEnter} onMouseLeave={handleDotsMouseLeave}>
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}

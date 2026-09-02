@@ -276,7 +276,7 @@ export function SettingsMenu() {
   );
 
   return (
-    <div className="group relative shrink-0" ref={wrapperRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+    <div className="dots-trigger-group relative shrink-0" ref={wrapperRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
