@@ -25,6 +25,7 @@ import { setSession, clearSession } from "@/lib/a1/session";
 import { parsePost, type Post } from "@/lib/a1/schemas";
 import { isArchived } from "@/lib/a1/post-flags";
 import { mapOwnPost } from "@/lib/a1/mappers";
+import { generateAvatarBlurDataUrl } from "@/lib/avatar-blur";
 import type { WebPost } from "@/types/web-post";
 
 export const runtime = "nodejs";
@@ -83,9 +84,11 @@ function summarize(post: Post) {
 // SEPARATE field from `posts` above so the editor-shape summaries this
 // route has returned since the CRUD panel work stay byte-for-byte
 // unchanged for any existing caller.
-export type MinePostCard = { post: WebPost; status: "draft" | "scheduled" };
+export type MinePostCard = { post: WebPost; status: "draft" | "scheduled"; avatarBlurDataUrl: string | null };
 
-function toCard(post: Post): MinePostCard | null {
+type DraftCard = { post: WebPost; status: "draft" | "scheduled" };
+
+function toCard(post: Post): DraftCard | null {
   const isDraft = (post.flags & (1 << 7)) !== 0;
   const isScheduledUnpublished = post.scheduled != null && post.published == null;
   if (!isDraft && !isScheduledUnpublished) return null;
@@ -122,9 +125,21 @@ export async function GET() {
       .sort((a, b) => b.created - a.created);
 
     const posts = nonArchived.map(summarize);
-    const draftsAndScheduled = nonArchived
+    const draftCards = nonArchived
       .map(toCard)
-      .filter((card): card is MinePostCard => card !== null);
+      .filter((card): card is DraftCard => card !== null);
+    // Same real per-avatar blur app/api/posts/mine-feed/route.ts already
+    // computes (see this route's import comment above) -- every author
+    // here is "me" (a single avatarUrl), so generateAvatarBlurDataUrl's
+    // react cache() dedup means this is one extra fetch+sharp() per
+    // request, not one per draft/scheduled post.
+    const avatarBlurs = await Promise.all(
+      draftCards.map((card) => generateAvatarBlurDataUrl(card.post.author.avatarUrl)),
+    );
+    const draftsAndScheduled: MinePostCard[] = draftCards.map((card, i) => ({
+      ...card,
+      avatarBlurDataUrl: avatarBlurs[i] ?? null,
+    }));
 
     const response = NextResponse.json({ ok: true, posts, draftsAndScheduled });
     if (refreshed) setSession(response, refreshed);

@@ -69,7 +69,12 @@ function useActiveLocale(): Locale {
   return lang;
 }
 
-type MinePostCard = { post: WebPost; status: "draft" | "scheduled" };
+// 2026-09-02 (Aleksandr, screenshot: a draft post's avatar rendering as
+// a flat white circle instead of blurring in): matches app/api/posts/
+// mine/route.ts's own MinePostCard -- see that route's comment on why
+// avatarBlurDataUrl rides along per card the same way app/my-activity/
+// page.tsx's RawSavedPost already carries it for saved posts.
+type MinePostCard = { post: WebPost; status: "draft" | "scheduled"; avatarBlurDataUrl: string | null };
 
 export function ProfileTabs({
   bio,
@@ -166,6 +171,7 @@ export function ProfileTabs({
           // quietly handing PostCard a string where its type says Date.
           const revived = (data.draftsAndScheduled as MinePostCard[]).map((card) => ({
             ...card,
+            avatarBlurDataUrl: card.avatarBlurDataUrl ?? null,
             post: {
               ...card.post,
               publishedAt: new Date(card.post.publishedAt),
@@ -346,12 +352,13 @@ export function ProfileTabs({
         <div className={innerClass}>
           {ownDrafts.length > 0 && (
             <div className="mb-4 flex flex-col gap-4">
-              {ownDrafts.map(({ post, status }) => {
+              {ownDrafts.map(({ post, status, avatarBlurDataUrl }) => {
                 const editable = ownEditable[post.id];
                 return (
                   <PostCard
                     key={post.id}
                     post={post}
+                    avatarBlurDataUrl={avatarBlurDataUrl}
                     statusBadge={{ label: STRINGS[status === "draft" ? "statusDraft" : "statusScheduled"][lang], className: STATUS_BADGE_CLASS }}
                     onOpen={editable ? () => setEditingPost(editable) : undefined}
                     ownerMenu={{ redirectAfterDeleteTo: profileHref(profileUsername) }}
