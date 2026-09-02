@@ -4205,3 +4205,49 @@ production. Needs either a push+redeploy check or a live authenticated
 network trace to confirm either way.
 
 Two commits, both tsc-clean. Not live-tested yet (needs a push).
+
+### 6.83 Draft title requirement, scheduled-post editing, scheduled posts in the drafts picker, Favorites fallback pills (2026-09-02)
+
+- **Drafts no longer require a title** (components/post-editor.tsx,
+  lib/a1/schemas.ts): "черновики должны сохранять любой бред, нет
+  минимального ввода ни в каком из филдов" -- a draft saved with an
+  empty title 400'd against lib/a1/schemas.ts's PostInputSchema (title
+  was an unconditional `.min(1)`), surfacing as the dialog's generic
+  errorGeneric with no hint title was the actual problem. submit() now
+  fills in a fallback (the content's own leading words, or a plain
+  "Без назви"/"Untitled" placeholder) before a draft save; the schema
+  itself now only requires a title for a real post/schedule
+  (superRefine), matching content's existing no-minimum rule.
+- **Editing a scheduled post no longer cancels its schedule** (same
+  files): a real, independently-found bug in the same area --
+  `isDraft === false` is true for BOTH a published post and a
+  scheduled-not-yet-published one, so isEditingPublishedPost's single
+  "Зберегти" button (submit("post")) fired for a scheduled post too,
+  and submit() defaulted scheduledSeconds to null for any action other
+  than an explicit "schedule" -- silently wiping the schedule on a
+  plain content edit (either publishing early or leaving it in limbo).
+  New isEditingScheduledPost check (EditablePost gained scheduled/
+  published fields) keeps the existing schedule intact on a plain Save.
+- **Drafts picker also lists scheduled posts** (components/create-
+  post-fab.tsx, components/drafts-picker.tsx): "Запланированные посты
+  тоже показывай тут и убедись, что они реально будут выходить в
+  запланированное время" -- the "+" FAB's popover used to filter
+  strictly on isDraft; now also includes scheduled-not-yet-published
+  posts (same condition app/api/posts/mine's own toCard() uses), each
+  row showing its real scheduled time via formatRelativeTime so a
+  miscalibrated schedule is visible at a glance rather than trusted
+  blind. Panel title changed from "Чернетки" to "Мої дописи" now that
+  it can hold both kinds.
+- **Favorites (books/movies/games): pill UI when no cover is found**
+  (app/u/[username]/page.tsx, components/favorite-cover.tsx): voice
+  note, the dark square icon fallback read as unappealing -- items with
+  NO cover found now render as a wrapped row of a two-line pill (icon
+  left, title top, subtitle/author below) matching the Work Style chips
+  above it on the same page, instead of sitting in the square-tile
+  grid. Items that DO have a real cover keep that grid unchanged; a
+  cover that was found but fails to load in the browser still falls
+  back to the square icon (preserves the earlier grid-alignment fix --
+  a pill mixed into a grid row with real covers would break it again).
+
+Four separate commits, all tsc-clean. Not live-tested yet (needs a
+push) -- also still true of everything back through §6.79.
