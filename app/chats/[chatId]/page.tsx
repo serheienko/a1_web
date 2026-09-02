@@ -20,7 +20,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { profileHref } from "@/lib/profile-href";
@@ -32,6 +32,7 @@ import {
   extractMessageText,
   isImageMediaDocument,
   mediaDocumentFileName,
+  messageContactMedia,
   messageDateMs,
   messageDocumentMedia,
   messageTickState,
@@ -42,6 +43,7 @@ import {
   ChatAttachmentSpinner,
   ChatBackArrow,
   ChatCatFieldIcon,
+  ChatContactAttachIcon,
   ChatFileAttachIcon,
   ChatMicButton,
   ChatPaperclipButton,
@@ -51,6 +53,8 @@ import {
   MessageTicks,
 } from "@/components/chat/icons";
 import { DailyUploadsModal } from "@/components/daily-uploads-modal";
+import { ContactMessageCard, type ContactCardSummary } from "@/components/chat/contact-message-card";
+import { ContactsPickerModal, type PickedContact } from "@/components/chat/contacts-picker-modal";
 
 type LoadState = "loading" | "signed-out" | "error" | "ready";
 
@@ -108,6 +112,13 @@ type PendingMessage = ChatMessage & {
   // round-trip, until load()'s own reconciliation swaps this bubble for
   // the real message.
   pendingAttachments?: PendingAttachment[];
+  // Contact-attachment feature (2026-09-02) -- same reasoning as
+  // pendingAttachments above, but for picked-not-yet-sent contacts:
+  // already carries its `summary` (occupation/expertise/avatar) from
+  // whichever fetch resolved it first (the picker's own /api/contacts/
+  // list call), so the optimistic bubble's ContactMessageCard needs no
+  // extra round-trip either.
+  pendingContacts?: PickedContact[];
 };
 
 function isPendingMessage(msg: ChatMessage | PendingMessage): msg is PendingMessage {
@@ -149,6 +160,9 @@ const MAX_ATTACHMENT_PHOTO_DIMENSION = 1600;
 const MAX_ATTACHMENT_PHOTO_BYTES = 280 * 1024;
 const MAX_ATTACHMENT_FILE_BYTES = 25 * 1024 * 1024;
 const MAX_ATTACHMENTS_PER_MESSAGE = 10;
+// app/api/chats/send/route.ts's own SendInput caps `contacts` at 5,
+// separate from and lower than the media cap above.
+const MAX_CONTACTS_PER_MESSAGE = 5;
 
 async function compressAttachmentImage(file: File): Promise<File> {
   if (!file.type.startsWith("image/") || typeof createImageBitmap !== "function") return file;
@@ -267,6 +281,7 @@ export default function ChatWindowPage() {
   const lang = useActiveLocale();
   const params = useParams<{ chatId: string }>();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const chatId = params.chatId;
   const headerTitle = searchParams.get("title") ?? "";
   const headerAvatar = searchParams.get("avatar") ?? pickDefaultCatAvatar(chatId);
@@ -342,6 +357,22 @@ export default function ChatWindowPage() {
   // opened from the small storage icon in the attach popover below,
   // same corner the reference native-app screenshot uses.
   const [dailyUploadsOpen, setDailyUploadsOpen] = useState(false);
+  // Contact-attachment feature (2026-09-02, Aleksandr's Contacts-picker
+  // + "sent contact" card screenshots): contactsPickerOpen drives
+  // components/chat/contacts-picker-modal.tsx; pendingContacts is the
+  // running "queued to send" list (up to 5, same cap app/api/chats/
+  // send/route.ts enforces) built by toggling rows in that picker;
+  // contactSummaries caches components/chat/contact-message-card.tsx's
+  // occupation/expertise/avatar data for REAL messages' contact media,
+  // keyed by userId and filled by the batch-fetch effect below --
+  // separate from each pendingContact's own already-known `summary`
+  // (see PendingMessage's own comment on why those don't share a
+  // fetch). openingChatFor guards the card's "Message" button against
+  // a double-click while POST /api/chats/open is in flight.
+  const [contactsPickerOpen, setContactsPickerOpen] = useState(false);
+  const [pendingContacts, setPendingContacts] = useState<PickedContact[]>([]);
+  const [contactSummaries, setContactSummaries] = useState<Record<string, ContactCardSummary>>({});
+  const [openingChatFor, setOpeningChatFor] = useState<string | null>(null);
   const attachMenuRef = useRef<HTMLDivElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -623,19 +654,34 @@ export default function ChatWindowPage() {
   // anything else (marks `failed`, left on screen with NotSentIcon
   // instead of a tick, picked up again by retryAllFailed the next time
   // there's actually a network to retry on).
-  async function attemptSend(localId: string, text: string, media?: { fileReference: string }[]) {
+  async function attemptSend(
+    localId: string,
+    text: string,
+    media?: { fileReference: string }[],
+    contacts?: PickedContact[],
+  ) {
     try {
       const res = await authFetch("/api/chats/send", {
         method: "POST",
         headers: { "content-type": "application/json" },
         // Attachment feature: `text` may now be empty (attachment-only
-        // send) and `media` may be present -- app/api/chats/send/
-        // route.ts's own SendInput requires at least one of the two, and
-        // only forwards whichever is actually present to messages.send.
+        // send) and `media`/`contacts` may be present -- app/api/chats/
+        // send/route.ts's own SendInput requires at least one of the
+        // three, and only forwards whichever is actually present to
+        // messages.send.
         body: JSON.stringify({
           chatId,
           text: text || undefined,
           media: media && media.length > 0 ? media : undefined,
+          contacts:
+            contacts && contacts.length > 0
+              ? contacts.map((c) => ({
+                  userId: c.userId,
+                  phoneNumber: c.phoneNumber,
+                  firstName: c.firstName,
+                  lastName: c.lastName,
+                }))
+              : undefined,
         }),
       });
       if (res.ok) {
@@ -667,7 +713,7 @@ export default function ChatWindowPage() {
       const media = p.pendingAttachments
         ?.filter((a) => a.status === "ready" && a.fileReference)
         .map((a) => ({ fileReference: a.fileReference as string }));
-      await attemptSend(p.localId, extractMessageText(p), media);
+      await attemptSend(p.localId, extractMessageText(p), media, p.pendingContacts);
     } finally {
       retryingIds.current.delete(p.localId);
     }
@@ -683,6 +729,9 @@ export default function ChatWindowPage() {
   // once for the page's whole life (no churn every time pendingMessages
   // changes) while still always calling the CURRENT retryAllFailed --
   // reassigned on every render, no effect needed for that part.
+  // See the batch-fetch effect below (contactSummaries) for what this
+  // guards against.
+  const attemptedContactIdsRef = useRef<Set<string>>(new Set());
   const retryAllFailedRef = useRef(retryAllFailed);
   retryAllFailedRef.current = retryAllFailed;
 
@@ -724,6 +773,53 @@ export default function ChatWindowPage() {
     document.addEventListener("mousedown", handleDocClick);
     return () => document.removeEventListener("mousedown", handleDocClick);
   }, [attachMenuOpen]);
+
+  // Contact-attachment feature: batch-resolves occupation/expertise/
+  // avatar (POST /api/users/summaries) for every REAL message's contact
+  // media whose sender isn't already covered -- runs off `messages`
+  // (not `displayMessages`, which also includes this page's own
+  // pendingContacts -- those already carry their `summary` from the
+  // picker, see PendingMessage's own comment, so re-fetching them here
+  // would be a wasted round-trip). De-duped against contactSummaries'
+  // current keys so a poll tick that returns the same messages again
+  // doesn't refire this for ids it already has.
+  useEffect(() => {
+    const ids = new Set<string>();
+    for (const msg of messages) {
+      for (const c of messageContactMedia(msg)) {
+        // attemptedContactIdsRef, not contactSummaries itself -- a
+        // user-empty/deleted-account contact never resolves to a
+        // summary, and POLL_MS is 3s, so gating on the state map alone
+        // would refire this POST every single poll tick forever for
+        // any permanently-unresolvable id. "Already asked once" is
+        // enough; ContactMessageCard's own null/undefined handling
+        // covers "never got an answer" either way.
+        if (!contactSummaries[c.userId] && !attemptedContactIdsRef.current.has(c.userId)) {
+          ids.add(c.userId);
+        }
+      }
+    }
+    if (ids.size === 0) return;
+    for (const id of ids) attemptedContactIdsRef.current.add(id);
+    let cancelled = false;
+    authFetch("/api/users/summaries", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ids: Array.from(ids) }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled || !data?.ok || !data.users) return;
+        setContactSummaries((prev) => ({ ...prev, ...data.users }));
+      })
+      .catch(() => {
+        // Best-effort -- ContactMessageCard already renders fine with no
+        // summary (just name/phone, no pill/expertise row).
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [messages, contactSummaries]);
 
   // Runs the same create -> upload -> confirm flow components/post-
   // editor.tsx's handleFileSelected already uses for post photos --
@@ -835,13 +931,20 @@ export default function ChatWindowPage() {
     // optional, see app/api/chats/send/route.ts). uploadingCount guards
     // the Enter-key path the same way the send button's own `disabled`
     // does below (see that JSX) -- send() is never called mid-upload.
+    // Contact-attachment feature: pendingContacts needs no upload wait
+    // (nothing to poll for -- a picked contact is ready the instant
+    // it's toggled in the picker), so it only ever adds to the "has
+    // content" check, never to uploadingCount.
     const readyAttachments = attachments.filter((a) => a.status === "ready" && a.fileReference);
     const uploadingCount = attachments.filter((a) => a.status === "uploading").length;
-    if ((!text && readyAttachments.length === 0) || uploadingCount > 0 || sending) return;
+    const hasContacts = pendingContacts.length > 0;
+    if ((!text && readyAttachments.length === 0 && !hasContacts) || uploadingCount > 0 || sending) return;
     setSending(true);
+    const contactsToSend = pendingContacts;
     if (!overrideText) {
       setDraft("");
       setAttachments([]);
+      setPendingContacts([]);
     }
     // Optimistic bubble, shown the instant the POST is fired -- see the
     // `pendingMessages` state comment above for why (load() right after
@@ -864,14 +967,47 @@ export default function ChatWindowPage() {
       localId,
       failed: false,
       pendingAttachments: readyAttachments.length > 0 ? readyAttachments : undefined,
+      pendingContacts: contactsToSend.length > 0 ? contactsToSend : undefined,
     };
     setPendingMessages((prev) => [...prev, optimistic]);
     await attemptSend(
       localId,
       text,
       readyAttachments.map((a) => ({ fileReference: a.fileReference as string })),
+      contactsToSend,
     );
     setSending(false);
+  }
+
+  // Contact-card "Message" button (components/chat/contact-message-
+  // card.tsx's onMessage) -- same POST /api/chats/open -> router.push
+  // pattern app/contacts/page.tsx's own openChat already uses (finds an
+  // existing personal chat with that user, or creates one), just
+  // without that page's own flashError-on-failure UI since a card deep
+  // inside a chat's message list has nowhere sensible to flash red into.
+  async function openChatWithUser(userId: string, title: string, avatarUrl: string | null) {
+    if (openingChatFor) return;
+    setOpeningChatFor(userId);
+    try {
+      const res = await authFetch("/api/chats/open", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
+      const data = await res.json().catch(() => null);
+      if (data?.ok && typeof data.chatId === "string") {
+        const qs = new URLSearchParams();
+        if (title) qs.set("title", title);
+        if (avatarUrl) qs.set("avatar", avatarUrl);
+        const suffix = qs.toString() ? `?${qs.toString()}` : "";
+        router.push(`/chats/${data.chatId}${suffix}`);
+      }
+    } catch {
+      // Best-effort -- see this function's own comment on why there's no
+      // visible failure state here.
+    } finally {
+      setOpeningChatFor(null);
+    }
   }
 
   // Rendered list: real messages + any not-yet-reconciled optimistic
@@ -1147,7 +1283,19 @@ export default function ChatWindowPage() {
               // messageDocumentMedia (lib/a1/chat-schemas.ts).
               const docMedia = pending ? [] : messageDocumentMedia(msg);
               const pendingAttachments = pending?.pendingAttachments ?? [];
-              const hasMedia = docMedia.length > 0 || pendingAttachments.length > 0;
+              // Contact-attachment feature: contactMedia is the REAL,
+              // already-sent side (messageContactMedia, an array -- up to
+              // 5 per message); pendingContactCards is this bubble's own
+              // not-yet-sent picks, which already carry their `summary`
+              // (see PendingMessage's own comment) so they render without
+              // waiting on contactSummaries at all.
+              const contactMedia = pending ? [] : messageContactMedia(msg);
+              const pendingContactCards = pending?.pendingContacts ?? [];
+              const hasMedia =
+                docMedia.length > 0 ||
+                pendingAttachments.length > 0 ||
+                contactMedia.length > 0 ||
+                pendingContactCards.length > 0;
               return (
                 <div key={msg._id}>
                   {showDate && (
@@ -1227,6 +1375,40 @@ export default function ChatWindowPage() {
                               </a>
                             ),
                           )}
+                        </div>
+                      )}
+                      {(pendingContactCards.length > 0 || contactMedia.length > 0) && (
+                        <div className="mb-1 flex flex-col gap-1.5">
+                          {pendingContactCards.map((c) => (
+                            <ContactMessageCard
+                              key={c.userId}
+                              userId={c.userId}
+                              firstName={c.firstName}
+                              lastName={c.lastName}
+                              phoneNumber={c.phoneNumber}
+                              summary={c.summary}
+                              mine={mine}
+                              onMessage={() => openChatWithUser(c.userId, `${c.firstName} ${c.lastName}`.trim(), c.summary?.avatarUrl ?? null)}
+                            />
+                          ))}
+                          {contactMedia.map((c) => (
+                            <ContactMessageCard
+                              key={c.userId}
+                              userId={c.userId}
+                              firstName={c.firstName}
+                              lastName={c.lastName}
+                              phoneNumber={c.phoneNumber}
+                              summary={contactSummaries[c.userId] ?? null}
+                              mine={mine}
+                              onMessage={() =>
+                                openChatWithUser(
+                                  c.userId,
+                                  `${c.firstName} ${c.lastName}`.trim(),
+                                  contactSummaries[c.userId]?.avatarUrl ?? null,
+                                )
+                              }
+                            />
+                          ))}
                         </div>
                       )}
                       {text && <div className="whitespace-pre-wrap break-words">{text}</div>}
@@ -1406,6 +1588,41 @@ export default function ChatWindowPage() {
               {[...attachments].reverse().find((a) => a.errorMessage)?.errorMessage}
             </p>
           )}
+          {/* Contact-attachment feature: queued-to-send contact chips --
+              small avatar + first name, remove (x) same treatment as the
+              attachment thumbnails above. No upload/error state to show
+              (a picked contact is ready the instant it's toggled). */}
+          {pendingContacts.length > 0 && (
+            <div className="mx-auto mb-2 flex w-full max-w-[470px] flex-wrap gap-2">
+              {pendingContacts.map((c) => (
+                <div
+                  key={c.userId}
+                  className="group relative flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white/90 py-1 pl-1 pr-2.5 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element -- proxied/
+                      generated avatar, not a next/image-configured remote host. */}
+                  <img
+                    src={c.summary?.avatarUrl ?? pickDefaultCatAvatar(c.userId)}
+                    alt=""
+                    className="h-6 w-6 rounded-full object-cover"
+                  />
+                  <span className="max-w-[100px] truncate text-[12px] text-[#262a34] dark:text-white">
+                    {c.firstName || c.lastName}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPendingContacts((prev) => prev.filter((p) => p.userId !== c.userId))}
+                    aria-label="Remove contact"
+                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-black/10 text-[#262a34] transition hover:bg-black/20 dark:bg-white/15 dark:text-white dark:hover:bg-white/25"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" className="h-2.5 w-2.5" aria-hidden="true">
+                      <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="mx-auto flex w-full max-w-[470px] items-end gap-2">
             <div ref={attachMenuRef} className="relative">
               <ChatPaperclipButton
@@ -1461,6 +1678,22 @@ export default function ChatWindowPage() {
                   >
                     <ChatFileAttachIcon className="h-5 w-5 text-[#335ef7] dark:text-[#0c8ce9]" />
                     <T uk="Файл" en="File" ru="Файл" de="Datei" es="Archivo" fr="Fichier" pl="Plik" ptBR="Arquivo" zh="文件" />
+                  </button>
+                  {/* Contact-attachment feature (2026-09-02) -- opens
+                      components/chat/contacts-picker-modal.tsx instead of
+                      a native file input, same reasoning as the storage
+                      icon above for why this doesn't go through
+                      onPickAttachment. */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAttachMenuOpen(false);
+                      setContactsPickerOpen(true);
+                    }}
+                    className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+                  >
+                    <ChatContactAttachIcon className="h-5 w-5 text-[#335ef7] dark:text-[#0c8ce9]" />
+                    <T uk="Контакт" en="Contact" ru="Контакт" de="Kontakt" es="Contacto" fr="Contact" pl="Kontakt" ptBR="Contato" zh="联系人" />
                   </button>
                 </div>
               )}
@@ -1518,7 +1751,7 @@ export default function ChatWindowPage() {
                 <ChatCatFieldIcon className="h-5 w-5 text-[#989aa6] dark:text-[#adafbb]" />
               </div>
             </div>
-            {draft.trim() || attachments.length > 0 ? (
+            {draft.trim() || attachments.length > 0 || pendingContacts.length > 0 ? (
               <button
                 type="button"
                 onClick={() => send()}
@@ -1526,10 +1759,14 @@ export default function ChatWindowPage() {
                 // has failed and there's no typed caption either -- e.g.
                 // an upload that 502'd -- so this never sits enabled over
                 // a click that send()'s own guard would just no-op on.
+                // Contact-attachment feature: pendingContacts.length > 0
+                // on its own keeps this enabled -- a contact needs no
+                // upload wait, so it's never covered by the "ready"
+                // check below (that's attachments-only).
                 disabled={
                   sending ||
                   attachments.some((a) => a.status === "uploading") ||
-                  (!draft.trim() && attachments.every((a) => a.status !== "ready"))
+                  (!draft.trim() && attachments.every((a) => a.status !== "ready") && pendingContacts.length === 0)
                 }
                 aria-label="Send"
                 // 2026-09-02 (Aleksandr: "при наведении на кнопку отправки
@@ -1561,6 +1798,22 @@ export default function ChatWindowPage() {
         </div>
       )}
       {dailyUploadsOpen && <DailyUploadsModal lang={lang} onClose={() => setDailyUploadsOpen(false)} />}
+      {contactsPickerOpen && (
+        <ContactsPickerModal
+          lang={lang}
+          pickedUserIds={new Set(pendingContacts.map((c) => c.userId))}
+          onToggle={(picked) =>
+            setPendingContacts((prev) =>
+              prev.some((p) => p.userId === picked.userId)
+                ? prev.filter((p) => p.userId !== picked.userId)
+                : prev.length >= MAX_CONTACTS_PER_MESSAGE
+                  ? prev
+                  : [...prev, picked],
+            )
+          }
+          onClose={() => setContactsPickerOpen(false)}
+        />
+      )}
     </div>
   );
 }

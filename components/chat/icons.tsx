@@ -354,3 +354,54 @@ export function ChatStorageIcon({ className = "h-5 w-5" }: { className?: string 
     </svg>
   );
 }
+
+// Contact-attachment feature (2026-09-02, Aleksandr: native-app
+// Contacts-picker + "sent contact" card screenshots, "Функциональный тап
+// только по кнопке message, если у пользователя нет телефона, то мы
+// просто его не показываем"). Three more hand-built line icons, same
+// convention as ChatPhotoAttachIcon/ChatFileAttachIcon above -- no Figma
+// export exists for any of these either.
+
+// Attach-menu row icon: a simple contact card / id badge.
+export function ChatContactAttachIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="9" cy="10.2" r="2.1" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M5.8 15.8c.6-1.7 2-2.6 3.2-2.6s2.6.9 3.2 2.6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M14.5 9.5h4M14.5 12.5h4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// Contact-card phone row icon.
+export function ChatPhoneIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <path
+        d="M6.6 4.5h2.3l1.2 3.6-1.7 1.4a11.5 11.5 0 0 0 5.8 5.8l1.4-1.7 3.6 1.2v2.3c0 1-.9 1.7-1.9 1.5-4.9-.9-9.9-5.9-10.8-10.8-.2-1 .5-1.9 1.5-1.9Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+// Contact-card expertise/"about" row icon -- the reference screenshot
+// uses a rocket glyph for this row (profile.expertise, same freeform
+// field app/u/[username]/page.tsx already shows next to occupation).
+export function ChatExpertiseIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <path
+        d="M12 3c2.8 1 4.8 3.8 4.8 7.5 0 2-.6 3.7-1.6 5.1l-3.2 3.4-3.2-3.4c-1-1.4-1.6-3.1-1.6-5.1C7.2 6.8 9.2 4 12 3Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+      <circle cx="12" cy="10.5" r="1.7" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M9 17.5 7.5 21M15 17.5 16.5 21" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}

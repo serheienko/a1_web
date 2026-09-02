@@ -66,6 +66,20 @@ type ContactUserSummary = {
   // at all) falls back to the shared generic shimmer client-side, the
   // same convention every other call site uses.
   avatarBlurDataUrl: string | null;
+  // 2026-09-02, Aleksandr (native-app "sent contact" card screenshot --
+  // occupation pill, rocket-icon expertise line): the same two fields
+  // app/u/[username]/page.tsx already renders publicly for any profile,
+  // added here too so components/chat/contact-message-card.tsx can show
+  // them for a JUST-PICKED contact without a second round-trip (this
+  // route already parses the full UserProfile via parseUserProfile
+  // below -- occupation/expertise were sitting right there, just never
+  // copied into the old narrower summary). workInterests deliberately
+  // NOT included yet -- the reference card's second pill needs a
+  // category-id -> label dataset lookup (dataset.workInterests) this
+  // pass doesn't build; only the occupation pill + expertise line ship
+  // for now.
+  occupation: string;
+  expertise: string | null;
 };
 
 function extractContacts(raw: unknown): Contact[] {
@@ -111,6 +125,8 @@ async function extractContactUsers(raw: unknown): Promise<Record<string, Contact
         fullName: fullName || profile.username || "",
         avatarUrl: profile.photos[0] ? buildMediaProxyUrl(profile.photos[0]) : null,
         avatarBlurDataUrl: null,
+        occupation: profile.occupation,
+        expertise: profile.expertise,
       },
     });
   }
