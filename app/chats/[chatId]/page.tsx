@@ -46,9 +46,11 @@ import {
   ChatMicButton,
   ChatPaperclipButton,
   ChatPhotoAttachIcon,
+  ChatStorageIcon,
   ChatTypingDots,
   MessageTicks,
 } from "@/components/chat/icons";
+import { DailyUploadsModal } from "@/components/daily-uploads-modal";
 
 type LoadState = "loading" | "signed-out" | "error" | "ready";
 
@@ -335,6 +337,11 @@ export default function ChatWindowPage() {
   // are out of scope for this pass).
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
+  // 2026-09-02, Aleksandr: "Daily Uploads" quota popup (see
+  // components/daily-uploads-modal.tsx's own header comment) --
+  // opened from the small storage icon in the attach popover below,
+  // same corner the reference native-app screenshot uses.
+  const [dailyUploadsOpen, setDailyUploadsOpen] = useState(false);
   const attachMenuRef = useRef<HTMLDivElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1420,6 +1427,25 @@ export default function ChatWindowPage() {
                   case. */}
               {attachMenuOpen && (
                 <div className="animate-popover-up absolute bottom-full left-0 z-10 mb-2 w-44 overflow-hidden rounded-2xl bg-white py-1.5 shadow-xl dark:bg-neutral-900">
+                  {/* Daily-uploads quota entry point (2026-09-02,
+                      Aleksandr's "как ты UI отрисуешь?" follow-up) --
+                      same top-right corner the reference native-app
+                      attach sheet puts its own stack/disk icon in. Opens
+                      components/daily-uploads-modal.tsx instead of
+                      picking a file, so it sits outside the two
+                      onPickAttachment rows below rather than as a third
+                      one. */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAttachMenuOpen(false);
+                      setDailyUploadsOpen(true);
+                    }}
+                    aria-label="Daily uploads"
+                    className="absolute right-2 top-2 rounded-full p-1 text-neutral-400 transition hover:bg-black/5 hover:text-neutral-700 dark:text-neutral-500 dark:hover:bg-white/10 dark:hover:text-neutral-200"
+                  >
+                    <ChatStorageIcon className="h-4 w-4" />
+                  </button>
                   <button
                     type="button"
                     onClick={() => onPickAttachment("image")}
@@ -1534,6 +1560,7 @@ export default function ChatWindowPage() {
           </div>
         </div>
       )}
+      {dailyUploadsOpen && <DailyUploadsModal lang={lang} onClose={() => setDailyUploadsOpen(false)} />}
     </div>
   );
 }

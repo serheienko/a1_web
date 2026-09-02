@@ -328,3 +328,29 @@ export function ChatAttachmentSpinner({ className = "h-5 w-5" }: { className?: s
     </svg>
   );
 }
+
+// Attach-popover corner icon: opens the "Daily Uploads" quota screen
+// (components/daily-uploads-modal.tsx). Same stack/disk glyph as the
+// reference native-app attach sheet's own top-right icon
+// (2026-09-02, Aleksandr: "как ты UI отрисуешь? ... попапы +- совпадали
+// с мобом"), hand-built like the other attach icons above -- no Figma
+// export for it either.
+export function ChatStorageIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <ellipse cx="12" cy="6.5" rx="7.5" ry="2.5" stroke="currentColor" strokeWidth="1.6" />
+      <path
+        d="M4.5 6.5v5c0 1.38 3.36 2.5 7.5 2.5s7.5-1.12 7.5-2.5v-5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+      <path
+        d="M4.5 11.5v5c0 1.38 3.36 2.5 7.5 2.5s7.5-1.12 7.5-2.5v-5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
