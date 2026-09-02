@@ -124,6 +124,28 @@ function formatTime(ms: number): string {
   }
 }
 
+// 2026-09-02 (Aleksandr: "сделай подгузку чатов и чат листа через
+// скелетон лоад") -- same animate-pulse gray-block language app/jobs/
+// loading.tsx already established for this app's route-level skeletons,
+// sized to this popover's own 40px-avatar row (see the real row's own
+// h-10 avatar + two-line text block below). SKELETON_ROW_COUNT (8)
+// matches the list's own fixed h-[448px] (8 rows x 56px/row, see that
+// className below) so the skeleton fills the exact space the real
+// rows will occupy instead of leaving a gap or overflowing it.
+const SKELETON_ROW_COUNT = 8;
+
+function ChatRowSkeleton() {
+  return (
+    <div className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2" aria-hidden="true">
+      <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-neutral-200 dark:bg-neutral-800" />
+      <div className="min-w-0 flex-1">
+        <div className="h-3.5 w-2/5 animate-pulse rounded bg-neutral-200 dark:bg-neutral-800" />
+        <div className="mt-1.5 h-3 w-4/5 animate-pulse rounded bg-neutral-200 dark:bg-neutral-800" />
+      </div>
+    </div>
+  );
+}
+
 // Sits directly above the FAB stack, same anchor math as components/
 // fab-auth-prompt.tsx's own FAB_POPOVER_BOTTOM (duplicated rather than
 // imported -- that constant isn't exported, and this file is meant to
@@ -305,7 +327,11 @@ export function ChatsFlyout({
 
       <div className="mt-2 h-[448px] shrink-0 overflow-y-auto px-2 pb-2">
         {state === "loading" && chats.length === 0 && (
-          <p className="px-2 py-4 text-center text-[13px] text-[#989aa6] dark:text-[#8d8d93]">…</p>
+          <div className="flex flex-col gap-0.5">
+            {Array.from({ length: SKELETON_ROW_COUNT }).map((_, i) => (
+              <ChatRowSkeleton key={i} />
+            ))}
+          </div>
         )}
         {state === "error" && chats.length === 0 && (
           <p className="px-2 py-4 text-center text-[13px] text-[#989aa6] dark:text-[#8d8d93]">{STRINGS.error[lang]}</p>
