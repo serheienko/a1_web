@@ -23,6 +23,7 @@ import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
+import { profileHref } from "@/lib/profile-href";
 import { T, LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
 import { LottiePlayer } from "@/components/lottie-player";
@@ -105,6 +106,15 @@ export default function ChatWindowPage() {
   const chatId = params.chatId;
   const headerTitle = searchParams.get("title") ?? "";
   const headerAvatar = searchParams.get("avatar") ?? pickDefaultCatAvatar(chatId);
+  // 2026-09-02 (Aleksandr: "при нажатии на аватар и на имя должен
+  // открываться профіль цієї людини") -- ?username= travels alongside
+  // ?title=/?avatar= from wherever the chat was opened (components/
+  // profile-action-row.tsx, app/contacts/page.tsx), same convention.
+  // Null (a chat opened some other way, or a group chat down the line)
+  // just means the header name/avatar render as plain, non-clickable
+  // elements below instead of a broken link to nowhere.
+  const headerUsername = searchParams.get("username");
+  const headerProfileHref = headerUsername ? profileHref(headerUsername) : null;
 
   const [state, setState] = useState<LoadState>("loading");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -227,25 +237,26 @@ export default function ChatWindowPage() {
 
   return (
     <div className="flex h-[100dvh] flex-col bg-[#f2f2f7] text-[#262a34] dark:bg-black dark:text-white">
-      {/* 2026-09-02 (Aleksandr, screen recording + follow-ups: "Поставь
-          аватар и имя по центру 'вакансії і фахівці', а кнопку назад
-          примерно на уровне нижней скрепки", then "Сделай инпут на 30%
-          уже и за ним подвинь кнопку 'назад' сверху"): back button
-          stays a normal in-flow item in this row (so it lines up with
-          the compose bar's own row below -- its first child, the
-          paperclip button, sits at the same x as this one), but
-          avatar+name are pulled OUT of that row and absolutely centered
-          over the header's full width instead -- same "pointer-events-
-          none absolute inset-0 flex items-center justify-center" trick
-          components/site-nav.tsx already uses to keep ITS OWN centered
-          tabs pill dead-center regardless of what's in the side
-          columns (see that file's own header comment for the technique
-          in full). max-w-[470px] here matches the compose bar's own
-          (672px max-w-2xl narrowed 30%, per the second follow-up above)
-          so the back button keeps tracking the paperclip's x -- both
-          are still mx-auto boxes centered on the page, so centering the
-          avatar/name overlay inside this one still lands at the same
-          page-x as the nav bar's own full-width-centered tabs. */}
+      {/* 2026-09-02 (Aleksandr: "Сделай как у нас в приложении UI,
+          поставь имя по центру, а аватар справа. И при нажатии на
+          аватар и на имя должен открываться профіль цієї людини") --
+          matches the reference app screenshot's own layout: back
+          button stays the row's only normal-flow LEFT item; the name
+          is still absolutely centered over the row's full width, same
+          "pointer-events-none absolute inset-0 flex items-center
+          justify-center" trick components/site-nav.tsx uses for its own
+          centered tabs pill (see that file's header for the technique
+          in full) -- but now rendered as its own tappable rounded pill
+          (bg-black/5, matching the app's dark chip) instead of sitting
+          next to the avatar; the avatar moves out of that centered
+          group entirely and becomes the row's other normal-flow item,
+          pushed to the right via ml-auto. Name and avatar both link to
+          headerProfileHref when a ?username= came along with this
+          chat's ?title=/?avatar= (see where those are read above) --
+          null just renders them as plain non-clickable elements, same
+          fail-open convention this file's other guessed-shape reads
+          use. max-w-[470px] still matches the compose bar's own row so
+          the back button tracks the paperclip's x. */}
       <div className="sticky top-0 z-10 border-b border-black/5 bg-[#f2f2f7]/90 backdrop-blur-md dark:border-white/10 dark:bg-black/80">
         <div className="relative mx-auto flex w-full max-w-[470px] items-center px-4 py-3">
           <Link
@@ -256,27 +267,58 @@ export default function ChatWindowPage() {
             <ChatBackArrow />
           </Link>
 
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center gap-3 px-4 py-3">
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-4 py-3">
+            {headerProfileHref ? (
+              <Link
+                href={headerProfileHref}
+                className="pointer-events-auto max-w-[55%] truncate rounded-full bg-black/5 px-4 py-1.5 text-center transition hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15"
+              >
+                <span className="block truncate text-[15px] font-semibold leading-tight">{headerTitle || "—"}</span>
+                {peerTyping && (
+                  <span className="flex items-center justify-center gap-1.5 text-[13px] font-medium text-[#335ef7] dark:text-[#0c8ce9]">
+                    <T uk="набирає" en="typing" ru="печатает" de="tippt" es="escribiendo" fr="écrit" pl="pisze" ptBR="digitando" zh="正在输入" />
+                    <ChatTypingDots />
+                  </span>
+                )}
+              </Link>
+            ) : (
+              <div className="pointer-events-auto max-w-[55%] truncate rounded-full bg-black/5 px-4 py-1.5 text-center dark:bg-white/10">
+                <span className="block truncate text-[15px] font-semibold leading-tight">{headerTitle || "—"}</span>
+                {peerTyping && (
+                  <span className="flex items-center justify-center gap-1.5 text-[13px] font-medium text-[#335ef7] dark:text-[#0c8ce9]">
+                    <T uk="набирає" en="typing" ru="печатает" de="tippt" es="escribiendo" fr="écrit" pl="pisze" ptBR="digitando" zh="正在输入" />
+                    <ChatTypingDots />
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+
+          {headerProfileHref ? (
+            <Link href={headerProfileHref} aria-label={headerTitle || undefined} className="ml-auto shrink-0">
+              <Image
+                src={headerAvatar}
+                alt=""
+                width={42}
+                height={42}
+                className="h-[42px] w-[42px] shrink-0 rounded-full object-cover"
+                placeholder="blur"
+                blurDataURL={BLUR_DATA_URL}
+                unoptimized
+              />
+            </Link>
+          ) : (
             <Image
               src={headerAvatar}
               alt=""
               width={42}
               height={42}
-              className="pointer-events-auto h-[42px] w-[42px] shrink-0 rounded-full object-cover"
+              className="ml-auto h-[42px] w-[42px] shrink-0 rounded-full object-cover"
               placeholder="blur"
               blurDataURL={BLUR_DATA_URL}
               unoptimized
             />
-            <div className="pointer-events-auto min-w-0 max-w-[50vw]">
-              <div className="truncate text-[15px] font-medium leading-tight">{headerTitle || "—"}</div>
-              {peerTyping && (
-                <div className="flex items-center gap-1.5 text-[13px] font-medium text-[#335ef7] dark:text-[#0c8ce9]">
-                  <T uk="набирає" en="typing" ru="печатает" de="tippt" es="escribiendo" fr="écrit" pl="pisze" ptBR="digitando" zh="正在输入" />
-                  <ChatTypingDots />
-                </div>
-              )}
-            </div>
-          </div>
+          )}
         </div>
       </div>
 

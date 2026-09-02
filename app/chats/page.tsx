@@ -42,6 +42,12 @@ type ChatListItem = {
   id: string;
   title: string;
   avatarUrl: string;
+  // 2026-09-02: lets the chat window link its header name/avatar back
+  // to this person's profile (Aleksandr: "при нажатии на аватар и на
+  // имя должен открываться профіль") -- null for a group chat or an
+  // unresolved participant, same as lib/a1/chat-mappers.ts's own
+  // otherUsername this rides on.
+  username: string | null;
   isPersonal: boolean;
   lastMessageId: string | null;
   // Added 2026-09-02 alongside lib/a1/chat-schemas.ts's widened
@@ -230,7 +236,7 @@ export default function ChatsPage() {
                 // "get one chat" endpoint that doesn't exist yet -- purely
                 // a display hint, the window's own polling loop is the
                 // source of truth for anything else.
-                href={`/chats/${chat.id}?title=${encodeURIComponent(chat.title)}&avatar=${encodeURIComponent(chat.avatarUrl)}`}
+                href={`/chats/${chat.id}?title=${encodeURIComponent(chat.title)}&avatar=${encodeURIComponent(chat.avatarUrl)}${chat.username ? `&username=${encodeURIComponent(chat.username)}` : ""}`}
                 className="flex items-center gap-3 rounded-xl px-2 py-2.5 hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
               >
                 <Image

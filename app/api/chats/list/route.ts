@@ -67,6 +67,7 @@ export async function GET() {
           id: chat._id,
           title: display.title,
           avatarUrl: pickChatAvatar(chat, display),
+          username: display.otherUsername,
           isPersonal: display.isPersonal,
           lastMessageId: typeof lm === "string" ? lm : (lm?._id ?? null),
           previewText: preview?.text ?? "",

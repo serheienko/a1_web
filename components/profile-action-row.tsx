@@ -574,6 +574,7 @@ export function ProfileActionRow({
         const qs = new URLSearchParams();
         if (shareTitle) qs.set("title", shareTitle);
         if (avatarUrl) qs.set("avatar", avatarUrl);
+        if (username) qs.set("username", username);
         const suffix = qs.toString() ? `?${qs.toString()}` : "";
         router.push(`/chats/${data.chatId}${suffix}`);
         return;

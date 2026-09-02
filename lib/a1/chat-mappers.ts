@@ -20,6 +20,13 @@ export type ChatDisplay = {
   // personal chat where that lookup came back empty (chats.getChats
   // didn't return a `users` array, or this participant wasn't in it).
   otherUserId: string | null;
+  // 2026-09-02: same resolution as otherUserId above, added so
+  // app/api/chats/list/route.ts can hand the chat window a ?username=
+  // to link the header's name/avatar to that person's profile
+  // (Aleksandr: "при нажатии на аватар и на имя должен открываться
+  // профіль цієї людини") -- null under the exact same conditions
+  // otherUserId is.
+  otherUsername: string | null;
 };
 
 /**
@@ -47,6 +54,7 @@ export function resolveChatDisplay(
       photoUrl: otherUser.photo ?? null,
       isPersonal: true,
       otherUserId: otherId,
+      otherUsername: otherUser.username ?? null,
     };
   }
 
@@ -55,6 +63,7 @@ export function resolveChatDisplay(
     photoUrl: null,
     isPersonal: isPersonalChat(chat),
     otherUserId: otherId,
+    otherUsername: null,
   };
 }
 

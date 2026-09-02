@@ -104,7 +104,7 @@ export default function ContactsPage() {
   const [openingChatFor, setOpeningChatFor] = useState<string | null>(null);
   const [chatErrorFor, setChatErrorFor] = useState<string | null>(null);
 
-  async function openChat(userId: string, title?: string, avatarUrl?: string | null) {
+  async function openChat(userId: string, title?: string, avatarUrl?: string | null, username?: string | null) {
     if (openingChatFor) return;
     setOpeningChatFor(userId);
     try {
@@ -123,6 +123,7 @@ export default function ContactsPage() {
         const qs = new URLSearchParams();
         if (title) qs.set("title", title);
         if (avatarUrl) qs.set("avatar", avatarUrl);
+        if (username) qs.set("username", username);
         const suffix = qs.toString() ? `?${qs.toString()}` : "";
         router.push(`/chats/${data.chatId}${suffix}`);
         return;
@@ -276,7 +277,7 @@ export default function ContactsPage() {
                 {contact.user && (
                   <button
                     type="button"
-                    onClick={() => openChat(contact.user!, contactName(contact, linkedUser), linkedUser?.avatarUrl)}
+                    onClick={() => openChat(contact.user!, contactName(contact, linkedUser), linkedUser?.avatarUrl, linkedUser?.username)}
                     disabled={isOpeningThisChat}
                     aria-label="Chat"
                     className={
