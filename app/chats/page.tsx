@@ -34,6 +34,7 @@ import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { T } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
 import { MessageTicks } from "@/components/chat/icons";
+import { LottiePlayer } from "@/components/lottie-player";
 
 type LoadState = "loading" | "signed-out" | "error" | "ready";
 
@@ -124,8 +125,17 @@ export default function ChatsPage() {
   }, []);
 
   return (
-    <div className="min-h-[100dvh] bg-[#f2f2f7] dark:bg-black">
-      <main className="mx-auto w-full max-w-2xl px-4 py-10 sm:py-16">
+    <div className="flex min-h-[100dvh] flex-col bg-[#f2f2f7] dark:bg-black">
+      {/* 2026-09-02 (Aleksandr, screenshot: "подвинь блок по центру
+          экрана" -- the cat+pigeon empty state sat right under the
+          heading instead of centered in the leftover viewport space).
+          Both this wrapper and <main> below are now flex columns so
+          the empty-state block further down can take flex-1 and center
+          itself vertically in whatever room is left under the "Чати"
+          heading -- every OTHER state (loading/error/signed-out/the
+          populated list) stays a normal, non-flex-1 child, so this
+          only changes that one block's own position. */}
+      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-4 py-10 sm:py-16">
         <h1 className="text-2xl font-semibold text-[#262a34] sm:text-3xl dark:text-white">
           <T uk="Чати" en="Chats" ru="Чаты" de="Chats" es="Chats" fr="Discussions" pl="Czaty" ptBR="Conversas" zh="聊天" />
         </h1>
@@ -169,15 +179,17 @@ export default function ChatsPage() {
         )}
 
         {state === "ready" && chats.length === 0 && (
-          <div className="mt-10 flex flex-col items-center text-center">
-            <Image
-              src="/chat/empty-chat.png"
-              alt=""
-              width={269}
-              height={130}
-              className="h-auto w-[230px]"
-              unoptimized
-            />
+          // 2026-09-02: static /chat/empty-chat.png replaced with the
+          // animated version Aleksandr sent (Cat + pigeon.lottie -- a
+          // dotLottie zip, unpacked to public/animations/cat-pigeon.json
+          // the same way every other .tgs sticker in this app already
+          // is). "в таком же размере" -- 230px, matching the old PNG's
+          // own w-[230px]; LottiePlayer's box is always square (every
+          // other usage in this app follows that same convention), so
+          // the animation renders contained within a 230x230 box rather
+          // than at the PNG's old 269x130 aspect ratio.
+          <div className="flex flex-1 flex-col items-center justify-center text-center">
+            <LottiePlayer src="/animations/cat-pigeon.json" size={230} />
             <p className="mt-6 text-xl font-semibold text-[#262a34] dark:text-white">
               <T
                 uk="Повідомлень ще немає"
