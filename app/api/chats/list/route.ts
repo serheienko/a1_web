@@ -257,11 +257,19 @@ export async function GET() {
           draftText: chatDraftText(chat),
         };
       })
-      // No confirmed "last activity" timestamp on Chat itself when
-      // lastMessage is still just a bare id (lib/a1/chat-schemas.ts's
-      // ChatSchema) -- ordering is whatever chats.getChats itself
-      // returned until that's resolved.
-      .filter((item) => item.title || item.lastMessageId);
+      .filter((item) => item.title || item.lastMessageId)
+      // 2026-09-02 (Aleksandr, live screenshot: a 20:13 chat sitting
+      // BELOW an 18:23 one -- "тут неправильный порядок, на самом верху
+      // должен показываться самый свежий чат"): the comment this used to
+      // carry here ("ordering is whatever chats.getChats itself
+      // returned") was true when this route shipped, but resolveLast
+      // Messages() above now resolves a real previewDateMs for every
+      // chat whose lastMessage is a bare id (i.e. every real chat) --
+      // that's the exact "last activity" timestamp that comment said
+      // wasn't available yet, so sorting by it directly is no longer a
+      // guess. A chat with no messages at all (previewDateMs === 0)
+      // sorts last, same as it visually reads with no preview line.
+      .sort((a, b) => b.previewDateMs - a.previewDateMs);
 
     const response = NextResponse.json({ ok: true, chats: items });
     if (refreshedSession) setSession(response, refreshedSession);
