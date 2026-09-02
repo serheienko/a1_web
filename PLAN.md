@@ -4082,3 +4082,35 @@ GET actually needs.
 
 tsc-clean. Not live-tested yet (needs a push, same as everything else
 this session).
+
+### 6.80 Job map blur-up, post-owner menu hover, Work Style round 2 (2026-09-02)
+
+- **Job map blur-up placeholder** (components/location-map.tsx): "А мы
+  можем карты тоже подгружать через blur как аватары?" -- the embedded
+  Google Maps iframe on a job page was a blank box until it finished
+  loading, unlike every real <Image> on the site. Can't use next/image's
+  own placeholder="blur" on a cross-origin iframe, so reproduced the same
+  look by hand: lib/blur-placeholder.ts's shared BLUR_DATA_URL shimmer as
+  a scaled, CSS-blurred layer stacked on top of the iframe, faded out via
+  the iframe's own onLoad.
+- **Post owner "•••" menu on hover** (components/post-owner-menu.tsx):
+  "Этот попап тоже сделай по наведению на °°°" -- same lib/use-hover-
+  panel.ts hook §6.77's profile "•••" menu already uses. Click still
+  works; also switched the panel's old mt-2 gap to the established pt-2
+  wrapper fix and resets the delete-confirm step whenever the menu
+  closes (so a hover-close doesn't leave "Точно видалити?" pre-armed).
+- **Work Style section, round 2 + localization** (app/u/[username]/
+  page.tsx): §6.77's compact-card-grid was rejected live ("Не, ну это
+  плохо :))") -- uneven card heights per section read as jagged, not
+  tidy. Replaced with flat "Label: value1, value2" chips, one per
+  section, no card container -- every chip is the same one-line height
+  regardless of value count, flex-wrap still packs several per row.
+  Also localized the pill values themselves ("+ надо локализация на всю
+  эту историю") by wiring in lib/pill-translations.ts's
+  translateWorkStyleOption() (already used by components/profile-
+  editor.tsx's own edit-mode pills, never called from this public-profile
+  page) -- precomputes all 9 locale variants server-side since this page
+  has no resolved `lang` the way a client component would.
+
+Three separate commits, each tsc-clean. Not live-tested yet (needs a
+push).
