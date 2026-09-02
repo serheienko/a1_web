@@ -26,10 +26,12 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { createPortal } from "react-dom";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { authFetch } from "@/lib/auth-fetch";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
+import { profileHref } from "@/lib/profile-href";
 import {
   extractMessages,
   extractMessageText,
@@ -37,7 +39,7 @@ import {
   messageTickState,
   type ChatMessage,
 } from "@/lib/a1/chat-schemas";
-import { MessageTicks, ChatCatFieldIcon, ChatPaperclipGlyph } from "@/components/chat/icons";
+import { MessageTicks, ChatCatFieldIcon, ChatPaperclipGlyph, ChatBackArrow } from "@/components/chat/icons";
 import type { ChatFlyoutOpenTarget } from "@/components/chats-flyout";
 
 const POLL_MS = 3000;
@@ -79,7 +81,37 @@ type MiniAttachment = {
   fileReference?: string;
 };
 
-export function MiniChatWindow({ target, onClose }: { target: ChatFlyoutOpenTarget; onClose: () => void }) {
+// 2026-09-02 (Aleksandr, screenshots: broken avatars in this popup and
+// the flyout list both still showing next/image's "?" broken-image
+// glyph -- being investigated separately; "Нажатие на аватар и имя в
+// мелкой модалке с чатами должно переходить на профіль", and "Поставь
+// имя по центру, аватар справа і стрілку назад зліва, як у великих
+// чатах... тап поза чатами закриває чати"): header reworked to mirror
+// app/chats/[chatId]/page.tsx's own layout (back arrow / centered name
+// / avatar) instead of the old avatar-left-title-plus-X-close row. The
+// X close button is gone entirely, same as the big chat page has none
+// -- `onBack` (was `onClose`) now means "return to the recent-chats
+// list", matching that arrow's Link there going to /chats; fully
+// dismissing both popups is now components/chats-fab.tsx's job, fired
+// by a tap anywhere outside them (see that file's own click-outside
+// effect) -- `onNavigate` below is that same full-close, reused for
+// when the header's own avatar/name link is clicked, since leaving for
+// a profile page should close this floating window rather than leave
+// it stranded on top of the destination page. `panelRef` lets that same
+// outside-click effect tell "inside this window" apart from "outside
+// it" the same way components/chats-flyout.tsx's own panelRef already
+// does for the list popover.
+export function MiniChatWindow({
+  target,
+  onBack,
+  onNavigate,
+  panelRef,
+}: {
+  target: ChatFlyoutOpenTarget;
+  onBack: () => void;
+  onNavigate: () => void;
+  panelRef: RefObject<HTMLDivElement | null>;
+}) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [peerReadMaxId, setPeerReadMaxId] = useState<number | null>(null);
@@ -249,35 +281,56 @@ export function MiniChatWindow({ target, onClose }: { target: ChatFlyoutOpenTarg
     setAttachment(null);
   }
 
+  const targetProfileHref = target.username ? profileHref(target.username) : null;
+  const avatarImg = (
+    <Image
+      src={target.avatarUrl}
+      alt=""
+      width={32}
+      height={32}
+      className="h-8 w-8 shrink-0 rounded-full object-cover"
+      placeholder="blur"
+      blurDataURL={target.avatarBlurDataUrl ?? BLUR_DATA_URL}
+      unoptimized
+    />
+  );
+  const nameText = <span className="block truncate text-[16px] font-medium leading-tight">{target.title || "—"}</span>;
+
   return createPortal(
     <div
+      ref={panelRef}
       role="dialog"
       aria-label={target.title}
       className="animate-popover-up fixed right-5 z-[70] flex h-[26rem] w-80 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
       style={{ bottom: "calc(1.25rem + 56px + 12px + 48px + 12px + env(safe-area-inset-bottom))" }}
     >
-      <div className="flex shrink-0 items-center gap-2.5 border-b border-neutral-100 px-3 py-2.5 dark:border-neutral-800">
-        <Image
-          src={target.avatarUrl}
-          alt=""
-          width={32}
-          height={32}
-          className="h-8 w-8 shrink-0 rounded-full object-cover"
-          placeholder="blur"
-          blurDataURL={target.avatarBlurDataUrl ?? BLUR_DATA_URL}
-          unoptimized
-        />
-        <div className="min-w-0 flex-1 truncate text-[16px] font-medium text-[#262a34] dark:text-white">{target.title || "—"}</div>
+      <div className="relative flex shrink-0 items-center border-b border-neutral-100 px-3 py-2.5 dark:border-neutral-800">
         <button
           type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-neutral-400 transition hover:bg-black/5 hover:text-neutral-600 dark:hover:bg-white/10 dark:hover:text-neutral-200"
+          onClick={onBack}
+          aria-label="Back"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-neutral-500 transition hover:bg-black/5 dark:text-neutral-300 dark:hover:bg-white/10"
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-            <path d="M6 6l12 12M18 6L6 18" />
-          </svg>
+          <ChatBackArrow className="h-3 w-[7px]" />
         </button>
+
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-10 text-[#262a34] dark:text-white">
+          {targetProfileHref ? (
+            <Link href={targetProfileHref} onClick={onNavigate} className="pointer-events-auto max-w-full truncate">
+              {nameText}
+            </Link>
+          ) : (
+            <div className="max-w-full truncate">{nameText}</div>
+          )}
+        </div>
+
+        {targetProfileHref ? (
+          <Link href={targetProfileHref} onClick={onNavigate} aria-label={target.title || undefined} className="ml-auto shrink-0">
+            {avatarImg}
+          </Link>
+        ) : (
+          <div className="ml-auto shrink-0">{avatarImg}</div>
+        )}
       </div>
 
       <div ref={listRef} className="flex-1 space-y-1.5 overflow-y-auto px-3 py-2.5">

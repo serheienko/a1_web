@@ -137,6 +137,45 @@ export function ChatsFab() {
   // own "по максимуму" scope, see chats-flyout.tsx's header) -- picking
   // a different chat just swaps this to the new target.
   const [activeChat, setActiveChat] = useState<ChatFlyoutOpenTarget | null>(null);
+  // 2026-09-02: components/mini-chat-window.tsx's own header now has a
+  // Back arrow (not a Close "X") -- see that file's own comment. Back
+  // returns to the recent-chats list; fully dismissing both popups is
+  // this component's job now, fired by the outside-click effect below.
+  const miniChatPanelRef = useRef<HTMLDivElement>(null);
+
+  function handleBackToList() {
+    setActiveChat(null);
+    setFlyoutOpen(true);
+  }
+
+  function handleCloseAll() {
+    setActiveChat(null);
+    setFlyoutOpen(false);
+  }
+
+  // 2026-09-02 (Aleksandr: "тап по любій вільній зоні поза чатами -
+  // закриває чати"): the flyout list already closes on mouse-leave via
+  // lib/use-hover-panel.ts (desktop hover), but that never fires on
+  // touch, and the mini chat window had no outside-dismiss at all.
+  // A single document-level listener, active only while something is
+  // actually open, covers both: a mousedown that lands outside the
+  // flyout's own trigger/panel AND outside the mini chat window closes
+  // everything. Checked against refs (not React state) so this doesn't
+  // need to re-derive "is this click on one of our own elements" from
+  // scratch on every render.
+  useEffect(() => {
+    if (!flyoutOpen && !activeChat) return;
+    function handlePointerDown(e: MouseEvent) {
+      const node = e.target as Node;
+      const insideTrigger = flyoutTriggerRef.current?.contains(node);
+      const insideFlyout = flyoutPanelRef.current?.contains(node);
+      const insideMiniChat = miniChatPanelRef.current?.contains(node);
+      if (insideTrigger || insideFlyout || insideMiniChat) return;
+      handleCloseAll();
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [flyoutOpen, activeChat]);
 
   useEffect(() => {
     setEmail(readDisplayCookie());
@@ -211,7 +250,9 @@ export function ChatsFab() {
         onMouseLeave={handleFlyoutLeave}
         onOpenChat={(target) => setActiveChat(target)}
       />
-      {activeChat && <MiniChatWindow target={activeChat} onClose={() => setActiveChat(null)} />}
+      {activeChat && (
+        <MiniChatWindow target={activeChat} onBack={handleBackToList} onNavigate={handleCloseAll} panelRef={miniChatPanelRef} />
+      )}
     </>
   );
 }
