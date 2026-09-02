@@ -70,6 +70,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef } from "react";
 import { AvatarMenu } from "@/components/avatar-menu";
 import { T } from "@/components/t";
 
@@ -102,9 +103,48 @@ const NAV_ITEMS = [
 
 export function SiteNav() {
   const pathname = usePathname();
+  const navRef = useRef<HTMLElement>(null);
+
+  // 2026-09-02 (Aleksandr, live screenshot: app/chats/[chatId]/page.tsx's
+  // own header -- back arrow + peer name + avatar -- was getting
+  // completely covered by this bar instead of staying visible under it,
+  // "её аватарка должны бути також зверху закріплені"): that page wants
+  // a real fixed app-style layout (its own header, then a scrolling message
+  // list, then a composer fixed to the viewport bottom) sized to
+  // `100dvh` -- but this bar ALSO takes real space above it in the
+  // document (sticky, not fixed, so it keeps its box in the flow), so
+  // {this bar's height} + {that page's own 100dvh box} together always
+  // overflowed the real viewport by exactly this bar's height. That
+  // small overflow was enough to make the BODY itself scrollable, and
+  // once anything scrolled it down even slightly (that page's own
+  // scroll-to-latest-message effect did, on every load), this bar's own
+  // `sticky top-0` and that page's header's identical `sticky top-0`
+  // both landed on the exact same spot -- this bar's higher z-index
+  // (z-40 vs that header's z-10) simply painted over it completely.
+  // Publishing this bar's own real rendered height as a CSS custom
+  // property here is the fix: any current or future fixed-viewport page
+  // can size itself to `calc(100dvh - var(--site-nav-h, ...))` instead
+  // of a bare `100dvh` and never overflow the viewport by this bar's
+  // height in the first place -- see that page's own root <div> for the
+  // one call site today. Kept as a ResizeObserver (not a one-time
+  // measurement) since this bar's own height isn't constant: the
+  // safe-area inset differs per device and the search box in Filters
+  // can grow/shrink the row on some pages.
+  useEffect(() => {
+    const el = navRef.current;
+    if (!el) return;
+    const setVar = () => {
+      document.documentElement.style.setProperty("--site-nav-h", `${el.getBoundingClientRect().height}px`);
+    };
+    setVar();
+    const observer = new ResizeObserver(setVar);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <nav
+      ref={navRef}
       className="sticky top-0 z-40 isolate bg-app/80 pt-[env(safe-area-inset-top)] backdrop-blur-xl [will-change:transform] dark:bg-black/80"
       style={{ transform: "translateZ(0)" }}
     >

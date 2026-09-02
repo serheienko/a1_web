@@ -43,7 +43,47 @@ type LoadState = "loading" | "signed-out" | "error" | "ready";
 // yet. Same shape as ChatMessage (so every existing render/format
 // helper -- extractMessageText, messageDateMs, messageTickState --
 // works on it unchanged) plus two fields nothing server-side ever sets.
-type PendingMessage = ChatMessage & { pending: true; localId: string };
+// 2026-09-02 follow-up (Aleksandr: "надо учесть ошибки с сетью, когда
+// сообщение не дошло и тд. Нам надо показывать маленький лоадер и при
+// нажатии на сообщение модалку возле него с возможностью отменить
+// сообщение, но если не отменил, когда сеть появилась оно должно
+// дослаться") -- `failed` tracks whether the LAST send attempt for
+// this bubble came back bad (network exception, or any non-401 error
+// response): false while a request for it is actually in flight (shows
+// a spinner) or once it's gone out fine (removed by load()'s own
+// reconciliation the moment the real message shows up); true while
+// it's sitting there waiting for a retry (still shows a small "not
+// sent" indicator, and is what the retry-on-reconnect pass below scans
+// for). A 401 is NOT put into this state at all -- see attemptSend --
+// that's not a network hiccup, it's "you're signed out", and retrying
+// it silently forever would just be wrong.
+type PendingMessage = ChatMessage & { pending: true; localId: string; failed: boolean };
+
+function isPendingMessage(msg: ChatMessage | PendingMessage): msg is PendingMessage {
+  return (msg as PendingMessage).pending === true;
+}
+
+// Small spinner (mid-flight) / "not sent" dot (waiting for a retry) --
+// rendered where MessageTicks normally goes, same 11px caption row, so
+// a pending bubble never jumps size once it resolves into a real one.
+function SendingSpinner() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-3 w-3 animate-spin" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" strokeOpacity="0.35" />
+      <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function NotSentIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5 text-red-300" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 7v6" stroke="white" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="12" cy="16.3" r="1.15" fill="white" />
+    </svg>
+  );
+}
 
 const POLL_MS = 3000;
 // Don't re-announce "typing" on every keystroke -- once per this window
@@ -151,12 +191,26 @@ export default function ChatWindowPage() {
   // a graceful handoff. Rendered merged with `messages`, see
   // displayMessages below.
   const [pendingMessages, setPendingMessages] = useState<PendingMessage[]>([]);
+  // Which pending bubble's cancel/retry popover is open, if any -- only
+  // ever one at a time, closed by tapping elsewhere (see the
+  // document-click effect near the retry helpers below).
+  const [openPendingId, setOpenPendingId] = useState<string | null>(null);
+  const pendingPopoverRef = useRef<HTMLDivElement>(null);
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const inFlight = useRef(false);
   const lastTypingSentAt = useRef(0);
   const scrollAnchorRef = useRef<HTMLDivElement>(null);
+  // Mirrors pendingMessages for the "online" listener below (registered
+  // once, so it can't close over a fresh `pendingMessages` each render)
+  // and guards against retrying the same bubble twice if a poll tick's
+  // own retry pass and the browser's "online" event land close together.
+  const pendingMessagesRef = useRef<PendingMessage[]>([]);
+  useEffect(() => {
+    pendingMessagesRef.current = pendingMessages;
+  }, [pendingMessages]);
+  const retryingIds = useRef<Set<string>>(new Set());
 
   // Not wired to anything live yet -- chat-server's typing events are
   // WS-only (this file's own header, and app/api/chats/typing/route.ts's
@@ -216,6 +270,12 @@ export default function ChatWindowPage() {
         ),
       );
       setState("ready");
+      // A poll tick only gets here once the fetch above actually
+      // succeeded -- as good a "we have a network" signal as the
+      // browser's own `online` event (registered below), and covers
+      // reconnects that event doesn't reliably fire for (e.g. Wi-Fi
+      // that stays "connected" while the internet itself was down).
+      retryAllFailedRef.current();
     } catch {
       setState((prev) => (prev === "ready" ? prev : "error"));
     } finally {
@@ -247,6 +307,98 @@ export default function ChatWindowPage() {
     scrollAnchorRef.current?.scrollIntoView({ block: "end" });
   }, [messages.length, pendingMessages.length]);
 
+  // 2026-09-02 (Aleksandr, follow-up on the optimistic-send fix above:
+  // "надо учесть ошибки с сетью, когда сообщение не дошло... если не
+  // отменил, когда сеть появилась оно должно дослаться") -- one real
+  // POST attempt for one pending bubble, shared by send() (the first
+  // attempt) and retryOne() below (every attempt after). Three
+  // outcomes: delivered (load() picks up the real message and
+  // reconciliation above removes this bubble), a session problem
+  // (401 -- not a network hiccup, drop the bubble and hand the text
+  // back rather than retry something that will just 401 forever), or
+  // anything else (marks `failed`, left on screen with NotSentIcon
+  // instead of a tick, picked up again by retryAllFailed the next time
+  // there's actually a network to retry on).
+  async function attemptSend(localId: string, text: string) {
+    try {
+      const res = await authFetch("/api/chats/send", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ chatId, text }),
+      });
+      if (res.ok) {
+        load();
+        return;
+      }
+      if (res.status === 401) {
+        setPendingMessages((prev) => prev.filter((p) => p.localId !== localId));
+        setDraft((d) => d || text);
+        return;
+      }
+      setPendingMessages((prev) => prev.map((p) => (p.localId === localId ? { ...p, failed: true } : p)));
+    } catch {
+      setPendingMessages((prev) => prev.map((p) => (p.localId === localId ? { ...p, failed: true } : p)));
+    }
+  }
+
+  // Re-fires one failed bubble's send. `retryingIds` is the lock that
+  // keeps the poll-tick retry pass and the browser's `online` event
+  // from both picking up the same bubble at once -- flips it back to
+  // "not failed" (spinner, not the red dot) the instant a retry starts,
+  // so it also can't be picked up a second time before this attempt
+  // resolves.
+  async function retryOne(p: PendingMessage) {
+    if (retryingIds.current.has(p.localId)) return;
+    retryingIds.current.add(p.localId);
+    setPendingMessages((prev) => prev.map((m) => (m.localId === p.localId ? { ...m, failed: false } : m)));
+    try {
+      await attemptSend(p.localId, extractMessageText(p));
+    } finally {
+      retryingIds.current.delete(p.localId);
+    }
+  }
+
+  function retryAllFailed() {
+    pendingMessagesRef.current.filter((p) => p.failed).forEach((p) => {
+      void retryOne(p);
+    });
+  }
+
+  // Ref indirection so the `online` listener below can stay registered
+  // once for the page's whole life (no churn every time pendingMessages
+  // changes) while still always calling the CURRENT retryAllFailed --
+  // reassigned on every render, no effect needed for that part.
+  const retryAllFailedRef = useRef(retryAllFailed);
+  retryAllFailedRef.current = retryAllFailed;
+
+  useEffect(() => {
+    function handleOnline() {
+      retryAllFailedRef.current();
+    }
+    window.addEventListener("online", handleOnline);
+    return () => window.removeEventListener("online", handleOnline);
+  }, []);
+
+  // Closes the cancel/retry popover on any click outside it -- no
+  // backdrop element (this popover sits inline in the message list,
+  // not portaled), so a plain document-level listener is simpler than
+  // reasoning about z-index against the scrolling message list.
+  useEffect(() => {
+    if (!openPendingId) return;
+    function handleDocClick(e: MouseEvent) {
+      if (pendingPopoverRef.current && !pendingPopoverRef.current.contains(e.target as Node)) {
+        setOpenPendingId(null);
+      }
+    }
+    document.addEventListener("mousedown", handleDocClick);
+    return () => document.removeEventListener("mousedown", handleDocClick);
+  }, [openPendingId]);
+
+  function cancelPending(localId: string) {
+    setPendingMessages((prev) => prev.filter((p) => p.localId !== localId));
+    setOpenPendingId(null);
+  }
+
   function announceTyping() {
     const now = Date.now();
     if (now - lastTypingSentAt.current < TYPING_THROTTLE_MS) return;
@@ -269,8 +421,8 @@ export default function ChatWindowPage() {
     // `pendingMessages` state comment above for why (load() right after
     // send() used to sometimes race chat-server's own indexing and show
     // nothing new for up to POLL_MS). localId is only ever used to find
-    // this exact entry again (the `key` prop below and the removal
-    // calls in the catch/error branches); real messages never collide
+    // this exact entry again (the `key` prop below and every lookup in
+    // attemptSend/retryOne/cancelPending); real messages never collide
     // with it since chat-server's own _ids never contain a "-".
     const localId = `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const optimistic: PendingMessage = {
@@ -284,35 +436,11 @@ export default function ChatWindowPage() {
       fromId: myUserId,
       pending: true,
       localId,
+      failed: false,
     };
     setPendingMessages((prev) => [...prev, optimistic]);
-    try {
-      const res = await authFetch("/api/chats/send", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ chatId, text }),
-      });
-      if (res.ok) {
-        // The optimistic bubble above already made this feel instant;
-        // this refresh is just what eventually replaces it with the
-        // real message (see load()'s reconciliation) and picks up
-        // anything else new (the other side's replies, tick updates).
-        load();
-      } else if (res.status !== 401) {
-        // Send failed but wasn't a session issue -- give the text back
-        // so nothing typed is lost, and pull the optimistic bubble that
-        // never actually went anywhere.
-        setDraft(text);
-        setPendingMessages((prev) => prev.filter((p) => p.localId !== localId));
-      } else {
-        setPendingMessages((prev) => prev.filter((p) => p.localId !== localId));
-      }
-    } catch {
-      setDraft(text);
-      setPendingMessages((prev) => prev.filter((p) => p.localId !== localId));
-    } finally {
-      setSending(false);
-    }
+    await attemptSend(localId, text);
+    setSending(false);
   }
 
   // Rendered list: real messages + any not-yet-reconciled optimistic
@@ -324,7 +452,23 @@ export default function ChatWindowPage() {
   );
 
   return (
-    <div className="flex h-[100dvh] flex-col bg-[#f2f2f7] text-[#262a34] dark:bg-black dark:text-white">
+    // 2026-09-02 (Aleksandr: "её аватарка должны бути також зверху
+    // закріплені... они должны толкать все следующие сообщения вверх, чтобы
+    // оставаться наверху") -- see components/site-nav.tsx's own comment on
+    // --site-nav-h for the actual bug: a bare `100dvh` here made this box
+    // taller than the real remaining viewport by exactly that bar's own
+    // height, which made the whole BODY scrollable and let that bar cover
+    // this page's own sticky header the moment anything scrolled it (which
+    // the scroll-to-latest-message effect below did on every load). Sizing
+    // to the real remaining space instead means this box's own internal
+    // scroll (the message list below) is the ONLY scroll on this page ever
+    // again -- new messages already push the list up top were fine; they
+    // just needed to stay reachable without dragging the header away with
+    // them.
+    <div
+      className="flex flex-col bg-[#f2f2f7] text-[#262a34] dark:bg-black dark:text-white"
+      style={{ height: "calc(100dvh - var(--site-nav-h, 64px))" }}
+    >
       {/* 2026-09-02 (Aleksandr: "Сделай как у нас в приложении UI,
           поставь имя по центру, а аватар справа. И при нажатии на
           аватар и на имя должен открываться профіль цієї людини") --
@@ -532,6 +676,11 @@ export default function ChatWindowPage() {
               const prevMsg = i > 0 ? displayMessages[i - 1] : undefined;
               const prevMs = prevMsg ? messageDateMs(prevMsg) : 0;
               const showDate = i === 0 || !sameDay(ms, prevMs);
+              // Only ever set for a pending bubble -- see the
+              // `pendingMessages` state/PendingMessage type comments
+              // above for what `failed` means and how it clears.
+              const pending = isPendingMessage(msg) ? msg : null;
+              const popoverOpen = pending !== null && openPendingId === pending.localId;
               return (
                 <div key={msg._id}>
                   {showDate && (
@@ -541,11 +690,14 @@ export default function ChatWindowPage() {
                       </span>
                     </div>
                   )}
-                  <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+                  <div className={`relative flex ${mine ? "justify-end" : "justify-start"}`}>
                     <div
-                      className={`animate-message-in max-w-[78%] rounded-[18px] px-3 py-2 text-[15px] leading-snug ${
+                      role={pending ? "button" : undefined}
+                      tabIndex={pending ? 0 : undefined}
+                      onClick={pending ? () => setOpenPendingId(pending.localId) : undefined}
+                      className={`animate-message-in max-w-[78%] rounded-[18px] px-3 py-2 text-[15px] leading-snug ${pending ? "cursor-pointer" : ""} ${
                         mine ? "rounded-tr-[6px] bg-[#335ef7] text-white dark:bg-[#009bff]" : "rounded-tl-[6px] bg-white text-[#262a34] dark:bg-[#1a1a1a] dark:text-white"
-                      }`}
+                      } ${pending?.failed ? "opacity-70" : ""}`}
                     >
                       <div className="whitespace-pre-wrap break-words">{text || "…"}</div>
                       <div
@@ -554,9 +706,72 @@ export default function ChatWindowPage() {
                         }`}
                       >
                         <span>{formatTime(ms)}</span>
-                        {mine && <MessageTicks state={messageTickState(msg)} className="h-[7.77px] w-3.5" />}
+                        {pending ? (
+                          pending.failed ? <NotSentIcon /> : <SendingSpinner />
+                        ) : (
+                          mine && <MessageTicks state={messageTickState(msg)} className="h-[7.77px] w-3.5" />
+                        )}
                       </div>
                     </div>
+
+                    {/* 2026-09-02 (Aleksandr: "надо учесть ошибки с сетью...
+                        при нажатии на сообщение модалку возле него с
+                        возможностью отменить сообщение") -- anchored above
+                        the bubble it belongs to (mine bubbles sit at the
+                        row's right edge, so this does too), closed by the
+                        document-click effect above the moment anything
+                        outside pendingPopoverRef is clicked. Retrying here
+                        is the same manual "try now" action the automatic
+                        online/poll-triggered retryAllFailed already does
+                        in the background -- this button just doesn't wait
+                        for either of those triggers. */}
+                    {popoverOpen && pending && (
+                      <div
+                        ref={pendingPopoverRef}
+                        className="animate-popover-up absolute bottom-full right-0 z-10 mb-2 w-52 rounded-2xl bg-white p-3 shadow-xl dark:bg-neutral-900"
+                      >
+                        <p className="text-center text-[13px] font-medium text-[#262a34] dark:text-white">
+                          {pending.failed ? (
+                            <T
+                              uk="Не надіслано" en="Not sent" ru="Не отправлено" de="Nicht gesendet" es="No enviado"
+                              fr="Non envoyé" pl="Nie wysłano" ptBR="Não enviado" zh="未发送"
+                            />
+                          ) : (
+                            <T
+                              uk="Надсилається…" en="Sending…" ru="Отправляется…" de="Wird gesendet…" es="Enviando…"
+                              fr="Envoi…" pl="Wysyłanie…" ptBR="Enviando…" zh="发送中…"
+                            />
+                          )}
+                        </p>
+                        <div className="mt-2 flex flex-col gap-1.5">
+                          {pending.failed && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (pending) void retryOne(pending);
+                                setOpenPendingId(null);
+                              }}
+                              className="rounded-full bg-[#335ef7] py-1.5 text-[13px] font-semibold text-white transition hover:opacity-90 dark:bg-[#009bff]"
+                            >
+                              <T
+                                uk="Спробувати ще раз" en="Try again" ru="Спробувать снова" de="Erneut versuchen" es="Reintentar"
+                                fr="Réessayer" pl="Spróbuj ponownie" ptBR="Tentar novamente" zh="重试"
+                              />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => pending && cancelPending(pending.localId)}
+                            className="rounded-full border border-neutral-300 py-1.5 text-[13px] font-medium text-neutral-600 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                          >
+                            <T
+                              uk="Скасувати" en="Cancel" ru="Отменить" de="Abbrechen" es="Cancelar"
+                              fr="Annuler" pl="Anuluj" ptBR="Cancelar" zh="取消"
+                            />
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
