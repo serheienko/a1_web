@@ -233,17 +233,17 @@ export function SettingsMenu() {
       <div className="px-1 pb-1.5 pt-1 text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
         {str("language")}
       </div>
-      {/* 2026-09-01 (Aleksandr, same request as avatar-menu.tsx's own
-          language list): shorter panel, ~4 languages visible, rest
-          scrolls. This is the signed-out sibling of that dropdown
-          (components/site-nav.tsx: "when signed out, AvatarMenu renders
-          the same sign-in link + <SettingsMenu/> pair") -- its rows are
-          a different height per breakpoint (sm:py-1.5 vs the mobile
-          default py-2), so the two max-h values below are picked
-          per-breakpoint to land on ~4 rows each, matching avatar-menu.
-          tsx's max-h-36 rather than reusing one number for both. */}
+      {/* 2026-09-02 (Aleksandr: "в розлогиненому стані показуй всі
+          дев'ять мов, попап сам по собі невисокий") -- unlike avatar-
+          menu.tsx's own signed-in language list, which is capped short
+          because it shares the popover with My Activity/Chats/Contacts/
+          theme/account/sign-out, this signed-out sibling (components/
+          site-nav.tsx: "when signed out, AvatarMenu renders the same
+          sign-in link + <SettingsMenu/> pair") has nothing else
+          competing for height, so all of LOCALES fits without a
+          scrollable cap. */}
       <div className="relative">
-        <div ref={langScrollRef} onScroll={updateLangMoreBelow} className="max-h-36 overflow-y-auto sm:max-h-32">
+        <div ref={langScrollRef} onScroll={updateLangMoreBelow} className="overflow-y-auto">
           {languageOptions.map((l) => {
             const isSelected = l === lang;
             return (

@@ -22,17 +22,32 @@
 //
 // Wrapped in React's cache() for per-request dedup, same pattern as
 // lib/covers.ts and lib/a1/datasets.ts.
-
+//
+// 2026-09-02 (Aleksandr, live screen recording + "не будет ли конского
+// счёта от того что раз в пару секунд идёт какой-то ненужный запрос" --
+// app/chats/page.tsx polls /api/chats/list every 5s while its tab is
+// open (app/chats/[chatId]/page.tsx polls its own messages every 3s),
+// and every one of those polls used to re-run this ENTIRE fetch+sharp-
+// resize+base64 pipeline for every avatar in the list. The `next:
+// {revalidate}` below only ever cached the HTTP round-trip to the media
+// proxy -- the CPU-bound sharp() work after it re-ran from scratch on
+// every single poll regardless, for a photo that essentially never
+// changes tick to tick. That's real, wasted compute that scales with
+// (open tabs) x (chats per list) x (one recompute per poll interval),
+// not a one-time cost -- exactly the kind of invisible recurring spend
+// worth catching. Fixed by caching the whole COMPUTED result (not just
+// the fetch) in Next's persistent Data Cache, keyed on the avatar's own
+// URL, via unstable_cache -- a given avatar's blur is now computed once
+// and just read back for the next 24h, matching the one-day staleness
+// this file already said was fine for the fetch alone.
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import sharp from "sharp";
 
 const FETCH_TIMEOUT_MS = 4000;
 const SITE_URL = "https://jobs.a1appp.com";
 
-export const generateAvatarBlurDataUrl = cache(async function generateAvatarBlurDataUrl(
-  avatarUrl: string | null,
-): Promise<string | null> {
-  if (!avatarUrl) return null;
+async function computeAvatarBlurDataUrl(avatarUrl: string): Promise<string | null> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
@@ -42,9 +57,6 @@ export const generateAvatarBlurDataUrl = cache(async function generateAvatarBlur
     // metadata call in app/ already hardcodes).
     const res = await fetch(`${SITE_URL}${avatarUrl}`, {
       signal: controller.signal,
-      // The underlying photo doesn't change from one moment to the next;
-      // a day's staleness on the blur alone is fine and avoids re-doing
-      // the media.getUrl round trip on every render.
       next: { revalidate: 86400 },
     });
     clearTimeout(timeout);
@@ -55,6 +67,21 @@ export const generateAvatarBlurDataUrl = cache(async function generateAvatarBlur
       .jpeg({ quality: 40 })
       .toBuffer();
     return `data:image/jpeg;base64,${tiny.toString("base64")}`;
+  } catch {
+    return null;
+  }
+}
+
+const cachedComputeAvatarBlurDataUrl = unstable_cache(computeAvatarBlurDataUrl, ["avatar-blur-v1"], {
+  revalidate: 86400,
+});
+
+export const generateAvatarBlurDataUrl = cache(async function generateAvatarBlurDataUrl(
+  avatarUrl: string | null,
+): Promise<string | null> {
+  if (!avatarUrl) return null;
+  try {
+    return await cachedComputeAvatarBlurDataUrl(avatarUrl);
   } catch {
     return null;
   }
