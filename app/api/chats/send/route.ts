@@ -1,30 +1,27 @@
 // app/api/chats/send/route.ts
 //
 // Phase 1 web chat (Aleksandr, 2026-09-01). POST { chatId, text } --
-// proxies chat-server's `messages.send`. Request shape is this session's
-// best inference (see lib/a1/chat-schemas.ts's header -- messages_send.
-// d.ts couldn't be read): `{ peer, message, randomId }`. `message` as
-// the field name matches this backend's `messages.*` naming convention
-// throughout; `randomId` is the standard MTProto-style client-generated
-// idempotency key for a send call (protects against a retried request
-// double-posting) -- harmless to include even if chat-server ignores it,
-// and cheap to drop later if it turns out to reject unknown fields
-// instead (that would surface as an immediate 502 here, not a silent
-// failure).
+// proxies chat-server's `messages.send`.
 //
-// FIELD NAME (2026-09-01): messages.getMessages turned out to want the
-// peer under `peerTo`, not `peer` (confirmed live via Vercel Logs --
-// see app/api/chats/messages/route.ts's header). Applying the same
-// rename here pre-emptively since messages.* almost certainly shares
-// one naming convention -- still unconfirmed for THIS endpoint
-// specifically until a real send is tried; if it 502s with a 'peerTo'-
-// shaped complaint instead, that's the next thing to read.
+// 2026-09-02: request shape confirmed directly off chat-server's own
+// types (packages/types/global/MessageInput.d.ts, read straight off
+// the source this time instead of guessed): `{ peerTo, message, ... }`
+// -- `peerTo` was already right (2026-09-01's live-confirmed rename,
+// see app/api/chats/messages/route.ts's header), but `randomId` was
+// never a real field on this input at all and is dropped here, and
+// `chatId` may now be a real Chat _id OR the `u_<userId>` "no chat
+// yet" sentinel (app/api/chats/open/route.ts) -- peerForRouteParam
+// (lib/a1/chat-schemas.ts) resolves either to the right Peer, and for
+// a `peer-user` peer chat-server transparently resolves-or-creates the
+// personal chat right here (services/chats/methods/
+// _peerToPeerChat.ts + resolvePersonalChat.ts) before the message goes
+// out -- no separate "create the chat first" step needed.
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { A1ApiError } from "@/lib/a1/client";
 import { callAsVisitor, NoSessionError } from "@/lib/a1/visitor-call";
 import { setSession, clearSession } from "@/lib/a1/session";
-import { peerForChat } from "@/lib/a1/chat-schemas";
+import { peerForRouteParam } from "@/lib/a1/chat-schemas";
 
 export const runtime = "nodejs";
 
@@ -42,9 +39,8 @@ export async function POST(request: NextRequest) {
 
   try {
     const { data, refreshedSession } = await callAsVisitor<unknown>("messages.send", {
-      peerTo: peerForChat(chatId),
+      peerTo: peerForRouteParam(chatId),
       message: text,
-      randomId: crypto.randomUUID(),
     });
 
     const response = NextResponse.json({ ok: true, raw: data });

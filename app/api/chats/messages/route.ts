@@ -1,18 +1,24 @@
 // app/api/chats/messages/route.ts
 //
-// Phase 1 web chat (Aleksandr, 2026-09-01). GET ?chat=<chatId> -- proxies
-// chat-server's `messages.getMessages` for one chat's history. Peer
-// value is `{ object: "peer-chat", chat: chatId }`, confirmed via
-// useChat.ts's own lastMessage lookup (see lib/a1/chat-schemas.ts's
-// header) -- there's no separate peer-user-addressed stream for a
-// personal chat's own messages, only for identifying its participants.
+// Phase 1 web chat (Aleksandr, 2026-09-01). GET ?chat=<routeParam> --
+// proxies chat-server's `messages.getMessages` for one chat's history.
+//
+// 2026-09-02: `chat` may now be a real Chat _id OR app/api/chats/open/
+// route.ts's `u_<userId>` sentinel for "no confirmed chat yet" --
+// peerForRouteParam (lib/a1/chat-schemas.ts) resolves either to the
+// right Peer. Confirmed straight off chat-server's own source
+// (api/v1/messages/messages.getMessages.ts +
+// services/chats/methods/getMessages.ts) that a `peer-user` peer here
+// is completely safe with no chat yet: it just runs a message search
+// and returns [] rather than requiring or creating a chat.
 //
 // FIELD NAME CONFIRMED LIVE (2026-09-01): first real call 400'd with
 // "root is missing required property 'peerTo'" (seen via Vercel Logs),
-// so the request field is `peerTo`, not `peer` -- fixed below. Value
-// shape (`peerForChat(chatId)`) is unchanged/still a guess, just the
-// wrapping field name was wrong. This is the first live confirmation
-// under this file's "confirm on first live error" plan (PLAN.md §6.62).
+// so the request field is `peerTo`, not `peer` -- fixed below. This
+// was the first live confirmation under this file's "confirm on first
+// live error" plan (PLAN.md §6.62); peerForRouteParam's own value
+// shape (lib/a1/chat-schemas.ts) is now fully confirmed too, see its
+// header.
 //
 // This is the MVP polling transport (PLAN.md's chat master plan,
 // "поллинг для MVP"): the client (app/chats/[chatId]/page.tsx) re-calls
@@ -26,7 +32,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { A1ApiError } from "@/lib/a1/client";
 import { callAsVisitor, NoSessionError } from "@/lib/a1/visitor-call";
 import { setSession, clearSession, readSession } from "@/lib/a1/session";
-import { extractMessages, peerForChat } from "@/lib/a1/chat-schemas";
+import { extractMessages, peerForRouteParam } from "@/lib/a1/chat-schemas";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,7 +49,7 @@ export async function GET(request: NextRequest) {
     // the other side's without an extra request.
     const session = await readSession();
     const { data, refreshedSession } = await callAsVisitor<unknown>("messages.getMessages", {
-      peerTo: peerForChat(chatId),
+      peerTo: peerForRouteParam(chatId),
       limit: 50,
     });
 

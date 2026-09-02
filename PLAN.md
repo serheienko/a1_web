@@ -3499,3 +3499,75 @@ reads it and fades itself out (opacity + pointer-events, kept mounted
 so the transition actually plays -- unmounting would skip it, same
 lesson lib/use-hover-panel.ts already applies for the panels
 themselves) instead of overlapping either panel.
+
+### 6.68 Profile page "Message" button now opens a real chat (2026-09-02)
+
+Aleksandr, 2 screenshots of Sofia Bennett's profile: "Сделай, чтобы
+иконка чатів в профілях тепер відкривала чат з ними." components/
+profile-action-row.tsx's Message button was a stub (`onClick={() =>
+{}}`) since §6.61 built the 4-button row. Wired it up: a new
+openChat() mirrors app/contacts/page.tsx's own openChat() exactly
+(§6.63) -- POST /api/chats/open with this component's own
+profileUserId prop, router.push to the returned chatId, same
+flash-red-for-2.2s-on-failure convention as every other action in this
+row.
+
+### 6.69 `/api/chats/open` was actually broken for every brand-new contact -- fixed by reading chat-server's own source (2026-09-02)
+
+Aleksandr, live screenshot of Anna Bond's chat icon flashed red on the
+real Contacts page: "Вообще, как открыть с кем то чат? Я из контактов
+нажимаю - не срабатывает. Протестируй сам."
+
+Root cause: §6.63's `/api/chats/open` route fell back to
+`chats.createChat({ users: [userId] })` whenever chats.getChats didn't
+already have a personal chat with that contact -- i.e. for literally
+every first-ever chat with someone. That call was wrong on every axis.
+Couldn't confirm live via Vercel Logs this time (no login available
+this session), so instead read chat-server's own source directly off
+the shared aone-api-private mount (packages/types' persistent EDEADLK
+lock from §6.62/§6.65 had cleared by this point) rather than guessing
+again:
+
+- `chats.createChat` (chat-server/src/api/v1/chats/chats.createChat.ts)
+  is chat-server's GROUP-chat creator -- its own doc comment says so.
+  Input is `{ title: string, participants: Peer[] }` (this repo had
+  guessed `{ users: [id] }`), output is `{ chatId }` (guessed as the
+  full Chat object, or `{chat:...}`, or a bare `_id`). Not a personal
+  1:1 chat method at all -- there is no such method on this backend.
+- Personal chats resolve (create-if-missing) transparently the moment
+  a message is actually sent to a `peer-user` peer:
+  services/chats/methods/_peerToPeerChat.ts calls resolvePersonalChat
+  (a Mongo findOneAndUpdate upsert on the two participants) whenever
+  messages.send's peerTo.object is "peer-user", not "peer-chat".
+- messages.getMessages also accepts a `peer-user` peerTo directly and
+  safely (api/v1/messages/messages.getMessages.ts ->
+  services/chats/methods/getMessages.ts): it just runs a message
+  search and returns `[]` for a conversation with no chat/messages
+  yet, no chat required or created.
+
+Fix: `/api/chats/open` no longer tries to create anything. When no
+existing personal chat is found it now hands back
+`chatRouteParamForUser(userId)` -- a `u_<userId>` sentinel (chat ids
+from chat-server are bare ObjectId hex strings and can never collide
+with this prefix). lib/a1/chat-schemas.ts's new `peerForRouteParam()`
+resolves either a real chat id or this sentinel to the right Peer, and
+app/api/chats/messages, .../send and .../typing all switched from
+`peerForChat` to it -- no changes needed in app/chats/[chatId]/page.tsx
+itself, or in app/contacts/page.tsx's / profile-action-row.tsx's
+openChat() (§6.63/§6.68), since the route always returns a usable
+`chatId` string either way now.
+
+Two more guesses got corrected for real while reading the same source
+tree: `messages.send`'s `randomId` field was never real (dropped);
+`messages.sendAction`'s `action` needed to be `{ object: "action-typing"
+}` (this backend's own object-tagged convention) instead of a bare
+string, and its required `topMessage` field was missing entirely (now
+sent as `0`, chat-server's own doc comment says it's only used for
+relevance, so a wrong value degrades to "indicator maybe skipped").
+`CHAT_FLAG.PERSONAL`'s guessed value of 1 was also confirmed correct
+directly off packages/constants/src/chats.constants.ts.
+
+Not yet live-tested beyond manual review -- same caveat as §6.66 (no
+local node_modules/tsc on this machine). Next: Aleksandr pushes,
+verify a brand-new contact's chat icon (Contacts AND profile page) both
+land on a working, sendable chat window.

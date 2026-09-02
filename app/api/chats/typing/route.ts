@@ -20,17 +20,24 @@
 // close the loop. Wired up now anyway since it's a two-line proxy and
 // the UI hook for it is needed either way.
 //
-// Request shape `{ peer, action: "typing" }` is an unconfirmed guess --
-// messages_sendAction.d.ts hit the same read-lock as everything else
-// under packages/types this session (see lib/a1/chat-schemas.ts's
-// header). MTProto's own sendMessageAction is normally a typed object
-// (e.g. `{ _: "sendMessageTypingAction" }`) rather than a bare string --
-// if this 502s once real, that's the first thing to try instead.
+// 2026-09-02: request shape confirmed directly off chat-server's own
+// types (packages/types/methods/messages_sendAction.d.ts +
+// resources/SendMessageAction.d.ts, read straight off the source this
+// time): `peerTo` was already right, but `action` needed to be the
+// typed `{ object: "action-typing" }` (this backend's `object`-tagged
+// convention throughout, not a bare string) and `topMessage` (most
+// recent known message id, required) was missing entirely -- 0 is this
+// route's best-effort stand-in for "no known message id yet", since
+// the client doesn't track one; chat-server's own doc comment says
+// this field is just used to decide relevance, so a wrong/stale value
+// degrades to "indicator maybe skipped", never a hard failure. `chatId`
+// may also now be a real Chat _id OR the `u_<userId>` sentinel (see
+// app/api/chats/open/route.ts) -- peerForRouteParam resolves either.
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { callAsVisitor, NoSessionError } from "@/lib/a1/visitor-call";
 import { setSession, clearSession } from "@/lib/a1/session";
-import { peerForChat } from "@/lib/a1/chat-schemas";
+import { peerForRouteParam } from "@/lib/a1/chat-schemas";
 
 export const runtime = "nodejs";
 
@@ -46,8 +53,9 @@ export async function POST(request: NextRequest) {
 
   try {
     const { refreshedSession } = await callAsVisitor<unknown>("messages.sendAction", {
-      peerTo: peerForChat(parsed.data.chatId),
-      action: "typing",
+      peerTo: peerForRouteParam(parsed.data.chatId),
+      topMessage: 0,
+      action: { object: "action-typing" },
     });
     const response = NextResponse.json({ ok: true });
     if (refreshedSession) setSession(response, refreshedSession);

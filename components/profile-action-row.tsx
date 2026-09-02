@@ -9,11 +9,17 @@
 // убираем и вместо неё ставим вот этот ряд из четырёх кнопок." Master
 // plan agreed live before building this: Mute/Block are UI-only stubs
 // for now (no backend endpoint exists anywhere in this app or PLAN.md
-// for either -- confirmed by search, not assumed), Message stays a
-// stub the same way it already is on post-viewer-menu.tsx's post-detail
-// row, and unlike the native app's own "•••" (icons on the right), this
-// follows the web's own newer convention -- icons on the LEFT of each
-// row, same as post-viewer-menu.tsx already does.
+// for either -- confirmed by search, not assumed), and unlike the
+// native app's own "•••" (icons on the right), this follows the web's
+// own newer convention -- icons on the LEFT of each row, same as
+// post-viewer-menu.tsx already does.
+//
+// 2026-09-02 (2 screenshots, Sofia Bennett's profile, Aleksandr:
+// "Сделай, чтобы иконка чатів в профілях тепер відкривала чат з ними"):
+// Message is no longer a stub -- openChat() below mirrors app/contacts/
+// page.tsx's own openChat() exactly (same POST /api/chats/open, same
+// flash-red-on-failure convention), scoped to this component's own
+// profileUserId prop.
 //
 // Replaces components/add-contact-button.tsx's standalone corner badge
 // entirely (app/u/[username]/page.tsx no longer mounts that component)
@@ -55,6 +61,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
 import type { Contact } from "@/lib/a1/schemas";
@@ -250,6 +257,17 @@ export function ProfileActionRow({
   const lang = useActiveLocale();
   const [visible, setVisible] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // 2026-09-02 (Aleksandr, live screenshots of a real profile: "зроби,
+  // щоб іконка чатів у профілях тепер відкривала чат з ними") -- same
+  // POST /api/chats/open + flash-red-on-failure pattern app/contacts/
+  // page.tsx's own openChat() already uses for its per-row chat icon
+  // (built 2026-09-01); this is the profile-page equivalent of that
+  // same button, just fixed to this one profileUserId instead of taking
+  // one per row.
+  const router = useRouter();
+  const [openingChat, setOpeningChat] = useState(false);
+  const [chatErrored, setChatErrored] = useState(false);
 
   const [contactStatus, setContactStatus] = useState<ToggleStatus>("loading");
   const [contactId, setContactId] = useState<string | null>(null);
@@ -460,6 +478,29 @@ export function ProfileActionRow({
     }
   }
 
+  async function openChat() {
+    if (openingChat || !profileUserId) return;
+    setOpeningChat(true);
+    try {
+      const res = await authFetch("/api/chats/open", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: profileUserId }),
+      });
+      const data = await res.json().catch(() => null);
+      if (data?.ok && typeof data.chatId === "string") {
+        router.push(`/chats/${data.chatId}`);
+        return;
+      }
+      throw new Error("open_failed");
+    } catch {
+      setChatErrored(true);
+      window.setTimeout(() => setChatErrored(false), 2200);
+    } finally {
+      setOpeningChat(false);
+    }
+  }
+
   const contactAdded = contactStatus === "on";
   const contactLabel = contactErrored ? STRINGS.actionFailed[lang] : contactAdded ? STRINGS.removeContact[lang] : STRINGS.addContact[lang];
   const contactShowRemoveIcon = contactAdded && contactHovering && !contactErrored;
@@ -507,12 +548,15 @@ export function ProfileActionRow({
 
       <button
         type="button"
-        // Pure stub — no chats yet, same as post-viewer-menu.tsx's own
-        // Message row.
-        onClick={() => {}}
-        aria-label={STRINGS.message[lang]}
-        title={STRINGS.message[lang]}
-        className={CELL_BUTTON_CLASS}
+        onClick={openChat}
+        disabled={openingChat}
+        aria-label={chatErrored ? STRINGS.actionFailed[lang] : STRINGS.message[lang]}
+        title={chatErrored ? STRINGS.actionFailed[lang] : STRINGS.message[lang]}
+        className={
+          chatErrored
+            ? "flex h-11 w-full items-center justify-center rounded-full bg-red-600 text-white transition hover:bg-red-700 disabled:cursor-default disabled:opacity-60"
+            : CELL_BUTTON_CLASS
+        }
       >
         <MessageIcon />
       </button>

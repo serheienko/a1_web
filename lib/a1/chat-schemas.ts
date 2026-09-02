@@ -40,14 +40,58 @@ export function peerForChat(chatId: string): Peer {
   return { object: "peer-chat", chat: chatId };
 }
 
+// 2026-09-02 (Aleksandr, live bug report: "как открыть с кем то чат? Я
+// из контактов нажимаю - не срабатывает"): chats.createChat -- what
+// app/api/chats/open/route.ts used to fall back to when no existing
+// personal chat was found -- turned out to be chat-server's GROUP-chat
+// creator, not a way to pre-create an empty 1:1 chat: its own route
+// file (chat-server/src/api/v1/chats/chats.createChat.ts) literally
+// documents itself as "Create group chat with participants", takes
+// `{ title, participants: Peer[] }` (nothing like this repo's earlier
+// `{ users: [id] }` guess), and returns `{ chatId }` (not `{_id}` /
+// `{chat:{...}}` as extractCreatedChatId used to guess).
+//
+// Read directly off chat-server's own source this time (no more
+// guessing): services/chats/methods/_peerToPeerChat.ts +
+// resolvePersonalChat.ts, and services/chats/methods/getMessages.ts +
+// the messages.getMessages route handler (api/v1/messages/
+// messages.getMessages.ts) -- both messages.getMessages AND
+// messages.send accept `peerTo: { object: "peer-user", user: id }`
+// directly, with NO existing chat required. getMessages just runs
+// messageService.search (returns [] for a conversation with no
+// messages yet, doesn't throw); send resolves-or-creates the personal
+// chat transparently via resolvePersonalChat (a Mongo
+// findOneAndUpdate upsert keyed on the two participants) the moment a
+// message actually goes out. So a personal chat never needs to be
+// pre-created at all -- the chat window can always address someone by
+// their user id, and the same personal chat is found (or created,
+// exactly once) the first time a message is actually sent.
+//
+// Route param convention for app/chats/[chatId]/page.tsx: a real Chat
+// _id (bare ObjectId hex string) OR `u_<userId>` meaning "no confirmed
+// chat yet, address this user directly" -- chosen since chat-server's
+// real ids can never start with this prefix. app/api/chats/open/
+// route.ts hands back `u_<userId>` instead of trying to create
+// anything when chats.getChats didn't already have a personal chat
+// with that contact; app/api/chats/messages, .../send and .../typing
+// all resolve either form via peerForRouteParam below.
+const NEW_CHAT_ROUTE_PARAM_PREFIX = "u_";
+
+export function chatRouteParamForUser(userId: string): string {
+  return `${NEW_CHAT_ROUTE_PARAM_PREFIX}${userId}`;
+}
+
+export function peerForRouteParam(routeParam: string): Peer {
+  if (routeParam.startsWith(NEW_CHAT_ROUTE_PARAM_PREFIX)) {
+    return { object: "peer-user", user: routeParam.slice(NEW_CHAT_ROUTE_PARAM_PREFIX.length) };
+  }
+  return peerForChat(routeParam);
+}
+
 // useChat.ts checks `checkBitmask(chat.value.flags, CHAT_FLAG.PERSONAL)`.
-// CHAT_FLAG.PERSONAL's real numeric value lives in @aone/constants, which
-// this session couldn't read either -- 1 (the first bit) is assumed,
-// matching this backend's evident MTProto/Telegram-flavored conventions
-// elsewhere (Peer's own peer-user/peer-chat naming is straight out of
-// that vocabulary). If wrong, a personal chat just renders with its
-// group-chat fallback (chat.title as-is, generic icon) instead of the
-// other participant's name/photo -- degrades, never crashes.
+// CONFIRMED 2026-09-02 (packages/constants/src/chats.constants.ts, read
+// directly off the source): `PERSONAL: 1 << 0` -- the original guess of
+// 1 was right.
 export const CHAT_FLAG_PERSONAL = 1;
 
 export const ChatParticipantSchema = z
@@ -259,26 +303,6 @@ export function extractChatUsers(raw: unknown): Record<string, ChatUser> {
   return out;
 }
 
-// chats.createChat's response shape is entirely unconfirmed (that
-// method's own file, chats/chats.createChat.ts, hit the same read-lock
-// as everything else under packages/types this session -- see this
-// file's header). Accepts either the created Chat directly, a
-// `{chat: ...}` wrapper (the shape contacts.search's own `{contacts,
-// users}` pattern would suggest if this backend is consistent about
-// it), or -- last resort -- just grabs a top-level `_id` string so a
-// slightly different wrapper key still resolves instead of failing the
-// whole "start a chat" action.
-export function extractCreatedChatId(raw: unknown): string | null {
-  const direct = ChatSchema.safeParse(raw);
-  if (direct.success) return direct.data._id;
-  if (raw && typeof raw === "object") {
-    const obj = raw as Record<string, unknown>;
-    const nested = ChatSchema.safeParse(obj.chat);
-    if (nested.success) return nested.data._id;
-    if (typeof obj._id === "string") return obj._id;
-  }
-  return null;
-}
 
 // Same shape family as extractChats -- messages.getMessages's response,
 // unconfirmed exact wrapper key (`items` vs `messages`).
