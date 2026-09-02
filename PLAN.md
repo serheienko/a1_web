@@ -3940,3 +3940,64 @@ that's the next piece.
 
 Not live-tested yet (needs a push, same as everything else this
 session). tsc-clean; every file's diff reviewed before commit.
+
+### 6.77 Six small live-testing fixes in one pass -- chat popups, drafts icon, profile menu hover, work-style grid (2026-09-02)
+
+A rapid round of live screenshots/videos from Aleksandr while he was on
+his phone, each a small, self-contained fix -- grouped here since none
+needed its own section:
+
+- **Mini chat window paperclip/cat swap** (components/mini-chat-
+  window.tsx): "Sofia Benett" screenshot of the Messenger-style
+  floating chat popup showed a cat icon alone on the left, no paperclip
+  at all -- "надо добавить скрепку слева, а кота поставить справа как
+  в обычных чатах". Now matches app/chats/[chatId]/page.tsx's own
+  compose bar order. Wired as a REAL attach button (not just moved
+  chrome): mirrors that page's own create/upload/confirm image flow,
+  trimmed to one image sent immediately (no staged-preview strip --
+  no room for one in this window). Exported ChatPaperclipGlyph from
+  components/chat/icons.tsx (was private) to size it down to this
+  window's own 36px row instead of the main page's 44px round button.
+- **Chats list ordering bug** (app/api/chats/list/route.ts): a 20:13
+  chat was rendering BELOW an 18:23 one. Root cause was exactly what
+  this route's own old comment already flagged and left unresolved --
+  "ordering is whatever chats.getChats itself returned" because no
+  confirmed last-activity timestamp existed to sort by. That gap had
+  actually already closed (resolveLastMessages() resolves a real
+  previewDateMs for every chat) but the route never started sorting by
+  it. Now does, descending, chats with no messages sort last. Fixes
+  both components/chats-flyout.tsx and app/chats/page.tsx at once --
+  neither does its own client-side sort.
+- **Chats flyout fixed height + search icon** (components/chats-
+  flyout.tsx): "сделай фиксированную высоту этой модалки, чтобы она не
+  прыгала от поиска... на 8 чатов например, + поправь лупу". List was
+  `flex-1`, so the whole popover resized as search results changed
+  count -- now h-[448px] (8 rows x 56px/row). Search icon was
+  positioned against the outer padded wrapper (off-center both
+  horizontally and vertically); rebuilt to match components/filters-
+  form.tsx's own SearchIcon convention (`relative` wraps just the
+  input).
+- **Drafts picker icon** (components/drafts-picker.tsx): "иконку
+  черновиков чуть больше и отцентрируй с текстом" -- 16px -> 20px. The
+  glyph was already vertically centered in its own viewBox and the row
+  already `items-center`; the "off-center" read was really just the
+  icon looking small next to the text.
+- **Profile "•••" menu hover** (components/profile-action-row.tsx):
+  "сделай чтобы эта модалка тоже появлялась при наведении". Wired
+  through lib/use-hover-panel.ts, the same shared hook components/
+  avatar-menu.tsx and components/filters-form.tsx already use (that
+  hook's own header: "надо переиспользовать, чтобы работало
+  идентично") -- click still works, hover is additive.
+- **Profile "Work style" section -> card grid** (app/u/[username]/
+  page.tsx): "чтобы показувався частково горизонтально, типа по 3-4 шт
+  если помещается. Есть какие-то красивые и удобные варианты?" --
+  AskUserQuestion offered three real layout options (compact card grid,
+  single "label: value" chips, a 2-3 column table-list); Aleksandr
+  picked the compact card grid. Each label+pill section used to be a
+  full-width row in a flex-col stack (a one-word pill like "Team" still
+  claimed the entire row); now `grid-cols-[repeat(auto-fill,minmax(140px,1fr))]`,
+  each section its own small bordered card, several sitting side by
+  side wherever there's room.
+
+Six separate commits, one per fix, each tsc-clean before landing. Not
+live-tested yet (needs a push).
