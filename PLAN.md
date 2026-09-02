@@ -4085,14 +4085,19 @@ this session).
 
 ### 6.80 Job map blur-up, post-owner menu hover, Work Style round 2 (2026-09-02)
 
-- **Job map blur-up placeholder** (components/location-map.tsx): "А мы
-  можем карты тоже подгружать через blur как аватары?" -- the embedded
-  Google Maps iframe on a job page was a blank box until it finished
-  loading, unlike every real <Image> on the site. Can't use next/image's
-  own placeholder="blur" on a cross-origin iframe, so reproduced the same
-  look by hand: lib/blur-placeholder.ts's shared BLUR_DATA_URL shimmer as
-  a scaled, CSS-blurred layer stacked on top of the iframe, faded out via
-  the iframe's own onLoad.
+- **Job map blur-up placeholder -- shipped, then reverted**
+  (components/location-map.tsx): "А мы можем карты тоже подгружать через
+  blur как аватары?" -- tried the same BLUR_DATA_URL-as-a-scaled-CSS-
+  blurred-layer trick used below, faded out via the iframe's own onLoad.
+  Live screenshot showed it stuck: a bright shimmer blob that never faded
+  (Google's "output=embed" iframe likely doesn't fire onLoad reliably, or
+  fires before the map itself has rendered) -- worse than the plain blank
+  box it replaced, especially in dark mode. Reverted on the spot
+  ("Если не получается сделать толково, то откатывай назад") rather than
+  guess at the timing blind with no working feedback loop. Back to the
+  pre-6.80 blank-box behavior; a real fix here would need a way to know
+  when the embed has actually painted, which a cross-origin iframe
+  doesn't expose.
 - **Post owner "•••" menu on hover** (components/post-owner-menu.tsx):
   "Этот попап тоже сделай по наведению на °°°" -- same lib/use-hover-
   panel.ts hook §6.77's profile "•••" menu already uses. Click still
