@@ -573,10 +573,18 @@ export default function ChatWindowPage() {
       {/* 2026-09-02: pb-28 clears the now-fixed compose bar below (it no
           longer takes up flex space of its own -- see that bar's own
           comment) so the last message/empty-state text never sits
-          underneath it. Content itself is capped at the same max-w-2xl
-          as the header right above. */}
+          underneath it.
+          2026-09-02, follow-up (Aleksandr: "Здорово, как ты" и "Привет"
+          слишком далеко друг от друга... приблизь их") -- this stayed at
+          the old max-w-2xl (672px) when the compose bar and header row
+          below were narrowed to max-w-[470px] (see the compose bar's own
+          "single source of truth" comment), so mine/theirs bubbles could
+          drift out to that wider 672px column's edges even though
+          nothing else on the page still uses that width. Matching it to
+          the same 470px keeps every row -- header, messages, compose --
+          on one consistent column width. */}
       <div ref={messagesScrollRef} className="flex-1 overflow-y-auto px-4 py-4 pb-28">
-        <div className="mx-auto w-full max-w-2xl">
+        <div className="mx-auto w-full max-w-[470px]">
         {state === "loading" && (
           <p className="mt-6 text-center text-sm text-[#989aa6] dark:text-[#adafbb]">
             <T uk="Завантаження…" en="Loading…" ru="Загрузка…" de="Wird geladen…" es="Cargando…" fr="Chargement…" pl="Ładowanie…" ptBR="Carregando…" zh="加载中…" />

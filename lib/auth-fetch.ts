@@ -33,10 +33,46 @@
 // instead of racing an earlier one for the same stale value. Use this
 // (instead of the bare `fetch`) for any client-side call to a route
 // backed by callAsVisitor -- see that file for the current list.
+//
+// 2026-09-02 (Aleksandr, screen recording: a chat message's bubble spun
+// forever, never delivered and never marked "not sent" either) -- this
+// queue had no timeout. app/chats/[chatId]/page.tsx polls load() every
+// 3s AND sends through this exact same module-level `chain` (it's
+// shared by every authFetch call on the whole site, not per-page -- see
+// components/avatar-menu.tsx's own whoami call above), so if a single
+// browser-side fetch() ever stalls with no response at all (a dead
+// Wi-Fi handoff, the tab getting backgrounded/throttled, sleep/wake --
+// none of which the server ever sees, so lib/a1/client.ts's own 10s
+// AbortSignal.timeout on the OUTBOUND call to api.a1appp.com can't help
+// here) plain fetch() never times out on its own. Every later authFetch
+// call -- including the visitor's own message send -- then queues
+// behind a promise that will never settle, spinning forever with no
+// error to even show a "failed, tap to retry" state for. Wrapping the
+// actual fetch() in its own AbortController timeout guarantees `run`
+// always eventually settles one way or another, which is what actually
+// unblocks the chain for every call queued after it -- not just this
+// one. TIMEOUT_MS is well above callAsVisitor's own worst case (initial
+// call + one token refresh + one retry, each capped at client.ts's 10s,
+// so ~30s end to end) so a real-but-slow request is never aborted
+// early.
+const TIMEOUT_MS = 35_000;
+
 let chain: Promise<unknown> = Promise.resolve();
 
+function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  // No current caller passes its own `signal`, but honor one if it ever
+  // does instead of silently dropping it.
+  if (init?.signal) {
+    if (init.signal.aborted) controller.abort();
+    else init.signal.addEventListener("abort", () => controller.abort(), { once: true });
+  }
+  return fetch(input, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
 export function authFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  const run = chain.then(() => fetch(input, init));
+  const run = chain.then(() => fetchWithTimeout(input, init));
   // Swallow here so one failed/rejected request doesn't wedge the queue
   // for everything queued after it -- callers still get the real
   // rejection through the `run` promise returned below.
