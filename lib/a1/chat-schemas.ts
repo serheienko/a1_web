@@ -88,6 +88,14 @@ export function peerForRouteParam(routeParam: string): Peer {
   return peerForChat(routeParam);
 }
 
+// True for a "no confirmed chat yet" route param (see the comment
+// above) -- app/api/chats/read-state/route.ts uses this to skip the
+// chats.getChats lookup entirely when there's provably no real Chat
+// resource (and so no participants/reaMaxId) to find yet.
+export function isNewChatRouteParam(routeParam: string): boolean {
+  return routeParam.startsWith(NEW_CHAT_ROUTE_PARAM_PREFIX);
+}
+
 // useChat.ts checks `checkBitmask(chat.value.flags, CHAT_FLAG.PERSONAL)`.
 // CONFIRMED 2026-09-02 (packages/constants/src/chats.constants.ts, read
 // directly off the source): `PERSONAL: 1 << 0` -- the original guess of
@@ -99,6 +107,22 @@ export const ChatParticipantSchema = z
     object: z.enum(["peer-user", "peer-chat"]),
     user: z.string().optional(),
     chat: z.string().optional(),
+    // 2026-09-02 (Aleksandr, live bug report + screenshot: sent messages
+    // never flip from single to double tick even after the other side
+    // has actually opened and read them) -- root cause confirmed
+    // straight off chat-server's own OpenAPI spec (Resource.Message has
+    // NO read/delivered field at all, `additionalProperties: false`, so
+    // MessageSchema's own guessed `unread` boolean below can never be
+    // populated -- it was never wrong, there was just never a message-
+    // level field to read). Read state instead lives on the CHAT's own
+    // participants array: each Resource.Chat.Participant carries
+    // `reaMaxId` ("Position up to which all messages are read" -- read
+    // literally off the spec, this really is chat-server's own field
+    // name, not a typo introduced here), a per-participant high-water
+    // mark. otherParticipantReadMaxId() below reads the OTHER
+    // participant's own reaMaxId; messageTickState() compares a message's
+    // numeric _id against it.
+    reaMaxId: z.number().optional(),
   })
   .catchall(z.unknown());
 export type ChatParticipant = z.infer<typeof ChatParticipantSchema>;
@@ -199,8 +223,21 @@ export function messageDateMs(msg: ChatMessage): number {
 // absent-means-read, since a wrong guess here just under-tints a tick
 // rather than falsely claiming something was read.
 export type MessageTickState = "read" | "delivered";
-export function messageTickState(msg: ChatMessage): MessageTickState {
-  return msg.unread === false ? "read" : "delivered";
+// `peerReadMaxId` -- the other participant's ChatParticipant.reaMaxId,
+// see that field's own comment above for why this is now the primary
+// signal instead of the never-populated `unread` guess (kept as a
+// first check purely so a real `unread` value, if chat-server ever
+// does start sending one, keeps taking priority for free). A message
+// is "read" once its own numeric _id is at or below the peer's
+// reaMaxId high-water mark -- exactly the same comparison chat-
+// server's own Vue reference client (useChat.ts) does.
+export function messageTickState(msg: ChatMessage, peerReadMaxId?: number | null): MessageTickState {
+  if (msg.unread === false) return "read";
+  if (peerReadMaxId != null) {
+    const id = Number(msg._id);
+    if (!Number.isNaN(id) && id <= peerReadMaxId) return "read";
+  }
+  return "delivered";
 }
 
 // Confirmed via useChat.ts: _id, title, flags, participants, lastMessage
@@ -322,6 +359,21 @@ export function otherParticipantUserId(chat: Chat, myUserId: string | null): str
     (p) => p.object === "peer-user" && p.user && p.user !== myUserId,
   );
   return other?.user ?? null;
+}
+
+// Same "other participant" lookup as above, but returns their own
+// reaMaxId instead of their user id -- see ChatParticipantSchema's own
+// comment for what this field is and messageTickState() for how it
+// turns into a tick. null when there's no personal chat, no other
+// participant, or that participant simply has no reaMaxId yet (a chat
+// they've never opened) -- messageTickState() already treats null the
+// same safe "assume delivered, not read" way it always has.
+export function otherParticipantReadMaxId(chat: Chat, myUserId: string | null): number | null {
+  if (!isPersonalChat(chat)) return null;
+  const other = chat.participants.find(
+    (p) => p.object === "peer-user" && p.user && p.user !== myUserId,
+  );
+  return typeof other?.reaMaxId === "number" ? other.reaMaxId : null;
 }
 
 // Resolves chat.lastMessage into a list-row preview, only when it came

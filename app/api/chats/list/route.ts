@@ -89,6 +89,7 @@ import {
   chatUnreadCount,
   chatDraftText,
   otherParticipantUserId,
+  otherParticipantReadMaxId,
   peerForChat,
   type Chat,
   type ChatUser,
@@ -231,7 +232,15 @@ export async function GET() {
           lm && typeof lm === "object" ? lm : typeof lm === "string" ? (lastMessages.get(chat._id) ?? null) : null;
         const previewFromId = resolvedMessage?.fromId ?? null;
         const previewMine = previewFromId !== null && myUserId !== null && previewFromId === myUserId;
-        const previewTick = previewMine && resolvedMessage ? messageTickState(resolvedMessage) : null;
+        // 2026-09-02: `chat` (the full Chat resource, already in scope
+        // here -- no extra call needed, unlike app/api/chats/read-state/
+        // route.ts which has to fetch chats.getChats on its own) carries
+        // the other participant's own reaMaxId, so the list preview's
+        // own tick can be exactly as accurate as the chat window's.
+        const previewTick =
+          previewMine && resolvedMessage
+            ? messageTickState(resolvedMessage, otherParticipantReadMaxId(chat, myUserId))
+            : null;
         return {
           id: chat._id,
           title: display.title,

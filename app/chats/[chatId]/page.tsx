@@ -197,6 +197,19 @@ export default function ChatWindowPage() {
   const [openPendingId, setOpenPendingId] = useState<string | null>(null);
   const pendingPopoverRef = useRef<HTMLDivElement>(null);
   const [myUserId, setMyUserId] = useState<string | null>(null);
+  // 2026-09-02 (Aleksandr: "человек прочёл, но галочки не поменялись
+  // из одной в две") -- the OTHER participant's read high-water mark
+  // (lib/a1/chat-schemas.ts's ChatParticipantSchema.reaMaxId comment
+  // has the full "why" -- there's no per-message read field to read
+  // instead), used by messageTickState() below to flip MY OWN sent
+  // messages' ticks from single to double. Polled at half the message
+  // poll's own cadence (readStateTick below, ~6s not ~3s) since it
+  // costs a whole chats.getChats call (same one app/chats/page.tsx's
+  // own list view already polls every 5s) just for one number -- read
+  // state lagging a couple seconds behind is a fine tradeoff, message
+  // delivery itself isn't.
+  const [peerReadMaxId, setPeerReadMaxId] = useState<number | null>(null);
+  const readStateTick = useRef(0);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const inFlight = useRef(false);
@@ -315,6 +328,21 @@ export default function ChatWindowPage() {
       // reconnects that event doesn't reliably fire for (e.g. Wi-Fi
       // that stays "connected" while the internet itself was down).
       retryAllFailedRef.current();
+      // See peerReadMaxId's own comment above for the ~6s cadence --
+      // fire-and-forget, same convention announceTyping() below already
+      // uses for a poll-adjacent request that shouldn't block load()
+      // itself or flip `state` on its own failure.
+      readStateTick.current += 1;
+      if (readStateTick.current % 2 === 1) {
+        authFetch(`/api/chats/read-state?chat=${encodeURIComponent(chatId)}`)
+          .then((r) => r.json())
+          .then((readData) => {
+            if (readData?.ok) {
+              setPeerReadMaxId(typeof readData.peerReadMaxId === "number" ? readData.peerReadMaxId : null);
+            }
+          })
+          .catch(() => {});
+      }
     } catch {
       setState((prev) => (prev === "ready" ? prev : "error"));
     } finally {
@@ -780,7 +808,7 @@ export default function ChatWindowPage() {
                         {pending ? (
                           pending.failed ? <NotSentIcon /> : <SendingSpinner />
                         ) : (
-                          mine && <MessageTicks state={messageTickState(msg)} className="h-[7.77px] w-3.5" />
+                          mine && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7.77px] w-3.5" />
                         )}
                       </div>
                     </div>
@@ -866,9 +894,19 @@ export default function ChatWindowPage() {
           className="fixed inset-x-0 bottom-0 z-20 border-t border-black/5 bg-[#f2f2f7]/90 px-4 py-3 backdrop-blur-md dark:border-white/10 dark:bg-black/80"
           style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
         >
-          <div className="mx-auto flex w-full max-w-[470px] items-center gap-2">
+          {/* 2026-09-02 (Aleksandr: "при увеличении высоты input field'а
+              кота только оставляй внизу... скрепку и кнопку отправки
+              тоже оставляй снизу, не двигай их") -- items-end (was
+              items-center) on both this row and the pill below: with
+              items-center, a grown multi-line textarea vertically
+              centers itself in the row, dragging the paperclip/cat/send
+              along with it away from the last line of text. items-end
+              keeps every sibling glued to the row's bottom edge instead,
+              so only the textarea grows upward and everything else
+              stays exactly where it started. */}
+          <div className="mx-auto flex w-full max-w-[470px] items-end gap-2">
             <ChatPaperclipButton disabled={sending} />
-            <div className="flex min-h-[42px] flex-1 items-center gap-2 rounded-[21px] border border-neutral-200 bg-white/90 px-3.5 py-2 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
+            <div className="flex min-h-[42px] flex-1 items-end gap-2 rounded-[21px] border border-neutral-200 bg-white/90 px-3.5 py-2 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
               <textarea
                 ref={textareaRef}
                 value={draft}
@@ -884,9 +922,21 @@ export default function ChatWindowPage() {
                 }}
                 rows={1}
                 placeholder="Message"
-                className="flex-1 resize-none bg-transparent text-[17px] leading-5 text-[#262a34] outline-none placeholder:text-[#989aa6] dark:text-white dark:placeholder:text-[#98989f]"
+                // 2026-09-02 (Aleksandr: "прокрутку у input field... можно
+                // её убрать") -- still scrolls internally once the
+                // auto-grow effect above hits its line cap, just without
+                // drawing a visible scrollbar (app/globals.css's
+                // chat-textarea-no-scrollbar).
+                className="chat-textarea-no-scrollbar flex-1 resize-none bg-transparent text-[17px] leading-5 text-[#262a34] outline-none placeholder:text-[#989aa6] dark:text-white dark:placeholder:text-[#98989f]"
               />
-              <ChatCatFieldIcon className="h-5 w-5 shrink-0 text-[#989aa6] dark:text-[#adafbb]" />
+              {/* group: 2026-09-02 (Aleksandr: "анимацию на кота, чтобы он
+                  глазками двигал") -- app/globals.css's own
+                  `.group:hover .chat-cat-pupil` darts the icon's two
+                  pupil paths side to side while this small wrapper (not
+                  the whole pill) is hovered. */}
+              <div className="group shrink-0 pb-0.5">
+                <ChatCatFieldIcon className="h-5 w-5 text-[#989aa6] dark:text-[#adafbb]" />
+              </div>
             </div>
             {draft.trim() ? (
               <button
@@ -894,9 +944,25 @@ export default function ChatWindowPage() {
                 onClick={() => send()}
                 disabled={sending}
                 aria-label="Send"
-                className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-[#335ef7] text-white transition disabled:opacity-40 dark:bg-[#0c8ce9]"
+                // 2026-09-02 (Aleksandr: "при наведении на кнопку отправки
+                // сделай какой-то ховер, чтобы она ярче становилась...
+                // анимацию на саму стрелку") -- group + hover:brightness
+                // for the button itself, animate-send-arrow (app/
+                // globals.css) nudges the arrow glyph on that same hover.
+                className="group flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-[#335ef7] text-white transition hover:brightness-110 active:scale-95 disabled:opacity-40 disabled:hover:brightness-100 dark:bg-[#0c8ce9]"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                  className="animate-send-arrow"
+                >
                   <path d="M12 19V5M5 12l7-7 7 7" />
                 </svg>
               </button>

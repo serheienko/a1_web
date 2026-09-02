@@ -723,6 +723,79 @@ textarea {
   animation: trash-wobble 0.45s ease-in-out;
 }
 
+/* 2026-09-02 (Aleksandr, compose-bar polish pass: "при наведении на
+   кнопку отправки сделай какой-то ховер... сделаем анимацию на саму
+   стрелку... плюс анимацию на скрепку... плюс анимацию на кота, чтобы
+   он глазками двигал") -- app/chats/[chatId]/page.tsx's own send
+   button already gets a plain color/brightness hover from Tailwind
+   utilities directly on the button (no keyframe needed for that part);
+   these three cover the actual MOTION each icon gets on hover. Same
+   `.group:hover .animate-X` convention as every icon above. */
+@keyframes send-arrow-nudge {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-2.5px);
+  }
+  70% {
+    transform: translateY(0.5px);
+  }
+}
+
+.group:hover .animate-send-arrow {
+  animation: send-arrow-nudge 0.45s ease-in-out;
+}
+
+@keyframes paperclip-wiggle {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-12deg);
+  }
+  55% {
+    transform: rotate(8deg);
+  }
+  80% {
+    transform: rotate(-4deg);
+  }
+}
+
+.group:hover .animate-paperclip-wiggle {
+  transform-origin: 60% 15%;
+  animation: paperclip-wiggle 0.5s ease-in-out;
+}
+
+/* The two pupil paths inside ChatCatFieldIcon (components/chat/
+   icons.tsx) -- darts them side to side on hover, like the cat's
+   watching the cursor. `transform-box: fill-box` is needed for a raw
+   SVG <path>'s own transform to anchor on ITS shape instead of the
+   whole SVG viewport's origin. */
+@keyframes cat-eyes-dart {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-0.9px);
+  }
+  60% {
+    transform: translateX(0.9px);
+  }
+  85% {
+    transform: translateX(0);
+  }
+}
+
+.group:hover .chat-cat-pupil {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: cat-eyes-dart 0.6s ease-in-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .group:hover .animate-dots-bounce circle:nth-child(1),
   .group:hover .animate-dots-bounce circle:nth-child(2),
@@ -739,9 +812,25 @@ textarea {
   .group:hover .animate-block-shake,
   .group:hover .animate-theme-pop,
   .group:hover .animate-pencil-write,
-  .group:hover .animate-trash-wobble {
+  .group:hover .animate-trash-wobble,
+  .group:hover .animate-send-arrow,
+  .group:hover .animate-paperclip-wiggle,
+  .group:hover .chat-cat-pupil {
     animation: none;
   }
+}
+
+/* 2026-09-02 (Aleksandr: "прокрутку у input field, мне кажется, лишняя,
+   можно её убрать") -- the compose textarea still scrolls internally
+   past its max-lines cap (app/chats/[chatId]/page.tsx's own auto-grow
+   effect), just without drawing a visible scrollbar track/thumb next
+   to the cat icon. */
+.chat-textarea-no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.chat-textarea-no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 /*

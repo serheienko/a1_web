@@ -150,14 +150,19 @@ export function ChatCatFieldIcon({ className = "h-5 w-5" }: { className?: string
         d="M6.05764 12.6496C7.51333 12.6496 8.6934 11.4616 8.6934 9.99608C8.6934 8.53058 7.51333 7.34255 6.05764 7.34255C4.60195 7.34255 3.42188 8.53058 3.42188 9.99608C3.42188 11.4616 4.60195 12.6496 6.05764 12.6496Z"
         fill="currentColor"
       />
-      {/* Pupils -- cut out against the input pill's own background. */}
+      {/* Pupils -- cut out against the input pill's own background.
+          chat-cat-pupil: 2026-09-02 (Aleksandr: "анимацию на кота, чтобы
+          он глазками двигал") -- app/globals.css's own
+          `.group:hover .chat-cat-pupil` darts these side to side; the
+          icon needs a `group` wrapper at its call site for that to
+          fire (see app/chats/[chatId]/page.tsx's own compose bar). */}
       <path
         d="M12.9032 11.7348C13.539 11.7348 14.0545 11.2159 14.0545 10.5758C14.0545 9.93565 13.539 9.41674 12.9032 9.41674C12.2674 9.41674 11.752 9.93565 11.752 10.5758C11.752 11.2159 12.2674 11.7348 12.9032 11.7348Z"
-        className="fill-white dark:fill-[#1c1c1e]"
+        className="fill-white dark:fill-[#1c1c1e] chat-cat-pupil"
       />
       <path
         d="M4.54188 11.765C5.1777 11.765 5.69313 11.2461 5.69313 10.606C5.69313 9.96588 5.1777 9.44697 4.54188 9.44697C3.90606 9.44697 3.39062 9.96588 3.39062 10.606C3.39062 11.2461 3.90606 11.765 4.54188 11.765Z"
-        className="fill-white dark:fill-[#1c1c1e]"
+        className="fill-white dark:fill-[#1c1c1e] chat-cat-pupil"
       />
     </svg>
   );
@@ -215,7 +220,7 @@ function ChatRoundIconButton({
       onClick={onClick}
       disabled={disabled}
       aria-label={label}
-      className={`flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-neutral-400 backdrop-blur-sm transition hover:text-neutral-600 disabled:opacity-40 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80 dark:text-[#adafbb] dark:hover:text-white ${className}`}
+      className={`group flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-neutral-400 backdrop-blur-sm transition hover:border-neutral-300 hover:text-neutral-600 disabled:opacity-40 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80 dark:text-[#adafbb] dark:hover:border-[#3a3a3a] dark:hover:text-white ${className}`}
     >
       {children}
     </button>
@@ -225,7 +230,7 @@ function ChatRoundIconButton({
 export function ChatPaperclipButton(props: { onClick?: () => void; disabled?: boolean }) {
   return (
     <ChatRoundIconButton label="Attach" {...props}>
-      <ChatPaperclipGlyph />
+      <ChatPaperclipGlyph className="h-[13px] w-[13px] animate-paperclip-wiggle" />
     </ChatRoundIconButton>
   );
 }
