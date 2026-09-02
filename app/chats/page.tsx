@@ -78,6 +78,13 @@ type ChatListItem = {
   id: string;
   title: string;
   avatarUrl: string;
+  // 2026-09-02: a real per-avatar blur placeholder computed server-side
+  // (app/api/chats/list/route.ts's resolveAvatarBlurs, same lib/avatar-
+  // blur.ts helper every other avatar/photo in this app already uses)
+  // -- null for a cat-mascot fallback avatar or a failed/slow blur
+  // fetch, both of which fall back to the shared generic shimmer
+  // (lib/blur-placeholder.ts's BLUR_DATA_URL) at the render site below.
+  avatarBlurDataUrl: string | null;
   // 2026-09-02: lets the chat window link its header name/avatar back
   // to this person's profile (Aleksandr: "при нажатии на аватар и на
   // имя должен открываться профіль") -- null for a group chat or an
@@ -322,7 +329,7 @@ export default function ChatsPage() {
                 // "get one chat" endpoint that doesn't exist yet -- purely
                 // a display hint, the window's own polling loop is the
                 // source of truth for anything else.
-                href={`/chats/${chat.id}?title=${encodeURIComponent(chat.title)}&avatar=${encodeURIComponent(chat.avatarUrl)}${chat.username ? `&username=${encodeURIComponent(chat.username)}` : ""}`}
+                href={`/chats/${chat.id}?title=${encodeURIComponent(chat.title)}&avatar=${encodeURIComponent(chat.avatarUrl)}${chat.avatarBlurDataUrl ? `&avatarBlur=${encodeURIComponent(chat.avatarBlurDataUrl)}` : ""}${chat.username ? `&username=${encodeURIComponent(chat.username)}` : ""}`}
                 className="flex items-center gap-3 rounded-xl px-2 py-2.5 hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
               >
                 <Image
@@ -332,7 +339,7 @@ export default function ChatsPage() {
                   height={52}
                   className="h-[52px] w-[52px] shrink-0 rounded-full object-cover"
                   placeholder="blur"
-                  blurDataURL={BLUR_DATA_URL}
+                  blurDataURL={chat.avatarBlurDataUrl ?? BLUR_DATA_URL}
                   unoptimized
                 />
                 <div className="min-w-0 flex-1">

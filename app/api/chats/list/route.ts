@@ -97,6 +97,7 @@ import {
 import { resolveChatDisplay, pickChatAvatar } from "@/lib/a1/chat-mappers";
 import { parseUserProfile } from "@/lib/a1/schemas";
 import { buildMediaProxyUrl } from "@/lib/a1/mappers";
+import { generateAvatarBlurDataUrl } from "@/lib/avatar-blur";
 
 // Best-effort name/avatar resolution for every distinct "other
 // participant" id across `chats` -- see this file's own header comment
@@ -158,6 +159,36 @@ async function resolveLastMessages(chats: Chat[]): Promise<Map<string, ChatMessa
   return new Map(entries);
 }
 
+// 2026-09-02 (Aleksandr: "Подгрузка всех аватаров на сайте должна быть
+// через blur эффект, как мы делали в карточках постов в феде... сейчас
+// только для тех которые грузятся в чатах, остальные уже ок") -- every
+// other avatar/photo spot in this app already runs its real image
+// through lib/avatar-blur.ts's generateAvatarBlurDataUrl (a genuine
+// per-photo blurred thumbnail, not just the one shared generic
+// shimmer); this list route was the one gap, still handing the client
+// nothing but a bare avatarUrl. Only ever generated for a REAL photo
+// (display.photoUrl truthy) -- pickChatAvatar's cat-mascot fallback
+// (lib/avatars.ts) is a small, permanent, already-fast-loading public
+// asset with nothing to blur-up from, same convention components/
+// post-card.tsx's own avatarImg already draws between the two cases.
+// Best-effort like every other call site: a failed/slow blur just
+// resolves null and the client falls back to the shared shimmer
+// (lib/blur-placeholder.ts's BLUR_DATA_URL), never a broken avatar.
+async function resolveAvatarBlurs(
+  chats: Chat[],
+  myUserId: string | null,
+  users: Record<string, ChatUser>,
+): Promise<Map<string, string | null>> {
+  const entries = await Promise.all(
+    chats.map(async (chat) => {
+      const photoUrl = resolveChatDisplay(chat, myUserId, users).photoUrl;
+      if (!photoUrl) return [chat._id, null] as const;
+      return [chat._id, await generateAvatarBlurDataUrl(photoUrl)] as const;
+    }),
+  );
+  return new Map(entries);
+}
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -182,6 +213,11 @@ export async function GET() {
       resolveLastMessages(chats),
     ]);
     const users = { ...extractChatUsers(data), ...resolvedUsers };
+    // Needs `users` (a real avatar can only be resolved once the other
+    // participant is), so this runs after the pass above rather than
+    // inside that same Promise.all -- still one batch of parallel
+    // fetches across every chat, not sequential.
+    const avatarBlurs = await resolveAvatarBlurs(chats, myUserId, users);
     const items = chats
       .map((chat) => {
         const display = resolveChatDisplay(chat, myUserId, users);
@@ -200,6 +236,7 @@ export async function GET() {
           id: chat._id,
           title: display.title,
           avatarUrl: pickChatAvatar(chat, display),
+          avatarBlurDataUrl: avatarBlurs.get(chat._id) ?? null,
           username: display.otherUsername,
           isPersonal: display.isPersonal,
           lastMessageId: typeof lm === "string" ? lm : (lm?._id ?? null),

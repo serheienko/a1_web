@@ -419,6 +419,41 @@ textarea {
 }
 
 /*
+ * 2026-09-02 (Aleksandr, live chat window: "надо сделать плавную
+ * красивую анимацию появляющегося сообщения при отправке") -- a new
+ * bubble (mine, optimistically added in app/chats/[chatId]/page.tsx's
+ * send(), or the other side's, arriving on the next poll tick) rises
+ * up + scales in from where it's anchored (bottom, since that's where
+ * new bubbles are appended) instead of just snapping into the list.
+ * Plain CSS animation on mount -- no JS timing needed, since each new
+ * message gets a fresh key (msg._id) and a freshly-mounted DOM node
+ * always replays its own animation once; an already-rendered bubble
+ * that merely re-renders (e.g. a tick-state change) never remounts, so
+ * it never replays this.
+ */
+@keyframes message-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-message-in {
+  transform-origin: bottom;
+  animation: message-in 0.22s cubic-bezier(0.2, 0.8, 0.4, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-message-in {
+    animation: none;
+  }
+}
+
+/*
  * Indeterminate linear progress bar -- Aleksandr, 2026-08-30, sent the
  * native app's own "Posting"/"Updating" screenshot + a cat Lottie
  * sticker to match: "прогресс-бар лоудер и надпись posting... и этого

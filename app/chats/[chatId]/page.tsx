@@ -37,6 +37,14 @@ import { ChatBackArrow, ChatCatFieldIcon, ChatMicButton, ChatPaperclipButton, Ch
 
 type LoadState = "loading" | "signed-out" | "error" | "ready";
 
+// See the `pendingMessages` state comment (below, in the component) for
+// why this exists -- a locally-built stand-in for a message that was
+// just sent but hasn't shown up in a real messages.getMessages response
+// yet. Same shape as ChatMessage (so every existing render/format
+// helper -- extractMessageText, messageDateMs, messageTickState --
+// works on it unchanged) plus two fields nothing server-side ever sets.
+type PendingMessage = ChatMessage & { pending: true; localId: string };
+
 const POLL_MS = 3000;
 // Don't re-announce "typing" on every keystroke -- once per this window
 // is plenty for a best-effort indicator, and it keeps this from firing a
@@ -106,6 +114,15 @@ export default function ChatWindowPage() {
   const chatId = params.chatId;
   const headerTitle = searchParams.get("title") ?? "";
   const headerAvatar = searchParams.get("avatar") ?? pickDefaultCatAvatar(chatId);
+  // 2026-09-02 (Aleksandr: "Подгрузка всех аватаров на сайте должна
+  // быть через blur эффект, как мы делали в карточках постов в феде") --
+  // rides along the same query string as ?avatar= (see app/chats/
+  // page.tsx's own Link href comment), computed server-side there via
+  // lib/avatar-blur.ts's generateAvatarBlurDataUrl. Absent for a cat-
+  // mascot default avatar (never computed for those -- see that
+  // route's own comment) or on direct navigation with no query string
+  // at all, both of which just fall back to the shared generic shimmer.
+  const headerAvatarBlur = searchParams.get("avatarBlur") || null;
   // 2026-09-02 (Aleksandr: "при нажатии на аватар и на имя должен
   // открываться профіль цієї людини") -- ?username= travels alongside
   // ?title=/?avatar= from wherever the chat was opened (components/
@@ -118,6 +135,22 @@ export default function ChatWindowPage() {
 
   const [state, setState] = useState<LoadState>("loading");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // 2026-09-02 (Aleksandr, live bug report: "я не вижу появившееся
+  // сообщение сразу после отправки") -- send() used to just POST then
+  // call load() once, hoping the very next messages.getMessages
+  // roundtrip already had the just-sent message indexed on chat-
+  // server's side; when it didn't (a real race, not every time), the
+  // bubble simply didn't appear until the NEXT poll tick up to
+  // POLL_MS later. Fixed with a real optimistic entry instead: send()
+  // appends a locally-built ChatMessage-shaped bubble the instant the
+  // POST resolves, tagged `pending`+`localId` (not part of the real
+  // ChatMessage shape, only ever read by this file). load() below
+  // drops a pending entry once a real message with the same sender +
+  // text shows up in the fetched list (see reconcilePending below) --
+  // until then it just keeps showing, so it's never a race, only ever
+  // a graceful handoff. Rendered merged with `messages`, see
+  // displayMessages below.
+  const [pendingMessages, setPendingMessages] = useState<PendingMessage[]>([]);
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -159,8 +192,29 @@ export default function ChatWindowPage() {
         setState((prev) => (prev === "ready" ? prev : "error"));
         return;
       }
-      setMessages(data.messages ?? []);
-      setMyUserId(data.myUserId ?? null);
+      const fetched: ChatMessage[] = data.messages ?? [];
+      const resolvedMyUserId: string | null = data.myUserId ?? null;
+      setMessages(fetched);
+      setMyUserId(resolvedMyUserId);
+      // Drop any pending (optimistic) entry that a real message now
+      // covers -- same sender + same text, and the real one dated at or
+      // after the pending one was created (a few seconds of slack for
+      // clock skew between this device and chat-server). Anything still
+      // unmatched just keeps showing as pending; it's never removed by
+      // a timeout, only by this reconciliation actually finding it, so
+      // a slow send never flickers away and comes back.
+      setPendingMessages((prev) =>
+        prev.filter(
+          (p) =>
+            !fetched.some(
+              (m) =>
+                resolvedMyUserId !== null &&
+                m.fromId === resolvedMyUserId &&
+                extractMessageText(m) === extractMessageText(p) &&
+                messageDateMs(m) >= messageDateMs(p) - 5000,
+            ),
+        ),
+      );
       setState("ready");
     } catch {
       setState((prev) => (prev === "ready" ? prev : "error"));
@@ -191,7 +245,7 @@ export default function ChatWindowPage() {
 
   useEffect(() => {
     scrollAnchorRef.current?.scrollIntoView({ block: "end" });
-  }, [messages.length]);
+  }, [messages.length, pendingMessages.length]);
 
   function announceTyping() {
     const now = Date.now();
@@ -211,6 +265,27 @@ export default function ChatWindowPage() {
     if (!text || sending) return;
     setSending(true);
     if (!overrideText) setDraft("");
+    // Optimistic bubble, shown the instant the POST is fired -- see the
+    // `pendingMessages` state comment above for why (load() right after
+    // send() used to sometimes race chat-server's own indexing and show
+    // nothing new for up to POLL_MS). localId is only ever used to find
+    // this exact entry again (the `key` prop below and the removal
+    // calls in the catch/error branches); real messages never collide
+    // with it since chat-server's own _ids never contain a "-".
+    const localId = `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const optimistic: PendingMessage = {
+      _id: localId,
+      flags: 0,
+      peerFrom: myUserId ? { object: "peer-user", user: myUserId } : null,
+      peerTo: null,
+      date: new Date().toISOString(),
+      entities: [{ object: "entity-text", text }],
+      media: [],
+      fromId: myUserId,
+      pending: true,
+      localId,
+    };
+    setPendingMessages((prev) => [...prev, optimistic]);
     try {
       const res = await authFetch("/api/chats/send", {
         method: "POST",
@@ -218,22 +293,35 @@ export default function ChatWindowPage() {
         body: JSON.stringify({ chatId, text }),
       });
       if (res.ok) {
-        // Optimistic refresh -- the real message (with its real _id/
-        // date from the backend) shows up on the next poll tick; this
-        // just makes "did it send" feel instant instead of waiting up
-        // to POLL_MS.
+        // The optimistic bubble above already made this feel instant;
+        // this refresh is just what eventually replaces it with the
+        // real message (see load()'s reconciliation) and picks up
+        // anything else new (the other side's replies, tick updates).
         load();
       } else if (res.status !== 401) {
         // Send failed but wasn't a session issue -- give the text back
-        // so nothing typed is lost.
+        // so nothing typed is lost, and pull the optimistic bubble that
+        // never actually went anywhere.
         setDraft(text);
+        setPendingMessages((prev) => prev.filter((p) => p.localId !== localId));
+      } else {
+        setPendingMessages((prev) => prev.filter((p) => p.localId !== localId));
       }
     } catch {
       setDraft(text);
+      setPendingMessages((prev) => prev.filter((p) => p.localId !== localId));
     } finally {
       setSending(false);
     }
   }
+
+  // Rendered list: real messages + any not-yet-reconciled optimistic
+  // ones, re-sorted by date so a pending bubble (timestamped "now" the
+  // moment it was created) always lands at the end where it belongs,
+  // never briefly out of order against whatever load() last fetched.
+  const displayMessages: (ChatMessage | PendingMessage)[] = [...messages, ...pendingMessages].sort(
+    (a, b) => messageDateMs(a) - messageDateMs(b),
+  );
 
   return (
     <div className="flex h-[100dvh] flex-col bg-[#f2f2f7] text-[#262a34] dark:bg-black dark:text-white">
@@ -303,7 +391,7 @@ export default function ChatWindowPage() {
                 height={42}
                 className="h-[42px] w-[42px] shrink-0 rounded-full object-cover"
                 placeholder="blur"
-                blurDataURL={BLUR_DATA_URL}
+                blurDataURL={headerAvatarBlur ?? BLUR_DATA_URL}
                 unoptimized
               />
             </Link>
@@ -315,7 +403,7 @@ export default function ChatWindowPage() {
               height={42}
               className="ml-auto h-[42px] w-[42px] shrink-0 rounded-full object-cover"
               placeholder="blur"
-              blurDataURL={BLUR_DATA_URL}
+              blurDataURL={headerAvatarBlur ?? BLUR_DATA_URL}
               unoptimized
             />
           )}
@@ -364,7 +452,7 @@ export default function ChatWindowPage() {
             />
           </p>
         )}
-        {state === "ready" && messages.length === 0 && (
+        {state === "ready" && displayMessages.length === 0 && (
           // 2026-09-02 (Aleksandr, screenshot of the mobile app's own
           // empty state: "ставим надпись по центру и добавляем
           // анимацию" -- bold headline + lighter instruction line, both
@@ -426,21 +514,22 @@ export default function ChatWindowPage() {
             </button>
           </div>
         )}
-        {state === "ready" && messages.length > 0 && (
+        {state === "ready" && displayMessages.length > 0 && (
           <div className="flex flex-col gap-1.5">
-            {messages.map((msg, i) => {
+            {displayMessages.map((msg, i) => {
               const mine = myUserId !== null && msg.fromId === myUserId;
               const text = extractMessageText(msg);
               const ms = messageDateMs(msg);
-              // 2026-09-02: messages[i - 1] types as ChatMessage | undefined
-              // under this project's noUncheckedIndexedAccess (tsconfig.json)
-              // -- messageDateMs doesn't accept undefined, so this was a
+              // 2026-09-02: displayMessages[i - 1] types as
+              // ChatMessage | PendingMessage | undefined under this
+              // project's noUncheckedIndexedAccess (tsconfig.json) --
+              // messageDateMs doesn't accept undefined, so this was a
               // silent `next build` failure (TS2345 at this exact line) that
               // blocked every deploy since this file's own 2026-09-02 Figma
               // redesign pass landed, discovered only now by reading a failed
               // deployment's build log directly (Vercel dashboard's own build
               // log panel wasn't automatable this round -- see PLAN.md).
-              const prevMsg = i > 0 ? messages[i - 1] : undefined;
+              const prevMsg = i > 0 ? displayMessages[i - 1] : undefined;
               const prevMs = prevMsg ? messageDateMs(prevMsg) : 0;
               const showDate = i === 0 || !sameDay(ms, prevMs);
               return (
@@ -454,7 +543,7 @@ export default function ChatWindowPage() {
                   )}
                   <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                     <div
-                      className={`max-w-[78%] rounded-[18px] px-3 py-2 text-[15px] leading-snug ${
+                      className={`animate-message-in max-w-[78%] rounded-[18px] px-3 py-2 text-[15px] leading-snug ${
                         mine ? "rounded-tr-[6px] bg-[#335ef7] text-white dark:bg-[#009bff]" : "rounded-tl-[6px] bg-white text-[#262a34] dark:bg-[#1a1a1a] dark:text-white"
                       }`}
                     >
