@@ -60,9 +60,17 @@ function useActiveLocale(): Locale {
   return lang;
 }
 
+// 2026-09-02 (Aleksandr, live screenshot: "сделай иконку черновиков
+// чуть больше и отцентрируй с текстом") -- 16px -> 20px. The glyph
+// itself was already vertically centered in its own viewBox (the
+// document shape spans y=3..21 of 0..24, dead center), and the row
+// below is already `items-center`, so the "не по центру" read was this
+// icon simply looking small/thin next to the row's own text -- bumping
+// the size (kept shrink-0 so it can't get squeezed by a long title) is
+// the actual fix.
 function DraftIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-neutral-400 dark:text-neutral-500" aria-hidden="true">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-neutral-400 dark:text-neutral-500" aria-hidden="true">
       <path d="M14 3v4a1 1 0 0 0 1 1h4" />
       <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z" />
       <path d="M9 13h6M9 17h4" />
