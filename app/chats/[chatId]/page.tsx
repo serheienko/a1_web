@@ -23,8 +23,9 @@ import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
-import { T } from "@/components/t";
+import { T, LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
+import { LottiePlayer } from "@/components/lottie-player";
 import {
   extractMessageText,
   messageDateMs,
@@ -65,7 +66,40 @@ function sameDay(aMs: number, bMs: number): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
+// Same client-side "read the active lang-XX class" trick components/
+// profile-action-row.tsx and post-viewer-menu.tsx already use -- <T>
+// alone (this file's usual localization path) renders every locale's
+// text server-side and lets CSS pick one, which works for display copy
+// but not for a value that has to leave the browser as a real string
+// (the greeting message text sent below).
+function useActiveLocale(): Locale {
+  const [lang, setLang] = useState<Locale>("uk");
+  useEffect(() => {
+    const root = document.documentElement;
+    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
+    if (active) setLang(active);
+  }, []);
+  return lang;
+}
+
+// 2026-09-02 (Aleksandr, mobile app's empty-state screenshot + Hicat.tgs:
+// "тап на привітання" -- tapping the waving cat below sends this as a
+// real first message, same "greeting sticker" flow the reference
+// screenshot's own copy implies).
+const GREETING_TEXT: Record<Locale, string> = {
+  uk: "👋 Привіт!",
+  en: "👋 Hi!",
+  ru: "👋 Привет!",
+  de: "👋 Hallo!",
+  es: "👋 ¡Hola!",
+  fr: "👋 Salut !",
+  pl: "👋 Cześć!",
+  ptBR: "👋 Oi!",
+  zh: "👋 你好！",
+};
+
 export default function ChatWindowPage() {
+  const lang = useActiveLocale();
   const params = useParams<{ chatId: string }>();
   const searchParams = useSearchParams();
   const chatId = params.chatId;
@@ -162,11 +196,11 @@ export default function ChatWindowPage() {
     }).catch(() => {});
   }
 
-  async function send() {
-    const text = draft.trim();
+  async function send(overrideText?: string) {
+    const text = (overrideText ?? draft).trim();
     if (!text || sending) return;
     setSending(true);
-    setDraft("");
+    if (!overrideText) setDraft("");
     try {
       const res = await authFetch("/api/chats/send", {
         method: "POST",
@@ -193,24 +227,27 @@ export default function ChatWindowPage() {
 
   return (
     <div className="flex h-[100dvh] flex-col bg-[#f2f2f7] text-[#262a34] dark:bg-black dark:text-white">
-      {/* 2026-09-02 (Aleksandr, screen recording + follow-up: "Поставь
+      {/* 2026-09-02 (Aleksandr, screen recording + follow-ups: "Поставь
           аватар и имя по центру 'вакансії і фахівці', а кнопку назад
-          примерно на уровне нижней скрепки"): back button stays a
-          normal in-flow item in this max-w-2xl row (so it lines up with
-          the compose bar's own max-w-2xl row -- its first child, the
-          paperclip button, sits at the same x as this one below), but
+          примерно на уровне нижней скрепки", then "Сделай инпут на 30%
+          уже и за ним подвинь кнопку 'назад' сверху"): back button
+          stays a normal in-flow item in this row (so it lines up with
+          the compose bar's own row below -- its first child, the
+          paperclip button, sits at the same x as this one), but
           avatar+name are pulled OUT of that row and absolutely centered
           over the header's full width instead -- same "pointer-events-
           none absolute inset-0 flex items-center justify-center" trick
           components/site-nav.tsx already uses to keep ITS OWN centered
           tabs pill dead-center regardless of what's in the side
           columns (see that file's own header comment for the technique
-          in full). The relative row below stays mx-auto max-w-2xl (a
-          box that's itself centered on the page), so centering inside
-          it lands at the same page-x as the nav bar's own full-width-
-          centered tabs. */}
+          in full). max-w-[470px] here matches the compose bar's own
+          (672px max-w-2xl narrowed 30%, per the second follow-up above)
+          so the back button keeps tracking the paperclip's x -- both
+          are still mx-auto boxes centered on the page, so centering the
+          avatar/name overlay inside this one still lands at the same
+          page-x as the nav bar's own full-width-centered tabs. */}
       <div className="sticky top-0 z-10 border-b border-black/5 bg-[#f2f2f7]/90 backdrop-blur-md dark:border-white/10 dark:bg-black/80">
-        <div className="relative mx-auto flex w-full max-w-2xl items-center px-4 py-3">
+        <div className="relative mx-auto flex w-full max-w-[470px] items-center px-4 py-3">
           <Link
             href="/chats"
             aria-label="Back"
@@ -288,16 +325,13 @@ export default function ChatWindowPage() {
         {state === "ready" && messages.length === 0 && (
           // 2026-09-02 (Aleksandr, screenshot of the mobile app's own
           // empty state: "ставим надпись по центру и добавляем
-          // анимацию" -- bold headline + lighter instruction line,
-          // both centered, matching that reference): the animated
-          // greeting cat itself is a separate follow-up ("в след
-          // сообщении скину анимацию этого кота") -- once that .tgs is
-          // decompressed into public/animations/ the same way
-          // cat-blink.json was, it renders here via components/lottie-
-          // player.tsx (same convention every other cat animation in
-          // this app already uses), tap/click-able to send the
-          // greeting text. Left as a plain centered text block for now
-          // so this doesn't point at a file that doesn't exist yet.
+          // анимацию" -- bold headline + lighter instruction line, both
+          // centered, matching that reference): Hicat.tgs decompressed
+          // into public/animations/cat-hi.json, same convention every
+          // other cat animation in this app already uses (components/
+          // lottie-player.tsx). Tapping/clicking it sends GREETING_TEXT
+          // as a real first message -- what the instruction line above
+          // ("tap/click the greeting below") actually refers to.
           <div className="mt-10 flex flex-col items-center gap-2 px-6 text-center">
             <p className="text-[15px] font-semibold text-[#262a34] dark:text-white">
               <T
@@ -339,6 +373,15 @@ export default function ChatWindowPage() {
                 />
               )}
             </p>
+            <button
+              type="button"
+              onClick={() => send(GREETING_TEXT[lang])}
+              disabled={sending}
+              aria-label={GREETING_TEXT[lang]}
+              className="mt-2 rounded-full transition active:scale-95 disabled:opacity-60"
+            >
+              <LottiePlayer src="/animations/cat-hi.json" size={140} />
+            </button>
           </div>
         )}
         {state === "ready" && messages.length > 0 && (
@@ -398,13 +441,15 @@ export default function ChatWindowPage() {
         // bar was drifting down the page instead of staying put -- now
         // `fixed` to the viewport bottom, same pattern as the "+" create-post
         // FAB (see create-post-fab.tsx: fixed + safe-area-inset-bottom via
-        // inline style). Row itself narrowed to roughly the width of the
-        // "Повідомлень ще немає..." empty-state text, per that same feedback.
+        // inline style). Row width has moved a few times since (320px ->
+        // 672px max-w-2xl -> this 470px, "на 30% уже" off that 672px) --
+        // 470px is now the single source of truth, matched by the header
+        // row above so the back button tracks the paperclip's x.
         <div
           className="fixed inset-x-0 bottom-0 z-20 border-t border-black/5 bg-[#f2f2f7]/90 px-4 py-3 backdrop-blur-md dark:border-white/10 dark:bg-black/80"
           style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
         >
-          <div className="mx-auto flex w-full max-w-2xl items-center gap-2">
+          <div className="mx-auto flex w-full max-w-[470px] items-center gap-2">
             <ChatPaperclipButton disabled={sending} />
             <div className="flex min-h-[42px] flex-1 items-center gap-2 rounded-[21px] border border-neutral-200 bg-white/90 px-3.5 py-2 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
               <textarea
@@ -428,7 +473,7 @@ export default function ChatWindowPage() {
             {draft.trim() ? (
               <button
                 type="button"
-                onClick={send}
+                onClick={() => send()}
                 disabled={sending}
                 aria-label="Send"
                 className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-[#335ef7] text-white transition disabled:opacity-40 dark:bg-[#0c8ce9]"
