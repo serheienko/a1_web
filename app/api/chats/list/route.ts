@@ -13,6 +13,13 @@
 // pagination args exist only once a live 400/502 says so, don't guess
 // further now.
 //
+// 2026-09-02: response confirmed live (Vercel Logs) to be a BARE ARRAY
+// of Chat objects -- no `{ chats, users }` wrapper like contacts.search
+// has. See lib/a1/chat-schemas.ts's ChatSchema comment for the two real
+// mismatches this uncovered (lastMessage as a bare number, and the
+// missing `users` side array) and which of those is fixed vs. still
+// flagged.
+//
 // 2026-09-02 (chat UI redesign per Figma -- list row needs a preview
 // line, read ticks, unread badge, red draft text): the response now
 // also carries previewText/previewMine/previewDateMs/previewTick/
@@ -52,18 +59,6 @@ export async function GET() {
 
     const chats = extractChats(data);
     const users = extractChatUsers(data);
-    // TEMP DEBUG (Aleksandr, 2026-09-02: chat list shows "no messages"
-    // even though a real chat with real messages exists) -- logging the
-    // raw upstream shape (truncated) plus how many chats survived
-    // extraction, so a live Vercel Logs read shows exactly where
-    // they're getting dropped, same method that found the
-    // messages.getMessages shape bug earlier. Remove once root-caused.
-    console.error(
-      "[api/chats/list] CHAT_LIST_DEBUG raw=",
-      JSON.stringify(data)?.slice(0, 1500),
-      "extractedCount=",
-      chats.length,
-    );
     const items = chats
       .map((chat) => {
         const display = resolveChatDisplay(chat, myUserId, users);

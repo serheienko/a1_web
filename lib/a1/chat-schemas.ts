@@ -220,13 +220,48 @@ export function messageTickState(msg: ChatMessage): MessageTickState {
 // precedent in useChat.ts at all -- read via chatUnreadCount()/
 // chatDraftText() below, which fall back to "nothing to show" rather
 // than a wrong number/string.
+// 2026-09-02 (Aleksandr, live bug report + screen recording: chat list
+// shows "Повідомлень ще немає" even though a real chat with real
+// messages exists) -- root-caused via Vercel Logs against a real
+// chats.getChats response, same method as the messages.getMessages fix.
+// TWO real mismatches, both now fixed:
+//
+// 1) `lastMessage` on a real Chat is a bare NUMBER (`"lastMessage":221`
+//    in the live payload) -- the same per-chat sequential id type
+//    MessageSchema's own `_id` was already confirmed to be. The old
+//    `z.union([z.string(), MessageSchema])` only ever matched a STRING
+//    bare-id or a full embedded object, so a real chat's numeric
+//    lastMessage failed the whole union and silently became `null` via
+//    `.catch(null)`. Downstream, app/api/chats/list/route.ts's own
+//    `.filter((item) => item.title || item.lastMessageId)` -- there to
+//    drop genuinely-empty rows -- was dropping every real 1:1 chat
+//    instead, since `title` is ALSO always "" for a personal chat (see
+//    point 2) and `lastMessageId` was `null` because of this exact bug.
+//    Widened to accept `z.number()` too, coerced to a string via the
+//    same `.transform()` shape MessageSchema's own `_id` uses, so every
+//    existing `typeof lm === "string"` / `lm?._id` read site downstream
+//    keeps working unchanged.
+// 2) The real chats.getChats response is a BARE ARRAY of Chat objects --
+//    confirmed live, no `{ chats, users }` wrapper at all, unlike
+//    contacts.search's confirmed shape. `extractChatUsers` below always
+//    returns `{}` today because of this; lib/a1/chat-mappers.ts's
+//    resolveChatDisplay() already fails closed onto `chat.title` when
+//    no user resolves (which is also always "" for a personal chat) --
+//    flagged here, not fixed, since there's no confirmed way to batch-
+//    resolve participant names/photos from chat-server yet (no
+//    users.getUsers-style endpoint seen anywhere in this app to build
+//    on) -- guessing one blind risks the same "guessed field, silently
+//    wrong" failure mode this whole file exists to avoid repeating.
 export const ChatSchema = z
   .object({
     _id: z.string(),
     title: z.string().catch(""),
     flags: z.number().catch(0),
     participants: z.array(ChatParticipantSchema).catch([]),
-    lastMessage: z.union([z.string(), MessageSchema]).nullable().catch(null),
+    lastMessage: z
+      .union([z.string(), z.number().transform((v) => String(v)), MessageSchema])
+      .nullable()
+      .catch(null),
     unreadCount: z.number().catch(0).optional(),
     draft: z.union([z.string(), z.object({ message: z.string().catch("") }).catchall(z.unknown())]).nullable().optional(),
     object: z.string().optional(),
