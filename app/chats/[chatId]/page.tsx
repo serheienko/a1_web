@@ -484,18 +484,33 @@ export default function ChatWindowPage() {
       // unmatched just keeps showing as pending; it's never removed by
       // a timeout, only by this reconciliation actually finding it, so
       // a slow send never flickers away and comes back.
-      setPendingMessages((prev) =>
-        prev.filter(
-          (p) =>
-            !fetched.some(
-              (m) =>
-                resolvedMyUserId !== null &&
-                m.fromId === resolvedMyUserId &&
-                extractMessageText(m) === extractMessageText(p) &&
-                messageDateMs(m) >= messageDateMs(p) - 5000,
-            ),
-        ),
-      );
+      setPendingMessages((prev) => {
+        const stillPending: PendingMessage[] = [];
+        for (const p of prev) {
+          const reconciled = fetched.some(
+            (m) =>
+              resolvedMyUserId !== null &&
+              m.fromId === resolvedMyUserId &&
+              extractMessageText(m) === extractMessageText(p) &&
+              messageDateMs(m) >= messageDateMs(p) - 5000,
+          );
+          if (reconciled) {
+            // Attachment feature: this bubble's local image previews
+            // (PendingAttachment.previewUrl, blob: URLs -- see that
+            // type's own comment) are no longer needed once the real
+            // message takes over rendering via messageDocumentMedia's
+            // server-proxied URL instead -- release them here so a long
+            // session sending many photos doesn't quietly accumulate
+            // blob: URLs the tab never frees on its own.
+            p.pendingAttachments?.forEach((a) => {
+              if (a.previewUrl) URL.revokeObjectURL(a.previewUrl);
+            });
+          } else {
+            stillPending.push(p);
+          }
+        }
+        return stillPending;
+      });
       setState("ready");
       // A poll tick only gets here once the fetch above actually
       // succeeded -- as good a "we have a network" signal as the
@@ -1157,7 +1172,14 @@ export default function ChatWindowPage() {
                                 }`}
                               >
                                 <ChatFileAttachIcon className="h-5 w-5 shrink-0" />
-                                <span className="truncate text-[14px]">{mediaDocumentFileName(doc) || doc.mimetype}</span>
+                                <span className="truncate text-[14px]">
+                                  {mediaDocumentFileName(doc) || (
+                                    <T
+                                      uk="Документ" en="Document" ru="Документ" de="Dokument" es="Documento"
+                                      fr="Document" pl="Dokument" ptBR="Documento" zh="文档"
+                                    />
+                                  )}
+                                </span>
                               </a>
                             ),
                           )}
@@ -1418,7 +1440,15 @@ export default function ChatWindowPage() {
               <button
                 type="button"
                 onClick={() => send()}
-                disabled={sending || attachments.some((a) => a.status === "uploading")}
+                // Attachment feature: also disabled once every attachment
+                // has failed and there's no typed caption either -- e.g.
+                // an upload that 502'd -- so this never sits enabled over
+                // a click that send()'s own guard would just no-op on.
+                disabled={
+                  sending ||
+                  attachments.some((a) => a.status === "uploading") ||
+                  (!draft.trim() && attachments.every((a) => a.status !== "ready"))
+                }
                 aria-label="Send"
                 // 2026-09-02 (Aleksandr: "при наведении на кнопку отправки
                 // сделай какой-то ховер, чтобы она ярче становилась...
