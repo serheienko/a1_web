@@ -42,9 +42,16 @@ function useActiveLocale(): Locale {
   return lang;
 }
 
+// 2026-09-02 (Aleksandr, screenshot of this exact button: "Сделай
+// анимацию для карандаша при наведении") -- same animate-pencil-write
+// keyframe app/globals.css already defines for components/post-owner-
+// menu.tsx's own Edit row icon (a little "writing" wiggle), reused here
+// rather than duplicated. Needs the button itself to carry `group`
+// (added above) since that's what the shared `.group:hover
+// .animate-pencil-write` selector hooks onto.
 function PencilIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 animate-pencil-write" aria-hidden="true">
       <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
     </svg>
   );
@@ -99,7 +106,7 @@ export function EditProfileButton({ username, className }: { username: string; c
         aria-label={STRINGS.editProfile[lang]}
         title={STRINGS.editProfile[lang]}
         className={
-          "flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-neutral-900/80 text-white shadow-sm transition hover:bg-neutral-900 dark:border-black " +
+          "group flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-neutral-900/80 text-white shadow-sm transition hover:bg-neutral-900 dark:border-black " +
           (className ?? "")
         }
       >
