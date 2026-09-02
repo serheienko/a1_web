@@ -4119,3 +4119,53 @@ this session).
 
 Three separate commits, each tsc-clean. Not live-tested yet (needs a
 push).
+
+### 6.81 Chat font sizes, edit-pencil hover, draft avatar blur, chats-flyout caching (2026-09-02)
+
+- **Chats flyout + mini chat window: fonts +2px** (components/chats-
+  flyout.tsx, components/mini-chat-window.tsx): "Сделай крупнее шрифты
+  на 2-3" -- every text-[Npx] value in both files bumped by +2 (titles,
+  previews, timestamps, badges, compose textarea), plus the unread-count
+  badge's own container widened (h-4.5/min-w-4.5 -> h-5/min-w-5) so the
+  larger digits don't look cramped.
+- **Profile edit-pencil hover animation** (components/edit-profile-
+  button.tsx): "Сделай анимацию для карандаша при наведении" -- reuses
+  the animate-pencil-write keyframe (globals.css) §6.77's post-owner
+  menu Edit row already uses, rather than a new one. Just needed `group`
+  added to the button.
+- **Draft/scheduled post avatars: real blur instead of a flat white
+  circle** (app/api/posts/mine/route.ts, components/profile-tabs.tsx):
+  "Тут аватары тоже сделай подгрузку через блюр" -- root cause turned
+  out to be missing wiring, not a rendering bug: components/post-
+  card.tsx's own blur support was already correct, but every OTHER
+  caller (app/page.tsx, app/talents/page.tsx, mine-feed, load-more.tsx)
+  passes a real per-author avatarBlurDataUrl computed via lib/avatar-
+  blur.ts, and profile-tabs.tsx's own draftsAndScheduled cards never
+  did -- falling back to the generic shimmer BLUR_DATA_URL, which reads
+  as a near-white flat circle at 56px. app/api/posts/mine-feed/route.ts
+  already fixed this exact symptom for a different tab on 2026-09-01;
+  applied the same generateAvatarBlurDataUrl computation to
+  app/api/posts/mine/route.ts's draftsAndScheduled array and threaded it
+  through profile-tabs.tsx's date-revival step into PostCard.
+- **Chats flyout: cache the recent-chats list across page reloads**
+  (components/chats-flyout.tsx): "Эти подгруженные чаты надо
+  кешировать, а то они загружаются чуть ли не каждый раз как заходишь
+  на иконку чатов" -- ChatsFab already mounts this component once
+  globally for the whole session, so re-opening within the same tab was
+  already free (the state==="ready" guard already skipped the
+  skeleton); what wasn't covered was a hard page reload, which resets
+  the component's in-memory state to idle/empty -- the actual source of
+  the "loads every time" feeling during live testing. sessionStorage now
+  holds the last-seen list, keyed per-account (DISPLAY_COOKIE) so a
+  different person signing in on a shared tab never sees a leftover
+  account's previews; read once on mount to paint instantly, the normal
+  5s poll still refreshes it underneath once opened.
+
+Also open, still unresolved from this same live-testing pass: the
+"чаты легли" (chats page crash) root cause itself -- confirmed this
+pass that app/error.tsx and app/jobs/error.tsx are byte-identical, so
+every "vacancies" crash screenshot across the whole investigation has
+been a red herring about WHERE the crash is, not evidence it's jobs-
+related; the actual unhandled exception has not been found yet. Four
+separate commits this entry, each tsc-clean. Not live-tested yet (needs
+a push).
