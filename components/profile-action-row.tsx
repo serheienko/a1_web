@@ -298,14 +298,18 @@ export function ProfileActionRow({
   // someone else's profile. Own profile / signed-out visitor -> this
   // whole row renders nothing, same as the badge it replaces did.
   useEffect(() => {
+    console.error("PAR_DEBUG effect fired", { username });
     let cancelled = false;
     authFetch("/api/account/whoami")
       .then((r) => r.json())
       .then((data) => {
+        console.error("PAR_DEBUG whoami resolved", { cancelled, data, username });
         if (cancelled || !data?.ok) return;
         if (data.username && data.username !== username) setVisible(true);
       })
-      .catch(() => {});
+      .catch((err) => {
+        console.error("PAR_DEBUG whoami errored", err);
+      });
     return () => {
       cancelled = true;
     };
@@ -369,6 +373,14 @@ export function ProfileActionRow({
       cancelled = true;
     };
   }, [profileUserId]);
+
+  // TEMP DEBUG 2026-09-02 (Aleksandr, "Запушил, тестируй" -- the row
+  // is silently not rendering for any 3rd-party profile on prod, no
+  // console errors, no network calls for its own effects at all --
+  // this unconditional log (runs on every render, before the early
+  // return) is here ONLY to see the actual visible/profileUserId
+  // values live. Remove once the real cause is found.
+  console.error("PAR_DEBUG", { visible, profileUserId, username });
 
   if (!visible || !profileUserId) return null;
 
