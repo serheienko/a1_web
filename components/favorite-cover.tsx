@@ -62,11 +62,21 @@ const KIND_ICON: Record<FavoriteKind, () => ReactElement> = {
   game: GameIcon,
 };
 
-/** The "no artwork" tile -- same square slot, a muted category icon instead of empty. */
+/** The "no artwork" tile -- same square slot, a muted category icon instead of empty.
+ *
+ * 2026-09-02 (Aleksandr, screenshot of a profile's Улюблене/Favorites
+ * grid: "которые не нашлись показывай другим цветом, заливка как на
+ * кнопках вакансії/фахівці FFFFFF 100%"): was bg-neutral-100, close
+ * enough to the page's own bg-app ground that a "no cover found" tile
+ * barely read as its own shape. Solid white now, matching components/
+ * site-nav.tsx's Вакансії/Фахівці pill exactly (bg-white / dark:bg-
+ * neutral-900) -- the one other "flat white chip on this same gray
+ * page" reference already in the app.
+ */
 export function FavoriteCoverFallback({ kind }: { kind: FavoriteKind }) {
   const Icon = KIND_ICON[kind];
   return (
-    <div className="flex aspect-square items-center justify-center rounded-xl bg-neutral-100 text-neutral-300 dark:bg-neutral-800 dark:text-neutral-600">
+    <div className="flex aspect-square items-center justify-center rounded-xl bg-white text-neutral-300 dark:bg-neutral-900 dark:text-neutral-600">
       <Icon />
     </div>
   );

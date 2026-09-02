@@ -107,6 +107,24 @@ function pillList(items: string[]) {
   );
 }
 
+// 2026-09-02 (Aleksandr, screenshot of a profile's link pill ("Supa
+// Link"): "В линки в профилях в начале показывай иконку ссылки, чтобы
+// было понятно, что это ссылка") -- a plain text pill with no chrome
+// (no underline, no accent color) reads as just another tag until you
+// hover it; a small leading glyph is the cheapest way to mark it as a
+// link at a glance, same "one small leading icon" convention components/
+// post-viewer-menu.tsx's dropdown rows already use. Classic two-link
+// chain-link glyph, not a generic arrow -- reads as "URL" specifically
+// rather than "navigate"/"external".
+function LinkIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0 text-neutral-400 dark:text-neutral-500">
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+    </svg>
+  );
+}
+
 // Aleksandr, 2026-08-28: "УЛЮБЛЕНЕ давай отобразим таким UI как вприложении?
 // Типа такие квадратные картинки (такие же как в апке)" — square cover
 // tile matching the app's own Books/Movies/Games picker (Figma node
@@ -475,8 +493,9 @@ export default async function ProfilePage({ params }: Props) {
               href={link.url}
               target="_blank"
               rel="noopener noreferrer nofollow"
-              className="rounded-full bg-white px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-100 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700"
+              className="flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-100 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700"
             >
+              <LinkIcon />
               {link.title || link.url}
             </a>
           ))}
