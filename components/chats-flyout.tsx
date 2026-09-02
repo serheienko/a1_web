@@ -35,6 +35,7 @@ import { SearchIcon } from "@/components/search-icon";
 import { MessageTicks } from "@/components/chat/icons";
 import { chatRouteParamForUser } from "@/lib/a1/chat-schemas";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
+import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
 
 export type ChatFlyoutOpenTarget = {
   routeParam: string;
@@ -72,6 +73,54 @@ type LoadState = "idle" | "loading" | "error" | "ready";
 // only runs while this popover is actually open (see the effect below),
 // so it costs nothing while collapsed.
 const POLL_MS = 5000;
+
+// 2026-09-02 (Aleksandr, screenshot of the flyout open next to the feed:
+// "эти подгруженные чаты надо кешировать, а то они загружаются чуть ли
+// не каждый раз как заходишь на иконку чатов"): ChatsFab mounts this
+// component once, globally, for the whole session, so re-opening the
+// SAME tab's popover already reuses in-memory state (the `state ===
+// "ready" ? prev : "loading"` guard below never re-shows the skeleton).
+// What that guard can't survive is a hard page reload -- a fresh mount
+// starts from state:"idle", chats:[] again, so every reload-then-reopen
+// is where the "loads nearly every time" feeling actually comes from
+// while testing live. sessionStorage.setItem/getItem persists the last-
+// seen list across exactly that (reload within the same tab, cleared
+// when the tab closes -- deliberately NOT localStorage, so nothing
+// lingers indefinitely on a shared computer): read once on mount to
+// paint instantly from what was last seen, keep polling for the real
+// data underneath. Keyed per-account (DISPLAY_COOKIE, same cookie
+// components/chats-fab.tsx already reads) so a different person signing
+// in on the same tab never briefly sees the previous account's chat
+// previews before the first real fetch overwrites them.
+function chatsCacheKey(): string | null {
+  const match = document.cookie.match(new RegExp(`(?:^|; )${DISPLAY_COOKIE}=([^;]*)`));
+  const email = match?.[1] ? decodeURIComponent(match[1]) : null;
+  return email ? `a1:chats-flyout-cache:${email}` : null;
+}
+
+function readCachedChats(): ChatRow[] {
+  try {
+    const key = chatsCacheKey();
+    if (!key) return [];
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as ChatRow[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeCachedChats(chats: ChatRow[]): void {
+  try {
+    const key = chatsCacheKey();
+    if (!key) return;
+    sessionStorage.setItem(key, JSON.stringify(chats));
+  } catch {
+    // Storage disabled/full/private mode -- caching is a nice-to-have,
+    // never worth failing the actual chat list load over.
+  }
+}
 
 const STRINGS = {
   title: {
@@ -181,6 +230,21 @@ export function ChatsFlyout({
   // self-contained-by-design rule as the rest of this file.
   const pinnedAvatarUrls = useRef<Map<string, string>>(new Map());
 
+  // Paint from the cached list (if any) the moment this mounts --
+  // before the popover is ever opened, so the very first open of a
+  // fresh page load already has something to show instead of the
+  // skeleton. A plain useEffect (not a lazy useState initializer) so
+  // this stays client-only and never risks a hydration mismatch against
+  // the server-rendered (always-empty, always-hidden) markup -- see
+  // chatsCacheKey()'s own comment above for the full reasoning.
+  useEffect(() => {
+    const cached = readCachedChats();
+    if (cached.length === 0) return;
+    for (const chat of cached) pinnedAvatarUrls.current.set(chat.id, chat.avatarUrl);
+    setChats(cached);
+    setState("ready");
+  }, []);
+
   // Recent chats: fetched once when first opened, then polled every 5s
   // while open (mirrors app/chats/page.tsx's own load()/POLL_MS,
   // deliberately not shared code -- see this file's header).
@@ -209,6 +273,7 @@ export function ChatsFlyout({
         });
         setChats(stabilized);
         setState("ready");
+        writeCachedChats(stabilized);
       } catch {
         if (!cancelled) setState((prev) => (prev === "ready" ? prev : "error"));
       } finally {
