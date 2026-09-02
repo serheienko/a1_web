@@ -52,6 +52,18 @@ export async function GET() {
 
     const chats = extractChats(data);
     const users = extractChatUsers(data);
+    // TEMP DEBUG (Aleksandr, 2026-09-02: chat list shows "no messages"
+    // even though a real chat with real messages exists) -- logging the
+    // raw upstream shape (truncated) plus how many chats survived
+    // extraction, so a live Vercel Logs read shows exactly where
+    // they're getting dropped, same method that found the
+    // messages.getMessages shape bug earlier. Remove once root-caused.
+    console.error(
+      "[api/chats/list] CHAT_LIST_DEBUG raw=",
+      JSON.stringify(data)?.slice(0, 1500),
+      "extractedCount=",
+      chats.length,
+    );
     const items = chats
       .map((chat) => {
         const display = resolveChatDisplay(chat, myUserId, users);
