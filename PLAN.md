@@ -3743,3 +3743,74 @@ plumbing above). Next: Aleksandr's calculator-form UI (add/remove row,
 currency picker, running total), then a real end-to-end send -- and
 specifically worth checking then whether `message` + `entities`
 together actually behaves the way this entry assumed it might not.
+
+### 6.74 Daily upload quota (20MB/user/day), surfaced client-side across every upload flow (2026-09-02)
+
+Aleksandr, right after the calculation entry above, with a native-app
+"Daily Uploads" screenshot (94 KB / 20 MB, progress bar, "Available
+again in 3m", separate Files/Available sub-bars): "лимит по daily
+uploads на 1 пользователя 20 мб день, на вэбе надо тоже прокинуть. У
+нас прям прикольно сделано, каждый медиа файл подсчитывается и
+лочится потом, если дейли больше 20 мб день. Возьми всю логику с моб
+версии".
+
+Confirmed off the OpenAPI spec: `Method.v1_upload_create_output` is
+`anyOf [MediaUploadDestination, MediaUploadUsage]` -- `upload.create`
+itself returns a `Resource.MediaUploadUsage` object (`limitBytes,
+usedBytes, remainingBytes, usedByType:{image,video,others}, resetAt`)
+INSTEAD OF the normal upload destination when the caller is over
+quota, discriminated purely by the `object` literal
+(`media-upload-destination` vs `media-upload-usage`), same pattern as
+every other discriminated union in this codebase. There's also a
+dedicated `upload.getUsage` method (no input, returns
+MediaUploadUsage directly) for an on-demand check outside of an actual
+upload attempt.
+
+Two-part change:
+
+- **Backend (9d888ec, already committed earlier):**
+  `MediaUploadUsageSchema` added to lib/a1/schemas.ts;
+  `lib/format.ts` gained `formatBytes()`; `app/api/upload/create/route.ts`
+  now `.safeParse()`s the upload.create response against
+  MediaUploadUsageSchema first and, on a match, returns `{ok:false,
+  message:"quota_exceeded", usage}` instead of treating it as a
+  generic failure; new `app/api/upload/usage/route.ts` GET endpoint
+  wraps `upload.getUsage` for a future on-demand "Daily Uploads"
+  screen (not wired into any UI yet -- exists for when Aleksandr wants
+  that screen specifically, mirroring the native app's).
+
+- **Client (5c26a00, this commit):** every one of this app's 5 upload
+  call sites now checks `createData?.message === "quota_exceeded" &&
+  createData.usage` right after `upload.create` and, when it hits,
+  shows the actual numbers instead of a generic failure message --
+  `formatBytes(usedBytes)} / ${formatBytes(limitBytes)}` plus a
+  relative reset countdown via the existing `formatRelativeTime()`
+  (`lib/format.ts`, already used elsewhere for "available again in
+  Xm"-style copy). Sites: chat attachments
+  (app/chats/[chatId]/page.tsx -- shown both as a per-thumbnail
+  "Limit reached" overlay with the full message on hover, and as a
+  standing text banner above the compose bar since the full byte/time
+  string doesn't fit in a thumbnail), post photos (post-editor.tsx),
+  profile photos and voice intro (profile-editor.tsx, both call
+  sites), and avatar upload (avatar-edit-button.tsx). New
+  `photoUploadQuotaExceeded` STRINGS key is deliberately reused by
+  BOTH profile-editor.tsx call sites (photo AND voice) despite the
+  photo-specific name -- it's the same account-wide quota either way,
+  just worded generically enough ("daily upload limit reached") to fit
+  both; chat page uses its own separate `UPLOAD_QUOTA_EXCEEDED_TEXT`
+  constant instead since it already had its own GREETING_TEXT-style
+  local-constant convention rather than the STRINGS-map convention the
+  other three files use.
+
+No new upload-time counting logic was needed on the web side --
+`upload.create`/`upload.confirm` already goes through the same shared
+backend endpoints the native app uses, so the actual 20MB/day counting
+and locking (mentioned in Aleksandr's own message) lives entirely
+server-side already; "take the logic from mobile" here meant matching
+mobile's client-side *presentation* of that quota, not reimplementing
+the counting itself.
+
+Not live-tested end-to-end yet (needs Aleksandr to push via GitHub
+Desktop first, then either hit the real limit naturally or have it
+lowered temporarily server-side to verify the UI). tsc-clean, all 4
+client files reviewed diff-by-diff before commit.
