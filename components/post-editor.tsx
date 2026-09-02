@@ -570,6 +570,16 @@ export function PostEditor({
   // one post instead of minting a new one on every "Save draft" click.
   const [savedPostId, setSavedPostId] = useState<string | null>(initialPost?.id ?? null);
   const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
+  // 2026-09-02 (Aleksandr: "я пробую опять выходить, оно мне опять
+  // спрашивает: Сберегти чернетку. Получается какая-то херня") --
+  // isDirty below used to mean "any field is non-empty," which stays
+  // true forever once you've typed anything, even the INSTANT after a
+  // successful save with nothing changed since. This snapshots the
+  // fields a save actually wrote (set right after every successful
+  // submit() below) so isDirty can ask the right question after the
+  // first save: not "is there content" but "is there content that
+  // hasn't been saved yet."
+  const savedSnapshotRef = useRef<string | null>(null);
   // Aleksandr, 2026-08-29: close-with-unsaved-content confirmation --
   // see isDirty and requestClose() further down for the full story.
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
@@ -896,6 +906,19 @@ export function PostEditor({
   const linkValid = linkUrl.trim().length === 0 || /^(https?:\/\/)?([a-z0-9-]+\.)+[a-z]{2,}(:\d+)?(\/[^\s]*)?$/i.test(linkUrl.trim());
   const canSubmit = titleValid && descriptionValid && location !== null && category !== null && linkValid;
 
+  // 2026-09-02 (Aleksandr, live screenshot: pressing "Зберегти чернетку"
+  // on a form still failing full validation -- e.g. a title under
+  // TITLE_MIN -- did nothing at all, "меня просто закидывает назад в
+  // окно и всё, и ничего не происходит"... "черноветка должна
+  // сберегаться в любом состоянии, типа, если даже там три символа
+  // написал, это мои проблемы, это же черновик"): every draft-save call
+  // site used to share canSubmit with the real Post/Save-changes/
+  // Schedule actions, so an incomplete form -- the ONE case a draft is
+  // actually for -- could never be saved as a draft at all. A draft only
+  // needs something worth keeping (a title, a description, or a photo
+  // already uploaded), not a publishable post.
+  const canSaveDraft = title.trim().length > 0 || content.trim().length > 0 || media.length > 0;
+
   // Aleksandr, 2026-08-29 (screenshot of the Edit modal on an already-
   // live job post): "если пост уже запощен - кнопок 'зберегти чернетку'
   // и 'запланировать' не должно быть... а зберегти должно быть на всю
@@ -966,17 +989,35 @@ export function PostEditor({
   // its own initialPost is a separate, fuzzier problem (which field
   // counts as "changed"?) that wasn't asked for here; editing still
   // closes immediately like before.
+  // Same fields isDirty already cared about, serialized so two calls
+  // can be compared with `!==` -- see savedSnapshotRef's own comment.
+  function fieldsSnapshot(): string {
+    return JSON.stringify({
+      title: title.trim(),
+      content: content.trim(),
+      locationId: location?.id ?? null,
+      linkUrl: linkUrl.trim(),
+      tags: selectedTags,
+      category: category?.value ?? null,
+      salaryAmount: salaryAmount.trim(),
+      questions,
+      media: media.map((m) => m.doc),
+    });
+  }
+
   const isDirty =
     mode === "create" &&
-    (title.trim().length > 0 ||
-      content.trim().length > 0 ||
-      location !== null ||
-      linkUrl.trim().length > 0 ||
-      selectedTags.length > 0 ||
-      category !== null ||
-      salaryAmount.trim().length > 0 ||
-      questions.length > 0 ||
-      media.length > 0);
+    (savedSnapshotRef.current === null
+      ? title.trim().length > 0 ||
+        content.trim().length > 0 ||
+        location !== null ||
+        linkUrl.trim().length > 0 ||
+        selectedTags.length > 0 ||
+        category !== null ||
+        salaryAmount.trim().length > 0 ||
+        questions.length > 0 ||
+        media.length > 0
+      : fieldsSnapshot() !== savedSnapshotRef.current);
 
   // The single entry point both the backdrop click and the header's ✕
   // now go through instead of calling onClose() directly -- see the
@@ -1097,7 +1138,10 @@ export function PostEditor({
   }
 
   async function submit(action: "post" | "draft" | "schedule", opts?: { closeAfter?: boolean }) {
-    if (!canSubmit || pendingAction) return;
+    if (pendingAction) return;
+    // Draft gets the loose canSaveDraft check (see its own comment
+    // above); Post/Schedule still need the real thing, same as always.
+    if (action === "draft" ? !canSaveDraft : !canSubmit) return;
     let scheduledSeconds: number | null = null;
     if (action === "schedule") {
       if (!scheduleIsValid()) return;
@@ -1184,6 +1228,12 @@ export function PostEditor({
           await new Promise((resolve) => setTimeout(resolve, MIN_BANNER_MS - elapsed));
         }
       }
+
+      // Whatever just got written to the server is, by definition, no
+      // longer "unsaved" -- see savedSnapshotRef's own comment. Taken
+      // AFTER the request resolves, from current field state, same as
+      // what `input` above was actually built from a moment earlier.
+      savedSnapshotRef.current = fieldsSnapshot();
 
       onSaved?.();
       if (typeof window !== "undefined") {
@@ -1308,11 +1358,14 @@ export function PostEditor({
                 <button
                   type="button"
                   onClick={() => {
-                    if (!canSubmit) {
+                    if (!canSaveDraft) {
                       // Same "highlight what's missing" behavior the
                       // footer's own Save-draft button already has --
                       // dismiss this popover so the marked-invalid
-                      // fields underneath are actually visible.
+                      // fields underneath are actually visible. Only
+                      // reachable with a genuinely empty form (see
+                      // canSaveDraft above) -- isDirty already gates
+                      // whether this whole confirm dialog shows at all.
                       markAllTouched();
                       setConfirmCloseOpen(false);
                       return;
@@ -1898,11 +1951,11 @@ export function PostEditor({
                     <button
                       type="button"
                       onClick={() => {
-                        if (!canSubmit) { markAllTouched(); return; }
+                        if (!canSaveDraft) { markAllTouched(); return; }
                         submit("draft");
                       }}
                       disabled={pendingAction !== null}
-                      className={"rounded-full border border-neutral-300 px-3.5 py-2 text-xs font-medium text-neutral-600 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800" + (!canSubmit ? " opacity-50" : "")}
+                      className={"rounded-full border border-neutral-300 px-3.5 py-2 text-xs font-medium text-neutral-600 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800" + (!canSaveDraft ? " opacity-50" : "")}
                     >
                       {pendingAction === "draft" ? <Spinner className="h-3.5 w-3.5" /> : t("saveDraft", lang)}
                     </button>
