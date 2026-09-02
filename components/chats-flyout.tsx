@@ -289,19 +289,21 @@ export function ChatsFlyout({
         </Link>
       </div>
 
-      <div className="relative shrink-0 px-3 pt-3">
-        <SearchIcon className="pointer-events-none absolute left-6 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#989aa6] dark:text-[#8d8d93]" />
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder={STRINGS.searchPlaceholder[lang]}
-          aria-label={STRINGS.searchPlaceholder[lang]}
-          className="w-full rounded-full bg-[#f2f2f7] py-2 pl-8 pr-3 text-[13px] text-[#262a34] outline-none transition placeholder:text-[#989aa6] focus:ring-2 focus:ring-accent/30 dark:bg-neutral-800 dark:text-white dark:placeholder:text-[#8d8d93]"
-        />
+      <div className="shrink-0 px-3 pt-3">
+        <div className="relative">
+          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#989aa6] dark:text-[#8d8d93]" />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={STRINGS.searchPlaceholder[lang]}
+            aria-label={STRINGS.searchPlaceholder[lang]}
+            className="w-full rounded-full bg-[#f2f2f7] py-2 pl-8 pr-3 text-[13px] text-[#262a34] outline-none transition placeholder:text-[#989aa6] focus:ring-2 focus:ring-accent/30 dark:bg-neutral-800 dark:text-white dark:placeholder:text-[#8d8d93]"
+          />
+        </div>
       </div>
 
-      <div className="mt-2 flex-1 overflow-y-auto px-2 pb-2">
+      <div className="mt-2 h-[448px] shrink-0 overflow-y-auto px-2 pb-2">
         {state === "loading" && chats.length === 0 && (
           <p className="px-2 py-4 text-center text-[13px] text-[#989aa6] dark:text-[#8d8d93]">…</p>
         )}
