@@ -189,13 +189,15 @@ export default function ChatsPage() {
           // animated version Aleksandr sent (Cat + pigeon.lottie -- a
           // dotLottie zip, unpacked to public/animations/cat-pigeon.json
           // the same way every other .tgs sticker in this app already
-          // is). "в таком же размере" -- 230px, matching the old PNG's
-          // own w-[230px]; LottiePlayer's box is always square (every
-          // other usage in this app follows that same convention), so
-          // the animation renders contained within a 230x230 box rather
-          // than at the PNG's old 269x130 aspect ratio.
+          // is). Started at 230px ("в таком же размере", matching the
+          // old PNG's own w-[230px]), then doubled to 460px on request
+          // ("сделай анимацию х2 больше"). LottiePlayer's box is always
+          // square (every other usage in this app follows that same
+          // convention). The max-w/max-h-[70vw] cap keeps 460px from
+          // overflowing narrow phone widths -- it only ever binds below
+          // ~657px viewports, so desktop still gets the full 460px.
           <div className="flex flex-1 flex-col items-center justify-center text-center">
-            <LottiePlayer src="/animations/cat-pigeon.json" size={230} />
+            <LottiePlayer src="/animations/cat-pigeon.json" size={460} className="max-w-[70vw] max-h-[70vw]" />
             <p className="mt-6 text-xl font-semibold text-[#262a34] dark:text-white">
               <T
                 uk="Повідомлень ще немає"
