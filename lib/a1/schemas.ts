@@ -360,20 +360,40 @@ export type PostInputObject = z.infer<typeof PostInputObjectSchema>;
 // the next live 400 to fix the same way, not a reason to strip more now.
 export const PostInputMediaSchema = MediaDocumentSchema.pick({ fileReference: true });
 
-export const PostInputSchema = z.object({
-  object: PostInputObjectSchema,
-  title: z.string().trim().min(1),
-  content: z.string(),
-  links: z.array(PostInputLinkSchema),
-  location: z.number().nullable(),
-  media: z.array(PostInputMediaSchema),
-  money: PostInputMoneySchema.nullable(),
-  tags: z.array(z.string()),
-  categories: z.array(z.number()),
-  scheduled: z.number().nullable().optional(),
-  draft: z.boolean().optional(),
-  apply: z.object({ questions: z.array(PostInputQuestionSchema) }).optional(),
-});
+// 2026-09-02 (Aleksandr, live: "черновики должны сохранять любой бред,
+// нет минимального ввода ни в каком из филдов... написал 3 символа и
+// уже сохранить" -- title included): title used to be an unconditional
+// z.string().trim().min(1), so a draft saved with an empty title field
+// 400'd right here with "invalid_input" before the request ever reached
+// the backend, surfacing as post-editor.tsx's generic errorGeneric with
+// no hint that title was the actual problem. components/post-editor.tsx
+// now always fills in a fallback title before a draft save (see its own
+// untitledDraft comment), so this should never actually reject one in
+// practice -- the superRefine below is belt-and-suspenders for any
+// other caller that ever posts a draft through this schema without
+// going through that fallback, matching the "only a REAL post/schedule
+// needs a real title" rule this file's other draft-specific looseness
+// (content has no .min() either) already follows.
+export const PostInputSchema = z
+  .object({
+    object: PostInputObjectSchema,
+    title: z.string().trim(),
+    content: z.string(),
+    links: z.array(PostInputLinkSchema),
+    location: z.number().nullable(),
+    media: z.array(PostInputMediaSchema),
+    money: PostInputMoneySchema.nullable(),
+    tags: z.array(z.string()),
+    categories: z.array(z.number()),
+    scheduled: z.number().nullable().optional(),
+    draft: z.boolean().optional(),
+    apply: z.object({ questions: z.array(PostInputQuestionSchema) }).optional(),
+  })
+  .superRefine((val, ctx) => {
+    if (!val.draft && val.title.length === 0) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["title"], message: "title is required for a real post" });
+    }
+  });
 export type PostInput = z.infer<typeof PostInputSchema>;
 
 export function parsePost(raw: unknown): Post | null {

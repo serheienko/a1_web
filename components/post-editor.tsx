@@ -178,6 +178,17 @@ export type EditablePost = {
   // doesn't have it) is treated the same as a draft -- never hides the
   // buttons on missing information.
   isDraft?: boolean;
+  // 2026-09-02 (Aleksandr, "убедись, что они [scheduled posts] реально
+  // будут выходить в запланированное время"): app/api/posts/mine/
+  // route.ts's summarize() already returns both of these (raw unix
+  // seconds off the real Post) -- they just weren't part of this type
+  // yet, so nothing here could tell "already published" apart from
+  // "scheduled, not published yet" the way isEditingPublishedPost's own
+  // check needed to (see that comment for the bug this fixes). Optional
+  // for the same reason isDraft is: mode="create" and any older caller
+  // that doesn't have them yet just fall back to "not scheduled."
+  scheduled?: number | null;
+  published?: number | null;
 };
 
 type Bootstrap = {
@@ -343,7 +354,7 @@ function buildCalendarCells(year: number, month: number): (Date | null)[] {
 type StringKey =
   | "createTitle" | "editTitle" | "close"
   | "offerJob" | "findJob"
-  | "titleLabel" | "titlePlaceholderHiring" | "titlePlaceholderSeeking" | "titleTooShort"
+  | "titleLabel" | "titlePlaceholderHiring" | "titlePlaceholderSeeking" | "titleTooShort" | "untitledDraft"
   | "descriptionLabel" | "descriptionTipsHiring" | "descriptionTipsSeeking" | "descriptionTooShort"
   | "locationLabel" | "locationPlaceholder" | "locationEmpty" | "requiredField"
   | "categoryLabel" | "categoryPlaceholder" | "categoryEmpty"
@@ -370,6 +381,19 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   titleLabel: { uk: "Заголовок", en: "Title", ru: "Заголовок", de: "Titel", es: "Título", fr: "Titre", pl: "Tytuł", ptBR: "Título", zh: "标题" },
   titlePlaceholderHiring: { uk: "Наприклад, Frontend-розробник", en: "e.g. Frontend Developer", ru: "Например, Frontend-разработчик", de: "z. B. Frontend-Entwickler", es: "p. ej. Desarrollador Frontend", fr: "p. ex. Développeur Frontend", pl: "np. Programista Frontend", ptBR: "ex.: Desenvolvedor Frontend", zh: "例如：前端开发工程师" },
   titlePlaceholderSeeking: { uk: "Наприклад, Frontend-розробник шукає роботу", en: "e.g. Frontend Developer looking for work", ru: "Например, Frontend-разработчик ищет работу", de: "z. B. Frontend-Entwickler sucht Arbeit", es: "p. ej. Desarrollador Frontend busca empleo", fr: "p. ex. Développeur Frontend cherche un emploi", pl: "np. Programista Frontend szuka pracy", ptBR: "ex.: Desenvolvedor Frontend procura emprego", zh: "例如：前端开发工程师求职" },
+  // 2026-09-02 (Aleksandr, live: "черноветка должна сберегаться в любом
+  // состоянии... нет минимального ввода ни в каком из филдов" -- title
+  // included): lib/a1/schemas.ts's PostInputSchema requires a non-empty
+  // title UNCONDITIONALLY (posts.createPost/updatePost's own real
+  // constraint, not just this app's UI hint) -- a draft saved with an
+  // empty title field 400'd with "invalid_input", surfacing as this
+  // dialog's generic errorGeneric message with no indication title was
+  // the actual problem. Rather than force a title field on what's
+  // supposed to be a zero-friction draft, submit() below substitutes
+  // this placeholder (or the content's own first few words, when
+  // there's real content to summarize) so the save always goes through
+  // without asking the user to type anything they didn't want to.
+  untitledDraft: { uk: "Без назви", en: "Untitled", ru: "Без названия", de: "Ohne Titel", es: "Sin título", fr: "Sans titre", pl: "Bez tytułu", ptBR: "Sem título", zh: "无标题" },
   titleTooShort: { uk: "Мінімум {n} символів", en: "Minimum length is {n} characters", ru: "Минимум {n} символов", de: "Mindestens {n} Zeichen", es: "Mínimo {n} caracteres", fr: "Minimum {n} caractères", pl: "Minimum {n} znaków", ptBR: "Mínimo de {n} caracteres", zh: "最少{n}个字符" },
   descriptionLabel: { uk: "Опис", en: "Description", ru: "Описание", de: "Beschreibung", es: "Descripción", fr: "Description", pl: "Opis", ptBR: "Descrição", zh: "描述" },
   descriptionTipsHiring: { uk: "Опишіть обов'язки, вимоги та умови роботи", en: "Describe responsibilities, requirements and working conditions", ru: "Опишите обязанности, требования и условия работы", de: "Beschreiben Sie Aufgaben, Anforderungen und Arbeitsbedingungen", es: "Describe responsabilidades, requisitos y condiciones", fr: "Décrivez les responsabilités, exigences et conditions", pl: "Opisz obowiązki, wymagania i warunki pracy", ptBR: "Descreva responsabilidades, requisitos e condições", zh: "描述职责、要求和工作条件" },
@@ -948,7 +972,22 @@ export function PostEditor({
   // real edit of a post /api/posts/mine already reported as non-draft.
   // `undefined` (create mode, or editing an actual draft) keeps all
   // three footer buttons exactly as before.
-  const isEditingPublishedPost = mode === "edit" && initialPost?.isDraft === false;
+  //
+  // 2026-09-02 (Aleksandr, "убедись, что [scheduled posts] реально
+  // будут выходить в запланированное время"): `isDraft === false` is
+  // ALSO true for a post that's scheduled but hasn't published yet --
+  // the DRAFT flag bit is only ever set for an actual draft, never for
+  // "scheduled." That made this branch (single "Зберегти" button,
+  // submit("post")) fire for a scheduled post too, and submit()'s own
+  // scheduledSeconds used to default to null for any action other than
+  // "schedule" -- so editing a scheduled post's text and hitting Save
+  // silently wiped its schedule (sent scheduled:null, draft:false),
+  // either publishing it early or leaving it in limbo. isEditingScheduled
+  // below tells the two apart; submit() reads it to keep the existing
+  // schedule intact on a plain content-edit Save.
+  const isEditingScheduledPost =
+    mode === "edit" && initialPost?.isDraft === false && initialPost?.published == null && initialPost?.scheduled != null;
+  const isEditingPublishedPost = mode === "edit" && initialPost?.isDraft === false && !isEditingScheduledPost;
 
   // 2026-08-30 (Aleksandr, live screenshot of this exact modal open on
   // an actual draft): "вместо 'зберегти чернетку', если это уже
@@ -1162,15 +1201,35 @@ export function PostEditor({
     // Draft gets the loose canSaveDraft check (see its own comment
     // above); Post/Schedule still need the real thing, same as always.
     if (action === "draft" ? !canSaveDraft : !canSubmit) return;
-    let scheduledSeconds: number | null = null;
+    // Default to whatever schedule this post already had (null for
+    // everything except an existing scheduled-not-yet-published post --
+    // see isEditingScheduledPost's own comment above) rather than
+    // hardcoding null, so a plain "Зберегти" content edit never
+    // silently cancels an active schedule.
+    let scheduledSeconds: number | null = isEditingScheduledPost ? (initialPost?.scheduled ?? null) : null;
     if (action === "schedule") {
       if (!scheduleIsValid()) return;
       scheduledSeconds = Math.floor(scheduleDateObject()!.getTime() / 1000);
+    } else if (action === "draft") {
+      // Explicitly converting back to a plain draft: no lingering
+      // schedule should survive that (matches draft:true's own meaning).
+      scheduledSeconds = null;
     }
 
     setPendingAction(action);
     pendingSinceRef.current = Date.now();
     setError(null);
+
+    // See untitledDraft's own STRINGS comment above: a draft with no
+    // title typed still needs to send SOMETHING non-empty, or
+    // PostInputSchema's title.min(1) 400s the whole save. Falls back to
+    // the content's own leading words when there's something to
+    // summarize, or the plain placeholder when there's truly nothing
+    // (a photo-only draft, media.length > 0, is exactly how
+    // canSaveDraft can be true with both title AND content empty).
+    const draftTitleFallback = () => content.trim().slice(0, TITLE_MAX) || t("untitledDraft", lang);
+    const resolvedTitle =
+      action === "draft" && title.trim().length === 0 ? draftTitleFallback() : title.trim().slice(0, TITLE_MAX);
 
     const input: Record<string, unknown> = {
       // 2026-08-29 round 5 (PLAN.md §6.26): the write-side API wants
@@ -1180,7 +1239,7 @@ export function PostEditor({
       // Only this one field needs the suffix; confirmed live via the
       // exact enum list in the backend's own 400 error.
       object: `${object}-input`,
-      title: title.trim().slice(0, TITLE_MAX),
+      title: resolvedTitle,
       content: content.trim(),
       // 2026-08-30: linkValid (gating canSubmit above) only confirms this
       // looks like a domain, e.g. "site.com" with no scheme -- confirmed
