@@ -48,6 +48,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
+import { formatBytes, formatRelativeTime } from "@/lib/format";
 
 const MAX_PHOTO_BYTES = 300 * 1024;
 const MAX_PHOTO_DIMENSION = 1600;
@@ -65,7 +66,7 @@ const MIN_ZOOM = 1;
 const MAX_ZOOM = 3;
 
 type StringKey =
-  | "editPhoto" | "uploading" | "uploadFailed" | "loadFailed" | "close"
+  | "editPhoto" | "uploading" | "uploadFailed" | "uploadQuotaExceeded" | "loadFailed" | "close"
   | "adjustPhoto" | "zoomLabel" | "save" | "back";
 
 const STRINGS: Record<StringKey, Record<Locale, string>> = {
@@ -76,6 +77,16 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   },
   uploading: { uk: "Завантаження…", en: "Uploading…", ru: "Загрузка…", de: "Wird hochgeladen…", es: "Subiendo…", fr: "Envoi…", pl: "Przesyłanie…", ptBR: "Enviando…", zh: "上传中…" },
   uploadFailed: { uk: "Не вдалося завантажити фото", en: "Couldn't upload photo", ru: "Не удалось загрузить фото", de: "Foto-Upload fehlgeschlagen", es: "No se pudo subir la foto", fr: "Échec de l'envoi de la photo", pl: "Nie udało się przesłać zdjęcia", ptBR: "Não foi possível enviar a foto", zh: "照片上传失败" },
+  // 2026-09-02 (Aleksandr, native-app "Daily Uploads" screenshot: "лимит
+  // по daily uploads на 1 пользователя 20 мб день, на вэбе надо тоже
+  // прокинуть... Возьми всю логику с моб версии") -- lead-in only, the
+  // byte figures + reset countdown are appended separately
+  // (formatBytes/formatRelativeTime, lib/format.ts).
+  uploadQuotaExceeded: {
+    uk: "Досягнуто денний ліміт завантажень", en: "Daily upload limit reached", ru: "Достигнут дневной лимит загрузок",
+    de: "Tägliches Upload-Limit erreicht", es: "Límite diario de subidas alcanzado", fr: "Limite quotidienne de téléversement atteinte",
+    pl: "Osiągnięto dzienny limit przesyłania", ptBR: "Limite diário de envio atingido", zh: "已达每日上传上限",
+  },
   loadFailed: { uk: "Не вдалося завантажити профіль", en: "Couldn't load your profile", ru: "Не удалось загрузить профиль", de: "Profil konnte nicht geladen werden", es: "No se pudo cargar el perfil", fr: "Impossible de charger le profil", pl: "Nie udało się załadować profilu", ptBR: "Não foi possível carregar o perfil", zh: "无法加载资料" },
   close: { uk: "Закрити", en: "Close", ru: "Закрыть", de: "Schließen", es: "Cerrar", fr: "Fermer", pl: "Zamknij", ptBR: "Fechar", zh: "关闭" },
   adjustPhoto: { uk: "Кадрування фото", en: "Crop photo", ru: "Кадрирование фото", de: "Foto zuschneiden", es: "Recortar foto", fr: "Recadrer la photo", pl: "Kadrowanie zdjęcia", ptBR: "Cortar foto", zh: "裁剪照片" },
@@ -370,7 +381,16 @@ export function AvatarEditButton({ username, className }: { username: string; cl
           window.location.href = "/sign-in?reason=edit-profile";
           return;
         }
-        setError(t("uploadFailed", lang));
+        // Aleksandr, 2026-09-02: same 20MB/day-per-user quota the native
+        // app enforces (app/api/upload/create/route.ts) -- shown as an
+        // actual reason instead of the generic upload-failed message.
+        if (createData?.message === "quota_exceeded" && createData.usage) {
+          const usage = createData.usage as { usedBytes: number; limitBytes: number; resetAt: number };
+          const resetsIn = formatRelativeTime(new Date(usage.resetAt * 1000), lang);
+          setError(`${t("uploadQuotaExceeded", lang)} (${formatBytes(usage.usedBytes)} / ${formatBytes(usage.limitBytes)}, ${resetsIn})`);
+        } else {
+          setError(t("uploadFailed", lang));
+        }
         return;
       }
       const { id, url, fields } = createData.result as { id: string; url: string; fields: Record<string, string> };

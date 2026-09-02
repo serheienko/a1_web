@@ -85,6 +85,7 @@ import { PhotoCropModal } from "@/components/photo-crop-modal";
 // component the same way lib/work-style-keys.ts is (see that file's own
 // header comment for the class of bug this avoids).
 import { canShowPhone, canShowDob } from "@/lib/a1/user-flags";
+import { formatBytes, formatRelativeTime } from "@/lib/format";
 
 // ---------------------------------------------------------------------------
 // Constants shared with components/post-editor.tsx's own photo handling —
@@ -151,7 +152,7 @@ type StringKey =
   | "profileTitleLabel" | "profileTitlePlaceholder" | "occupationLabel"
   | "expertiseLabel" | "expertisePlaceholder" | "locationLabel" | "locationPlaceholder"
   | "locationEmpty" | "locationSearching" | "locationClear"
-  | "photoHint" | "photoTooMany" | "photoTooBig" | "photoUploadFailed"
+  | "photoHint" | "photoTooMany" | "photoTooBig" | "photoUploadFailed" | "photoUploadQuotaExceeded"
   | "voiceHint" | "recordStart" | "recordStop" | "recordUploading" | "recordFailed" | "uploadAudioFile" | "processingAudio"
   | "removeVoice" | "micDenied" | "recordNotSupported" | "playVoice"
   | "linkTitlePlaceholder" | "linkUrlPlaceholder" | "addLink"
@@ -321,6 +322,19 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   photoTooMany: { uk: "Максимум 3 фото", en: "Maximum 3 photos", ru: "Максимум 3 фото", de: "Maximal 3 Fotos", es: "Máximo 3 fotos", fr: "3 photos maximum", pl: "Maksymalnie 3 zdjęcia", ptBR: "Máximo de 3 fotos", zh: "最多 3 张照片" },
   photoTooBig: { uk: "Файл занадто великий", en: "File is too large", ru: "Файл слишком большой", de: "Datei ist zu groß", es: "El archivo es demasiado grande", fr: "Le fichier est trop volumineux", pl: "Plik jest zbyt duży", ptBR: "O arquivo é muito grande", zh: "文件过大" },
   photoUploadFailed: { uk: "Не вдалося завантажити фото", en: "Couldn't upload photo", ru: "Не удалось загрузить фото", de: "Foto-Upload fehlgeschlagen", es: "No se pudo subir la foto", fr: "Échec de l'envoi de la photo", pl: "Nie udało się przesłać zdjęcia", ptBR: "Não foi possível enviar a foto", zh: "照片上传失败" },
+  // 2026-09-02 (Aleksandr, native-app "Daily Uploads" screenshot: "лимит
+  // по daily uploads на 1 пользователя 20 мб день, на вэбе надо тоже
+  // прокинуть... Возьми всю логику с моб версии") -- lead-in only, the
+  // byte figures + reset countdown are appended separately
+  // (formatBytes/formatRelativeTime, lib/format.ts). Reused for both
+  // uploadCroppedPhoto and uploadVoice below -- same account-wide quota
+  // either way, not photo-specific despite this key's name matching
+  // post-editor.tsx's own copy of it.
+  photoUploadQuotaExceeded: {
+    uk: "Досягнуто денний ліміт завантажень", en: "Daily upload limit reached", ru: "Достигнут дневной лимит загрузок",
+    de: "Tägliches Upload-Limit erreicht", es: "Límite diario de subidas alcanzado", fr: "Limite quotidienne de téléversement atteinte",
+    pl: "Osiągnięto dzienny limit przesyłania", ptBR: "Limite diário de envio atingido", zh: "已达每日上传上限",
+  },
   voiceHint: {
     uk: `До ${VOICE_MAX_SECONDS} с. Запис автоматично очищується від шуму та стискається.`,
     en: `Up to ${VOICE_MAX_SECONDS}s. The recording is automatically cleaned up and compressed.`,
@@ -1165,7 +1179,16 @@ export function ProfileEditor({
           window.location.href = "/sign-in?reason=edit-profile";
           return;
         }
-        setPhotoError(t("photoUploadFailed", lang));
+        // Aleksandr, 2026-09-02: same 20MB/day-per-user quota the native
+        // app enforces (app/api/upload/create/route.ts) -- shown as an
+        // actual reason instead of the generic upload-failed message.
+        if (createData?.message === "quota_exceeded" && createData.usage) {
+          const usage = createData.usage as { usedBytes: number; limitBytes: number; resetAt: number };
+          const resetsIn = formatRelativeTime(new Date(usage.resetAt * 1000), lang);
+          setPhotoError(`${t("photoUploadQuotaExceeded", lang)} (${formatBytes(usage.usedBytes)} / ${formatBytes(usage.limitBytes)}, ${resetsIn})`);
+        } else {
+          setPhotoError(t("photoUploadFailed", lang));
+        }
         setPhotoUploading(false);
         return;
       }
@@ -1398,7 +1421,17 @@ export function ProfileEditor({
           window.location.href = "/sign-in?reason=edit-profile";
           return;
         }
-        setVoiceError(t("recordFailed", lang));
+        // Aleksandr, 2026-09-02: same 20MB/day-per-user quota (see
+        // uploadCroppedPhoto's own comment above) -- a quota lockout
+        // isn't a recording problem, so it gets its own message instead
+        // of the generic "couldn't record or upload".
+        if (createData?.message === "quota_exceeded" && createData.usage) {
+          const usage = createData.usage as { usedBytes: number; limitBytes: number; resetAt: number };
+          const resetsIn = formatRelativeTime(new Date(usage.resetAt * 1000), lang);
+          setVoiceError(`${t("photoUploadQuotaExceeded", lang)} (${formatBytes(usage.usedBytes)} / ${formatBytes(usage.limitBytes)}, ${resetsIn})`);
+        } else {
+          setVoiceError(t("recordFailed", lang));
+        }
         return;
       }
       const { id, url, fields } = createData.result as { id: string; url: string; fields: Record<string, string> };

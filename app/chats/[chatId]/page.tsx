@@ -26,6 +26,7 @@ import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { profileHref } from "@/lib/profile-href";
 import { T, LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
+import { formatBytes, formatRelativeTime } from "@/lib/format";
 import { LottiePlayer } from "@/components/lottie-player";
 import {
   extractMessageText,
@@ -84,6 +85,11 @@ type PendingAttachment = {
   previewUrl?: string;
   status: "uploading" | "ready" | "error";
   fileReference?: string;
+  // Set only for the quota-exceeded case (see handleAttachFile below) --
+  // a specific, already-localized+formatted reason to show instead of
+  // (or alongside) the generic error state every other upload failure
+  // still falls back to.
+  errorMessage?: string;
 };
 
 type PendingMessage = ChatMessage & {
@@ -235,6 +241,24 @@ const GREETING_TEXT: Record<Locale, string> = {
   pl: "👋 Cześć!",
   ptBR: "👋 Oi!",
   zh: "👋 你好！",
+};
+
+// Daily upload quota (Aleksandr, 2026-09-02: "лимит по daily uploads
+// на 1 пользователя 20 мб день, на вэбе надо тоже прокинуть... Возьми
+// всю логику с моб версии") -- the byte figures and reset countdown
+// are computed and appended separately (formatBytes/formatRelativeTime,
+// lib/format.ts), this is just the static "why did this fail" lead-in,
+// same convention as GREETING_TEXT above.
+const UPLOAD_QUOTA_EXCEEDED_TEXT: Record<Locale, string> = {
+  uk: "Досягнуто денний ліміт завантажень",
+  en: "Daily upload limit reached",
+  ru: "Достигнут дневной лимит загрузок",
+  de: "Tägliches Upload-Limit erreicht",
+  es: "Límite diario de subidas alcanzado",
+  fr: "Limite quotidienne de téléversement atteinte",
+  pl: "Osiągnięto dzienny limit przesyłania",
+  ptBR: "Limite diário de envio atingido",
+  zh: "已达每日上传上限",
 };
 
 export default function ChatWindowPage() {
@@ -725,6 +749,19 @@ export default function ChatWindowPage() {
         body: JSON.stringify({ mimetype: toUpload.type || "application/octet-stream", bytes: toUpload.size }),
       });
       const createData = await createRes.json();
+      if (createData?.message === "quota_exceeded" && createData.usage) {
+        // Aleksandr, 2026-09-02: same 20MB/day-per-user quota the native
+        // app enforces (app/api/upload/create/route.ts's own comment) --
+        // shown as an actual reason instead of the generic "Failed"
+        // every other upload error still falls back to.
+        const usage = createData.usage as { usedBytes: number; limitBytes: number; resetAt: number };
+        const resetsIn = formatRelativeTime(new Date(usage.resetAt * 1000), lang);
+        const errorMessage = `${UPLOAD_QUOTA_EXCEEDED_TEXT[lang]} (${formatBytes(usage.usedBytes)} / ${formatBytes(usage.limitBytes)}, ${resetsIn})`;
+        setAttachments((prev) =>
+          prev.map((a) => (a.localId === localId ? { ...a, status: "error" as const, errorMessage } : a)),
+        );
+        return;
+      }
       if (!createRes.ok || !createData.ok || !createData.result?.url) {
         setAttachments((prev) => prev.map((a) => (a.localId === localId ? { ...a, status: "error" as const } : a)));
         return;
@@ -1323,9 +1360,19 @@ export default function ChatWindowPage() {
                     </div>
                   )}
                   {a.status === "error" && (
-                    <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-red-500/70">
+                    <div
+                      className="absolute inset-0 flex items-center justify-center rounded-xl bg-red-500/70 p-1 text-center"
+                      title={a.errorMessage}
+                    >
                       <span className="text-[11px] font-medium text-white">
-                        <T uk="Помилка" en="Failed" ru="Ошибка" de="Fehler" es="Error" fr="Erreur" pl="Błąd" ptBR="Erro" zh="失败" />
+                        {a.errorMessage ? (
+                          <T
+                            uk="Ліміт вичерпано" en="Limit reached" ru="Лимит исчерпан" de="Limit erreicht"
+                            es="Límite alcanzado" fr="Limite atteinte" pl="Limit osiągnięty" ptBR="Limite atingido" zh="已达上限"
+                          />
+                        ) : (
+                          <T uk="Помилка" en="Failed" ru="Ошибка" de="Fehler" es="Error" fr="Erreur" pl="Błąd" ptBR="Erro" zh="失败" />
+                        )}
                       </span>
                     </div>
                   )}
@@ -1342,6 +1389,15 @@ export default function ChatWindowPage() {
                 </div>
               ))}
             </div>
+          )}
+          {/* Full quota message (formatted bytes + relative reset time)
+              doesn't fit in the small thumbnail overlay above -- shown
+              here in full for whichever attachment most recently hit it,
+              also available as that overlay's own hover title. */}
+          {attachments.some((a) => a.errorMessage) && (
+            <p className="mx-auto mb-2 w-full max-w-[470px] text-[12px] text-red-500 dark:text-red-400">
+              {[...attachments].reverse().find((a) => a.errorMessage)?.errorMessage}
+            </p>
           )}
           <div className="mx-auto flex w-full max-w-[470px] items-end gap-2">
             <div ref={attachMenuRef} className="relative">

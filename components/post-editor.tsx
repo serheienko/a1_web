@@ -132,6 +132,7 @@ import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import type { Category, Tag, Currency } from "@/lib/a1/datasets";
 import { translateTagLabel, translateCategoryLabel } from "@/components/label-translations";
 import { LottiePlayer } from "@/components/lottie-player";
+import { formatBytes, formatRelativeTime } from "@/lib/format";
 
 type PostObject = "post-job-employing" | "post-job-seeking";
 
@@ -351,7 +352,7 @@ type StringKey =
   | "customTagPlaceholder" | "addCount"
   | "salaryLabel" | "salaryPlaceholder" | "perMonth" | "perYear"
   | "questionsLabel" | "questionPlaceholder"
-  | "photoLabel" | "photoTooMany" | "photoTooBig" | "photoUploadFailed"
+  | "photoLabel" | "photoTooMany" | "photoTooBig" | "photoUploadFailed" | "photoUploadQuotaExceeded"
   | "saveDraft" | "draftSaved" | "post" | "saveChanges" | "schedulePost"
   | "scheduleConfirm" | "scheduleActionCaps" | "scheduleCancel" | "scheduleTimeLabel"
   | "scheduleToday" | "scheduleTomorrow" | "scheduleIn3Days" | "scheduleInWeek"
@@ -404,6 +405,16 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   photoTooMany: { uk: "Максимум 3 фото", en: "Up to 3 photos", ru: "Максимум 3 фото", de: "Maximal 3 Fotos", es: "Máximo 3 fotos", fr: "3 photos maximum", pl: "Maksymalnie 3 zdjęcia", ptBR: "Máximo de 3 fotos", zh: "最多3张照片" },
   photoTooBig: { uk: "Файл завеликий", en: "File is too large", ru: "Файл слишком большой", de: "Datei zu groß", es: "El archivo es demasiado grande", fr: "Fichier trop volumineux", pl: "Plik jest za duży", ptBR: "Arquivo muito grande", zh: "文件过大" },
   photoUploadFailed: { uk: "Не вдалося завантажити фото", en: "Couldn't upload photo", ru: "Не удалось загрузить фото", de: "Foto konnte nicht hochgeladen werden", es: "No se pudo subir la foto", fr: "Échec du téléversement", pl: "Nie udało się przesłać zdjęcia", ptBR: "Não foi possível enviar a foto", zh: "照片上传失败" },
+  // 2026-09-02 (Aleksandr, native-app "Daily Uploads" screenshot: "лимит
+  // по daily uploads на 1 пользователя 20 мб день, на вэбе надо тоже
+  // прокинуть... Возьми всю логику с моб версии") -- lead-in only, the
+  // byte figures + reset countdown are appended separately
+  // (formatBytes/formatRelativeTime, lib/format.ts) where this is used.
+  photoUploadQuotaExceeded: {
+    uk: "Досягнуто денний ліміт завантажень", en: "Daily upload limit reached", ru: "Достигнут дневной лимит загрузок",
+    de: "Tägliches Upload-Limit erreicht", es: "Límite diario de subidas alcanzado", fr: "Limite quotidienne de téléversement atteinte",
+    pl: "Osiągnięto dzienny limit przesyłania", ptBR: "Limite diário de envio atingido", zh: "已达每日上传上限",
+  },
   saveDraft: { uk: "Зберегти чернетку", en: "Save draft", ru: "Сохранить черновик", de: "Entwurf speichern", es: "Guardar borrador", fr: "Enregistrer le brouillon", pl: "Zapisz szkic", ptBR: "Salvar rascunho", zh: "保存草稿" },
   draftSaved: { uk: "Чернетку збережено", en: "Draft saved", ru: "Черновик сохранён", de: "Entwurf gespeichert", es: "Borrador guardado", fr: "Brouillon enregistré", pl: "Szkic zapisany", ptBR: "Rascunho salvo", zh: "草稿已保存" },
   post: { uk: "ОПУБЛІКУВАТИ", en: "POST", ru: "ОПУБЛИКОВАТЬ", de: "VERÖFFENTLICHEN", es: "PUBLICAR", fr: "PUBLIER", pl: "OPUBLIKUJ", ptBR: "PUBLICAR", zh: "发布" },
@@ -850,7 +861,16 @@ export function PostEditor({
           return;
         }
         console.error("[post-editor] photo upload/create failed", { status: createRes.status, message: createData?.message, detail: createData?.detail });
-        setError(t("photoUploadFailed", lang));
+        // Aleksandr, 2026-09-02: same 20MB/day-per-user quota the native
+        // app enforces (app/api/upload/create/route.ts) -- shown as an
+        // actual reason instead of the generic upload-failed message.
+        if (createData?.message === "quota_exceeded" && createData.usage) {
+          const usage = createData.usage as { usedBytes: number; limitBytes: number; resetAt: number };
+          const resetsIn = formatRelativeTime(new Date(usage.resetAt * 1000), lang);
+          setError(`${t("photoUploadQuotaExceeded", lang)} (${formatBytes(usage.usedBytes)} / ${formatBytes(usage.limitBytes)}, ${resetsIn})`);
+        } else {
+          setError(t("photoUploadFailed", lang));
+        }
         setUploading(false);
         return;
       }
