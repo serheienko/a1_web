@@ -4251,3 +4251,30 @@ Two commits, both tsc-clean. Not live-tested yet (needs a push).
 
 Four separate commits, all tsc-clean. Not live-tested yet (needs a
 push) -- also still true of everything back through §6.79.
+
+### 6.84 Hobbies/Work interests pills localized on the public profile page (2026-09-03)
+
+- **"Хобі"/"Робочі інтереси" pills rendered raw English** (screenshot:
+  "ХОБІ" section showing "Salsa", "Hiking", "Music Production", "DIY
+  Fashion Projects"; "РОБОЧІ ІНТЕРЕСИ" showing "Accounting" -- both
+  section headers themselves already Ukrainian). Root cause:
+  components/profile-editor.tsx's own edit-mode pills for these same
+  two fields already run every value through lib/pill-translations.ts's
+  translateHobbyItem()/translateWorkInterest() (built 2026-08-30/31 for
+  exactly this problem), but app/u/[username]/page.tsx's read-only
+  public profile page never picked that up -- it rendered
+  hobbyLabels.get(id)/workInterestLabel(id)'s raw backend text
+  unchanged. lib/a1/datasets.ts's fetchHobbyLabels() now keeps each
+  hobby's group alongside its text (Map<number, {group,text}> instead
+  of a flat Map<number,string>) since translateHobbyItem needs the
+  group to disambiguate same-spelled options across groups (e.g.
+  "Painting" in both Arts and DIY); the profile page precomputes each
+  pill's translation for all 9 locales server-side (same
+  Object.fromEntries(LOCALES.map(...)) pattern the Work Style pills
+  further down this same page already use, since this is a server
+  component with no live `lang`) and pillList() now renders each pill
+  through <T> instead of a plain string. Work interests translation was
+  already flat (no group), so just swapped workInterestLabel's plain
+  string into the same per-locale <T> pattern.
+
+tsc-clean, one commit. Not live-tested yet (needs a push).
