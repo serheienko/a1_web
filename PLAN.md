@@ -5629,3 +5629,50 @@ than guess at a redesign).
 
 tsc-clean. Not yet re-verified live -- needs a push + a real phone
 test.
+
+
+### 6.109 Voice messages: sent bubble's flat waveform -- root-caused via live API inspection, attribute-audio now actually uploaded (2026-09-03)
+
+Aleksandr's "эквалайзер должен быть уже на отосланном сообщении"
+clarified that the flat-line complaint was about the CONFIRMED/sent
+bubble's waveform, not a live-recording equalizer -- a scope correction
+from this file's own earlier guess. Rather than guess at a redesign,
+opened the live chat via Claude in Chrome (tab already authenticated as
+Aleksandr) and called this app's own `/api/chats/messages` route
+directly to inspect a real, just-sent (same-day) voice doc's raw JSON:
+its `attributes` array came back `[]` -- completely empty. No
+`attribute-audio`, no duration, no waveform, nothing for the bubble to
+decode -- confirming voice-bubble.tsx's own `decodeWaveformBars(...) ??
+flat 0.35 array` fallback was firing on every real send, not just an
+edge case.
+
+Root cause: uploadAndSendVoice's own `/api/upload/create` call never
+sent an `attribute-audio` (or anything else audio-related) at all. This
+file's own PLAN.md 6.96 comment ("the server derives the authoritative
+one itself") was the reason nothing was ever sent -- turned out to be
+an assumption nobody had actually tested live, not a confirmed fact.
+
+Fix reuses the EXACT mechanism 6.105 already proved works for
+`attribute-filename`: `upload.create`'s optional `attributes` array is
+echoed straight through by the backend and read back on the confirmed
+doc (OpenAPI-confirmed input shape). Added `voiceDuration`/
+`voiceWaveform` to app/api/upload/create/route.ts's input schema,
+building an `attribute-audio` entry (`duration`/`voice`/`waveform` --
+the confirmed resource shape off aone-api-private-main's
+MediaDocument.d.ts) the same way. `waveform` needed an ENCODER this app
+never had -- only ever built the decode side (`decode5BitWaveform`,
+Telegram's own 5-bit LSB-first packing). Added `encode5BitWaveform` as
+its exact bit-for-bit inverse (verified against 2000 random round-trips
+via a throwaway Node script) plus `encodeBase64Waveform` -- these round-
+trip through OUR OWN encode/decode pair, so they don't need to match
+Telegram's original encoder bit-for-bit (never sourced, only the
+decoder was). uploadAndSendVoice now reads durationSeconds/waveform off
+voiceBlobsRef (extended to carry them, set from voice-recorder.ts's own
+onFinish result, same values the pending bubble already used locally)
+and sends them alongside the blob.
+
+tsc-clean. Not yet re-verified live -- needs a push + a real send to
+confirm the backend actually stores and echoes back `attribute-audio`
+the same way it already does `attribute-filename` (reasoned to be very
+likely, given both go through the identical generic passthrough, but
+genuinely unconfirmed until tested).
