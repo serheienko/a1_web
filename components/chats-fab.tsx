@@ -280,8 +280,21 @@ export function ChatsFab() {
         type="button"
         ref={flyoutTriggerRef}
         onClick={handleFabClick}
-        onMouseEnter={handleFlyoutEnter}
-        onMouseLeave={handleFlyoutLeave}
+        // 2026-09-03 follow-up #2 (Aleksandr, screen recording: the
+        // popover STILL flashes open on a real phone before the
+        // mobile redirect above kicks in) -- root cause: iOS Safari
+        // synthesizes a mouseenter on the very first tap of any
+        // element carrying mouse-hover handlers (a well-known iOS
+        // touch quirk), so useHoverPanel's handleFlyoutEnter fired
+        // setFlyoutOpen(true) on that synthetic event regardless of
+        // handleFabClick's own isMobile check just above -- the two
+        // handlers were racing, hover always won the visible frame.
+        // Wiring the hover handlers only on desktop (isMobile ===
+        // false) removes that race outright: on mobile this button now
+        // has nothing but the onClick redirect, on desktop the hover-
+        // to-open behavior is unchanged.
+        onMouseEnter={isMobile ? undefined : handleFlyoutEnter}
+        onMouseLeave={isMobile ? undefined : handleFlyoutLeave}
         aria-label={STRINGS.label[lang]}
         aria-hidden={accountMenuOpen}
         tabIndex={accountMenuOpen ? -1 : undefined}
