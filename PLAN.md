@@ -6051,3 +6051,39 @@ button -- since all three share the identical hook and the identical
 bug shape, not only the one the recording happened to show.
 
 tsc-clean.
+
+Follow-up, same session: a full grep of every useHoverPanel(...) call
+site turned up 5 more with the identical click-toggle-next-to-hover-
+open shape that the first pass missed -- components/settings-menu.tsx
+(nav "•••"), components/post-owner-menu.tsx ("•••" on your OWN post),
+components/profile-action-row.tsx ("•••" in the profile action row),
+and the paperclip attach menu in both app/chats/[chatId]/page.tsx and
+its port into components/mini-chat-window.tsx (probably the
+highest-traffic of the lot). Same isRecentHoverOpen() guard applied to
+all 5.
+
+tsc-clean.
+
+### 6.119
+
+2026-09-04 (Aleksandr: "Поставь слева везде иконки увеличительного
+стекла где есть поиск"): audited every search-style input in the app.
+components/search-icon.tsx was already wired into the main jobs/
+specialists search (mobile + desktop nav, components/filters-form.tsx),
+the chat-list search (components/chats-flyout.tsx, app/chats/page.tsx)
+and the contacts search (app/contacts/page.tsx). Three genuine search
+boxes were still missing it -- form-field-style typeahead inputs
+(post-editor.tsx's own city/category pickers for creating a post,
+labeled rectangular fields, a different UI pattern) were deliberately
+left alone, this was scoped to actual pill-shaped search-over-a-list
+boxes:
+
+- components/filters-form.tsx's own location-search field inside the
+  Filters popover (separate live search hitting /api/locations, not
+  the main query box which already had the icon)
+- components/chat/contacts-picker-modal.tsx (Contacts attach-menu
+  picker's own search field)
+- components/chat/currency-picker-modal.tsx (calculator's currency
+  picker search field)
+
+tsc-clean.
