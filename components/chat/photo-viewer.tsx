@@ -371,20 +371,20 @@ export function ChatPhotoViewer({ lang, images, index, onIndexChange, onClose, o
           "•••" menu below (Aleksandr's own spec repeats it in both
           places), sharing the same confirm popup. */}
       <div className="relative flex shrink-0 items-center justify-center gap-6 px-4 pb-[max(env(safe-area-inset-bottom),1.25rem)] pt-3">
-        <button type="button" onClick={onClose} aria-label="Close" className={ROUND_BTN}>
-          <CloseIcon />
+        <button type="button" onClick={onClose} aria-label="Close" className={`group ${ROUND_BTN}`}>
+          <CloseIcon className="h-5 w-5 animate-close-spin" />
         </button>
-        <button type="button" onClick={() => void handleShare()} aria-label="Share" className={ROUND_BTN}>
-          <ShareIcon />
+        <button type="button" onClick={() => void handleShare()} aria-label="Share" className={`group ${ROUND_BTN}`}>
+          <ShareIcon className="h-5 w-5 animate-share-lift" />
         </button>
         <div ref={deleteConfirmRef} className="relative">
           <button
             type="button"
             onClick={() => setConfirmDeleteOpen(true)}
             aria-label="Delete"
-            className={ROUND_BTN}
+            className={`group ${ROUND_BTN}`}
           >
-            <TrashIcon />
+            <TrashIcon className="h-5 w-5 animate-trash-wobble" />
           </button>
           {confirmDeleteOpen && (
             <div className="animate-popover-up absolute bottom-full left-1/2 z-10 mb-2 w-72 -translate-x-1/2 rounded-2xl bg-white p-4 shadow-xl dark:bg-neutral-900">
@@ -441,9 +441,9 @@ export function ChatPhotoViewer({ lang, images, index, onIndexChange, onClose, o
             type="button"
             onClick={() => setMoreMenuOpen((v) => !v)}
             aria-label="More"
-            className={ROUND_BTN}
+            className={`group ${ROUND_BTN}`}
           >
-            <MoreIcon />
+            <MoreIcon className="h-5 w-5 animate-dots-bounce" />
           </button>
           {moreMenuOpen && (
             <div className="animate-popover-up absolute bottom-full right-0 z-10 mb-2 w-52 overflow-hidden rounded-2xl bg-white py-1.5 shadow-xl dark:bg-neutral-900">
@@ -453,9 +453,9 @@ export function ChatPhotoViewer({ lang, images, index, onIndexChange, onClose, o
                   setMoreMenuOpen(false);
                   onShowInChat(image!.messageId);
                 }}
-                className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+                className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
               >
-                <ShowInChatIcon className="h-5 w-5 text-[#335ef7] dark:text-[#0c8ce9]" />
+                <ShowInChatIcon className="h-5 w-5 animate-list-jump text-[#335ef7] dark:text-[#0c8ce9]" />
                 <T
                   uk="Показати в чаті" en="Show in chat" ru="Показать в чате" de="Im Chat anzeigen"
                   es="Mostrar en el chat" fr="Afficher dans le chat" pl="Pokaż w czacie"
@@ -468,17 +468,17 @@ export function ChatPhotoViewer({ lang, images, index, onIndexChange, onClose, o
                   setMoreMenuOpen(false);
                   onReply(image!.messageId);
                 }}
-                className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+                className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
               >
-                <ReplyIcon className="h-5 w-5 text-[#335ef7] dark:text-[#0c8ce9]" />
+                <ReplyIcon className="h-5 w-5 animate-reply-bounce text-[#335ef7] dark:text-[#0c8ce9]" />
                 <T uk="Відповісти" en="Reply" ru="Ответить" de="Antworten" es="Responder" fr="Répondre" pl="Odpowiedz" ptBR="Responder" zh="回复" />
               </button>
               <button
                 type="button"
                 onClick={handleSave}
-                className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+                className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
               >
-                <SaveIcon className="h-5 w-5 text-[#335ef7] dark:text-[#0c8ce9]" />
+                <SaveIcon className="h-5 w-5 animate-save-drop text-[#335ef7] dark:text-[#0c8ce9]" />
                 <T uk="Зберегти" en="Save" ru="Сохранить" de="Speichern" es="Guardar" fr="Enregistrer" pl="Zapisz" ptBR="Salvar" zh="保存" />
               </button>
               <button
@@ -487,9 +487,9 @@ export function ChatPhotoViewer({ lang, images, index, onIndexChange, onClose, o
                   setMoreMenuOpen(false);
                   setConfirmDeleteOpen(true);
                 }}
-                className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
+                className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
               >
-                <TrashIcon className="h-5 w-5" />
+                <TrashIcon className="h-5 w-5 animate-trash-wobble" />
                 <T uk="Видалити" en="Delete" ru="Удалить" de="Löschen" es="Eliminar" fr="Supprimer" pl="Usuń" ptBR="Excluir" zh="删除" />
               </button>
             </div>

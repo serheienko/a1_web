@@ -1062,6 +1062,85 @@ textarea {
   animation: mic-pulse 0.6s ease-in-out infinite;
 }
 
+/* 2026-09-03 (Aleksandr, screenshot of the photo-preview overlay: "Сделай
+   анимации всех этих иконок в фото превью") -- components/chat/photo-
+   viewer.tsx's bottom action row (Close/Share/Delete/More) and its "•••"
+   dropdown (Показати в чаті/Відповісти/Зберегти/Видалити) had NO hover
+   animation on any of the 8 icons. Share and both Trash icons reuse the
+   existing share-lift/trash-wobble (their shapes match exactly, an arrow
+   out of a tray and a bin respectively) and More reuses dots-bounce (same
+   "•••" glyph as post-owner-menu). Close/ShowInChat/Reply/Save have no
+   existing match -- new keyframes below, each shaped around what the
+   glyph actually depicts rather than a generic scale/rotate. */
+@keyframes close-spin {
+  0%,
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(90deg) scale(0.88);
+  }
+}
+
+.group:hover .animate-close-spin {
+  animation: close-spin 0.4s ease-in-out;
+}
+
+/* Three list rows (ShowInChatIcon) -- nudges toward the message it's
+   jumping to. */
+@keyframes list-jump {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  40% {
+    transform: translateX(3px);
+  }
+  70% {
+    transform: translateX(-1px);
+  }
+}
+
+.group:hover .animate-list-jump {
+  animation: list-jump 0.4s ease-in-out;
+}
+
+/* Reply arrow curls back-left -- a little spring-back matching that curl. */
+@keyframes reply-bounce {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  35% {
+    transform: translateX(-3px);
+  }
+  65% {
+    transform: translateX(1px);
+  }
+}
+
+.group:hover .animate-reply-bounce {
+  animation: reply-bounce 0.4s ease-in-out;
+}
+
+/* Save arrow drops down into the tray it points at. */
+@keyframes save-drop {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(3px);
+  }
+  70% {
+    transform: translateY(-1px);
+  }
+}
+
+.group:hover .animate-save-drop {
+  animation: save-drop 0.4s ease-in-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .group:hover .animate-dots-bounce circle:nth-child(1),
   .group:hover .animate-dots-bounce circle:nth-child(2),
@@ -1096,7 +1175,11 @@ textarea {
   .group:hover .animate-calc-attach circle,
   .group:hover .animate-meeting-attach path:nth-child(2),
   .group:hover .animate-meeting-attach path:nth-child(3),
-  .group:hover .animate-meeting-attach circle {
+  .group:hover .animate-meeting-attach circle,
+  .group:hover .animate-close-spin,
+  .group:hover .animate-list-jump,
+  .group:hover .animate-reply-bounce,
+  .group:hover .animate-save-drop {
     animation: none;
   }
 }
