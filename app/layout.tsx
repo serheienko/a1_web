@@ -6,6 +6,7 @@ import "./globals.css";
 import { SiteNav } from "@/components/site-nav";
 import { CreatePostFab } from "@/components/create-post-fab";
 import { ChatsFab } from "@/components/chats-fab";
+import { VoiceNowPlayingBar } from "@/components/chat/voice-now-playing-bar";
 
 // Commissioner: the real typeface used in the Figma mockups (confirmed via
 // Inspect on "Feed Preview White", 2026-08-26), not a generic system stack.
@@ -171,6 +172,15 @@ export default function RootLayout({
         <Script id="theme-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <Script id="lang-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: LANG_INIT_SCRIPT }} />
         <SiteNav />
+        {/* 2026-09-03: cross-page voice-message "now playing" mini-bar --
+            mounted globally for the same reason ChatsFab/CreatePostFab
+            are (shown/controllable on every route, not just inside the
+            chat that started playback) -- see its own header comment
+            for the full reasoning and the lib/voice-playback-store.ts
+            it reads/drives. Renders nothing (null) whenever nothing's
+            playing, so this is a no-op on every page until a voice
+            bubble starts a clip. */}
+        <VoiceNowPlayingBar />
         {children}
         {/* 2026-08-29: floating "+" create-post button, mounted globally
             here next to <SiteNav/> for the same reason that one is —

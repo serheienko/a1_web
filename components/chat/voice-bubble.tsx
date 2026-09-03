@@ -48,22 +48,31 @@
 //   here to the receiving side only (`!mine`), matching every other
 //   messenger's own convention that an "unread" dot is meaningful only
 //   to the person who hasn't read/heard it yet.
-// - Exclusive playback (starting one bubble pauses any other already
-//   playing in the chat): not from any reference, just standard
-//   messaging-app behavior so two voice notes never talk over each
-//   other.
+//
+// 2026-09-03 follow-up (Aleksandr sent the promised now-playing-bar
+// reference -- "Аватар слева, управление сгрупировано справа. это
+// акттуальный UI"): playback itself moved OUT of this component and
+// into lib/voice-playback-store.ts, a single app-wide store/audio
+// element (see that file's own header for the full reasoning) so
+// components/chat/voice-now-playing-bar.tsx -- mounted globally in app/
+// layout.tsx, well outside this chat page's own tree -- can keep
+// controlling/reflecting playback after the user navigates away. This
+// component now just renders its own UI off that shared store's
+// snapshot (`isCurrent`/`playing`/`elapsed` below) instead of owning a
+// private <audio>; "only one clip plays at a time" is the store's
+// guarantee now, not a local module singleton here.
 //
 // Deliberately NOT done yet, per PLAN.md 6.99's own order: `messages.
 // updateContentOpened` wiring (this file marks a doc "opened" purely
 // client-side/optimistically, same as the local delete-window start
 // already does -- nothing is POSTed to the backend yet, so a page
 // reload currently re-shows the blue dot until the server's own
-// `viewed` field catches up through a future wiring pass), the
-// now-playing cross-page mini-bar, and reply-to-voice UI.
+// `viewed` field catches up through a future wiring pass), and
+// reply-to-voice UI.
 "use client";
 
-import { useEffect, useRef, useState, type PointerEvent } from "react";
-import { T } from "@/components/t";
+import { useEffect, useRef, useState, useSyncExternalStore, type PointerEvent } from "react";
+import { T, type Locale } from "@/components/t";
 import { buildMediaProxyUrl } from "@/lib/a1/media-proxy";
 import {
   decodeWaveformBars,
@@ -76,6 +85,13 @@ import {
   type MessageMediaDocument,
 } from "@/lib/a1/chat-schemas";
 import { formatVoiceTimer } from "@/components/chat/voice-recorder";
+import {
+  getVoicePlaybackSnapshot,
+  seekVoiceFraction,
+  subscribeVoicePlayback,
+  toggleVoice,
+  type VoicePlaybackEntry,
+} from "@/lib/voice-playback-store";
 
 const WAVEFORM_BARS = 32;
 // 120 min after first open -- CONFIRMED copy (PLAN.md 6.97's fire-popup
@@ -85,11 +101,24 @@ const WAVEFORM_BARS = 32;
 // VoiceDeleteWindowOptions' own comment in chat-schemas.ts).
 const FALLBACK_TTL_SECONDS = 120 * 60;
 
-// Only one voice bubble plays at a time across the whole chat window --
-// starting a new one pauses whichever was already playing.
-let currentlyPlayingAudio: HTMLAudioElement | null = null;
+// Now-playing-bar title/subtitle strings (the bar itself, components/
+// chat/voice-now-playing-bar.tsx, lives outside this component's own
+// tree and just reflects whatever plain string it's handed via the
+// shared store -- easier to resolve the locale here, where this
+// component already has `lang`, than to thread it through the store).
+// "Voice Message" subtitle is CONFIRMED literal copy (Aleksandr's
+// now-playing-bar reference screenshot); "You"/"Ви" for a self-sent
+// clip is this file's own choice, same translate-from-the-Russian-
+// brief convention as everywhere else in this app.
+const VOICE_BUBBLE_STRINGS = {
+  you: { uk: "Ви", en: "You", ru: "Вы", de: "Du", es: "Tú", fr: "Toi", pl: "Ty", ptBR: "Você", zh: "你" },
+  voiceMessage: {
+    uk: "Голосове повідомлення", en: "Voice Message", ru: "Голосовое сообщение", de: "Sprachnachricht",
+    es: "Mensaje de voz", fr: "Message vocal", pl: "Wiadomość głosowa", ptBR: "Mensagem de voz", zh: "语音消息",
+  },
+} as const satisfies Record<string, Record<Locale, string>>;
 
-function PlayGlyph({ className }: { className?: string }) {
+export function PlayGlyph({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
       <path d="M8 5.14v13.72a1 1 0 0 0 1.5.87l11-6.86a1 1 0 0 0 0-1.72l-11-6.86A1 1 0 0 0 8 5.14Z" />
@@ -97,7 +126,7 @@ function PlayGlyph({ className }: { className?: string }) {
   );
 }
 
-function PauseGlyph({ className }: { className?: string }) {
+export function PauseGlyph({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
       <rect x="6" y="5" width="4" height="14" rx="1.2" />
@@ -121,22 +150,37 @@ export function VoiceMessageBubble({
   doc,
   mine,
   messageDateMs,
+  lang,
+  peerName,
+  peerAvatarUrl,
 }: {
   doc: MessageMediaDocument;
   mine: boolean;
   messageDateMs: number;
+  lang: Locale;
+  /** The chat partner's own name/avatar (app/chats/[chatId]/page.tsx's
+   *  own headerTitle/headerAvatar -- this is a 1:1 chat page, so
+   *  "whoever isn't me" is always the same person). Used for the
+   *  now-playing-bar entry on a RECEIVED clip; a self-sent (`mine`)
+   *  clip uses the localized "You" label instead (see VOICE_BUBBLE_
+   *  STRINGS) since this page doesn't otherwise load my own name/
+   *  avatar anywhere. */
+  peerName: string;
+  peerAvatarUrl: string;
 }) {
   const voiceAttr = messageVoiceAttribute(doc);
   const totalSeconds = voiceDurationSeconds(doc);
   const bars = decodeWaveformBars(voiceAttr?.waveform, WAVEFORM_BARS) ?? new Array<number>(WAVEFORM_BARS).fill(0.35);
 
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const playback = useSyncExternalStore(subscribeVoicePlayback, getVoicePlaybackSnapshot, getVoicePlaybackSnapshot);
+  const isCurrent = playback.entry?.docId === doc._id;
+  const playing = isCurrent && playback.playing;
+  const elapsed = isCurrent ? playback.elapsed : 0;
+
   const waveformRef = useRef<HTMLDivElement | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const fireButtonRef = useRef<HTMLButtonElement | null>(null);
 
-  const [playing, setPlaying] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
   const [scrubbing, setScrubbing] = useState(false);
   const [opened, setOpened] = useState(doc.viewed != null);
   const [localWindow, setLocalWindow] = useState<{ start: number; expires: number } | null>(null);
@@ -165,15 +209,6 @@ export function VoiceMessageBubble({
   }, [isCountingDown]);
 
   useEffect(() => {
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        if (currentlyPlayingAudio === audioRef.current) currentlyPlayingAudio = null;
-      }
-    };
-  }, []);
-
-  useEffect(() => {
     if (!firePopoverOpen) return;
     function onDocPointerDown(e: MouseEvent) {
       const target = e.target as Node;
@@ -184,6 +219,15 @@ export function VoiceMessageBubble({
     document.addEventListener("mousedown", onDocPointerDown);
     return () => document.removeEventListener("mousedown", onDocPointerDown);
   }, [firePopoverOpen]);
+
+  const entry: VoicePlaybackEntry = {
+    docId: doc._id,
+    url: buildMediaProxyUrl(doc),
+    title: mine ? VOICE_BUBBLE_STRINGS.you[lang] : peerName,
+    subtitle: VOICE_BUBBLE_STRINGS.voiceMessage[lang],
+    avatarUrl: mine ? null : peerAvatarUrl,
+    totalSeconds,
+  };
 
   function markOpened() {
     if (opened) return;
@@ -201,43 +245,9 @@ export function VoiceMessageBubble({
     }
   }
 
-  function ensureAudio(): HTMLAudioElement {
-    if (audioRef.current) return audioRef.current;
-    const audio = new Audio(buildMediaProxyUrl(doc));
-    audio.preload = "metadata";
-    audio.addEventListener("timeupdate", () => setElapsed(audio.currentTime));
-    audio.addEventListener("ended", () => {
-      setPlaying(false);
-      setElapsed(0);
-      if (currentlyPlayingAudio === audio) currentlyPlayingAudio = null;
-    });
-    audioRef.current = audio;
-    return audio;
-  }
-
   function togglePlay() {
-    const audio = ensureAudio();
-    if (playing) {
-      audio.pause();
-      setPlaying(false);
-      return;
-    }
-    if (currentlyPlayingAudio && currentlyPlayingAudio !== audio) {
-      currentlyPlayingAudio.pause();
-    }
-    currentlyPlayingAudio = audio;
     markOpened();
-    setPlaying(true);
-    void audio.play().catch(() => setPlaying(false));
-  }
-
-  function seekToFraction(frac: number) {
-    const audio = ensureAudio();
-    const duration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : totalSeconds;
-    if (!duration) return;
-    const clamped = Math.min(1, Math.max(0, frac));
-    audio.currentTime = clamped * duration;
-    setElapsed(audio.currentTime);
+    toggleVoice(entry);
   }
 
   function fractionFromPointer(clientX: number) {
@@ -251,11 +261,13 @@ export function VoiceMessageBubble({
   function onWaveformPointerDown(e: PointerEvent<HTMLDivElement>) {
     e.currentTarget.setPointerCapture(e.pointerId);
     setScrubbing(true);
-    seekToFraction(fractionFromPointer(e.clientX));
+    markOpened();
+    if (!isCurrent) toggleVoice(entry);
+    seekVoiceFraction(fractionFromPointer(e.clientX));
   }
   function onWaveformPointerMove(e: PointerEvent<HTMLDivElement>) {
     if (!scrubbing) return;
-    seekToFraction(fractionFromPointer(e.clientX));
+    seekVoiceFraction(fractionFromPointer(e.clientX));
   }
   function onWaveformPointerUp(e: PointerEvent<HTMLDivElement>) {
     setScrubbing(false);
