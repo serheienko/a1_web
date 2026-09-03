@@ -301,17 +301,14 @@ function useActiveLocale(): Locale {
 // "тап на привітання" -- tapping the waving cat below sends this as a
 // real first message, same "greeting sticker" flow the reference
 // screenshot's own copy implies).
-const GREETING_TEXT: Record<Locale, string> = {
-  uk: "👋 Привіт!",
-  en: "👋 Hi!",
-  ru: "👋 Привет!",
-  de: "👋 Hallo!",
-  es: "👋 ¡Hola!",
-  fr: "👋 Salut !",
-  pl: "👋 Cześć!",
-  ptBR: "👋 Oi!",
-  zh: "👋 你好！",
-};
+// 2026-09-03 follow-up (Aleksandr, screenshot of the empty state:
+// "он должен отправляться в чат, без текстов... Он у нас - обычное
+// сообщение") -- was "👋 Привіт!" (localized text); now just the cat
+// itself, a single plain emoji with nothing language-specific about it
+// (so no Locale record needed any more), sent through the exact same
+// send() path as any typed message -- still a normal bubble with its
+// own timestamp/ticks, just this one glyph as its text.
+const GREETING_EMOJI = "🐱";
 
 // Photo-viewer header (Aleksandr, photo-viewer spec: "сверху повинно
 // бути ім'я") -- the sender label for a bubble the viewer opened from
@@ -335,7 +332,8 @@ const YOU_LABEL_TEXT: Record<Locale, string> = {
 // всю логику с моб версии") -- the byte figures and reset countdown
 // are computed and appended separately (formatBytes/formatRelativeTime,
 // lib/format.ts), this is just the static "why did this fail" lead-in,
-// same convention as GREETING_TEXT above.
+// same static-lead-in convention GREETING_EMOJI used to follow when
+// it was still localized text.
 const UPLOAD_QUOTA_EXCEEDED_TEXT: Record<Locale, string> = {
   uk: "Досягнуто денний ліміт завантажень",
   en: "Daily upload limit reached",
@@ -1481,7 +1479,7 @@ export default function ChatWindowPage() {
           // centered, matching that reference): Hicat.tgs decompressed
           // into public/animations/cat-hi.json, same convention every
           // other cat animation in this app already uses (components/
-          // lottie-player.tsx). Tapping/clicking it sends GREETING_TEXT
+          // lottie-player.tsx). Tapping/clicking it sends GREETING_EMOJI
           // as a real first message -- what the instruction line above
           // ("tap/click the greeting below") actually refers to.
           <div className="mt-10 flex flex-col items-center gap-2 px-6 text-center">
@@ -1527,9 +1525,9 @@ export default function ChatWindowPage() {
             </p>
             <button
               type="button"
-              onClick={() => send(GREETING_TEXT[lang])}
+              onClick={() => send(GREETING_EMOJI)}
               disabled={sending}
-              aria-label={GREETING_TEXT[lang]}
+              aria-label={GREETING_EMOJI}
               className="mt-2 rounded-full transition active:scale-95 disabled:opacity-60"
             >
               <LottiePlayer src="/animations/cat-hi.json" size={140} />
