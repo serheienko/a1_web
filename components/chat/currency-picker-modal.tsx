@@ -24,6 +24,7 @@
 
 import { useMemo, useState } from "react";
 import type { Locale } from "@/components/t";
+import { SearchIcon } from "@/components/search-icon";
 
 type StringKey = "title" | "search";
 
@@ -79,14 +80,19 @@ export function CurrencyPickerModal({ lang, selected, onSelect, onClose }: Props
       <h2 className="mb-3 text-center text-[15px] font-semibold text-[#335ef7] dark:text-[#0c8ce9]">
         {t("title", lang)}
       </h2>
-      <input
-        type="text"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder={t("search", lang)}
-        autoFocus
-        className="mb-3 w-full rounded-full bg-black/5 px-4 py-2.5 text-[14px] text-[#262a34] outline-none placeholder:text-neutral-400 dark:bg-white/10 dark:text-white dark:placeholder:text-neutral-500"
-      />
+      <div className="relative mb-3">
+        {/* 2026-09-04 (Aleksandr: "Поставь слева везде иконки
+            увеличительного стекла где есть поиск") */}
+        <SearchIcon className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={t("search", lang)}
+          autoFocus
+          className="w-full rounded-full bg-black/5 py-2.5 pl-10 pr-4 text-[14px] text-[#262a34] outline-none placeholder:text-neutral-400 dark:bg-white/10 dark:text-white dark:placeholder:text-neutral-500"
+        />
+      </div>
       <div className="flex max-h-64 flex-wrap gap-2 overflow-y-auto">
         {filtered.map((c) => {
           const active = c.code === selectedUpper;

@@ -659,12 +659,18 @@ export function FiltersForm({
         </div>
       ) : (
         <div className="relative px-1 pb-1">
+          {/* 2026-09-04 (Aleksandr: "Поставь слева везде иконки
+              увеличительного стекла где есть поиск") -- same
+              components/search-icon.tsx glyph the main query box
+              already has, sized down (h-3.5) to fit this smaller popover
+              field; pl-8 makes room for it (was px-3.5, symmetric). */}
+          <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" />
           <input
             type="text"
             value={locationQuery}
             onChange={(e) => onLocationQueryChange(e.target.value)}
             placeholder={FILTERS_FORM_STRINGS.locationPlaceholder[lang]}
-            className="w-full rounded-full border border-neutral-300 bg-white px-3.5 py-1.5 pr-7 text-sm text-neutral-900 outline-none transition focus:border-accent/40 focus:ring-2 focus:ring-accent/30 dark:border-neutral-700 dark:bg-black dark:text-neutral-100"
+            className="w-full rounded-full border border-neutral-300 bg-white py-1.5 pl-8 pr-7 text-sm text-neutral-900 outline-none transition focus:border-accent/40 focus:ring-2 focus:ring-accent/30 dark:border-neutral-700 dark:bg-black dark:text-neutral-100"
           />
           {locationSearchPending && (
             <svg

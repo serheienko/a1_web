@@ -47,6 +47,7 @@ import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { T, type Locale } from "@/components/t";
 import type { Contact } from "@/lib/a1/schemas";
 import type { ContactCardSummary } from "@/components/chat/contact-message-card";
+import { SearchIcon } from "@/components/search-icon";
 
 export type PickedContact = {
   userId: string;
@@ -171,13 +172,16 @@ export function ContactsPickerModal({
           </button>
         </div>
 
-        <div className="px-5 pb-3 pt-3">
+        <div className="relative px-5 pb-3 pt-3">
+          {/* 2026-09-04 (Aleksandr: "Поставь слева везде иконки
+              увеличительного стекла где есть поиск") */}
+          <SearchIcon className="pointer-events-none absolute left-8 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t("search", lang)}
-            className="w-full rounded-full border border-neutral-200 bg-neutral-50 px-3.5 py-2 text-[14px] text-neutral-900 outline-none focus:border-neutral-300 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+            className="w-full rounded-full border border-neutral-200 bg-neutral-50 py-2 pl-9 pr-3.5 text-[14px] text-neutral-900 outline-none focus:border-neutral-300 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
           />
         </div>
 
