@@ -50,6 +50,7 @@ import {
   ChatCatFieldIcon,
   ChatContactAttachIcon,
   ChatFileAttachIcon,
+  ChatMeetingAttachIcon,
   ChatMicButton,
   ChatPaperclipButton,
   ChatPhotoAttachIcon,
@@ -2420,6 +2421,43 @@ export default function ChatWindowPage() {
                     <ChatFileAttachIcon className="animate-file-attach h-5 w-5 text-[#335ef7] dark:text-[#0c8ce9]" />
                     <T uk="Файл" en="File" ru="Файл" de="Datei" es="Archivo" fr="Fichier" pl="Plik" ptBR="Arquivo" zh="文件" />
                   </button>
+                  {/* "Meetings" (2026-09-03, Aleksandr: reference-app
+                      screenshot shows Фото/Файлы/Встречи/Расчеты/
+                      Контакты in exactly this order) -- PLACEHOLDER
+                      ONLY, no feature behind it yet: "у нас появится
+                      встречи, но чуть позже я расскажу, как это
+                      сделать... ты можешь заложить как поисхолдер её
+                      сразу". Row is laid out and reachable (closes the
+                      menu on tap, same as every other row) but wires to
+                      nothing real until that spec arrives -- swap this
+                      onClick for whatever it turns out to open. */}
+                  <button
+                    type="button"
+                    onClick={() => setAttachMenuOpen(false)}
+                    className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+                  >
+                    <ChatMeetingAttachIcon className="animate-meeting-attach h-5 w-5 text-[#335ef7] dark:text-[#0c8ce9]" />
+                    <T uk="Зустрічі" en="Meetings" ru="Встречи" de="Treffen" es="Reuniones" fr="Rendez-vous" pl="Spotkania" ptBR="Reuniões" zh="会议" />
+                  </button>
+                  {/* Calculations feature (2026-09-03) -- opens the
+                      calculator panel below (swaps in for the normal
+                      draft row, see its own comment) instead of picking
+                      a file, same reasoning as Contact below for why
+                      this doesn't go through onPickAttachment. */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAttachMenuOpen(false);
+                      setCalcOpen(true);
+                    }}
+                    className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+                  >
+                    <ChatCalculatorAttachIcon className="animate-calc-attach h-5 w-5 text-[#335ef7] dark:text-[#0c8ce9]" />
+                    <T
+                      uk="Розрахунок" en="Calculation" ru="Калькуляция" de="Berechnung" es="Cálculo"
+                      fr="Calcul" pl="Kalkulacja" ptBR="Cálculo" zh="计算"
+                    />
+                  </button>
                   {/* Contact-attachment feature (2026-09-02) -- opens
                       components/chat/contacts-picker-modal.tsx instead of
                       a native file input, same reasoning as the storage
@@ -2435,25 +2473,6 @@ export default function ChatWindowPage() {
                   >
                     <ChatContactAttachIcon className="animate-contact-attach h-5 w-5 text-[#335ef7] dark:text-[#0c8ce9]" />
                     <T uk="Контакт" en="Contact" ru="Контакт" de="Kontakt" es="Contacto" fr="Contact" pl="Kontakt" ptBR="Contato" zh="联系人" />
-                  </button>
-                  {/* Calculations feature (2026-09-03) -- opens the
-                      calculator panel below (swaps in for the normal
-                      draft row, see its own comment) instead of picking
-                      a file, same reasoning as Contact above for why
-                      this doesn't go through onPickAttachment. */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAttachMenuOpen(false);
-                      setCalcOpen(true);
-                    }}
-                    className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
-                  >
-                    <ChatCalculatorAttachIcon className="animate-calc-attach h-5 w-5 text-[#335ef7] dark:text-[#0c8ce9]" />
-                    <T
-                      uk="Розрахунок" en="Calculation" ru="Калькуляция" de="Berechnung" es="Cálculo"
-                      fr="Calcul" pl="Kalkulacja" ptBR="Cálculo" zh="计算"
-                    />
                   </button>
                 </div>
               )}

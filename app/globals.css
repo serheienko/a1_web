@@ -930,6 +930,59 @@ textarea {
   animation: contact-lines-nudge 0.4s ease-in-out 0.1s;
 }
 
+/* ChatMeetingAttachIcon (2026-09-03, placeholder "Meetings" attach-menu
+   row): header band (2nd child path) flashes like a fresh page, the two
+   binder rings (3rd child path) give a tiny bounce, the "today" dot
+   (4th child) pops -- same restrained treatment as the other attach
+   rows, even though nothing is wired up behind this one yet. */
+@keyframes meeting-band-flash {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  45% {
+    opacity: 0.35;
+  }
+  70% {
+    opacity: 1;
+  }
+}
+
+@keyframes meeting-rings-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-1.5px);
+  }
+}
+
+@keyframes meeting-dot-pop {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.6);
+  }
+}
+
+.group:hover .animate-meeting-attach path:nth-child(2) {
+  animation: meeting-band-flash 0.5s ease-in-out;
+}
+
+.group:hover .animate-meeting-attach path:nth-child(3) {
+  transform-box: fill-box;
+  animation: meeting-rings-bounce 0.45s ease-in-out;
+}
+
+.group:hover .animate-meeting-attach circle {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: meeting-dot-pop 0.45s ease-in-out 0.1s;
+}
+
 /* ChatCalculatorAttachIcon (2026-09-03, the new "Calculations" attach-
    menu row): screen rect (2nd child) flashes like it just lit up with a
    result, the nine button dots (3rd-11th children) pop in a quick
@@ -1040,7 +1093,10 @@ textarea {
   .group:hover .animate-contact-attach path:nth-child(3),
   .group:hover .animate-contact-attach path:nth-child(4),
   .group:hover .animate-calc-attach rect:nth-child(2),
-  .group:hover .animate-calc-attach circle {
+  .group:hover .animate-calc-attach circle,
+  .group:hover .animate-meeting-attach path:nth-child(2),
+  .group:hover .animate-meeting-attach path:nth-child(3),
+  .group:hover .animate-meeting-attach circle {
     animation: none;
   }
 }

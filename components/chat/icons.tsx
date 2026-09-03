@@ -406,6 +406,25 @@ export function ChatExpertiseIcon({ className = "h-4 w-4" }: { className?: strin
   );
 }
 
+// Attach-menu row icon: "Meetings" -- placeholder only for now
+// (Aleksandr, 2026-09-03: "у нас появится встречи, но чуть позже я
+// расскажу, как это сделать... ты можешь заложить как поисхолдер её
+// сразу без проблем, потом просто её оживим"). No feature behind this
+// row yet -- see its own onClick comment in app/chats/[chatId]/page.tsx.
+// A simple calendar-page glyph (header band + two binder rings + a
+// single "today" dot), kept distinct from ChatContactAttachIcon's
+// single-person badge above.
+export function ChatMeetingAttachIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <rect x="4" y="5" width="16" height="15" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M4 9.5h16" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M8 3.5v3M16 3.5v3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="12" cy="14.5" r="1.5" fill="currentColor" />
+    </svg>
+  );
+}
+
 // Attach-menu row icon: opens the calculator panel (components/chat/
 // calculation-card.tsx renders what it sends as; the compose-side form
 // itself lives inline in app/chats/[chatId]/page.tsx). A simple

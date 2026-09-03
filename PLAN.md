@@ -4606,3 +4606,20 @@ not fully built -- see its own note below):
 tsc-clean; each of the six committed separately where they touched
 different files, together where (the calc pending-bubble +header
 fallback) shared page.tsx and one commit was cleaner than three.
+
+### 6.92 Attach-menu: reordered to match the reference app + "Meetings" placeholder row (2026-09-03)
+
+Aleksandr sent a screenshot of the real reference app's own attach
+sheet: Фото / Файлы / Встречи / Расчеты / Контакты, in that exact
+order. This app's own menu had grown Photo/File/Contact/Calculation in
+whatever order each feature landed in (Contact before Calculation,
+still committed 6.76/6.89) -- reordered to match exactly, and added a
+"Meetings" row in its real slot (3rd) as an explicit PLACEHOLDER:
+"у нас появится встречи, но чуть позже я расскажу, как это сделать...
+ты можешь заложить как поисхолдер её сразу без проблем, потом просто
+её оживим." New ChatMeetingAttachIcon (components/chat/icons.tsx, a
+calendar-page glyph with its own hover animation in app/globals.css,
+same convention as every other attach-menu icon) and a row that closes
+the menu on tap and does nothing else -- no feature, no modal, nothing
+wired up yet. Revisit once Aleksandr specs what it should actually
+open.
