@@ -550,6 +550,25 @@ export function voiceDeleteCountdownFraction(doc: MessageMediaDocument, opts: Vo
   return Math.min(1, Math.max(0, remainingMs / (totalSec * 1000)));
 }
 
+// Formats a remaining-seconds countdown for the fire-popup/ttl-border
+// UI. CONFIRMED shape (PLAN.md 6.99): voice_delete_countdown_banner.
+// dart's own `_formatCountdown` is `$minutes:${secs}` with minutes left
+// UNCAPPED (e.g. "1245:07" for the ~7-day pre-open staging window) --
+// the Figma mock's "20:45:13" for that same window is just those
+// uncapped minutes split into hours+minutes for readability, not a
+// separate format. So: H:MM:SS once the total reaches an hour,
+// otherwise the live post-open countdown's own natural M:SS.
+export function formatVoiceDeleteCountdown(totalSeconds: number): string {
+  const clamped = Math.max(0, Math.floor(totalSeconds));
+  const hours = Math.floor(clamped / 3600);
+  const minutes = Math.floor((clamped % 3600) / 60);
+  const seconds = clamped % 60;
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
 // A voice note the server has actually purged (media-doc-deleted echo
 // with reason "expired") -- the message row may still carry caption
 // text, but the clip itself is gone and must not offer to play.

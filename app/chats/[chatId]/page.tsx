@@ -32,6 +32,7 @@ import { LottiePlayer } from "@/components/lottie-player";
 import {
   extractMessageText,
   isImageMediaDocument,
+  isVoiceMediaDocument,
   mediaDocumentBytes,
   mediaDocumentFileName,
   messageCalculation,
@@ -68,6 +69,7 @@ import { ContactsPickerModal, type PickedContact } from "@/components/chat/conta
 import { ChatPhotoViewer, type ChatViewerImage } from "@/components/chat/photo-viewer";
 import { useVoiceRecorder, formatVoiceTimer, type VoiceRecordingResult } from "@/components/chat/voice-recorder";
 import { VoiceRecordButton, VoiceRecordingBar, VoiceMicDeniedNotice } from "@/components/chat/voice-message";
+import { VoiceMessageBubble } from "@/components/chat/voice-bubble";
 
 type LoadState = "loading" | "signed-out" | "error" | "ready";
 
@@ -2303,7 +2305,9 @@ export default function ChatWindowPage() {
                       {docMedia.length > 0 && (
                         <div className="mb-1 flex flex-col gap-1.5">
                           {docMedia.map((doc) =>
-                            isImageMediaDocument(doc) ? (
+                            isVoiceMediaDocument(doc) ? (
+                              <VoiceMessageBubble key={doc._id} doc={doc} mine={mine} messageDateMs={ms} />
+                            ) : isImageMediaDocument(doc) ? (
                               // eslint-disable-next-line @next/next/no-img-element -- proxied
                               // through /api/media, not a next/image-configured remote host.
                               <img

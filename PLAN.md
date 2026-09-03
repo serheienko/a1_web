@@ -5270,3 +5270,54 @@ updateContentOpened` wiring, the now-playing bar (blocked on Aleksandr's
 promised "more current" layout reference), reply-to-voice UI, and the
 Figma "voice + text combine" compose card (voice-message.tsx's own
 header comment already flags this scope cut).
+
+### 6.101 Voice messages: real playback bubble shipped (waveform scrub + fire popup + ttl border + unopened dot) (2026-09-03)
+
+Fourth milestone of §6.99's implementation order. New `components/chat/
+voice-bubble.tsx` (`VoiceMessageBubble`) renders any sent/received
+`media-doc` that `isVoiceMediaDocument()` recognizes, wired into
+`app/chats/[chatId]/page.tsx`'s `docMedia.map` ahead of the existing
+image/generic-file branches -- replaces the generic per-extension file
+badge a voice note used to fall through to.
+
+What it does: round accent-blue play/pause button (CONFIRMED live,
+§6.97's sent-bubble capture) + a 32-bar waveform decoded via
+`decodeWaveformBars`, click/drag-to-seek via Pointer Events, playhead
+position painted directly onto the bars (no separate progress line);
+duration counts down while playing, shows total when idle; only one
+voice bubble plays at a time chat-wide (starting one pauses whichever
+else was playing -- plain module-level singleton, not from any
+reference, just standard messenger behavior). Fire badge + tap popover
+uses the CONFIRMED static copy word-for-word ("Автоматически
+удаляется" / "120 мин после просмотра или 7 дней без открытия",
+§6.97), translated to the app's other 8 locales the same way every
+other UI string here already is; only rendered when
+`resolveVoiceDeleteWindow` actually returns a window (i.e. the backend
+sent ttl/ttlSeconds/flags for that doc). Once a window is actively
+counting down (not the pre-open `pending` state), a thin amber-to-red
+"ttl border" bar on the player's own left edge drains via
+`voiceDeleteCountdownFraction` -- ported from that function's own doc
+comment flagging it as a "left-border countdown animation" in the
+Dart source, not itself a pixel-confirmed capture -- and the popover
+grows a "Time left: <H:MM:SS/M:SS>" line using the new
+`formatVoiceDeleteCountdown` (lib/a1/chat-schemas.ts, CONFIRMED format
+per §6.99's `_formatCountdown` reading). Blue "unopened" dot next to
+the duration only on the RECEIVING side (`!mine`) -- §6.97's own
+capture flagged this as unconfirmed which end it belongs to, scoped
+here to match every other messenger's own "unread" convention.
+
+A VIEW_DESTROY doc with no server `viewed` yet starts its delete
+window OPTIMISTICALLY, locally, the instant the RECEIVING side presses
+play (mirrors `VoiceDeleteWindowOptions`' own `localStartUnix` comment)
+-- deliberately gated to `!mine` only, so a sender replaying their own
+already-sent clip never burns its own message. `messages.
+updateContentOpened` itself is still NOT wired (still per §6.99's own
+order) -- nothing is POSTed to the backend on open yet, so this local
+"opened" state (and the blue dot it drives) resets on a page reload
+until a future pass wires the real API call and the server's own
+`viewed` field takes over as the source of truth. tsc-clean.
+
+Still not done, per §6.99's order: `messages.updateContentOpened`
+wiring, the now-playing bar (blocked on Aleksandr's "more current"
+layout reference), reply-to-voice UI, the Figma "voice + text combine"
+compose card.
