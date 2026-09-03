@@ -5979,3 +5979,48 @@ received since -- still waiting on the promised reference before
 touching it).
 
 tsc-clean.
+
+### 6.117
+
+2026-09-04, chat-list preview labels (the reference promised in
+6.116 arrived -- 5 screenshots covering Contact / Calculation /
+Scheduled meeting / Photo / File):
+
+"Смотри, сейчас видишь, у нас в чатах пусто там, но там не пусто,
+там присланы были какие-то файлы, либо голосовой, либо еще что-то...
+Сейчас верификацию скину." then "Вот, на все наши entity в
+сообщениях, должно так отображать в чат листе. Meetings это наперед)
+функцию еще запилим."
+
+Root cause: the chat-list route's last-message preview only ever
+read `extractMessageText` (entity-text), so a message whose only
+content was a voice/photo/file/contact/calc attachment rendered an
+empty subtitle -- not actually a missing message, just a preview
+that only knew how to show text.
+
+Fix: `lib/a1/chat-schemas.ts` gets a new `describeMessagePreview()`
+classifier (`MessagePreviewKind`/`MessagePreview` types) that looks
+at a message's attachments/contacts/calc in priority order and
+returns a `{kind, text, photoDoc?}` shape. `app/api/chats/list/
+route.ts` calls it per-chat and adds `previewKind`/`previewPhotoUrl`
+alongside the existing `previewText` (photo URL built server-side via
+the already-imported `buildMediaProxyUrl`). New shared render
+component `components/chat/chat-preview-line.tsx` (`ChatPreviewLine`)
+renders each kind with a localized icon+label (voice/photo/video/
+sticker/contact/calc) or a bare filename for files, matching
+Aleksandr's reference screenshots exactly. Wired into both
+`app/chats/page.tsx` (full chat list) and `components/chats-flyout.tsx`
+(nav flyout), which previously each rendered `previewText` directly.
+
+"Scheduled meeting" is deliberately NOT one of the detected kinds --
+per Aleksandr's own framing ("Meetings это наперед) функцию еще
+запилим"), there's no real send path producing that message shape
+yet, so nothing to classify.
+
+Still open: the "Документ" no-filename bug -- needs live message data
+(raw attributes/mimetype for the specific message, via DevTools
+Network tab or Aleksandr forwarding the file) since I can't log into
+his session myself; static review of the upload/send path found no
+obvious bug.
+
+tsc-clean.
