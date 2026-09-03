@@ -48,3 +48,23 @@ export function buildMediaProxyUrl(doc: { _id: string; fileReference: string; si
   const sizeParam = typeof size?.object === "string" ? size.object : "size-photo";
   return `/api/media/${doc._id}?ref=${encodeURIComponent(doc.fileReference)}&size=${encodeURIComponent(sizeParam)}`;
 }
+
+/** 2026-09-03 (photo-viewer's "Save" action) -- same doc, same `ref`/
+ *  `size` params as buildMediaProxyUrl above, but pointed at the
+ *  sibling /download route (app/api/media/[docId]/download/route.ts)
+ *  instead, which streams the bytes back with a real
+ *  Content-Disposition: attachment header -- see that route's own
+ *  comment for why buildMediaProxyUrl's plain redirect URL can't just
+ *  grow a `download` attribute instead. `filename`, when given, is
+ *  purely a courtesy for the saved file's name; the route itself
+ *  sanitizes it before use. */
+export function buildMediaDownloadUrl(
+  doc: { _id: string; fileReference: string; sizes: MediaSize[] },
+  filename?: string,
+): string {
+  const size = pickDisplaySize(doc.sizes);
+  const sizeParam = typeof size?.object === "string" ? size.object : "size-photo";
+  const qs = new URLSearchParams({ ref: doc.fileReference, size: sizeParam });
+  if (filename) qs.set("filename", filename);
+  return `/api/media/${doc._id}/download?${qs.toString()}`;
+}
