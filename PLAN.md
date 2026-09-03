@@ -4623,3 +4623,57 @@ same convention as every other attach-menu icon) and a row that closes
 the menu on tap and does nothing else -- no feature, no modal, nothing
 wired up yet. Revisit once Aleksandr specs what it should actually
 open.
+
+### 6.93 Attachments feature: the rest of it -- multi-select, red error card, composer quota banner, disabled attach-menu rows, one-time teaching banner (2026-09-03)
+
+Finishes the Attachments feature §6.91 left partial (flat cap + quota
+pre-check only). Everything from the Figma "Attachments" section
+(node 24368-5918) plus the real reference-app screenshots Aleksandr
+supplied earlier this session:
+
+- **Multi-file select**: both hidden file inputs now carry `multiple`;
+  a new `pickAttachmentFiles(fileList, kind)` slices the picked
+  FileList down to whatever's left of MAX_ATTACHMENTS_PER_MESSAGE
+  BEFORE looping (avoids overshooting the cap on a stale
+  `attachments.length` closure across N handleAttachFile calls fired
+  from one batch).
+- **Red full-size error card** for a `tooLarge` attachment (over the
+  flat 20MB cap or today's remaining quota): its own branch in the
+  preview strip, not the small thumbnail-with-overlay every other
+  error (a failed upload, a create-time quota_exceeded) still uses --
+  full filename + reason text, X top-left, a new circular "choose
+  another" button bottom-right that drops the attachment and reopens
+  the same picker it came from. Simplified from the reference
+  screenshot in one place: ChatFileTypeIcon keeps its own per-kind
+  color rather than also turning red (that component has no red
+  variant).
+- **Composer quota banner**: shown above the previews once 3+ files
+  are selected, 5MB+ is selected, or the selection alone would exceed
+  what's left of today's quota (QUOTA_BANNER_MIN_COUNT/_BYTES) --
+  `X.X MB / 20 MB · Daily uploads` (red `· Daily limit exceeded`
+  variant when exceeded), a 2-segment progress bar (existing usage +
+  this selection, red when exceeded), tap opens DailyUploadsModal. The
+  send button's existing `disabled`/opacity-40 now also covers
+  `quotaExceededBySelection` -- blocks the click, not just the visual
+  dim, since chat-server would reject the upload anyway.
+- **Attach-menu Photo/File rows dim to 50% opacity** once
+  `uploadUsage.remainingBytes <= 0` (`quotaFullyUsed`); `onPickAttachment`
+  redirects to DailyUploadsModal instead of opening a file picker in
+  that state, same as tapping the storage icon already does.
+- **One-time "Photos & files" teaching banner**, Figma "8. One time
+  popover": shown above the attach-menu the first time it's opened
+  while quota is fully exhausted, dismissed permanently via
+  `DAILY_BANNER_SEEN_KEY` in localStorage. **Inferred, flagged**: no
+  exact numeric trigger was ever specified beyond "teach the user, but
+  show only 1 time" -- the "50%"/"70%" figures on that Figma frame
+  read as icon/text opacity style notes on a second pass, not usage-
+  percentage triggers, so this ties to the same full-exhaustion
+  condition the dimmed Photo/File rows already use rather than a
+  guessed percentage.
+
+Still explicitly out of scope, unchanged: "Location" (Aleksandr: "мы
+пока не делаем"), and PDF first-page thumbnails (no server-side render
+pipeline exists -- see file-type-icon.tsx's own header).
+
+tsc-clean, one commit (every piece touches the same attach-menu/
+composer JSX in app/chats/[chatId]/page.tsx).

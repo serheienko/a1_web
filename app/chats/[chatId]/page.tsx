@@ -403,6 +403,40 @@ const QUOTA_LEFT_TODAY_TEXT: Record<Locale, string> = {
   uk: "залишилось сьогодні", en: "left today", ru: "осталось сегодня", de: "heute übrig",
   es: "restante hoy", fr: "restant aujourd'hui", pl: "zostało dzisiaj", ptBR: "restante hoje", zh: "今日剩余",
 };
+// 2026-09-03 (Figma "4.1 Multiple files selected" / "exceeded limit"
+// composer banner) -- the banner's own label, normal vs. red-exceeded
+// variant. "Daily uploads" doubles as the banner's own tap target text
+// (opens DailyUploadsModal, same modal the attach-menu's storage icon
+// already opens).
+const DAILY_UPLOADS_LABEL_TEXT: Record<Locale, string> = {
+  uk: "Щоденні завантаження", en: "Daily uploads", ru: "Ежедневная загрузка", de: "Tägliche Uploads",
+  es: "Subidas diarias", fr: "Téléversements quotidiens", pl: "Dzienne przesyłanie", ptBR: "Envios diários", zh: "每日上传",
+};
+const DAILY_LIMIT_EXCEEDED_TEXT: Record<Locale, string> = {
+  uk: "Денний ліміт вичерпано", en: "Daily limit exceeded", ru: "Дневной лимит исчерпан", de: "Tageslimit überschritten",
+  es: "Límite diario superado", fr: "Limite quotidienne dépassée", pl: "Dzienny limit przekroczony", ptBR: "Limite diário excedido", zh: "已超每日上限",
+};
+// 2026-09-03 (Figma "8. One time popover" -- "Teach the user, but show
+// banner only 1 time"): shown above the attach-menu once quota is fully
+// exhausted, dismissed permanently via DAILY_BANNER_SEEN_KEY in
+// localStorage. No exact trigger threshold was ever specified beyond
+// "teach the user" (the "50%"/"70%" figures on that same Figma frame
+// read, on a second pass, as icon/text OPACITY style notes, not usage-
+// percentage triggers) -- tied here to the same full-quota-exhaustion
+// condition that already dims the Photo/File rows below, an inferred
+// call flagged as such rather than guessed silently.
+const PHOTOS_FILES_LABEL_TEXT: Record<Locale, string> = {
+  uk: "Фото та файли", en: "Photos & files", ru: "Фото и файлы", de: "Fotos & Dateien",
+  es: "Fotos y archivos", fr: "Photos et fichiers", pl: "Zdjęcia i pliki", ptBR: "Fotos e arquivos", zh: "照片和文件",
+};
+const AVAILABLE_AGAIN_TEXT: Record<Locale, string> = {
+  uk: "Знову доступно через", en: "Available again in", ru: "Снова доступно через", de: "Wieder verfügbar in",
+  es: "Disponible de nuevo en", fr: "Disponible de nouveau dans", pl: "Znów dostępne za", ptBR: "Disponível novamente em", zh: "将在以下时间后恢复",
+};
+const VIEW_USAGE_TEXT: Record<Locale, string> = {
+  uk: "Переглянути", en: "View usage", ru: "Посмотреть", de: "Nutzung ansehen",
+  es: "Ver uso", fr: "Voir l'utilisation", pl: "Zobacz użycie", ptBR: "Ver uso", zh: "查看用量",
+};
 
 export default function ChatWindowPage() {
   const lang = useActiveLocale();
@@ -1257,9 +1291,51 @@ export default function ChatWindowPage() {
     });
   }
 
+  // Persists the one-time "Photos & files" teaching banner's dismissal
+  // -- see DAILY_BANNER_SEEN_KEY's own comment for the trigger and why
+  // it's inferred rather than a spec'd threshold.
+  function dismissDailyBanner() {
+    setDailyBannerDismissed(true);
+    try {
+      window.localStorage.setItem(DAILY_BANNER_SEEN_KEY, "1");
+    } catch {
+      // Best-effort -- a failed write just means the banner can show
+      // again next session, never a broken UI.
+    }
+  }
+
   function onPickAttachment(kind: "image" | "file") {
+    // 2026-09-03 (Figma "Attachments" section: quota-exhausted Photo/
+    // File rows are 50%-dim and non-selectable, reachable only via the
+    // Daily Uploads modal instead) -- mirrors the same
+    // `uploadUsage.remainingBytes <= 0` gate the attach-menu JSX below
+    // already dims those two rows with, so a click can't slip through
+    // between the dim state rendering and this handler running.
+    if (quotaFullyUsed) {
+      setAttachMenuOpen(false);
+      setDailyUploadsOpen(true);
+      return;
+    }
     setAttachMenuOpen(false);
     (kind === "image" ? photoInputRef : fileInputRef).current?.click();
+  }
+
+  // 2026-09-03 (Figma "Attachments" section: "можно выбирать мульти
+  // количество файлов сразу... чтобы можно было точно так же с десктопа
+  // или там с версии веб на мобильном тоже можно было выбирать
+  // несколько") -- both file inputs below now carry `multiple`; this
+  // slices the picked FileList down to whatever's left of
+  // MAX_ATTACHMENTS_PER_MESSAGE BEFORE looping, so firing N
+  // handleAttachFile calls from one multi-select batch can't overshoot
+  // the cap on a stale `attachments.length` closure the way looping
+  // and checking that length freshly on each iteration would.
+  function pickAttachmentFiles(fileList: FileList | null, kind: "image" | "file") {
+    if (!fileList || fileList.length === 0) return;
+    const room = MAX_ATTACHMENTS_PER_MESSAGE - attachments.length;
+    if (room <= 0) return;
+    Array.from(fileList)
+      .slice(0, room)
+      .forEach((file) => void handleAttachFile(file, kind));
   }
 
   function announceTyping() {
@@ -1533,6 +1609,25 @@ export default function ChatWindowPage() {
   const displayMessages: (ChatMessage | PendingMessage)[] = [...messages, ...pendingMessages].sort(
     (a, b) => messageDateMs(a) - messageDateMs(b),
   );
+
+  // 2026-09-03 (Figma "Attachments" section, "4.1 Multiple files
+  // selected" / "exceeded limit" banners) -- selectedAttachmentBytes
+  // excludes `tooLarge` picks (they're not going anywhere, already
+  // shown as their own red card) so the banner's own math isn't thrown
+  // off by a rejected file still sitting in `attachments`. quotaBanner
+  // shows on any of three conditions: 3+ selected, 5MB+ selected, or
+  // the selection alone would blow past what's left of today's quota.
+  // Figma "Attachments" section: Photo/File rows dim + redirect to
+  // DailyUploadsModal once nothing is left of today's quota; also
+  // gates the one-time teaching banner above the attach-menu.
+  const quotaFullyUsed = uploadUsage !== null && uploadUsage.remainingBytes <= 0;
+  const selectableAttachments = attachments.filter((a) => !a.tooLarge);
+  const selectedAttachmentBytes = selectableAttachments.reduce((sum, a) => sum + (a.bytes || 0), 0);
+  const quotaExceededBySelection = uploadUsage !== null && selectedAttachmentBytes > uploadUsage.remainingBytes;
+  const showQuotaBanner =
+    selectableAttachments.length >= QUOTA_BANNER_MIN_COUNT ||
+    selectedAttachmentBytes >= QUOTA_BANNER_MIN_BYTES ||
+    quotaExceededBySelection;
 
   return (
     // 2026-09-02 (Aleksandr: "её аватарка должны бути також зверху
@@ -2265,9 +2360,110 @@ export default function ChatWindowPage() {
               handleAttachFile above), and a remove (x) button either way.
               Only rendered while attachments actually exist so it costs
               nothing on the far more common plain-text send. */}
+          {/* 2026-09-03 (Figma "4.1 Multiple files selected" / "exceeded
+              limit" banners) -- shown above the previews once 3+ files
+              are selected, 5MB+ is selected, or the selection alone
+              would exceed what's left of today's quota. Tapping it
+              opens the same DailyUploadsModal the attach-menu's storage
+              icon does. Gated on `uploadUsage` being loaded (it's
+              fetched lazily the first time the attach menu opens, see
+              that effect above) -- until then this just doesn't render,
+              same as any other still-loading best-effort UI here. */}
+          {uploadUsage && showQuotaBanner && (
+            <button
+              type="button"
+              onClick={() => setDailyUploadsOpen(true)}
+              className={`mx-auto mb-2 flex w-full max-w-[470px] flex-col gap-1.5 rounded-xl border px-3 py-2 text-left transition ${
+                quotaExceededBySelection
+                  ? "border-red-200 bg-red-50 hover:bg-red-100 dark:border-red-900/50 dark:bg-red-950/30 dark:hover:bg-red-950/50"
+                  : "border-neutral-200 bg-white/90 hover:bg-white dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80 dark:hover:bg-[#1c1c1e]"
+              }`}
+            >
+              <div className="flex items-center justify-between text-[12px]">
+                <span className={quotaExceededBySelection ? "font-medium text-red-600 dark:text-red-400" : "text-[#262a34] dark:text-white"}>
+                  {formatBytes(Math.min(uploadUsage.usedBytes + selectedAttachmentBytes, uploadUsage.limitBytes))} /{" "}
+                  {formatBytes(uploadUsage.limitBytes)}
+                </span>
+                <span className={quotaExceededBySelection ? "font-medium text-red-600 dark:text-red-400" : "text-neutral-400 dark:text-neutral-500"}>
+                  {quotaExceededBySelection ? DAILY_LIMIT_EXCEEDED_TEXT[lang] : DAILY_UPLOADS_LABEL_TEXT[lang]}
+                </span>
+              </div>
+              <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
+                <div
+                  className="h-full bg-[#335ef7] dark:bg-[#0c8ce9]"
+                  style={{ width: `${Math.min(100, (uploadUsage.usedBytes / uploadUsage.limitBytes) * 100)}%` }}
+                />
+                <div
+                  className={`h-full ${quotaExceededBySelection ? "bg-red-500" : "bg-[#335ef7]/40 dark:bg-[#0c8ce9]/40"}`}
+                  style={{
+                    width: `${Math.min(
+                      100 - (uploadUsage.usedBytes / uploadUsage.limitBytes) * 100,
+                      (selectedAttachmentBytes / uploadUsage.limitBytes) * 100,
+                    )}%`,
+                  }}
+                />
+              </div>
+            </button>
+          )}
           {attachments.length > 0 && (
             <div className="mx-auto mb-2 flex w-full max-w-[470px] flex-wrap gap-2">
-              {attachments.map((a) => (
+              {attachments.map((a) =>
+                // 2026-09-03 (Figma "4.File too large" / real reference-
+                // app dark-mode screenshot) -- a file that failed either
+                // the flat 20MB cap or the remaining-quota check
+                // (handleAttachFile's own pre-upload checks, `tooLarge`)
+                // gets its OWN full-width red card here, not the small
+                // thumbnail-with-overlay treatment every other error
+                // (a failed upload, a create-time quota_exceeded) still
+                // uses below -- name + size/reason fully readable, a
+                // "choose another" button that drops this attachment
+                // and reopens the same picker it came from. Simplified
+                // from the reference screenshot in one place: the file-
+                // type badge (ChatFileTypeIcon) keeps its own per-kind
+                // color rather than also turning red -- that component
+                // has no red variant, and a colored icon still reads
+                // fine against the red card.
+                a.tooLarge ? (
+                  <div
+                    key={a.localId}
+                    className="relative flex w-full items-center gap-2.5 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 dark:border-red-900/50 dark:bg-red-950/30"
+                  >
+                    <ChatFileTypeIcon kind={fileKindFromName(a.fileName, a.mimetype)} className="h-10 w-10 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px] font-medium text-red-700 dark:text-red-300">{a.fileName}</p>
+                      <p className="truncate text-[12px] text-red-600 dark:text-red-400">{a.errorMessage}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeAttachment(a.localId)}
+                      aria-label="Remove attachment"
+                      className="absolute -left-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white transition hover:bg-black/80"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" className="h-3 w-3" aria-hidden="true">
+                        <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        removeAttachment(a.localId);
+                        (a.kind === "image" ? photoInputRef : fileInputRef).current?.click();
+                      }}
+                      aria-label="Choose another"
+                      className="absolute -bottom-1.5 -right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-[#335ef7] text-white shadow transition hover:brightness-110 dark:bg-[#0c8ce9]"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5" aria-hidden="true">
+                        <path
+                          d="M4 12a8 8 0 0 1 13.66-5.66M20 12a8 8 0 0 1-13.66 5.66"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                        />
+                        <path d="M17 3v4h-4M7 21v-4h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                  </div>
+                ) : (
                 <div key={a.localId} className="group relative">
                   {a.kind === "image" && a.previewUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element -- a
@@ -2318,16 +2514,17 @@ export default function ChatWindowPage() {
                     </svg>
                   </button>
                 </div>
-              ))}
+                ),
+              )}
             </div>
           )}
           {/* Full quota message (formatted bytes + relative reset time)
               doesn't fit in the small thumbnail overlay above -- shown
               here in full for whichever attachment most recently hit it,
               also available as that overlay's own hover title. */}
-          {attachments.some((a) => a.errorMessage) && (
+          {attachments.some((a) => a.errorMessage && !a.tooLarge) && (
             <p className="mx-auto mb-2 w-full max-w-[470px] text-[12px] text-red-500 dark:text-red-400">
-              {[...attachments].reverse().find((a) => a.errorMessage)?.errorMessage}
+              {[...attachments].reverse().find((a) => a.errorMessage && !a.tooLarge)?.errorMessage}
             </p>
           )}
           {/* Contact-attachment feature: queued-to-send contact chips --
@@ -2371,21 +2568,60 @@ export default function ChatWindowPage() {
                 disabled={sending || attachments.length >= MAX_ATTACHMENTS_PER_MESSAGE}
                 onClick={() => setAttachMenuOpen((v) => !v)}
               />
-              {/* Attach menu (2026-09-02): mirrors the reference native
-                  app's bottom-sheet ("Photos / Files / Meetings /
-                  Calculations / Contacts") scoped down to the two rows
-                  this pass actually implements -- Meetings/Calculations
-                  need their own separate features to attach anything
-                  real, and Contacts needs its own contact-picker UI, so
-                  both are left for a later pass rather than wired to
-                  nothing. Anchored above the button (same "popover sits
+              {/* Attach menu (2026-09-02, reordered 2026-09-03 to match
+                  the reference app's own row order -- see §6.92):
+                  Photos / Files / Meetings / Calculations / Contacts.
+                  Meetings is still a placeholder (no feature behind it
+                  yet, see its own row comment below); every other row
+                  is real. Anchored above the button (same "popover sits
                   right at the click, no mouse travel" reasoning as
                   components/fab-auth-prompt.tsx), not portaled -- this
                   page has no backdrop/z-index conflict a plain absolute
                   popover would run into, unlike that FAB's own corner
                   case. */}
               {attachMenuOpen && (
-                <div className="animate-popover-up absolute bottom-full left-0 z-10 mb-2 w-44 overflow-hidden rounded-2xl bg-white py-1.5 shadow-xl dark:bg-neutral-900">
+                // Wraps the one-time teaching banner (2026-09-03,
+                // Figma "8. One time popover") + the actual attach
+                // menu in one column, banner on top -- both anchored
+                // together as a unit to the paperclip button, same
+                // bottom-full/mb-2 the menu alone used before.
+                <div className="absolute bottom-full left-0 z-10 mb-2 flex flex-col gap-2">
+                  {quotaFullyUsed && !dailyBannerDismissed && uploadUsage && (
+                    <div className="animate-popover-up w-64 rounded-2xl bg-white p-3 shadow-xl dark:bg-neutral-900">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-[13px] font-semibold text-[#262a34] dark:text-white">
+                            {PHOTOS_FILES_LABEL_TEXT[lang]}
+                          </p>
+                          <p className="mt-0.5 text-[12px] text-neutral-500 dark:text-neutral-400">
+                            {AVAILABLE_AGAIN_TEXT[lang]} {formatRelativeTime(new Date(uploadUsage.resetAt * 1000), lang)}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              dismissDailyBanner();
+                              setAttachMenuOpen(false);
+                              setDailyUploadsOpen(true);
+                            }}
+                            className="mt-1.5 text-[12px] font-semibold text-[#335ef7] dark:text-[#0c8ce9]"
+                          >
+                            {VIEW_USAGE_TEXT[lang]}
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={dismissDailyBanner}
+                          aria-label="Dismiss"
+                          className="shrink-0 rounded-full p-1 text-neutral-400 transition hover:bg-black/5 hover:text-neutral-700 dark:hover:bg-white/10 dark:hover:text-neutral-200"
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
+                            <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                <div className="animate-popover-up w-44 overflow-hidden rounded-2xl bg-white py-1.5 shadow-xl dark:bg-neutral-900">
                   {/* Daily-uploads quota entry point (2026-09-02,
                       Aleksandr's "как ты UI отрисуешь?" follow-up) --
                       same top-right corner the reference native-app
@@ -2405,10 +2641,16 @@ export default function ChatWindowPage() {
                   >
                     <ChatStorageIcon className="animate-storage-icon h-4 w-4" />
                   </button>
+                  {/* Photo/File rows dim to 50% and stop opening a
+                      picker once today's quota is fully used (Figma
+                      "Attachments" section) -- onPickAttachment already
+                      redirects to DailyUploadsModal instead in that
+                      case, this just signals it visually up front
+                      rather than only on tap. */}
                   <button
                     type="button"
                     onClick={() => onPickAttachment("image")}
-                    className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+                    className={`group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10 ${quotaFullyUsed ? "opacity-50" : ""}`}
                   >
                     <ChatPhotoAttachIcon className="animate-photo-attach h-5 w-5 text-[#335ef7] dark:text-[#0c8ce9]" />
                     <T uk="Фото" en="Photo" ru="Фото" de="Foto" es="Foto" fr="Photo" pl="Zdjęcie" ptBR="Foto" zh="照片" />
@@ -2416,7 +2658,7 @@ export default function ChatWindowPage() {
                   <button
                     type="button"
                     onClick={() => onPickAttachment("file")}
-                    className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+                    className={`group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10 ${quotaFullyUsed ? "opacity-50" : ""}`}
                   >
                     <ChatFileAttachIcon className="animate-file-attach h-5 w-5 text-[#335ef7] dark:text-[#0c8ce9]" />
                     <T uk="Файл" en="File" ru="Файл" de="Datei" es="Archivo" fr="Fichier" pl="Plik" ptBR="Arquivo" zh="文件" />
@@ -2475,26 +2717,27 @@ export default function ChatWindowPage() {
                     <T uk="Контакт" en="Contact" ru="Контакт" de="Kontakt" es="Contacto" fr="Contact" pl="Kontakt" ptBR="Contato" zh="联系人" />
                   </button>
                 </div>
+                </div>
               )}
               <input
                 ref={photoInputRef}
                 type="file"
                 accept="image/*"
+                multiple
                 className="hidden"
                 onChange={(e) => {
-                  const file = e.target.files?.[0];
+                  pickAttachmentFiles(e.target.files, "image");
                   e.target.value = "";
-                  if (file) void handleAttachFile(file, "image");
                 }}
               />
               <input
                 ref={fileInputRef}
                 type="file"
+                multiple
                 className="hidden"
                 onChange={(e) => {
-                  const file = e.target.files?.[0];
+                  pickAttachmentFiles(e.target.files, "file");
                   e.target.value = "";
-                  if (file) void handleAttachFile(file, "file");
                 }}
               />
             </div>
@@ -2545,7 +2788,13 @@ export default function ChatWindowPage() {
                 disabled={
                   sending ||
                   attachments.some((a) => a.status === "uploading") ||
-                  (!draft.trim() && attachments.every((a) => a.status !== "ready") && pendingContacts.length === 0)
+                  (!draft.trim() && attachments.every((a) => a.status !== "ready") && pendingContacts.length === 0) ||
+                  // 2026-09-03 (Figma "4.1 ... exceeded limit": send
+                  // button dims once the current selection alone would
+                  // blow past today's remaining quota) -- blocks the
+                  // click too, not just the visual dim, since chat-
+                  // server would just reject the upload anyway.
+                  quotaExceededBySelection
                 }
                 aria-label="Send"
                 // 2026-09-02 (Aleksandr: "при наведении на кнопку отправки
