@@ -378,10 +378,17 @@ export function VoiceRecordButton({ recorder, disabled, lang }: { recorder: Reco
 }
 
 // ---------------------------------------------------------------------------
-// Recording bar -- replaces the paperclip/textarea/send row while a
-// recording is in progress (unlocked or locked). See this file's header
-// re: this being a scope-trimmed stand-in for the Figma "text stays
-// visible above a growing card" combine mechanic.
+// Recording bar -- replaces the paperclip/textarea pair while a
+// recording is in progress (unlocked or locked); VoiceRecordButton
+// itself still sits at the row's trailing edge, unchanged, so the same
+// element keeps pointer capture for the whole gesture (2026-09-03 fix,
+// see app/chats/[chatId]/page.tsx's own comment on the compose-row
+// wiring for why that matters). `flex-1` here, not the standalone
+// `w-full max-w-[470px]` this used to have, since it's now a flex
+// sibling of that button inside the row's own already-constrained
+// max-w-[470px] container, not the entire row by itself. See this
+// file's header re: this being a scope-trimmed stand-in for the Figma
+// "text stays visible above a growing card" combine mechanic.
 // ---------------------------------------------------------------------------
 
 export function VoiceRecordingBar({ recorder, lang }: { recorder: Recorder; lang: Locale }) {
@@ -391,7 +398,7 @@ export function VoiceRecordingBar({ recorder, lang }: { recorder: Recorder; lang
 
   if (recorder.state === "locked") {
     return (
-      <div className="mx-auto flex w-full max-w-[470px] items-center gap-3 rounded-[22px] border border-neutral-200 bg-white/90 px-3.5 py-2 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
+      <div className="flex min-h-[44px] flex-1 items-center gap-3 rounded-[22px] border border-neutral-200 bg-white/90 px-3.5 py-2 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
         <button
           type="button"
           onClick={() => recorder.pauseResume()}
@@ -435,7 +442,7 @@ export function VoiceRecordingBar({ recorder, lang }: { recorder: Recorder; lang
   const dim = Math.max(0.35, 1 - recorder.cancelProgress);
 
   return (
-    <div className="mx-auto flex w-full max-w-[470px] items-center gap-3 rounded-[22px] border border-neutral-200 bg-white/90 px-3.5 py-2 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
+    <div className="flex min-h-[44px] flex-1 items-center gap-3 rounded-[22px] border border-neutral-200 bg-white/90 px-3.5 py-2 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
       <span className="relative flex h-2.5 w-2.5 shrink-0">
         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#ff3b30] opacity-75" />
         <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#ff3b30]" />

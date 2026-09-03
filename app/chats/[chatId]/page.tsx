@@ -2992,15 +2992,39 @@ export default function ChatWindowPage() {
           )}
           <div className="mx-auto flex w-full max-w-[470px] items-end gap-2">
             {/* 2026-09-03 (Aleksandr, voice messages): while a recording
-                is in progress this whole row becomes components/chat/
-                voice-message.tsx's own VoiceRecordingBar (unlocked or
-                locked) instead of the paperclip/textarea/send row --
-                see that file's own header comment on this being a
-                scope-trimmed stand-in for the Figma "text stays visible
-                above a growing card" combine mechanic, not built yet.
-                "denied" (mic permission refused) shows a dismissible
-                notice in the same slot instead. */}
-            {recorder.state === "idle" ? (
+                is in progress the paperclip/textarea pair is replaced by
+                components/chat/voice-message.tsx's own VoiceRecordingBar
+                (unlocked or locked) -- see that file's own header
+                comment on this being a scope-trimmed stand-in for the
+                Figma "text stays visible above a growing card" combine
+                mechanic, not built yet. "denied" (mic permission
+                refused) shows a dismissible notice in the WHOLE row's
+                place instead.
+                2026-09-03 follow-up (live-tested via Chrome, Aleksandr:
+                "запись работает очень криво") -- traced, not guessed:
+                VoiceRecordButton owns the ENTIRE press/lock/cancel
+                gesture surface via setPointerCapture, but used to be
+                swapped out for VoiceRecordingBar the instant
+                recorder.state left "idle" -- which startPress sets
+                SYNCHRONOUSLY on pointerdown, before getUserMedia even
+                resolves. That unmounted the one element holding pointer
+                capture mid-gesture, so release/lock/cancel could never
+                reach it again -- a recording, once started, ran
+                uncontrollably until the 10-minute VOICE_MAX_SECONDS cap
+                auto-sent it (confirmed live: pointer released, button
+                gone, timer kept climbing with nothing able to stop it).
+                Fix: VoiceRecordButton now stays mounted across idle/
+                requesting/recording/locked (rendered unconditionally
+                below, ALONGSIDE VoiceRecordingBar instead of in place of
+                it) -- only "denied" still replaces the whole row, since
+                nothing is actually recording yet at that point. */}
+            {recorder.state === "denied" ? (
+              <VoiceMicDeniedNotice lang={lang} onDismiss={recorder.dismissDenied} />
+            ) : (
+              <>
+            {recorder.state !== "idle" ? (
+              <VoiceRecordingBar recorder={recorder} lang={lang} />
+            ) : (
               <>
             <div ref={attachMenuRef} className="relative" onMouseEnter={handleAttachMouseEnter} onMouseLeave={handleAttachMouseLeave}>
               <ChatPaperclipButton
@@ -3226,7 +3250,9 @@ export default function ChatWindowPage() {
                 <ChatCatFieldIcon className="h-5 w-5 animate-chat-wiggle text-[#989aa6] dark:text-[#adafbb]" />
               </div>
             </div>
-            {draft.trim() || attachments.length > 0 || pendingContacts.length > 0 ? (
+              </>
+            )}
+            {recorder.state === "idle" && (draft.trim() || attachments.length > 0 || pendingContacts.length > 0) ? (
               <button
                 type="button"
                 onClick={() => send()}
@@ -3276,10 +3302,6 @@ export default function ChatWindowPage() {
               <VoiceRecordButton recorder={recorder} disabled={sending} lang={lang} />
             )}
               </>
-            ) : recorder.state === "denied" ? (
-              <VoiceMicDeniedNotice lang={lang} onDismiss={recorder.dismissDenied} />
-            ) : (
-              <VoiceRecordingBar recorder={recorder} lang={lang} />
             )}
           </div>
             </>
