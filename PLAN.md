@@ -5835,3 +5835,34 @@ convention.
 
 tsc-clean.
 
+### 6.113
+
+2026-09-03 (Aleksandr, screen recording: "кнопка ••• срабатывает со
+второго раза, надо сразу"). Frames showed the real sequence: first tap
+on the ••• button visibly does nothing for a few seconds, then the
+dropdown opens -- not a slow network/render, an actual missed first
+tap.
+
+Root cause is a well-known WebKit/iOS Safari quirk, not specific to
+this one button: when an element has ONLY mouseenter/mouseleave
+listeners (no onclick, no `cursor: pointer`) on an ANCESTOR of the
+real clickable target, the browser holds the first tap back to
+simulate that ancestor's :hover state and doesn't deliver a real click
+event until a SECOND tap on the now-"hovered" element. Every hover-
+driven trigger built off lib/use-hover-panel.ts (2026-08-30, the
+desktop hover-to-open behavior) wires onMouseEnter/onMouseLeave onto a
+wrapping <div> around the actual <button onClick=...> for exactly that
+reason -- and none of the three call sites had `cursor: pointer` on
+that wrapper, so this is the same bug in avatar-menu.tsx's own trigger
+(top-right profile icon, both its signed-out and signed-in branches)
+and filters-form.tsx's filter-button wrapper (mobile + the desktop-
+portal one), not just post-owner-menu.tsx's ••• button -- fixed all
+three rather than only the one he happened to report.
+
+Fix: `cursor: pointer` on each wrapper div. Standard, well-documented
+workaround -- it's what tells WebKit an element (or its subtree) is
+meant to be tapped, so it stops deferring the first tap to a hover
+simulation.
+
+tsc-clean.
+
