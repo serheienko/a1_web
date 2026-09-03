@@ -126,7 +126,7 @@ export function PostOwnerMenu({
   // still toggles `open` directly, same as before; hover is additive.
   const triggerRef = useRef<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
-  const { rendered, visible, handleMouseEnter, handleMouseLeave } = useHoverPanel(open, setOpen, [
+  const { rendered, visible, handleMouseEnter, handleMouseLeave, isRecentHoverOpen } = useHoverPanel(open, setOpen, [
     { trigger: triggerRef, panel: panelRef },
   ]);
   // The confirm-delete step used to only ever reset via the backdrop's
@@ -232,7 +232,13 @@ export function PostOwnerMenu({
     <div className={`${className} cursor-pointer`} ref={triggerRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        // lib/use-hover-panel.ts, 2026-09-04 entry: same "•••"-menu tap
+        // bug -- skip the toggle when this click is the same tap that
+        // just hover-opened the panel, or it flips straight back closed.
+        onClick={() => {
+          if (isRecentHoverOpen()) return;
+          setOpen((v) => !v);
+        }}
         aria-label={STRINGS.menuLabel[lang]}
         aria-expanded={open}
         className={

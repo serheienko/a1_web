@@ -239,11 +239,11 @@ export function MiniChatWindow({
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
   const attachMenuRef = useRef<HTMLDivElement>(null);
   const attachPanelRef = useRef<HTMLDivElement>(null);
-  const { handleMouseEnter: handleAttachMouseEnter, handleMouseLeave: handleAttachMouseLeave } = useHoverPanel(
-    attachMenuOpen,
-    setAttachMenuOpen,
-    [{ trigger: attachMenuRef, panel: attachPanelRef }],
-  );
+  const {
+    handleMouseEnter: handleAttachMouseEnter,
+    handleMouseLeave: handleAttachMouseLeave,
+    isRecentHoverOpen: isAttachRecentHoverOpen,
+  } = useHoverPanel(attachMenuOpen, setAttachMenuOpen, [{ trigger: attachMenuRef, panel: attachPanelRef }]);
   const [dailyUploadsOpen, setDailyUploadsOpen] = useState(false);
   const [contactsPickerOpen, setContactsPickerOpen] = useState(false);
   const [pickedContactIds, setPickedContactIds] = useState<Set<string>>(new Set());
@@ -970,7 +970,14 @@ export function MiniChatWindow({
           <div ref={attachMenuRef} className="relative shrink-0" onMouseEnter={handleAttachMouseEnter} onMouseLeave={handleAttachMouseLeave}>
             <button
               type="button"
-              onClick={() => setAttachMenuOpen((v) => !v)}
+              // lib/use-hover-panel.ts, 2026-09-04 entry: same "•••"-menu
+              // tap bug -- skip the toggle when this click is the same
+              // tap that just hover-opened the menu, or it flips straight
+              // back closed.
+              onClick={() => {
+                if (isAttachRecentHoverOpen()) return;
+                setAttachMenuOpen((v) => !v);
+              }}
               disabled={sending}
               aria-label="Attach"
               className="group flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-neutral-400 transition hover:bg-black/5 hover:text-neutral-600 disabled:opacity-40 dark:text-[#8d8d93] dark:hover:bg-white/10 dark:hover:text-neutral-200"

@@ -767,11 +767,11 @@ export default function ChatWindowPage() {
   // adds a THIRD way in (hover) on top of them; touch devices never
   // fire hover at all, so nothing changes there.
   const attachPanelRef = useRef<HTMLDivElement>(null);
-  const { handleMouseEnter: handleAttachMouseEnter, handleMouseLeave: handleAttachMouseLeave } = useHoverPanel(
-    attachMenuOpen,
-    setAttachMenuOpen,
-    [{ trigger: attachMenuRef, panel: attachPanelRef }],
-  );
+  const {
+    handleMouseEnter: handleAttachMouseEnter,
+    handleMouseLeave: handleAttachMouseLeave,
+    isRecentHoverOpen: isAttachRecentHoverOpen,
+  } = useHoverPanel(attachMenuOpen, setAttachMenuOpen, [{ trigger: attachMenuRef, panel: attachPanelRef }]);
   // 2026-09-03 (Aleksandr: currency popover must close on an outside
   // click, same convention as attachMenuRef above -- it's no longer a
   // backdrop modal, see components/chat/currency-picker-modal.tsx).
@@ -3434,7 +3434,14 @@ export default function ChatWindowPage() {
             <div ref={attachMenuRef} className="relative" onMouseEnter={handleAttachMouseEnter} onMouseLeave={handleAttachMouseLeave}>
               <ChatPaperclipButton
                 disabled={sending || attachments.length >= MAX_ATTACHMENTS_PER_MESSAGE}
-                onClick={() => setAttachMenuOpen((v) => !v)}
+                // lib/use-hover-panel.ts, 2026-09-04 entry: same "•••"-menu
+                // tap bug -- skip the toggle when this click is the same
+                // tap that just hover-opened the menu, or it flips
+                // straight back closed.
+                onClick={() => {
+                  if (isAttachRecentHoverOpen()) return;
+                  setAttachMenuOpen((v) => !v);
+                }}
               />
               {/* Attach menu (2026-09-02, reordered 2026-09-03 to match
                   the reference app's own row order -- see §6.92):

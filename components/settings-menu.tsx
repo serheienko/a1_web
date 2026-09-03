@@ -127,7 +127,7 @@ export function SettingsMenu() {
   // avatar-menu.tsx's own wrapperRef/panelOuterRef pair.
   const wrapperRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const { handleMouseEnter, handleMouseLeave } = useHoverPanel(open, setOpen, [
+  const { handleMouseEnter, handleMouseLeave, isRecentHoverOpen } = useHoverPanel(open, setOpen, [
     { trigger: wrapperRef, panel: panelRef },
   ]);
   const [theme, setTheme] = useState<Theme | null>(null);
@@ -279,7 +279,13 @@ export function SettingsMenu() {
     <div className="dots-trigger-group relative shrink-0" ref={wrapperRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        // lib/use-hover-panel.ts, 2026-09-04 entry: same "•••"-menu tap
+        // bug -- skip the toggle when this click is the same tap that
+        // just hover-opened the panel, or it flips straight back closed.
+        onClick={() => {
+          if (isRecentHoverOpen()) return;
+          setOpen((v) => !v);
+        }}
         aria-label={str("settings")}
         aria-expanded={open}
         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-neutral-500 shadow-sm ring-1 ring-black/5 transition hover:text-neutral-900 dark:bg-neutral-800 dark:text-neutral-400 dark:ring-white/10 dark:hover:text-neutral-50"

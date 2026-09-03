@@ -311,7 +311,13 @@ export function ProfileActionRow({
   // hover at all.
   const menuTriggerRef = useRef<HTMLDivElement | null>(null);
   const menuPanelRef = useRef<HTMLDivElement | null>(null);
-  const { rendered: menuRendered, visible: menuVisible, handleMouseEnter: menuMouseEnter, handleMouseLeave: menuMouseLeave } = useHoverPanel(
+  const {
+    rendered: menuRendered,
+    visible: menuVisible,
+    handleMouseEnter: menuMouseEnter,
+    handleMouseLeave: menuMouseLeave,
+    isRecentHoverOpen: isMenuRecentHoverOpen,
+  } = useHoverPanel(
     menuOpen,
     setMenuOpen,
     [{ trigger: menuTriggerRef, panel: menuPanelRef }],
@@ -701,7 +707,13 @@ export function ProfileActionRow({
       <div className="relative" ref={menuTriggerRef} onMouseEnter={menuMouseEnter} onMouseLeave={menuMouseLeave}>
         <button
           type="button"
-          onClick={() => setMenuOpen((v) => !v)}
+          // lib/use-hover-panel.ts, 2026-09-04 entry: same "•••"-menu tap
+          // bug -- skip the toggle when this click is the same tap that
+          // just hover-opened the panel, or it flips straight back closed.
+          onClick={() => {
+            if (isMenuRecentHoverOpen()) return;
+            setMenuOpen((v) => !v);
+          }}
           aria-label={STRINGS.menuLabel[lang]}
           aria-expanded={menuOpen}
           className={CELL_BUTTON_CLASS}
