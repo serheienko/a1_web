@@ -368,17 +368,61 @@ export function VoiceRecordButton({ recorder, disabled, lang }: { recorder: Reco
           practice, but an explicit width removes any doubt the badge
           could drift off the button's true center. Gap above the button
           also grew 8px -> 14px ("выше" -- higher/more clearance), same
-          `calc(100%+Npx)` approach, just a bigger constant. */}
+          `calc(100%+Npx)` approach, just a bigger constant.
+          2026-09-04 (Aleksandr, Telegram Desktop reference recording:
+          "у них нажимаешь на микрофон, держишь, а сверху появляется
+          такая иконка с замочком, плюс стрелочка пульсирующая... чтобы
+          дать понять, что свайд, для того чтобы локнуть, и открытый
+          замок. И когда ты ведешь вверх, чтобы локнуть, оно меняется на
+          закрытый замок") -- grew from a flat circle with a single
+          always-closed lock glyph into a taller capsule matching that
+          reference: a pulsing chevron-up on top (this file's own
+          .animate-lock-arrow-pulse, app/globals.css -- continuous, not
+          the rest of this codebase's hover-triggered convention, since
+          it has to keep nudging for as long as the button is held) that
+          fades out as the drag nears the lock threshold, and the lock
+          glyph itself starts OPEN (shackle swung off the right post)
+          and swaps to the CLOSED shape once lockProgress actually hits
+          1. In practice that closed frame is brief -- lockProgress hits
+          1 the same tick recorder.state flips to "locked", which is the
+          very next render this component (see the top of this function)
+          swaps for the plain send-arrow button entirely -- but the swap
+          costs nothing to keep for whatever single frame does land, and
+          it's the correct shape if that timing ever changes. Simplified
+          from the reference on purpose (Aleksandr himself: "это уже
+          сильно жестко, там анимация... не знаю") -- no capsule slide-
+          up-the-track motion, just fade/rise + the icon swap. */}
       {isActive && !touchGestureRef.current && (
         <div
-          className="pointer-events-none absolute bottom-[calc(100%+14px)] left-1/2 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full bg-neutral-800/90 text-white shadow-lg transition dark:bg-white/90 dark:text-neutral-800"
+          className="pointer-events-none absolute bottom-[calc(100%+14px)] left-1/2 flex w-8 -translate-x-1/2 flex-col items-center gap-1 rounded-full bg-neutral-800/90 px-1.5 py-2 text-white shadow-lg transition dark:bg-white/90 dark:text-neutral-800"
           style={{ opacity: 0.45 + recorder.lockProgress * 0.55, transform: `translate(-50%, ${-recorder.lockProgress * 6}px)` }}
           aria-hidden="true"
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="5" y="11" width="14" height="10" rx="2" />
-            <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="animate-lock-arrow-pulse"
+            style={{ opacity: 1 - recorder.lockProgress }}
+          >
+            <path d="M18 15l-6-6-6 6" />
           </svg>
+          {recorder.lockProgress >= 1 ? (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="5" y="11" width="14" height="10" rx="2" />
+              <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+            </svg>
+          ) : (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="5" y="11" width="14" height="10" rx="2" />
+              <path d="M8 11V7a4 4 0 0 1 7.5-2.5" />
+            </svg>
+          )}
         </div>
       )}
       <button
