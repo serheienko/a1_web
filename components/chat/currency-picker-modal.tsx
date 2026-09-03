@@ -3,10 +3,17 @@
 // 2026-09-03 (Aleksandr's Calculations-feature reference video: a "$"
 // button on the calculator panel opens a "Валюта" popup -- search field
 // on top, a wrapping grid of pill buttons below, the active one ringed).
-// Same self-contained-modal shell as components/daily-uploads-modal.tsx
-// (backdrop + centered rounded-2xl card, this app's own established
-// convention for a modal, not a dedicated <dialog>).
 //
+// 2026-09-03 correction (Aleksandr: "Эту модалку просто делай сверху над
+// кнопкой $, темную это полосу убери. Она должна открываться просто
+// поверх калькуляции так же как модалка при нажатии на скрепку") --
+// this used to be a self-contained backdrop+centered-card modal like
+// components/daily-uploads-modal.tsx; now it's an anchored popover with
+// no backdrop, same convention as the attach-menu popover in
+// app/chats/[chatId]/page.tsx (absolute, bottom-full, closes on an
+// outside click the parent wires up via a ref -- see calcCurrencyRef
+// there). The parent is responsible for a `relative` wrapper and for
+// only rendering this while open.
 // The reference video's own pill grid (USD/UAH/EUR/JPY/GBP/CNY/CAD/AUD/
 // HKD/SGD/CHF) is reproduced as-is, plus PLN/BRL -- this app's own
 // locale switcher (components/t.tsx) covers pl/ptBR, neither of which
@@ -68,47 +75,42 @@ export function CurrencyPickerModal({ lang, selected, onSelect, onClose }: Props
   const selectedUpper = selected.toUpperCase();
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div
-        className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl dark:bg-neutral-900"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="mb-3 text-center text-[15px] font-semibold text-[#335ef7] dark:text-[#0c8ce9]">
-          {t("title", lang)}
-        </h2>
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder={t("search", lang)}
-          autoFocus
-          className="mb-3 w-full rounded-full bg-black/5 px-4 py-2.5 text-[14px] text-[#262a34] outline-none placeholder:text-neutral-400 dark:bg-white/10 dark:text-white dark:placeholder:text-neutral-500"
-        />
-        <div className="flex max-h-64 flex-wrap gap-2 overflow-y-auto">
-          {filtered.map((c) => {
-            const active = c.code === selectedUpper;
-            return (
-              <button
-                key={c.code}
-                type="button"
-                onClick={() => {
-                  onSelect(c.code);
-                  onClose();
-                }}
-                className={`rounded-full border px-4 py-2 text-[14px] font-medium transition ${
-                  active
-                    ? "border-[#335ef7] text-[#335ef7] dark:border-[#0c8ce9] dark:text-[#0c8ce9]"
-                    : "border-transparent bg-black/5 text-[#262a34] hover:bg-black/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
-                }`}
-              >
-                {c.code} {c.symbol}
-              </button>
-            );
-          })}
-          {filtered.length === 0 && (
-            <p className="w-full py-4 text-center text-[13px] text-neutral-400 dark:text-neutral-500">{query}</p>
-          )}
-        </div>
+    <div className="animate-popover-up absolute bottom-full right-0 z-10 mb-2 w-72 max-w-[calc(100vw-2rem)] rounded-2xl bg-white p-4 shadow-xl dark:bg-neutral-900">
+      <h2 className="mb-3 text-center text-[15px] font-semibold text-[#335ef7] dark:text-[#0c8ce9]">
+        {t("title", lang)}
+      </h2>
+      <input
+        type="text"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder={t("search", lang)}
+        autoFocus
+        className="mb-3 w-full rounded-full bg-black/5 px-4 py-2.5 text-[14px] text-[#262a34] outline-none placeholder:text-neutral-400 dark:bg-white/10 dark:text-white dark:placeholder:text-neutral-500"
+      />
+      <div className="flex max-h-64 flex-wrap gap-2 overflow-y-auto">
+        {filtered.map((c) => {
+          const active = c.code === selectedUpper;
+          return (
+            <button
+              key={c.code}
+              type="button"
+              onClick={() => {
+                onSelect(c.code);
+                onClose();
+              }}
+              className={`rounded-full border px-4 py-2 text-[14px] font-medium transition ${
+                active
+                  ? "border-[#335ef7] text-[#335ef7] dark:border-[#0c8ce9] dark:text-[#0c8ce9]"
+                  : "border-transparent bg-black/5 text-[#262a34] hover:bg-black/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+              }`}
+            >
+              {c.code} {c.symbol}
+            </button>
+          );
+        })}
+        {filtered.length === 0 && (
+          <p className="w-full py-4 text-center text-[13px] text-neutral-400 dark:text-neutral-500">{query}</p>
+        )}
       </div>
     </div>
   );
