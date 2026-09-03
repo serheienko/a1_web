@@ -182,6 +182,7 @@ export function ChatPhotoViewer({ lang, images, index, onIndexChange, onClose, o
   const [counterVisible, setCounterVisible] = useState(images.length > 1);
   const counterTimer = useRef<number | null>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
+  const deleteConfirmRef = useRef<HTMLDivElement>(null);
   const image = images[index];
 
   useEffect(() => {
@@ -238,6 +239,24 @@ export function ChatPhotoViewer({ lang, images, index, onIndexChange, onClose, o
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [moreMenuOpen]);
+
+  // 2026-09-03 (Aleksandr, screenshot of the confirm as a dimmed
+  // centered modal: "сделай тоже прямо над кнопкой и не надо
+  // затемнять фон, сделай так же как и show in chat, reply и тд") --
+  // same anchored-popover convention as moreMenuOpen above instead of
+  // a backdrop modal: closes on an outside click, not while a delete
+  // request is actually in flight (same guard the Cancel button uses).
+  useEffect(() => {
+    if (!confirmDeleteOpen) return;
+    function onDocClick(e: MouseEvent) {
+      if (deleting) return;
+      if (deleteConfirmRef.current && !deleteConfirmRef.current.contains(e.target as Node)) {
+        setConfirmDeleteOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [confirmDeleteOpen, deleting]);
 
   // Body scroll lock while the viewer is open, same convention as this
   // app's other full-screen overlays.
@@ -358,14 +377,65 @@ export function ChatPhotoViewer({ lang, images, index, onIndexChange, onClose, o
         <button type="button" onClick={() => void handleShare()} aria-label="Share" className={ROUND_BTN}>
           <ShareIcon />
         </button>
-        <button
-          type="button"
-          onClick={() => setConfirmDeleteOpen(true)}
-          aria-label="Delete"
-          className={ROUND_BTN}
-        >
-          <TrashIcon />
-        </button>
+        <div ref={deleteConfirmRef} className="relative">
+          <button
+            type="button"
+            onClick={() => setConfirmDeleteOpen(true)}
+            aria-label="Delete"
+            className={ROUND_BTN}
+          >
+            <TrashIcon />
+          </button>
+          {confirmDeleteOpen && (
+            <div className="animate-popover-up absolute bottom-full left-1/2 z-10 mb-2 w-72 -translate-x-1/2 rounded-2xl bg-white p-4 shadow-xl dark:bg-neutral-900">
+              <h2 className="text-[15px] font-semibold text-[#262a34] dark:text-white">
+                <T
+                  uk="Видалити фото?" en="Delete photo?" ru="Удалить фото?" de="Foto löschen?"
+                  es="¿Eliminar foto?" fr="Supprimer la photo ?" pl="Usunąć zdjęcie?"
+                  ptBR="Excluir foto?" zh="删除照片？"
+                />
+              </h2>
+              <p className="mt-1 text-[13px] text-neutral-500 dark:text-neutral-400">
+                <T
+                  uk="Фото буде видалено лише для вас." en="The photo will be deleted for you only."
+                  ru="Фото будет удалено только у вас." de="Das Foto wird nur für dich gelöscht."
+                  es="La foto se eliminará solo para ti." fr="La photo ne sera supprimée que pour vous."
+                  pl="Zdjęcie zostanie usunięte tylko u Ciebie." ptBR="A foto será excluída só para você."
+                  zh="照片将仅对你删除。"
+                />
+              </p>
+              {deleteFailed && (
+                <p className="mt-2 text-[13px] text-red-600 dark:text-red-400">
+                  <T
+                    uk="Не вдалося видалити. Спробуйте ще раз." en="Couldn't delete. Try again."
+                    ru="Не удалось удалить. Попробуйте ещё раз." de="Löschen fehlgeschlagen. Versuch es erneut."
+                    es="No se pudo eliminar. Inténtalo de nuevo." fr="Échec de la suppression. Réessayez."
+                    pl="Nie udało się usunąć. Spróbuj ponownie." ptBR="Não foi possível excluir. Tente novamente."
+                    zh="删除失败，请重试。"
+                  />
+                </p>
+              )}
+              <div className="mt-3 flex justify-end gap-2">
+                <button
+                  type="button"
+                  disabled={deleting}
+                  onClick={() => setConfirmDeleteOpen(false)}
+                  className="rounded-full px-3.5 py-1.5 text-[14px] font-medium text-[#262a34] transition hover:bg-black/5 disabled:opacity-50 dark:text-white dark:hover:bg-white/10"
+                >
+                  <T uk="Скасувати" en="Cancel" ru="Отмена" de="Abbrechen" es="Cancelar" fr="Annuler" pl="Anuluj" ptBR="Cancelar" zh="取消" />
+                </button>
+                <button
+                  type="button"
+                  disabled={deleting}
+                  onClick={() => void handleConfirmDelete()}
+                  className="rounded-full bg-red-600 px-3.5 py-1.5 text-[14px] font-medium text-white transition hover:bg-red-700 disabled:opacity-60"
+                >
+                  <T uk="Видалити" en="Delete" ru="Удалить" de="Löschen" es="Eliminar" fr="Supprimer" pl="Usuń" ptBR="Excluir" zh="删除" />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
         <div ref={moreMenuRef} className="relative">
           <button
             type="button"
@@ -427,63 +497,6 @@ export function ChatPhotoViewer({ lang, images, index, onIndexChange, onClose, o
         </div>
       </div>
 
-      {confirmDeleteOpen && (
-        <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4"
-          onClick={() => !deleting && setConfirmDeleteOpen(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-[320px] rounded-2xl bg-white p-5 shadow-xl dark:bg-neutral-900"
-          >
-            <h2 className="text-[16px] font-semibold text-[#262a34] dark:text-white">
-              <T
-                uk="Видалити фото?" en="Delete photo?" ru="Удалить фото?" de="Foto löschen?"
-                es="¿Eliminar foto?" fr="Supprimer la photo ?" pl="Usunąć zdjęcie?"
-                ptBR="Excluir foto?" zh="删除照片？"
-              />
-            </h2>
-            <p className="mt-1.5 text-[13px] text-neutral-500 dark:text-neutral-400">
-              <T
-                uk="Фото буде видалено лише для вас." en="The photo will be deleted for you only."
-                ru="Фото будет удалено только у вас." de="Das Foto wird nur für dich gelöscht."
-                es="La foto se eliminará solo para ti." fr="La photo ne sera supprimée que pour vous."
-                pl="Zdjęcie zostanie usunięte tylko u Ciebie." ptBR="A foto será excluída só para você."
-                zh="照片将仅对你删除。"
-              />
-            </p>
-            {deleteFailed && (
-              <p className="mt-2 text-[13px] text-red-600 dark:text-red-400">
-                <T
-                  uk="Не вдалося видалити. Спробуйте ще раз." en="Couldn't delete. Try again."
-                  ru="Не удалось удалить. Попробуйте ещё раз." de="Löschen fehlgeschlagen. Versuch es erneut."
-                  es="No se pudo eliminar. Inténtalo de nuevo." fr="Échec de la suppression. Réessayez."
-                  pl="Nie udało się usunąć. Spróbuj ponownie." ptBR="Não foi possível excluir. Tente novamente."
-                  zh="删除失败，请重试。"
-                />
-              </p>
-            )}
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                disabled={deleting}
-                onClick={() => setConfirmDeleteOpen(false)}
-                className="rounded-full px-4 py-2 text-[14px] font-medium text-[#262a34] transition hover:bg-black/5 disabled:opacity-50 dark:text-white dark:hover:bg-white/10"
-              >
-                <T uk="Скасувати" en="Cancel" ru="Отмена" de="Abbrechen" es="Cancelar" fr="Annuler" pl="Anuluj" ptBR="Cancelar" zh="取消" />
-              </button>
-              <button
-                type="button"
-                disabled={deleting}
-                onClick={() => void handleConfirmDelete()}
-                className="rounded-full bg-red-600 px-4 py-2 text-[14px] font-medium text-white transition hover:bg-red-700 disabled:opacity-60"
-              >
-                <T uk="Видалити" en="Delete" ru="Удалить" de="Löschen" es="Eliminar" fr="Supprimer" pl="Usuń" ptBR="Excluir" zh="删除" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
