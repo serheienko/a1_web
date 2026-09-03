@@ -210,8 +210,12 @@ function calcRowSubtotal(row: CalcRow): number {
   return calcParseDecimal(row.unitAmount) * calcParseQuantity(row.quantity);
 }
 
+// 2026-09-03 (Aleksandr, 3 screenshots of the real reference app: a
+// row showing "12" / total "258 SGD", never "12.00"/"258.00") --
+// corrects an earlier guess at always padding to 2 decimals; whole
+// numbers now render bare, a typed decimal still shows up to 2 places.
 function calcFormatAmount(n: number): string {
-  return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 }
 
 async function compressAttachmentImage(file: File): Promise<File> {
@@ -1243,14 +1247,6 @@ export default function ChatWindowPage() {
   function calcRemoveLastRow() {
     setCalcRows((prev) => (prev.length <= 1 ? prev : prev.slice(0, -1)));
   }
-  // Bottom-bar trash: clears the draft back to a single blank row +
-  // empty note, but leaves the panel itself open -- "start over",
-  // distinct from the red X which closes the whole panel (calcClose).
-  function calcClearRows() {
-    setCalcRows([calcBlankRow()]);
-    setCalcNote("");
-    setCalcError(false);
-  }
   function calcClose() {
     setCalcOpen(false);
     setCalcRows([calcBlankRow()]);
@@ -1840,12 +1836,9 @@ export default function ChatWindowPage() {
             // draft row entirely while this panel is open (matches the
             // reference video: it swaps back to a normal compose row
             // the moment a calculation sends, or the panel's own X is
-            // pressed). Bottom-bar button semantics (trash/X/minus/
-            // send) are my own best-effort read of a reference video
-            // that never narrates itself -- see calcClearRows/
-            // calcClose/calcRemoveLastRow's own comments above for the
-            // reasoning; correct these live if Aleksandr's own app
-            // disagrees once he sees it running.
+            // pressed). Bottom-bar buttons (X/minus/send) confirmed
+            // 2026-09-03 against 3 screenshots of the real reference
+            // app -- see calcClose/calcRemoveLastRow's own comments.
             <div className="mx-auto w-full max-w-[470px]">
               <div className="overflow-hidden rounded-2xl bg-[#e4e9ff] dark:bg-[#151a30]">
                 <table className="w-full border-collapse text-[13.5px]">
@@ -1938,7 +1931,13 @@ export default function ChatWindowPage() {
                   type="button"
                   onClick={() => setCalcCurrencyPickerOpen(true)}
                   aria-label="Currency"
-                  className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-[#335ef7] text-[16px] font-bold text-white transition hover:brightness-110 dark:bg-[#0c8ce9]"
+                  // 2026-09-03 (Aleksandr, 3 screenshots of the real
+                  // reference app's own calculator panel, correcting my
+                  // earlier solid-blue guess): a light outline circle,
+                  // not a filled one -- matches the same
+                  // bg-[#335ef7]/15 + text-[#335ef7] treatment the
+                  // add-row "+" pill above already uses.
+                  className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full border-2 border-[#335ef7] bg-white text-[16px] font-bold text-[#335ef7] transition hover:bg-[#335ef7]/10 dark:border-[#0c8ce9] dark:bg-transparent dark:text-[#0c8ce9]"
                 >
                   $
                 </button>
@@ -1960,44 +1959,36 @@ export default function ChatWindowPage() {
                 </p>
               )}
 
+              {/* 2026-09-03 (Aleksandr, 3 screenshots of the real
+                  reference app's own panel): only 3 buttons here, not 4
+                  -- corrects my earlier guess at a separate trash/clear
+                  button (a calcClearRows function, now removed as dead code). X
+                  closes the panel, "-" undoes the last added row, the
+                  arrow sends. */}
               <div className="mt-3 flex items-center justify-between px-1">
-                <button
-                  type="button"
-                  onClick={calcClearRows}
-                  aria-label="Clear"
-                  className="flex h-11 w-11 items-center justify-center rounded-full bg-black/5 text-[#262a34] transition hover:bg-black/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
-                    <path
-                      d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-9 0 1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  onClick={calcClose}
-                  aria-label="Close"
-                  className="flex h-11 w-11 items-center justify-center rounded-full bg-black/5 text-[#262a34] transition hover:bg-black/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
-                    <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  onClick={calcRemoveLastRow}
-                  disabled={calcRows.length <= 1}
-                  aria-label="Remove row"
-                  className="flex h-11 w-11 items-center justify-center rounded-full bg-black/5 text-[#262a34] transition hover:bg-black/10 disabled:opacity-40 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
-                    <path d="M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={calcClose}
+                    aria-label="Close"
+                    className="flex h-11 w-11 items-center justify-center rounded-full bg-black/5 text-[#262a34] transition hover:bg-black/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
+                      <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={calcRemoveLastRow}
+                    disabled={calcRows.length <= 1}
+                    aria-label="Remove row"
+                    className="flex h-11 w-11 items-center justify-center rounded-full bg-black/5 text-[#262a34] transition hover:bg-black/10 disabled:opacity-40 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
+                      <path d="M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                </div>
                 <button
                   type="button"
                   onClick={sendCalculation}

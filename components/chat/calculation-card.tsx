@@ -23,9 +23,12 @@ type Props = {
   mine: boolean;
 };
 
+// 2026-09-03: corrects an earlier always-2-decimals guess -- 3
+// screenshots of the real reference app's own sent-calc bubble show
+// whole numbers bare ("12", "246", "258 SGD"), never padded ("12.00").
 function formatCalcAmount(rawCents: number): string {
   const amount = (typeof rawCents === "number" && Number.isFinite(rawCents) ? rawCents : 0) / 100;
-  return amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return amount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 }
 
 export function ChatCalculationCard({ calc, mine }: Props) {
