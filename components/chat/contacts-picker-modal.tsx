@@ -29,6 +29,16 @@
 // list (checkmark shown here) rather than immediately sending and
 // closing -- closer to how the paperclip's own Photo/File flow already
 // lets you queue more than one attachment before hitting Send.
+//
+// 2026-09-03 (Aleksandr, live screenshot of this exact modal with one
+// contact already checked: "Сделай прям тут кнопку отправки снизу в
+// попапе, широкую") -- picking a contact used to require closing this
+// modal (the × button) and then hitting app/chats/[chatId]/page.tsx's
+// own compose-bar Send separately. Now a wide primary button at the
+// bottom fires that same send() directly (onSend prop -- this
+// component still owns no network call of its own, same division of
+// responsibility as before), disabled until at least one contact is
+// picked.
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -50,7 +60,7 @@ type ContactUserSummary = ContactCardSummary;
 
 type LoadState = "loading" | "signed-out" | "error" | "ready";
 
-type StringKey = "title" | "close" | "search" | "loading" | "loadFailed" | "empty" | "noResults";
+type StringKey = "title" | "close" | "search" | "loading" | "loadFailed" | "empty" | "noResults" | "send";
 
 const STRINGS: Record<StringKey, Record<Locale, string>> = {
   title: { uk: "Контакти", en: "Contacts", ru: "Контакты", de: "Kontakte", es: "Contactos", fr: "Contacts", pl: "Kontakty", ptBR: "Contatos", zh: "联系人" },
@@ -60,6 +70,7 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   loadFailed: { uk: "Не вдалося завантажити контакти", en: "Couldn't load contacts", ru: "Не удалось загрузить контакты", de: "Kontakte konnten nicht geladen werden", es: "No se pudieron cargar los contactos", fr: "Impossible de charger les contacts", pl: "Nie udało się wczytać kontaktów", ptBR: "Não foi possível carregar os contatos", zh: "无法加载联系人" },
   empty: { uk: "Немає контактів із номером телефону", en: "No contacts with a phone number", ru: "Нет контактов с номером телефона", de: "Keine Kontakte mit Telefonnummer", es: "No hay contactos con número de teléfono", fr: "Aucun contact avec un numéro de téléphone", pl: "Brak kontaktów z numerem telefonu", ptBR: "Nenhum contato com número de telefone", zh: "没有带电话号码的联系人" },
   noResults: { uk: "Нічого не знайдено", en: "Nothing found", ru: "Ничего не найдено", de: "Nichts gefunden", es: "No se encontró nada", fr: "Aucun résultat", pl: "Nic nie znaleziono", ptBR: "Nada encontrado", zh: "未找到任何内容" },
+  send: { uk: "Надіслати", en: "Send", ru: "Отправить", de: "Senden", es: "Enviar", fr: "Envoyer", pl: "Wyślij", ptBR: "Enviar", zh: "发送" },
 };
 
 function t(key: StringKey, lang: Locale): string {
@@ -71,11 +82,18 @@ export function ContactsPickerModal({
   pickedUserIds,
   onToggle,
   onClose,
+  onSend,
+  sending,
 }: {
   lang: Locale;
   pickedUserIds: Set<string>;
   onToggle: (contact: PickedContact) => void;
   onClose: () => void;
+  // 2026-09-03: see this file's own header comment -- fires the same
+  // send() app/chats/[chatId]/page.tsx's compose-bar Send button does,
+  // then this modal closes itself (the caller flips `open` off).
+  onSend: () => void;
+  sending: boolean;
 }) {
   const [state, setState] = useState<LoadState>("loading");
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -163,7 +181,7 @@ export function ContactsPickerModal({
           />
         </div>
 
-        <div className="flex-1 overflow-y-auto px-2 pb-4">
+        <div className="flex-1 overflow-y-auto px-2 pb-2">
           {state === "loading" && (
             <div className="flex items-center justify-center py-10 text-sm text-neutral-500 dark:text-neutral-400">
               {t("loading", lang)}
@@ -232,6 +250,17 @@ export function ContactsPickerModal({
                 })}
               </div>
             ))}
+        </div>
+
+        <div className="border-t border-neutral-100 px-4 py-3 dark:border-neutral-800">
+          <button
+            type="button"
+            onClick={onSend}
+            disabled={pickedUserIds.size === 0 || sending}
+            className="w-full rounded-full bg-[#335ef7] py-2.5 text-sm font-semibold text-white transition hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:brightness-100 dark:bg-[#0c8ce9]"
+          >
+            {t("send", lang)}
+          </button>
         </div>
       </div>
     </div>

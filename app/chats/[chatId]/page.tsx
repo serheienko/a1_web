@@ -2950,6 +2950,17 @@ export default function ChatWindowPage() {
             )
           }
           onClose={() => setContactsPickerOpen(false)}
+          // 2026-09-03 (Aleksandr: "Сделай прям тут кнопку отправки
+          // снизу в попапе, широкую") -- see contacts-picker-modal.tsx's
+          // own header comment. Same send() the compose-bar's own Send
+          // button calls; it already reads pendingContacts (updated
+          // above by onToggle) plus whatever's in `draft`/`attachments`
+          // at the time it fires, same as a normal send always has.
+          onSend={() => {
+            setContactsPickerOpen(false);
+            void send();
+          }}
+          sending={sending}
         />
       )}
       {viewerIndex !== null && chatViewerImages[viewerIndex] && (
