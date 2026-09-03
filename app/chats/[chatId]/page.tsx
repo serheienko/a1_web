@@ -503,6 +503,51 @@ export default function ChatWindowPage() {
     return () => ro.disconnect();
   }, [state]);
 
+  // 2026-09-03 (Aleksandr, screen recording: "имя, аватар и стрелка
+  // назад не уезжали вверх" when the keyboard opens) -- the header
+  // above is already `position: fixed` specifically to survive this
+  // (see its own 2026-09-02 comment/fix), but that turned out to only
+  // be half the story on iOS Safari: focusing the compose textarea
+  // still makes iOS force a real `window.scrollY` change to shuffle
+  // the focused field clear of the keyboard, and iOS's `fixed`
+  // positioning has a long-standing bug where it visually drags along
+  // with that scroll instead of staying pinned to the viewport (this
+  // page's own body has no scrollable overflow of its own -- see the
+  // outer container's own `calc(100dvh - ...)` comment -- so this
+  // isn't content genuinely needing to scroll, it's iOS's own
+  // keyboard-avoidance heuristic scrolling the document regardless).
+  // The compose bar right below never showed this because it's pinned
+  // to the BOTTOM of the visual viewport, which the keyboard opening
+  // naturally keeps correct; only a `top: 0` fixed element gets left
+  // behind. Counteracting it needs an actual scroll listener -- there
+  // is no CSS-only fix for this -- translating the header down by
+  // whatever `window.scrollY` iOS just forced re-pins it to the real
+  // top of the visible screen every time that offset changes.
+  // visualViewport's own resize/scroll fire a beat earlier than the
+  // window's on some iOS versions, so both are watched to close that
+  // gap. Mobile-only: the header is `sm:sticky` (in normal flow) at
+  // the desktop breakpoint, where this bug and this fix are both
+  // irrelevant.
+  useEffect(() => {
+    if (!isMobileNav) return;
+    const el = headerRef.current;
+    if (!el) return;
+    function reposition() {
+      if (!el) return;
+      el.style.transform = window.scrollY ? `translateY(${window.scrollY}px)` : "";
+    }
+    window.addEventListener("scroll", reposition, { passive: true });
+    window.visualViewport?.addEventListener("resize", reposition);
+    window.visualViewport?.addEventListener("scroll", reposition);
+    reposition();
+    return () => {
+      window.removeEventListener("scroll", reposition);
+      window.visualViewport?.removeEventListener("resize", reposition);
+      window.visualViewport?.removeEventListener("scroll", reposition);
+      el.style.transform = "";
+    };
+  }, [isMobileNav]);
+
   // TEXTAREA_LINE_PX matches the textarea's own leading-5 (20px) class
   // below. Resets to "auto" first so a deleted line can shrink the box
   // back down, not just grow it -- scrollHeight only ever reports the
