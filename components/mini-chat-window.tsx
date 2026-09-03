@@ -11,11 +11,15 @@
 // header: doesn't import anything from app/chats/[chatId]/page.tsx and
 // never touches that file. It reuses the exact same already-shipped API
 // routes that page already polls (app/api/chats/messages, .../send,
-// .../read-state, .../mark-read) and the same lib/a1/chat-schemas.ts
-// pure helpers (extractMessages, extractMessageText, messageDateMs,
-// messageTickState) -- only the actual React/DOM side (state, polling
-// effect, JSX) is a fresh, smaller build, on purpose, so a bug here can
-// never be a bug THERE and vice versa.
+// .../read-state, .../mark-read, .../contacts, .../upload) and the same
+// lib/a1/chat-schemas.ts pure helpers -- only the actual React/DOM side
+// (state, polling effect, JSX) is a fresh, smaller build, on purpose,
+// so a bug here can never be a bug THERE and vice versa. Shared,
+// presentational-only components (icons, ChatCalculationCard,
+// ContactMessageCard, ContactsPickerModal, CurrencyPickerModal,
+// DailyUploadsModal, PdfPageThumbnail, ChatFileTypeIcon) are imported
+// normally -- "self-contained" means never reaching into page.tsx
+// itself, not re-inventing every shared building block.
 //
 // `target.routeParam` is either a real Chat _id or lib/a1/chat-
 // schemas.ts's `u_<userId>` "no chat yet" sentinel -- both work
@@ -23,6 +27,19 @@
 // resolves-or-creates the personal chat itself the moment a message
 // actually sends, see chat-schemas.ts's own header), so this component
 // never needs to know or care which one it has.
+//
+// 2026-09-03 (Aleksandr, live test: "Посели на эту скрепку модалку из
+// основных чатов, там где уже много функционала") -- the paperclip used
+// to open a native file picker directly, one image at a time. It now
+// opens the same Photo/File/Meetings/Calculation/Contact popover app/
+// chats/[chatId]/page.tsx's own compose bar has, reusing that page's
+// exact confirmed backend shapes (upload.create/confirm, `contacts`,
+// `calculation` on messages.send) -- calc-row/currency-picker/contacts-
+// picker/daily-uploads UI all come from the same shared components that
+// page already uses, just wired up locally here since this file never
+// imports from that page itself. "Meetings" stays the same placeholder
+// row that page's own popover still has -- no feature behind it there
+// either yet.
 "use client";
 
 import Image from "next/image";
@@ -32,14 +49,44 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 import { authFetch } from "@/lib/auth-fetch";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { profileHref } from "@/lib/profile-href";
+import { formatBytes } from "@/lib/format";
+import { useHoverPanel } from "@/lib/use-hover-panel";
+import { buildMediaProxyUrl } from "@/lib/a1/media-proxy";
 import {
   extractMessages,
   extractMessageText,
   messageDateMs,
   messageTickState,
+  messageDocumentMedia,
+  messageContactMedia,
+  messageCalculation,
+  isImageMediaDocument,
+  mediaDocumentFileName,
+  mediaDocumentBytes,
   type ChatMessage,
+  type MessageMediaDocument,
 } from "@/lib/a1/chat-schemas";
-import { MessageTicks, ChatCatFieldIcon, ChatPaperclipGlyph, ChatBackArrow } from "@/components/chat/icons";
+import { T, LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
+import {
+  MessageTicks,
+  ChatCatFieldIcon,
+  ChatPaperclipGlyph,
+  ChatBackArrow,
+  ChatStorageIcon,
+  ChatPhotoAttachIcon,
+  ChatFileAttachIcon,
+  ChatMeetingAttachIcon,
+  ChatCalculatorAttachIcon,
+  ChatContactAttachIcon,
+  ChatAttachmentSpinner,
+} from "@/components/chat/icons";
+import { ChatFileTypeIcon, fileKindFromName } from "@/components/chat/file-type-icon";
+import { PdfPageThumbnail } from "@/components/chat/pdf-thumbnail";
+import { ChatCalculationCard } from "@/components/chat/calculation-card";
+import { ContactMessageCard } from "@/components/chat/contact-message-card";
+import { ContactsPickerModal, type PickedContact } from "@/components/chat/contacts-picker-modal";
+import { CurrencyPickerModal } from "@/components/chat/currency-picker-modal";
+import { DailyUploadsModal } from "@/components/daily-uploads-modal";
 import type { ChatFlyoutOpenTarget } from "@/components/chats-flyout";
 
 const POLL_MS = 3000;
@@ -48,12 +95,62 @@ const POLL_MS = 3000;
 // so this only asks every 2nd poll tick instead of every single one.
 const READ_STATE_EVERY = 2;
 
+// Same duplicated-on-purpose trick app/chats/[chatId]/page.tsx's own
+// useActiveLocale uses (that function is private to that file, and this
+// one never imports from it -- see this file's own header) -- reads
+// which lang-XX class is active on <html> so the shared components
+// below (DailyUploadsModal, ContactsPickerModal, ChatCalculationCard,
+// CurrencyPickerModal, T) get a real Locale instead of a hardcoded one.
+function useActiveLocale(): Locale {
+  const [lang, setLang] = useState<Locale>("uk");
+  useEffect(() => {
+    const root = document.documentElement;
+    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
+    if (active) setLang(active);
+  }, []);
+  return lang;
+}
+
+const MAX_ATTACHMENT_FILE_BYTES = 20 * 1024 * 1024;
+
+// 2026-09-03 -- small local port of app/chats/[chatId]/page.tsx's own
+// calculator draft-row plumbing (CalcRow/calcBlankRow/calcParseDecimal/
+// calcParseQuantity/calcRowSubtotal/calcFormatAmount/CALC_MAX_ROWS),
+// none of it exported from that file (see this file's own header on
+// why it never imports from there) -- copied verbatim rather than
+// reinvented so the two calculators behave identically.
+type CalcRow = { id: string; description: string; unitAmount: string; quantity: string };
+const CALC_MAX_ROWS = 50;
+
+function calcBlankRow(): CalcRow {
+  return { id: `calc-${Date.now()}-${Math.random().toString(36).slice(2)}`, description: "", unitAmount: "", quantity: "" };
+}
+
+function calcParseDecimal(raw: string): number {
+  const cleaned = raw.replace(",", ".").replace(/[^0-9.]/g, "");
+  const n = parseFloat(cleaned);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function calcParseQuantity(raw: string): number {
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? n : 1;
+}
+
+function calcRowSubtotal(row: CalcRow): number {
+  if (!row.unitAmount.trim()) return 0;
+  return calcParseDecimal(row.unitAmount) * calcParseQuantity(row.quantity);
+}
+
+function calcFormatAmount(n: number): string {
+  return n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+
 // 2026-09-02 (Aleksandr, reference screenshot of the native chat's own
 // bubbles: "Надо показвать время сообщений, как у нас в чате на
 // мобиле") -- same plain toLocaleTimeString formatting components/
 // chats-flyout.tsx's own formatTime() already uses, duplicated here
-// rather than imported (this file's own header explains why it never
-// shares code with that file).
+// rather than imported (this file's own header explains why).
 function formatTime(ms: number): string {
   if (!ms) return "";
   try {
@@ -71,12 +168,19 @@ function formatTime(ms: number): string {
 // slow/failed upload had nothing visible to retry and the button's own
 // spinner was the only feedback). Now a proper staged attachment,
 // mirroring app/chats/[chatId]/page.tsx's own PendingAttachment
-// pattern trimmed to a single image: pick -> thumbnail appears
-// immediately with a spinner OVER the thumbnail (not the paperclip) ->
-// upload finishes -> Send button includes it. The paperclip itself goes
-// back to just opening the file picker.
+// pattern trimmed to a single item: pick -> thumbnail/chip appears
+// immediately with a spinner overlay -> upload finishes -> Send button
+// includes it. The paperclip itself goes back to just opening the menu.
+// 2026-09-03 (Aleksandr, attach-menu port): generalized from images
+// only to `kind: "image" | "file"`, same as that page's own
+// PendingAttachment -- fileName/mimetype/bytes now always carried so a
+// document chip can show a real name/size/icon, not just a thumbnail.
 type MiniAttachment = {
-  previewUrl: string;
+  kind: "image" | "file";
+  fileName: string;
+  mimetype: string;
+  bytes: number;
+  previewUrl?: string;
   status: "uploading" | "ready" | "error";
   fileReference?: string;
 };
@@ -112,6 +216,7 @@ export function MiniChatWindow({
   onNavigate: () => void;
   panelRef: RefObject<HTMLDivElement | null>;
 }) {
+  const lang = useActiveLocale();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [peerReadMaxId, setPeerReadMaxId] = useState<number | null>(null);
@@ -123,8 +228,61 @@ export function MiniChatWindow({
   const lastMarkedReadId = useRef(0);
   const listRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [attachment, setAttachment] = useState<MiniAttachment | null>(null);
+
+  // 2026-09-03 (Aleksandr, attach-menu port) -- attach popover open
+  // state + its own outside-hover close, same useHoverPanel hook that
+  // page's own attach menu uses (lib/use-hover-panel.ts, already a
+  // shared lib, not a page.tsx internal).
+  const [attachMenuOpen, setAttachMenuOpen] = useState(false);
+  const attachMenuRef = useRef<HTMLDivElement>(null);
+  const attachPanelRef = useRef<HTMLDivElement>(null);
+  const { handleMouseEnter: handleAttachMouseEnter, handleMouseLeave: handleAttachMouseLeave } = useHoverPanel(
+    attachMenuOpen,
+    setAttachMenuOpen,
+    [{ trigger: attachMenuRef, panel: attachPanelRef }],
+  );
+  const [dailyUploadsOpen, setDailyUploadsOpen] = useState(false);
+  const [contactsPickerOpen, setContactsPickerOpen] = useState(false);
+  const [pickedContactIds, setPickedContactIds] = useState<Set<string>>(new Set());
+  const [pickedContacts, setPickedContacts] = useState<PickedContact[]>([]);
+  const [contactsSending, setContactsSending] = useState(false);
+
+  // Calculator panel state -- same shape as app/chats/[chatId]/page.tsx's
+  // own (calcOpen/calcRows/calcNote/calcCurrency/...), duplicated per
+  // this file's own header.
+  const [calcOpen, setCalcOpen] = useState(false);
+  const [calcRows, setCalcRows] = useState<CalcRow[]>([calcBlankRow()]);
+  const [calcNote, setCalcNote] = useState("");
+  const [calcCurrency, setCalcCurrency] = useState("usd");
+  const [calcCurrencyPickerOpen, setCalcCurrencyPickerOpen] = useState(false);
+  const [calcSending, setCalcSending] = useState(false);
+  const [calcError, setCalcError] = useState(false);
+  const calcCurrencyPickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!attachMenuOpen) return;
+    function onDocPointerDown(e: MouseEvent) {
+      if (attachMenuRef.current && !attachMenuRef.current.contains(e.target as Node)) {
+        setAttachMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocPointerDown);
+    return () => document.removeEventListener("mousedown", onDocPointerDown);
+  }, [attachMenuOpen]);
+
+  useEffect(() => {
+    if (!calcCurrencyPickerOpen) return;
+    function onDocPointerDown(e: MouseEvent) {
+      if (calcCurrencyPickerRef.current && !calcCurrencyPickerRef.current.contains(e.target as Node)) {
+        setCalcCurrencyPickerOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocPointerDown);
+    return () => document.removeEventListener("mousedown", onDocPointerDown);
+  }, [calcCurrencyPickerOpen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -196,14 +354,15 @@ export function MiniChatWindow({
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
   }, [messages.length]);
 
-  async function handleSend() {
+  async function handleSend(extra?: { contacts?: PickedContact[] }) {
     const text = draft.trim();
     const readyAttachment = attachment && attachment.status === "ready" ? attachment : null;
-    if ((!text && !readyAttachment) || sending) return;
+    const contactsToSend = extra?.contacts ?? [];
+    if ((!text && !readyAttachment && contactsToSend.length === 0) || sending) return;
     setSending(true);
     setDraft("");
     if (readyAttachment) {
-      URL.revokeObjectURL(readyAttachment.previewUrl);
+      if (attachment?.previewUrl) URL.revokeObjectURL(attachment.previewUrl);
       setAttachment(null);
     }
     try {
@@ -214,6 +373,15 @@ export function MiniChatWindow({
           chatId: target.routeParam,
           text: text || undefined,
           media: readyAttachment?.fileReference ? [{ fileReference: readyAttachment.fileReference }] : undefined,
+          contacts:
+            contactsToSend.length > 0
+              ? contactsToSend.map((c) => ({
+                  userId: c.userId,
+                  phoneNumber: c.phoneNumber,
+                  firstName: c.firstName,
+                  lastName: c.lastName,
+                }))
+              : undefined,
         }),
       });
       const data = await res.json().catch(() => null);
@@ -230,28 +398,130 @@ export function MiniChatWindow({
     }
   }
 
+  // 2026-09-03 (Aleksandr, attach-menu port) -- Contacts row opens
+  // components/chat/contacts-picker-modal.tsx (a shared component, not
+  // a page.tsx internal); its own bottom "Send" button fires this
+  // directly rather than staging picks into the compose row the way
+  // the big chat page does -- this window has no room for a pills
+  // strip, and the picker's own onSend prop is exactly built for
+  // firing send() straight from inside it (see that file's own header).
+  async function sendPickedContacts() {
+    if (pickedContacts.length === 0 || contactsSending) return;
+    setContactsSending(true);
+    try {
+      await handleSend({ contacts: pickedContacts });
+      setContactsPickerOpen(false);
+      setPickedContacts([]);
+      setPickedContactIds(new Set());
+    } finally {
+      setContactsSending(false);
+    }
+  }
+  function toggleContact(contact: PickedContact) {
+    setPickedContactIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(contact.userId)) next.delete(contact.userId);
+      else next.add(contact.userId);
+      return next;
+    });
+    setPickedContacts((prev) =>
+      prev.some((c) => c.userId === contact.userId) ? prev.filter((c) => c.userId !== contact.userId) : [...prev, contact],
+    );
+  }
+
+  // Calculator panel -- draft-row mutations, all pure state updates
+  // (same as app/chats/[chatId]/page.tsx's own calcAddRow/calcUpdateRow/
+  // calcRemoveLastRow/calcClose).
+  function calcAddRow() {
+    setCalcRows((prev) => (prev.length >= CALC_MAX_ROWS ? prev : [...prev, calcBlankRow()]));
+  }
+  function calcUpdateRow(id: string, patch: Partial<Omit<CalcRow, "id">>) {
+    setCalcRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  }
+  function calcRemoveLastRow() {
+    setCalcRows((prev) => (prev.length <= 1 ? prev : prev.slice(0, -1)));
+  }
+  function calcClose() {
+    setCalcOpen(false);
+    setCalcRows([calcBlankRow()]);
+    setCalcNote("");
+    setCalcCurrency("usd");
+    setCalcError(false);
+  }
+  const calcTotal = calcRows.reduce((sum, r) => sum + calcRowSubtotal(r), 0);
+  const calcHasContent = calcRows.some((r) => r.description.trim() || r.unitAmount.trim()) || calcNote.trim().length > 0;
+
+  async function sendCalculation() {
+    if (calcSending || !calcHasContent) return;
+    setCalcSending(true);
+    setCalcError(false);
+    const rows = calcRows
+      .filter((r) => r.description.trim() || r.unitAmount.trim())
+      .map((r) => ({
+        description: r.description.trim() || null,
+        unitAmount: Math.round(calcParseDecimal(r.unitAmount) * 100),
+        quantity: calcParseQuantity(r.quantity),
+      }));
+    try {
+      const res = await authFetch("/api/chats/send", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          chatId: target.routeParam,
+          calculation: { note: calcNote.trim(), currency: calcCurrency, rows },
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok) {
+        setCalcError(true);
+        return;
+      }
+      if (data.message) setMessages((prev) => [...prev, data.message as ChatMessage]);
+      calcClose();
+    } catch {
+      setCalcError(true);
+    } finally {
+      setCalcSending(false);
+    }
+  }
+
   // 2026-09-02 (Aleksandr, "Sofia Benett" screenshot: "надо добавить
   // скрепку слева, а кота поставить справа как в обычных чатах") -- a
   // real paperclip, not just repositioned chrome: mirrors app/chats/
   // [chatId]/page.tsx's own three-step image-attach flow (create -> PUT
-  // to the signed URL -> confirm -> fileReference), trimmed down to a
-  // single image sent immediately (no staged preview strip -- this
-  // window has no room for one). Deliberately skips that page's own
-  // compressAttachmentImage() -- a local, non-exported helper there,
-  // and this file's own header explains why it never imports from that
-  // page -- an uncompressed upload is the one accepted trade-off for
-  // staying self-contained.
-  async function handleAttach(file: File) {
-    if (attachment) URL.revokeObjectURL(attachment.previewUrl);
-    const previewUrl = URL.createObjectURL(file);
-    setAttachment({ previewUrl, status: "uploading" });
+  // to the signed URL -> confirm -> fileReference). Deliberately skips
+  // that page's own compressAttachmentImage() -- a local, non-exported
+  // helper there, and this file's own header explains why it never
+  // imports from that page -- an uncompressed upload is the one
+  // accepted trade-off for staying self-contained.
+  // 2026-09-03 (Aleksandr, attach-menu port): generalized from images
+  // only to `kind: "image" | "file"`, same real-filename `attributes`
+  // passthrough that page's own handleAttachFile sends, so a document
+  // sent from this window shows its actual name too, not "Документ".
+  async function handleAttach(file: File, kind: "image" | "file") {
+    if (attachment) {
+      if (attachment.previewUrl) URL.revokeObjectURL(attachment.previewUrl);
+    }
+    const bytes = file.size;
+    const previewUrl =
+      kind === "image" || fileKindFromName(file.name, file.type) === "pdf" ? URL.createObjectURL(file) : undefined;
+    if (bytes > MAX_ATTACHMENT_FILE_BYTES) {
+      setAttachment({ kind, fileName: file.name, mimetype: file.type || "application/octet-stream", bytes, previewUrl, status: "error" });
+      return;
+    }
+    setAttachment({ kind, fileName: file.name, mimetype: file.type || "application/octet-stream", bytes, previewUrl, status: "uploading" });
     try {
       const createRes = await authFetch("/api/upload/create", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ mimetype: file.type || "application/octet-stream", bytes: file.size }),
+        body: JSON.stringify({ mimetype: file.type || "application/octet-stream", bytes: file.size, fileName: file.name }),
       });
       const createData = await createRes.json().catch(() => null);
+      if (createData?.message === "quota_exceeded") {
+        setAttachment((prev) => (prev && prev.fileName === file.name ? { ...prev, status: "error" } : prev));
+        setDailyUploadsOpen(true);
+        return;
+      }
       if (!createRes.ok || !createData?.ok || !createData.result?.url) throw new Error("create_failed");
       const { id, url, fields } = createData.result as { id: string; url: string; fields: Record<string, string> };
       const formData = new FormData();
@@ -268,16 +538,16 @@ export function MiniChatWindow({
       const fileReference = confirmData?.media?.fileReference as string | undefined;
       if (!confirmRes.ok || !confirmData?.ok || !fileReference) throw new Error("confirm_failed");
       // Guard against a stale response landing after the user already
-      // removed/replaced this attachment (compare by previewUrl, the
-      // one thing that's stable for this specific pick).
-      setAttachment((prev) => (prev && prev.previewUrl === previewUrl ? { ...prev, status: "ready", fileReference } : prev));
+      // removed/replaced this attachment (compare by fileName+bytes,
+      // stable for this specific pick).
+      setAttachment((prev) => (prev && prev.fileName === file.name && prev.bytes === bytes ? { ...prev, status: "ready", fileReference } : prev));
     } catch {
-      setAttachment((prev) => (prev && prev.previewUrl === previewUrl ? { ...prev, status: "error" } : prev));
+      setAttachment((prev) => (prev && prev.fileName === file.name && prev.bytes === bytes ? { ...prev, status: "error" } : prev));
     }
   }
 
   function removeAttachment() {
-    if (attachment) URL.revokeObjectURL(attachment.previewUrl);
+    if (attachment?.previewUrl) URL.revokeObjectURL(attachment.previewUrl);
     setAttachment(null);
   }
 
@@ -340,13 +610,31 @@ export function MiniChatWindow({
         {messages.map((msg) => {
           const mine = myUserId !== null && msg.fromId === myUserId;
           const text = extractMessageText(msg);
-          if (!text) return null;
-          // 2026-09-02 (Aleksandr, reference screenshot of the native
-          // chat's own bubbles: "Надо показвать время сообщений, как у
-          // нас в чате на мобиле") -- bubbles here used to carry no
-          // timestamp at all (only mine ones got a ticks row). Now every
-          // bubble with a real date shows one, ticks stay mine-only.
+          const docMedia = messageDocumentMedia(msg);
+          const contactMedia = messageContactMedia(msg);
+          const calc = messageCalculation(msg);
+          // 2026-09-03 (Aleksandr, attach-menu port) -- this used to
+          // bail out of a message entirely once it had no text
+          // (`if (!text) return null`), which silently dropped every
+          // photo/file/contact/calculation this window itself could
+          // already send (Send never blocked on attachment-only sends,
+          // there was just nothing here to render one). Now renders
+          // whichever of the four kinds a message actually carries,
+          // same as the big chat page, just without that page's own
+          // flat/no-chrome treatment -- this corner widget keeps one
+          // simple bubble shape for everything, image included.
+          if (!text && docMedia.length === 0 && contactMedia.length === 0 && !calc) return null;
           const dateMs = messageDateMs(msg);
+          const footer = (dateMs > 0 || mine) && (
+            <div
+              className={`mt-0.5 flex items-center justify-end gap-1 text-[12px] ${
+                mine ? "text-white/80" : "text-[#989aa6] dark:text-[#8d8d93]"
+              }`}
+            >
+              {dateMs > 0 && <span>{formatTime(dateMs)}</span>}
+              {mine && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7px] w-3" />}
+            </div>
+          );
           return (
             <div key={msg._id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
               <div
@@ -356,17 +644,72 @@ export function MiniChatWindow({
                     : "rounded-bl-sm bg-[#f2f2f7] text-[#262a34] dark:bg-neutral-800 dark:text-white"
                 }`}
               >
-                <div className="whitespace-pre-wrap break-words">{text}</div>
-                {(dateMs > 0 || mine) && (
-                  <div
-                    className={`mt-0.5 flex items-center justify-end gap-1 text-[12px] ${
-                      mine ? "text-white/80" : "text-[#989aa6] dark:text-[#8d8d93]"
-                    }`}
-                  >
-                    {dateMs > 0 && <span>{formatTime(dateMs)}</span>}
-                    {mine && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7px] w-3" />}
+                {docMedia.length > 0 && (
+                  <div className={`flex flex-col gap-1.5 ${text ? "mb-1" : ""}`}>
+                    {docMedia.map((doc: MessageMediaDocument) =>
+                      isImageMediaDocument(doc) ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- proxied
+                        // through /api/media, not a next/image-configured remote host.
+                        <img
+                          key={doc._id}
+                          src={buildMediaProxyUrl(doc)}
+                          alt=""
+                          className="max-h-48 w-full rounded-xl object-cover"
+                        />
+                      ) : (
+                        <a
+                          key={doc._id}
+                          href={buildMediaProxyUrl(doc)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`flex items-center gap-2 rounded-xl px-2 py-1.5 transition hover:opacity-80 ${
+                            mine ? "bg-white/15" : "bg-black/5 dark:bg-white/10"
+                          }`}
+                        >
+                          {fileKindFromName(mediaDocumentFileName(doc), doc.mimetype) === "pdf" ? (
+                            <PdfPageThumbnail
+                              src={buildMediaProxyUrl(doc)}
+                              className="h-9 w-9 shrink-0 rounded-[10px] object-cover object-top"
+                              fallback={<ChatFileTypeIcon kind="pdf" className="h-9 w-9" />}
+                            />
+                          ) : (
+                            <ChatFileTypeIcon kind={fileKindFromName(mediaDocumentFileName(doc), doc.mimetype)} className="h-9 w-9" />
+                          )}
+                          <span className="flex min-w-0 flex-1 flex-col">
+                            <span className="truncate text-[13px] font-medium">
+                              {mediaDocumentFileName(doc) || (
+                                <T uk="Документ" en="Document" ru="Документ" de="Dokument" es="Documento" fr="Document" pl="Dokument" ptBR="Documento" zh="文档" />
+                              )}
+                            </span>
+                            {mediaDocumentBytes(doc) !== null && (
+                              <span className={`text-[11px] ${mine ? "opacity-80" : "opacity-60"}`}>{formatBytes(mediaDocumentBytes(doc) as number)}</span>
+                            )}
+                          </span>
+                        </a>
+                      ),
+                    )}
                   </div>
                 )}
+                {contactMedia.length > 0 && (
+                  <div className={`flex flex-col gap-1.5 ${text ? "mb-1" : ""}`}>
+                    {contactMedia.map((c) => (
+                      <ContactMessageCard
+                        key={c.userId}
+                        userId={c.userId}
+                        firstName={c.firstName}
+                        lastName={c.lastName}
+                        phoneNumber={c.phoneNumber}
+                        summary={null}
+                        mine={mine}
+                        canAddContact={false}
+                        onMessage={onNavigate}
+                      />
+                    ))}
+                  </div>
+                )}
+                {calc && <ChatCalculationCard calc={calc} mine={mine} />}
+                {text && <div className="whitespace-pre-wrap break-words">{text}</div>}
+                {footer}
               </div>
             </div>
           );
@@ -374,6 +717,166 @@ export function MiniChatWindow({
       </div>
 
       <div className="flex shrink-0 flex-col gap-2 border-t border-neutral-100 px-2.5 py-2 dark:border-neutral-800">
+        {calcOpen ? (
+          // 2026-09-03 (Aleksandr, attach-menu port) -- same calculator
+          // panel app/chats/[chatId]/page.tsx's own compose bar swaps in
+          // for the normal draft row, shrunk to fit this window's own
+          // 320px width (its own version sits inside a 470px-wide row).
+          <div className="w-full">
+            <div className="overflow-hidden rounded-xl bg-[#e4e9ff] dark:bg-[#151a30]">
+              <table className="w-full border-collapse text-[12px]">
+                <thead>
+                  <tr className="text-[#4f71eb] dark:text-[#8fb1ff]">
+                    <th className="py-1.5 pl-2 text-left font-semibold">
+                      <T uk="Опис" en="Description" ru="Описание" de="Beschr." es="Descr." fr="Descr." pl="Opis" ptBR="Descr." zh="描述" />
+                    </th>
+                    <th className="py-1.5 px-1 text-right font-semibold">
+                      <T uk="Варт." en="Cost" ru="Стоим." de="Preis" es="Coste" fr="Coût" pl="Koszt" ptBR="Custo" zh="单价" />
+                    </th>
+                    <th className="py-1.5 px-1 text-right font-semibold">
+                      <T uk="К-сть" en="Qty" ru="Кол-во" de="Anz." es="Cant." fr="Qté" pl="Ilość" ptBR="Qtd." zh="数量" />
+                    </th>
+                    <th className="py-1.5 pr-2 text-right font-semibold">
+                      <T uk="Разом" en="Total" ru="Итого" de="Summe" es="Total" fr="Total" pl="Razem" ptBR="Total" zh="小计" />
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {calcRows.map((row, i) => {
+                    const subtotal = calcRowSubtotal(row);
+                    return (
+                      <tr key={row.id} className="border-t border-[#c7d3f7] dark:border-[#28345c]">
+                        <td className="py-1 pl-2 align-top">
+                          <div className="flex items-start gap-1">
+                            <span className="pt-1 text-[10px] text-[#4f71eb]/70 dark:text-[#8fb1ff]/70">{i + 1}.</span>
+                            <input
+                              value={row.description}
+                              onChange={(e) => calcUpdateRow(row.id, { description: e.target.value.slice(0, 300) })}
+                              className="w-full min-w-0 bg-transparent py-0.5 text-[#262a34] outline-none dark:text-white"
+                            />
+                          </div>
+                        </td>
+                        <td className="py-1 px-1 align-top text-right">
+                          <input
+                            inputMode="decimal"
+                            value={row.unitAmount}
+                            onChange={(e) => calcUpdateRow(row.id, { unitAmount: e.target.value.replace(/[^0-9.,]/g, "") })}
+                            placeholder="+"
+                            className="w-14 bg-transparent py-0.5 text-right text-[#262a34] outline-none placeholder:font-semibold placeholder:text-[#335ef7] dark:text-white dark:placeholder:text-[#0c8ce9]"
+                          />
+                        </td>
+                        <td className="py-1 px-1 align-top text-right">
+                          <input
+                            inputMode="numeric"
+                            value={row.quantity}
+                            onChange={(e) => calcUpdateRow(row.id, { quantity: e.target.value.replace(/[^0-9]/g, "").slice(0, 4) })}
+                            placeholder="+"
+                            className="w-8 bg-transparent py-0.5 text-right text-[#262a34] outline-none placeholder:font-semibold placeholder:text-[#335ef7] dark:text-white dark:placeholder:text-[#0c8ce9]"
+                          />
+                        </td>
+                        <td className="py-1 pr-2 align-top text-right tabular-nums text-[#262a34] dark:text-white">
+                          {subtotal > 0 ? calcFormatAmount(subtotal) : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  <tr>
+                    <td colSpan={4} className="px-2 py-1.5">
+                      <button
+                        type="button"
+                        onClick={calcAddRow}
+                        disabled={calcRows.length >= CALC_MAX_ROWS}
+                        className="flex items-center gap-1 text-[12px] font-semibold text-[#335ef7] disabled:opacity-40 dark:text-[#0c8ce9]"
+                      >
+                        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#335ef7]/15 text-[12px] leading-none dark:bg-[#0c8ce9]/20">+</span>
+                        <T uk="Рядок" en="Row" ru="Строка" de="Zeile" es="Fila" fr="Ligne" pl="Wiersz" ptBR="Linha" zh="行" />
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <div className="flex items-center justify-between border-t border-[#c7d3f7] px-2 py-1.5 text-[13px] font-semibold text-[#262a34] dark:border-[#28345c] dark:text-white">
+                <T uk="Разом" en="Total" ru="Итого" de="Summe" es="Total" fr="Total" pl="Razem" ptBR="Total" zh="小计" />
+                <span className="tabular-nums">
+                  {calcFormatAmount(calcTotal)} {calcCurrency.toUpperCase()}
+                </span>
+              </div>
+            </div>
+            <div className="mt-1.5 flex items-center gap-1.5">
+              <input
+                value={calcNote}
+                onChange={(e) => setCalcNote(e.target.value.slice(0, 200))}
+                placeholder="Note"
+                className="min-w-0 flex-1 rounded-full bg-[#f2f2f7] px-3 py-2 text-[13px] text-[#262a34] outline-none placeholder:text-neutral-400 dark:bg-[#1c1c1e] dark:text-white dark:placeholder:text-neutral-500"
+              />
+              <div ref={calcCurrencyPickerRef} className="relative shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setCalcCurrencyPickerOpen((v) => !v)}
+                  aria-label="Currency"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[#335ef7] bg-white text-[13px] font-bold text-[#335ef7] transition hover:bg-[#335ef7]/10 dark:border-[#0c8ce9] dark:bg-transparent dark:text-[#0c8ce9]"
+                >
+                  $
+                </button>
+                {calcCurrencyPickerOpen && (
+                  <CurrencyPickerModal lang={lang} selected={calcCurrency} onSelect={setCalcCurrency} onClose={() => setCalcCurrencyPickerOpen(false)} />
+                )}
+              </div>
+            </div>
+            {calcError && (
+              <p className="mt-1 px-1 text-[12px] text-red-500">
+                <T
+                  uk="Не вдалося надіслати. Спробуйте ще раз."
+                  en="Couldn't send. Try again."
+                  ru="Не удалось отправить. Попробуйте ещё раз."
+                  de="Senden fehlgeschlagen. Erneut versuchen."
+                  es="No se pudo enviar. Inténtalo de nuevo."
+                  fr="Échec de l'envoi. Réessayez."
+                  pl="Nie udało się wysłać. Spróbuj ponownie."
+                  ptBR="Falha ao enviar. Tente novamente."
+                  zh="发送失败，请重试。"
+                />
+              </p>
+            )}
+            <div className="mt-2 flex items-center justify-between px-0.5">
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={calcClose}
+                  aria-label="Close"
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-black/5 text-[#262a34] transition hover:bg-black/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
+                    <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={calcRemoveLastRow}
+                  disabled={calcRows.length <= 1}
+                  aria-label="Remove row"
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-black/5 text-[#262a34] transition hover:bg-black/10 disabled:opacity-40 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
+                    <path d="M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={sendCalculation}
+                disabled={calcSending || !calcHasContent}
+                aria-label="Send"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-[#335ef7] text-white transition hover:brightness-110 active:scale-95 disabled:opacity-40 disabled:hover:brightness-100 dark:bg-[#0c8ce9]"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M12 19V5M5 12l7-7 7 7" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
         {/* 2026-09-02 (Aleksandr, live screenshot: the paperclip button
             itself was showing a spinner -- "Тут не должно показывать
             загрузку) ее надо показывать на медиа, которое отправляется"
@@ -383,15 +886,27 @@ export function MiniChatWindow({
         {attachment && (
           <div className="flex justify-start">
             <div className="group relative">
-              {/* eslint-disable-next-line @next/next/no-img-element -- a
-                  local blob: URL preview, not a next/image remote src. */}
-              <img src={attachment.previewUrl} alt="" className="h-16 w-16 rounded-xl object-cover" />
+              {attachment.kind === "image" && attachment.previewUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- a
+                // local blob: URL preview, not a next/image remote src.
+                <img src={attachment.previewUrl} alt="" className="h-16 w-16 rounded-xl object-cover" />
+              ) : (
+                <div className="flex h-16 w-40 items-center gap-2 rounded-xl border border-neutral-200 bg-white/90 px-2.5 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
+                  {fileKindFromName(attachment.fileName, attachment.mimetype) === "pdf" && attachment.previewUrl ? (
+                    <PdfPageThumbnail
+                      src={attachment.previewUrl}
+                      className="h-8 w-8 shrink-0 rounded-[8px] object-cover object-top"
+                      fallback={<ChatFileTypeIcon kind="pdf" className="h-8 w-8" />}
+                    />
+                  ) : (
+                    <ChatFileTypeIcon kind={fileKindFromName(attachment.fileName, attachment.mimetype)} className="h-8 w-8" />
+                  )}
+                  <span className="truncate text-[12px] text-[#262a34] dark:text-white">{attachment.fileName}</span>
+                </div>
+              )}
               {attachment.status === "uploading" && (
                 <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/30">
-                  <svg className="h-5 w-5 animate-spin text-white" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeOpacity="0.25" />
-                    <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-                  </svg>
+                  <ChatAttachmentSpinner className="h-5 w-5 text-white" />
                 </div>
               )}
               {attachment.status === "error" && (
@@ -417,29 +932,116 @@ export function MiniChatWindow({
               поставить справа как в обычных чатах" + "надо тут тоже
               анимации при наведении на иконки") -- paperclip leads the
               row (matching app/chats/[chatId]/page.tsx's own compose
-              order) and now wiggles on hover via the SAME `group` +
+              order) and wiggles on hover via the same `group` +
               animate-paperclip-wiggle pair that page's own
-              ChatPaperclipButton already uses (app/globals.css). */}
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={sending}
-            aria-label="Attach"
-            className="group flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-neutral-400 transition hover:bg-black/5 hover:text-neutral-600 disabled:opacity-40 dark:text-[#8d8d93] dark:hover:bg-white/10 dark:hover:text-neutral-200"
-          >
-            <ChatPaperclipGlyph className="h-4 w-4 animate-paperclip-wiggle" />
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              e.target.value = "";
-              if (file) void handleAttach(file);
-            }}
-          />
+              ChatPaperclipButton already uses (app/globals.css).
+              2026-09-03 (attach-menu port) -- now opens the same
+              Photo/File/Meetings/Calculation/Contact popover that page
+              has instead of a native file picker directly. */}
+          <div ref={attachMenuRef} className="relative shrink-0" onMouseEnter={handleAttachMouseEnter} onMouseLeave={handleAttachMouseLeave}>
+            <button
+              type="button"
+              onClick={() => setAttachMenuOpen((v) => !v)}
+              disabled={sending}
+              aria-label="Attach"
+              className="group flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-neutral-400 transition hover:bg-black/5 hover:text-neutral-600 disabled:opacity-40 dark:text-[#8d8d93] dark:hover:bg-white/10 dark:hover:text-neutral-200"
+            >
+              <ChatPaperclipGlyph className="h-4 w-4 animate-paperclip-wiggle" />
+            </button>
+            {attachMenuOpen && (
+              <div
+                ref={attachPanelRef}
+                onMouseEnter={handleAttachMouseEnter}
+                onMouseLeave={handleAttachMouseLeave}
+                className="animate-popover-up absolute bottom-full left-0 z-10 mb-2 w-40 overflow-hidden rounded-2xl bg-white py-1.5 shadow-xl dark:bg-neutral-900"
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAttachMenuOpen(false);
+                    setDailyUploadsOpen(true);
+                  }}
+                  aria-label="Daily uploads"
+                  className="group absolute right-2 top-2 rounded-full p-1 text-neutral-400 transition hover:bg-black/5 hover:text-neutral-700 dark:text-neutral-500 dark:hover:bg-white/10 dark:hover:text-neutral-200"
+                >
+                  <ChatStorageIcon className="animate-storage-icon h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAttachMenuOpen(false);
+                    photoInputRef.current?.click();
+                  }}
+                  className="group flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+                >
+                  <ChatPhotoAttachIcon className="animate-photo-attach h-4 w-4 text-[#335ef7] dark:text-[#0c8ce9]" />
+                  <T uk="Фото" en="Photo" ru="Фото" de="Foto" es="Foto" fr="Photo" pl="Zdjęcie" ptBR="Foto" zh="照片" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAttachMenuOpen(false);
+                    fileInputRef.current?.click();
+                  }}
+                  className="group flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+                >
+                  <ChatFileAttachIcon className="animate-file-attach h-4 w-4 text-[#335ef7] dark:text-[#0c8ce9]" />
+                  <T uk="Файл" en="File" ru="Файл" de="Datei" es="Archivo" fr="Fichier" pl="Plik" ptBR="Arquivo" zh="文件" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAttachMenuOpen(false)}
+                  className="group flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+                >
+                  <ChatMeetingAttachIcon className="animate-meeting-attach h-4 w-4 text-[#335ef7] dark:text-[#0c8ce9]" />
+                  <T uk="Зустрічі" en="Meetings" ru="Встречи" de="Treffen" es="Reuniones" fr="Rendez-vous" pl="Spotkania" ptBR="Reuniões" zh="会议" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAttachMenuOpen(false);
+                    setCalcOpen(true);
+                  }}
+                  className="group flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+                >
+                  <ChatCalculatorAttachIcon className="animate-calc-attach h-4 w-4 text-[#335ef7] dark:text-[#0c8ce9]" />
+                  <T uk="Розрахунок" en="Calculation" ru="Калькуляция" de="Berechnung" es="Cálculo" fr="Calcul" pl="Kalkulacja" ptBR="Cálculo" zh="计算" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAttachMenuOpen(false);
+                    setContactsPickerOpen(true);
+                  }}
+                  className="group flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+                >
+                  <ChatContactAttachIcon className="animate-contact-attach h-4 w-4 text-[#335ef7] dark:text-[#0c8ce9]" />
+                  <T uk="Контакт" en="Contact" ru="Контакт" de="Kontakt" es="Contacto" fr="Contact" pl="Kontakt" ptBR="Contato" zh="联系人" />
+                </button>
+              </div>
+            )}
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (file) void handleAttach(file, "image");
+              }}
+            />
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (file) void handleAttach(file, "file");
+              }}
+            />
+          </div>
           <div className="flex min-h-[36px] flex-1 items-center gap-1.5 rounded-full bg-[#f2f2f7] px-3 py-1.5 dark:bg-[#1c1c1e]">
             <textarea
               ref={textareaRef}
@@ -449,10 +1051,17 @@ export function MiniChatWindow({
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
-                  handleSend();
+                  void handleSend();
                 }
               }}
-              placeholder=""
+              // 2026-09-03 (Aleksandr, live test: "В пустой инпут добавь
+              // слово message серым текстом, так же как в главных
+              // чатах") -- this was an empty string (no visible
+              // placeholder at all) even though the gray placeholder:*
+              // classes below were already there and unused; app/chats/
+              // [chatId]/page.tsx's own textarea already shows "Message"
+              // the same way.
+              placeholder="Message"
               // 2026-09-02 (Aleksandr, live screenshot: a Cyrillic "у"'s
               // descender getting clipped by the pill's own bottom edge)
               // -- leading-[18px] on 13.5px text left no room below the
@@ -460,7 +1069,7 @@ export function MiniChatWindow({
               // app/chats/[chatId]/page.tsx's own textarea already uses)
               // fixes it. min-h matched to the same 20px so the single-
               // line pill height doesn't visibly jump.
-              className="max-h-24 min-h-[20px] flex-1 resize-none bg-transparent text-[15.5px] leading-5 text-[#262a34] outline-none placeholder:text-[#989aa6] dark:text-white"
+              className="max-h-24 min-h-[20px] flex-1 resize-none bg-transparent text-[15.5px] leading-5 text-[#262a34] outline-none placeholder:text-[#989aa6] dark:text-white dark:placeholder:text-[#8d8d93]"
             />
             {/* group: own small wrapper (not the whole pill, which would
                 fire on every keystroke) -- same reasoning app/chats/
@@ -476,7 +1085,7 @@ export function MiniChatWindow({
           </div>
           <button
             type="button"
-            onClick={handleSend}
+            onClick={() => void handleSend()}
             disabled={sending || attachment?.status === "uploading" || (!draft.trim() && attachment?.status !== "ready")}
             aria-label="Send"
             className="group flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#335ef7] text-white transition hover:brightness-110 active:scale-95 disabled:opacity-40 disabled:hover:brightness-100 dark:bg-[#0c8ce9]"
@@ -486,7 +1095,25 @@ export function MiniChatWindow({
             </svg>
           </button>
         </div>
+          </>
+        )}
       </div>
+
+      {dailyUploadsOpen && <DailyUploadsModal lang={lang} onClose={() => setDailyUploadsOpen(false)} />}
+      {contactsPickerOpen && (
+        <ContactsPickerModal
+          lang={lang}
+          pickedUserIds={pickedContactIds}
+          onToggle={toggleContact}
+          onClose={() => {
+            setContactsPickerOpen(false);
+            setPickedContacts([]);
+            setPickedContactIds(new Set());
+          }}
+          onSend={() => void sendPickedContacts()}
+          sending={contactsSending}
+        />
+      )}
     </div>,
     document.body,
   );
