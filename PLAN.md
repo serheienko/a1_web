@@ -4775,3 +4775,218 @@ image inside a still-loading iframe/embed) and would need re-diagnosis
 from a live repro rather than more of the same pattern.
 
 tsc-clean.
+
+### 6.96 Voice messages: research pass BEFORE implementation -- read the reference Flutter app + backend contract, no code shipped yet (2026-09-03)
+
+Aleksandr asked for a NEW feature (voice messages: record, self-destructing
+playback, live recording UI) but explicitly asked to hold off on writing
+code this round: "пока просто пока это как бы прочти, посмотри и наперёд,
+чтобы у нас не было такой же истории, как с калькуляцией или как с
+сообщениями" -- i.e. front-load research so the eventual implementation
+pass (once he sends a batch of Figma screenshots, like he did for
+Attachments) doesn't repeat this session's earlier live-bug scramble.
+
+This entry is PREP ONLY -- nothing below is implemented in a1_web yet.
+
+**Source used**: the reference Flutter mobile app already ships this
+feature end-to-end (`~/Desktop/a1_app/aone_private-chat_dev_v2_merge`,
+`lib/features/chat/...`). Most of its chat files are iCloud "cloud-only"
+placeholders on this Mac (not yet downloaded) -- ~15 files (~1MB) had to be
+staged/materialized this session to actually read them; nothing in a1_web
+itself touched.
+
+**Self-destruct model (CONFIRMED off `Media` in
+`domain/entities/conversation_detail_entity.dart`)** -- matches
+Aleksandr's own description exactly ("два часа после открытия или через
+семь дней, если его не посмотрели"):
+- A voice `Media` carries `ttl` (an absolute unix-seconds deletion
+  timestamp), `ttlSeconds` (a duration window, default copy assumes 7200 =
+  2h), `viewed` (unix-seconds first-open timestamp, null until opened) and
+  a `flags` bitmask (`TIME_DESTROY = 1<<0`, `VIEW_DESTROY = 1<<1`).
+- Before first open: the ABSOLUTE `ttl` (sent-date + 7 days, server-side)
+  is the active deadline -- `resolveDeleteWindow()`'s "pre-view staging
+  window" branch. Until then the UI shows a full/pending bar, not a
+  counting-down one.
+- The moment the RECIPIENT opens the clip: a local optimistic countdown
+  starts immediately (`ChatDetailCubit.startVoiceSelfDestructCountdown`)
+  and the client tells the server (`markVoiceContentOpened` ->
+  presumably `messages.updateContentOpened`); the server echoes back an
+  authoritative `viewed` + updated `ttl` via `message.update`, which then
+  wins. **Only the recipient's own open starts the timer -- the SENDER's
+  own playback of their own sent clip never starts it** (explicit code
+  comment + logic branch: `if (widget.isSender) return;` before starting
+  the countdown).
+- `deleteCountdownFraction()` returns a smooth `[0,1]` remaining-life
+  fraction (sub-second precision) that drives a left-border gradient
+  "hourglass" drain animation on the bubble (`voice_message_bubble_ttl_
+  border.dart`) -- NOT the fire icon itself, a separate thin vertical
+  accent.
+- lib/a1/schemas.ts's `MediaDocumentSchema` already has a bare `ttl`
+  field (added earlier for a different purpose) -- a1_web's chat
+  media schema (`MessageMediaDocumentSchema` in lib/a1/chat-schemas.ts)
+  has NONE of `ttl` / `ttl_seconds` / `viewed` / `flags` yet. All four
+  need adding before self-destruct can be read at all.
+
+**Wire format for a voice note (CONFIRMED)** -- it is NOT a distinct media
+type. It is an ordinary `media-doc` / `media-document` (the same
+`MessageMediaDocumentSchema` a1_web already parses for file attachments),
+carrying:
+- `mimetype`: `audio/*` (webm/opus in practice, same as this app's own
+  existing MediaRecorder usage in components/profile-editor.tsx's voice
+  intro).
+- an `attributes[]` entry `{ object: "attribute-audio", duration: <sec,
+  float>, voice: <bool>, waveform: <base64 string> }` -- `waveform` is a
+  Telegram-style 5-bit-packed peak array (their own `WaveformDecoder`
+  util decodes it; NOT a plain float array -- would need porting or a
+  from-scratch equivalent since we control both ends of this app's own
+  upload, so a simpler encoding, e.g. plain JSON floats in a custom
+  attribute, may be simpler than replicating Telegram's bit-packing --
+  open question for the actual implementation pass, not decided here).
+- Self-destruct fields (`ttl`, `ttl_seconds`, `viewed`, `flags`) live
+  directly on the media-doc object itself (siblings of `fileReference`),
+  not nested in the audio attribute.
+- Optimistic (pre-server) bubbles use a synthesized local id prefixed
+  `voice_` (mirrors this app's OWN existing `pending-calc-...`/localId
+  convention -- same idea, different prefix per message kind).
+
+**Waveform / scrub UI (CONFIRMED off `voice_message_bubble_waveform.dart`,
+directly portable to web -- no Flutter-only trick here)**:
+- Canvas-painted vertical bars, `barWidth 2.5px` / `barGap 1px`, height
+  lerped between `minBarHeight 4px` and `maxBarHeight 26px` per bar
+  value. Inactive bars drawn first, then a clip-rect + redraw in the
+  active color paints "played" bars on top -- smooth pixel-by-pixel
+  progress, not one-bar-at-a-time snapping.
+  On web: an HTML canvas (or a run of absolutely-positioned divs) with
+  the same two-pass draw is a straightforward port.
+- Tap anywhere on the waveform seeks; press-drag scrubs continuously,
+  with axis-arbitration against the OS swipe-back gesture (irrelevant on
+  web -- no swipe-back to fight, so the web version can just always claim
+  horizontal drag, simpler than the Flutter original).
+- Bar COUNT (not overall widget width) adapts to fit whatever width is
+  available (12-80 bars, picks the largest count that fits without
+  scaling individual bars) -- resampled from a fixed ~34-sample base
+  waveform decoded from the server payload.
+- The BUBBLE's own max-width is what actually varies with clip length
+  (confirmed exactly what Aleksandr described -- "если три секунды,
+  будет коротенькая... если тридцать три, пошире"): a fraction of screen
+  width, `<=3s -> 0.42`, `<=12s -> 0.58`, `>12s -> 0.7`, with a `0.2`
+  screen-width floor. Web equivalent needs its own px-based breakpoints
+  (a fraction of viewport width doesn't translate directly to a fixed-
+  width desktop chat column) -- pick real numbers once we're building,
+  not guessed here.
+
+**Recording UI / gesture model (CONFIRMED off `chat_input_field_voice.
+dart`, Telegram-style, MOBILE-NATIVE baseline only)**:
+- Press-and-hold the mic button: haptic + button morph + recording
+  starts, all synchronous on pointer-down (never waits on mic permission/
+  recorder setup, so the button never feels laggy).
+- Drag UP past a threshold -> "locks" into hands-free recording (finger
+  can lift, recording keeps going; button becomes a tap-to-send arrow).
+- Drag LEFT past a threshold -> cancels (discards the clip).
+- Both thresholds use rubber-band resistance beyond their limit (elastic
+  follow, not a hard stop) via `_resolveFollowOffset`/`_rubberBand`.
+- Release without crossing either threshold -> stops AND sends.
+- Max recording length: 10:00 -- capture stops automatically, UI freezes
+  into the locked "send" look (timer pinned at 10:00, blob stops
+  reacting), user still has to tap send or cancel.
+- Minimum viable length: 600ms -- shorter is silently discarded (no
+  error surfaced), not sent.
+- Live sound-reactive "blob" animation behind the record button
+  (`voice_wave_blob.dart`) -- a self-contained port of the `wave_blob`
+  Telegram-style package, driven every frame by live mic amplitude
+  (0..1), NOT the package's own randomized stub. Pure Canvas/geometry
+  (cubic-bezier morphing blob shapes, gradient fill) -- portable to a web
+  `<canvas>` + Web Audio `AnalyserNode` amplitude reading, no Flutter-
+  specific dependency.
+- **Explicitly NOT solved here**: Aleksandr flagged that this exact
+  press-and-hold-with-drag model is mobile-native and "needs adapting"
+  for desktop web -- he's planning to check Telegram Web's own
+  implementation and send reference material. Nothing about the desktop/
+  web gesture (click-to-toggle vs. press-and-hold-with-mouse, hover
+  affordances, keyboard) is decided -- wait for that reference before
+  designing it.
+
+**Blue "unopened" dot + the two self-destruct popups (CONFIRMED)**:
+- The dot's underlying boolean is `!_isMediaOpened`, where
+  `_isMediaOpened = media.wasViewed || (a locally-cached optimistic open
+  start exists)` -- i.e. exactly "shows until first listen, both ends
+  agree eventually via the server echo."
+- Popup 1: tapping the small fire-icon badge next to the waveform
+  (Lottie flame animation, `assets/tgs/fire_*.tgs`) opens an overlay via
+  `NowPlayingVoiceController.showAutoDeleteOverlay(...)` -- carries
+  start/expiry/pending + sender/owner/caption context. (This session did
+  NOT open the overlay's own render code -- only the info payload it's
+  built from -- so its exact copy/layout is still unconfirmed, just that
+  it exists and is fire-icon-triggered.)
+- Popup 2: `voice_delete_countdown_banner.dart` -- a separate pill shown
+  ABOVE the bubble specifically while its long-press context menu is
+  open. Pre-open: bold "Auto-deletes" title + "deletes N min after
+  viewing, or in 7 days if not opened" copy. Post-open: live "Deletes in
+  MM:SS" countdown. Both share the same fire Lottie icon.
+  This is almost certainly Aleksandr's "два попапа" -- one on fire-icon
+  tap, one on long-press -- but the EXACT copy/visual is still best
+  confirmed against his own Figma screenshots when they arrive rather
+  than reverse-engineered further from Dart source.
+
+**Durability / optimistic-send pattern (CONFIRMED, and this is the one
+Aleksandr most explicitly wants carried over correctly)**:
+- Same base idea this app already uses for calc/attachments (push an
+  optimistic bubble immediately, reconcile against the server echo
+  later) -- see PLAN.md §6.91's `PendingMessage`/`sendCalculation`
+  writeup.
+- The mobile app goes one step further for voice SPECIFICALLY: every
+  queued send (text too, but especially voice) is persisted to a local
+  durable store (Hive, keyed per-user) THE INSTANT the user commits to
+  sending -- survives navigation, tab/app close, and offline gaps, then
+  auto-retries once connectivity returns. `VoiceOutboxEntry` stores the
+  optimistic id, chat/peer ids, local doc id, the recorded file's local
+  path, duration, byte size, computed waveform (so a rehydrated bubble
+  renders real bars instantly, not a placeholder), and any reply/caption
+  metadata.
+- a1_web's current `PendingMessages` are in-memory React state only --
+  gone on refresh. That's an acceptable gap for text (retyping is free)
+  but a much worse one for a voice note (re-recording is not free, and a
+  recording made right before a flaky connection/tab close would
+  currently just vanish). Recommend the web voice-send pipeline persist
+  its outbox to IndexedDB/localStorage (the blob itself, not just
+  metadata) from the start, rather than shipping the in-memory-only
+  version first and hardening it later -- flagging this now specifically
+  BECAUSE Aleksandr asked not to repeat the earlier "ships thin, fix live
+  bugs after" pattern.
+
+**What already exists in a1_web and is directly reusable**:
+- `components/profile-editor.tsx`'s voice-intro recording code
+  (MediaRecorder setup, `VOICE_MIME_CANDIDATES`, noise-cleanup/
+  compression audio graph, `VOICE_BITRATE`) -- same browser API, same
+  constraints, a real starting point for the chat recorder rather than
+  starting from zero.
+- The optimistic-bubble + reconciliation convention (`PendingMessage`,
+  `pendingCalc`-style extension) -- voice needs the same shape
+  (`pendingVoice?: { blobUrl, durationMs, waveform, localId }`).
+- The upload pipeline (`/api/upload/create` -> browser PUT -> `/api/
+  upload/confirm`) and daily quota system (`MediaUploadUsage`,
+  `MAX_ATTACHMENT_FILE_BYTES`) built for Attachments -- a voice clip is
+  just another file through the same pipe, unless Aleksandr wants voice
+  notes exempted from the daily quota (open question, don't assume
+  either way).
+- `fileKindFromName`/`ChatFileTypeIcon` already has an "audio" kind, but
+  that's the generic-file badge, not a substitute for the real waveform
+  playback bubble this feature needs.
+
+**Not yet read / open for the actual implementation pass**: the "now
+playing" mini-bar that lets a clip keep playing while navigating to a
+different chat (`chat_now_playing_voice_bar.dart`, 47KB, unread this
+session past its filename); the exact self-destruct info overlay's
+render code (only its data payload was read); mic-permission-denied and
+"recording unavailable" UI copy (`chat_mic_permission_dialog.dart`,
+`chat_voice_recording_unavailable_warning_bar.dart`, unread past
+filenames); and the actual backend request/response shapes for sending
+a voice doc + `messages.updateContentOpened` (chat-server's own source
+under `~/Desktop/a1_app/aone-api-private-main` was NOT checked this
+session -- next pass should confirm the exact self-destruct API contract
+there rather than inferring it purely from the Flutter client's own
+optimistic-then-reconcile behavior).
+
+**Next step**: wait for Aleksandr's promised batch of Figma screenshots
+(same "кидай один, два, три... подряд" approach as Attachments) before
+writing any a1_web code, per his explicit request this round.
