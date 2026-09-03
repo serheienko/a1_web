@@ -72,7 +72,21 @@ export function ChatPhotoGrid({ docs, onOpen }: { docs: GridDoc[]; onOpen: (docI
 
   return (
     <div
-      className="grid aspect-square gap-[2px] overflow-hidden rounded-xl"
+      // 2026-09-04 (Aleksandr, live screenshot: two grouped photos
+      // rendering as a tiny ~90px square instead of a real album --
+      // "что за сгруппирование, ты борщанул"): this container had no
+      // width of its own, unlike every other media element in this
+      // file's message list (single images get `w-full`, file rows get
+      // `w-64`). The message bubble itself is a shrink-to-fit flex item
+      // (`max-w-[78%]`, no fixed width) -- a lone <img> naturally
+      // pushes that bubble wide via its own intrinsic pixel size, but
+      // this div has no intrinsic size of its own and its children are
+      // sized in percentages (contribute nothing to shrink-to-fit), so
+      // the whole grid collapsed to whatever tiny fallback the browser
+      // picked. `w-64 max-w-full` gives it the same real footprint the
+      // file-attachment row already uses, capped so it never overflows
+      // a narrow bubble.
+      className="grid aspect-square w-64 max-w-full gap-[2px] overflow-hidden rounded-xl"
       style={{ gridTemplateRows: rows.map((r) => `${r.heightFr}fr`).join(" ") }}
     >
       {rows.map((row, i) => (

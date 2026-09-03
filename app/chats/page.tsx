@@ -53,6 +53,7 @@ import { ChatPreviewLine } from "@/components/chat/chat-preview-line";
 import { LottiePlayer } from "@/components/lottie-player";
 import { SearchIcon } from "@/components/search-icon";
 import { GLASS } from "@/lib/glass";
+import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
 
 type LoadState = "loading" | "signed-out" | "error" | "ready";
 
@@ -121,6 +122,48 @@ type ChatListItem = {
 // yet, so this is how the list finds out about new/updated chats.
 const POLL_MS = 5000;
 
+// 2026-09-04 (Aleksandr: "А чат лист нельзя никак кэшировать, чтобы
+// каждый раз не загружать?") -- this page used to always mount into
+// state "loading" and show the skeleton on every single visit, even
+// when the list was just shown seconds ago. Same sessionStorage cache
+// components/chats-flyout.tsx's own readCachedChats/writeCachedChats
+// already use for exactly this reason (that file's header has the
+// full "why sessionStorage, why per-account" reasoning) --
+// deliberately reimplemented here rather than shared, same
+// self-contained-by-file convention the rest of this codebase's chat
+// UI already follows. A remount now paints the last-known list
+// immediately; the poll below still runs right after and reconciles
+// with the server, same as it always did.
+function chatsCacheKey(): string | null {
+  const match = document.cookie.match(new RegExp(`(?:^|; )${DISPLAY_COOKIE}=([^;]*)`));
+  const email = match?.[1] ? decodeURIComponent(match[1]) : null;
+  return email ? `a1:chats-page-cache:${email}` : null;
+}
+
+function readCachedChats(): ChatListItem[] {
+  try {
+    const key = chatsCacheKey();
+    if (!key) return [];
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as ChatListItem[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeCachedChats(chats: ChatListItem[]): void {
+  try {
+    const key = chatsCacheKey();
+    if (!key) return;
+    sessionStorage.setItem(key, JSON.stringify(chats));
+  } catch {
+    // Storage disabled/full/private mode -- caching is a nice-to-have,
+    // never worth failing the actual chat list load over.
+  }
+}
+
 function formatTime(ms: number): string {
   if (!ms) return "";
   try {
@@ -164,6 +207,20 @@ export default function ChatsPage() {
   // makes (nothing here polls a photo's own "did it change" signal).
   const pinnedAvatarUrls = useRef<Map<string, string>>(new Map());
 
+  // Paint from the cached list (if any) the moment this mounts, before
+  // the first real fetch resolves -- a plain useEffect (not a lazy
+  // useState initializer) so this stays client-only and never risks a
+  // hydration mismatch against the server-rendered (always "loading")
+  // markup, same reasoning as components/chats-flyout.tsx's own
+  // identical effect.
+  useEffect(() => {
+    const cached = readCachedChats();
+    if (cached.length === 0) return;
+    for (const chat of cached) pinnedAvatarUrls.current.set(chat.id, chat.avatarUrl);
+    setChats(cached);
+    setState("ready");
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -191,6 +248,7 @@ export default function ChatsPage() {
         });
         setChats(stabilized);
         setState("ready");
+        writeCachedChats(stabilized);
       } catch {
         if (!cancelled) setState((prev) => (prev === "ready" ? prev : "error"));
       } finally {

@@ -222,9 +222,22 @@ export default function ContactsPage() {
       )}
 
       {state === "loading" && (
-        <p className="mt-6 text-sm text-neutral-500 dark:text-neutral-400">
-          <T uk="Завантаження…" en="Loading…" ru="Загрузка…" de="Wird geladen…" es="Cargando…" fr="Chargement…" pl="Ładowanie…" ptBR="Carregando…" zh="加载中…" />
-        </p>
+        // 2026-09-04 (Aleksandr: "Грузи контакты тоже с скелетоном") --
+        // was a bare "Завантаження…" line; now the same animate-pulse
+        // gray-block skeleton app/chats/page.tsx's own loading state
+        // already uses, sized to this page's own 40px-avatar row
+        // (h-10 w-10 above) instead of that page's 52px one.
+        <div className="mt-6 flex flex-col gap-1">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 rounded-xl px-2 py-1.5" aria-hidden="true">
+              <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-neutral-200 dark:bg-neutral-800" />
+              <div className="min-w-0 flex-1">
+                <div className="h-3.5 w-1/3 animate-pulse rounded bg-neutral-200 dark:bg-neutral-800" />
+                <div className="mt-2 h-3 w-1/4 animate-pulse rounded bg-neutral-200 dark:bg-neutral-800" />
+              </div>
+            </div>
+          ))}
+        </div>
       )}
 
       {state === "signed-out" && (
