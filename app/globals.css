@@ -796,6 +796,140 @@ textarea {
   animation: cat-eyes-dart 0.6s ease-in-out;
 }
 
+/* 2026-09-03 (Aleksandr, attach-popover screenshot: "Анимируй все
+   иконки тут") -- the paperclip trigger already wiggles
+   (.animate-paperclip-wiggle above); these four cover the row icons
+   INSIDE that popover (Photo/File/Contact) plus its corner Storage
+   icon, same `.group:hover .animate-X` convention as every icon above,
+   just each keyframe built around what that specific glyph is made of
+   (see each icon's own path/child layout in components/chat/
+   icons.tsx). Every callsite in app/chats/[chatId]/page.tsx's own
+   attach-menu JSX gets a plain `group` class added to its button
+   wrapper the same way paperclip-wiggle's own trigger does. */
+
+/* ChatPhotoAttachIcon: rect frame (1st child), sun circle (2nd),
+   mountain path (3rd) -- the sun flashes like a camera going off while
+   the mountains peek up half a beat later. */
+@keyframes photo-sun-flash {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  40% {
+    transform: scale(1.35);
+    opacity: 0.55;
+  }
+  70% {
+    transform: scale(0.9);
+    opacity: 1;
+  }
+}
+
+@keyframes photo-mountains-peek {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-1.5px);
+  }
+}
+
+.group:hover .animate-photo-attach circle {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: photo-sun-flash 0.5s ease-in-out;
+}
+
+.group:hover .animate-photo-attach path {
+  animation: photo-mountains-peek 0.5s ease-in-out 0.05s;
+}
+
+/* ChatFileAttachIcon: outline path (1st child), dog-ear fold path
+   (2nd) -- only the fold lifts, like a page corner being peeled back,
+   anchored where it actually joins the page (its own top-right). */
+@keyframes file-corner-flip {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  35% {
+    transform: rotate(-18deg);
+  }
+  70% {
+    transform: rotate(6deg);
+  }
+}
+
+.group:hover .animate-file-attach path:nth-child(2) {
+  transform-box: fill-box;
+  transform-origin: 20% 15%;
+  animation: file-corner-flip 0.45s ease-in-out;
+}
+
+/* ChatStorageIcon: top ellipse (1st child) + two ring paths (2nd/3rd)
+   -- the three "disk" layers nudge up in a staggered wave, like the
+   stack is being riffled through. */
+@keyframes storage-layer-shift {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-1.5px);
+  }
+}
+
+.group:hover .animate-storage-icon ellipse {
+  animation: storage-layer-shift 0.45s ease-in-out;
+}
+
+.group:hover .animate-storage-icon path:nth-child(2) {
+  animation: storage-layer-shift 0.45s ease-in-out 0.08s;
+}
+
+.group:hover .animate-storage-icon path:nth-child(3) {
+  animation: storage-layer-shift 0.45s ease-in-out 0.16s;
+}
+
+/* ChatContactAttachIcon: card rect (1st), head circle (2nd), shoulders
+   path (3rd), two text-line strokes (4th) -- head+shoulders nod
+   together like a little greeting, the text lines get a quick nudge
+   right after, like they're being jotted down. */
+@keyframes contact-nod {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-1.5px);
+  }
+  70% {
+    transform: translateY(0.5px);
+  }
+}
+
+@keyframes contact-lines-nudge {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(1px);
+  }
+}
+
+.group:hover .animate-contact-attach circle,
+.group:hover .animate-contact-attach path:nth-child(3) {
+  transform-box: fill-box;
+  animation: contact-nod 0.45s ease-in-out;
+}
+
+.group:hover .animate-contact-attach path:nth-child(4) {
+  animation: contact-lines-nudge 0.4s ease-in-out 0.1s;
+}
+
 @keyframes mic-pulse {
   0%,
   100% {
@@ -830,7 +964,16 @@ textarea {
   .group:hover .animate-send-arrow,
   .group:hover .animate-paperclip-wiggle,
   .group:hover .chat-cat-pupil,
-  .group:hover .animate-mic-pulse {
+  .group:hover .animate-mic-pulse,
+  .group:hover .animate-photo-attach circle,
+  .group:hover .animate-photo-attach path,
+  .group:hover .animate-file-attach path:nth-child(2),
+  .group:hover .animate-storage-icon ellipse,
+  .group:hover .animate-storage-icon path:nth-child(2),
+  .group:hover .animate-storage-icon path:nth-child(3),
+  .group:hover .animate-contact-attach circle,
+  .group:hover .animate-contact-attach path:nth-child(3),
+  .group:hover .animate-contact-attach path:nth-child(4) {
     animation: none;
   }
 }

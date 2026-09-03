@@ -1819,24 +1819,24 @@ export default function ChatWindowPage() {
                       setDailyUploadsOpen(true);
                     }}
                     aria-label="Daily uploads"
-                    className="absolute right-2 top-2 rounded-full p-1 text-neutral-400 transition hover:bg-black/5 hover:text-neutral-700 dark:text-neutral-500 dark:hover:bg-white/10 dark:hover:text-neutral-200"
+                    className="group absolute right-2 top-2 rounded-full p-1 text-neutral-400 transition hover:bg-black/5 hover:text-neutral-700 dark:text-neutral-500 dark:hover:bg-white/10 dark:hover:text-neutral-200"
                   >
-                    <ChatStorageIcon className="h-4 w-4" />
+                    <ChatStorageIcon className="animate-storage-icon h-4 w-4" />
                   </button>
                   <button
                     type="button"
                     onClick={() => onPickAttachment("image")}
-                    className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+                    className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
                   >
-                    <ChatPhotoAttachIcon className="h-5 w-5 text-[#335ef7] dark:text-[#0c8ce9]" />
+                    <ChatPhotoAttachIcon className="animate-photo-attach h-5 w-5 text-[#335ef7] dark:text-[#0c8ce9]" />
                     <T uk="Фото" en="Photo" ru="Фото" de="Foto" es="Foto" fr="Photo" pl="Zdjęcie" ptBR="Foto" zh="照片" />
                   </button>
                   <button
                     type="button"
                     onClick={() => onPickAttachment("file")}
-                    className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+                    className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
                   >
-                    <ChatFileAttachIcon className="h-5 w-5 text-[#335ef7] dark:text-[#0c8ce9]" />
+                    <ChatFileAttachIcon className="animate-file-attach h-5 w-5 text-[#335ef7] dark:text-[#0c8ce9]" />
                     <T uk="Файл" en="File" ru="Файл" de="Datei" es="Archivo" fr="Fichier" pl="Plik" ptBR="Arquivo" zh="文件" />
                   </button>
                   {/* Contact-attachment feature (2026-09-02) -- opens
@@ -1850,9 +1850,9 @@ export default function ChatWindowPage() {
                       setAttachMenuOpen(false);
                       setContactsPickerOpen(true);
                     }}
-                    className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+                    className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
                   >
-                    <ChatContactAttachIcon className="h-5 w-5 text-[#335ef7] dark:text-[#0c8ce9]" />
+                    <ChatContactAttachIcon className="animate-contact-attach h-5 w-5 text-[#335ef7] dark:text-[#0c8ce9]" />
                     <T uk="Контакт" en="Contact" ru="Контакт" de="Kontakt" es="Contacto" fr="Contact" pl="Kontakt" ptBR="Contato" zh="联系人" />
                   </button>
                 </div>
