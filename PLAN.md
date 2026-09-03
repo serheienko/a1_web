@@ -5544,3 +5544,44 @@ plus a third for the mini chat window:
 
 tsc-clean across all three commits. Not yet re-verified live (needs
 Aleksandr to push via GitHub Desktop first).
+
+
+### 6.107 Voice messages: unopened dot made bidirectional, real backend mechanism found (2026-09-03)
+
+Aleksandr clarified an earlier design assumption from 6.101: the blue
+"unopened" dot isn't receiver-only -- on a message he SENT he wants the
+same dot telling him whether the recipient has heard it yet, same as
+Telegram. The dot had been deliberately scoped `!mine` only at the time
+(6.101 flagged this as an unconfirmed guess), reasonable-sounding but
+wrong per his actual ask.
+
+While digging into how to make the sender's side reflect the
+RECIPIENT's real listen state (not just local UI), re-read the live
+OpenAPI spec (https://api.a1appp.com/openapi.json) and found the actual
+mechanism is much simpler than the `messages.updateContentOpened` RPC
+call 6.99/6.101 assumed would eventually need wiring: the spec's own
+glossary states plainly "Accessing the media download URL marks it as
+viewed" -- i.e. `doc.viewed` (already-parsed field, chat-schemas.ts)
+goes server-authoritative for ANYONE the instant their browser's
+`<audio>` element actually requests the file (lib/voice-playback-
+store.ts's `playVoice()`, which only ever fires on an explicit user
+play/scrub -- confirmed it's never preloaded on mount, so rendering a
+chat can't spuriously mark things viewed). No separate RPC needed at
+all.
+
+page.tsx already polls messages.getMessages every 3s (POLL_MS), so:
+`mine` bubbles now read `doc.viewed` directly (a sender replaying their
+own already-sent clip isn't a signal the recipient heard it, so no
+local shortcut for that side); `!mine` keeps the existing optimistic
+local hide-on-press, plus a new effect that syncs local `opened` state
+from `doc.viewed` for the multi-device/poll-catch-up case. Also caught
+a real visual bug this change would otherwise have shipped: the dot's
+color was hardcoded blue, identical to the `mine` bubble's own solid-
+blue card background -- fully invisible in light mode. Inverted to
+white for `mine`, same treatment the play button already gets on that
+side.
+
+tsc-clean. Not yet re-verified live -- needs a push + a real two-way
+test (Aleksandr sending from one account, opening from another) to
+confirm the poll actually surfaces `viewed` the way the spec's glossary
+line implies.
