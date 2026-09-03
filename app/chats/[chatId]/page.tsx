@@ -52,7 +52,6 @@ import {
   ChatContactAttachIcon,
   ChatFileAttachIcon,
   ChatMeetingAttachIcon,
-  ChatMicButton,
   ChatPaperclipButton,
   ChatPhotoAttachIcon,
   ChatStorageIcon,
@@ -67,6 +66,8 @@ import { DailyUploadsModal } from "@/components/daily-uploads-modal";
 import { ContactMessageCard, type ContactCardSummary } from "@/components/chat/contact-message-card";
 import { ContactsPickerModal, type PickedContact } from "@/components/chat/contacts-picker-modal";
 import { ChatPhotoViewer, type ChatViewerImage } from "@/components/chat/photo-viewer";
+import { useVoiceRecorder, formatVoiceTimer, type VoiceRecordingResult } from "@/components/chat/voice-recorder";
+import { VoiceRecordButton, VoiceRecordingBar, VoiceMicDeniedNotice } from "@/components/chat/voice-message";
 
 type LoadState = "loading" | "signed-out" | "error" | "ready";
 
@@ -97,12 +98,29 @@ type LoadState = "loading" | "signed-out" | "error" | "ready";
 // thumbnail shows instantly, before the upload round-trip even starts.
 type PendingAttachment = {
   localId: string;
-  kind: "image" | "file";
+  // 2026-09-03 (Aleksandr, "давай следующей фичой сделаем запись
+  // голосового сообщения"): "voice" reuses this exact same local-
+  // upload-preview/status lifecycle (uploading -> ready -> error) and
+  // send()'s existing readyAttachments plumbing wholesale -- a recorded
+  // clip is uploaded through the identical /api/upload/create -> S3 ->
+  // /api/upload/confirm pipeline handleAttachFile already runs for
+  // photos/files (see handleVoiceFinish below), so there was no reason
+  // to invent a parallel pendingVoice path. It skips the compose-bar
+  // staging area though (see handleVoiceFinish's own comment) -- a
+  // voice PendingAttachment only ever exists inside a PendingMessage's
+  // pendingAttachments, never in the top-level `attachments` queue.
+  kind: "image" | "file" | "voice";
   fileName: string;
   mimetype: string;
   previewUrl?: string;
   status: "uploading" | "ready" | "error";
   fileReference?: string;
+  // Voice-only: local recorder output, needed to render the pending
+  // bubble's own player before load() reconciles it into a real
+  // message (lib/a1/chat-schemas.ts's own messageVoiceAttribute takes
+  // over from there).
+  durationSeconds?: number;
+  waveform?: number[];
   // Set only for the quota-exceeded case (see handleAttachFile below) --
   // a specific, already-localized+formatted reason to show instead of
   // (or alongside) the generic error state every other upload failure
@@ -563,6 +581,17 @@ export default function ChatWindowPage() {
   // are out of scope for this pass).
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
+  // 2026-09-03 (Aleksandr, "давай следующей фичой сделаем запись
+  // голосового сообщения") -- recording ENGINE (components/chat/voice-
+  // recorder.ts), wired to handleVoiceFinish below (defined later as a
+  // function declaration, so this call sees it fine -- hoisted, same
+  // as attemptSend/send/etc. throughout this file). voiceBlobsRef keeps
+  // each recording's raw Blob keyed by its pending bubble's localId, so
+  // a failed UPLOAD (not just a failed SEND) can be retried by re-
+  // running the whole upload from the same audio instead of having
+  // nothing left to resend -- see uploadAndSendVoice/retryOne below.
+  const voiceBlobsRef = useRef<Map<string, { blob: Blob; mimeType: string }>>(new Map());
+  const recorder = useVoiceRecorder(handleVoiceFinish);
   // 2026-09-02, Aleksandr: "Daily Uploads" quota popup (see
   // components/daily-uploads-modal.tsx's own header comment) --
   // opened from the small storage icon in the attach popover below,
@@ -1101,6 +1130,147 @@ export default function ChatWindowPage() {
     }
   }
 
+  // Voice messages (2026-09-03): marks the pending bubble's voice
+  // attachment (and the bubble itself) failed -- same visible state
+  // (red "not sent" dot, retry/cancel popover) a failed text/photo send
+  // already gets, just reached from an upload-step failure instead of
+  // the final POST /api/chats/send failing.
+  function markVoiceUploadFailed(localId: string) {
+    setPendingMessages((prev) =>
+      prev.map((p) =>
+        p.localId === localId
+          ? {
+              ...p,
+              failed: true,
+              pendingAttachments: p.pendingAttachments?.map((a) =>
+                a.kind === "voice" ? { ...a, status: "error" as const } : a,
+              ),
+            }
+          : p,
+      ),
+    );
+  }
+
+  // Voice messages: the SAME create -> S3 POST -> confirm pipeline
+  // handleAttachFile runs for photos/files (see that function's own
+  // comment on why it's reusable as-is), just off a recorded Blob
+  // (voiceBlobsRef) instead of a picked File, and firing attemptSend
+  // itself once a fileReference exists rather than staging into the
+  // top-level `attachments` queue for a manual Send tap -- releasing
+  // the record button IS "send" for a voice note (matches the mobile
+  // app), there's no separate staged-attachment step like Photo/File.
+  // Shared between handleVoiceFinish (first attempt) and retryOne
+  // (every attempt after an upload failure) so a retry re-uploads from
+  // the same audio instead of having a stale/empty fileReference to
+  // resend.
+  async function uploadAndSendVoice(localId: string) {
+    const stored = voiceBlobsRef.current.get(localId);
+    if (!stored) {
+      markVoiceUploadFailed(localId);
+      return;
+    }
+    setPendingMessages((prev) =>
+      prev.map((p) =>
+        p.localId === localId
+          ? {
+              ...p,
+              failed: false,
+              pendingAttachments: p.pendingAttachments?.map((a) =>
+                a.kind === "voice" ? { ...a, status: "uploading" as const } : a,
+              ),
+            }
+          : p,
+      ),
+    );
+    try {
+      const file = new File([stored.blob], `voice-${Date.now()}.webm`, { type: stored.mimeType });
+      const createRes = await authFetch("/api/upload/create", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ mimetype: file.type || "audio/webm", bytes: file.size }),
+      });
+      const createData = await createRes.json().catch(() => null);
+      if (!createRes.ok || !createData?.ok || !createData.result?.url) {
+        markVoiceUploadFailed(localId);
+        return;
+      }
+      const { id, url, fields } = createData.result as { id: string; url: string; fields: Record<string, string> };
+      const formData = new FormData();
+      for (const [key, value] of Object.entries(fields ?? {})) formData.append(key, value);
+      formData.append("file", file);
+      const uploadRes = await fetch(url, { method: "POST", body: formData });
+      if (!uploadRes.ok) {
+        markVoiceUploadFailed(localId);
+        return;
+      }
+      const confirmRes = await authFetch("/api/upload/confirm", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ documentId: id }),
+      });
+      const confirmData = await confirmRes.json().catch(() => null);
+      const fileReference = confirmData?.media?.fileReference as string | undefined;
+      if (!confirmRes.ok || !confirmData?.ok || !fileReference) {
+        markVoiceUploadFailed(localId);
+        return;
+      }
+      voiceBlobsRef.current.delete(localId);
+      setPendingMessages((prev) =>
+        prev.map((p) =>
+          p.localId === localId
+            ? {
+                ...p,
+                pendingAttachments: p.pendingAttachments?.map((a) =>
+                  a.kind === "voice" ? { ...a, status: "ready" as const, fileReference } : a,
+                ),
+              }
+            : p,
+        ),
+      );
+      await attemptSend(localId, "", [{ fileReference }]);
+    } catch {
+      markVoiceUploadFailed(localId);
+    }
+  }
+
+  // Record-button release (components/chat/voice-recorder.ts's own
+  // onFinish) -- builds the optimistic bubble (same PendingMessage
+  // machinery text/photo/file/contact sends already use) then hands off
+  // to uploadAndSendVoice. `entities`/`media` stay empty -- this bubble
+  // renders purely off pendingAttachments, same as an attachment-only
+  // photo/file send already does.
+  function handleVoiceFinish(result: VoiceRecordingResult) {
+    const localId = `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    voiceBlobsRef.current.set(localId, { blob: result.blob, mimeType: result.mimeType });
+    const optimistic: PendingMessage = {
+      _id: localId,
+      flags: 0,
+      peerFrom: myUserId ? { object: "peer-user", user: myUserId } : null,
+      peerTo: null,
+      date: new Date().toISOString(),
+      entities: [],
+      media: [],
+      fromId: myUserId,
+      pending: true,
+      localId,
+      failed: false,
+      pendingAttachments: [
+        {
+          localId: `${localId}-voice`,
+          kind: "voice",
+          fileName: "voice-message",
+          mimetype: result.mimeType,
+          status: "uploading",
+          bytes: result.blob.size,
+          durationSeconds: result.durationSeconds,
+          waveform: result.waveform,
+        },
+      ],
+    };
+    setPendingMessages((prev) => [...prev, optimistic]);
+    void uploadAndSendVoice(localId);
+  }
+
   // Re-fires one failed bubble's send. `retryingIds` is the lock that
   // keeps the poll-tick retry pass and the browser's `online` event
   // from both picking up the same bubble at once -- flips it back to
@@ -1112,6 +1282,16 @@ export default function ChatWindowPage() {
     retryingIds.current.add(p.localId);
     setPendingMessages((prev) => prev.map((m) => (m.localId === p.localId ? { ...m, failed: false } : m)));
     try {
+      // Voice messages: a voice attachment stuck at anything but "ready"
+      // means the UPLOAD itself failed (never got a fileReference), not
+      // just the final send POST -- attemptSend alone has nothing new
+      // to resend in that case, so retry the whole upload instead (off
+      // the same Blob, voiceBlobsRef).
+      const voiceAttachment = p.pendingAttachments?.find((a) => a.kind === "voice");
+      if (voiceAttachment && voiceAttachment.status !== "ready") {
+        await uploadAndSendVoice(p.localId);
+        return;
+      }
       const media = p.pendingAttachments
         ?.filter((a) => a.status === "ready" && a.fileReference)
         .map((a) => ({ fileReference: a.fileReference as string }));
@@ -1163,6 +1343,10 @@ export default function ChatWindowPage() {
   function cancelPending(localId: string) {
     setPendingMessages((prev) => prev.filter((p) => p.localId !== localId));
     setOpenPendingId(null);
+    // Voice messages: drop the held Blob too (see voiceBlobsRef's own
+    // comment) -- a cancelled bubble is never retried, so there's
+    // nothing left to re-upload it for.
+    voiceBlobsRef.current.delete(localId);
   }
 
   useEffect(() => {
@@ -2057,7 +2241,29 @@ export default function ChatWindowPage() {
                         <div className="mb-1 flex flex-col gap-1.5">
                           {pendingAttachments.map((a) => (
                             <div key={a.localId} className="relative overflow-hidden rounded-xl">
-                              {a.kind === "image" && a.previewUrl ? (
+                              {a.kind === "voice" ? (
+                                // 2026-09-03: minimal placeholder pending
+                                // this pending message's own real voice-
+                                // bubble milestone (waveform/scrub/fire-
+                                // popup, see PLAN.md 6.99's own
+                                // implementation order) -- just a mic
+                                // glyph + duration so the optimistic
+                                // bubble isn't a bare generic file badge
+                                // showing "voice-message" as a filename.
+                                <div
+                                  className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 ${
+                                    mine ? "bg-white/15" : "bg-black/5 dark:bg-white/10"
+                                  }`}
+                                >
+                                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-black/10 dark:bg-white/15">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                      <rect x="9" y="2" width="6" height="11" rx="3" />
+                                      <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+                                    </svg>
+                                  </span>
+                                  <span className="text-[14px] tabular-nums">{formatVoiceTimer(a.durationSeconds ?? 0)}</span>
+                                </div>
+                              ) : a.kind === "image" && a.previewUrl ? (
                                 // eslint-disable-next-line @next/next/no-img-element -- a
                                 // local blob: URL, never a next/image-eligible remote src.
                                 <img src={a.previewUrl} alt="" className="max-h-64 w-full object-cover" />
@@ -2715,6 +2921,17 @@ export default function ChatWindowPage() {
             </div>
           )}
           <div className="mx-auto flex w-full max-w-[470px] items-end gap-2">
+            {/* 2026-09-03 (Aleksandr, voice messages): while a recording
+                is in progress this whole row becomes components/chat/
+                voice-message.tsx's own VoiceRecordingBar (unlocked or
+                locked) instead of the paperclip/textarea/send row --
+                see that file's own header comment on this being a
+                scope-trimmed stand-in for the Figma "text stays visible
+                above a growing card" combine mechanic, not built yet.
+                "denied" (mic permission refused) shows a dismissible
+                notice in the same slot instead. */}
+            {recorder.state === "idle" ? (
+              <>
             <div ref={attachMenuRef} className="relative" onMouseEnter={handleAttachMouseEnter} onMouseLeave={handleAttachMouseLeave}>
               <ChatPaperclipButton
                 disabled={sending || attachments.length >= MAX_ATTACHMENTS_PER_MESSAGE}
@@ -2986,7 +3203,13 @@ export default function ChatWindowPage() {
                 </svg>
               </button>
             ) : (
-              <ChatMicButton disabled={sending} />
+              <VoiceRecordButton recorder={recorder} disabled={sending} lang={lang} />
+            )}
+              </>
+            ) : recorder.state === "denied" ? (
+              <VoiceMicDeniedNotice lang={lang} onDismiss={recorder.dismissDenied} />
+            ) : (
+              <VoiceRecordingBar recorder={recorder} lang={lang} />
             )}
           </div>
             </>
