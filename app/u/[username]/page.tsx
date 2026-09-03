@@ -818,16 +818,24 @@ export default async function ProfilePage({ params }: Props) {
           <>
       {authorPosts.length > 0 ? (
         <div className="flex flex-col gap-4">
-          {/* No per-author avatar blur here (unlike the main feed pages
-              and this page's own header above) -- would mean one extra
-              generateAvatarBlurDataUrl() call per post, and PostCard
-              already degrades cleanly to the generic shimmer without
-              one. Revisit if this section ever needs to look as
-              polished as the feed itself. */}
+          {/* 2026-09-03 (Aleksandr, screenshot of this exact card: "тут
+              остался баг с белой подгрузкой, сделай как и везде через
+              блюр") -- this used to pass no avatarBlurDataUrl at all
+              ("PostCard already degrades cleanly to the generic
+              shimmer without one" -- turned out not true in practice,
+              it read as a flat white flash instead), reasoned as an
+              acceptable cost-saver since it would've meant one extra
+              generateAvatarBlurDataUrl() call per post. That reasoning
+              missed that every post on THIS list shares the exact same
+              author (this profile), so there's nothing extra to
+              compute -- avatarBlurDataUrl right above (the profile
+              header's own blur) already IS every one of these posts'
+              author blur too. */}
           {authorPosts.map((post) => (
             <PostCard
               key={post.id}
               post={post}
+              avatarBlurDataUrl={avatarBlurDataUrl}
               // 2026-08-30: safe to pass on every profile, not just the
               // visitor's own -- see post-card.tsx's own comment on
               // ownerMenu for why PostOwnerMenu self-gates to nothing on
