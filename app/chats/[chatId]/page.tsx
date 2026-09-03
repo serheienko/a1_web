@@ -1483,6 +1483,54 @@ export default function ChatWindowPage() {
   // not duplicated per service -- see app/api/upload/create/route.ts).
   // `kind` only affects client-side compression/preview; the two upload
   // routes themselves don't care which button triggered the pick.
+  // 2026-09-03 (Aleksandr, live test: "в компоузере при отправке нельзя
+  // отправить файл пока он не подгрузится, это бесит... сразу можно
+  // отправить в чат, а там пусть догружается") -- an attachment's own
+  // upload (started the moment it's picked, in handleAttachFile below)
+  // used to only ever update the compose-bar's own `attachments` array,
+  // which send() cleared out the instant Send was pressed -- so Send
+  // had to BLOCK until every upload finished first, or a still-
+  // uploading attachment's eventual "ready"/"error" update would have
+  // nowhere left to land. This updates whichever of the two places
+  // currently holds that attachment: the compose array (not sent yet)
+  // or a PendingMessage's own pendingAttachments (already sent, still
+  // uploading in the background) -- exactly one of the two ever
+  // actually matches, the other call is a harmless no-op.
+  function updateAttachmentEverywhere(localId: string, updater: (a: PendingAttachment) => PendingAttachment) {
+    setAttachments((prev) => prev.map((a) => (a.localId === localId ? updater(a) : a)));
+    setPendingMessages((prev) =>
+      prev.map((p) =>
+        p.pendingAttachments?.some((a) => a.localId === localId)
+          ? { ...p, pendingAttachments: p.pendingAttachments.map((a) => (a.localId === localId ? updater(a) : a)) }
+          : p,
+      ),
+    );
+  }
+
+  // Once an attachment finishes uploading, checks whether it had
+  // already been folded into a sent PendingMessage (Send no longer
+  // waits) and, if every attachment that message carries is now ready,
+  // fires the real send -- the same "release/ready IS what triggers the
+  // POST" shape uploadAndSendVoice already uses for voice notes, here
+  // used for however many photos/files were attached at once.
+  function maybeFinalizePendingSend(localId: string, updatedAttachment: PendingAttachment) {
+    const owner = pendingMessagesRef.current.find((p) => p.pendingAttachments?.some((a) => a.localId === localId));
+    if (!owner || !owner.pendingAttachments) return;
+    const nextAttachments = owner.pendingAttachments.map((a) => (a.localId === localId ? updatedAttachment : a));
+    if (updatedAttachment.status === "error") {
+      setPendingMessages((prev) => prev.map((p) => (p.localId === owner.localId ? { ...p, failed: true } : p)));
+      return;
+    }
+    if (nextAttachments.every((a) => a.status === "ready")) {
+      void attemptSend(
+        owner.localId,
+        extractMessageText(owner),
+        nextAttachments.map((a) => ({ fileReference: a.fileReference as string })),
+        owner.pendingContacts,
+      );
+    }
+  }
+
   async function handleAttachFile(file: File, kind: "image" | "file") {
     if (attachments.length >= MAX_ATTACHMENTS_PER_MESSAGE) return;
     const localId = `att-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -1565,6 +1613,16 @@ export default function ChatWindowPage() {
         body: JSON.stringify({ mimetype: toUpload.type || "application/octet-stream", bytes: toUpload.size, fileName: file.name }),
       });
       const createData = await createRes.json();
+      // 2026-09-03 (Aleksandr, live test: "сразу можно отправить в
+      // чат, а там пусть догружается") -- every status transition below
+      // now builds the FULL updated attachment straight from this
+      // function's own local variables (kind/file/toUpload/bytes/
+      // previewUrl, all already in scope) instead of patching whatever
+      // the state array currently holds -- Send may already have moved
+      // this attachment out of `attachments` and into a PendingMessage
+      // by the time any of these resolve, so there's no single source
+      // of truth left to read the rest of the fields FROM; the closure
+      // already has them.
       if (createData?.message === "quota_exceeded" && createData.usage) {
         // Aleksandr, 2026-09-02: same 20MB/day-per-user quota the native
         // app enforces (app/api/upload/create/route.ts's own comment) --
@@ -1573,13 +1631,21 @@ export default function ChatWindowPage() {
         const usage = createData.usage as { usedBytes: number; limitBytes: number; resetAt: number };
         const resetsIn = formatRelativeTime(new Date(usage.resetAt * 1000), lang);
         const errorMessage = `${UPLOAD_QUOTA_EXCEEDED_TEXT[lang]} (${formatBytes(usage.usedBytes)} / ${formatBytes(usage.limitBytes)}, ${resetsIn})`;
-        setAttachments((prev) =>
-          prev.map((a) => (a.localId === localId ? { ...a, status: "error" as const, errorMessage } : a)),
-        );
+        const updated: PendingAttachment = {
+          localId, kind, fileName: file.name, mimetype: toUpload.type || "application/octet-stream",
+          previewUrl, bytes, status: "error", errorMessage,
+        };
+        updateAttachmentEverywhere(localId, () => updated);
+        maybeFinalizePendingSend(localId, updated);
         return;
       }
       if (!createRes.ok || !createData.ok || !createData.result?.url) {
-        setAttachments((prev) => prev.map((a) => (a.localId === localId ? { ...a, status: "error" as const } : a)));
+        const updated: PendingAttachment = {
+          localId, kind, fileName: file.name, mimetype: toUpload.type || "application/octet-stream",
+          previewUrl, bytes, status: "error",
+        };
+        updateAttachmentEverywhere(localId, () => updated);
+        maybeFinalizePendingSend(localId, updated);
         return;
       }
       const { id, url, fields } = createData.result as { id: string; url: string; fields: Record<string, string> };
@@ -1588,7 +1654,12 @@ export default function ChatWindowPage() {
       formData.append("file", toUpload);
       const uploadRes = await fetch(url, { method: "POST", body: formData });
       if (!uploadRes.ok) {
-        setAttachments((prev) => prev.map((a) => (a.localId === localId ? { ...a, status: "error" as const } : a)));
+        const updated: PendingAttachment = {
+          localId, kind, fileName: file.name, mimetype: toUpload.type || "application/octet-stream",
+          previewUrl, bytes, status: "error",
+        };
+        updateAttachmentEverywhere(localId, () => updated);
+        maybeFinalizePendingSend(localId, updated);
         return;
       }
       const confirmRes = await authFetch("/api/upload/confirm", {
@@ -1599,14 +1670,29 @@ export default function ChatWindowPage() {
       const confirmData = await confirmRes.json();
       const fileReference = confirmData?.media?.fileReference as string | undefined;
       if (!confirmRes.ok || !confirmData.ok || !fileReference) {
-        setAttachments((prev) => prev.map((a) => (a.localId === localId ? { ...a, status: "error" as const } : a)));
+        const updated: PendingAttachment = {
+          localId, kind, fileName: file.name, mimetype: toUpload.type || "application/octet-stream",
+          previewUrl, bytes, status: "error",
+        };
+        updateAttachmentEverywhere(localId, () => updated);
+        maybeFinalizePendingSend(localId, updated);
         return;
       }
-      setAttachments((prev) =>
-        prev.map((a) => (a.localId === localId ? { ...a, status: "ready" as const, fileReference } : a)),
-      );
+      {
+        const updated: PendingAttachment = {
+          localId, kind, fileName: file.name, mimetype: toUpload.type || "application/octet-stream",
+          previewUrl, bytes, status: "ready", fileReference,
+        };
+        updateAttachmentEverywhere(localId, () => updated);
+        maybeFinalizePendingSend(localId, updated);
+      }
     } catch {
-      setAttachments((prev) => prev.map((a) => (a.localId === localId ? { ...a, status: "error" as const } : a)));
+      const updated: PendingAttachment = {
+        localId, kind, fileName: file.name, mimetype: toUpload.type || "application/octet-stream",
+        previewUrl, bytes, status: "error",
+      };
+      updateAttachmentEverywhere(localId, () => updated);
+      maybeFinalizePendingSend(localId, updated);
     }
   }
 
@@ -1691,11 +1777,23 @@ export default function ChatWindowPage() {
     // it's toggled in the picker), so it only ever adds to the "has
     // content" check, never to uploadingCount.
     const readyAttachments = attachments.filter((a) => a.status === "ready" && a.fileReference);
-    const uploadingCount = attachments.filter((a) => a.status === "uploading").length;
+    // 2026-09-03 (Aleksandr, live test: "нельзя отправить файл, пока он
+    // не подгрузится, это бесит... сразу можно отправить в чат, а там
+    // пусть догружается") -- an attachment still `status === "uploading"`
+    // (or one that already failed and hasn't been removed) no longer
+    // blocks Send: it rides along in this bubble's own pendingAttachments
+    // exactly as staged, and maybeFinalizePendingSend (handleAttachFile's
+    // own upload-completion callback, see its header comment) fires the
+    // real POST once every attachment this message carries has actually
+    // reached "ready" -- same "release IS send, upload happens after"
+    // shape voice notes already use, generalized to N attachments.
+    const uploadingAttachments = attachments.filter((a) => a.status !== "ready" || !a.fileReference);
+    const allAttachmentsReady = attachments.length > 0 && uploadingAttachments.length === 0;
     const hasContacts = pendingContacts.length > 0;
-    if ((!text && readyAttachments.length === 0 && !hasContacts) || uploadingCount > 0 || sending) return;
+    if ((!text && attachments.length === 0 && !hasContacts) || sending) return;
     setSending(true);
     const contactsToSend = pendingContacts;
+    const attachmentsToSend = attachments;
     if (!overrideText) {
       setDraft("");
       setAttachments([]);
@@ -1721,16 +1819,24 @@ export default function ChatWindowPage() {
       pending: true,
       localId,
       failed: false,
-      pendingAttachments: readyAttachments.length > 0 ? readyAttachments : undefined,
+      pendingAttachments: attachmentsToSend.length > 0 ? attachmentsToSend : undefined,
       pendingContacts: contactsToSend.length > 0 ? contactsToSend : undefined,
     };
     setPendingMessages((prev) => [...prev, optimistic]);
-    await attemptSend(
-      localId,
-      text,
-      readyAttachments.map((a) => ({ fileReference: a.fileReference as string })),
-      contactsToSend,
-    );
+    // Only fire the real send now if every attachment is already
+    // ready (the common case -- uploads usually finish well before a
+    // caption is typed and Send is tapped) -- otherwise leave it to
+    // maybeFinalizePendingSend, which fires the instant the LAST still-
+    // uploading one reaches "ready" (or marks this bubble failed if one
+    // of them errors out instead).
+    if (allAttachmentsReady || attachmentsToSend.length === 0) {
+      await attemptSend(
+        localId,
+        text,
+        readyAttachments.map((a) => ({ fileReference: a.fileReference as string })),
+        contactsToSend,
+      );
+    }
     setSending(false);
   }
 
@@ -3454,18 +3560,17 @@ export default function ChatWindowPage() {
               <button
                 type="button"
                 onClick={() => send()}
-                // Attachment feature: also disabled once every attachment
-                // has failed and there's no typed caption either -- e.g.
-                // an upload that 502'd -- so this never sits enabled over
-                // a click that send()'s own guard would just no-op on.
-                // Contact-attachment feature: pendingContacts.length > 0
-                // on its own keeps this enabled -- a contact needs no
-                // upload wait, so it's never covered by the "ready"
-                // check below (that's attachments-only).
+                // 2026-09-03 (Aleksandr, live test: "нельзя отправить
+                // файл, пока он не подгрузится, это бесит") -- no longer
+                // blocks on `status === "uploading"`, and no longer
+                // requires at least one already-"ready" attachment --
+                // send()'s own guard (mirrored here) only needs SOME
+                // attachment staged (any status) or a caption or a
+                // contact; a still-uploading one sends in the
+                // background, see maybeFinalizePendingSend.
                 disabled={
                   sending ||
-                  attachments.some((a) => a.status === "uploading") ||
-                  (!draft.trim() && attachments.every((a) => a.status !== "ready") && pendingContacts.length === 0) ||
+                  (!draft.trim() && attachments.length === 0 && pendingContacts.length === 0) ||
                   // 2026-09-03 (Figma "4.1 ... exceeded limit": send
                   // button dims once the current selection alone would
                   // blow past today's remaining quota) -- blocks the
