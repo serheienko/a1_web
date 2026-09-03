@@ -5398,3 +5398,82 @@ Not independently re-verified live yet (this fix isn't pushed/deployed
 on-device test with an actual microphone once it's live, since this
 sandbox's synthetic mic can't confirm audio quality, only gesture
 mechanics.
+
+### 6.105 Second live-test round: recording race condition, flat bubbles, real filenames (2026-09-03)
+
+Aleksandr's first real test after 6.104's pointer-capture fix (audio
+capture itself worked fine, "голос записывает, все окей" -- feedback
+was entirely about the control UI): voice bubble timer stuck at
+"0:00"; now-playing bar showing while already inside the chat that
+started it; its progress line not draggable; the compose mic icon
+"поломал... мега уебанская" with no hover animation; a single quick
+tap starting an uncontrollable non-stop recording with nothing to
+release, no lock-icon affordance shown; wild UI on send.
+
+Root-caused each:
+
+- **Timer stuck at 0:00**: voice-bubble.tsx counted DOWN from
+  totalSeconds (`totalSeconds - elapsed`), which floors at 0
+  immediately whenever totalSeconds itself isn't known yet for that
+  doc. Switched to counting UP from `elapsed` (audio element's own
+  currentTime, always correct once playback starts) -- Telegram/
+  WhatsApp's own convention anyway.
+- **Recording race condition, the real cause of "one tap -> non-stop
+  recording, nothing to release"**: startPress (voice-recorder.ts) is
+  async -- awaits getUserMedia. A pointerup arriving while still
+  "requesting" had mediaRecorderRef.current still null (recorder.start()
+  only runs after the await), so the release's stop() call was a
+  silent no-op, and once getUserMedia DID resolve moments later there
+  was no memory the button was already released. pendingReleaseRef now
+  remembers that and finalizes (stopAndSend) the instant recording
+  actually starts -- a quick tap now correctly produces nothing sent
+  (VOICE_MIN_MS in onstop discards it), same as the old, working path.
+- **Mic icon**: the recording feature's own inline SVG for
+  VoiceRecordButton's idle state was missing the ChatMicGlyph's own
+  top curve (only body-rect + base-line paths survived) and had no
+  `.group:hover .animate-mic-pulse` -- restored to the exact original
+  glyph+animation, ChatMicGlyph now exported from icons.tsx and reused.
+- **Lock affordance not visible**: the lock pill used to live inside
+  VoiceRecordingBar's own row, off to the button's left -- moved to
+  float directly above VoiceRecordButton itself instead, where the
+  drag is actually happening.
+- **Now-playing bar showing inside the chat / not scrubbable**:
+  hidden now on any open `/chats/[chatId]` route (still shows on the
+  chats list and everywhere else); its progress line got the same
+  pointer-capture drag-to-seek the waveform scrubber already has.
+
+Separately, three more live-screenshot rounds arrived mid-fix and were
+folded into the same pass:
+
+- **"Подложку синюю убери"** -- a message whose entire content is one
+  voice/document/contact/photo attachment now skips the generic
+  message-bubble chrome (solid color + padding) entirely and renders
+  as ONE solid-color card instead of that chrome plus the attachment's
+  own translucent panel stacked on top; time+ticks move inside each
+  card (a semi-transparent overlay pill for a lone photo). Scoped to
+  the single-item, no-other-content case only -- mixed messages
+  unchanged.
+- **Real filenames**: sent documents always showed generic
+  "Документ"/"FILE" -- this app's own upload.create call never sent
+  the file's name to the backend (only mimetype+bytes), so
+  attribute-filename was never set. Now sent via upload.create's
+  optional `attributes` field (OpenAPI-confirmed shape); ChatFileTypeIcon
+  already supports DOC/XLS/PPT/PDF/ZIP/TXT/audio by extension, it just
+  never had one to read.
+- Misc: "Daily Uploads" reset countdown's "через через 8 годин"
+  duplicate + missing minutes (new formatCountdownDuration in
+  lib/format.ts); a broken/missing favorites cover now falls back to
+  the same compact pill books already use, not a big empty block
+  (components/favorite-cover.tsx, at Aleksandr's explicit request,
+  overriding an earlier "keep it square for grid alignment" decision);
+  create-post-fab's drafts-check no longer flashes a skeleton modal
+  open-then-closed on a slow zero-drafts response (small spinner on
+  the button itself instead, modal only appears once real drafts are
+  confirmed); chat header's name pill height now matches the back-
+  button/avatar circles.
+
+tsc-clean across all of it. Not yet re-verified live (needs Aleksandr
+to push via GitHub Desktop first) -- the desktop-scroll-to-bottom and
+periodic-session-logout bugs he also reported this segment are still
+unactioned, next up.
+
