@@ -139,9 +139,33 @@ export function DailyUploadsModal({ lang, onClose }: { lang: Locale; onClose: ()
           </button>
         </div>
 
+        {/* 2026-09-03 (Aleksandr, live screenshot: "Тут вместо слова
+            'завантаження' показывай скелетон лоад") -- same animate-
+            pulse gray-block language this app's other loading states
+            already use, shaped like the two real blocks below: the big
+            usage-summary card (total line + segmented bar + reset
+            line) and the per-category breakdown list (dot + label +
+            byte count, one row per category plus the "available" row,
+            see this file's own `categories` + the trailing available
+            row below -- 4 rows total). */}
         {loading && (
-          <div className="flex items-center justify-center py-8 text-sm text-neutral-500 dark:text-neutral-400">
-            {t("loading", lang)}
+          <div className="flex flex-col gap-3" aria-hidden="true">
+            <div className="rounded-2xl bg-neutral-100 p-4 dark:bg-neutral-800">
+              <div className="h-5 w-32 animate-pulse rounded bg-neutral-200 dark:bg-neutral-700" />
+              <div className="mt-3 h-2.5 w-full animate-pulse rounded-full bg-neutral-200 dark:bg-neutral-700" />
+              <div className="mt-2 h-3 w-40 animate-pulse rounded bg-neutral-200 dark:bg-neutral-700" />
+            </div>
+            <div className="flex flex-col gap-3 rounded-2xl bg-neutral-100 p-4 dark:bg-neutral-800">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-neutral-300 dark:bg-neutral-600" />
+                    <span className="h-3.5 w-24 animate-pulse rounded bg-neutral-200 dark:bg-neutral-700" />
+                  </span>
+                  <span className="h-3.5 w-12 animate-pulse rounded bg-neutral-200 dark:bg-neutral-700" />
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
