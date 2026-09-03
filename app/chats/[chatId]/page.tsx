@@ -1535,7 +1535,14 @@ export default function ChatWindowPage() {
       const createRes = await authFetch("/api/upload/create", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ mimetype: toUpload.type || "application/octet-stream", bytes: toUpload.size }),
+        // 2026-09-03 (Aleksandr, live screenshots: sent files show a
+        // generic "Документ"/"FILE" badge instead of the real name/
+        // icon) -- file.name is the ORIGINAL name (kind === "image"
+        // attachments went through compressAttachmentImage above, which
+        // preserves the source name, not toUpload's own -- same value
+        // either way here). See app/api/upload/create/route.ts's own
+        // comment for why this is what actually fixes it.
+        body: JSON.stringify({ mimetype: toUpload.type || "application/octet-stream", bytes: toUpload.size, fileName: file.name }),
       });
       const createData = await createRes.json();
       if (createData?.message === "quota_exceeded" && createData.usage) {
@@ -1989,11 +1996,19 @@ export default function ChatWindowPage() {
             <ChatBackArrow />
           </Link>
 
+          {/* 2026-09-03 (Aleksandr, live screenshot: "высоту заливки
+              имени сделай такой же как кнопка назад и аватар") -- the
+              name pill used to size itself off its own py-1.5 padding
+              alone, landing a bit shorter than the 42px back-arrow/
+              avatar circles flanking it. min-h-[42px] + flex-centering
+              the (possibly two-line, once the "typing..." row shows up)
+              content matches the pill's BASE height to those exactly
+              without capping how tall it can grow. */}
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-4 py-3">
             {headerProfileHref ? (
               <Link
                 href={headerProfileHref}
-                className="pointer-events-auto max-w-[55%] truncate rounded-full bg-black/5 px-4 py-1.5 text-center transition hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15"
+                className="pointer-events-auto flex min-h-[42px] max-w-[55%] flex-col items-center justify-center truncate rounded-full bg-black/5 px-4 text-center transition hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15"
               >
                 <span className="block truncate text-[15px] font-semibold leading-tight">{headerTitle || "—"}</span>
                 {peerTyping && (
@@ -2004,7 +2019,7 @@ export default function ChatWindowPage() {
                 )}
               </Link>
             ) : (
-              <div className="pointer-events-auto max-w-[55%] truncate rounded-full bg-black/5 px-4 py-1.5 text-center dark:bg-white/10">
+              <div className="pointer-events-auto flex min-h-[42px] max-w-[55%] flex-col items-center justify-center truncate rounded-full bg-black/5 px-4 text-center dark:bg-white/10">
                 <span className="block truncate text-[15px] font-semibold leading-tight">{headerTitle || "—"}</span>
                 {peerTyping && (
                   <span className="flex items-center justify-center gap-1.5 text-[13px] font-medium text-[#335ef7] dark:text-[#0c8ce9]">
@@ -2215,6 +2230,51 @@ export default function ChatWindowPage() {
                 contactMedia.length > 0 ||
                 pendingContactCards.length > 0 ||
                 calc !== null;
+              // 2026-09-03 (Aleksandr, third live-feedback round: "тут
+              // из UI убери подложку синюю... уменьшим сообщение, оно
+              // будет более компактно... также убери подложку для
+              // фотографий и карточек контактов... как таблицы, видишь,
+              // калькуляция полностью flat") -- a message whose ENTIRE
+              // content is exactly one voice/document/contact/photo
+              // attachment used to always sit inside this row's own
+              // generic bubble chrome (solid color + padding) PLUS that
+              // attachment's own translucent panel stacked on top,
+              // reading as extra bulk around an already-compact card --
+              // same complaint ChatCalculationCard never had (it always
+              // rendered flat, no wrapping chrome, which is the shape
+              // this now matches for these four kinds too). Scoped
+              // tightly to the single-item, no-other-content case only
+              // (`soleDoc`/one real contact, nothing else in the
+              // message) -- anything mixed (text + a photo, two
+              // documents, ...) keeps the original wrapper untouched,
+              // safer than guessing a layout for combinations nobody
+              // asked about yet. `pending` is always null here (see
+              // docMedia/contactMedia's own definitions above, both
+              // already `pending ? [] : ...`), so the flat footer below
+              // never needs the SendingSpinner/NotSentIcon branch the
+              // shared one still carries for a pending bubble.
+              const soleDoc = docMedia.length === 1 ? (docMedia[0] ?? null) : null;
+              const isVoiceOnly =
+                !text && pendingAttachments.length === 0 && calc === null && contactMedia.length === 0 &&
+                pendingContactCards.length === 0 && soleDoc !== null && isVoiceMediaDocument(soleDoc);
+              const isImageOnly =
+                !text && pendingAttachments.length === 0 && calc === null && contactMedia.length === 0 &&
+                pendingContactCards.length === 0 && soleDoc !== null && isImageMediaDocument(soleDoc);
+              const isFileOnly =
+                !text && pendingAttachments.length === 0 && calc === null && contactMedia.length === 0 &&
+                pendingContactCards.length === 0 && soleDoc !== null &&
+                !isVoiceMediaDocument(soleDoc) && !isImageMediaDocument(soleDoc) &&
+                !isVideoMediaDocument(soleDoc) && !isStickerMediaDocument(soleDoc);
+              const isContactOnly =
+                !text && pendingAttachments.length === 0 && docMedia.length === 0 && calc === null &&
+                pendingContactCards.length === 0 && contactMedia.length === 1;
+              const isFlatMedia = isVoiceOnly || isImageOnly || isFileOnly || isContactOnly;
+              const flatFooter = (
+                <div className={`flex items-center justify-end gap-1 text-[11px] ${mine ? "text-white/70" : "text-[#989aa6] dark:text-[#adafbb]"}`}>
+                  <span>{formatTime(ms)}</span>
+                  {mine && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7.77px] w-3.5" />}
+                </div>
+              );
               return (
                 <div key={msg._id}>
                   {showDate && (
@@ -2235,8 +2295,10 @@ export default function ChatWindowPage() {
                       // for a pending bubble, which has no real message
                       // id to scroll back to yet.
                       data-message-id={pending ? undefined : msg._id}
-                      className={`animate-message-in max-w-[78%] rounded-[18px] px-3 py-2 text-[17px] leading-snug outline-offset-2 outline-[#335ef7] transition-[outline-color,outline-offset] duration-500 ${pending ? "cursor-pointer" : ""} ${
-                        mine ? "rounded-tr-[6px] bg-[#335ef7] text-white dark:bg-[#009bff]" : "rounded-tl-[6px] bg-white text-[#262a34] dark:bg-[#1a1a1a] dark:text-white"
+                      className={`animate-message-in max-w-[78%] rounded-[18px] text-[17px] leading-snug outline-offset-2 outline-[#335ef7] transition-[outline-color,outline-offset] duration-500 ${pending ? "cursor-pointer" : ""} ${
+                        isFlatMedia
+                          ? ""
+                          : `px-3 py-2 ${mine ? "rounded-tr-[6px] bg-[#335ef7] text-white dark:bg-[#009bff]" : "rounded-tl-[6px] bg-white text-[#262a34] dark:bg-[#1a1a1a] dark:text-white"}`
                       } ${pending?.failed ? "opacity-70" : ""} ${
                         !pending && highlightedMessageId === Number(msg._id) ? "outline outline-2" : "outline-0"
                       }`}
@@ -2316,17 +2378,50 @@ export default function ChatWindowPage() {
                                 lang={lang}
                                 peerName={headerTitle}
                                 peerAvatarUrl={headerAvatar}
+                                footer={isVoiceOnly ? flatFooter : undefined}
                               />
                             ) : isImageMediaDocument(doc) ? (
-                              // eslint-disable-next-line @next/next/no-img-element -- proxied
-                              // through /api/media, not a next/image-configured remote host.
-                              <img
-                                key={doc._id}
-                                src={buildMediaProxyUrl(doc)}
-                                alt=""
-                                onClick={() => openViewerForDoc(msg._id, doc._id)}
-                                className="max-h-64 w-full cursor-pointer rounded-xl object-cover transition hover:opacity-90"
-                              />
+                              isImageOnly ? (
+                                // 2026-09-03 (Aleksandr, third live-
+                                // feedback round: "убери подложку для
+                                // фотографий... сделай время тоже в
+                                // фотографию, но в такой прозрачной
+                                // пилюлі") -- a lone photo message now
+                                // renders with NO wrapping bubble chrome
+                                // at all (see isFlatMedia above), so
+                                // time+ticks move onto a small
+                                // semi-transparent pill overlaid on the
+                                // image itself instead of a separate row
+                                // below it -- always a dark pill
+                                // (regardless of mine/theirs) since it
+                                // has to stay legible on any photo, not
+                                // just this app's own light/dark bubble
+                                // colors.
+                                <div key={doc._id} className="relative overflow-hidden rounded-xl">
+                                  {/* eslint-disable-next-line @next/next/no-img-element -- proxied
+                                      through /api/media, not a next/image-configured remote host. */}
+                                  <img
+                                    src={buildMediaProxyUrl(doc)}
+                                    alt=""
+                                    onClick={() => openViewerForDoc(msg._id, doc._id)}
+                                    className="block max-h-64 w-full cursor-pointer object-cover transition hover:opacity-90"
+                                  />
+                                  <span className="pointer-events-none absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded-full bg-black/45 px-2 py-0.5 text-[11px] text-white backdrop-blur-sm">
+                                    <span>{formatTime(ms)}</span>
+                                    {mine && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7.77px] w-3.5" />}
+                                  </span>
+                                </div>
+                              ) : (
+                                // eslint-disable-next-line @next/next/no-img-element -- proxied
+                                // through /api/media, not a next/image-configured remote host.
+                                <img
+                                  key={doc._id}
+                                  src={buildMediaProxyUrl(doc)}
+                                  alt=""
+                                  onClick={() => openViewerForDoc(msg._id, doc._id)}
+                                  className="max-h-64 w-full cursor-pointer rounded-xl object-cover transition hover:opacity-90"
+                                />
+                              )
                             ) : isVideoMediaDocument(doc) ? (
                               // 2026-09-03 (Aleksandr, live data trace --
                               // see isVideoMediaDocument's own comment,
@@ -2393,14 +2488,37 @@ export default function ChatWindowPage() {
                               // non-image file, filename + byte size
                               // stacked beside it like that reference
                               // frame's own document rows.
+                              // 2026-09-03 (Aleksandr, third live-
+                              // feedback round: "убери подложку синюю,
+                              // оставить просто актуальный такой
+                              // размер... добавь снизу время") -- a
+                              // lone document message drops the outer
+                              // bubble chrome (isFlatMedia above) and
+                              // this row becomes the ONLY layer -- solid
+                              // bubble color instead of a translucent
+                              // panel on top of it, a little roomier
+                              // (px-3 py-2.5 instead of px-2.5 py-2) to
+                              // read as a real message card rather than
+                              // a compose-time attachment chip, and
+                              // flatFooter tucked under the name/size
+                              // column. A file inside a MIXED message
+                              // (with text, or alongside other
+                              // attachments) keeps the original compact
+                              // translucent-chip styling unchanged.
                               <a
                                 key={doc._id}
                                 href={buildMediaProxyUrl(doc)}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className={`flex items-center gap-2.5 rounded-xl px-2.5 py-2 transition hover:opacity-80 ${
-                                  mine ? "bg-white/15" : "bg-black/5 dark:bg-white/10"
-                                }`}
+                                className={
+                                  isFileOnly
+                                    ? `flex w-64 max-w-full items-center gap-2.5 rounded-[18px] px-3 py-2.5 transition hover:opacity-90 ${
+                                        mine ? "rounded-tr-[6px] bg-[#335ef7] text-white dark:bg-[#009bff]" : "rounded-tl-[6px] bg-white text-[#262a34] dark:bg-[#1a1a1a] dark:text-white"
+                                      }`
+                                    : `flex items-center gap-2.5 rounded-xl px-2.5 py-2 transition hover:opacity-80 ${
+                                        mine ? "bg-white/15" : "bg-black/5 dark:bg-white/10"
+                                      }`
+                                }
                               >
                                 {fileKindFromName(mediaDocumentFileName(doc), doc.mimetype) === "pdf" ? (
                                   <PdfPageThumbnail
@@ -2411,7 +2529,7 @@ export default function ChatWindowPage() {
                                 ) : (
                                   <ChatFileTypeIcon kind={fileKindFromName(mediaDocumentFileName(doc), doc.mimetype)} className="h-11 w-11" />
                                 )}
-                                <span className="flex min-w-0 flex-col">
+                                <span className="flex min-w-0 flex-1 flex-col gap-1">
                                   <span className="truncate text-[14px] font-medium">
                                     {mediaDocumentFileName(doc) || (
                                       <T
@@ -2425,6 +2543,7 @@ export default function ChatWindowPage() {
                                       {formatBytes(mediaDocumentBytes(doc) as number)}
                                     </span>
                                   )}
+                                  {isFileOnly && <span className="mt-0.5">{flatFooter}</span>}
                                 </span>
                               </a>
                             ),
@@ -2475,6 +2594,7 @@ export default function ChatWindowPage() {
                                   contactSummaries[c.userId]?.avatarUrl ?? null,
                                 )
                               }
+                              footer={isContactOnly ? flatFooter : undefined}
                             />
                           ))}
                         </div>
@@ -2482,18 +2602,26 @@ export default function ChatWindowPage() {
                       {calc && <ChatCalculationCard calc={calc} mine={mine} />}
                       {text && <div className="whitespace-pre-wrap break-words">{text}</div>}
                       {!text && !hasMedia && <div className="whitespace-pre-wrap break-words">…</div>}
-                      <div
-                        className={`mt-0.5 flex items-center justify-end gap-1 text-[11px] ${
-                          mine ? "text-white/70" : "text-[#989aa6] dark:text-[#adafbb]"
-                        }`}
-                      >
-                        <span>{formatTime(ms)}</span>
-                        {pending ? (
-                          pending.failed ? <NotSentIcon /> : <SendingSpinner />
-                        ) : (
-                          mine && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7.77px] w-3.5" />
-                        )}
-                      </div>
+                      {/* isFlatMedia messages (see that flag's own
+                          comment above) already got their own time+
+                          ticks rendered INSIDE the single attachment
+                          component via `flatFooter` -- this shared row
+                          would just duplicate it below an otherwise-
+                          chromeless bubble. */}
+                      {!isFlatMedia && (
+                        <div
+                          className={`mt-0.5 flex items-center justify-end gap-1 text-[11px] ${
+                            mine ? "text-white/70" : "text-[#989aa6] dark:text-[#adafbb]"
+                          }`}
+                        >
+                          <span>{formatTime(ms)}</span>
+                          {pending ? (
+                            pending.failed ? <NotSentIcon /> : <SendingSpinner />
+                          ) : (
+                            mine && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7.77px] w-3.5" />
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     {/* 2026-09-02 (Aleksandr: "надо учесть ошибки с сетью...

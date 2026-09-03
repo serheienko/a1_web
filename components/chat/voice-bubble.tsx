@@ -71,7 +71,7 @@
 // reply-to-voice UI.
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore, type PointerEvent } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type PointerEvent, type ReactNode } from "react";
 import { T, type Locale } from "@/components/t";
 import { buildMediaProxyUrl } from "@/lib/a1/media-proxy";
 import {
@@ -153,6 +153,7 @@ export function VoiceMessageBubble({
   lang,
   peerName,
   peerAvatarUrl,
+  footer,
 }: {
   doc: MessageMediaDocument;
   mine: boolean;
@@ -167,6 +168,20 @@ export function VoiceMessageBubble({
    *  avatar anywhere. */
   peerName: string;
   peerAvatarUrl: string;
+  /** 2026-09-03 (Aleksandr, third live-feedback round: "подложку синюю
+   *  убери... время и просмотрено внутрь") -- this component used to
+   *  sit INSIDE app/chats/[chatId]/page.tsx's own generic message-
+   *  bubble chrome (solid-color rounded card, padding, and a shared
+   *  time+ticks footer below whatever content it wrapped), so a voice
+   *  message ended up with TWO stacked colored layers -- that outer
+   *  bubble plus this component's own translucent panel -- which read
+   *  as extra bulk/padding around an already-compact player. The page
+   *  now skips its own chrome entirely for a voice-only message and
+   *  hands the already-built time+ticks row straight in here instead,
+   *  so this component's own solid-color card (see the outer div's
+   *  className below) is the ONLY layer, with that row rendered at its
+   *  bottom edge same as every other bubble's footer position. */
+  footer?: ReactNode;
 }) {
   const voiceAttr = messageVoiceAttribute(doc);
   const totalSeconds = voiceDurationSeconds(doc);
@@ -280,8 +295,19 @@ export function VoiceMessageBubble({
   }
 
   const playedFraction = totalSeconds > 0 ? Math.min(1, elapsed / totalSeconds) : 0;
-  const remainingSeconds = Math.max(0, Math.ceil(totalSeconds - elapsed));
-  const timerLabel = playing || elapsed > 0 ? formatVoiceTimer(remainingSeconds) : formatVoiceTimer(totalSeconds);
+  // 2026-09-03 (Aleksandr, second live test round: "не идет время
+  // голосового сообщения") -- this used to count DOWN from totalSeconds
+  // (a "time remaining" style timer). When totalSeconds itself was not
+  // yet known for a doc (voiceDurationSeconds falling back to 0 -- e.g.
+  // a clip whose attribute-audio has not been reconciled by a poll
+  // yet), `totalSeconds - elapsed` floors at 0 immediately and the
+  // label was permanently stuck at "0:00" for the whole clip regardless
+  // of real playback progress -- exactly what he saw. Counting UP from
+  // elapsed instead (the Telegram/WhatsApp convention anyway) only ever
+  // depends on the <audio> element own currentTime, which is always
+  // correct once playback has actually started, so it can not get
+  // stuck this way even when totalSeconds is wrong or missing.
+  const timerLabel = playing || elapsed > 0 ? formatVoiceTimer(elapsed) : formatVoiceTimer(totalSeconds);
 
   const showUnopenedDot = !mine && !opened;
 
@@ -297,8 +323,8 @@ export function VoiceMessageBubble({
 
   return (
     <div
-      className={`relative flex items-center gap-2.5 overflow-hidden rounded-xl py-2 pl-3 pr-2 ${
-        mine ? "bg-white/15" : "bg-black/5 dark:bg-white/10"
+      className={`relative flex w-64 max-w-full flex-col gap-1.5 overflow-hidden rounded-[18px] py-2.5 pl-3 pr-2.5 ${
+        mine ? "rounded-tr-[6px] bg-[#335ef7] text-white dark:bg-[#009bff]" : "rounded-tl-[6px] bg-white text-[#262a34] dark:bg-[#1a1a1a] dark:text-white"
       }`}
     >
       {isCountingDown && deleteFraction !== null && (
@@ -311,11 +337,22 @@ export function VoiceMessageBubble({
         />
       )}
 
+      <div className="flex items-center gap-2.5">
+      {/* 2026-09-03 (Aleksandr, third live-feedback round: "с кнопкой
+          поиграться, чтобы она была видна") -- now that the bubble
+          itself is a SOLID accent-blue card on the `mine` side (see the
+          outer div above), the old always-blue button became
+          invisible, blue-on-blue. Inverted to a white circle with a
+          blue glyph for `mine` only -- the `theirs` side sits on a
+          white/dark card instead, where the original blue-circle-white-
+          glyph treatment already reads fine and is left unchanged. */}
       <button
         type="button"
         onClick={togglePlay}
         aria-label={playing ? "Pause" : "Play"}
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#335ef7] text-white transition hover:brightness-110 active:scale-95 dark:bg-[#0c8ce9]"
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition hover:brightness-110 active:scale-95 ${
+          mine ? "bg-white text-[#335ef7]" : "bg-[#335ef7] text-white dark:bg-[#0c8ce9]"
+        }`}
       >
         {playing ? <PauseGlyph className="h-4 w-4" /> : <PlayGlyph className="ml-0.5 h-4 w-4" />}
       </button>
@@ -409,6 +446,9 @@ export function VoiceMessageBubble({
           )}
         </div>
       )}
+      </div>
+
+      {footer}
     </div>
   );
 }

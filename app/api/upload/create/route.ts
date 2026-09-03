@@ -35,6 +35,19 @@ export const runtime = "nodejs";
 const UploadCreateInput = z.object({
   mimetype: z.string().trim().min(1),
   bytes: z.number().positive(),
+  // 2026-09-03 (Aleksandr, live screenshots: every file this app itself
+  // uploads shows the generic "Документ"/"FILE" fallback in the chat
+  // bubble instead of its real name/icon, e.g. "report.xlsx") -- traced
+  // to this route never telling the backend what the file was actually
+  // called: `mediaDocumentFileName()` (lib/a1/chat-schemas.ts) reads an
+  // `attribute-filename` entry off the CONFIRMED chat-doc shape, but
+  // nothing here ever sent one in, so it's always absent on anything
+  // uploaded through this app. PLAN.md's own confirmed `upload.create`
+  // input shape (§ table, off the OpenAPI spec) is `{ mimetype, bytes,
+  // flags?, ttlSeconds?, attributes? }` -- that optional `attributes`
+  // is the same array shape read back on the confirmed doc, so this is
+  // an input echoed straight through, not a new field being invented.
+  fileName: z.string().trim().min(1).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -44,7 +57,11 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { data, refreshedSession } = await callAsVisitor<unknown>("upload.create", parsed.data);
+    const { fileName, ...rest } = parsed.data;
+    const payload = fileName
+      ? { ...rest, attributes: [{ object: "attribute-filename", fileName }] }
+      : rest;
+    const { data, refreshedSession } = await callAsVisitor<unknown>("upload.create", payload);
     const usageParsed = MediaUploadUsageSchema.safeParse(data);
     if (usageParsed.success) {
       const response = NextResponse.json({ ok: false, message: "quota_exceeded", usage: usageParsed.data });

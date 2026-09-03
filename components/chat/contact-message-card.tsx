@@ -55,7 +55,7 @@
 // lingers in the DOM.
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { ChatExpertiseIcon, ChatPhoneIcon } from "@/components/chat/icons";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { OCCUPATION_LABELS } from "@/components/occupation-labels";
@@ -107,6 +107,7 @@ export function ContactMessageCard({
   canAddContact,
   onMessage,
   onContactAdded,
+  footer,
 }: {
   userId: string;
   firstName: string;
@@ -121,6 +122,17 @@ export function ContactMessageCard({
   canAddContact: boolean;
   onMessage: () => void;
   onContactAdded?: () => void;
+  /** 2026-09-03 (Aleksandr, third live-feedback round -- "подложку
+   *  синюю убери... время и просмотрено внутрь", same treatment asked
+   *  for voice/file/photo attachments): the caller used to wrap this
+   *  card in its own generic message-bubble chrome (solid color +
+   *  padding) with a separate time+ticks row below it, stacking this
+   *  card's own translucent panel on TOP of that -- see the outer div
+   *  className below, now solid instead of translucent so it can be
+   *  the page's only layer. The caller skips its own chrome for a
+   *  contact-only message and hands the built time+ticks row in here
+   *  instead. */
+  footer?: ReactNode;
 }) {
   const name = [firstName, lastName].filter(Boolean).join(" ").trim() || summary?.fullName || phoneNumber;
   const occupationLabel = summary?.occupation ? OCCUPATION_LABELS[summary.occupation] : null;
@@ -157,8 +169,8 @@ export function ContactMessageCard({
 
   return (
     <div
-      className={`flex w-full flex-col gap-2.5 rounded-xl p-3 ${
-        mine ? "bg-white/15" : "bg-black/5 dark:bg-white/10"
+      className={`flex w-64 max-w-full flex-col gap-2.5 rounded-[18px] p-3 ${
+        mine ? "rounded-tr-[6px] bg-[#335ef7] text-white dark:bg-[#009bff]" : "rounded-tl-[6px] bg-white text-[#262a34] dark:bg-[#1a1a1a] dark:text-white"
       }`}
     >
       <div className="flex items-center gap-2.5">
@@ -241,6 +253,8 @@ export function ContactMessageCard({
           />
         </p>
       )}
+
+      {footer}
     </div>
   );
 }
