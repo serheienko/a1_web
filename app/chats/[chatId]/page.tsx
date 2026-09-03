@@ -2171,12 +2171,19 @@ export default function ChatWindowPage() {
         className="fixed inset-x-0 top-0 z-10 border-b border-black/5 bg-[#f2f2f7]/90 pt-[env(safe-area-inset-top)] backdrop-blur-md dark:border-white/10 dark:bg-black/80 sm:sticky sm:pt-0"
       >
         <div className="relative mx-auto flex w-full max-w-[470px] items-center px-4 py-3">
+          {/* 2026-09-04 (Aleksandr, live test: "сделай анимацию на
+              стрелку назад при ховер") -- `group` here + `animate-
+              back-arrow` on the glyph itself (app/globals.css's own
+              back-arrow-nudge keyframe) is the same hover-nudge
+              convention the compose bar's own send button already uses
+              on its arrow (that button's own `group`/`animate-send-
+              arrow` comment). */}
           <Link
             href="/chats"
             aria-label="Back"
-            className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-[#335ef7] backdrop-blur-sm transition hover:bg-neutral-50 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80 dark:text-[#0c8ce9] dark:hover:bg-[#1c1c1e]"
+            className="group flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-[#335ef7] backdrop-blur-sm transition hover:bg-neutral-50 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80 dark:text-[#0c8ce9] dark:hover:bg-[#1c1c1e]"
           >
-            <ChatBackArrow />
+            <ChatBackArrow className="h-3 w-[7px] animate-back-arrow" />
           </Link>
 
           {/* 2026-09-03 (Aleksandr, live screenshot: "высоту заливки

@@ -748,6 +748,28 @@ textarea {
   animation: send-arrow-nudge 0.45s ease-in-out;
 }
 
+/* 2026-09-04 (Aleksandr, live test: "сделай анимацию на стрелку назад
+   при ховер") -- same nudge-on-hover convention as animate-send-arrow
+   just above, mirrored onto the X axis (this glyph points LEFT/back,
+   send-arrow points up) so the chevron reads as "give" toward the
+   direction it's already pointing, not away from it. */
+@keyframes back-arrow-nudge {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  40% {
+    transform: translateX(-2.5px);
+  }
+  70% {
+    transform: translateX(0.5px);
+  }
+}
+
+.group:hover .animate-back-arrow {
+  animation: back-arrow-nudge 0.45s ease-in-out;
+}
+
 @keyframes paperclip-wiggle {
   0%,
   100% {
@@ -1195,6 +1217,7 @@ textarea {
   .group:hover .animate-pencil-write,
   .group:hover .animate-trash-wobble,
   .group:hover .animate-send-arrow,
+  .group:hover .animate-back-arrow,
   .group:hover .animate-paperclip-wiggle,
   .group:hover .chat-cat-pupil,
   .group:hover .animate-mic-pulse,
