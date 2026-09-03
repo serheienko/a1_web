@@ -5321,3 +5321,46 @@ Still not done, per §6.99's order: `messages.updateContentOpened`
 wiring, the now-playing bar (blocked on Aleksandr's "more current"
 layout reference), reply-to-voice UI, the Figma "voice + text combine"
 compose card.
+
+### 6.102 Chat attachments: fixed stickers/video falling through to the generic "FILE" badge (2026-09-03)
+
+Aleksandr live screenshot + follow-up ("Атачменты кстати тоже
+отображены неправильно, смотри в нашу папку. Надо название файла, вес,
+другие иконки, а не надпись 'file'"): traced against this account's
+own real `/api/chats/messages` response rather than guessed --
+`GET /api/chats/messages?chat=...` fetched live from the browser
+console showed every offending row was `mimetype: "application/
+x-tgsticker"` (an `attribute-sticker` entry, never an `attribute-
+filename` -- stickers have no filename, so mediaDocumentFileName()
+always came back empty, landing on the generic row's own "Документ"
+fallback + file-type-icon.tsx's unrecognized-mimetype "FILE" badge).
+`video/mp4` attachments hit the same fallback for the same underlying
+reason (no video-specific renderer existed).
+
+`isStickerMediaDocument()`/`isVideoMediaDocument()` added to lib/a1/
+chat-schemas.ts (commit 3de108d); app/chats/[chatId]/page.tsx's
+docMedia render loop now branches on them ahead of the generic file
+row: a video gets a real `<video controls>` element (mp4 plays
+natively, no reason to force a download-only badge), a sticker gets a
+labeled "Стікер" chip with its own icon instead of a fake document row
+-- NOT a real rendered sticker (the underlying file is a gzipped
+Lottie/TGS animation, not a browser-raster format; actually playing it
+needs its own decode pass, a separate follow-up if Aleksandr wants
+stickers to render for real rather than just read correctly). tsc-clean.
+
+### 6.103 Voice messages: cross-page now-playing bar shipped, playback moved to a shared store (2026-09-03)
+
+Fifth milestone of §6.99's implementation order -- see commit bcf93f0's
+own message for the mechanics (lib/voice-playback-store.ts + components/
+chat/voice-now-playing-bar.tsx, mounted in app/layout.tsx). Unblocked
+once Aleksandr sent the confirmed current reference (avatar+name left,
+play/1x/close right) and confirmed the earlier Figma mock in §6.99 was
+the outdated version.
+
+Still not done, per §6.99's own order: `messages.updateContentOpened`
+wiring, reply-to-voice UI, the Figma "voice + text combine" compose
+card. Also newly flagged, not yet investigated: Aleksandr reports
+recording itself "works very crooked" live on his own machine -- next
+step is reproducing that (this session's own Chrome tooling has no
+real microphone hardware, so a synthetic press-hold there mostly tests
+UI/gesture-state-machine logic, not actual audio capture quality).
