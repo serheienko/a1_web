@@ -200,7 +200,18 @@ export type ChatMessage = z.infer<typeof MessageSchema>;
 // reach into lib/a1/schemas.ts's own literal, and so a future mismatch
 // between the two endpoints' shapes fails independently.
 const MessageMediaAttributeSchema = z
-  .object({ object: z.string().catch(""), fileName: z.string().optional() })
+  .object({
+    object: z.string().catch(""),
+    fileName: z.string().optional(),
+    // attribute-audio fields (CONFIRMED via aone-api-private-main's
+    // packages/types/resources/MediaDocument.d.ts, 2026-09-03 --
+    // Resource.MediaDocument.Attribute.AttributeAudio):
+    duration: z.number().optional(),
+    title: z.string().optional(),
+    performer: z.string().optional(),
+    waveform: z.string().optional(),
+    voice: z.boolean().optional(),
+  })
   .catchall(z.unknown());
 
 const MessageMediaSizeSchema = z
@@ -217,12 +228,44 @@ export const MessageMediaDocumentSchema = z
     _id: z.union([z.string(), z.number()]).transform((v) => String(v)),
     mimetype: z.string().catch("application/octet-stream"),
     fileReference: z.string(),
+    date: z.number().optional(),
+    viewed: z.number().optional(),
+    ttl: z.number().nullable().optional(),
+    ttlSeconds: z.number().optional(),
+    flags: z.number().catch(0),
     sizes: z.array(MessageMediaSizeSchema).catch([]),
     attributes: z.array(MessageMediaAttributeSchema).catch([]),
     object: z.literal("media-doc"),
   })
   .catchall(z.unknown());
 export type MessageMediaDocument = z.infer<typeof MessageMediaDocumentSchema>;
+
+// `media-doc-deleted` echo (Resource.Message.Media.DocumentDeleted) --
+// what a self-destructing voice note turns into once the server has
+// actually purged it (`reason: "expired"`), or transiently while an
+// UNIMPORTANT staging upload is still in flight. Only `reason ===
+// "expired"` is treated as "this voice message is gone" by
+// isExpiredVoiceEcho() below; every other/absent reason is left alone
+// (fail-closed, same convention as messageDocumentMedia).
+export const MessageMediaDocumentDeletedSchema = z
+  .object({
+    _id: z.union([z.string(), z.number()]).transform((v) => String(v)),
+    flags: z.number().catch(0),
+    mimetype: z.string().catch(""),
+    reason: z.string().optional(),
+    object: z.literal("media-doc-deleted"),
+  })
+  .catchall(z.unknown());
+export type MessageMediaDocumentDeleted = z.infer<typeof MessageMediaDocumentDeletedSchema>;
+
+export function messageDeletedDocumentMedia(msg: ChatMessage): MessageMediaDocumentDeleted[] {
+  const out: MessageMediaDocumentDeleted[] = [];
+  for (const item of msg.media) {
+    const parsed = MessageMediaDocumentDeletedSchema.safeParse(item);
+    if (parsed.success) out.push(parsed.data);
+  }
+  return out;
+}
 
 // `msg.media` is only ever validated as `z.unknown()` at the top level
 // (RawMessageSchema, above) -- chat-server's Resource.Message.Media is a
@@ -274,6 +317,244 @@ export function mediaDocumentBytes(doc: MessageMediaDocument): number | null {
     if (typeof s.bytes === "number" && Number.isFinite(s.bytes) && s.bytes > 0) return s.bytes;
   }
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// Voice messages (Aleksandr, 2026-09-03: "давай следующей фичой сделаем
+// запись голосового сообщения") -- a voice note is an ordinary
+// media-doc/media-document with an `audio/*` mimetype, carrying an
+// `attribute-audio` entry (duration/voice/waveform). CONFIRMED against
+// aone-api-private-main's packages/types/resources/MediaDocument.d.ts +
+// the Flutter mobile app's own conversation_detail_entity.dart (`Media`
+// class -- isVoice/_hasAudioAttribute getters, resolveDeleteWindow()/
+// deleteCountdownFraction(), waveform_decoder.dart's decode5BitWaveform/
+// normalizePeaks) -- every function below is a direct TS port of that
+// confirmed logic, not a guess. See PLAN.md's voice-messages entries for
+// the full research writeup (screen recordings + Figma cross-check).
+// ---------------------------------------------------------------------------
+
+export type VoiceAttribute = {
+  duration: number;
+  voice: boolean;
+  waveform?: string;
+  title?: string;
+  performer?: string;
+};
+
+function findAudioAttribute(doc: MessageMediaDocument) {
+  return doc.attributes.find((a) => a.object === "attribute-audio") ?? null;
+}
+
+// Raw `attribute-audio` entry, typed -- null when the document carries
+// none (a plain file/image attachment).
+export function messageVoiceAttribute(doc: MessageMediaDocument): VoiceAttribute | null {
+  const attr = findAudioAttribute(doc);
+  if (!attr) return null;
+  return {
+    duration: typeof attr.duration === "number" ? attr.duration : 0,
+    voice: attr.voice === true,
+    waveform: typeof attr.waveform === "string" ? attr.waveform : undefined,
+    title: attr.title,
+    performer: attr.performer,
+  };
+}
+
+// Direct port of the Flutter app's `Media.isVoice` getter (minus the
+// `_isStagingDeletedAudio`/`voice_`-local-id branches, which are Hive-
+// outbox-specific and don't apply to this REST-based optimistic-send
+// model -- the web side's own pending-voice bubbles are tracked
+// separately, see PendingMessage.pendingVoice in app/chats/[chatId]/
+// page.tsx, not via a synthetic media item). A bare document with only
+// a fileReference is intentionally NOT voice -- otherwise every
+// non-audio attachment coming back from the backend would misrender as
+// an unplayable voice bubble.
+export function isVoiceMediaDocument(doc: MessageMediaDocument): boolean {
+  const mime = doc.mimetype.toLowerCase().trim();
+  if (mime.startsWith("image/") || mime.startsWith("video/")) return false;
+  if (mime.startsWith("audio/")) return true;
+  const attr = findAudioAttribute(doc);
+  if (!attr) return false;
+  return attr.voice === true || (typeof attr.duration === "number" && attr.duration > 0) || typeof attr.waveform === "string";
+}
+
+export function voiceDurationSeconds(doc: MessageMediaDocument): number {
+  return messageVoiceAttribute(doc)?.duration ?? 0;
+}
+
+// Base64 -> bytes, browser-safe (atob, not Buffer -- this file runs
+// client-side in bubble rendering, not just in API routes).
+function base64ToBytes(encoded: string): Uint8Array | null {
+  try {
+    const normalized = encoded.replace(/-/g, "+").replace(/_/g, "/");
+    const binary = atob(normalized);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+  } catch {
+    return null;
+  }
+}
+
+// Direct port of waveform_decoder.dart's `decode5BitWaveform` -- 5-bit
+// peak values (0..31), LSB-first, read via a 16-bit window straddling
+// two bytes so the last partial byte is handled the same way the
+// Telegram desktop reference implementation does (comment links the
+// exact tdesktop source line in the Dart original).
+export function decode5BitWaveform(bytes: Uint8Array): number[] {
+  const bitsCount = bytes.length * 8;
+  const valuesCount = Math.floor(bitsCount / 5);
+  if (valuesCount === 0) return [];
+  const result = new Array<number>(valuesCount);
+  for (let i = 0; i < valuesCount; i++) {
+    const byteIndex = Math.floor((i * 5) / 8);
+    const bitShift = (i * 5) % 8;
+    const low = bytes[byteIndex] ?? 0;
+    const high = byteIndex + 1 < bytes.length ? (bytes[byteIndex + 1] ?? 0) : 0;
+    const value = low + (high << 8);
+    result[i] = (value >> bitShift) & 0x1f;
+  }
+  return result;
+}
+
+export function decodeBase64Waveform(encoded: string | undefined | null): number[] | null {
+  if (!encoded) return null;
+  const bytes = base64ToBytes(encoded);
+  if (!bytes) return null;
+  return decode5BitWaveform(bytes);
+}
+
+function resampleWaveform(samples: number[], targetCount: number): number[] {
+  if (samples.length === targetCount) return samples.slice();
+  if (samples.length === 0) return new Array(targetCount).fill(0);
+  if (samples.length === 1) return new Array(targetCount).fill(samples[0]);
+  const result: number[] = [];
+  for (let i = 0; i < targetCount; i++) {
+    const t = targetCount === 1 ? 0 : i / (targetCount - 1);
+    const srcIndex = t * (samples.length - 1);
+    const lo = Math.floor(srcIndex);
+    const hi = Math.min(samples.length - 1, Math.ceil(srcIndex));
+    const frac = srcIndex - lo;
+    result.push((samples[lo] ?? 0) * (1 - frac) + (samples[hi] ?? 0) * frac);
+  }
+  return result;
+}
+
+// Resamples raw 0..31 peaks into `barCount` normalised heights in
+// [minHeight, 1], scaled by the loudest peak so quiet clips still show
+// readable bars -- same as normalizePeaks() in the Dart original.
+export function normalizeWaveformPeaks(peaks: number[], barCount: number, minHeight = 0.06): number[] | null {
+  if (peaks.length === 0 || barCount <= 0) return null;
+  const resampled = resampleWaveform(peaks, barCount);
+  let peak = 0;
+  for (const v of resampled) if (v > peak) peak = v;
+  if (peak < 1e-4) return null;
+  return resampled.map((v) => Math.min(1, Math.max(minHeight, v / peak)));
+}
+
+export function decodeWaveformBars(encoded: string | undefined | null, barCount: number, minHeight = 0.06): number[] | null {
+  const peaks = decodeBase64Waveform(encoded);
+  if (!peaks || peaks.length === 0) return null;
+  return normalizeWaveformPeaks(peaks, barCount, minHeight);
+}
+
+// Self-destruct flags bitmask (CONFIRMED, @aone/constants MESSAGE_FLAG /
+// the Dart Media class's own `_flagTimeDestroy`/`_flagViewDestroy`).
+export const VOICE_FLAG_TIME_DESTROY = 1 << 0;
+export const VOICE_FLAG_VIEW_DESTROY = 1 << 1;
+
+export function isVoiceViewDestroy(doc: MessageMediaDocument): boolean {
+  return (doc.flags & VOICE_FLAG_VIEW_DESTROY) !== 0;
+}
+
+export type VoiceDeleteWindow = { startUnix: number; expiresUnix: number; pending: boolean };
+
+export type VoiceDeleteWindowOptions = {
+  /** The message's own send date, ms epoch (ChatMessage via messageDateMs()). */
+  messageDateMs?: number | null;
+  nowMs?: number;
+  /** Local optimistic open-timer, set the instant the RECIPIENT presses play,
+   * before the server echoes back an authoritative `viewed`/`ttl` -- unix
+   * seconds, mirrors chat_detail_cubit.dart's voiceDeleteStartedCache. */
+  localStartUnix?: number | null;
+  localExpiresUnix?: number | null;
+};
+
+// Direct port of `Media.resolveDeleteWindow()` (conversation_detail_
+// entity.dart) -- resolves the ACTIVE delete window for a self-
+// destructing voice note, in this priority order: (1) server-recorded
+// `viewed` is authoritative once present; (2) a local optimistic open-
+// timer, until the server echoes back; (3) VIEW_DESTROY + never opened
+// -> pending (full bar, countdown hasn't started); (4) an absolute `ttl`
+// staging window (pre-open ~7 day countdown); (5) a bare `ttlSeconds`
+// with no ttl yet -> pending. Returns null when the doc has no delete
+// window at all (not self-destructing).
+export function resolveVoiceDeleteWindow(
+  doc: MessageMediaDocument,
+  opts: VoiceDeleteWindowOptions = {},
+): VoiceDeleteWindow | null {
+  const nowMs = opts.nowMs ?? Date.now();
+  const parsedTtl = typeof doc.ttl === "number" && Number.isFinite(doc.ttl) ? doc.ttl : null;
+  const durationSec = typeof doc.ttlSeconds === "number" && doc.ttlSeconds > 0 ? doc.ttlSeconds : null;
+  const viewed = typeof doc.viewed === "number" && doc.viewed > 0 ? doc.viewed : null;
+
+  if (viewed != null) {
+    if (parsedTtl != null && parsedTtl > viewed) {
+      return { startUnix: viewed, expiresUnix: parsedTtl, pending: false };
+    }
+    if (durationSec != null) {
+      return { startUnix: viewed, expiresUnix: viewed + durationSec, pending: false };
+    }
+  }
+
+  const localStart = opts.localStartUnix ?? null;
+  const localExpires = opts.localExpiresUnix ?? null;
+  if (viewed == null && localStart != null && localExpires != null && localExpires > localStart) {
+    return { startUnix: localStart, expiresUnix: localExpires, pending: false };
+  }
+
+  if (durationSec == null && parsedTtl == null) return null;
+
+  if (isVoiceViewDestroy(doc) && viewed == null && localStart == null) {
+    return { startUnix: 0, expiresUnix: durationSec ?? 1, pending: true };
+  }
+
+  if (parsedTtl != null && parsedTtl > 1_000_000_000) {
+    const startUnix = doc.date && doc.date > 0 ? doc.date : opts.messageDateMs != null ? Math.floor(opts.messageDateMs / 1000) : null;
+    if (startUnix != null && parsedTtl > startUnix) {
+      return { startUnix, expiresUnix: parsedTtl, pending: false };
+    }
+    const nowUnix = Math.floor(nowMs / 1000);
+    if (parsedTtl > nowUnix) {
+      return { startUnix: parsedTtl - 1, expiresUnix: parsedTtl, pending: false };
+    }
+  }
+
+  if (durationSec == null) return null;
+  return { startUnix: 0, expiresUnix: durationSec, pending: true };
+}
+
+// Direct port of `Media.deleteCountdownFraction()` -- remaining lifetime
+// fraction [0,1], sub-second precision so a left-border countdown
+// animation drains smoothly instead of jumping once per second. null
+// when the doc has no active delete window at all.
+export function voiceDeleteCountdownFraction(doc: MessageMediaDocument, opts: VoiceDeleteWindowOptions = {}): number | null {
+  const window = resolveVoiceDeleteWindow(doc, opts);
+  if (window == null) return null;
+  if (window.pending) return 1;
+  const nowMs = opts.nowMs ?? Date.now();
+  const expiresMs = window.expiresUnix * 1000;
+  if (nowMs >= expiresMs) return 0;
+  const totalSec = window.expiresUnix - window.startUnix;
+  if (totalSec <= 0) return null;
+  const remainingMs = expiresMs - nowMs;
+  return Math.min(1, Math.max(0, remainingMs / (totalSec * 1000)));
+}
+
+// A voice note the server has actually purged (media-doc-deleted echo
+// with reason "expired") -- the message row may still carry caption
+// text, but the clip itself is gone and must not offer to play.
+export function isExpiredVoiceEcho(doc: MessageMediaDocumentDeleted): boolean {
+  return doc.reason === "expired";
 }
 
 // Shared-contact attachment (Aleksandr, 2026-09-02: "прокинь пока на
