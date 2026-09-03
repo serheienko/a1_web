@@ -177,10 +177,11 @@ function formatTime(ms: number): string {
 // скелетон лоад") -- same animate-pulse gray-block language app/jobs/
 // loading.tsx already established for this app's route-level skeletons,
 // sized to this popover's own 40px-avatar row (see the real row's own
-// h-10 avatar + two-line text block below). SKELETON_ROW_COUNT (8)
-// matches the list's own fixed h-[448px] (8 rows x 56px/row, see that
-// className below) so the skeleton fills the exact space the real
-// rows will occupy instead of leaving a gap or overflowing it.
+// h-10 avatar + two-line text block below). SKELETON_ROW_COUNT (8) x
+// 56px/row = 448px is the list's own max-h cap (see that className
+// below) -- the skeleton fills exactly that cap during loading so it
+// never overflows it; the real, loaded list is free to be SHORTER than
+// that (see 2026-09-03 fix below).
 const SKELETON_ROW_COUNT = 8;
 
 function ChatRowSkeleton() {
@@ -390,7 +391,18 @@ export function ChatsFlyout({
         </div>
       </div>
 
-      <div className="mt-2 h-[448px] shrink-0 overflow-y-auto px-2 pb-2">
+      {/* 2026-09-03 (Aleksandr, live mobile screenshot: "Моб версия окно
+          модалки должно знать размер экрана и быть ниже" -- a fixed
+          h-[448px] here meant a chat list with only 4 real chats still
+          reserved the same 448px (8 rows worth) the skeleton uses,
+          leaving a big empty white gap below the last real row and
+          pushing the whole popover's top edge needlessly high on a
+          short mobile screen, since it's bottom-anchored (see
+          FLYOUT_BOTTOM) -- a shorter list now makes the whole popover
+          shorter and sit lower, not just this inner box. max-h (not h)
+          keeps the existing 8-row scroll cap for chat-heavy accounts
+          while letting a short list collapse to its own real height. */}
+      <div className="mt-2 max-h-[448px] shrink-0 overflow-y-auto px-2 pb-2">
         {state === "loading" && chats.length === 0 && (
           <div className="flex flex-col gap-0.5">
             {Array.from({ length: SKELETON_ROW_COUNT }).map((_, i) => (
