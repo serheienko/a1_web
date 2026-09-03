@@ -60,6 +60,7 @@ import {
 } from "@/components/chat/icons";
 import { ChatCalculationCard } from "@/components/chat/calculation-card";
 import { ChatFileTypeIcon, fileKindFromName } from "@/components/chat/file-type-icon";
+import { PdfPageThumbnail } from "@/components/chat/pdf-thumbnail";
 import { CurrencyPickerModal } from "@/components/chat/currency-picker-modal";
 import { DailyUploadsModal } from "@/components/daily-uploads-modal";
 import { ContactMessageCard, type ContactCardSummary } from "@/components/chat/contact-message-card";
@@ -1179,7 +1180,13 @@ export default function ChatWindowPage() {
     // размеру файла." For images this falls out naturally since
     // toUpload is already the compressed File.
     const bytes = toUpload.size;
-    const previewUrl = kind === "image" ? URL.createObjectURL(toUpload) : undefined;
+    // 2026-09-03 ("1:1 с Figma" follow-up): a PDF file gets a local
+    // blob: URL too, same as an image -- lib/pdf-thumbnail.ts renders
+    // its first page off this exact URL for the compose preview/
+    // pending-bubble thumbnail. Every other file kind stays without a
+    // previewUrl, unchanged.
+    const previewUrl =
+      kind === "image" || fileKindFromName(file.name, file.type) === "pdf" ? URL.createObjectURL(toUpload) : undefined;
     // Two independent validations before ever attempting an upload
     // (Aleksandr, 2026-09-03: flat per-file cap, then whatever's left of
     // today's quota) -- both push a visible RED error card instead of
@@ -1961,7 +1968,15 @@ export default function ChatWindowPage() {
                                     mine ? "bg-white/15" : "bg-black/5 dark:bg-white/10"
                                   }`}
                                 >
-                                  <ChatFileTypeIcon kind={fileKindFromName(a.fileName, a.mimetype)} className="h-11 w-11" />
+                                  {fileKindFromName(a.fileName, a.mimetype) === "pdf" && a.previewUrl ? (
+                                    <PdfPageThumbnail
+                                      src={a.previewUrl}
+                                      className="h-11 w-11 shrink-0 rounded-[12px] object-cover object-top"
+                                      fallback={<ChatFileTypeIcon kind="pdf" className="h-11 w-11" />}
+                                    />
+                                  ) : (
+                                    <ChatFileTypeIcon kind={fileKindFromName(a.fileName, a.mimetype)} className="h-11 w-11" />
+                                  )}
                                   <span className="truncate text-[14px]">{a.fileName}</span>
                                 </div>
                               )}
@@ -2006,7 +2021,15 @@ export default function ChatWindowPage() {
                                   mine ? "bg-white/15" : "bg-black/5 dark:bg-white/10"
                                 }`}
                               >
-                                <ChatFileTypeIcon kind={fileKindFromName(mediaDocumentFileName(doc), doc.mimetype)} className="h-11 w-11" />
+                                {fileKindFromName(mediaDocumentFileName(doc), doc.mimetype) === "pdf" ? (
+                                  <PdfPageThumbnail
+                                    src={buildMediaProxyUrl(doc)}
+                                    className="h-11 w-11 shrink-0 rounded-[12px] object-cover object-top"
+                                    fallback={<ChatFileTypeIcon kind="pdf" className="h-11 w-11" />}
+                                  />
+                                ) : (
+                                  <ChatFileTypeIcon kind={fileKindFromName(mediaDocumentFileName(doc), doc.mimetype)} className="h-11 w-11" />
+                                )}
                                 <span className="flex min-w-0 flex-col">
                                   <span className="truncate text-[14px] font-medium">
                                     {mediaDocumentFileName(doc) || (
@@ -2428,7 +2451,7 @@ export default function ChatWindowPage() {
                     key={a.localId}
                     className="relative flex w-full items-center gap-2.5 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 dark:border-red-900/50 dark:bg-red-950/30"
                   >
-                    <ChatFileTypeIcon kind={fileKindFromName(a.fileName, a.mimetype)} className="h-10 w-10 shrink-0" />
+                    <ChatFileTypeIcon kind={fileKindFromName(a.fileName, a.mimetype)} tone="error" className="h-10 w-10 shrink-0" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[13px] font-medium text-red-700 dark:text-red-300">{a.fileName}</p>
                       <p className="truncate text-[12px] text-red-600 dark:text-red-400">{a.errorMessage}</p>
@@ -2475,9 +2498,19 @@ export default function ChatWindowPage() {
                     />
                   ) : (
                     // Same per-type badge as the sent/pending rows below
-                    // (ChatFileTypeIcon), scaled down to fit this chip.
+                    // (ChatFileTypeIcon), scaled down to fit this chip --
+                    // or, for a PDF, its own rendered first-page
+                    // thumbnail (lib/pdf-thumbnail.ts) in that same slot.
                     <div className="flex h-16 w-40 items-center gap-2 rounded-xl border border-neutral-200 bg-white/90 px-2.5 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
-                      <ChatFileTypeIcon kind={fileKindFromName(a.fileName, a.mimetype)} className="h-8 w-8" />
+                      {fileKindFromName(a.fileName, a.mimetype) === "pdf" && a.previewUrl ? (
+                        <PdfPageThumbnail
+                          src={a.previewUrl}
+                          className="h-8 w-8 shrink-0 rounded-[8px] object-cover object-top"
+                          fallback={<ChatFileTypeIcon kind="pdf" className="h-8 w-8" />}
+                        />
+                      ) : (
+                        <ChatFileTypeIcon kind={fileKindFromName(a.fileName, a.mimetype)} className="h-8 w-8" />
+                      )}
                       <span className="truncate text-[12px] text-[#262a34] dark:text-white">{a.fileName}</span>
                     </div>
                   )}

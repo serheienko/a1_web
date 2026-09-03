@@ -4677,3 +4677,50 @@ pipeline exists -- see file-type-icon.tsx's own header).
 
 tsc-clean, one commit (every piece touches the same attach-menu/
 composer JSX in app/chats/[chatId]/page.tsx).
+
+### 6.94 Attachments scope gaps closed: red error icon + real PDF thumbnails (2026-09-03)
+
+Aleksandr: "Дожми пункты 1-2 до 1:1 с Figma" -- the two items §6.93
+flagged as simplified/deferred.
+
+- **Red icon in the "too large" card**: ChatFileTypeIcon (components/
+  chat/file-type-icon.tsx) gained a `tone?: "brand" | "error"` prop --
+  `"error"` swaps its per-kind brand color for flat red while keeping
+  the same glyph/label, so the file type stays legible. Only the
+  tooLarge card in app/chats/[chatId]/page.tsx passes it.
+
+- **Real PDF first-page thumbnails**, closest this session could get
+  to 1:1 with the Figma reference ("показывает верхню частину
+  сторінки, превью") -- **flagged, not fully confirmed**: this app has
+  no PDF-rendering dependency, and `npm install pdfjs-dist` failed
+  live in this session's own device shell with a 403
+  "blocked-by-allowlist" proxy error (registry.npmjs.org and cdnjs are
+  both unreachable from THIS session's sandboxed shell) -- so it could
+  not be added as a real, type-checked npm dependency here. Worked
+  around with lib/pdf-thumbnail.ts + components/chat/pdf-thumbnail.tsx:
+  lazily loads pdf.js's classic UMD build from cdnjs at RUNTIME in the
+  end user's own browser (an ordinary browser has no such
+  restriction -- the block only affects installing a build-time
+  dependency from this session's own shell), renders page 1 to a
+  canvas, returns a cached data: URL. Rendered top-left-aligned and
+  displayed via object-cover/object-top, which naturally shows the
+  page's own TOP portion in the square badge slot -- matching
+  Aleksandr's own wording literally, not just approximately. Every
+  failure mode (script 404, network down, CORS on the signed S3 URL
+  app/api/media/[docId]/route.ts redirects a real sent PDF's src
+  through, a corrupt/encrypted file) resolves to `null` and falls back
+  to the existing colored PDF badge -- never a broken attachment, at
+  worst "still shows the icon, same as before this pass." Wired into
+  all three PDF render spots: the compose-bar preview chip, the
+  pending/optimistic bubble, and the real sent-message document row.
+  **Explicitly NOT verified live** -- no browser was available in this
+  session to actually open a chat and confirm a thumbnail renders (let
+  alone that the cdnjs version/path guessed here is still current, or
+  that the S3 bucket's CORS config allows pdf.js's own fetch through
+  the media-proxy redirect the way a plain `<img>` tag already
+  tolerates for photos). Ask Aleksandr to check a real PDF attachment
+  live after this deploys; if the CDN load or the S3 CORS turns out to
+  block it, the safe fallback means nothing regresses, but the actual
+  thumbnail feature just silently won't render until fixed.
+
+tsc-clean.
