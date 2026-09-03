@@ -315,6 +315,14 @@ type Recorder = ReturnType<typeof useVoiceRecorder>;
 
 export function VoiceRecordButton({ recorder, disabled, lang }: { recorder: Recorder; disabled?: boolean; lang: Locale }) {
   const buttonRef = useRef<HTMLButtonElement>(null);
+  // 2026-09-03 (Aleksandr, live test: mobile web's press-hold gesture)
+  // -- remembers whether THIS press was a touch tap (vs. a mouse press),
+  // purely to suppress the lock-badge float above the button during the
+  // brief "requesting" (mic permission) window for a touch press -- that
+  // gesture skips the badge's whole reason for existing (see startPress'
+  // own `autoLock` comment in voice-recorder.ts), so showing a static,
+  // never-animating lock icon for a few hundred ms would just be noise.
+  const touchGestureRef = useRef(false);
 
   function centerOf(el: HTMLElement): VoiceRecorderPointer {
     const rect = el.getBoundingClientRect();
@@ -350,7 +358,7 @@ export function VoiceRecordButton({ recorder, disabled, lang }: { recorder: Reco
           already on) makes the drag direction self-evident -- rises and
           brightens toward lockProgress===1, same climb the pill's
           `translateY` used to do in its old spot. */}
-      {isActive && (
+      {isActive && !touchGestureRef.current && (
         <div
           // 2026-09-03 (Aleksandr, live test: "надо расположить его
           // прямо над кнопкой записи голоса") -- `bottom-[52px]` put
@@ -381,8 +389,11 @@ export function VoiceRecordButton({ recorder, disabled, lang }: { recorder: Reco
           if (disabled) return;
           e.currentTarget.setPointerCapture(e.pointerId);
           const center = centerOf(e.currentTarget);
-          void recorder.startPress({ clientX: e.clientX, clientY: e.clientY }, center, e.pointerId);
+          const isTouchPress = e.pointerType === "touch";
+          touchGestureRef.current = isTouchPress;
+          void recorder.startPress({ clientX: e.clientX, clientY: e.clientY }, center, e.pointerId, { autoLock: isTouchPress });
         }}
+        onContextMenu={(e) => e.preventDefault()}
         onPointerMove={(e) => {
           if (isActive) recorder.onPointerMove({ clientX: e.clientX, clientY: e.clientY });
         }}
@@ -392,7 +403,18 @@ export function VoiceRecordButton({ recorder, disabled, lang }: { recorder: Reco
         onPointerCancel={(e) => {
           if (isActive) recorder.onPointerUp({ clientX: e.clientX, clientY: e.clientY });
         }}
-        className={`group relative flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full border transition disabled:opacity-40 ${
+        // 2026-09-03 (Aleksandr, live test: "лонг тап тут проблематично
+        // на этой версии" -- a screen recording caught iOS Safari's own
+        // "Copy / Find Selection / Look Up" text-selection callout
+        // popping up mid-gesture instead of our own press-hold handling)
+        // -- touch-none (touch-action: none) stops the browser's own
+        // gesture recognizers from racing our pointer handlers at all,
+        // and select-none + the webkit-touch-callout override stop the
+        // long-press callout specifically. Belt-and-suspenders with the
+        // onContextMenu guard above and the new tap-to-auto-lock gesture
+        // itself (shorter hold before any release matters), not a
+        // replacement for it.
+        className={`group relative flex h-[44px] w-[44px] shrink-0 touch-none select-none items-center justify-center rounded-full border transition disabled:opacity-40 [-webkit-touch-callout:none] ${
           isActive
             ? "border-transparent bg-[#ff3b30] text-white"
             : "border-neutral-200 bg-white/90 text-neutral-400 backdrop-blur-sm hover:border-neutral-300 hover:text-neutral-600 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80 dark:text-[#adafbb] dark:hover:border-[#3a3a3a] dark:hover:text-white"
@@ -442,25 +464,44 @@ export function VoiceRecordingBar({ recorder, lang }: { recorder: Recorder; lang
   const nearMax = recorder.seconds >= VOICE_MAX_SECONDS - 10;
 
   if (recorder.state === "locked") {
+    // 2026-09-03 (Aleksandr, live test: mobile web's recording UX --
+    // "максимально просто... оставить просто две кнопки") -- on touch,
+    // this locked bar is now also what a plain single tap on the mic
+    // lands in immediately (see VoiceRecordButton's own autoLock wiring
+    // for why), and he explicitly asked for it to be just Cancel + Send,
+    // no pause/resume in between. Desktop's own manual drag-to-lock path
+    // still lands here too and keeps pause/resume -- only touch drops
+    // it, swapped for the same small red recording dot the UNLOCKED bar
+    // below already uses, so there's still some "this is live" signal
+    // in that slot instead of just empty space.
     return (
       <div className="flex h-[44px] flex-1 items-center gap-3 rounded-[22px] border border-neutral-200 bg-white/90 px-3.5 py-2 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
-        <button
-          type="button"
-          onClick={() => recorder.pauseResume()}
-          aria-label={recorder.isPaused ? "Resume" : "Pause"}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#335ef7] text-white dark:bg-[#0c8ce9]"
-        >
-          {recorder.isPaused ? (
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M8 5v14l11-7z" />
-            </svg>
-          ) : (
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <rect x="6" y="5" width="4" height="14" />
-              <rect x="14" y="5" width="4" height="14" />
-            </svg>
-          )}
-        </button>
+        {isTouch ? (
+          <span className="relative flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden="true">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#ff3b30] opacity-75" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#ff3b30]" />
+            </span>
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => recorder.pauseResume()}
+            aria-label={recorder.isPaused ? "Resume" : "Pause"}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#335ef7] text-white dark:bg-[#0c8ce9]"
+          >
+            {recorder.isPaused ? (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            ) : (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <rect x="6" y="5" width="4" height="14" />
+                <rect x="14" y="5" width="4" height="14" />
+              </svg>
+            )}
+          </button>
+        )}
         <span className={`shrink-0 text-[15px] tabular-nums text-[#262a34] dark:text-white ${nearMax ? "text-[#ff3b30]" : ""}`}>{timer}</span>
         <button
           type="button"

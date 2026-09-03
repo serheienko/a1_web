@@ -131,7 +131,12 @@ export function useVoiceRecorder(onFinish: (result: VoiceRecordingResult) => voi
   }, []);
 
   const startPress = useCallback(
-    async (pointer: VoiceRecorderPointer, buttonCenter: VoiceRecorderPointer, pointerId: number | null) => {
+    async (
+      pointer: VoiceRecorderPointer,
+      buttonCenter: VoiceRecorderPointer,
+      pointerId: number | null,
+      opts?: { autoLock?: boolean },
+    ) => {
       if (state === "recording" || state === "locked" || state === "requesting") return;
       if (typeof MediaRecorder === "undefined" || !navigator.mediaDevices?.getUserMedia) {
         setState("denied");
@@ -141,7 +146,23 @@ export function useVoiceRecorder(onFinish: (result: VoiceRecordingResult) => voi
       originRef.current = pointer;
       buttonCenterRef.current = buttonCenter;
       pointerIdRef.current = pointerId;
-      lockedRef.current = false;
+      // 2026-09-03 (Aleksandr, live test: "лонг тап тут проблематично на
+      // этой версии... нажимаем запись одним тапом коротким, у нас она
+      // начинается сразу... максимально просто, без замочка на мобильной
+      // версии") -- mobile web's press-and-hold + drag-to-lock gesture
+      // was unreliable (iOS Safari's own long-press text-selection
+      // callout kept racing it, see VoiceRecordButton's own touch-safety
+      // classes for that half of the fix) and just awkward to hold with
+      // a thumb. `opts.autoLock` (set by VoiceRecordButton for any
+      // `pointerType === "touch"` press) skips the whole unlocked/drag
+      // phase entirely -- lockedRef.current is already true by the time
+      // the async continuation below reads it, so state resolves
+      // straight to "locked" the instant the mic is ready, same as if
+      // the user had actually dragged up. onPointerMove/onPointerUp
+      // already both no-op once lockedRef.current is true, so lifting
+      // the finger right after the initial tap correctly does nothing --
+      // recording just keeps going until an explicit Cancel/Send tap.
+      lockedRef.current = opts?.autoLock === true;
       cancelledRef.current = false;
       pendingReleaseRef.current = false;
       samplesRef.current = [];
