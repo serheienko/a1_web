@@ -5142,3 +5142,103 @@ way.
 Still waiting on: the received/left-side bubble, the opened/blue-dot/
 countdown states, and whatever's left of his "кидай скрины подряд"
 batch, before writing any a1_web code.
+
+### 6.99 Voice messages: Figma cross-check + confirmed backend output shape -- green light received, implementation started (2026-09-03)
+
+Aleksandr connected a new Mac folder ("A1 Web Figma", replacing the old
+"Attachments"-only folder -- he now dumps all future mockups of any
+feature there) and dropped a batch of Figma screenshots for voice
+messages. Reviewed against everything §6.96-§6.98 already confirmed from
+the Flutter source + screen recordings:
+
+- **`(1)`/`(2) Timed voice msg.png`**: matches §6.96/§6.97's recording-bar
+  read exactly -- unlocked state shows the lock pill + "Slide to cancel"
+  hint; locked state swaps the lock pill for a PAUSE button (small circle
+  above the send arrow) that pauses/resumes the hands-free recording, and
+  the hint becomes plain "Cancel". New confirmed detail: the now-playing
+  bar shown in `(1)` in its PAUSED state, i.e. it's meant to persist even
+  while nothing is audibly playing, not just auto-dismiss on pause.
+- **`(3) Incoming msgs UI.png`**: now-playing bar (see below), AND a
+  correction to §6.96's Flutter-source-only guess -- the fire-popup
+  countdown is **HH:MM:SS** ("Auto-deletes in 20:45:13"), not MM:SS-only.
+  Matches `voice_delete_countdown_banner.dart`'s own `_formatCountdown`
+  (`$minutes:${secs}`, minutes uncapped -- e.g. "1245:07" -- so HH:MM:SS
+  in the Figma mock is just minutes rendered as hours+minutes for the
+  ~7-day pre-open window; the live post-open 120-min countdown still
+  reads naturally as M:SS/MM:SS). Implementation should format minutes
+  as HH:MM when >=60 rather than hardcoding either format.
+- **`(4.2) Bubble UI.png`**: voice+caption combined bubble -- player row
+  (play + waveform + duration + fire icon) on top, caption text directly
+  below in the SAME bubble, no divider. Matches
+  `voice_delete_countdown_banner.dart`'s `hasCaption` branch
+  (`_captionNotice` / `voiceTextRemainsInChat` string) 1:1.
+- **`(4)`/`(4.1) Voice + Text.png`**: confirms the voice+text COMPOSE
+  combo Aleksandr described verbally (text field stays visible/editable
+  above the recording bar; as typed text grows multi-line, a floating
+  white card auto-grows upward over the message list with the recording
+  bar pinned to its bottom edge). Send mechanics for this (does it always
+  send as ONE message text+voice combined, like the existing calculation
+  entity does?) still needs his promised follow-up video -- not blocking
+  implementation, since attemptSend()/the send API already support
+  text+media together (see below).
+- **`(4.4) Reply UI.png`**: reply quote preview shows sender name + the
+  voice message's CAPTION text (not a generic "Voice Message"
+  placeholder) when a caption exists.
+- **Now-playing bar** (`(1)` paused state + `(3)`): white rounded card
+  below the header. Figma screenshot itself shows play/pause + progress
+  line + centered name/-"Voice Message" subtitle + 1x + close. Aleksandr
+  separately said THIS is the OLDER of two versions and the one he
+  actually wants is avatar+name grouped LEFT with play/1x/close grouped
+  RIGHT -- he'll send that reference separately; not yet reviewed, so the
+  now-playing bar's layout is NOT finalized and its build is sequenced
+  after the recording/send/bubble work below, not before.
+- Not reviewed (a DIFFERENT feature -- voice attached to feed posts /
+  profile bio, out of scope): `Other Voice in Bio.png`, `Post
+  Voice*.png`, `Voice in Feed*.png`, and the `(3) Chat view + Typing
+  indicator*.png` variants.
+
+Aleksandr's own close-out: *"Ну всё, смотри, я считаю, у тебя есть вся
+информация теперь. Можно делать и собирать voice messages. Просто
+смотри макеты в фигме и погнали."* -- green light, stop researching,
+build against the Figma mocks.
+
+**Backend OUTPUT resource shape, now confirmed** (read directly off
+aone-api-private-main's `packages/types/resources/MediaDocument.d.ts` +
+`Message.d.ts` -- the actual response shape, not the send-input shape
+§6.96 already found has no attributes field at all):
+
+```
+Resource.MediaDocument = {
+  _id, mimetype, fileReference,
+  date: TIMESTAMP_SECONDS,           // upload date
+  viewed?: TIMESTAMP_SECONDS,        // first-open time, absent until opened
+  ttl: TIMESTAMP_SECONDS | null,     // absolute deletion instant
+  ttlSeconds?: number,               // post-view countdown duration
+  flags: UInt,                       // TIME_DESTROY=1<<0, VIEW_DESTROY=1<<1
+  sizes: Size[],
+  attributes: Attribute[],           // AttributeAudio: {duration, title?, performer?, waveform?: base64, voice: bool}
+}
+```
+
+This exactly matches the Flutter `Media` class's own field names (no
+snake_case surprises), so `lib/a1/chat-schemas.ts`'s
+`MessageMediaDocumentSchema` now declares all of it directly (commit
+564ff3d, this same session) -- ttl/ttlSeconds/viewed/flags added,
+`attribute-audio` fields added to the attribute schema, plus a
+`media-doc-deleted` schema for the "expired" purge echo. Also ported,
+1:1 off `conversation_detail_entity.dart`'s `Media.resolveDeleteWindow`/
+`deleteCountdownFraction` and `waveform_decoder.dart`'s exact 5-bit/
+LSB-first waveform unpack + peak-normalize/resample (this file WAS
+readable directly this time, no EDEADLK -- confirmed the bit order
+precisely rather than assuming Telegram's usual MSB convention, which
+would have been wrong).
+
+Implementation order from here (see task list): recording engine (mic +
+gesture) -> compose UI (recording bar + live blob) -> optimistic send
+(PendingMessage.pendingVoice, reusing attemptSend's existing text+media
+combining) -> voice bubble (playback + waveform scrub + fire popup + ttl
+border + blue dot) -> messages.updateContentOpened wiring -> now-playing
+bar (once Aleksandr's "more current" layout reference lands) -> reply-
+to-voice UI. Each milestone gets its own tsc-clean commit rather than
+one giant commit, same discipline as every other multi-file feature in
+this log.
