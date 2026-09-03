@@ -80,10 +80,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
+// 2026-09-03 (Aleksandr, screenshot of the "Навички" skill bars: "эта
+// полоска, которая оставшаяся, незаполненная... сильно молочная, её не
+// видно... сделай чисто белый FFFFFF 100%") -- same fix as pillList's
+// own bg-neutral-100 -> bg-white history (see its own comment above):
+// the unfilled track was neutral-100 (a barely-there off-white against
+// this page's own #f2f2f7-ish background), now plain white to match
+// every other "white chip on the page background" surface here
+// (pillList's pills, the Links/Vacancies/Professions tab strip).
 function levelBar(level: number, max: number) {
   const pct = Math.max(0, Math.min(100, (level / max) * 100));
   return (
-    <div className="h-1.5 w-full max-w-[160px] overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800">
+    <div className="h-1.5 w-full max-w-[160px] overflow-hidden rounded-full bg-white dark:bg-neutral-800">
       <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
     </div>
   );
