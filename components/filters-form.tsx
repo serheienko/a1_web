@@ -801,7 +801,7 @@ export function FiltersForm({
             {suggestionsDropdown}
           </div>
           <div
-            className="relative shrink-0"
+            className="relative shrink-0 cursor-pointer"
             ref={filtersRef}
             onMouseEnter={handleFiltersMouseEnter}
             onMouseLeave={handleFiltersMouseLeave}
@@ -918,7 +918,7 @@ export function FiltersForm({
             </div>
 
             <div
-              className="relative shrink-0"
+              className="relative shrink-0 cursor-pointer"
               ref={desktopFiltersRef}
               onMouseEnter={handleFiltersMouseEnter}
               onMouseLeave={handleFiltersMouseLeave}

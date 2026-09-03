@@ -489,7 +489,7 @@ export function AvatarMenu() {
   if (!email) {
     return (
       <div className="flex items-center gap-1">
-        <div className="relative shrink-0" ref={wrapperRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+        <div className="relative shrink-0 cursor-pointer" ref={wrapperRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
           <Link
             href="/sign-in"
             aria-label={STRINGS.signIn[lang]}
@@ -531,7 +531,7 @@ export function AvatarMenu() {
   const languageOptions = LOCALES.filter((l) => !(isGeoUa && l === "ru"));
 
   return (
-    <div className="relative shrink-0" ref={wrapperRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+    <div className="relative shrink-0 cursor-pointer" ref={wrapperRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}

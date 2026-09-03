@@ -229,7 +229,7 @@ export function PostOwnerMenu({
   }
 
   return (
-    <div className={className} ref={triggerRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+    <div className={`${className} cursor-pointer`} ref={triggerRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
