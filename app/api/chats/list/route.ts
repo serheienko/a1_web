@@ -95,6 +95,7 @@ import {
   extractChatUsers,
   extractMessages,
   extractMessageText,
+  describeMessagePreview,
   messageDateMs,
   messageTickState,
   chatUnreadCount,
@@ -265,6 +266,7 @@ export async function GET() {
           previewMine && resolvedMessage
             ? messageTickState(resolvedMessage, otherParticipantReadMaxId(chat, myUserId))
             : null;
+        const preview = resolvedMessage ? describeMessagePreview(resolvedMessage) : { kind: "text" as const, text: "" };
         return {
           id: chat._id,
           title: display.title,
@@ -273,7 +275,20 @@ export async function GET() {
           username: display.otherUsername,
           isPersonal: display.isPersonal,
           lastMessageId: typeof lm === "string" ? lm : (lm?._id ?? null),
-          previewText: resolvedMessage ? extractMessageText(resolvedMessage) : "",
+          // 2026-09-04 (Aleksandr, reference screenshots: "на все наши
+          // entity в сообщениях, должно так отображать в чат листе") --
+          // describeMessagePreview (lib/a1/chat-schemas.ts) picks a
+          // representative kind for a caption-less media/entity
+          // message instead of the old plain extractMessageText, which
+          // returned "" for any of those and read as an empty chat.
+          // previewKind lets the client render the right localized
+          // label (or, for "file", the real filename this already
+          // carries in previewText); previewPhotoUrl is only set for
+          // kind "photo", same buildMediaProxyUrl every other media
+          // thumbnail in this app already goes through.
+          previewText: preview.text,
+          previewKind: preview.kind,
+          previewPhotoUrl: preview.kind === "photo" && preview.photoDoc ? buildMediaProxyUrl(preview.photoDoc) : null,
           previewMine,
           previewDateMs: resolvedMessage ? messageDateMs(resolvedMessage) : 0,
           previewTick,

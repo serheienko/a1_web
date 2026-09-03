@@ -33,6 +33,7 @@ import { authFetch } from "@/lib/auth-fetch";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { SearchIcon } from "@/components/search-icon";
 import { MessageTicks } from "@/components/chat/icons";
+import { ChatPreviewLine } from "@/components/chat/chat-preview-line";
 import { chatRouteParamForUser } from "@/lib/a1/chat-schemas";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
@@ -52,6 +53,10 @@ type ChatRow = {
   avatarBlurDataUrl: string | null;
   username: string | null;
   previewText: string;
+  // 2026-09-04 -- see components/chat/chat-preview-line.tsx's own
+  // header; same split as app/chats/page.tsx's own Chat type.
+  previewKind: "text" | "voice" | "photo" | "video" | "sticker" | "file" | "contact" | "calc";
+  previewPhotoUrl: string | null;
   previewMine: boolean;
   previewDateMs: number;
   previewTick: "read" | "delivered" | null;
@@ -458,7 +463,7 @@ export function ChatsFlyout({
                     className={`h-[8px] w-[14px] shrink-0 ${chat.previewTick === "read" ? "text-[#335ef7] dark:text-[#0c8ce9]" : ""}`}
                   />
                 )}
-                <span className="truncate">{chat.previewText}</span>
+                <ChatPreviewLine kind={chat.previewKind} text={chat.previewText} photoUrl={chat.previewPhotoUrl} className="truncate" />
               </div>
             </div>
             {chat.unreadCount > 0 && (

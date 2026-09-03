@@ -49,6 +49,7 @@ import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { T, LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
 import { MessageTicks } from "@/components/chat/icons";
+import { ChatPreviewLine } from "@/components/chat/chat-preview-line";
 import { LottiePlayer } from "@/components/lottie-player";
 import { SearchIcon } from "@/components/search-icon";
 import { GLASS } from "@/lib/glass";
@@ -100,6 +101,15 @@ type ChatListItem = {
   // wrong guess just means the row looks like it did before this pass,
   // never a broken render.
   previewText: string;
+  // 2026-09-04 (Aleksandr, reference screenshots: chat-list preview for
+  // a caption-less voice/photo/file/contact/calculation message) --
+  // see components/chat/chat-preview-line.tsx's own header for the
+  // full story. previewText itself is now only meaningful for kind
+  // "text" (the real message text) or "file" (the real filename);
+  // every other kind renders a localized label instead, sourced purely
+  // from `previewKind`.
+  previewKind: "text" | "voice" | "photo" | "video" | "sticker" | "file" | "contact" | "calc";
+  previewPhotoUrl: string | null;
   previewMine: boolean;
   previewDateMs: number;
   previewTick: "read" | "delivered" | null;
@@ -422,9 +432,14 @@ export default function ChatsPage() {
                       </span>{" "}
                       <span className="text-[#989aa6] dark:text-[#8d8d93]">{chat.draftText}</span>
                     </div>
-                  ) : chat.previewText ? (
-                    <div className="truncate text-[16px] text-[#989aa6] dark:text-[#8d8d93]">{chat.previewText}</div>
-                  ) : null}
+                  ) : (
+                    <ChatPreviewLine
+                      kind={chat.previewKind}
+                      text={chat.previewText}
+                      photoUrl={chat.previewPhotoUrl}
+                      className="truncate text-[16px] text-[#989aa6] dark:text-[#8d8d93]"
+                    />
+                  )}
                 </div>
                 {chat.unreadCount > 0 && (
                   <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[#335ef7] px-1.5 text-[12px] font-medium text-white dark:bg-[#0c8ce9]">

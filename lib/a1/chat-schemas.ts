@@ -762,6 +762,49 @@ export function extractMessageText(msg: ChatMessage): string {
   return typeof candidate === "string" ? candidate : "";
 }
 
+// 2026-09-04 (Aleksandr, 5 reference screenshots of the reference app's
+// own chat-list preview line: "Вот, на все наши entity в сообщениях,
+// должно так отображать в чат листе" -- Contact/Calculation/Scheduled
+// meeting show a plain localized label, Photo shows a small thumbnail +
+// "Photo", a file shows its own filename with no label at all) --
+// extractMessageText above only ever reads entity-text, so a purely
+// media/entity last message (no caption) previewed as an empty string,
+// which is the "chats look empty but aren't" bug he flagged. This picks
+// ONE representative kind per message, same priority order a message
+// would realistically only ever carry one of (voice/photo/video/
+// sticker/file are all mutually exclusive per doc; contact and calc
+// never coexist with docMedia in this app's own compose flow) -- a
+// caption/text message still wins outright, same as before this.
+// Returns just the KIND tag (+ filename/photoDoc where relevant); the
+// actual localized label text is a CLIENT-side concern (this runs in
+// an API route, no locale to render into), same split every other
+// multi-locale string in this app already uses.
+export type MessagePreviewKind = "text" | "voice" | "photo" | "video" | "sticker" | "file" | "contact" | "calc";
+
+export type MessagePreview = {
+  kind: MessagePreviewKind;
+  text: string;
+  photoDoc?: MessageMediaDocument;
+};
+
+export function describeMessagePreview(msg: ChatMessage): MessagePreview {
+  const text = extractMessageText(msg);
+  if (text) return { kind: "text", text };
+  const docs = messageDocumentMedia(msg);
+  const voiceDoc = docs.find((d) => isVoiceMediaDocument(d));
+  if (voiceDoc) return { kind: "voice", text: "" };
+  const photoDoc = docs.find((d) => isImageMediaDocument(d));
+  if (photoDoc) return { kind: "photo", text: "", photoDoc };
+  const videoDoc = docs.find((d) => isVideoMediaDocument(d));
+  if (videoDoc) return { kind: "video", text: "" };
+  const stickerDoc = docs.find((d) => isStickerMediaDocument(d));
+  if (stickerDoc) return { kind: "sticker", text: "" };
+  if (docs.length > 0) return { kind: "file", text: mediaDocumentFileName(docs[0]!) };
+  if (messageContactMedia(msg).length > 0) return { kind: "contact", text: "" };
+  if (messageCalculation(msg)) return { kind: "calc", text: "" };
+  return { kind: "text", text: "" };
+}
+
 // `date` is a plain ISO 8601 string on every real message (see the
 // confirmed shape above), not a numeric epoch -- replaces the old
 // "guess seconds vs ms from magnitude" trick, which never applied here
