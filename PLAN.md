@@ -6024,3 +6024,30 @@ his session myself; static review of the upload/send path found no
 obvious bug.
 
 tsc-clean.
+
+### 6.118
+
+2026-09-04, "•••" button needing two taps ("3 точки по прежнему
+срабатывают не с первого раза", screen recording of a specialist
+card): every hover-panel trigger built on lib/use-hover-panel.ts
+combines onMouseEnter (opens on hover, for mouse users) with its own
+onClick toggle (for touch, where the old assumption was "mobile has
+no hover at all"). That assumption is wrong -- iOS Safari synthesizes
+a mouseenter immediately before the click on a first tap of any
+hover-listening element (its own documented two-taps-to-click
+workaround), so on that first tap: mouseenter opens the panel, then
+the click's toggle flips it straight back closed, both before React
+paints. Second tap has no synthetic mouseenter, so its click alone
+works -- hence "only on the second try".
+
+Fix lives in the shared hook, not per-caller: lib/use-hover-panel.ts
+now exposes isRecentHoverOpen() (tracks the last hover-open
+timestamp, true for 300ms after), and every caller's click handler
+skips its toggle when that's true, since the click is the tail end of
+the same tap that already opened the panel. Applied to all three real
+call sites -- components/post-viewer-menu.tsx's "•••", components/
+avatar-menu.tsx's nav avatar, components/filters-form.tsx's Filters
+button -- since all three share the identical hook and the identical
+bug shape, not only the one the recording happened to show.
+
+tsc-clean.
