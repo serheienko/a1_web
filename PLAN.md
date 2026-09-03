@@ -4466,6 +4466,12 @@ frames via ffmpeg extraction:
   as clear-the-draft / close-the-panel / undo-last-added-row / send,
   each documented inline at its own handler -- correct live once
   Aleksandr sees the real semantics.
+- **Resolved same day**: Aleksandr sent 3 screenshots of the real
+  reference app's own panel + a sent calc bubble. Corrected: the bottom
+  bar is 3 buttons, not 4 (close/undo-last-row/send -- no separate
+  trash/clear, that button's been removed); the "$" currency button is
+  a light outline circle, not solid blue; amounts render bare
+  ("12"/"258 SGD"), never padded to 2 decimals ("12.00").
 
 **Document attachment icons** -- separate request, off a Figma frame
 this time (node 24368:126, "5. Chat view": "надо, чтобы показывало
