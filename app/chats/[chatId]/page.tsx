@@ -2847,8 +2847,17 @@ export default function ChatWindowPage() {
                   `.group:hover .chat-cat-pupil` darts the icon's two
                   pupil paths side to side while this small wrapper (not
                   the whole pill) is hovered. */}
+              {/* 2026-09-03 (Aleksandr, comparing this page's cat icon against
+                  components/mini-chat-window.tsx's own: "в маленькой
+                  модалке анимация этой иконки кота более прикольная,
+                  лучше переставь на нее") -- adds that file's
+                  animate-chat-wiggle (rotate+scale, app/globals.css) on
+                  top of this icon's own pupil-dart hover (chat-cat-
+                  pupil) rather than replacing it -- both fire off the
+                  same .group hover already wrapping this icon, exactly
+                  the combined motion the mini window's icon already has. */}
               <div className="group shrink-0 pb-0.5">
-                <ChatCatFieldIcon className="h-5 w-5 text-[#989aa6] dark:text-[#adafbb]" />
+                <ChatCatFieldIcon className="h-5 w-5 animate-chat-wiggle text-[#989aa6] dark:text-[#adafbb]" />
               </div>
             </div>
             {draft.trim() || attachments.length > 0 || pendingContacts.length > 0 ? (

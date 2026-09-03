@@ -75,6 +75,17 @@
 // profile/contacts row that already offers "Add contact" right next to
 // "Message", that covers the overwhelming majority case without
 // guessing further.
+//
+// 2026-09-03 follow-up (Aleksandr, live screenshot: a real user's chat
+// still showed "—" + the cat-mascot avatar because he'd never added
+// them as a contact): the "real users-by-id endpoint" flagged as
+// missing above turned out to already be confirmed elsewhere in this
+// app one day later -- app/api/users/summaries/route.ts's
+// `users.getUsers({ids})`, built for the contact-attachment card. The
+// earlier 400 was against `users.search({ids})`, a different (wrong)
+// method name -- not proof no batch id-lookup exists. resolveChatUsers()
+// below now calls users.getUsers directly, so a chat partner resolves
+// by real profile regardless of contact-list membership.
 import { NextResponse } from "next/server";
 import { A1ApiError } from "@/lib/a1/client";
 import { callAsVisitor, NoSessionError } from "@/lib/a1/visitor-call";
@@ -101,37 +112,50 @@ import { buildMediaProxyUrl } from "@/lib/a1/mappers";
 import { generateAvatarBlurDataUrl } from "@/lib/avatar-blur";
 
 // Best-effort name/avatar resolution for every distinct "other
-// participant" id across `chats` -- see this file's own header comment
-// for the users.search dead end and why contacts.search is the fix
-// instead. `ids` here only narrows which resolved contacts are worth
-// mapping (contacts.search itself takes no filter, same `{}` request
-// app/api/contacts/list/route.ts already sends) -- a chat partner not
-// in `ids` is simply never looked at, never a reason to skip the call.
+// participant" id across `chats`.
+//
+// 2026-09-03 (Aleksandr, live screenshot: a chat whose last message was
+// a sent calculation showed "—" for the name AND the generic cat-
+// mascot fallback avatar, even though the recipient is a real user with
+// a real profile/photo): root cause was this function's own documented
+// tradeoff from 2026-09-02 -- it only ever resolved a chat partner who
+// was ALSO a saved contact (contacts.search's own `users` side array),
+// because the earlier attempt at a batch id-lookup
+// (`users.search({ids})`) came back a hard 400
+// (`INVALID_INPUT: root has unknown property 'ids'`). That 400 was
+// against the WRONG method name, not proof no such endpoint exists --
+// app/api/users/summaries/route.ts (built one day later, for the
+// contact-attachment card) confirms the real one live:
+// `users.getUsers({ids}) -> (Resource.User | Resource.UserEmpty)[]`,
+// batched, already proven working in production. Switching to it here
+// resolves ANY chat partner's real name/photo, not just saved
+// contacts -- the "—"/cat-fallback now only shows for a genuinely
+// deleted/unparseable account, not "hasn't added them as a contact
+// yet" (that distinction now matters more anyway, see PLAN.md's
+// contact-card "+" add button).
 async function resolveChatUsers(chats: Chat[], myUserId: string | null): Promise<Record<string, ChatUser>> {
-  const ids = new Set(
-    chats.map((chat) => otherParticipantUserId(chat, myUserId)).filter((id): id is string => Boolean(id)),
+  const ids = Array.from(
+    new Set(chats.map((chat) => otherParticipantUserId(chat, myUserId)).filter((id): id is string => Boolean(id))),
   );
-  if (ids.size === 0) return {};
+  if (ids.length === 0) return {};
   try {
-    const { data } = await callAsVisitor<unknown>("contacts.search", {});
-    const usersRaw = data && typeof data === "object" ? (data as Record<string, unknown>).users : undefined;
+    const { data } = await callAsVisitor<unknown>("users.getUsers", { ids });
+    const list = Array.isArray(data) ? data : [];
     const out: Record<string, ChatUser> = {};
-    if (Array.isArray(usersRaw)) {
-      for (const raw of usersRaw) {
-        const profile = parseUserProfile(raw);
-        if (!profile || profile.object !== "user" || !ids.has(profile._id)) continue;
-        out[profile._id] = {
-          _id: profile._id,
-          firstName: profile.firstName,
-          lastName: profile.lastName,
-          username: profile.username,
-          photo: profile.photos[0] ? buildMediaProxyUrl(profile.photos[0]) : null,
-        };
-      }
+    for (const raw of list) {
+      const profile = parseUserProfile(raw);
+      if (!profile || profile.object !== "user") continue; // user-empty/unparseable: leave unresolved, same fallback as before
+      out[profile._id] = {
+        _id: profile._id,
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+        username: profile.username,
+        photo: profile.photos[0] ? buildMediaProxyUrl(profile.photos[0]) : null,
+      };
     }
     return out;
   } catch (err) {
-    console.error("[api/chats/list] contacts.search failed (names/avatars stay unresolved):", err);
+    console.error("[api/chats/list] users.getUsers failed (names/avatars stay unresolved):", err);
     return {};
   }
 }
