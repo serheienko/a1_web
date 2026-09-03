@@ -632,6 +632,16 @@ export default function ChatWindowPage() {
   const [pendingContacts, setPendingContacts] = useState<PickedContact[]>([]);
   const [contactSummaries, setContactSummaries] = useState<Record<string, ContactCardSummary>>({});
   const [openingChatFor, setOpeningChatFor] = useState<string | null>(null);
+  // 2026-09-03 (Aleksandr: "Если контакта которым со мной поделились
+  // нет у меня в контактах добавь справа круглую кнопку (+)") --
+  // components/chat/contact-message-card.tsx's own "+" needs to know
+  // whether a RECEIVED contact is already in the visitor's book; null
+  // = not fetched yet (the one-shot effect below only fires once this
+  // chat actually has a received contact card, see that effect's own
+  // comment), so ContactMessageCard treats "unknown" the same as
+  // "already a contact" (canAddContact stays false) rather than
+  // flashing the + button on and then off once the real answer lands.
+  const [myContactUserIds, setMyContactUserIds] = useState<Set<string> | null>(null);
   // Photo-viewer feature (2026-09-03) -- viewerIndex is this chat's own
   // position into chatViewerImages (below), null when the viewer is
   // closed; highlightedMessageId drives the "Show in chat" scroll+flash
@@ -1223,6 +1233,40 @@ export default function ChatWindowPage() {
       cancelled = true;
     };
   }, [messages, contactSummaries]);
+
+  // 2026-09-03 (Aleksandr, live screenshot of a received contact card:
+  // "Если контакта которым со мной поделились нет у меня в контактах
+  // добавь справа круглую кнопку (+)... Сам контакт буде добавлятися
+  // нам в контакти") -- one-shot /api/contacts/list fetch (same route
+  // components/chat/contacts-picker-modal.tsx already uses to attach a
+  // contact), only fired once this chat actually has at least one
+  // RECEIVED contact card (msg.fromId !== myUserId) -- most chats never
+  // show a contact card at all, so this stays a no-op for them. Guarded
+  // by a ref (not just checking myContactUserIds !== null) so a poll
+  // tick landing between "fired" and "resolved" can't fire it twice.
+  const contactBookRequestedRef = useRef(false);
+  useEffect(() => {
+    if (contactBookRequestedRef.current || myUserId === null) return;
+    const hasReceivedContactCard = messages.some(
+      (msg) => msg.fromId !== myUserId && messageContactMedia(msg).length > 0,
+    );
+    if (!hasReceivedContactCard) return;
+    contactBookRequestedRef.current = true;
+    authFetch("/api/contacts/list")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!data?.ok) return;
+        const ids = new Set<string>();
+        for (const c of data.contacts ?? []) {
+          if (c.user) ids.add(c.user as string);
+        }
+        setMyContactUserIds(ids);
+      })
+      .catch(() => {
+        // Best-effort -- ContactMessageCard just never offers the +
+        // shortcut if this never resolves; "Message" still works.
+      });
+  }, [messages, myUserId]);
 
   // Runs the same create -> upload -> confirm flow components/post-
   // editor.tsx's handleFileSelected already uses for post photos --
@@ -2122,6 +2166,11 @@ export default function ChatWindowPage() {
                               phoneNumber={c.phoneNumber}
                               summary={c.summary}
                               mine={mine}
+                              // Always my own not-yet-sent picks (see
+                              // pendingContactCards' own comment above) --
+                              // pulled straight from my own contact book by
+                              // definition, never offers the + shortcut.
+                              canAddContact={false}
                               onMessage={() => openChatWithUser(c.userId, `${c.firstName} ${c.lastName}`.trim(), c.summary?.avatarUrl ?? null)}
                             />
                           ))}
@@ -2134,6 +2183,15 @@ export default function ChatWindowPage() {
                               phoneNumber={c.phoneNumber}
                               summary={contactSummaries[c.userId] ?? null}
                               mine={mine}
+                              canAddContact={!mine && myContactUserIds !== null && !myContactUserIds.has(c.userId)}
+                              onContactAdded={() =>
+                                setMyContactUserIds((prev) => {
+                                  if (!prev) return prev;
+                                  const next = new Set(prev);
+                                  next.add(c.userId);
+                                  return next;
+                                })
+                              }
                               onMessage={() =>
                                 openChatWithUser(
                                   c.userId,

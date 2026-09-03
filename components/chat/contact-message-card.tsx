@@ -31,12 +31,36 @@
 // unparseable account) -- both render the card with just name+phone,
 // no pill/expertise row, never a loading spinner (this is secondary
 // information, not worth a layout jump for).
+//
+// 2026-09-03 (Aleksandr, live screenshot of a received contact card:
+// "Если контакта которым со мной поделились нет у меня в контактах
+// добавь справа круглую кнопку (+), сделай чуть уже кнопку
+// 'повідомлення'. При наведенні + повинен бути з анімацією, при
+// натисканні зникати а кнопка 'повідомлення' розширюватися. Сам
+// контакт буде добавлятися нам в контакти") -- adds a round "+" button
+// next to Message, shown only when the caller says this contact isn't
+// already in the visitor's own book (`canAddContact`, computed in app/
+// chats/[chatId]/page.tsx from a one-shot /api/contacts/list fetch --
+// this card itself has no idea what the visitor's contact book holds).
+// Deliberately mine-agnostic in that prop (a card for a contact *I*
+// sent never gets `canAddContact: true` from the caller -- it's already
+// pulled from my own book by definition). POSTs the same
+// /api/contacts/add route components/profile-action-row.tsx's own
+// toggleContact already uses. The "+ shrinks to nothing, Message grows"
+// effect is a plain CSS width/opacity transition on the + button inside
+// a flex row -- Message is already flex-1, so it fills the freed space
+// for free the moment its sibling collapses; `settled` swaps back to
+// the original single-button markup ~300ms later (matching the
+// transition length) so a permanently-hidden 0-width button never
+// lingers in the DOM.
 "use client";
 
+import { useState } from "react";
 import { ChatExpertiseIcon, ChatPhoneIcon } from "@/components/chat/icons";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { OCCUPATION_LABELS } from "@/components/occupation-labels";
 import { T } from "@/components/t";
+import { authFetch } from "@/lib/auth-fetch";
 
 export type ContactCardSummary = {
   fullName: string;
@@ -46,6 +70,28 @@ export type ContactCardSummary = {
   expertise: string | null;
 };
 
+type AddState = "idle" | "adding" | "added" | "error";
+
+// Same chunky thick-stroke plus as components/create-post-fab.tsx's own
+// ChunkyPlusIcon, just smaller -- this button is a compact round action
+// next to Message, not a 56px FAB.
+function PlusIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className={className} aria-hidden="true">
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
+function AddSpinner({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={`${className} animate-spin`} aria-hidden="true">
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" strokeOpacity="0.3" />
+      <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function ContactMessageCard({
   userId,
   firstName,
@@ -53,7 +99,9 @@ export function ContactMessageCard({
   phoneNumber,
   summary,
   mine,
+  canAddContact,
   onMessage,
+  onContactAdded,
 }: {
   userId: string;
   firstName: string;
@@ -61,11 +109,46 @@ export function ContactMessageCard({
   phoneNumber: string;
   summary: ContactCardSummary | null | undefined;
   mine: boolean;
+  // 2026-09-03: see this file's own header comment. Ignored entirely
+  // once this card has already added the contact this render (`added`/
+  // `settled` below take over) -- only ever gates showing the option in
+  // the first place.
+  canAddContact: boolean;
   onMessage: () => void;
+  onContactAdded?: () => void;
 }) {
   const name = [firstName, lastName].filter(Boolean).join(" ").trim() || summary?.fullName || phoneNumber;
   const occupationLabel = summary?.occupation ? OCCUPATION_LABELS[summary.occupation] : null;
   const avatarUrl = summary?.avatarUrl ?? pickDefaultCatAvatar(userId);
+
+  const [addState, setAddState] = useState<AddState>("idle");
+  const [settled, setSettled] = useState(false);
+
+  async function handleAddContact() {
+    if (addState === "adding" || addState === "added") return;
+    setAddState("adding");
+    try {
+      const res = await authFetch("/api/contacts/add", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
+      const data = await res.json().catch(() => null);
+      if (data?.ok) {
+        setAddState("added");
+        onContactAdded?.();
+        window.setTimeout(() => setSettled(true), 320);
+      } else {
+        setAddState("error");
+        window.setTimeout(() => setAddState("idle"), 2200);
+      }
+    } catch {
+      setAddState("error");
+      window.setTimeout(() => setAddState("idle"), 2200);
+    }
+  }
+
+  const showAddRow = canAddContact && !settled;
 
   return (
     <div
@@ -103,18 +186,56 @@ export function ContactMessageCard({
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={onMessage}
-        className={`w-full rounded-full py-1.5 text-[14px] font-medium transition ${
-          mine ? "bg-white/20 hover:bg-white/30" : "bg-black/5 hover:bg-black/10 dark:bg-white/15 dark:hover:bg-white/25"
-        }`}
-      >
-        <T
-          uk="Повідомлення" en="Message" ru="Сообщение" de="Nachricht" es="Mensaje"
-          fr="Message" pl="Wiadomość" ptBR="Mensagem" zh="消息"
-        />
-      </button>
+      {showAddRow ? (
+        <div className={`flex items-center transition-all duration-300 ${addState === "added" ? "gap-0" : "gap-2"}`}>
+          <button
+            type="button"
+            onClick={onMessage}
+            className={`flex-1 rounded-full py-1.5 text-[14px] font-medium transition ${
+              mine ? "bg-white/20 hover:bg-white/30" : "bg-black/5 hover:bg-black/10 dark:bg-white/15 dark:hover:bg-white/25"
+            }`}
+          >
+            <T
+              uk="Повідомлення" en="Message" ru="Сообщение" de="Nachricht" es="Mensaje"
+              fr="Message" pl="Wiadomość" ptBR="Mensagem" zh="消息"
+            />
+          </button>
+          <button
+            type="button"
+            onClick={handleAddContact}
+            disabled={addState === "adding" || addState === "added"}
+            aria-label="Add to contacts"
+            className={`group flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#335ef7] text-white transition-all duration-300 ease-out disabled:cursor-default dark:bg-[#0c8ce9] ${
+              addState === "added" ? "w-0 opacity-0" : "h-9 w-9 opacity-100 hover:brightness-110 active:scale-95"
+            }`}
+          >
+            {addState === "adding" ? <AddSpinner /> : <PlusIcon className="animate-theme-pop" />}
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={onMessage}
+          className={`w-full rounded-full py-1.5 text-[14px] font-medium transition ${
+            mine ? "bg-white/20 hover:bg-white/30" : "bg-black/5 hover:bg-black/10 dark:bg-white/15 dark:hover:bg-white/25"
+          }`}
+        >
+          <T
+            uk="Повідомлення" en="Message" ru="Сообщение" de="Nachricht" es="Mensaje"
+            fr="Message" pl="Wiadomość" ptBR="Mensagem" zh="消息"
+          />
+        </button>
+      )}
+
+      {addState === "error" && (
+        <p className="text-[11px] text-red-500 dark:text-red-400">
+          <T
+            uk="Не вдалося додати" en="Couldn't add" ru="Не удалось добавить" de="Konnte nicht hinzugefügt werden"
+            es="No se pudo añadir" fr="Impossible d'ajouter" pl="Nie udało się dodać" ptBR="Não foi possível adicionar"
+            zh="添加失败"
+          />
+        </p>
+      )}
     </div>
   );
 }
