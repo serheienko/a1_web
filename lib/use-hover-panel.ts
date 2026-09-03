@@ -50,6 +50,24 @@
 // still mounted, still has a real — if offscreen/zero-size —
 // getBoundingClientRect()). A single ref pair (components/avatar-menu.tsx's
 // case) is just an array of one.
+//
+// 2026-09-03 (Aleksandr, live screen recording of the signed-out sign-in
+// popover: "мне предлагает как бы автовыбор. Я когда на него нажимаю,
+// поп-ап сразу исчезает"): a THIRD real bug, same root family as point 1
+// above but from the opposite direction — Chrome's native autofill
+// suggestion dropdown renders as browser-chrome UI, not page DOM, well
+// below the panel's own bottom edge. The instant the cursor crosses into
+// it the geometry backstop's mousemove sees coordinates outside every
+// trigger/panel rect and arms the close timer — and once the cursor is
+// over that native overlay, the page stops receiving mousemove at all
+// (same as hovering a native <select> dropdown), so nothing ever cancels
+// that timer before it fires and unmounts the form mid-autofill.
+// isFocusInsideAny() below is the fix: while a real element inside the
+// panel (the email/password input the dropdown is anchored to) holds
+// focus, hover-based closing is suppressed entirely — geometry stops
+// mattering the moment the visitor is actively typing into (or letting
+// autofill fill) a field, which is exactly the case a pure hover panel
+// was never meant to fight in the first place.
 "use client";
 
 import { useEffect, useRef, useState, type RefObject } from "react";
@@ -92,7 +110,18 @@ export function useHoverPanel(open: boolean, setOpen: (open: boolean) => void, r
     setOpen(true);
   }
 
+  // See this file's header, 2026-09-03 entry: a focused field inside the
+  // panel (the case the native-autofill-dropdown bug needs) pins the
+  // panel open regardless of where the cursor physically is.
+  function isFocusInsideAny(): boolean {
+    if (typeof document === "undefined") return false;
+    const active = document.activeElement;
+    if (!active) return false;
+    return refPairs.some(({ panel }) => panel.current?.contains(active) ?? false);
+  }
+
   function handleMouseLeave() {
+    if (isFocusInsideAny()) return;
     hoverCloseTimerRef.current = setTimeout(() => setOpen(false), HOVER_CLOSE_DELAY_MS);
   }
 
@@ -106,11 +135,12 @@ export function useHoverPanel(open: boolean, setOpen: (open: boolean) => void, r
       return x >= rect.left - margin && x <= rect.right + margin && y >= rect.top - margin && y <= rect.bottom + margin;
     }
     function handleDocMouseMove(e: MouseEvent) {
-      const insideAny = refPairs.some(
-        ({ trigger, panel }) =>
-          isInside(trigger.current?.getBoundingClientRect(), e.clientX, e.clientY) ||
-          isInside(panel.current?.getBoundingClientRect(), e.clientX, e.clientY),
-      );
+      const insideAny =
+        refPairs.some(
+          ({ trigger, panel }) =>
+            isInside(trigger.current?.getBoundingClientRect(), e.clientX, e.clientY) ||
+            isInside(panel.current?.getBoundingClientRect(), e.clientX, e.clientY),
+        ) || isFocusInsideAny();
       if (insideAny) {
         if (hoverCloseTimerRef.current) {
           clearTimeout(hoverCloseTimerRef.current);
@@ -126,6 +156,26 @@ export function useHoverPanel(open: boolean, setOpen: (open: boolean) => void, r
     // the array literal wrapping them isn't -- keying on `open` alone
     // (same pattern post-editor.tsx's own schedule-popover effect uses)
     // avoids tearing this listener down/up on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // Safety net for the narrow window where the close timer was already
+  // armed (cursor drifted out) a moment before the visitor actually
+  // clicked into a field inside the panel -- cancel it the instant focus
+  // lands anywhere inside, same as a mouse re-entering does above.
+  useEffect(() => {
+    if (!open) return;
+    function handleFocusIn(e: FocusEvent) {
+      const target = e.target as Node | null;
+      if (!target) return;
+      const insideAny = refPairs.some(({ panel }) => panel.current?.contains(target));
+      if (insideAny && hoverCloseTimerRef.current) {
+        clearTimeout(hoverCloseTimerRef.current);
+        hoverCloseTimerRef.current = null;
+      }
+    }
+    document.addEventListener("focusin", handleFocusIn);
+    return () => document.removeEventListener("focusin", handleFocusIn);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
