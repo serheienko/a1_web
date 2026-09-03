@@ -350,8 +350,35 @@ export function MiniChatWindow({
     };
   }, [target.routeParam]);
 
+  const isPinnedToBottomRef = useRef(true);
   useEffect(() => {
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
+    isPinnedToBottomRef.current = true;
+  }, [target.routeParam]);
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    const BOTTOM_PIN_THRESHOLD_PX = 64;
+    function onScroll() {
+      if (!el) return;
+      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      isPinnedToBottomRef.current = distanceFromBottom <= BOTTOM_PIN_THRESHOLD_PX;
+    }
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+  useEffect(() => {
+    const el = listRef.current;
+    const content = el?.firstElementChild;
+    if (!el || !content) return;
+    const ro = new ResizeObserver(() => {
+      if (isPinnedToBottomRef.current) el.scrollTop = el.scrollHeight;
+    });
+    ro.observe(content);
+    return () => ro.disconnect();
+  }, []);
+  useEffect(() => {
+    const el = listRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [messages.length]);
 
   async function handleSend(extra?: { contacts?: PickedContact[] }) {
@@ -603,7 +630,8 @@ export function MiniChatWindow({
         )}
       </div>
 
-      <div ref={listRef} className="flex-1 space-y-1.5 overflow-y-auto px-3 py-2.5">
+      <div ref={listRef} className="flex-1 overflow-y-auto px-3 py-2.5">
+      <div className="space-y-1.5">
         {loadState === "loading" && messages.length === 0 && (
           <p className="mt-4 text-center text-[14.5px] text-[#989aa6] dark:text-[#8d8d93]">…</p>
         )}
@@ -714,6 +742,7 @@ export function MiniChatWindow({
             </div>
           );
         })}
+      </div>
       </div>
 
       <div className="flex shrink-0 flex-col gap-2 border-t border-neutral-100 px-2.5 py-2 dark:border-neutral-800">
