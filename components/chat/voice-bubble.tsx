@@ -44,10 +44,12 @@
 //   "will self-destruct once opened" state before that has no border,
 //   just the static fire badge.
 // - Blue "unopened" dot: 6.97's own capture flags this as unconfirmed
-//   which end it belongs to ("needs a RECEIVER-side capture"). Scoped
-//   here to the receiving side only (`!mine`), matching every other
-//   messenger's own convention that an "unread" dot is meaningful only
-//   to the person who hasn't read/heard it yet.
+//   which end it belongs to ("needs a RECEIVER-side capture"). Originally
+//   scoped to the receiving side only; 2026-09-03 live-test follow-up
+//   below (Aleksandr: "надо и на отправленных, и на полученных... точно
+//   так же, как в Telegram") made it bidirectional -- see that comment,
+//   right above `showUnopenedDot`'s own definition, for how each side
+//   now decides.
 //
 // 2026-09-03 follow-up (Aleksandr sent the promised now-playing-bar
 // reference -- "Аватар слева, управление сгрупировано справа. это
@@ -62,13 +64,16 @@
 // private <audio>; "only one clip plays at a time" is the store's
 // guarantee now, not a local module singleton here.
 //
-// Deliberately NOT done yet, per PLAN.md 6.99's own order: `messages.
-// updateContentOpened` wiring (this file marks a doc "opened" purely
-// client-side/optimistically, same as the local delete-window start
-// already does -- nothing is POSTed to the backend yet, so a page
-// reload currently re-shows the blue dot until the server's own
-// `viewed` field catches up through a future wiring pass), and
-// reply-to-voice UI.
+// 2026-09-03 update: turns out no explicit `messages.updateContentOpened`
+// call is needed at all -- the live OpenAPI spec's own glossary states
+// "Accessing the media download URL marks it as viewed" (confirmed via
+// https://api.a1appp.com/openapi.json), i.e. the <audio> element simply
+// requesting the file (lib/voice-playback-store.ts's playVoice(), fired
+// from THIS user's own play/scrub) is itself what flips the doc's
+// server-side `viewed` for anyone who fetches it. The still-open gap is
+// the LOCAL delete-window start (`markOpened` below) staying purely
+// optimistic pending server echo via the next poll, same as before --
+// and reply-to-voice UI, still not built.
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore, type PointerEvent, type ReactNode } from "react";
@@ -272,6 +277,24 @@ export function VoiceMessageBubble({
     return () => document.removeEventListener("mousedown", onDocPointerDown);
   }, [firePopoverOpen]);
 
+  // 2026-09-03 (Aleksandr, live test: "это надо и на отправленных, и на
+  // полученных... я отправляю сообщение, я понимаю, человек просмотрел
+  // или нет" -- Telegram-style bidirectional unopened dot) -- confirmed
+  // off the live OpenAPI spec's own glossary (https://api.a1appp.com/
+  // openapi.json): "File Viewing: Accessing the media download URL
+  // marks it as viewed" -- so `doc.viewed` becomes server-authoritative
+  // the instant EITHER side's <audio> element actually requests the
+  // file, regardless of which side. app/chats/[chatId]/page.tsx already
+  // polls messages.getMessages every POLL_MS (3s), so once the
+  // RECIPIENT presses play, the next poll on the SENDER's own open chat
+  // brings back this same doc with `viewed` now set -- this effect just
+  // picks that up if the bubble stayed mounted across that poll (a
+  // fresh `doc` prop, not a remount, so useState's initializer alone
+  // wouldn't see it).
+  useEffect(() => {
+    if (doc.viewed != null && !opened) setOpened(true);
+  }, [doc.viewed, opened]);
+
   const entry: VoicePlaybackEntry = {
     docId: doc._id,
     url: buildMediaProxyUrl(doc),
@@ -346,7 +369,15 @@ export function VoiceMessageBubble({
   // stuck this way even when totalSeconds is wrong or missing.
   const timerLabel = playing || elapsed > 0 ? formatVoiceTimer(elapsed) : formatVoiceTimer(effectiveTotalSeconds);
 
-  const showUnopenedDot = !mine && !opened;
+  // Bidirectional: the RECEIVING side's own dot still hides the instant
+  // THIS user presses play/scrub (optimistic, via `opened` above, so it
+  // doesn't wait on a poll round-trip). The SENDING side has no local
+  // "I opened my own clip" signal worth showing -- replaying your own
+  // sent voice note doesn't mean the recipient heard it -- so `mine`
+  // reads `doc.viewed` directly instead, which only becomes non-null
+  // once the *recipient's* device has actually fetched the file (see
+  // the effect above for how that reaches this render).
+  const showUnopenedDot = mine ? doc.viewed == null : !opened;
 
   const deleteFraction = isCountingDown
     ? voiceDeleteCountdownFraction(doc, {
@@ -425,7 +456,15 @@ export function VoiceMessageBubble({
         </div>
         <div className={`flex items-center gap-1.5 text-[12px] tabular-nums ${mine ? "opacity-85" : "opacity-60"}`}>
           <span>{timerLabel}</span>
-          {showUnopenedDot && <span className="h-[6px] w-[6px] shrink-0 rounded-full bg-[#335ef7] dark:bg-[#0c8ce9]" />}
+          {showUnopenedDot && (
+            // `mine` bubbles are themselves a solid accent-blue card
+            // (see the outer div's own className) -- the original
+            // dot's color was the SAME blue, invisible in light mode.
+            // Same fix as the play button just above: inverted to
+            // white for `mine`, left as-is for the white/dark `theirs`
+            // card where the blue dot already reads fine.
+            <span className={`h-[6px] w-[6px] shrink-0 rounded-full ${mine ? "bg-white" : "bg-[#335ef7] dark:bg-[#0c8ce9]"}`} />
+          )}
         </div>
       </div>
 
