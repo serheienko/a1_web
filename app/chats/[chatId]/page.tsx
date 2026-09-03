@@ -996,12 +996,33 @@ export default function ChatWindowPage() {
       setPendingMessages((prev) => {
         const stillPending: PendingMessage[] = [];
         for (const p of prev) {
+          // 2026-09-04 (Aleksandr, video: "фото-то отправлены, но они
+          // не видны вот в той первой части" -- a just-sent multi-photo
+          // message flashing as an empty blue bubble for a moment)
+          // -- traced to this match firing off sender+text+date alone,
+          // before chat-server has necessarily finished attaching the
+          // message's own media documents to what the messages-list
+          // endpoint returns. The old code swapped to the real message
+          // (and revoked this bubble's local blob: previews below) the
+          // instant text/date lined up, even when messageDocumentMedia
+          // on that candidate was still empty -- rendering nothing
+          // where the pending bubble's own correct local thumbnails had
+          // been showing a moment earlier. A pending message that
+          // finished uploading (status "ready") its attachments now
+          // also requires the candidate real message to already carry
+          // at least that many media documents before counting as
+          // reconciled -- an unmatched pending bubble just keeps
+          // showing its own (correct, already-loaded) local previews
+          // until a poll tick actually has the real media ready.
+          const expectedMediaCount =
+            p.pendingAttachments?.filter((a) => a.status === "ready").length ?? 0;
           const reconciled = fetched.some(
             (m) =>
               resolvedMyUserId !== null &&
               m.fromId === resolvedMyUserId &&
               extractMessageText(m) === extractMessageText(p) &&
-              messageDateMs(m) >= messageDateMs(p) - 5000,
+              messageDateMs(m) >= messageDateMs(p) - 5000 &&
+              (expectedMediaCount === 0 || messageDocumentMedia(m).length >= expectedMediaCount),
           );
           if (reconciled) {
             // Attachment feature: this bubble's local image previews
@@ -2429,6 +2450,40 @@ export default function ChatWindowPage() {
                 i = j;
               }
               const pendingAttachments = pending?.pendingAttachments ?? [];
+              // 2026-09-04 (Aleksandr, video: "сначала показывается
+              // какое-то превью нерелевантное, а потом уже становится
+              // другой вид") -- while a multi-photo send is still
+              // uploading/pending, this used to render N separate
+              // full-width rows (one per PendingAttachment below) and
+              // only picked up the real grouped-grid look
+              // (ChatPhotoGrid, see imageGroupStartId's own comment
+              // above for the confirmed-message twin of this) once
+              // load() reconciled it into a real message -- a visible
+              // reshuffle the instant a send actually finished, on top
+              // of whatever delay reconciliation itself takes (see the
+              // expectedMediaCount fix in the poll handler above for
+              // that other half of this same report). Grouping runs of
+              // 2+ consecutive local image previews the SAME way here
+              // means the pending bubble already looks exactly like its
+              // eventual real self -- reconciliation swaps `src`
+              // (blob: -> proxied URL) inside an unchanged layout, not
+              // the whole shape of the message.
+              const pendingImageGroupStartId = new Map<string, PendingAttachment[]>();
+              const pendingImageGroupSkipIds = new Set<string>();
+              for (let gi = 0; gi < pendingAttachments.length; ) {
+                if (pendingAttachments[gi]!.kind !== "image") {
+                  gi++;
+                  continue;
+                }
+                let gj = gi + 1;
+                while (gj < pendingAttachments.length && pendingAttachments[gj]!.kind === "image") gj++;
+                const run = pendingAttachments.slice(gi, gj);
+                if (run.length >= 2) {
+                  pendingImageGroupStartId.set(run[0]!.localId, run);
+                  for (const d of run.slice(1)) pendingImageGroupSkipIds.add(d.localId);
+                }
+                gi = gj;
+              }
               // Contact-attachment feature: contactMedia is the REAL,
               // already-sent side (messageContactMedia, an array -- up to
               // 5 per message); pendingContactCards is this bubble's own
@@ -2573,7 +2628,32 @@ export default function ChatWindowPage() {
                             // load()'s reconciliation swap is now a
                             // like-for-like replacement, not a visual
                             // change.
-                            a.kind === "voice" ? (
+                            pendingImageGroupSkipIds.has(a.localId) ? null : pendingImageGroupStartId.has(a.localId) ? (
+                              // See pendingImageGroupStartId's own
+                              // comment above -- same grid shape
+                              // ChatPhotoGrid gives the confirmed
+                              // message, off local blob: previews
+                              // instead of proxied URLs. Not clickable
+                              // into the full viewer (no real doc id to
+                              // open yet) and shows one shared uploading
+                              // spinner if ANY photo in the run hasn't
+                              // finished its upload -- matches how the
+                              // whole group sends/fails together.
+                              <div key={a.localId} className="relative">
+                                <ChatPhotoGrid
+                                  docs={pendingImageGroupStartId
+                                    .get(a.localId)!
+                                    .filter((d) => d.previewUrl)
+                                    .map((d) => ({ id: d.localId, src: d.previewUrl! }))}
+                                  onOpen={() => {}}
+                                />
+                                {pendingImageGroupStartId.get(a.localId)!.some((d) => d.status === "uploading") && (
+                                  <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/30">
+                                    <ChatAttachmentSpinner className="h-6 w-6 text-white" />
+                                  </div>
+                                )}
+                              </div>
+                            ) : a.kind === "voice" ? (
                               <PendingVoiceBubble
                                 key={a.localId}
                                 mine={mine}
