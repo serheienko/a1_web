@@ -110,8 +110,17 @@ export const fetchCompanyCategories = cache(async function fetchCompanyCategorie
  * "Sports" group containing "Football"), not a flat `{items:[...]}`.
  * fetchHobbies() keeps that group structure (useful if a future design
  * wants to show hobbies grouped); fetchHobbyLabels() flattens it to a
- * plain id -> text Map for the simple "just show the tag pills" case
- * app/u/[username]/page.tsx actually needs today.
+ * plain id -> {group,text} Map for the simple "just show the tag pills"
+ * case app/u/[username]/page.tsx actually needs today. The group is kept
+ * (not dropped down to a bare string) because lib/pill-translations.ts's
+ * translateHobbyItem(group, text, lang) needs it — the same English word
+ * ("Painting") can appear under more than one group with a different,
+ * section-correct Ukrainian translation, exactly like
+ * components/profile-editor.tsx's own edit-mode hobby pills already
+ * handle it (2026-09-03, Aleksandr screenshot: "Хобі" pills on the
+ * public profile page render in English — "Salsa", "Hiking" — despite
+ * the section header itself being Ukrainian; the editor's pills already
+ * went through translateHobbyItem, this page's never did).
  */
 const HobbyItemSchema = z.object({
   value: z.number(),
@@ -131,10 +140,10 @@ export const fetchHobbies = cache(async function fetchHobbies() {
   return parsed.data.map((g) => ({ ...g, items: g.items.map((i) => ({ ...i, text: decodeHtmlEntities(i.text) })) }));
 });
 
-export const fetchHobbyLabels = cache(async function fetchHobbyLabels(): Promise<Map<number, string>> {
+export const fetchHobbyLabels = cache(async function fetchHobbyLabels(): Promise<Map<number, { group: string; text: string }>> {
   const groups = await fetchHobbies();
-  const map = new Map<number, string>();
-  for (const g of groups) for (const i of g.items) map.set(i.value, i.text);
+  const map = new Map<number, { group: string; text: string }>();
+  for (const g of groups) for (const i of g.items) map.set(i.value, { group: g.group, text: i.text });
   return map;
 });
 

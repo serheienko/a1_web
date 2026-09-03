@@ -39,7 +39,7 @@ import { generateAvatarBlurDataUrl } from "@/lib/avatar-blur";
 import { formatLanguageName } from "@/lib/format";
 import { LocationLabel } from "@/components/locale-format";
 import { T, LOCALES, type Locale } from "@/components/t";
-import { translateWorkStyleOption } from "@/lib/pill-translations";
+import { translateWorkStyleOption, translateHobbyItem, translateWorkInterest } from "@/lib/pill-translations";
 import { VoiceIntroProvider } from "@/components/voice-intro-context";
 import { VoiceIntroRing } from "@/components/voice-intro-ring";
 import { VoiceIntroPlayer } from "@/components/voice-intro-player";
@@ -93,7 +93,16 @@ function levelBar(level: number, max: number) {
 // заливку этих штук, табов полностью FFFFFF 100%") — reused here so
 // hobbies/work-interests/work-style tags read as the same visual
 // language instead of introducing a second tag style.
-function pillList(items: string[]) {
+// 2026-09-03 (Aleksandr, screenshot: "Хобі"/"Робочі інтереси" pills
+// showing raw English -- "Salsa", "Accounting" -- despite the section
+// headers themselves being Ukrainian): items are now a per-locale
+// Record<Locale, string> (built via translateHobbyItem/
+// translateWorkInterest below, same table components/profile-editor.tsx's
+// edit-mode pills already use) rendered through <T>, same
+// precompute-all-9-locales-server-side pattern the Work style pills
+// further down this file already use -- this server component has no
+// `lang` of its own to translate into.
+function pillList(items: Record<Locale, string>[]) {
   return (
     <div className="flex flex-wrap gap-2">
       {items.map((item, i) => (
@@ -101,7 +110,7 @@ function pillList(items: string[]) {
           key={i}
           className="rounded-full bg-white px-3 py-1.5 text-sm text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
         >
-          {item}
+          <T {...item} />
         </span>
       ))}
     </div>
@@ -666,7 +675,13 @@ export default async function ProfilePage({ params }: Props) {
             {pillList(
               profile.hobbies
                 .map((id) => hobbyLabels.get(id))
-                .filter((v): v is string => Boolean(v)),
+                .filter((v): v is { group: string; text: string } => Boolean(v))
+                .map(
+                  ({ group, text }) =>
+                    Object.fromEntries(
+                      LOCALES.map((locale) => [locale, translateHobbyItem(group, text, locale)]),
+                    ) as Record<Locale, string>,
+                ),
             )}
           </div>
         </section>
@@ -679,7 +694,13 @@ export default async function ProfilePage({ params }: Props) {
             {pillList(
               profile.workInterests
                 .map((id) => workInterestLabel(id))
-                .filter((v): v is string => Boolean(v)),
+                .filter((v): v is string => Boolean(v))
+                .map(
+                  (text) =>
+                    Object.fromEntries(
+                      LOCALES.map((locale) => [locale, translateWorkInterest(text, locale)]),
+                    ) as Record<Locale, string>,
+                ),
             )}
           </div>
         </section>
