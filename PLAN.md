@@ -5792,3 +5792,46 @@ plain fetch.
 
 tsc-clean, both.
 
+### 6.112
+
+2026-09-03 (Aleksandr, screenshots of the Вакансії/Фахівці toggle and
+chat search bar: "можем делать такой эффект стеклянности, как бы, вот
+этих кнопок как у Apple?"): an experiment, explicitly framed as
+"если круто, то оставим. Если не круто, то откатим" and scoped to
+mobile web only ("мы сейчас только говорим все за мобильную версию").
+
+New lib/glass.ts exports one shared `GLASS` Tailwind class-string
+constant -- backdrop-blur-xl + backdrop-saturate-150 (frosts/intensifies
+whatever's actually behind the element; most visible where something
+scrolls under it, like avatars behind the chat search bar or vacancy
+cards behind the filters popover -- near-invisible-but-still-textured
+where the background is flat, like the toggle over plain page bg) + a
+translucent tint (dark mode stays a translucent DARK tint, not a light
+frost -- matches iOS's own dark vibrancy material and keeps text
+readable on the bigger surfaces) + a hairline border + an inset top
+highlight. Applied at 8 call sites: chat-list search (app/chats/
+page.tsx), the Вакансії/Фахівці toggle (site-nav.tsx), the vacancies
+list's mobile search input + filter button + its popover panel
+(filters-form.tsx), the profile ··· menu button (post-owner-menu.tsx),
+the Про мене/Дописи tab pill (profile-tabs.tsx), and My Activity's
+3-way tab pill (app/my-activity/page.tsx).
+
+filters-form.tsx's mobile block already only renders below the sm
+breakpoint, so GLASS applies as-is there. Every other call site renders
+on every viewport, so each appends its own `sm:` reset back to its
+original solid classes for >=640px -- GLASS itself carries no sm:
+anything on purpose, so it stays a plain drop-in wherever a site is
+already mobile-only and a "make desktop stay put" tack-on everywhere
+else.
+
+Also, unrelated to glass but raised in the same message: "в контактах
+у нас нет поиска, и это странно, надо его сверху тоже добавить" --
+app/contacts/page.tsx never had a search box. Added one (glass, same
+as the rest), filtering the list by display name (contactName(), which
+already prefers a linked account's real fullName over the raw phone-
+book firstName/lastName) and phone, mirroring app/chats/page.tsx's own
+placement/empty-state/filtering shape rather than inventing a second
+convention.
+
+tsc-clean.
+
