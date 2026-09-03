@@ -30,6 +30,7 @@ import { useHoverPanel } from "@/lib/use-hover-panel";
 import { formatBytes, formatRelativeTime } from "@/lib/format";
 import { LottiePlayer } from "@/components/lottie-player";
 import {
+  encodeBase64Waveform,
   extractMessageText,
   isImageMediaDocument,
   isStickerMediaDocument,
@@ -594,7 +595,17 @@ export default function ChatWindowPage() {
   // a failed UPLOAD (not just a failed SEND) can be retried by re-
   // running the whole upload from the same audio instead of having
   // nothing left to resend -- see uploadAndSendVoice/retryOne below.
-  const voiceBlobsRef = useRef<Map<string, { blob: Blob; mimeType: string }>>(new Map());
+  // 2026-09-03 (Aleksandr, live test: "эквалайзер должен быть уже на
+  // отосланном сообщении") -- now also carries durationSeconds/waveform
+  // (both already computed locally by voice-recorder.ts's onFinish, see
+  // handleVoiceFinish below) alongside the blob, so uploadAndSendVoice
+  // can send a real `attribute-audio` at upload time instead of none at
+  // all -- checked a real sent voice doc live via messages.getMessages
+  // and its `attributes` array came back completely empty, which is
+  // exactly why the SENT bubble's waveform rendered as a flat line
+  // (voice-bubble.tsx falls back to a uniform 0.35 array when
+  // decodeWaveformBars finds nothing to decode).
+  const voiceBlobsRef = useRef<Map<string, { blob: Blob; mimeType: string; durationSeconds: number; waveform: number[] }>>(new Map());
   const recorder = useVoiceRecorder(handleVoiceFinish);
   // 2026-09-03 (Aleksandr, live test, Telegram Desktop reference
   // screenshot: "клик по любой свободной области во время записи
@@ -1208,10 +1219,26 @@ export default function ChatWindowPage() {
     );
     try {
       const file = new File([stored.blob], `voice-${Date.now()}.webm`, { type: stored.mimeType });
+      // 2026-09-03 (Aleksandr, live test: "эквалайзер должен быть уже
+      // на отосланном сообщении") -- duration + a base64 5-bit-packed
+      // waveform (encodeBase64Waveform, lib/a1/chat-schemas.ts -- the
+      // exact inverse of the decode this app's own voice bubble already
+      // uses to render bars) now actually go out with the upload, via
+      // the same `attributes` passthrough app/api/upload/create/
+      // route.ts already proved works for `attribute-filename` (PLAN.md
+      // 6.105). Previously this body carried neither, so every sent
+      // voice doc's `attributes` came back completely empty -- confirmed
+      // live via messages.getMessages on a just-sent clip -- which is
+      // why the sent bubble's own waveform rendered as a flat line.
       const createRes = await authFetch("/api/upload/create", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ mimetype: file.type || "audio/webm", bytes: file.size }),
+        body: JSON.stringify({
+          mimetype: file.type || "audio/webm",
+          bytes: file.size,
+          voiceDuration: stored.durationSeconds,
+          voiceWaveform: encodeBase64Waveform(stored.waveform),
+        }),
       });
       const createData = await createRes.json().catch(() => null);
       if (!createRes.ok || !createData?.ok || !createData.result?.url) {
@@ -1265,7 +1292,12 @@ export default function ChatWindowPage() {
   // photo/file send already does.
   function handleVoiceFinish(result: VoiceRecordingResult) {
     const localId = `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    voiceBlobsRef.current.set(localId, { blob: result.blob, mimeType: result.mimeType });
+    voiceBlobsRef.current.set(localId, {
+      blob: result.blob,
+      mimeType: result.mimeType,
+      durationSeconds: result.durationSeconds,
+      waveform: result.waveform,
+    });
     const optimistic: PendingMessage = {
       _id: localId,
       flags: 0,

@@ -48,6 +48,18 @@ const UploadCreateInput = z.object({
   // is the same array shape read back on the confirmed doc, so this is
   // an input echoed straight through, not a new field being invented.
   fileName: z.string().trim().min(1).optional(),
+  // 2026-09-03 (Aleksandr, live test: "эквалайзер должен быть уже на
+  // отосланном сообщении") -- same `attributes` passthrough this route
+  // already uses for `attribute-filename` (see that field's own comment
+  // above), now also covering `attribute-audio` for voice notes:
+  // uploadAndSendVoice (app/chats/[chatId]/page.tsx) previously sent
+  // NEITHER of these three, so every sent voice doc's `attributes` came
+  // back completely empty (confirmed live via messages.getMessages on a
+  // just-sent clip) -- no duration, no waveform, which is why the sent
+  // bubble's waveform rendered as a flat line (voice-bubble.tsx's own
+  // decodeWaveformBars(...) ?? flat-0.35 fallback).
+  voiceDuration: z.number().positive().optional(),
+  voiceWaveform: z.string().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -57,10 +69,14 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { fileName, ...rest } = parsed.data;
-    const payload = fileName
-      ? { ...rest, attributes: [{ object: "attribute-filename", fileName }] }
-      : rest;
+    const { fileName, voiceDuration, voiceWaveform, ...rest } = parsed.data;
+    const attributes = [
+      ...(fileName ? [{ object: "attribute-filename", fileName }] : []),
+      ...(voiceDuration != null
+        ? [{ object: "attribute-audio", duration: voiceDuration, voice: true, ...(voiceWaveform ? { waveform: voiceWaveform } : {}) }]
+        : []),
+    ];
+    const payload = attributes.length > 0 ? { ...rest, attributes } : rest;
     const { data, refreshedSession } = await callAsVisitor<unknown>("upload.create", payload);
     const usageParsed = MediaUploadUsageSchema.safeParse(data);
     if (usageParsed.success) {

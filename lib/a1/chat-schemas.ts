@@ -451,6 +451,62 @@ export function decodeBase64Waveform(encoded: string | undefined | null): number
   return decode5BitWaveform(bytes);
 }
 
+// 2026-09-03 (Aleksandr, live test: "эквалайзер должен быть уже на
+// отосланном сообщении" -- turned out the SENT voice bubble's waveform
+// wasn't the confirmed live-recording shape rendering wrong, it was
+// this whole attribute never reaching the server in the first place:
+// checked a real just-sent voice doc via messages.getMessages and its
+// `attributes` array came back completely empty. Traced to
+// uploadAndSendVoice (app/chats/[chatId]/page.tsx) never sending one --
+// matches this file's own decode-side comment above, "server derives
+// the authoritative one itself", which turned out to be an untested
+// assumption from the original research pass (PLAN.md 6.96), not
+// something actually confirmed live. Fix is the same mechanism 6.105
+// already proved works for `attribute-filename` (upload.create's
+// optional `attributes` array is echoed straight through and read back
+// on the confirmed doc, per the OpenAPI-confirmed input shape) --
+// applied here to `attribute-audio` instead. `encode5BitWaveform` is
+// the exact bit-for-bit inverse of `decode5BitWaveform` above (same
+// LSB-first 5-bit packing) -- round-trips through OUR OWN encode/decode
+// pair, so it does not need to match Telegram's exact tdesktop encoder
+// bit-for-bit (only ever confirmed as the DECODE side, off
+// waveform_decoder.dart -- the encoder was never sourced), just be
+// internally consistent, which this is by construction.
+export function encode5BitWaveform(peaks: number[]): Uint8Array {
+  const bitsCount = peaks.length * 5;
+  const bytes = new Uint8Array(Math.ceil(bitsCount / 8));
+  for (let i = 0; i < peaks.length; i++) {
+    const v = Math.max(0, Math.min(31, Math.round(peaks[i] ?? 0))) & 0x1f;
+    const byteIndex = Math.floor((i * 5) / 8);
+    const bitShift = (i * 5) % 8;
+    bytes[byteIndex] = (bytes[byteIndex]! | ((v << bitShift) & 0xff)) & 0xff;
+    if (bitShift > 3 && byteIndex + 1 < bytes.length) {
+      bytes[byteIndex + 1] = (bytes[byteIndex + 1]! | (v >> (8 - bitShift))) & 0xff;
+    }
+  }
+  return bytes;
+}
+
+// Bytes -> base64, browser-safe (btoa, not Buffer) -- the encode-side
+// counterpart to base64ToBytes above.
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]!);
+  return btoa(binary);
+}
+
+/**
+ * `waveform` bars are 0..1 normalised (this file's own resampleWaveform
+ * output, e.g. voice-recorder.ts's local optimistic waveform) -- scaled
+ * to 0..31 peaks and 5-bit-packed the same way decodeWaveformBars reads
+ * them back, so a round trip through this encoder and decodeWaveformBars
+ * reproduces the same bar heights (up to the 0..31 quantization step).
+ */
+export function encodeBase64Waveform(waveform: number[]): string {
+  const peaks = waveform.map((v) => v * 31);
+  return bytesToBase64(encode5BitWaveform(peaks));
+}
+
 export function resampleWaveform(samples: number[], targetCount: number): number[] {
   if (samples.length === targetCount) return samples.slice();
   if (samples.length === 0) return new Array(targetCount).fill(0);
