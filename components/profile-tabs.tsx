@@ -41,6 +41,7 @@ import { PostEditor, type EditablePost } from "@/components/post-editor";
 import type { WebPost } from "@/types/web-post";
 import { profileHref } from "@/lib/profile-href";
 import { authFetch } from "@/lib/auth-fetch";
+import { GLASS } from "@/lib/glass";
 
 type StringKey = "statusDraft" | "statusScheduled";
 
@@ -225,7 +226,13 @@ export function ProfileTabs({
           from that component below (container: `bg-white
           dark:bg-neutral-900`; active button: `bg-accent/15
           text-accent`) instead of inventing a new treatment here. */}
-      <div className="flex gap-1 rounded-full bg-white p-1 dark:bg-neutral-900">
+      <div
+        className={
+          "flex gap-1 rounded-full p-1 " +
+          GLASS +
+          " sm:border-0 sm:bg-white sm:shadow-none sm:backdrop-blur-none sm:backdrop-saturate-100 sm:dark:border-0 sm:dark:bg-neutral-900 sm:dark:shadow-none"
+        }
+      >
         <button
           type="button"
           onClick={() => setTab("bio")}

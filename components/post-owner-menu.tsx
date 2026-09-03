@@ -34,6 +34,7 @@ import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { PostEditor, type EditablePost } from "@/components/post-editor";
 import { useHoverPanel } from "@/lib/use-hover-panel";
 import { authFetch } from "@/lib/auth-fetch";
+import { GLASS } from "@/lib/glass";
 
 type MinePost = EditablePost & {
   created: number;
@@ -234,7 +235,11 @@ export function PostOwnerMenu({
         onClick={() => setOpen((v) => !v)}
         aria-label={STRINGS.menuLabel[lang]}
         aria-expanded={open}
-        className="group flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-neutral-500 shadow-sm ring-1 ring-black/5 transition hover:text-neutral-900 dark:bg-neutral-800 dark:text-neutral-400 dark:ring-white/10 dark:hover:text-neutral-50"
+        className={
+          "group flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-neutral-500 transition hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50 " +
+          GLASS +
+          " sm:border-0 sm:bg-white sm:shadow-sm sm:ring-1 sm:ring-black/5 sm:backdrop-blur-none sm:backdrop-saturate-100 sm:dark:border-0 sm:dark:bg-neutral-800 sm:dark:ring-1 sm:dark:ring-white/10"
+        }
       >
         <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5 animate-dots-bounce" aria-hidden="true">
           <circle cx="4" cy="10" r="1.7" />

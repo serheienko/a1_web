@@ -75,6 +75,7 @@ import { SearchIcon } from "@/components/search-icon";
 import { translateTagLabel, translateCategoryLabel } from "@/components/label-translations";
 import { useHoverPanel } from "@/lib/use-hover-panel";
 import { authFetch } from "@/lib/auth-fetch";
+import { GLASS } from "@/lib/glass";
 
 const MAX_SUGGESTIONS_PER_GROUP = 5;
 
@@ -765,7 +766,10 @@ export function FiltersForm({
                 blurTimeoutRef.current = setTimeout(() => setInputFocused(false), 150);
               }}
               placeholder={FILTERS_FORM_STRINGS.searchPlaceholderShort[lang]}
-              className="w-full rounded-full border border-neutral-300 bg-white py-2 pl-9 pr-8 text-sm text-neutral-900 outline-none transition focus:border-accent/40 focus:ring-2 focus:ring-accent/30 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+              className={
+                "w-full rounded-full py-2 pl-9 pr-8 text-sm text-neutral-900 outline-none transition focus:border-accent/40 focus:ring-2 focus:ring-accent/30 dark:text-neutral-100 " +
+                GLASS
+              }
             />
             {isPending ? (
               <svg
@@ -808,10 +812,10 @@ export function FiltersForm({
               aria-label={FILTERS_FORM_STRINGS.filters[lang]}
               aria-expanded={filtersOpen}
               className={
-                "group relative flex h-10 w-10 items-center justify-center rounded-full border transition " +
+                "group relative flex h-10 w-10 items-center justify-center rounded-full transition " +
                 (currentCategory != null || currentLocation != null || currentTags.length > 0
-                  ? "border-accent/40 bg-accent/10 text-accent"
-                  : "border-neutral-300 bg-white text-neutral-500 hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50")
+                  ? "border border-accent/40 bg-accent/10 text-accent"
+                  : GLASS + " text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50")
               }
             >
               <FilterIcon className="h-5 w-5" />
@@ -846,7 +850,9 @@ export function FiltersForm({
               <div
                 ref={filtersPanelRef}
                 className={
-                  "absolute right-0 top-full z-50 mt-2 max-h-[85vh] w-72 max-w-[calc(100vw-2rem)] origin-top-right overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-2 shadow-lg transition duration-150 ease-out dark:border-neutral-700 dark:bg-neutral-900 " +
+                  "absolute right-0 top-full z-50 mt-2 max-h-[85vh] w-72 max-w-[calc(100vw-2rem)] origin-top-right overflow-y-auto rounded-2xl p-2 transition duration-150 ease-out " +
+                  GLASS +
+                  " " +
                   (filtersVisible ? "opacity-100 scale-100" : "pointer-events-none opacity-0 scale-95")
                 }
               >

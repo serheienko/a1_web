@@ -51,6 +51,7 @@ import { authFetch } from "@/lib/auth-fetch";
 import { MessageTicks } from "@/components/chat/icons";
 import { LottiePlayer } from "@/components/lottie-player";
 import { SearchIcon } from "@/components/search-icon";
+import { GLASS } from "@/lib/glass";
 
 type LoadState = "loading" | "signed-out" | "error" | "ready";
 
@@ -250,7 +251,11 @@ export default function ChatsPage() {
               onChange={(e) => setQuery(e.target.value)}
               placeholder={SEARCH_PLACEHOLDER_STRINGS[lang]}
               aria-label={SEARCH_PLACEHOLDER_STRINGS[lang]}
-              className="w-full rounded-full bg-white py-2.5 pl-10 pr-4 text-[16px] text-[#262a34] outline-none transition placeholder:text-[#989aa6] focus:ring-2 focus:ring-accent/30 dark:bg-neutral-900 dark:text-white dark:placeholder:text-[#8d8d93]"
+              className={
+                "w-full rounded-full py-2.5 pl-10 pr-4 text-[16px] text-[#262a34] outline-none transition placeholder:text-[#989aa6] focus:ring-2 focus:ring-accent/30 dark:text-white dark:placeholder:text-[#8d8d93] " +
+                GLASS +
+                " sm:border-0 sm:bg-white sm:shadow-none sm:backdrop-blur-none sm:backdrop-saturate-100 sm:dark:border-0 sm:dark:bg-neutral-900 sm:dark:shadow-none"
+              }
             />
           </div>
         )}

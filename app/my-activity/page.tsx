@@ -39,6 +39,7 @@ import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import type { WebPost } from "@/types/web-post";
 import { authFetch } from "@/lib/auth-fetch";
+import { GLASS } from "@/lib/glass";
 
 type LoadState = "loading" | "signed-out" | "error" | "ready";
 type Tab = "mine" | "posts" | "users";
@@ -240,7 +241,13 @@ export default function MyActivityPage() {
           fine as slightly-taller-than-strictly-needed on the common
           case where everything still fits on one line (desktop, or
           shorter locales). */}
-      <div className="mt-6 grid grid-cols-3 gap-1 rounded-full bg-white p-1 dark:bg-neutral-900">
+      <div
+        className={
+          "mt-6 grid grid-cols-3 gap-1 rounded-full p-1 " +
+          GLASS +
+          " sm:border-0 sm:bg-white sm:shadow-none sm:backdrop-blur-none sm:backdrop-saturate-100 sm:dark:border-0 sm:dark:bg-neutral-900 sm:dark:shadow-none"
+        }
+      >
         {TAB_ORDER.map((t) => (
           <button
             key={t}

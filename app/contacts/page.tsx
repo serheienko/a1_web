@@ -63,9 +63,11 @@ import Link from "next/link";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { profileHref } from "@/lib/profile-href";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
-import { T } from "@/components/t";
+import { T, LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import type { Contact } from "@/lib/a1/schemas";
 import { authFetch } from "@/lib/auth-fetch";
+import { SearchIcon } from "@/components/search-icon";
+import { GLASS } from "@/lib/glass";
 
 type LoadState = "loading" | "signed-out" | "error" | "ready";
 
@@ -96,7 +98,24 @@ function contactName(contact: Contact, linkedUser: ContactUserSummary | undefine
   return "—";
 }
 
+function useActiveLocale(): Locale {
+  const [lang, setLang] = useState<Locale>("uk");
+  useEffect(() => {
+    const root = document.documentElement;
+    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
+    if (active) setLang(active);
+  }, []);
+  return lang;
+}
+
+const SEARCH_PLACEHOLDER_STRINGS: Record<Locale, string> = {
+  uk: "Пошук", en: "Search", ru: "Поиск", de: "Suche", es: "Buscar",
+  fr: "Rechercher", pl: "Szukaj", ptBR: "Pesquisar", zh: "搜索",
+};
+
 export default function ContactsPage() {
+  const lang = useActiveLocale();
+  const [query, setQuery] = useState("");
   const [state, setState] = useState<LoadState>("loading");
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactUsers, setContactUsers] = useState<Record<string, ContactUserSummary>>({});
@@ -168,11 +187,39 @@ export default function ContactsPage() {
     };
   }, []);
 
+  const trimmedQuery = query.trim().toLowerCase();
+  const filteredContacts = trimmedQuery
+    ? contacts.filter((contact) => {
+        const linkedUser = contact.user ? contactUsers[contact.user] : undefined;
+        const name = contactName(contact, linkedUser).toLowerCase();
+        const phone = (contact.phone ?? "").toLowerCase();
+        return name.includes(trimmedQuery) || phone.includes(trimmedQuery);
+      })
+    : contacts;
+
   return (
     <main className="mx-auto w-full max-w-2xl px-4 py-10 sm:py-16">
       <h1 className="text-2xl font-semibold text-neutral-900 sm:text-3xl dark:text-neutral-50">
         <T uk="Контакти" en="Contacts" ru="Контакты" de="Kontakte" es="Contactos" fr="Contacts" pl="Kontakty" ptBR="Contatos" zh="联系人" />
       </h1>
+
+      {state === "ready" && contacts.length > 0 && (
+        <div className="relative mt-4 shrink-0">
+          <SearchIcon className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={SEARCH_PLACEHOLDER_STRINGS[lang]}
+            aria-label={SEARCH_PLACEHOLDER_STRINGS[lang]}
+            className={
+              "w-full rounded-full py-2.5 pl-10 pr-4 text-[16px] text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:ring-2 focus:ring-accent/30 dark:text-white dark:placeholder:text-neutral-500 " +
+              GLASS +
+              " sm:border-0 sm:bg-white sm:shadow-none sm:backdrop-blur-none sm:backdrop-saturate-100 sm:dark:border-0 sm:dark:bg-neutral-900 sm:dark:shadow-none"
+            }
+          />
+        </div>
+      )}
 
       {state === "loading" && (
         <p className="mt-6 text-sm text-neutral-500 dark:text-neutral-400">
@@ -228,9 +275,25 @@ export default function ContactsPage() {
         </p>
       )}
 
-      {state === "ready" && contacts.length > 0 && (
+      {state === "ready" && contacts.length > 0 && filteredContacts.length === 0 && (
+        <p className="mt-6 text-sm text-neutral-500 dark:text-neutral-400">
+          <T
+            uk="Нічого не знайдено"
+            en="No results found"
+            ru="Ничего не найдено"
+            de="Keine Ergebnisse gefunden"
+            es="No se encontraron resultados"
+            fr="Aucun résultat trouvé"
+            pl="Nie znaleziono wyników"
+            ptBR="Nenhum resultado encontrado"
+            zh="未找到结果"
+          />
+        </p>
+      )}
+
+      {state === "ready" && filteredContacts.length > 0 && (
         <div className="mt-6 flex flex-col gap-1">
-          {contacts.map((contact) => {
+          {filteredContacts.map((contact) => {
             const linkedUser = contact.user ? contactUsers[contact.user] : undefined;
             const avatarSrc = linkedUser?.avatarUrl ?? pickDefaultCatAvatar(contact._id);
             const profileBody = (
