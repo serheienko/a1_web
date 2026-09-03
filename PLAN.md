@@ -6087,3 +6087,34 @@ boxes:
   picker search field)
 
 tsc-clean.
+
+### 6.120
+
+2026-09-04, three quick live-test items in one pass:
+
+1. Multi-photo grid rendering tiny ("что за сгруппирование, ты
+   борщанул") -- components/chat/photo-grid.tsx's outer container had
+   no width of its own (the message bubble is a shrink-to-fit flex
+   item, and the grid's %-sized children contribute nothing to that
+   calc), so a 2+-photo album collapsed to a ~90px square instead of
+   a real tile. Fixed with w-64 max-w-full, same footprint the file-
+   attachment row already uses.
+2. Single small-resolution photos ALSO rendering tiny, same root
+   cause but for a lone image: its bubble's shrink-to-fit width comes
+   straight from the img's own intrinsic pixel size, so a genuinely
+   small source photo (e.g. a phone-mockup screenshot) rendered at
+   its real tiny size instead of a sane photo-bubble size, unlike
+   Telegram's own floor. min-w-[200px] added to all three
+   single-image render paths (flat isImageOnly bubble, mixed-media
+   fallback img, pending/uploading preview) -- an inferred number,
+   flagged as easy to adjust.
+3. app/chats/page.tsx ("А чат лист нельзя никак кэшировать, чтобы
+   каждый раз не загружать?"): reused components/chats-flyout.tsx's
+   own sessionStorage cache pattern (own key, not shared code) so a
+   revisit paints the last-known list immediately instead of the
+   skeleton every single time; the poll still runs right after.
+4. app/contacts/page.tsx ("Грузи контакты тоже с скелетоном"): same
+   animate-pulse skeleton app/chats/page.tsx's own loading state
+   already uses, in place of the bare "Завантаження…" line.
+
+tsc-clean.
