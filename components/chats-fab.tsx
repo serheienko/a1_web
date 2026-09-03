@@ -175,6 +175,22 @@ export function ChatsFab() {
     router.push(`/chats/${target.routeParam}${suffix}`);
   }
 
+  // 2026-09-03 follow-up (Aleksandr, screenshot of the recent-chats
+  // list still popping up on mobile: "На мобиле все равно показывает
+  // модалку") -- the earlier pass only skipped the SECOND modal
+  // (clicking a row inside this popover, see openChatFromFlyout above)
+  // -- the popover itself, opened by this button, is just as much "the
+  // small modal" his original "Отключи маленькую модалку" meant. On
+  // mobile the button now goes straight to /chats (this same recent-
+  // chats list, full-page) instead of ever opening ChatsFlyout.
+  function handleFabClick() {
+    if (isMobile) {
+      router.push("/chats");
+      return;
+    }
+    setFlyoutOpen((v) => !v);
+  }
+
   function handleBackToList() {
     setActiveChat(null);
     setFlyoutOpen(true);
@@ -263,7 +279,7 @@ export function ChatsFab() {
       <button
         type="button"
         ref={flyoutTriggerRef}
-        onClick={() => setFlyoutOpen((v) => !v)}
+        onClick={handleFabClick}
         onMouseEnter={handleFlyoutEnter}
         onMouseLeave={handleFlyoutLeave}
         aria-label={STRINGS.label[lang]}
