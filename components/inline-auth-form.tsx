@@ -36,6 +36,8 @@ type InlineAuthStringKey =
   | "signUpTitle"
   | "email"
   | "password"
+  | "showPassword"
+  | "hidePassword"
   | "firstName"
   | "lastName"
   | "submitSignIn"
@@ -62,6 +64,14 @@ export const INLINE_AUTH_STRINGS: Record<InlineAuthStringKey, Record<Locale, str
   password: {
     uk: "Пароль", en: "Password", ru: "Пароль", de: "Passwort", es: "Contraseña",
     fr: "Mot de passe", pl: "Hasło", ptBR: "Senha", zh: "密码",
+  },
+  showPassword: {
+    uk: "Показати пароль", en: "Show password", ru: "Показать пароль", de: "Passwort anzeigen",
+    es: "Mostrar contraseña", fr: "Afficher le mot de passe", pl: "Pokaż hasło", ptBR: "Mostrar senha", zh: "显示密码",
+  },
+  hidePassword: {
+    uk: "Приховати пароль", en: "Hide password", ru: "Скрыть пароль", de: "Passwort verbergen",
+    es: "Ocultar contraseña", fr: "Masquer le mot de passe", pl: "Ukryj hasło", ptBR: "Ocultar senha", zh: "隐藏密码",
   },
   firstName: {
     uk: "Ім'я", en: "First name", ru: "Имя", de: "Vorname", es: "Nombre",
@@ -162,6 +172,14 @@ export function InlineAuthForm({
   const [lastName, setLastName] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 2026-09-03 (Aleksandr, live screen recording: "добавь глаз везде в
+  // поле пароль для просмотра своего пароля") -- this is the ONE shared
+  // password field (grep -rln "type=\"password\"" across the repo turns
+  // up only this file), reused by fab-auth-prompt.tsx's two FAB
+  // prompts, avatar-menu.tsx's signed-out nav popover, and app/sign-in/
+  // page.tsx's full-page fallback -- so a single toggle here covers
+  // every "везде" (everywhere) the request meant.
+  const [showPassword, setShowPassword] = useState(false);
 
   const inputClass =
     "w-full rounded-xl border border-neutral-300 bg-white text-neutral-900 outline-none transition focus:border-accent/40 focus:ring-2 focus:ring-accent/30 dark:border-neutral-700 dark:bg-black dark:text-neutral-100 " +
@@ -272,15 +290,46 @@ export function InlineAuthForm({
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="inline-password" className={labelClass}>{INLINE_AUTH_STRINGS.password[lang]}</label>
-          <input
-            id="inline-password"
-            type="password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className={inputClass}
-            autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
-          />
+          <div className="relative">
+            <input
+              id="inline-password"
+              type={showPassword ? "text" : "password"}
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className={inputClass + " pr-10"}
+              autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              // tabIndex -1 (Aleksandr's other live fix, same recording:
+              // clicking the browser's native autofill dropdown was
+              // dismissing this whole popover -- see use-hover-panel.ts's
+              // focus-pinning fix) -- keeps this icon out of the tab
+              // order (it's a view toggle, not a form field) and,
+              // combined with onMouseDown's preventDefault below,
+              // pressing it never blurs the password input first.
+              tabIndex={-1}
+              onMouseDown={(e) => e.preventDefault()}
+              aria-label={showPassword ? INLINE_AUTH_STRINGS.hidePassword[lang] : INLINE_AUTH_STRINGS.showPassword[lang]}
+              aria-pressed={showPassword}
+              className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-neutral-400 transition hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300"
+            >
+              {showPassword ? (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 3l18 18" />
+                  <path d="M10.6 5.2A10.7 10.7 0 0 1 12 5c6.5 0 10 7 10 7a15.6 15.6 0 0 1-4.24 4.88M6.6 6.6C3.9 8.3 2 12 2 12s3.5 7 10 7a9.9 9.9 0 0 0 4.02-.84" />
+                  <path d="M9.9 9.9a3 3 0 0 0 4.24 4.24" />
+                </svg>
+              )}
+            </button>
+          </div>
         </div>
 
         {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
