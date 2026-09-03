@@ -49,6 +49,11 @@ import { useHoverPanel } from "@/lib/use-hover-panel";
 
 type FabStringKey = "label";
 
+// 2026-09-03: see handleClick's own comment -- how long /api/posts/mine
+// can stay in flight before the drafts popover is allowed to open at
+// all.
+const DRAFTS_POPOVER_DELAY_MS = 220;
+
 const STRINGS: Record<FabStringKey, Record<Locale, string>> = {
   label: {
     uk: "Створити допис", en: "Create post", ru: "Создать публикацию", de: "Beitrag erstellen",
@@ -151,7 +156,22 @@ export function CreatePostFab() {
       return;
     }
     setDrafts(null);
-    setDraftsPickerOpen(true);
+    // 2026-09-03 (Aleksandr, live screenshot follow-up: "Если нет
+    // запланированных, или драфт постов - не показывай эту модалку, а
+    // сразу веди в создание поста") -- the previous fix (open the
+    // popover instantly, skeleton while loading) traded the original
+    // "feels like hanging" problem for a NEW one: a visitor with zero
+    // drafts now saw a skeleton flash open and immediately close again
+    // right before landing on a blank editor. Debounced instead of
+    // instant: the popover only actually opens if /api/posts/mine is
+    // still in flight after DRAFTS_POPOVER_DELAY_MS. On a normal fast
+    // response the timer never fires -- zero drafts goes straight to a
+    // blank editor with no popover ever appearing, and a real draft
+    // list opens already populated, no skeleton frame either. Only a
+    // genuinely slow response still shows the skeleton (the original
+    // fix's whole point), and only then can a zero-drafts result close
+    // a popover that was actually visible.
+    const openTimer = window.setTimeout(() => setDraftsPickerOpen(true), DRAFTS_POPOVER_DELAY_MS);
     try {
       const res = await fetch("/api/posts/mine");
       const data = await res.json();
@@ -169,13 +189,16 @@ export function CreatePostFab() {
       const draftPosts: DraftPost[] = (data.posts ?? []).filter(
         (p: DraftPost) => p.isDraft || (p.scheduled != null && p.published == null),
       );
+      window.clearTimeout(openTimer);
       if (draftPosts.length > 0) {
         setDrafts(draftPosts);
+        setDraftsPickerOpen(true);
         return;
       }
     } catch {
       // Same "never let a broken drafts lookup block posting" fallback
       // as below -- open a blank editor same as always.
+      window.clearTimeout(openTimer);
     }
     setDraftsPickerOpen(false);
     setEditingDraft(null);
