@@ -5477,3 +5477,70 @@ to push via GitHub Desktop first) -- the desktop-scroll-to-bottom and
 periodic-session-logout bugs he also reported this segment are still
 unactioned, next up.
 
+
+### 6.106 Third live-test round: voice lock/waveform/width, attachment flicker + optimistic send, mini-chat-window attach-menu port (2026-09-03)
+
+Five more items arrived mid-fix from Aleksandr, folded into two commits
+plus a third for the mini chat window:
+
+- **Voice lock race condition ("замок не всегда срабатывает")**: a
+  second, narrower instance of the same async-gap class of bug as
+  6.104 -- startPress's post-`getUserMedia` `setState("recording")`
+  was unconditional, so a lock-drag gesture completed during that same
+  async window got silently overwritten back to "recording" the
+  instant the state landed. Now reads `lockedRef.current` at that
+  point instead of assuming.
+- **Lock icon position + recording-bar height**: lock pill moved from
+  a fixed `bottom-[52px]` to `bottom-[calc(100%+8px)]` (directly above
+  the mic button, matches at any button size); both
+  `VoiceRecordingBar` variants changed `min-h-[44px]` -> `h-[44px]` so
+  the compose row no longer grows taller while recording.
+- **Waveform progress "criooked"**: the progress fill was computed
+  against the voice message's own server-side `duration` attribute,
+  which doesn't match what the real `<audio>` element decodes: an 8s
+  clip showing only one bar filled at 6s. `voice-playback-store.ts`
+  now tracks the `<audio>` element's own `durationchange`-derived
+  duration, and voice-bubble.tsx's playedFraction/timer use that
+  (falling back to the doc attribute only when nothing is playing).
+- **Dynamic voice bubble width**: was a fixed `w-64` for every voice
+  message regardless of length. New `voiceBubbleWidthPx()` scales
+  180px (near-zero clips) up to 288px at a 40s cap, applied to both
+  the confirmed bubble and the new pending one below.
+- **Attachment/voice "shows one thing then changes" flicker (PDF
+  preview colabsit-ing between a colored badge and a real thumbnail,
+  sent voice/photo/file first showing the wrong UI then "reshoeing")**:
+  root cause was structural, not visual -- the flat solid-card
+  treatment from 6.93 only applied once an attachment was a confirmed
+  `docMedia`, so a PENDING single attachment (voice, photo, or file)
+  rendered through the OLD generic-bubble path first and only swapped
+  to the flat card after the send confirmed. Extended
+  isVoiceOnly/isImageOnly/isFileOnly/isContactOnly to also cover the
+  single-pending-attachment case, added a `PendingVoiceBubble`
+  component so a voice message renders with its real (correctly-
+  sized, correctly-progressed) UI from the first frame, and gave
+  `PdfPageThumbnail` a real three-state loading model (neutral pulse
+  skeleton while loading, colored fallback badge only once loading has
+  actually failed) instead of the fallback flashing on every mount.
+- **Optimistic attachment send ("нельзя отправить файл пока он не
+  подгрузится, это бесит")**: photo/file sends used to block the send
+  button until the upload finished. Generalized voice's existing
+  "release is the send, upload happens after" pattern to N-attachment
+  sends via two new helpers in page.tsx (`updateAttachmentEverywhere`,
+  `maybeFinalizePendingSend`) -- pressing send now posts immediately
+  with whatever's ready, and any attachment still uploading finalizes
+  the send the instant it lands (or marks the message failed on a
+  real upload error).
+- **mini-chat-window.tsx attach-menu port**: the floating corner chat
+  widget's paperclip only offered Photo/File; ported the same full
+  Photo/File/Meetings(placeholder)/Calculation/Contact popover (with
+  storage icon) from app/chats/[chatId]/page.tsx, wired up
+  image/file/contact/calculation sending AND rendering (a message with
+  no text used to just silently disappear from the mini window's
+  history -- now renders the same bubbles the main chat page does),
+  and added the gray "Message" placeholder to the empty compose input.
+  Kept the file's own no-cross-import-from-page.tsx convention:
+  genuinely shared components/libs are imported, page.tsx-private pure
+  helpers are duplicated locally.
+
+tsc-clean across all three commits. Not yet re-verified live (needs
+Aleksandr to push via GitHub Desktop first).
