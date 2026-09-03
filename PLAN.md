@@ -4430,3 +4430,62 @@ chat-server does support, `Resource.Message.ReplyTo`, confirmed against
 the OpenAPI spec) is explicitly out of scope for this pass.
 
 Three commits, tsc-clean each time.
+
+### 6.89 Calculations chat feature + per-type document icons (2026-09-03)
+
+**Calculations** -- Aleksandr sent 3 near-duplicate screen recordings
+("поищи плз, у нас есть еще такая фича, calculations") with no written
+spec beyond what app/api/chats/send/route.ts's own SendInput.calculation
+schema already encoded (confirmed pre-existing from an earlier pass:
+note/currency/rows, rows capped at 50, quantity `z.number().int().min(1)`,
+unitAmount integer cents). Reverse-engineered the UI purely from those
+frames via ffmpeg extraction:
+
+- A new "Calculation" row in the attach-menu popover (ChatCalculatorAttachIcon,
+  with its own calc-screen-flash/calc-button-pop hover animation) opens a
+  panel that REPLACES the normal compose row while open, same as the
+  video -- no dual state, no optimistic pending bubble/retry parity with
+  plain sends (sendCalculation() just POSTs and calls load()), a
+  deliberate scope cut worth revisiting if it turns out to matter live.
+- Table: auto-numbered rows, Description free text, Cost/Qty typed as
+  raw strings (CalcRow) so a field can sit on "12," mid-edit without a
+  controlled-input fight, parsed only at send time. Quantity input is
+  digit-only regardless of what the demo video's own momentary "1,5"
+  keystroke showed -- that decimal was corrected before the actual send
+  in the video, and the backend's own `int().min(1)` settles it either
+  way.
+- Currency picker (components/chat/currency-picker-modal.tsx, new): a
+  "Валюта" modal, search + pill grid, matches the video's own USD/UAH/
+  EUR/JPY/GBP/CNY/CAD/AUD/HKD/SGD/CHF set plus PLN/BRL for this app's
+  own pl/ptBR locales.
+- Sent-message rendering (components/chat/calculation-card.tsx, new):
+  ChatCalculationCard -- compact grid + bold total + note, read via the
+  already-existing (pre-dating this pass) messageCalculation() parser.
+- **Open question, flagged not guessed**: the reference video never
+  narrates its own bottom 4-button row (trash/X/minus/blue-arrow). Read
+  as clear-the-draft / close-the-panel / undo-last-added-row / send,
+  each documented inline at its own handler -- correct live once
+  Aleksandr sees the real semantics.
+
+**Document attachment icons** -- separate request, off a Figma frame
+this time (node 24368:126, "5. Chat view": "надо, чтобы показывало
+разные иконки... плюс ещё показывает вес"). The one shared
+ChatFileAttachIcon paperclip that every non-image attachment rendered
+with (compose preview chip, pending/optimistic bubble, real sent-message
+row) is now a per-extension colored badge (components/chat/
+file-type-icon.tsx: ChatFileTypeIcon/fileKindFromName -- zip/xls/doc/
+ppt/pdf/txt/mp3 each their own color+short label, unrecognized
+extensions fall back to this app's existing neutral doc tint), plus the
+file's byte size (mediaDocumentBytes, new in lib/a1/chat-schemas.ts,
+first numeric `sizes[].bytes` entry) shown under the filename on the
+real sent-message row. **Known, deliberate gap**: the reference frame's
+own PDF card shows an actual rendered page-thumbnail, not an icon --
+this app has no PDF-thumbnail generation anywhere (no library, no
+server-side render step, nothing in chat-server's own upload response
+to point at one), so PDF gets the same colored-icon treatment as every
+other type here. Revisit if Aleksandr wants a true preview -- that's a
+new server-side pipeline, not a UI tweak.
+
+One commit (both pieces landed together -- they touch the same message-
+render loop in app/chats/[chatId]/page.tsx and couldn't be cleanly
+split at the git-hunk level), tsc-clean.
