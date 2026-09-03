@@ -420,7 +420,7 @@ export function VoiceMessageBubble({
         onClick={togglePlay}
         aria-label={playing ? "Pause" : "Play"}
         className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition hover:brightness-110 active:scale-95 ${
-          mine ? "bg-white text-[#335ef7]" : "bg-[#335ef7] text-white dark:bg-[#0c8ce9]"
+          mine ? "bg-white text-[#335ef7] dark:text-[#009bff]" : "bg-[#335ef7] text-white dark:bg-[#0c8ce9]"
         }`}
       >
         {playing ? <PauseGlyph className="h-4 w-4" /> : <PlayGlyph className="ml-0.5 h-4 w-4" />}
@@ -433,14 +433,14 @@ export function VoiceMessageBubble({
           onPointerMove={onWaveformPointerMove}
           onPointerUp={onWaveformPointerUp}
           onPointerCancel={onWaveformPointerUp}
-          className="flex h-6 touch-none select-none items-center gap-[2.5px] cursor-pointer"
+          className="flex h-6 touch-none select-none items-center gap-[1.5px] overflow-hidden cursor-pointer"
         >
           {bars.map((h, i) => {
             const played = WAVEFORM_BARS > 1 ? i / (WAVEFORM_BARS - 1) <= playedFraction : playedFraction >= 1;
             return (
               <span
                 key={i}
-                className={`w-[2.5px] shrink-0 rounded-full transition-colors ${
+                className={`min-w-[1px] max-w-[3px] flex-1 rounded-full transition-colors ${
                   played
                     ? mine
                       ? "bg-white"
@@ -568,17 +568,17 @@ export function PendingVoiceBubble({
       <div className="flex items-center gap-2.5">
         <span
           className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-            mine ? "bg-white text-[#335ef7]" : "bg-[#335ef7] text-white dark:bg-[#0c8ce9]"
+            mine ? "bg-white text-[#335ef7] dark:text-[#009bff]" : "bg-[#335ef7] text-white dark:bg-[#0c8ce9]"
           }`}
         >
           <PlayGlyph className="ml-0.5 h-4 w-4" />
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <div className="flex h-6 items-center gap-[2.5px]">
+          <div className="flex h-6 items-center gap-[1.5px] overflow-hidden">
             {bars.map((h, i) => (
               <span
                 key={i}
-                className={`w-[2.5px] shrink-0 rounded-full ${mine ? "bg-white/35" : "bg-black/20 dark:bg-white/25"}`}
+                className={`min-w-[1px] max-w-[3px] flex-1 rounded-full ${mine ? "bg-white/35" : "bg-black/20 dark:bg-white/25"}`}
                 style={{ height: `${Math.round(h * 100)}%` }}
               />
             ))}

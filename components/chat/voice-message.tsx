@@ -534,18 +534,30 @@ export function VoiceRecordingBar({ recorder, lang }: { recorder: Recorder; lang
         <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#ff3b30]" />
       </span>
       <span className={`shrink-0 text-[15px] tabular-nums text-[#262a34] dark:text-white ${nearMax ? "text-[#ff3b30]" : ""}`}>{timer}</span>
+      {/* 2026-09-03 (Aleksandr, live test: "пишется сначала, что типа слева
+          сделайте свайп влево. Его на мобильной версии надо скрыть,
+          убрать тоже. На десктопе пусть будет") -- touch always lands
+          in the "locked" bar above almost immediately (autoLock), but
+          this unlocked bar still flashes for one frame on the way there
+          (state: requesting -> recording -> locked), and it used to
+          render the "slideToCancel" hint text during that flash. Kept
+          the slot (so the row's width/height don't jump) but only
+          render the copy for desktop, where release-to-cancel is a
+          real gesture worth explaining. */}
       <span className="flex-1 truncate text-center text-[13px] text-[#989aa6] dark:text-[#8a8a8f]" style={{ opacity: dim }}>
-        <T
-          uk={vt(cancelHintKey, "uk")}
-          en={vt(cancelHintKey, "en")}
-          ru={vt(cancelHintKey, "ru")}
-          de={vt(cancelHintKey, "de")}
-          es={vt(cancelHintKey, "es")}
-          fr={vt(cancelHintKey, "fr")}
-          pl={vt(cancelHintKey, "pl")}
-          ptBR={vt(cancelHintKey, "ptBR")}
-          zh={vt(cancelHintKey, "zh")}
-        />
+        {!isTouch && (
+          <T
+            uk={vt(cancelHintKey, "uk")}
+            en={vt(cancelHintKey, "en")}
+            ru={vt(cancelHintKey, "ru")}
+            de={vt(cancelHintKey, "de")}
+            es={vt(cancelHintKey, "es")}
+            fr={vt(cancelHintKey, "fr")}
+            pl={vt(cancelHintKey, "pl")}
+            ptBR={vt(cancelHintKey, "ptBR")}
+            zh={vt(cancelHintKey, "zh")}
+          />
+        )}
       </span>
       {/* The lock affordance itself now floats directly above
           VoiceRecordButton (see that component's own comment) instead of

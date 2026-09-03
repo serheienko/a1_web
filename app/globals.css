@@ -1058,8 +1058,18 @@ textarea {
   }
 }
 
+/* 2026-09-03 (Aleksandr, live test: "почему-то микрофон очень часто
+   постоянно сам иконка делает как бы действие. Надо просто, чтобы при
+   нажатии один раз анимация срабатывала и всё") -- this was the only
+   .group:hover animation in this file with `infinite`. On touch devices
+   a tap sets :hover and NOTHING ever clears it (no mouseleave event), so
+   with `infinite` the pulse ran forever after the very first tap. Every
+   other icon here is already one-shot by convention (see the photo-
+   viewer comment above) -- dropped `infinite` to match: it now plays
+   once when :hover activates (real click-and-hold on desktop, or the
+   sticky tap-hover on mobile) and settles back to scale(1). */
 .group:hover .animate-mic-pulse {
-  animation: mic-pulse 0.6s ease-in-out infinite;
+  animation: mic-pulse 0.6s ease-in-out;
 }
 
 /* 2026-09-03 (Aleksandr, screenshot of the photo-preview overlay: "Сделай
