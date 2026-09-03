@@ -10,6 +10,7 @@ import { useState } from "react";
 import { PostCard } from "./post-card";
 import { T } from "./t";
 import type { WebPost, WebPostKind } from "@/types/web-post";
+import { authFetch } from "@/lib/auth-fetch";
 
 // What /api/feed actually sends over JSON: Date fields arrive as ISO
 // strings, so they need to be revived before this shape is a real WebPost.
@@ -65,7 +66,7 @@ export function LoadMore({
       if (category != null) params.set("category", String(category));
       for (const tag of tags ?? []) params.append("tag", tag);
 
-      const res = await fetch(`/api/feed?${params.toString()}`, {
+      const res = await authFetch(`/api/feed?${params.toString()}`, {
         cache: "no-store",
       });
       if (!res.ok) throw new Error("request failed");

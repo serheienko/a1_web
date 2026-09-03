@@ -33,6 +33,7 @@ import { createPortal } from "react-dom";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { PostEditor, type EditablePost } from "@/components/post-editor";
 import { useHoverPanel } from "@/lib/use-hover-panel";
+import { authFetch } from "@/lib/auth-fetch";
 
 type MinePost = EditablePost & {
   created: number;
@@ -138,7 +139,7 @@ export function PostOwnerMenu({
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/posts/mine")
+    authFetch("/api/posts/mine")
       .then((r) => r.json())
       .then((data) => {
         if (cancelled || !data.ok) return;
@@ -155,7 +156,7 @@ export function PostOwnerMenu({
     setDeleteError(false);
     setDeleting(true);
     try {
-      const res = await fetch("/api/posts/delete", {
+      const res = await authFetch("/api/posts/delete", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ id: postId }),

@@ -24,6 +24,7 @@ import Link from "next/link";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { LottiePlayer } from "@/components/lottie-player";
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
+import { authFetch } from "@/lib/auth-fetch";
 
 type StringKey =
   | "title"
@@ -134,7 +135,7 @@ export default function OnboardingVerifyPage() {
     setSending(true);
     setError(null);
     try {
-      const res = await fetch("/api/account/verify-email", { method: "POST" });
+      const res = await authFetch("/api/account/verify-email", { method: "POST" });
       const data = await res.json().catch(() => ({ ok: false }));
       if (!res.ok || !data.ok) {
         setError(STRINGS.errorGeneric[lang]);
@@ -176,7 +177,7 @@ export default function OnboardingVerifyPage() {
       setPending(true);
       setError(null);
       try {
-        const res = await fetch("/api/account/verify-email-confirm", {
+        const res = await authFetch("/api/account/verify-email-confirm", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ key: otpKey, code }),

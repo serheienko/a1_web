@@ -74,6 +74,7 @@ import { ClearIcon } from "@/components/clear-icon";
 import { SearchIcon } from "@/components/search-icon";
 import { translateTagLabel, translateCategoryLabel } from "@/components/label-translations";
 import { useHoverPanel } from "@/lib/use-hover-panel";
+import { authFetch } from "@/lib/auth-fetch";
 
 const MAX_SUGGESTIONS_PER_GROUP = 5;
 
@@ -442,7 +443,7 @@ export function FiltersForm({
     const requestId = ++locationRequestIdRef.current;
     setLocationSearchPending(true);
     try {
-      const res = await fetch(`/api/locations?q=${encodeURIComponent(trimmed)}`);
+      const res = await authFetch(`/api/locations?q=${encodeURIComponent(trimmed)}`);
       const data = (await res.json()) as { results?: { id: number; label: string }[] };
       if (requestId !== locationRequestIdRef.current) return; // a newer request already landed
       setLocationResults(Array.isArray(data.results) ? data.results : []);

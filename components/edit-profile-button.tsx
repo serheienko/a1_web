@@ -21,6 +21,7 @@ import { useRouter } from "next/navigation";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { ProfileEditor } from "@/components/profile-editor";
 import { profileHref } from "@/lib/profile-href";
+import { authFetch } from "@/lib/auth-fetch";
 
 type StringKey = "editProfile";
 
@@ -65,7 +66,7 @@ export function EditProfileButton({ username, className }: { username: string; c
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/account/whoami")
+    authFetch("/api/account/whoami")
       .then((r) => r.json())
       .then((data) => {
         if (!cancelled && data?.ok && data.username === username) setIsOwner(true);

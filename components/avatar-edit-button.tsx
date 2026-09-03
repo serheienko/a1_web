@@ -49,6 +49,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { formatBytes, formatRelativeTime } from "@/lib/format";
+import { authFetch } from "@/lib/auth-fetch";
 
 const MAX_PHOTO_BYTES = 300 * 1024;
 const MAX_PHOTO_DIMENSION = 1600;
@@ -192,7 +193,7 @@ export function AvatarEditButton({ username, className }: { username: string; cl
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/account/whoami")
+    authFetch("/api/account/whoami")
       .then((r) => r.json())
       .then((data) => {
         if (!cancelled && data?.ok && data.username === username) setIsOwner(true);
@@ -353,7 +354,7 @@ export function AvatarEditButton({ username, className }: { username: string; cl
       // write side has no "just replace the avatar" shape, only a full
       // `photos` array, so photos[1]/[2] (if any) would otherwise be
       // silently dropped by this "quick edit" affordance.
-      const bootstrapRes = await fetch("/api/account/profile-editor/bootstrap");
+      const bootstrapRes = await authFetch("/api/account/profile-editor/bootstrap");
       const bootstrapData = await bootstrapRes.json().catch(() => ({ ok: false }));
       if (!bootstrapRes.ok || !bootstrapData.ok) {
         if (isNotSignedIn(bootstrapData)) {
@@ -370,7 +371,7 @@ export function AvatarEditButton({ username, className }: { username: string; cl
       // as every other photo upload in this app) + two-step upload,
       // identical flow to profile-editor.tsx.
       const compressed = await compressImage(file);
-      const createRes = await fetch("/api/upload/create", {
+      const createRes = await authFetch("/api/upload/create", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ mimetype: compressed.type || "application/octet-stream", bytes: compressed.size }),
@@ -402,7 +403,7 @@ export function AvatarEditButton({ username, className }: { username: string; cl
         setError(t("uploadFailed", lang));
         return;
       }
-      const confirmRes = await fetch("/api/upload/confirm", {
+      const confirmRes = await authFetch("/api/upload/confirm", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ documentId: id }),
@@ -425,7 +426,7 @@ export function AvatarEditButton({ username, className }: { username: string; cl
       // an empty array is still just [], so nextPhotos is correctly just
       // the one new photo either way.
 
-      const updateRes = await fetch("/api/account/profile-editor/update", {
+      const updateRes = await authFetch("/api/account/profile-editor/update", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ photos: nextPhotos }),

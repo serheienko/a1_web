@@ -54,6 +54,7 @@ import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { useEffect, useState, type MouseEvent, type RefObject } from "react";
 import type { EditablePost } from "@/components/post-editor";
 import { formatRelativeTime } from "@/lib/format";
+import { authFetch } from "@/lib/auth-fetch";
 
 export type DraftPost = EditablePost & { created: number };
 
@@ -216,7 +217,7 @@ export function DraftsPicker({
     setDeleteFailedId(null);
     setDeletingId(draft.id);
     try {
-      const res = await fetch("/api/posts/delete", {
+      const res = await authFetch("/api/posts/delete", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ id: draft.id }),

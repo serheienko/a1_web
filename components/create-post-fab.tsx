@@ -46,6 +46,7 @@ import { PostEditor } from "@/components/post-editor";
 import { FabAuthPrompt } from "@/components/fab-auth-prompt";
 import { DraftsPicker, type DraftPost } from "@/components/drafts-picker";
 import { useHoverPanel } from "@/lib/use-hover-panel";
+import { authFetch } from "@/lib/auth-fetch";
 
 type FabStringKey = "label";
 
@@ -180,7 +181,7 @@ export function CreatePostFab() {
     // so the click does not read as unresponsive).
     const spinnerTimer = window.setTimeout(() => setChecking(true), DRAFTS_POPOVER_DELAY_MS);
     try {
-      const res = await fetch("/api/posts/mine");
+      const res = await authFetch("/api/posts/mine");
       const data = await res.json();
       // 2026-09-02 (Aleksandr: "Запланированные посты тоже показывай
       // тут" -- this popover used to only ever surface actual drafts):

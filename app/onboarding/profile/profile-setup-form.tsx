@@ -26,6 +26,7 @@ import { OccupationIcon } from "@/components/occupation-icon";
 import { LottiePlayer } from "@/components/lottie-player";
 import { OCCUPATION_LABELS } from "@/components/occupation-labels";
 import type { Category } from "@/lib/a1/datasets";
+import { authFetch } from "@/lib/auth-fetch";
 
 type OccupationValue = "entrepreneur" | "professional" | "freelancer";
 const OCCUPATION_VALUES: OccupationValue[] = ["entrepreneur", "professional", "freelancer"];
@@ -156,7 +157,7 @@ export function ProfileSetupForm({ categories }: { categories: Category[] }) {
     setError(null);
 
     try {
-      const res = await fetch("/api/account/update-profile", {
+      const res = await authFetch("/api/account/update-profile", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ occupation, expertise: expertise.trim(), category: category!.value }),

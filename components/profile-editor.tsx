@@ -86,6 +86,7 @@ import { PhotoCropModal } from "@/components/photo-crop-modal";
 // header comment for the class of bug this avoids).
 import { canShowPhone, canShowDob } from "@/lib/a1/user-flags";
 import { formatBytes, formatRelativeTime } from "@/lib/format";
+import { authFetch } from "@/lib/auth-fetch";
 
 // ---------------------------------------------------------------------------
 // Constants shared with components/post-editor.tsx's own photo handling —
@@ -958,7 +959,7 @@ export function ProfileEditor({
   // -------------------------------------------------------------------
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/account/profile-editor/bootstrap")
+    authFetch("/api/account/profile-editor/bootstrap")
       .then((r) => r.json())
       .then((data: { ok: boolean; message?: string } & Partial<Bootstrap>) => {
         if (cancelled) return;
@@ -1116,7 +1117,7 @@ export function ProfileEditor({
     const requestId = ++locationRequestIdRef.current;
     setLocationPending(true);
     try {
-      const res = await fetch(`/api/locations?q=${encodeURIComponent(trimmed)}`);
+      const res = await authFetch(`/api/locations?q=${encodeURIComponent(trimmed)}`);
       const data = await res.json();
       if (requestId === locationRequestIdRef.current) {
         const all: { id: number; label: string; hasCity?: boolean }[] = Array.isArray(data.results) ? data.results : [];
@@ -1168,7 +1169,7 @@ export function ProfileEditor({
     setPhotoUploading(true);
     try {
       const compressed = await compressImage(cropped);
-      const createRes = await fetch("/api/upload/create", {
+      const createRes = await authFetch("/api/upload/create", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ mimetype: compressed.type || "application/octet-stream", bytes: compressed.size }),
@@ -1202,7 +1203,7 @@ export function ProfileEditor({
         setPhotoUploading(false);
         return;
       }
-      const confirmRes = await fetch("/api/upload/confirm", {
+      const confirmRes = await authFetch("/api/upload/confirm", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ documentId: id }),
@@ -1410,7 +1411,7 @@ export function ProfileEditor({
     try {
       const ext = mimeType.includes("mp4") ? "m4a" : "webm";
       const file = new File([blob], `voice-intro.${ext}`, { type: mimeType });
-      const createRes = await fetch("/api/upload/create", {
+      const createRes = await authFetch("/api/upload/create", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ mimetype: file.type || "application/octet-stream", bytes: file.size }),
@@ -1443,7 +1444,7 @@ export function ProfileEditor({
         setVoiceError(t("recordFailed", lang));
         return;
       }
-      const confirmRes = await fetch("/api/upload/confirm", {
+      const confirmRes = await authFetch("/api/upload/confirm", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ documentId: id }),
@@ -1649,7 +1650,7 @@ export function ProfileEditor({
     // through a real save" until this same live test disproved it).
 
     try {
-      const res = await fetch("/api/account/profile-editor/update", {
+      const res = await authFetch("/api/account/profile-editor/update", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),

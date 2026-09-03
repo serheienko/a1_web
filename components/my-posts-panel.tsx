@@ -33,6 +33,7 @@
 import { useEffect, useState } from "react";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { PostEditor, type EditablePost } from "@/components/post-editor";
+import { authFetch } from "@/lib/auth-fetch";
 
 type MinePost = EditablePost & {
   created: number;
@@ -104,7 +105,7 @@ export function MyPostsPanel({ onClose }: { onClose: () => void }) {
 
   function load() {
     setError(false);
-    fetch("/api/posts/mine")
+    authFetch("/api/posts/mine")
       .then((r) => r.json())
       .then((data) => {
         if (!data.ok) throw new Error("not ok");
@@ -120,7 +121,7 @@ export function MyPostsPanel({ onClose }: { onClose: () => void }) {
   async function confirmDelete(id: string) {
     setDeleteError(null);
     try {
-      const res = await fetch("/api/posts/delete", {
+      const res = await authFetch("/api/posts/delete", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ id }),

@@ -40,6 +40,7 @@ import { PostCard } from "@/components/post-card";
 import { PostEditor, type EditablePost } from "@/components/post-editor";
 import type { WebPost } from "@/types/web-post";
 import { profileHref } from "@/lib/profile-href";
+import { authFetch } from "@/lib/auth-fetch";
 
 type StringKey = "statusDraft" | "statusScheduled";
 
@@ -119,12 +120,12 @@ export function ProfileTabs({
     // closes the gap without this component needing to know which
     // editor instance did the saving.
     function load() {
-      fetch("/api/account/whoami")
+      authFetch("/api/account/whoami")
       .then((r) => r.json())
       .then((data) => {
         if (cancelled || !data.ok || data.username !== profileUsername) return null;
         // Only reached when this IS the visitor's own profile.
-        return fetch("/api/posts/mine").then((r) => r.json());
+        return authFetch("/api/posts/mine").then((r) => r.json());
       })
       .then((data) => {
         if (cancelled || !data || !data.ok) return;

@@ -29,6 +29,7 @@
 
 import { useEffect, useState } from "react";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
+import { authFetch } from "@/lib/auth-fetch";
 
 type StringKey = "mine";
 
@@ -53,7 +54,7 @@ function useActiveLocale(): Locale {
 let minePostIdsPromise: Promise<Set<string>> | null = null;
 function loadMinePostIds(): Promise<Set<string>> {
   if (!minePostIdsPromise) {
-    minePostIdsPromise = fetch("/api/posts/mine")
+    minePostIdsPromise = authFetch("/api/posts/mine")
       .then((r) => r.json())
       .then((data) => new Set<string>(data?.ok ? (data.posts as { id: string }[]).map((p) => p.id) : []))
       .catch(() => new Set<string>());

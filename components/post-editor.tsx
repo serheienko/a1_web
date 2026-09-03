@@ -133,6 +133,7 @@ import type { Category, Tag, Currency } from "@/lib/a1/datasets";
 import { translateTagLabel, translateCategoryLabel } from "@/components/label-translations";
 import { LottiePlayer } from "@/components/lottie-player";
 import { formatBytes, formatRelativeTime } from "@/lib/format";
+import { authFetch } from "@/lib/auth-fetch";
 
 type PostObject = "post-job-employing" | "post-job-seeking";
 
@@ -753,7 +754,7 @@ export function PostEditor({
   }, []);
 
   useEffect(() => {
-    fetch("/api/post-editor/bootstrap")
+    authFetch("/api/post-editor/bootstrap")
       .then((r) => r.json())
       .then((data) => {
         const categories = sortItFirst(data.categories ?? []);
@@ -827,7 +828,7 @@ export function PostEditor({
     const requestId = ++locationRequestIdRef.current;
     setLocationPending(true);
     try {
-      const res = await fetch(`/api/locations?q=${encodeURIComponent(trimmed)}`);
+      const res = await authFetch(`/api/locations?q=${encodeURIComponent(trimmed)}`);
       const data = await res.json();
       if (requestId === locationRequestIdRef.current) {
         // 2026-08-29 (PLAN.md §6.32): posts.createPost rejects a
@@ -873,7 +874,7 @@ export function PostEditor({
     setUploading(true);
     try {
       const compressed = await compressImage(file);
-      const createRes = await fetch("/api/upload/create", {
+      const createRes = await authFetch("/api/upload/create", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ mimetype: compressed.type || "application/octet-stream", bytes: compressed.size }),
@@ -908,7 +909,7 @@ export function PostEditor({
         setUploading(false);
         return;
       }
-      const confirmRes = await fetch("/api/upload/confirm", {
+      const confirmRes = await authFetch("/api/upload/confirm", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ documentId: id }),
@@ -1013,7 +1014,7 @@ export function PostEditor({
     setDeleteError(false);
     setDeleting(true);
     try {
-      const res = await fetch("/api/posts/delete", {
+      const res = await authFetch("/api/posts/delete", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ id: initialPost.id }),
