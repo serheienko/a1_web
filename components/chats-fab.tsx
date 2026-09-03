@@ -32,7 +32,7 @@
 // instead of Context.
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { subscribeAccountMenuOpen, getAccountMenuOpenSnapshot } from "@/lib/account-menu-open";
@@ -94,6 +94,7 @@ function ChatsIcon({ className }: { className?: string } = {}) {
 export function ChatsFab() {
   const lang = useActiveLocale();
   const pathname = usePathname();
+  const router = useRouter();
   // Server-rendered snapshot is always "closed" (the store starts
   // false and only ever flips client-side from a click), so this never
   // mismatches hydration -- same reasoning as any other client-only UI
@@ -101,6 +102,17 @@ export function ChatsFab() {
   const accountMenuOpen = useSyncExternalStore(subscribeAccountMenuOpen, getAccountMenuOpenSnapshot, () => false);
   const [email, setEmail] = useState<string | null>(null);
   const [authPromptOpen, setAuthPromptOpen] = useState(false);
+  // 2026-09-03 (Aleksandr, screenshot of the mini chat window cramped
+  // under the iOS password-autofill bar on mobile: "На моб версии
+  // сделай, чтобы модалка вела сразу в общие большие чаты. Отключи
+  // маленькую модалку") -- same 640px `matchMedia` breakpoint as this
+  // app's other mobile checks (app/chats/[chatId]/page.tsx's own
+  // isMobileNav, components/marquee-name.tsx) -- see openChatFromFlyout
+  // below for what this actually gates.
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    setIsMobile(!window.matchMedia("(min-width: 640px)").matches);
+  }, []);
   // 2026-09-02 (Aleksandr: "давай в разлогиненом стейте тоже добавим к
   // этим попапс эффект появления при наведении, без клика") -- same
   // hook components/avatar-menu.tsx/components/settings-menu.tsx use,
@@ -142,6 +154,26 @@ export function ChatsFab() {
   // returns to the recent-chats list; fully dismissing both popups is
   // this component's job now, fired by the outside-click effect below.
   const miniChatPanelRef = useRef<HTMLDivElement>(null);
+
+  // Mobile: skip the mini chat window entirely and go straight to the
+  // full /chats/[chatId] page, same query-string shape (?title=/
+  // ?avatar=/?avatarBlur=/?username=) that page's own header already
+  // reads (app/chats/[chatId]/page.tsx, headerTitle/headerAvatar/
+  // headerAvatarBlur/headerProfileHref). Desktop keeps opening the mini
+  // window as before -- this is a mobile-only redirect, not a removal.
+  function openChatFromFlyout(target: ChatFlyoutOpenTarget) {
+    if (!isMobile) {
+      setActiveChat(target);
+      return;
+    }
+    const qs = new URLSearchParams();
+    if (target.title) qs.set("title", target.title);
+    if (target.avatarUrl) qs.set("avatar", target.avatarUrl);
+    if (target.avatarBlurDataUrl) qs.set("avatarBlur", target.avatarBlurDataUrl);
+    if (target.username) qs.set("username", target.username);
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    router.push(`/chats/${target.routeParam}${suffix}`);
+  }
 
   function handleBackToList() {
     setActiveChat(null);
@@ -248,7 +280,7 @@ export function ChatsFab() {
         panelRef={flyoutPanelRef}
         onMouseEnter={handleFlyoutEnter}
         onMouseLeave={handleFlyoutLeave}
-        onOpenChat={(target) => setActiveChat(target)}
+        onOpenChat={openChatFromFlyout}
       />
       {activeChat && (
         <MiniChatWindow target={activeChat} onBack={handleBackToList} onNavigate={handleCloseAll} panelRef={miniChatPanelRef} />
