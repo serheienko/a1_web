@@ -4324,3 +4324,38 @@ pending), all tsc-clean. `next build` itself couldn't be run locally
 this pass (no network for the missing linux/arm64 SWC binary in this
 sandboxed shell) -- tsc is this session's established gate and passed
 clean on all four.
+
+### 6.86 Mobile: chats popover no longer reserves empty space; post titles truncate with ellipsis (2026-09-03)
+
+- **Chats popover sizes to its real content** (components/chats-flyout.tsx):
+  live mobile screenshot with only 4 real chats showed a big empty white
+  gap below the list and the whole popover's top edge sitting needlessly
+  high on screen ("Моб версия окно модалки должно знать размер экрана и
+  быть ниже"). The chat list's height was a fixed h-[448px] (8 rows,
+  matched to the loading skeleton's row count so skeleton and real list
+  wouldn't visibly jump) -- a real list shorter than 8 rows still
+  reserved the full 448px. Changed to max-h-[448px]: unchanged 8-row
+  scroll cap for chat-heavy accounts, but a short list now collapses to
+  its own real height, and since the popover is bottom-anchored
+  (FLYOUT_BOTTOM), a shorter list makes the whole popover shorter and
+  sit lower automatically -- no separate viewport-size logic needed.
+- **Post titles truncate to one line on mobile** (components/post-card.tsx):
+  "В моб версии подрезай длинный текст через троеточие, чтобы помещался
+  с беджами" -- the title's line-clamp-3 let a long title wrap onto up
+  to 3 lines, crowding the status/kind badge sitting next to it in the
+  same flex row on a narrow column. Below the sm breakpoint the title
+  now truncates to one line with an ellipsis instead (needs an explicit
+  `block` there too -- the <a>/<button> the title lives on is inline by
+  default, and text-overflow:ellipsis needs a block-level box); sm+
+  keeps the original 3-line wrap.
+
+Two commits, tsc-clean. Also: this session hit a real git-lock deadlock
+mid-pass -- device_bash's own sandbox blocks rm/mv on files inside a
+connected folder without an explicit delete-permission grant, and every
+git commit leaves a transient .git/HEAD.lock + .git/index.lock it can't
+clean up afterward under that restriction, which then blocks the NEXT
+commit outright ("Unable to create HEAD.lock: File exists"). Aleksandr
+granted delete permission for the a1_web folder mid-session ("Удали из
+папки") to clear the two stale lock files (plus leftover
+.git/objects/*/tmp_obj_* fragments) and unblock the second commit above
+-- noted here in case the same deadlock recurs in a future session.
