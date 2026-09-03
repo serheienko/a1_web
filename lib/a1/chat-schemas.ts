@@ -259,6 +259,23 @@ export function mediaDocumentFileName(doc: MessageMediaDocument): string {
   return (attr?.fileName as string | undefined) ?? "";
 }
 
+// Byte size (Aleksandr, 2026-09-03, Figma ref node 24368:126: the
+// document-attachment row should show a size like "341,8 KB" next to
+// the filename) -- `sizes` is a flat array of size variants
+// (size-photo/size-original/... for images, but a plain document
+// upload only ever seems to report one entry), so this just takes
+// whichever entry actually carries a numeric `bytes`, first-found,
+// rather than assuming a specific `object` tag the way
+// pickDisplaySize() does for images. null (not 0) when nothing in the
+// array has one, so callers can hide the size text entirely instead of
+// showing a false "0 B".
+export function mediaDocumentBytes(doc: MessageMediaDocument): number | null {
+  for (const s of doc.sizes) {
+    if (typeof s.bytes === "number" && Number.isFinite(s.bytes) && s.bytes > 0) return s.bytes;
+  }
+  return null;
+}
+
 // Shared-contact attachment (Aleksandr, 2026-09-02: "прокинь пока на
 // бэке возможность отправлять контакты. Актуальный UI я потом тебе
 // покажу") -- CONFIRMED against the OpenAPI spec, Resource.Message.

@@ -31,7 +31,9 @@ import { LottiePlayer } from "@/components/lottie-player";
 import {
   extractMessageText,
   isImageMediaDocument,
+  mediaDocumentBytes,
   mediaDocumentFileName,
+  messageCalculation,
   messageContactMedia,
   messageDateMs,
   messageDocumentMedia,
@@ -42,6 +44,7 @@ import { buildMediaProxyUrl, buildMediaDownloadUrl } from "@/lib/a1/media-proxy"
 import {
   ChatAttachmentSpinner,
   ChatBackArrow,
+  ChatCalculatorAttachIcon,
   ChatCatFieldIcon,
   ChatContactAttachIcon,
   ChatFileAttachIcon,
@@ -52,6 +55,9 @@ import {
   ChatTypingDots,
   MessageTicks,
 } from "@/components/chat/icons";
+import { ChatCalculationCard } from "@/components/chat/calculation-card";
+import { ChatFileTypeIcon, fileKindFromName } from "@/components/chat/file-type-icon";
+import { CurrencyPickerModal } from "@/components/chat/currency-picker-modal";
 import { DailyUploadsModal } from "@/components/daily-uploads-modal";
 import { ContactMessageCard, type ContactCardSummary } from "@/components/chat/contact-message-card";
 import { ContactsPickerModal, type PickedContact } from "@/components/chat/contacts-picker-modal";
@@ -164,6 +170,49 @@ const MAX_ATTACHMENTS_PER_MESSAGE = 10;
 // app/api/chats/send/route.ts's own SendInput caps `contacts` at 5,
 // separate from and lower than the media cap above.
 const MAX_CONTACTS_PER_MESSAGE = 5;
+// Calculations feature: one draft row -- description free text, cost
+// and quantity kept as raw typed strings (not numbers) so a field can
+// sit on "12," or be empty mid-edit without fighting a controlled
+// <input>'s own cursor position; parsed only at send time
+// (calcRowSubtotal/sendCalculation below). Matches app/api/chats/send/
+// route.ts's own SendInput.calculation.rows cap of 50.
+type CalcRow = { id: string; description: string; unitAmount: string; quantity: string };
+const CALC_MAX_ROWS = 50;
+
+function calcBlankRow(): CalcRow {
+  return { id: `calc-${Date.now()}-${Math.random().toString(36).slice(2)}`, description: "", unitAmount: "", quantity: "" };
+}
+
+// Accepts a comma OR dot as the decimal separator (Aleksandr's own demo
+// typed "1,5") -- everything else stripped, so a stray letter from a
+// mis-tap never produces NaN downstream.
+function calcParseDecimal(raw: string): number {
+  const cleaned = raw.replace(",", ".").replace(/[^0-9.]/g, "");
+  const n = parseFloat(cleaned);
+  return Number.isFinite(n) ? n : 0;
+}
+
+// Quantity is a whole number on the wire (chat-server's own `quantity:
+// UInt`, confirmed in app/api/chats/send/route.ts's own SendInput --
+// `z.number().int().min(1)`) -- typed input is digits-only (see the
+// row's own onChange below) so this only ever needs to floor+clamp, not
+// reject a decimal outright.
+function calcParseQuantity(raw: string): number {
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? n : 1;
+}
+
+// Row subtotal in the calculator's own display units (not cents --
+// conversion to integer cents happens once, at send time, matching
+// unitAmount's documented wire format).
+function calcRowSubtotal(row: CalcRow): number {
+  if (!row.unitAmount.trim()) return 0;
+  return calcParseDecimal(row.unitAmount) * calcParseQuantity(row.quantity);
+}
+
+function calcFormatAmount(n: number): string {
+  return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 
 async function compressAttachmentImage(file: File): Promise<File> {
   if (!file.type.startsWith("image/") || typeof createImageBitmap !== "function") return file;
@@ -397,6 +446,24 @@ export default function ChatWindowPage() {
   // (see handleShowInChat below), cleared automatically after a beat.
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<number | null>(null);
+  // Calculations feature (2026-09-03, Aleksandr's own reference video:
+  // "поищи плз, у нас есть еще такая фича, calculations" + the actual
+  // add/remove-row, currency-picker, running-total UI he later sent).
+  // The panel below REPLACES the normal draft/attach row while open
+  // (same as the reference video -- it swaps back the moment the calc
+  // sends), so this needs none of send()/attemptSend()'s optimistic-
+  // pending-bubble machinery: sendCalculation() below just POSTs and
+  // calls load(), same as any other one-shot mutation in this file.
+  // That's a real, acknowledged scope cut from full parity with plain
+  // text/attachment sends (no offline retry, no optimistic bubble) --
+  // fine for a first pass, revisit if it turns out to matter live.
+  const [calcOpen, setCalcOpen] = useState(false);
+  const [calcRows, setCalcRows] = useState<CalcRow[]>([calcBlankRow()]);
+  const [calcNote, setCalcNote] = useState("");
+  const [calcCurrency, setCalcCurrency] = useState("usd");
+  const [calcCurrencyPickerOpen, setCalcCurrencyPickerOpen] = useState(false);
+  const [calcSending, setCalcSending] = useState(false);
+  const [calcError, setCalcError] = useState(false);
   const attachMenuRef = useRef<HTMLDivElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1161,6 +1228,75 @@ export default function ChatWindowPage() {
     [chatId],
   );
 
+  // Calculations feature -- draft-row mutations, all pure state updates.
+  function calcAddRow() {
+    setCalcRows((prev) => (prev.length >= CALC_MAX_ROWS ? prev : [...prev, calcBlankRow()]));
+  }
+  function calcUpdateRow(id: string, patch: Partial<Omit<CalcRow, "id">>) {
+    setCalcRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  }
+  // Bottom-bar "−" (see the panel's own JSX comment for how the four
+  // buttons there were interpreted off the reference video, which
+  // doesn't narrate itself): drops the most recently added row, same
+  // "undo the last add" a stepper's minus usually means. Never drops
+  // below one row -- there's always at least a blank one to type into.
+  function calcRemoveLastRow() {
+    setCalcRows((prev) => (prev.length <= 1 ? prev : prev.slice(0, -1)));
+  }
+  // Bottom-bar trash: clears the draft back to a single blank row +
+  // empty note, but leaves the panel itself open -- "start over",
+  // distinct from the red X which closes the whole panel (calcClose).
+  function calcClearRows() {
+    setCalcRows([calcBlankRow()]);
+    setCalcNote("");
+    setCalcError(false);
+  }
+  function calcClose() {
+    setCalcOpen(false);
+    setCalcRows([calcBlankRow()]);
+    setCalcNote("");
+    setCalcCurrency("usd");
+    setCalcError(false);
+  }
+  const calcTotal = calcRows.reduce((sum, r) => sum + calcRowSubtotal(r), 0);
+  const calcHasContent = calcRows.some((r) => r.description.trim() || r.unitAmount.trim()) || calcNote.trim().length > 0;
+
+  async function sendCalculation() {
+    if (calcSending || !calcHasContent) return;
+    setCalcSending(true);
+    setCalcError(false);
+    try {
+      const res = await authFetch("/api/chats/send", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          chatId,
+          calculation: {
+            note: calcNote.trim(),
+            currency: calcCurrency,
+            rows: calcRows
+              .filter((r) => r.description.trim() || r.unitAmount.trim())
+              .map((r) => ({
+                description: r.description.trim() || null,
+                unitAmount: Math.round(calcParseDecimal(r.unitAmount) * 100),
+                quantity: calcParseQuantity(r.quantity),
+              })),
+          },
+        }),
+      });
+      if (!res.ok) {
+        setCalcError(true);
+        return;
+      }
+      calcClose();
+      load();
+    } catch {
+      setCalcError(true);
+    } finally {
+      setCalcSending(false);
+    }
+  }
+
   // Rendered list: real messages + any not-yet-reconciled optimistic
   // ones, re-sorted by date so a pending bubble (timestamped "now" the
   // moment it was created) always lands at the end where it belongs,
@@ -1442,11 +1578,19 @@ export default function ChatWindowPage() {
               // waiting on contactSummaries at all.
               const contactMedia = pending ? [] : messageContactMedia(msg);
               const pendingContactCards = pending?.pendingContacts ?? [];
+              // Calculations feature: a sent calc lives in `entities`
+              // (see app/api/chats/send/route.ts's own comment), never
+              // on a pending/optimistic bubble (sendCalculation() above
+              // has no optimistic-bubble step, a deliberate scope cut --
+              // see its own comment), so `pending` always short-circuits
+              // this to null same as docMedia/contactMedia above.
+              const calc = pending ? null : messageCalculation(msg);
               const hasMedia =
                 docMedia.length > 0 ||
                 pendingAttachments.length > 0 ||
                 contactMedia.length > 0 ||
-                pendingContactCards.length > 0;
+                pendingContactCards.length > 0 ||
+                calc !== null;
               return (
                 <div key={msg._id}>
                   {showDate && (
@@ -1482,12 +1626,18 @@ export default function ChatWindowPage() {
                                 // local blob: URL, never a next/image-eligible remote src.
                                 <img src={a.previewUrl} alt="" className="max-h-64 w-full object-cover" />
                               ) : (
+                                // Pending (not-yet-confirmed) bubble --
+                                // same per-type badge as the sent-message
+                                // row below, no size yet (a.size only
+                                // exists once the upload round-trip
+                                // itself reports it, see the compose-bar
+                                // preview strip's own note).
                                 <div
-                                  className={`flex items-center gap-2 rounded-xl px-2.5 py-2 ${
+                                  className={`flex items-center gap-2.5 rounded-xl px-2.5 py-2 ${
                                     mine ? "bg-white/15" : "bg-black/5 dark:bg-white/10"
                                   }`}
                                 >
-                                  <ChatFileAttachIcon className="h-5 w-5 shrink-0" />
+                                  <ChatFileTypeIcon kind={fileKindFromName(a.fileName, a.mimetype)} className="h-11 w-11" />
                                   <span className="truncate text-[14px]">{a.fileName}</span>
                                 </div>
                               )}
@@ -1514,22 +1664,38 @@ export default function ChatWindowPage() {
                                 className="max-h-64 w-full cursor-pointer rounded-xl object-cover transition hover:opacity-90"
                               />
                             ) : (
+                              // 2026-09-03 (Aleksandr, Figma ref node
+                              // 24368:126, "5. Chat view": "надо, чтобы
+                              // показывало разные иконки... плюс ещё
+                              // показывает вес") -- per-extension
+                              // colored badge (ChatFileTypeIcon) instead
+                              // of one generic paperclip for every
+                              // non-image file, filename + byte size
+                              // stacked beside it like that reference
+                              // frame's own document rows.
                               <a
                                 key={doc._id}
                                 href={buildMediaProxyUrl(doc)}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className={`flex items-center gap-2 rounded-xl px-2.5 py-2 transition hover:opacity-80 ${
+                                className={`flex items-center gap-2.5 rounded-xl px-2.5 py-2 transition hover:opacity-80 ${
                                   mine ? "bg-white/15" : "bg-black/5 dark:bg-white/10"
                                 }`}
                               >
-                                <ChatFileAttachIcon className="h-5 w-5 shrink-0" />
-                                <span className="truncate text-[14px]">
-                                  {mediaDocumentFileName(doc) || (
-                                    <T
-                                      uk="Документ" en="Document" ru="Документ" de="Dokument" es="Documento"
-                                      fr="Document" pl="Dokument" ptBR="Documento" zh="文档"
-                                    />
+                                <ChatFileTypeIcon kind={fileKindFromName(mediaDocumentFileName(doc), doc.mimetype)} className="h-11 w-11" />
+                                <span className="flex min-w-0 flex-col">
+                                  <span className="truncate text-[14px] font-medium">
+                                    {mediaDocumentFileName(doc) || (
+                                      <T
+                                        uk="Документ" en="Document" ru="Документ" de="Dokument" es="Documento"
+                                        fr="Document" pl="Dokument" ptBR="Documento" zh="文档"
+                                      />
+                                    )}
+                                  </span>
+                                  {mediaDocumentBytes(doc) !== null && (
+                                    <span className={`text-[12px] ${mine ? "opacity-80" : "opacity-60"}`}>
+                                      {formatBytes(mediaDocumentBytes(doc) as number)}
+                                    </span>
                                   )}
                                 </span>
                               </a>
@@ -1571,6 +1737,7 @@ export default function ChatWindowPage() {
                           ))}
                         </div>
                       )}
+                      {calc && <ChatCalculationCard calc={calc} mine={mine} />}
                       {text && <div className="whitespace-pre-wrap break-words">{text}</div>}
                       {!text && !hasMedia && <div className="whitespace-pre-wrap break-words">…</div>}
                       <div
@@ -1668,7 +1835,194 @@ export default function ChatWindowPage() {
           className="fixed inset-x-0 bottom-0 z-20 border-t border-black/5 bg-[#f2f2f7]/90 px-4 py-3 backdrop-blur-md dark:border-white/10 dark:bg-black/80"
           style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
         >
-          {/* 2026-09-02 (Aleksandr: "при увеличении высоты input field'а
+{calcOpen ? (
+            // Calculations feature (2026-09-03) -- replaces the normal
+            // draft row entirely while this panel is open (matches the
+            // reference video: it swaps back to a normal compose row
+            // the moment a calculation sends, or the panel's own X is
+            // pressed). Bottom-bar button semantics (trash/X/minus/
+            // send) are my own best-effort read of a reference video
+            // that never narrates itself -- see calcClearRows/
+            // calcClose/calcRemoveLastRow's own comments above for the
+            // reasoning; correct these live if Aleksandr's own app
+            // disagrees once he sees it running.
+            <div className="mx-auto w-full max-w-[470px]">
+              <div className="overflow-hidden rounded-2xl bg-[#e4e9ff] dark:bg-[#151a30]">
+                <table className="w-full border-collapse text-[13.5px]">
+                  <thead>
+                    <tr className="text-[#4f71eb] dark:text-[#8fb1ff]">
+                      <th className="py-2 pl-3 text-left font-semibold">
+                        <T uk="Опис" en="Description" ru="Описание" de="Beschr." es="Descr." fr="Descr." pl="Opis" ptBR="Descr." zh="描述" />
+                      </th>
+                      <th className="py-2 px-1 text-right font-semibold">
+                        <T uk="Варт." en="Cost" ru="Стоим." de="Preis" es="Coste" fr="Coût" pl="Koszt" ptBR="Custo" zh="单价" />
+                      </th>
+                      <th className="py-2 px-1 text-right font-semibold">
+                        <T uk="К-сть" en="Qty" ru="Кол-во" de="Anz." es="Cant." fr="Qté" pl="Ilość" ptBR="Qtd." zh="数量" />
+                      </th>
+                      <th className="py-2 pr-3 text-right font-semibold">
+                        <T uk="Разом" en="Total" ru="Итого" de="Summe" es="Total" fr="Total" pl="Razem" ptBR="Total" zh="小计" />
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {calcRows.map((row, i) => {
+                      const subtotal = calcRowSubtotal(row);
+                      return (
+                        <tr key={row.id} className="border-t border-[#c7d3f7] dark:border-[#28345c]">
+                          <td className="py-1.5 pl-3 align-top">
+                            <div className="flex items-start gap-1">
+                              <span className="pt-1.5 text-[12px] text-[#4f71eb]/70 dark:text-[#8fb1ff]/70">{i + 1}.</span>
+                              <input
+                                value={row.description}
+                                onChange={(e) => calcUpdateRow(row.id, { description: e.target.value.slice(0, 300) })}
+                                className="w-full min-w-0 bg-transparent py-1 text-[#262a34] outline-none dark:text-white"
+                              />
+                            </div>
+                          </td>
+                          <td className="py-1.5 px-1 align-top text-right">
+                            <input
+                              inputMode="decimal"
+                              value={row.unitAmount}
+                              onChange={(e) => calcUpdateRow(row.id, { unitAmount: e.target.value.replace(/[^0-9.,]/g, "") })}
+                              placeholder="+"
+                              className="w-16 bg-transparent py-1 text-right text-[#262a34] outline-none placeholder:font-semibold placeholder:text-[#335ef7] dark:text-white dark:placeholder:text-[#0c8ce9]"
+                            />
+                          </td>
+                          <td className="py-1.5 px-1 align-top text-right">
+                            <input
+                              inputMode="numeric"
+                              value={row.quantity}
+                              onChange={(e) => calcUpdateRow(row.id, { quantity: e.target.value.replace(/[^0-9]/g, "").slice(0, 4) })}
+                              placeholder="+"
+                              className="w-10 bg-transparent py-1 text-right text-[#262a34] outline-none placeholder:font-semibold placeholder:text-[#335ef7] dark:text-white dark:placeholder:text-[#0c8ce9]"
+                            />
+                          </td>
+                          <td className="py-1.5 pr-3 align-top text-right tabular-nums text-[#262a34] dark:text-white">
+                            {subtotal > 0 ? calcFormatAmount(subtotal) : "\u2014"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    <tr>
+                      <td colSpan={4} className="px-3 py-2">
+                        <button
+                          type="button"
+                          onClick={calcAddRow}
+                          disabled={calcRows.length >= CALC_MAX_ROWS}
+                          className="flex items-center gap-1.5 text-[13px] font-semibold text-[#335ef7] disabled:opacity-40 dark:text-[#0c8ce9]"
+                        >
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#335ef7]/15 text-[14px] leading-none dark:bg-[#0c8ce9]/20">+</span>
+                          <T uk="Рядок" en="Row" ru="Строка" de="Zeile" es="Fila" fr="Ligne" pl="Wiersz" ptBR="Linha" zh="\u884c" />
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div className="flex items-center justify-between border-t border-[#c7d3f7] px-3 py-2 text-[14px] font-semibold text-[#262a34] dark:border-[#28345c] dark:text-white">
+                  <T uk="Разом" en="Total" ru="Итого" de="Summe" es="Total" fr="Total" pl="Razem" ptBR="Total" zh="\u5c0f\u8ba1" />
+                  <span className="tabular-nums">
+                    {calcFormatAmount(calcTotal)} {calcCurrency.toUpperCase()}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-2 flex items-center gap-2">
+                <input
+                  value={calcNote}
+                  onChange={(e) => setCalcNote(e.target.value.slice(0, 200))}
+                  placeholder="Note"
+                  className="min-w-0 flex-1 rounded-full bg-white px-4 py-2.5 text-[14px] text-[#262a34] outline-none placeholder:text-neutral-400 dark:bg-[#1c1c1e] dark:text-white dark:placeholder:text-neutral-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setCalcCurrencyPickerOpen(true)}
+                  aria-label="Currency"
+                  className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-[#335ef7] text-[16px] font-bold text-white transition hover:brightness-110 dark:bg-[#0c8ce9]"
+                >
+                  $
+                </button>
+              </div>
+
+              {calcError && (
+                <p className="mt-1.5 px-1 text-[13px] text-red-500">
+                  <T
+                    uk="\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u043d\u0430\u0434\u0456\u0441\u043b\u0430\u0442\u0438. \u0421\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u0449\u0435 \u0440\u0430\u0437."
+                    en="Couldn't send. Try again."
+                    ru="\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043e\u0442\u043f\u0440\u0430\u0432\u0438\u0442\u044c. \u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u0435\u0449\u0451 \u0440\u0430\u0437."
+                    de="Senden fehlgeschlagen. Erneut versuchen."
+                    es="No se pudo enviar. Int\u00e9ntalo de nuevo."
+                    fr="\u00c9chec de l'envoi. R\u00e9essayez."
+                    pl="Nie uda\u0142o si\u0119 wys\u0142a\u0107. Spr\u00f3buj ponownie."
+                    ptBR="Falha ao enviar. Tente novamente."
+                    zh="\u53d1\u9001\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5\u3002"
+                  />
+                </p>
+              )}
+
+              <div className="mt-3 flex items-center justify-between px-1">
+                <button
+                  type="button"
+                  onClick={calcClearRows}
+                  aria-label="Clear"
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-black/5 text-[#262a34] transition hover:bg-black/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
+                    <path
+                      d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-9 0 1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={calcClose}
+                  aria-label="Close"
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-black/5 text-[#262a34] transition hover:bg-black/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
+                    <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={calcRemoveLastRow}
+                  disabled={calcRows.length <= 1}
+                  aria-label="Remove row"
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-black/5 text-[#262a34] transition hover:bg-black/10 disabled:opacity-40 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
+                    <path d="M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={sendCalculation}
+                  disabled={calcSending || !calcHasContent}
+                  aria-label="Send"
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-[#335ef7] text-white transition hover:brightness-110 active:scale-95 disabled:opacity-40 disabled:hover:brightness-100 dark:bg-[#0c8ce9]"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M12 19V5M5 12l7-7 7 7" />
+                  </svg>
+                </button>
+              </div>
+
+              {calcCurrencyPickerOpen && (
+                <CurrencyPickerModal
+                  lang={lang}
+                  selected={calcCurrency}
+                  onSelect={setCalcCurrency}
+                  onClose={() => setCalcCurrencyPickerOpen(false)}
+                />
+              )}
+            </div>
+          ) : (
+            <>
+                    {/* 2026-09-02 (Aleksandr: "при увеличении высоты input field'а
               кота только оставляй внизу... скрепку и кнопку отправки
               тоже оставляй снизу, не двигай их") -- items-end (was
               items-center) on both this row and the pill below: with
@@ -1698,8 +2052,10 @@ export default function ChatWindowPage() {
                       className="h-16 w-16 rounded-xl object-cover"
                     />
                   ) : (
+                    // Same per-type badge as the sent/pending rows below
+                    // (ChatFileTypeIcon), scaled down to fit this chip.
                     <div className="flex h-16 w-40 items-center gap-2 rounded-xl border border-neutral-200 bg-white/90 px-2.5 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
-                      <ChatFileAttachIcon className="h-5 w-5 shrink-0 text-[#989aa6] dark:text-[#adafbb]" />
+                      <ChatFileTypeIcon kind={fileKindFromName(a.fileName, a.mimetype)} className="h-8 w-8" />
                       <span className="truncate text-[12px] text-[#262a34] dark:text-white">{a.fileName}</span>
                     </div>
                   )}
@@ -1855,6 +2211,25 @@ export default function ChatWindowPage() {
                     <ChatContactAttachIcon className="animate-contact-attach h-5 w-5 text-[#335ef7] dark:text-[#0c8ce9]" />
                     <T uk="Контакт" en="Contact" ru="Контакт" de="Kontakt" es="Contacto" fr="Contact" pl="Kontakt" ptBR="Contato" zh="联系人" />
                   </button>
+                  {/* Calculations feature (2026-09-03) -- opens the
+                      calculator panel below (swaps in for the normal
+                      draft row, see its own comment) instead of picking
+                      a file, same reasoning as Contact above for why
+                      this doesn't go through onPickAttachment. */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAttachMenuOpen(false);
+                      setCalcOpen(true);
+                    }}
+                    className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+                  >
+                    <ChatCalculatorAttachIcon className="animate-calc-attach h-5 w-5 text-[#335ef7] dark:text-[#0c8ce9]" />
+                    <T
+                      uk="Розрахунок" en="Calculation" ru="Калькуляция" de="Berechnung" es="Cálculo"
+                      fr="Calcul" pl="Kalkulacja" ptBR="Cálculo" zh="计算"
+                    />
+                  </button>
                 </div>
               )}
               <input
@@ -1955,6 +2330,8 @@ export default function ChatWindowPage() {
               <ChatMicButton disabled={sending} />
             )}
           </div>
+            </>
+          )}
         </div>
       )}
       {dailyUploadsOpen && <DailyUploadsModal lang={lang} onClose={() => setDailyUploadsOpen(false)} />}

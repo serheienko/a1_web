@@ -405,3 +405,27 @@ export function ChatExpertiseIcon({ className = "h-4 w-4" }: { className?: strin
     </svg>
   );
 }
+
+// Attach-menu row icon: opens the calculator panel (components/chat/
+// calculation-card.tsx renders what it sends as; the compose-side form
+// itself lives inline in app/chats/[chatId]/page.tsx). A simple
+// calculator glyph -- body rect, screen rect up top, a 3x2 grid of
+// button dots below -- hand-built like every other attach-menu icon in
+// this file, no Figma export for this one either.
+export function ChatCalculatorAttachIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <rect x="5" y="3" width="14" height="18" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
+      <rect x="7.3" y="5.3" width="9.4" height="4" rx="0.8" fill="currentColor" opacity="0.9" />
+      <circle cx="8.3" cy="12.3" r="1" fill="currentColor" />
+      <circle cx="12" cy="12.3" r="1" fill="currentColor" />
+      <circle cx="15.7" cy="12.3" r="1" fill="currentColor" />
+      <circle cx="8.3" cy="15.7" r="1" fill="currentColor" />
+      <circle cx="12" cy="15.7" r="1" fill="currentColor" />
+      <circle cx="15.7" cy="15.7" r="1" fill="currentColor" />
+      <circle cx="8.3" cy="19" r="1" fill="currentColor" />
+      <circle cx="12" cy="19" r="1" fill="currentColor" />
+      <circle cx="15.7" cy="19" r="1" fill="currentColor" />
+    </svg>
+  );
+}
