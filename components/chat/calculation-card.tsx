@@ -41,7 +41,14 @@ export function ChatCalculationCard({ calc, mine }: Props) {
   const dividerClass = mine ? "border-white/20" : "border-black/10 dark:border-white/15";
 
   return (
-    <div className="mb-1 min-w-[220px] overflow-hidden rounded-xl">
+    // 2026-09-03 (Aleksandr, screenshot of a sent card: "Подрезало
+    // надпись 'На карту', UI баг") -- `overflow-hidden` here was
+    // clipping the note's own line box (some glyphs' ascenders sit
+    // taller than a 15px/leading-snug line-height accounts for). This
+    // div has no background of its own to round off (the bubble around
+    // it already handles that with its own rounded-[18px]), so the
+    // clip was serving no purpose -- just min-w, no rounding/overflow.
+    <div className="mb-1 min-w-[220px]">
       {calc.rows.length > 0 && (
         <table className="w-full border-collapse text-[13.5px]">
           <thead>
@@ -82,7 +89,7 @@ export function ChatCalculationCard({ calc, mine }: Props) {
         {formatCalcAmount(total)} {currency}
       </div>
       {calc.note && (
-        <div className={`mt-1.5 border-t pt-1.5 text-[15px] whitespace-pre-wrap break-words ${dividerClass}`}>
+        <div className={`mt-1.5 border-t pt-1.5 text-[15px] leading-relaxed whitespace-pre-wrap break-words ${dividerClass}`}>
           {calc.note}
         </div>
       )}
