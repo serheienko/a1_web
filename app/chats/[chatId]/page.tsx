@@ -2583,10 +2583,12 @@ export default function ChatWindowPage() {
                                 footer={isVoiceOnly ? flatFooter : undefined}
                               />
                             ) : a.kind === "image" ? (
-                              <div key={a.localId} className="relative overflow-hidden rounded-xl">
+                              <div key={a.localId} className="relative min-w-[200px] overflow-hidden rounded-xl">
                                 {a.previewUrl && (
                                   // eslint-disable-next-line @next/next/no-img-element -- a
                                   // local blob: URL, never a next/image-eligible remote src.
+                                  // Same tiny-source-photo min-width fix as the real (sent)
+                                  // isImageOnly bubble below -- see that img's own comment.
                                   <img src={a.previewUrl} alt="" className="max-h-64 w-full object-cover" />
                                 )}
                                 {isImageOnly && (
@@ -2674,13 +2676,27 @@ export default function ChatWindowPage() {
                                 // has to stay legible on any photo, not
                                 // just this app's own light/dark bubble
                                 // colors.
-                                <div key={doc._id} className="relative overflow-hidden rounded-xl">
+                                <div key={doc._id} className="relative min-w-[200px] overflow-hidden rounded-xl">
                                   {/* eslint-disable-next-line @next/next/no-img-element -- proxied
                                       through /api/media, not a next/image-configured remote host. */}
                                   <img
                                     src={buildMediaProxyUrl(doc)}
                                     alt=""
                                     onClick={() => openViewerForDoc(msg._id, doc._id)}
+                                    // 2026-09-04 (Aleksandr, live screenshot: a small-resolution
+                                    // source photo rendering as a ~90px postage stamp between two
+                                    // voice messages -- "ты борщанул... ты же видел разметку в
+                                    // телеграме"): this bubble is a shrink-to-fit flex item with no
+                                    // width of its own -- `w-full` on the <img> just means "100% of
+                                    // whatever the bubble ends up being", and the bubble's own
+                                    // shrink-to-fit size is driven by the image's OWN intrinsic
+                                    // pixel dimensions. A genuinely small source photo (a phone-
+                                    // mockup screenshot, say) was therefore rendering at its real
+                                    // tiny size instead of a real photo-bubble size, unlike Telegram
+                                    // (his reference), which floors every photo bubble to a sane
+                                    // minimum regardless of source resolution. min-w-[200px] on the
+                                    // wrapper above is an inferred number, not measured off his
+                                    // screenshot pixel-for-pixel -- flag if it should be bigger/smaller.
                                     className="block max-h-64 w-full cursor-pointer object-cover transition hover:opacity-90"
                                   />
                                   <span className="pointer-events-none absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded-full bg-black/45 px-2 py-0.5 text-[11px] text-white backdrop-blur-sm">
@@ -2696,7 +2712,9 @@ export default function ChatWindowPage() {
                                   src={buildMediaProxyUrl(doc)}
                                   alt=""
                                   onClick={() => openViewerForDoc(msg._id, doc._id)}
-                                  className="max-h-64 w-full cursor-pointer rounded-xl object-cover transition hover:opacity-90"
+                                  // Same tiny-source-photo fix as the flat isImageOnly branch
+                                  // above -- see that img's own comment.
+                                  className="max-h-64 w-full min-w-[200px] cursor-pointer rounded-xl object-cover transition hover:opacity-90"
                                 />
                               )
                             ) : isVideoMediaDocument(doc) ? (
