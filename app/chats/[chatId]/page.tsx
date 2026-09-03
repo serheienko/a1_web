@@ -70,6 +70,7 @@ import { DailyUploadsModal } from "@/components/daily-uploads-modal";
 import { ContactMessageCard, type ContactCardSummary } from "@/components/chat/contact-message-card";
 import { ContactsPickerModal, type PickedContact } from "@/components/chat/contacts-picker-modal";
 import { ChatPhotoViewer, type ChatViewerImage } from "@/components/chat/photo-viewer";
+import { ChatPhotoGrid } from "@/components/chat/photo-grid";
 import { useVoiceRecorder, formatVoiceTimer, type VoiceRecordingResult } from "@/components/chat/voice-recorder";
 import { VoiceRecordButton, VoiceRecordingBar, VoiceMicDeniedNotice } from "@/components/chat/voice-message";
 import { VoiceMessageBubble, PendingVoiceBubble } from "@/components/chat/voice-bubble";
@@ -2398,6 +2399,35 @@ export default function ChatWindowPage() {
               // renders whatever chat-server actually stored, parsed via
               // messageDocumentMedia (lib/a1/chat-schemas.ts).
               const docMedia = pending ? [] : messageDocumentMedia(msg);
+              // 2026-09-04 (Aleksandr, live screenshots: "Комбинируй
+              // более правильно фото, вот тебе референс телеграмма на
+              // разное кол-во") -- a RUN of 2+ consecutive image docs
+              // within this one message renders as a single grouped
+              // grid (components/chat/photo-grid.tsx) instead of N
+              // separate full-width rows. imageGroupStartId maps the
+              // FIRST doc._id in each such run to the run's own doc
+              // list (map insertion order below renders the whole grid
+              // there); imageGroupSkipIds is every OTHER doc in that
+              // run, skipped entirely since the grid already drew it.
+              // A lone image (run length 1) is deliberately left out of
+              // both -- keeps its existing individual rendering
+              // (isImageOnly-flat or the plain rounded <img>) untouched.
+              const imageGroupStartId = new Map<string, typeof docMedia>();
+              const imageGroupSkipIds = new Set<string>();
+              for (let i = 0; i < docMedia.length; ) {
+                if (!isImageMediaDocument(docMedia[i]!)) {
+                  i++;
+                  continue;
+                }
+                let j = i + 1;
+                while (j < docMedia.length && isImageMediaDocument(docMedia[j]!)) j++;
+                const run = docMedia.slice(i, j);
+                if (run.length >= 2) {
+                  imageGroupStartId.set(run[0]!._id, run);
+                  for (const d of run.slice(1)) imageGroupSkipIds.add(d._id);
+                }
+                i = j;
+              }
               const pendingAttachments = pending?.pendingAttachments ?? [];
               // Contact-attachment feature: contactMedia is the REAL,
               // already-sent side (messageContactMedia, an array -- up to
@@ -2609,7 +2639,13 @@ export default function ChatWindowPage() {
                       {docMedia.length > 0 && (
                         <div className="mb-1 flex flex-col gap-1.5">
                           {docMedia.map((doc) =>
-                            isVoiceMediaDocument(doc) ? (
+                            imageGroupSkipIds.has(doc._id) ? null : imageGroupStartId.has(doc._id) ? (
+                              <ChatPhotoGrid
+                                key={doc._id}
+                                docs={imageGroupStartId.get(doc._id)!.map((d) => ({ id: d._id, src: buildMediaProxyUrl(d) }))}
+                                onOpen={(docId) => openViewerForDoc(msg._id, docId)}
+                              />
+                            ) : isVoiceMediaDocument(doc) ? (
                               <VoiceMessageBubble
                                 key={doc._id}
                                 doc={doc}
