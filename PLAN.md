@@ -5945,3 +5945,37 @@ file/voice attachment (empty subtitle instead of an icon+label) --
 Aleksandr said he'd send a reference for the second one.
 
 tsc-clean.
+
+### 6.116
+
+2026-09-04, three more small live-test fixes plus one real feature,
+same session as 6.115:
+
+1. Attach-menu row font size ("сделай на десктопе шрифты в модалке
+   +3-4"): the five rows (Photo/File/Meetings/Calculation/Contact)
+   grew from text-[14px] to sm:text-[18px] on desktop only, mobile
+   stays 14px.
+2. Chat header back arrow ("сделай анимацию на стрелку назад при
+   ховер"): same hover-nudge convention the compose bar's send-arrow
+   already had (app/globals.css's send-arrow-nudge), mirrored onto the
+   X axis since this glyph points left.
+3. Multi-photo messages ("Комбинируй более правильно фото, вот тебе
+   референс телеграмма на разное кол-во"): new components/chat/
+   photo-grid.tsx groups any run of 2+ consecutive image docs within
+   one message into a single adaptive grid (2 side by side, 3 as one
+   wide + two below, 4 as 2x2, 5 as 2-then-3, 6+ rows of up to 3)
+   instead of N stacked full-width rows. NOT Telegram's own real
+   aspect-ratio bin-packing (needs each photo's real dimensions ahead
+   of layout, not fetched by this app) -- a fixed-shape approximation,
+   flagged to Aleksandr as such. Pending (not-yet-confirmed)
+   multi-image attachments are NOT grouped yet, scope-cut for now --
+   only already-sent docMedia.
+
+Still open: the "Документ" no-filename bug (needs live message data,
+see 6.115's own note -- unchanged), and a chat-list preview-line gap
+for a last-message that's a file/voice attachment (Aleksandr said
+he'd send a reference, screenshot of an empty-looking preview line
+received since -- still waiting on the promised reference before
+touching it).
+
+tsc-clean.
