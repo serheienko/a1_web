@@ -4990,3 +4990,73 @@ optimistic-then-reconcile behavior).
 **Next step**: wait for Aleksandr's promised batch of Figma screenshots
 (same "кидай один, два, три... подряд" approach as Attachments) before
 writing any a1_web code, per his explicit request this round.
+
+### 6.97 Voice messages: first live screen recordings from Aleksandr -- confirms §6.96's code reading against the real app (2026-09-03)
+
+Two ~13s screen recordings (no accompanying text -- first installment of
+the "кидай скрины подряд" batch he said he'd send). Extracted frames via
+ffmpeg (cloud container, read-only analysis of the uploaded .mov files
+only -- nothing in a1_web touched). STILL PREP ONLY, no a1_web code yet.
+
+**Recording bar (CONFIRMED live, matches §6.96's code reading closely)**:
+- Idle compose bar: paperclip | "Сообщение" placeholder | sticker/emoji
+  icon | mic (outline, matches this app's OWN existing `ChatMicButton`
+  glyph already in components/chat/icons.tsx).
+- Press mic: instantly morphs to a solid blue filled circle with a white
+  mic glyph (no visible delay/loading state).
+- Recording bar replaces the whole compose row: a red pulsing dot + timer
+  in `M:SS,hh` format (hundredths, e.g. `0:01,80`) on the left, a
+  swipe-to-cancel hint in the CENTER reading `‹ Влево - отмена` ("Left -
+  cancel", with a literal `‹` chevron), and the record button itself sits
+  bottom-right, now showing a static mic glyph (no longer pulsing/
+  animated once recording is underway).
+- A separate small circular pill directly above the record button shows a
+  padlock icon with a small up-chevron (`^`) hint beneath it -- the
+  drag-to-lock affordance. Confirms §6.96's code-level read of
+  `_lockController`/`_lockProgress` almost exactly.
+- Multiple voice notes can be queued back-to-back: one frame shows a
+  SECOND recording already in progress (bar reset to `0:01,68`) while the
+  FIRST voice bubble is still visible in the message list above it,
+  mid-upload.
+
+**Sent voice bubble (CONFIRMED live)** -- own (right-aligned) message,
+same light-blue bubble background as other sent bubbles, teardrop corner
+on the bottom-right:
+- Left: a round blue button. While uploading it shows an "X" (cancel-
+  upload, matches §6.96's `_VoiceOrbitLoadingButton` reading); once
+  upload finishes it becomes a white play triangle on the same blue
+  circle.
+- Center: the waveform bars (light/grey, unplayed state).
+- Right: the fire-icon badge -- a small rounded-square pill, light-blue
+  tint, blue flame glyph. Confirmed at real size/position: sits flush at
+  the right edge of the bubble, roughly the same height as the waveform.
+- Below the waveform, left-aligned under the play button: `0:04 •` --
+  duration, then a small bullet/dot. Not yet confirmed whether that dot
+  IS the "unopened" blue-dot indicator from §6.96 (both ends weren't
+  captured this round: this is the SENDER's own view of their own sent
+  clip, and the dot is still there even after the message ticks to
+  delivered) or just decorative punctuation before where a further label
+  would go -- needs a RECEIVER-side capture to confirm.
+- Timestamp bottom-right (`14:45`), single checkmark once delivered --
+  same tick convention as every other message type already in this app.
+
+**Fire-tap popup (CONFIRMED live -- exact Russian copy, matches §6.96's
+code-level `voiceAutoDeletes` / `voiceAutoDeletesViewingPolicy` reading
+word for word)**: tapping the fire icon opens a floating white rounded
+card anchored just above the bubble:
+  **Автоматически удаляется**
+  🔥 120 мин после просмотра или 7 дней без открытия
+Bold blue title, flame glyph + regular-weight body text on the second
+line, card floats above the message column (not a full-screen modal). It
+was still open at the end of this recording -- no capture yet of how it
+dismisses (tap-away vs. auto-timeout vs. a close button off-frame) or of
+the SECOND popup form (§6.96's long-press `VoiceDeleteCountdownBanner` --
+not triggered in either recording).
+
+**Still unconfirmed / waiting on more screenshots**: the received (left-
+aligned, other person's) bubble; the blue "unopened" dot's exact
+placement and behavior on open; the post-open live "Deletes in MM:SS"
+state; the long-press context-menu banner variant of the auto-delete
+info; the lock ENGAGED state (drag actually completed, hands-free
+recording); cancel-by-swipe-left actually completing; and the desktop/
+web gesture Aleksandr said he'd send a Telegram Web reference for.
