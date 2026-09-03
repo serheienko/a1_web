@@ -391,7 +391,11 @@ export default function ChatsPage() {
                 />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline justify-between gap-2">
-                    <div className="truncate text-[16px] font-medium text-[#262a34] dark:text-white">
+                    {/* 2026-09-03 (Aleksandr, live screenshot of the chat list:
+                        "Увелич шрифты имени и текстов сообщений, где то
+                        +2") -- name 16px -> 18px, preview/draft text
+                        14px -> 16px below. */}
+                    <div className="truncate text-[18px] font-medium text-[#262a34] dark:text-white">
                       {chat.title || "—"}
                     </div>
                     {chat.previewDateMs > 0 && (
@@ -407,14 +411,14 @@ export default function ChatsPage() {
                     )}
                   </div>
                   {chat.draftText ? (
-                    <div className="truncate text-[14px]">
+                    <div className="truncate text-[16px]">
                       <span className="font-medium text-[#ef392c]">
                         <T uk="Чернетка" en="Draft" ru="Черновик" de="Entwurf" es="Borrador" fr="Brouillon" pl="Wersja robocza" ptBR="Rascunho" zh="草稿" />
                       </span>{" "}
                       <span className="text-[#989aa6] dark:text-[#8d8d93]">{chat.draftText}</span>
                     </div>
                   ) : chat.previewText ? (
-                    <div className="truncate text-[14px] text-[#989aa6] dark:text-[#8d8d93]">{chat.previewText}</div>
+                    <div className="truncate text-[16px] text-[#989aa6] dark:text-[#8d8d93]">{chat.previewText}</div>
                   ) : null}
                 </div>
                 {chat.unreadCount > 0 && (
