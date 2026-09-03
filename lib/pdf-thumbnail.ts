@@ -82,6 +82,31 @@ const THUMBNAIL_MAX_DIMENSION = 240;
 
 const thumbnailCache = new Map<string, Promise<string | null>>();
 
+// 2026-09-04 (Aleksandr, screen recording: "файлы моргают всё равно")
+// -- traced past the earlier "pending vs. failed" fix (this file's own
+// header) to a second flash source: components/chat/pdf-thumbnail.tsx's
+// effect reset its OWN local thumbUrl/failed state to the pending
+// placeholder every time it re-ran for the same `src` (message list
+// re-renders on every messages poll), even though `thumbnailCache`
+// above already had a RESOLVED promise sitting there -- that reset was
+// always visible for at least one paint before the cache-hit promise's
+// `.then()` (a microtask, never synchronous) could set it back, so an
+// already-loaded thumbnail kept flashing back to the pulse placeholder
+// on every poll. This second, synchronous map mirrors the async one's
+// eventual result (string | null, keyed the same way) so the component
+// can check "do we already know the answer?" BEFORE ever touching its
+// own pending state, and skip the flash entirely on a cache hit.
+const resolvedCache = new Map<string, string | null>();
+
+/** Synchronous peek at an already-resolved render: `undefined` means
+ *  never rendered (or still in flight) -- the component still has to
+ *  await renderPdfFirstPageThumbnail() and show the pending placeholder
+ *  for that case, same as before this fix. `null` means it resolved to
+ *  a genuine, permanent failure. */
+export function getCachedPdfThumbnail(src: string): string | null | undefined {
+  return resolvedCache.get(src);
+}
+
 // Renders `src` (a same-origin proxy URL for a sent PDF, or a local
 // blob: URL for one still in the compose bar) 's first page to a PNG
 // data: URL, top-left aligned (pdf.js always rasterizes a full page
@@ -115,5 +140,6 @@ export function renderPdfFirstPageThumbnail(src: string): Promise<string | null>
     }
   })();
   thumbnailCache.set(src, promise);
+  promise.then((url) => resolvedCache.set(src, url));
   return promise;
 }

@@ -180,6 +180,7 @@ export function VoiceMessageBubble({
   lang,
   peerName,
   peerAvatarUrl,
+  myAvatarUrl,
   footer,
 }: {
   doc: MessageMediaDocument;
@@ -190,11 +191,20 @@ export function VoiceMessageBubble({
    *  own headerTitle/headerAvatar -- this is a 1:1 chat page, so
    *  "whoever isn't me" is always the same person). Used for the
    *  now-playing-bar entry on a RECEIVED clip; a self-sent (`mine`)
-   *  clip uses the localized "You" label instead (see VOICE_BUBBLE_
-   *  STRINGS) since this page doesn't otherwise load my own name/
-   *  avatar anywhere. */
+   *  clip uses the localized "You" label plus `myAvatarUrl` instead. */
   peerName: string;
   peerAvatarUrl: string;
+  /** 2026-09-04 (Aleksandr, live screenshot of the now-playing bar on a
+   *  self-sent clip: "поставь в этот попап аватар того чье голосовое
+   *  вместо микрофона слева") -- the bar (components/chat/voice-now-
+   *  playing-bar.tsx) already shows `entry.avatarUrl` when set and only
+   *  falls back to its own generic mic glyph when it's null; that null
+   *  was hardcoded below for every `mine` clip (this page never loaded
+   *  the visitor's OWN avatar anywhere, per this prop's old comment).
+   *  app/chats/[chatId]/page.tsx now fetches it once via /api/account/
+   *  whoami (same route/shape components/avatar-menu.tsx already uses
+   *  for the nav's own account row) and passes it through here. */
+  myAvatarUrl: string | null;
   /** 2026-09-03 (Aleksandr, third live-feedback round: "подложку синюю
    *  убери... время и просмотрено внутрь") -- this component used to
    *  sit INSIDE app/chats/[chatId]/page.tsx's own generic message-
@@ -300,7 +310,7 @@ export function VoiceMessageBubble({
     url: buildMediaProxyUrl(doc),
     title: mine ? VOICE_BUBBLE_STRINGS.you[lang] : peerName,
     subtitle: VOICE_BUBBLE_STRINGS.voiceMessage[lang],
-    avatarUrl: mine ? null : peerAvatarUrl,
+    avatarUrl: mine ? myAvatarUrl : peerAvatarUrl,
     totalSeconds,
   };
 
@@ -589,14 +599,14 @@ export function PendingVoiceBubble({
         </div>
       </div>
       {footer}
-      {uploading && (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/20">
-          <svg className="h-5 w-5 animate-spin text-white" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" opacity="0.3" />
-            <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-          </svg>
-        </div>
-      )}
+      {/* 2026-09-04 (Aleksandr, live test: "убери лоадер по центру
+          бабла сообщения") -- this used to cover the whole bubble with
+          a dark scrim + spinning ring while `uploading`. `uploading` is
+          still threaded in from the caller (app/chats/[chatId]/
+          page.tsx's PendingVoiceBubble usage) even though nothing here
+          reads it now -- no other element in this component depends on
+          it, so there's nothing left to wire it into without inventing
+          a new indicator he didn't ask for. */}
     </div>
   );
 }

@@ -347,7 +347,7 @@ export function VoiceRecordButton({ recorder, disabled, lang }: { recorder: Reco
   const isActive = recorder.state === "recording" || recorder.state === "requesting";
 
   return (
-    <div className="relative shrink-0">
+    <div className="relative w-[44px] shrink-0">
       {/* Lock affordance -- 2026-09-03 (Aleksandr, second live test round:
           "сверху нас не появляется штука такая типа с замочком на
           перетягивание, чтобы я понял, что можно залочить") -- this used
@@ -357,20 +357,21 @@ export function VoiceRecordButton({ recorder, disabled, lang }: { recorder: Reco
           ABOVE the record button itself (same element the thumb is
           already on) makes the drag direction self-evident -- rises and
           brightens toward lockProgress===1, same climb the pill's
-          `translateY` used to do in its old spot. */}
+          `translateY` used to do in its old spot.
+          2026-09-04 (Aleksandr, live test: "поставь иконку замка прям
+          над стрелкой выше") -- the button slot this floats over is the
+          SAME 44px slot the send-arrow button occupies when idle+draft
+          (see app/chats/[chatId]/page.tsx's own ternary swapping between
+          the two), so this wrapper now pins to that exact 44px width
+          (`w-[44px]`, was bare `shrink-0`, sized only by its child) --
+          `left-1/2 -translate-x-1/2` centers correctly either way in
+          practice, but an explicit width removes any doubt the badge
+          could drift off the button's true center. Gap above the button
+          also grew 8px -> 14px ("выше" -- higher/more clearance), same
+          `calc(100%+Npx)` approach, just a bigger constant. */}
       {isActive && !touchGestureRef.current && (
         <div
-          // 2026-09-03 (Aleksandr, live test: "надо расположить его
-          // прямо над кнопкой записи голоса") -- `bottom-[52px]` put
-          // this 8-40px above the button's OWN top edge, which reads
-          // fine in isolation but the compose bar's own padding above
-          // the button then pushed it past the bar's top border
-          // entirely, floating up near the message list instead of
-          // reading as "attached to this button". `bottom-[calc(100%+8px)]`
-          // is relative to the button's height instead of a fixed px
-          // guess, so it always sits a small constant 8px above the
-          // button itself regardless of that surrounding padding.
-          className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full bg-neutral-800/90 text-white shadow-lg transition dark:bg-white/90 dark:text-neutral-800"
+          className="pointer-events-none absolute bottom-[calc(100%+14px)] left-1/2 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full bg-neutral-800/90 text-white shadow-lg transition dark:bg-white/90 dark:text-neutral-800"
           style={{ opacity: 0.45 + recorder.lockProgress * 0.55, transform: `translate(-50%, ${-recorder.lockProgress * 6}px)` }}
           aria-hidden="true"
         >
@@ -476,32 +477,23 @@ export function VoiceRecordingBar({ recorder, lang }: { recorder: Recorder; lang
     // in that slot instead of just empty space.
     return (
       <div className="flex h-[44px] flex-1 items-center gap-3 rounded-[22px] border border-neutral-200 bg-white/90 px-3.5 py-2 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
-        {isTouch ? (
-          <span className="relative flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden="true">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#ff3b30] opacity-75" />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#ff3b30]" />
-            </span>
+        {/* 2026-09-04 (Aleksandr, live test: "убери кнопку паузы, она не
+            нужна, оставь просто моргающий индикатор, так же как при
+            шорт тапе") -- desktop's manual drag-to-lock path used to
+            keep a real pause/resume button here (only touch got the
+            blinking dot, see this block's old comment); now both paths
+            render the same small red "recording" ping, no pause control
+            at all. recorder.pauseResume/isPaused stay in the hook
+            (voice-recorder.ts) unused from here -- not deleted, since
+            nothing else in this UI exposes a toggle for them and
+            removing the hook logic itself is a separate, unrequested
+            change. */}
+        <span className="relative flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden="true">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#ff3b30] opacity-75" />
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#ff3b30]" />
           </span>
-        ) : (
-          <button
-            type="button"
-            onClick={() => recorder.pauseResume()}
-            aria-label={recorder.isPaused ? "Resume" : "Pause"}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#335ef7] text-white dark:bg-[#0c8ce9]"
-          >
-            {recorder.isPaused ? (
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            ) : (
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <rect x="6" y="5" width="4" height="14" />
-                <rect x="14" y="5" width="4" height="14" />
-              </svg>
-            )}
-          </button>
-        )}
+        </span>
         <span className={`shrink-0 text-[15px] tabular-nums text-[#262a34] dark:text-white ${nearMax ? "text-[#ff3b30]" : ""}`}>{timer}</span>
         <button
           type="button"

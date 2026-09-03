@@ -538,6 +538,31 @@ export default function ChatWindowPage() {
   const headerUsername = headerUsernameParam || chatFallback?.username || null;
   const headerProfileHref = headerUsername ? profileHref(headerUsername) : null;
 
+  // 2026-09-04 (Aleksandr, live screenshot of the now-playing bar on a
+  // self-sent voice clip showing the generic mic glyph: "поставь в
+  // этот попап аватар того чье голосовое вместо микрофона слева") --
+  // this page never loaded the visitor's OWN avatar anywhere (only the
+  // chat PARTNER's, via headerAvatar above), which is why voice-
+  // bubble.tsx's own entry-building always passed `null` for a `mine`
+  // clip. Same /api/account/whoami route + response shape components/
+  // avatar-menu.tsx's own nav account-row already fetches for the same
+  // reason -- one-shot on mount, best-effort (a 401/network failure
+  // just leaves the mic-glyph fallback in place, same as before this).
+  const [myAvatarUrl, setMyAvatarUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    authFetch("/api/account/whoami")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data?.ok) return;
+        if (data.avatarUrl) setMyAvatarUrl(data.avatarUrl);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const [state, setState] = useState<LoadState>("loading");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   // 2026-09-02 (Aleksandr, live bug report: "я не вижу появившееся
@@ -2586,6 +2611,7 @@ export default function ChatWindowPage() {
                                 lang={lang}
                                 peerName={headerTitle}
                                 peerAvatarUrl={headerAvatar}
+                                myAvatarUrl={myAvatarUrl}
                                 footer={isVoiceOnly ? flatFooter : undefined}
                               />
                             ) : isImageMediaDocument(doc) ? (
