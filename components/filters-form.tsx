@@ -244,6 +244,7 @@ export function FiltersForm({
     visible: filtersVisible,
     handleMouseEnter: handleFiltersMouseEnter,
     handleMouseLeave: handleFiltersMouseLeave,
+    isRecentHoverOpen: isFiltersRecentHoverOpen,
   } = useHoverPanel(filtersOpen, setFiltersOpen, [
     { trigger: filtersRef, panel: filtersPanelRef },
     { trigger: desktopFiltersRef, panel: desktopFiltersPanelRef },
@@ -270,6 +271,10 @@ export function FiltersForm({
   }, [filtersOpen]);
 
   function toggleFilters() {
+    // lib/use-hover-panel.ts, 2026-09-04 entry: same "•••"-menu tap bug
+    // -- skip the toggle when this click is the tail end of the tap that
+    // just hover-opened the popover, or it flips straight back closed.
+    if (isFiltersRecentHoverOpen()) return;
     setFiltersOpen((v) => {
       const next = !v;
       if (next) setKeepWideForFilters(inputFocused);

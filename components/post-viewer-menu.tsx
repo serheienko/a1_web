@@ -292,9 +292,11 @@ export function PostViewerMenu({
   // popup for an anon visitor, just never from a hover).
   const dotsWrapperRef = useRef<HTMLDivElement>(null);
   const dotsPanelRef = useRef<HTMLDivElement>(null);
-  const { handleMouseEnter: handleDotsMouseEnter, handleMouseLeave: handleDotsMouseLeave } = useHoverPanel(open, setOpen, [
-    { trigger: dotsWrapperRef, panel: dotsPanelRef },
-  ]);
+  const {
+    handleMouseEnter: handleDotsMouseEnter,
+    handleMouseLeave: handleDotsMouseLeave,
+    isRecentHoverOpen: isDotsRecentHoverOpen,
+  } = useHoverPanel(open, setOpen, [{ trigger: dotsWrapperRef, panel: dotsPanelRef }]);
 
   // Contact toggle — same shape as components/add-contact-button.tsx's
   // status machine, reimplemented here as a text row (see this file's
@@ -545,7 +547,14 @@ export function PostViewerMenu({
       <div className="dots-trigger-group relative z-40 shrink-0" ref={dotsWrapperRef} onMouseEnter={handleDotsMouseEnter} onMouseLeave={handleDotsMouseLeave}>
         <button
           type="button"
-          onClick={() => setOpen((v) => !v)}
+          // lib/use-hover-panel.ts, 2026-09-04 entry: skip the toggle when
+          // this click is the same tap that just hover-opened the panel
+          // (iOS Safari's synthetic mouseenter-then-click on a first tap),
+          // otherwise it flips straight back closed and needs a second tap.
+          onClick={() => {
+            if (isDotsRecentHoverOpen()) return;
+            setOpen((v) => !v);
+          }}
           aria-label={STRINGS.menuLabel[lang]}
           aria-expanded={open}
           className="flex h-[42px] w-[42px] items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-500 transition hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50"

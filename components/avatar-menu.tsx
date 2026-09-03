@@ -326,7 +326,7 @@ export function AvatarMenu() {
   // unchanged behavior, just relocated.
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const panelOuterRef = useRef<HTMLDivElement | null>(null);
-  const { rendered, visible, handleMouseEnter, handleMouseLeave } = useHoverPanel(open, setOpen, [
+  const { rendered, visible, handleMouseEnter, handleMouseLeave, isRecentHoverOpen } = useHoverPanel(open, setOpen, [
     { trigger: wrapperRef, panel: panelOuterRef },
   ]);
   // 2026-09-02 (Aleksandr, live mobile screenshot: this panel's own
@@ -534,7 +534,13 @@ export function AvatarMenu() {
     <div className="relative shrink-0 cursor-pointer" ref={wrapperRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        // lib/use-hover-panel.ts, 2026-09-04 entry: same "•••"-menu tap
+        // bug (iOS synthesizes mouseenter+click together on a first tap,
+        // and a plain toggle here flips this panel straight back closed).
+        onClick={() => {
+          if (isRecentHoverOpen()) return;
+          setOpen((v) => !v);
+        }}
         aria-label={email}
         aria-expanded={open}
         className="h-9 w-9 shrink-0 overflow-hidden rounded-full shadow-sm ring-1 ring-black/5 transition hover:opacity-90 dark:ring-white/10"

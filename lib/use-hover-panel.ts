@@ -68,12 +68,37 @@
 // mattering the moment the visitor is actively typing into (or letting
 // autofill fill) a field, which is exactly the case a pure hover panel
 // was never meant to fight in the first place.
+//
+// 2026-09-04 (Aleksandr, screen recording of a specialist card's "•••"
+// button: "3 точки по прежнему срабатывают не с первого раза"): a
+// FOURTH bug, and this one hits every caller that has both this hook's
+// onMouseEnter on the trigger AND its own onClick toggle on it (all
+// three do — that combination was always the plan, "hover-intent open/
+// close is additive to the existing onClick toggle... which matters
+// since mobile has no hover at all", per components/avatar-menu.tsx's
+// own older comment). That assumption — mobile has no hover — is the
+// bug: iOS Safari DOES synthesize a mouseenter for the first tap on any
+// element with a mouseenter/mouseover listener (its documented "two
+// taps to click a hover element" workaround), immediately followed by
+// the click in the same dispatch burst. On that first tap: mouseenter
+// fires handleMouseEnter() -> setOpen(true), then click fires the
+// caller's setOpen(v => !v) -> flips it straight back to false, both
+// before React ever paints -- so the panel never visibly opens and the
+// visitor has to tap a second time (no synthetic mouseenter on THAT
+// tap, so the click's toggle runs alone and works). A real mouse click
+// is never affected: its hover already opened (and painted) well
+// before the click, so the toggle there is a separate, later render,
+// not a same-tick collision. isRecentHoverOpen() below is the guard —
+// every caller's click handler checks it first and skips the toggle
+// when a hover-open just happened (<300ms), since that click IS the
+// same tap that already opened the panel.
 "use client";
 
 import { useEffect, useRef, useState, type RefObject } from "react";
 
 const HOVER_CLOSE_DELAY_MS = 200;
 const CLOSE_TRANSITION_MS = 150;
+const RECENT_HOVER_OPEN_MS = 300;
 
 export type HoverPanelRefPair = {
   trigger: RefObject<HTMLElement | null>;
@@ -84,6 +109,8 @@ export function useHoverPanel(open: boolean, setOpen: (open: boolean) => void, r
   const [rendered, setRendered] = useState(false);
   const [visible, setVisible] = useState(false);
   const hoverCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // See this file's header, 2026-09-04 entry.
+  const lastHoverOpenAtRef = useRef(0);
 
   useEffect(() => {
     if (open) {
@@ -108,6 +135,14 @@ export function useHoverPanel(open: boolean, setOpen: (open: boolean) => void, r
       hoverCloseTimerRef.current = null;
     }
     setOpen(true);
+    lastHoverOpenAtRef.current = Date.now();
+  }
+
+  // See this file's header, 2026-09-04 entry: lets a caller's click
+  // handler tell "this click is the tail end of the tap that just
+  // hover-opened the panel" apart from a genuine second click/tap.
+  function isRecentHoverOpen(): boolean {
+    return Date.now() - lastHoverOpenAtRef.current < RECENT_HOVER_OPEN_MS;
   }
 
   // See this file's header, 2026-09-03 entry: a focused field inside the
@@ -179,5 +214,5 @@ export function useHoverPanel(open: boolean, setOpen: (open: boolean) => void, r
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  return { rendered, visible, handleMouseEnter, handleMouseLeave };
+  return { rendered, visible, handleMouseEnter, handleMouseLeave, isRecentHoverOpen };
 }
