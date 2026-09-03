@@ -52,6 +52,19 @@ type VoicePlaybackSnapshot = {
   playing: boolean;
   elapsed: number;
   rate: number;
+  // 2026-09-03 (Aleksandr, live production capture: a real sent clip's
+  // own attribute-audio.duration came back 0 -- traced to the classic
+  // MediaRecorder-produced webm issue, its container header carries no
+  // usable duration unless something actually probes the decoded audio
+  // -- so voiceDurationSeconds(doc) alone is not reliable). The <audio>
+  // element itself always resolves the REAL duration once its metadata
+  // loads (browsers decode the actual stream, they don't trust the
+  // possibly-broken header either) -- surfaced here so voice-bubble.tsx
+  // can prefer it over the doc's own attribute for whichever clip is
+  // CURRENTLY loaded, same "browser decode wins over a flaky server
+  // value" fix already proven for the seek math below. NaN until a
+  // clip's metadata has actually loaded.
+  duration: number;
 };
 
 // Playback-speed cycle -- 1x/1.5x/2x. Not itself a captured/confirmed
@@ -62,7 +75,7 @@ type VoicePlaybackSnapshot = {
 const RATES = [1, 1.5, 2] as const;
 
 let audio: HTMLAudioElement | null = null;
-let snapshot: VoicePlaybackSnapshot = { entry: null, playing: false, elapsed: 0, rate: 1 };
+let snapshot: VoicePlaybackSnapshot = { entry: null, playing: false, elapsed: 0, rate: 1, duration: NaN };
 const listeners = new Set<() => void>();
 
 function setSnapshot(next: Partial<VoicePlaybackSnapshot>) {
@@ -74,6 +87,7 @@ function ensureAudio(): HTMLAudioElement {
   if (audio) return audio;
   const el = new Audio();
   el.addEventListener("timeupdate", () => setSnapshot({ elapsed: el.currentTime }));
+  el.addEventListener("durationchange", () => setSnapshot({ duration: el.duration }));
   el.addEventListener("ended", () => setSnapshot({ playing: false, elapsed: 0 }));
   // Covers every route an element can stop playing through (a second
   // playVoice() call pausing this one, an OS-level media-key pause,
@@ -100,7 +114,7 @@ export function playVoice(entry: VoicePlaybackEntry) {
   el.src = entry.url;
   el.currentTime = 0;
   el.playbackRate = snapshot.rate;
-  setSnapshot({ entry, playing: true, elapsed: 0 });
+  setSnapshot({ entry, playing: true, elapsed: 0, duration: NaN });
   void el.play().catch(() => setSnapshot({ playing: false }));
 }
 

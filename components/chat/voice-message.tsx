@@ -352,8 +352,18 @@ export function VoiceRecordButton({ recorder, disabled, lang }: { recorder: Reco
           `translateY` used to do in its old spot. */}
       {isActive && (
         <div
-          className="pointer-events-none absolute bottom-[52px] left-1/2 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full bg-neutral-800/90 text-white shadow-lg transition dark:bg-white/90 dark:text-neutral-800"
-          style={{ opacity: 0.45 + recorder.lockProgress * 0.55, transform: `translate(-50%, ${-recorder.lockProgress * 10}px)` }}
+          // 2026-09-03 (Aleksandr, live test: "надо расположить его
+          // прямо над кнопкой записи голоса") -- `bottom-[52px]` put
+          // this 8-40px above the button's OWN top edge, which reads
+          // fine in isolation but the compose bar's own padding above
+          // the button then pushed it past the bar's top border
+          // entirely, floating up near the message list instead of
+          // reading as "attached to this button". `bottom-[calc(100%+8px)]`
+          // is relative to the button's height instead of a fixed px
+          // guess, so it always sits a small constant 8px above the
+          // button itself regardless of that surrounding padding.
+          className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full bg-neutral-800/90 text-white shadow-lg transition dark:bg-white/90 dark:text-neutral-800"
+          style={{ opacity: 0.45 + recorder.lockProgress * 0.55, transform: `translate(-50%, ${-recorder.lockProgress * 6}px)` }}
           aria-hidden="true"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -433,7 +443,7 @@ export function VoiceRecordingBar({ recorder, lang }: { recorder: Recorder; lang
 
   if (recorder.state === "locked") {
     return (
-      <div className="flex min-h-[44px] flex-1 items-center gap-3 rounded-[22px] border border-neutral-200 bg-white/90 px-3.5 py-2 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
+      <div className="flex h-[44px] flex-1 items-center gap-3 rounded-[22px] border border-neutral-200 bg-white/90 px-3.5 py-2 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
         <button
           type="button"
           onClick={() => recorder.pauseResume()}
@@ -477,7 +487,7 @@ export function VoiceRecordingBar({ recorder, lang }: { recorder: Recorder; lang
   const dim = Math.max(0.35, 1 - recorder.cancelProgress);
 
   return (
-    <div className="flex min-h-[44px] flex-1 items-center gap-3 rounded-[22px] border border-neutral-200 bg-white/90 px-3.5 py-2 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
+    <div className="flex h-[44px] flex-1 items-center gap-3 rounded-[22px] border border-neutral-200 bg-white/90 px-3.5 py-2 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
       <span className="relative flex h-2.5 w-2.5 shrink-0">
         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#ff3b30] opacity-75" />
         <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#ff3b30]" />

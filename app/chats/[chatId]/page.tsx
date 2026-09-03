@@ -71,7 +71,7 @@ import { ContactsPickerModal, type PickedContact } from "@/components/chat/conta
 import { ChatPhotoViewer, type ChatViewerImage } from "@/components/chat/photo-viewer";
 import { useVoiceRecorder, formatVoiceTimer, type VoiceRecordingResult } from "@/components/chat/voice-recorder";
 import { VoiceRecordButton, VoiceRecordingBar, VoiceMicDeniedNotice } from "@/components/chat/voice-message";
-import { VoiceMessageBubble } from "@/components/chat/voice-bubble";
+import { VoiceMessageBubble, PendingVoiceBubble } from "@/components/chat/voice-bubble";
 
 type LoadState = "loading" | "signed-out" | "error" | "ready";
 
@@ -596,6 +596,26 @@ export default function ChatWindowPage() {
   // nothing left to resend -- see uploadAndSendVoice/retryOne below.
   const voiceBlobsRef = useRef<Map<string, { blob: Blob; mimeType: string }>>(new Map());
   const recorder = useVoiceRecorder(handleVoiceFinish);
+  // 2026-09-03 (Aleksandr, live test, Telegram Desktop reference
+  // screenshot: "клик по любой свободной области во время записи
+  // должен вызывать такой попап") -- this file's own voice-message.tsx
+  // header flagged the "click outside a locked recording" confirm-
+  // dialog nuance as explicitly deferred scope; now wired up. Any
+  // mousedown outside voiceRowRef (the whole recording row: bar +
+  // record/lock button) while a recording is actually in progress
+  // (recording or locked -- NOT requesting/denied/idle) opens this
+  // confirm instead of doing nothing or silently discarding.
+  const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
+  const voiceRowRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (recorder.state !== "recording" && recorder.state !== "locked") return;
+    function onDocPointerDown(e: MouseEvent) {
+      if (voiceRowRef.current?.contains(e.target as Node)) return;
+      setDiscardConfirmOpen(true);
+    }
+    document.addEventListener("mousedown", onDocPointerDown);
+    return () => document.removeEventListener("mousedown", onDocPointerDown);
+  }, [recorder.state]);
   // 2026-09-02, Aleksandr: "Daily Uploads" quota popup (see
   // components/daily-uploads-modal.tsx's own header comment) --
   // opened from the small storage icon in the attach popover below,
@@ -2254,25 +2274,58 @@ export default function ChatWindowPage() {
               // never needs the SendingSpinner/NotSentIcon branch the
               // shared one still carries for a pending bubble.
               const soleDoc = docMedia.length === 1 ? (docMedia[0] ?? null) : null;
+              // 2026-09-03 (Aleksandr, live test: "При отправке
+              // отображение сначала показывается другим, потом
+              // меняется, так не надо") -- these four flags used to
+              // require `pendingAttachments.length === 0` outright, so
+              // a still-uploading single attachment NEVER qualified as
+              // "flat" no matter what it was -- it always got the
+              // OLDER generic wrapper (this row's own solid chrome PLUS
+              // the attachment's own translucent inner panel) until
+              // load()'s poll swapped the pending bubble for a real
+              // docMedia one, which suddenly WAS flat. That swap was
+              // the visible "shows one thing, then changes" bug -- not
+              // specific to PDFs, structural for every kind. Extended
+              // to also recognize the single-PENDING-attachment case
+              // (still `!text`/no calc/no contacts, and nothing ELSE
+              // besides that one attachment) so a solo voice/photo/file
+              // gets the exact same flat treatment from the moment it's
+              // staged, before any server round-trip -- see flatFooter
+              // below and the pendingAttachments render block for the
+              // other half of this fix.
+              const singlePendingAttachment = pendingAttachments.length === 1 ? pendingAttachments[0]! : null;
               const isVoiceOnly =
-                !text && pendingAttachments.length === 0 && calc === null && contactMedia.length === 0 &&
-                pendingContactCards.length === 0 && soleDoc !== null && isVoiceMediaDocument(soleDoc);
+                !text && calc === null && contactMedia.length === 0 && pendingContactCards.length === 0 &&
+                ((pendingAttachments.length === 0 && soleDoc !== null && isVoiceMediaDocument(soleDoc)) ||
+                  (docMedia.length === 0 && singlePendingAttachment?.kind === "voice"));
               const isImageOnly =
-                !text && pendingAttachments.length === 0 && calc === null && contactMedia.length === 0 &&
-                pendingContactCards.length === 0 && soleDoc !== null && isImageMediaDocument(soleDoc);
+                !text && calc === null && contactMedia.length === 0 && pendingContactCards.length === 0 &&
+                ((pendingAttachments.length === 0 && soleDoc !== null && isImageMediaDocument(soleDoc)) ||
+                  (docMedia.length === 0 && singlePendingAttachment?.kind === "image"));
               const isFileOnly =
-                !text && pendingAttachments.length === 0 && calc === null && contactMedia.length === 0 &&
-                pendingContactCards.length === 0 && soleDoc !== null &&
-                !isVoiceMediaDocument(soleDoc) && !isImageMediaDocument(soleDoc) &&
-                !isVideoMediaDocument(soleDoc) && !isStickerMediaDocument(soleDoc);
+                !text && calc === null && contactMedia.length === 0 && pendingContactCards.length === 0 &&
+                ((pendingAttachments.length === 0 && soleDoc !== null &&
+                  !isVoiceMediaDocument(soleDoc) && !isImageMediaDocument(soleDoc) &&
+                  !isVideoMediaDocument(soleDoc) && !isStickerMediaDocument(soleDoc)) ||
+                  (docMedia.length === 0 && singlePendingAttachment?.kind === "file"));
               const isContactOnly =
                 !text && pendingAttachments.length === 0 && docMedia.length === 0 && calc === null &&
-                pendingContactCards.length === 0 && contactMedia.length === 1;
+                ((contactMedia.length === 1 && pendingContactCards.length === 0) ||
+                  (contactMedia.length === 0 && pendingContactCards.length === 1));
               const isFlatMedia = isVoiceOnly || isImageOnly || isFileOnly || isContactOnly;
+              // Unified for both a real message (real ticks) and a
+              // still-pending one (spinner/not-sent icon, same as the
+              // shared non-flat footer below already did) -- so a flat
+              // bubble's OWN footer doesn't itself flip styles once
+              // load() reconciles it, only the ticks glyph updates.
               const flatFooter = (
                 <div className={`flex items-center justify-end gap-1 text-[11px] ${mine ? "text-white/70" : "text-[#989aa6] dark:text-[#adafbb]"}`}>
                   <span>{formatTime(ms)}</span>
-                  {mine && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7.77px] w-3.5" />}
+                  {pending ? (
+                    pending.failed ? <NotSentIcon /> : <SendingSpinner />
+                  ) : (
+                    mine && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7.77px] w-3.5" />
+                  )}
                 </div>
               );
               return (
@@ -2305,65 +2358,82 @@ export default function ChatWindowPage() {
                     >
                       {pendingAttachments.length > 0 && (
                         <div className="mb-1 flex flex-col gap-1.5">
-                          {pendingAttachments.map((a) => (
-                            <div key={a.localId} className="relative overflow-hidden rounded-xl">
-                              {a.kind === "voice" ? (
-                                // 2026-09-03: minimal placeholder pending
-                                // this pending message's own real voice-
-                                // bubble milestone (waveform/scrub/fire-
-                                // popup, see PLAN.md 6.99's own
-                                // implementation order) -- just a mic
-                                // glyph + duration so the optimistic
-                                // bubble isn't a bare generic file badge
-                                // showing "voice-message" as a filename.
-                                <div
-                                  className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 ${
-                                    mine ? "bg-white/15" : "bg-black/5 dark:bg-white/10"
-                                  }`}
-                                >
-                                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-black/10 dark:bg-white/15">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                                      <rect x="9" y="2" width="6" height="11" rx="3" />
-                                      <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
-                                    </svg>
+                          {pendingAttachments.map((a) =>
+                            // 2026-09-03 (Aleksandr, live test: "При
+                            // отправке отображение сначала показывается
+                            // другим, потом меняется" + "отправленное
+                            // голосовое сначала отображается старой
+                            // версией, потом переобувается") -- each
+                            // kind now renders through the SAME shell
+                            // its real (confirmed) docMedia counterpart
+                            // below uses, flat/solid-card sized exactly
+                            // like isVoiceOnly/isImageOnly/isFileOnly
+                            // when this is the message's only content
+                            // (see those flags' own comment above) --
+                            // load()'s reconciliation swap is now a
+                            // like-for-like replacement, not a visual
+                            // change.
+                            a.kind === "voice" ? (
+                              <PendingVoiceBubble
+                                key={a.localId}
+                                mine={mine}
+                                durationSeconds={a.durationSeconds ?? 0}
+                                waveform={a.waveform}
+                                uploading={a.status === "uploading"}
+                                footer={isVoiceOnly ? flatFooter : undefined}
+                              />
+                            ) : a.kind === "image" ? (
+                              <div key={a.localId} className="relative overflow-hidden rounded-xl">
+                                {a.previewUrl && (
+                                  // eslint-disable-next-line @next/next/no-img-element -- a
+                                  // local blob: URL, never a next/image-eligible remote src.
+                                  <img src={a.previewUrl} alt="" className="max-h-64 w-full object-cover" />
+                                )}
+                                {isImageOnly && (
+                                  <span className="pointer-events-none absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded-full bg-black/45 px-2 py-0.5 text-[11px] text-white backdrop-blur-sm">
+                                    <span>{formatTime(ms)}</span>
+                                    {pending?.failed ? <NotSentIcon /> : <SendingSpinner />}
                                   </span>
-                                  <span className="text-[14px] tabular-nums">{formatVoiceTimer(a.durationSeconds ?? 0)}</span>
-                                </div>
-                              ) : a.kind === "image" && a.previewUrl ? (
-                                // eslint-disable-next-line @next/next/no-img-element -- a
-                                // local blob: URL, never a next/image-eligible remote src.
-                                <img src={a.previewUrl} alt="" className="max-h-64 w-full object-cover" />
-                              ) : (
-                                // Pending (not-yet-confirmed) bubble --
-                                // same per-type badge as the sent-message
-                                // row below, no size yet (a.size only
-                                // exists once the upload round-trip
-                                // itself reports it, see the compose-bar
-                                // preview strip's own note).
-                                <div
-                                  className={`flex items-center gap-2.5 rounded-xl px-2.5 py-2 ${
-                                    mine ? "bg-white/15" : "bg-black/5 dark:bg-white/10"
-                                  }`}
-                                >
-                                  {fileKindFromName(a.fileName, a.mimetype) === "pdf" && a.previewUrl ? (
-                                    <PdfPageThumbnail
-                                      src={a.previewUrl}
-                                      className="h-11 w-11 shrink-0 rounded-[12px] object-cover object-top"
-                                      fallback={<ChatFileTypeIcon kind="pdf" className="h-11 w-11" />}
-                                    />
-                                  ) : (
-                                    <ChatFileTypeIcon kind={fileKindFromName(a.fileName, a.mimetype)} className="h-11 w-11" />
-                                  )}
-                                  <span className="truncate text-[14px]">{a.fileName}</span>
-                                </div>
-                              )}
-                              {a.status === "uploading" && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                                  <ChatAttachmentSpinner className="h-6 w-6 text-white" />
-                                </div>
-                              )}
-                            </div>
-                          ))}
+                                )}
+                                {a.status === "uploading" && (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                    <ChatAttachmentSpinner className="h-6 w-6 text-white" />
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div
+                                key={a.localId}
+                                className={`relative overflow-hidden ${
+                                  isFileOnly
+                                    ? `flex w-64 max-w-full items-center gap-2.5 rounded-[18px] px-3 py-2.5 ${
+                                        mine ? "rounded-tr-[6px] bg-[#335ef7] text-white dark:bg-[#009bff]" : "rounded-tl-[6px] bg-white text-[#262a34] dark:bg-[#1a1a1a] dark:text-white"
+                                      }`
+                                    : `flex items-center gap-2.5 rounded-xl px-2.5 py-2 ${mine ? "bg-white/15" : "bg-black/5 dark:bg-white/10"}`
+                                }`}
+                              >
+                                {fileKindFromName(a.fileName, a.mimetype) === "pdf" && a.previewUrl ? (
+                                  <PdfPageThumbnail
+                                    src={a.previewUrl}
+                                    className="h-11 w-11 shrink-0 rounded-[12px] object-cover object-top"
+                                    fallback={<ChatFileTypeIcon kind="pdf" className="h-11 w-11" />}
+                                  />
+                                ) : (
+                                  <ChatFileTypeIcon kind={fileKindFromName(a.fileName, a.mimetype)} className="h-11 w-11" />
+                                )}
+                                <span className="flex min-w-0 flex-1 flex-col gap-1">
+                                  <span className="truncate text-[14px] font-medium">{a.fileName}</span>
+                                  <span className={`text-[12px] ${mine ? "opacity-80" : "opacity-60"}`}>{formatBytes(a.bytes)}</span>
+                                  {isFileOnly && <span className="mt-0.5">{flatFooter}</span>}
+                                </span>
+                                {a.status === "uploading" && (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                    <ChatAttachmentSpinner className="h-6 w-6 text-white" />
+                                  </div>
+                                )}
+                              </div>
+                            ),
+                          )}
                         </div>
                       )}
                       {docMedia.length > 0 && (
@@ -3118,7 +3188,7 @@ export default function ChatWindowPage() {
               ))}
             </div>
           )}
-          <div className="mx-auto flex w-full max-w-[470px] items-end gap-2">
+          <div ref={voiceRowRef} className="mx-auto flex w-full max-w-[470px] items-end gap-2">
             {/* 2026-09-03 (Aleksandr, voice messages): while a recording
                 is in progress the paperclip/textarea pair is replaced by
                 components/chat/voice-message.tsx's own VoiceRecordingBar
@@ -3437,6 +3507,55 @@ export default function ChatWindowPage() {
         </div>
       )}
       {dailyUploadsOpen && <DailyUploadsModal lang={lang} onClose={() => setDailyUploadsOpen(false)} />}
+      {/* 2026-09-03 (Aleksandr, Telegram Desktop reference screenshot)
+          -- clicking anywhere outside the active recording UI used to
+          do nothing at all (voice-message.tsx's own header flagged
+          this as deferred scope); now it asks instead of silently
+          losing the recording or silently doing nothing. */}
+      {discardConfirmOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6"
+          onClick={() => setDiscardConfirmOpen(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-[280px] rounded-2xl bg-[#2c2c2e]/95 p-4 text-center shadow-2xl backdrop-blur-xl"
+          >
+            <p className="text-[15px] font-medium leading-snug text-white">
+              <T
+                uk="Зупинити запис і видалити голосове повідомлення?"
+                en="Stop recording and discard this voice message?"
+                ru="Остановить запись и удалить голосовое сообщение?"
+                de="Aufnahme stoppen und Sprachnachricht verwerfen?"
+                es="¿Detener la grabación y descartar el mensaje de voz?"
+                fr="Arrêter l'enregistrement et supprimer le message vocal ?"
+                pl="Zatrzymać nagrywanie i odrzucić wiadomość głosową?"
+                ptBR="Parar a gravação e descartar a mensagem de voz?"
+                zh="停止录音并放弃这条语音消息？"
+              />
+            </p>
+            <div className="mt-3.5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setDiscardConfirmOpen(false)}
+                className="flex-1 rounded-full bg-white/10 py-2.5 text-[15px] font-medium text-white transition hover:bg-white/15"
+              >
+                <T uk="Ні" en="No" ru="Нет" de="Nein" es="No" fr="Non" pl="Nie" ptBR="Não" zh="否" />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDiscardConfirmOpen(false);
+                  recorder.cancelRecording();
+                }}
+                className="flex-1 rounded-full bg-[#0a84ff] py-2.5 text-[15px] font-semibold text-white transition hover:brightness-110"
+              >
+                <T uk="Видалити" en="Discard" ru="Удалить" de="Verwerfen" es="Descartar" fr="Supprimer" pl="Odrzuć" ptBR="Descartar" zh="放弃" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {contactsPickerOpen && (
         <ContactsPickerModal
           lang={lang}

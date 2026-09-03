@@ -187,7 +187,22 @@ export function useVoiceRecorder(onFinish: (result: VoiceRecordingResult) => voi
         mediaRecorderRef.current = recorder;
         recorder.start();
         startedAtRef.current = Date.now();
-        setState("recording");
+        // 2026-09-03 (Aleksandr, live test: "замок не всегда
+        // срабатывает") -- traced to a second async-gap race, same
+        // family as pendingReleaseRef above but for the LOCK gesture
+        // instead of release: a fast drag-up-to-lock can finish (
+        // onPointerMove already set lockedRef.current = true and
+        // called setState("locked")) WHILE getUserMedia was still
+        // resolving. This continuation used to always setState(
+        // "recording") unconditionally right here, silently
+        // overwriting that already-locked state the instant the mic
+        // finished initializing -- so a lock that visually engaged a
+        // moment earlier would revert back to the plain held-button
+        // state with nothing left to explain why. Reading
+        // lockedRef.current here instead of forcing "recording"
+        // preserves a lock that already happened during the requesting
+        // window.
+        setState(lockedRef.current ? "locked" : "recording");
         setSeconds(0);
         // The gesture already ended while the mic permission/init was
         // still pending (see pendingReleaseRef own declaration above) --

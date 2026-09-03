@@ -79,6 +79,7 @@ import {
   formatVoiceDeleteCountdown,
   isVoiceViewDestroy,
   messageVoiceAttribute,
+  resampleWaveform,
   resolveVoiceDeleteWindow,
   voiceDeleteCountdownFraction,
   voiceDurationSeconds,
@@ -94,6 +95,27 @@ import {
 } from "@/lib/voice-playback-store";
 
 const WAVEFORM_BARS = 32;
+
+// 2026-09-03 (Aleksandr, live test: "у голосовых динамическая длина в
+// зависимости от того на сколько они сек... если сообщение 3 сек, то
+// UI будет коротеньким") -- every bubble used to render at a single
+// fixed w-64 (256px) no matter the clip length, same width for a 1s
+// "ok" and a 2min explanation. Scales linearly from a 180px floor (very
+// short clips, e.g. VOICE_MIN_MS-length taps) up to a 288px ceiling
+// reached at 40s+ -- not itself a confirmed pixel curve from any
+// reference, just a reasonable Telegram/WhatsApp-style feel; tune if it
+// looks off.
+const VOICE_BUBBLE_MIN_WIDTH = 180;
+const VOICE_BUBBLE_MAX_WIDTH = 288;
+const VOICE_BUBBLE_WIDTH_CAP_SECONDS = 40;
+
+function voiceBubbleWidthPx(totalSeconds: number): number {
+  if (!(totalSeconds > 0)) return VOICE_BUBBLE_MIN_WIDTH;
+  const t = Math.min(totalSeconds, VOICE_BUBBLE_WIDTH_CAP_SECONDS);
+  return Math.round(
+    VOICE_BUBBLE_MIN_WIDTH + (t / VOICE_BUBBLE_WIDTH_CAP_SECONDS) * (VOICE_BUBBLE_MAX_WIDTH - VOICE_BUBBLE_MIN_WIDTH),
+  );
+}
 // 120 min after first open -- CONFIRMED copy (PLAN.md 6.97's fire-popup
 // capture). Only used as a fallback when a VIEW_DESTROY doc doesn't
 // itself carry a `ttlSeconds` yet (the local optimistic pre-echo start,
@@ -191,6 +213,21 @@ export function VoiceMessageBubble({
   const isCurrent = playback.entry?.docId === doc._id;
   const playing = isCurrent && playback.playing;
   const elapsed = isCurrent ? playback.elapsed : 0;
+  // 2026-09-03 (Aleksandr, live test: "прогресс в голосовых
+  // показывается криво, это сообщение 8 сек и на 6-ой секунде всего
+  // одна палочка заполнилась") -- traced to a REAL production doc
+  // whose own attribute-audio.duration came back 0 (confirmed live via
+  // the chats/messages API, not guessed): totalSeconds > 0 ? ... : 0
+  // below made playedFraction permanently 0 whenever that happens, so
+  // only bar index 0 (0/31 <= 0) ever counted as "played" no matter how
+  // far along playback actually was -- exactly what he saw. The
+  // <audio> element's own `duration` (lib/voice-playback-store.ts,
+  // durationchange) is the browser's REAL decode of the file and isn't
+  // subject to whatever server-side probing produced that 0, so it
+  // wins whenever this clip is the one currently loaded and its
+  // metadata has actually arrived.
+  const effectiveTotalSeconds =
+    isCurrent && Number.isFinite(playback.duration) && playback.duration > 0 ? playback.duration : totalSeconds;
 
   const waveformRef = useRef<HTMLDivElement | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
@@ -294,7 +331,7 @@ export function VoiceMessageBubble({
     }
   }
 
-  const playedFraction = totalSeconds > 0 ? Math.min(1, elapsed / totalSeconds) : 0;
+  const playedFraction = effectiveTotalSeconds > 0 ? Math.min(1, elapsed / effectiveTotalSeconds) : 0;
   // 2026-09-03 (Aleksandr, second live test round: "не идет время
   // голосового сообщения") -- this used to count DOWN from totalSeconds
   // (a "time remaining" style timer). When totalSeconds itself was not
@@ -307,7 +344,7 @@ export function VoiceMessageBubble({
   // depends on the <audio> element own currentTime, which is always
   // correct once playback has actually started, so it can not get
   // stuck this way even when totalSeconds is wrong or missing.
-  const timerLabel = playing || elapsed > 0 ? formatVoiceTimer(elapsed) : formatVoiceTimer(totalSeconds);
+  const timerLabel = playing || elapsed > 0 ? formatVoiceTimer(elapsed) : formatVoiceTimer(effectiveTotalSeconds);
 
   const showUnopenedDot = !mine && !opened;
 
@@ -323,7 +360,8 @@ export function VoiceMessageBubble({
 
   return (
     <div
-      className={`relative flex w-64 max-w-full flex-col gap-1.5 overflow-hidden rounded-[18px] py-2.5 pl-3 pr-2.5 ${
+      style={{ width: voiceBubbleWidthPx(effectiveTotalSeconds) }}
+      className={`relative flex max-w-full flex-col gap-1.5 overflow-hidden rounded-[18px] py-2.5 pl-3 pr-2.5 ${
         mine ? "rounded-tr-[6px] bg-[#335ef7] text-white dark:bg-[#009bff]" : "rounded-tl-[6px] bg-white text-[#262a34] dark:bg-[#1a1a1a] dark:text-white"
       }`}
     >
@@ -449,6 +487,77 @@ export function VoiceMessageBubble({
       </div>
 
       {footer}
+    </div>
+  );
+}
+
+// 2026-09-03 (Aleksandr, live test: "отправленное голосовое сначала
+// отображается старой версией, потом переобувается, надо чтобы сразу
+// было с правильным UI") -- app/chats/[chatId]/page.tsx used to render
+// a just-recorded, not-yet-confirmed voice attachment as a bare mic-
+// glyph-in-a-pill placeholder (PendingAttachment carries durationSeconds
+// + waveform specifically so a real player COULD be shown here, per
+// that type's own comment, but nothing used them yet) -- then swapped
+// to this file's real VoiceMessageBubble the instant load()'s poll
+// reconciled the real message in, a visible "reshoe". This renders the
+// exact same card shell (width, colors, play glyph, waveform, timer) so
+// that swap is now a no-op visually -- just no playback wiring (there's
+// no fileReference/URL yet while `status === "uploading"`) and no fire-
+// badge/delete-window (those only ever apply to a real doc).
+export function PendingVoiceBubble({
+  mine,
+  durationSeconds,
+  waveform,
+  uploading,
+  footer,
+}: {
+  mine: boolean;
+  durationSeconds: number;
+  waveform?: number[];
+  uploading: boolean;
+  footer?: ReactNode;
+}) {
+  const bars = waveform && waveform.length > 0 ? resampleWaveform(waveform, WAVEFORM_BARS) : new Array<number>(WAVEFORM_BARS).fill(0.35);
+
+  return (
+    <div
+      style={{ width: voiceBubbleWidthPx(durationSeconds) }}
+      className={`relative flex max-w-full flex-col gap-1.5 overflow-hidden rounded-[18px] py-2.5 pl-3 pr-2.5 ${
+        mine ? "rounded-tr-[6px] bg-[#335ef7] text-white dark:bg-[#009bff]" : "rounded-tl-[6px] bg-white text-[#262a34] dark:bg-[#1a1a1a] dark:text-white"
+      }`}
+    >
+      <div className="flex items-center gap-2.5">
+        <span
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+            mine ? "bg-white text-[#335ef7]" : "bg-[#335ef7] text-white dark:bg-[#0c8ce9]"
+          }`}
+        >
+          <PlayGlyph className="ml-0.5 h-4 w-4" />
+        </span>
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <div className="flex h-6 items-center gap-[2.5px]">
+            {bars.map((h, i) => (
+              <span
+                key={i}
+                className={`w-[2.5px] shrink-0 rounded-full ${mine ? "bg-white/35" : "bg-black/20 dark:bg-white/25"}`}
+                style={{ height: `${Math.round(h * 100)}%` }}
+              />
+            ))}
+          </div>
+          <div className={`flex items-center gap-1.5 text-[12px] tabular-nums ${mine ? "opacity-85" : "opacity-60"}`}>
+            <span>{formatVoiceTimer(durationSeconds)}</span>
+          </div>
+        </div>
+      </div>
+      {footer}
+      {uploading && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/20">
+          <svg className="h-5 w-5 animate-spin text-white" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" opacity="0.3" />
+            <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+          </svg>
+        </div>
+      )}
     </div>
   );
 }
