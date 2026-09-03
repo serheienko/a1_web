@@ -6118,3 +6118,50 @@ tsc-clean.
    already uses, in place of the bare "Завантаження…" line.
 
 tsc-clean.
+
+### 6.121
+
+2026-09-04 (Aleksandr, Telegram Desktop reference recording): the
+voice-record drag-to-lock badge above VoiceRecordButton (desktop mouse
+gesture only -- touch skips the whole drag phase, see voice-recorder.ts's
+own `autoLock` comment) grew from a flat always-closed lock circle into
+a taller capsule matching the reference: a continuously pulsing
+chevron-up (new lock-arrow-pulse keyframes, app/globals.css -- this
+file's one non-hover-triggered animation, with its own
+prefers-reduced-motion opt-out) that fades out as the drag nears the
+lock threshold, above a lock glyph that renders OPEN below
+lockProgress===1 and CLOSED at/after it. Deliberately simplified per
+Aleksandr's own "это уже сильно жестко, там анимация... не знаю" -- no
+sliding capsule track, just fade/rise + the icon swap, driven by the
+same lockProgress the gesture already tracks.
+
+tsc-clean.
+
+### 6.122
+
+2026-09-04 (Aleksandr, video sending 3 photos together: "фото-то
+отправлены, но они не видны... показывается нерелевантное превью, а
+потом уже становится другой вид") -- two related bugs in
+app/chats/[chatId]/page.tsx:
+
+1. A just-sent multi-photo message briefly rendered as a totally empty
+   colored bubble (only the time/tick visible, no images at all).
+   Traced to the poll handler's pending->real reconciliation matching
+   by sender+text+date alone and immediately revoking the pending
+   bubble's local blob: previews -- but chat-server can return the
+   message row itself slightly before its media documents are
+   attached, leaving nothing to render for however long that gap
+   lasts. Reconciliation now also requires the candidate real message's
+   messageDocumentMedia() count to already meet the pending bubble's
+   own ready-attachment count before treating it as matched.
+2. While still uploading, 2+ photos rendered as N stacked full-width
+   rows and only picked up the real ChatPhotoGrid album layout once
+   reconciled -- a visible reshuffle on top of bug #1's own delay. Runs
+   of 2+ consecutive pending image attachments now group into that same
+   ChatPhotoGrid layout immediately, off local previewUrl blobs
+   (pendingImageGroupStartId/SkipIds, mirroring the confirmed-message
+   imageGroupStartId/SkipIds pass this same file already had), so the
+   pending bubble already looks like its eventual real self and
+   reconciliation only swaps `src` underneath an unchanged layout.
+
+tsc-clean.
