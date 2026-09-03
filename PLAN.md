@@ -5585,3 +5585,47 @@ tsc-clean. Not yet re-verified live -- needs a push + a real two-way
 test (Aleksandr sending from one account, opening from another) to
 confirm the poll actually surfaces `viewed` the way the spec's glossary
 line implies.
+
+
+### 6.108 Voice messages: mobile web's recording gesture simplified to tap-to-start (2026-09-03)
+
+Aleksandr sent two screen recordings of mobile Safari/Brave testing
+voice recording -- confirmed a real, reproducible bug: iOS's own
+long-press text-selection callout ("Copy / Find Selection / Look Up")
+popped up mid-gesture instead of our press-hold handling, because
+nothing told the browser to keep its own touch gesture recognizers off
+the record button. Combined with how awkward press-and-hold + drag-up-
+to-lock is to do one-handed on a phone, he asked for a ChatGPT-style
+model instead: one short tap starts recording immediately, then just
+two buttons (Cancel / Send), no lock icon on mobile at all.
+
+Implementation: `useVoiceRecorder`'s `startPress` (voice-recorder.ts)
+takes a new `opts.autoLock` flag -- `VoiceRecordButton` passes
+`autoLock: pointerType === "touch"`, which sets `lockedRef.current =
+true` before the async `getUserMedia` call so state resolves straight
+to "locked" (skipping the whole unlocked/drag phase) the instant the
+mic initializes; onPointerMove/onPointerUp already both no-op once
+locked, so releasing right after the tap correctly does nothing.
+`VoiceRecordButton` also gets `touch-action:none` + `select-none` +
+`-webkit-touch-callout:none` + an `onContextMenu` guard on the button
+itself (the actual fix for the callout bug), and suppresses the
+now-pointless lock badge for a touch press. `VoiceRecordingBar`'s
+locked layout drops the pause/resume button for touch (kept for
+desktop's manual drag-to-lock path), replaced with the same red
+recording dot the unlocked bar already uses. Desktop mouse behavior is
+completely untouched, scoped to `pointerType === "touch"` only.
+
+Two items from the same live-test message still open: the "timer/dots
+don't show" complaint (plausibly the SAME root cause -- when the
+browser's callout hijacked the gesture, the component likely got stuck
+mid-transition; should now be fixed as a side effect, needs a live
+re-test to confirm) and a real live-updating waveform/equalizer during
+ACTIVE recording (he compared to Telegram's and said "у нас тоже так в
+приложении" -- but a source check of the Flutter app found it does NOT
+have bar-based live waveform, only the same sound-reactive blob this
+web app already has, so that belief may be off; holding off on this
+piece until his promised Telegram reference screenshot arrives rather
+than guess at a redesign).
+
+tsc-clean. Not yet re-verified live -- needs a push + a real phone
+test.
