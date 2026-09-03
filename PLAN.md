@@ -5866,3 +5866,26 @@ simulation.
 
 tsc-clean.
 
+### 6.114
+
+2026-09-03 (Aleksandr, screenshot of a post card on his own profile's
+Дописи tab: "тут остался баг с белой подгрузкой, сделай как и везде
+через блюр"). app/u/[username]/page.tsx's own published-posts list
+never passed `avatarBlurDataUrl` to its <PostCard> calls -- a
+deliberate earlier tradeoff (comment right there: "would mean one
+extra generateAvatarBlurDataUrl() call per post, PostCard already
+degrades cleanly to the generic shimmer without one"). In practice
+that read as a flat white flash while the avatar loaded, not a
+shimmer, and the "extra call" reasoning missed something free: every
+post on this list has the SAME author -- the profile being viewed --
+so the page's own `avatarBlurDataUrl` (already computed once, for the
+profile header itself, line 289) already covers every post's author
+avatar too. Threaded it through -- zero extra generateAvatarBlurDataUrl
+calls, not one per post.
+
+(components/profile-tabs.tsx's own drafts/scheduled section, the other
+place posts render on a profile, already passed avatarBlurDataUrl
+correctly -- this gap was published posts only.)
+
+tsc-clean.
+
