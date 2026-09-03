@@ -259,10 +259,32 @@ export default function MyActivityPage() {
         ))}
       </div>
 
-      {activeState === "loading" && (
-        <p className="mt-6 text-sm text-neutral-500 dark:text-neutral-400">
-          <T uk="Завантаження…" en="Loading…" ru="Загрузка…" de="Wird geladen…" es="Cargando…" fr="Chargement…" pl="Ładowanie…" ptBR="Carregando…" zh="加载中…" />
-        </p>
+      {/* 2026-09-03 (Aleksandr: "Тут во всех вкладках тоже показывай
+          подгрузку skeleton load, как и везде") -- was a bare
+          "Завантаження…" line for all three tabs; now the same
+          animate-pulse gray-block language app/jobs/loading.tsx and
+          components/chats-flyout.tsx's ChatRowSkeleton already
+          established elsewhere in this app. "mine"/"posts" render post
+          cards (PostCard), so they get app/jobs/loading.tsx's own
+          h-32-block shape; "users" renders a single-line avatar+name
+          row, so it gets a one-line variant of ChatRowSkeleton (that
+          row has no second text line to fake). */}
+      {activeState === "loading" && tab !== "users" && (
+        <ul className="mt-6 flex flex-col gap-3" aria-hidden="true">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <li key={i} className="h-32 animate-pulse rounded-xl bg-neutral-200 dark:bg-neutral-800" />
+          ))}
+        </ul>
+      )}
+      {activeState === "loading" && tab === "users" && (
+        <div className="mt-6 flex flex-col gap-1" aria-hidden="true">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 rounded-xl px-2 py-2.5">
+              <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-neutral-200 dark:bg-neutral-800" />
+              <div className="h-4 w-1/3 animate-pulse rounded bg-neutral-200 dark:bg-neutral-800" />
+            </div>
+          ))}
+        </div>
       )}
 
       {activeState === "signed-out" && (
