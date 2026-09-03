@@ -65,10 +65,28 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         size,
       });
 
+      // 2026-09-03 (Aleksandr, still happening after §6's earlier retry
+      // fix: "Периодически отваливаются аватары все равно"): a SECOND,
+      // independent bug in the same symptom -- confirmed live, not
+      // guessed, by navigating straight to this route in Chrome and
+      // reading where it actually redirects: the real S3 URL carries
+      // `X-Amz-Expires=120` (a 2-MINUTE signature). This route was
+      // telling every cache (browser + any CDN in front of it) to keep
+      // reusing that same redirect for `s-maxage=86400` -- 24 HOURS --
+      // with a 7-day stale-while-revalidate on top. Any cached hit past
+      // the real 2-minute window points at an already-expired,
+      // now-403 S3 URL, which is exactly next/image's unrecoverable
+      // broken-image state -- and a manual reload "fixes" it only when
+      // it happens to bypass whatever cached it. 45s (well under the
+      // observed 120s, no stale-while-revalidate so a cache never serves
+      // a response past its own freshness window) keeps most of the
+      // original caching benefit for a page with several images loading
+      // in the same second, without ever handing out a redirect that
+      // can outlive the URL it points to.
       return NextResponse.redirect(downloadUrl, {
         status: 302,
         headers: {
-          "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800",
+          "Cache-Control": "public, max-age=45, s-maxage=45",
         },
       });
     } catch (err) {
