@@ -5242,3 +5242,31 @@ bar (once Aleksandr's "more current" layout reference lands) -> reply-
 to-voice UI. Each milestone gets its own tsc-clean commit rather than
 one giant commit, same discipline as every other multi-file feature in
 this log.
+
+### 6.100 Voice messages: recording engine + compose UI + optimistic send shipped (2026-09-03)
+
+First three milestones of §6.99's implementation order landed, each its
+own tsc-clean commit: `53be589` (recording engine `components/chat/
+voice-recorder.ts` -- mic capture, gesture state machine, live
+amplitude sampling; compose UI `components/chat/voice-message.tsx` --
+VoiceRecordButton/VoiceRecordingBar/VoiceMicDeniedNotice + the ported
+Flutter blob canvas; `resampleWaveform` exported from `lib/a1/chat-
+schemas.ts` for the recorder's local waveform), `46586a6` (wired into
+`app/chats/[chatId]/page.tsx`'s compose bar -- the mic button is now
+VoiceRecordButton, the whole row swaps for VoiceRecordingBar while
+recording; optimistic send reuses `PendingAttachment` with a new
+`"voice"` kind rather than a separate `pendingVoice` field, so it rides
+the exact same uploading/ready/error lifecycle and `retryOne`/
+`attemptSend` machinery text/photo/file sends already have --
+`voiceBlobsRef` keeps the raw Blob per pending bubble so a failed
+UPLOAD, not just a failed send POST, can be retried from the same
+audio instead of having nothing left to resend).
+
+Deliberately NOT done yet, still per §6.99's own order: the real voice
+bubble (a sent/received voice note currently renders as a generic file-
+attachment row -- functional, downloadable, just not the waveform/
+scrub/fire-popup/ttl-border/blue-dot player), `messages.
+updateContentOpened` wiring, the now-playing bar (blocked on Aleksandr's
+promised "more current" layout reference), reply-to-voice UI, and the
+Figma "voice + text combine" compose card (voice-message.tsx's own
+header comment already flags this scope cut).
