@@ -17,7 +17,7 @@
 // ticks) vs load-bearing on the existing polling transport.
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -38,7 +38,7 @@ import {
   messageTickState,
   type ChatMessage,
 } from "@/lib/a1/chat-schemas";
-import { buildMediaProxyUrl } from "@/lib/a1/media-proxy";
+import { buildMediaProxyUrl, buildMediaDownloadUrl } from "@/lib/a1/media-proxy";
 import {
   ChatAttachmentSpinner,
   ChatBackArrow,
@@ -55,6 +55,7 @@ import {
 import { DailyUploadsModal } from "@/components/daily-uploads-modal";
 import { ContactMessageCard, type ContactCardSummary } from "@/components/chat/contact-message-card";
 import { ContactsPickerModal, type PickedContact } from "@/components/chat/contacts-picker-modal";
+import { ChatPhotoViewer, type ChatViewerImage } from "@/components/chat/photo-viewer";
 
 type LoadState = "loading" | "signed-out" | "error" | "ready";
 
@@ -259,6 +260,23 @@ const GREETING_TEXT: Record<Locale, string> = {
   zh: "👋 你好！",
 };
 
+// Photo-viewer header (Aleksandr, photo-viewer spec: "сверху повинно
+// бути ім'я") -- the sender label for a bubble the viewer opened from
+// `mine` (headerTitle/headerUsername are only ever the OTHER
+// participant, see their own comments above -- there's no "my own
+// display name" anywhere on this page otherwise).
+const YOU_LABEL_TEXT: Record<Locale, string> = {
+  uk: "Ви",
+  en: "You",
+  ru: "Вы",
+  de: "Du",
+  es: "Tú",
+  fr: "Vous",
+  pl: "Ty",
+  ptBR: "Você",
+  zh: "你",
+};
+
 // Daily upload quota (Aleksandr, 2026-09-02: "лимит по daily uploads
 // на 1 пользователя 20 мб день, на вэбе надо тоже прокинуть... Возьми
 // всю логику с моб версии") -- the byte figures and reset countdown
@@ -373,6 +391,12 @@ export default function ChatWindowPage() {
   const [pendingContacts, setPendingContacts] = useState<PickedContact[]>([]);
   const [contactSummaries, setContactSummaries] = useState<Record<string, ContactCardSummary>>({});
   const [openingChatFor, setOpeningChatFor] = useState<string | null>(null);
+  // Photo-viewer feature (2026-09-03) -- viewerIndex is this chat's own
+  // position into chatViewerImages (below), null when the viewer is
+  // closed; highlightedMessageId drives the "Show in chat" scroll+flash
+  // (see handleShowInChat below), cleared automatically after a beat.
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<number | null>(null);
   const attachMenuRef = useRef<HTMLDivElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1010,6 +1034,88 @@ export default function ChatWindowPage() {
     }
   }
 
+  // Photo-viewer feature (2026-09-03) -- every image attachment across
+  // REAL messages (never pendingMessages -- an optimistic bubble's own
+  // pendingAttachments are local blob: previews with no server-side
+  // docId/fileReference yet, nothing to open a durable viewer onto, same
+  // reasoning as messageDocumentMedia() itself only ever reading
+  // `msg.media`), in chat order, each carrying enough to render + save +
+  // delete + label itself with zero further lookups.
+  const chatViewerImages: ChatViewerImage[] = useMemo(() => {
+    const out: ChatViewerImage[] = [];
+    for (const msg of messages) {
+      const mine = myUserId !== null && msg.fromId === myUserId;
+      const senderLabel = mine ? YOU_LABEL_TEXT[lang] : headerTitle || "—";
+      const ms = messageDateMs(msg);
+      const numericId = Number(msg._id);
+      for (const doc of messageDocumentMedia(msg)) {
+        if (!isImageMediaDocument(doc)) continue;
+        const fileName = mediaDocumentFileName(doc);
+        out.push({
+          key: `${msg._id}:${doc._id}`,
+          docId: doc._id,
+          url: buildMediaProxyUrl(doc),
+          downloadUrl: buildMediaDownloadUrl(doc, fileName || undefined),
+          fileName,
+          messageId: numericId,
+          senderLabel,
+          dateMs: ms,
+        });
+      }
+    }
+    return out;
+  }, [messages, myUserId, lang, headerTitle]);
+
+  function openViewerForDoc(messageId: string, docId: string) {
+    const i = chatViewerImages.findIndex((im) => im.messageId === Number(messageId) && im.docId === docId);
+    if (i >= 0) setViewerIndex(i);
+  }
+
+  // "Show in chat" (viewer's "•••" menu) -- closes the viewer, scrolls
+  // the source message into view, and flashes an outline on it for
+  // ~1.5s. Relies on the `data-message-id` attribute the bubble below
+  // carries for exactly this.
+  function handleShowInChatFromViewer(messageId: number) {
+    setViewerIndex(null);
+    window.requestAnimationFrame(() => {
+      const el = document.querySelector(`[data-message-id="${messageId}"]`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      setHighlightedMessageId(messageId);
+      window.setTimeout(() => {
+        setHighlightedMessageId((cur) => (cur === messageId ? null : cur));
+      }, 1500);
+    });
+  }
+
+  // Reply (viewer's "•••" menu) -- deliberately minimal, see photo-
+  // viewer.tsx's own header comment on why: just closes the viewer and
+  // focuses the compose box, same as tapping it manually would.
+  function handleReplyFromViewer() {
+    setViewerIndex(null);
+    window.requestAnimationFrame(() => textareaRef.current?.focus());
+  }
+
+  // Delete (viewer's bottom bar + "•••" menu, both share this) -- always
+  // revoke:false (delete-for-me only, see app/api/chats/delete/route.ts's
+  // own header for the explicit scope this was cut down to). Removing
+  // the message from local `messages` state here is what shrinks the
+  // viewer's own `images` prop, which its own effect reacts to (auto-
+  // advance / auto-close) -- no need to duplicate that logic here.
+  const handleDeleteChatMessage = useCallback(
+    async (messageId: number) => {
+      const res = await authFetch("/api/chats/delete", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ chatId, messageIds: [messageId] }),
+      });
+      if (!res.ok) {
+        throw new Error("delete_failed");
+      }
+      setMessages((prev) => prev.filter((m) => Number(m._id) !== messageId));
+    },
+    [chatId],
+  );
+
   // Rendered list: real messages + any not-yet-reconciled optimistic
   // ones, re-sorted by date so a pending bubble (timestamped "now" the
   // moment it was created) always lands at the end where it belongs,
@@ -1310,9 +1416,17 @@ export default function ChatWindowPage() {
                       role={pending ? "button" : undefined}
                       tabIndex={pending ? 0 : undefined}
                       onClick={pending ? () => setOpenPendingId(pending.localId) : undefined}
-                      className={`animate-message-in max-w-[78%] rounded-[18px] px-3 py-2 text-[17px] leading-snug ${pending ? "cursor-pointer" : ""} ${
+                      // data-message-id + the outline below are the
+                      // photo-viewer's "Show in chat" target (see
+                      // handleShowInChatFromViewer above) -- undefined
+                      // for a pending bubble, which has no real message
+                      // id to scroll back to yet.
+                      data-message-id={pending ? undefined : msg._id}
+                      className={`animate-message-in max-w-[78%] rounded-[18px] px-3 py-2 text-[17px] leading-snug outline-offset-2 outline-[#335ef7] transition-[outline-color,outline-offset] duration-500 ${pending ? "cursor-pointer" : ""} ${
                         mine ? "rounded-tr-[6px] bg-[#335ef7] text-white dark:bg-[#009bff]" : "rounded-tl-[6px] bg-white text-[#262a34] dark:bg-[#1a1a1a] dark:text-white"
-                      } ${pending?.failed ? "opacity-70" : ""}`}
+                      } ${pending?.failed ? "opacity-70" : ""} ${
+                        !pending && highlightedMessageId === Number(msg._id) ? "outline outline-2" : "outline-0"
+                      }`}
                     >
                       {pendingAttachments.length > 0 && (
                         <div className="mb-1 flex flex-col gap-1.5">
@@ -1351,7 +1465,8 @@ export default function ChatWindowPage() {
                                 key={doc._id}
                                 src={buildMediaProxyUrl(doc)}
                                 alt=""
-                                className="max-h-64 w-full rounded-xl object-cover"
+                                onClick={() => openViewerForDoc(msg._id, doc._id)}
+                                className="max-h-64 w-full cursor-pointer rounded-xl object-cover transition hover:opacity-90"
                               />
                             ) : (
                               <a
@@ -1812,6 +1927,18 @@ export default function ChatWindowPage() {
             )
           }
           onClose={() => setContactsPickerOpen(false)}
+        />
+      )}
+      {viewerIndex !== null && chatViewerImages[viewerIndex] && (
+        <ChatPhotoViewer
+          lang={lang}
+          images={chatViewerImages}
+          index={viewerIndex}
+          onIndexChange={setViewerIndex}
+          onClose={() => setViewerIndex(null)}
+          onShowInChat={handleShowInChatFromViewer}
+          onReply={handleReplyFromViewer}
+          onDelete={handleDeleteChatMessage}
         />
       )}
     </div>
