@@ -423,7 +423,7 @@ export function decodeBase64Waveform(encoded: string | undefined | null): number
   return decode5BitWaveform(bytes);
 }
 
-function resampleWaveform(samples: number[], targetCount: number): number[] {
+export function resampleWaveform(samples: number[], targetCount: number): number[] {
   if (samples.length === targetCount) return samples.slice();
   if (samples.length === 0) return new Array(targetCount).fill(0);
   if (samples.length === 1) return new Array(targetCount).fill(samples[0]);
