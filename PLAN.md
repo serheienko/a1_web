@@ -5676,3 +5676,73 @@ confirm the backend actually stores and echoes back `attribute-audio`
 the same way it already does `attribute-filename` (reasoned to be very
 likely, given both go through the identical generic passthrough, but
 genuinely unconfirmed until tested).
+
+### 6.110
+
+2026-09-03 (Aleksandr, fourth live-test round -- fresh screen recording
+from the mobile-web tap-to-record flow shipped in 6.108, dark mode):
+four real bugs in one recording, all fixed.
+
+1. Mic icon animating "by itself" continuously. Root cause:
+   `.group:hover .animate-mic-pulse` (app/globals.css) was the only
+   `.group:hover` animation in the whole file declared `infinite` --
+   every other icon here is one-shot by convention (see the photo-
+   viewer-icons comment right above it). Touch devices set `:hover` on
+   tap and never clear it (no mouseleave event ever fires), so with
+   `infinite` the pulse just ran forever after the very first press.
+   Dropped `infinite` to match the rest of the file -- it now plays
+   once per press/hover and settles.
+
+2. Waveform bars spilling past the bubble's right edge. Root cause:
+   all 32 bars were a fixed `w-[2.5px] shrink-0` -- mandatory
+   min-content width 157.5px (32 bars + 31 gaps @ 2.5px) -- inside a
+   bubble as narrow as 180px (voiceBubbleWidthPx's own floor, 6.106),
+   already sharing that width with a 36px play button and, when a
+   delete window applies, a 28px fire badge. `shrink-0` means the row
+   refuses to shrink below that 157.5px no matter how little room is
+   left, so it overflows. Switched every bar to `flex-1` (with a
+   1-3px clamp) so the row's total width can never exceed its
+   container -- it always divides whatever space IS available across
+   the 32 bars instead of demanding a fixed amount. Same fix applied
+   to PendingVoiceBubble's own waveform row (identical markup, same
+   bug). Added `overflow-hidden` on both rows as a second line of
+   defense.
+
+3. "Slide to cancel" hint text flashing on mobile
+   ("пишется сначала, что типа слева сделайте свайп влево ... На
+   мобильной версии надо скрыть ... На десктопе пусть будет"). Root
+   cause: `VoiceRecordingBar`'s unlocked branch already had an
+   `isTouch` check picking the RIGHT copy key (`slideToCancel`) but
+   still rendered it -- and touch always passes through this branch
+   for one render (state: requesting -> recording -> locked, autoLock
+   only lands it in the locked bar a beat later) even though the
+   gesture it describes doesn't exist on touch. Kept the slot (so the
+   row doesn't reflow) but only render the text for `!isTouch`, kept
+   as-is for desktop per his explicit "пусть будет, будем тестировать".
+
+4. Play button's glyph an "odd" blue in dark mode
+   ("непонятным таким синим цветом ... таким же ровно цветом, как и
+   заливка самого сообщения ... этот цвет 009BFF"). Root cause: the
+   `mine`-side play button (white circle, inverted from the base
+   blue-circle/white-glyph design back in 6.106's third round so it
+   wouldn't go invisible blue-on-blue) had its glyph color hardcoded to
+   the LIGHT-mode accent `#335ef7` with no dark-mode variant at all --
+   even though the `mine` bubble itself already switches to `#009bff`
+   in dark mode (6.106). So in dark mode the glyph stayed frozen at the
+   light-mode shade instead of matching its own bubble, which is what
+   read as "some odd blue". Added the missing `dark:text-[#009bff]` --
+   circle stays white for contrast, glyph color now always matches the
+   bubble's own accent in either theme. Same fix in PendingVoiceBubble.
+
+Not a code bug, needs no fix: the SAME recording also showed several
+older "Привет" voice bubbles with flat/uniform waveforms -- those were
+all sent before 6.109's upload-time waveform fix landed (he confirmed
+pushing it, then recorded this video against the live build), so they
+never had real waveform data to decode in the first place and fall
+back to the flat placeholder by design (`decodeWaveformBars` ->
+`new Array(WAVEFORM_BARS).fill(0.35)`). Nothing to backfill; a NEW
+voice message recorded after this round's push is what actually tests
+6.109.
+
+tsc-clean.
+
