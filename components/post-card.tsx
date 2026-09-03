@@ -199,12 +199,23 @@ export function PostCard({
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-3">
           <h2 className="min-w-0 text-lg font-medium text-neutral-900 dark:text-neutral-50">
-            {/* line-clamp-3, no `block` utility alongside it -- see the
-                line-clamp-6 comment below on post.contentText for why:
-                line-clamp's own `display: -webkit-box` is what makes
-                -webkit-line-clamp actually truncate on real Safari/iOS,
-                and a `block` utility on the same element would win the
-                compiled `display` property and silently undo that. */}
+            {/* line-clamp-3 on sm+, no `block` utility alongside it at
+                that breakpoint -- see the line-clamp-6 comment below on
+                post.contentText for why: line-clamp's own `display:
+                -webkit-box` is what makes -webkit-line-clamp actually
+                truncate on real Safari/iOS, and an UNPREFIXED `block`
+                utility on the same element would win the compiled
+                `display` property at every size and silently undo that.
+                2026-09-03 (Aleksandr, live mobile screenshot: "В моб
+                версии подрезай длинный текст через троеточие, чтобы
+                помещался с беджами" -- a long title's 3-line wrap could
+                push past/crowd the status badge on a narrow mobile
+                column): below sm, `block truncate` wins instead (both
+                unprefixed, same bucket as `sm:line-clamp-3` sits in its
+                own later media-query bucket, so it doesn't fight
+                line-clamp's display at sm+ -- only replaces the default
+                `inline`/`inline-block` an <a>/<button> would otherwise
+                have below sm, which text-overflow:ellipsis needs). */}
             {/* 2026-08-30, live-testing feedback: "не надо чтобы заголовок
                 подчеркивался линией при наведении на пост в других местах,
                 линия только при наведении на сам заголовок" -- hover:underline
@@ -224,14 +235,14 @@ export function PostCard({
               <button
                 type="button"
                 onClick={onOpen}
-                className="text-left cursor-pointer line-clamp-3 after:absolute after:inset-0 after:z-0 after:content-['']"
+                className="text-left cursor-pointer block truncate sm:line-clamp-3 after:absolute after:inset-0 after:z-0 after:content-['']"
               >
                 <span className="hover:underline">{post.title}</span>
               </button>
             ) : (
               <Link
                 href={href}
-                className="line-clamp-3 after:absolute after:inset-0 after:z-0 after:content-['']"
+                className="block truncate sm:line-clamp-3 after:absolute after:inset-0 after:z-0 after:content-['']"
               >
                 <span className="hover:underline">{post.title}</span>
               </Link>
