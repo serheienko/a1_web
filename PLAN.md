@@ -4378,3 +4378,55 @@ ever "fixed" it by chance (whenever it happened to bypass whatever had
 cached the stale redirect). Now capped at 45s, no stale-while-revalidate.
 
 One commit, tsc-clean.
+
+### 6.88 Chats: full-screen photo viewer for image attachments (2026-09-03)
+
+Aleksandr, off 3 screenshots of a native full-screen photo viewer: "в
+чатах сделай так, чтобы фотографии можно було открывати крупним" plus
+a detailed spec for the bottom bar, "•••" menu, delete confirmation and
+a fading page counter. Built as three separate pieces:
+
+- **Backend** (app/api/chats/delete/route.ts, app/api/media/[docId]/
+  download/route.ts, both new): delete calls messages.deleteMessages
+  with `revoke: false` ALWAYS -- Aleksandr's own live correction
+  mid-spec ("удалить для меня — просто нажми... Сделаем только удалить
+  для меня") rules out the "for everyone" branch chat-server's own
+  schema exposes; this route never accepts one from the client. There
+  is no "delete one attachment" primitive on chat-server -- only whole
+  messages -- so deleting a photo here deletes the message it came
+  from, same as the reference app. download/ resolves media.getUrl
+  server-side (same 3-attempt retry as the existing /api/media proxy)
+  and streams the bytes back itself with a real
+  `Content-Disposition: attachment` header, because the existing proxy
+  route's cross-origin redirect to S3 means a plain `<a download>`
+  doesn't reliably force a save.
+- **components/chat/photo-viewer.tsx** (new): the actual lightbox --
+  side prev/next arrows placed beside the photo, not overlapping it
+  (Aleksandr: "не в самой фотке, а ... по бокам"); a bottom row of 4
+  round buttons (back / share / delete / "•••" more); the "•••" menu
+  with Show in chat, Reply, Save, Delete (Delete is reachable both as
+  its own bottom button AND inside this menu, both sharing one confirm
+  popup, per the spec repeating it in both places); a header showing
+  the sender's name (persistent) plus a "X of Y" pill that flashes in
+  on navigation, holds ~2s, then fades out -- never a permanently
+  pinned number.
+- **Wiring** (app/chats/[chatId]/page.tsx): clicking any image
+  attachment opens the viewer at that photo. chatViewerImages is every
+  image doc across real (non-pending) messages, in order, each
+  precomputed with its proxy URL, download URL, and a sender label
+  (headerTitle for the other participant, a new YOU_LABEL_TEXT for
+  mine -- there's no "my own name" anywhere else on this page). "Show
+  in chat" scrolls the source bubble into view and flashes an outline
+  on it via a new `data-message-id` attribute each bubble now carries.
+  Delete removes the message from local `messages` state on success,
+  which shrinks the viewer's own `images` prop -- its own effect reacts
+  to that (clamps the index, auto-closes at zero) rather than this page
+  managing the viewer's navigation state itself.
+
+Reply is deliberately minimal: closes the viewer and focuses the
+compose box, nothing more. Aleksandr's own words: "Я тоже UI ответов на
+сообщения чуть позже скину" -- the real reply-to-message UI (which
+chat-server does support, `Resource.Message.ReplyTo`, confirmed against
+the OpenAPI spec) is explicitly out of scope for this pass.
+
+Three commits, tsc-clean each time.
