@@ -26,6 +26,7 @@ import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { profileHref } from "@/lib/profile-href";
 import { T, LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
+import { useHoverPanel } from "@/lib/use-hover-panel";
 import { formatBytes, formatRelativeTime } from "@/lib/format";
 import { LottiePlayer } from "@/components/lottie-player";
 import {
@@ -656,6 +657,21 @@ export default function ChatWindowPage() {
   const [calcSending, setCalcSending] = useState(false);
   const [calcError, setCalcError] = useState(false);
   const attachMenuRef = useRef<HTMLDivElement>(null);
+  // 2026-09-03 (Aleksandr, comparing against every other popover in
+  // this app: "Сделай появление модалки при наведении на скрепку,
+  // такую же как мы делаем везде... Только десктоп") -- lib/use-hover-
+  // panel.ts's shared hook, same one components/post-owner-menu.tsx's
+  // "•••" menu and components/avatar-menu.tsx's own dropdown already
+  // use. Click-to-toggle (onClick below) and the outside-mousedown
+  // close effect further down both keep working unchanged -- this only
+  // adds a THIRD way in (hover) on top of them; touch devices never
+  // fire hover at all, so nothing changes there.
+  const attachPanelRef = useRef<HTMLDivElement>(null);
+  const { handleMouseEnter: handleAttachMouseEnter, handleMouseLeave: handleAttachMouseLeave } = useHoverPanel(
+    attachMenuOpen,
+    setAttachMenuOpen,
+    [{ trigger: attachMenuRef, panel: attachPanelRef }],
+  );
   // 2026-09-03 (Aleksandr: currency popover must close on an outside
   // click, same convention as attachMenuRef above -- it's no longer a
   // backdrop modal, see components/chat/currency-picker-modal.tsx).
@@ -2641,7 +2657,7 @@ export default function ChatWindowPage() {
             </div>
           )}
           <div className="mx-auto flex w-full max-w-[470px] items-end gap-2">
-            <div ref={attachMenuRef} className="relative">
+            <div ref={attachMenuRef} className="relative" onMouseEnter={handleAttachMouseEnter} onMouseLeave={handleAttachMouseLeave}>
               <ChatPaperclipButton
                 disabled={sending || attachments.length >= MAX_ATTACHMENTS_PER_MESSAGE}
                 onClick={() => setAttachMenuOpen((v) => !v)}
@@ -2663,7 +2679,12 @@ export default function ChatWindowPage() {
                 // menu in one column, banner on top -- both anchored
                 // together as a unit to the paperclip button, same
                 // bottom-full/mb-2 the menu alone used before.
-                <div className="absolute bottom-full left-0 z-10 mb-2 flex flex-col gap-2">
+                <div
+                  ref={attachPanelRef}
+                  onMouseEnter={handleAttachMouseEnter}
+                  onMouseLeave={handleAttachMouseLeave}
+                  className="absolute bottom-full left-0 z-10 mb-2 flex flex-col gap-2"
+                >
                   {quotaFullyUsed && !dailyBannerDismissed && uploadUsage && (
                     <div className="animate-popover-up w-64 rounded-2xl bg-white p-3 shadow-xl dark:bg-neutral-900">
                       <div className="flex items-start justify-between gap-2">
