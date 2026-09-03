@@ -5364,3 +5364,37 @@ recording itself "works very crooked" live on his own machine -- next
 step is reproducing that (this session's own Chrome tooling has no
 real microphone hardware, so a synthetic press-hold there mostly tests
 UI/gesture-state-machine logic, not actual audio capture quality).
+
+### 6.104 Voice messages: found and fixed why recording "works very crooked" (2026-09-03)
+
+Aleksandr: "Пока запись работает очень криво, заходи сам через Хром и
+тестируй." Reproduced live against PRODUCTION (jobs.a1appp.com, real
+account, Chrome automation -- this sandbox's browser does have a
+synthetic mic device, getUserMedia succeeds instantly there so this
+wasn't a permission/hardware artifact): pressed the mic button once,
+and the recording became completely uncontrollable -- no click, no
+release, nothing stopped it; the live timer kept climbing (confirmed
+past 1:32) with zero further input.
+
+Root cause, confirmed by reading the actual compose-row JSX (not
+guessed): `{recorder.state === "idle" ? (<>...VoiceRecordButton...</>)
+: ... : (<VoiceRecordingBar .../>)}` -- VoiceRecordButton is the ONLY
+element that owns the press/drag-to-lock/release gesture (it calls
+`setPointerCapture` on its own `<button>` in onPointerDown). useVoice-
+Recorder's `startPress` sets `state` to `"requesting"` SYNCHRONOUSLY,
+before the `await getUserMedia(...)` even starts -- so React swaps
+VoiceRecordButton out for VoiceRecordingBar within the same render
+tick pointerdown fires in, unmounting the one element holding pointer
+capture. Every subsequent pointermove/pointerup for that gesture has
+nowhere to land. Fixed in commit 6a0b4ef: VoiceRecordButton now stays
+mounted continuously across idle/requesting/recording/locked (sits
+alongside VoiceRecordingBar, which now takes `flex-1` instead of the
+whole row, rather than being replaced by it) -- only "denied" still
+swaps the whole row, since nothing is actually recording yet at that
+point. tsc-clean.
+
+Not independently re-verified live yet (this fix isn't pushed/deployed
+-- Aleksandr still pushes manually via GitHub Desktop): worth a real
+on-device test with an actual microphone once it's live, since this
+sandbox's synthetic mic can't confirm audio quality, only gesture
+mechanics.
