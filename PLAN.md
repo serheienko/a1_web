@@ -5060,3 +5060,85 @@ state; the long-press context-menu banner variant of the auto-delete
 info; the lock ENGAGED state (drag actually completed, hands-free
 recording); cancel-by-swipe-left actually completing; and the desktop/
 web gesture Aleksandr said he'd send a Telegram Web reference for.
+
+### 6.98 Voice messages: Telegram Desktop reference (the "how do we adapt this for web" answer Aleksandr promised) -- still prep only (2026-09-03)
+
+Aleksandr sent a 12s screen recording of Telegram Desktop (macOS app,
+NOT the web client, but the interaction model is identical to Telegram
+Web) demonstrating the mouse-driven recording gesture he wants mirrored
+in a1_web. Frame-by-frame via ffmpeg, same read-only analysis as
+§6.96/§6.97 -- no a1_web code touched.
+
+This directly answers the open question §6.96/§6.97 flagged ("desktop
+gesture not decided, wait for his reference"): **desktop keeps the exact
+same floating recording-bar layout as mobile** (bottom-right circular
+record button, lock pill above it, timer + cancel-hint bottom-left) --
+Telegram did NOT redesign this for mouse input, it just reinterpreted
+the cancel/lock conditions for a pointer that has an explicit down/move/
+up instead of a touch drag:
+
+- **Idle**: mic button bottom-right of the compose bar, same position as
+  the paperclip. (A small chevron next to it toggles voice/video-circle
+  input -- Telegram-specific, not requested, ignore for our clone.)
+- **Press and hold** (mouse down on the mic): instantly swaps to a solid
+  red circular button, recording starts immediately. Bottom-left of the
+  compose row shows a blue pulsing dot + `M:SS,hh` timer (same hundredths
+  format as mobile) and, centered, the hint **"Release outside of circle
+  to cancel"**. A lock pill (padlock + up-chevron) floats directly above
+  the button, same visual as mobile.
+- **Cancel while still held**: move the cursor outside the record
+  button's circular hit-area and release the mouse there -> instantly
+  discards, no confirmation (you're still actively holding, so an
+  unambiguous deliberate release-away needs no extra guard).
+- **Lock** (drag up while held, same as mobile -- confirmed by the
+  button ending up in the locked state without the mouse still being
+  held down): button becomes a solid red circle with a white UP-ARROW
+  (send icon) instead of the mic glyph -- recording keeps going
+  completely hands-free, mouse can move anywhere/do anything else. Hint
+  text changes to **"Click outside of circle to cancel"** (present tense
+  changes: "Release" -> "Click", since there's no held button anymore).
+- **Cancel while locked**: a single click anywhere outside the circle
+  pops a real confirm dialog -- "Telegram / Are you sure you want to
+  stop recording and discard your voice message? / No · Discard" --
+  unlike the held-state cancel, this one is NOT silent: once you've
+  committed to hands-free recording (possibly 10+ seconds of audio), an
+  accidental stray click must not destroy it without confirmation. This
+  is a real, deliberate UX distinction worth carrying over exactly:
+  **immediate silent cancel while physically holding the button; a
+  confirm dialog once locked**.
+- **Send**: click the button (now the up-arrow) while locked, OR release
+  normally inside the circle while still holding (unlocked short
+  press) -- both send immediately, no separate confirmation.
+- **Sent bubble** (Telegram's own, not A1's self-destruct variant -- no
+  fire icon here, this is plain Telegram so it won't show A1's custom
+  self-destruct UI, only the base playback chrome): round blue play
+  button, inline waveform, `00:02 •` duration same "dot after duration"
+  convention §6.97 already flagged as unconfirmed -- seeing it here too,
+  in a totally different codebase, makes it much more likely that dot is
+  just a stable UI convention (maybe a separator before a future
+  transcript/label) rather than specifically A1's self-destruct
+  "unopened" indicator. A `+A` pill next to the bubble is Telegram
+  Premium's "transcribe to text" feature -- not part of what Aleksandr
+  asked for, noted only so it isn't mistaken for the fire icon later.
+- Chat list row preview text for a chat whose last message is a voice
+  note: literally "Voice Message" (generic label, not a waveform
+  thumbnail or duration) -- a1_web's own chat list preview logic should
+  do the equivalent once this ships.
+
+**Web adaptation, now unblocked**: press-and-hold with the mouse (or
+touch on mobile web) is directly implementable with the same pointer
+events already used for the attach-menu popovers elsewhere in this app
+mousedown/mouseup/mousemove) -- the drag-up-to-lock and release-outside-
+to-cancel mechanics translate 1:1 from mobile's touch version already
+read in §6.96 (`_handlePointerDown/Move/Up`, `_lockDragThreshold`,
+rubber-band follow). The one NEW piece this recording surfaces that
+wasn't in the mobile source: the confirm-dialog-on-cancel-while-locked
+behavior -- mobile's own cancel (swipe left) apparently discards
+silently even mid-lock (nothing in chat_input_field_voice.dart suggested
+a confirm step), so this may be a Telegram-Desktop-only nicety worth
+asking Aleksandr whether he wants it too, rather than assuming either
+way.
+
+Still waiting on: the received/left-side bubble, the opened/blue-dot/
+countdown states, and whatever's left of his "кидай скрины подряд"
+batch, before writing any a1_web code.
