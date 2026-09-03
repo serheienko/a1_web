@@ -134,11 +134,24 @@ export function CreatePostFab() {
   // обе кнопки и не уводи со страницы") -- this used to navigate
   // straight to /sign-in on a signed-out click. Now it opens the
   // anchored auth-prompt popover instead, right above this button.
+  //
+  // 2026-09-03 (Aleksandr, live screenshot: "Нажатие на кнопку (+) не
+  // открывает сразу модалку, из за этого ощущение подвисания... лучше
+  // сразу показывать модалку, а в ней скелетон лоад") -- this used to
+  // `await` the /api/posts/mine fetch BEFORE ever opening the popover,
+  // so a signed-in click just sat there doing nothing for the whole
+  // round-trip. Now the popover opens immediately (drafts=null is its
+  // own "loading" state -- see components/drafts-picker.tsx's own
+  // `loading` prop) and only closes itself back down into a blank
+  // editor if the fetch comes back with nothing to show, same as the
+  // original zero-drafts fast path.
   async function handleClick() {
     if (!email) {
       setAuthPromptOpen(true);
       return;
     }
+    setDrafts(null);
+    setDraftsPickerOpen(true);
     try {
       const res = await fetch("/api/posts/mine");
       const data = await res.json();
@@ -158,13 +171,13 @@ export function CreatePostFab() {
       );
       if (draftPosts.length > 0) {
         setDrafts(draftPosts);
-        setDraftsPickerOpen(true);
         return;
       }
     } catch {
       // Same "never let a broken drafts lookup block posting" fallback
       // as below -- open a blank editor same as always.
     }
+    setDraftsPickerOpen(false);
     setEditingDraft(null);
     setEditorOpen(true);
   }
@@ -224,6 +237,7 @@ export function CreatePostFab() {
 
       <DraftsPicker
         open={draftsPickerOpen}
+        loading={drafts === null}
         drafts={drafts ?? []}
         onClose={() => setDraftsPickerOpen(false)}
         onSelectDraft={(draft) => {
@@ -236,6 +250,7 @@ export function CreatePostFab() {
           setEditingDraft(null);
           setEditorOpen(true);
         }}
+        onDraftDeleted={(id) => setDrafts((prev) => (prev ? prev.filter((d) => d.id !== id) : prev))}
       />
     </>
   );

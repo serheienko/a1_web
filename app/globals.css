@@ -1141,6 +1141,32 @@ textarea {
   animation: save-drop 0.4s ease-in-out;
 }
 
+/* 2026-09-03 (Aleksandr, drafts-picker feedback: "анимируй тоже иконки
+   слева, при ховере, разовое срабатывание") -- components/drafts-
+   picker.tsx's own document/draft glyph (DraftIcon), a single flat
+   svg (not a multi-path compound icon like ChatFileAttachIcon), so it
+   animates as one unit rather than singling out its fold path --
+   a small tilt pivoted near the fold corner, like a page corner
+   lifting to be picked up. One-shot by construction, same as every
+   other .group:hover animation here (no `infinite`).*/
+@keyframes draft-doc-flip {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  35% {
+    transform: rotate(-6deg);
+  }
+  65% {
+    transform: rotate(2deg);
+  }
+}
+
+.group:hover .animate-draft-flip {
+  transform-origin: 70% 15%;
+  animation: draft-doc-flip 0.4s ease-in-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .group:hover .animate-dots-bounce circle:nth-child(1),
   .group:hover .animate-dots-bounce circle:nth-child(2),
@@ -1179,7 +1205,8 @@ textarea {
   .group:hover .animate-close-spin,
   .group:hover .animate-list-jump,
   .group:hover .animate-reply-bounce,
-  .group:hover .animate-save-drop {
+  .group:hover .animate-save-drop,
+  .group:hover .animate-draft-flip {
     animation: none;
   }
 }
