@@ -85,6 +85,40 @@ export function formatRelativeTime(date: Date, locale: Locale): string {
   return rtf.format(Math.round(diffSeconds / 31536000), "year");
 }
 
+// Countdown duration -- "8 годин 32 хвилини" / "8h 32min" style, hours
+// AND minutes together when both are non-zero. NOT built on
+// formatRelativeTime above: that helper hands its whole phrase to
+// Intl.RelativeTimeFormat, which already bakes its OWN "in"/"через"
+// word into the result ("через 8 часов") -- fine standalone, but
+// components/daily-uploads-modal.tsx prepends its own localized
+// "resetsIn" label ("Знову доступно через") right before it, producing
+// a visible double "через через 8 годин" (2026-09-03, Aleksandr live
+// screenshot). It also only ever names ONE unit (whichever
+// RELATIVE_UNITS bracket the whole diff falls into), so an 8h32m
+// countdown collapsed to a bare "8 годин" -- Aleksandr's own reference
+// screenshot shows the native app's version keeping minutes too
+// ("Available again in 3m"), so this always surfaces both units once
+// there's more than an hour left, not just the coarser one.
+// Intl.NumberFormat's `style: "unit"` (not RelativeTimeFormat) is what
+// gets each language's own correct plural form ("1 година" vs "8
+// годин") without hand-writing plural-rule tables.
+function formatUnitPart(value: number, unit: "hour" | "minute", locale: Locale): string {
+  return new Intl.NumberFormat(LOCALE_TAG[locale], { style: "unit", unit, unitDisplay: "long" }).format(value);
+}
+
+export function formatCountdownDuration(totalSeconds: number, locale: Locale): string {
+  const seconds = Math.max(0, Math.round(totalSeconds));
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours <= 0) {
+    // Under an hour left -- minutes only (floored to at least 1 so a
+    // near-zero countdown never misleadingly reads as already reset).
+    return formatUnitPart(Math.max(1, minutes), "minute", locale);
+  }
+  if (minutes <= 0) return formatUnitPart(hours, "hour", locale);
+  return `${formatUnitPart(hours, "hour", locale)} ${formatUnitPart(minutes, "minute", locale)}`;
+}
+
 const CURRENCY_SYMBOLS: Record<string, string> = {
   usd: "$",
   eur: "€",

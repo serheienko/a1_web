@@ -106,6 +106,17 @@ export function CreatePostFab() {
   // first instead.
   const [drafts, setDrafts] = useState<DraftPost[] | null>(null);
   const [draftsPickerOpen, setDraftsPickerOpen] = useState(false);
+  // 2026-09-03 (Aleksandr, repeating an earlier request: "Если у нас
+  // нет запланированных или черновых постов, мы при нажатии на плюсик
+  // сразу ведем в создание поста, не показываем никакую модалку") --
+  // see handleClick's own comment below for why the PREVIOUS fix (open
+  // the popover instantly with a skeleton while /api/posts/mine is
+  // still loading) still broke this exact promise on a slow response: a
+  // zero-drafts visitor briefly saw a skeleton modal flash open before
+  // it closed itself again. `checking` replaces that -- a small spinner
+  // ON THE BUTTON ITSELF instead of a modal, so the popover now only
+  // ever appears once real drafts are confirmed to exist.
+  const [checking, setChecking] = useState(false);
   // 2026-09-02 (Aleksandr: "давай в разлогиненом стейте тоже добавим к
   // этим попапс эффект появления при наведении, без клика") -- same
   // hook/wiring as components/chats-fab.tsx's own signed-out button;
@@ -155,23 +166,19 @@ export function CreatePostFab() {
       setAuthPromptOpen(true);
       return;
     }
+    if (checking) return; // already mid-check from a previous click -- avoid a second overlapping fetch
     setDrafts(null);
-    // 2026-09-03 (Aleksandr, live screenshot follow-up: "Если нет
-    // запланированных, или драфт постов - не показывай эту модалку, а
-    // сразу веди в создание поста") -- the previous fix (open the
-    // popover instantly, skeleton while loading) traded the original
-    // "feels like hanging" problem for a NEW one: a visitor with zero
-    // drafts now saw a skeleton flash open and immediately close again
-    // right before landing on a blank editor. Debounced instead of
-    // instant: the popover only actually opens if /api/posts/mine is
-    // still in flight after DRAFTS_POPOVER_DELAY_MS. On a normal fast
-    // response the timer never fires -- zero drafts goes straight to a
-    // blank editor with no popover ever appearing, and a real draft
-    // list opens already populated, no skeleton frame either. Only a
-    // genuinely slow response still shows the skeleton (the original
-    // fix's whole point), and only then can a zero-drafts result close
-    // a popover that was actually visible.
-    const openTimer = window.setTimeout(() => setDraftsPickerOpen(true), DRAFTS_POPOVER_DELAY_MS);
+    // 2026-09-03 (Aleksandr, repeating an earlier request -- see
+    // `checking` state's own comment above for the full history):
+    // nothing here opens DraftsPicker anymore until /api/posts/mine has
+    // actually come back AND actually found something -- a zero-drafts
+    // click now goes straight to a blank editor with no modal ever
+    // appearing, at any response speed. `checking` only drives a small
+    // spinner on the button itself (debounced the same
+    // DRAFTS_POPOVER_DELAY_MS as before, so a normal fast response never
+    // shows even that -- it is purely for a genuinely slow round-trip
+    // so the click does not read as unresponsive).
+    const spinnerTimer = window.setTimeout(() => setChecking(true), DRAFTS_POPOVER_DELAY_MS);
     try {
       const res = await fetch("/api/posts/mine");
       const data = await res.json();
@@ -189,7 +196,8 @@ export function CreatePostFab() {
       const draftPosts: DraftPost[] = (data.posts ?? []).filter(
         (p: DraftPost) => p.isDraft || (p.scheduled != null && p.published == null),
       );
-      window.clearTimeout(openTimer);
+      window.clearTimeout(spinnerTimer);
+      setChecking(false);
       if (draftPosts.length > 0) {
         setDrafts(draftPosts);
         setDraftsPickerOpen(true);
@@ -198,7 +206,8 @@ export function CreatePostFab() {
     } catch {
       // Same "never let a broken drafts lookup block posting" fallback
       // as below -- open a blank editor same as always.
-      window.clearTimeout(openTimer);
+      window.clearTimeout(spinnerTimer);
+      setChecking(false);
     }
     setDraftsPickerOpen(false);
     setEditingDraft(null);
@@ -227,7 +236,14 @@ export function CreatePostFab() {
         className="group fixed right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-lg shadow-accent/30 transition hover:opacity-90 active:scale-95"
         style={{ bottom: "calc(1.25rem + env(safe-area-inset-bottom))" }}
       >
-        <ChunkyPlusIcon className="transition-transform duration-200 ease-out group-hover:rotate-90" />
+        {checking ? (
+          <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5 animate-spin" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeOpacity="0.3" />
+            <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+          </svg>
+        ) : (
+          <ChunkyPlusIcon className="transition-transform duration-200 ease-out group-hover:rotate-90" />
+        )}
       </button>
 
       {editorOpen && (

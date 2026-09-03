@@ -181,7 +181,7 @@ function favoriteTile(
   // regardless of which titles had art.
   return (
     <div key={itemKey} className="flex flex-col gap-1.5">
-      {cover ? <FavoriteCover cover={cover} kind={kind} /> : <FavoriteCoverFallback kind={kind} />}
+      {cover ? <FavoriteCover cover={cover} kind={kind} title={title} subtitle={subtitle} /> : <FavoriteCoverFallback kind={kind} />}
       <div>
         <div className="line-clamp-2 text-sm font-medium leading-snug text-neutral-800 dark:text-neutral-200">
           {title}

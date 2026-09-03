@@ -39,7 +39,7 @@
 import { useEffect, useState } from "react";
 import type { Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
-import { formatBytes, formatRelativeTime } from "@/lib/format";
+import { formatBytes, formatCountdownDuration } from "@/lib/format";
 import type { MediaUploadUsage } from "@/lib/a1/schemas";
 
 type StringKey =
@@ -218,7 +218,7 @@ export function DailyUploadsModal({ lang, onClose }: { lang: Locale; onClose: ()
                 <div className="h-full flex-1 bg-neutral-400 dark:bg-neutral-500" />
               </div>
               <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
-                {t("resetsIn", lang)} {formatRelativeTime(new Date(usage.resetAt * 1000), lang)}
+                {t("resetsIn", lang)} {formatCountdownDuration(usage.resetAt - Date.now() / 1000, lang)}
               </div>
             </div>
 

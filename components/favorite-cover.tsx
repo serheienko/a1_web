@@ -130,9 +130,33 @@ export function FavoriteFallbackPill({
   );
 }
 
-export function FavoriteCover({ cover, kind }: { cover: CoverImage; kind: FavoriteKind }) {
+// 2026-09-03 (Aleksandr, live screenshot of a Games row: "Ігри" showing
+// the big square gamepad-icon block for "The Witcher" -- a cover URL
+// lib/covers.ts DID find, that just 404'd/failed to load client-side --
+// "тоже точно так же сделай, пожалуйста... маленькая иконка... такая
+// мелкая пилюля... будет лучше чем большой этот блок") -- this
+// reverses the earlier "keep the square slot on a runtime load failure,
+// for grid alignment" decision (see favoriteCategory's own comment in
+// app/u/[username]/page.tsx) at his explicit request: he would rather
+// have the compact FavoriteFallbackPill here too, even at the cost of
+// an occasional short-pill-next-to-square-tiles row, than the "невиликойний"
+// big empty block. title/subtitle are the same two fields favoriteTile()
+// already has on hand for its OWN pill branch (withoutCover) -- now
+// threaded through here as well so this runtime-failure branch can
+// render the identical pill instead of the plain icon tile.
+export function FavoriteCover({
+  cover,
+  kind,
+  title,
+  subtitle,
+}: {
+  cover: CoverImage;
+  kind: FavoriteKind;
+  title: string;
+  subtitle?: string | null;
+}) {
   const [failed, setFailed] = useState(false);
-  if (failed) return <FavoriteCoverFallback kind={kind} />;
+  if (failed) return <FavoriteFallbackPill kind={kind} title={title} subtitle={subtitle} />;
   return (
     <div className="relative aspect-square overflow-hidden rounded-xl bg-neutral-100 dark:bg-neutral-800">
       <Image

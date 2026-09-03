@@ -27,11 +27,13 @@
 // required for this milestone.
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useRef, useState, useSyncExternalStore, type PointerEvent } from "react";
+import { usePathname } from "next/navigation";
 import {
   closeVoicePlayback,
   cycleVoiceRate,
   getVoicePlaybackSnapshot,
+  seekVoiceFraction,
   subscribeVoicePlayback,
   toggleVoice,
 } from "@/lib/voice-playback-store";
@@ -60,10 +62,57 @@ export function VoiceNowPlayingBar() {
     getVoicePlaybackSnapshot,
     getVoicePlaybackSnapshot,
   );
+  const pathname = usePathname();
+  const progressRef = useRef<HTMLDivElement | null>(null);
+  const [scrubbing, setScrubbing] = useState(false);
 
-  if (!entry) return null;
+  // 2026-09-03 (Aleksandr, second live test round: "когда мы находимся
+  // в чате, поп-ап показывать не надо, сверху там где вы, голосовое
+  // уведомление") -- this bar used to show on every route, deliberately
+  // including the very chat that started playback (see this file's own
+  // header comment, now superseded here). While an actual open
+  // conversation is on screen, its own VoiceMessageBubble already gives
+  // full playback controls inline, so the floating bar on top of it is
+  // redundant chrome he does not want there. Still shows on /chats
+  // itself (the conversation LIST, no inline player visible) and on
+  // every other route, same as before.
+  if (!entry || /^\/chats\/.+/.test(pathname ?? "")) return null;
 
   const progressFraction = entry.totalSeconds > 0 ? Math.min(1, elapsed / entry.totalSeconds) : 0;
+
+  // 2026-09-03 (Aleksandr, second live test round: "у того попапа
+  // должна бути строка, ну не строка, а типа скролл, який можна
+  // прокрутити, а його немає") -- the thin progress line used to be
+  // purely decorative (just a styled div, no handlers). Same drag-to-
+  // seek pattern components/chat/voice-bubble.tsx's own waveform
+  // already uses (pointer capture + seekVoiceFraction off the pointer's
+  // fraction across the track), just against this bar's own single
+  // track instead of per-bar waveform columns.
+  function fractionFromPointer(clientX: number): number {
+    const el = progressRef.current;
+    if (!el) return 0;
+    const rect = el.getBoundingClientRect();
+    if (rect.width <= 0) return 0;
+    return (clientX - rect.left) / rect.width;
+  }
+  function onProgressPointerDown(e: PointerEvent<HTMLDivElement>) {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setScrubbing(true);
+    seekVoiceFraction(fractionFromPointer(e.clientX));
+  }
+  function onProgressPointerMove(e: PointerEvent<HTMLDivElement>) {
+    if (!scrubbing) return;
+    seekVoiceFraction(fractionFromPointer(e.clientX));
+  }
+  function onProgressPointerUp(e: PointerEvent<HTMLDivElement>) {
+    setScrubbing(false);
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      // no-op -- pointer capture may already have been released (e.g.
+      // pointercancel fired first).
+    }
+  }
 
   return (
     <div
@@ -113,9 +162,16 @@ export function VoiceNowPlayingBar() {
         </div>
       </div>
 
-      <div className="h-[2px] w-full bg-black/5 dark:bg-white/10">
+      <div
+        ref={progressRef}
+        onPointerDown={onProgressPointerDown}
+        onPointerMove={onProgressPointerMove}
+        onPointerUp={onProgressPointerUp}
+        onPointerCancel={onProgressPointerUp}
+        className="relative h-[6px] w-full shrink-0 cursor-pointer touch-none select-none bg-black/5 dark:bg-white/10"
+      >
         <div
-          className="h-full bg-[#335ef7] transition-[width] duration-200 ease-linear dark:bg-[#0c8ce9]"
+          className={`h-full bg-[#335ef7] dark:bg-[#0c8ce9] ${scrubbing ? "" : "transition-[width] duration-200 ease-linear"}`}
           style={{ width: `${progressFraction * 100}%` }}
         />
       </div>
