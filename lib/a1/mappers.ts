@@ -8,8 +8,17 @@
 
 import { NULL_LOCATION_MEANS_REMOTE, PUBLISH_ONLY_NATIVE, isNativePost } from "./config";
 import { authorIsHidden, isArchived, isArchivedOrDraft } from "./post-flags";
-import { parsePost, type Post, type MediaSize } from "./schemas";
+import { parsePost, type Post } from "./schemas";
 import { slugify } from "../seo/slug";
+// 2026-09-03: pickDisplaySize/buildMediaProxyUrl moved to their own
+// client-safe module -- see lib/a1/media-proxy.ts's header for why (a
+// live chat-page crash: this file's `./config` import throws the
+// instant it loads in a browser bundle, and app/chats/[chatId]/page.tsx
+// -- a "use client" page -- used to import buildMediaProxyUrl from
+// here). Re-exported so every existing server-side caller of this file
+// keeps working unchanged.
+import { pickDisplaySize, buildMediaProxyUrl } from "./media-proxy";
+export { buildMediaProxyUrl } from "./media-proxy";
 import type {
   WebPost,
   WebPostAuthor,
@@ -133,28 +142,6 @@ function mapSalary(money: Post["money"]): WebPostSalary | null {
     default:
       return null;
   }
-}
-
-/**
- * "size-photo" is the real displayable image; "size-original" is a
- * fallback for the rare document missing it; "size-stripped" (an inline
- * base64 preview blob, not a fetchable size — see schemas.ts) is
- * deliberately never picked. Unconfirmed against docs: media.getUrl's
- * `size` param is assumed to accept these same `object` strings, by
- * naming-convention analogy with the Post union's own `object`
- * discriminator (PLAN.md §0.1's media.getUrl signature doesn't enumerate
- * valid values). Revisit if media.getUrl starts rejecting requests.
- */
-function pickDisplaySize(sizes: MediaSize[]): MediaSize | undefined {
-  return sizes.find((s) => s.object === "size-photo") ?? sizes.find((s) => s.object === "size-original") ?? sizes[0];
-}
-
-/** Shared by mapImages() and mapAuthor(): any MediaDocument (a post photo
- *  or an author's avatar doc) maps to the same /api/media proxy URL shape. */
-export function buildMediaProxyUrl(doc: { _id: string; fileReference: string; sizes: MediaSize[] }): string {
-  const size = pickDisplaySize(doc.sizes);
-  const sizeParam = typeof size?.object === "string" ? size.object : "size-photo";
-  return `/api/media/${doc._id}?ref=${encodeURIComponent(doc.fileReference)}&size=${encodeURIComponent(sizeParam)}`;
 }
 
 function mapImages(post: Post): WebPostImage[] {

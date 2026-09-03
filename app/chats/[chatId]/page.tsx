@@ -38,7 +38,7 @@ import {
   messageTickState,
   type ChatMessage,
 } from "@/lib/a1/chat-schemas";
-import { buildMediaProxyUrl } from "@/lib/a1/mappers";
+import { buildMediaProxyUrl } from "@/lib/a1/media-proxy";
 import {
   ChatAttachmentSpinner,
   ChatBackArrow,
