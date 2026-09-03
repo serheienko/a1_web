@@ -397,7 +397,32 @@ export function AvatarMenu() {
     // authenticated fetches could make ONE of them (wrongly) throw
     // away the session after the access token expires.
     authFetch("/api/account/whoami")
-      .then((r) => r.json())
+      .then((r) => {
+        // 2026-09-03 (Aleksandr, live screenshots: after the access
+        // token expires -- roughly an hour, hour and a half idle --
+        // /chats correctly flips to "Увійдіть, щоб побачити свої
+        // чати" (app/chats/page.tsx's own 401 handling), but THIS
+        // menu kept showing the old signed-in email/avatar with a
+        // working-looking "Вийти" button until clicked a couple
+        // times. Root cause: `email` above is only ever set ONCE, at
+        // mount, from a cookie snapshot (see the effect above this
+        // one) -- nothing ever told this component the session had
+        // since died, even though this exact whoami call proves it on
+        // every fire. `clearSession()` (lib/a1/session.ts) already
+        // wipes the display cookie server-side the moment ANY route
+        // hits a real NoSessionError, so a 401 here is authoritative,
+        // not a fluke worth ignoring -- flip back to the signed-out
+        // render immediately instead of quietly discarding the
+        // 401 and leaving the stale identity on screen.
+        if (cancelled) return null;
+        if (r.status === 401) {
+          setEmail(null);
+          setProfileUsername(null);
+          setProfileAvatarUrl(null);
+          return null;
+        }
+        return r.json();
+      })
       .then((data) => {
         if (cancelled || !data?.ok) return;
         if (data.username) setProfileUsername(data.username);
