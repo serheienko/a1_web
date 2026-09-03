@@ -973,6 +973,51 @@ export default function ChatWindowPage() {
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages.length, pendingMessages.length]);
 
+  // 2026-09-03 (Aleksandr, screen recording: "Сделай, чтобы на мобильном
+  // при переходе в чат он открывался в самой нижней точке сразу, чтобы
+  // мне не приходилось свайпить наверх") -- the single snap above fires
+  // once per messages/pendingMessages count change, but on a long mobile
+  // history the content keeps growing for a while AFTER that snap already
+  // ran: avatar/photo images finish decoding, headerHeight/
+  // composeBarHeight correct themselves off their own hardcoded defaults
+  // (see those ResizeObservers above), PdfPageThumbnail resolves
+  // asynchronously, web fonts swap in -- each one grows scrollHeight a
+  // beat later, leaving the view stranded mid-history exactly like the
+  // recording shows (confirmed via extracted frames: settles well short
+  // of the true bottom, then a real user swipe reveals more content
+  // still below). Fix: track whether the reader is actually pinned to
+  // the bottom (a scroll listener with a small threshold, so scrolling
+  // UP to read old history un-pins and isn't fought), and keep re-
+  // snapping on every later layout-height change via a ResizeObserver on
+  // the message list's own content wrapper -- not just once on message-
+  // count change like the effect above.
+  const isPinnedToBottomRef = useRef(true);
+  useEffect(() => {
+    isPinnedToBottomRef.current = true;
+  }, [chatId]);
+  useEffect(() => {
+    const el = messagesScrollRef.current;
+    if (!el) return;
+    const BOTTOM_PIN_THRESHOLD_PX = 96;
+    function onScroll() {
+      if (!el) return;
+      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      isPinnedToBottomRef.current = distanceFromBottom <= BOTTOM_PIN_THRESHOLD_PX;
+    }
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+  useEffect(() => {
+    const el = messagesScrollRef.current;
+    const content = el?.firstElementChild;
+    if (!el || !content) return;
+    const ro = new ResizeObserver(() => {
+      if (isPinnedToBottomRef.current) el.scrollTop = el.scrollHeight;
+    });
+    ro.observe(content);
+    return () => ro.disconnect();
+  }, []);
+
   // 2026-09-02 (Aleksandr, follow-up on the optimistic-send fix above:
   // "надо учесть ошибки с сетью, когда сообщение не дошло... если не
   // отменил, когда сеть появилась оно должно дослаться") -- one real

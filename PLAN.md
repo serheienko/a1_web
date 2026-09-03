@@ -4724,3 +4724,54 @@ flagged as simplified/deferred.
   thumbnail feature just silently won't render until fixed.
 
 tsc-clean.
+
+### 6.95 Mobile chat: fixed scroll landing mid-history instead of the true bottom on open (2026-09-03)
+
+Aleksandr sent a screen recording ("Сделай, чтобы на мобильном при
+переходе в чат он открывался в самой нижней точке сразу, чтобы мне не
+приходилось свайпить наверх") -- confirmed real: opening a chat on
+mobile settled several screens' worth short of the true bottom
+(extracted frames from the recording showed the settled state, then a
+manual swipe revealing much more content -- a file message, a contact
+card, a calc table -- still below).
+
+Root cause: `app/chats/[chatId]/page.tsx` only had a single one-shot
+`el.scrollTop = el.scrollHeight` effect keyed on
+`[messages.length, pendingMessages.length]`. That snap fires the
+instant the message array lands, but `scrollHeight` at that moment is
+still wrong -- avatar/photo images haven't decoded yet,
+`headerHeight`/`composeBarHeight` are still their hardcoded
+defaults (64/112, corrected async by their own ResizeObservers),
+`PdfPageThumbnail` resolves later still, web fonts can reflow text.
+Each of those grows the content AFTER the one-shot snap already ran,
+so the "true bottom" it snapped to wasn't actually the true bottom.
+
+Fix: kept the existing snap (still gives the fast initial jump) and
+added a "sticky to bottom" layer alongside it:
+- `isPinnedToBottomRef` -- true by default and reset to true on every
+  chat open (`[chatId]`).
+- a `scroll` listener on `messagesScrollRef` that flips it to false
+  once the reader scrolls more than 96px away from the bottom (so
+  someone deliberately scrolling up to read old history isn't fought),
+  and back to true once they return near the bottom.
+- a `ResizeObserver` on the message list's own content wrapper
+  (`messagesScrollRef`'s first child) that re-snaps `scrollTop` to
+  `scrollHeight` on every subsequent layout-height change, but only
+  while `isPinnedToBottomRef.current` is true.
+
+Together: the fast snap gets the reader close immediately, and the
+observer keeps correcting for every late-arriving growth until the
+layout actually settles -- without re-yanking someone who has
+scrolled up on purpose.
+
+**Not tested on a live device this session** -- validated against the
+recording's evidence (which frames of growth actually happened, in
+what order) and reasoned through, not confirmed against a real phone.
+Ask Aleksandr to reopen a long chat on mobile and confirm it now lands
+flush at the bottom with no manual swipe needed; if it still falls
+short, the likely next culprit is something growing content even
+later than a ResizeObserver on that one wrapper catches (e.g. a nested
+image inside a still-loading iframe/embed) and would need re-diagnosis
+from a live repro rather than more of the same pattern.
+
+tsc-clean.
