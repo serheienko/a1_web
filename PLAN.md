@@ -5889,3 +5889,59 @@ correctly -- this gap was published posts only.)
 
 tsc-clean.
 
+### 6.115
+
+2026-09-04, fourth live-test round on the voice recording feature +
+one recurring flicker bug fixed for good.
+
+Five small fixes from the same session:
+
+1. VoiceRecordButton's lock badge ("поставь иконку замка прям над
+   стрелкой выше"): wrapper div now pins an explicit w-[44px] (was
+   bare shrink-0, sized only by its child) -- same 44px slot the
+   send-arrow button occupies when idle+draft, so the badge sits
+   exactly centered over it either way. Gap above the button grew
+   8px -> 14px for "higher up".
+2. VoiceRecordingBar's locked state ("убери кнопку паузы, она не
+   нужна, оставь просто моргающий индикатор, так же как при шорт
+   тапе"): dropped the desktop-only pause/resume button; both touch
+   and desktop now show the same blinking red dot.
+3. PendingVoiceBubble ("убери лоадер по центру бабла сообщения"):
+   removed the centered spinner overlay that covered the whole bubble
+   while uploading.
+4. VoiceMessageBubble's now-playing-bar entry ("поставь в этот попап
+   аватар того чье голосовое вместо микрофона слева"): a self-sent
+   clip used to hardcode avatarUrl: null since this page never loaded
+   the visitor's own avatar anywhere. page.tsx now fetches it once via
+   /api/account/whoami (same route avatar-menu.tsx's nav account row
+   already uses) and threads it through as myAvatarUrl.
+5. PDF thumbnail flicker, round two ("файлы моргают всё равно" --
+   confirmed via a screen recording, not guessed). The earlier fix
+   (6.114's predecessor) only covered pending-vs-failed; it missed
+   that components/chat/pdf-thumbnail.tsx's effect reset its OWN
+   thumbUrl/failed state to the pending placeholder on every re-run
+   (e.g. each messages poll), even when lib/pdf-thumbnail.ts's
+   thumbnailCache already had a resolved promise for that exact src --
+   the reset was always visible for a frame before the cache-hit
+   promise's `.then()` (a microtask, never synchronous) could restore
+   it. Added a synchronous resolvedCache the component checks first,
+   so an already-loaded thumbnail no longer flashes back to the pulse
+   placeholder.
+
+Still open, not guessed at without live data: a specific "Документ"
+(generic FILE badge, no name) bubble Aleksandr keeps flagging in
+mixed voice+file test chats -- isVoiceMediaDocument(doc) is false for
+that one doc AND mediaDocumentFileName(doc) is empty, meaning
+whatever produced it sent neither an audio/* mimetype nor any
+attributes at all. uploadAndSendVoice (page.tsx) and its
+/api/upload/create route both look correct on static review (real
+attribute-audio/attribute-filename passthrough, confirmed against
+this file's own 6.109/6.111-era fixes) -- need the actual doc's raw
+`attributes`/`mimetype` off a live messages.getMessages response to
+root-cause this rather than guess again. Also queued, not started:
+Telegram-style multi-photo grid layout (reference screenshots sent),
+and a chat-list preview-line gap for a last-message that's a
+file/voice attachment (empty subtitle instead of an icon+label) --
+Aleksandr said he'd send a reference for the second one.
+
+tsc-clean.
