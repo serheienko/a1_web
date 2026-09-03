@@ -179,7 +179,7 @@ export function ChatPaperclipGlyph({ className }: { className?: string }) {
   );
 }
 
-function ChatMicGlyph({ className }: { className?: string }) {
+export function ChatMicGlyph({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 38 38" fill="none" className={className ?? "h-5 w-5"} aria-hidden="true">
       <path

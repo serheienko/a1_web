@@ -72,6 +72,20 @@ export function useVoiceRecorder(onFinish: (result: VoiceRecordingResult) => voi
   const lockedRef = useRef(false);
   const cancelledRef = useRef(false);
   const pointerIdRef = useRef<number | null>(null);
+  // 2026-09-03 (Aleksandr, second live test round: "нажал один тап, оно
+  // начало полностью записывать нон-стоп... нечего отпустить") --
+  // startPress is async (awaits getUserMedia, which can easily outlast
+  // a quick tap-release). A pointerup that arrives while still
+  // "requesting" has nothing to act on yet: mediaRecorderRef.current is
+  // still null (recorder.start() only runs after the await below), so
+  // the old onPointerUp handler's stop() call was a silent no-op -- the
+  // release was simply lost, and once getUserMedia DID resolve moments
+  // later the code had no memory the button was already let go, so it
+  // just kept recording with nothing left that could stop it. This
+  // remembers that a release already happened during the requesting
+  // window so startPress own continuation below can finalize
+  // immediately once there is actually a recorder to stop.
+  const pendingReleaseRef = useRef(false);
 
   const cleanupStream = useCallback(() => {
     if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
@@ -129,6 +143,7 @@ export function useVoiceRecorder(onFinish: (result: VoiceRecordingResult) => voi
       pointerIdRef.current = pointerId;
       lockedRef.current = false;
       cancelledRef.current = false;
+      pendingReleaseRef.current = false;
       samplesRef.current = [];
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -174,6 +189,19 @@ export function useVoiceRecorder(onFinish: (result: VoiceRecordingResult) => voi
         startedAtRef.current = Date.now();
         setState("recording");
         setSeconds(0);
+        // The gesture already ended while the mic permission/init was
+        // still pending (see pendingReleaseRef own declaration above) --
+        // finalize right away instead of leaving this recording running
+        // with no way left to stop it. A near-zero-length clip like
+        // this is exactly what VOICE_MIN_MS in onstop below silently
+        // discards, so a plain quick tap correctly produces nothing
+        // sent, same as it would if the whole gesture had been fast
+        // enough to land after getUserMedia resolved.
+        if (pendingReleaseRef.current) {
+          pendingReleaseRef.current = false;
+          stopAndSend();
+          return;
+        }
         tickAmplitude();
         timerRef.current = setInterval(() => {
           setSeconds((s) => {
@@ -244,6 +272,15 @@ export function useVoiceRecorder(onFinish: (result: VoiceRecordingResult) => voi
   const onPointerUp = useCallback(
     (pointer: VoiceRecorderPointer) => {
       if (lockedRef.current) return; // hands-free now -- release does nothing
+      if (state === "requesting") {
+        // Mic permission/init has not resolved yet -- there is no
+        // MediaRecorder to stop (mediaRecorderRef.current is still
+        // null), so remember the release for startPress own async
+        // continuation to finalize instead (see pendingReleaseRef own
+        // declaration above for the full race this closes).
+        pendingReleaseRef.current = true;
+        return;
+      }
       const center = buttonCenterRef.current;
       if (center) {
         const dist = Math.hypot(pointer.clientX - center.clientX, pointer.clientY - center.clientY);
@@ -258,7 +295,7 @@ export function useVoiceRecorder(onFinish: (result: VoiceRecordingResult) => voi
       }
       stopAndSend();
     },
-    [cancelProgress, cancelRecording, stopAndSend],
+    [state, cancelProgress, cancelRecording, stopAndSend],
   );
 
   const pauseResume = useCallback(() => {

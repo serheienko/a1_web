@@ -31,6 +31,7 @@ import { useEffect, useRef, type RefObject } from "react";
 import { T, type Locale } from "@/components/t";
 import { formatVoiceTimer, VOICE_MAX_SECONDS, type VoiceRecorderPointer } from "./voice-recorder";
 import type { useVoiceRecorder } from "./voice-recorder";
+import { ChatMicGlyph } from "./icons";
 
 // ---------------------------------------------------------------------------
 // Sound-reactive blob canvas
@@ -338,42 +339,76 @@ export function VoiceRecordButton({ recorder, disabled, lang }: { recorder: Reco
   const isActive = recorder.state === "recording" || recorder.state === "requesting";
 
   return (
-    <button
-      ref={buttonRef}
-      type="button"
-      disabled={disabled}
-      aria-label={vt("recording", lang)}
-      onPointerDown={(e) => {
-        if (disabled) return;
-        e.currentTarget.setPointerCapture(e.pointerId);
-        const center = centerOf(e.currentTarget);
-        void recorder.startPress({ clientX: e.clientX, clientY: e.clientY }, center, e.pointerId);
-      }}
-      onPointerMove={(e) => {
-        if (isActive) recorder.onPointerMove({ clientX: e.clientX, clientY: e.clientY });
-      }}
-      onPointerUp={(e) => {
-        if (isActive) recorder.onPointerUp({ clientX: e.clientX, clientY: e.clientY });
-      }}
-      onPointerCancel={(e) => {
-        if (isActive) recorder.onPointerUp({ clientX: e.clientX, clientY: e.clientY });
-      }}
-      className={`relative flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full border transition disabled:opacity-40 ${
-        isActive
-          ? "border-transparent bg-[#ff3b30] text-white"
-          : "border-neutral-200 bg-white/90 text-neutral-400 backdrop-blur-sm hover:border-neutral-300 hover:text-neutral-600 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80 dark:text-[#adafbb] dark:hover:border-[#3a3a3a] dark:hover:text-white"
-      }`}
-    >
+    <div className="relative shrink-0">
+      {/* Lock affordance -- 2026-09-03 (Aleksandr, second live test round:
+          "сверху нас не появляется штука такая типа с замочком на
+          перетягивание, чтобы я понял, что можно залочить") -- this used
+          to sit INSIDE VoiceRecordingBar's own row, off to the button's
+          left, which doesn't read as "drag up into this" the way the
+          mobile/Telegram-Desktop reference does. Floating it directly
+          ABOVE the record button itself (same element the thumb is
+          already on) makes the drag direction self-evident -- rises and
+          brightens toward lockProgress===1, same climb the pill's
+          `translateY` used to do in its old spot. */}
       {isActive && (
-        <div className="absolute inset-0 -m-1 flex items-center justify-center">
-          <VoiceBlobCanvas amplitudeRef={recorder.amplitudeRef} size={56} />
+        <div
+          className="pointer-events-none absolute bottom-[52px] left-1/2 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full bg-neutral-800/90 text-white shadow-lg transition dark:bg-white/90 dark:text-neutral-800"
+          style={{ opacity: 0.45 + recorder.lockProgress * 0.55, transform: `translate(-50%, ${-recorder.lockProgress * 10}px)` }}
+          aria-hidden="true"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="5" y="11" width="14" height="10" rx="2" />
+            <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+          </svg>
         </div>
       )}
-      <svg width="30" height="30" viewBox="0 0 33 33" fill="none" className="relative" aria-hidden="true">
-        <rect x="14.6384" y="8.85" width="8.72105" height="13.5653" rx="4.36053" stroke="currentColor" strokeWidth="1.7" />
-        <path d="M18.1996 29.9994C18.1996 30.4413 18.5578 30.7994 18.9996 30.7994C19.4415 30.7994 19.7996 30.4413 19.7996 29.9994L18.9996 29.9994L18.1996 29.9994ZM18.9996 25.9586L18.1996 25.9586L18.1996 29.9994L18.9996 29.9994L19.7996 29.9994L19.7996 25.9586L18.9996 25.9586Z" fill="currentColor" />
-      </svg>
-    </button>
+      <button
+        ref={buttonRef}
+        type="button"
+        disabled={disabled}
+        aria-label={vt("recording", lang)}
+        onPointerDown={(e) => {
+          if (disabled) return;
+          e.currentTarget.setPointerCapture(e.pointerId);
+          const center = centerOf(e.currentTarget);
+          void recorder.startPress({ clientX: e.clientX, clientY: e.clientY }, center, e.pointerId);
+        }}
+        onPointerMove={(e) => {
+          if (isActive) recorder.onPointerMove({ clientX: e.clientX, clientY: e.clientY });
+        }}
+        onPointerUp={(e) => {
+          if (isActive) recorder.onPointerUp({ clientX: e.clientX, clientY: e.clientY });
+        }}
+        onPointerCancel={(e) => {
+          if (isActive) recorder.onPointerUp({ clientX: e.clientX, clientY: e.clientY });
+        }}
+        className={`group relative flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full border transition disabled:opacity-40 ${
+          isActive
+            ? "border-transparent bg-[#ff3b30] text-white"
+            : "border-neutral-200 bg-white/90 text-neutral-400 backdrop-blur-sm hover:border-neutral-300 hover:text-neutral-600 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80 dark:text-[#adafbb] dark:hover:border-[#3a3a3a] dark:hover:text-white"
+        }`}
+      >
+        {isActive && (
+          <div className="absolute inset-0 -m-1 flex items-center justify-center">
+            <VoiceBlobCanvas amplitudeRef={recorder.amplitudeRef} size={56} />
+          </div>
+        )}
+        {/* 2026-09-03 (Aleksandr, second live test round: "ты поломал
+            почему-то иконку микрофона... была раньше нормальная, а
+            сейчас какая-то хуйня... верни иконку которая была... там
+            при наведении она нон-стоп баунсила") -- this used to be a
+            hand-rolled inline SVG missing the glyph's own top curve
+            (only the body-rect + base-line paths, the sound-wave arc
+            path was dropped), a different/smaller viewBox than the
+            original, and no hover animation at all. Restored to the
+            exact same ChatMicGlyph (components/chat/icons.tsx) the
+            pre-recording-feature mic button used, same size (30px) and
+            same `.group:hover .animate-mic-pulse` continuous-bounce
+            convention (app/globals.css) as that original button had --
+            `group` above is what makes the hover trigger reach it. */}
+        <ChatMicGlyph className="relative h-[30px] w-[30px] animate-mic-pulse" />
+      </button>
+    </div>
   );
 }
 
@@ -461,18 +496,10 @@ export function VoiceRecordingBar({ recorder, lang }: { recorder: Recorder; lang
           zh={vt(cancelHintKey, "zh")}
         />
       </span>
-      {/* Lock pill -- fades/rises toward the record button as lockProgress
-          climbs to 1, same up-drag-to-lock affordance as mobile. */}
-      <div
-        className="pointer-events-none flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-neutral-400 transition dark:bg-white/10 dark:text-[#adafbb]"
-        style={{ opacity: 0.4 + recorder.lockProgress * 0.6, transform: `translateY(${-recorder.lockProgress * 6}px)` }}
-        aria-hidden="true"
-      >
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="5" y="11" width="14" height="10" rx="2" />
-          <path d="M8 11V7a4 4 0 0 1 8 0v4" />
-        </svg>
-      </div>
+      {/* The lock affordance itself now floats directly above
+          VoiceRecordButton (see that component's own comment) instead of
+          living in this row -- it needs to sit over the button the
+          thumb is actually on, not off to the side here. */}
     </div>
   );
 }
