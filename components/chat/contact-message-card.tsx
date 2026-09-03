@@ -72,12 +72,17 @@ export type ContactCardSummary = {
 
 type AddState = "idle" | "adding" | "added" | "error";
 
-// Same chunky thick-stroke plus as components/create-post-fab.tsx's own
-// ChunkyPlusIcon, just smaller -- this button is a compact round action
-// next to Message, not a 56px FAB.
-function PlusIcon({ className = "h-4 w-4" }: { className?: string }) {
+// 2026-09-03 (Aleksandr, follow-up correction with a native-app
+// reference screenshot: "эта кнопка выглядит как дичь... маленький
+// аккуратний крестик, а сама заливка такого же кольору як і
+// 'повідомлення'") -- was a standalone bg-[#335ef7] accent circle with a
+// thick white plus; now shares the exact same conditional fill classes
+// as the neighboring Message button (no more hardcoded color of its
+// own, so the glyph just inherits currentColor) and a thinner,
+// smaller stroke.
+function PlusIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className={className} aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className={className} aria-hidden="true">
       <path d="M12 5v14M5 12h14" />
     </svg>
   );
@@ -205,9 +210,9 @@ export function ContactMessageCard({
             onClick={handleAddContact}
             disabled={addState === "adding" || addState === "added"}
             aria-label="Add to contacts"
-            className={`group flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#335ef7] text-white transition-all duration-300 ease-out disabled:cursor-default dark:bg-[#0c8ce9] ${
-              addState === "added" ? "w-0 opacity-0" : "h-9 w-9 opacity-100 hover:brightness-110 active:scale-95"
-            }`}
+            className={`group flex shrink-0 items-center justify-center overflow-hidden rounded-full transition-all duration-300 ease-out disabled:cursor-default ${
+              mine ? "bg-white/20 hover:bg-white/30" : "bg-black/5 hover:bg-black/10 dark:bg-white/15 dark:hover:bg-white/25"
+            } ${addState === "added" ? "w-0 opacity-0" : "h-9 w-9 opacity-100 active:scale-95"}`}
           >
             {addState === "adding" ? <AddSpinner /> : <PlusIcon className="animate-theme-pop" />}
           </button>
