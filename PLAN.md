@@ -5746,3 +5746,49 @@ voice message recorded after this round's push is what actually tests
 
 tsc-clean.
 
+### 6.111
+
+2026-09-03: the two long-carried-over bugs from earlier in the broader
+session -- "desktop chat doesn't scroll to bottom on open" and the
+"periodic session/logout flakiness" (missing avatar, some panel
+rendering signed-out while the rest of the UI is fine) -- both root-
+caused and fixed from code inspection alone (no fresh repro needed for
+either; see each fix's own commit for the full trail).
+
+Desktop scroll: app/chats/[chatId]/page.tsx (the mobile full-page chat
+route) already got a robust pin-to-bottom fix on 2026-09-03 earlier
+today (isPinnedToBottomRef + a ResizeObserver on the message list's
+content wrapper, re-snapping as avatars/photos/fonts keep growing
+scrollHeight after the initial render). Desktop never actually renders
+that page for an open chat, though -- components/chats-fab.tsx opens
+the popup MiniChatWindow instead (its own isMobile check routes mobile
+to the full page, desktop to the popup) -- and components/mini-chat-
+window.tsx still had the OLD naive `scrollTo({top: scrollHeight})`
+fired once per messages.length change, so it never inherited that fix
+and was stuck with the exact same "settles short of true bottom" bug.
+Ported the identical mechanism over (smaller 64px pin threshold --
+this panel is much shorter than the full page).
+
+Session flakiness: lib/auth-fetch.ts's own header already documents
+and fixes the actual mechanism (2026-09-01, contacts-page race on
+session refresh) -- two client fetches to callAsVisitor-backed routes
+in flight at once race to redeem the same stale rotating refreshToken
+cookie, the backend accepts only the first, and the loser's own piece
+of UI renders signed-out even though the winner (and the rest of the
+page) is fine. It only protects call sites that actually route through
+its shared `authFetch` queue, though. /contacts and /chats were both
+built against it from day one and were already safe -- but a sweep of
+the rest of the app turned up ~30 raw `fetch("/api/...")` calls to
+session-backed routes still bypassing it, across profile editor,
+avatar editor, post editor, my-posts, drafts, filters, feed load-more,
+and onboarding (14 files). Any one of them racing against SiteNav's
+own authFetch("/api/account/whoami") -- mounted on every page -- can
+still lose, which is exactly consistent with the bug being "periodic"
+and landing on different UI each time rather than one fixed spot.
+Migrated all ~30 call sites onto authFetch (a drop-in replacement,
+identical signature). Left sign-out calls (don't redeem a token) and
+the Google/Apple sign-in buttons (pre-session, nothing to race yet) as
+plain fetch.
+
+tsc-clean, both.
+
