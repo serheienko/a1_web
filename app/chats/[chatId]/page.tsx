@@ -32,6 +32,8 @@ import { LottiePlayer } from "@/components/lottie-player";
 import {
   extractMessageText,
   isImageMediaDocument,
+  isStickerMediaDocument,
+  isVideoMediaDocument,
   isVoiceMediaDocument,
   mediaDocumentBytes,
   mediaDocumentFileName,
@@ -2306,7 +2308,15 @@ export default function ChatWindowPage() {
                         <div className="mb-1 flex flex-col gap-1.5">
                           {docMedia.map((doc) =>
                             isVoiceMediaDocument(doc) ? (
-                              <VoiceMessageBubble key={doc._id} doc={doc} mine={mine} messageDateMs={ms} />
+                              <VoiceMessageBubble
+                                key={doc._id}
+                                doc={doc}
+                                mine={mine}
+                                messageDateMs={ms}
+                                lang={lang}
+                                peerName={headerTitle}
+                                peerAvatarUrl={headerAvatar}
+                              />
                             ) : isImageMediaDocument(doc) ? (
                               // eslint-disable-next-line @next/next/no-img-element -- proxied
                               // through /api/media, not a next/image-configured remote host.
@@ -2317,6 +2327,62 @@ export default function ChatWindowPage() {
                                 onClick={() => openViewerForDoc(msg._id, doc._id)}
                                 className="max-h-64 w-full cursor-pointer rounded-xl object-cover transition hover:opacity-90"
                               />
+                            ) : isVideoMediaDocument(doc) ? (
+                              // 2026-09-03 (Aleksandr, live data trace --
+                              // see isVideoMediaDocument's own comment,
+                              // lib/a1/chat-schemas.ts): browsers can
+                              // play mp4 natively, so this gets a real
+                              // <video> instead of falling through to
+                              // the generic file badge like every other
+                              // non-image attachment used to.
+                              <video
+                                key={doc._id}
+                                src={buildMediaProxyUrl(doc)}
+                                controls
+                                playsInline
+                                className="max-h-64 w-full rounded-xl bg-black"
+                              />
+                            ) : isStickerMediaDocument(doc) ? (
+                              // 2026-09-03 (Aleksandr, live screenshot:
+                              // "Надо название файла, вес, другие
+                              // иконки, а не надпись 'file'") -- traced
+                              // to `application/x-tgsticker` attachments
+                              // (see isStickerMediaDocument's own
+                              // comment) falling through to the generic
+                              // document row, which has no filename to
+                              // show for a sticker (stickers never carry
+                              // one) and no matching file-type-icon.tsx
+                              // kind, hence the bare "Документ"/"FILE"
+                              // badge he flagged. Scoped fix: a properly
+                              // labeled sticker chip instead of a fake
+                              // document row -- NOT an actual rendered
+                              // sticker image yet (the underlying file is
+                              // a gzipped Lottie/TGS animation, not a
+                              // browser-renderable raster format; doing
+                              // that properly needs its own decode pass,
+                              // separate follow-up). Plain div, no href
+                              // -- unlike a real document there is
+                              // nothing useful to open here.
+                              <div
+                                key={doc._id}
+                                className={`flex items-center gap-2.5 rounded-xl px-2.5 py-2 ${
+                                  mine ? "bg-white/15" : "bg-black/5 dark:bg-white/10"
+                                }`}
+                              >
+                                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-[#8b5cf6]">
+                                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                    <circle cx="12" cy="12" r="8.5" />
+                                    <path d="M9 10.2h.01M15 10.2h.01" />
+                                    <path d="M8.7 14.2c1.9 1.6 4.7 1.6 6.6 0" />
+                                  </svg>
+                                </span>
+                                <span className="truncate text-[14px] font-medium">
+                                  <T
+                                    uk="Стікер" en="Sticker" ru="Стикер" de="Sticker" es="Sticker"
+                                    fr="Sticker" pl="Naklejka" ptBR="Figurinha" zh="贴纸"
+                                  />
+                                </span>
+                              </div>
                             ) : (
                               // 2026-09-03 (Aleksandr, Figma ref node
                               // 24368:126, "5. Chat view": "надо, чтобы

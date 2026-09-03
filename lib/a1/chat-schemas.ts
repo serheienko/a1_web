@@ -289,6 +289,34 @@ export function isImageMediaDocument(doc: MessageMediaDocument): boolean {
   return doc.mimetype.startsWith("image/");
 }
 
+// 2026-09-03 (Aleksandr, live screenshot: a batch of chat attachments
+// rendering as a bare "FILE"/"Документ" badge with no name or size --
+// "Надо название файла, вес, другие иконки, а не надпись 'file'") --
+// traced against this chat's own real /api/chats/messages response
+// (not guessed): every one of those rows was `mimetype: "application/
+// x-tgsticker"` (an `attribute-sticker` entry, no `attribute-filename`
+// at all -- stickers never carry a filename, so mediaDocumentFileName
+// always came back empty for these, which is why they fell through to
+// the generic file-attachment row's own "Документ" fallback text and
+// file-type-icon.tsx's unrecognized-mimetype "FILE" badge). CONFIRMED
+// against the live response, not a guess: `application/x-tgsticker` is
+// this backend's own literal mimetype for a sticker attachment (mirrors
+// Telegram's own TGS format), and every sticker in that chat's history
+// carried the same `attribute-sticker` attribute.
+export function isStickerMediaDocument(doc: MessageMediaDocument): boolean {
+  if (doc.mimetype === "application/x-tgsticker") return true;
+  return doc.attributes.some((a) => a.object === "attribute-sticker");
+}
+
+// Same live-data pass turned up `video/mp4` attachments ALSO falling
+// through to the generic file row (this app has no video-specific
+// renderer yet) -- browsers can play mp4 natively, so this just gates
+// a real <video> element instead of leaving it as a download-only badge
+// too.
+export function isVideoMediaDocument(doc: MessageMediaDocument): boolean {
+  return doc.mimetype.startsWith("video/");
+}
+
 // The uploaded file's original name, when the backend echoed one back
 // via an `attribute-filename` entry (see components/post-editor.tsx's
 // own upload flow -- this app's upload.create/confirm routes don't set
