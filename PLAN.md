@@ -4278,3 +4278,49 @@ push) -- also still true of everything back through §6.79.
   string into the same per-locale <T> pattern.
 
 tsc-clean, one commit. Not live-tested yet (needs a push).
+
+### 6.85 Chats page crash root-caused and fixed; sign-in popover eye toggle + autofill-dismiss fix (2026-09-03)
+
+- **"Чаты легли" -- the actual crash, finally root-caused and fixed**
+  (lib/a1/media-proxy.ts new, lib/a1/mappers.ts, app/chats/[chatId]/
+  page.tsx): live-tested once the user logged back into the browser tab
+  himself. Opening ANY individual chat threw immediately
+  (`read_console_messages`: "[lib/a1/config] imported from the browser —
+  this must stay server-only") and fell into the generic error boundary.
+  Cause: app/chats/[chatId]/page.tsx ("use client") imported
+  buildMediaProxyUrl from lib/a1/mappers.ts, whose first import is
+  lib/a1/config.ts -- which throws by design the instant it's evaluated
+  in a browser bundle (real server secrets, see its own header). That
+  function never actually touches config.ts's exports; moved it (and its
+  pickDisplaySize helper) into a new client-safe lib/a1/media-proxy.ts,
+  re-exported from mappers.ts for its existing server-side callers
+  unchanged, chat page now imports directly from the safe module. Only
+  the chat detail page was affected -- confirmed via grep that every
+  other lib/a1/mappers importer is a server-side API route.
+- **Password show/hide toggle** (components/inline-auth-form.tsx): "добавь
+  глаз везде в поле пароль" -- this is the one shared password field in
+  the whole repo (fab-auth-prompt's two FABs, avatar-menu's signed-out
+  popover, /sign-in's full-page fallback all reuse it), so one toggle
+  covers everywhere. Eye/eye-off SVG button inside the field,
+  tabIndex={-1} + mousedown preventDefault so it never steals focus.
+- **Sign-in popover no longer closes when clicking Chrome's native
+  autofill dropdown** (lib/use-hover-panel.ts): confirmed from the
+  user's screen recording via ffmpeg frame extraction. The dropdown
+  renders below the panel as browser-chrome UI (not page DOM); the
+  existing mousemove geometry backstop saw the cursor leave every
+  tracked rect and armed its 200ms auto-close, and once the cursor is
+  over that native overlay the page stops receiving mousemove entirely
+  (same as hovering a native <select>), so nothing ever cancelled the
+  timer. New isFocusInsideAny() pins the panel open whenever a real
+  element inside it holds focus, independent of cursor position --
+  wired into the mousemove backstop, the plain mouseleave handler, and a
+  new focusin listener that cancels an already-armed timer. Shared by
+  every useHoverPanel() caller (avatar-menu, filters-form,
+  post-owner-menu, edit-profile-button, chats-fab), not just this one
+  popover.
+
+Four commits (chats-crash fix, eye toggle, autofill fix, this doc entry
+pending), all tsc-clean. `next build` itself couldn't be run locally
+this pass (no network for the missing linux/arm64 SWC binary in this
+sandboxed shell) -- tsc is this session's established gate and passed
+clean on all four.
