@@ -39,8 +39,10 @@ import {
   messageDocumentMedia,
   messageTickState,
   type ChatMessage,
+  type MessageCalculation,
 } from "@/lib/a1/chat-schemas";
 import { buildMediaProxyUrl, buildMediaDownloadUrl } from "@/lib/a1/media-proxy";
+import type { MediaUploadUsage } from "@/lib/a1/schemas";
 import {
   ChatAttachmentSpinner,
   ChatBackArrow,
@@ -103,6 +105,20 @@ type PendingAttachment = {
   // (or alongside) the generic error state every other upload failure
   // still falls back to.
   errorMessage?: string;
+  // 2026-09-03: the file's own byte size (post-compression for images,
+  // matching the Figma spec's own "Upload size is calculated after
+  // compression" note) -- needed both for the size-cap/quota checks in
+  // handleAttachFile and for the composer's own running quota-preview
+  // banner (selectedBytes below).
+  bytes: number;
+  // 2026-09-03 (Figma "4.File too large" / "Attachment validation"):
+  // true for either half of that section's validation -- over the flat
+  // 20 MB single-file cap, or under it but over what's left of today's
+  // quota. Distinguishes the RED full-size file card (icon/name/size
+  // still visible, a "choose another" retry button) from the plain
+  // small-thumbnail "Failed"/"Limit reached" overlay every other
+  // attachment error still uses below.
+  tooLarge?: boolean;
 };
 
 type PendingMessage = ChatMessage & {
@@ -126,6 +142,18 @@ type PendingMessage = ChatMessage & {
   // list call), so the optimistic bubble's ContactMessageCard needs no
   // extra round-trip either.
   pendingContacts?: PickedContact[];
+  // 2026-09-03 (Aleksandr, live bug report: a sent calculation didn't
+  // show up in the chat right away, not even after a reload -- only
+  // after leaving and re-entering the chat) -- sendCalculation() below
+  // used to have NO optimistic-bubble step at all (a deliberate scope
+  // cut when the feature first shipped, see messageCalculation's call
+  // site's own comment), so the table was only ever visible once
+  // load()'s poll happened to catch chat-server having indexed it,
+  // exactly the same race pendingMessages/attemptSend already solves
+  // for text. This closes that gap the same way: an optimistic
+  // MessageCalculation, rendered by the same ChatCalculationCard a real
+  // message uses.
+  pendingCalc?: MessageCalculation;
 };
 
 function isPendingMessage(msg: ChatMessage | PendingMessage): msg is PendingMessage {
@@ -165,11 +193,24 @@ function NotSentIcon() {
 // unsupervised.
 const MAX_ATTACHMENT_PHOTO_DIMENSION = 1600;
 const MAX_ATTACHMENT_PHOTO_BYTES = 280 * 1024;
-const MAX_ATTACHMENT_FILE_BYTES = 25 * 1024 * 1024;
+// 2026-09-03 (Aleksandr, Figma "Attachments" section, "Attachment
+// validation" note -- confirmed against the actual rendered "Max 20 MB"
+// text on that section's own "4.File too large" screen, not just the
+// annotation): was 25 MB, corrected to the real per-file cap. A second,
+// independent cap -- today's remaining daily quota, `uploadUsage` state
+// below -- can reject a file that's under this 20 MB limit but would
+// still not fit what's left of the day; see handleAttachFile.
+const MAX_ATTACHMENT_FILE_BYTES = 20 * 1024 * 1024;
 const MAX_ATTACHMENTS_PER_MESSAGE = 10;
 // app/api/chats/send/route.ts's own SendInput caps `contacts` at 5,
 // separate from and lower than the media cap above.
 const MAX_CONTACTS_PER_MESSAGE = 5;
+// 2026-09-03: "quota banner" trigger thresholds and the localStorage key
+// for the attach-menu's one-time teaching banner -- see their own call
+// sites below for the exact Figma text these come from.
+const QUOTA_BANNER_MIN_COUNT = 3;
+const QUOTA_BANNER_MIN_BYTES = 5 * 1024 * 1024;
+const DAILY_BANNER_SEEN_KEY = "a1_daily_uploads_banner_seen";
 // Calculations feature: one draft row -- description free text, cost
 // and quantity kept as raw typed strings (not numbers) so a field can
 // sit on "12," or be empty mid-edit without fighting a controlled
@@ -346,14 +387,30 @@ const UPLOAD_QUOTA_EXCEEDED_TEXT: Record<Locale, string> = {
   zh: "已达每日上传上限",
 };
 
+// 2026-09-03 (Figma "Attachment validation" note, wording confirmed
+// against the section's own "4.File too large" screen: "71,8 MB · Max
+// 20 MB"): the short "· Max 20 MB" suffix for a single file over the
+// flat per-file cap.
+const MAX_FILE_SIZE_TEXT: Record<Locale, string> = {
+  uk: "Макс. 20 МБ", en: "Max 20 MB", ru: "Макс. 20 МБ", de: "Max. 20 MB",
+  es: "Máx. 20 MB", fr: "Max 20 Mo", pl: "Maks. 20 MB", ptBR: "Máx. 20 MB", zh: "最大 20 MB",
+};
+// Second half of the same note -- a file under 20 MB but over what's
+// left of today's quota: "· YY MB left" (its own dev-annotation example
+// on that screen spelled it out in full, "3.2 MB left today").
+const QUOTA_LEFT_TODAY_TEXT: Record<Locale, string> = {
+  uk: "залишилось сьогодні", en: "left today", ru: "осталось сегодня", de: "heute übrig",
+  es: "restante hoy", fr: "restant aujourd'hui", pl: "zostało dzisiaj", ptBR: "restante hoje", zh: "今日剩余",
+};
+
 export default function ChatWindowPage() {
   const lang = useActiveLocale();
   const params = useParams<{ chatId: string }>();
   const searchParams = useSearchParams();
   const router = useRouter();
   const chatId = params.chatId;
-  const headerTitle = searchParams.get("title") ?? "";
-  const headerAvatar = searchParams.get("avatar") ?? pickDefaultCatAvatar(chatId);
+  const headerTitleParam = searchParams.get("title") ?? "";
+  const headerAvatarParam = searchParams.get("avatar");
   // 2026-09-02 (Aleksandr: "Подгрузка всех аватаров на сайте должна
   // быть через blur эффект, как мы делали в карточках постов в феде") --
   // rides along the same query string as ?avatar= (see app/chats/
@@ -362,7 +419,7 @@ export default function ChatWindowPage() {
   // mascot default avatar (never computed for those -- see that
   // route's own comment) or on direct navigation with no query string
   // at all, both of which just fall back to the shared generic shimmer.
-  const headerAvatarBlur = searchParams.get("avatarBlur") || null;
+  const headerAvatarBlurParam = searchParams.get("avatarBlur") || null;
   // 2026-09-02 (Aleksandr: "при нажатии на аватар и на имя должен
   // открываться профіль цієї людини") -- ?username= travels alongside
   // ?title=/?avatar= from wherever the chat was opened (components/
@@ -370,7 +427,55 @@ export default function ChatWindowPage() {
   // Null (a chat opened some other way, or a group chat down the line)
   // just means the header name/avatar render as plain, non-clickable
   // elements below instead of a broken link to nowhere.
-  const headerUsername = searchParams.get("username");
+  const headerUsernameParam = searchParams.get("username");
+
+  // 2026-09-03 (Aleksandr, live bug report: after sending a calculation
+  // and navigating chat-list -> back into the chat, the header lost the
+  // partner's name/avatar entirely -- showed "—" and the generic
+  // gradient default). Root cause: this header's identity is sourced
+  // ENTIRELY from the ?title=/?avatar=/?username= query string set by
+  // whichever link opened the chat (app/chats/page.tsx's own Link
+  // href) -- there was no fallback at all if that list's own name/
+  // avatar resolution came back empty for a tick (a known best-effort
+  // limitation already documented in app/api/chats/list/route.ts's own
+  // header: contacts.search can fail transiently, or the partner isn't
+  // a saved contact). Now: when the query string didn't carry a title,
+  // re-derive it from the SAME /api/chats/list source of truth instead
+  // of just falling back to a blank "—" -- one extra request, only on
+  // that empty-query-string path, not on every normal open.
+  const [chatFallback, setChatFallback] = useState<{
+    title: string;
+    avatarUrl: string;
+    avatarBlurDataUrl: string | null;
+    username: string | null;
+  } | null>(null);
+  useEffect(() => {
+    if (headerTitleParam) return;
+    let cancelled = false;
+    authFetch("/api/chats/list")
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled || !data?.ok || !Array.isArray(data.chats)) return;
+        const match = data.chats.find((c: { id: string }) => c.id === chatId);
+        if (match) {
+          setChatFallback({
+            title: match.title ?? "",
+            avatarUrl: match.avatarUrl ?? "",
+            avatarBlurDataUrl: match.avatarBlurDataUrl ?? null,
+            username: match.username ?? null,
+          });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [headerTitleParam, chatId]);
+
+  const headerTitle = headerTitleParam || chatFallback?.title || "";
+  const headerAvatar = headerAvatarParam || chatFallback?.avatarUrl || pickDefaultCatAvatar(chatId);
+  const headerAvatarBlur = headerAvatarBlurParam || chatFallback?.avatarBlurDataUrl || null;
+  const headerUsername = headerUsernameParam || chatFallback?.username || null;
   const headerProfileHref = headerUsername ? profileHref(headerUsername) : null;
 
   const [state, setState] = useState<LoadState>("loading");
@@ -426,6 +531,54 @@ export default function ChatWindowPage() {
   // opened from the small storage icon in the attach popover below,
   // same corner the reference native-app screenshot uses.
   const [dailyUploadsOpen, setDailyUploadsOpen] = useState(false);
+  // 2026-09-03 (Figma "Attachments" section, "Attachment validation" +
+  // "Daily uploads" notes): a cached copy of the SAME MediaUploadUsage
+  // DailyUploadsModal itself fetches (/api/upload/usage), kept here too
+  // so handleAttachFile can validate a pick against the REMAINING quota
+  // before ever starting an upload, and so the composer's own quota
+  // banner (below) has numbers to show without opening that modal.
+  // Fetched once when the attach menu first opens (see its own effect
+  // below) -- a deliberately loose cache, not re-synced after every
+  // send; app/api/upload/create's own server-side quota_exceeded
+  // response (already handled below) is the real backstop if this
+  // drifts stale within one sitting.
+  const [uploadUsage, setUploadUsage] = useState<MediaUploadUsage | null>(null);
+  // One-time teaching banner above the attach menu (Figma "8. One time
+  // popover": "Teach the user, but show banner only 1 time") -- the
+  // Figma frame never states an exact numeric trigger, only that it
+  // accompanies the quota-exhausted state (same frame's Photos/Files
+  // rows are dimmed there); read literally, "quota fully used" is this
+  // pass's own trigger too, see the effect below. Persisted in
+  // localStorage (not per-chat) so it genuinely only ever shows once
+  // for a given browser, not once per chat opened.
+  const [dailyBannerDismissed, setDailyBannerDismissed] = useState(true);
+  useEffect(() => {
+    try {
+      setDailyBannerDismissed(window.localStorage.getItem(DAILY_BANNER_SEEN_KEY) === "1");
+    } catch {
+      // Storage can throw in a locked-down browser context -- leave the
+      // banner suppressed (safe default: silence over showing an
+      // unfulfillable "1-time" promise every single visit).
+    }
+  }, []);
+  useEffect(() => {
+    if (!attachMenuOpen || uploadUsage) return;
+    let cancelled = false;
+    authFetch("/api/upload/usage")
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
+        if (data?.ok && data.usage) setUploadUsage(data.usage as MediaUploadUsage);
+      })
+      .catch(() => {
+        // Best-effort -- handleAttachFile's own server-side quota_exceeded
+        // handling still catches an over-quota upload even with no local
+        // usage figure to pre-check against.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [attachMenuOpen, uploadUsage]);
   // Contact-attachment feature (2026-09-02, Aleksandr's Contacts-picker
   // + "sent contact" card screenshots): contactsPickerOpen drives
   // components/chat/contacts-picker-modal.tsx; pendingContacts is the
@@ -467,6 +620,10 @@ export default function ChatWindowPage() {
   const [calcSending, setCalcSending] = useState(false);
   const [calcError, setCalcError] = useState(false);
   const attachMenuRef = useRef<HTMLDivElement>(null);
+  // 2026-09-03 (Aleksandr: currency popover must close on an outside
+  // click, same convention as attachMenuRef above -- it's no longer a
+  // backdrop modal, see components/chat/currency-picker-modal.tsx).
+  const calcCurrencyPickerRef = useRef<HTMLDivElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // 2026-09-02 (Aleksandr: "когда я отвечаю с моба и читаю это на
@@ -912,6 +1069,17 @@ export default function ChatWindowPage() {
     return () => document.removeEventListener("mousedown", handleDocClick);
   }, [attachMenuOpen]);
 
+  useEffect(() => {
+    if (!calcCurrencyPickerOpen) return;
+    function handleDocClick(e: MouseEvent) {
+      if (calcCurrencyPickerRef.current && !calcCurrencyPickerRef.current.contains(e.target as Node)) {
+        setCalcCurrencyPickerOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleDocClick);
+    return () => document.removeEventListener("mousedown", handleDocClick);
+  }, [calcCurrencyPickerOpen]);
+
   // Contact-attachment feature: batch-resolves occupation/expertise/
   // avatar (POST /api/users/summaries) for every REAL message's contact
   // media whose sender isn't already covered -- runs off `messages`
@@ -968,10 +1136,54 @@ export default function ChatWindowPage() {
   // routes themselves don't care which button triggered the pick.
   async function handleAttachFile(file: File, kind: "image" | "file") {
     if (attachments.length >= MAX_ATTACHMENTS_PER_MESSAGE) return;
-    if (kind === "file" && file.size > MAX_ATTACHMENT_FILE_BYTES) return;
     const localId = `att-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const toUpload = kind === "image" ? await compressAttachmentImage(file) : file;
+    // Size checked AFTER compression, on `toUpload.size` -- Aleksandr,
+    // 2026-09-03 Figma annotation: "рассчитывается после сжатия
+    // (фактический объём, который займёт место), а не по исходному
+    // размеру файла." For images this falls out naturally since
+    // toUpload is already the compressed File.
+    const bytes = toUpload.size;
     const previewUrl = kind === "image" ? URL.createObjectURL(toUpload) : undefined;
+    // Two independent validations before ever attempting an upload
+    // (Aleksandr, 2026-09-03: flat per-file cap, then whatever's left of
+    // today's quota) -- both push a visible RED error card instead of
+    // the old silent `return` this replaced, per the real reference
+    // app's "4. File too large" screenshot.
+    if (bytes > MAX_ATTACHMENT_FILE_BYTES) {
+      setAttachments((prev) => [
+        ...prev,
+        {
+          localId,
+          kind,
+          fileName: file.name,
+          mimetype: toUpload.type || "application/octet-stream",
+          previewUrl,
+          status: "error",
+          errorMessage: `${formatBytes(bytes)} · ${MAX_FILE_SIZE_TEXT[lang]}`,
+          bytes,
+          tooLarge: true,
+        },
+      ]);
+      return;
+    }
+    if (uploadUsage && bytes > uploadUsage.remainingBytes) {
+      setAttachments((prev) => [
+        ...prev,
+        {
+          localId,
+          kind,
+          fileName: file.name,
+          mimetype: toUpload.type || "application/octet-stream",
+          previewUrl,
+          status: "error",
+          errorMessage: `${formatBytes(bytes)} · ${formatBytes(uploadUsage.remainingBytes)} ${QUOTA_LEFT_TODAY_TEXT[lang]}`,
+          bytes,
+          tooLarge: true,
+        },
+      ]);
+      return;
+    }
     setAttachments((prev) => [
       ...prev,
       {
@@ -981,6 +1193,7 @@ export default function ChatWindowPage() {
         mimetype: toUpload.type || "application/octet-stream",
         previewUrl,
         status: "uploading",
+        bytes,
       },
     ]);
     try {
@@ -1259,32 +1472,53 @@ export default function ChatWindowPage() {
     if (calcSending || !calcHasContent) return;
     setCalcSending(true);
     setCalcError(false);
+    const rows = calcRows
+      .filter((r) => r.description.trim() || r.unitAmount.trim())
+      .map((r) => ({
+        description: r.description.trim() || null,
+        unitAmount: Math.round(calcParseDecimal(r.unitAmount) * 100),
+        quantity: calcParseQuantity(r.quantity),
+      }));
+    // Optimistic bubble -- see PendingMessage.pendingCalc's own comment
+    // for why this is needed now. Left OUT of `pendingMessages` on
+    // failure below (rows/note/currency stay in the panel, exactly the
+    // pre-existing on-failure behavior) rather than marked `failed` like
+    // a text bubble, since there's no calc-specific retry path yet --
+    // the user just presses send again.
+    const localId = `pending-calc-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const optimistic: PendingMessage = {
+      _id: localId,
+      flags: 0,
+      peerFrom: myUserId ? { object: "peer-user", user: myUserId } : null,
+      peerTo: null,
+      date: new Date().toISOString(),
+      entities: [],
+      media: [],
+      fromId: myUserId,
+      pending: true,
+      localId,
+      failed: false,
+      pendingCalc: { note: calcNote.trim(), currency: calcCurrency, rows, object: "entity-calculation" },
+    };
+    setPendingMessages((prev) => [...prev, optimistic]);
     try {
       const res = await authFetch("/api/chats/send", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           chatId,
-          calculation: {
-            note: calcNote.trim(),
-            currency: calcCurrency,
-            rows: calcRows
-              .filter((r) => r.description.trim() || r.unitAmount.trim())
-              .map((r) => ({
-                description: r.description.trim() || null,
-                unitAmount: Math.round(calcParseDecimal(r.unitAmount) * 100),
-                quantity: calcParseQuantity(r.quantity),
-              })),
-          },
+          calculation: { note: calcNote.trim(), currency: calcCurrency, rows },
         }),
       });
       if (!res.ok) {
+        setPendingMessages((prev) => prev.filter((p) => p.localId !== localId));
         setCalcError(true);
         return;
       }
       calcClose();
       load();
     } catch {
+      setPendingMessages((prev) => prev.filter((p) => p.localId !== localId));
       setCalcError(true);
     } finally {
       setCalcSending(false);
@@ -1578,7 +1812,7 @@ export default function ChatWindowPage() {
               // has no optimistic-bubble step, a deliberate scope cut --
               // see its own comment), so `pending` always short-circuits
               // this to null same as docMedia/contactMedia above.
-              const calc = pending ? null : messageCalculation(msg);
+              const calc = pending ? (pending.pendingCalc ?? null) : messageCalculation(msg);
               const hasMedia =
                 docMedia.length > 0 ||
                 pendingAttachments.length > 0 ||
@@ -1877,7 +2111,7 @@ export default function ChatWindowPage() {
                               value={row.unitAmount}
                               onChange={(e) => calcUpdateRow(row.id, { unitAmount: e.target.value.replace(/[^0-9.,]/g, "") })}
                               placeholder="+"
-                              className="w-16 bg-transparent py-1 text-right text-[#262a34] outline-none placeholder:font-semibold placeholder:text-[#335ef7] dark:text-white dark:placeholder:text-[#0c8ce9]"
+                              className="w-24 bg-transparent py-1 text-right text-[#262a34] outline-none placeholder:font-semibold placeholder:text-[#335ef7] dark:text-white dark:placeholder:text-[#0c8ce9]"
                             />
                           </td>
                           <td className="py-1.5 px-1 align-top text-right">
@@ -1886,7 +2120,7 @@ export default function ChatWindowPage() {
                               value={row.quantity}
                               onChange={(e) => calcUpdateRow(row.id, { quantity: e.target.value.replace(/[^0-9]/g, "").slice(0, 4) })}
                               placeholder="+"
-                              className="w-10 bg-transparent py-1 text-right text-[#262a34] outline-none placeholder:font-semibold placeholder:text-[#335ef7] dark:text-white dark:placeholder:text-[#0c8ce9]"
+                              className="w-14 bg-transparent py-1 text-right text-[#262a34] outline-none placeholder:font-semibold placeholder:text-[#335ef7] dark:text-white dark:placeholder:text-[#0c8ce9]"
                             />
                           </td>
                           <td className="py-1.5 pr-3 align-top text-right tabular-nums text-[#262a34] dark:text-white">
@@ -1925,9 +2159,10 @@ export default function ChatWindowPage() {
                   placeholder="Note"
                   className="min-w-0 flex-1 rounded-full bg-white px-4 py-2.5 text-[14px] text-[#262a34] outline-none placeholder:text-neutral-400 dark:bg-[#1c1c1e] dark:text-white dark:placeholder:text-neutral-500"
                 />
+                <div ref={calcCurrencyPickerRef} className="relative shrink-0">
                 <button
                   type="button"
-                  onClick={() => setCalcCurrencyPickerOpen(true)}
+                  onClick={() => setCalcCurrencyPickerOpen((v) => !v)}
                   aria-label="Currency"
                   // 2026-09-03 (Aleksandr, 3 screenshots of the real
                   // reference app's own calculator panel, correcting my
@@ -1939,6 +2174,15 @@ export default function ChatWindowPage() {
                 >
                   $
                 </button>
+                {calcCurrencyPickerOpen && (
+                  <CurrencyPickerModal
+                    lang={lang}
+                    selected={calcCurrency}
+                    onSelect={setCalcCurrency}
+                    onClose={() => setCalcCurrencyPickerOpen(false)}
+                  />
+                )}
+                </div>
               </div>
 
               {calcError && (
@@ -2000,14 +2244,6 @@ export default function ChatWindowPage() {
                 </button>
               </div>
 
-              {calcCurrencyPickerOpen && (
-                <CurrencyPickerModal
-                  lang={lang}
-                  selected={calcCurrency}
-                  onSelect={setCalcCurrency}
-                  onClose={() => setCalcCurrencyPickerOpen(false)}
-                />
-              )}
             </div>
           ) : (
             <>

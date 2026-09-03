@@ -4495,3 +4495,114 @@ new server-side pipeline, not a UI tweak.
 One commit (both pieces landed together -- they touch the same message-
 render loop in app/chats/[chatId]/page.tsx and couldn't be cleanly
 split at the git-hunk level), tsc-clean.
+
+### 6.90 Mobile chats FAB iOS-hover race + greeting-cat now sends just the emoji (2026-09-03)
+
+Two small, already-shipped live-testing fixes, undocumented until now:
+
+- **Mobile chats FAB** (components/chats-fab.tsx) -- Aleksandr sent a
+  screen recording: on a real iPhone, tapping the signed-in flyout
+  trigger correctly redirected into the chat (the existing mobile
+  onClick logic), but the desktop flyout popover ALSO flashed open for
+  an instant first. Root cause: iOS Safari fires a `mouseenter`
+  synthetic event on the very first tap of any element carrying React
+  hover handlers, regardless of what its `onClick` does -- this raced
+  `useHoverPanel`'s hover-opens-the-flyout behavior against the
+  already-correct mobile redirect. Fixed by gating
+  `onMouseEnter`/`onMouseLeave` to desktop only (`isMobile ? undefined
+  : handler`), leaving mobile with nothing but the click-based redirect.
+- **Empty-chat greeting cat** (app/chats/[chatId]/page.tsx) --
+  Aleksandr: "При нажатии на этого котю, он должен отправляться в чат,
+  без текстов... убери его и поставь только котю." The waving-cat
+  Lottie's click handler used to send a localized greeting STRING
+  (`GREETING_TEXT[lang]`, e.g. "👋 Привіт!"); now sends a bare "🐱"
+  emoji as a normal message (same send() path, so it still gets a
+  timestamp/ticks like anything else).
+
+### 6.91 Live-testing batch: currency popover, calc input clipping, calc note clipping, optimistic calc bubble, chat header identity fallback, attachment size/quota pre-validation (2026-09-03)
+
+Six fixes from one live-testing pass on the Calculations feature (§6.89)
+and the in-progress Attachments feature (§6.71/§6.74's follow-up, still
+not fully built -- see its own note below):
+
+- **Currency picker is now an anchored popover, not a backdrop modal**
+  (components/chat/currency-picker-modal.tsx) -- Aleksandr: "Эту
+  модалку просто делай сверху над кнопкой $, темную это полосу убери.
+  Она должна открываться просто поверх калькуляции так же как модалка
+  при нажатии на скрепку." Was a `fixed inset-0` backdrop + centered
+  card (components/daily-uploads-modal.tsx's own convention); now
+  `absolute bottom-full right-0`, anchored directly above the "$"
+  button, no backdrop, closes on an outside click via a new
+  `calcCurrencyPickerRef` -- the exact same pattern the attach-menu
+  popover (`attachMenuRef`) already used. Only call site, so the
+  component itself was converted rather than duplicating a second
+  variant.
+- **Calc table Cost/Qty inputs no longer clip while typing** -- "при
+  большом вводе подрезалась первая цифра, а в UI еще место есть." The
+  two inputs were a tight `w-16`/`w-10`; widened to `w-24`/`w-14` --
+  the Description column has slack to give up, confirmed by how much
+  empty space the reference screenshot's own Total column already had.
+- **Sent calc card's note text no longer clips at the top** -- "Подрезало
+  надпись 'На карту', UI баг." components/chat/calculation-card.tsx's
+  root wrapper had `overflow-hidden rounded-xl` left over from an
+  earlier draft; it has no background of its own to round off (the
+  message bubble around it already handles that), so it was clipping
+  the note's own line box for glyphs taller than a bare 15px/
+  leading-snug line height. Dropped `overflow-hidden`/`rounded-xl` from
+  the wrapper (nothing left for it to clip) and gave the note
+  `leading-relaxed` for margin.
+- **Sent calculations now show up instantly, like every other message**
+  -- live bug report: a sent calc table didn't appear right away, a
+  manual reload didn't help either, and it only showed up after leaving
+  the chat for the list and coming back. Root cause, confirmed against
+  §6.89's own "no optimistic pending bubble... a deliberate scope cut"
+  note: `sendCalculation()` had zero optimistic-bubble step, unlike
+  plain text sends (§6.62's own "я не вижу появившееся сообщение сразу
+  после отправки" fix) -- it just POSTed and called `load()` once,
+  so the table was only visible once chat-server had actually indexed
+  it, a real race. Fixed the same way §6.62 fixed it for text:
+  `PendingMessage` gained an optional `pendingCalc` field, `sendCalculation()`
+  now pushes an optimistic entry (rendered through the same
+  `ChatCalculationCard`) before the POST, and `load()`'s existing
+  reconciliation swaps it for the real message once fetched. On a failed
+  send the optimistic bubble is removed and the panel stays open with
+  its rows/note intact (unchanged from before) rather than getting the
+  text-message retry treatment -- no calc-specific retry UI exists yet.
+- **Chat header no longer loses the partner's name/avatar after
+  navigating list -> chat** -- same bug report, second half: after the
+  above, going to the chat list and back showed "—" and the generic
+  gradient avatar in the header instead of the real name/photo. Root
+  cause: the header's title/avatar/username are sourced ENTIRELY from
+  the `?title=/?avatar=/?username=` query string set by whichever link
+  opened the chat (app/chats/page.tsx's own row); there was no fallback
+  if that list's own resolution came back empty for a tick (a known,
+  already-documented best-effort limitation in app/api/chats/list/
+  route.ts -- contacts.search can fail transiently, or the partner
+  isn't a saved contact). Now: when the query string doesn't carry a
+  title, the page re-fetches `/api/chats/list` once and backfills the
+  header from the matching chat's own title/avatarUrl/avatarBlurDataUrl/
+  username instead of just falling back to a blank "—".
+- **Attachments: the flat 20MB-per-file cap and remaining-daily-quota
+  check are now enforced BEFORE upload, with a visible error** --
+  partial progress on the larger Attachments feature spec'd in §6.74's
+  Figma follow-up (node 24368-5918), not yet complete. `handleAttachFile`
+  used to silently `return` on an oversized file (`if (kind === "file"
+  && file.size > MAX_ATTACHMENT_FILE_BYTES) return;` -- nothing visible
+  to the user at all) and never checked the remaining-quota case.
+  Rewritten to check `bytes` (post-compression, per the Figma spec's own
+  "calculated after compression" note) against both the flat cap and
+  `uploadUsage.remainingBytes`, pushing a `status: "error", tooLarge:
+  true` attachment with a formatted reason (`"XX MB · Max 20 MB"` or
+  `"XX MB · YY MB left today"`) instead of dropping the pick silently --
+  renders through this app's existing small-thumbnail error treatment.
+  **Still NOT built** (unchanged from before this pass): the RED
+  full-size file card with a "choose another" button the Figma
+  "4.File too large" screen shows, multi-file select (`multiple` on the
+  file inputs), the composer's own quota banner, disabling the
+  attach-menu's Photo/File rows once the daily quota is exhausted, and
+  the one-time "Photos & files" teaching banner -- next up whenever this
+  feature resumes.
+
+tsc-clean; each of the six committed separately where they touched
+different files, together where (the calc pending-bubble +header
+fallback) shared page.tsx and one commit was cleaner than three.
