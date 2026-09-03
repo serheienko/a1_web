@@ -4359,3 +4359,22 @@ granted delete permission for the a1_web folder mid-session ("Удали из
 папки") to clear the two stale lock files (plus leftover
 .git/objects/*/tmp_obj_* fragments) and unblock the second commit above
 -- noted here in case the same deadlock recurs in a future session.
+
+### 6.87 Avatars breaking again: a second, separate root cause found and fixed (2026-09-03)
+
+"Периодически отваливаются аватары все равно" -- the earlier fix (§ two
+entries back in this doc's history, app/api/media/[docId]/route.ts's
+media.getUrl retry) targeted transient call failures only; this is a
+DIFFERENT bug hiding behind the same symptom. Confirmed live rather than
+guessed: navigated straight to a real /api/media/[docId] URL in Chrome
+and read where it actually lands -- the S3 URL carries
+`X-Amz-Expires=120` (a 2-minute signature). This route's own
+Cache-Control was `s-maxage=86400, stale-while-revalidate=604800` --
+telling every cache (browser + any CDN in front of it) to keep reusing
+that redirect for up to a day. Any cache hit past the real 2-minute
+window points at an already-expired, now-403 S3 URL -- exactly
+next/image's unrecoverable broken-image state, and a manual reload only
+ever "fixed" it by chance (whenever it happened to bypass whatever had
+cached the stale redirect). Now capped at 45s, no stale-while-revalidate.
+
+One commit, tsc-clean.
