@@ -1374,38 +1374,35 @@ export function PostEditor({
   }, [scheduleOpen]);
 
   if (isSubmittingPost) {
-    // Aleksandr, 2026-08-30: replaces the whole dialog the instant
-    // Post/Save-changes is clicked -- no dark backdrop (pointer-events-
-    // none on this wrapper, -auto only on the card itself) so the feed
-    // underneath stays visible and scrollable, matching "чтобы лента
-    // сама типа дергалась, как бы рефрешилась" -- the actual refresh
-    // happens via onSaved() in submit() once the request resolves and
-    // this whole component unmounts. This swap IS the editor closing --
-    // the big multi-field form is gone the instant this branch renders,
-    // leaving only this small card.
+    // Aleksandr, 2026-08-30: originally replaced the whole dialog with
+    // a small unbacked card floating top-center over the still-visible
+    // feed the instant Post/Save-changes was clicked -- see this same
+    // spot's git history for that version and the "чтобы лента сама
+    // типа дергалась" reasoning behind it.
     //
-    // 2026-08-30 (screen recording): "появляется справа... надо, чтобы
-    // по центру сверху над лентой показывалась эта штука" -- was
-    // `items-end ... sm:justify-end` (bottom on mobile, bottom-right on
-    // desktop); moved to top-center on every viewport, with enough
-    // top padding to clear the sticky nav bar (site-nav.tsx) instead of
-    // sitting flush under/behind it.
+    // 2026-09-04 (screen recording of a job post on jobs.a1appp.com):
+    // "надо показывать внутри того же попапа, не делать белый фон на
+    // весь сайт, а прям внутри модалки поменять на этот інфо текст" --
+    // reverses that: this now renders inside the SAME dialog chrome
+    // (the bg-black/50 backdrop + rounded panel the form itself used
+    // just above) swapped over to this status content, instead of a
+    // separate floating pill elsewhere on the page. The refresh itself
+    // still happens the same way -- onSaved() in submit() once the
+    // request resolves and this whole component unmounts.
     return (
-      <div className="pointer-events-none fixed inset-0 z-[60] flex items-start justify-center p-4 pt-20">
-        <div className="pointer-events-auto flex w-full max-w-xs items-center gap-3 rounded-2xl bg-white p-3 pr-4 shadow-xl ring-1 ring-black/5 dark:bg-neutral-900 dark:ring-white/10">
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-neutral-900 dark:text-neutral-50">
-              {pendingAction === "schedule"
-                ? t("schedulingLabel", lang)
-                : isUpdatingExisting
-                  ? t("updatingLabel", lang)
-                  : t("postingLabel", lang)}
-            </p>
-            <div className="relative mt-1.5 h-1 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
-              <div className="absolute inset-y-0 left-0 w-2/5 rounded-full bg-accent animate-progress-indeterminate" />
-            </div>
+      <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
+        <div className="relative flex w-full flex-col items-center gap-3 rounded-t-3xl bg-white p-6 pb-8 shadow-xl dark:bg-neutral-950 sm:max-w-sm sm:rounded-3xl sm:pb-6">
+          <LottiePlayer src="/animations/posting-cat.json" size={64} />
+          <p className="text-sm font-medium text-neutral-900 dark:text-neutral-50">
+            {pendingAction === "schedule"
+              ? t("schedulingLabel", lang)
+              : isUpdatingExisting
+                ? t("updatingLabel", lang)
+                : t("postingLabel", lang)}
+          </p>
+          <div className="relative h-1 w-full max-w-[220px] overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
+            <div className="absolute inset-y-0 left-0 w-2/5 rounded-full bg-accent animate-progress-indeterminate" />
           </div>
-          <LottiePlayer src="/animations/posting-cat.json" size={48} />
         </div>
       </div>
     );
