@@ -6368,3 +6368,47 @@ code bug -- worth him double-checking that GitHub Desktop pushes here
 are actually reaching a deploy (Vercel build succeeding, not stuck/
 failed) rather than continuing to chase "missing" features that are
 already sitting in the repo.
+## 6.128 -- PDF thumbnail flicker, round three: root cause was the cache KEY, not the caching logic (2026-09-04)
+
+Aleksandr, two rounds already shipped same day for "файлы моргают"
+(PLAN.md 6.114/6.115) and he still saw it flicker on a fresh screen
+recording, then had to correct my first read of that recording (a
+whole-frame pixel-diff averaged a small ~160x300px blink into
+statistical noise across a 2940x1912 frame and wrongly read as "no
+flicker" -- redone with the diff cropped to the actual thumbnail
+region, which does show a clean on/off blank across a couple of
+frames).
+
+Root cause, confirmed live rather than assumed: fetched
+/api/chats/messages twice, 3.5s apart, straight from the page's own
+JS context, and diffed the same document's `fileReference` field
+across the two responses -- the backend genuinely reissues a
+different value for the SAME document on every poll. That value is
+embedded verbatim in the proxy URL returned by
+lib/a1/media-proxy.ts's buildMediaProxyUrl(doc) (`?ref=...`), and both
+prior rounds' caches (lib/pdf-thumbnail.ts's thumbnailCache/
+resolvedCache, and PdfPageThumbnail's own effect) were keyed by that
+same URL -- so `src` itself was silently rotating every ~3s poll,
+which is a guaranteed cache miss no matter how correct the caching
+logic around it was.
+
+Fix: decoupled the cache KEY from the fetch SRC. Both cache functions
+in lib/pdf-thumbnail.ts now take an explicit `cacheKey` (defaults to
+`src` for backward compat); PdfPageThumbnail takes an optional
+`cacheKey` prop (`key = cacheKey ?? src`), uses it for both cache
+lookups AND as the `useEffect` dependency (was `[src]`, now `[key]` --
+deliberate: a `src` that only changed because `ref` rotated must not
+re-trigger the effect, while `src` itself is still read fresh from the
+closure for the actual pdf.js fetch when the effect does run). The
+confirmed/sent-message call site in app/chats/[chatId]/page.tsx (the
+one that actually flickered) now passes `cacheKey={doc._id}` -- a
+stable per-document id, unlike the proxy URL. The two other
+PdfPageThumbnail call sites (compose-time pending-attachment previews,
+both local `blob:` URLs that never rotate) were left on the `src`
+default deliberately -- correct as-is, no risk there.
+
+tsc-clean. Visual re-verification (region-cropped frame diff, same
+method that caught round two's residual bug) still needs to happen
+against the live site after this deploys -- deploy lag has been a
+repeat pattern on this project (6.127), so a same-day re-check on
+staged-but-not-yet-live code would risk another false read either way.

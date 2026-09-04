@@ -11,11 +11,19 @@ import { renderPdfFirstPageThumbnail, getCachedPdfThumbnail } from "@/lib/pdf-th
 
 type Props = {
   src: string;
+  // Stable identity for the document (its own `_id`) -- defaults to
+  // `src` for a caller that has no better one (a still-compose-time
+  // blob: URL, which never rotates anyway). See lib/pdf-thumbnail.ts's
+  // own header, round three: pass this whenever `src` is a proxy URL
+  // built off a server-issued `ref` that can itself change value
+  // between polls even though the document hasn't -- without it, every
+  // poll looks like a brand new document to the cache below.
+  cacheKey?: string;
   className?: string;
   fallback: ReactNode;
 };
 
-export function PdfPageThumbnail({ src, className, fallback }: Props) {
+export function PdfPageThumbnail({ src, cacheKey, className, fallback }: Props) {
   // 2026-09-03 (Aleksandr, live screen recording: "файл почему-то
   // колбасит между превью и расширением PDF") -- renderPdfFirstPageThumbnail
   // lazy-loads pdf.js from cdnjs on first use and then decodes/rasterizes
@@ -43,12 +51,28 @@ export function PdfPageThumbnail({ src, className, fallback }: Props) {
   // render) covers the very first paint; the early-return inside the
   // effect below covers every re-run after that -- neither path resets
   // to "pending" when the real answer is already known.
-  const [thumbUrl, setThumbUrl] = useState<string | null>(() => getCachedPdfThumbnail(src) ?? null);
-  const [failed, setFailed] = useState(() => getCachedPdfThumbnail(src) === null);
+  //
+  // 2026-09-04, round three (Aleksandr, moggering confirmed AGAIN on a
+  // fresh recording after round two shipped, this time frame-diffed
+  // rather than eyeballed) -- round two's cache still keyed everything
+  // by `src` itself. Live-tested against the real API (two fetches,
+  // 3.5s apart): the backend hands out a genuinely different
+  // `fileReference` for the SAME document on the very next poll, and
+  // that value is embedded verbatim in `src` (see lib/a1/media-proxy.ts's
+  // buildMediaProxyUrl) -- so `src` was itself rotating every poll,
+  // which is a guaranteed cache miss no matter how good the cache is.
+  // `key` now defaults to `cacheKey ?? src` throughout, and every call
+  // site that has a stable id for the document (see page.tsx's own
+  // `doc._id`) passes it -- `src` still carries whatever `ref` is
+  // CURRENTLY valid for the actual pdf.js fetch, `key` is what both
+  // caches below are actually keyed and looked up by.
+  const key = cacheKey ?? src;
+  const [thumbUrl, setThumbUrl] = useState<string | null>(() => getCachedPdfThumbnail(key) ?? null);
+  const [failed, setFailed] = useState(() => getCachedPdfThumbnail(key) === null);
 
   useEffect(() => {
     let cancelled = false;
-    const already = getCachedPdfThumbnail(src);
+    const already = getCachedPdfThumbnail(key);
     if (already !== undefined) {
       setThumbUrl(already);
       setFailed(already === null);
@@ -56,7 +80,7 @@ export function PdfPageThumbnail({ src, className, fallback }: Props) {
     }
     setThumbUrl(null);
     setFailed(false);
-    renderPdfFirstPageThumbnail(src).then((url) => {
+    renderPdfFirstPageThumbnail(src, key).then((url) => {
       if (cancelled) return;
       if (url) setThumbUrl(url);
       else setFailed(true);
@@ -64,7 +88,13 @@ export function PdfPageThumbnail({ src, className, fallback }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [src]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately
+    // NOT keyed on `src`: a `src` that only changed because `ref` rotated
+    // (same document, see this effect's own header above) must NOT
+    // re-run this effect -- `key` alone is the real identity here, and
+    // `src` is read fresh from the closure the one time this effect
+    // actually does run for a given `key`.
+  }, [key]);
 
   if (thumbUrl) {
     return (

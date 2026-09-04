@@ -96,15 +96,42 @@ const thumbnailCache = new Map<string, Promise<string | null>>();
 // eventual result (string | null, keyed the same way) so the component
 // can check "do we already know the answer?" BEFORE ever touching its
 // own pending state, and skip the flash entirely on a cache hit.
+//
+// 2026-09-04 follow-up, round three (Aleksandr, still moggering after
+// round two shipped -- confirmed via a fresh recording, frame-diffed:
+// BOTH pdf thumbnails on screen blank out and recover in lockstep,
+// roughly every ~3s -- the app's own POLL_MS) -- traced with a live
+// two-fetch A/B test against /api/chats/messages itself (not guessed):
+// the SAME document's `fileReference` comes back a genuinely different
+// value (confirmed by length, not just by eye) on the very next poll,
+// 3.5s later. buildMediaProxyUrl() embeds that field verbatim in its
+// `ref=` query param, so the proxy URL used as this cache's KEY was
+// silently rotating every poll even though nothing about the document
+// itself changed -- every poll was therefore a guaranteed cache MISS
+// for both maps below, the real reason round two's fix (real as far as
+// it went) never fully closed this out. Round two fixed "the component
+// forgets what it already knows"; this fixes "the cache key itself
+// keeps changing out from under it."
+//
+// Fix: decouple the cache KEY from the fetch SRC. Both functions below
+// now take an optional `cacheKey` (defaults to `src` for any caller
+// that doesn't pass one, e.g. a still-compose-time blob: URL, which
+// never rotates anyway) -- callers that have a stable identity for the
+// document (its own `_id`, which the backend never changes) pass THAT
+// as `cacheKey` instead, while `src` keeps carrying whatever ref is
+// currently valid for the actual pdf.js fetch. A poll that only
+// rotates `ref` now leaves the cache key untouched, so it stays a hit.
 const resolvedCache = new Map<string, string | null>();
 
 /** Synchronous peek at an already-resolved render: `undefined` means
  *  never rendered (or still in flight) -- the component still has to
  *  await renderPdfFirstPageThumbnail() and show the pending placeholder
  *  for that case, same as before this fix. `null` means it resolved to
- *  a genuine, permanent failure. */
-export function getCachedPdfThumbnail(src: string): string | null | undefined {
-  return resolvedCache.get(src);
+ *  a genuine, permanent failure. Pass the SAME `cacheKey` used at the
+ *  render call site (a document's stable `_id` where the caller has
+ *  one) -- see this file's own header for why that's not always `src`. */
+export function getCachedPdfThumbnail(cacheKey: string): string | null | undefined {
+  return resolvedCache.get(cacheKey);
 }
 
 // Renders `src` (a same-origin proxy URL for a sent PDF, or a local
@@ -113,10 +140,12 @@ export function getCachedPdfThumbnail(src: string): string | null | undefined {
 // from its own top-left origin, so a caller cropping this down to a
 // square via object-cover/object-top naturally shows the page's own
 // top portion -- matching "показывает верхнюю часть страницы"
-// literally, not just approximately). Cached by `src` so the same
-// document isn't re-rendered on every remount within a session.
-export function renderPdfFirstPageThumbnail(src: string): Promise<string | null> {
-  const cached = thumbnailCache.get(src);
+// literally, not just approximately). Cached by `cacheKey` (defaults to
+// `src`) so the same document isn't re-rendered on every remount within
+// a session -- see this file's own header for why that has to be a
+// stable id rather than always `src` itself.
+export function renderPdfFirstPageThumbnail(src: string, cacheKey: string = src): Promise<string | null> {
+  const cached = thumbnailCache.get(cacheKey);
   if (cached) return cached;
   const promise = (async (): Promise<string | null> => {
     try {
@@ -139,7 +168,7 @@ export function renderPdfFirstPageThumbnail(src: string): Promise<string | null>
       return null;
     }
   })();
-  thumbnailCache.set(src, promise);
-  promise.then((url) => resolvedCache.set(src, url));
+  thumbnailCache.set(cacheKey, promise);
+  promise.then((url) => resolvedCache.set(cacheKey, url));
   return promise;
 }

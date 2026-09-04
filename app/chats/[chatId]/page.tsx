@@ -2990,8 +2990,20 @@ export default function ChatWindowPage() {
                                 }
                               >
                                 {fileKindFromName(mediaDocumentFileName(doc), doc.mimetype) === "pdf" ? (
+                                  // cacheKey={doc._id}: buildMediaProxyUrl(doc) embeds
+                                  // doc.fileReference, which the backend reissues with a
+                                  // new value on every poll for the SAME document -- so src
+                                  // alone rotates every ~3s even though nothing changed.
+                                  // Without a stable cacheKey the thumbnail cache (and the
+                                  // effect's dep array in PdfPageThumbnail) treated every
+                                  // poll as a brand-new image, blanking and re-rendering the
+                                  // thumbnail each time ("flicker" reported 2026-09-04).
+                                  // Keying by doc._id instead keeps the cache/identity
+                                  // stable while src still carries the fresh ref needed to
+                                  // actually fetch the file.
                                   <PdfPageThumbnail
                                     src={buildMediaProxyUrl(doc)}
+                                    cacheKey={doc._id}
                                     className="h-11 w-11 shrink-0 rounded-[12px] object-cover object-top"
                                     fallback={<ChatFileTypeIcon kind="pdf" className="h-11 w-11" />}
                                   />
