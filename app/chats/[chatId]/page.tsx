@@ -708,6 +708,41 @@ export default function ChatWindowPage() {
   useEffect(() => {
     if (!attachMenuOpen) setMeetingsMenuOpen(false);
   }, [attachMenuOpen]);
+  // 2026-09-04 (Aleksandr, screen recording: "на секунде 3 попап
+  // сначала растет вверх, а потом уменьшает высоту и растет в бок") --
+  // measures the attach popover's own swapped-in content (row menu <->
+  // MeetingsMenuModal <-> DailyUploadsModal) so the popover box's own
+  // `style.height` (set at that box's own JSX below) can animate in
+  // step with its `width` transition instead of snapping to the new
+  // content's height instantly. Reset to null the moment the popover
+  // itself closes so the NEXT open always starts from natural auto-
+  // sizing again, rather than briefly holding onto whatever height was
+  // last measured (which could otherwise itself animate open -- e.g.
+  // last closed while showing the much-taller Daily Uploads panel).
+  const attachPanelContentRef = useRef<HTMLDivElement>(null);
+  const [attachPanelHeight, setAttachPanelHeight] = useState<number | null>(null);
+  useEffect(() => {
+    if (!attachMenuOpen) {
+      setAttachPanelHeight(null);
+      return;
+    }
+    const el = attachPanelContentRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) setAttachPanelHeight(entry.contentRect.height);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+    // Only keyed on `attachMenuOpen` itself -- the observer, once
+    // attached to `attachPanelContentRef`'s element, already reports
+    // every subsequent resize of that SAME element on its own (which is
+    // exactly what a meetingsMenuOpen/attachDailyUploadsOpen-driven
+    // content swap produces), so those don't need to be dependencies
+    // here too. Both are declared further down in this file anyway --
+    // listing them here would be a use-before-declaration error.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attachMenuOpen]);
   // 2026-09-03 (Figma "Attachments" section, "Attachment validation" +
   // "Daily uploads" notes): a cached copy of the SAME MediaUploadUsage
   // DailyUploadsModal itself fetches (/api/upload/usage), kept here too
@@ -3865,10 +3900,27 @@ export default function ChatWindowPage() {
                     </div>
                   )}
                 <div
-                  className={`animate-popover-up overflow-hidden rounded-2xl bg-white shadow-xl transition-[width] duration-200 dark:bg-neutral-900 ${
+                  className={`animate-popover-up overflow-hidden rounded-2xl bg-white shadow-xl transition-[width,height] duration-200 dark:bg-neutral-900 ${
                     attachDailyUploadsOpen || meetingsMenuOpen ? "w-80 p-4" : "w-44 py-1.5"
                   }`}
+                  // 2026-09-04 (Aleksandr, screen recording: "на секунде
+                  // 3 попап сначала растет вверх, а потом уменьшает
+                  // высоту и растет в бок, это выглядит как баг") --
+                  // this box's own height was never part of the
+                  // transition above (only `width` was), so swapping
+                  // content (the normal row list <-> Meetings <->
+                  // Daily Uploads, each a very different natural
+                  // height) snapped the box to the new content's height
+                  // INSTANTLY while `width` kept animating over its own
+                  // 200ms -- the "grows up then shrinks/grows sideways"
+                  // is exactly that mismatch. `attachPanelHeight` below
+                  // (measured off the actual content via ResizeObserver,
+                  // see that state's own comment) pins this box to an
+                  // explicit px height that now animates in step with
+                  // width instead of snapping.
+                  style={attachPanelHeight !== null ? { height: attachPanelHeight } : undefined}
                 >
+                  <div ref={attachPanelContentRef}>
                   {meetingsMenuOpen ? (
                     // 2026-09-04 (Aleksandr: "Эту модалку делай тоже
                     // внутри модалки из скрепки, не надо весь экран
@@ -4023,6 +4075,7 @@ export default function ChatWindowPage() {
                   </button>
                     </>
                   )}
+                  </div>
                 </div>
                 </div>
               )}
