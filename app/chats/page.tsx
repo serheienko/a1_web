@@ -43,7 +43,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
@@ -55,7 +54,6 @@ import { LottiePlayer } from "@/components/lottie-player";
 import { SearchIcon } from "@/components/search-icon";
 import { GLASS } from "@/lib/glass";
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
-import { PostEditor } from "@/components/post-editor";
 import { NewChatPickerModal } from "@/components/new-chat-picker-modal";
 
 type LoadState = "loading" | "signed-out" | "error" | "ready";
@@ -176,36 +174,6 @@ function formatTime(ms: number): string {
   }
 }
 
-// 2026-09-04 (Aleksandr: "поставь в чатах кнопку создания поста и
-// кнопку для создания чата... Иконку можно такую же как и в апке") --
-// components/create-post-fab.tsx/components/chats-fab.tsx already cover
-// both actions site-wide, but both explicitly hide themselves on any
-// /chats route (see each file's own header comment -- CreatePostFab
-// would sit on top of the message composer on an open chat, and
-// ChatsFab is redundant while already looking at the chat list) --
-// this list page itself was left with no equivalent entry point of its
-// own. Two small header icon buttons instead of reviving the FABs
-// here.
-//
-// 2026-09-04 follow-up (Aleksandr, on the first plain-black-outline
-// pass: "Плюсик я имел ввиду наш синий, как на главной сбоку экрана.
-// Убери этот и сделай нормальный") -- swapped for the SAME chunky
-// stroke+round-caps glyph and filled bg-accent circle
-// components/create-post-fab.tsx's own floating "+" already uses
-// everywhere else in the app (that file's own ChunkyPlusIcon +
-// `h-14 w-14 rounded-full bg-accent` button), just at this row's
-// smaller 36px size -- not duplicated via import (this app's own
-// "self-contained widget" convention for a one-off local glyph, same
-// as every other small icon function in this file), but the exact
-// same stroke width/shape and fill color, not a fresh invented look.
-function HeaderPlusIcon({ className }: { className?: string }) {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.25" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-      <path d="M12 5v14M5 12h14" />
-    </svg>
-  );
-}
-
 function NewChatBubbleIcon({ className }: { className?: string }) {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
@@ -217,14 +185,12 @@ function NewChatBubbleIcon({ className }: { className?: string }) {
 
 export default function ChatsPage() {
   const lang = useActiveLocale();
-  const router = useRouter();
   const [state, setState] = useState<LoadState>("loading");
   const [chats, setChats] = useState<ChatListItem[]>([]);
   const [query, setQuery] = useState("");
   // Signed in to even be looking at a chat list, so unlike the global
   // FABs (which also have to cover signed-out visitors via
   // FabAuthPrompt) neither button here needs its own auth-prompt path.
-  const [postEditorOpen, setPostEditorOpen] = useState(false);
   const [newChatOpen, setNewChatOpen] = useState(false);
   const inFlight = useRef(false);
   // 2026-09-02 (Aleksandr: "Аватары в чатах все равно моргают раз в 5
@@ -355,24 +321,26 @@ export default function ChatsPage() {
           <h1 className="text-2xl font-semibold text-[#262a34] sm:text-3xl dark:text-white">
             <T uk="Чати" en="Chats" ru="Чаты" de="Chats" es="Chats" fr="Discussions" pl="Czaty" ptBR="Conversas" zh="聊天" />
           </h1>
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setPostEditorOpen(true)}
-              aria-label="Create post"
-              className="group flex h-9 w-9 items-center justify-center rounded-full bg-accent text-white shadow-sm shadow-accent/30 transition hover:opacity-90 active:scale-95"
-            >
-              <HeaderPlusIcon className="transition-transform duration-200 ease-out group-hover:rotate-90" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setNewChatOpen(true)}
-              aria-label="New chat"
-              className="flex h-9 w-9 items-center justify-center rounded-full text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
-            >
-              <NewChatBubbleIcon />
-            </button>
-          </div>
+          {/* 2026-09-04 (Aleksandr: "Создание поста в правый нижний угол
+              иконку и она вроде больше, как на главной") -- the create-
+              post entry point moved out of this header row entirely:
+              components/create-post-fab.tsx's own real floating "+" now
+              shows on this route too (that file's own pathname guard
+              narrowed from a blanket "/chats" prefix to "/chats/<id>"
+              only), same size/position/cat+progress-bar popup as every
+              other page instead of a smaller one-off copy here. Only
+              the "new chat" entry point still has no FAB equivalent
+              (ChatsFab stays hidden on every /chats route, redundant
+              while already looking at the list -- see that file's own
+              comment), so it's the only button left in this row. */}
+          <button
+            type="button"
+            onClick={() => setNewChatOpen(true)}
+            aria-label="New chat"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+          >
+            <NewChatBubbleIcon />
+          </button>
         </div>
 
         {/* 2026-09-02 (Figma node 24360:8794, see this file's own header
@@ -578,9 +546,6 @@ export default function ChatsPage() {
         )}
       </main>
 
-      {postEditorOpen && (
-        <PostEditor mode="create" onClose={() => setPostEditorOpen(false)} onSaved={() => router.refresh()} />
-      )}
       {newChatOpen && <NewChatPickerModal lang={lang} onClose={() => setNewChatOpen(false)} />}
     </div>
   );

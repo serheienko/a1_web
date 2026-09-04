@@ -145,7 +145,15 @@ export function CreatePostFab() {
   // and "create a post" makes no sense mid-conversation anyway) --
   // same pathname guard components/chats-fab.tsx already has for the
   // same route, for the same reason (see that file's own comment).
-  if (pathname?.startsWith("/sign-in") || pathname?.startsWith("/chats")) return null;
+  // 2026-09-04 (Aleksandr, on the chat LIST's own smaller header "+" a
+  // few commits back: "в правый нижний угол иконку и она вроде больше,
+  // как на главной") -- narrowed from a blanket `/chats` prefix (which
+  // also matched the bare list route) to just `/chats/<id>` -- an open
+  // chat still hides this (the compose-bar overlap above still
+  // applies), but /chats itself now gets the SAME real FAB every other
+  // page does instead of a smaller one-off header button, cat+progress-
+  // bar popup and all (this component's own posting-cat.json below).
+  if (pathname?.startsWith("/sign-in") || pathname?.startsWith("/chats/")) return null;
 
   // 2026-09-02 (Aleksandr: "В незалогиненых тоже показывай модалку на
   // обе кнопки и не уводи со страницы") -- this used to navigate
