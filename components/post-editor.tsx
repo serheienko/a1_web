@@ -1097,14 +1097,28 @@ export function PostEditor({
   // before the fetch) -- NOT shown for a draft save, which already has
   // its own inline "чернетку збережено" checkmark and stays open.
   //
-  // 2026-09-04 (Aleksandr, screen recording of an existing-post edit:
-  // "Тут надо, чтобы кот писал только "публікується" без
-  // "оновлюється"") -- this banner used to say "Оновлюється..." for an
-  // edit-existing-draft/post save specifically (isUpdatingExisting
-  // below), reserving "Публікується..." for a brand new post only. Per
-  // this feedback the cat's own caption stays "Публікується..." every
-  // time regardless of new-vs-edit -- only the schedule branch further
-  // down still gets its own "Планується..." label.
+  // 2026-09-04 (Aleksandr, screen recording of a brand-new post that
+  // happened to already have an autosaved draft id: "Тут надо, чтобы
+  // кот писал только "публікується" без "оновлюється"") -- this used
+  // to switch to "Оновлюється..." off `mode === "edit" || savedPostId
+  // !== null`, and BOTH halves of that were wrong signals: `mode ===
+  // "edit"` alone also fires for editing a plain DRAFT (create-post-
+  // fab.tsx's own drafts picker opens with mode="edit"), and
+  // `savedPostId` gets filled in by this component's own autosave the
+  // first time ANY new post/draft saves, published or not (its own
+  // useState comment above says so). A first-attempt fix dropped this
+  // switch entirely, always "Публікується..." -- Aleksandr's follow-up
+  // ("да но только тут. Оновлюється надо если пост редактируется")
+  // clarified the banner should still say "Оновлюється..." for a REAL
+  // edit of an existing non-draft post (published or scheduled), just
+  // never for a brand-new post/draft's first-ever publish. Reuses
+  // isEditingPublishedPost/isEditingScheduledPost above (2026-09-02),
+  // both already `mode === "edit" && initialPost?.isDraft === false` at
+  // heart -- the one signal in this file that actually means "this id
+  // already exists server-side as a real post," as opposed to
+  // isEditingExistingDraft (a draft, no prior publish) or a bare
+  // savedPostId (an autosave, same story).
+  const isUpdatingExisting = isEditingPublishedPost || isEditingScheduledPost;
   const isSubmittingPost = pendingAction === "post" || pendingAction === "schedule";
 
   function buildMoney(): ExistingMoney {
@@ -1381,7 +1395,11 @@ export function PostEditor({
         <div className="pointer-events-auto flex w-full max-w-xs items-center gap-3 rounded-2xl bg-white p-3 pr-4 shadow-xl ring-1 ring-black/5 dark:bg-neutral-900 dark:ring-white/10">
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium text-neutral-900 dark:text-neutral-50">
-              {pendingAction === "schedule" ? t("schedulingLabel", lang) : t("postingLabel", lang)}
+              {pendingAction === "schedule"
+                ? t("schedulingLabel", lang)
+                : isUpdatingExisting
+                  ? t("updatingLabel", lang)
+                  : t("postingLabel", lang)}
             </p>
             <div className="relative mt-1.5 h-1 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
               <div className="absolute inset-y-0 left-0 w-2/5 rounded-full bg-accent animate-progress-indeterminate" />
