@@ -1013,16 +1013,55 @@ export default function ChatWindowPage() {
     if (!el) return;
     function reposition() {
       if (!el) return;
+      // 2026-09-04 (Aleksandr, critical, screen recording: header with
+      // name/avatar/back-arrow floats to the middle of the screen and
+      // glitches right after tapping Send, Send stops responding, only
+      // a manual vertical swipe fixes it) -- the transform above only
+      // MASKS window.scrollY, it never clears it, and iOS doesn't
+      // reliably fire a trailing scroll/resize event when its own
+      // keyboard-avoidance scroll settles back to 0 on dismiss. That
+      // leaves the transform stuck at a stale value with nothing left
+      // to re-trigger reposition() -- exactly matching "only a swipe
+      // fixes it" (a swipe is a fresh scroll event). Once no field is
+      // focused the keyboard is closing/closed, so any leftover
+      // scrollY at that point is guaranteed to be iOS's own settle
+      // artifact, never real content (this page has no scrollable
+      // overflow of its own -- see the outer container's own
+      // `calc(100dvh - ...)` comment) -- so it's safe to zero it
+      // directly instead of only masking it, which is what actually
+      // unsticks the header without waiting on an event that might
+      // not come. Left alone while a field IS focused so this doesn't
+      // fight iOS's own keyboard-open scroll (that's still handled by
+      // the transform, per the 2026-09-03 fix below).
+      const active = document.activeElement;
+      const keyboardLikelyOpen =
+        active instanceof HTMLElement &&
+        (active.tagName === "TEXTAREA" || active.tagName === "INPUT" || active.isContentEditable);
+      if (!keyboardLikelyOpen && window.scrollY) {
+        window.scrollTo(0, 0);
+      }
       el.style.transform = window.scrollY ? `translateY(${window.scrollY}px)` : "";
+    }
+    // Belt-and-suspenders trigger: focusout fires the instant the
+    // compose textarea loses focus, which is exactly when the
+    // keyboard starts dismissing (e.g. right after Send) -- watching
+    // it directly means the fix above doesn't depend on scroll/resize
+    // firing at all. Two delayed passes cover both a quick settle and
+    // a slower one across iOS versions.
+    function onFocusOut() {
+      window.setTimeout(reposition, 50);
+      window.setTimeout(reposition, 350);
     }
     window.addEventListener("scroll", reposition, { passive: true });
     window.visualViewport?.addEventListener("resize", reposition);
     window.visualViewport?.addEventListener("scroll", reposition);
+    document.addEventListener("focusout", onFocusOut);
     reposition();
     return () => {
       window.removeEventListener("scroll", reposition);
       window.visualViewport?.removeEventListener("resize", reposition);
       window.visualViewport?.removeEventListener("scroll", reposition);
+      document.removeEventListener("focusout", onFocusOut);
       el.style.transform = "";
     };
   }, [isMobileNav]);
