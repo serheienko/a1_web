@@ -1956,6 +1956,25 @@ export function PostEditor({
               scheduling is the one action that makes sense at that
               point — see the button row below. */}
           <div className="flex items-center gap-2">
+            {/* 2026-09-04 (Aleksandr, screenshot of the RU locale:
+                "На локализации «опубликовать» шляпа какая-то.. надо
+                уменьшать шрифт наверное, чтобы соблюдать паддинг") --
+                this accent pill and its two siblings below (the
+                schedule-submit and post-submit buttons) had no
+                horizontal padding of their own at all, just `py-2.5` --
+                a `flex-1` button's WIDTH comes entirely from the flex
+                row, but with no `min-width:0` override a flex item
+                never shrinks its own content below its natural size,
+                so the all-caps, tracking-wide label ends up defining
+                that minimum itself with zero breathing room on either
+                side once the flex-allotted width is barely bigger than
+                the text -- worst for the longer localized strings
+                (ОПУБЛИКОВАТЬ/ОПУБЛІКУВАТИ/VERÖFFENTLICHEN,
+                ЗАПЛАНУВАТИ/ЗАПЛАНИРОВАТЬ). Added `px-4` and dropped
+                `text-sm` to `text-xs` (matching the neighboring
+                draft/cancel pill's own size) on all three so the label
+                always keeps real padding inside the rounded ends,
+                across every locale. */}
             {isEditingPublishedPost ? (
               // Already-published post being edited: no draft-save, no
               // scheduling (both belong to a post that hasn't gone out
@@ -1968,7 +1987,7 @@ export function PostEditor({
                   submit("post");
                 }}
                 disabled={pendingAction !== null}
-                className={"flex-1 rounded-full bg-accent py-2.5 text-sm font-bold tracking-wide text-white transition hover:opacity-90 disabled:opacity-50" + (!canSubmit ? " opacity-50" : "")}
+                className={"flex-1 rounded-full bg-accent px-4 py-2.5 text-xs font-bold tracking-wide text-white transition hover:opacity-90 disabled:opacity-50" + (!canSubmit ? " opacity-50" : "")}
               >
                 {t("saveChanges", lang)}
               </button>
@@ -2021,7 +2040,7 @@ export function PostEditor({
                         submit("schedule");
                       }}
                       disabled={pendingAction !== null}
-                      className={"flex-1 rounded-full bg-accent py-2.5 text-sm font-bold tracking-wide text-white transition hover:opacity-90 disabled:opacity-50" + (!canSubmit || !scheduleIsValid() ? " opacity-50" : "")}
+                      className={"flex-1 rounded-full bg-accent px-4 py-2.5 text-xs font-bold tracking-wide text-white transition hover:opacity-90 disabled:opacity-50" + (!canSubmit || !scheduleIsValid() ? " opacity-50" : "")}
                     >
                       {t("scheduleActionCaps", lang)}
                     </button>
@@ -2046,7 +2065,7 @@ export function PostEditor({
                         submit("post");
                       }}
                       disabled={pendingAction !== null}
-                      className={"flex-1 rounded-full bg-accent py-2.5 text-sm font-bold tracking-wide text-white transition hover:opacity-90 disabled:opacity-50" + (!canSubmit ? " opacity-50" : "")}
+                      className={"flex-1 rounded-full bg-accent px-4 py-2.5 text-xs font-bold tracking-wide text-white transition hover:opacity-90 disabled:opacity-50" + (!canSubmit ? " opacity-50" : "")}
                     >
                       {isEditingExistingDraft
                         ? t("post", lang)
