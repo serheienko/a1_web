@@ -6645,3 +6645,55 @@ locale, and both the main chat page and mini-chat-window.tsx now render
 the matching animation next to the text when it hits.
 
 tsc-clean, commits 687bf94/97aa5b3/fdc8c84.
+
+## 6.136 -- mini-chat-window Meetings button wired up, PDF flicker + popover clipping fixed there too, subtle white shadow (2026-09-04)
+
+Four fixes to components/mini-chat-window.tsx, same live-test session:
+
+**Meetings button, finally real**: "В мини-модалке шо то не работает
+кнопка 'зустрічі'" -- was a dead placeholder (onClick just closed the
+popover, no feature behind it in this file at all). Now opens
+MeetingsMenuModal inline, same swap convention attachDailyUploadsOpen
+already uses here. Only the Quick Invites half is wired -- the full
+Schedule Meeting flow needs MeetingMessageCard rendering + accept
+plumbing this smaller widget doesn't have, so `onOpenSchedule` on
+MeetingsMenuModal is now an optional prop (components/chat/meetings-
+menu-modal.tsx): omitting it hides that row instead of wiring it to a
+handler that would silently do nothing. The main chat page keeps
+passing it, unaffected.
+
+**PDF thumbnail flicker, round four**: screen recording, "В мелкой
+модалке опять моргает PDF" -- this file's own confirmed-message
+PdfPageThumbnail call site never got the 6.128 fix (app/chats/
+[chatId]/page.tsx's equivalent call site already has it): the backend
+reissues a different fileReference for the same doc on every poll, so
+buildMediaProxyUrl(doc)'s own `?ref=...` rotates every ~poll and the
+thumbnail cache/effect (keyed on `src` by default) was a guaranteed
+miss each time. `cacheKey={doc._id}` here too, same fix.
+
+**Meetings/Daily-Uploads popover clipped by the card itself, not the
+viewport**: 2 screenshots, "Не поместилась инфа из попапа, надо делать
+его выше видимо" -- the popover already has its own internal max-
+height + scroll (an earlier mobile-clipping fix), but that only
+addressed the popover's OWN cap. This floating widget's outer card is
+a small fixed-height (26rem) `overflow-hidden` box, and the popover,
+though absolutely positioned, is still clipped by THIS card's own
+overflow-hidden the moment it needs more room than fits between the
+compose bar and the card's own top edge (~366px -- less than even the
+popover's own 420px cap). Never surfaced before since the plain row
+list was always short enough; the new, taller Meetings panel is the
+first content that isn't. Fix: grow the card's own height (26rem ->
+32rem, transitioned) while Meetings or Daily Uploads is open -- the
+card is anchored by a fixed `bottom`, so a taller card moves its own
+TOP edge further up the screen, giving the popover's already-capped
+max-height genuine room.
+
+**White shadow**: 2 screenshots, "Добавь под модалку чуть легкую білу
+тінь, щоб відділити від вікна повідомлень, прям дуже сильно легку" --
+plain `shadow-xl` is a dark shadow, invisible against the dark chat
+window this widget floats over. Folded a third, very-low-opacity white
+layer into shadow-xl's own two default layers as one combined
+`shadow-[...]` value (a second separate `shadow-xl` + `shadow-[...]`
+pair would just overwrite each other, both setting `box-shadow`).
+
+tsc-clean, commits a50e797/a18473c/018a96f/3c8f7c7.
