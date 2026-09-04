@@ -690,6 +690,15 @@ export default function ChatWindowPage() {
   useEffect(() => {
     if (!attachMenuOpen) setAttachDailyUploadsOpen(false);
   }, [attachMenuOpen]);
+  // 2026-09-04 (Aleksandr: "Эту модалку делай тоже внутри модалки из
+  // скрепки") -- meetingsMenuOpen (declared further down, same idea)
+  // now nests inside this SAME attach popover instead of opening as
+  // its own full-screen modal, same attachDailyUploadsOpen convention
+  // right above: reset the instant the popover itself closes, so
+  // reopening the paperclip always starts back on the row menu.
+  useEffect(() => {
+    if (!attachMenuOpen) setMeetingsMenuOpen(false);
+  }, [attachMenuOpen]);
   // 2026-09-03 (Figma "Attachments" section, "Attachment validation" +
   // "Daily uploads" notes): a cached copy of the SAME MediaUploadUsage
   // DailyUploadsModal itself fetches (/api/upload/usage), kept here too
@@ -3827,10 +3836,35 @@ export default function ChatWindowPage() {
                   )}
                 <div
                   className={`animate-popover-up overflow-hidden rounded-2xl bg-white shadow-xl transition-[width] duration-200 dark:bg-neutral-900 ${
-                    attachDailyUploadsOpen ? "w-80 p-4" : "w-44 py-1.5"
+                    attachDailyUploadsOpen || meetingsMenuOpen ? "w-80 p-4" : "w-44 py-1.5"
                   }`}
                 >
-                  {attachDailyUploadsOpen ? (
+                  {meetingsMenuOpen ? (
+                    // 2026-09-04 (Aleksandr: "Эту модалку делай тоже
+                    // внутри модалки из скрепки, не надо весь экран
+                    // перекрывать" + "Стрелка назад должна возвращать
+                    // сразу в модалку") -- same inline-swap convention
+                    // as attachDailyUploadsOpen's own DailyUploadsModal
+                    // branch right below: onBack returns to the normal
+                    // row list (this popover itself stays open), a
+                    // quick invite send or opening Schedule Meeting
+                    // closes the whole popover the same way picking a
+                    // Photo/File already does.
+                    <MeetingsMenuModal
+                      lang={lang}
+                      onBack={() => setMeetingsMenuOpen(false)}
+                      onSendQuickInvite={(text) => {
+                        setMeetingsMenuOpen(false);
+                        setAttachMenuOpen(false);
+                        void send(text);
+                      }}
+                      onOpenSchedule={() => {
+                        setMeetingsMenuOpen(false);
+                        setAttachMenuOpen(false);
+                        setScheduleMeetingOpen(true);
+                      }}
+                    />
+                  ) : attachDailyUploadsOpen ? (
                     // 2026-09-04 (Aleksandr, live test: "сделай эту штуку
                     // со стореджем как бы выплывающей... из нашей
                     // стандартной модалки... не блокируй флоу... чтобы
@@ -3915,7 +3949,6 @@ export default function ChatWindowPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      setAttachMenuOpen(false);
                       setMeetingsMenuOpen(true);
                     }}
                     className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10 sm:text-[18px]"
@@ -4135,25 +4168,10 @@ export default function ChatWindowPage() {
           </div>
         </div>
       )}
-      {meetingsMenuOpen && (
-        <MeetingsMenuModal
-          lang={lang}
-          onClose={() => setMeetingsMenuOpen(false)}
-          // Quick Invite tap: same overrideText path a normal typed
-          // message goes through (send()'s own comment on overrideText),
-          // so this rides every existing optimistic-bubble/retry/
-          // reconciliation behavior the compose bar's own Send button
-          // already gets, for free.
-          onSendQuickInvite={(text) => {
-            setMeetingsMenuOpen(false);
-            void send(text);
-          }}
-          onOpenSchedule={() => {
-            setMeetingsMenuOpen(false);
-            setScheduleMeetingOpen(true);
-          }}
-        />
-      )}
+      {/* meetingsMenuOpen's own MeetingsMenuModal now renders nested
+          inside the attach popover above (see attachPanelRef's own
+          2026-09-04 comment) instead of as a second top-level modal
+          here -- nothing left to render at this level for it. */}
       {scheduleMeetingOpen && (
         <ScheduleMeetingModal
           lang={lang}
@@ -4161,7 +4179,12 @@ export default function ChatWindowPage() {
           peerAvatarUrl={headerAvatar}
           onClose={() => setScheduleMeetingOpen(false)}
           onBack={() => {
+            // Backs out of the full Schedule form into the nested
+            // Meetings quick-invite screen -- which now lives inside
+            // the attach popover, so reopening THAT is part of going
+            // back, not just flipping meetingsMenuOpen on its own.
             setScheduleMeetingOpen(false);
+            setAttachMenuOpen(true);
             setMeetingsMenuOpen(true);
           }}
           onSchedule={(payload) => void scheduleMeeting(payload)}

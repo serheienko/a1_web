@@ -73,12 +73,24 @@ function t(key: StringKey, lang: Locale): string {
 
 export function MeetingsMenuModal({
   lang,
-  onClose,
+  onBack,
   onSendQuickInvite,
   onOpenSchedule,
 }: {
   lang: Locale;
-  onClose: () => void;
+  // 2026-09-04 (Aleksandr: "Эту модалку делай тоже внутри модалки из
+  // скрепки, не надо весь экран перекрывать" + "Стрелка назад должна
+  // возвращать сразу в модалку") -- this used to be its own `fixed
+  // inset-0` full-screen overlay (own onClose prop, backdrop click to
+  // dismiss). Now a plain content block meant to be dropped straight
+  // into app/chats/[chatId]/page.tsx's own attach-popover panel (same
+  // spot/sizing DailyUploadsModal's `variant="inline"` already uses),
+  // so there's no backdrop or width of its own left to own -- `onBack`
+  // replaces `onClose`: it steps back to that popover's normal Photo/
+  // File/Meetings/Calculation/Contact row list, not out of the popover
+  // entirely (closing the whole popover is still just clicking outside
+  // it, same as any other attach-menu state).
+  onBack: () => void;
   // Sends whatever this locale's own button label reads -- tapping a
   // Ukrainian-localized button should send the Ukrainian text, same as
   // if he'd typed it himself; not silently translated to English under
@@ -87,27 +99,23 @@ export function MeetingsMenuModal({
   onOpenSchedule: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div
-        className="flex w-full max-w-sm flex-col gap-1 rounded-2xl bg-white p-5 shadow-xl dark:bg-neutral-900"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-2 flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Back"
-            className="group flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-[#335ef7] transition hover:bg-neutral-50 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80 dark:text-[#0c8ce9] dark:hover:bg-[#1c1c1e]"
-          >
-            <ChatBackArrow className="h-2.5 w-[6px]" />
-          </button>
-          <h2 className="text-[17px] font-semibold text-neutral-900 dark:text-neutral-50">
-            <T
-              uk={t("title", "uk")} en={t("title", "en")} ru={t("title", "ru")} de={t("title", "de")} es={t("title", "es")}
-              fr={t("title", "fr")} pl={t("title", "pl")} ptBR={t("title", "ptBR")} zh={t("title", "zh")}
-            />
-          </h2>
-        </div>
+    <div className="flex flex-col gap-1">
+      <div className="mb-2 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label="Back"
+          className="group flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-[#335ef7] transition hover:bg-neutral-50 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80 dark:text-[#0c8ce9] dark:hover:bg-[#1c1c1e]"
+        >
+          <ChatBackArrow className="h-2.5 w-[6px] animate-back-arrow" />
+        </button>
+        <h2 className="text-[17px] font-semibold text-neutral-900 dark:text-neutral-50">
+          <T
+            uk={t("title", "uk")} en={t("title", "en")} ru={t("title", "ru")} de={t("title", "de")} es={t("title", "es")}
+            fr={t("title", "fr")} pl={t("title", "pl")} ptBR={t("title", "ptBR")} zh={t("title", "zh")}
+          />
+        </h2>
+      </div>
 
         <button
           type="button"
@@ -161,7 +169,6 @@ export function MeetingsMenuModal({
           </span>
           <LottiePlayer src="/animations/cat-coffee.json" size={40} />
         </button>
-      </div>
     </div>
   );
 }
