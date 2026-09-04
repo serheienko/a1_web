@@ -6992,3 +6992,85 @@ progress, the two PX constants) intentionally left in place but inert
 so it never engages; not touched, scope stayed the UI he actually saw.
 
 tsc-clean, commit 803fd5a.
+
+## 6.149 -- Waveform bars clustering left on longer voice clips (2026-09-05)
+
+Aleksandr, live screen recording: a just-sent 34s voice message's
+waveform showed real variation for a small cluster of bars jammed
+against the left edge, rest of the track dead empty -- "баг с
+эквалайзером", flagged once before, still broken.
+
+Root cause: both waveform tracks (VoiceMessageBubble + PendingVoice
+Bubble) render a fixed 32 `flex-1` bars capped at `max-w-[3px]`, no
+`justify-content`. A short clip's narrow track already overflows with
+32 maxed bars (clipped, cap invisible); a long clip's wide track has
+room to spare once they hit that cap, and with no justify-content they
+just pack against the container's start instead of spreading into it.
+`justify-between` on both tracks spends the leftover room as gaps
+BETWEEN bars, so all 32 always span the full track regardless of
+length.
+
+tsc-clean, commit 93b35cb.
+
+## 6.150 -- Cancel doing nothing during the first mic-permission prompt (2026-09-05)
+
+Aleksandr, live test in Chrome: "особенно когда просит первое
+разрешение на запись." First-ever mic permission dialog can sit open
+for a while; the whole time recorder.state is "requesting" with no
+real MediaRecorder yet, so tapping Cancel called cancelRecording(),
+which only ever did `mediaRecorderRef.current?.stop()` -- silent no-op.
+Granting permission afterward just started recording anyway, ignoring
+the earlier Cancel tap entirely.
+
+New pendingCancelRef (components/chat/voice-recorder.ts) mirrors the
+existing pendingReleaseRef mechanism for the Send side: cancelRecording()
+now remembers the tap when there's no recorder yet, and startPress's
+continuation honors it the instant the real recorder exists.
+
+tsc-clean, commit b541012.
+
+## 6.151 -- Compose box: sync drafts back to the server, not just read them (2026-09-05)
+
+Aleksandr: "когда я вручную стираю инпут и нажимяю стрелку назад и
+ухожу в чат-лист надпись 'драфт' по-прежнему остается, и само
+сообщение в инпуте потом тоже. То есть надо сделать, чтобы оно
+дружило с актуальным инпутом и понимало, что я удалил."
+
+6.147 only ever READ chat.draft to seed the box on open -- clearing it
+locally never told the server. Endpoint confirmed off the mobile app's
+own source (~/mnt/a1_app/aone_private/lib/features/chat/data/services/
+draft_service.dart): `messages.saveDraft`, `{ peerTo, flags, message }`
+-- message REQUIRED even to clear (empty string IS the clear). New
+app/api/chats/save-draft proxies that call.
+
+app/chats/[chatId]/page.tsx: 600ms-debounced effect (same debounce the
+mobile DraftService itself uses) posts `draft` on every change
+including the transition to "", gated on a draftSyncReady flag so it
+can't race the seed fetch and wipe a draft before it's restored.
+flushDraftSync() bypasses the debounce for the Back link's onClick and
+`visibilitychange` -> hidden (tab close/app-switch), mirroring the
+mobile app's own dispose + AppLifecycleState.paused double-trigger.
+
+tsc-clean, commit 7423359.
+
+## 6.152 -- Voice notes now actually self-destruct (2026-09-05)
+
+Aleksandr: "ты забыл про огонек и самоудаление, это надо чтобы ты
+нашел по API и документации и сделал."
+
+components/chat/voice-bubble.tsx already had the whole self-destruct
+UI built (fire badge, popup, countdown, unopened dot -- 6.97-6.99),
+all gated on the doc carrying VIEW_DESTROY + a ttl/ttlSeconds. Nothing
+on the SEND side ever requested that.
+
+Root-caused off the mobile app's own source, not guessed: EVERY voice
+note it sends self-destructs by default (not opt-in anywhere in its
+UI) -- media_upload.dart's MediaDocumentFlag sends `flags: viewDestroy
+| unimportant` + `ttlSeconds: 7200` on every voice upload.create call.
+app/api/upload/create/route.ts's own confirmed shape already
+documented `flags?`/`ttlSeconds?`; nothing accepted them from a
+caller. Now does -- uploadAndSendVoice sends the same bitmask + TTL
+via new SELF_DESTRUCT_VOICE_FLAGS/SELF_DESTRUCT_VOICE_TTL_SECONDS
+(lib/a1/chat-schemas.ts).
+
+tsc-clean, commit 18f670b.
