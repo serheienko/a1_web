@@ -82,6 +82,7 @@ import {
 import { ChatPhotoViewer, type ChatViewerImage } from "@/components/chat/photo-viewer";
 import { ChatPhotoGrid } from "@/components/chat/photo-grid";
 import { useVoiceRecorder, formatVoiceTimer, type VoiceRecordingResult } from "@/components/chat/voice-recorder";
+import { rememberLocalVoiceWaveform } from "@/lib/voice-local-waveform-cache";
 import { VoiceRecordButton, VoiceRecordingBar, VoiceMicDeniedNotice } from "@/components/chat/voice-message";
 import { VoiceMessageBubble, PendingVoiceBubble } from "@/components/chat/voice-bubble";
 
@@ -1369,6 +1370,12 @@ export default function ChatWindowPage() {
         markVoiceUploadFailed(localId);
         return;
       }
+      // 2026-09-04 (see lib/voice-local-waveform-cache.ts's own header
+      // for the full live-test trail) -- keyed by this exact
+      // fileReference, so VoiceMessageBubble can render off the real
+      // locally-recorded waveform instead of whatever the server's own
+      // attribute-audio.waveform comes back as once this doc confirms.
+      rememberLocalVoiceWaveform(fileReference, stored.waveform);
       voiceBlobsRef.current.delete(localId);
       setPendingMessages((prev) =>
         prev.map((p) =>

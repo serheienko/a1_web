@@ -98,6 +98,7 @@ import {
   toggleVoice,
   type VoicePlaybackEntry,
 } from "@/lib/voice-playback-store";
+import { getLocalVoiceWaveform } from "@/lib/voice-local-waveform-cache";
 
 const WAVEFORM_BARS = 32;
 
@@ -222,7 +223,19 @@ export function VoiceMessageBubble({
 }) {
   const voiceAttr = messageVoiceAttribute(doc);
   const totalSeconds = voiceDurationSeconds(doc);
-  const bars = decodeWaveformBars(voiceAttr?.waveform, WAVEFORM_BARS) ?? new Array<number>(WAVEFORM_BARS).fill(0.35);
+  // 2026-09-04 (see lib/voice-local-waveform-cache.ts's own header for
+  // the full live-test trail: "показывает начало, как будто бы есть
+  // звук, а потом нету" the instant this bubble swapped in for the
+  // pending one) -- a clip THIS browser tab itself just recorded and
+  // uploaded has a known-good local waveform sitting in that cache,
+  // keyed by this exact doc's own fileReference; prefer it over
+  // decoding whatever attribute-audio.waveform the server echoed back,
+  // and only fall back to that decode for a clip with no local entry
+  // (received from the other side, or sent in an earlier session).
+  const localWaveform = getLocalVoiceWaveform(doc.fileReference);
+  const bars = localWaveform
+    ? resampleWaveform(localWaveform, WAVEFORM_BARS)
+    : (decodeWaveformBars(voiceAttr?.waveform, WAVEFORM_BARS) ?? new Array<number>(WAVEFORM_BARS).fill(0.35));
 
   const playback = useSyncExternalStore(subscribeVoicePlayback, getVoicePlaybackSnapshot, getVoicePlaybackSnapshot);
   const isCurrent = playback.entry?.docId === doc._id;
