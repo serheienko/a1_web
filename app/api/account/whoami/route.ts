@@ -48,7 +48,20 @@ export async function GET() {
     const username = profile?.object === "user" ? profile.username : null;
     const avatarDoc = profile?.object === "user" ? profile.photos[0] : null;
     const avatarUrl = avatarDoc ? buildMediaProxyUrl(avatarDoc) : null;
-    const response = NextResponse.json({ ok: true, username, avatarUrl });
+    // 2026-09-04 (Scheduled Meetings, "1-3 допили") -- the meeting card
+    // needs to show the PROPOSER's own display name next to their
+    // avatar (lib/a1/meeting-protocol.ts's own MeetingPayload.
+    // proposerName), same "the visitor's own identity has to be read
+    // from SOMEWHERE" gap this route's avatarUrl already closed once
+    // for the now-playing bar (see that field's own comment above) --
+    // firstName/lastName are both real UserProfileSchema fields,
+    // falls back to the username already returned above, then "" (the
+    // caller's own last resort, never null -- an empty proposerName
+    // just means the row renders without a name rather than crashing).
+    const firstName = profile?.object === "user" ? profile.firstName : "";
+    const lastName = profile?.object === "user" ? profile.lastName : "";
+    const name = [firstName, lastName].filter(Boolean).join(" ").trim() || username || "";
+    const response = NextResponse.json({ ok: true, username, avatarUrl, name });
     if (refreshedSession) setSession(response, refreshedSession);
     return response;
   } catch (err) {

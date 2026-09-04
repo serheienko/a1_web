@@ -77,6 +77,7 @@ import {
   decodeMeetingText,
   encodeMeetingAcceptText,
   decodeMeetingAcceptText,
+  type MeetingAcceptPayload,
 } from "@/lib/a1/meeting-protocol";
 import { ChatPhotoViewer, type ChatViewerImage } from "@/components/chat/photo-viewer";
 import { ChatPhotoGrid } from "@/components/chat/photo-grid";
@@ -559,6 +560,13 @@ export default function ChatWindowPage() {
   // reason -- one-shot on mount, best-effort (a 401/network failure
   // just leaves the mic-glyph fallback in place, same as before this).
   const [myAvatarUrl, setMyAvatarUrl] = useState<string | null>(null);
+  // Scheduled Meetings ("1-3 допили") -- the same whoami round-trip
+  // above now also carries the visitor's own display name (see that
+  // route's own comment); read here rather than adding a second fetch,
+  // and passed to MeetingMessageCard/scheduleMeeting/acceptMeeting
+  // below as this viewer's own identity for whichever participant row
+  // is "me" in a given meeting card.
+  const [myName, setMyName] = useState<string>("");
   useEffect(() => {
     let cancelled = false;
     authFetch("/api/account/whoami")
@@ -566,6 +574,7 @@ export default function ChatWindowPage() {
       .then((data) => {
         if (cancelled || !data?.ok) return;
         if (data.avatarUrl) setMyAvatarUrl(data.avatarUrl);
+        if (data.name) setMyName(data.name);
       })
       .catch(() => {});
     return () => {
@@ -2164,7 +2173,17 @@ export default function ChatWindowPage() {
     if (schedulingMeeting) return;
     setSchedulingMeeting(true);
     try {
-      await send(encodeMeetingText(payload));
+      // Scheduled Meetings, round two -- proposerTimeZone is read live
+      // off THIS device (Intl, no permission prompt, no backend call)
+      // at the moment of sending, same as every other "device-
+      // automatic" zone read in this feature (see meeting-protocol.ts's
+      // own TIMEZONE NOTE).
+      await send(
+        encodeMeetingText({
+          ...payload,
+          proposerTimeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        }),
+      );
       setScheduleMeetingOpen(false);
     } finally {
       setSchedulingMeeting(false);
@@ -2179,7 +2198,12 @@ export default function ChatWindowPage() {
     if (acceptingMeetingId) return;
     setAcceptingMeetingId(meetingMsgId);
     try {
-      await send(encodeMeetingAcceptText({ meetingMsgId }));
+      await send(
+        encodeMeetingAcceptText({
+          meetingMsgId,
+          accepterTimeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        }),
+      );
     } finally {
       setAcceptingMeetingId(null);
     }
@@ -2200,10 +2224,15 @@ export default function ChatWindowPage() {
   // optimistic pending one, so tapping Accept flips the card
   // immediately rather than waiting a poll tick) before accept entries
   // are filtered back out of what actually renders.
-  const acceptedMeetingIds = new Set<string>();
+  // Round two: was a plain Set<string> of accepted meeting ids -- now a
+  // Map to the full decoded MeetingAcceptPayload, since
+  // MeetingMessageCard needs the ACCEPTER's own name/avatar/timeZone
+  // (see that payload's own comment in meeting-protocol.ts) to render
+  // their participant row once accepted, not just a yes/no flag.
+  const acceptedMeetings = new Map<string, MeetingAcceptPayload>();
   for (const m of rawDisplayMessages) {
     const accept = decodeMeetingAcceptText(extractMessageText(m));
-    if (accept) acceptedMeetingIds.add(accept.meetingMsgId);
+    if (accept) acceptedMeetings.set(accept.meetingMsgId, accept);
   }
   const displayMessages = rawDisplayMessages.filter((m) => decodeMeetingAcceptText(extractMessageText(m)) === null);
 
@@ -3085,7 +3114,18 @@ export default function ChatWindowPage() {
                         <MeetingMessageCard
                           lang={lang}
                           payload={meeting}
-                          accepted={acceptedMeetingIds.has(msg._id)}
+                          mine={mine}
+                          // Participant identity for both rows -- see
+                          // meeting-protocol.ts's own MeetingPayload
+                          // comment for why NEITHER side needs to ride
+                          // in the payload itself: this is always a 1:1
+                          // chat, so "the proposer" is whichever of
+                          // these two `mine` already points at.
+                          myName={myName}
+                          myAvatarUrl={myAvatarUrl}
+                          peerName={headerTitle}
+                          peerAvatarUrl={headerAvatar}
+                          acceptPayload={acceptedMeetings.get(msg._id) ?? null}
                           // Accept only makes sense for the OTHER
                           // participant, and only once this proposal is
                           // a real, already-synced message -- msg._id
@@ -4043,6 +4083,8 @@ export default function ChatWindowPage() {
       {scheduleMeetingOpen && (
         <ScheduleMeetingModal
           lang={lang}
+          peerName={headerTitle}
+          peerAvatarUrl={headerAvatar}
           onClose={() => setScheduleMeetingOpen(false)}
           onBack={() => {
             setScheduleMeetingOpen(false);

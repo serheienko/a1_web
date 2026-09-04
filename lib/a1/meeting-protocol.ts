@@ -74,11 +74,38 @@ export type MeetingPayload = {
   v: 1;
   startsAtUtcMs: number;
   link: string | null;
+  // 2026-09-04, round two (Figma "(2) Display Meeting" reference,
+  // Aleksandr: "1-3 допили") -- the reference shows BOTH participants
+  // as their own name+avatar+"Local Time" row, each in their OWN
+  // locally-converted clock time, not just the single shared instant
+  // this payload started with. Still no backend timezone lookup of any
+  // kind (this file's own TIMEZONE NOTE above still holds) -- only the
+  // PROPOSER's own IANA zone (Intl.DateTimeFormat().resolvedOptions().
+  // timeZone, read on their own device at schedule time, no permission
+  // prompt) needs to ride along, same as every other field here
+  // already does: it's the one piece of information about them nobody
+  // else's device could otherwise derive. Their NAME and AVATAR do NOT
+  // need to travel with the payload at all -- this is always a 1:1
+  // chat, so from any viewer's own side "the proposer" is either
+  // themselves (their own name/avatar, already known locally) or their
+  // one chat partner (app/chats/[chatId]/page.tsx's own headerTitle/
+  // headerAvatar) -- see that file's own MeetingMessageCard call site
+  // for exactly how `mine` picks between the two, no payload field
+  // needed either way.
+  proposerTimeZone: string;
 };
 
 export type MeetingAcceptPayload = {
   v: 1;
   meetingMsgId: string;
+  // Mirrors proposerTimeZone above, captured on the ACCEPTER's own
+  // device at the moment they press Accept -- the one point this
+  // feature ever learns the other participant's real zone, given
+  // voluntarily by that participant's own client, never looked up.
+  // Same as above, no name/avatar field needed -- chat context alone
+  // (mine vs. headerTitle/headerAvatar) already identifies who the
+  // accepter is.
+  accepterTimeZone: string;
 };
 
 const MEETING_PREFIX = "A1MEETINGv1::";
@@ -102,6 +129,11 @@ export function encodeMeetingText(payload: Omit<MeetingPayload, "v">): string {
   return MEETING_PREFIX + b64encode(JSON.stringify({ v: 1, ...payload }));
 }
 
+// Falls back to "" for proposerTimeZone on an older-shaped payload
+// missing the field entirely -- never throws, same "degrade, don't
+// crash" contract this function already had. meeting-message-card.tsx
+// treats an empty proposerTimeZone as "unknown" and falls back to the
+// viewer's own device zone for that row rather than a hard failure.
 export function decodeMeetingText(text: string | null | undefined): MeetingPayload | null {
   if (!text || !text.startsWith(MEETING_PREFIX)) return null;
   try {
@@ -112,8 +144,13 @@ export function decodeMeetingText(text: string | null | undefined): MeetingPaylo
       (parsed as { v?: unknown }).v === 1 &&
       typeof (parsed as { startsAtUtcMs?: unknown }).startsAtUtcMs === "number"
     ) {
-      const p = parsed as { startsAtUtcMs: number; link?: unknown };
-      return { v: 1, startsAtUtcMs: p.startsAtUtcMs, link: typeof p.link === "string" ? p.link : null };
+      const p = parsed as { startsAtUtcMs: number; link?: unknown; proposerTimeZone?: unknown };
+      return {
+        v: 1,
+        startsAtUtcMs: p.startsAtUtcMs,
+        link: typeof p.link === "string" ? p.link : null,
+        proposerTimeZone: typeof p.proposerTimeZone === "string" ? p.proposerTimeZone : "",
+      };
     }
   } catch {
     // Malformed/foreign text that merely happens to start with the
@@ -136,7 +173,12 @@ export function decodeMeetingAcceptText(text: string | null | undefined): Meetin
       (parsed as { v?: unknown }).v === 1 &&
       typeof (parsed as { meetingMsgId?: unknown }).meetingMsgId === "string"
     ) {
-      return { v: 1, meetingMsgId: (parsed as { meetingMsgId: string }).meetingMsgId };
+      const p = parsed as { meetingMsgId: string; accepterTimeZone?: unknown };
+      return {
+        v: 1,
+        meetingMsgId: p.meetingMsgId,
+        accepterTimeZone: typeof p.accepterTimeZone === "string" ? p.accepterTimeZone : "",
+      };
     }
   } catch {
     // Same as decodeMeetingText above.
