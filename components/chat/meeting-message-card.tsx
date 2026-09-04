@@ -355,115 +355,118 @@ export function MeetingMessageCard({
         mine ? "bg-[#335ef7] text-white dark:bg-[#009bff]" : "bg-white text-[#262a34] dark:bg-[#1a1a1a] dark:text-white"
       }`}
     >
-      <div className="flex items-center gap-2 px-3 pt-2.5">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#ff5fa2] to-[#2bd6c7] text-white">
-          <ChatMeetingAttachIcon className="h-3.5 w-3.5" />
-        </span>
-        <div className="min-w-0">
-          <div className="truncate text-[13.5px] font-semibold leading-tight">
-            <T uk={STRINGS.title.uk} en={STRINGS.title.en} ru={STRINGS.title.ru} de={STRINGS.title.de} es={STRINGS.title.es} fr={STRINGS.title.fr} pl={STRINGS.title.pl} ptBR={STRINGS.title.ptBR} zh={STRINGS.title.zh} />
-          </div>
-          <div className={`truncate text-[10.5px] font-medium leading-tight ${mutedText}`}>
-            {accepted ? (
-              <T uk={STRINGS.scheduledMeeting.uk} en={STRINGS.scheduledMeeting.en} ru={STRINGS.scheduledMeeting.ru} de={STRINGS.scheduledMeeting.de} es={STRINGS.scheduledMeeting.es} fr={STRINGS.scheduledMeeting.fr} pl={STRINGS.scheduledMeeting.pl} ptBR={STRINGS.scheduledMeeting.ptBR} zh={STRINGS.scheduledMeeting.zh} />
-            ) : (
-              <T uk={STRINGS.waitingAcceptance.uk} en={STRINGS.waitingAcceptance.en} ru={STRINGS.waitingAcceptance.ru} de={STRINGS.waitingAcceptance.de} es={STRINGS.waitingAcceptance.es} fr={STRINGS.waitingAcceptance.fr} pl={STRINGS.waitingAcceptance.pl} ptBR={STRINGS.waitingAcceptance.ptBR} zh={STRINGS.waitingAcceptance.zh} />
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className={`mx-3 mt-2.5 flex flex-col gap-2 rounded-xl px-2.5 py-2 ${overlayBg}`}>
-        <ParticipantRow lang={lang} participant={proposer} startsAtUtcMs={payload.startsAtUtcMs} tz={payload.proposerTimeZone} mode="exact" mine={mine} />
-        <div className={`h-px ${overlayBg}`} />
-        <ParticipantRow
-          lang={lang}
-          participant={other}
-          startsAtUtcMs={payload.startsAtUtcMs}
-          tz={accepted ? acceptPayload.accepterTimeZone : undefined}
-          mode={otherMode}
-          mine={mine}
-        />
-      </div>
-
-      <div className="flex items-center gap-2 px-3 pb-2.5 pt-1.5">
-        <button
-          type="button"
-          onClick={() => setShowTimeVisibility(true)}
-          aria-label={t("timeVisibility", lang)}
-          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition ${pillBg}`}
-        >
-          <InfoIcon className="h-3.5 w-3.5" />
-        </button>
-        {canAccept && !accepted ? (
+      {/* 2026-09-04 (Aleksandr, screenshot: the "Зрозуміло!" button at
+          the bottom of the time-visibility panel below was clipped by
+          this root's own `overflow-hidden`, cut off flush with the
+          card's rounded corner and overlapped by the NEXT chat bubble
+          -- "Это окно надо увеличивать при переключении") -- the panel
+          used to render as an `absolute inset-0` layer, which forces
+          its height to match whatever this card's own NORMAL content
+          (header+rows+button, unrelated to the panel) happens to be --
+          shorter than the panel's own icon+title+paragraph+button
+          content actually needs, and `absolute` can't grow the root's
+          real layout height to compensate anyway (chat bubbles below
+          are positioned by normal flow, oblivious to anything
+          overflowing past this box). Swapping the panel IN for the
+          normal content (same root, same rounded/overflow-hidden
+          frame, just no longer layered via `absolute`) lets the root
+          size itself to whichever content is actually showing, so the
+          card genuinely grows and pushes later messages down instead
+          of clipping. */}
+      {showTimeVisibility ? (
+        <div className="flex w-full flex-col items-center gap-3 p-4 text-center">
+          {/* 2026-09-04 (Aleksandr, Figma "(1) Schedule a Meeting"
+              reference + his own supplied planet2.json): the
+              reference shows a big globe/planet icon centered above
+              this exact copy -- his own animation now sits there
+              instead of a static icon, same LottiePlayer convention
+              every other in-app animation (planet-loader, the cat
+              mascots) already uses. */}
+          <LottiePlayer src="/animations/planet2.json" size={72} />
+          <h3 className="text-[15px] font-semibold text-neutral-900 dark:text-neutral-50">{t("timeVisibility", lang)}</h3>
+          <p className="text-[13px] leading-snug text-neutral-500 dark:text-neutral-400">{t("timeVisibilityBody", lang)}</p>
           <button
             type="button"
-            onClick={onAccept}
-            disabled={accepting}
-            className={`flex-1 rounded-full px-4 py-1.5 text-[12.5px] font-semibold transition disabled:opacity-60 ${
-              mine ? "bg-white text-[#335ef7] hover:bg-white/90" : "bg-[#335ef7] text-white hover:bg-[#2748d6] dark:bg-[#0c8ce9] dark:hover:bg-[#0a75c2]"
-            }`}
+            onClick={() => setShowTimeVisibility(false)}
+            className="mt-1 w-full rounded-full bg-[#335ef7] px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-[#2748d6] dark:bg-[#0c8ce9] dark:hover:bg-[#0a75c2]"
           >
-            {t("accept", lang)}
+            {t("ok", lang)}
           </button>
-        ) : payload.link && (accepted || !canAccept) ? (
-          <a
-            href={payload.link}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-4 py-1.5 text-[12.5px] font-semibold transition ${
-              mine
-                ? "bg-white/15 text-white hover:bg-white/25"
-                : "bg-[#335ef7]/10 text-[#335ef7] hover:bg-[#335ef7]/15 dark:bg-[#0c8ce9]/15 dark:text-[#0c8ce9] dark:hover:bg-[#0c8ce9]/20"
-            }`}
-          >
-            {t("joinMeeting", lang)}
-          </a>
-        ) : (
-          <div className="flex-1" />
-        )}
-      </div>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center gap-2 px-3 pt-2.5">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#ff5fa2] to-[#2bd6c7] text-white">
+              <ChatMeetingAttachIcon className="h-3.5 w-3.5" />
+            </span>
+            <div className="min-w-0">
+              <div className="truncate text-[13.5px] font-semibold leading-tight">
+                <T uk={STRINGS.title.uk} en={STRINGS.title.en} ru={STRINGS.title.ru} de={STRINGS.title.de} es={STRINGS.title.es} fr={STRINGS.title.fr} pl={STRINGS.title.pl} ptBR={STRINGS.title.ptBR} zh={STRINGS.title.zh} />
+              </div>
+              <div className={`truncate text-[10.5px] font-medium leading-tight ${mutedText}`}>
+                {accepted ? (
+                  <T uk={STRINGS.scheduledMeeting.uk} en={STRINGS.scheduledMeeting.en} ru={STRINGS.scheduledMeeting.ru} de={STRINGS.scheduledMeeting.de} es={STRINGS.scheduledMeeting.es} fr={STRINGS.scheduledMeeting.fr} pl={STRINGS.scheduledMeeting.pl} ptBR={STRINGS.scheduledMeeting.ptBR} zh={STRINGS.scheduledMeeting.zh} />
+                ) : (
+                  <T uk={STRINGS.waitingAcceptance.uk} en={STRINGS.waitingAcceptance.en} ru={STRINGS.waitingAcceptance.ru} de={STRINGS.waitingAcceptance.de} es={STRINGS.waitingAcceptance.es} fr={STRINGS.waitingAcceptance.fr} pl={STRINGS.waitingAcceptance.pl} ptBR={STRINGS.waitingAcceptance.ptBR} zh={STRINGS.waitingAcceptance.zh} />
+                )}
+              </div>
+            </div>
+          </div>
 
-      {footer && <div className="px-3 pb-2">{footer}</div>}
+          <div className={`mx-3 mt-2.5 flex flex-col gap-2 rounded-xl px-2.5 py-2 ${overlayBg}`}>
+            <ParticipantRow lang={lang} participant={proposer} startsAtUtcMs={payload.startsAtUtcMs} tz={payload.proposerTimeZone} mode="exact" mine={mine} />
+            <div className={`h-px ${overlayBg}`} />
+            <ParticipantRow
+              lang={lang}
+              participant={other}
+              startsAtUtcMs={payload.startsAtUtcMs}
+              tz={accepted ? acceptPayload.accepterTimeZone : undefined}
+              mode={otherMode}
+              mine={mine}
+            />
+          </div>
 
-      {/* 2026-09-04 (Aleksandr: "Показывай эту штуку на самом инвайте
-          не перекрывая флоу и без затемнения всего экрана") -- was a
-          `fixed inset-0` overlay with its own full-screen bg-black/50
-          scrim, sitting on top of the ENTIRE chat regardless of where
-          this bubble happened to be. Now it's `absolute inset-0`
-          against this card's own `relative` root above -- fills only
-          this invite's own footprint, in this card's own bg color (no
-          separate dark backdrop layer at all), and never reaches past
-          its rounded corners (this root's own overflow-hidden). */}
-      {showTimeVisibility && (
-        <div
-          className="absolute inset-0 z-10 flex items-center justify-center bg-white/98 p-4 backdrop-blur-sm dark:bg-[#1c1c1e]/98"
-          onClick={(e) => {
-            e.stopPropagation();
-            setShowTimeVisibility(false);
-          }}
-        >
-          <div className="flex w-full flex-col items-center gap-3 text-center" onClick={(e) => e.stopPropagation()}>
-            {/* 2026-09-04 (Aleksandr, Figma "(1) Schedule a Meeting"
-                reference + his own supplied planet2.json): the
-                reference shows a big globe/planet icon centered above
-                this exact copy -- his own animation now sits there
-                instead of a static icon, same LottiePlayer convention
-                every other in-app animation (planet-loader, the cat
-                mascots) already uses. */}
-            <LottiePlayer src="/animations/planet2.json" size={72} />
-            <h3 className="text-[15px] font-semibold text-neutral-900 dark:text-neutral-50">{t("timeVisibility", lang)}</h3>
-            <p className="text-[13px] leading-snug text-neutral-500 dark:text-neutral-400">{t("timeVisibilityBody", lang)}</p>
+          <div className="flex items-center gap-2 px-3 pb-2.5 pt-1.5">
             <button
               type="button"
-              onClick={() => setShowTimeVisibility(false)}
-              className="mt-1 w-full rounded-full bg-[#335ef7] px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-[#2748d6] dark:bg-[#0c8ce9] dark:hover:bg-[#0a75c2]"
+              onClick={() => setShowTimeVisibility(true)}
+              aria-label={t("timeVisibility", lang)}
+              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition ${pillBg}`}
             >
-              {t("ok", lang)}
+              <InfoIcon className="h-3.5 w-3.5" />
             </button>
+            {canAccept && !accepted ? (
+              <button
+                type="button"
+                onClick={onAccept}
+                disabled={accepting}
+                className={`flex-1 rounded-full px-4 py-1.5 text-[12.5px] font-semibold transition disabled:opacity-60 ${
+                  mine ? "bg-white text-[#335ef7] hover:bg-white/90" : "bg-[#335ef7] text-white hover:bg-[#2748d6] dark:bg-[#0c8ce9] dark:hover:bg-[#0a75c2]"
+                }`}
+              >
+                {t("accept", lang)}
+              </button>
+            ) : payload.link && (accepted || !canAccept) ? (
+              <a
+                href={payload.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-4 py-1.5 text-[12.5px] font-semibold transition ${
+                  mine
+                    ? "bg-white/15 text-white hover:bg-white/25"
+                    : "bg-[#335ef7]/10 text-[#335ef7] hover:bg-[#335ef7]/15 dark:bg-[#0c8ce9]/15 dark:text-[#0c8ce9] dark:hover:bg-[#0c8ce9]/20"
+                }`}
+              >
+                {t("joinMeeting", lang)}
+              </a>
+            ) : (
+              <div className="flex-1" />
+            )}
           </div>
-        </div>
+
+          {footer && <div className="px-3 pb-2">{footer}</div>}
+        </>
       )}
     </div>
   );
