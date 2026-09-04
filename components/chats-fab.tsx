@@ -7,11 +7,25 @@
 // its own header comment for the original reasoning); this one just
 // links to /chats instead of opening the post editor.
 //
-// Deliberately NOT styled like the primary accent-blue "+" button --
-// a plain neutral pill (white/near-black surface, thin border) so the
-// create-post action stays visually primary and this one reads as
-// secondary, sitting right above it. Slightly smaller (h-12 vs h-14)
-// for the same reason.
+// 2026-09-04 (Aleksandr, Messenger reference screenshot: "поставь мою
+// иконку вместо этой и анимируй ее" -- this was the still-open half of
+// his earlier "иконка нового повідомлення" ask, PLAN.md's Figma link
+// blocked by a Figma MCP rate limit at the time) -- was a plain neutral
+// pill (white/near-black surface, thin border), deliberately NOT blue
+// so the create-post button stayed the one primary accent button.
+// Overridden here on his own explicit reference: filled accent-blue
+// circle, bold white bubble glyph. NOT a literal copy of Meta's own
+// Messenger mark, though -- that reference's distinguishing element is
+// its lightning-bolt/"M" cutout, a registered Meta trademark; shipping
+// that exact glyph on another company's own app icon is a real brand/
+// app-store-review risk, so ChatsIcon below is an original rounded-
+// bubble-with-tail silhouette instead (the generic messaging-app glyph
+// every chat app's fallback icon converges on -- WhatsApp, iMessage,
+// Telegram all use some version of it), just filled and bold to match
+// the reference's WEIGHT, not its exact artwork. Flag if he'd rather
+// go back to the outline version once he's seen this live. Still
+// slightly smaller than CreatePostFab (h-12 vs h-14) -- that stays the
+// one full-size FAB, this one sits right above it.
 //
 // Hidden on /sign-in (identical reasoning to CreatePostFab -- nowhere
 // to sit without overlapping the sign-in buttons) AND on any /chats
@@ -85,8 +99,11 @@ function readDisplayCookie(): string | null {
 // `group` button, so both just pass "animate-chat-wiggle" and get it.
 function ChatsIcon({ className }: { className?: string } = {}) {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={className}>
-      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 20l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
+      <path
+        d="M4 11.2C4 6.67 7.8 3 12.4 3c4.6 0 8.4 3.67 8.4 8.2 0 4.53-3.8 8.2-8.4 8.2-1.13 0-2.2-.22-3.18-.63L5.9 20.2a1 1 0 0 1-1.36-1.24l1.24-3.53A8.03 8.03 0 0 1 4 11.2Z"
+        fill="currentColor"
+      />
     </svg>
   );
 }
@@ -231,7 +248,7 @@ export function ChatsFab() {
 
   if (pathname?.startsWith("/sign-in") || pathname?.startsWith("/chats")) return null;
 
-  const buttonClassName = `group fixed right-5 z-40 flex h-12 w-12 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-700 shadow-lg transition duration-200 hover:bg-neutral-50 active:scale-95 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800 ${
+  const buttonClassName = `group fixed right-5 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-accent text-white shadow-lg shadow-accent/30 transition duration-200 hover:opacity-90 active:scale-95 ${
     accountMenuOpen ? "pointer-events-none opacity-0" : "opacity-100"
   }`;
   // Stacked directly above CreatePostFab: that button sits at
