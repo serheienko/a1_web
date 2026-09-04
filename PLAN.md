@@ -6949,3 +6949,46 @@ upload with no derivable type (the octet-stream case) still shows
 plain "Document" -- there's genuinely nothing left to say about it.
 
 tsc-clean, commit 61d612b.
+
+## 6.147 -- Compose box now seeds from the chat's own saved draft (2026-09-04)
+
+Aleksandr, 2 screenshots: chat list correctly shows "Чернетка Meow"
+for a chat with unsent text, but opening it left the compose box
+empty. "Чернетка должна відображатися в інпут філде при переході в
+чат в такому кейсі."
+
+app/api/chats/list already returns draftText per chat (off the real
+Chat.draft resource -- app/chats/page.tsx's own list row already
+reads it for the preview line), this page just never fetched it for
+itself. New one-shot /api/chats/list fetch on mount, matched by
+chatId, seeds `draft` state via a functional update (`cur === "" ?
+match.draftText : cur`) so text typed during that round-trip can
+never be overwritten.
+
+tsc-clean, commit 8c13508.
+
+## 6.148 -- Voice recording: click instead of swipe-to-lock/cancel (2026-09-04)
+
+Aleksandr, live screenshot of a mouse press showing the old drag-up
+lock badge + "Відпустіть за межами кола, щоб скасувати" hint: "Убираем
+свайпы, оставляем простой клик на запись. Кликнул = пошла запись, по
+центру кнопка 'отменить', сам замок и механику свайпа для залока -
+убираем."
+
+Touch already auto-locked on a single tap since 2026-09-03; mouse
+still ran the old unlocked drag phase (drag up to lock, drag left/
+release outside the button to cancel) -- exactly what that screenshot
+caught. components/chat/voice-message.tsx: VoiceRecordButton's
+onPointerDown now passes autoLock: true for every pointer type, so
+any press goes straight to locked the moment the mic is ready --
+deleted the floating lock badge entirely. VoiceRecordingBar now only
+ever renders its one simple bar (dot + timer + centered Cancel; Send
+is the arrow the button itself becomes) -- the old unlocked "slide/
+release to cancel" variant is unreachable now, removed.
+
+voice-recorder.ts's drag-threshold code (onPointerMove, cancel/lock
+progress, the two PX constants) intentionally left in place but inert
+-- lockedRef.current is already true before any pointermove can land,
+so it never engages; not touched, scope stayed the UI he actually saw.
+
+tsc-clean, commit 803fd5a.
