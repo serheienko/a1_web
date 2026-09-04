@@ -6736,3 +6736,18 @@ clipping bug (yesterday's entry, same day) was a different root cause
 (the outer card's fixed height, not this inner cap).
 
 tsc-clean, commit 8c9c9eb.
+
+## 6.139 -- Meetings panel padding, roomier to match the bigger row-list font (2026-09-04)
+
+Aleksandr, 2 screenshots (same live-test round as 6.138): "И эту.
+Делай фикс падинги" -- MeetingsMenuModal was relying entirely on the
+parent popover box's own p-4, which now reads cramped next to the
++50% mobile font bump on the plain row list one level up. Added its
+own p-1 on top of the parent's, gap-1 -> gap-2 between rows, and each
+row's own internal padding bumped too (Schedule row px-2/py-2.5 ->
+px-3/py-3, the two quick-invite pills px-4/py-2.5 -> px-5/py-3, the
+"ШВИДКІ ЗАПРОШЕННЯ" divider's px-2 -> px-3). Shared component, so
+mini-chat-window.tsx's own copy of this panel gets the same breathing
+room automatically.
+
+tsc-clean, commit e8b812d.
