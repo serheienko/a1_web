@@ -3918,7 +3918,7 @@ export default function ChatWindowPage() {
                     </div>
                   )}
                 <div
-                  className={`animate-popover-up overflow-hidden rounded-2xl bg-white shadow-xl transition-[width,height] duration-200 dark:bg-neutral-900 ${
+                  className={`animate-popover-up max-h-[min(60vh,420px)] overflow-x-hidden overflow-y-auto rounded-2xl bg-white shadow-xl transition-[width,height] duration-200 dark:bg-neutral-900 ${
                     attachDailyUploadsOpen || meetingsMenuOpen ? "w-80 p-4" : "w-44 py-1.5"
                   }`}
                   // 2026-09-04 (Aleksandr, screen recording: "на секунде
@@ -3936,7 +3936,27 @@ export default function ChatWindowPage() {
                   // see that state's own comment) pins this box to an
                   // explicit px height that now animates in step with
                   // width instead of snapping.
-                  style={attachPanelHeight !== null ? { height: attachPanelHeight } : undefined}
+                  //
+                  // 2026-09-04, mobile follow-up (Aleksandr, mobile
+                  // screenshots of Daily Uploads / Meetings both
+                  // showing their last row flush against the compose
+                  // bar with nothing scrollable below it: "Попапы
+                  // обрезались на мобе") -- this box is anchored
+                  // `bottom-full` to the paperclip button (grows UPWARD
+                  // from just above the compose bar) with no cap on its
+                  // own height, so on a short mobile viewport its
+                  // content -- Daily Uploads' full usage breakdown, or
+                  // Meetings' row list -- can need more vertical room
+                  // than actually exists between the compose bar and
+                  // the top of the screen; the part that doesn't fit
+                  // was simply unreachable (no scroll, nothing to bring
+                  // it into view). `overflow-hidden` is now `overflow-
+                  // y-auto` (still `overflow-x-hidden` so the width
+                  // transition above keeps clipping horizontally) with
+                  // a `max-h` cap, so content taller than that scrolls
+                  // WITHIN the popover instead of extending past the
+                  // visible screen.
+                  style={attachPanelHeight !== null ? { height: Math.min(attachPanelHeight, 420) } : undefined}
                 >
                   <div ref={attachPanelContentRef}>
                   {meetingsMenuOpen ? (

@@ -1040,7 +1040,16 @@ export function MiniChatWindow({
                 ref={attachPanelRef}
                 onMouseEnter={handleAttachMouseEnter}
                 onMouseLeave={handleAttachMouseLeave}
-                className={`animate-popover-up absolute bottom-full left-0 z-10 mb-2 overflow-hidden rounded-2xl bg-white shadow-xl transition-[width] duration-200 dark:bg-neutral-900 ${
+                // 2026-09-04 (Aleksandr, mobile screenshots of this
+                // same popover pattern on the main chat page cut off at
+                // the bottom: "Попапы обрезались на мобе") -- same
+                // `bottom-full`-anchored-with-no-height-cap issue could
+                // just as easily hit this floating window's own copy,
+                // so it gets the same guard even without its own
+                // separate mobile report: a max-height + internal
+                // scroll instead of letting content taller than the
+                // available room above the paperclip go unreachable.
+                className={`animate-popover-up absolute bottom-full left-0 z-10 mb-2 max-h-[min(60vh,420px)] overflow-x-hidden overflow-y-auto rounded-2xl bg-white shadow-xl transition-[width] duration-200 dark:bg-neutral-900 ${
                   attachDailyUploadsOpen ? "w-72 p-4" : "w-40 py-1.5"
                 }`}
               >
