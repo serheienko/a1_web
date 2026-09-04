@@ -15,19 +15,18 @@
 // duplicated] and cat-coffee.json).
 //
 // "Schedule meeting" (the structured propose/accept/reveal flow, Figma
-// "(1) Schedule a Meeting" / "(2) Display Meeting") is NOT built yet --
-// SCOPE NOTE, told to Aleksandr, not silently decided: chat-server's own
-// live OpenAPI spec (api.a1appp.com/openapi.json) has no meeting-related
-// schema at all, unlike Contact/Calculation (which it does define) --
-// building this for real means either leaning on the same permissive
-// entities-array catchall those two already exploit, or real backend
-// work outside this repo, and there's also an open question on whether
-// a manual profile-timezone override is in scope for v1 (see PLAN.md).
-// The row below is laid out per the Figma reference (gradient calendar
-// icon + label) and reachable, matching this codebase's established
-// "placeholder only" convention (see the parent attach-menu row this
-// replaced, or voice-message.tsx's own SCOPE NOTE) -- wire its onClick
-// once that flow is actually being built.
+// "(1) Schedule a Meeting" / "(2) Display Meeting") is now wired below
+// to open components/chat/schedule-meeting-modal.tsx. It ships on the
+// text-message protocol documented in lib/a1/meeting-protocol.ts's own
+// header comment, NOT a real `entity-meeting` backend object -- chat-
+// server's live OpenAPI spec (api.a1appp.com/openapi.json) has no
+// meeting-related schema at all, unlike Contact/Calculation (which it
+// does define), and there was no safe way to confirm messages.send
+// would accept an unrecognized entities[].object value without gambling
+// on a live production send. The manual profile-timezone-override
+// question is resolved too (Aleksandr, "Автоматически" -- device-
+// automatic only, no override needed for v1); see meeting-protocol.ts's
+// own TIMEZONE NOTE for why that's enough.
 "use client";
 
 import { T, type Locale } from "@/components/t";
@@ -76,6 +75,7 @@ export function MeetingsMenuModal({
   lang,
   onClose,
   onSendQuickInvite,
+  onOpenSchedule,
 }: {
   lang: Locale;
   onClose: () => void;
@@ -84,6 +84,7 @@ export function MeetingsMenuModal({
   // if he'd typed it himself; not silently translated to English under
   // the hood.
   onSendQuickInvite: (text: string) => void;
+  onOpenSchedule: () => void;
 }) {
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
@@ -110,7 +111,7 @@ export function MeetingsMenuModal({
 
         <button
           type="button"
-          onClick={onClose}
+          onClick={onOpenSchedule}
           className="flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left text-[15px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
         >
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#ff5fa2] to-[#2bd6c7] text-white">

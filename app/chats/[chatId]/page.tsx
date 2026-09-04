@@ -70,6 +70,14 @@ import { DailyUploadsModal } from "@/components/daily-uploads-modal";
 import { ContactMessageCard, type ContactCardSummary } from "@/components/chat/contact-message-card";
 import { ContactsPickerModal, type PickedContact } from "@/components/chat/contacts-picker-modal";
 import { MeetingsMenuModal } from "@/components/chat/meetings-menu-modal";
+import { ScheduleMeetingModal } from "@/components/chat/schedule-meeting-modal";
+import { MeetingMessageCard } from "@/components/chat/meeting-message-card";
+import {
+  encodeMeetingText,
+  decodeMeetingText,
+  encodeMeetingAcceptText,
+  decodeMeetingAcceptText,
+} from "@/lib/a1/meeting-protocol";
 import { ChatPhotoViewer, type ChatViewerImage } from "@/components/chat/photo-viewer";
 import { ChatPhotoGrid } from "@/components/chat/photo-grid";
 import { useVoiceRecorder, formatVoiceTimer, type VoiceRecordingResult } from "@/components/chat/voice-recorder";
@@ -725,6 +733,17 @@ export default function ChatWindowPage() {
   // as contactsPickerOpen right above -- see that component's own header
   // comment for what it does and doesn't cover yet.
   const [meetingsMenuOpen, setMeetingsMenuOpen] = useState(false);
+  // Scheduled Meetings (2026-09-04) -- scheduleMeetingOpen is the
+  // second screen behind the attach menu's Meetings row (past
+  // MeetingsMenuModal's own Quick Invites list), acceptingMeetingId
+  // tracks which single MeetingMessageCard's Accept button is
+  // in-flight (there's normally at most one at a time, but keyed
+  // by the real message _id rather than a bare boolean so two
+  // different proposals in the same chat can't cross-disable each
+  // other's button).
+  const [scheduleMeetingOpen, setScheduleMeetingOpen] = useState(false);
+  const [schedulingMeeting, setSchedulingMeeting] = useState(false);
+  const [acceptingMeetingId, setAcceptingMeetingId] = useState<string | null>(null);
   const [pendingContacts, setPendingContacts] = useState<PickedContact[]>([]);
   const [contactSummaries, setContactSummaries] = useState<Record<string, ContactCardSummary>>({});
   const [openingChatFor, setOpeningChatFor] = useState<string | null>(null);
@@ -2120,13 +2139,60 @@ export default function ChatWindowPage() {
     }
   }
 
+  // Scheduled Meetings (2026-09-04) -- ScheduleMeetingModal's own
+  // onSchedule callback. Same optimistic-free shape sendCalculation()
+  // used to have before its own pending-bubble fix (see PendingMessage.
+  // pendingCalc's comment) -- NOT replicated here on purpose: a meeting
+  // proposal is plain text end to end (see lib/a1/meeting-protocol.ts's
+  // header), so it already gets send()'s normal optimistic bubble,
+  // retry-on-failure, and reconciliation for free, same as any typed
+  // message or the Quick Invite buttons above it in the same menu.
+  async function scheduleMeeting(payload: { startsAtUtcMs: number; link: string | null }) {
+    if (schedulingMeeting) return;
+    setSchedulingMeeting(true);
+    try {
+      await send(encodeMeetingText(payload));
+      setScheduleMeetingOpen(false);
+    } finally {
+      setSchedulingMeeting(false);
+    }
+  }
+
+  // Scheduled Meetings: Accept is itself just another text message
+  // (encodeMeetingAcceptText), sent through the exact same send() path
+  // -- the render pass below (displayMessages' own acceptedMeetingIds
+  // computation) is what keeps it from ever showing as its own bubble.
+  async function acceptMeeting(meetingMsgId: string) {
+    if (acceptingMeetingId) return;
+    setAcceptingMeetingId(meetingMsgId);
+    try {
+      await send(encodeMeetingAcceptText({ meetingMsgId }));
+    } finally {
+      setAcceptingMeetingId(null);
+    }
+  }
+
   // Rendered list: real messages + any not-yet-reconciled optimistic
   // ones, re-sorted by date so a pending bubble (timestamped "now" the
   // moment it was created) always lands at the end where it belongs,
   // never briefly out of order against whatever load() last fetched.
-  const displayMessages: (ChatMessage | PendingMessage)[] = [...messages, ...pendingMessages].sort(
+  const rawDisplayMessages: (ChatMessage | PendingMessage)[] = [...messages, ...pendingMessages].sort(
     (a, b) => messageDateMs(a) - messageDateMs(b),
   );
+  // Scheduled Meetings: an Accept is a hidden protocol message (see
+  // lib/a1/meeting-protocol.ts's own header) -- never rendered as its
+  // own bubble, only folded into the proposal card it references.
+  // acceptedMeetingIds is gathered from the FULL list (both already-
+  // synced accepts from either participant and this viewer's own
+  // optimistic pending one, so tapping Accept flips the card
+  // immediately rather than waiting a poll tick) before accept entries
+  // are filtered back out of what actually renders.
+  const acceptedMeetingIds = new Set<string>();
+  for (const m of rawDisplayMessages) {
+    const accept = decodeMeetingAcceptText(extractMessageText(m));
+    if (accept) acceptedMeetingIds.add(accept.meetingMsgId);
+  }
+  const displayMessages = rawDisplayMessages.filter((m) => decodeMeetingAcceptText(extractMessageText(m)) === null);
 
   // 2026-09-03 (Figma "Attachments" section, "4.1 Multiple files
   // selected" / "exceeded limit" banners) -- selectedAttachmentBytes
@@ -2505,12 +2571,21 @@ export default function ChatWindowPage() {
               // see its own comment), so `pending` always short-circuits
               // this to null same as docMedia/contactMedia above.
               const calc = pending ? (pending.pendingCalc ?? null) : messageCalculation(msg);
+              // Scheduled Meetings: decodes straight off `text` (the
+              // SAME extractMessageText result a plain message bubble
+              // already reads below), which works identically for a
+              // still-pending bubble and an already-synced one -- see
+              // lib/a1/meeting-protocol.ts's own header for why no
+              // separate PendingMessage field was needed here, unlike
+              // pendingCalc/pendingAttachments/pendingContacts above.
+              const meeting = decodeMeetingText(text);
               const hasMedia =
                 docMedia.length > 0 ||
                 pendingAttachments.length > 0 ||
                 contactMedia.length > 0 ||
                 pendingContactCards.length > 0 ||
-                calc !== null;
+                calc !== null ||
+                meeting !== null;
               // 2026-09-03 (Aleksandr, third live-feedback round: "тут
               // из UI убери подложку синюю... уменьшим сообщение, оно
               // будет более компактно... также убери подложку для
@@ -2981,7 +3056,23 @@ export default function ChatWindowPage() {
                         </div>
                       )}
                       {calc && <ChatCalculationCard calc={calc} mine={mine} />}
-                      {text && <div className="whitespace-pre-wrap break-words">{text}</div>}
+                      {meeting && (
+                        <MeetingMessageCard
+                          lang={lang}
+                          payload={meeting}
+                          accepted={acceptedMeetingIds.has(msg._id)}
+                          // Accept only makes sense for the OTHER
+                          // participant, and only once this proposal is
+                          // a real, already-synced message -- msg._id
+                          // is still a throwaway localId while pending,
+                          // which acceptMeeting has nothing real to
+                          // reference yet.
+                          canAccept={!mine && !pending}
+                          accepting={acceptingMeetingId === msg._id}
+                          onAccept={() => void acceptMeeting(msg._id)}
+                        />
+                      )}
+                      {text && !meeting && <div className="whitespace-pre-wrap break-words">{text}</div>}
                       {!text && !hasMedia && <div className="whitespace-pre-wrap break-words">…</div>}
                       {/* isFlatMedia messages (see that flag's own
                           comment above) already got their own time+
@@ -3896,6 +3987,22 @@ export default function ChatWindowPage() {
             setMeetingsMenuOpen(false);
             void send(text);
           }}
+          onOpenSchedule={() => {
+            setMeetingsMenuOpen(false);
+            setScheduleMeetingOpen(true);
+          }}
+        />
+      )}
+      {scheduleMeetingOpen && (
+        <ScheduleMeetingModal
+          lang={lang}
+          onClose={() => setScheduleMeetingOpen(false)}
+          onBack={() => {
+            setScheduleMeetingOpen(false);
+            setMeetingsMenuOpen(true);
+          }}
+          onSchedule={(payload) => void scheduleMeeting(payload)}
+          scheduling={schedulingMeeting}
         />
       )}
       {contactsPickerOpen && (
