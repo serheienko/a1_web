@@ -1096,8 +1096,16 @@ export function PostEditor({
   // clicked (pendingAction is set synchronously at the top of submit(),
   // before the fetch) -- NOT shown for a draft save, which already has
   // its own inline "чернетку збережено" checkmark and stays open.
+  //
+  // 2026-09-04 (Aleksandr, screen recording of an existing-post edit:
+  // "Тут надо, чтобы кот писал только "публікується" без
+  // "оновлюється"") -- this banner used to say "Оновлюється..." for an
+  // edit-existing-draft/post save specifically (isUpdatingExisting
+  // below), reserving "Публікується..." for a brand new post only. Per
+  // this feedback the cat's own caption stays "Публікується..." every
+  // time regardless of new-vs-edit -- only the schedule branch further
+  // down still gets its own "Планується..." label.
   const isSubmittingPost = pendingAction === "post" || pendingAction === "schedule";
-  const isUpdatingExisting = mode === "edit" || savedPostId !== null;
 
   function buildMoney(): ExistingMoney {
     const amount = Number(salaryAmount);
@@ -1373,11 +1381,7 @@ export function PostEditor({
         <div className="pointer-events-auto flex w-full max-w-xs items-center gap-3 rounded-2xl bg-white p-3 pr-4 shadow-xl ring-1 ring-black/5 dark:bg-neutral-900 dark:ring-white/10">
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium text-neutral-900 dark:text-neutral-50">
-              {pendingAction === "schedule"
-                ? t("schedulingLabel", lang)
-                : isUpdatingExisting
-                  ? t("updatingLabel", lang)
-                  : t("postingLabel", lang)}
+              {pendingAction === "schedule" ? t("schedulingLabel", lang) : t("postingLabel", lang)}
             </p>
             <div className="relative mt-1.5 h-1 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
               <div className="absolute inset-y-0 left-0 w-2/5 rounded-full bg-accent animate-progress-indeterminate" />
