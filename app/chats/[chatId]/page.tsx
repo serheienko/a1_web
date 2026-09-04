@@ -399,6 +399,16 @@ function useActiveLocale(): Locale {
 // send() path as any typed message -- still a normal bubble with its
 // own timestamp/ticks, just this one glyph as its text.
 const GREETING_EMOJI = "🐱";
+// 2026-09-05 (Aleksandr, live screenshot: the pending-bubble cancel/
+// retry popover rendered up near/behind the sticky chat header --
+// "Че то не отправляется приветственный кот и 'скасувати' куда-то
+// залезло далеко") -- traced to the popover always opening ABOVE its
+// bubble (see its own `bottom-full` placement below), which only has
+// room when the bubble isn't the first thing in the scroll area (e.g.
+// an auto-sent welcome sticker, the very first message in a brand new
+// chat). Below this many px of viewport space above the bubble, it
+// flips to opening BELOW instead.
+const PENDING_POPOVER_MIN_SPACE_ABOVE = 180;
 
 // Photo-viewer header (Aleksandr, photo-viewer spec: "сверху повинно
 // бути ім'я") -- the sender label for a bubble the viewer opened from
@@ -616,6 +626,10 @@ export default function ChatWindowPage() {
   // ever one at a time, closed by tapping elsewhere (see the
   // document-click effect near the retry helpers below).
   const [openPendingId, setOpenPendingId] = useState<string | null>(null);
+  // Whether the currently-open pending popover should grow UP from its
+  // bubble (the usual case) or DOWN (flipped -- see
+  // PENDING_POPOVER_MIN_SPACE_ABOVE's own comment above for why).
+  const [openPendingAbove, setOpenPendingAbove] = useState(true);
   const pendingPopoverRef = useRef<HTMLDivElement>(null);
   const [myUserId, setMyUserId] = useState<string | null>(null);
   // 2026-09-02 (Aleksandr: "человек прочёл, но галочки не поменялись
@@ -3060,7 +3074,22 @@ export default function ChatWindowPage() {
                     <div
                       role={pending ? "button" : undefined}
                       tabIndex={pending ? 0 : undefined}
-                      onClick={pending ? () => setOpenPendingId(pending.localId) : undefined}
+                      onClick={
+                        pending
+                          ? (e) => {
+                              // See PENDING_POPOVER_MIN_SPACE_ABOVE's own
+                              // comment above -- open below instead of
+                              // above whenever the bubble is too close to
+                              // the top of the viewport for the popover to
+                              // fit above it (e.g. the first message in a
+                              // brand new chat, like an auto-sent welcome
+                              // sticker).
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setOpenPendingAbove(rect.top > PENDING_POPOVER_MIN_SPACE_ABOVE);
+                              setOpenPendingId(pending.localId);
+                            }
+                          : undefined
+                      }
                       // data-message-id + the outline below are the
                       // photo-viewer's "Show in chat" target (see
                       // handleShowInChatFromViewer above) -- undefined
@@ -3554,7 +3583,9 @@ export default function ChatWindowPage() {
                     {popoverOpen && pending && (
                       <div
                         ref={pendingPopoverRef}
-                        className="animate-popover-up absolute bottom-full right-0 z-10 mb-2 w-52 rounded-2xl bg-white p-3 shadow-xl dark:bg-neutral-900"
+                        className={`absolute right-0 z-10 w-52 rounded-2xl bg-white p-3 shadow-xl dark:bg-neutral-900 ${
+                          openPendingAbove ? "animate-popover-up bottom-full mb-2" : "animate-popover-down top-full mt-2"
+                        }`}
                       >
                         <p className="text-center text-[13px] font-medium text-[#262a34] dark:text-white">
                           {pending.failed ? (

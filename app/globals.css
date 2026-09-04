@@ -352,6 +352,19 @@ textarea {
   animation: popover-in 0.15s ease-out;
 }
 
+/* 2026-09-05 (Aleksandr, app/chats/[chatId]/page.tsx's own pending-
+ * bubble popover, live screenshot: it opened ABOVE a bubble sitting at
+ * the very top of the chat -- an auto-sent welcome sticker -- and
+ * rendered up near/behind the sticky header) -- same grow-in animation
+ * as .animate-popover-up, mirrored to grow DOWN from the anchor's
+ * top-right corner instead, for whenever that popover flips to open
+ * below its bubble because there isn't room above it.
+ */
+.animate-popover-down {
+  transform-origin: top right;
+  animation: popover-in 0.15s ease-out;
+}
+
 @keyframes backdrop-in {
   from {
     opacity: 0;
@@ -369,6 +382,7 @@ textarea {
   .animate-popover,
   .animate-modal-in,
   .animate-popover-up,
+  .animate-popover-down,
   .animate-backdrop-in {
     animation: none;
   }
