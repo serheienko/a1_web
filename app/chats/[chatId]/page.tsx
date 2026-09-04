@@ -2407,7 +2407,29 @@ export default function ChatWindowPage() {
         className="flex-1 overflow-y-auto px-4 pt-4"
         style={{ paddingBottom: `${composeBarHeight + 16}px`, paddingTop: isMobileNav ? `${headerHeight + 16}px` : undefined }}
       >
-        <div className="mx-auto w-full max-w-[470px]">
+        {/* 2026-09-04 follow-up (Aleksandr, circled screenshot: "Сюда. На
+            десктопе тож по центу окна") -- the planet loader first landed
+            with a plain `mt-6` near the top of this scrollable area, which
+            only centers horizontally. He wants it centered in the whole
+            visible chat window on both mobile and desktop. `h-full` here
+            only resolves against a real height because THIS div's direct
+            parent (messagesScrollRef, above) is the flex-1 pane that
+            already carries the real, padding-adjusted visible height of
+            the chat window (its own padding already clears the fixed
+            header on mobile and the fixed compose bar at the bottom, per
+            that padding's own comment) -- so centering inside it, instead
+            of inside the plain `mx-auto` wrapper below (which has no
+            defined height of its own), lands the loader in the true
+            middle of the window regardless of viewport size. Only the
+            loading branch gets this treatment; every other state below
+            keeps the original plain wrapper untouched. */}
+        <div
+          className={
+            state === "loading"
+              ? "mx-auto flex h-full w-full max-w-[470px] items-center justify-center"
+              : "mx-auto w-full max-w-[470px]"
+          }
+        >
         {state === "loading" && (
           // 2026-09-04 (Aleksandr, live mobile screenshot: "Вместо
           // 'завантаження' показывай анимацию нашец планеты как
@@ -2418,9 +2440,7 @@ export default function ChatWindowPage() {
           // "Завантаження…" text line with the same LottiePlayer this
           // app's other loading/empty states already use (e.g.
           // app/chats/page.tsx's own cat-pigeon empty state).
-          <div className="mt-6 flex justify-center">
-            <LottiePlayer src="/animations/planet-loader.json" size={120} />
-          </div>
+          <LottiePlayer src="/animations/planet-loader.json" size={120} />
         )}
         {state === "signed-out" && (
           <p className="mt-6 text-center text-sm text-[#989aa6] dark:text-[#adafbb]">

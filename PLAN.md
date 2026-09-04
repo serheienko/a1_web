@@ -6464,3 +6464,36 @@ in hand for either button -- flagged, using the standard "+" /
 chat-bubble-with-plus shapes for now.
 
 tsc-clean across all four.
+
+## 6.130 -- Planet loading animation replaces "Завантаження…" text, then centered in the window (2026-09-04)
+
+Aleksandr, with a screenshot of the chat page's plain "Завантаження…"
+loading text: "Вместо «завантаження» показывай анимацию нашец
+планеты как загрузку, ща скину" -- then uploaded his own
+planet_loader.tgs. Decompressed the same way every other .tgs
+sticker in this repo already is (gzip -> Lottie JSON, see 6.123's
+own cat-hi/cat-coffee precedent) to public/animations/planet-
+loader.json and swapped it in via the same LottiePlayer component
+this app's other loading/empty states already use.
+
+First landing spot was a plain `mt-6 flex justify-center` near the
+top of the scrollable message area -- centers horizontally only.
+Aleksandr's very next message, a mobile screenshot with a hand-
+drawn circle roughly mid-window: "Сюда. На десктопе тож по центу
+окна". The scrollable pane (messagesScrollRef) is the one element
+on this page whose height is real and definite -- its parent carries
+an explicit `height: calc(100dvh - ...)` and messagesScrollRef
+itself is flex-1 within it -- while the `mx-auto w-full max-w-
+[470px]` div the loader sat inside has no height of its own (plain
+block, sized to content), so nothing inside it can center against
+the window's real height. Fix: only while state === "loading", that
+wrapper div's className switches to `mx-auto flex h-full w-full
+max-w-[470px] items-center justify-center` so `h-full` resolves
+against messagesScrollRef's real height instead of collapsing;
+every other state keeps the original plain wrapper. Since
+messagesScrollRef's own padding already clears the fixed mobile
+header and the fixed compose bar (see that padding's own comment),
+this lands the loader in the true center of the visible chat
+window on both mobile and desktop, not just the full viewport.
+
+tsc-clean.
