@@ -34,6 +34,23 @@
 // header comment on why avatar-edit-button.tsx's copy wasn't merged with
 // it): a plain "backdrop + centered rounded-2xl card" rather than a
 // dedicated <dialog>, same as every other modal in this app.
+//
+// 2026-09-04 (Aleksandr, live test: "сделай эту штуку со стореджем как
+// бы выплывающей такой модалкой из нашей стандартной модалки, которую
+// мы нажимаем на скрепку... не блокируй флоу... чтобы она была частью,
+// можно было её там закрыть и можно поставить стрелочку назад") -- the
+// storage icon inside the attach-menu popover used to close that
+// popover outright and open THIS as a second, unrelated full-screen
+// backdrop modal, which read as leaving the attach flow rather than
+// being part of it. `variant="inline"` below renders just the card's
+// own content (no fixed/backdrop wrapper, no "×" needing its own
+// close -- the caller decides how it's dismissed) so app/chats/
+// [chatId]/page.tsx's attach popover can grow itself around this
+// content in place instead of stacking a second modal on top; `onBack`
+// adds the requested back arrow next to the title. `variant="modal"`
+// (the default) is unchanged for any caller that still wants the
+// original standalone backdrop popup (components/mini-chat-window.tsx,
+// same self-contained-widget duplication convention as always here).
 "use client";
 
 import { useEffect, useState } from "react";
@@ -41,6 +58,7 @@ import type { Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
 import { formatBytes, formatCountdownDuration } from "@/lib/format";
 import type { MediaUploadUsage } from "@/lib/a1/schemas";
+import { ChatBackArrow } from "@/components/chat/icons";
 
 type StringKey =
   | "title" | "close" | "loading" | "loadFailed" | "retry"
@@ -82,7 +100,19 @@ function formatPercent(value: number, total: number): string {
   return Number.isInteger(rounded) ? `${rounded}%` : `${rounded.toFixed(1)}%`;
 }
 
-export function DailyUploadsModal({ lang, onClose }: { lang: Locale; onClose: () => void }) {
+export function DailyUploadsModal({
+  lang,
+  onClose,
+  onBack,
+  variant = "modal",
+}: {
+  lang: Locale;
+  onClose: () => void;
+  // See this file's own 2026-09-04 header entry -- only meaningful
+  // (and only ever passed) alongside variant="inline".
+  onBack?: () => void;
+  variant?: "modal" | "inline";
+}) {
   const [usage, setUsage] = useState<MediaUploadUsage | null>(null);
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -121,19 +151,25 @@ export function DailyUploadsModal({ lang, onClose }: { lang: Locale; onClose: ()
       ]
     : [];
 
-  return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div
-        className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl dark:bg-neutral-900"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">{t("title", lang)}</h2>
+  const content = (
+    <>
+      <div className="mb-4 flex items-center gap-2">
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              aria-label="Back"
+              className="group flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-[#335ef7] transition hover:bg-neutral-50 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80 dark:text-[#0c8ce9] dark:hover:bg-[#1c1c1e]"
+            >
+              <ChatBackArrow className="h-2 w-[5px]" />
+            </button>
+          )}
+          <h2 className="flex-1 text-sm font-semibold text-neutral-900 dark:text-neutral-50">{t("title", lang)}</h2>
           <button
             type="button"
             onClick={onClose}
             aria-label={t("close", lang)}
-            className="text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-50"
+            className="shrink-0 text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-50"
           >
             ×
           </button>
@@ -244,6 +280,20 @@ export function DailyUploadsModal({ lang, onClose }: { lang: Locale; onClose: ()
             </div>
           </div>
         )}
+    </>
+  );
+
+  if (variant === "inline") {
+    return <div className="w-full">{content}</div>;
+  }
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div
+        className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl dark:bg-neutral-900"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {content}
       </div>
     </div>
   );

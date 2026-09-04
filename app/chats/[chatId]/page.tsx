@@ -664,9 +664,23 @@ export default function ChatWindowPage() {
   }, [recorder.state]);
   // 2026-09-02, Aleksandr: "Daily Uploads" quota popup (see
   // components/daily-uploads-modal.tsx's own header comment) --
-  // opened from the small storage icon in the attach popover below,
-  // same corner the reference native-app screenshot uses.
+  // STANDALONE backdrop modal (variant="modal", the component's own
+  // default), used only by the compose-bar's own quota-exceeded banner
+  // below (that one isn't anchored to the attach popover at all, so
+  // there's no popover to embed into).
   const [dailyUploadsOpen, setDailyUploadsOpen] = useState(false);
+  // 2026-09-04 (Aleksandr, live test: see the attach popover's own
+  // comment further down for the full quote) -- the INLINE variant,
+  // shown INSIDE the already-open attach popover (storage icon, the
+  // quota banner that lives inside that same popover, and
+  // onPickAttachment's quota-exceeded redirect all set this instead of
+  // the standalone one above) rather than opening a second, separate
+  // modal on top of it. Reset the instant the popover itself closes, so
+  // reopening the paperclip always starts back on the row menu.
+  const [attachDailyUploadsOpen, setAttachDailyUploadsOpen] = useState(false);
+  useEffect(() => {
+    if (!attachMenuOpen) setAttachDailyUploadsOpen(false);
+  }, [attachMenuOpen]);
   // 2026-09-03 (Figma "Attachments" section, "Attachment validation" +
   // "Daily uploads" notes): a cached copy of the SAME MediaUploadUsage
   // DailyUploadsModal itself fetches (/api/upload/usage), kept here too
@@ -1829,8 +1843,7 @@ export default function ChatWindowPage() {
     // already dims those two rows with, so a click can't slip through
     // between the dim state rendering and this handler running.
     if (quotaFullyUsed) {
-      setAttachMenuOpen(false);
-      setDailyUploadsOpen(true);
+      setAttachDailyUploadsOpen(true);
       return;
     }
     setAttachMenuOpen(false);
@@ -3675,8 +3688,7 @@ export default function ChatWindowPage() {
                             type="button"
                             onClick={() => {
                               dismissDailyBanner();
-                              setAttachMenuOpen(false);
-                              setDailyUploadsOpen(true);
+                              setAttachDailyUploadsOpen(true);
                             }}
                             className="mt-1.5 text-[12px] font-semibold text-[#335ef7] dark:text-[#0c8ce9]"
                           >
@@ -3696,7 +3708,31 @@ export default function ChatWindowPage() {
                       </div>
                     </div>
                   )}
-                <div className="animate-popover-up w-44 overflow-hidden rounded-2xl bg-white py-1.5 shadow-xl dark:bg-neutral-900">
+                <div
+                  className={`animate-popover-up overflow-hidden rounded-2xl bg-white shadow-xl transition-[width] duration-200 dark:bg-neutral-900 ${
+                    attachDailyUploadsOpen ? "w-80 p-4" : "w-44 py-1.5"
+                  }`}
+                >
+                  {attachDailyUploadsOpen ? (
+                    // 2026-09-04 (Aleksandr, live test: "сделай эту штуку
+                    // со стореджем как бы выплывающей... из нашей
+                    // стандартной модалки... не блокируй флоу... чтобы
+                    // она была частью") -- same attach popover box, just
+                    // grown wider and swapped to this content instead of
+                    // opening as a second, separate backdrop modal (see
+                    // components/daily-uploads-modal.tsx's own 2026-09-04
+                    // header entry for the inline variant this uses).
+                    <DailyUploadsModal
+                      lang={lang}
+                      variant="inline"
+                      onBack={() => setAttachDailyUploadsOpen(false)}
+                      onClose={() => {
+                        setAttachDailyUploadsOpen(false);
+                        setAttachMenuOpen(false);
+                      }}
+                    />
+                  ) : (
+                    <>
                   {/* Daily-uploads quota entry point (2026-09-02,
                       Aleksandr's "как ты UI отрисуешь?" follow-up) --
                       same top-right corner the reference native-app
@@ -3707,10 +3743,7 @@ export default function ChatWindowPage() {
                       one. */}
                   <button
                     type="button"
-                    onClick={() => {
-                      setAttachMenuOpen(false);
-                      setDailyUploadsOpen(true);
-                    }}
+                    onClick={() => setAttachDailyUploadsOpen(true)}
                     aria-label="Daily uploads"
                     className="group absolute right-2 top-2 rounded-full p-1 text-neutral-400 transition hover:bg-black/5 hover:text-neutral-700 dark:text-neutral-500 dark:hover:bg-white/10 dark:hover:text-neutral-200"
                   >
@@ -3801,6 +3834,8 @@ export default function ChatWindowPage() {
                     <ChatContactAttachIcon className="animate-contact-attach h-5 w-5 text-[#335ef7] dark:text-[#0c8ce9]" />
                     <T uk="Контакт" en="Contact" ru="Контакт" de="Kontakt" es="Contacto" fr="Contact" pl="Kontakt" ptBR="Contato" zh="联系人" />
                   </button>
+                    </>
+                  )}
                 </div>
                 </div>
               )}

@@ -244,7 +244,21 @@ export function MiniChatWindow({
     handleMouseLeave: handleAttachMouseLeave,
     isRecentHoverOpen: isAttachRecentHoverOpen,
   } = useHoverPanel(attachMenuOpen, setAttachMenuOpen, [{ trigger: attachMenuRef, panel: attachPanelRef }]);
+  // 2026-09-02: STANDALONE backdrop modal (variant="modal", the
+  // component's own default) -- used only by handleAttach's own
+  // mid-upload quota-exceeded redirect below (the attach popover is
+  // already closed by the time an upload is actually in flight, so
+  // there's no popover left to embed into there).
   const [dailyUploadsOpen, setDailyUploadsOpen] = useState(false);
+  // 2026-09-04 (Aleksandr, live test on app/chats/[chatId]/page.tsx's
+  // own attach popover, mirrored here for the same reason -- see that
+  // file's own comment on this same state for the full quote) -- the
+  // INLINE variant, shown INSIDE the already-open attach popover
+  // instead of opening a second, separate modal on top of it.
+  const [attachDailyUploadsOpen, setAttachDailyUploadsOpen] = useState(false);
+  useEffect(() => {
+    if (!attachMenuOpen) setAttachDailyUploadsOpen(false);
+  }, [attachMenuOpen]);
   const [contactsPickerOpen, setContactsPickerOpen] = useState(false);
   const [pickedContactIds, setPickedContactIds] = useState<Set<string>>(new Set());
   const [pickedContacts, setPickedContacts] = useState<PickedContact[]>([]);
@@ -989,14 +1003,28 @@ export function MiniChatWindow({
                 ref={attachPanelRef}
                 onMouseEnter={handleAttachMouseEnter}
                 onMouseLeave={handleAttachMouseLeave}
-                className="animate-popover-up absolute bottom-full left-0 z-10 mb-2 w-40 overflow-hidden rounded-2xl bg-white py-1.5 shadow-xl dark:bg-neutral-900"
+                className={`animate-popover-up absolute bottom-full left-0 z-10 mb-2 overflow-hidden rounded-2xl bg-white shadow-xl transition-[width] duration-200 dark:bg-neutral-900 ${
+                  attachDailyUploadsOpen ? "w-72 p-4" : "w-40 py-1.5"
+                }`}
               >
+                {attachDailyUploadsOpen ? (
+                  // 2026-09-04 -- see this file's own attachDailyUploadsOpen
+                  // comment above for why this is inline instead of a
+                  // second backdrop modal.
+                  <DailyUploadsModal
+                    lang={lang}
+                    variant="inline"
+                    onBack={() => setAttachDailyUploadsOpen(false)}
+                    onClose={() => {
+                      setAttachDailyUploadsOpen(false);
+                      setAttachMenuOpen(false);
+                    }}
+                  />
+                ) : (
+                  <>
                 <button
                   type="button"
-                  onClick={() => {
-                    setAttachMenuOpen(false);
-                    setDailyUploadsOpen(true);
-                  }}
+                  onClick={() => setAttachDailyUploadsOpen(true)}
                   aria-label="Daily uploads"
                   className="group absolute right-2 top-2 rounded-full p-1 text-neutral-400 transition hover:bg-black/5 hover:text-neutral-700 dark:text-neutral-500 dark:hover:bg-white/10 dark:hover:text-neutral-200"
                 >
@@ -1054,6 +1082,8 @@ export function MiniChatWindow({
                   <ChatContactAttachIcon className="animate-contact-attach h-4 w-4 text-[#335ef7] dark:text-[#0c8ce9]" />
                   <T uk="Контакт" en="Contact" ru="Контакт" de="Kontakt" es="Contacto" fr="Contact" pl="Kontakt" ptBR="Contato" zh="联系人" />
                 </button>
+                  </>
+                )}
               </div>
             )}
             <input
