@@ -32,7 +32,7 @@ import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { SearchIcon } from "@/components/search-icon";
-import { MessageTicks } from "@/components/chat/icons";
+import { MessageTicks, ChatBackArrow } from "@/components/chat/icons";
 import { ChatPreviewLine } from "@/components/chat/chat-preview-line";
 import { chatRouteParamForUser } from "@/lib/a1/chat-schemas";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
@@ -157,6 +157,26 @@ const STRINGS = {
     uk: "Контакти", en: "Contacts", ru: "Контакты", de: "Kontakte", es: "Contactos",
     fr: "Contacts", pl: "Kontakty", ptBR: "Contatos", zh: "联系人",
   },
+  // 2026-09-04 (Aleksandr: "в модалке тоже нужна кнопка ‘новий чат’ ...
+  // делай ее тоже внутри тієї ж модалки со стрелочкой ‘назад’") -- same
+  // nested "screen swap" convention components/chat/meetings-menu-
+  // modal.tsx already established: no second popup, just this panel's
+  // own header+body flipping to a contacts screen and back.
+  newChatTitle: {
+    uk: "Новий чат", en: "New chat", ru: "Новый чат", de: "Neuer Chat", es: "Nuevo chat",
+    fr: "Nouveau chat", pl: "Nowy czat", ptBR: "Nova conversa", zh: "新聊天",
+  },
+  newChatSearchPlaceholder: {
+    uk: "Пошук", en: "Search", ru: "Поиск", de: "Suche", es: "Buscar",
+    fr: "Rechercher", pl: "Szukaj", ptBR: "Pesquisar", zh: "搜索",
+  },
+  noLinkedContacts: {
+    uk: "Жоден контакт ще не приєднався до A1", en: "None of your contacts are on A1 yet",
+    ru: "Никто из контактов ещё не в A1", de: "Noch niemand aus deinen Kontakten ist bei A1",
+    es: "Ninguno de tus contactos está en A1 todavía", fr: "Aucun de vos contacts n'est encore sur A1",
+    pl: "Nikt z Twoich kontaktów nie jest jeszcze na A1", ptBR: "Nenhum dos seus contatos está no A1 ainda",
+    zh: "你的联系人中还没有人使用 A1",
+  },
 };
 
 function useActiveLocale(): Locale {
@@ -201,6 +221,19 @@ function ChatRowSkeleton() {
   );
 }
 
+// Same "compose" glyph app/chats/page.tsx's own header button uses
+// (NewChatBubbleIcon there) -- duplicated rather than imported/exported,
+// same self-contained-widget convention this file's own header already
+// commits to.
+function NewChatBubbleIcon({ className }: { className?: string }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 20l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+      <path d="M12 8.5v4M10 10.5h4" />
+    </svg>
+  );
+}
+
 // Sits directly above the FAB stack, same anchor math as components/
 // fab-auth-prompt.tsx's own FAB_POPOVER_BOTTOM (duplicated rather than
 // imported -- that constant isn't exported, and this file is meant to
@@ -227,6 +260,9 @@ export function ChatsFlyout({
   const [chats, setChats] = useState<ChatRow[]>([]);
   const [contacts, setContacts] = useState<ContactRow[] | null>(null);
   const [query, setQuery] = useState("");
+  // "Новий чат" nested screen -- see NewChatBubbleIcon's own comment
+  // above and the header/body render below.
+  const [newChatOpen, setNewChatOpen] = useState(false);
   const inFlight = useRef(false);
   // 2026-09-02: same avatar-blink fix as app/chats/page.tsx's own
   // pinnedAvatarUrls (see that file's header for the full live-debugged
@@ -235,6 +271,16 @@ export function ChatsFlyout({
   // changed). Pinned separately here rather than shared, same
   // self-contained-by-design rule as the rest of this file.
   const pinnedAvatarUrls = useRef<Map<string, string>>(new Map());
+
+  // Reset back to the recent-chats screen once this closes, so the next
+  // time it's opened (ChatsFab mounts this once, globally -- see this
+  // file's own header) it doesn't reopen stuck on the contacts screen.
+  useEffect(() => {
+    if (!open) {
+      setNewChatOpen(false);
+      setQuery("");
+    }
+  }, [open]);
 
   // Paint from the cached list (if any) the moment this mounts --
   // before the popover is ever opened, so the very first open of a
@@ -347,6 +393,15 @@ export function ChatsFlyout({
         (c) => c.title.toLowerCase().includes(trimmed) || (c.username ?? "").toLowerCase().includes(trimmed),
       )
     : [];
+  // "Новий чат" screen's own list -- unlike matchingContacts above (only
+  // surfaced once you start typing, as a fallback under the recent-chat
+  // results), this shows every linked contact up front and narrows as
+  // you type, same as components/new-chat-picker-modal.tsx's own list.
+  const pickerContacts = trimmed
+    ? (contacts ?? []).filter(
+        (c) => c.title.toLowerCase().includes(trimmed) || (c.username ?? "").toLowerCase().includes(trimmed),
+      )
+    : (contacts ?? []);
 
   function openChat(target: ChatFlyoutOpenTarget) {
     onOpenChat(target);
@@ -372,14 +427,40 @@ export function ChatsFlyout({
       style={{ bottom: FLYOUT_BOTTOM }}
     >
       <div className="flex shrink-0 items-center justify-between border-b border-neutral-100 px-4 py-3 dark:border-neutral-800">
-        <span className="text-[17px] font-semibold text-neutral-900 dark:text-neutral-50">{STRINGS.title[lang]}</span>
-        <Link
-          href="/chats"
-          onClick={onClose}
-          className="text-[15px] font-medium text-[#335ef7] hover:opacity-80 dark:text-[#0c8ce9]"
-        >
-          {STRINGS.viewAll[lang]}
-        </Link>
+        {newChatOpen ? (
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setNewChatOpen(false)}
+              aria-label="Back"
+              className="group flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#335ef7] transition hover:bg-black/5 dark:text-[#0c8ce9] dark:hover:bg-white/10"
+            >
+              <ChatBackArrow className="h-2.5 w-[6px] animate-back-arrow" />
+            </button>
+            <span className="text-[17px] font-semibold text-neutral-900 dark:text-neutral-50">{STRINGS.newChatTitle[lang]}</span>
+          </div>
+        ) : (
+          <>
+            <span className="text-[17px] font-semibold text-neutral-900 dark:text-neutral-50">{STRINGS.title[lang]}</span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setNewChatOpen(true)}
+                aria-label={STRINGS.newChatTitle[lang]}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+              >
+                <NewChatBubbleIcon />
+              </button>
+              <Link
+                href="/chats"
+                onClick={onClose}
+                className="ml-1 text-[15px] font-medium text-[#335ef7] hover:opacity-80 dark:text-[#0c8ce9]"
+              >
+                {STRINGS.viewAll[lang]}
+              </Link>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="shrink-0 px-3 pt-3">
@@ -389,8 +470,8 @@ export function ChatsFlyout({
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={STRINGS.searchPlaceholder[lang]}
-            aria-label={STRINGS.searchPlaceholder[lang]}
+            placeholder={newChatOpen ? STRINGS.newChatSearchPlaceholder[lang] : STRINGS.searchPlaceholder[lang]}
+            aria-label={newChatOpen ? STRINGS.newChatSearchPlaceholder[lang] : STRINGS.searchPlaceholder[lang]}
             className="w-full rounded-full bg-[#f2f2f7] py-2 pl-8 pr-3 text-[15px] text-[#262a34] outline-none transition placeholder:text-[#989aa6] focus:ring-2 focus:ring-accent/30 dark:bg-neutral-800 dark:text-white dark:placeholder:text-[#8d8d93]"
           />
         </div>
@@ -408,6 +489,53 @@ export function ChatsFlyout({
           keeps the existing 8-row scroll cap for chat-heavy accounts
           while letting a short list collapse to its own real height. */}
       <div className="mt-2 max-h-[448px] shrink-0 overflow-y-auto px-2 pb-2">
+        {newChatOpen ? (
+          <>
+            {contacts === null && (
+              <div className="flex flex-col gap-0.5">
+                {Array.from({ length: SKELETON_ROW_COUNT }).map((_, i) => (
+                  <ChatRowSkeleton key={i} />
+                ))}
+              </div>
+            )}
+            {contacts !== null && contacts.length === 0 && (
+              <p className="px-2 py-4 text-center text-[15px] text-[#989aa6] dark:text-[#8d8d93]">{STRINGS.noLinkedContacts[lang]}</p>
+            )}
+            {contacts !== null && contacts.length > 0 && pickerContacts.length === 0 && (
+              <p className="px-2 py-4 text-center text-[15px] text-[#989aa6] dark:text-[#8d8d93]">{STRINGS.noResults[lang]}</p>
+            )}
+            {pickerContacts.map((c) => (
+              <button
+                key={c.contactId}
+                type="button"
+                onClick={() =>
+                  c.userId &&
+                  openChat({
+                    routeParam: chatRouteParamForUser(c.userId),
+                    title: c.title,
+                    avatarUrl: c.avatarUrl,
+                    avatarBlurDataUrl: c.avatarBlurDataUrl,
+                    username: c.username,
+                  })
+                }
+                className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
+              >
+                <Image
+                  src={c.avatarUrl}
+                  alt=""
+                  width={40}
+                  height={40}
+                  className="h-10 w-10 shrink-0 rounded-full object-cover"
+                  placeholder="blur"
+                  blurDataURL={c.avatarBlurDataUrl ?? BLUR_DATA_URL}
+                  unoptimized
+                />
+                <div className="min-w-0 flex-1 truncate text-[16px] font-medium text-[#262a34] dark:text-white">{c.title || "—"}</div>
+              </button>
+            ))}
+          </>
+        ) : (
+        <>
         {state === "loading" && chats.length === 0 && (
           <div className="flex flex-col gap-0.5">
             {Array.from({ length: SKELETON_ROW_COUNT }).map((_, i) => (
@@ -509,6 +637,8 @@ export function ChatsFlyout({
               </button>
             ))}
           </>
+        )}
+        </>
         )}
       </div>
     </div>
