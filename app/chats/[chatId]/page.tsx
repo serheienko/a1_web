@@ -3710,7 +3710,16 @@ export default function ChatWindowPage() {
                       ) : (
                         <ChatFileTypeIcon kind={fileKindFromName(a.fileName, a.mimetype)} className="h-8 w-8" />
                       )}
-                      <span className="truncate text-[12px] text-[#262a34] dark:text-white">{a.fileName}</span>
+                      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <span className="truncate text-[12px] text-[#262a34] dark:text-white">{a.fileName}</span>
+                        {/* 2026-09-04 (Aleksandr: "Показывай вес файла
+                            тут") -- this compose-bar staging preview
+                            showed name only, no size, unlike the sent/
+                            pending message bubble a few hundred lines
+                            below (which already pairs formatBytes(a.bytes)
+                            under the filename) -- same pairing here. */}
+                        <span className="truncate text-[10px] text-neutral-500 dark:text-neutral-400">{formatBytes(a.bytes)}</span>
+                      </span>
                     </div>
                   )}
                   {a.status === "uploading" && (

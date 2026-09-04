@@ -961,7 +961,13 @@ export function MiniChatWindow({
                   ) : (
                     <ChatFileTypeIcon kind={fileKindFromName(attachment.fileName, attachment.mimetype)} className="h-8 w-8" />
                   )}
-                  <span className="truncate text-[12px] text-[#262a34] dark:text-white">{attachment.fileName}</span>
+                  {/* 2026-09-04 (Aleksandr: "Показывай вес файла тут") --
+                      same pairing as app/chats/[chatId]/page.tsx's own
+                      compose-bar staging preview just picked up. */}
+                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span className="truncate text-[12px] text-[#262a34] dark:text-white">{attachment.fileName}</span>
+                    <span className="truncate text-[10px] text-neutral-500 dark:text-neutral-400">{formatBytes(attachment.bytes)}</span>
+                  </span>
                 </div>
               )}
               {attachment.status === "uploading" && (
