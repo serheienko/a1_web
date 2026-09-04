@@ -196,7 +196,11 @@ export function DailyUploadsModal({
               aria-label="Back"
               className="group flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-[#335ef7] transition hover:bg-neutral-50 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80 dark:text-[#0c8ce9] dark:hover:bg-[#1c1c1e]"
             >
-              <ChatBackArrow className="h-2 w-[5px]" />
+              {/* 2026-09-04 (Aleksandr: "Cделай анимации на эти 2 иконки:
+                  стрелочка и крестик") -- same animate-back-arrow hover-
+                  nudge every other back button in this app already uses
+                  (app/globals.css's own back-arrow-nudge keyframe). */}
+              <ChatBackArrow className="h-2 w-[5px] animate-back-arrow" />
             </button>
           )}
           <h2 className="flex-1 text-sm font-semibold text-neutral-900 dark:text-neutral-50">{t("title", lang)}</h2>
@@ -204,9 +208,13 @@ export function DailyUploadsModal({
             type="button"
             onClick={onClose}
             aria-label={t("close", lang)}
-            className="shrink-0 text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-50"
+            className="group shrink-0 text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-50"
           >
-            ×
+            {/* Reuses components/chat/photo-viewer.tsx's own close-spin
+                keyframe (rotate 0->90->0 + a slight scale dip) rather
+                than inventing a new close animation -- same glyph,
+                same motion. */}
+            <span className="inline-block animate-close-spin">×</span>
           </button>
         </div>
 
