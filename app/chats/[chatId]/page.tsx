@@ -4003,7 +4003,26 @@ export default function ChatWindowPage() {
                   // a `max-h` cap, so content taller than that scrolls
                   // WITHIN the popover instead of extending past the
                   // visible screen.
-                  style={attachPanelHeight !== null ? { height: Math.min(attachPanelHeight, 500) } : undefined}
+                  // 2026-09-04, follow-up (Aleksandr, still scrolling
+                  // after a hard refresh + the 420->500 cap raise: "Чтобы
+                  // ВСЁ влазило") -- the REAL bug, found by actually
+                  // working through the box-sizing: `attachPanelHeight`
+                  // is measured off `attachPanelContentRef`'s own
+                  // contentRect, which (like every ResizeObserver
+                  // contentRect) excludes ITS OWN padding -- but there
+                  // is none on that inner div; the padding (`p-4` /
+                  // `py-1.5` above) lives on THIS outer box, the same
+                  // element this height is then applied to. Under this
+                  // app's global `box-sizing: border-box` (Tailwind
+                  // preflight), setting `height` here to the padding-
+                  // LESS inner measurement makes the box's own content
+                  // area exactly `verticalPadding` short of what the
+                  // inner content actually needs -- a fixed shortfall
+                  // no amount of raising the 500px cap could ever fix,
+                  // since the cap was never what was binding. Adding
+                  // that same padding back in before capping is the
+                  // actual fix.
+                  style={attachPanelHeight !== null ? { height: Math.min(attachPanelHeight + (attachDailyUploadsOpen || meetingsMenuOpen ? 32 : 12), 500) } : undefined}
                 >
                   <div ref={attachPanelContentRef}>
                   {meetingsMenuOpen ? (
