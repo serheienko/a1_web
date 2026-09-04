@@ -6751,3 +6751,24 @@ mini-chat-window.tsx's own copy of this panel gets the same breathing
 room automatically.
 
 tsc-clean, commit e8b812d.
+
+## 6.140 -- Attach popover: the REAL bug was box-sizing, not the height cap (2026-09-04)
+
+Aleksandr, after a hard refresh + 6.138's 420->500px cap raise still
+showed scrolling: "Чтобы ВСЁ влазило". 6.138 was treating the wrong
+layer -- actually traced it this time: `attachPanelHeight` (app/chats/
+[chatId]/page.tsx) is measured via ResizeObserver off
+attachPanelContentRef's own contentRect, which -- like every
+ResizeObserver contentRect -- excludes that element's OWN padding.
+There is none on that inner div; the padding (`p-4` for Meetings/Daily
+Uploads, `py-1.5` for the plain row list) lives on the OUTER box, the
+SAME element this measured height then gets applied to via inline
+style. Under this app's global `box-sizing: border-box` (Tailwind
+preflight), setting an element's `height` to a measurement that
+excludes its own padding leaves its content area exactly
+`verticalPadding` short of what the content needs -- a fixed, constant
+shortfall (32px / 12px) that no amount of raising the 500px cap from
+6.138 could ever fix, since the cap was never what was binding. Fixed
+by adding that same padding back in before the Math.min/cap.
+
+tsc-clean, commit c0e065c.
