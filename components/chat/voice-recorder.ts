@@ -84,7 +84,7 @@ export type VoiceRecorderPointer = { clientX: number; clientY: number };
 // through. `samplesRef`'s live capture is kept ONLY as a fallback for
 // the rare case decode itself fails (unsupported codec/browser quirk),
 // producing the exact pre-2026-09-04 result rather than nothing.
-async function computeWaveformFromBlob(blob: Blob, barCount: number): Promise<number[] | null> {
+async function computeWaveformFromBlob(blob: Blob, barCount: number, expectedDurationSeconds: number): Promise<number[] | null> {
   try {
     const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     const ctx = new AudioCtx();
@@ -93,6 +93,32 @@ async function computeWaveformFromBlob(blob: Blob, barCount: number): Promise<nu
       const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
       const channelData = audioBuffer.getChannelData(0);
       if (channelData.length === 0) return null;
+      // 2026-09-04 (Aleksandr, live test on the FIX below: "Эквалайзер
+      // по прежнему отображается не актуально. В конце есть звук" --
+      // the decode-based approach still went flat past a certain point
+      // even after the switch away from the live rAF sampling loop)
+      // -- root cause is a well-known Chrome/MediaRecorder quirk, not
+      // this file's own bucketing math: a webm/opus blob produced by
+      // MediaRecorder has no Cues/Duration in its container header, so
+      // Chrome's decodeAudioData demuxer sometimes decodes only a
+      // SHORT leading portion of the real recording (silently, no
+      // thrown error) and returns an AudioBuffer whose own .duration
+      // already reflects that truncation. Every bucket whose sample
+      // range falls past channelData.length then has `count === 0` and
+      // pushes a flat 0 -- exactly "real waveform for the first
+      // portion, dead flat for the rest" Aleksandr is describing, even
+      // though the actual mic capture (and encoded audio) covers the
+      // whole clip. Comparing the decoded duration against the REAL
+      // wall-clock recording length (elapsedMs from the caller, not
+      // anything decodeAudioData reports about itself) catches this:
+      // a decode covering well under the real length is treated as a
+      // failed decode so the live-sample fallback below (setInterval-
+      // driven, immune to this codec/container quirk since it never
+      // touches decodeAudioData) takes over instead of silently
+      // zero-padding the tail.
+      if (expectedDurationSeconds > 0 && audioBuffer.duration < expectedDurationSeconds * 0.85) {
+        return null;
+      }
       const samplesPerBucket = Math.max(1, Math.floor(channelData.length / barCount));
       const peaks: number[] = [];
       for (let i = 0; i < barCount; i++) {
@@ -271,7 +297,7 @@ export function useVoiceRecorder(onFinish: (result: VoiceRecordingResult) => voi
           // tickAmplitude/sampleTimerRef sampling loop while recording
           // (a pause/resume, a scheduling hiccup, ...). Falls back to
           // the old live-samples path only if decoding itself fails.
-          const decodedPeaks = await computeWaveformFromBlob(blob, LOCAL_WAVEFORM_BARS);
+          const decodedPeaks = await computeWaveformFromBlob(blob, LOCAL_WAVEFORM_BARS, elapsedMs / 1000);
           const waveform =
             normalizeWaveformPeaks(decodedPeaks ?? [], LOCAL_WAVEFORM_BARS) ??
             resampleWaveform(samplesRef.current.length ? samplesRef.current : [0], LOCAL_WAVEFORM_BARS).map((v) =>
