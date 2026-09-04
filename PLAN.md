@@ -6165,3 +6165,26 @@ app/chats/[chatId]/page.tsx:
    reconciliation only swaps `src` underneath an unchanged layout.
 
 tsc-clean.
+
+### 6.123
+
+2026-09-04 (Aleksandr, full Scheduled Meetings spec + Figma reference
+screenshots dropped into the connected A1_Web_Figma folder): first pass
+-- the "Quick Invites" half he called done/simple. Attach menu's
+"Meetings" row (previously a placeholder) now opens
+components/chat/meetings-menu-modal.tsx: a "Schedule meeting" row (still
+inert -- SCOPE NOTE in that file, chat-server's live OpenAPI spec has no
+meeting schema at all, and building the real propose/accept/reveal flow
+means either the same permissive entities-catchall Contact/Calculation
+already use, or actual backend work outside this repo) and two Quick
+Invite buttons that send a canned message in one tap via the existing
+send(overrideText) path, each with its own cat mascot animation:
+"How about an online meeting?" (cat-hi.json -- his HiCat.tgs decompressed
+byte-identical to this app's existing cat-hi.json/hi-cat-email-code.json,
+reused rather than duplicated) and "How about meeting up in person?"
+(new cat-coffee.json, from his Coffee_cat.tgs). Copy is CONFIRMED off
+his own Figma export "(4.1) Sent invite.png", not the placeholder text
+he'd already flagged as wrong. Timezone question resolved too: device-
+automatic only, no profile-level override for v1 (Aleksandr confirmed).
+
+tsc-clean.
