@@ -2409,9 +2409,18 @@ export default function ChatWindowPage() {
       >
         <div className="mx-auto w-full max-w-[470px]">
         {state === "loading" && (
-          <p className="mt-6 text-center text-sm text-[#989aa6] dark:text-[#adafbb]">
-            <T uk="Завантаження…" en="Loading…" ru="Загрузка…" de="Wird geladen…" es="Cargando…" fr="Chargement…" pl="Ładowanie…" ptBR="Carregando…" zh="加载中…" />
-          </p>
+          // 2026-09-04 (Aleksandr, live mobile screenshot: "Вместо
+          // 'завантаження' показывай анимацию нашец планеты как
+          // загрузку" -- his own planet_loader.tgs, decompressed to
+          // public/animations/planet-loader.json same as every other
+          // .tgs sticker this app already ships this way, see PLAN.md
+          // 6.123's cat-hi/cat-coffee entries) -- replaces the plain
+          // "Завантаження…" text line with the same LottiePlayer this
+          // app's other loading/empty states already use (e.g.
+          // app/chats/page.tsx's own cat-pigeon empty state).
+          <div className="mt-6 flex justify-center">
+            <LottiePlayer src="/animations/planet-loader.json" size={120} />
+          </div>
         )}
         {state === "signed-out" && (
           <p className="mt-6 text-center text-sm text-[#989aa6] dark:text-[#adafbb]">
