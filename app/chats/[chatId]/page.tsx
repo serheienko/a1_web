@@ -645,27 +645,108 @@ export default function ChatWindowPage() {
   // clobber text the person already typed in the moment between mount
   // and this response landing.
   const draftSeeded = useRef(false);
+  // 2026-09-05 (see the draft-sync effect right below for the full
+  // story) -- the sync-TO-server effect must not fire with an empty
+  // string while THIS fetch is still in flight, or it would race the
+  // seed and immediately clear the very draft this is trying to
+  // restore. Flips true once this fetch settles (found a draft, found
+  // none, or failed) -- either way there is nothing left it could
+  // clobber from here on.
+  const [draftSyncReady, setDraftSyncReady] = useState(false);
   useEffect(() => {
     let cancelled = false;
     authFetch("/api/chats/list")
       .then((r) => r.json())
       .then((data) => {
-        if (cancelled || draftSeeded.current || !data?.ok || !Array.isArray(data.chats)) return;
-        const match = data.chats.find((c: { id: string; draftText?: string }) => c.id === chatId);
-        if (match?.draftText) {
-          draftSeeded.current = true;
-          // Functional update (not the `match.draftText` value
-          // directly) -- reads whatever's ACTUALLY in the box the
-          // instant this resolves, so a person who started typing
-          // during this round-trip never gets overwritten.
-          setDraft((cur) => (cur === "" ? (match.draftText as string) : cur));
+        if (cancelled) return;
+        if (!draftSeeded.current && data?.ok && Array.isArray(data.chats)) {
+          const match = data.chats.find((c: { id: string; draftText?: string }) => c.id === chatId);
+          if (match?.draftText) {
+            draftSeeded.current = true;
+            // Functional update (not the `match.draftText` value
+            // directly) -- reads whatever's ACTUALLY in the box the
+            // instant this resolves, so a person who started typing
+            // during this round-trip never gets overwritten.
+            setDraft((cur) => (cur === "" ? (match.draftText as string) : cur));
+          }
         }
+        setDraftSyncReady(true);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!cancelled) setDraftSyncReady(true);
+      });
     return () => {
       cancelled = true;
     };
   }, [chatId]);
+  // 2026-09-05 (Aleksandr, live bug report: "когда я вручную стираю
+  // инпут и нажимяю стрелку назад и ухожу в чат-лист надпись 'драфт'
+  // по-прежнему остается, и само сообщение в инпуте потом тоже. То
+  // есть надо сделать, чтобы оно дружило с актуальным инпутом и
+  // понимало, что я удалил") -- the seed effect above only ever READ
+  // chat.draft; nothing in this app ever wrote it back, so clearing
+  // the box locally never told the server, and the stale draft (from
+  // the mobile app, or an earlier web session) just kept coming back.
+  // Endpoint confirmed off the mobile app's own source, not guessed
+  // (see app/api/chats/save-draft/route.ts's own header) -- same
+  // `messages.saveDraft` call the mobile client makes, debounced the
+  // same 600ms that client's own DraftService uses. Fires on EVERY
+  // change including the transition to "" -- an empty message is the
+  // documented way to CLEAR a draft server-side, not a no-op, which is
+  // exactly the case that was broken. Best-effort (no `.then` even
+  // checked) -- see that route's own header for why a failed save is
+  // never worth surfacing here.
+  const draftSyncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!draftSyncReady) return;
+    if (draftSyncTimer.current) clearTimeout(draftSyncTimer.current);
+    draftSyncTimer.current = setTimeout(() => {
+      draftSyncTimer.current = null;
+      authFetch("/api/chats/save-draft", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ chatId, message: draft }),
+      }).catch(() => {});
+    }, 600);
+    return () => {
+      if (draftSyncTimer.current) clearTimeout(draftSyncTimer.current);
+    };
+  }, [draft, chatId, draftSyncReady]);
+  // Flushes the CURRENT draft immediately, bypassing the 600ms debounce
+  // above -- wired to the header's own Back link's onClick (see that
+  // element below) so leaving the chat right after typing/clearing
+  // doesn't lose up to 600ms of unsaved state to an unmount racing the
+  // still-pending timer. Fire-and-forget on purpose: this fetch keeps
+  // running after the click-triggered client-side navigation unmounts
+  // this page, same as any other in-flight request would.
+  function flushDraftSync() {
+    if (!draftSyncReady) return;
+    if (draftSyncTimer.current) {
+      clearTimeout(draftSyncTimer.current);
+      draftSyncTimer.current = null;
+    }
+    void authFetch("/api/chats/save-draft", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ chatId, message: draft }),
+    }).catch(() => {});
+  }
+  // Same flush, for the ways of leaving that AREN'T a click on the Back
+  // link above -- closing the tab, switching apps, backgrounding a
+  // installed/PWA session -- mirroring the mobile app's own
+  // ChatDetailDraftHandler, which saves on BOTH screen dispose and
+  // AppLifecycleState.paused/inactive, not just one. `visibilitychange`
+  // firing "hidden" covers all of those in a browser; unlike
+  // `beforeunload`, it's reliable on mobile Safari/Chrome where a tab
+  // close or app-switch often never fires unload at all.
+  useEffect(() => {
+    function onVisibilityChange() {
+      if (document.visibilityState === "hidden") flushDraftSync();
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatId, draft, draftSyncReady]);
   const [sending, setSending] = useState(false);
   const inFlight = useRef(false);
   // Attachment feature: pending compose-bar attachments (see
@@ -2488,6 +2569,7 @@ export default function ChatWindowPage() {
           <Link
             href="/chats"
             aria-label="Back"
+            onClick={flushDraftSync}
             className="group flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-[#335ef7] backdrop-blur-sm transition hover:bg-neutral-50 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80 dark:text-[#0c8ce9] dark:hover:bg-[#1c1c1e]"
           >
             <ChatBackArrow className="h-3 w-[7px] animate-back-arrow" />
