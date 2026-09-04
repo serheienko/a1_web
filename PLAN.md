@@ -6901,3 +6901,19 @@ branch assumed a light card background that no longer exists now that
 this card is always dark navy regardless of sender.
 
 tsc-clean, commit 55e8fa3.
+
+## 6.145 -- Calculator panel auto-focuses row 1 on open (2026-09-04)
+
+Aleksandr: "При выхове калькуляции сделай дефолтно моргающий курсор
+возле 1."
+
+Opening the calculator (both app/chats/[chatId]/page.tsx and its
+mini-chat-window.tsx duplicate) left nothing focused, so typing needed
+an extra tap into row 1's Description field first. New
+calcFirstRowInputRef, focused via requestAnimationFrame right in the
+"Calculation" attach-menu button's own onClick (same convention
+handleReplyFromViewer already uses for the compose textarea) --
+fires fresh every time the panel opens, matching calcClose's own
+reset-to-one-blank-row behavior.
+
+tsc-clean, commit c0c8572.
