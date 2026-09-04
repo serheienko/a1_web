@@ -3953,7 +3953,19 @@ export default function ChatWindowPage() {
                     </div>
                   )}
                 <div
-                  className={`animate-popover-up max-h-[min(60vh,420px)] overflow-x-hidden overflow-y-auto rounded-2xl bg-white shadow-xl transition-[width,height] duration-200 dark:bg-neutral-900 ${
+                  // 2026-09-04, follow-up (Aleksandr, screen recording +
+                  // 2 screenshots: "Попап этот который не влез" +
+                  // "шрифт увеличил, а модалку забыл сделать выше и она
+                  // теперь скроллится, а смысла нет") -- 420px was
+                  // right at the edge even before the mobile +50% font
+                  // bump (text-[14px] -> text-[21px]) pushed the plain
+                  // row list past it too; both call sites of this same
+                  // cap (this class + attachPanelHeight's own inline
+                  // style below) raised together so neither the row
+                  // list nor Meetings' schedule-row+2-quick-invites
+                  // needs to scroll for content that's realistically
+                  // never taller than this on a normal phone screen.
+                  className={`animate-popover-up max-h-[min(70vh,500px)] overflow-x-hidden overflow-y-auto rounded-2xl bg-white shadow-xl transition-[width,height] duration-200 dark:bg-neutral-900 ${
                     attachDailyUploadsOpen || meetingsMenuOpen ? "w-80 p-4" : "w-60 py-1.5 sm:w-44"
                   }`}
                   // 2026-09-04 (Aleksandr, screen recording: "на секунде
@@ -3991,7 +4003,7 @@ export default function ChatWindowPage() {
                   // a `max-h` cap, so content taller than that scrolls
                   // WITHIN the popover instead of extending past the
                   // visible screen.
-                  style={attachPanelHeight !== null ? { height: Math.min(attachPanelHeight, 420) } : undefined}
+                  style={attachPanelHeight !== null ? { height: Math.min(attachPanelHeight, 500) } : undefined}
                 >
                   <div ref={attachPanelContentRef}>
                   {meetingsMenuOpen ? (
