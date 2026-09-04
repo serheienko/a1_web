@@ -69,6 +69,7 @@ import { CurrencyPickerModal } from "@/components/chat/currency-picker-modal";
 import { DailyUploadsModal } from "@/components/daily-uploads-modal";
 import { ContactMessageCard, type ContactCardSummary } from "@/components/chat/contact-message-card";
 import { ContactsPickerModal, type PickedContact } from "@/components/chat/contacts-picker-modal";
+import { MeetingsMenuModal } from "@/components/chat/meetings-menu-modal";
 import { ChatPhotoViewer, type ChatViewerImage } from "@/components/chat/photo-viewer";
 import { ChatPhotoGrid } from "@/components/chat/photo-grid";
 import { useVoiceRecorder, formatVoiceTimer, type VoiceRecordingResult } from "@/components/chat/voice-recorder";
@@ -719,6 +720,11 @@ export default function ChatWindowPage() {
   // fetch). openingChatFor guards the card's "Message" button against
   // a double-click while POST /api/chats/open is in flight.
   const [contactsPickerOpen, setContactsPickerOpen] = useState(false);
+  // 2026-09-04 (Aleksandr, Scheduled Meetings spec + Figma reference):
+  // drives components/chat/meetings-menu-modal.tsx, same on/off pattern
+  // as contactsPickerOpen right above -- see that component's own header
+  // comment for what it does and doesn't cover yet.
+  const [meetingsMenuOpen, setMeetingsMenuOpen] = useState(false);
   const [pendingContacts, setPendingContacts] = useState<PickedContact[]>([]);
   const [contactSummaries, setContactSummaries] = useState<Record<string, ContactCardSummary>>({});
   const [openingChatFor, setOpeningChatFor] = useState<string | null>(null);
@@ -3652,17 +3658,18 @@ export default function ChatWindowPage() {
                   </button>
                   {/* "Meetings" (2026-09-03, Aleksandr: reference-app
                       screenshot shows Фото/Файлы/Встречи/Расчеты/
-                      Контакты in exactly this order) -- PLACEHOLDER
-                      ONLY, no feature behind it yet: "у нас появится
-                      встречи, но чуть позже я расскажу, как это
-                      сделать... ты можешь заложить как поисхолдер её
-                      сразу". Row is laid out and reachable (closes the
-                      menu on tap, same as every other row) but wires to
-                      nothing real until that spec arrives -- swap this
-                      onClick for whatever it turns out to open. */}
+                      Контакты in exactly this order) -- was a
+                      PLACEHOLDER with no feature behind it; now opens
+                      components/chat/meetings-menu-modal.tsx (2026-09-04,
+                      full spec + Figma reference) -- see that file's own
+                      header comment for what it does (Quick Invites) and
+                      doesn't (Schedule Meeting) cover yet. */}
                   <button
                     type="button"
-                    onClick={() => setAttachMenuOpen(false)}
+                    onClick={() => {
+                      setAttachMenuOpen(false);
+                      setMeetingsMenuOpen(true);
+                    }}
                     className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10 sm:text-[18px]"
                   >
                     <ChatMeetingAttachIcon className="animate-meeting-attach h-5 w-5 text-[#335ef7] dark:text-[#0c8ce9]" />
@@ -3875,6 +3882,21 @@ export default function ChatWindowPage() {
             </div>
           </div>
         </div>
+      )}
+      {meetingsMenuOpen && (
+        <MeetingsMenuModal
+          lang={lang}
+          onClose={() => setMeetingsMenuOpen(false)}
+          // Quick Invite tap: same overrideText path a normal typed
+          // message goes through (send()'s own comment on overrideText),
+          // so this rides every existing optimistic-bubble/retry/
+          // reconciliation behavior the compose bar's own Send button
+          // already gets, for free.
+          onSendQuickInvite={(text) => {
+            setMeetingsMenuOpen(false);
+            void send(text);
+          }}
+        />
       )}
       {contactsPickerOpen && (
         <ContactsPickerModal
