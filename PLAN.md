@@ -6412,3 +6412,55 @@ method that caught round two's residual bug) still needs to happen
 against the live site after this deploys -- deploy lag has been a
 repeat pattern on this project (6.127), so a same-day re-check on
 staged-but-not-yet-live code would risk another false read either way.
+## 6.129 -- Scheduled Meetings round two, chat-list preview fix, Daily Uploads loading flash, Chats-list header buttons (2026-09-04)
+
+Four smaller items from the same feedback round as 6.128, batched
+into one entry since none was large enough alone:
+
+**Scheduled Meetings, items 1-3 off the Figma "(1) Schedule a
+Meeting"/"(2) Display Meeting" references** ("1-3 допили"):
+meeting-message-card.tsx now shows BOTH participants as their own
+avatar+name+local-time row (round one only ever showed the single
+shared instant, bucketed or not depending on viewer) -- the "i" icon
+opens a real Time visibility popup instead of an always-visible
+paragraph. schedule-meeting-modal.tsx replaces the native date/time
+<input> pair (6.124's own flagged scope-cut) with a three-column
+scroll-snap wheel (day/hour/minute), adds the peer row, and a
+tap-to-open timezone explainer popup. meeting-protocol.ts's two
+payload types each gained exactly one new field --
+proposerTimeZone / accepterTimeZone -- deliberately NOT a name/
+avatar, since a 1:1 chat's own peer/self identity already covers
+both rows without needing to duplicate it into every message.
+
+**Chat list preview**: a meeting proposal/accept (plain text with
+its own marker prefix) showed as raw "A1MEETINGv1::eyJ2Ijox..." in
+the chat list whenever it was the last message -- chat-preview-
+line.tsx's own header note said this was deliberately unhandled
+because Meetings had no real send path yet; it's had one since
+6.124 shipped the same day. describeMessagePreview now recognizes
+both message shapes and returns a normal "Scheduled meeting" label.
+Also added the "Контакт" row's own missing icon while in this file
+(every other kind already had one).
+
+**Daily Uploads inline panel** (the popover-grow interaction from
+6.126): opening it always self-fetched /api/upload/usage from
+scratch, flashing its own skeleton loading state for a beat even
+though page.tsx's own `uploadUsage` -- the exact same data -- was
+already fetched the moment the attach popover itself opened
+(Aleksandr, screen recording: "глитч какой-то"). New
+`prefetchedUsage` prop lets a caller that already owns this state
+hand it down directly instead.
+
+**Chats list header buttons**: components/create-post-fab.tsx and
+components/chats-fab.tsx both deliberately hide on every /chats
+route (their own header comments explain why), which left the chat
+list with no entry point for either action. Two small icon buttons
+next to the "Чати" heading now open PostEditor (create mode) and a
+new components/new-chat-picker-modal.tsx -- a contacts list with
+search where tapping a contact opens a chat with them immediately,
+reusing the same POST /api/chats/open flow app/contacts/page.tsx's
+own chat icon already uses. No exact mobile-app icon reference was
+in hand for either button -- flagged, using the standard "+" /
+chat-bubble-with-plus shapes for now.
+
+tsc-clean across all four.
