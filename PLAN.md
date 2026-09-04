@@ -6290,3 +6290,39 @@ pauseResume() now actually pauses/resumes the sampler too, so that
 fallback path stays correct on its own terms as well.
 
 tsc-clean.
+
+
+### 6.126
+
+2026-09-04 (Aleksandr, live test: "сделай эту штуку со стореджем как бы
+выплывающей такой модалкой из нашей стандартной модалки, которую мы
+нажимаем на скрепку... не блокируй флоу... сделай её как будто бы
+частью этой модалки... не делай сзади там этот затемненный фончик...
+можно поставить стрелочку назад, чтобы можно было вернуться в меню"):
+the Daily Uploads quota popup (storage icon inside the paperclip attach
+menu) used to close that whole popover and open as a second, unrelated,
+centered backdrop-dimmed modal on top of it.
+
+components/daily-uploads-modal.tsx now takes `variant?: "modal" |
+"inline"` (default "modal", unchanged) + `onBack?`: inline renders only
+the card's own content (no fixed/backdrop wrapper -- the caller decides
+how it's dismissed), with a back arrow next to the title when `onBack`
+is passed.
+
+The attach popover itself (app/chats/[chatId]/page.tsx, mirrored in
+components/mini-chat-window.tsx) now grows the SAME anchored panel
+wider in place (w-44 -> w-80 on the main page, w-40 -> w-72 in the mini
+window, animated via transition-[width]) and swaps its content to this
+inline view instead of mounting a second modal -- storage icon, the
+in-popover quota banner's "View usage" link, and onPickAttachment's
+quota-exceeded redirect all switch to it (a new `attachDailyUploadsOpen`
+state, reset the moment the popover itself closes) while keeping
+`attachMenuOpen` true, so the outside-click/hover-close logic (which
+already treats the whole popover subtree as "inside") never fires
+mid-transition. The two quota-exceeded entry points that don't have a
+popover open at that moment -- the compose-bar's own selected-files
+banner, and mini-chat-window's mid-upload redirect -- keep opening the
+original standalone modal (`dailyUploadsOpen`, unchanged), since
+there's no popover there to embed into.
+
+tsc-clean.
