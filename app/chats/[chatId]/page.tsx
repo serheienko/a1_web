@@ -64,7 +64,7 @@ import {
   MessageTicks,
 } from "@/components/chat/icons";
 import { ChatCalculationCard } from "@/components/chat/calculation-card";
-import { ChatFileTypeIcon, fileKindFromName } from "@/components/chat/file-type-icon";
+import { ChatFileTypeIcon, fileKindFromName, DocumentFallbackLabel } from "@/components/chat/file-type-icon";
 import { PdfPageThumbnail } from "@/components/chat/pdf-thumbnail";
 import { CurrencyPickerModal } from "@/components/chat/currency-picker-modal";
 import { DailyUploadsModal } from "@/components/daily-uploads-modal";
@@ -3261,10 +3261,11 @@ export default function ChatWindowPage() {
                                 <span className="flex min-w-0 flex-1 flex-col gap-1">
                                   <span className="truncate text-[14px] font-medium">
                                     {mediaDocumentFileName(doc) || (
-                                      <T
-                                        uk="Документ" en="Document" ru="Документ" de="Dokument" es="Documento"
-                                        fr="Document" pl="Dokument" ptBR="Documento" zh="文档"
-                                      />
+                                      // 2026-09-04: no stored filename -- see
+                                      // DocumentFallbackLabel's own header comment
+                                      // (components/chat/file-type-icon.tsx) for why
+                                      // that can happen and what this shows instead.
+                                      <DocumentFallbackLabel kind={fileKindFromName(mediaDocumentFileName(doc), doc.mimetype)} />
                                     )}
                                   </span>
                                   {mediaDocumentBytes(doc) !== null && (

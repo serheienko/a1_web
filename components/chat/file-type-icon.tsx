@@ -21,6 +21,8 @@
 // the real pipeline note below matures. See lib/pdf-thumbnail.ts's
 // own header for exactly what's confirmed vs. not about that
 // approach (it could not be tested live in this session).
+import { T } from "@/components/t";
+
 export type FileKind = "zip" | "sheet" | "doc" | "slides" | "pdf" | "text" | "audio" | "other";
 
 const KIND_STYLE: Record<FileKind, { bg: string; fg: string; label: string }> = {
@@ -64,6 +66,47 @@ export function fileKindFromName(fileName: string, mimetype?: string): FileKind 
     if (mimetype.startsWith("text/")) return "text";
   }
   return "other";
+}
+
+// 2026-09-04 (Aleksandr, live /api/chats/messages data he pulled himself
+// via Safari Web Inspector, chat 6a9850d1c9f67752c6aa2303): a .docx
+// message and an application/octet-stream message in that same chat
+// both came back with `attributes: []` -- completely empty, no
+// `attribute-filename` at all -- while three PDF messages in the SAME
+// chat correctly carried one. Traced app/api/upload/create/route.ts:
+// this app's own upload flow already attaches `attribute-filename` for
+// EVERY file type it uploads (fixed 2026-09-03, not just PDFs), so a
+// file sent through this website from here on will always carry its
+// real name. These two empty-attribute messages predate that fix (or
+// came from a different client) -- there's no name left to recover for
+// them; a filename that was never stored can't be reconstructed
+// client-side. This component only softens the fallback for messages
+// stuck in that state: instead of a bare, unhelpful "Document" for
+// every kind, a recognizable kind (docx's mimetype IS still present,
+// even with no filename) gets a specific generic label ("Word
+// document" instead of "Document"). A truly generic upload (like the
+// octet-stream one, which carries no type info at all) still falls
+// back to the plain "Document" text -- there's genuinely nothing more
+// to say about it.
+export function DocumentFallbackLabel({ kind }: { kind: FileKind }) {
+  switch (kind) {
+    case "doc":
+      return <T uk="Документ Word" en="Word document" ru="Документ Word" de="Word-Dokument" es="Documento de Word" fr="Document Word" pl="Dokument Word" ptBR="Documento do Word" zh="Word 文档" />;
+    case "sheet":
+      return <T uk="Таблиця Excel" en="Excel spreadsheet" ru="Таблица Excel" de="Excel-Tabelle" es="Hoja de Excel" fr="Feuille Excel" pl="Arkusz Excel" ptBR="Planilha do Excel" zh="Excel 表格" />;
+    case "slides":
+      return <T uk="Презентація" en="Presentation" ru="Презентация" de="Präsentation" es="Presentación" fr="Présentation" pl="Prezentacja" ptBR="Apresentação" zh="演示文稿" />;
+    case "pdf":
+      return <T uk="Документ PDF" en="PDF document" ru="Документ PDF" de="PDF-Dokument" es="Documento PDF" fr="Document PDF" pl="Dokument PDF" ptBR="Documento PDF" zh="PDF 文档" />;
+    case "zip":
+      return <T uk="Архів" en="Archive" ru="Архив" de="Archiv" es="Archivo comprimido" fr="Archive" pl="Archiwum" ptBR="Arquivo compactado" zh="压缩包" />;
+    case "text":
+      return <T uk="Текстовий файл" en="Text file" ru="Текстовый файл" de="Textdatei" es="Archivo de texto" fr="Fichier texte" pl="Plik tekstowy" ptBR="Arquivo de texto" zh="文本文件" />;
+    case "audio":
+      return <T uk="Аудіофайл" en="Audio file" ru="Аудиофайл" de="Audiodatei" es="Archivo de audio" fr="Fichier audio" pl="Plik audio" ptBR="Arquivo de áudio" zh="音频文件" />;
+    default:
+      return <T uk="Документ" en="Document" ru="Документ" de="Dokument" es="Documento" fr="Document" pl="Dokument" ptBR="Documento" zh="文档" />;
+  }
 }
 
 type Props = {

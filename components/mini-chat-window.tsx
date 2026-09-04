@@ -89,7 +89,7 @@ import {
   ChatContactAttachIcon,
   ChatAttachmentSpinner,
 } from "@/components/chat/icons";
-import { ChatFileTypeIcon, fileKindFromName } from "@/components/chat/file-type-icon";
+import { ChatFileTypeIcon, fileKindFromName, DocumentFallbackLabel } from "@/components/chat/file-type-icon";
 import { PdfPageThumbnail } from "@/components/chat/pdf-thumbnail";
 import { ChatCalculationCard } from "@/components/chat/calculation-card";
 import { ContactMessageCard } from "@/components/chat/contact-message-card";
@@ -807,7 +807,9 @@ export function MiniChatWindow({
                           <span className="flex min-w-0 flex-1 flex-col">
                             <span className="truncate text-[13px] font-medium">
                               {mediaDocumentFileName(doc) || (
-                                <T uk="Документ" en="Document" ru="Документ" de="Dokument" es="Documento" fr="Document" pl="Dokument" ptBR="Documento" zh="文档" />
+                                // 2026-09-04: see DocumentFallbackLabel's own
+                                // header comment (components/chat/file-type-icon.tsx)
+                                <DocumentFallbackLabel kind={fileKindFromName(mediaDocumentFileName(doc), doc.mimetype)} />
                               )}
                             </span>
                             {mediaDocumentBytes(doc) !== null && (
