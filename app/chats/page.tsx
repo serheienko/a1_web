@@ -55,6 +55,7 @@ import { SearchIcon } from "@/components/search-icon";
 import { GLASS } from "@/lib/glass";
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
 import { NewChatPickerModal } from "@/components/new-chat-picker-modal";
+import { IosAddToHomeHint } from "@/components/ios-add-to-home-hint";
 
 type LoadState = "loading" | "signed-out" | "error" | "ready";
 
@@ -378,6 +379,13 @@ export default function ChatsPage() {
             />
           </div>
         )}
+
+        {/* 2026-09-04 (Aleksandr: "Да, добавь такую подсказку на iOS")
+            -- iOS Safari only delivers Web Push to an installed
+            (Home-Screen) site, never a plain tab, see this component's
+            own header comment. Only ever rendered on the ready/
+            populated state, same as the search bar right above it. */}
+        {state === "ready" && <IosAddToHomeHint />}
 
         {state === "loading" && (
           // 2026-09-02 (Aleksandr: "сделай подгузку чатов и чат листа
