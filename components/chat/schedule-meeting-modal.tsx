@@ -29,7 +29,7 @@
 // is simply left off. Flagged to Aleksandr same as every other scope
 // note this session.
 import { useEffect, useMemo, useRef, useState } from "react";
-import { T, type Locale } from "@/components/t";
+import { T, LOCALE_TAG, type Locale } from "@/components/t";
 import { ChatBackArrow, ChatMeetingAttachIcon } from "./icons";
 import { bucketForHour, bucketEmoji } from "@/lib/a1/meeting-protocol";
 import { LottiePlayer } from "@/components/lottie-player";
@@ -297,7 +297,14 @@ export function ScheduleMeetingModal({
       const label =
         i === 0
           ? t("today", lang)
-          : d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+          // 2026-09-04 (Aleksandr: "Date picker надо локализовать") --
+          // was `toLocaleDateString(undefined, ...)`, which always
+          // formats in the BROWSER's own locale regardless of this
+          // app's own `lang` (hence "Sat 5 Sep" staying in English
+          // while "Сьогодні" right above it was already localized) --
+          // same LOCALE_TAG map lib/format.ts's own relative-time/unit
+          // formatting already uses for this exact Locale -> BCP-47 gap.
+          : d.toLocaleDateString(LOCALE_TAG[lang], { weekday: "short", day: "numeric", month: "short" });
       list.push({ key: iso, label, iso, bold: i === 0 });
     }
     return list;
@@ -405,7 +412,20 @@ export function ScheduleMeetingModal({
               {peerName.trim().slice(0, 1).toUpperCase() || "?"}
             </div>
           )}
-          <div className="min-w-0 truncate text-[14px] font-medium text-neutral-900 dark:text-neutral-50">{peerName}</div>
+          <div className="min-w-0 flex-1 truncate text-[14px] font-medium text-neutral-900 dark:text-neutral-50">{peerName}</div>
+          {/* 2026-09-04 (Aleksandr: "иконки эмодзи должны быть возле
+              имени того, кому отправляется, по ним я понимаю его
+              ориентировочное время и заодно мы не раскрываем его точное
+              время, всё конфіденційно... решаем 2 проблемы") -- was
+              sitting next to the "Встановіть зустріч у вашому часі"
+              label below instead; moved here, next to the peer's own
+              name, still the same live bucketForHour(selectedHour) this
+              file shares with meeting-message-card.tsx -- a glance at
+              the emoji alone (no literal clock time shown or sent
+              anywhere near this row) is what answers "roughly what part
+              of the day is this for them" without exposing anything
+              exact. */}
+          <span className="shrink-0 text-[16px] leading-none" aria-hidden="true">{bucketEmoji(selectedBucket)}</span>
         </div>
 
         <label className="flex flex-col gap-1 text-[12px] font-medium text-neutral-500 dark:text-neutral-400">
@@ -431,14 +451,6 @@ export function ScheduleMeetingModal({
           <div className="flex items-center justify-between px-3 pt-2.5">
             <span className="flex items-center gap-1.5 text-[12px] font-medium text-neutral-500 dark:text-neutral-400">
               {t("setMeetingInYourTime", lang)}
-              {/* 2026-09-04 (Aleksandr: "При скролле времени показывай
-                  сверху иконку какое время суток... Все те иконки это
-                  обычные эмодзи") -- live, re-derives off `selectedHour`
-                  (the WheelColumn's own currently-centered hour) on
-                  every scroll tick, same bucketForHour/bucketEmoji this
-                  file shares with meeting-message-card.tsx's own
-                  per-participant bucket row. */}
-              <span className="text-[15px] leading-none" aria-hidden="true">{bucketEmoji(selectedBucket)}</span>
             </span>
             <button
               type="button"
