@@ -60,6 +60,20 @@ const UploadCreateInput = z.object({
   // decodeWaveformBars(...) ?? flat-0.35 fallback).
   voiceDuration: z.number().positive().optional(),
   voiceWaveform: z.string().optional(),
+  // 2026-09-05 (Aleksandr: "ты забыл про огонек и самоудаление") --
+  // upload.create's own confirmed input shape (this route's header
+  // comment above) already documented `flags?`/`ttlSeconds?` as real
+  // fields; nothing here ever accepted them from a caller. The one
+  // caller that needs them today is app/chats/[chatId]/page.tsx's own
+  // uploadAndSendVoice, passing lib/a1/chat-schemas.ts's
+  // SELF_DESTRUCT_VOICE_FLAGS/SELF_DESTRUCT_VOICE_TTL_SECONDS -- the
+  // exact bitmask + TTL the mobile app's own MediaDocumentFlag class
+  // sends for every voice note it uploads (source-confirmed, see that
+  // constant's own header). Left generic (not voice-specific) rather
+  // than a `selfDestructVoice: boolean` flag, since upload.create's
+  // real shape is just numeric flags/ttlSeconds either way.
+  flags: z.number().int().nonnegative().optional(),
+  ttlSeconds: z.number().int().positive().optional(),
 });
 
 export async function POST(request: NextRequest) {

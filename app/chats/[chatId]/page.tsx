@@ -43,6 +43,8 @@ import {
   messageDateMs,
   messageDocumentMedia,
   messageTickState,
+  SELF_DESTRUCT_VOICE_FLAGS,
+  SELF_DESTRUCT_VOICE_TTL_SECONDS,
   type ChatMessage,
   type MessageCalculation,
 } from "@/lib/a1/chat-schemas";
@@ -1553,6 +1555,16 @@ export default function ChatWindowPage() {
           bytes: file.size,
           voiceDuration: stored.durationSeconds,
           voiceWaveform: encodeBase64Waveform(stored.waveform),
+          // 2026-09-05 (Aleksandr: "ты забыл про огонек и
+          // самоудаление") -- every voice note the mobile app sends is
+          // self-destructing BY DEFAULT (source-confirmed, see
+          // SELF_DESTRUCT_VOICE_FLAGS's own header in lib/a1/
+          // chat-schemas.ts) -- this upload never requested that, so
+          // the doc came back plain and voice-bubble.tsx's already-
+          // built fire badge/countdown had nothing to show. Same
+          // flags + 2-hour TTL the mobile app's own upload sends.
+          flags: SELF_DESTRUCT_VOICE_FLAGS,
+          ttlSeconds: SELF_DESTRUCT_VOICE_TTL_SECONDS,
         }),
       });
       const createData = await createRes.json().catch(() => null);

@@ -551,6 +551,29 @@ export function isVoiceViewDestroy(doc: MessageMediaDocument): boolean {
   return (doc.flags & VOICE_FLAG_VIEW_DESTROY) !== 0;
 }
 
+// 2026-09-05 (Aleksandr: "ты забыл про огонек и самоудаление, это надо
+// чтобы ты нашел по API и документации и сделал") -- this file already
+// had every piece needed to DISPLAY a self-destructing voice note (the
+// fire badge, the countdown, resolveVoiceDeleteWindow above), all
+// gated on the DOC actually carrying VOICE_FLAG_VIEW_DESTROY + a
+// ttlSeconds/ttl -- but nothing on the SEND side ever set those, so
+// every voice note this web client uploaded came back plain and the
+// fire icon never had anything to show. Root-caused directly off the
+// mobile app's own source (~/mnt/a1_app/aone_private/lib/features/
+// business_partners/data/data_sources/media_upload.dart's own
+// `MediaDocumentFlag` class), not guessed: EVERY voice note the mobile
+// app sends is self-destructing by default -- it's not an opt-in
+// toggle anywhere in that app's own UI, the upload itself always
+// requests `flags: viewDestroy | unimportant` (unimportant = 1<<20,
+// paired with a TTL so an orphaned/never-sent recording also gets
+// cleaned up server-side) and `ttlSeconds: 7200` (2 hours) the moment
+// a voice clip is uploaded, at upload.create time -- see
+// app/api/upload/create/route.ts's own updated header for the web
+// side of this fix.
+export const MEDIA_FLAG_UNIMPORTANT = 1 << 20;
+export const SELF_DESTRUCT_VOICE_FLAGS = VOICE_FLAG_VIEW_DESTROY | MEDIA_FLAG_UNIMPORTANT;
+export const SELF_DESTRUCT_VOICE_TTL_SECONDS = 60 * 60 * 2;
+
 export type VoiceDeleteWindow = { startUnix: number; expiresUnix: number; pending: boolean };
 
 export type VoiceDeleteWindowOptions = {
