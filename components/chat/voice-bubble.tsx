@@ -497,13 +497,29 @@ export function VoiceMessageBubble({
       </button>
 
       <div className="flex min-w-0 flex-1 flex-col gap-1">
+        {/* 2026-09-04 (Aleksandr, live screen recording: "баг с
+            эквалайзером" -- a long clip's real waveform rendered as a
+            small cluster of bars jammed against the left edge with the
+            rest of the track empty) -- each bar below is `flex-1`
+            capped at `max-w-[3px]` (WAVEFORM_BARS is a fixed 32
+            regardless of clip length), so on a SHORT clip's narrow
+            track (voiceBubbleWidthPx's 180px floor) 32 maxed-out bars
+            already overflow it and get clipped, masking the cap; on a
+            LONG clip's wide track (up to the 288px ceiling) the same
+            32 bars hit their max width well before filling it, and
+            with no `justify-content` set they just pack against the
+            container's start instead of spreading out -- exactly the
+            "short burst, then dead air" look he saw. `justify-between`
+            spends that leftover space as extra room BETWEEN bars
+            instead, so all 32 always span the full track edge-to-edge
+            no matter the clip's length. */}
         <div
           ref={waveformRef}
           onPointerDown={onWaveformPointerDown}
           onPointerMove={onWaveformPointerMove}
           onPointerUp={onWaveformPointerUp}
           onPointerCancel={onWaveformPointerUp}
-          className="flex h-6 touch-none select-none items-center gap-[1.5px] overflow-hidden cursor-pointer"
+          className="flex h-6 touch-none select-none items-center justify-between gap-[1.5px] overflow-hidden cursor-pointer"
         >
           {bars.map((h, i) => {
             const played = WAVEFORM_BARS > 1 ? i / (WAVEFORM_BARS - 1) <= playedFraction : playedFraction >= 1;
@@ -644,7 +660,13 @@ export function PendingVoiceBubble({
           <PlayGlyph className="ml-0.5 h-4 w-4" />
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <div className="flex h-6 items-center gap-[1.5px] overflow-hidden">
+          {/* Same justify-between fix as VoiceMessageBubble's own
+              waveform track above -- this pending/uploading card uses
+              the identical fixed-32-bars-capped-at-3px layout, so it
+              needs the same fix or a long recording would show the
+              bug from the very first frame, before the real message
+              even reconciles in. */}
+          <div className="flex h-6 items-center justify-between gap-[1.5px] overflow-hidden">
             {bars.map((h, i) => (
               <span
                 key={i}
