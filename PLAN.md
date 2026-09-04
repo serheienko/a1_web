@@ -6188,3 +6188,67 @@ he'd already flagged as wrong. Timezone question resolved too: device-
 automatic only, no profile-level override for v1 (Aleksandr confirmed).
 
 tsc-clean.
+
+
+### 6.124
+
+2026-09-04 (Aleksandr: "давай типа делать функцию начинать" -- go ahead
+and start building it): the second, structured half of Scheduled
+Meetings, on top of 6.123's Quick Invites. "Schedule meeting" now opens
+components/chat/schedule-meeting-modal.tsx (date + time + optional
+link, native <input type="date"/"time"> -- scope-cut from Figma's own
+custom picker widget, flagged), which sends a real proposal into the
+chat; the other participant sees a MeetingMessageCard
+(components/chat/meeting-message-card.tsx) with an Accept button.
+
+ARCHITECTURE DECISION, explained to Aleksandr directly (not silently
+picked): this does NOT use a custom `entity-meeting` backend object the
+way entity-calculation does. Repeated openapi.json lookups (WebFetch,
+both targeted and broad) found chat-server has no meeting-related
+schema at all -- Calculation and Contact are both CONFIRMED, backend-
+known entity types; a hand-invented entity-meeting is not, and there
+was no safe way to test whether messages.send would even accept an
+unrecognized entities[].object value without gambling on a live
+production send. Instead the whole feature (proposal AND accept) rides
+on plain text messages: lib/a1/meeting-protocol.ts encodes a JSON
+payload behind an ASCII marker prefix, and the chat page recognizes and
+renders it as a card instead of raw text. A client that doesn't know
+this convention (today's native mobile app) would show the raw
+marker+base64 as ugly plain text -- harmless, since it IS just a text
+message, and an accepted v1 trade-off for a web-only feature built
+under an explicit "start now" with no backend access.
+
+Accept is the same trick one level up: a hidden follow-up text message
+referencing the proposal's own real message _id, filtered out of the
+visible timeline entirely and folded into the card it points at.
+
+Timezone: no cross-user backend lookup needed, and none built. A
+MeetingPayload stores exactly one absolute UTC instant
+(startsAtUtcMs); every viewer -- proposer or receiver, before or after
+Accept -- converts that SAME instant to their own local time locally
+via Intl, using their own device's automatic timezone (matches
+Aleksandr's earlier "Автоматически" answer -- no profile-level
+override needed for v1, resolved). Nothing about the other
+participant's timezone is ever read or stored. The Figma "Time
+visibility" pre-accept fuzziness (a coarse Early morning/Daytime/
+Evening/Late night bucket instead of an exact clock time, confirmed
+bucket boundaries 05:00/08:00/18:00/22:00) is purely a UX choice on top
+of that same locally-computed value: the proposer always sees their
+own exact time, the other participant sees only the bucket until they
+press Accept, and everyone sees the exact time once accepted.
+
+Still open, told to Aleksandr as open rather than assumed: (1) the
+"remind 1 hour before" UI text from the Figma spec has NO real backend
+behind it -- confirmed CHAT_MESSAGE_REMINDER is specifically the
+existing unread-message push, not a schedulable arbitrary-future
+reminder, and no scheduling endpoint exists in the spec; not yet
+decided whether to keep that copy as aspirational or drop it. (2) A
+real backend "Accept"/reaction mechanism (Resource.Message.
+PeerReaction exists as a schema field per chat-schemas.ts's own
+comment) could not be confirmed usable after several openapi.json
+passes -- nothing reaction-related is wired in this repo's own app/api
+layer today, so this ships on the text-message Accept above, per his
+own explicit fallback authorization ("Если нет, то сделай Accept, как
+сам считаешь нужно").
+
+tsc-clean.
