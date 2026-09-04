@@ -241,6 +241,12 @@ export function MiniChatWindow({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // 2026-09-04 (Aleksandr: "При выхове калькуляции сделай дефолтно
+  // моргающий курсор возле 1.") -- same fix as app/chats/[chatId]/
+  // page.tsx's own copy of this calculator panel: focus the first
+  // row's Description field the instant the panel opens instead of
+  // leaving nothing focused.
+  const calcFirstRowInputRef = useRef<HTMLInputElement>(null);
   const [attachment, setAttachment] = useState<MiniAttachment | null>(null);
 
   // 2026-09-03 (Aleksandr, attach-menu port) -- attach popover open
@@ -891,6 +897,7 @@ export function MiniChatWindow({
                           <div className="flex items-start gap-1">
                             <span className="pt-1 text-[10px] text-[#4f71eb]/70 dark:text-[#8fb1ff]/70">{i + 1}.</span>
                             <input
+                              ref={i === 0 ? calcFirstRowInputRef : undefined}
                               value={row.description}
                               onChange={(e) => calcUpdateRow(row.id, { description: e.target.value.slice(0, 300) })}
                               className="w-full min-w-0 bg-transparent py-0.5 text-[#262a34] outline-none dark:text-white"
@@ -1194,6 +1201,7 @@ export function MiniChatWindow({
                   onClick={() => {
                     setAttachMenuOpen(false);
                     setCalcOpen(true);
+                    window.requestAnimationFrame(() => calcFirstRowInputRef.current?.focus());
                   }}
                   className="group flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
                 >

@@ -880,6 +880,14 @@ export default function ChatWindowPage() {
   const calcCurrencyPickerRef = useRef<HTMLDivElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // 2026-09-04 (Aleksandr: "При выхове калькуляции сделай дефолтно
+  // моргающий курсор возле 1.") -- opening the calculator used to leave
+  // nothing focused, so the first row's Description field needed an
+  // extra tap before typing. Focused the instant the panel opens (see
+  // its own onClick below), same requestAnimationFrame-after-reveal
+  // convention handleReplyFromViewer already uses for the compose
+  // textarea -- the panel has to actually be in the DOM first.
+  const calcFirstRowInputRef = useRef<HTMLInputElement>(null);
   // 2026-09-02 (Aleksandr: "когда я отвечаю с моба и читаю это на
   // вебе, оно не отмечается у меня на мобильном, что сообщение
   // прочитано") -- highest message _id this tab has already told
@@ -3518,6 +3526,7 @@ export default function ChatWindowPage() {
                             <div className="flex items-start gap-1">
                               <span className="pt-1.5 text-[12px] text-[#4f71eb]/70 dark:text-[#8fb1ff]/70">{i + 1}.</span>
                               <input
+                                ref={i === 0 ? calcFirstRowInputRef : undefined}
                                 value={row.description}
                                 onChange={(e) => calcUpdateRow(row.id, { description: e.target.value.slice(0, 300) })}
                                 className="w-full min-w-0 bg-transparent py-1 text-[#262a34] outline-none dark:text-white"
@@ -4216,6 +4225,7 @@ export default function ChatWindowPage() {
                     onClick={() => {
                       setAttachMenuOpen(false);
                       setCalcOpen(true);
+                      window.requestAnimationFrame(() => calcFirstRowInputRef.current?.focus());
                     }}
                     className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[21px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10 sm:text-[18px]"
                   >
