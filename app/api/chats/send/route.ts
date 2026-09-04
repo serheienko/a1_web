@@ -97,13 +97,42 @@ const SendInput = z
           .max(50),
       })
       .optional(),
+    // 2026-09-04 (Aleksandr, after lib/a1/meeting-protocol.ts's own
+    // ARCHITECTURE NOTE shipped this whole feature as plain text only,
+    // "WebFetch found no entity-meeting equivalent": he found one
+    // himself off the live docs -- confirmed via https://api.a1appp.com/
+    // openapi.json that a real Resource.Message.Media union member DOES
+    // exist for meetings, just under `media` (not `entities`) and named
+    // differently than what was searched for: `media-meet-invite-online`/
+    // `-offline` (bare markers, no fields at all -- `{object}` only) for
+    // a still-pending invite, and `media-meet` (`{at, url, object}`,
+    // `at` a TIMESTAMP_SECONDS) once confirmed. Deliberately thin: the
+    // marker carries no time at all (so a native client that renders it
+    // shows only its own generic "meeting invite" affordance, nothing
+    // to leak before Accept) and `media-meet` mirrors exactly what this
+    // app's own meeting-protocol.ts text payload already carries, once
+    // that becomes shareable. This RIDES ALONGSIDE the existing text
+    // payload (scheduleMeeting/acceptMeeting in app/chats/[chatId]/
+    // page.tsx still send the same A1MEETINGv1::/A1MEETINGACCEPTv1::
+    // text this web client decodes for its own richer pre-accept UI --
+    // fuzzy time buckets, hide-until-accept -- none of which the real
+    // protocol has any field for) purely so a client that does NOT know
+    // that text convention (the native app, today) gets something real
+    // to render instead of raw base64 garble.
+    meet: z
+      .union([
+        z.object({ kind: z.literal("invite") }),
+        z.object({ kind: z.literal("confirm"), at: z.number().int().positive(), url: z.string().trim().min(1).nullable() }),
+      ])
+      .optional(),
   })
   .refine(
     (v) =>
       (v.text && v.text.length > 0) ||
       (v.media && v.media.length > 0) ||
       (v.contacts && v.contacts.length > 0) ||
-      v.calculation !== undefined,
+      v.calculation !== undefined ||
+      v.meet !== undefined,
     { message: "empty_message" },
   );
 
@@ -112,7 +141,7 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ ok: false, message: "invalid_input" }, { status: 400 });
   }
-  const { chatId, text, media, contacts, calculation } = parsed.data;
+  const { chatId, text, media, contacts, calculation, meet } = parsed.data;
 
   try {
     // `message` and `media` are both optional on MessageInput (only
@@ -131,6 +160,13 @@ export async function POST(request: NextRequest) {
     }
     if (contacts && contacts.length > 0) {
       mediaItems.push(...contacts.map((c) => ({ ...c, object: "media-contact" })));
+    }
+    if (meet) {
+      mediaItems.push(
+        meet.kind === "invite"
+          ? { object: "media-meet-invite-online" }
+          : { object: "media-meet", at: meet.at, url: meet.url },
+      );
     }
     if (mediaItems.length > 0) payload.media = mediaItems;
     if (calculation) {

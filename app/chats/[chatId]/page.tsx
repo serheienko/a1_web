@@ -88,6 +88,14 @@ import { VoiceMessageBubble, PendingVoiceBubble } from "@/components/chat/voice-
 
 type LoadState = "loading" | "signed-out" | "error" | "ready";
 
+// 2026-09-04 -- mirrors app/api/chats/send/route.ts's own SendInput.meet
+// union (see that field's comment for the full protocol writeup): the
+// bare "invite" marker a proposal sends, or a "confirm" carrying the
+// real meeting time/link, sent only once accepted. Kept as its own type
+// here (not imported from the route file, a server module) since
+// send()/attemptSend() just need the shape, not the zod schema.
+type MeetSendPayload = { kind: "invite" } | { kind: "confirm"; at: number; url: string | null };
+
 // See the `pendingMessages` state comment (below, in the component) for
 // why this exists -- a locally-built stand-in for a message that was
 // just sent but hasn't shown up in a real messages.getMessages response
@@ -1230,6 +1238,7 @@ export default function ChatWindowPage() {
     text: string,
     media?: { fileReference: string }[],
     contacts?: PickedContact[],
+    meet?: MeetSendPayload,
   ) {
     try {
       const res = await authFetch("/api/chats/send", {
@@ -1253,6 +1262,7 @@ export default function ChatWindowPage() {
                   lastName: c.lastName,
                 }))
               : undefined,
+          meet,
         }),
       });
       if (res.ok) {
@@ -1906,7 +1916,7 @@ export default function ChatWindowPage() {
     }).catch(() => {});
   }
 
-  async function send(overrideText?: string) {
+  async function send(overrideText?: string, meet?: MeetSendPayload) {
     const text = (overrideText ?? draft).trim();
     // Attachment feature: only ready (fully uploaded+confirmed)
     // attachments are ever sent -- a message can go out with zero typed
@@ -1977,6 +1987,7 @@ export default function ChatWindowPage() {
         text,
         readyAttachments.map((a) => ({ fileReference: a.fileReference as string })),
         contactsToSend,
+        meet,
       );
     }
     setSending(false);
@@ -2194,11 +2205,24 @@ export default function ChatWindowPage() {
       // at the moment of sending, same as every other "device-
       // automatic" zone read in this feature (see meeting-protocol.ts's
       // own TIMEZONE NOTE).
+      //
+      // 2026-09-04, round three (Aleksandr found the real backend media
+      // type himself -- see app/api/chats/send/route.ts's own SendInput.
+      // meet comment for the full protocol writeup, and his own ask:
+      // "Нам нужно чтобы оно отображалось на мобе и скрывало время,
+      // подставляло иконку с ориентиром пока встречу не примут") -- this
+      // now ALSO attaches a bare `media-meet-invite-online` marker
+      // alongside the exact same text payload as before. Deliberately
+      // carries no time/link of its own: a native client rendering this
+      // marker has nothing to show but its own generic "meeting invite"
+      // affordance, which is exactly "hide the time, show an icon"
+      // without this app needing to build or fake that UI itself.
       await send(
         encodeMeetingText({
           ...payload,
           proposerTimeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         }),
+        { kind: "invite" },
       );
       setScheduleMeetingOpen(false);
     } finally {
@@ -2210,7 +2234,18 @@ export default function ChatWindowPage() {
   // (encodeMeetingAcceptText), sent through the exact same send() path
   // -- the render pass below (displayMessages' own acceptedMeetingIds
   // computation) is what keeps it from ever showing as its own bubble.
-  async function acceptMeeting(meetingMsgId: string) {
+  //
+  // 2026-09-04, round three -- startsAtUtcMs/link are the ORIGINAL
+  // proposal's own already-decoded values (this app's own
+  // meeting-protocol.ts never renegotiates the time on accept, only
+  // records the accepter's timezone -- see MeetingAcceptPayload's own
+  // comment), passed in from the MeetingMessageCard call site below
+  // where `meeting` is already in scope. The real `media-meet` object
+  // (the one with an actual time on it) only goes out HERE, on accept
+  // -- never on the original proposal -- so a native client sees
+  // nothing but the bare invite marker until this fires, matching
+  // Aleksandr's "hide the time... until accepted" ask above.
+  async function acceptMeeting(meetingMsgId: string, startsAtUtcMs: number, link: string | null) {
     if (acceptingMeetingId) return;
     setAcceptingMeetingId(meetingMsgId);
     try {
@@ -2219,6 +2254,7 @@ export default function ChatWindowPage() {
           meetingMsgId,
           accepterTimeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         }),
+        { kind: "confirm", at: Math.round(startsAtUtcMs / 1000), url: link },
       );
     } finally {
       setAcceptingMeetingId(null);
@@ -3201,7 +3237,7 @@ export default function ChatWindowPage() {
                           // reference yet.
                           canAccept={!mine && !pending}
                           accepting={acceptingMeetingId === msg._id}
-                          onAccept={() => void acceptMeeting(msg._id)}
+                          onAccept={() => void acceptMeeting(msg._id, meeting.startsAtUtcMs, meeting.link)}
                           footer={isMeetingOnly ? flatFooter : undefined}
                         />
                       )}
