@@ -6772,3 +6772,38 @@ shortfall (32px / 12px) that no amount of raising the 500px cap from
 by adding that same padding back in before the Math.min/cap.
 
 tsc-clean, commit c0e065c.
+
+## 6.141 -- CRITICAL: header floating/glitching mid-screen on keyboard dismiss (2026-09-04)
+
+Aleksandr, screen recording, marked critical priority twice: "видишь
+какой-то лютый баг при вводе текста. Когда нажимаешь его отправить,
+почему-то имя с аватаром со стрелкой приезжает вниз и вообще
+заглючивает. Ты нажимаешь отправить - оно не отправляется.
+Единственный вариант на мобильном - это свайп типа вертикальный, и
+всё туда разупряется... это прям критический, критический
+приоритетный баг."
+
+Root cause: the 2026-09-03 fix (see its own comment in page.tsx)
+compensates for iOS forcing window.scrollY during keyboard-avoidance
+by translateY-ing the fixed header to match -- but it only MASKS
+scrollY, never clears it, and iOS doesn't reliably fire a trailing
+scroll/resize event when that scroll settles back to 0 on keyboard
+dismiss. The transform was getting stuck at a stale value with
+nothing left to re-trigger reposition(), matching "only a swipe fixes
+it" exactly (a swipe is a fresh scroll event) and explaining the dead
+Send button (the mispositioned header was intercepting the tap).
+
+Fix (reposition(), same effect as the 2026-09-03 one): once no input
+is focused, the keyboard is closing/closed, so any leftover scrollY at
+that point is guaranteed to be iOS's own settle artifact, never real
+content (this page has no scrollable content of its own -- see the
+outer container's calc(100dvh - ...) comment) -- so it's zeroed
+directly via window.scrollTo(0, 0) instead of only masked. Left alone
+while a field IS focused so it doesn't fight iOS's legitimate
+keyboard-open scroll. Also added a `focusout` listener as an
+independent trigger (two delayed passes, 50ms/350ms) so the fix
+doesn't depend on scroll/resize firing at all -- it fires the instant
+the compose textarea loses focus, which is exactly when Send dismisses
+the keyboard.
+
+tsc-clean, commit fa71ccf.
