@@ -3777,6 +3777,13 @@ export default function ChatWindowPage() {
                     <DailyUploadsModal
                       lang={lang}
                       variant="inline"
+                      // Fixes the loading-skeleton flash Aleksandr
+                      // flagged on this exact transition -- see
+                      // DailyUploadsModal's own prefetchedUsage comment.
+                      // `uploadUsage` is already fetched (or in flight)
+                      // the moment the attach popover itself opens, well
+                      // before this inline panel can ever be reached.
+                      prefetchedUsage={uploadUsage}
                       onBack={() => setAttachDailyUploadsOpen(false)}
                       onClose={() => {
                         setAttachDailyUploadsOpen(false);
@@ -4011,7 +4018,9 @@ export default function ChatWindowPage() {
           )}
         </div>
       )}
-      {dailyUploadsOpen && <DailyUploadsModal lang={lang} onClose={() => setDailyUploadsOpen(false)} />}
+      {dailyUploadsOpen && (
+        <DailyUploadsModal lang={lang} prefetchedUsage={uploadUsage} onClose={() => setDailyUploadsOpen(false)} />
+      )}
       {/* 2026-09-03 (Aleksandr, Telegram Desktop reference screenshot)
           -- clicking anywhere outside the active recording UI used to
           do nothing at all (voice-message.tsx's own header flagged

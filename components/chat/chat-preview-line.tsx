@@ -29,7 +29,7 @@
 "use client";
 
 import { T } from "@/components/t";
-import { ChatMicGlyph, ChatCalculatorAttachIcon, ChatMeetingAttachIcon } from "./icons";
+import { ChatMicGlyph, ChatCalculatorAttachIcon, ChatMeetingAttachIcon, ChatContactAttachIcon } from "./icons";
 
 export type MessagePreviewKind = "text" | "voice" | "photo" | "video" | "sticker" | "file" | "contact" | "calc" | "meeting";
 
@@ -110,6 +110,10 @@ export function ChatPreviewLine({
       {kind === "voice" && <ChatMicGlyph className="h-[18px] w-[18px] shrink-0" />}
       {kind === "calc" && <ChatCalculatorAttachIcon className="h-4 w-4 shrink-0" />}
       {kind === "meeting" && <ChatMeetingAttachIcon className="h-4 w-4 shrink-0" />}
+      {/* 2026-09-04 follow-up (Aleksandr, live screenshot: "'Контакт'
+          надо иконка слева") -- same slot every other non-text/file
+          kind already gets; contact was the one left without one. */}
+      {kind === "contact" && <ChatContactAttachIcon className="h-4 w-4 shrink-0" />}
       <span className="truncate">
         <PreviewLabel kind={kind} />
       </span>

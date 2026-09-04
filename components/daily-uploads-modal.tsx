@@ -105,6 +105,7 @@ export function DailyUploadsModal({
   onClose,
   onBack,
   variant = "modal",
+  prefetchedUsage,
 }: {
   lang: Locale;
   onClose: () => void;
@@ -112,36 +113,70 @@ export function DailyUploadsModal({
   // (and only ever passed) alongside variant="inline".
   onBack?: () => void;
   variant?: "modal" | "inline";
+  // 2026-09-04 follow-up (Aleksandr, screen recording of the inline
+  // popover-grow: "тут надо полечить, глитч какой-то") -- opening the
+  // inline panel used to ALWAYS self-fetch /api/upload/usage from
+  // scratch, flashing this component's own skeleton loading state
+  // (below) for a beat even though app/chats/[chatId]/page.tsx's own
+  // `uploadUsage` -- the exact same data, already fetched the moment
+  // the attach popover itself opened, well before the storage icon is
+  // ever tapped (see that state's own comment) -- was already sitting
+  // right there. That redundant fetch-and-flash is the "glitch": a
+  // page that already has the answer briefly pretending it doesn't.
+  //
+  // `prefetchedUsage`, when the PROP KEY ITSELF is passed at all (even
+  // as `null`, which just means "the caller's own fetch hasn't
+  // resolved yet either"), puts this component in "controlled" mode:
+  // it renders straight off the caller's state and never runs its own
+  // fetch below, so it can never show a loading state the caller
+  // wasn't already showing. Omitting the prop entirely (every OTHER
+  // caller -- components/mini-chat-window.tsx's standalone popup has
+  // no shared upload-usage state to hand down) keeps this component
+  // exactly as self-sufficient as before.
+  prefetchedUsage?: MediaUploadUsage | null;
 }) {
-  const [usage, setUsage] = useState<MediaUploadUsage | null>(null);
-  const [error, setError] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const controlled = prefetchedUsage !== undefined;
+  const [selfUsage, setSelfUsage] = useState<MediaUploadUsage | null>(null);
+  const [selfError, setSelfError] = useState(false);
+  const [selfLoading, setSelfLoading] = useState(true);
 
   useEffect(() => {
+    if (controlled) return;
     let cancelled = false;
     async function load() {
-      setLoading(true);
-      setError(false);
+      setSelfLoading(true);
+      setSelfError(false);
       try {
         const res = await authFetch("/api/upload/usage");
         const data = await res.json();
         if (cancelled) return;
         if (!res.ok || !data.ok || !data.usage) {
-          setError(true);
+          setSelfError(true);
         } else {
-          setUsage(data.usage as MediaUploadUsage);
+          setSelfUsage(data.usage as MediaUploadUsage);
         }
       } catch {
-        if (!cancelled) setError(true);
+        if (!cancelled) setSelfError(true);
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setSelfLoading(false);
       }
     }
     void load();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [controlled]);
+
+  // Controlled mode has no independent error state of its own -- the
+  // caller's own fetch (page.tsx's own uploadUsage effect) already
+  // degrades silently on failure (stays null, same "never a 502, just
+  // missing" contract every other best-effort fetch in this app
+  // follows), which this component reflects as "still loading" rather
+  // than a dead end with its own retry button that would just re-fetch
+  // the exact same thing the caller already owns.
+  const usage = controlled ? (prefetchedUsage as MediaUploadUsage | null) : selfUsage;
+  const loading = controlled ? usage === null : selfLoading;
+  const error = controlled ? false : selfError;
 
   const categories: Array<{ key: "image" | "video" | "others"; label: string; bytes: number }> = usage
     ? [
@@ -211,16 +246,16 @@ export function DailyUploadsModal({
             <button
               type="button"
               onClick={() => {
-                setError(false);
-                setLoading(true);
+                setSelfError(false);
+                setSelfLoading(true);
                 authFetch("/api/upload/usage")
                   .then((res) => res.json())
                   .then((data) => {
-                    if (data.ok && data.usage) setUsage(data.usage as MediaUploadUsage);
-                    else setError(true);
+                    if (data.ok && data.usage) setSelfUsage(data.usage as MediaUploadUsage);
+                    else setSelfError(true);
                   })
-                  .catch(() => setError(true))
-                  .finally(() => setLoading(false));
+                  .catch(() => setSelfError(true))
+                  .finally(() => setSelfLoading(false));
               }}
               className="rounded-full bg-neutral-100 px-4 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700"
             >
