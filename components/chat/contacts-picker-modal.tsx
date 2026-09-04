@@ -78,6 +78,28 @@ function t(key: StringKey, lang: Locale): string {
   return STRINGS[key][lang];
 }
 
+// 2026-09-04 (Aleksandr, screenshot of this exact modal's own plain
+// "Завантаження…" text label while contacts are loading): "Тут
+// показывай скелетон загрузку" -- same shimmer-row skeleton convention
+// components/chats-flyout.tsx's own ChatRowSkeleton already established
+// for this app's loading lists (h-10 avatar circle + two animate-pulse
+// text bars), sized to match THIS modal's own real contact row below
+// (px-3 py-2, name line + phone-number line) rather than reusing that
+// file's copy verbatim -- the two rows aren't identical shapes.
+const CONTACT_SKELETON_ROW_COUNT = 7;
+
+function ContactRowSkeleton() {
+  return (
+    <div className="flex w-full items-center gap-3 rounded-xl px-3 py-2" aria-hidden="true">
+      <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-neutral-200 dark:bg-neutral-800" />
+      <div className="min-w-0 flex-1">
+        <div className="h-[15px] w-2/5 animate-pulse rounded bg-neutral-200 dark:bg-neutral-800" />
+        <div className="mt-1.5 h-[13px] w-1/3 animate-pulse rounded bg-neutral-200 dark:bg-neutral-800" />
+      </div>
+    </div>
+  );
+}
+
 export function ContactsPickerModal({
   lang,
   pickedUserIds,
@@ -186,11 +208,8 @@ export function ContactsPickerModal({
         </div>
 
         <div className="flex-1 overflow-y-auto px-2 pb-2">
-          {state === "loading" && (
-            <div className="flex items-center justify-center py-10 text-sm text-neutral-500 dark:text-neutral-400">
-              {t("loading", lang)}
-            </div>
-          )}
+          {state === "loading" &&
+            Array.from({ length: CONTACT_SKELETON_ROW_COUNT }, (_, i) => <ContactRowSkeleton key={i} />)}
           {state === "error" && (
             <div className="flex items-center justify-center py-10 text-center text-sm text-neutral-500 dark:text-neutral-400">
               {t("loadFailed", lang)}
