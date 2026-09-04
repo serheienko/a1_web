@@ -2817,7 +2817,23 @@ export default function ChatWindowPage() {
               // shadow) same as ContactMessageCard, so it gets the same
               // flat treatment: no colored bubble wrapper behind it.
               const isMeetingOnly = meeting !== null;
-              const isFlatMedia = isVoiceOnly || isImageOnly || isFileOnly || isContactOnly || isMeetingOnly;
+              // 2026-09-04 (Aleksandr, 4 screenshots: "При першому
+              // повідомленні надо щоб відправлявся наш нормальний
+              // hi_cat анімація, вот як у мобе") -- reverses the
+              // 2026-09-02/09-03 simplification (see GREETING_EMOJI's
+              // own header) that deliberately made the greeting-tap
+              // send a PLAIN "🐱" glyph with no special treatment.
+              // Aleksandr now wants that first tap to render as the
+              // same branded cat-hi.json sticker the button itself
+              // shows, matching the reference (mobile) app -- same
+              // "exclusive content, no other bubble content rides
+              // alongside it" shape as the other isXOnly flags above,
+              // so it gets the same flat (no colored-bubble) treatment
+              // ContactMessageCard/MeetingMessageCard already have.
+              const isGreetingSticker =
+                text === GREETING_EMOJI && !meeting && calc === null && contactMedia.length === 0 &&
+                pendingContactCards.length === 0 && pendingAttachments.length === 0 && docMedia.length === 0;
+              const isFlatMedia = isVoiceOnly || isImageOnly || isFileOnly || isContactOnly || isMeetingOnly || isGreetingSticker;
               // Unified for both a real message (real ticks) and a
               // still-pending one (spinner/not-sent icon, same as the
               // shared non-flat footer below already did) -- so a flat
@@ -3277,7 +3293,21 @@ export default function ChatWindowPage() {
                         />
                       )}
                       {text && !meeting && (
-                        quickInviteCatAnimation(text) ? (
+                        isGreetingSticker ? (
+                          // 2026-09-04 (Aleksandr: "hi_cat анимация, вот
+                          // как в мобе") -- same asset/size the empty-
+                          // state button itself uses one screen up
+                          // (140px there, a little smaller here so it
+                          // reads as a sent bubble rather than a CTA);
+                          // flatFooter appended manually the same way
+                          // isFileOnly's own single-attachment case does
+                          // (this content isn't inside a mapped list, so
+                          // it can't ride the map's own per-item footer).
+                          <>
+                            <LottiePlayer src="/animations/cat-hi.json" size={96} />
+                            <div className="mt-0.5">{flatFooter}</div>
+                          </>
+                        ) : quickInviteCatAnimation(text) ? (
                           // 2026-09-04, follow-up (Aleksandr: "Кошак есть,
                           // но посели его с правого края, а текст слева")
                           // -- was icon-then-text; text now comes first so
