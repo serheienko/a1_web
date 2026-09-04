@@ -741,8 +741,22 @@ export function MiniChatWindow({
                           }`}
                         >
                           {fileKindFromName(mediaDocumentFileName(doc), doc.mimetype) === "pdf" ? (
+                            // 2026-09-04 (Aleksandr: "В мелкой модалке
+                            // опять моргает PDF") -- this call site never
+                            // got the PLAN.md 6.128 fix app/chats/
+                            // [chatId]/page.tsx's own confirmed-message
+                            // PdfPageThumbnail already has: the backend
+                            // reissues a different fileReference for the
+                            // SAME doc on every poll, so buildMediaProxyUrl
+                            // (doc)'s own `?ref=...` rotates every ~poll,
+                            // and the thumbnail cache/effect keyed by that
+                            // URL alone (the component's `src` default)
+                            // was a guaranteed miss -> blank -> re-render
+                            // -> flicker. `cacheKey={doc._id}` is stable
+                            // across polls the same way it now is there.
                             <PdfPageThumbnail
                               src={buildMediaProxyUrl(doc)}
+                              cacheKey={doc._id}
                               className="h-9 w-9 shrink-0 rounded-[10px] object-cover object-top"
                               fallback={<ChatFileTypeIcon kind="pdf" className="h-9 w-9" />}
                             />
