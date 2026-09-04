@@ -630,6 +630,42 @@ export default function ChatWindowPage() {
   const [peerReadMaxId, setPeerReadMaxId] = useState<number | null>(null);
   const readStateTick = useRef(0);
   const [draft, setDraft] = useState("");
+  // 2026-09-04 (Aleksandr, live screenshots: the chat LIST correctly
+  // shows "Чернетка Meow" for this chat, but opening it leaves the
+  // compose box empty -- "Чернетка должна отображаться в инпут филде
+  // при переходе в чат в таком кейсе") -- app/chats/page.tsx already
+  // reads this exact draft text off /api/chats/list's own draftText
+  // field (chatDraftText() server-side, off the real Chat.draft
+  // resource), this page just never fetched it to seed the compose
+  // box itself. One-shot fetch on mount, same endpoint (already
+  // fetched elsewhere on this page for the header-fallback path, but
+  // ONLY when ?title= is missing -- the draft isn't carried in that
+  // query string at all, so this needs its own unconditional fetch).
+  // Guarded with a ref (not a `draft === ""` check) so it can never
+  // clobber text the person already typed in the moment between mount
+  // and this response landing.
+  const draftSeeded = useRef(false);
+  useEffect(() => {
+    let cancelled = false;
+    authFetch("/api/chats/list")
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled || draftSeeded.current || !data?.ok || !Array.isArray(data.chats)) return;
+        const match = data.chats.find((c: { id: string; draftText?: string }) => c.id === chatId);
+        if (match?.draftText) {
+          draftSeeded.current = true;
+          // Functional update (not the `match.draftText` value
+          // directly) -- reads whatever's ACTUALLY in the box the
+          // instant this resolves, so a person who started typing
+          // during this round-trip never gets overwritten.
+          setDraft((cur) => (cur === "" ? (match.draftText as string) : cur));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [chatId]);
   const [sending, setSending] = useState(false);
   const inFlight = useRef(false);
   // Attachment feature: pending compose-bar attachments (see
