@@ -6497,3 +6497,151 @@ this lands the loader in the true center of the visible chat
 window on both mobile and desktop, not just the full viewport.
 
 tsc-clean.
+
+## 6.131 -- New-chat icon revert, voice waveform pending/confirmed data-source swap fixed (2026-09-04)
+
+Aleksandr had asked for an animated new-chat icon (app/chats/page.tsx +
+components/chats-flyout.tsx), then explicitly reverted the redesign
+itself while keeping the animation: "Верни старую иконку 'новий чат',
+но анимируй" -- both files' icon SVG restored to the original outline
+glyph/size, and a second round caught the button's accent-blue fill
+chrome I'd left behind too ("А заливку зачем ты оставил? Верни
+полностью как было"). New self-playing `.animate-chat-wiggle-loop`
+keyframe added to app/globals.css alongside the existing hover-only
+`.animate-chat-wiggle` -- the hover variant never fires on touch/mobile,
+so the icon needed a loop that plays on its own.
+
+Separately, live test: "Я когда только записываю... показывает
+неактуальный звук" -- the PENDING (just-recorded) voice bubble and the
+CONFIRMED bubble that replaces it were reading the waveform from two
+different sources: components/chat/voice-bubble.tsx's PendingVoiceBubble
+renders the browser's own locally-computed waveform (accurate, already
+hardened against the Chrome/MediaRecorder truncated-decode quirk per
+6.125), while VoiceMessageBubble decoded the base64
+attribute-audio.waveform the SERVER echoes back on the confirmed doc --
+independently re-derived/truncated server-side, outside this client's
+control. New lib/voice-local-waveform-cache.ts (plain module-level Map,
+same pattern lib/voice-playback-store.ts already uses) caches a sent
+clip's own known-good local waveform keyed by fileReference at send
+time; VoiceMessageBubble checks there first, only falling back to the
+server's own echo for a clip with nothing local (received, or sent in
+an earlier session).
+
+tsc-clean, commits 8e9c806/69b280b/4769000.
+
+## 6.132 -- Post-editor cat banner trigger fixed; real media-meet backend type wired in (2026-09-04)
+
+Uploaded screen recording: "Тут надо, чтобы кот писал только
+'публікується' без 'оновлюється'" -- first pass removed the
+"Оновлюється..." label entirely, per a literal reading. Corrected
+immediately after: "да но только тут. Оновлюється надо если пост
+редактируется" -- the actual bug was that the OLD trigger
+(`mode === "edit"` alone, or `savedPostId !== null`) fires for cases
+that aren't a real edit of an already-published/scheduled post too
+(opening a plain unpublished draft, any autosave). Now gated on the
+already-existing `isEditingPublishedPost`/`isEditingScheduledPost`
+signals (components/post-editor.tsx, pre-existing ~line 990) instead.
+
+Separately: Aleksandr found real backend support for meeting media
+himself in the OpenAPI docs and told me to go verify it directly
+("Так а чё ты сам не зайдешь? Вот тебе документация открытая") --
+confirmed via a direct in-page `fetch()` against the ~865KB
+openapi.json (WebFetch and the page-text tool both silently truncate a
+document this large; running fetch() straight in the page's own JS
+context via the browser tool's javascript_exec was the only reliable
+way to pull exact substrings out of it) that `media-meet` /
+`media-meet-invite-online` / `media-meet-invite-offline` are real,
+backend-known media types -- contradicting this repo's own prior
+"confirmed absent" note from 6.124. Per "По митам давай сейчас решать.
+Нам нужно чтобы оно отображалось на мобе и скрывало время, подставляло
+іконку з орієнтиром поки зустріч не прийнято": every meeting send now
+ALSO attaches a real media entry alongside the existing text protocol
+(unchanged as this app's own rendering source of truth) -- a bare
+`media-meet-invite-online` marker (no time data) on the original
+proposal, `media-meet` (`{at, url, object}`) only once accepted -- so
+native/other clients get something real to render, with time genuinely
+withheld until acceptance.
+
+tsc-clean, commits 985a28f/0d6a33a/5022c7b.
+
+## 6.133 -- Contacts picker: skeleton loader (2026-09-04)
+
+Aleksandr, screenshot of components/chat/contacts-picker-modal.tsx's
+plain "Завантаження…" text: "Тут показывай скелетон загрузку" -- new
+ContactRowSkeleton (avatar circle + two animate-pulse bars), same shape
+as the existing ChatRowSkeleton in components/chats-flyout.tsx, 7 rows
+while `state === "loading"`.
+
+tsc-clean, commit 3cdce5e.
+
+## 6.134 -- Cat banner inside the dialog, meeting-scheduler emoji + date locale, attach-popover resize glitch (2026-09-04)
+
+Three separate live-test reports, same session:
+
+**Post-editor cat banner** (components/post-editor.tsx): screen
+recording of a job post on jobs.a1appp.com, "надо показывать внутри
+того же попапа, не делать белый фон на весь сайт, а прям внутри
+модалки поменять на этот інфо текст" -- reverses 6.40's own "replaces
+the whole dialog with a small unbacked card floating top-center over
+the still-visible feed" design. Now renders inside the SAME dialog
+chrome (backdrop + rounded panel) the form itself used, swapped over to
+the status content, instead of a separate floating pill elsewhere on
+the page.
+
+**Schedule meeting modal** (components/chat/schedule-meeting-modal.tsx):
+"иконки эмодзи должны быть возле імені того, кому відправляється, по
+ним я розумію його орієнтовний час і заодно не розкриваємо точний час
+-- решаем 2 проблемы" -- the live time-of-day bucket emoji moved off
+the "Встановіть зустріч у вашому часі" label and onto the peer-name row
+instead. Also "Date picker надо локалізувати" -- the day wheel's
+non-Today rows ("Sat 5 Sep" etc) were formatted via
+`toLocaleDateString(undefined, ...)`, always following the BROWSER's
+own locale rather than this app's `lang`; now uses the same LOCALE_TAG
+map (components/t.tsx) lib/format.ts's own relative-time/unit
+formatting already relies on for this exact gap.
+
+**Attach popover** (app/chats/[chatId]/page.tsx): screen recording,
+"на секунде 3 попап сначала растет вверх, а потом уменьшает высоту и
+растет в бок, это виглядає як баг" -- the popover box only ever
+transitioned `width` between its row-menu/Meetings/Daily-Uploads
+content; swapping to very differently-sized content snapped height to
+match instantly while width kept animating over its own 200ms. Content
+is now measured via ResizeObserver and applied as an explicit,
+transitioning `style.height` alongside width.
+
+tsc-clean, commits c0d0a32/370f5be/588dec0.
+
+## 6.135 -- Voice waveform decode for received clips, compose-bar file size, quick-invite cat animation in the bubble itself (2026-09-04)
+
+**Voice waveform, closing the remaining gap**: 6.131's local-cache fix
+only covered a clip THIS tab itself just recorded; "Потом баг с
+эквалайзером" flagged again for received clips, still reading the
+server's own (inaccurate) echoed waveform. voice-recorder.ts's
+decode-from-real-audio logic (Web Audio decodeAudioData + the Chrome/
+MediaRecorder truncated-decode guard) pulled out into new
+lib/voice-waveform-decode.ts so it isn't tied to "a clip this tab just
+recorded" -- voice-bubble.tsx now runs the identical decode against any
+voice bubble's own proxied audio file the first time it renders with
+nothing cached, remembering the result in the same
+lib/voice-local-waveform-cache.ts so every other bubble for that clip
+reads it back instantly.
+
+**Compose-bar file size**: "Показывай вес файла тут" -- the staging
+preview for a picked (not-yet-sent) non-image file showed name only, no
+size, unlike the sent/pending message bubble a bit further down (which
+already pairs formatBytes(a.bytes) under the filename). Same pairing
+added to both app/chats/[chatId]/page.tsx and components/mini-chat-
+window.tsx's own duplicate compose bar.
+
+**Quick-invite cat animation, the other half of 6.123**: screenshot of
+an already-sent "Може, зустрінемось онлайн?" bubble, "В бабле
+сообщения должна бути анімація з котом. Текст + анімація" -- the cat
+mascot only ever lived on the Quick Invite BUTTON inside the Meetings
+menu; the instant it's tapped, send(overrideText) fires the plain text
+alone and the animation never reached the actual message. New
+`quickInviteCatAnimation(text)` (components/chat/meetings-menu-
+modal.tsx) matches a bubble's text against both canned invites, any
+locale, and both the main chat page and mini-chat-window.tsx now render
+the matching animation next to the text when it hits.
+
+tsc-clean, commits 687bf94/97aa5b3/fdc8c84.
