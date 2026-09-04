@@ -27,6 +27,8 @@
 // existing individual rendering entirely unchanged, flat-flush or not.
 "use client";
 
+import { MEDIA_BLUR_STYLE } from "@/lib/blur-placeholder";
+
 type GridDoc = {
   id: string;
   src: string;
@@ -102,6 +104,7 @@ export function ChatPhotoGrid({ docs, onOpen }: { docs: GridDoc[]; onOpen: (docI
                 alt=""
                 onClick={() => onOpen(doc.id)}
                 className="h-full min-h-0 w-full cursor-pointer object-cover transition hover:opacity-90"
+                style={MEDIA_BLUR_STYLE}
               />
             );
           })}

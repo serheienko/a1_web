@@ -408,6 +408,46 @@ export function ChatsFlyout({
     onClose();
   }
 
+  // 2026-09-04 (Aleksandr, live bug: picking an existing contact from
+  // the "new chat" screen opened them with no message history) --
+  // both contact rows below used to build routeParam straight from
+  // chatRouteParamForUser(c.userId) (the "u_<userId>", no-confirmed-
+  // chat-yet sentinel) with no check for whether a real chat already
+  // exists. That's a real regression risk versus components/new-chat-
+  // picker-modal.tsx's own contact rows, which already call this same
+  // /api/chats/open first (see that route's own header: it checks
+  // chats.getChats for an existing personal chat before ever falling
+  // back to the sentinel) -- ported here so both entry points resolve
+  // the same way. Falls back to the sentinel on any failure so a start-
+  // a-new-chat click never hard-fails just because this lookup did.
+  const [openingContactUserId, setOpeningContactUserId] = useState<string | null>(null);
+  async function openContactChat(c: ContactRow) {
+    if (!c.userId || openingContactUserId) return;
+    setOpeningContactUserId(c.userId);
+    let routeParam = chatRouteParamForUser(c.userId);
+    try {
+      const res = await authFetch("/api/chats/open", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ userId: c.userId }),
+      });
+      const data = await res.json().catch(() => null);
+      if (data?.ok && typeof data.chatId === "string") routeParam = data.chatId;
+    } catch {
+      // Best-effort -- the sentinel fallback above still opens a
+      // (blank, if genuinely new) chat rather than doing nothing.
+    } finally {
+      setOpeningContactUserId(null);
+    }
+    openChat({
+      routeParam,
+      title: c.title,
+      avatarUrl: c.avatarUrl,
+      avatarBlurDataUrl: c.avatarBlurDataUrl,
+      username: c.username,
+    });
+  }
+
   if (!open) return null;
 
   // Portaled to document.body with a z-30 backdrop strictly below the
@@ -508,16 +548,8 @@ export function ChatsFlyout({
               <button
                 key={c.contactId}
                 type="button"
-                onClick={() =>
-                  c.userId &&
-                  openChat({
-                    routeParam: chatRouteParamForUser(c.userId),
-                    title: c.title,
-                    avatarUrl: c.avatarUrl,
-                    avatarBlurDataUrl: c.avatarBlurDataUrl,
-                    username: c.username,
-                  })
-                }
+                onClick={() => void openContactChat(c)}
+                disabled={openingContactUserId === c.userId}
                 className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
               >
                 <Image
@@ -611,16 +643,8 @@ export function ChatsFlyout({
               <button
                 key={c.contactId}
                 type="button"
-                onClick={() =>
-                  c.userId &&
-                  openChat({
-                    routeParam: chatRouteParamForUser(c.userId),
-                    title: c.title,
-                    avatarUrl: c.avatarUrl,
-                    avatarBlurDataUrl: c.avatarBlurDataUrl,
-                    username: c.username,
-                  })
-                }
+                onClick={() => void openContactChat(c)}
+                disabled={openingContactUserId === c.userId}
                 className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
               >
                 <Image

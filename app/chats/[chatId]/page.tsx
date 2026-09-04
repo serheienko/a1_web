@@ -21,7 +21,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
+import { BLUR_DATA_URL, MEDIA_BLUR_STYLE } from "@/lib/blur-placeholder";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { profileHref } from "@/lib/profile-href";
 import { T, LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
@@ -2974,6 +2974,7 @@ export default function ChatWindowPage() {
                                     // wrapper above is an inferred number, not measured off his
                                     // screenshot pixel-for-pixel -- flag if it should be bigger/smaller.
                                     className="block max-h-64 w-full cursor-pointer object-cover transition hover:opacity-90"
+                                    style={MEDIA_BLUR_STYLE}
                                   />
                                   <span className="pointer-events-none absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded-full bg-black/45 px-2 py-0.5 text-[11px] text-white backdrop-blur-sm">
                                     <span>{formatTime(ms)}</span>
@@ -2991,6 +2992,7 @@ export default function ChatWindowPage() {
                                   // Same tiny-source-photo fix as the flat isImageOnly branch
                                   // above -- see that img's own comment.
                                   className="max-h-64 w-full min-w-[200px] cursor-pointer rounded-xl object-cover transition hover:opacity-90"
+                                  style={MEDIA_BLUR_STYLE}
                                 />
                               )
                             ) : isVideoMediaDocument(doc) ? (

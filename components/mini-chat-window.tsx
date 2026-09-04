@@ -47,7 +47,7 @@ import Link from "next/link";
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { authFetch } from "@/lib/auth-fetch";
-import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
+import { BLUR_DATA_URL, MEDIA_BLUR_STYLE } from "@/lib/blur-placeholder";
 import { profileHref } from "@/lib/profile-href";
 import { formatBytes } from "@/lib/format";
 import { useHoverPanel } from "@/lib/use-hover-panel";
@@ -88,6 +88,7 @@ import { ContactsPickerModal, type PickedContact } from "@/components/chat/conta
 import { CurrencyPickerModal } from "@/components/chat/currency-picker-modal";
 import { DailyUploadsModal } from "@/components/daily-uploads-modal";
 import type { ChatFlyoutOpenTarget } from "@/components/chats-flyout";
+import { LottiePlayer } from "@/components/lottie-player";
 
 const POLL_MS = 3000;
 // Same throttle idea as app/chats/[chatId]/page.tsx's own readStateTick
@@ -647,7 +648,14 @@ export function MiniChatWindow({
       <div ref={listRef} className="flex-1 overflow-y-auto px-3 py-2.5">
       <div className="space-y-1.5">
         {loadState === "loading" && messages.length === 0 && (
-          <p className="mt-4 text-center text-[14.5px] text-[#989aa6] dark:text-[#8d8d93]">…</p>
+          // 2026-09-04 (Aleksandr: "На лоадер поставь нашу планету, пока
+          // чат грузится") -- same public/animations/planet-loader.json
+          // LottiePlayer app/chats/[chatId]/page.tsx's own full-page
+          // loading state already uses, sized down for this widget's
+          // own h-[26rem]/w-80 footprint.
+          <div className="flex items-center justify-center py-10">
+            <LottiePlayer src="/animations/planet-loader.json" size={72} />
+          </div>
         )}
         {messages.map((msg) => {
           const mine = myUserId !== null && msg.fromId === myUserId;
@@ -697,6 +705,7 @@ export function MiniChatWindow({
                           src={buildMediaProxyUrl(doc)}
                           alt=""
                           className="max-h-48 w-full rounded-xl object-cover"
+                          style={MEDIA_BLUR_STYLE}
                         />
                       ) : (
                         <a
