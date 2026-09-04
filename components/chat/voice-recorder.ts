@@ -19,7 +19,7 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
-import { resampleWaveform } from "@/lib/a1/chat-schemas";
+import { resampleWaveform, normalizeWaveformPeaks } from "@/lib/a1/chat-schemas";
 
 export const VOICE_MAX_SECONDS = 600; // 10:00 cap (CONFIRMED, both mobile + desktop references)
 export const VOICE_MIN_MS = 600; // shorter than this is silently discarded (CONFIRMED via mobile recording)
@@ -45,6 +45,76 @@ export type VoiceRecordingResult = {
 };
 
 export type VoiceRecorderPointer = { clientX: number; clientY: number };
+
+// 2026-09-04 (Aleksandr, live bug report + screen recording: "черточки
+// ровные" -- a just-sent voice message's waveform showed real variation
+// for only its first ~1-1.5s, then a long flat/near-floor tail for the
+// rest of the clip, even though the recording clearly has audible voice
+// throughout). Traced to how the OLD waveform below was built: a live
+// sampling loop (tickAmplitude's rAF chain + sampleTimerRef's 100ms
+// interval, both still further down in startPress) pushes
+// `amplitudeRef.current` into `samplesRef` while recording, and that
+// array is what resampleWaveform stretches across the clip's full
+// duration once recording stops. Two real, independent weaknesses in
+// that approach, either of which produces exactly this symptom:
+//   1. pauseResume() below only pauses the MediaRecorder + the visible
+//      seconds counter -- it never pauses tickAmplitude's rAF loop or
+//      sampleTimerRef's interval, so a pause/resume during recording
+//      keeps pushing samples for a stretch of time that ends up with
+//      NO corresponding audio in the final blob, throwing off the
+//      alignment between "sample index" and "position in the actual
+//      recording" for everything captured after that point.
+//   2. More generally, a live capture loop tied to rAF/setInterval has
+//      no guarantee of running every ~100ms for the recording's entire
+//      real duration -- any render/scheduling hiccup (this session
+//      couldn't attach a live debugger to confirm which, since logging
+//      into the app to reproduce it directly is against this session's
+//      own security rule) silently thins out or flatlines the back
+//      half of `samplesRef` while `elapsedMs` (wall-clock, unaffected)
+//      keeps counting normally, so resampleWaveform stretches that
+//      thin/flat tail across the same real estate a properly-sampled
+//      one would have used.
+//
+// Rather than debug the live loop's exact failure mode blind, this
+// sidesteps the whole class of timing bugs: once `recorder.onstop`
+// has the FINAL blob in hand, decode its actual audio data (Web Audio's
+// own decodeAudioData) and compute the waveform directly from those
+// real, complete, correctly-time-ordered PCM samples -- no live loop,
+// no pause-desync, nothing that can silently stop sampling partway
+// through. `samplesRef`'s live capture is kept ONLY as a fallback for
+// the rare case decode itself fails (unsupported codec/browser quirk),
+// producing the exact pre-2026-09-04 result rather than nothing.
+async function computeWaveformFromBlob(blob: Blob, barCount: number): Promise<number[] | null> {
+  try {
+    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const ctx = new AudioCtx();
+    try {
+      const arrayBuffer = await blob.arrayBuffer();
+      const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+      const channelData = audioBuffer.getChannelData(0);
+      if (channelData.length === 0) return null;
+      const samplesPerBucket = Math.max(1, Math.floor(channelData.length / barCount));
+      const peaks: number[] = [];
+      for (let i = 0; i < barCount; i++) {
+        const start = i * samplesPerBucket;
+        const end = i === barCount - 1 ? channelData.length : Math.min(channelData.length, start + samplesPerBucket);
+        let sumSquares = 0;
+        let count = 0;
+        for (let j = start; j < end; j++) {
+          const v = channelData[j] ?? 0;
+          sumSquares += v * v;
+          count++;
+        }
+        peaks.push(count > 0 ? Math.sqrt(sumSquares / count) : 0);
+      }
+      return peaks;
+    } finally {
+      void ctx.close().catch(() => {});
+    }
+  } catch {
+    return null;
+  }
+}
 
 export function useVoiceRecorder(onFinish: (result: VoiceRecordingResult) => void) {
   const [state, setState] = useState<VoiceRecorderState>("idle");
@@ -186,7 +256,7 @@ export function useVoiceRecorder(onFinish: (result: VoiceRecordingResult) => voi
         recorder.ondataavailable = (e) => {
           if (e.data.size > 0) chunksRef.current.push(e.data);
         };
-        recorder.onstop = () => {
+        recorder.onstop = async () => {
           const elapsedMs = Date.now() - startedAtRef.current;
           const blob = new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" });
           cleanupStream();
@@ -195,9 +265,18 @@ export function useVoiceRecorder(onFinish: (result: VoiceRecordingResult) => voi
           setState("idle");
           setIsPaused(false);
           if (wasCancelled || elapsedMs < VOICE_MIN_MS) return;
-          const waveform = resampleWaveform(samplesRef.current.length ? samplesRef.current : [0], LOCAL_WAVEFORM_BARS).map((v) =>
-            Math.min(1, Math.max(0.06, v)),
-          );
+          // Decode-based waveform (see computeWaveformFromBlob's own
+          // header above) -- built off the FINAL blob, so it can't be
+          // thrown off by anything that happened to the live
+          // tickAmplitude/sampleTimerRef sampling loop while recording
+          // (a pause/resume, a scheduling hiccup, ...). Falls back to
+          // the old live-samples path only if decoding itself fails.
+          const decodedPeaks = await computeWaveformFromBlob(blob, LOCAL_WAVEFORM_BARS);
+          const waveform =
+            normalizeWaveformPeaks(decodedPeaks ?? [], LOCAL_WAVEFORM_BARS) ??
+            resampleWaveform(samplesRef.current.length ? samplesRef.current : [0], LOCAL_WAVEFORM_BARS).map((v) =>
+              Math.min(1, Math.max(0.06, v)),
+            );
           onFinish({
             blob,
             mimeType: recorder.mimeType || "audio/webm",
@@ -342,6 +421,26 @@ export function useVoiceRecorder(onFinish: (result: VoiceRecordingResult) => voi
       setIsPaused(true);
       if (timerRef.current) clearInterval(timerRef.current);
       timerRef.current = null;
+      // 2026-09-04 (see computeWaveformFromBlob's own header comment,
+      // above useVoiceRecorder, for the live bug report this traces
+      // to): this used to only pause the visible seconds counter --
+      // tickAmplitude's rAF loop and sampleTimerRef's sampling interval
+      // kept running off the still-live mic stream, pushing samples
+      // into samplesRef for a stretch of time that ends up with NO
+      // corresponding audio in the final blob (the MediaRecorder itself
+      // really is paused). The FINAL waveform is now built by decoding
+      // the actual recorded blob instead (unaffected by this), but
+      // samplesRef is still the fallback if that decode ever fails, so
+      // it should stay a faithful recording-timeline sample either way
+      // -- and freezing amplitudeRef to 0 here also stills whatever
+      // live reactive UI reads it (the record button's own blob) while
+      // genuinely paused, instead of it carrying on reacting to
+      // whatever the mic still happens to be picking up.
+      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+      if (sampleTimerRef.current) clearInterval(sampleTimerRef.current);
+      sampleTimerRef.current = null;
+      amplitudeRef.current = 0;
     } else if (recorder.state === "paused") {
       recorder.resume();
       setIsPaused(false);
@@ -352,8 +451,12 @@ export function useVoiceRecorder(onFinish: (result: VoiceRecordingResult) => voi
           return next;
         });
       }, 1000);
+      tickAmplitude();
+      sampleTimerRef.current = setInterval(() => {
+        samplesRef.current.push(amplitudeRef.current);
+      }, WAVEFORM_SAMPLE_MS);
     }
-  }, [stopAndSend]);
+  }, [stopAndSend, tickAmplitude]);
 
   return useMemo(
     () => ({
