@@ -70,6 +70,29 @@ export function bucketForHour(hour: number): MeetingTimeBucket {
   return "late-night";
 }
 
+// 2026-09-04 (Aleksandr, reference screenshot of the native app's own
+// "User A" bucket legend + "Все те иконки это обычные эмодзи" -- these
+// four glyphs are plain Unicode emoji, not custom art or the native
+// app's own early_morning.png/day_time.png/evening.png/late_night.png
+// assets (those exist too, aone_private/assets/img/, but he confirmed
+// the simpler plain-emoji route instead of pulling those PNGs across).
+// Single source of truth shared by meeting-message-card.tsx's own
+// per-participant bucket row AND schedule-meeting-modal.tsx's live
+// "which bucket is the currently-scrolled hour in" indicator, so the
+// glyph<->bucket mapping only ever lives in one place.
+export function bucketEmoji(bucket: MeetingTimeBucket): string {
+  switch (bucket) {
+    case "early-morning":
+      return "\u{1F305}"; // sunrise
+    case "daytime":
+      return "\u{2600}\u{FE0F}"; // sun
+    case "evening":
+      return "\u{1F3D9}\u{FE0F}"; // cityscape at dusk
+    case "late-night":
+      return "\u{1F319}"; // crescent moon
+  }
+}
+
 export type MeetingPayload = {
   v: 1;
   startsAtUtcMs: number;

@@ -34,7 +34,8 @@
 import { useState } from "react";
 import { T, type Locale } from "@/components/t";
 import { ChatMeetingAttachIcon } from "./icons";
-import { bucketForHour, type MeetingPayload, type MeetingAcceptPayload, type MeetingTimeBucket } from "@/lib/a1/meeting-protocol";
+import type { ReactNode } from "react";
+import { bucketForHour, bucketEmoji, type MeetingPayload, type MeetingAcceptPayload, type MeetingTimeBucket } from "@/lib/a1/meeting-protocol";
 
 type StringKey =
   | "title"
@@ -110,8 +111,13 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
     ptBR: "Seu horário exato fica oculto até você tocar em Aceitar. A outra pessoa vê apenas uma faixa de horário.",
     zh: "在你点击“接受”之前，你的确切时间是隐藏的。对方只能看到一个大致的时间段。",
   },
+  // 2026-09-04 (Aleksandr: "ту же самую кнопку 'зрозуміло'") -- was its
+  // own "Гаразд"/"OK" wording; unified with schedule-meeting-modal.tsx's
+  // own tz-info popup button (its "gotIt" STRINGS entry) now that both
+  // popups share the same anchored-popover treatment below.
   ok: {
-    uk: "Гаразд", en: "OK", ru: "ОК", de: "OK", es: "OK", fr: "OK", pl: "OK", ptBR: "OK", zh: "好的",
+    uk: "Зрозуміло!", en: "Got it!", ru: "Понятно!", de: "Verstanden!", es: "¡Entendido!",
+    fr: "Compris !", pl: "Rozumiem!", ptBR: "Entendi!", zh: "知道了！",
   },
   earlyMorning: {
     uk: "Раній ранок", en: "Early morning", ru: "Раннее утро", de: "Früher Morgen",
@@ -150,44 +156,6 @@ function bucketLabel(bucket: MeetingTimeBucket, lang: Locale): string {
     case "late-night":
       return t("lateNight", lang);
   }
-}
-
-// Single-color currentColor glyphs, kept local to this file rather than
-// added to components/chat/icons.tsx -- these are only ever used here,
-// same "self-contained widget" call this session already made for
-// other small one-off pieces (see chats-flyout.tsx/mini-chat-window.tsx
-// own header comments on that convention).
-function BucketIcon({ bucket, className }: { bucket: MeetingTimeBucket; className?: string }) {
-  const common = { width: 18, height: 18, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, className };
-  if (bucket === "early-morning") {
-    return (
-      <svg {...common}>
-        <circle cx="12" cy="15" r="4" />
-        <path d="M12 3v3M4.2 8.2l1.8 1.8M19.8 8.2 18 10M2 19h20M6 19a6 6 0 0 1 12 0" />
-      </svg>
-    );
-  }
-  if (bucket === "daytime") {
-    return (
-      <svg {...common}>
-        <circle cx="12" cy="12" r="4.5" />
-        <path d="M12 2.5v2.5M12 19v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M2.5 12H5M19 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8" />
-      </svg>
-    );
-  }
-  if (bucket === "evening") {
-    return (
-      <svg {...common}>
-        <path d="M3 20h18M5 20V10l3-2 3 2v10M13 20V6l3-2 3 2v14" />
-        <path d="M8 13h0M8 16h0M16 10h0M16 13h0M16 16h0" strokeWidth="2.5" />
-      </svg>
-    );
-  }
-  return (
-    <svg {...common}>
-      <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z" />
-    </svg>
-  );
 }
 
 // Plain hourglass, for the "hidden until they accept" placeholder row
@@ -255,7 +223,16 @@ function ParticipantRow({
 }) {
   const zone = tz || undefined;
   const d = new Date(startsAtUtcMs);
-  const dateLabel = d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", timeZone: zone });
+  // 2026-09-04 (Aleksandr, live screenshot: "Че то текст подрезался
+  // 'буде Fr'") -- was weekday+month+day ("Fri, Sep 5"), which doesn't
+  // fit this row's own tight width (avatar + name column + a shrink-0
+  // time/bucket glyph on the right leaves very little room) once the
+  // "Місцевий час буде · " label is added in front of it, especially
+  // for the longer non-English locales. Numeric day.month instead --
+  // matches app/chats/page.tsx's own chat-list short-date convention
+  // (e.g. "05.08"), always compact regardless of locale/month-name
+  // length. `truncate` below stays on as a safety net, not the fix.
+  const dateLabel = `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}`;
   const timeLabel = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", timeZone: zone });
   const bucket = bucketForHour(
     Number(d.toLocaleString("en-US", { hour: "numeric", hour12: false, timeZone: zone })) % 24,
@@ -280,7 +257,7 @@ function ParticipantRow({
       {mode === "exact" && <div className="shrink-0 text-[15px] font-semibold tabular-nums">{timeLabel}</div>}
       {mode === "bucket" && (
         <div className="flex shrink-0 items-center gap-1 text-neutral-500 dark:text-neutral-400">
-          <BucketIcon bucket={bucket} className="h-4 w-4" />
+          <span className="text-[15px] leading-none" aria-hidden="true">{bucketEmoji(bucket)}</span>
           <span className="text-[12px] font-medium">{bucketLabel(bucket, lang)}</span>
         </div>
       )}
@@ -301,6 +278,7 @@ export function MeetingMessageCard({
   canAccept,
   accepting,
   onAccept,
+  footer,
 }: {
   lang: Locale;
   payload: MeetingPayload;
@@ -325,6 +303,15 @@ export function MeetingMessageCard({
   canAccept: boolean;
   accepting: boolean;
   onAccept: () => void;
+  // 2026-09-04 (Aleksandr: "Убери подложку со встречи") -- a meeting
+  // message now renders flat, same as a lone photo/voice/file/contact
+  // (app/chats/[chatId]/page.tsx's own isFlatMedia), with no colored
+  // bubble wrapper of its own behind this already-self-contained white/
+  // dark card. That wrapper used to be where the shared time+ticks row
+  // lived, so page.tsx now hands it down as `footer` instead (same
+  // ContactMessageCard convention, see that file's own `footer` prop),
+  // rendered inside this card's own bottom padding.
+  footer?: ReactNode;
 }) {
   const [showTimeVisibility, setShowTimeVisibility] = useState(false);
   const accepted = acceptPayload !== null;
@@ -340,7 +327,7 @@ export function MeetingMessageCard({
   const otherMode: "exact" | "bucket" | "hidden" = accepted ? "exact" : canAccept ? "bucket" : "hidden";
 
   return (
-    <div className="w-[272px] max-w-full overflow-hidden rounded-2xl bg-white text-[#262a34] shadow-sm dark:bg-[#1c1c1e] dark:text-white">
+    <div className="relative w-[272px] max-w-full overflow-hidden rounded-2xl bg-white text-[#262a34] shadow-sm dark:bg-[#1c1c1e] dark:text-white">
       <div className="flex items-center gap-2 px-3 pt-3">
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#ff5fa2] to-[#2bd6c7] text-white">
           <ChatMeetingAttachIcon className="h-4 w-4" />
@@ -404,18 +391,26 @@ export function MeetingMessageCard({
         )}
       </div>
 
+      {footer && <div className="px-3 pb-2.5">{footer}</div>}
+
+      {/* 2026-09-04 (Aleksandr: "Показывай эту штуку на самом инвайте
+          не перекрывая флоу и без затемнения всего экрана") -- was a
+          `fixed inset-0` overlay with its own full-screen bg-black/50
+          scrim, sitting on top of the ENTIRE chat regardless of where
+          this bubble happened to be. Now it's `absolute inset-0`
+          against this card's own `relative` root above -- fills only
+          this invite's own footprint, in this card's own bg color (no
+          separate dark backdrop layer at all), and never reaches past
+          its rounded corners (this root's own overflow-hidden). */}
       {showTimeVisibility && (
         <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4"
+          className="absolute inset-0 z-10 flex items-center justify-center bg-white/98 p-4 backdrop-blur-sm dark:bg-[#1c1c1e]/98"
           onClick={(e) => {
             e.stopPropagation();
             setShowTimeVisibility(false);
           }}
         >
-          <div
-            className="flex w-full max-w-xs flex-col items-center gap-3 rounded-2xl bg-white p-5 text-center shadow-xl dark:bg-neutral-900"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="flex w-full flex-col items-center gap-3 text-center" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-[15px] font-semibold text-neutral-900 dark:text-neutral-50">{t("timeVisibility", lang)}</h3>
             <p className="text-[13px] leading-snug text-neutral-500 dark:text-neutral-400">{t("timeVisibilityBody", lang)}</p>
             <button

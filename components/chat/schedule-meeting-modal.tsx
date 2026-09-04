@@ -31,6 +31,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { T, type Locale } from "@/components/t";
 import { ChatBackArrow, ChatMeetingAttachIcon } from "./icons";
+import { bucketForHour, bucketEmoji } from "@/lib/a1/meeting-protocol";
 
 type StringKey =
   | "title"
@@ -38,6 +39,7 @@ type StringKey =
   | "linkPlaceholder"
   | "schedule"
   | "pastError"
+  | "linkInvalid"
   | "setMeetingInYourTime"
   | "timeZoneInfoBody"
   | "gotIt"
@@ -65,6 +67,16 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
     uk: "Оберіть час у майбутньому", en: "Pick a time in the future", ru: "Выберите время в будущем",
     de: "Wähle einen Zeitpunkt in der Zukunft", es: "Elige una hora futura", fr: "Choisissez une heure future",
     pl: "Wybierz przyszłą godzinę", ptBR: "Escolha um horário futuro", zh: "请选择一个未来的时间",
+  },
+  // 2026-09-04 (Aleksandr: "Делай базовую проверку линка, не давай
+  // создать без .com и т.д.") -- link stays optional (linkPlaceholder
+  // above), this only fires once something IS typed but doesn't look
+  // like a real domain -- see isLikelyValidLink below for what "looks
+  // like" means here.
+  linkInvalid: {
+    uk: "Схоже, це не посилання", en: "Doesn't look like a link", ru: "Похоже, это не ссылка",
+    de: "Sieht nicht nach einem Link aus", es: "No parece un enlace", fr: "Cela ne ressemble pas à un lien",
+    pl: "To nie wygląda na link", ptBR: "Isso não parece um link", zh: "这看起来不像一个链接",
   },
   setMeetingInYourTime: {
     uk: "Встановіть зустріч у вашому часі", en: "Set Meeting in Your Time", ru: "Установите встречу в вашем времени",
@@ -223,6 +235,21 @@ function pad2(n: number): string {
   return String(n).padStart(2, "0");
 }
 
+// 2026-09-04 (Aleksandr: "Делай базовую проверку линка, не давай
+// создать без .com и т.д.") -- deliberately basic, per his own wording:
+// empty is fine (the field stays optional, see linkPlaceholder above),
+// anything typed just needs to look like a real host -- at least one
+// dot and a 2+ letter TLD after it, no spaces -- not a full RFC 3986
+// parse. Strips an optional scheme first so "https://meet.google.com/
+// abc" and "meet.google.com/abc" validate the same way.
+function isLikelyValidLink(raw: string): boolean {
+  const value = raw.trim();
+  if (!value) return true;
+  const withoutScheme = value.replace(/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//, "");
+  const host = withoutScheme.split(/[/?#]/)[0] ?? "";
+  return /^[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)+$/.test(host) && /\.[a-zA-Z]{2,}$/.test(host);
+}
+
 export function ScheduleMeetingModal({
   lang,
   peerName,
@@ -308,14 +335,24 @@ export function ScheduleMeetingModal({
   const [minuteIndex, setMinuteIndex] = useState(initial.minuteIndex);
   const [link, setLink] = useState("");
   const [pastError, setPastError] = useState(false);
+  const [linkError, setLinkError] = useState(false);
   const [showTzInfo, setShowTzInfo] = useState(false);
 
   const selectedDay = days[dayIndex] ?? days[0]!;
   const selectedHour = hours[hourIndex]!.key;
   const selectedMinute = minutes[minuteIndex]!.key;
+  // Live bucket glyph above the wheel -- see this hook's own call site
+  // below for the "Аleksandr, 'показывай сверху иконку какое время
+  // суток'" request this feeds.
+  const selectedBucket = bucketForHour(Number(selectedHour));
 
   function handleSubmit() {
     if (scheduling) return;
+    if (!isLikelyValidLink(link)) {
+      setLinkError(true);
+      return;
+    }
+    setLinkError(false);
     const startsAt = new Date(`${selectedDay.iso}T${pad2(Number(selectedHour))}:${pad2(Number(selectedMinute))}`);
     if (Number.isNaN(startsAt.getTime()) || startsAt.getTime() <= Date.now()) {
       setPastError(true);
@@ -328,7 +365,7 @@ export function ScheduleMeetingModal({
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
       <div
-        className="flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-white p-5 shadow-xl dark:bg-neutral-900"
+        className="relative flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-white p-5 shadow-xl dark:bg-neutral-900"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3">
@@ -338,7 +375,7 @@ export function ScheduleMeetingModal({
             aria-label="Back"
             className="group flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-[#335ef7] transition hover:bg-neutral-50 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80 dark:text-[#0c8ce9] dark:hover:bg-[#1c1c1e]"
           >
-            <ChatBackArrow className="h-2.5 w-[6px]" />
+            <ChatBackArrow className="h-2.5 w-[6px] animate-back-arrow" />
           </button>
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#ff5fa2] to-[#2bd6c7] text-white">
             <ChatMeetingAttachIcon className="h-4 w-4" />
@@ -369,15 +406,33 @@ export function ScheduleMeetingModal({
           <input
             type="url"
             value={link}
-            onChange={(e) => setLink(e.target.value)}
+            onChange={(e) => {
+              setLink(e.target.value);
+              if (linkError) setLinkError(false);
+            }}
             placeholder={t("linkPlaceholder", lang)}
-            className="rounded-lg border border-neutral-200 bg-white px-2.5 py-2 text-[14px] text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-[#335ef7] dark:border-[#2b2b2b] dark:bg-[#1c1c1e] dark:text-white"
+            className={`rounded-lg border bg-white px-2.5 py-2 text-[14px] text-neutral-900 outline-none placeholder:text-neutral-400 dark:bg-[#1c1c1e] dark:text-white ${
+              linkError
+                ? "border-red-400 focus:border-red-500 dark:border-red-500"
+                : "border-neutral-200 focus:border-[#335ef7] dark:border-[#2b2b2b]"
+            }`}
           />
+          {linkError && <span className="text-[11px] font-normal text-red-500">{t("linkInvalid", lang)}</span>}
         </label>
 
         <div className="rounded-xl border border-neutral-200 dark:border-[#2b2b2b]">
           <div className="flex items-center justify-between px-3 pt-2.5">
-            <span className="text-[12px] font-medium text-neutral-500 dark:text-neutral-400">{t("setMeetingInYourTime", lang)}</span>
+            <span className="flex items-center gap-1.5 text-[12px] font-medium text-neutral-500 dark:text-neutral-400">
+              {t("setMeetingInYourTime", lang)}
+              {/* 2026-09-04 (Aleksandr: "При скролле времени показывай
+                  сверху иконку какое время суток... Все те иконки это
+                  обычные эмодзи") -- live, re-derives off `selectedHour`
+                  (the WheelColumn's own currently-centered hour) on
+                  every scroll tick, same bucketForHour/bucketEmoji this
+                  file shares with meeting-message-card.tsx's own
+                  per-participant bucket row. */}
+              <span className="text-[15px] leading-none" aria-hidden="true">{bucketEmoji(selectedBucket)}</span>
+            </span>
             <button
               type="button"
               onClick={() => setShowTzInfo(true)}
@@ -416,18 +471,26 @@ export function ScheduleMeetingModal({
         </button>
       </div>
 
+      {/* 2026-09-04 (Aleksandr: "Показывай эту штуку на самом инвайте
+          не перекрывая флоу и без затемнения всего экрана" -- applied
+          here too, "Этот текст тоже показывай внутри этого блока и ту
+          же самую кнопку 'зрозуміло'") -- was its own second `fixed
+          inset-0` scrim stacked on top of this modal's already-dimmed
+          backdrop above (double dimming). Now `absolute inset-0`
+          against this panel's own `relative` root instead -- covers
+          only the modal's own panel, in the panel's own bg color, no
+          extra scrim layer. Button copy already matched the "gotIt"
+          wording meeting-message-card.tsx's own popup just adopted too
+          (STRINGS.gotIt here, that file's own STRINGS.ok) -- kept as is. */}
       {showTzInfo && (
         <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4"
+          className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/98 p-5 backdrop-blur-sm dark:bg-neutral-900/98"
           onClick={(e) => {
             e.stopPropagation();
             setShowTzInfo(false);
           }}
         >
-          <div
-            className="flex w-full max-w-xs flex-col items-center gap-3 rounded-2xl bg-white p-5 text-center shadow-xl dark:bg-neutral-900"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="flex w-full max-w-xs flex-col items-center gap-3 text-center" onClick={(e) => e.stopPropagation()}>
             <GlobeIcon className="text-[#335ef7] dark:text-[#0c8ce9]" />
             <p className="text-[13px] leading-snug text-neutral-600 dark:text-neutral-300">{t("timeZoneInfoBody", lang)}</p>
             <button

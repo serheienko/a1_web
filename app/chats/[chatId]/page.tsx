@@ -2719,7 +2719,18 @@ export default function ChatWindowPage() {
                 !text && pendingAttachments.length === 0 && docMedia.length === 0 && calc === null &&
                 ((contactMedia.length === 1 && pendingContactCards.length === 0) ||
                   (contactMedia.length === 0 && pendingContactCards.length === 1));
-              const isFlatMedia = isVoiceOnly || isImageOnly || isFileOnly || isContactOnly;
+              // 2026-09-04 (Aleksandr: "Убери подложку со встречи") --
+              // a meeting message's `text` is ENTIRELY the encoded
+              // marker (decodeMeetingText either parses the whole
+              // thing or returns null, see meeting-protocol.ts), so
+              // `meeting !== null` alone is exactly as exclusive as the
+              // other three flags above -- no other content ever rides
+              // alongside one. MeetingMessageCard is already its own
+              // fully-styled white/dark card (rounded-2xl, its own
+              // shadow) same as ContactMessageCard, so it gets the same
+              // flat treatment: no colored bubble wrapper behind it.
+              const isMeetingOnly = meeting !== null;
+              const isFlatMedia = isVoiceOnly || isImageOnly || isFileOnly || isContactOnly || isMeetingOnly;
               // Unified for both a real message (real ticks) and a
               // still-pending one (spinner/not-sent icon, same as the
               // shared non-flat footer below already did) -- so a flat
@@ -3164,6 +3175,7 @@ export default function ChatWindowPage() {
                           canAccept={!mine && !pending}
                           accepting={acceptingMeetingId === msg._id}
                           onAccept={() => void acceptMeeting(msg._id)}
+                          footer={isMeetingOnly ? flatFooter : undefined}
                         />
                       )}
                       {text && !meeting && <div className="whitespace-pre-wrap break-words">{text}</div>}
