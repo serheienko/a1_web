@@ -81,7 +81,15 @@ export function ChatPreviewLine({
           menu itself already ships (components/chat/icons.tsx) instead
           of drawing new ones -- currentColor picks up this line's own
           muted preview-text color automatically. */}
-      {kind === "voice" && <ChatMicGlyph className="h-4 w-4 shrink-0" />}
+      {/* 2026-09-04 (Aleksandr, screenshot: "Увеличь иконку голосового,
+          щоб +- менчилась с розрахунком") -- both sit in the same h-4
+          box, but ChatMicGlyph's own glyph (icons.tsx) fills noticeably
+          less of its 38x38 viewBox than ChatCalculatorAttachIcon's does
+          of its 24x24 one, so at equal container size the mic read
+          smaller/thinner. Bumped the mic's own box up a notch (h-4 ->
+          h-[18px]) rather than touching the calc icon, which already
+          looked right. */}
+      {kind === "voice" && <ChatMicGlyph className="h-[18px] w-[18px] shrink-0" />}
       {kind === "calc" && <ChatCalculatorAttachIcon className="h-4 w-4 shrink-0" />}
       <span className="truncate">
         <PreviewLabel kind={kind} />
