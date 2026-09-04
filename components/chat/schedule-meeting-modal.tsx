@@ -488,44 +488,52 @@ export function ScheduleMeetingModal({
         >
           {t("schedule", lang)}
         </button>
-      </div>
 
-      {/* 2026-09-04 (Aleksandr: "Показывай эту штуку на самом инвайте
-          не перекрывая флоу и без затемнения всего экрана" -- applied
-          here too, "Этот текст тоже показывай внутри этого блока и ту
-          же самую кнопку 'зрозуміло'") -- was its own second `fixed
-          inset-0` scrim stacked on top of this modal's already-dimmed
-          backdrop above (double dimming). Now `absolute inset-0`
-          against this panel's own `relative` root instead -- covers
-          only the modal's own panel, in the panel's own bg color, no
-          extra scrim layer. Button copy already matched the "gotIt"
-          wording meeting-message-card.tsx's own popup just adopted too
-          (STRINGS.gotIt here, that file's own STRINGS.ok) -- kept as is. */}
-      {showTzInfo && (
-        <div
-          className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/98 p-5 backdrop-blur-sm dark:bg-neutral-900/98"
-          onClick={(e) => {
-            e.stopPropagation();
-            setShowTzInfo(false);
-          }}
-        >
-          <div className="flex w-full max-w-xs flex-col items-center gap-3 text-center" onClick={(e) => e.stopPropagation()}>
-            {/* 2026-09-04 (Aleksandr, Figma "(1) Schedule a Meeting"
-                reference + his own supplied planet2.json): same swap as
-                meeting-message-card.tsx's own "Видимість часу" popup --
-                see that file's own comment. */}
-            <LottiePlayer src="/animations/planet2.json" size={72} />
-            <p className="text-[13px] leading-snug text-neutral-600 dark:text-neutral-300">{t("timeZoneInfoBody", lang)}</p>
-            <button
-              type="button"
-              onClick={() => setShowTzInfo(false)}
-              className="mt-1 w-full rounded-full bg-[#335ef7] px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-[#2748d6] dark:bg-[#0c8ce9] dark:hover:bg-[#0a75c2]"
-            >
-              {t("gotIt", lang)}
-            </button>
+        {/* 2026-09-04, follow-up (Aleksandr, mobile screen recording:
+            "Текст с планетой должен жить внутри попапа при нажатии") --
+            despite the note below (kept, still explains the design
+            intent), this block was actually still a SIBLING of the
+            dialog panel div above rather than nested inside it, both
+            children of the outer `fixed inset-0` backdrop -- so
+            `absolute inset-0` was resolving against that FULL-
+            VIEWPORT backdrop, not the panel, which is exactly why it
+            rendered as a genuine full-screen takeover on mobile
+            (where this dialog is already close to full-height)
+            instead of staying confined to the popup card. Moved
+            inside the panel div itself -- now its last child, right
+            before the panel's own closing tag -- so `absolute
+            inset-0` finally scopes to the panel's own `max-w-sm`
+            bounds. No separate dark scrim of its own -- this modal's
+            own backdrop above already provides one -- just a `bg-
+            white/98` panel-colored overlay, same as meeting-message-
+            card.tsx's own "Видимість часу" popup, and the same "gotIt"
+            button copy that popup uses too. */}
+        {showTzInfo && (
+          <div
+            className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/98 p-5 backdrop-blur-sm dark:bg-neutral-900/98"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowTzInfo(false);
+            }}
+          >
+            <div className="flex w-full max-w-xs flex-col items-center gap-3 text-center" onClick={(e) => e.stopPropagation()}>
+              {/* 2026-09-04 (Aleksandr, Figma "(1) Schedule a Meeting"
+                  reference + his own supplied planet2.json): same swap as
+                  meeting-message-card.tsx's own "Видимість часу" popup --
+                  see that file's own comment. */}
+              <LottiePlayer src="/animations/planet2.json" size={72} />
+              <p className="text-[13px] leading-snug text-neutral-600 dark:text-neutral-300">{t("timeZoneInfoBody", lang)}</p>
+              <button
+                type="button"
+                onClick={() => setShowTzInfo(false)}
+                className="mt-1 w-full rounded-full bg-[#335ef7] px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-[#2748d6] dark:bg-[#0c8ce9] dark:hover:bg-[#0a75c2]"
+              >
+                {t("gotIt", lang)}
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
