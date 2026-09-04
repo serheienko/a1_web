@@ -6917,3 +6917,35 @@ fires fresh every time the panel opens, matching calcClose's own
 reset-to-one-blank-row behavior.
 
 tsc-clean, commit c0c8572.
+
+## 6.146 -- "Документ" no-filename badge: root-caused with Aleksandr's own live data (2026-09-04)
+
+Long-blocked bug (open since 6.117): some file attachments show a bare
+generic "Документ"/"FILE" badge instead of a real filename. Couldn't
+be diagnosed further without live data -- Aleksandr walked himself
+through Safari Web Inspector -> Network -> the messages response and
+pasted the full JSON for chat 6a9850d1c9f67752c6aa2303.
+
+Confirmed root cause from that data: message _id "13" (.docx,
+mimetype application/vnd.openxmlformats-officedocument.wordprocessing
+ml.document) and _id "25" (application/octet-stream) both came back
+with `"attributes": []` -- completely empty, no attribute-filename --
+while three PDF messages in that SAME chat (_id "26", "27", "39")
+correctly carried one. Checked this app's own upload path
+(app/api/upload/create/route.ts, app/chats/[chatId]/page.tsx's
+upload flow): it already sends fileName for every file type, not
+just PDFs (fixed 2026-09-03), so anything uploaded through this
+website now always keeps its name. These two messages predate that
+fix (or came from another client) -- the name was never stored
+server-side, so nothing client-side can recover it.
+
+Shipped the one thing that IS fixable here: components/chat/
+file-type-icon.tsx's new DocumentFallbackLabel swaps the bare
+"Document" fallback for a kind-specific one (mimetype survives even
+without a filename) -- "Word document", "Excel spreadsheet", "PDF
+document", "Archive", "Text file", "Audio file" -- wired into both
+app/chats/[chatId]/page.tsx and mini-chat-window.tsx. A truly generic
+upload with no derivable type (the octet-stream case) still shows
+plain "Document" -- there's genuinely nothing left to say about it.
+
+tsc-clean, commit 61d612b.
