@@ -628,7 +628,26 @@ export function MiniChatWindow({
       ref={panelRef}
       role="dialog"
       aria-label={target.title}
-      className="animate-popover-up fixed right-5 z-[70] flex h-[26rem] w-80 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
+      // 2026-09-04 (Aleksandr, 2 screenshots of the Meetings row's
+      // own new inline panel: "Не поместилась инфа из попапа, надо
+      // делать его выше видимо") -- this card is a small FIXED-height
+      // (26rem) `overflow-hidden` box; the attach popover growing
+      // upward from the compose bar is `position: absolute` so it
+      // escapes normal flow, but it's still clipped by THIS card's own
+      // overflow-hidden the instant it needs more room than fits
+      // between the compose bar and the card's own top edge (~366px --
+      // less than even the popover's own max-h-[min(60vh,420px)] cap,
+      // let alone Meetings' actual content). The row-list/Daily-
+      // Uploads/Meetings popover already gets its own internal
+      // max-height + scroll (see that div's own comment) -- this is
+      // the SEPARATE, outer constraint: growing the whole card taller
+      // while a tall popover is open moves the card's fixed-`bottom`-
+      // anchored TOP edge further up the screen, literally "делает его
+      // выше" the way Aleksandr described it, giving that already-
+      // capped popover genuine room instead of clipping it early.
+      className={`animate-popover-up fixed right-5 z-[70] flex w-80 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xl transition-[height] duration-200 dark:border-neutral-700 dark:bg-neutral-900 ${
+        attachMenuOpen && (attachDailyUploadsOpen || meetingsMenuOpen) ? "h-[32rem]" : "h-[26rem]"
+      }`}
       style={{ bottom: "calc(1.25rem + 56px + 12px + 48px + 12px + env(safe-area-inset-bottom))" }}
     >
       <div className="relative flex shrink-0 items-center border-b border-neutral-100 px-3 py-2.5 dark:border-neutral-800">
