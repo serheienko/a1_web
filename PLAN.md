@@ -7104,3 +7104,61 @@ inspection, no live repro available from this side (can't log in),
 asked Aleksandr for a screen recording / more specifics.
 
 tsc-clean, commit pending.
+
+## 6.154 -- Reply feature: message actions menu + quoted replies (2026-09-05)
+
+Aleksandr, live UI reference (Telegram screenshots + a WhatsApp-style
+long-press menu): "Давай теперь сделаем фичу, которая называется
+Reply". Talked through the trigger himself and landed on a plain single
+click/tap opening a Cupertino-style menu (swipe is mobile-only, right-
+click doesn't translate to every platform) -- explicitly scoped
+everything in that menu except Reply itself as placeholder, and flagged
+his own reference screenshot's icon placement as wrong (icons must be
+LEFT of the label, not far right).
+
+Endpoint/payload CONFIRMED off the mobile app's own source (~/mnt/
+a1_app/aone_private, not guessed): messages.send's `replyTo` is
+`{message: <numeric id being replied to>, object: "peer-user", user:
+<that message's own sender>}` (chat_detail_cubit.dart's actual send
+calls -- the generated OpenAPI model marks more fields required, but
+the app itself never sends `chat`/`channel`). Critically, replyTo on
+BOTH the request and a real received message carries only that id --
+never a snippet of the original text -- so the quoted preview is
+entirely a CLIENT-side resolution against whatever's already loaded,
+same as the mobile app's own SelectedReplyMessageItem/ReplyItem
+(read directly off their source for the exact visual spec: left accent
+bar, author name in the accent color, text/kind label below it).
+
+Built:
+- lib/a1/chat-schemas.ts: MessageReplyToSchema + `replyTo` on
+  RawMessageSchema/ChatMessage.
+- app/api/chats/send/route.ts: SendInput takes `replyTo: {messageId,
+  userId}`, forwarded as the confirmed shape above.
+- components/chat/message-actions-menu.tsx (new): `MessageActionsMenu`
+  (reaction row + Reply/Copy/Edit/Remind/Forward/Delete/Select, all but
+  Reply a visual no-op per Aleksandr's own scoping, icon-left-label-
+  right per his fix, portaled + flips above/below by available space
+  same as PLAN.md 6.153's popover), `ReplyComposeBar` (the "Reply to X"
+  accessory row above compose) and `MessageReplyQuote` (the compact
+  quoted block inside a bubble, tap to jump -- reuses the existing
+  handleShowInChatFromViewer scroll+flash).
+- app/chats/[chatId]/page.tsx: click-to-open-menu wired on plain TEXT
+  bubbles only (see its own inline comment for why -- every other kind
+  already has its own inner interactive element this would fight);
+  `replyTarget`/`PendingMessage.replySnapshot` thread the reply through
+  send()/attemptSend/uploadAndSendVoice/maybeFinalizePendingSend/
+  retryOne, so it survives attachments still uploading and a failed-
+  then-retried send, and clears only on an actual send (not on
+  navigating away, matching draft's own already-separate persistence).
+
+Known scope limits, told to Aleksandr, not silently decided: reply
+quoting only resolves against this chat's own currently-loaded ~50-
+message window (chat-server's own replyTo carries no text at all, so
+an older target has nothing local to resolve to -- falls back to
+showing nothing rather than a second round-trip); every actions-menu
+row but Reply is a placeholder; the photo-viewer's own pre-existing
+"Reply" ("•••" menu) still just focuses the compose box without
+staging an actual reply target -- untouched this pass, flagged for a
+follow-up if he wants it wired the same way.
+
+tsc-clean, commit pending.
