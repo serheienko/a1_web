@@ -6807,3 +6807,38 @@ the compose textarea loses focus, which is exactly when Send dismisses
 the keyboard.
 
 tsc-clean, commit fa71ccf.
+
+## 6.142 -- Chat photos stuck on blur placeholder, worst on multi-photo grids (2026-09-04)
+
+Aleksandr, 3 screenshots (a sent multi-photo message: the big grid tile
+resolved to the real photo, the two smaller ones stayed shimmer-blurred
+indefinitely): "Ты не полечил комбинирование фото и подгрузку через
+блюр".
+
+Root cause: the exact same bug already root-caused and fixed for
+PdfPageThumbnail (6.128, and mini-chat-window's own copy earlier this
+session) -- buildMediaProxyUrl(doc) embeds doc.fileReference, which the
+backend reissues with a new value for the same document on every poll.
+That fix only ever covered PdfPageThumbnail (a component that owns a
+canvas + loading effect it can key by doc._id internally); every plain
+`<img src={buildMediaProxyUrl(doc)}>` photo tag -- ChatPhotoGrid, both
+single-image branches in app/chats/[chatId]/page.tsx, mini-chat-
+window.tsx's own copy -- never got the equivalent fix. A changed `src`
+always restarts an <img>'s load from zero, so a photo slower to decode
+than one poll interval can never finish -- MEDIA_BLUR_STYLE's shimmer
+(lib/blur-placeholder.ts) shows forever, since that trick only clears
+once the real image actually paints over it. Multi-photo grids (several
+images competing for bandwidth at once) hit this far more visibly than
+a lone small photo -- explains exactly what got reported: the one tile
+that resolved was already browser-cached from an earlier identical
+send, the other two never got the chance.
+
+Fix: new lib/a1/stable-media-url.ts, getStableMediaProxyUrl(doc) --
+memoizes the proxy URL per doc._id the first time each document is
+seen (same plain module-level Map pattern as lib/voice-local-waveform-
+cache.ts), so every later poll for the same doc._id reuses the
+identical string regardless of fileReference rotating server-side --
+the <img>'s src prop never actually changes, so the browser never
+restarts the load. Wired into all four call sites sharing this shape.
+
+tsc-clean, commit 40107ab.
