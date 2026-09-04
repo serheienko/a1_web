@@ -4159,25 +4159,30 @@ export default function ChatWindowPage() {
           inside the attach popover above (see attachPanelRef's own
           2026-09-04 comment) instead of as a second top-level modal
           here -- nothing left to render at this level for it. */}
-      {scheduleMeetingOpen && (
-        <ScheduleMeetingModal
-          lang={lang}
-          peerName={headerTitle}
-          peerAvatarUrl={headerAvatar}
-          onClose={() => setScheduleMeetingOpen(false)}
-          onBack={() => {
-            // Backs out of the full Schedule form into the nested
-            // Meetings quick-invite screen -- which now lives inside
-            // the attach popover, so reopening THAT is part of going
-            // back, not just flipping meetingsMenuOpen on its own.
-            setScheduleMeetingOpen(false);
-            setAttachMenuOpen(true);
-            setMeetingsMenuOpen(true);
-          }}
-          onSchedule={(payload) => void scheduleMeeting(payload)}
-          scheduling={schedulingMeeting}
-        />
-      )}
+      {/* 2026-09-04 (Aleksandr: "Время оставляй при переключении") --
+          mounted unconditionally now (was `{scheduleMeetingOpen && ...}`,
+          a full unmount/remount every time this closed) so the modal's
+          own dayIndex/hourIndex/minuteIndex/link state survives backing
+          out to the Meetings screen and reopening -- see that
+          component's own `open` prop comment. */}
+      <ScheduleMeetingModal
+        open={scheduleMeetingOpen}
+        lang={lang}
+        peerName={headerTitle}
+        peerAvatarUrl={headerAvatar}
+        onClose={() => setScheduleMeetingOpen(false)}
+        onBack={() => {
+          // Backs out of the full Schedule form into the nested
+          // Meetings quick-invite screen -- which now lives inside
+          // the attach popover, so reopening THAT is part of going
+          // back, not just flipping meetingsMenuOpen on its own.
+          setScheduleMeetingOpen(false);
+          setAttachMenuOpen(true);
+          setMeetingsMenuOpen(true);
+        }}
+        onSchedule={(payload) => void scheduleMeeting(payload)}
+        scheduling={schedulingMeeting}
+      />
       {contactsPickerOpen && (
         <ContactsPickerModal
           lang={lang}

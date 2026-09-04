@@ -32,6 +32,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { T, type Locale } from "@/components/t";
 import { ChatBackArrow, ChatMeetingAttachIcon } from "./icons";
 import { bucketForHour, bucketEmoji } from "@/lib/a1/meeting-protocol";
+import { LottiePlayer } from "@/components/lottie-player";
 
 type StringKey =
   | "title"
@@ -106,15 +107,6 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
 
 function t(key: StringKey, lang: Locale): string {
   return STRINGS[key][lang];
-}
-
-function GlobeIcon({ className }: { className?: string }) {
-  return (
-    <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M3 12h18M12 3c2.7 2.6 4 5.7 4 9s-1.3 6.4-4 9c-2.7-2.6-4-5.7-4-9s1.3-6.4 4-9Z" />
-    </svg>
-  );
 }
 
 function InfoIcon({ className }: { className?: string }) {
@@ -251,6 +243,7 @@ function isLikelyValidLink(raw: string): boolean {
 }
 
 export function ScheduleMeetingModal({
+  open,
   lang,
   peerName,
   peerAvatarUrl,
@@ -259,6 +252,18 @@ export function ScheduleMeetingModal({
   onSchedule,
   scheduling,
 }: {
+  // 2026-09-04 (Aleksandr: "Время оставляй при переключении" -- backing
+  // out to the Meetings quick-invite screen and reopening Schedule used
+  // to fully unmount/remount this component (the parent's own
+  // `{scheduleMeetingOpen && <ScheduleMeetingModal .../>}`), resetting
+  // every useState below (dayIndex/hourIndex/minuteIndex/link/...) back
+  // to their defaults each time. The parent now mounts this
+  // unconditionally and only toggles `open`; the early return below
+  // (AFTER every hook) just hides the output while closed, same
+  // "stays mounted, state survives" convention components/chats-
+  // flyout.tsx and components/mini-chat-window.tsx already use for
+  // their own `open` props.
+  open: boolean;
   lang: Locale;
   peerName: string;
   peerAvatarUrl: string | null;
@@ -361,6 +366,8 @@ export function ScheduleMeetingModal({
     setPastError(false);
     onSchedule({ startsAtUtcMs: startsAt.getTime(), link: link.trim() ? link.trim() : null });
   }
+
+  if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
@@ -491,7 +498,11 @@ export function ScheduleMeetingModal({
           }}
         >
           <div className="flex w-full max-w-xs flex-col items-center gap-3 text-center" onClick={(e) => e.stopPropagation()}>
-            <GlobeIcon className="text-[#335ef7] dark:text-[#0c8ce9]" />
+            {/* 2026-09-04 (Aleksandr, Figma "(1) Schedule a Meeting"
+                reference + his own supplied planet2.json): same swap as
+                meeting-message-card.tsx's own "Видимість часу" popup --
+                see that file's own comment. */}
+            <LottiePlayer src="/animations/planet2.json" size={72} />
             <p className="text-[13px] leading-snug text-neutral-600 dark:text-neutral-300">{t("timeZoneInfoBody", lang)}</p>
             <button
               type="button"

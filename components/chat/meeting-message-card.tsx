@@ -36,6 +36,7 @@ import { T, type Locale } from "@/components/t";
 import { ChatMeetingAttachIcon } from "./icons";
 import type { ReactNode } from "react";
 import { bucketForHour, bucketEmoji, type MeetingPayload, type MeetingAcceptPayload, type MeetingTimeBucket } from "@/lib/a1/meeting-protocol";
+import { LottiePlayer } from "@/components/lottie-player";
 
 type StringKey =
   | "title"
@@ -444,6 +445,14 @@ export function MeetingMessageCard({
           }}
         >
           <div className="flex w-full flex-col items-center gap-3 text-center" onClick={(e) => e.stopPropagation()}>
+            {/* 2026-09-04 (Aleksandr, Figma "(1) Schedule a Meeting"
+                reference + his own supplied planet2.json): the
+                reference shows a big globe/planet icon centered above
+                this exact copy -- his own animation now sits there
+                instead of a static icon, same LottiePlayer convention
+                every other in-app animation (planet-loader, the cat
+                mascots) already uses. */}
+            <LottiePlayer src="/animations/planet2.json" size={72} />
             <h3 className="text-[15px] font-semibold text-neutral-900 dark:text-neutral-50">{t("timeVisibility", lang)}</h3>
             <p className="text-[13px] leading-snug text-neutral-500 dark:text-neutral-400">{t("timeVisibilityBody", lang)}</p>
             <button
