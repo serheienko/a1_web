@@ -315,15 +315,6 @@ type Recorder = ReturnType<typeof useVoiceRecorder>;
 
 export function VoiceRecordButton({ recorder, disabled, lang }: { recorder: Recorder; disabled?: boolean; lang: Locale }) {
   const buttonRef = useRef<HTMLButtonElement>(null);
-  // 2026-09-03 (Aleksandr, live test: mobile web's press-hold gesture)
-  // -- remembers whether THIS press was a touch tap (vs. a mouse press),
-  // purely to suppress the lock-badge float above the button during the
-  // brief "requesting" (mic permission) window for a touch press -- that
-  // gesture skips the badge's whole reason for existing (see startPress'
-  // own `autoLock` comment in voice-recorder.ts), so showing a static,
-  // never-animating lock icon for a few hundred ms would just be noise.
-  const touchGestureRef = useRef(false);
-
   function centerOf(el: HTMLElement): VoiceRecorderPointer {
     const rect = el.getBoundingClientRect();
     return { clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 };
@@ -348,83 +339,20 @@ export function VoiceRecordButton({ recorder, disabled, lang }: { recorder: Reco
 
   return (
     <div className="relative w-[44px] shrink-0">
-      {/* Lock affordance -- 2026-09-03 (Aleksandr, second live test round:
-          "сверху нас не появляется штука такая типа с замочком на
-          перетягивание, чтобы я понял, что можно залочить") -- this used
-          to sit INSIDE VoiceRecordingBar's own row, off to the button's
-          left, which doesn't read as "drag up into this" the way the
-          mobile/Telegram-Desktop reference does. Floating it directly
-          ABOVE the record button itself (same element the thumb is
-          already on) makes the drag direction self-evident -- rises and
-          brightens toward lockProgress===1, same climb the pill's
-          `translateY` used to do in its old spot.
-          2026-09-04 (Aleksandr, live test: "поставь иконку замка прям
-          над стрелкой выше") -- the button slot this floats over is the
-          SAME 44px slot the send-arrow button occupies when idle+draft
-          (see app/chats/[chatId]/page.tsx's own ternary swapping between
-          the two), so this wrapper now pins to that exact 44px width
-          (`w-[44px]`, was bare `shrink-0`, sized only by its child) --
-          `left-1/2 -translate-x-1/2` centers correctly either way in
-          practice, but an explicit width removes any doubt the badge
-          could drift off the button's true center. Gap above the button
-          also grew 8px -> 14px ("выше" -- higher/more clearance), same
-          `calc(100%+Npx)` approach, just a bigger constant.
-          2026-09-04 (Aleksandr, Telegram Desktop reference recording:
-          "у них нажимаешь на микрофон, держишь, а сверху появляется
-          такая иконка с замочком, плюс стрелочка пульсирующая... чтобы
-          дать понять, что свайд, для того чтобы локнуть, и открытый
-          замок. И когда ты ведешь вверх, чтобы локнуть, оно меняется на
-          закрытый замок") -- grew from a flat circle with a single
-          always-closed lock glyph into a taller capsule matching that
-          reference: a pulsing chevron-up on top (this file's own
-          .animate-lock-arrow-pulse, app/globals.css -- continuous, not
-          the rest of this codebase's hover-triggered convention, since
-          it has to keep nudging for as long as the button is held) that
-          fades out as the drag nears the lock threshold, and the lock
-          glyph itself starts OPEN (shackle swung off the right post)
-          and swaps to the CLOSED shape once lockProgress actually hits
-          1. In practice that closed frame is brief -- lockProgress hits
-          1 the same tick recorder.state flips to "locked", which is the
-          very next render this component (see the top of this function)
-          swaps for the plain send-arrow button entirely -- but the swap
-          costs nothing to keep for whatever single frame does land, and
-          it's the correct shape if that timing ever changes. Simplified
-          from the reference on purpose (Aleksandr himself: "это уже
-          сильно жестко, там анимация... не знаю") -- no capsule slide-
-          up-the-track motion, just fade/rise + the icon swap. */}
-      {isActive && !touchGestureRef.current && (
-        <div
-          className="pointer-events-none absolute bottom-[calc(100%+14px)] left-1/2 flex w-8 -translate-x-1/2 flex-col items-center gap-1 rounded-full bg-neutral-800/90 px-1.5 py-2 text-white shadow-lg transition dark:bg-white/90 dark:text-neutral-800"
-          style={{ opacity: 0.45 + recorder.lockProgress * 0.55, transform: `translate(-50%, ${-recorder.lockProgress * 6}px)` }}
-          aria-hidden="true"
-        >
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="animate-lock-arrow-pulse"
-            style={{ opacity: 1 - recorder.lockProgress }}
-          >
-            <path d="M18 15l-6-6-6 6" />
-          </svg>
-          {recorder.lockProgress >= 1 ? (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="5" y="11" width="14" height="10" rx="2" />
-              <path d="M8 11V7a4 4 0 0 1 8 0v4" />
-            </svg>
-          ) : (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="5" y="11" width="14" height="10" rx="2" />
-              <path d="M8 11V7a4 4 0 0 1 7.5-2.5" />
-            </svg>
-          )}
-        </div>
-      )}
+      {/* 2026-09-04 (Aleksandr, live screenshot: a mouse press on this
+          button still showed the old drag-up-to-lock badge + "release
+          outside the circle to cancel" hint -- "Убираем свайпы,
+          оставляем простой клик на запись. Кликнул = пошла запись, по
+          центру кнопка 'отменить', сам замок и механику свайпа для
+          залока - убираем") -- every press now auto-locks immediately
+          (see the onPointerDown handler below), the same behavior touch
+          already had (see voice-recorder.ts's own `autoLock` comment).
+          There is no more "unlocked, dragging" phase for ANY pointer
+          type to show a lock badge for, so this whole floating
+          swipe-up-to-lock affordance is gone -- a click starts
+          recording and VoiceRecordingBar's single locked-style bar
+          (timer + centered Cancel + the send-arrow this button itself
+          becomes) is the entire UI from the first frame on. */}
       <button
         ref={buttonRef}
         type="button"
@@ -434,9 +362,10 @@ export function VoiceRecordButton({ recorder, disabled, lang }: { recorder: Reco
           if (disabled) return;
           e.currentTarget.setPointerCapture(e.pointerId);
           const center = centerOf(e.currentTarget);
-          const isTouchPress = e.pointerType === "touch";
-          touchGestureRef.current = isTouchPress;
-          void recorder.startPress({ clientX: e.clientX, clientY: e.clientY }, center, e.pointerId, { autoLock: isTouchPress });
+          // 2026-09-04: always autoLock now, mouse included -- a click
+          // (or a touch tap, unchanged) starts recording hands-free
+          // immediately, no drag-up gesture left to opt into it with.
+          void recorder.startPress({ clientX: e.clientX, clientY: e.clientY }, center, e.pointerId, { autoLock: true });
         }}
         onContextMenu={(e) => e.preventDefault()}
         onPointerMove={(e) => {
@@ -504,22 +433,18 @@ export function VoiceRecordButton({ recorder, disabled, lang }: { recorder: Reco
 // ---------------------------------------------------------------------------
 
 export function VoiceRecordingBar({ recorder, lang }: { recorder: Recorder; lang: Locale }) {
-  const isTouch = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
   const timer = formatVoiceTimer(recorder.seconds);
   const nearMax = recorder.seconds >= VOICE_MAX_SECONDS - 10;
 
-  if (recorder.state === "locked") {
-    // 2026-09-03 (Aleksandr, live test: mobile web's recording UX --
-    // "максимально просто... оставить просто две кнопки") -- on touch,
-    // this locked bar is now also what a plain single tap on the mic
-    // lands in immediately (see VoiceRecordButton's own autoLock wiring
-    // for why), and he explicitly asked for it to be just Cancel + Send,
-    // no pause/resume in between. Desktop's own manual drag-to-lock path
-    // still lands here too and keeps pause/resume -- only touch drops
-    // it, swapped for the same small red recording dot the UNLOCKED bar
-    // below already uses, so there's still some "this is live" signal
-    // in that slot instead of just empty space.
-    return (
+  // 2026-09-04 (Aleksandr: "Убираем свайпы, оставляем простой клик на
+  // запись. Кликнул = пошла запись, по центру кнопка 'отменить', сам
+  // замок и механику свайпа для залока - убираем") -- every press now
+  // auto-locks immediately (VoiceRecordButton's own onPointerDown), so
+  // this is the ONLY bar this component ever renders any more -- no
+  // more unlocked "recording" state with a drag-to-cancel/lock hint to
+  // show first. Originally this was touch's own "максимально просто"
+  // bar (2026-09-03); now every pointer type lands here straight away.
+  return (
       <div className="flex h-[44px] flex-1 items-center gap-3 rounded-[22px] border border-neutral-200 bg-white/90 px-3.5 py-2 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
         {/* 2026-09-04 (Aleksandr, live test: "убери кнопку паузы, она не
             нужна, оставь просто моргающий индикатор, так же как при
@@ -557,49 +482,6 @@ export function VoiceRecordingBar({ recorder, lang }: { recorder: Recorder; lang
           />
         </button>
       </div>
-    );
-  }
-
-  const cancelHintKey: StringKey = isTouch ? "slideToCancel" : "releaseOutsideToCancel";
-  const dim = Math.max(0.35, 1 - recorder.cancelProgress);
-
-  return (
-    <div className="flex h-[44px] flex-1 items-center gap-3 rounded-[22px] border border-neutral-200 bg-white/90 px-3.5 py-2 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
-      <span className="relative flex h-2.5 w-2.5 shrink-0">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#ff3b30] opacity-75" />
-        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#ff3b30]" />
-      </span>
-      <span className={`shrink-0 text-[15px] tabular-nums text-[#262a34] dark:text-white ${nearMax ? "text-[#ff3b30]" : ""}`}>{timer}</span>
-      {/* 2026-09-03 (Aleksandr, live test: "пишется сначала, что типа слева
-          сделайте свайп влево. Его на мобильной версии надо скрыть,
-          убрать тоже. На десктопе пусть будет") -- touch always lands
-          in the "locked" bar above almost immediately (autoLock), but
-          this unlocked bar still flashes for one frame on the way there
-          (state: requesting -> recording -> locked), and it used to
-          render the "slideToCancel" hint text during that flash. Kept
-          the slot (so the row's width/height don't jump) but only
-          render the copy for desktop, where release-to-cancel is a
-          real gesture worth explaining. */}
-      <span className="flex-1 truncate text-center text-[13px] text-[#989aa6] dark:text-[#8a8a8f]" style={{ opacity: dim }}>
-        {!isTouch && (
-          <T
-            uk={vt(cancelHintKey, "uk")}
-            en={vt(cancelHintKey, "en")}
-            ru={vt(cancelHintKey, "ru")}
-            de={vt(cancelHintKey, "de")}
-            es={vt(cancelHintKey, "es")}
-            fr={vt(cancelHintKey, "fr")}
-            pl={vt(cancelHintKey, "pl")}
-            ptBR={vt(cancelHintKey, "ptBR")}
-            zh={vt(cancelHintKey, "zh")}
-          />
-        )}
-      </span>
-      {/* The lock affordance itself now floats directly above
-          VoiceRecordButton (see that component's own comment) instead of
-          living in this row -- it needs to sit over the button the
-          thumb is actually on, not off to the side here. */}
-    </div>
   );
 }
 
