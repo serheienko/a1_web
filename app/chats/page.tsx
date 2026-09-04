@@ -174,11 +174,21 @@ function formatTime(ms: number): string {
   }
 }
 
+// 2026-09-04 (Aleksandr, live screenshot of this exact button: "Тут
+// надо анимацию на иконку і іконку ДРУГУЮ" + a Messenger reference,
+// then "Тогда дай анимацию просто" once he'd accepted this can't be
+// Meta's own literal Messenger mark -- see components/chats-fab.tsx's
+// own header for the full trademark reasoning) -- same filled-bubble
+// glyph as that file's own ChatsIcon (kept in sync there rather than
+// exported/shared, matching this page's existing self-contained-icon
+// convention), swapped in here for the old thin-outline bubble+plus.
 function NewChatBubbleIcon({ className }: { className?: string }) {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 20l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
-      <path d="M12 8.5v4M10 10.5h4" />
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <path
+        d="M4 11.2C4 6.67 7.8 3 12.4 3c4.6 0 8.4 3.67 8.4 8.2 0 4.53-3.8 8.2-8.4 8.2-1.13 0-2.2-.22-3.18-.63L5.9 20.2a1 1 0 0 1-1.36-1.24l1.24-3.53A8.03 8.03 0 0 1 4 11.2Z"
+        fill="currentColor"
+      />
     </svg>
   );
 }
@@ -337,9 +347,9 @@ export default function ChatsPage() {
             type="button"
             onClick={() => setNewChatOpen(true)}
             aria-label="New chat"
-            className="flex h-9 w-9 items-center justify-center rounded-full text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+            className="group flex h-9 w-9 items-center justify-center rounded-full bg-accent text-white shadow-md shadow-accent/30 transition hover:opacity-90 active:scale-95"
           >
-            <NewChatBubbleIcon />
+            <NewChatBubbleIcon className="animate-chat-wiggle" />
           </button>
         </div>
 
