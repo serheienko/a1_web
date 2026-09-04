@@ -6842,3 +6842,30 @@ the <img>'s src prop never actually changes, so the browser never
 restarts the load. Wired into all four call sites sharing this shape.
 
 tsc-clean, commit 40107ab.
+
+## 6.143 -- Time-visibility info panel clipped inside the meeting card (2026-09-04)
+
+Aleksandr, screenshot: the "Видимість часу" info panel's "Зрозуміло!"
+button cut off flush with the meeting card's own rounded corner,
+overlapped by the next chat bubble -- "Это окно надо увеличивать при
+переключении".
+
+Root cause: components/chat/meeting-message-card.tsx's panel rendered
+as an `absolute inset-0` layer over the card's `relative` root (the
+2026-09-04 "не перекрывая флоу" fix that made it card-scoped instead of
+a full-screen dimmed overlay) -- `inset-0` forces the panel's height to
+match the root's own height, which is sized by the NORMAL content
+(header+rows+button), shorter than the panel's own icon+title+
+paragraph+button stack actually needs. Being `absolute` also means it
+can't grow the root's real flow height even by overflowing -- later
+chat bubbles are positioned by ordinary document flow and have no idea
+anything spilled past this card, so they just overlap it instead of
+getting pushed down.
+
+Fix: the panel now renders IN PLACE of the normal content (same root,
+same rounded/overflow-hidden frame) rather than layered via `absolute`
+on top of it, so the root's height simply follows whichever content is
+showing -- toggling to the panel genuinely grows the card in the
+message list's normal flow.
+
+tsc-clean, commit b42c17d.
