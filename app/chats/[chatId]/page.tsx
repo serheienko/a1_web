@@ -3919,7 +3919,7 @@ export default function ChatWindowPage() {
                   )}
                 <div
                   className={`animate-popover-up max-h-[min(60vh,420px)] overflow-x-hidden overflow-y-auto rounded-2xl bg-white shadow-xl transition-[width,height] duration-200 dark:bg-neutral-900 ${
-                    attachDailyUploadsOpen || meetingsMenuOpen ? "w-80 p-4" : "w-44 py-1.5"
+                    attachDailyUploadsOpen || meetingsMenuOpen ? "w-80 p-4" : "w-60 py-1.5 sm:w-44"
                   }`}
                   // 2026-09-04 (Aleksandr, screen recording: "на секунде
                   // 3 попап сначала растет вверх, а потом уменьшает
@@ -4036,16 +4036,23 @@ export default function ChatWindowPage() {
                       2026-09-04 (Aleksandr, live test: "сделай на
                       десктопе шрифты в модалке +3-4") -- all five rows
                       below (Photo/File/Meetings/Calculation/Contact)
-                      share this same text-[14px] base; each now also
-                      carries `sm:text-[18px]` (this app's usual mobile-
-                      first `sm:` = desktop breakpoint, see e.g. the
-                      glass-effect experiment's own `sm:` resets) so
-                      only the desktop render grows, mobile stays at
-                      14px as before. */}
+                      share this same text-[Npx] base; each also carries
+                      `sm:text-[18px]` (this app's usual mobile-first
+                      `sm:` = desktop breakpoint, see e.g. the glass-
+                      effect experiment's own `sm:` resets) for desktop.
+                      2026-09-04, follow-up (Aleksandr: "На мобе увеличь
+                      на 50% шрифт в модалке, ну и саму модалку
+                      увеличь") -- the mobile base itself is now +50%
+                      too (14px -> 21px, desktop's sm:text-[18px]
+                      unchanged), with the popover's own collapsed-state
+                      width bumped to w-60 on mobile (sm:w-44 keeps
+                      desktop as-is, see this popover's own className a
+                      few lines up) so "Розрахунок" -- the longest of
+                      these five labels -- still fits on one line. */}
                   <button
                     type="button"
                     onClick={() => onPickAttachment("image")}
-                    className={`group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10 sm:text-[18px] ${quotaFullyUsed ? "opacity-50" : ""}`}
+                    className={`group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[21px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10 sm:text-[18px] ${quotaFullyUsed ? "opacity-50" : ""}`}
                   >
                     <ChatPhotoAttachIcon className="animate-photo-attach h-5 w-5 text-[#335ef7] dark:text-[#0c8ce9]" />
                     <T uk="Фото" en="Photo" ru="Фото" de="Foto" es="Foto" fr="Photo" pl="Zdjęcie" ptBR="Foto" zh="照片" />
@@ -4053,7 +4060,7 @@ export default function ChatWindowPage() {
                   <button
                     type="button"
                     onClick={() => onPickAttachment("file")}
-                    className={`group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10 sm:text-[18px] ${quotaFullyUsed ? "opacity-50" : ""}`}
+                    className={`group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[21px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10 sm:text-[18px] ${quotaFullyUsed ? "opacity-50" : ""}`}
                   >
                     <ChatFileAttachIcon className="animate-file-attach h-5 w-5 text-[#335ef7] dark:text-[#0c8ce9]" />
                     <T uk="Файл" en="File" ru="Файл" de="Datei" es="Archivo" fr="Fichier" pl="Plik" ptBR="Arquivo" zh="文件" />
@@ -4071,7 +4078,7 @@ export default function ChatWindowPage() {
                     onClick={() => {
                       setMeetingsMenuOpen(true);
                     }}
-                    className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10 sm:text-[18px]"
+                    className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[21px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10 sm:text-[18px]"
                   >
                     <ChatMeetingAttachIcon className="animate-meeting-attach h-5 w-5 text-[#335ef7] dark:text-[#0c8ce9]" />
                     <T uk="Зустрічі" en="Meetings" ru="Встречи" de="Treffen" es="Reuniones" fr="Rendez-vous" pl="Spotkania" ptBR="Reuniões" zh="会议" />
@@ -4087,7 +4094,7 @@ export default function ChatWindowPage() {
                       setAttachMenuOpen(false);
                       setCalcOpen(true);
                     }}
-                    className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10 sm:text-[18px]"
+                    className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[21px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10 sm:text-[18px]"
                   >
                     <ChatCalculatorAttachIcon className="animate-calc-attach h-5 w-5 text-[#335ef7] dark:text-[#0c8ce9]" />
                     <T
@@ -4106,7 +4113,7 @@ export default function ChatWindowPage() {
                       setAttachMenuOpen(false);
                       setContactsPickerOpen(true);
                     }}
-                    className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10 sm:text-[18px]"
+                    className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[21px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10 sm:text-[18px]"
                   >
                     <ChatContactAttachIcon className="animate-contact-attach h-5 w-5 text-[#335ef7] dark:text-[#0c8ce9]" />
                     <T uk="Контакт" en="Contact" ru="Контакт" de="Kontakt" es="Contacto" fr="Contact" pl="Kontakt" ptBR="Contato" zh="联系人" />
