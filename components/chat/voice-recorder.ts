@@ -132,6 +132,25 @@ export function useVoiceRecorder(onFinish: (result: VoiceRecordingResult) => voi
   // window so startPress own continuation below can finalize
   // immediately once there is actually a recorder to stop.
   const pendingReleaseRef = useRef(false);
+  // 2026-09-04 (Aleksandr, live test in Chrome, first-ever mic
+  // permission prompt on that browser profile: "Нормальную запись
+  // голоса ты тоже не полечил... особенно когда просит первое
+  // разрешение на запись") -- same family of bug as pendingReleaseRef
+  // above, but for Cancel instead of Send. The FIRST time this browser
+  // asks for mic access, Chrome's own native permission dialog can sit
+  // open for a while -- during that whole window recorder.state is
+  // "requesting" and mediaRecorderRef.current is still null, so tapping
+  // the recording bar's own Cancel button called cancelRecording()
+  // below, which only ever did `mediaRecorderRef.current?.stop()` --
+  // a silent no-op with nothing to stop yet. The tap looked completely
+  // ignored, and once the person THEN granted the permission, startPress'
+  // own continuation had no memory Cancel had already been tapped, so
+  // recording just started anyway as if nothing had happened. This
+  // remembers that Cancel already happened during the requesting
+  // window, the same way pendingReleaseRef remembers a release, so
+  // startPress's continuation below can actually discard the clip the
+  // instant there's a real recorder to stop.
+  const pendingCancelRef = useRef(false);
 
   const cleanupStream = useCallback(() => {
     if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
@@ -211,6 +230,7 @@ export function useVoiceRecorder(onFinish: (result: VoiceRecordingResult) => voi
       lockedRef.current = opts?.autoLock === true;
       cancelledRef.current = false;
       pendingReleaseRef.current = false;
+      pendingCancelRef.current = false;
       samplesRef.current = [];
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -280,6 +300,15 @@ export function useVoiceRecorder(onFinish: (result: VoiceRecordingResult) => voi
         // window.
         setState(lockedRef.current ? "locked" : "recording");
         setSeconds(0);
+        // 2026-09-04 (see pendingCancelRef's own declaration above) --
+        // Cancel was tapped while the mic was still initializing, with
+        // nothing yet to stop; honor it now instead of letting the
+        // recording that was supposed to be discarded just run.
+        if (pendingCancelRef.current) {
+          pendingCancelRef.current = false;
+          cancelRecording();
+          return;
+        }
         // The gesture already ended while the mic permission/init was
         // still pending (see pendingReleaseRef own declaration above) --
         // finalize right away instead of leaving this recording running
@@ -357,7 +386,17 @@ export function useVoiceRecorder(onFinish: (result: VoiceRecordingResult) => voi
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = null;
     cancelledRef.current = true;
-    mediaRecorderRef.current?.stop();
+    // 2026-09-04: no recorder yet (still "requesting", mic permission
+    // pending) -- `?.stop()` below would silently do nothing and the
+    // tap would look ignored (see pendingCancelRef's own declaration
+    // above for the full live bug report). Remember it instead, so
+    // startPress's continuation can actually discard the clip the
+    // moment there IS a recorder to stop.
+    if (!mediaRecorderRef.current) {
+      pendingCancelRef.current = true;
+      return;
+    }
+    mediaRecorderRef.current.stop();
   }, []);
 
   const onPointerUp = useCallback(
