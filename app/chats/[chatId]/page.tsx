@@ -69,7 +69,7 @@ import { CurrencyPickerModal } from "@/components/chat/currency-picker-modal";
 import { DailyUploadsModal } from "@/components/daily-uploads-modal";
 import { ContactMessageCard, type ContactCardSummary } from "@/components/chat/contact-message-card";
 import { ContactsPickerModal, type PickedContact } from "@/components/chat/contacts-picker-modal";
-import { MeetingsMenuModal } from "@/components/chat/meetings-menu-modal";
+import { MeetingsMenuModal, quickInviteCatAnimation } from "@/components/chat/meetings-menu-modal";
 import { ScheduleMeetingModal } from "@/components/chat/schedule-meeting-modal";
 import { MeetingMessageCard } from "@/components/chat/meeting-message-card";
 import {
@@ -3276,7 +3276,16 @@ export default function ChatWindowPage() {
                           footer={isMeetingOnly ? flatFooter : undefined}
                         />
                       )}
-                      {text && !meeting && <div className="whitespace-pre-wrap break-words">{text}</div>}
+                      {text && !meeting && (
+                        quickInviteCatAnimation(text) ? (
+                          <div className="flex items-center gap-2">
+                            <LottiePlayer src={quickInviteCatAnimation(text)!} size={40} />
+                            <div className="whitespace-pre-wrap break-words">{text}</div>
+                          </div>
+                        ) : (
+                          <div className="whitespace-pre-wrap break-words">{text}</div>
+                        )
+                      )}
                       {!text && !hasMedia && <div className="whitespace-pre-wrap break-words">…</div>}
                       {/* isFlatMedia messages (see that flag's own
                           comment above) already got their own time+

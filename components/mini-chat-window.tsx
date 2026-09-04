@@ -89,6 +89,7 @@ import { CurrencyPickerModal } from "@/components/chat/currency-picker-modal";
 import { DailyUploadsModal } from "@/components/daily-uploads-modal";
 import type { ChatFlyoutOpenTarget } from "@/components/chats-flyout";
 import { LottiePlayer } from "@/components/lottie-player";
+import { quickInviteCatAnimation } from "@/components/chat/meetings-menu-modal";
 
 const POLL_MS = 3000;
 // Same throttle idea as app/chats/[chatId]/page.tsx's own readStateTick
@@ -767,7 +768,20 @@ export function MiniChatWindow({
                   </div>
                 )}
                 {calc && <ChatCalculationCard calc={calc} mine={mine} />}
-                {text && <div className="whitespace-pre-wrap break-words">{text}</div>}
+                {text && (
+                  // 2026-09-04 (Aleksandr: "В бабле сообщения должна
+                  // быть анімація з котом. Текст + анімація") -- same
+                  // quick-invite cat animation app/chats/[chatId]/
+                  // page.tsx's own message list just picked up.
+                  quickInviteCatAnimation(text) ? (
+                    <div className="flex items-center gap-2">
+                      <LottiePlayer src={quickInviteCatAnimation(text)!} size={40} />
+                      <div className="whitespace-pre-wrap break-words">{text}</div>
+                    </div>
+                  ) : (
+                    <div className="whitespace-pre-wrap break-words">{text}</div>
+                  )
+                )}
                 {footer}
               </div>
             </div>

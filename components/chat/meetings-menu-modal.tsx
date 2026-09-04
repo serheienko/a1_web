@@ -71,6 +71,32 @@ function t(key: StringKey, lang: Locale): string {
   return STRINGS[key][lang];
 }
 
+// 2026-09-04 (Aleksandr, screenshot of an already-SENT "Може,
+// зустрінемось онлайн?" bubble: "В бабле сообщения должна быть
+// анімація з котом. Текст + анімація") -- the cat mascot above was only
+// ever shown on the QUICK INVITE BUTTON itself, inside this menu; the
+// instant it's tapped, send(overrideText) fires off the plain text
+// alone and the animation never reaches the actual message bubble. This
+// is the other half: a message bubble whose text matches one of these
+// two canned invites EXACTLY (any locale -- the sender and viewer don't
+// have to share one, and there's no marker/metadata riding along with
+// this plain text to read a locale off of) renders with the same cat
+// animation next to it, in both app/chats/[chatId]/page.tsx and
+// components/mini-chat-window.tsx's own duplicate message list.
+const QUICK_INVITE_ANIMATIONS: { strings: Record<Locale, string>; src: string }[] = [
+  { strings: STRINGS.meetOnline, src: "/animations/cat-hi.json" },
+  { strings: STRINGS.meetInPerson, src: "/animations/cat-coffee.json" },
+];
+
+export function quickInviteCatAnimation(text: string): string | null {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+  for (const { strings, src } of QUICK_INVITE_ANIMATIONS) {
+    if (Object.values(strings).includes(trimmed)) return src;
+  }
+  return null;
+}
+
 export function MeetingsMenuModal({
   lang,
   onBack,
