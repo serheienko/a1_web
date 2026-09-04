@@ -137,8 +137,15 @@ export function MeetingsMenuModal({
   onOpenSchedule?: () => void;
 }) {
   return (
-    <div className="flex flex-col gap-1">
-      <div className="mb-2 flex items-center gap-3">
+    // 2026-09-04, follow-up (Aleksandr, 2 screenshots of this same
+    // panel: "Делай фикс падинги") -- was relying entirely on the
+    // parent popover box's own p-4 (app/chats/[chatId]/page.tsx),
+    // which reads cramped now that everything else in this popover
+    // got bigger (the +50% mobile font bump on the row list one
+    // level up). A bit more breathing room here: bigger gap between
+    // rows, and each row's own internal padding bumped too (below).
+    <div className="flex flex-col gap-2 p-1">
+      <div className="mb-1 flex items-center gap-3">
         <button
           type="button"
           onClick={onBack}
@@ -159,7 +166,7 @@ export function MeetingsMenuModal({
           <button
             type="button"
             onClick={onOpenSchedule}
-            className="flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left text-[15px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[15px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
           >
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#ff5fa2] to-[#2bd6c7] text-white">
               <ChatMeetingAttachIcon className="h-5 w-5" />
@@ -172,7 +179,7 @@ export function MeetingsMenuModal({
           </button>
         )}
 
-        <div className="mb-1 mt-3 px-2 text-[12px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+        <div className="mb-1 mt-2 px-3 text-[12px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
           <T
             uk={t("quickInvites", "uk")} en={t("quickInvites", "en")} ru={t("quickInvites", "ru")} de={t("quickInvites", "de")}
             es={t("quickInvites", "es")} fr={t("quickInvites", "fr")} pl={t("quickInvites", "pl")} ptBR={t("quickInvites", "ptBR")}
@@ -183,7 +190,7 @@ export function MeetingsMenuModal({
         <button
           type="button"
           onClick={() => onSendQuickInvite(t("meetOnline", lang))}
-          className="flex w-full items-center justify-between gap-2 rounded-full bg-black/5 px-4 py-2.5 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+          className="flex w-full items-center justify-between gap-2 rounded-full bg-black/5 px-5 py-3 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
         >
           <span>
             <T
@@ -198,7 +205,7 @@ export function MeetingsMenuModal({
         <button
           type="button"
           onClick={() => onSendQuickInvite(t("meetInPerson", lang))}
-          className="flex w-full items-center justify-between gap-2 rounded-full bg-black/5 px-4 py-2.5 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+          className="flex w-full items-center justify-between gap-2 rounded-full bg-black/5 px-5 py-3 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
         >
           <span>
             <T
