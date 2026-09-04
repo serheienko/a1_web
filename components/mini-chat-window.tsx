@@ -645,7 +645,22 @@ export function MiniChatWindow({
       // anchored TOP edge further up the screen, literally "делает его
       // выше" the way Aleksandr described it, giving that already-
       // capped popover genuine room instead of clipping it early.
-      className={`animate-popover-up fixed right-5 z-[70] flex w-80 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xl transition-[height] duration-200 dark:border-neutral-700 dark:bg-neutral-900 ${
+      // 2026-09-04 (Aleksandr, 2 screenshots of this same card floating
+      // over the messages window behind it: "Добавь под модалку чуть
+      // легкую белую тень, чтобы отделить от окна сообщений, прям
+      // очень сильно легкую") -- plain `shadow-xl` is a dark/black
+      // shadow, which reads fine separating the card from a light page
+      // behind it but barely shows against the dark chat window this
+      // widget actually floats over (both screenshots). Folded a third,
+      // very low-opacity WHITE layer into shadow-xl's own two layers
+      // (Tailwind's default shadow-xl value, since `shadow-xl` and a
+      // second separate `shadow-[...]` utility would both just set
+      // `box-shadow` and one would silently overwrite the other rather
+      // than stacking) -- kept faint on purpose per "очень сильно
+      // легкую", present in both themes since it's harmless/invisible
+      // enough on a light backdrop but does the separating job a black
+      // shadow can't on a dark one.
+      className={`animate-popover-up fixed right-5 z-[70] flex w-80 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-[0_20px_25px_-5px_rgba(0,0,0,0.1),0_8px_10px_-6px_rgba(0,0,0,0.1),0_12px_36px_-8px_rgba(255,255,255,0.06)] transition-[height] duration-200 dark:border-neutral-700 dark:bg-neutral-900 ${
         attachMenuOpen && (attachDailyUploadsOpen || meetingsMenuOpen) ? "h-[32rem]" : "h-[26rem]"
       }`}
       style={{ bottom: "calc(1.25rem + 56px + 12px + 48px + 12px + env(safe-area-inset-bottom))" }}
