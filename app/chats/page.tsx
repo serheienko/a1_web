@@ -43,6 +43,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
@@ -54,6 +55,8 @@ import { LottiePlayer } from "@/components/lottie-player";
 import { SearchIcon } from "@/components/search-icon";
 import { GLASS } from "@/lib/glass";
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
+import { PostEditor } from "@/components/post-editor";
+import { NewChatPickerModal } from "@/components/new-chat-picker-modal";
 
 type LoadState = "loading" | "signed-out" | "error" | "ready";
 
@@ -173,11 +176,49 @@ function formatTime(ms: number): string {
   }
 }
 
+// 2026-09-04 (Aleksandr: "поставь в чатах кнопку создания поста и
+// кнопку для создания чата... Иконку можно такую же как и в апке") --
+// components/create-post-fab.tsx/components/chats-fab.tsx already cover
+// both actions site-wide, but both explicitly hide themselves on any
+// /chats route (see each file's own header comment -- CreatePostFab
+// would sit on top of the message composer on an open chat, and
+// ChatsFab is redundant while already looking at the chat list) --
+// this list page itself was left with no equivalent entry point of its
+// own. Two small header icon buttons instead of reviving the FABs
+// here: no exact mobile-app reference screenshot was in hand for
+// either glyph, so these are the standard, widely-recognized shapes
+// for each action (a plain "+" for post, a chat bubble with its own
+// "+" for a new conversation) -- easy to swap for an exact app asset
+// once one's available, flagged same as any other placeholder-icon
+// call this session.
+function HeaderPlusIcon({ className }: { className?: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
+function NewChatBubbleIcon({ className }: { className?: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 20l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+      <path d="M12 8.5v4M10 10.5h4" />
+    </svg>
+  );
+}
+
 export default function ChatsPage() {
   const lang = useActiveLocale();
+  const router = useRouter();
   const [state, setState] = useState<LoadState>("loading");
   const [chats, setChats] = useState<ChatListItem[]>([]);
   const [query, setQuery] = useState("");
+  // Signed in to even be looking at a chat list, so unlike the global
+  // FABs (which also have to cover signed-out visitors via
+  // FabAuthPrompt) neither button here needs its own auth-prompt path.
+  const [postEditorOpen, setPostEditorOpen] = useState(false);
+  const [newChatOpen, setNewChatOpen] = useState(false);
   const inFlight = useRef(false);
   // 2026-09-02 (Aleksandr: "Аватары в чатах все равно моргают раз в 5
   // сек") -- root-caused live via Chrome devtools: chat.avatarUrl (built
@@ -303,9 +344,29 @@ export default function ChatsPage() {
           populated list) stays a normal, non-flex-1 child, so this
           only changes that one block's own position. */}
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-4 py-10 sm:py-16">
-        <h1 className="text-2xl font-semibold text-[#262a34] sm:text-3xl dark:text-white">
-          <T uk="Чати" en="Chats" ru="Чаты" de="Chats" es="Chats" fr="Discussions" pl="Czaty" ptBR="Conversas" zh="聊天" />
-        </h1>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold text-[#262a34] sm:text-3xl dark:text-white">
+            <T uk="Чати" en="Chats" ru="Чаты" de="Chats" es="Chats" fr="Discussions" pl="Czaty" ptBR="Conversas" zh="聊天" />
+          </h1>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setPostEditorOpen(true)}
+              aria-label="Create post"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+            >
+              <HeaderPlusIcon />
+            </button>
+            <button
+              type="button"
+              onClick={() => setNewChatOpen(true)}
+              aria-label="New chat"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+            >
+              <NewChatBubbleIcon />
+            </button>
+          </div>
+        </div>
 
         {/* 2026-09-02 (Figma node 24360:8794, see this file's own header
             comment) -- shown on both the empty and populated states,
@@ -509,6 +570,11 @@ export default function ChatsPage() {
           </div>
         )}
       </main>
+
+      {postEditorOpen && (
+        <PostEditor mode="create" onClose={() => setPostEditorOpen(false)} onSaved={() => router.refresh()} />
+      )}
+      {newChatOpen && <NewChatPickerModal lang={lang} onClose={() => setNewChatOpen(false)} />}
     </div>
   );
 }
