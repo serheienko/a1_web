@@ -6869,3 +6869,35 @@ showing -- toggling to the panel genuinely grows the card in the
 message list's normal flow.
 
 tsc-clean, commit b42c17d.
+
+## 6.144 -- Meeting proposal card redesign to match native app (2026-09-04)
+
+Aleksandr, 2 screenshots comparing against his native app's own card:
+"У тебя, видишь, ты сделал с подложкой, поэтому всё очень мелко...
+подложку этих меню надо в принципе убрать... сделать вот как у меня.
+У меня оно всё крупно, видно і все нормально."
+
+The "подложка" was the 6.132-ish fill that turned this card solid
+accent-blue for a `mine` message (same as a regular text bubble),
+making it read as an ordinary bubble and forcing every label inside
+down to bubble-text sizes to fit. Native reference: one fixed dark-navy
+card regardless of sender, much bigger avatars/type, plain centered
+"Meeting proposal" title with no icon badge.
+
+components/chat/meeting-message-card.tsx: root is now one fixed
+bg-[#12233d] card, no `mine`-based color branching anywhere in this
+file any more. ParticipantRow dropped its `mine` prop; avatar 28px->
+44px, name 12.5px->15px, big exact-time/bucket-emoji value
+14px/14px->26px/30px, date/bucket-label value moved to its own third
+line (was squeezed onto the label's line). Header lost its icon badge
++ status subtitle for a plain centered title; status moved into the
+bottom action row (hourglass+label) filling what used to be a dead
+empty spacer. STRINGS.title updated to "Meeting proposal" wording
+(reference's own literal header text).
+
+app/chats/[chatId]/page.tsx: new `meetingFooter` (always light text)
+replaces `flatFooter` at this card's call site -- flatFooter's `!mine`
+branch assumed a light card background that no longer exists now that
+this card is always dark navy regardless of sender.
+
+tsc-clean, commit 55e8fa3.
