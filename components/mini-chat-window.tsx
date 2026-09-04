@@ -773,10 +773,14 @@ export function MiniChatWindow({
                   // быть анімація з котом. Текст + анімація") -- same
                   // quick-invite cat animation app/chats/[chatId]/
                   // page.tsx's own message list just picked up.
+                  // 2026-09-04, follow-up ("Кошак есть, но посели его с
+                  // правого края, а текст слева") -- text first so the
+                  // cat, last in this LTR row, lands at the bubble's
+                  // own right edge.
                   quickInviteCatAnimation(text) ? (
                     <div className="flex items-center gap-2">
-                      <LottiePlayer src={quickInviteCatAnimation(text)!} size={40} />
                       <div className="whitespace-pre-wrap break-words">{text}</div>
+                      <LottiePlayer src={quickInviteCatAnimation(text)!} size={40} />
                     </div>
                   ) : (
                     <div className="whitespace-pre-wrap break-words">{text}</div>

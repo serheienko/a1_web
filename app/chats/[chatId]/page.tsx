@@ -3278,9 +3278,14 @@ export default function ChatWindowPage() {
                       )}
                       {text && !meeting && (
                         quickInviteCatAnimation(text) ? (
+                          // 2026-09-04, follow-up (Aleksandr: "Кошак есть,
+                          // но посели его с правого края, а текст слева")
+                          // -- was icon-then-text; text now comes first so
+                          // the cat, last in this LTR row, lands at the
+                          // bubble's own right edge instead of its left.
                           <div className="flex items-center gap-2">
-                            <LottiePlayer src={quickInviteCatAnimation(text)!} size={40} />
                             <div className="whitespace-pre-wrap break-words">{text}</div>
+                            <LottiePlayer src={quickInviteCatAnimation(text)!} size={40} />
                           </div>
                         ) : (
                           <div className="whitespace-pre-wrap break-words">{text}</div>
