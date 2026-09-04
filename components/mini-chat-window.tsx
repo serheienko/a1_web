@@ -37,9 +37,17 @@
 // `calculation` on messages.send) -- calc-row/currency-picker/contacts-
 // picker/daily-uploads UI all come from the same shared components that
 // page already uses, just wired up locally here since this file never
-// imports from that page itself. "Meetings" stays the same placeholder
-// row that page's own popover still has -- no feature behind it there
-// either yet.
+// imports from that page itself.
+//
+// 2026-09-04 (Aleksandr, live test: "В мини-модалке шо то не работает
+// кнопка 'зустрічі'") -- "Meetings" WAS a dead placeholder row (onClick
+// just closed the popover). Now opens MeetingsMenuModal inline, same
+// swap convention attachDailyUploadsOpen already uses -- but only its
+// Quick Invites half: the full Schedule Meeting flow needs this file's
+// own MeetingMessageCard rendering + accept plumbing, none of which
+// exists here, so onOpenSchedule is intentionally omitted (see that
+// component's own onOpenSchedule comment) and that row just doesn't
+// show in this smaller widget.
 "use client";
 
 import Image from "next/image";
@@ -89,7 +97,7 @@ import { CurrencyPickerModal } from "@/components/chat/currency-picker-modal";
 import { DailyUploadsModal } from "@/components/daily-uploads-modal";
 import type { ChatFlyoutOpenTarget } from "@/components/chats-flyout";
 import { LottiePlayer } from "@/components/lottie-player";
-import { quickInviteCatAnimation } from "@/components/chat/meetings-menu-modal";
+import { MeetingsMenuModal, quickInviteCatAnimation } from "@/components/chat/meetings-menu-modal";
 
 const POLL_MS = 3000;
 // Same throttle idea as app/chats/[chatId]/page.tsx's own readStateTick
@@ -261,6 +269,12 @@ export function MiniChatWindow({
   useEffect(() => {
     if (!attachMenuOpen) setAttachDailyUploadsOpen(false);
   }, [attachMenuOpen]);
+  // 2026-09-04 -- Meetings row's own inline swap, same pattern as
+  // attachDailyUploadsOpen right above.
+  const [meetingsMenuOpen, setMeetingsMenuOpen] = useState(false);
+  useEffect(() => {
+    if (!attachMenuOpen) setMeetingsMenuOpen(false);
+  }, [attachMenuOpen]);
   const [contactsPickerOpen, setContactsPickerOpen] = useState(false);
   const [pickedContactIds, setPickedContactIds] = useState<Set<string>>(new Set());
   const [pickedContacts, setPickedContacts] = useState<PickedContact[]>([]);
@@ -397,8 +411,8 @@ export function MiniChatWindow({
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages.length]);
 
-  async function handleSend(extra?: { contacts?: PickedContact[] }) {
-    const text = draft.trim();
+  async function handleSend(extra?: { contacts?: PickedContact[]; overrideText?: string }) {
+    const text = (extra?.overrideText ?? draft).trim();
     const readyAttachment = attachment && attachment.status === "ready" ? attachment : null;
     const contactsToSend = extra?.contacts ?? [];
     if ((!text && !readyAttachment && contactsToSend.length === 0) || sending) return;
@@ -1054,10 +1068,26 @@ export function MiniChatWindow({
                 // scroll instead of letting content taller than the
                 // available room above the paperclip go unreachable.
                 className={`animate-popover-up absolute bottom-full left-0 z-10 mb-2 max-h-[min(60vh,420px)] overflow-x-hidden overflow-y-auto rounded-2xl bg-white shadow-xl transition-[width] duration-200 dark:bg-neutral-900 ${
-                  attachDailyUploadsOpen ? "w-72 p-4" : "w-40 py-1.5"
+                  attachDailyUploadsOpen || meetingsMenuOpen ? "w-72 p-4" : "w-40 py-1.5"
                 }`}
               >
-                {attachDailyUploadsOpen ? (
+                {meetingsMenuOpen ? (
+                  // 2026-09-04 (Aleksandr: "шо то не работает кнопка
+                  // 'зустрічі'") -- same inline-swap convention as
+                  // attachDailyUploadsOpen's own DailyUploadsModal branch
+                  // right below. onOpenSchedule intentionally omitted --
+                  // see this file's own header comment and meetings-menu-
+                  // modal.tsx's own onOpenSchedule comment for why.
+                  <MeetingsMenuModal
+                    lang={lang}
+                    onBack={() => setMeetingsMenuOpen(false)}
+                    onSendQuickInvite={(text) => {
+                      setMeetingsMenuOpen(false);
+                      setAttachMenuOpen(false);
+                      void handleSend({ overrideText: text });
+                    }}
+                  />
+                ) : attachDailyUploadsOpen ? (
                   // 2026-09-04 -- see this file's own attachDailyUploadsOpen
                   // comment above for why this is inline instead of a
                   // second backdrop modal.
@@ -1104,7 +1134,7 @@ export function MiniChatWindow({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setAttachMenuOpen(false)}
+                  onClick={() => setMeetingsMenuOpen(true)}
                   className="group flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
                 >
                   <ChatMeetingAttachIcon className="animate-meeting-attach h-4 w-4 text-[#335ef7] dark:text-[#0c8ce9]" />

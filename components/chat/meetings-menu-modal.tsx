@@ -122,7 +122,19 @@ export function MeetingsMenuModal({
   // if he'd typed it himself; not silently translated to English under
   // the hood.
   onSendQuickInvite: (text: string) => void;
-  onOpenSchedule: () => void;
+  // 2026-09-04 (Aleksandr, mini-chat-window's own "Зустрічі" row: "шо то
+  // не работает кнопка") -- was a dead placeholder there (no Meetings
+  // feature wired at all in that file yet). Wiring up the FULL
+  // structured Schedule flow there too would also need that file's own
+  // MeetingMessageCard rendering/Accept plumbing, none of which exists
+  // in that smaller widget -- out of scope for this fix. Quick Invites
+  // alone (this component's other half) has no such dependency, so
+  // `onOpenSchedule` is now optional: omitting it hides the "Schedule
+  // meeting" row entirely rather than wiring it to a button that would
+  // silently do nothing (or worse, send a proposal that widget can't
+  // ever render back). app/chats/[chatId]/page.tsx keeps passing it,
+  // full flow unchanged there.
+  onOpenSchedule?: () => void;
 }) {
   return (
     <div className="flex flex-col gap-1">
@@ -143,20 +155,22 @@ export function MeetingsMenuModal({
         </h2>
       </div>
 
-        <button
-          type="button"
-          onClick={onOpenSchedule}
-          className="flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left text-[15px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
-        >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#ff5fa2] to-[#2bd6c7] text-white">
-            <ChatMeetingAttachIcon className="h-5 w-5" />
-          </span>
-          <T
-            uk={t("scheduleMeeting", "uk")} en={t("scheduleMeeting", "en")} ru={t("scheduleMeeting", "ru")} de={t("scheduleMeeting", "de")}
-            es={t("scheduleMeeting", "es")} fr={t("scheduleMeeting", "fr")} pl={t("scheduleMeeting", "pl")} ptBR={t("scheduleMeeting", "ptBR")}
-            zh={t("scheduleMeeting", "zh")}
-          />
-        </button>
+        {onOpenSchedule && (
+          <button
+            type="button"
+            onClick={onOpenSchedule}
+            className="flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left text-[15px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#ff5fa2] to-[#2bd6c7] text-white">
+              <ChatMeetingAttachIcon className="h-5 w-5" />
+            </span>
+            <T
+              uk={t("scheduleMeeting", "uk")} en={t("scheduleMeeting", "en")} ru={t("scheduleMeeting", "ru")} de={t("scheduleMeeting", "de")}
+              es={t("scheduleMeeting", "es")} fr={t("scheduleMeeting", "fr")} pl={t("scheduleMeeting", "pl")} ptBR={t("scheduleMeeting", "ptBR")}
+              zh={t("scheduleMeeting", "zh")}
+            />
+          </button>
+        )}
 
         <div className="mb-1 mt-3 px-2 text-[12px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
           <T
