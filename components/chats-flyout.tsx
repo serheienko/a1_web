@@ -55,7 +55,7 @@ type ChatRow = {
   previewText: string;
   // 2026-09-04 -- see components/chat/chat-preview-line.tsx's own
   // header; same split as app/chats/page.tsx's own Chat type.
-  previewKind: "text" | "voice" | "photo" | "video" | "sticker" | "file" | "contact" | "calc";
+  previewKind: "text" | "voice" | "photo" | "video" | "sticker" | "file" | "contact" | "calc" | "meeting";
   previewPhotoUrl: string | null;
   previewMine: boolean;
   previewDateMs: number;

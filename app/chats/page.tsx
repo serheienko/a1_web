@@ -109,7 +109,7 @@ type ChatListItem = {
   // "text" (the real message text) or "file" (the real filename);
   // every other kind renders a localized label instead, sourced purely
   // from `previewKind`.
-  previewKind: "text" | "voice" | "photo" | "video" | "sticker" | "file" | "contact" | "calc";
+  previewKind: "text" | "voice" | "photo" | "video" | "sticker" | "file" | "contact" | "calc" | "meeting";
   previewPhotoUrl: string | null;
   previewMine: boolean;
   previewDateMs: number;

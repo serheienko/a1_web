@@ -13,17 +13,25 @@
 // components/chats-flyout.tsx's nav flyout (both showed the same
 // previewText before this).
 //
-// "Scheduled meeting" (his 3rd reference screenshot) is deliberately
-// NOT one of the kinds handled here -- Meetings is still a placeholder
-// in the attach menu with no real send path yet (his own words: "это
-// наперед, функцию еще запилим"), so there is no message shape to
-// detect it from yet. Revisit once that feature actually ships.
+// 2026-09-04 follow-up: "Scheduled meeting" was deliberately left out
+// of the kinds handled here when this file was first written, same
+// day, before Meetings had a real send path yet ("это наперед, функцию
+// еще запилим"). It shipped later that same day (PLAN.md 6.124), and a
+// meeting proposal/accept rides as plain text with its own marker
+// prefix (lib/a1/meeting-protocol.ts) -- so a chat whose last message
+// is one showed the raw "A1MEETINGv1::eyJ2Ijox..." marker+base64 as
+// its preview line, same bug class this file exists to fix for every
+// OTHER entity type, just not caught here yet (Aleksandr, live
+// screenshot of the chat list). describeMessagePreview
+// (lib/a1/chat-schemas.ts) now recognizes it and returns kind
+// "meeting" before ever reaching the raw-text fallback; this file only
+// needed the matching label + icon below.
 "use client";
 
 import { T } from "@/components/t";
-import { ChatMicGlyph, ChatCalculatorAttachIcon } from "./icons";
+import { ChatMicGlyph, ChatCalculatorAttachIcon, ChatMeetingAttachIcon } from "./icons";
 
-export type MessagePreviewKind = "text" | "voice" | "photo" | "video" | "sticker" | "file" | "contact" | "calc";
+export type MessagePreviewKind = "text" | "voice" | "photo" | "video" | "sticker" | "file" | "contact" | "calc" | "meeting";
 
 function PreviewLabel({ kind }: { kind: Exclude<MessagePreviewKind, "text" | "file"> }) {
   switch (kind) {
@@ -47,6 +55,16 @@ function PreviewLabel({ kind }: { kind: Exclude<MessagePreviewKind, "text" | "fi
         <T
           uk="Розрахунок" en="Calculation" ru="Калькуляция" de="Berechnung" es="Cálculo"
           fr="Calcul" pl="Kalkulacja" ptBR="Cálculo" zh="计算"
+        />
+      );
+    case "meeting":
+      // Same label either way (a proposal or its Accept echo) -- see
+      // describeMessagePreview's own comment on why the list row
+      // doesn't distinguish the two.
+      return (
+        <T
+          uk="Запланована зустріч" en="Scheduled meeting" ru="Запланированная встреча" de="Geplantes Treffen"
+          es="Reunión programada" fr="Réunion planifiée" pl="Zaplanowane spotkanie" ptBR="Reunião agendada" zh="已安排会议"
         />
       );
   }
@@ -91,6 +109,7 @@ export function ChatPreviewLine({
           looked right. */}
       {kind === "voice" && <ChatMicGlyph className="h-[18px] w-[18px] shrink-0" />}
       {kind === "calc" && <ChatCalculatorAttachIcon className="h-4 w-4 shrink-0" />}
+      {kind === "meeting" && <ChatMeetingAttachIcon className="h-4 w-4 shrink-0" />}
       <span className="truncate">
         <PreviewLabel kind={kind} />
       </span>

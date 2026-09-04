@@ -29,6 +29,7 @@
 // route.ts's own comment) -- fix a field name here the moment a live
 // response disagrees, don't keep guessing further.
 import { z } from "zod";
+import { decodeMeetingText, decodeMeetingAcceptText } from "./meeting-protocol";
 
 export const PeerSchema = z.discriminatedUnion("object", [
   z.object({ object: z.literal("peer-user"), user: z.string() }),
@@ -779,7 +780,7 @@ export function extractMessageText(msg: ChatMessage): string {
 // actual localized label text is a CLIENT-side concern (this runs in
 // an API route, no locale to render into), same split every other
 // multi-locale string in this app already uses.
-export type MessagePreviewKind = "text" | "voice" | "photo" | "video" | "sticker" | "file" | "contact" | "calc";
+export type MessagePreviewKind = "text" | "voice" | "photo" | "video" | "sticker" | "file" | "contact" | "calc" | "meeting";
 
 export type MessagePreview = {
   kind: MessagePreviewKind;
@@ -789,6 +790,23 @@ export type MessagePreview = {
 
 export function describeMessagePreview(msg: ChatMessage): MessagePreview {
   const text = extractMessageText(msg);
+  // 2026-09-04 follow-up (Aleksandr, live chat-list screenshot: a
+  // meeting proposal/accept's raw "A1MEETINGv1::eyJ2Ijox..." marker+
+  // base64 text showing as the preview line itself) -- Scheduled
+  // Meetings (PLAN.md 6.124) shipped the SAME DAY this function's own
+  // header comment above was written, which is why it was written as
+  // "no message shape to detect it from yet, revisit once it ships" --
+  // it has, so this needs the same treatment Contact/Calc already got.
+  // A meeting rides as plain text (lib/a1/meeting-protocol.ts's own
+  // architecture note), so `text` above is already non-empty for one
+  // and would otherwise win the `if (text)` branch below verbatim,
+  // raw marker and all. Checked before that branch, for both the
+  // proposal itself AND its Accept echo (also plain text, and would
+  // read exactly as garbled if it ever surfaced as a preview) --
+  // deliberately the same "Scheduled meeting" kind/label for either,
+  // since a chat-list row has no use for which of the two it actually
+  // is.
+  if (decodeMeetingText(text) || decodeMeetingAcceptText(text)) return { kind: "meeting", text: "" };
   if (text) return { kind: "text", text };
   const docs = messageDocumentMedia(msg);
   const voiceDoc = docs.find((d) => isVoiceMediaDocument(d));
