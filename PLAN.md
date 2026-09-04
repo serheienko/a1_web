@@ -6326,3 +6326,45 @@ original standalone modal (`dailyUploadsOpen`, unchanged), since
 there's no popover there to embed into.
 
 tsc-clean.
+
+
+## 6.127 -- Voice now-playing bar covering SiteNav on mobile; live-deploy lag confirmed again (2026-09-04)
+
+Aleksandr, mobile screenshots: the cross-page voice "now playing" bar
+(components/chat/voice-now-playing-bar.tsx, PLAN.md 6.99) sat directly
+on top of <SiteNav/>'s own sticky row (logo, Вакансии/Специалисты
+tabs, avatar) instead of beside it -- both are pinned near the top of
+the viewport, and the bar's higher z-index (z-50 fixed vs the nav's
+z-40 sticky) simply painted over the nav and ate its clicks, making
+navigation impossible while something was playing. His ask: don't
+overlap the nav, push the page's own content down instead so the bar
+gets its own slot between the nav and, e.g., the chat list's "Чати"
+heading/search/rows.
+
+Fix: switched the bar from `position: fixed` (always relative to the
+viewport, floats over whatever's under it) to `position: sticky`,
+right after <SiteNav/> in app/layout.tsx's own tree already -- so as a
+normal flow box it now pushes {children} down by its own real height
+instead of floating on top of it. Reused `--site-nav-h`, the CSS var
+SiteNav already publishes off a live ResizeObserver (added 2026-09-02
+for the *exact* same class of bug on app/chats/[chatId]/page.tsx's own
+header -- see that component's own comment), so the bar's resting/stuck
+position is always exactly "right below however tall the nav currently
+is" rather than a hardcoded guess. tsc-clean, commit 9c0a2c2.
+
+Second thing on the same screenshots: Aleksandr also asked for a
+search icon on the /chats list page's mobile search bar ("Поиск").
+Checked app/chats/page.tsx directly -- it already has one
+(`<SearchIcon>` + `pl-10` on the input, commit 7d5de2a2, dated
+2026-09-02) and `git merge-base --is-ancestor` confirms that commit
+IS already in `origin/main` as of the last successful fetch here. So
+this isn't a missing feature -- it just isn't showing on whatever
+build jobs.a1appp.com is actually serving right now. Same shape of gap
+already flagged once this session (see the file-flicker/real-filename
+follow-up a few messages up this same day): code that has been
+committed and (per git) pushed for a day+ still isn't visibly live.
+Told Aleksandr directly this time rather than assuming a fresh
+code bug -- worth him double-checking that GitHub Desktop pushes here
+are actually reaching a deploy (Vercel build succeeding, not stuck/
+failed) rather than continuing to chase "missing" features that are
+already sitting in the repo.
