@@ -21,6 +21,7 @@
 "use client";
 
 import { T } from "@/components/t";
+import { ChatMicGlyph, ChatCalculatorAttachIcon } from "./icons";
 
 export type MessagePreviewKind = "text" | "voice" | "photo" | "video" | "sticker" | "file" | "contact" | "calc";
 
@@ -73,6 +74,15 @@ export function ChatPreviewLine({
         // through /api/media, not a next/image-configured remote host.
         <img src={photoUrl} alt="" className="h-4 w-4 shrink-0 rounded-[4px] object-cover" />
       )}
+      {/* 2026-09-04 (Aleksandr, screenshot of the chat list: "На
+          голосовое сообщение и калькуляции добавь иконки слева
+          вначале") -- same slot/size the photo thumbnail above already
+          uses (h-4 w-4 shrink-0), reusing the exact glyphs the attach
+          menu itself already ships (components/chat/icons.tsx) instead
+          of drawing new ones -- currentColor picks up this line's own
+          muted preview-text color automatically. */}
+      {kind === "voice" && <ChatMicGlyph className="h-4 w-4 shrink-0" />}
+      {kind === "calc" && <ChatCalculatorAttachIcon className="h-4 w-4 shrink-0" />}
       <span className="truncate">
         <PreviewLabel kind={kind} />
       </span>
