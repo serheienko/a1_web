@@ -98,9 +98,16 @@ import {
   toggleVoice,
   type VoicePlaybackEntry,
 } from "@/lib/voice-playback-store";
-import { getLocalVoiceWaveform } from "@/lib/voice-local-waveform-cache";
+import { getLocalVoiceWaveform, rememberLocalVoiceWaveform } from "@/lib/voice-local-waveform-cache";
+import { decodeWaveformFromBlob } from "@/lib/voice-waveform-decode";
 
 const WAVEFORM_BARS = 32;
+// Bar count used only for the ONE-TIME client-side decode below --
+// deliberately higher than WAVEFORM_BARS itself (same 48 components/
+// chat/voice-recorder.ts decodes a fresh recording at) so the cached
+// result stays useful at whatever resolution a caller resamples it to,
+// rather than being pre-baked to this component's own 32.
+const DECODE_BARS = 48;
 
 // 2026-09-03 (Aleksandr, live test: "у голосовых динамическая длина в
 // зависимости от того на сколько они сек... если сообщение 3 сек, то
@@ -232,10 +239,50 @@ export function VoiceMessageBubble({
   // decoding whatever attribute-audio.waveform the server echoed back,
   // and only fall back to that decode for a clip with no local entry
   // (received from the other side, or sent in an earlier session).
+  const [decodedWaveform, setDecodedWaveform] = useState<number[] | null>(null);
   const localWaveform = getLocalVoiceWaveform(doc.fileReference);
+  // 2026-09-04 (Aleksandr, still flagged after the sent-side fix above:
+  // "Потом баг с эквалайзером") -- that fix only covers a clip THIS
+  // browser tab itself just recorded (localWaveform, populated at send
+  // time). A RECEIVED clip -- or one sent from another session/device --
+  // has no local entry, so it fell all the way back to decoding whatever
+  // attribute-audio.waveform the server echoed back, which is the
+  // actually-inaccurate data in the first place. This effect runs the
+  // exact same real-audio decode voice-recorder.ts uses for a fresh
+  // recording (lib/voice-waveform-decode.ts's shared decodeWaveformFromBlob)
+  // against the clip's OWN proxied audio file, once, the first time this
+  // bubble renders it with nothing local cached yet -- and remembers the
+  // result in that same cache (keyed by fileReference) so every other
+  // bubble for this clip (a re-render, the now-playing bar, reopening the
+  // chat) reads it back instantly instead of re-decoding.
+  useEffect(() => {
+    if (localWaveform) return;
+    if (getLocalVoiceWaveform(doc.fileReference)) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(buildMediaProxyUrl(doc));
+        if (!res.ok) return;
+        const blob = await res.blob();
+        const decoded = await decodeWaveformFromBlob(blob, DECODE_BARS, totalSeconds);
+        if (cancelled || !decoded) return;
+        rememberLocalVoiceWaveform(doc.fileReference, decoded);
+        setDecodedWaveform(decoded);
+      } catch {
+        // Best-effort only -- decodeWaveformBars(voiceAttr?.waveform, ...)
+        // below stays the fallback exactly as before this effect existed.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc.fileReference]);
   const bars = localWaveform
     ? resampleWaveform(localWaveform, WAVEFORM_BARS)
-    : (decodeWaveformBars(voiceAttr?.waveform, WAVEFORM_BARS) ?? new Array<number>(WAVEFORM_BARS).fill(0.35));
+    : decodedWaveform
+      ? resampleWaveform(decodedWaveform, WAVEFORM_BARS)
+      : (decodeWaveformBars(voiceAttr?.waveform, WAVEFORM_BARS) ?? new Array<number>(WAVEFORM_BARS).fill(0.35));
 
   const playback = useSyncExternalStore(subscribeVoicePlayback, getVoicePlaybackSnapshot, getVoicePlaybackSnapshot);
   const isCurrent = playback.entry?.docId === doc._id;

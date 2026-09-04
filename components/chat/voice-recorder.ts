@@ -20,6 +20,7 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import { resampleWaveform, normalizeWaveformPeaks } from "@/lib/a1/chat-schemas";
+import { decodeWaveformFromBlob } from "@/lib/voice-waveform-decode";
 
 export const VOICE_MAX_SECONDS = 600; // 10:00 cap (CONFIRMED, both mobile + desktop references)
 export const VOICE_MIN_MS = 600; // shorter than this is silently discarded (CONFIRMED via mobile recording)
@@ -84,64 +85,13 @@ export type VoiceRecorderPointer = { clientX: number; clientY: number };
 // through. `samplesRef`'s live capture is kept ONLY as a fallback for
 // the rare case decode itself fails (unsupported codec/browser quirk),
 // producing the exact pre-2026-09-04 result rather than nothing.
-async function computeWaveformFromBlob(blob: Blob, barCount: number, expectedDurationSeconds: number): Promise<number[] | null> {
-  try {
-    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    const ctx = new AudioCtx();
-    try {
-      const arrayBuffer = await blob.arrayBuffer();
-      const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
-      const channelData = audioBuffer.getChannelData(0);
-      if (channelData.length === 0) return null;
-      // 2026-09-04 (Aleksandr, live test on the FIX below: "Эквалайзер
-      // по прежнему отображается не актуально. В конце есть звук" --
-      // the decode-based approach still went flat past a certain point
-      // even after the switch away from the live rAF sampling loop)
-      // -- root cause is a well-known Chrome/MediaRecorder quirk, not
-      // this file's own bucketing math: a webm/opus blob produced by
-      // MediaRecorder has no Cues/Duration in its container header, so
-      // Chrome's decodeAudioData demuxer sometimes decodes only a
-      // SHORT leading portion of the real recording (silently, no
-      // thrown error) and returns an AudioBuffer whose own .duration
-      // already reflects that truncation. Every bucket whose sample
-      // range falls past channelData.length then has `count === 0` and
-      // pushes a flat 0 -- exactly "real waveform for the first
-      // portion, dead flat for the rest" Aleksandr is describing, even
-      // though the actual mic capture (and encoded audio) covers the
-      // whole clip. Comparing the decoded duration against the REAL
-      // wall-clock recording length (elapsedMs from the caller, not
-      // anything decodeAudioData reports about itself) catches this:
-      // a decode covering well under the real length is treated as a
-      // failed decode so the live-sample fallback below (setInterval-
-      // driven, immune to this codec/container quirk since it never
-      // touches decodeAudioData) takes over instead of silently
-      // zero-padding the tail.
-      if (expectedDurationSeconds > 0 && audioBuffer.duration < expectedDurationSeconds * 0.85) {
-        return null;
-      }
-      const samplesPerBucket = Math.max(1, Math.floor(channelData.length / barCount));
-      const peaks: number[] = [];
-      for (let i = 0; i < barCount; i++) {
-        const start = i * samplesPerBucket;
-        const end = i === barCount - 1 ? channelData.length : Math.min(channelData.length, start + samplesPerBucket);
-        let sumSquares = 0;
-        let count = 0;
-        for (let j = start; j < end; j++) {
-          const v = channelData[j] ?? 0;
-          sumSquares += v * v;
-          count++;
-        }
-        peaks.push(count > 0 ? Math.sqrt(sumSquares / count) : 0);
-      }
-      return peaks;
-    } finally {
-      void ctx.close().catch(() => {});
-    }
-  } catch {
-    return null;
-  }
-}
-
+//
+// 2026-09-04, follow-up (Aleksandr: "Потом баг с эквалайзером" --
+// still flagged for RECEIVED clips) -- the actual decode function moved
+// to lib/voice-waveform-decode.ts's own decodeWaveformFromBlob so
+// components/chat/voice-bubble.tsx can run the identical decode for any
+// voice bubble, not just a clip this tab itself just recorded; this file
+// now just calls that shared function.
 export function useVoiceRecorder(onFinish: (result: VoiceRecordingResult) => void) {
   const [state, setState] = useState<VoiceRecorderState>("idle");
   const [seconds, setSeconds] = useState(0);
@@ -291,13 +241,13 @@ export function useVoiceRecorder(onFinish: (result: VoiceRecordingResult) => voi
           setState("idle");
           setIsPaused(false);
           if (wasCancelled || elapsedMs < VOICE_MIN_MS) return;
-          // Decode-based waveform (see computeWaveformFromBlob's own
+          // Decode-based waveform (see lib/voice-waveform-decode.ts's own
           // header above) -- built off the FINAL blob, so it can't be
           // thrown off by anything that happened to the live
           // tickAmplitude/sampleTimerRef sampling loop while recording
           // (a pause/resume, a scheduling hiccup, ...). Falls back to
           // the old live-samples path only if decoding itself fails.
-          const decodedPeaks = await computeWaveformFromBlob(blob, LOCAL_WAVEFORM_BARS, elapsedMs / 1000);
+          const decodedPeaks = await decodeWaveformFromBlob(blob, LOCAL_WAVEFORM_BARS, elapsedMs / 1000);
           const waveform =
             normalizeWaveformPeaks(decodedPeaks ?? [], LOCAL_WAVEFORM_BARS) ??
             resampleWaveform(samplesRef.current.length ? samplesRef.current : [0], LOCAL_WAVEFORM_BARS).map((v) =>
@@ -447,7 +397,7 @@ export function useVoiceRecorder(onFinish: (result: VoiceRecordingResult) => voi
       setIsPaused(true);
       if (timerRef.current) clearInterval(timerRef.current);
       timerRef.current = null;
-      // 2026-09-04 (see computeWaveformFromBlob's own header comment,
+      // 2026-09-04 (see lib/voice-waveform-decode.ts's own header comment,
       // above useVoiceRecorder, for the live bug report this traces
       // to): this used to only pause the visible seconds counter --
       // tickAmplitude's rAF loop and sampleTimerRef's sampling interval
