@@ -645,15 +645,23 @@ export function MiniChatWindow({
         )}
       </div>
 
-      <div ref={listRef} className="flex-1 overflow-y-auto px-3 py-2.5">
+      <div ref={listRef} className="relative flex-1 overflow-y-auto px-3 py-2.5">
       <div className="space-y-1.5">
         {loadState === "loading" && messages.length === 0 && (
           // 2026-09-04 (Aleksandr: "На лоадер поставь нашу планету, пока
-          // чат грузится") -- same public/animations/planet-loader.json
-          // LottiePlayer app/chats/[chatId]/page.tsx's own full-page
-          // loading state already uses, sized down for this widget's
-          // own h-[26rem]/w-80 footprint.
-          <div className="flex items-center justify-center py-10">
+          // чат грузится", then "Поставь иконку планеты по центру
+          // модалки" once a plain `py-10` wrapper -- shrink-to-content,
+          // not stretched -- left it sitting near the top of this empty
+          // list instead of centered in the widget) -- same public/
+          // animations/planet-loader.json LottiePlayer app/chats/
+          // [chatId]/page.tsx's own full-page loading state already
+          // uses, sized down for this widget's own h-[26rem]/w-80
+          // footprint. `absolute inset-0` against listRef's own
+          // `relative` centers it against the FULL scrollable area's
+          // real height (nothing else renders in the space-y-1.5
+          // sibling while messages is still empty, so there's nothing
+          // for this to overlap).
+          <div className="absolute inset-0 flex items-center justify-center">
             <LottiePlayer src="/animations/planet-loader.json" size={72} />
           </div>
         )}
