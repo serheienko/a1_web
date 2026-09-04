@@ -185,15 +185,22 @@ function formatTime(ms: number): string {
 // ChatsFab is redundant while already looking at the chat list) --
 // this list page itself was left with no equivalent entry point of its
 // own. Two small header icon buttons instead of reviving the FABs
-// here: no exact mobile-app reference screenshot was in hand for
-// either glyph, so these are the standard, widely-recognized shapes
-// for each action (a plain "+" for post, a chat bubble with its own
-// "+" for a new conversation) -- easy to swap for an exact app asset
-// once one's available, flagged same as any other placeholder-icon
-// call this session.
+// here.
+//
+// 2026-09-04 follow-up (Aleksandr, on the first plain-black-outline
+// pass: "Плюсик я имел ввиду наш синий, как на главной сбоку экрана.
+// Убери этот и сделай нормальный") -- swapped for the SAME chunky
+// stroke+round-caps glyph and filled bg-accent circle
+// components/create-post-fab.tsx's own floating "+" already uses
+// everywhere else in the app (that file's own ChunkyPlusIcon +
+// `h-14 w-14 rounded-full bg-accent` button), just at this row's
+// smaller 36px size -- not duplicated via import (this app's own
+// "self-contained widget" convention for a one-off local glyph, same
+// as every other small icon function in this file), but the exact
+// same stroke width/shape and fill color, not a fresh invented look.
 function HeaderPlusIcon({ className }: { className?: string }) {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.25" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
       <path d="M12 5v14M5 12h14" />
     </svg>
   );
@@ -353,9 +360,9 @@ export default function ChatsPage() {
               type="button"
               onClick={() => setPostEditorOpen(true)}
               aria-label="Create post"
-              className="flex h-9 w-9 items-center justify-center rounded-full text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+              className="group flex h-9 w-9 items-center justify-center rounded-full bg-accent text-white shadow-sm shadow-accent/30 transition hover:opacity-90 active:scale-95"
             >
-              <HeaderPlusIcon />
+              <HeaderPlusIcon className="transition-transform duration-200 ease-out group-hover:rotate-90" />
             </button>
             <button
               type="button"
