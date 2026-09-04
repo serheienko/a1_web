@@ -2746,6 +2746,30 @@ export default function ChatWindowPage() {
                   )}
                 </div>
               );
+              // 2026-09-04 (Aleksandr, live screenshot: "Тут ты забыл
+              // поставить время сообщения и сделай тоже синим, если я
+              // отсылаю") -- flatFooter's own `mine ? "text-white/70"`
+              // assumes the flat card behind it turns solid blue when
+              // mine (true for ContactMessageCard, see its own `mine ?
+              // bg-[#335ef7] : bg-white`) -- MeetingMessageCard's root
+              // is ALWAYS white/dark-card regardless of mine (never a
+              // colored bubble, that's the whole "подложка" fix above),
+              // so text-white/70 rendered white-on-white and read as
+              // simply missing. This variant uses the app's own accent
+              // blue for "mine" instead, same as every other blue-text
+              // affordance in this file (e.g. the read-tick color a few
+              // lines above), and the same neutral gray as flatFooter
+              // for "theirs" either way.
+              const meetingFooter = (
+                <div className={`flex items-center justify-end gap-1 text-[11px] ${mine ? "text-[#335ef7] dark:text-[#0c8ce9]" : "text-[#989aa6] dark:text-[#adafbb]"}`}>
+                  <span>{formatTime(ms)}</span>
+                  {pending ? (
+                    pending.failed ? <NotSentIcon /> : <SendingSpinner />
+                  ) : (
+                    mine && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7.77px] w-3.5" />
+                  )}
+                </div>
+              );
               return (
                 <div key={msg._id}>
                   {showDate && (
@@ -3175,7 +3199,7 @@ export default function ChatWindowPage() {
                           canAccept={!mine && !pending}
                           accepting={acceptingMeetingId === msg._id}
                           onAccept={() => void acceptMeeting(msg._id)}
-                          footer={isMeetingOnly ? flatFooter : undefined}
+                          footer={isMeetingOnly ? meetingFooter : undefined}
                         />
                       )}
                       {text && !meeting && <div className="whitespace-pre-wrap break-words">{text}</div>}
