@@ -25,6 +25,31 @@
 // always shows whenever something's playing, on every route including
 // the source chat. A dedupe pass is possible future polish, not
 // required for this milestone.
+//
+// 2026-09-04 (Aleksandr, mobile screenshots: "оно перекрывает как бы
+// меню наше... невозможно типа навигацию нормально делать" -- this bar
+// used to be `position: fixed` at a hardcoded `env(safe-area-inset-
+// top)+8px` offset, painted at z-50 directly on top of <SiteNav/>'s own
+// `sticky top-0 z-40` box (components/site-nav.tsx) instead of beside
+// it, hiding the logo/tabs/avatar row underneath and eating its clicks
+// (higher z-index wins the hit-test too, not just the paint). Fix:
+// switched from `fixed` (removed from flow, always relative to the
+// viewport) to `sticky`, positioned as SiteNav's own next sibling here
+// -- app/layout.tsx already renders it directly after <SiteNav/>, so as
+// a normal flow box it now pushes {children} (a chat list's "Чати"
+// heading/search/rows, a feed, ...) down by its own real height instead
+// of floating over the top of it, exactly the "подвинуть вниз... и
+// сверху поставить эту штуку" Aleksandr asked for -- while `top` still
+// pins it in place during scroll, same as before, just anchored below
+// the nav instead of below the safe-area inset. The offset itself
+// reuses `--site-nav-h`, the CSS var SiteNav already publishes off a
+// live ResizeObserver for this exact class of problem (see that
+// component's own 2026-09-02 comment) -- so this never needs its own
+// hardcoded nav-height guess, and stays correct if that bar's height
+// ever changes (safe-area inset differs per device, its search slot
+// can grow on some pages). z-30 (below SiteNav's z-40) is now purely
+// defensive -- flow layout already keeps them from ever overlapping --
+// rather than the thing doing the separating.
 "use client";
 
 import { useRef, useState, useSyncExternalStore, type PointerEvent } from "react";
@@ -116,7 +141,7 @@ export function VoiceNowPlayingBar() {
 
   return (
     <div
-      className="animate-popover-up fixed left-1/2 top-[calc(env(safe-area-inset-top)+8px)] z-50 w-[calc(100%-24px)] max-w-[420px] -translate-x-1/2 overflow-hidden rounded-2xl bg-white/95 shadow-xl backdrop-blur-xl dark:bg-[#1c1c1e]/95"
+      className="animate-popover-up sticky top-[calc(var(--site-nav-h,0px)+8px)] z-30 mx-auto mt-2 mb-2 w-[calc(100%-24px)] max-w-[420px] overflow-hidden rounded-2xl bg-white/95 shadow-xl backdrop-blur-xl dark:bg-[#1c1c1e]/95"
     >
       <div className="flex items-center gap-2.5 px-3 py-2">
         {entry.avatarUrl ? (
