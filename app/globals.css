@@ -419,6 +419,52 @@ textarea {
 }
 
 /*
+ * 2026-09-04 (Aleksandr, the "new chat" header button specifically --
+ * app/chats/page.tsx and components/chats-flyout.tsx's own copy --
+ * "Сделай анимацию этой иконки" then "Верни старую иконку "новый
+ * чат", но анимируй": back to the original outline bubble+plus glyph,
+ * but `.animate-chat-wiggle` above is HOVER-gated (`.group:hover`),
+ * which never fires on a touch device -- and this exact button is the
+ * one that started this whole thread with a live mobile screenshot, so
+ * gating its motion behind a hover state that can't happen there would
+ * silently ship no animation at all on mobile. Same keyframe, reused
+ * as-is (still a deliberate multi-tilt "shake for attention", not a
+ * mechanical spin), just looped on its own instead of waiting for a
+ * hover: a short burst then a long hold (60%-100% of the loop is the
+ * flat rest pose) so it reads as a periodic nudge rather than a
+ * constantly-jittering icon.
+ */
+@keyframes chat-bubble-wiggle-loop {
+  0%,
+  60%,
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+  67% {
+    transform: rotate(-14deg) scale(1.08);
+  }
+  75% {
+    transform: rotate(11deg) scale(1.08);
+  }
+  83% {
+    transform: rotate(-7deg) scale(1.04);
+  }
+  91% {
+    transform: rotate(4deg) scale(1.02);
+  }
+}
+
+.animate-chat-wiggle-loop {
+  animation: chat-bubble-wiggle-loop 3s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-chat-wiggle-loop {
+    animation: none;
+  }
+}
+
+/*
  * 2026-09-02 (Aleksandr, live chat window: "надо сделать плавную
  * красивую анимацию появляющегося сообщения при отправке") -- a new
  * bubble (mine, optimistically added in app/chats/[chatId]/page.tsx's

@@ -222,16 +222,15 @@ function ChatRowSkeleton() {
 }
 
 // Same "compose" glyph app/chats/page.tsx's own header button uses
-// (NewChatBubbleIcon there) -- duplicated rather than imported/exported,
-// same self-contained-widget convention this file's own header already
-// commits to.
+// (NewChatBubbleIcon there, see that file's own header comment for the
+// brief filled-bubble detour and revert) -- duplicated rather than
+// imported/exported, same self-contained-widget convention this file's
+// own header already commits to.
 function NewChatBubbleIcon({ className }: { className?: string }) {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
-      <path
-        d="M4 11.2C4 6.67 7.8 3 12.4 3c4.6 0 8.4 3.67 8.4 8.2 0 4.53-3.8 8.2-8.4 8.2-1.13 0-2.2-.22-3.18-.63L5.9 20.2a1 1 0 0 1-1.36-1.24l1.24-3.53A8.03 8.03 0 0 1 4 11.2Z"
-        fill="currentColor"
-      />
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 20l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+      <path d="M12 8.5v4M10 10.5h4" />
     </svg>
   );
 }
@@ -491,7 +490,7 @@ export function ChatsFlyout({
                 aria-label={STRINGS.newChatTitle[lang]}
                 className="group flex h-8 w-8 items-center justify-center rounded-full bg-accent text-white shadow-sm shadow-accent/30 transition hover:opacity-90 active:scale-95"
               >
-                <NewChatBubbleIcon className="animate-chat-wiggle" />
+                <NewChatBubbleIcon className="animate-chat-wiggle-loop" />
               </button>
               <Link
                 href="/chats"
