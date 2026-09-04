@@ -125,6 +125,20 @@ const SendInput = z
         z.object({ kind: z.literal("confirm"), at: z.number().int().positive(), url: z.string().trim().min(1).nullable() }),
       ])
       .optional(),
+    // Reply feature (2026-09-05) -- CONFIRMED off the mobile app's own
+    // source (chat_detail_cubit.dart's actual send call, not the
+    // generated OpenAPI model, see lib/a1/chat-schemas.ts's own
+    // MessageReplyToSchema header): only `message`/`object`/`user` are
+    // ever actually sent, `chat`/`channel` left off. `userId` here is
+    // the ORIGINAL message's own sender (mobile's own `replyMessage.
+    // peerFrom.user`) -- app/chats/[chatId]/page.tsx already has that on
+    // the ChatMessage object it's replying to, no extra lookup needed.
+    replyTo: z
+      .object({
+        messageId: z.union([z.string(), z.number()]),
+        userId: z.string().trim().min(1),
+      })
+      .optional(),
   })
   .refine(
     (v) =>
@@ -141,7 +155,7 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ ok: false, message: "invalid_input" }, { status: 400 });
   }
-  const { chatId, text, media, contacts, calculation, meet } = parsed.data;
+  const { chatId, text, media, contacts, calculation, meet, replyTo } = parsed.data;
 
   try {
     // `message` and `media` are both optional on MessageInput (only
@@ -154,6 +168,9 @@ export async function POST(request: NextRequest) {
     // message's media[] (untested combination so far, but nothing in
     // the spec suggests it's disallowed).
     const payload: Record<string, unknown> = { peerTo: peerForRouteParam(chatId) };
+    if (replyTo) {
+      payload.replyTo = { message: Number(replyTo.messageId), object: "peer-user", user: replyTo.userId };
+    }
     const mediaItems: Record<string, unknown>[] = [];
     if (media && media.length > 0) {
       mediaItems.push(...media.map((m) => ({ fileReference: m.fileReference, object: "media-document-input" })));

@@ -17,7 +17,7 @@
 // ticks) vs load-bearing on the existing polling transport.
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -30,6 +30,7 @@ import { useHoverPanel } from "@/lib/use-hover-panel";
 import { formatBytes, formatRelativeTime } from "@/lib/format";
 import { LottiePlayer } from "@/components/lottie-player";
 import {
+  describeMessagePreview,
   encodeBase64Waveform,
   extractMessageText,
   isImageMediaDocument,
@@ -48,6 +49,8 @@ import {
   type ChatMessage,
   type MessageCalculation,
 } from "@/lib/a1/chat-schemas";
+import { ChatPreviewLine } from "@/components/chat/chat-preview-line";
+import { MessageActionsMenu, ReplyComposeBar, MessageReplyQuote } from "@/components/chat/message-actions-menu";
 import { buildMediaProxyUrl, buildMediaDownloadUrl } from "@/lib/a1/media-proxy";
 import { getStableMediaProxyUrl } from "@/lib/a1/stable-media-url";
 import type { MediaUploadUsage } from "@/lib/a1/schemas";
@@ -203,6 +206,13 @@ type PendingMessage = ChatMessage & {
   // MessageCalculation, rendered by the same ChatCalculationCard a real
   // message uses.
   pendingCalc?: MessageCalculation;
+  // Reply feature (2026-09-05) -- the FULL original ChatMessage this
+  // bubble is replying to (not just its id/replyTo shape), captured at
+  // send() time so the bubble can render its own reply quote instantly
+  // -- see MessageReplyQuote's usage below and attemptSend's own
+  // `replyTo` param comment for why the actual POST only ever needs
+  // this object's id + fromId, never the whole snapshot.
+  replySnapshot?: ChatMessage;
 };
 
 function isPendingMessage(msg: ChatMessage | PendingMessage): msg is PendingMessage {
@@ -631,6 +641,17 @@ export default function ChatWindowPage() {
   // PENDING_POPOVER_MIN_SPACE_ABOVE's own comment above for why).
   const [openPendingAbove, setOpenPendingAbove] = useState(true);
   const pendingPopoverRef = useRef<HTMLDivElement>(null);
+
+  // Reply feature (2026-09-05, Aleksandr, live UI reference: "Давай
+  // теперь сделаем фичу, которая называется Reply") -- actionsMenu is
+  // the Cupertino-style per-message menu (components/chat/message-
+  // actions-menu.tsx), opened by a plain click per his own reasoning
+  // (see that file's header); replyTarget is whatever message Reply
+  // was last chosen on, driving both the compose-bar accessory row
+  // below and the `replyTo` this chat's own send()/attemptSend/
+  // uploadAndSendVoice thread through to chat-server.
+  const [actionsMenu, setActionsMenu] = useState<{ message: ChatMessage; anchorRect: DOMRect; mine: boolean } | null>(null);
+  const [replyTarget, setReplyTarget] = useState<ChatMessage | null>(null);
   const [myUserId, setMyUserId] = useState<string | null>(null);
   // 2026-09-02 (Aleksandr: "человек прочёл, но галочки не поменялись
   // из одной в две") -- the OTHER participant's read high-water mark
@@ -1455,6 +1476,14 @@ export default function ChatWindowPage() {
     media?: { fileReference: string }[],
     contacts?: PickedContact[],
     meet?: MeetSendPayload,
+    // Reply feature (2026-09-05) -- the message this send is replying
+    // to, if any. Only ever set from send()'s own optimistic bubble
+    // (fresh sends) or retryOne (re-derived from that same bubble's
+    // own `replySnapshot`) -- never re-typed by hand, since the only
+    // two facts chat-server needs (the target's numeric id + its
+    // sender's user id) are already sitting on the ChatMessage object
+    // this page already has in hand at both call sites.
+    replyTo?: { messageId: string; userId: string },
   ) {
     try {
       const res = await authFetch("/api/chats/send", {
@@ -1479,6 +1508,7 @@ export default function ChatWindowPage() {
                 }))
               : undefined,
           meet,
+          replyTo,
         }),
       });
       if (res.ok) {
@@ -1625,7 +1655,19 @@ export default function ChatWindowPage() {
             : p,
         ),
       );
-      await attemptSend(localId, "", [{ fileReference }]);
+      // Reply feature (2026-09-05): a voice note follows the exact
+      // same optimistic-bubble/replySnapshot machinery a text/photo
+      // send already does (see handleVoiceFinish below, which staged
+      // it onto this same pending bubble) -- looked up fresh here
+      // rather than threaded through every call site, since retryOne
+      // reaches this same function for a re-upload without re-deriving
+      // it itself.
+      const owner = pendingMessagesRef.current.find((p) => p.localId === localId);
+      const replyTo =
+        owner?.replySnapshot && owner.replySnapshot.fromId
+          ? { messageId: owner.replySnapshot._id, userId: owner.replySnapshot.fromId }
+          : undefined;
+      await attemptSend(localId, "", [{ fileReference }], undefined, undefined, replyTo);
     } catch {
       markVoiceUploadFailed(localId);
     }
@@ -1639,6 +1681,12 @@ export default function ChatWindowPage() {
   // photo/file send already does.
   function handleVoiceFinish(result: VoiceRecordingResult) {
     const localId = `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    // Reply feature (2026-09-05): same "only a real, hands-on send
+    // clears the staged reply" rule send() itself follows -- captured
+    // before clearing so this voice note's own optimistic bubble can
+    // carry it, same as a typed message's `replySnapshot` above.
+    const replyToSend = replyTarget;
+    setReplyTarget(null);
     voiceBlobsRef.current.set(localId, {
       blob: result.blob,
       mimeType: result.mimeType,
@@ -1657,6 +1705,7 @@ export default function ChatWindowPage() {
       pending: true,
       localId,
       failed: false,
+      replySnapshot: replyToSend ?? undefined,
       pendingAttachments: [
         {
           localId: `${localId}-voice`,
@@ -1698,7 +1747,11 @@ export default function ChatWindowPage() {
       const media = p.pendingAttachments
         ?.filter((a) => a.status === "ready" && a.fileReference)
         .map((a) => ({ fileReference: a.fileReference as string }));
-      await attemptSend(p.localId, extractMessageText(p), media, p.pendingContacts);
+      const replyTo =
+        p.replySnapshot && p.replySnapshot.fromId
+          ? { messageId: p.replySnapshot._id, userId: p.replySnapshot.fromId }
+          : undefined;
+      await attemptSend(p.localId, extractMessageText(p), media, p.pendingContacts, undefined, replyTo);
     } finally {
       retryingIds.current.delete(p.localId);
     }
@@ -1906,6 +1959,10 @@ export default function ChatWindowPage() {
         extractMessageText(owner),
         nextAttachments.map((a) => ({ fileReference: a.fileReference as string })),
         owner.pendingContacts,
+        undefined,
+        owner.replySnapshot && owner.replySnapshot.fromId
+          ? { messageId: owner.replySnapshot._id, userId: owner.replySnapshot.fromId }
+          : undefined,
       );
     }
   }
@@ -2172,10 +2229,18 @@ export default function ChatWindowPage() {
     setSending(true);
     const contactsToSend = pendingContacts;
     const attachmentsToSend = attachments;
+    // Reply feature (2026-09-05) -- only a manually-typed/attached send
+    // (never an overrideText call like the empty-chat greeting sticker
+    // or a meeting accept, neither of which has anything to reply to at
+    // the point they fire) carries whatever reply was staged, same
+    // "only overrideText-less sends touch this compose state" rule
+    // draft/attachments/contacts already follow right below.
+    const replyToSend = overrideText ? null : replyTarget;
     if (!overrideText) {
       setDraft("");
       setAttachments([]);
       setPendingContacts([]);
+      setReplyTarget(null);
     }
     // Optimistic bubble, shown the instant the POST is fired -- see the
     // `pendingMessages` state comment above for why (load() right after
@@ -2199,6 +2264,12 @@ export default function ChatWindowPage() {
       failed: false,
       pendingAttachments: attachmentsToSend.length > 0 ? attachmentsToSend : undefined,
       pendingContacts: contactsToSend.length > 0 ? contactsToSend : undefined,
+      // Reply feature: the FULL original message, not just its id --
+      // this pending bubble needs something to render its own reply
+      // quote from immediately (see MessageReplyQuote's own usage
+      // below), well before load()'s next poll could resolve one from
+      // a bare id the way a real, already-sent message's replyTo does.
+      replySnapshot: replyToSend ?? undefined,
     };
     setPendingMessages((prev) => [...prev, optimistic]);
     // Only fire the real send now if every attachment is already
@@ -2214,6 +2285,7 @@ export default function ChatWindowPage() {
         readyAttachments.map((a) => ({ fileReference: a.fileReference as string })),
         contactsToSend,
         meet,
+        replyToSend && replyToSend.fromId ? { messageId: replyToSend._id, userId: replyToSend.fromId } : undefined,
       );
     }
     setSending(false);
@@ -2513,6 +2585,33 @@ export default function ChatWindowPage() {
     if (accept) acceptedMeetings.set(accept.meetingMsgId, accept);
   }
   const displayMessages = rawDisplayMessages.filter((m) => decodeMeetingAcceptText(extractMessageText(m)) === null);
+
+  // Reply feature (2026-09-05) -- a real message's own `replyTo` (see
+  // lib/a1/chat-schemas.ts's MessageReplyToSchema header) carries only
+  // the target's numeric id, never a snippet of what it said -- this
+  // resolves that id against whatever's already loaded in THIS chat's
+  // own recent-history window (messages, not pendingMessages: nothing
+  // pending has a real numeric id yet to be replied TO, only ever a
+  // localId). A target outside that window (an old reply, or a chat
+  // with a lot of history since) has nothing to resolve to; the quote
+  // block below just falls back to a generic label rather than fetching
+  // it specially -- same "don't build a second round-trip for an edge
+  // case" call as every other best-effort lookup on this page.
+  const messagesById = useMemo(() => {
+    const map = new Map<string, ChatMessage>();
+    for (const m of messages) map.set(m._id, m);
+    return map;
+  }, [messages]);
+
+  function resolveReplyPreview(target: ChatMessage | null | undefined): { authorLabel: string; node: ReactNode } | null {
+    if (!target) return null;
+    const authorLabel = target.fromId !== null && target.fromId === myUserId ? YOU_LABEL_TEXT[lang] : headerTitle;
+    const preview = describeMessagePreview(target);
+    return {
+      authorLabel,
+      node: <ChatPreviewLine kind={preview.kind} text={preview.text} photoUrl={null} className="truncate whitespace-nowrap" />,
+    };
+  }
 
   // 2026-09-03 (Figma "Attachments" section, "4.1 Multiple files
   // selected" / "exceeded limit" banners) -- selectedAttachmentBytes
@@ -3543,7 +3642,48 @@ export default function ChatWindowPage() {
                             <LottiePlayer src={quickInviteCatAnimation(text)!} size={40} />
                           </div>
                         ) : (
-                          <div className="whitespace-pre-wrap break-words">{text}</div>
+                          // Reply feature (2026-09-05) -- scoped to
+                          // plain text bubbles only for this first pass
+                          // (told to Aleksandr, not silently decided):
+                          // every other kind here (photo/contact/
+                          // meeting/voice/calc) has its own inner
+                          // interactive element already (open the photo
+                          // viewer, message a contact, accept a
+                          // meeting...) that a bubble-wide click handler
+                          // would fight without real risk of double-
+                          // firing both; plain text has no such
+                          // element, so it's the one safe place to hang
+                          // this on for now.
+                          <>
+                            {(() => {
+                              const quote = pending
+                                ? resolveReplyPreview(pending.replySnapshot)
+                                : resolveReplyPreview(msg.replyTo ? messagesById.get(msg.replyTo.message) ?? null : null);
+                              if (!quote) return null;
+                              return (
+                                <MessageReplyQuote
+                                  authorLabel={quote.authorLabel}
+                                  previewText={quote.node}
+                                  mine={mine}
+                                  onClick={
+                                    !pending && msg.replyTo && messagesById.has(msg.replyTo.message)
+                                      ? () => handleShowInChatFromViewer(Number(msg.replyTo!.message))
+                                      : undefined
+                                  }
+                                />
+                              );
+                            })()}
+                            <div
+                              className={`whitespace-pre-wrap break-words ${pending ? "" : "cursor-pointer"}`}
+                              onClick={
+                                pending
+                                  ? undefined
+                                  : (e) => setActionsMenu({ message: msg, anchorRect: e.currentTarget.getBoundingClientRect(), mine })
+                              }
+                            >
+                              {text}
+                            </div>
+                          </>
                         )
                       )}
                       {!text && !hasMedia && <div className="whitespace-pre-wrap break-words">…</div>}
@@ -4075,6 +4215,20 @@ export default function ChatWindowPage() {
               ))}
             </div>
           )}
+          {/* Reply feature (2026-09-05) -- the compose-bar accessory
+              row, mirrored off the mobile app's own SelectedReply
+              MessageItem (read directly off its source, see components/
+              chat/message-actions-menu.tsx's own header). Sits above
+              voiceRowRef rather than inside it: a staged reply survives
+              switching in and out of the voice-recording UI that row
+              alternates between, the same way it survives typing --
+              only an actual send (of either kind) clears it. */}
+          {replyTarget &&
+            (() => {
+              const quote = resolveReplyPreview(replyTarget);
+              if (!quote) return null;
+              return <ReplyComposeBar authorLabel={quote.authorLabel} previewText={quote.node} onRemove={() => setReplyTarget(null)} />;
+            })()}
           <div ref={voiceRowRef} className="mx-auto flex w-full max-w-[470px] items-end gap-2">
             {/* 2026-09-03 (Aleksandr, voice messages): while a recording
                 is in progress the paperclip/textarea pair is replaced by
@@ -4656,6 +4810,18 @@ export default function ChatWindowPage() {
           onShowInChat={handleShowInChatFromViewer}
           onReply={handleReplyFromViewer}
           onDelete={handleDeleteChatMessage}
+        />
+      )}
+      {actionsMenu && (
+        <MessageActionsMenu
+          anchorRect={actionsMenu.anchorRect}
+          mine={actionsMenu.mine}
+          lang={lang}
+          onClose={() => setActionsMenu(null)}
+          onReply={() => {
+            setReplyTarget(actionsMenu.message);
+            window.requestAnimationFrame(() => textareaRef.current?.focus());
+          }}
         />
       )}
     </div>

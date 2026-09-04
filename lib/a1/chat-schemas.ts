@@ -158,6 +158,36 @@ const MessageEntitySchema = z
   })
   .catchall(z.unknown());
 
+// Reply feature (Aleksandr, live UI reference of a Telegram-style
+// reply flow: "Давай теперь сделаем фичу, которая называется Reply").
+// CONFIRMED off the mobile app's own source (~/mnt/a1_app/aone_private,
+// not guessed): openapi/lib/model/resource_message_reply_to.dart's
+// `ResourceMessageReplyTo` -- `message` (the NUMERIC id of the message
+// being replied to), `user`/`object`/`chat`/`channel`. It carries no
+// snippet of the original text at all -- a real reply-carrying message
+// only ever says WHICH message it's replying to, never what that
+// message said; the client resolves the quoted author/text itself from
+// whatever's already loaded (see app/chats/[chatId]/page.tsx's own
+// reply-quote rendering). `message` is coerced to a string for the same
+// reason MessageSchema's own `_id` already is (every existing `_id`
+// comparison in this app is string `===`, chat-server's own field is a
+// number). Every field but `message` is optional here even though the
+// mobile app's own generated model marks them all required -- chat_
+// detail_cubit.dart's own actual SEND payload (not the generated model)
+// only ever fills `message`/`object`/`user`, `chat`/`channel` absent,
+// so a real RECEIVED message's replyTo may well omit them too.
+const MessageReplyToSchema = z
+  .object({
+    message: z.union([z.string(), z.number()]).transform((v) => String(v)),
+    user: z.string().optional(),
+    object: z.string().optional(),
+    chat: z.string().optional(),
+    channel: z.string().optional(),
+  })
+  .nullable()
+  .catch(null);
+export type MessageReplyTo = z.infer<typeof MessageReplyToSchema>;
+
 const RawMessageSchema = z
   .object({
     _id: z.union([z.string(), z.number()]).transform((v) => String(v)),
@@ -168,6 +198,7 @@ const RawMessageSchema = z
     date: z.string().catch(""),
     entities: z.array(MessageEntitySchema).catch([]),
     media: z.array(z.unknown()).catch([]),
+    replyTo: MessageReplyToSchema.optional(),
     // Never seen on a real message yet (see the confirmed shape above --
     // there's no read/delivered field at all today), kept only because
     // messageTickState() below already treats its absence as the safe
