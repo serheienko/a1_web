@@ -7074,3 +7074,33 @@ via new SELF_DESTRUCT_VOICE_FLAGS/SELF_DESTRUCT_VOICE_TTL_SECONDS
 (lib/a1/chat-schemas.ts).
 
 tsc-clean, commit 18f670b.
+
+## 6.153 -- Pending-bubble popover flying up behind the header on the first message (2026-09-05)
+
+Aleksandr, live screenshot: "Че то не отправляется приветственный кот
+и 'скасувати' куда-то залезло далеко" -- the retry/cancel popover for
+a pending bubble (tap a not-yet-sent message) rendered up near/behind
+the sticky chat header instead of next to the bubble it belonged to.
+
+Root cause: the popover always opened ABOVE its bubble (`bottom-full`),
+which only has room when the bubble isn't the very first thing in the
+scroll area -- exactly the case for the auto-sent welcome cat sticker,
+which by definition is the first message in a brand new chat. With no
+real space above it, the popover just kept climbing up past the top of
+the message list into the sticky header's own territory.
+
+Fix: at the moment a bubble is tapped, check its own
+getBoundingClientRect().top against a minimum-space threshold
+(PENDING_POPOVER_MIN_SPACE_ABOVE = 180) and flip to opening BELOW the
+bubble (`top-full`) instead whenever there isn't room above --
+app/chats/[chatId]/page.tsx's new `openPendingAbove` state, plus a
+mirrored `.animate-popover-down` grow-animation (app/globals.css,
+`transform-origin: top right`) for the flipped case.
+
+The "не отправляется" (never actually sends) half of this report is
+still open -- attemptSend/reconciliation and the `u_<userId>` new-chat
+peer resolution (send + messages routes) all read correctly on
+inspection, no live repro available from this side (can't log in),
+asked Aleksandr for a screen recording / more specifics.
+
+tsc-clean, commit pending.
