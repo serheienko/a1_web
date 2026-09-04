@@ -47,6 +47,7 @@ import {
   type MessageCalculation,
 } from "@/lib/a1/chat-schemas";
 import { buildMediaProxyUrl, buildMediaDownloadUrl } from "@/lib/a1/media-proxy";
+import { getStableMediaProxyUrl } from "@/lib/a1/stable-media-url";
 import type { MediaUploadUsage } from "@/lib/a1/schemas";
 import {
   ChatAttachmentSpinner,
@@ -3036,9 +3037,13 @@ export default function ChatWindowPage() {
                         <div className="mb-1 flex flex-col gap-1.5">
                           {docMedia.map((doc) =>
                             imageGroupSkipIds.has(doc._id) ? null : imageGroupStartId.has(doc._id) ? (
+                              // getStableMediaProxyUrl, not buildMediaProxyUrl directly --
+                              // see lib/a1/stable-media-url.ts's own header (same
+                              // rotating-fileReference-on-every-poll bug already fixed for
+                              // PdfPageThumbnail, now fixed here for plain <img> photos too).
                               <ChatPhotoGrid
                                 key={doc._id}
-                                docs={imageGroupStartId.get(doc._id)!.map((d) => ({ id: d._id, src: buildMediaProxyUrl(d) }))}
+                                docs={imageGroupStartId.get(doc._id)!.map((d) => ({ id: d._id, src: getStableMediaProxyUrl(d) }))}
                                 onOpen={(docId) => openViewerForDoc(msg._id, docId)}
                               />
                             ) : isVoiceMediaDocument(doc) ? (
@@ -3072,9 +3077,11 @@ export default function ChatWindowPage() {
                                 // colors.
                                 <div key={doc._id} className="relative min-w-[200px] overflow-hidden rounded-xl">
                                   {/* eslint-disable-next-line @next/next/no-img-element -- proxied
-                                      through /api/media, not a next/image-configured remote host. */}
+                                      through /api/media, not a next/image-configured remote host.
+                                      getStableMediaProxyUrl, not buildMediaProxyUrl -- see that
+                                      helper's own header (2026-09-04, "подгрузку через блюр"). */}
                                   <img
-                                    src={buildMediaProxyUrl(doc)}
+                                    src={getStableMediaProxyUrl(doc)}
                                     alt=""
                                     onClick={() => openViewerForDoc(msg._id, doc._id)}
                                     // 2026-09-04 (Aleksandr, live screenshot: a small-resolution
@@ -3104,7 +3111,7 @@ export default function ChatWindowPage() {
                                 // through /api/media, not a next/image-configured remote host.
                                 <img
                                   key={doc._id}
-                                  src={buildMediaProxyUrl(doc)}
+                                  src={getStableMediaProxyUrl(doc)}
                                   alt=""
                                   onClick={() => openViewerForDoc(msg._id, doc._id)}
                                   // Same tiny-source-photo fix as the flat isImageOnly branch

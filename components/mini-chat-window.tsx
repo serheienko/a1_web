@@ -60,6 +60,7 @@ import { profileHref } from "@/lib/profile-href";
 import { formatBytes } from "@/lib/format";
 import { useHoverPanel } from "@/lib/use-hover-panel";
 import { buildMediaProxyUrl } from "@/lib/a1/media-proxy";
+import { getStableMediaProxyUrl } from "@/lib/a1/stable-media-url";
 import {
   extractMessages,
   extractMessageText,
@@ -759,7 +760,7 @@ export function MiniChatWindow({
                         // through /api/media, not a next/image-configured remote host.
                         <img
                           key={doc._id}
-                          src={buildMediaProxyUrl(doc)}
+                          src={getStableMediaProxyUrl(doc)}
                           alt=""
                           className="max-h-48 w-full rounded-xl object-cover"
                           style={MEDIA_BLUR_STYLE}
