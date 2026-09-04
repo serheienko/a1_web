@@ -6716,3 +6716,23 @@ the wire, just rendered specially by both participants' clients when
 they see it, so no backend/protocol change needed.
 
 tsc-clean, commit f93c94d.
+
+## 6.138 -- Attach popover height cap raised (420 -> 500px), Meetings + row list both needed it (2026-09-04)
+
+Same underlying number, two live-test reports back to back: "Попап
+этот который не влез" (Meetings' own schedule-row + 2 quick invites)
+and "Сделай чуть выше эту модалку, ты шрифт увеличил, а модалку забыл
+сделать выше и она теперь скроллится, а смысла нет" (the plain Photo/
+File/Meetings/Calculation/Contact row list, after the earlier +50%
+mobile font bump). 420px was already right at the edge for Meetings'
+content; the font bump pushed the row list past it too. Raised both
+call sites of this cap in app/chats/[chatId]/page.tsx (the max-h class
+and the paired attachPanelHeight inline-style clamp, always kept at
+the same value) from 420 to 500px so neither needs to scroll for
+content that's realistically never much taller than this on a normal
+phone screen. mini-chat-window.tsx's own copy of this same cap was
+left untouched -- its row-list font was never bumped, and its own
+clipping bug (yesterday's entry, same day) was a different root cause
+(the outer card's fixed height, not this inner cap).
+
+tsc-clean, commit 8c9c9eb.
