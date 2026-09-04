@@ -6697,3 +6697,22 @@ layer into shadow-xl's own two default layers as one combined
 pair would just overwrite each other, both setting `box-shadow`).
 
 tsc-clean, commits a50e797/a18473c/018a96f/3c8f7c7.
+
+## 6.137 -- Greeting-tap first message renders as the real hi_cat sticker again (2026-09-04)
+
+Aleksandr, 4 screenshots: "При першому повідомленні надо щоб
+відправлявся наш нормальний hi_cat анімація, вот як у мобе" --
+reverses the 2026-09-02/09-03 simplification (GREETING_EMOJI's own
+header) that deliberately made the empty-chat greeting button send a
+plain "🐱" glyph with no special treatment ("он у нас - обычное
+сообщение"). The sent message -- both while still pending and once
+confirmed -- now renders as the same branded cat-hi.json Lottie
+sticker the button itself shows, chromeless (no colored bubble behind
+it), via a new `isGreetingSticker` flag folded into the same
+isXOnly/isFlatMedia convention ContactMessageCard/MeetingMessageCard
+already use for exclusive, self-styled message content.
+send(GREETING_EMOJI) itself is unchanged -- still plain "🐱" text on
+the wire, just rendered specially by both participants' clients when
+they see it, so no backend/protocol change needed.
+
+tsc-clean, commit f93c94d.
