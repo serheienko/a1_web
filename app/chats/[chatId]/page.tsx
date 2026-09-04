@@ -2889,15 +2889,26 @@ export default function ChatWindowPage() {
                   )}
                 </div>
               );
-              // 2026-09-04 follow-up (Aleksandr: "сделай основной цвет
-              // заливки такой же як повідомлення") -- MeetingMessageCard's
-              // own root now turns solid accent-blue when mine, same as
-              // ContactMessageCard, so the dedicated meetingFooter this
-              // used to need (blue TEXT on an always-white/dark card) no
-              // longer applies -- flatFooter's own white/70-when-mine
-              // assumption is correct again, same as every other flat
-              // card. See that component's own header for the color
-              // rework.
+              // 2026-09-04, round three (Aleksandr, "подложку... убрать...
+              // сделать вот как у меня") -- MeetingMessageCard's root is
+              // now always a fixed dark-navy card regardless of `mine`
+              // (see that component's own header), unlike every other
+              // flat card here which still alternates white/dark-mode
+              // vs accent-blue depending on sender. flatFooter's
+              // `!mine` branch (dark gray, tuned for a light card) would
+              // read poorly on that fixed dark background, so the
+              // meeting card gets its own footer variant that's always
+              // light, independent of `mine`.
+              const meetingFooter = (
+                <div className="flex items-center justify-end gap-1 text-[11px] text-white/60">
+                  <span>{formatTime(ms)}</span>
+                  {pending ? (
+                    pending.failed ? <NotSentIcon /> : <SendingSpinner />
+                  ) : (
+                    mine && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7.77px] w-3.5" />
+                  )}
+                </div>
+              );
               return (
                 <div key={msg._id}>
                   {showDate && (
@@ -3335,7 +3346,7 @@ export default function ChatWindowPage() {
                           canAccept={!mine && !pending}
                           accepting={acceptingMeetingId === msg._id}
                           onAccept={() => void acceptMeeting(msg._id, meeting.startsAtUtcMs, meeting.link)}
-                          footer={isMeetingOnly ? flatFooter : undefined}
+                          footer={isMeetingOnly ? meetingFooter : undefined}
                         />
                       )}
                       {text && !meeting && (

@@ -31,9 +31,25 @@
 // MeetingPayload/MeetingAcceptPayload comments for exactly what data
 // this needed (and, just as deliberately, did NOT need) to travel with
 // the message text itself.
+//
+// 2026-09-04, round three (Aleksandr, 2 screenshots comparing this
+// against his native app's own card: "У тебя, видишь, ты сделал с
+// подложкой, поэтому всё очень мелко... подложку этих меню надо в
+// принципе убрать... сделать вот как у меня. У меня оно всё крупно,
+// видно и всё нормально") -- the "подложка" (backing) he means is the
+// PREVIOUS design's root fill, which turned solid accent-blue for a
+// message that's `mine` (the earlier "сделай основной цвет заливки
+// такой же як повідомлення" ask below), making this card visually
+// indistinguishable from an ordinary text bubble and forcing every
+// label inside it down to bubble-text sizes to still fit. His native
+// reference uses one fixed dark-navy card regardless of who sent it
+// (never the bright message-blue), noticeably bigger avatars/type, and
+// a plain centered "Meeting proposal" title with no icon badge -- all
+// reproduced below. `mine` no longer drives ANY color in this file; it
+// still only decides which identity is "the proposer" vs "the other
+// participant" (unchanged, see MeetingMessageCard's own comment).
 import { useState } from "react";
 import { T, type Locale } from "@/components/t";
-import { ChatMeetingAttachIcon } from "./icons";
 import type { ReactNode } from "react";
 import { bucketForHour, bucketEmoji, type MeetingPayload, type MeetingAcceptPayload, type MeetingTimeBucket } from "@/lib/a1/meeting-protocol";
 import { LottiePlayer } from "@/components/lottie-player";
@@ -56,9 +72,13 @@ type StringKey =
   | "joinMeeting";
 
 const STRINGS: Record<StringKey, Record<Locale, string>> = {
+  // 2026-09-04 (round three, native reference screenshot's own header
+  // literally reads "Meeting proposal", two words) -- was a bare
+  // "Зустріч"/"Meeting" single word.
   title: {
-    uk: "Зустріч", en: "Meeting", ru: "Встреча", de: "Treffen", es: "Reunión",
-    fr: "Rendez-vous", pl: "Spotkanie", ptBR: "Reunião", zh: "会议",
+    uk: "Пропозиція зустрічі", en: "Meeting proposal", ru: "Предложение о встрече", de: "Terminvorschlag",
+    es: "Propuesta de reunión", fr: "Proposition de rendez-vous", pl: "Propozycja spotkania",
+    ptBR: "Proposta de reunião", zh: "会议提议",
   },
   waitingAcceptance: {
     uk: "Очікує підтвердження", en: "Waiting for acceptance", ru: "Ожидает подтверждения",
@@ -160,7 +180,7 @@ function bucketLabel(bucket: MeetingTimeBucket, lang: Locale): string {
 }
 
 // Plain hourglass, for the "hidden until they accept" placeholder row
-// -- deliberately a different glyph from BucketIcon's four (nothing
+// -- deliberately a different glyph from the bucket emoji (nothing
 // here claims to know a time-of-day, unlike those).
 function HourglassIcon({ className }: { className?: string }) {
   return (
@@ -190,7 +210,7 @@ function ParticipantAvatar({ p, className }: { p: Participant; className?: strin
   }
   const initial = p.name.trim().slice(0, 1).toUpperCase() || "?";
   return (
-    <div className={`${className} flex items-center justify-center rounded-full bg-gradient-to-br from-[#8a93ff] to-[#5c6bff] text-[11px] font-semibold text-white`}>
+    <div className={`${className} flex items-center justify-center rounded-full bg-gradient-to-br from-[#8a93ff] to-[#5c6bff] font-semibold text-white`}>
       {initial}
     </div>
   );
@@ -203,13 +223,24 @@ function ParticipantAvatar({ p, className }: { p: Participant; className?: strin
 // (only ever correct when the viewer IS that row's own participant --
 // see the two call sites below for why that's always true when tz is
 // omitted).
+//
+// 2026-09-04 (round three, "подложку... убрать... сделать вот как у
+// меня") -- no longer takes a `mine` prop: every color here used to
+// branch on it purely to stay legible against the root's OLD
+// mine-colored fill; the root is now one fixed dark card regardless of
+// sender (see MeetingMessageCard below), so one fixed light-on-dark
+// palette works for both rows unconditionally. Sized up throughout
+// (avatar 28px -> 44px, name 12.5px -> 15px, big time/bucket value
+// 14px/14px -> 26px/30px) to match his native reference's own scale,
+// and the date/bucket-label value that used to squeeze onto the same
+// line as the "Місцевий час" label now gets its own third line below
+// it, same stacked shape the reference uses.
 function ParticipantRow({
   lang,
   participant,
   startsAtUtcMs,
   tz,
   mode,
-  mine,
 }: {
   lang: Locale;
   participant: Participant;
@@ -222,55 +253,37 @@ function ParticipantRow({
   // "hidden": no time information at all -- this viewer has no way to
   // know it yet.
   mode: "exact" | "bucket" | "hidden";
-  // 2026-09-04 (Aleksandr: "сделай основной цвет заливки такой же як
-  // сообщения") -- the card root now turns solid accent-blue for a
-  // message that's mine, same as every other bubble, so every neutral-
-  // gray label in this row needs a light/translucent-white equivalent
-  // instead (a dark-mode-tuned gray reads as almost invisible on that
-  // blue). See MeetingMessageCard's own root below for the fill itself.
-  mine: boolean;
 }) {
   const zone = tz || undefined;
   const d = new Date(startsAtUtcMs);
-  // 2026-09-04 (Aleksandr, live screenshot: "Че то текст подрезался
-  // 'буде Fr'") -- was weekday+month+day ("Fri, Sep 5"), which doesn't
-  // fit this row's own tight width. Numeric day.month instead -- matches
-  // app/chats/page.tsx's own chat-list short-date convention (e.g.
-  // "05.08"). 2026-09-04 follow-up ("подними дату", still truncating
-  // even at that length once appended after the "Місцевий час буде · "
-  // label): moved OUT of this subtitle line entirely, onto its own
-  // small line stacked above the time on the right (see below) -- both
-  // fixes the truncation for good and reads as "raised" per his ask.
-  const dateLabel = `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}`;
+  // Full day.month.year, matching the native reference's own
+  // "04.09.2026" -- unlike the old inline day.month-only label, this
+  // now sits on its own dedicated line (see below) so a full year no
+  // longer risks truncating a shared line the way it used to.
+  const dateLabel = `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
   const timeLabel = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", timeZone: zone });
   const bucket = bucketForHour(
     Number(d.toLocaleString("en-US", { hour: "numeric", hour12: false, timeZone: zone })) % 24,
   );
-  const mutedText = mine ? "text-white/65" : "text-neutral-500 dark:text-neutral-400";
-  const faintText = mine ? "text-white/55" : "text-neutral-400 dark:text-neutral-500";
 
   return (
-    <div className="flex items-center gap-2">
-      <ParticipantAvatar p={participant} className="h-7 w-7 shrink-0" />
+    <div className="flex items-center gap-3">
+      <ParticipantAvatar p={participant} className="h-11 w-11 shrink-0 text-[13px]" />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[12.5px] font-medium leading-tight">{participant.name || "—"}</div>
-        <div className={`truncate text-[10.5px] leading-tight ${mutedText}`}>
+        <div className="truncate text-[15px] font-semibold leading-tight text-white">{participant.name || "—"}</div>
+        <div className="truncate text-[12px] leading-snug text-white/50">
           {mode === "hidden" ? t("timeHiddenUntilTheyAccept", lang) : mode === "exact" ? t("localTimeWillBe", lang) : t("localTime", lang)}
         </div>
+        {mode === "exact" && <div className="truncate text-[12.5px] font-medium leading-snug text-white/70">{dateLabel}</div>}
+        {mode === "bucket" && <div className="truncate text-[12.5px] font-medium leading-snug text-white/70">{bucketLabel(bucket, lang)}</div>}
       </div>
-      {mode === "exact" && (
-        <div className="flex shrink-0 flex-col items-end">
-          <div className={`text-[10px] font-medium leading-none ${faintText}`}>{dateLabel}</div>
-          <div className="mt-0.5 text-[14px] font-semibold leading-none tabular-nums">{timeLabel}</div>
-        </div>
-      )}
+      {mode === "exact" && <div className="shrink-0 text-[26px] font-bold leading-none tabular-nums text-white">{timeLabel}</div>}
       {mode === "bucket" && (
-        <div className={`flex shrink-0 items-center gap-1 ${mutedText}`}>
-          <span className="text-[14px] leading-none" aria-hidden="true">{bucketEmoji(bucket)}</span>
-          <span className="text-[11.5px] font-medium">{bucketLabel(bucket, lang)}</span>
-        </div>
+        <span className="shrink-0 text-[30px] leading-none" aria-hidden="true">
+          {bucketEmoji(bucket)}
+        </span>
       )}
-      {mode === "hidden" && <HourglassIcon className={`h-3.5 w-3.5 shrink-0 ${faintText}`} />}
+      {mode === "hidden" && <HourglassIcon className="h-6 w-6 shrink-0 text-white/40" />}
     </div>
   );
 }
@@ -295,7 +308,9 @@ export function MeetingMessageCard({
   // meeting -- picks which of the two identities below is "the
   // proposer" vs. "the other participant" (see this file's own header
   // and meeting-protocol.ts's MeetingPayload comment for why neither
-  // name/avatar needs to ride in the payload itself).
+  // name/avatar needs to ride in the payload itself). Doesn't drive any
+  // COLOR in this file any more -- see this file's own round-three
+  // header comment.
   mine: boolean;
   myName: string;
   myAvatarUrl: string | null;
@@ -315,9 +330,9 @@ export function MeetingMessageCard({
   // 2026-09-04 (Aleksandr: "Убери подложку со встречи") -- a meeting
   // message now renders flat, same as a lone photo/voice/file/contact
   // (app/chats/[chatId]/page.tsx's own isFlatMedia), with no colored
-  // bubble wrapper of its own behind this already-self-contained white/
-  // dark card. That wrapper used to be where the shared time+ticks row
-  // lived, so page.tsx now hands it down as `footer` instead (same
+  // bubble wrapper of its own behind this already-self-contained card.
+  // That wrapper used to be where the shared time+ticks row lived, so
+  // page.tsx now hands it down as `footer` instead (same
   // ContactMessageCard convention, see that file's own `footer` prop),
   // rendered inside this card's own bottom padding.
   footer?: ReactNode;
@@ -335,26 +350,8 @@ export function MeetingMessageCard({
   // -- see ParticipantRow's own `mode` doc above.
   const otherMode: "exact" | "bucket" | "hidden" = accepted ? "exact" : canAccept ? "bucket" : "hidden";
 
-  // 2026-09-04 (Aleksandr: "уменьши высоту, не расходуй место... сделай
-  // основной цвет заливки такой же як повідомлення, а решта кольорів
-  // закастомь, щоб підходили") -- root fill now matches every other
-  // sent/received bubble (solid accent-blue when mine, white/dark card
-  // otherwise, same colors app/chats/[chatId]/page.tsx's own text
-  // bubbles use) instead of always-white/dark; every neutral-gray/blue
-  // accent below is branched on `mine` to still read against that.
-  // Padding/gaps also tightened throughout (pt-3->pt-2.5, mt-3->mt-2.5,
-  // py-2.5->py-2, gap-2.5->gap-2, pb-3/pt-2->pb-2.5/pt-1.5) for the
-  // "don't waste space" half of the same ask.
-  const mutedText = mine ? "text-white/65" : "text-neutral-500 dark:text-neutral-400";
-  const overlayBg = mine ? "bg-white/15" : "bg-black/5 dark:bg-white/10";
-  const pillBg = mine ? "bg-white/15 text-white hover:bg-white/25" : "bg-black/5 text-neutral-500 hover:bg-black/10 dark:bg-white/10 dark:text-neutral-300 dark:hover:bg-white/15";
-
   return (
-    <div
-      className={`relative w-[260px] max-w-full overflow-hidden rounded-2xl shadow-sm ${
-        mine ? "bg-[#335ef7] text-white dark:bg-[#009bff]" : "bg-white text-[#262a34] dark:bg-[#1a1a1a] dark:text-white"
-      }`}
-    >
+    <div className="relative w-[300px] max-w-full overflow-hidden rounded-2xl bg-[#12233d] p-4 text-white shadow-sm">
       {/* 2026-09-04 (Aleksandr, screenshot: the "Зрозуміло!" button at
           the bottom of the time-visibility panel below was clipped by
           this root's own `overflow-hidden`, cut off flush with the
@@ -368,13 +365,12 @@ export function MeetingMessageCard({
           real layout height to compensate anyway (chat bubbles below
           are positioned by normal flow, oblivious to anything
           overflowing past this box). Swapping the panel IN for the
-          normal content (same root, same rounded/overflow-hidden
-          frame, just no longer layered via `absolute`) lets the root
-          size itself to whichever content is actually showing, so the
-          card genuinely grows and pushes later messages down instead
-          of clipping. */}
+          normal content (same root frame, just no longer layered via
+          `absolute`) lets the root size itself to whichever content is
+          actually showing, so the card genuinely grows and pushes
+          later messages down instead of clipping. */}
       {showTimeVisibility ? (
-        <div className="flex w-full flex-col items-center gap-3 p-4 text-center">
+        <div className="flex w-full flex-col items-center gap-3 text-center">
           {/* 2026-09-04 (Aleksandr, Figma "(1) Schedule a Meeting"
               reference + his own supplied planet2.json): the
               reference shows a big globe/planet icon centered above
@@ -383,66 +379,55 @@ export function MeetingMessageCard({
               every other in-app animation (planet-loader, the cat
               mascots) already uses. */}
           <LottiePlayer src="/animations/planet2.json" size={72} />
-          <h3 className="text-[15px] font-semibold text-neutral-900 dark:text-neutral-50">{t("timeVisibility", lang)}</h3>
-          <p className="text-[13px] leading-snug text-neutral-500 dark:text-neutral-400">{t("timeVisibilityBody", lang)}</p>
+          <h3 className="text-[16px] font-semibold text-white">{t("timeVisibility", lang)}</h3>
+          <p className="text-[13px] leading-snug text-white/60">{t("timeVisibilityBody", lang)}</p>
           <button
             type="button"
             onClick={() => setShowTimeVisibility(false)}
-            className="mt-1 w-full rounded-full bg-[#335ef7] px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-[#2748d6] dark:bg-[#0c8ce9] dark:hover:bg-[#0a75c2]"
+            className="mt-1 w-full rounded-full bg-[#335ef7] px-4 py-2.5 text-[14px] font-semibold text-white transition hover:bg-[#2748d6]"
           >
             {t("ok", lang)}
           </button>
         </div>
       ) : (
         <>
-          <div className="flex items-center gap-2 px-3 pt-2.5">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#ff5fa2] to-[#2bd6c7] text-white">
-              <ChatMeetingAttachIcon className="h-3.5 w-3.5" />
-            </span>
-            <div className="min-w-0">
-              <div className="truncate text-[13.5px] font-semibold leading-tight">
-                <T uk={STRINGS.title.uk} en={STRINGS.title.en} ru={STRINGS.title.ru} de={STRINGS.title.de} es={STRINGS.title.es} fr={STRINGS.title.fr} pl={STRINGS.title.pl} ptBR={STRINGS.title.ptBR} zh={STRINGS.title.zh} />
-              </div>
-              <div className={`truncate text-[10.5px] font-medium leading-tight ${mutedText}`}>
-                {accepted ? (
-                  <T uk={STRINGS.scheduledMeeting.uk} en={STRINGS.scheduledMeeting.en} ru={STRINGS.scheduledMeeting.ru} de={STRINGS.scheduledMeeting.de} es={STRINGS.scheduledMeeting.es} fr={STRINGS.scheduledMeeting.fr} pl={STRINGS.scheduledMeeting.pl} ptBR={STRINGS.scheduledMeeting.ptBR} zh={STRINGS.scheduledMeeting.zh} />
-                ) : (
-                  <T uk={STRINGS.waitingAcceptance.uk} en={STRINGS.waitingAcceptance.en} ru={STRINGS.waitingAcceptance.ru} de={STRINGS.waitingAcceptance.de} es={STRINGS.waitingAcceptance.es} fr={STRINGS.waitingAcceptance.fr} pl={STRINGS.waitingAcceptance.pl} ptBR={STRINGS.waitingAcceptance.ptBR} zh={STRINGS.waitingAcceptance.zh} />
-                )}
-              </div>
-            </div>
-          </div>
+          {/* 2026-09-04 (round three, native reference): plain centered
+              title, no icon badge -- his own screenshot's "Meeting
+              proposal" header has neither a colored icon nor a
+              secondary status line under it (that status moved down
+              into the bottom row below, see the "waiting"/"scheduled"
+              branch further down). */}
+          <h3 className="mb-3.5 text-center text-[16px] font-semibold text-white">
+            <T uk={STRINGS.title.uk} en={STRINGS.title.en} ru={STRINGS.title.ru} de={STRINGS.title.de} es={STRINGS.title.es} fr={STRINGS.title.fr} pl={STRINGS.title.pl} ptBR={STRINGS.title.ptBR} zh={STRINGS.title.zh} />
+          </h3>
 
-          <div className={`mx-3 mt-2.5 flex flex-col gap-2 rounded-xl px-2.5 py-2 ${overlayBg}`}>
-            <ParticipantRow lang={lang} participant={proposer} startsAtUtcMs={payload.startsAtUtcMs} tz={payload.proposerTimeZone} mode="exact" mine={mine} />
-            <div className={`h-px ${overlayBg}`} />
+          <div className="flex flex-col gap-3">
+            <ParticipantRow lang={lang} participant={proposer} startsAtUtcMs={payload.startsAtUtcMs} tz={payload.proposerTimeZone} mode="exact" />
+            <div className="h-px bg-white/10" />
             <ParticipantRow
               lang={lang}
               participant={other}
               startsAtUtcMs={payload.startsAtUtcMs}
               tz={accepted ? acceptPayload.accepterTimeZone : undefined}
               mode={otherMode}
-              mine={mine}
             />
           </div>
 
-          <div className="flex items-center gap-2 px-3 pb-2.5 pt-1.5">
+          <div className="mt-3.5 flex items-center gap-2 border-t border-white/10 pt-3.5">
             <button
               type="button"
               onClick={() => setShowTimeVisibility(true)}
               aria-label={t("timeVisibility", lang)}
-              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition ${pillBg}`}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-white/70 transition hover:bg-white/20"
             >
-              <InfoIcon className="h-3.5 w-3.5" />
+              <InfoIcon className="h-4 w-4" />
             </button>
             {canAccept && !accepted ? (
               <button
                 type="button"
                 onClick={onAccept}
                 disabled={accepting}
-                className={`flex-1 rounded-full px-4 py-1.5 text-[12.5px] font-semibold transition disabled:opacity-60 ${
-                  mine ? "bg-white text-[#335ef7] hover:bg-white/90" : "bg-[#335ef7] text-white hover:bg-[#2748d6] dark:bg-[#0c8ce9] dark:hover:bg-[#0a75c2]"
-                }`}
+                className="flex-1 rounded-full bg-[#335ef7] px-4 py-2 text-[14px] font-semibold text-white transition hover:bg-[#2748d6] disabled:opacity-60"
               >
                 {t("accept", lang)}
               </button>
@@ -452,20 +437,31 @@ export function MeetingMessageCard({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
-                className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-4 py-1.5 text-[12.5px] font-semibold transition ${
-                  mine
-                    ? "bg-white/15 text-white hover:bg-white/25"
-                    : "bg-[#335ef7]/10 text-[#335ef7] hover:bg-[#335ef7]/15 dark:bg-[#0c8ce9]/15 dark:text-[#0c8ce9] dark:hover:bg-[#0c8ce9]/20"
-                }`}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-white/10 px-4 py-2 text-[14px] font-semibold text-white transition hover:bg-white/20"
               >
                 {t("joinMeeting", lang)}
               </a>
             ) : (
-              <div className="flex-1" />
+              // 2026-09-04 (round three, native reference): the empty
+              // spacer here used to just be dead space when neither an
+              // Accept button nor a Join link applies (the proposer
+              // looking at their own still-unaccepted proposal) --
+              // native fills that same slot with an hourglass +
+              // status label instead, which this now matches.
+              <div className="flex flex-1 items-center gap-1.5 text-white/45">
+                <HourglassIcon className="h-4 w-4 shrink-0" />
+                <span className="truncate text-[11px] font-semibold uppercase tracking-wide">
+                  {accepted ? (
+                    <T uk={STRINGS.scheduledMeeting.uk} en={STRINGS.scheduledMeeting.en} ru={STRINGS.scheduledMeeting.ru} de={STRINGS.scheduledMeeting.de} es={STRINGS.scheduledMeeting.es} fr={STRINGS.scheduledMeeting.fr} pl={STRINGS.scheduledMeeting.pl} ptBR={STRINGS.scheduledMeeting.ptBR} zh={STRINGS.scheduledMeeting.zh} />
+                  ) : (
+                    <T uk={STRINGS.waitingAcceptance.uk} en={STRINGS.waitingAcceptance.en} ru={STRINGS.waitingAcceptance.ru} de={STRINGS.waitingAcceptance.de} es={STRINGS.waitingAcceptance.es} fr={STRINGS.waitingAcceptance.fr} pl={STRINGS.waitingAcceptance.pl} ptBR={STRINGS.waitingAcceptance.ptBR} zh={STRINGS.waitingAcceptance.zh} />
+                  )}
+                </span>
+              </div>
             )}
           </div>
 
-          {footer && <div className="px-3 pb-2">{footer}</div>}
+          {footer && <div className="mt-2 flex justify-end">{footer}</div>}
         </>
       )}
     </div>
