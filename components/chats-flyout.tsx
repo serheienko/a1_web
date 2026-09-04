@@ -228,7 +228,7 @@ function ChatRowSkeleton() {
 // own header already commits to.
 function NewChatBubbleIcon({ className }: { className?: string }) {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
       <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 20l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
       <path d="M12 8.5v4M10 10.5h4" />
     </svg>
@@ -488,7 +488,7 @@ export function ChatsFlyout({
                 type="button"
                 onClick={() => setNewChatOpen(true)}
                 aria-label={STRINGS.newChatTitle[lang]}
-                className="group flex h-8 w-8 items-center justify-center rounded-full bg-accent text-white shadow-sm shadow-accent/30 transition hover:opacity-90 active:scale-95"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
               >
                 <NewChatBubbleIcon className="animate-chat-wiggle-loop" />
               </button>
