@@ -6252,3 +6252,41 @@ own explicit fallback authorization ("Если нет, то сделай Accept,
 сам считаешь нужно").
 
 tsc-clean.
+
+
+### 6.125
+
+2026-09-04 (Aleksandr, live bug report + screen recording: "есть трабла
+в отображении эквалайзера... в конце есть звук и голос, но черточки
+ровные"): a just-sent voice message's waveform rendered with real
+variation only in its first ~1-1.5s, then a flat/near-floor line for
+the rest of the clip. Diagnosed off the report video itself -- frame-
+by-frame crop of the waveform bars confirmed the "flat tail" visually,
+and extracting the video's own audio envelope (ffmpeg -> raw PCM ->
+per-50ms RMS) confirmed real audible speech actually continues for
+almost the whole clip, so the display genuinely didn't match the audio.
+
+Root cause: components/chat/voice-recorder.ts built the waveform from
+a LIVE sampling loop running during recording (tickAmplitude's rAF
+chain feeding sampleTimerRef's 100ms interval into samplesRef), then
+stretched that array across the clip's real (wall-clock) duration once
+stopped. Two independent weaknesses there, either enough on its own:
+(1) pauseResume() only ever paused the visible seconds counter, never
+the amplitude sampler itself -- a pause/resume mid-recording keeps
+pushing samples for a span with no corresponding audio in the final
+blob, desyncing "sample index" from "position in the real recording"
+for everything after; (2) a live rAF/interval loop has no guarantee of
+actually sampling every ~100ms for the whole real duration the way
+elapsedMs (wall-clock) does.
+
+Fix: once recording stops, decode the ACTUAL final blob (Web Audio's
+decodeAudioData) and compute the waveform directly off its real,
+complete PCM samples -- sidesteps the whole class of live-sampling
+timing bugs rather than chasing the exact failure mode blind (this
+session can't log into the app to attach a live debugger and reproduce
+it directly, per its own standing security rule). The old live-samples
+path is kept as a fallback for the rare case decoding itself fails, and
+pauseResume() now actually pauses/resumes the sampler too, so that
+fallback path stays correct on its own terms as well.
+
+tsc-clean.
