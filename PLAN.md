@@ -7484,3 +7484,86 @@ rather than crashing -- same one-beat flip as before until the real
 fetch overwrites them, self-healing on the next write.
 
 tsc-clean, commit 8b118e3.
+
+
+## 6.169 -- Cross-message photo album fallback (2026-09-05)
+
+Aleksandr, repeated report even after 6.116 (grouping) and 6.142 (blur
+fix): "Фото по-прежнему не отображаются в комбинированном виде." Asked
+him directly this time how he actually sends them -- confirmed he
+multi-selects several photos and sends them as ONE compose action, so
+this isn't the "sent one at a time" case 6.116 deliberately scoped out.
+
+Root cause, best available evidence without live network access this
+session (git push itself is currently blocked from this sandbox --
+proxy 403 to every external host tried, github.com included -- so
+nothing here could be verified against a real deployment or a live
+messages.send call, and the chat-server source isn't readable from
+here): the within-message grouping (imageGroupStartId, existing since
+6.116) is provably correct by static reading -- it groups any run of
+2+ consecutive image docs inside ONE message's own `media` array, and
+app/api/chats/send/route.ts does forward every ready attachment as one
+`media[]` array in a single messages.send call. What was never
+confirmed live is the OTHER half of that assumption: that chat-server's
+messages.send INPUT actually stores a multi-item `media[]` as one
+message with N entries, rather than splitting it into N separate
+single-media messages server-side. The OpenAPI spec only confirms
+`media` is an array on Resource.Message's OUTPUT shape (checked via
+WebFetch against https://api.a1appp.com/openapi.json this session);
+the INPUT schema's own cardinality wasn't reachable through that same
+truncated fetch. This backend also has no groupedId/albumId field at
+all (unlike Telegram's own MTProto sendMultiMedia), which is the kind
+of field a backend WOULD need to keep N separately-stored messages
+visually tied together -- its absence is circumstantial evidence
+pointing at the split-into-N-messages theory.
+
+Given that, added a defensive fallback rather than gambling the whole
+fix on one unverified theory: components/chat/photo-grid.tsx's
+ChatPhotoGrid now takes an optional `footer` (ReactNode, absolutely
+positioned inside its own newly-`relative` root -- same convention as
+the existing single-photo time+ticks pill it mirrors). app/chats/
+[chatId]/page.tsx adds a second, independent grouping pass
+(crossMessageGroupStart/crossMessageGroupSkip, computed once right
+after displayMessages) that groups any run of 2+ CONSECUTIVE real
+(non-pending) messages from the SAME sender, each a "solo" image (no
+caption/calc/contact -- same shape isImageOnly already tests
+per-message), sent within 15s of each other, into one ChatPhotoGrid --
+last message in the run supplies the time+ticks footer, first message
+anchors the render, the rest are skipped entirely (`return null` at
+the top of the message map). Each tile still opens the FULL viewer
+against its own real message id (crossGroupRun tracks {msg, doc} pairs,
+not just doc ids), so photo-viewer/save/delete are all unaffected.
+Deliberately NOT touched: reply-to and the right-click actions menu for
+a skipped message -- both still target only the first message in a
+cross-message run (same trade-off the within-message grouping already
+makes implicitly, since a multi-doc message only has one message id to
+begin with). Scoped to real messages only, matching 6.116's own
+precedent -- a still-uploading multi-select send already renders as one
+grid via the existing pendingImageGroupStartId path, so pending
+bubbles were never part of this gap.
+
+This is additive and inert if the within-message theory turns out to
+be the real (or the only) bug instead: a message that already groups
+via imageGroupStartId has 2+ docs in its own media array, so it can
+never also qualify as "solo" here (soloImageMessage requires exactly
+one doc) -- the two groupings can't double-fire on the same message.
+If it turns out chat-server DOES correctly group multi-item sends
+into one message already, this fallback simply never triggers (no
+run of solo single-image messages to find) and costs nothing.
+
+**Not yet verified live** -- couldn't be, this session: `git push
+origin main` fails immediately with "403 from proxy after CONNECT",
+and re-tested against vercel.com/api.a1appp.com/google.com too -- this
+sandbox currently has NO external network access at all (not a
+GitHub-specific block), so nothing committed today (this entry
+included, plus the still-unpushed 6.167/6.168 work from before) has
+reached origin/main or Vercel yet. Flagged to Aleksandr directly this
+session; push from a real terminal outside this sandbox, or wait for
+its egress allowlist to widen, before re-testing on the live site.
+
+tsc-clean (npx tsc --noEmit, 0 errors) -- next lint itself can't run
+in this sandbox (missing arm64 SWC binary, pre-existing environment
+gap, unrelated to this change). Committed locally, commit 75d4d5e
+-- NOT yet pushed (see the network note above); this and the 4 commits
+already ahead of origin/main (6.166-6.168) all need a push from
+somewhere with real network access before any of them reach Vercel.
