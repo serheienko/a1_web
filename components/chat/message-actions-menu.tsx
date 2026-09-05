@@ -278,8 +278,28 @@ export function MessageActionsMenu({
           overflowY: "auto",
         }}
       >
-          {/* Reaction quick-bar -- placeholder, see header comment. */}
-          <div className="flex items-center gap-1 self-start rounded-full bg-white/95 px-2 py-1.5 shadow-xl backdrop-blur-sm dark:bg-neutral-800/95">
+          {/* Reaction quick-bar -- placeholder, see header comment.
+              2026-09-05 (Aleksandr, screen recording: the whole menu
+              draggable/scrollable sideways on mobile, snapping back --
+              this row used to be `self-start` (shrink-to-fit its own
+              7 emoji + chevron, ~268px at this padding/gap) inside the
+              menu's fixed `w-[240px]` root, instead of stretching to
+              match it like the action-list box below already does by
+              default (flex-col's own align-items:stretch, which this
+              row alone opted out of via self-start). The ~28px of
+              overflow past the menu's own right edge was invisible as
+              such -- for a `mine` bubble idealLeft right-aligns the
+              menu near the screen's own right edge (see idealLeft
+              above), leaving no room to absorb it, so it pushed past
+              the viewport's right edge instead -- which is what made
+              the page itself horizontally rubber-band/draggable on
+              iOS Safari (an element wider than the viewport enlarges
+              the document's scrollable width even though this is a
+              `position: fixed` portal). `w-full justify-between`
+              instead of `self-start gap-1` -- same content, evenly
+              spaced across the menu's own real width, never wider
+              than it regardless of exact emoji/font rendering. */}
+          <div className="flex w-full items-center justify-between rounded-full bg-white/95 px-2 py-1.5 shadow-xl backdrop-blur-sm dark:bg-neutral-800/95">
             {REACTION_EMOJIS.map((emoji) => (
               <button key={emoji} type="button" onClick={onClose} className="rounded-full p-1 text-[19px] leading-none transition hover:scale-110">
                 {emoji}
