@@ -7791,3 +7791,40 @@ doesn't apply there.
 tsc-clean. Commit 3ead55b. **Not yet verified live or pushed** -- same
 standing network blocker; now 15 commits sitting locally ahead of
 origin/main.
+
+
+## 6.176 -- Equalizer decode fix: cross-origin redirect was silently killing it (2026-09-05)
+
+Aleksandr: "Давай дальше фиксить баги" / "Эквалайзер так и не работает"
+-- still broken after every earlier 09-03/09-04 round on this feature
+(sampling accuracy, sent-vs-received timing desync, pending-vs-
+confirmed local cache, bar-packing/justify-between).
+
+Root cause, found and fixed this round, not previously addressed by
+any earlier pass: components/chat/voice-bubble.tsx's real-audio-decode
+effect fetched buildMediaProxyUrl(doc) -- the route
+(app/api/media/[docId]/route.ts) that 302-redirects cross-origin
+straight to a signed S3 URL. A browser fetch() that follows a cross-
+origin redirect can only read the final response's body if that
+response actually carries CORS headers for this origin; nothing
+guarantees the S3 bucket sends those, so decodeAudioData never even
+got a chance to run against real bytes -- fetch() failed with a plain
+network error, silently caught by the effect's own try/catch, and
+permanently fell back to the inaccurate attribute-echoed waveform on
+EVERY received clip, no matter how correct the decode math itself
+already was. This is exactly the class of bug app/api/media/[docId]/
+download/route.ts was already built to solve for the photo-viewer's
+Save action (its own header comment explains it): fetch the S3 bytes
+SERVER-SIDE and stream them back same-origin, because a browser-side
+feature needing real byte access breaks across that redirect boundary.
+
+Fix: point the waveform-decode fetch at buildMediaDownloadUrl(doc)
+(that same download route) instead of buildMediaProxyUrl(doc) -- no
+cross-origin response for the browser to ever try to read. The route's
+Content-Disposition: attachment header is irrelevant to a programmatic
+fetch() (only a browser navigation honors it), so reusing it needed no
+changes on that route's side at all.
+
+tsc-clean. Commit 2761941. **Not yet verified live or pushed** -- same
+standing network blocker; now 17 commits sitting locally ahead of
+origin/main.
