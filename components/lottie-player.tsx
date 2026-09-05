@@ -44,11 +44,20 @@ export function LottiePlayer({
   src,
   size,
   className,
+  loop = true,
+  onComplete,
 }: {
   src: string;
   /** Pixel size of the square animation viewport. */
   size: number;
   className?: string;
+  /** 2026-09-05 (Copy-action toast) -- every existing caller is a
+   * decorative icon that's meant to loop forever, so that stays the
+   * default; the toast passes `loop={false}` for a single one-shot
+   * play instead. */
+  loop?: boolean;
+  /** Fires once, when a non-looping animation finishes playing. */
+  onComplete?: () => void;
 }) {
   const containerRef = useRef<HTMLSpanElement>(null);
   const [loaded, setLoaded] = useState(false);
@@ -66,10 +75,16 @@ export function LottiePlayer({
         anim = lottie.loadAnimation({
           container: containerRef.current,
           renderer: "svg",
-          loop: true,
+          loop,
           autoplay: true,
           animationData,
         });
+        if (!loop && onComplete) {
+          (anim as unknown as { addEventListener: (evt: string, cb: () => void) => void }).addEventListener(
+            "complete",
+            onComplete,
+          );
+        }
         setLoaded(true);
       })
       .catch((err) => {
@@ -87,6 +102,10 @@ export function LottiePlayer({
       cancelled = true;
       anim?.destroy();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loop/onComplete
+    // are set once per call site and never expected to change mid-flight;
+    // re-running this whole load-and-mount effect on their identity would
+    // restart the animation from scratch for no reason.
   }, [src]);
 
   return (

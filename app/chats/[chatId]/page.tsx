@@ -53,6 +53,7 @@ import {
 } from "@/lib/a1/chat-schemas";
 import { ChatPreviewLine } from "@/components/chat/chat-preview-line";
 import { MessageActionsMenu, ReplyComposeBar, MessageReplyQuote, ReplyIcon } from "@/components/chat/message-actions-menu";
+import { CopyToast } from "@/components/chat/copy-toast";
 import { buildMediaProxyUrl, buildMediaDownloadUrl } from "@/lib/a1/media-proxy";
 import { getStableMediaProxyUrl } from "@/lib/a1/stable-media-url";
 import type { MediaUploadUsage } from "@/lib/a1/schemas";
@@ -724,6 +725,12 @@ export default function ChatWindowPage() {
   // below and the `replyTo` this chat's own send()/attemptSend/
   // uploadAndSendVoice thread through to chat-server.
   const [actionsMenu, setActionsMenu] = useState<{ message: ChatMessage; anchorRect: DOMRect; mine: boolean } | null>(null);
+  // 2026-09-05 (Aleksandr: "попап должен сам исчезать через 3 сек") --
+  // a bump-only counter, not a boolean: copying twice in a row needs
+  // CopyToast's own dismiss timer to restart from zero each time,
+  // which a boolean already `true` from the first copy wouldn't
+  // re-trigger for.
+  const [copyToastTrigger, setCopyToastTrigger] = useState(0);
   const [replyTarget, setReplyTarget] = useState<ChatMessage | null>(null);
   // Swipe-to-reply (2026-09-05, Aleksandr, Telegram Web reference
   // recording: dragging a bubble to the right pops the same "Reply to
@@ -5409,8 +5416,18 @@ export default function ChatWindowPage() {
             setReplyTarget(actionsMenu.message);
             window.requestAnimationFrame(() => textareaRef.current?.focus());
           }}
+          onCopy={
+            extractMessageText(actionsMenu.message)
+              ? () => {
+                  const copyText = extractMessageText(actionsMenu.message);
+                  navigator.clipboard?.writeText(copyText).catch(() => {});
+                  setCopyToastTrigger((n) => n + 1);
+                }
+              : undefined
+          }
         />
       )}
+      <CopyToast trigger={copyToastTrigger} lang={lang} />
     </div>
   );
 }

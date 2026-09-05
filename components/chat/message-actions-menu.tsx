@@ -191,12 +191,20 @@ export function MessageActionsMenu({
   lang,
   onClose,
   onReply,
+  onCopy,
 }: {
   anchorRect: DOMRect;
   mine: boolean;
   lang: Locale;
   onClose: () => void;
   onReply: () => void;
+  // 2026-09-05 (Aleksandr: "Сделай чтобы 'скопировать' работало") --
+  // optional, same reasoning as this file's own header comment on why
+  // every OTHER row stayed a placeholder: a message with no copyable
+  // text (a bare photo/voice note/contact card) has nothing to copy,
+  // so callers that can't build copy text for the tapped message just
+  // omit this prop and the row quietly no-ops, same as before.
+  onCopy?: () => void;
 }) {
   // 2026-09-05 follow-up (Aleksandr, live screenshot: opened near the
   // bottom of the viewport, the menu ran off the bottom edge entirely
@@ -258,9 +266,11 @@ export function MessageActionsMenu({
   if (typeof document === "undefined") return null;
 
   function select(key: ActionKey) {
-    // Every row except Reply is a visual-only placeholder for now (see
-    // this file's own header comment) -- close the menu, nothing else.
+    // Every row except Reply/Copy is a visual-only placeholder for now
+    // (see this file's own header comment) -- close the menu, nothing
+    // else.
     if (key === "reply") onReply();
+    if (key === "copy") onCopy?.();
     onClose();
   }
 

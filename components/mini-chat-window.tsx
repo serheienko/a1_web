@@ -93,6 +93,7 @@ import { ChatFileTypeIcon, fileKindFromName, DocumentFallbackLabel } from "@/com
 import { PdfPageThumbnail } from "@/components/chat/pdf-thumbnail";
 import { ChatPhotoGrid } from "@/components/chat/photo-grid";
 import { MessageActionsMenu } from "@/components/chat/message-actions-menu";
+import { CopyToast } from "@/components/chat/copy-toast";
 import { ChatCalculationCard } from "@/components/chat/calculation-card";
 import { ContactMessageCard } from "@/components/chat/contact-message-card";
 import { ContactsPickerModal, type PickedContact } from "@/components/chat/contacts-picker-modal";
@@ -282,6 +283,10 @@ export function MiniChatWindow({
   // the compose box, same "started a reply" gesture without the full
   // threading UI app/chats/[chatId]/page.tsx has.
   const [actionsMenu, setActionsMenu] = useState<{ message: ChatMessage; anchorRect: DOMRect; mine: boolean } | null>(null);
+  // 2026-09-05 (Copy-action toast, see app/chats/[chatId]/page.tsx's
+  // own copy of this same state for the full writeup) -- bump-only
+  // counter so copying twice in a row restarts CopyToast's 3s timer.
+  const [copyToastTrigger, setCopyToastTrigger] = useState(0);
   // 2026-09-04 (Aleksandr: "При выхове калькуляции сделай дефолтно
   // моргающий курсор возле 1.") -- same fix as app/chats/[chatId]/
   // page.tsx's own copy of this calculator panel: focus the first
@@ -1462,8 +1467,18 @@ export function MiniChatWindow({
           onReply={() => {
             window.requestAnimationFrame(() => textareaRef.current?.focus());
           }}
+          onCopy={
+            extractMessageText(actionsMenu.message)
+              ? () => {
+                  const copyText = extractMessageText(actionsMenu.message);
+                  navigator.clipboard?.writeText(copyText).catch(() => {});
+                  setCopyToastTrigger((n) => n + 1);
+                }
+              : undefined
+          }
         />
       )}
+      <CopyToast trigger={copyToastTrigger} lang={lang} />
     </div>,
     document.body,
   );
