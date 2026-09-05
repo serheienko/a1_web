@@ -2603,7 +2603,7 @@ export default function ChatWindowPage() {
     return map;
   }, [messages]);
 
-  function resolveReplyPreview(target: ChatMessage | null | undefined): { authorLabel: string; node: ReactNode } | null {
+  function resolveReplyPreview(target: ChatMessage | null | undefined): { authorLabel: string; node: ReactNode; thumbnail: ReactNode } | null {
     if (!target) return null;
     const authorLabel = target.fromId !== null && target.fromId === myUserId ? YOU_LABEL_TEXT[lang] : headerTitle;
     const preview = describeMessagePreview(target);
@@ -2616,9 +2616,35 @@ export default function ChatWindowPage() {
     // uses) -- describeMessagePreview already hands back the actual
     // doc for a "photo" preview, just wasn't being read here yet.
     const photoUrl = preview.kind === "photo" && preview.photoDoc ? getStableMediaProxyUrl(preview.photoDoc) : null;
+    // 2026-09-05 follow-up #2 (Aleksandr, reference screenshot: a
+    // CAPTIONED photo's reply quote in the reference app shows the
+    // photo's own thumbnail right next to the caption, not the caption
+    // alone) -- describeMessagePreview's own precedence (lib/a1/
+    // chat-schemas.ts) calls a message "text" the instant it HAS text,
+    // caption or not, so a captioned photo/file never even reaches the
+    // photo/file branches above. This is a second, independent look at
+    // the SAME target's own docs, scoped to the "text" case only, so a
+    // genuinely plain text message (no docs at all) still gets none.
+    let thumbnail: ReactNode = null;
+    if (preview.kind === "text") {
+      const docs = messageDocumentMedia(target);
+      const captionPhoto = docs.find((d) => isImageMediaDocument(d));
+      const captionFile = docs.find((d) => !isVoiceMediaDocument(d) && !isImageMediaDocument(d) && !isVideoMediaDocument(d) && !isStickerMediaDocument(d));
+      if (captionPhoto) {
+        thumbnail = (
+          // eslint-disable-next-line @next/next/no-img-element -- proxied through /api/media.
+          <img src={getStableMediaProxyUrl(captionPhoto)} alt="" className="h-9 w-9 shrink-0 rounded-[6px] object-cover" />
+        );
+      } else if (captionFile) {
+        thumbnail = (
+          <ChatFileTypeIcon kind={fileKindFromName(mediaDocumentFileName(captionFile), captionFile.mimetype)} className="h-9 w-9 shrink-0" />
+        );
+      }
+    }
     return {
       authorLabel,
       node: <ChatPreviewLine kind={preview.kind} text={preview.text} photoUrl={photoUrl} className="truncate whitespace-nowrap" />,
+      thumbnail,
     };
   }
 
@@ -3711,6 +3737,7 @@ export default function ChatWindowPage() {
                                 <MessageReplyQuote
                                   authorLabel={quote.authorLabel}
                                   previewText={quote.node}
+                                  thumbnail={quote.thumbnail}
                                   mine={mine}
                                   onClick={
                                     !pending && msg.replyTo && messagesById.has(msg.replyTo.message)
@@ -4274,7 +4301,14 @@ export default function ChatWindowPage() {
             (() => {
               const quote = resolveReplyPreview(replyTarget);
               if (!quote) return null;
-              return <ReplyComposeBar authorLabel={quote.authorLabel} previewText={quote.node} onRemove={() => setReplyTarget(null)} />;
+              return (
+                <ReplyComposeBar
+                  authorLabel={quote.authorLabel}
+                  previewText={quote.node}
+                  thumbnail={quote.thumbnail}
+                  onRemove={() => setReplyTarget(null)}
+                />
+              );
             })()}
           <div ref={voiceRowRef} className="mx-auto flex w-full max-w-[470px] items-end gap-2">
             {/* 2026-09-03 (Aleksandr, voice messages): while a recording

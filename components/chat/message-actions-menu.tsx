@@ -286,15 +286,23 @@ export function MessageActionsMenu({
 export function ReplyComposeBar({
   authorLabel,
   previewText,
+  thumbnail,
   onRemove,
 }: {
   authorLabel: string;
   previewText: ReactNode;
+  // 2026-09-05 follow-up (Aleksandr, reference screenshot: replying to
+  // a CAPTIONED photo in the reference app shows the photo's own
+  // thumbnail here too, not just the caption text) -- optional so
+  // every existing caller (a plain-text or pure-media target, already
+  // fully described by previewText's own icon+label) is unaffected.
+  thumbnail?: ReactNode;
   onRemove: () => void;
 }) {
   return (
     <div className="mx-auto flex w-full max-w-[470px] items-center gap-2 rounded-[16px] border border-neutral-200 bg-white/90 px-3 py-2 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
       <div className="h-8 w-[3px] shrink-0 rounded-full bg-[#335ef7] dark:bg-[#0c8ce9]" />
+      {thumbnail}
       <div className="min-w-0 flex-1">
         <div className="truncate text-[13px] font-semibold text-[#335ef7] dark:text-[#0c8ce9]">
           <T uk={`Відповідь ${authorLabel}`} en={`Reply to ${authorLabel}`} ru={`Ответ ${authorLabel}`} de={`Antwort an ${authorLabel}`}
@@ -321,11 +329,20 @@ export function MessageReplyQuote({
   authorLabel,
   previewText,
   mine,
+  thumbnail,
   onClick,
 }: {
   authorLabel: string;
   previewText: ReactNode;
   mine: boolean;
+  // 2026-09-05 follow-up (Aleksandr, reference screenshot of the
+  // reference app: replying to a message that mixes a photo/document
+  // WITH caption text shows that attachment's own thumbnail right
+  // here, next to the name+caption, not the caption alone) -- optional
+  // so a plain-text or pure-media target (already fully described by
+  // previewText's own icon+label from ChatPreviewLine) renders exactly
+  // as before.
+  thumbnail?: ReactNode;
   onClick?: () => void;
 }) {
   // ReplyItem's own accent: the bubble's OWN text color on a "mine"
@@ -340,12 +357,15 @@ export function MessageReplyQuote({
       type="button"
       onClick={onClick}
       disabled={!onClick}
-      className={`mb-1 flex w-full flex-col items-start rounded-[6px] border-l-[3px] border-[#335ef7] px-2 py-1 text-left dark:border-[#0c8ce9] ${
+      className={`mb-1 flex w-full items-center gap-2 rounded-[6px] border-l-[3px] border-[#335ef7] py-1 pl-2 pr-2 text-left dark:border-[#0c8ce9] ${
         mine ? "bg-white/15" : "bg-[#335ef7]/10 dark:bg-[#0c8ce9]/15"
       } ${onClick ? "cursor-pointer" : "cursor-default"}`}
     >
-      <span className={`truncate text-[13px] font-semibold ${mine ? "text-white" : "text-[#335ef7] dark:text-[#0c8ce9]"}`}>{authorLabel}</span>
-      <div className={`w-full truncate text-[13px] ${mine ? "text-white/85" : "text-[#262a34] dark:text-white"}`}>{previewText}</div>
+      {thumbnail}
+      <span className="flex min-w-0 flex-1 flex-col items-start">
+        <span className={`truncate text-[13px] font-semibold ${mine ? "text-white" : "text-[#335ef7] dark:text-[#0c8ce9]"}`}>{authorLabel}</span>
+        <div className={`w-full truncate text-[13px] ${mine ? "text-white/85" : "text-[#262a34] dark:text-white"}`}>{previewText}</div>
+      </span>
     </button>
   );
 }
