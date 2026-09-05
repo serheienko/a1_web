@@ -432,20 +432,28 @@ export function MessageReplyQuote({
   thumbnail?: ReactNode;
   onClick?: () => void;
 }) {
-  // ReplyItem's own accent: the bubble's OWN text color on a "mine"
-  // (tinted-blue) bubble reads as white -- using it directly there
-  // would make the quote invisible against its own 15%-opacity tint,
-  // so `mine` always uses the same blue accent the compose bar and
-  // every other reply chrome already uses; the OTHER side's (white/
-  // dark-card) bubble can use that same blue directly, it already
-  // reads fine there too.
+  // 2026-09-05 follow-up (Aleksandr, live screenshot: "в компоузере ты
+  // полечил UI отлично, а в самом сообщении надо добавлять слева
+  // черточку возле цитирования/реплая" -- the accent bar was
+  // functionally there all along, just invisible) -- the PREVIOUS
+  // reasoning below only checked the accent's contrast against the
+  // quote box's own bg-white/15 tint, never against what that tint
+  // actually sits on: a `mine` bubble's SOLID #335ef7 fill. A
+  // border-[#335ef7] bar drawn on a background that's still ~85% that
+  // same blue (white/15 only lightens it slightly) reads as no border
+  // at all -- exactly what he saw live. `mine` now flips the bar to
+  // white instead, the same accent-inversion this component already
+  // applies to the name label two lines down (text-white) and every
+  // other "mine"-bubble control in this codebase (voice-bubble.tsx's
+  // play button, unread dot, etc.) -- the OTHER side's white/dark-card
+  // bubble keeps the blue bar, which already reads fine there.
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={!onClick}
-      className={`mb-1 flex w-full items-center gap-2 rounded-[6px] border-l-[3px] border-[#335ef7] py-1 pl-2 pr-2 text-left dark:border-[#0c8ce9] ${
-        mine ? "bg-white/15" : "bg-[#335ef7]/10 dark:bg-[#0c8ce9]/15"
+      className={`mb-1 flex w-full items-center gap-2 rounded-[6px] border-l-[3px] py-1 pl-2 pr-2 text-left ${
+        mine ? "border-white bg-white/15" : "border-[#335ef7] bg-[#335ef7]/10 dark:border-[#0c8ce9] dark:bg-[#0c8ce9]/15"
       } ${onClick ? "cursor-pointer" : "cursor-default"}`}
     >
       {thumbnail}
