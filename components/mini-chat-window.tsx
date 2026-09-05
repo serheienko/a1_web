@@ -55,7 +55,7 @@ import Link from "next/link";
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { authFetch } from "@/lib/auth-fetch";
-import { BLUR_DATA_URL, MEDIA_BLUR_STYLE } from "@/lib/blur-placeholder";
+import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { profileHref } from "@/lib/profile-href";
 import { formatBytes } from "@/lib/format";
 import { useHoverPanel } from "@/lib/use-hover-panel";
@@ -92,6 +92,7 @@ import {
 import { ChatFileTypeIcon, fileKindFromName, DocumentFallbackLabel } from "@/components/chat/file-type-icon";
 import { PdfPageThumbnail } from "@/components/chat/pdf-thumbnail";
 import { ChatPhotoGrid } from "@/components/chat/photo-grid";
+import { BlurredChatPhoto } from "@/components/chat/blurred-photo";
 import { MessageActionsMenu, DeleteMessageConfirmDialog } from "@/components/chat/message-actions-menu";
 import { CopyToast } from "@/components/chat/copy-toast";
 import { ChatCalculationCard } from "@/components/chat/calculation-card";
@@ -951,13 +952,10 @@ export function MiniChatWindow({
                         />
                       ) : isImageMediaDocument(doc) ? (
                         <div key={doc._id} className="relative">
-                          {/* eslint-disable-next-line @next/next/no-img-element -- proxied
-                              through /api/media, not a next/image-configured remote host. */}
-                          <img
+                          <BlurredChatPhoto
+                            docId={doc._id}
                             src={getStableMediaProxyUrl(doc)}
-                            alt=""
                             className="max-h-48 w-full rounded-xl object-cover"
-                            style={MEDIA_BLUR_STYLE}
                           />
                           {isPhotoOnly && flatFooter}
                         </div>

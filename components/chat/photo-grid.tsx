@@ -27,9 +27,8 @@
 // existing individual rendering entirely unchanged, flat-flush or not.
 "use client";
 
-import { useState, type ReactNode, type SyntheticEvent } from "react";
-import { MEDIA_BLUR_STYLE } from "@/lib/blur-placeholder";
-import { getPhotoBlur, rememberPhotoBlur } from "@/lib/photo-blur-cache";
+import type { ReactNode } from "react";
+import { BlurredChatPhoto } from "@/components/chat/blurred-photo";
 
 type GridDoc = {
   id: string;
@@ -162,55 +161,17 @@ export function ChatPhotoGrid({
 // on a genuine first-ever load, still shows MEDIA_BLUR_STYLE's plain
 // shimmer until onLoad fires and warms the cache for next time.
 function GridPhoto({ doc, onOpen }: { doc: GridDoc; onOpen: (docId: string) => void }) {
-  const [blurUrl, setBlurUrl] = useState<string | null>(() => getPhotoBlur(doc.id));
-  // CSS `filter` (used below to soften the tiny sampled placeholder)
-  // composites over an element's ENTIRE rendered output, not just its
-  // background layer -- unlike backgroundImage (simply painted over
-  // and hidden once the real <img> content loads), a filter left on
-  // this element would keep blurring the REAL photo forever once it
-  // finishes decoding. `loaded` gates the placeholder style off
-  // entirely the moment that happens, same onLoad event that warms the
-  // cache below.
-  const [loaded, setLoaded] = useState(false);
-
-  function handleLoad(e: SyntheticEvent<HTMLImageElement>) {
-    setLoaded(true);
-    if (getPhotoBlur(doc.id)) return; // already warmed by an earlier tile/view of this same doc
-    const img = e.currentTarget;
-    try {
-      const size = 16;
-      const canvas = document.createElement("canvas");
-      canvas.width = size;
-      canvas.height = size;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      ctx.drawImage(img, 0, 0, size, size);
-      const dataUrl = canvas.toDataURL("image/jpeg", 0.5);
-      rememberPhotoBlur(doc.id, dataUrl);
-      setBlurUrl(dataUrl);
-    } catch {
-      // Best-effort only (e.g. a same-origin canvas read that still
-      // somehow throws) -- MEDIA_BLUR_STYLE stays the fallback forever
-      // for this doc, same as before this cache existed.
-    }
-  }
-
+  // 2026-09-05 follow-up -- this used to own its own blur/loaded state
+  // + canvas-snapshot effect inline; both now live in BlurredChatPhoto
+  // (components/chat/blurred-photo.tsx) so every OTHER photo surface
+  // in the chat UI can share the exact same colorful-placeholder
+  // behavior instead of a copy of this component's own state.
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- proxied
-    // through /api/media, not a next/image-configured remote host.
-    <img
+    <BlurredChatPhoto
+      docId={doc.id}
       src={doc.src}
-      alt=""
       onClick={() => onOpen(doc.id)}
-      onLoad={handleLoad}
       className="absolute inset-0 h-full w-full cursor-pointer object-cover transition hover:opacity-90"
-      style={
-        loaded
-          ? undefined
-          : blurUrl
-            ? { backgroundImage: `url(${blurUrl})`, backgroundSize: "cover", backgroundPosition: "center", filter: "blur(14px)" }
-            : MEDIA_BLUR_STYLE
-      }
     />
   );
 }

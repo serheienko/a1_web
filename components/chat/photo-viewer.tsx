@@ -36,7 +36,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { T, type Locale } from "@/components/t";
-import { MEDIA_BLUR_STYLE } from "@/lib/blur-placeholder";
+import { BlurredChatPhoto } from "@/components/chat/blurred-photo";
 
 export type ChatViewerImage = {
   // doc._id only needs to be unique WITHIN a message (every other id in
@@ -352,23 +352,24 @@ export function ChatPhotoViewer({ lang, images, index, onIndexChange, onClose, o
             <ChevronIcon direction="left" />
           </button>
         )}
-        {/* eslint-disable-next-line @next/next/no-img-element -- proxied
-            through /api/media, not a next/image-configured remote host. */}
         {/* 2026-09-05 (Aleksandr: "Эти фото тоже подгружай через блюр,
             при открытии просмотра фото в большом формате") -- this
             full-size lightbox <img> painted nothing at all while its
-            (much larger, uncached) source loaded, unlike every other
-            photo surface in the app (grid thumbnails, avatars) which
-            already show MEDIA_BLUR_STYLE's shimmer square underneath
-            until the real pixels decode -- same trick here: a loading
-            <img> paints no pixels of its own, so the shimmer background
-            shows through underneath it. */}
-        <img
+            (much larger, uncached) source loaded. Follow-up (same day,
+            new bug-list entry: "подгрузку всех фото через их блюр...
+            цветная, прикольная") upgraded this from the generic grey
+            MEDIA_BLUR_STYLE shimmer to the same colorful per-photo
+            blur every other photo surface now shares (BlurredChatPhoto,
+            components/chat/blurred-photo.tsx) -- keyed by image.docId
+            (the raw doc id, NOT image.key's messageId+docId composite,
+            see ChatViewerImage's own header) so opening the viewer for
+            a photo already seen in its grid/bubble reuses that SAME
+            cached blur instantly instead of starting grey again. */}
+        <BlurredChatPhoto
           key={image.key}
+          docId={image.docId}
           src={image.url}
-          alt=""
           className="max-h-full max-w-full select-none rounded-md object-contain"
-          style={MEDIA_BLUR_STYLE}
           draggable={false}
         />
         {index < images.length - 1 && (

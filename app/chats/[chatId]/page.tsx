@@ -21,7 +21,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { CachedAvatar } from "@/components/cached-avatar";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { BLUR_DATA_URL, MEDIA_BLUR_STYLE } from "@/lib/blur-placeholder";
+import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { profileHref } from "@/lib/profile-href";
 import { T, LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
@@ -91,6 +91,7 @@ import {
 } from "@/lib/a1/meeting-protocol";
 import { ChatPhotoViewer, type ChatViewerImage } from "@/components/chat/photo-viewer";
 import { ChatPhotoGrid } from "@/components/chat/photo-grid";
+import { BlurredChatPhoto } from "@/components/chat/blurred-photo";
 import { useVoiceRecorder, formatVoiceTimer, type VoiceRecordingResult } from "@/components/chat/voice-recorder";
 import { rememberLocalVoiceWaveform } from "@/lib/voice-local-waveform-cache";
 import { VoiceRecordButton, VoiceRecordingBar, VoiceMicDeniedNotice } from "@/components/chat/voice-message";
@@ -2744,11 +2745,18 @@ export default function ChatWindowPage() {
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.ok) {
+        // 2026-09-05 (live-tested failure: "Не вдалося переслати") --
+        // surfaced to the console so a real backend rejection reason
+        // (data.detail/data.message, see /api/chats/send's own error
+        // shape) is visible in devtools instead of only the modal's
+        // generic translated string.
+        console.error("[forward] send failed:", data?.message, data?.detail);
         setForwardFailed(true);
         return;
       }
       setForwardMessage(null);
-    } catch {
+    } catch (err) {
+      console.error("[forward] send threw:", err);
       setForwardFailed(true);
     } finally {
       setForwardSendingChatId(null);
@@ -4072,9 +4080,9 @@ export default function ChatWindowPage() {
                                       through /api/media, not a next/image-configured remote host.
                                       getStableMediaProxyUrl, not buildMediaProxyUrl -- see that
                                       helper's own header (2026-09-04, "подгрузку через блюр"). */}
-                                  <img
+                                  <BlurredChatPhoto
+                                    docId={doc._id}
                                     src={getStableMediaProxyUrl(doc)}
-                                    alt=""
                                     onClick={() => openViewerForDoc(msg._id, doc._id)}
                                     // 2026-09-04 (Aleksandr, live screenshot: a small-resolution
                                     // source photo rendering as a ~90px postage stamp between two
@@ -4091,7 +4099,6 @@ export default function ChatWindowPage() {
                                     // wrapper above is an inferred number, not measured off his
                                     // screenshot pixel-for-pixel -- flag if it should be bigger/smaller.
                                     className="block max-h-64 w-full cursor-pointer object-cover transition hover:opacity-90"
-                                    style={MEDIA_BLUR_STYLE}
                                   />
                                   <span className="pointer-events-none absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded-full bg-black/45 px-2 py-0.5 text-[11px] text-white backdrop-blur-sm">
                                     <span>{msg.editedAt && <EditedLabel />}{formatTime(ms)}</span>
@@ -4102,15 +4109,14 @@ export default function ChatWindowPage() {
                               ) : (
                                 // eslint-disable-next-line @next/next/no-img-element -- proxied
                                 // through /api/media, not a next/image-configured remote host.
-                                <img
+                                <BlurredChatPhoto
                                   key={doc._id}
+                                  docId={doc._id}
                                   src={getStableMediaProxyUrl(doc)}
-                                  alt=""
                                   onClick={() => openViewerForDoc(msg._id, doc._id)}
                                   // Same tiny-source-photo fix as the flat isImageOnly branch
                                   // above -- see that img's own comment.
                                   className="max-h-64 w-full min-w-[200px] cursor-pointer rounded-xl object-cover transition hover:opacity-90"
-                                  style={MEDIA_BLUR_STYLE}
                                 />
                               )
                             ) : isVideoMediaDocument(doc) ? (
