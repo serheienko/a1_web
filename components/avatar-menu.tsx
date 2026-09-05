@@ -73,7 +73,8 @@ import { useHoverPanel } from "@/lib/use-hover-panel";
 import { InlineAuthForm } from "@/components/inline-auth-form";
 import { setAccountMenuOpen } from "@/lib/account-menu-open";
 import { authFetch } from "@/lib/auth-fetch";
-import { MEDIA_BLUR_STYLE } from "@/lib/blur-placeholder";
+import { MEDIA_BLUR_STYLE, BLUR_DATA_URL } from "@/lib/blur-placeholder";
+import { CachedAvatar } from "@/components/cached-avatar";
 
 type Theme = "light" | "dark" | "auto";
 
@@ -548,8 +549,18 @@ export function AvatarMenu() {
       >
         {/* Real uploaded photo when whoami resolved one, cat fallback
             otherwise (e.g. still loading, or no photo set) -- see
-            profileAvatarUrl's own comment above. */}
-        <img src={profileAvatarUrl ?? pickDefaultCatAvatar(email)} alt="" className="h-full w-full object-cover" style={MEDIA_BLUR_STYLE} />
+            profileAvatarUrl's own comment above. 2026-09-05 (Aleksandr:
+            "кешировать вообще всё, если оно хотя бы 1 раз открывалось")
+            -- this own-avatar button renders on every single page load
+            site-wide, making it the highest-frequency avatar surface of
+            all; same persistent Cache Storage-backed CachedAvatar every
+            other avatar now uses, in place of the plain <img>. */}
+        <CachedAvatar
+          src={profileAvatarUrl ?? pickDefaultCatAvatar(email)}
+          blurDataURL={BLUR_DATA_URL}
+          size={36}
+          className="h-full w-full object-cover"
+        />
       </button>
 
       {rendered && (

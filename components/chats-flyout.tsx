@@ -25,7 +25,7 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
+import { CachedAvatar } from "@/components/cached-avatar";
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
@@ -556,15 +556,18 @@ export function ChatsFlyout({
                 disabled={openingContactUserId === c.userId}
                 className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
               >
-                <Image
+                {/* 2026-09-05 (Aleksandr: "Кешируй боковые маленькие
+                    чаты, если их ранее открывали" / "кешировать вообще
+                    всё, если оно хотя бы 1 раз открывалось") -- this
+                    flyout list reopens every time the chats icon is
+                    hovered/tapped, so it's one of the highest-frequency
+                    avatar surfaces on the site. Same persistent Cache
+                    Storage-backed cache as everywhere else now. */}
+                <CachedAvatar
                   src={c.avatarUrl}
-                  alt=""
-                  width={40}
-                  height={40}
-                  className="h-10 w-10 shrink-0 rounded-full object-cover"
-                  placeholder="blur"
                   blurDataURL={c.avatarBlurDataUrl ?? BLUR_DATA_URL}
-                  unoptimized
+                  size={40}
+                  className="h-10 w-10 shrink-0 rounded-full object-cover"
                 />
                 <div className="min-w-0 flex-1 truncate text-[16px] font-medium text-[#262a34] dark:text-white">{c.title || "—"}</div>
               </button>
@@ -603,15 +606,18 @@ export function ChatsFlyout({
             }
             className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
           >
-            <Image
+            {/* 2026-09-05 (Aleksandr: "Кешируй боковые маленькие
+                чаты, если их ранее открывали" / "кешировать вообще
+                всё, если оно хотя бы 1 раз открывалось") -- this
+                flyout list reopens every time the chats icon is
+                hovered/tapped, so it's one of the highest-frequency
+                avatar surfaces on the site. Same persistent Cache
+                Storage-backed cache as everywhere else now. */}
+            <CachedAvatar
               src={chat.avatarUrl}
-              alt=""
-              width={40}
-              height={40}
-              className="h-10 w-10 shrink-0 rounded-full object-cover"
-              placeholder="blur"
               blurDataURL={chat.avatarBlurDataUrl ?? BLUR_DATA_URL}
-              unoptimized
+              size={40}
+              className="h-10 w-10 shrink-0 rounded-full object-cover"
             />
             <div className="min-w-0 flex-1">
               <div className="flex items-baseline justify-between gap-2">
@@ -651,15 +657,18 @@ export function ChatsFlyout({
                 disabled={openingContactUserId === c.userId}
                 className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
               >
-                <Image
+                {/* 2026-09-05 (Aleksandr: "Кешируй боковые маленькие
+                    чаты, если их ранее открывали" / "кешировать вообще
+                    всё, если оно хотя бы 1 раз открывалось") -- this
+                    flyout list reopens every time the chats icon is
+                    hovered/tapped, so it's one of the highest-frequency
+                    avatar surfaces on the site. Same persistent Cache
+                    Storage-backed cache as everywhere else now. */}
+                <CachedAvatar
                   src={c.avatarUrl}
-                  alt=""
-                  width={40}
-                  height={40}
-                  className="h-10 w-10 shrink-0 rounded-full object-cover"
-                  placeholder="blur"
                   blurDataURL={c.avatarBlurDataUrl ?? BLUR_DATA_URL}
-                  unoptimized
+                  size={40}
+                  className="h-10 w-10 shrink-0 rounded-full object-cover"
                 />
                 <div className="min-w-0 flex-1 truncate text-[16px] font-medium text-[#262a34] dark:text-white">{c.title || "—"}</div>
               </button>
