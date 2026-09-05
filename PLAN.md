@@ -8449,3 +8449,36 @@ pixel colors matched exactly.
 tsc-clean. Commit 7a352e2. **Not yet verified live or pushed** -- same
 standing network blocker; 37 commits now sitting locally ahead of
 e598c18/6.178.
+
+## 6.202 -- Grouped chat photos: colorful per-photo blur placeholder (2026-09-05)
+
+New live report: a grouped multi-photo message screenshot (jobs.a1appp.com,
+still on last-pushed code) still loading under the generic flat
+grey/white shimmer (lib/blur-placeholder.ts's shared MEDIA_BLUR_STYLE)
+-- "Сделай подгрузку фото через блюр, именно этих фоток, чтобы были
+цвета прикольные" (make the blur reflect these actual photos' own
+colors). Once a tile's <img> finishes loading its pixels are already
+in the DOM, so a tiny 16x16 canvas snapshot (toDataURL) captures that
+exact photo's own colors; browsers upscale a background-image that
+small with the same soft bilinear blur the shimmer SVG already relies
+on, plus a CSS blur(14px) on top -- "blur effect, but with the real
+photo's own colors", no server-side work.
+
+Cached in-memory by doc._id (new lib/photo-blur-cache.ts, same simple
+session-only Map pattern as the voice waveform cache) so a photo
+already seen once this session shows its own colorful blur immediately
+next time instead of flashing grey again. The blur/filter styling is
+gated off entirely once the real image finishes loading (a `loaded`
+flag) -- CSS `filter` composites over an element's WHOLE rendered
+output, not just its background layer, so leaving it set would have
+kept blurring the real photo forever once it decoded.
+
+The screenshot's other complaint -- a solid blue frame/lines around
+the grouped photos -- turned out to already be fixed by an earlier
+commit today (d0831c4, "Grouped photos go flat"), just not live yet
+behind the standing git-push blocker; told Aleksandr rather than
+re-fixing something already fixed.
+
+tsc-clean. Commit 1693e92. **Not yet verified live or pushed** -- same
+standing network blocker; 39 commits now sitting locally ahead of
+e598c18/6.178.
