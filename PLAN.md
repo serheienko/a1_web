@@ -8557,3 +8557,74 @@ tsc-clean. Commit 5c70247. **Not yet verified live or pushed** -- same
 standing network blocker; 43 commits now sitting locally ahead of
 e598c18/6.178.
 
+## 6.206 -- Guard edit-mode send() interception to the manual path only (2026-09-05)
+
+Found during self-review of 6.203-6.205, not a live report: send()'s
+new editingMessage branch redirected EVERY call into
+saveEditedMessage(), including the overrideText/meet programmatic
+paths (quick meeting invite, schedule-meeting accept). Unreachable
+today (the paperclip leading to those is disabled while editingMessage
+is set) but latent -- narrowed the guard to the plain manual path
+(no overrideText, no meet) so it's safe by construction, not just by
+the paperclip's disabled state.
+
+tsc-clean. Commit 53ca26b. **Not yet verified live or pushed** -- same
+standing network blocker; 44 commits now sitting locally ahead of
+e598c18/6.178.
+
+## 6.207 -- Mini-chat-window: drop bubble chrome around photo-only messages (2026-09-05)
+
+New bug-list entry (live screenshot, Aleksandr's own testing this
+session -- see below): "Убери рамку у фото в маленькое окне чатов
+тоже". components/mini-chat-window.tsx never got the app/chats/
+[chatId]/page.tsx isFlatMedia pass -- its own 2026-09-03 comment
+explicitly scoped it out ("this corner widget keeps one simple bubble
+shape for everything, image included"), revisited now. A message
+that's ONLY image doc(s) (solo or grouped) with nothing else riding
+along drops the bubble's padding/background/rounding, footer moved to
+an absolute overlay pill on the photo -- same treatment the big page
+already has. Mixed messages (photo + caption, etc.) unchanged.
+
+tsc-clean. Commit 3723540. **Not yet verified live or pushed** -- same
+standing network blocker; 45 commits now sitting locally ahead of
+e598c18/6.178.
+
+## 6.208 -- Fix live forward failure: entities, not flat message (2026-09-05)
+
+Aleksandr live-tested 6.205 (forward) within this same session and hit
+"Не вдалося переслати. Спробуйте ще раз." on every attempt (screenshot
+of the picker modal's own error line). Root cause: app/api/chats/send/
+route.ts's existing else-if chain sent a plain-text forward via the
+flat `message` shorthand, but the mobile app's own confirmed-working
+sendForwardedMessage NEVER does that for a forward -- always
+`entities: [{object:"entity-text", text}]`, even caption-less. Fixed
+to match exactly for the forwardFrom branch; the ordinary non-forward
+text-send path is unchanged. Also logs the real backend rejection
+(message/detail) to the console on failure instead of only the modal's
+generic string, so a future miss is diagnosable without server-log
+access.
+
+Notable: this was tested against a LIVE deployment within the same
+session despite the standing git-push 403 -- Aleksandr is evidently
+deploying from his own network (unaffected by whatever proxy blocks
+push/npm-install from THIS sandboxed shell specifically), so "not yet
+verified live" no longer holds for 6.203-6.205's DELETE/EDIT pieces
+either, just not explicitly confirmed working yet.
+
+tsc-clean. Commit f41dc95.
+
+## 6.209 -- Colorful photo blur everywhere, not just grouped albums (2026-09-05)
+
+New bug-list entry (Aleksandr): "Сделай подгрузку всех фото через их
+блюр... цветная, прикольная" -- generalized the grouped-album colorful
+blur placeholder (6.202's GridPhoto) into a standalone component
+(components/chat/blurred-photo.tsx, BlurredChatPhoto) and swapped it
+into every remaining photo surface still showing the generic grey
+MEDIA_BLUR_STYLE shimmer: solo photo bubbles (main chat page + mini-
+chat-window.tsx) and the full-size photo-viewer.tsx lightbox (keyed by
+the same doc._id a grid/bubble already warmed, so a photo seen once
+shows its real colors immediately everywhere else too).
+
+tsc-clean. Commit c0f8471. 48 commits now sitting locally ahead of
+e598c18/6.178.
+
