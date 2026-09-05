@@ -3406,9 +3406,42 @@ export default function ChatWindowPage() {
                       <div
                         aria-hidden="true"
                         className={`pointer-events-none order-last flex shrink-0 items-center justify-center overflow-hidden ${
-                          swipeState && swipeState.msgId === msg._id ? "" : "transition-[width] duration-200 ease-out"
+                          swipeState && swipeState.msgId === msg._id ? "" : "transition-[width,transform] duration-200 ease-out"
                         }`}
-                        style={{ width: swipeState && swipeState.msgId === msg._id ? swipeState.dx : 0 }}
+                        style={{
+                          width: swipeState && swipeState.msgId === msg._id ? swipeState.dx : 0,
+                          // 2026-09-05 (Aleksandr, follow-up on 6.172:
+                          // "сообщения, которые прислали нам от другого
+                          // человека, тоже как бы уезжали налево... чтобы
+                          // само сообщение тоже заезжало") -- `mine`
+                          // never needed this: its row is justify-end, so
+                          // this slot growing WIDTH already pushes the
+                          // bubble left for free (the row's total content
+                          // must still end flush right). A `!mine` row is
+                          // justify-start instead, where a TRAILING
+                          // sibling growing can never move the LEADING
+                          // bubble -- it's pinned to the row's start
+                          // regardless, so nothing ever visibly moved,
+                          // only the invisible reply-trigger fired. Both
+                          // this slot and the bubble below now get the
+                          // SAME `translateX(-dx)` for `!mine`: since
+                          // translate repaints without touching layout,
+                          // the slot's LAYOUT box (still sized by the
+                          // width above) stays glued right after the
+                          // bubble's LAYOUT box either way, so shifting
+                          // both by the same amount keeps them visually
+                          // contiguous -- the bubble's painted trailing
+                          // edge and the slot's painted leading edge
+                          // still meet exactly, while the slot's painted
+                          // trailing edge stays pinned at the bubble's
+                          // ORIGINAL (unswiped) right edge, the same
+                          // "grows from a fixed edge" look `mine` gets
+                          // natively from flex.
+                          transform:
+                           !mine && swipeState && swipeState.msgId === msg._id
+                            ? `translateX(-${swipeState.dx}px)`
+                            : undefined,
+                        }}
                       >
                         <span
                           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#335ef7]/10 text-[#335ef7] dark:bg-white/10 dark:text-[#5b8dff]"
@@ -3548,7 +3581,29 @@ export default function ChatWindowPage() {
                               setSwipeState(null);
                             }
                       }
-                      style={{ touchAction: "pan-y" }}
+                      style={{
+                        touchAction: "pan-y",
+                        // See the reveal-slot's own comment above (same
+                        // 2026-09-05 follow-up) -- this is the other half
+                        // of the same fix: the bubble itself now visibly
+                        // slides left for a received message too, not
+                        // just the invisible reply-trigger math. An
+                        // inline `transition` (rather than adding to the
+                        // className's own transition-[outline-color,
+                        // outline-offset] below) is required here: inline
+                        // style always wins the whole transition-property
+                        // slot outright, so it has to restate that pair
+                        // itself to keep the highlight-flash transition
+                        // working, rather than silently clobbering it.
+                        transform:
+                          !mine && swipeState && swipeState.msgId === msg._id
+                            ? `translateX(-${swipeState.dx}px)`
+                            : undefined,
+                        transition:
+                          swipeState && swipeState.msgId === msg._id
+                            ? "outline-color 500ms, outline-offset 500ms"
+                            : "outline-color 500ms, outline-offset 500ms, transform 200ms ease-out",
+                      }}
                       // data-message-id + the outline below are the
                       // photo-viewer's "Show in chat" target (see
                       // handleShowInChatFromViewer above) -- undefined
