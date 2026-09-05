@@ -8209,3 +8209,22 @@ quote-preview reply now, not an empty focused textarea.
 tsc-clean. Commit a17b313. **Not yet verified live or pushed** -- same
 standing network blocker; 19 commits now sitting locally ahead of
 e598c18/6.178.
+
+
+## 6.193 -- Photo viewer: dark glassy more-menu (2026-09-05)
+
+Aleksandr, same "•••" menu screenshot as 6.192: "Сделай фон этой
+модалки темный с легой светлой тенью и белым текстом, такой же как
+иконки ниже. Синий - наш брендовый цвет из темной темы." The popover
+used to follow the SITE's light/dark theme (white card in light mode)
+despite opening over the viewer's own always-black bg-black/95
+backdrop. Now unconditionally dark/glassy -- same bg-white/10 +
+backdrop-blur-md ROUND_BTN already uses for the X/share/trash/more
+circles below it, plus a soft light-colored shadow for definition
+against the black backdrop -- with plain white text and every icon
+fixed to the dark theme's own brand blue (#0c8ce9) instead of
+switching with site theme.
+
+tsc-clean. Commit 26d0fda. **Not yet verified live or pushed** -- same
+standing network blocker; 22 commits now sitting locally ahead of
+e598c18/6.178.
