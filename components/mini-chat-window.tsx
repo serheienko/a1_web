@@ -1239,6 +1239,21 @@ export function MiniChatWindow({
             <input
               ref={fileInputRef}
               type="file"
+              // 2026-09-05 (Aleksandr, screen recording: "При надатии на
+              // файл все равно сначала вызывается окно apple") -- same
+              // bug app/chats/[chatId]/page.tsx's own fileInputRef had
+              // (see that input's own comment, commit 89c1e3b): with no
+              // `accept` attribute at all, iOS Safari treats the input as
+              // ambiguous (could be an image/video too) and shows its own
+              // "Photo Library / Take Video / Choose Files" sheet instead
+              // of going straight to Files. This mini floating chat
+              // widget has its own separate copy of the attach inputs
+              // (not shared with the main chat page's), so it never
+              // picked up that fix. Same accept list, same reasoning:
+              // covers every file-type-icon.tsx-recognized kind while
+              // excluding image/* and video/* -- the two categories that
+              // trigger the sheet.
+              accept="application/*,text/*,audio/*"
               className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0];
