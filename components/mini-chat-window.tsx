@@ -50,7 +50,7 @@
 // show in this smaller widget.
 "use client";
 
-import Image from "next/image";
+import { CachedAvatar } from "@/components/cached-avatar";
 import Link from "next/link";
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState, type RefObject } from "react";
@@ -699,16 +699,15 @@ export function MiniChatWindow({
   }
 
   const targetProfileHref = target.username ? profileHref(target.username) : null;
+  // 2026-09-05 (Aleksandr: "кешировать вообще всё, если оно хотя бы
+  // 1 раз открывалось") -- same persistent Cache Storage-backed
+  // CachedAvatar every other avatar surface on the site now uses.
   const avatarImg = (
-    <Image
+    <CachedAvatar
       src={target.avatarUrl}
-      alt=""
-      width={32}
-      height={32}
-      className="h-8 w-8 shrink-0 rounded-full object-cover"
-      placeholder="blur"
       blurDataURL={target.avatarBlurDataUrl ?? BLUR_DATA_URL}
-      unoptimized
+      size={32}
+      className="h-8 w-8 shrink-0 rounded-full object-cover"
     />
   );
   const nameText = <span className="block truncate text-[16px] font-medium leading-tight">{target.title || "—"}</span>;

@@ -18,7 +18,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import Image from "next/image";
+import { CachedAvatar } from "@/components/cached-avatar";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { BLUR_DATA_URL, MEDIA_BLUR_STYLE } from "@/lib/blur-placeholder";
@@ -2997,27 +2997,31 @@ export default function ChatWindowPage() {
 
           {headerProfileHref ? (
             <Link href={headerProfileHref} aria-label={headerTitle || undefined} className="ml-auto shrink-0">
-              <Image
+              {/* 2026-09-05 (Aleksandr: "кешировать вообще всё, если
+                  оно хотя бы 1 раз открывалось") -- this header avatar
+                  renders on every chat open, one of the highest-
+                  frequency avatar surfaces in the app -- same
+                  persistent Cache Storage-backed CachedAvatar every
+                  other avatar surface on the site now uses. */}
+              <CachedAvatar
                 src={headerAvatar}
-                alt=""
-                width={42}
-                height={42}
-                className="h-[42px] w-[42px] shrink-0 rounded-full object-cover"
-                placeholder="blur"
                 blurDataURL={headerAvatarBlur ?? BLUR_DATA_URL}
-                unoptimized
+                size={42}
+                className="h-[42px] w-[42px] shrink-0 rounded-full object-cover"
               />
             </Link>
           ) : (
-            <Image
+            // 2026-09-05 (Aleksandr: "кешировать вообще всё, если оно
+            // хотя бы 1 раз открывалось") -- this header avatar renders
+            // on every chat open, one of the highest-frequency avatar
+            // surfaces in the app -- same persistent Cache Storage-
+            // backed CachedAvatar every other avatar surface on the
+            // site now uses.
+            <CachedAvatar
               src={headerAvatar}
-              alt=""
-              width={42}
-              height={42}
-              className="ml-auto h-[42px] w-[42px] shrink-0 rounded-full object-cover"
-              placeholder="blur"
               blurDataURL={headerAvatarBlur ?? BLUR_DATA_URL}
-              unoptimized
+              size={42}
+              className="ml-auto h-[42px] w-[42px] shrink-0 rounded-full object-cover"
             />
           )}
         </div>
