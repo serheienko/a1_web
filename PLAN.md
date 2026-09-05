@@ -7666,3 +7666,30 @@ tsc-clean (npx tsc --noEmit, 0 errors). Commit 36bb17f. **Not yet
 verified live or pushed** -- same standing network blocker as 6.169/
 6.170 (this sandbox still has no external network access at all);
 now 9 commits sitting locally ahead of origin/main.
+
+
+## 6.172 -- Swipe-to-reply direction flip (2026-09-05)
+
+Aleksandr: "Свайп влево" -- immediate follow-up to 6.171, which shipped
+swiping RIGHT (matched the Telegram Web reference recording's own
+direction at the time). Correct direction is left.
+
+Two small changes only, app/chats/[chatId]/page.tsx: the reveal slot
+(the flex sibling that grows to reveal the reply icon, see 6.171's own
+comment for why it's a width-animated sibling rather than a transform
+on the bubble) gets `order-last` -- the bubble itself has no explicit
+`order` (defaults to 0), so this alone puts the slot after it in flex/
+visual order with zero changes to the bubble's own JSX. In a justify-
+start (peer) row the bubble stays flush left while the slot now grows
+in on its right; in a justify-end (mine) row the slot (now the actual
+last flex item) is what pins to the row's own right edge, and growing
+it pushes the bubble left -- "slides left, reveals on the right"
+either way, the exact mirror of 6.171's rightward version. onTouchMove
+now only registers leftward drags (`-dx` instead of `dx`, still
+clamped to SWIPE_MAX_DX) -- swipeState.dx itself is unchanged, still a
+non-negative magnitude, so the slot width/icon opacity/scale math
+downstream needed no changes at all.
+
+tsc-clean. Commit 5903358. **Not yet verified live or pushed** -- same
+standing network blocker (still no external network access in this
+sandbox); now 10 commits sitting locally ahead of origin/main.
