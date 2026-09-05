@@ -101,7 +101,15 @@ export function ChatPreviewLine({
     return (
       <div className={`flex items-center gap-1.5 ${className ?? ""}`}>
         <ChatFileTypeIcon kind={fileKindFromName(text)} className="h-4 w-4 shrink-0" />
-        <span className="truncate">{text}</span>
+        {/* 2026-09-05 (t014, "фиксированная ширина" reply-preview bug) --
+            a flex item's default min-width is `auto` (its own
+            min-content size), which for a nowrap `truncate` span means
+            its full unwrapped text width -- flex-shrink can never push
+            it below that floor, so a long filename always laid out at
+            its natural width instead of shrinking to fit, overflowing
+            the reply bar. min-w-0 lifts that floor so truncate's own
+            overflow:hidden + ellipsis can actually take effect. */}
+        <span className="min-w-0 truncate">{text}</span>
       </div>
     );
   }
@@ -134,7 +142,13 @@ export function ChatPreviewLine({
           надо иконка слева") -- same slot every other non-text/file
           kind already gets; contact was the one left without one. */}
       {kind === "contact" && <ChatContactAttachIcon className="h-4 w-4 shrink-0" />}
-      <span className="truncate">
+      {/* 2026-09-05 (t014) -- same min-w-0 flex-item fix as the "file"
+          branch above: without it this span's min-content width (its
+          full unwrapped label) floors flex-shrink, so a longer
+          localized label (e.g. "Запланована зустріч",
+          "Reunião agendada") never actually shrunk to the reply bar's
+          real width. */}
+      <span className="min-w-0 truncate">
         <PreviewLabel kind={kind} />
       </span>
     </div>
