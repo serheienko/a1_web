@@ -2221,7 +2221,26 @@ export default function ChatWindowPage() {
     }
   }
 
-  async function handleAttachFile(file: File, kind: "image" | "file") {
+  // 2026-09-05 (Aleksandr, live screenshot: tapping into the attach flow
+  // popped up Apple's own "Photo Library / Take Photo / Choose Files"
+  // sheet, "хочу чтобы сразу открывало файлы") -- this sheet is WebKit's
+  // own system UI, shown for ANY <input type=file> whose accept could
+  // include a photo (see fileInputRef's own comment a few hundred lines
+  // down for the full history: even accept="" triggers it). There is no
+  // web-standard way to suppress it while an input still accepts images
+  // -- Apple shows it on purpose, to offer the Photos library/Camera as
+  // sources alongside Browse. The one input that DOES skip straight to
+  // Browse today is the "Файл" button's (accept excludes image/video
+  // entirely), which is exactly the fast path this ask wants -- but
+  // before this fix, a photo picked THAT way still got tagged kind:
+  // "file" (whichever button was tapped decided it, not the actual
+  // file), so it uploaded uncompressed and rendered as a generic file
+  // row instead of a real photo bubble. `kind` now comes from the file's
+  // own MIME type instead of the caller's hint, so an image selected via
+  // either button -- including a straight-to-Browse pick through "Файл"
+  // -- always compresses and renders as a proper photo.
+  async function handleAttachFile(file: File, _pickerButtonHint: "image" | "file") {
+    const kind: "image" | "file" = file.type.startsWith("image/") ? "image" : "file";
     if (attachments.length >= MAX_ATTACHMENTS_PER_MESSAGE) return;
     const localId = `att-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const toUpload = kind === "image" ? await compressAttachmentImage(file) : file;
