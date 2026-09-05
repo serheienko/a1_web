@@ -8796,3 +8796,49 @@ asset separately, swapping `src` later is a one-line change.
 
 tsc-clean. Commit 332a91d. 56 commits now sitting locally ahead of
 e598c18/6.178.
+
+## 6.218 -- Composer text centering + real server-side photo blur (2026-09-05)
+
+Two issues from one live screenshot (Aleksandr: "текст message не по
+центру филда" + "фотографии подгружаются не через блюр... хочу чтобы
+сначала показывался блюр самой картинки с минимальным весом").
+
+1. The compose row is deliberately `items-end` (2026-09-02: keeps
+   paperclip/cat/send pinned to the bottom edge as the textarea grows
+   multi-line) -- but with only one empty line, that also bottom-aligns
+   the placeholder inside `min-h-[44px]`, leaving a visibly bigger gap
+   above the text than below. Added `self-center` to the textarea
+   itself only: fixes the single-line case, is a no-op once the
+   textarea is the row's tallest item (nothing left to center against),
+   so the pinned-bottom icon behavior from that earlier fix is
+   untouched.
+
+2. Root-caused the white-tile bug properly instead of patching the
+   symptom: `MessageMediaSizeSchema` (lib/a1/chat-schemas.ts) typed
+   `bytes` as `z.number().optional()`, but a `size-stripped` size entry
+   (Telegram's own inline blur-preview convention, confirmed against
+   aone_private's Media.fromJson) carries `bytes` as a base64 STRING.
+   That type mismatch failed validation for just that one array
+   element, and `z.array(MessageMediaSizeSchema).catch([])` fails the
+   WHOLE array on any bad element -- silently wiping every size
+   (including size-photo/size-original) for any photo message that had
+   a stripped preview riding along, not just the preview itself. This
+   is why the existing colorful-blur system (lib/photo-blur-cache.ts,
+   commit 1693e92) never had anything to show on a first-ever load: it
+   only ever populates from a client-side canvas snapshot of the REAL
+   photo after it has already painted once this session.
+
+   Fixed the union type, added `mediaDocumentThumbnail()` (decodes the
+   confirmed URL-safe base64 -- `-`/`_` swapped back, re-padded -- into
+   a `data:image/jpeg;base64,...` URL, same normalization
+   decodeBase64UrlNullable() does mobile-side), and threaded it through
+   as `BlurredChatPhoto`'s new `serverThumb` prop at every call site:
+   solo photos, same-message photo grids, cross-message album runs, and
+   the full-screen photo viewer. Real per-photo color, available from
+   the very first render -- no earlier view, no network round trip
+   needed. The client-side canvas snapshot still kicks in after the
+   real photo loads (marginally sharper, a real crop vs. a generic
+   stripped preview) and simply overwrites this as an upgrade.
+
+tsc-clean. Commit e7b330c. 57 commits now sitting locally ahead of
+e598c18/6.178.
