@@ -732,6 +732,32 @@ export default function ChatWindowPage() {
   // re-trigger for.
   const [copyToastTrigger, setCopyToastTrigger] = useState(0);
   const [replyTarget, setReplyTarget] = useState<ChatMessage | null>(null);
+  // 2026-09-05 follow-up (Aleksandr: reply-cancel via the X should
+  // smoothly collapse, not just vanish) -- replyTarget itself still
+  // clears the INSTANT onRemove/a real send fires (that's what
+  // actually matters functionally: a send must never re-attach a
+  // stale reply). This pair is purely the exit animation on top of
+  // that: displayedReplyTarget lags one REPLY_COLLAPSE_MS tick behind
+  // replyTarget going null, so ReplyComposeBar is still MOUNTED while
+  // its own wrapping grid row (see the two render sites below) animates
+  // height back to 0 -- the CSS grid-template-rows 1fr/0fr trick, since
+  // a plain height:auto can't be transitioned and this app doesn't pull
+  // in an animation library for one card. Mount itself (Reply tapped)
+  // still snaps in at 1fr instantly, same as before -- a freshly
+  // inserted DOM node has no prior CSS state to transition FROM, so
+  // only a genuine remove-after-transition like this one actually
+  // animates without a forced-reflow trick this single card doesn't
+  // warrant.
+  const REPLY_COLLAPSE_MS = 200;
+  const [displayedReplyTarget, setDisplayedReplyTarget] = useState<ChatMessage | null>(null);
+  useEffect(() => {
+    if (replyTarget) {
+      setDisplayedReplyTarget(replyTarget);
+      return;
+    }
+    const t = window.setTimeout(() => setDisplayedReplyTarget(null), REPLY_COLLAPSE_MS);
+    return () => window.clearTimeout(t);
+  }, [replyTarget]);
   // Swipe-to-reply (2026-09-05, Aleksandr, Telegram Web reference
   // recording: dragging a bubble to the right pops the same "Reply to
   // ..." compose bar this app's own actions-menu Reply row already
@@ -4788,18 +4814,26 @@ export default function ChatWindowPage() {
               textarea pill (mic-denied notice, active voice-recording bar).
               While idle the quote renders INLINE inside that same pill,
               see the rounded-[22px] wrapper further down. */}
-          {replyTarget &&
+          {displayedReplyTarget &&
             recorder.state !== "idle" &&
             (() => {
-              const quote = resolveReplyPreview(replyTarget);
+              const quote = resolveReplyPreview(displayedReplyTarget);
               if (!quote) return null;
               return (
-                <ReplyComposeBar
-                  authorLabel={quote.authorLabel}
-                  previewText={quote.node}
-                  thumbnail={quote.thumbnail}
-                  onRemove={() => setReplyTarget(null)}
-                />
+                <div
+                  className={`grid transition-[grid-template-rows] duration-200 ease-out ${
+                    replyTarget ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                  }`}
+                >
+                  <div className="overflow-hidden">
+                    <ReplyComposeBar
+                      authorLabel={quote.authorLabel}
+                      previewText={quote.node}
+                      thumbnail={quote.thumbnail}
+                      onRemove={() => setReplyTarget(null)}
+                    />
+                  </div>
+                </div>
               );
             })()}
           <div ref={voiceRowRef} className="mx-auto flex w-full max-w-[470px] items-end gap-2">
@@ -5183,18 +5217,26 @@ export default function ChatWindowPage() {
               />
             </div>
             <div className="flex flex-1 flex-col rounded-[22px] border border-neutral-200 bg-white/90 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
-              {replyTarget &&
+              {displayedReplyTarget &&
                 (() => {
-                  const quote = resolveReplyPreview(replyTarget);
+                  const quote = resolveReplyPreview(displayedReplyTarget);
                   if (!quote) return null;
                   return (
-                    <ReplyComposeBar
-                      inline
-                      authorLabel={quote.authorLabel}
-                      previewText={quote.node}
-                      thumbnail={quote.thumbnail}
-                      onRemove={() => setReplyTarget(null)}
-                    />
+                    <div
+                      className={`grid transition-[grid-template-rows] duration-200 ease-out ${
+                        replyTarget ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                      }`}
+                    >
+                      <div className="overflow-hidden">
+                        <ReplyComposeBar
+                          inline
+                          authorLabel={quote.authorLabel}
+                          previewText={quote.node}
+                          thumbnail={quote.thumbnail}
+                          onRemove={() => setReplyTarget(null)}
+                        />
+                      </div>
+                    </div>
                   );
                 })()}
               <div className="flex min-h-[44px] items-end gap-2 px-3.5 py-2">
