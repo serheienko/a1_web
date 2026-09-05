@@ -8414,3 +8414,38 @@ standing network blocker; 35 commits now sitting locally ahead of
 e598c18/6.178.
 
 **All 20 backlog items from this session's Fix Tracker are now done.**
+
+## 6.201 -- Fire badge: pixel-match real app screenshots, not just the raw asset (2026-09-05, t017 follow-up)
+
+Aleksandr sent 3 real screenshots of this badge live in the mobile
+app right after 6.200 shipped (not Figma, as he'd said earlier --
+turned out those never made it into this session's own history, see
+6.200's own note). Pixel-sampled them with PIL (cropping the exact
+badge region, reading the most common colors) instead of eyeballing:
+
+- Received + light theme (screenshot of a white bubble): badge bg
+  #E5EAFC, icon #5577A4 -- both confirmed exact-match. Notably more
+  muted than fire-day.json's own baked #4F71EB, so needed its own
+  recolored asset (public/animations/fire-received-light.json,
+  identical path data, fill patched to #5577A4) rather than reusing
+  fire-day.json as-is.
+- Sent + light theme (screenshot of a pale-blue bubble): icon
+  measured ~#566CE3, i.e. fire-day.json's own natural color
+  un-tinted -- meaning 6.200's "always force white for mine" was
+  wrong specifically for light theme. Fixed to use the natural day
+  asset there; kept white only for sent+dark, where no screenshot
+  evidence exists and the natural asset blue read as low-contrast
+  against this app's own solid saturated "mine" bubble background in
+  a local render check (mobile's own sent bubble is pale blue, so it
+  never hits that contrast problem -- a pre-existing, unrelated
+  divergence in this app's own bubble-color design, not something to
+  copy blindly).
+
+Verified before committing by rendering both patched Lottie shapes
+locally (a small Python script rebuilding the bezier path + a
+Playwright screenshot) side by side against the real screenshots --
+pixel colors matched exactly.
+
+tsc-clean. Commit 7a352e2. **Not yet verified live or pushed** -- same
+standing network blocker; 37 commits now sitting locally ahead of
+e598c18/6.178.
