@@ -5466,6 +5466,7 @@ export default function ChatWindowPage() {
                 <>
                   <EditComposeBar
                     inline
+                    previewText={extractMessageText(editingMessage)}
                     onCancel={() => {
                       setEditingMessage(null);
                       setDraft("");

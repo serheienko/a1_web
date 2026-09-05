@@ -468,7 +468,24 @@ export function ReplyComposeBar({
 // [chatId]/page.tsx copies extractMessageText(message) into `draft`),
 // so this bar's only job is naming the mode and offering a way out of
 // it -- Cancel restores the plain compose bar and clears the draft.
-export function EditComposeBar({ onCancel, inline }: { onCancel: () => void; inline?: boolean }) {
+export function EditComposeBar({
+  previewText,
+  onCancel,
+  inline,
+}: {
+  // 2026-09-05 follow-up (Aleksandr: "все так, просто сверху еще надо
+  // подставлять текст типа что ты редактируешь, как у Телеги") -- this
+  // used to show only the "Editing message" label with nothing below
+  // it, on the (wrong) assumption that the textarea already showing
+  // the same text made a second copy redundant. Telegram's own edit
+  // bar always shows a truncated quote of the ORIGINAL text here too
+  // (same shape as ReplyComposeBar's previewText right above), which
+  // matters once the user has started RETYPING the textarea -- without
+  // it there's no way to see what the message used to say.
+  previewText: string;
+  onCancel: () => void;
+  inline?: boolean;
+}) {
   return (
     <div
       className={
@@ -485,6 +502,7 @@ export function EditComposeBar({ onCancel, inline }: { onCancel: () => void; inl
             es="Editando mensaje" fr="Modification du message" pl="Edytowanie wiadomości" ptBR="Editando mensagem" zh="正在编辑消息"
           />
         </div>
+        <div className="truncate text-[13px] text-[#262a34] dark:text-white">{previewText}</div>
       </div>
       <button
         type="button"
