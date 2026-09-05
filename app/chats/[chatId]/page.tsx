@@ -3343,7 +3343,44 @@ export default function ChatWindowPage() {
               const isGreetingSticker =
                 text === GREETING_EMOJI && !meeting && calc === null && contactMedia.length === 0 &&
                 pendingContactCards.length === 0 && pendingAttachments.length === 0 && docMedia.length === 0;
-              const isFlatMedia = isVoiceOnly || isImageOnly || isFileOnly || isContactOnly || isMeetingOnly || isGreetingSticker;
+              // 2026-09-05 (Aleksandr: "Убери только синюю рамку с фото, так
+              // будет более современно, а время показывай через прозрачную
+              // пилюлю") -- a message whose ENTIRE content is one grouped
+              // run of 2+ images (imageGroupStartId/pendingImageGroupStartId
+              // above -- the WITHIN-message grouping, not the cross-message
+              // one crossGroupFooter already covers) still fell through to
+              // the generic bubble wrapper (solid blue/white background +
+              // padding) since isImageOnly only ever recognizes a SOLE
+              // image. Same flat treatment as every other single-attachment
+              // kind now: no wrapping chrome, time+ticks move onto the same
+              // dark translucent pill crossGroupFooter/the solo-photo pill
+              // already use, overlaid on the grid itself instead of a
+              // separate row below it inside a colored frame.
+              const wholeMessageImageGroup =
+                docMedia.length >= 2 && imageGroupStartId.size === 1 && imageGroupSkipIds.size === docMedia.length - 1
+                  ? [...imageGroupStartId.values()][0]!
+                  : null;
+              const pendingWholeMessageImageGroup =
+                pendingAttachments.length >= 2 &&
+                pendingImageGroupStartId.size === 1 &&
+                pendingImageGroupSkipIds.size === pendingAttachments.length - 1
+                  ? [...pendingImageGroupStartId.values()][0]!
+                  : null;
+              const isImageGroupOnly =
+                !text && calc === null && contactMedia.length === 0 && pendingContactCards.length === 0 &&
+                ((pendingAttachments.length === 0 && wholeMessageImageGroup !== null) ||
+                  (docMedia.length === 0 && pendingWholeMessageImageGroup !== null));
+              const isFlatMedia = isVoiceOnly || isImageOnly || isImageGroupOnly || isFileOnly || isContactOnly || isMeetingOnly || isGreetingSticker;
+              const imageGroupFooter = (
+                <span className="pointer-events-none absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded-full bg-black/45 px-2 py-0.5 text-[11px] text-white backdrop-blur-sm">
+                  <span>{formatTime(ms)}</span>
+                  {pending ? (
+                    pending.failed ? <NotSentIcon /> : <SendingSpinner />
+                  ) : (
+                    mine && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7.77px] w-3.5" />
+                  )}
+                </span>
+              );
               // See crossMessageGroupStart's own header comment above.
               const crossGroupRun = crossMessageGroupStart.get(msg._id) ?? null;
               const crossGroupFooter = crossGroupRun
@@ -3653,6 +3690,7 @@ export default function ChatWindowPage() {
                                     .filter((d) => d.previewUrl)
                                     .map((d) => ({ id: d.localId, src: d.previewUrl! }))}
                                   onOpen={() => {}}
+                                  footer={isImageGroupOnly ? imageGroupFooter : undefined}
                                 />
                                 {pendingImageGroupStartId.get(a.localId)!.some((d) => d.status === "uploading") && (
                                   <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/30">
@@ -3737,6 +3775,7 @@ export default function ChatWindowPage() {
                                 key={doc._id}
                                 docs={imageGroupStartId.get(doc._id)!.map((d) => ({ id: d._id, src: getStableMediaProxyUrl(d) }))}
                                 onOpen={(docId) => openViewerForDoc(msg._id, docId)}
+                                footer={isImageGroupOnly ? imageGroupFooter : undefined}
                               />
                             ) : isVoiceMediaDocument(doc) ? (
                               <VoiceMessageBubble

@@ -30,6 +30,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { T, type Locale } from "@/components/t";
+import { MEDIA_BLUR_STYLE } from "@/lib/blur-placeholder";
 
 export type ChatViewerImage = {
   // doc._id only needs to be unique WITHIN a message (every other id in
@@ -347,11 +348,21 @@ export function ChatPhotoViewer({ lang, images, index, onIndexChange, onClose, o
         )}
         {/* eslint-disable-next-line @next/next/no-img-element -- proxied
             through /api/media, not a next/image-configured remote host. */}
+        {/* 2026-09-05 (Aleksandr: "Эти фото тоже подгружай через блюр,
+            при открытии просмотра фото в большом формате") -- this
+            full-size lightbox <img> painted nothing at all while its
+            (much larger, uncached) source loaded, unlike every other
+            photo surface in the app (grid thumbnails, avatars) which
+            already show MEDIA_BLUR_STYLE's shimmer square underneath
+            until the real pixels decode -- same trick here: a loading
+            <img> paints no pixels of its own, so the shimmer background
+            shows through underneath it. */}
         <img
           key={image.key}
           src={image.url}
           alt=""
           className="max-h-full max-w-full select-none rounded-md object-contain"
+          style={MEDIA_BLUR_STYLE}
           draggable={false}
         />
         {index < images.length - 1 && (
