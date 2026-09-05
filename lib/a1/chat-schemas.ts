@@ -906,9 +906,19 @@ export type MessagePreview = {
   kind: MessagePreviewKind;
   text: string;
   photoDoc?: MessageMediaDocument;
+  // 2026-09-05 (Aleksandr, reference screenshot: chat list shows a
+  // small forward-arrow before the preview text/label when the last
+  // message was forwarded, e.g. "↪ А кроссы Асикс?") -- orthogonal to
+  // `kind` (a forwarded message can be text, a photo, a voice note,
+  // etc., same as an un-forwarded one), so this rides alongside it
+  // rather than being its own kind. Same `object === "peer-user"`
+  // check app/chats/[chatId]/page.tsx's own forwardToOneChat/
+  // originalAuthorId fallback already uses for msg.forwardFrom.
+  isForwarded: boolean;
 };
 
 export function describeMessagePreview(msg: ChatMessage): MessagePreview {
+  const isForwarded = msg.forwardFrom?.object === "peer-user";
   const text = extractMessageText(msg);
   // 2026-09-04 follow-up (Aleksandr, live chat-list screenshot: a
   // meeting proposal/accept's raw "A1MEETINGv1::eyJ2Ijox..." marker+
@@ -926,21 +936,21 @@ export function describeMessagePreview(msg: ChatMessage): MessagePreview {
   // deliberately the same "Scheduled meeting" kind/label for either,
   // since a chat-list row has no use for which of the two it actually
   // is.
-  if (decodeMeetingText(text) || decodeMeetingAcceptText(text)) return { kind: "meeting", text: "" };
-  if (text) return { kind: "text", text };
+  if (decodeMeetingText(text) || decodeMeetingAcceptText(text)) return { kind: "meeting", text: "", isForwarded };
+  if (text) return { kind: "text", text, isForwarded };
   const docs = messageDocumentMedia(msg);
   const voiceDoc = docs.find((d) => isVoiceMediaDocument(d));
-  if (voiceDoc) return { kind: "voice", text: "" };
+  if (voiceDoc) return { kind: "voice", text: "", isForwarded };
   const photoDoc = docs.find((d) => isImageMediaDocument(d));
-  if (photoDoc) return { kind: "photo", text: "", photoDoc };
+  if (photoDoc) return { kind: "photo", text: "", photoDoc, isForwarded };
   const videoDoc = docs.find((d) => isVideoMediaDocument(d));
-  if (videoDoc) return { kind: "video", text: "" };
+  if (videoDoc) return { kind: "video", text: "", isForwarded };
   const stickerDoc = docs.find((d) => isStickerMediaDocument(d));
-  if (stickerDoc) return { kind: "sticker", text: "" };
-  if (docs.length > 0) return { kind: "file", text: mediaDocumentFileName(docs[0]!) };
-  if (messageContactMedia(msg).length > 0) return { kind: "contact", text: "" };
-  if (messageCalculation(msg)) return { kind: "calc", text: "" };
-  return { kind: "text", text: "" };
+  if (stickerDoc) return { kind: "sticker", text: "", isForwarded };
+  if (docs.length > 0) return { kind: "file", text: mediaDocumentFileName(docs[0]!), isForwarded };
+  if (messageContactMedia(msg).length > 0) return { kind: "contact", text: "", isForwarded };
+  if (messageCalculation(msg)) return { kind: "calc", text: "", isForwarded };
+  return { kind: "text", text: "", isForwarded };
 }
 
 // `date` is a plain ISO 8601 string on every real message (see the

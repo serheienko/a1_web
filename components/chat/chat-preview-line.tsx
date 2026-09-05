@@ -31,6 +31,7 @@
 import { T } from "@/components/t";
 import { ChatMicGlyph, ChatCalculatorAttachIcon, ChatMeetingAttachIcon, ChatContactAttachIcon } from "./icons";
 import { ChatFileTypeIcon, fileKindFromName } from "./file-type-icon";
+import { ForwardIcon } from "./message-actions-menu";
 
 export type MessagePreviewKind = "text" | "voice" | "photo" | "video" | "sticker" | "file" | "contact" | "calc" | "meeting";
 
@@ -75,16 +76,31 @@ export function ChatPreviewLine({
   kind,
   text,
   photoUrl,
+  isForwarded,
   className,
 }: {
   kind: MessagePreviewKind;
   text: string;
   photoUrl: string | null;
+  // 2026-09-05 (Aleksandr, reference screenshot of a chat-list row: a
+  // small forward-arrow rendered before the preview text/label, e.g.
+  // "↪ А кроссы Асикс?") -- orthogonal to `kind` (a forwarded message
+  // can be any kind, same as an un-forwarded one), so it's its own
+  // prop rather than a new kind value. Optional so every existing
+  // caller (neither of which has forwarded info to pass yet until its
+  // own /api/chats/list read is updated) keeps compiling unchanged.
+  isForwarded?: boolean;
   className?: string;
 }) {
   if (kind === "text") {
     if (!text) return null;
-    return <div className={className}>{text}</div>;
+    if (!isForwarded) return <div className={className}>{text}</div>;
+    return (
+      <div className={`flex items-center gap-1 ${className ?? ""}`}>
+        <ForwardIcon className="h-3.5 w-3.5 shrink-0" />
+        <span className="min-w-0 truncate">{text}</span>
+      </div>
+    );
   }
   // 2026-09-05 (Aleksandr, reference screenshot of a reply-to-document
   // quote: a small file-type badge next to the filename, same as the
@@ -100,6 +116,7 @@ export function ChatPreviewLine({
     if (!text) return null;
     return (
       <div className={`flex items-center gap-1.5 ${className ?? ""}`}>
+        {isForwarded && <ForwardIcon className="h-3.5 w-3.5 shrink-0" />}
         <ChatFileTypeIcon kind={fileKindFromName(text)} className="h-4 w-4 shrink-0" />
         {/* 2026-09-05 (t014, "фиксированная ширина" reply-preview bug) --
             a flex item's default min-width is `auto` (its own
@@ -115,6 +132,7 @@ export function ChatPreviewLine({
   }
   return (
     <div className={`flex items-center gap-1.5 ${className ?? ""}`}>
+      {isForwarded && <ForwardIcon className="h-3.5 w-3.5 shrink-0" />}
       {kind === "photo" && photoUrl && (
         // eslint-disable-next-line @next/next/no-img-element -- proxied
         // through /api/media, not a next/image-configured remote host.

@@ -114,6 +114,10 @@ type ChatListItem = {
   // from `previewKind`.
   previewKind: "text" | "voice" | "photo" | "video" | "sticker" | "file" | "contact" | "calc" | "meeting";
   previewPhotoUrl: string | null;
+  // 2026-09-05 (reference screenshot: forward-arrow before a
+  // forwarded last message's preview) -- see /api/chats/list's own
+  // header comment on previewForwarded.
+  previewForwarded: boolean;
   previewMine: boolean;
   previewDateMs: number;
   previewTick: "read" | "delivered" | null;
@@ -575,6 +579,7 @@ export default function ChatsPage() {
                       kind={chat.previewKind}
                       text={chat.previewText}
                       photoUrl={chat.previewPhotoUrl}
+                      isForwarded={chat.previewForwarded}
                       className="truncate text-[16px] text-[#989aa6] dark:text-[#8d8d93]"
                     />
                   )}

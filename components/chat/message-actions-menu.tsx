@@ -78,7 +78,12 @@ function RemindIcon({ className }: IconProps) {
   );
 }
 
-function ForwardIcon({ className }: IconProps) {
+// 2026-09-05 follow-up (Aleksandr, reference screenshot: chat list
+// shows a small forward-arrow before the preview text of a chat whose
+// last message was forwarded) -- exported so components/chat/chat-
+// preview-line.tsx can reuse the SAME glyph the "Forward" action-menu
+// row above already uses, instead of drawing a second one.
+export function ForwardIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
       <path d="M15 17l5-5-5-5" />

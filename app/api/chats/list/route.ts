@@ -266,7 +266,7 @@ export async function GET() {
           previewMine && resolvedMessage
             ? messageTickState(resolvedMessage, otherParticipantReadMaxId(chat, myUserId))
             : null;
-        const preview = resolvedMessage ? describeMessagePreview(resolvedMessage) : { kind: "text" as const, text: "" };
+        const preview = resolvedMessage ? describeMessagePreview(resolvedMessage) : { kind: "text" as const, text: "", isForwarded: false };
         return {
           id: chat._id,
           title: display.title,
@@ -289,6 +289,11 @@ export async function GET() {
           previewText: preview.text,
           previewKind: preview.kind,
           previewPhotoUrl: preview.kind === "photo" && preview.photoDoc ? buildMediaProxyUrl(preview.photoDoc) : null,
+          // 2026-09-05 (Aleksandr, reference screenshot: a small
+          // forward-arrow before the preview text/label when the
+          // chat's last message was forwarded) -- see describeMessage-
+          // Preview's own isForwarded field for the exact check.
+          previewForwarded: preview.isForwarded,
           previewMine,
           previewDateMs: resolvedMessage ? messageDateMs(resolvedMessage) : 0,
           previewTick,
