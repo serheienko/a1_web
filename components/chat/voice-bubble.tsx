@@ -100,6 +100,7 @@ import {
 } from "@/lib/voice-playback-store";
 import { getLocalVoiceWaveform, rememberLocalVoiceWaveform } from "@/lib/voice-local-waveform-cache";
 import { decodeWaveformFromBlob } from "@/lib/voice-waveform-decode";
+import { LottiePlayer } from "@/components/lottie-player";
 
 const WAVEFORM_BARS = 32;
 // Bar count used only for the ONE-TIME client-side decode below --
@@ -170,14 +171,42 @@ export function PauseGlyph({ className }: { className?: string }) {
   );
 }
 
-function FlameGlyph({ className }: { className?: string }) {
+// 2026-09-05 (t017, "иконка огня -- точная замена по Figma") -- this
+// used to be a hand-drawn placeholder SVG (kept above's git history,
+// never itself sourced from a real design file). The mobile app's own
+// fire badge is instead a short one-shot Lottie animation
+// (voice_message_bubble_widgets.dart's _FireIntroAnimation), shipped as
+// assets/tgs/fire_day.tgs / fire_night.tgs -- gzip-compressed Lottie
+// JSON (the ".tgs" Telegram-sticker convention), pulled from the
+// connected a1_app repo, gunzipped, and dropped in unmodified as
+// public/animations/fire-day.json / fire-night.json. Both bake in a
+// single flat fill color already: fire-day is #4F71EB (this app's own
+// light-mode brand blue) and fire-night is #0C8CE9 (this app's own
+// dark:text-[#0c8ce9] used everywhere else in this exact file) -- so
+// the "theirs" badge (light-blue pill on a light/near-black bubble,
+// same as before) needs no recoloring at all, just the existing
+// dark:hidden / hidden dark:inline-block asset-swap convention
+// site-nav.tsx's own logo already established for this codebase (no
+// JS dark-mode hook exists here, by design -- CSS-only theming
+// throughout). The "mine" badge sits on a solid blue bubble
+// background, so (same as the old hand-drawn glyph's text-white) it
+// still needs to render pure white regardless of theme -- a
+// brightness-0+invert filter reliably flattens any single-color
+// non-transparent glyph to white, so one instance covers both themes
+// there without needing a second baked white asset.
+function FireBadgeAnimation({ mine, size = 14 }: { mine: boolean; size?: number }) {
+  if (mine) {
+    return <LottiePlayer src="/animations/fire-night.json" size={size} loop={false} className="brightness-0 invert" />;
+  }
   return (
-    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
-      <path
-        d="M12 2.5c.6 2 .1 3.3-1 4.6-1.3 1.5-2.7 2.9-2.7 5.3a3.7 3.7 0 0 0 7.4 0c0-1-.3-1.8-.8-2.6.9.5 1.6 1.5 1.6 3a4.5 4.5 0 0 1-9 0c0-4.2 3-5.7 4.5-10.3Z"
-        fill="currentColor"
-      />
-    </svg>
+    <>
+      <span className="dark:hidden">
+        <LottiePlayer src="/animations/fire-day.json" size={size} loop={false} />
+      </span>
+      <span className="hidden dark:inline-block">
+        <LottiePlayer src="/animations/fire-night.json" size={size} loop={false} />
+      </span>
+    </>
   );
 }
 
@@ -595,7 +624,7 @@ export function VoiceMessageBubble({
                 : "bg-[#335ef7]/10 text-[#335ef7] hover:bg-[#335ef7]/20 dark:bg-[#0c8ce9]/15 dark:text-[#0c8ce9]"
             }`}
           >
-            <FlameGlyph className="h-3.5 w-3.5" />
+            <FireBadgeAnimation mine={mine} size={14} />
           </button>
 
           {firePopoverOpen && (
