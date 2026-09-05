@@ -366,24 +366,50 @@ function chatMessagesCacheKey(chatId: string): string | null {
   return email ? `a1:chat-messages-cache:${email}:${chatId}` : null;
 }
 
-function readCachedMessages(chatId: string): ChatMessage[] {
+// 2026-09-05 follow-up (Aleksandr, screen recording: cached messages
+// briefly painted on the WRONG side -- his own sent messages showed up
+// on the left, like they were received, then a beat later flipped back
+// to the right) -- root cause: every bubble's mine/theirs side comes
+// from `myUserId !== null && msg.fromId === myUserId` (see its call
+// sites below), and myUserId itself starts at `null` and is only ever
+// set from the REAL fetch's response, never from cache. Painting the
+// cached MESSAGES immediately (as this already did) while myUserId was
+// still null made every single bubble compute mine=false for that one
+// frame, until the real fetch resolved a beat later and myUserId
+// caught up -- exactly the "shows on the left, then snaps right" he
+// saw. Fixed by caching myUserId ALONGSIDE messages (not the messages
+// array bare) and restoring both together on mount.
+type CachedChatMessages = { messages: ChatMessage[]; myUserId: string | null };
+
+function readCachedMessages(chatId: string): CachedChatMessages {
   try {
     const key = chatMessagesCacheKey(chatId);
-    if (!key) return [];
+    if (!key) return { messages: [], myUserId: null };
     const raw = sessionStorage.getItem(key);
-    if (!raw) return [];
+    if (!raw) return { messages: [], myUserId: null };
     const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as ChatMessage[]) : [];
+    if (Array.isArray(parsed)) {
+      // Pre-6.167 cache shape (a bare array, no myUserId) -- treat as
+      // stale rather than crash on it; the real fetch fills in
+      // myUserId correctly a beat later same as before this fix.
+      return { messages: parsed as ChatMessage[], myUserId: null };
+    }
+    if (parsed && typeof parsed === "object" && Array.isArray((parsed as CachedChatMessages).messages)) {
+      const cached = parsed as CachedChatMessages;
+      return { messages: cached.messages, myUserId: cached.myUserId ?? null };
+    }
+    return { messages: [], myUserId: null };
   } catch {
-    return [];
+    return { messages: [], myUserId: null };
   }
 }
 
-function writeCachedMessages(chatId: string, messages: ChatMessage[]): void {
+function writeCachedMessages(chatId: string, messages: ChatMessage[], myUserId: string | null): void {
   try {
     const key = chatMessagesCacheKey(chatId);
     if (!key) return;
-    sessionStorage.setItem(key, JSON.stringify(messages));
+    const cached: CachedChatMessages = { messages, myUserId };
+    sessionStorage.setItem(key, JSON.stringify(cached));
   } catch {
     // Storage disabled/full/private mode -- caching is a nice-to-have,
     // never worth failing the actual message load over.
@@ -657,8 +683,9 @@ export default function ChatWindowPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   useEffect(() => {
     const cached = readCachedMessages(chatId);
-    if (cached.length === 0) return;
-    setMessages(cached);
+    if (cached.messages.length === 0) return;
+    setMessages(cached.messages);
+    setMyUserId(cached.myUserId);
     setState("ready");
   }, [chatId]);
   // 2026-09-02 (Aleksandr, live bug report: "я не вижу появившееся
@@ -1309,7 +1336,7 @@ export default function ChatWindowPage() {
       const resolvedMyUserId: string | null = data.myUserId ?? null;
       setMessages(fetched);
       setMyUserId(resolvedMyUserId);
-      writeCachedMessages(chatId, fetched);
+      writeCachedMessages(chatId, fetched, resolvedMyUserId);
       // Only while the tab is actually visible -- marking a message
       // "read" from a poll tick in a backgrounded tab would be a lie,
       // same reasoning app/chats/page.tsx's own poll timer already
