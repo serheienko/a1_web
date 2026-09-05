@@ -9153,3 +9153,60 @@ render-сайт залишався без такої перевірки — до
 замість заглушки, коли `forwardFrom.user === myUserId`).
 
 tsc-clean. Commit 0ca350e.
+
+## 6.227 — Форвард 2.0, Phase 4: меню превью пересилки (Telegram Web) — 2026-09-05
+
+Александр, відеозапис екрана (web.telegram.org, ~15.4s), проаналізовано
+покадрово через ffmpeg contact-sheet (`fps=2,scale=270:-1,tile=6x6`):
+тап по самому превью пересилаємого повідомлення в композері (не по
+хрестику) відкриває невелике меню з чотирьох пунктів — "Показати ім'я
+відправника" / "Приховати ім'я відправника" (обидва рядки завжди
+рендеряться, галочка перемикається між ними) / "Переслати в інший чат"
+/ "Не пересилати" (червоний, останній).
+
+- `components/chat/forward-preview-menu.tsx` (новий файл) —
+  `ForwardPreviewMenu`: анкорний попап на 4 рядки, той самий візуальний
+  словник, що й у `MessageActionsMenu` (заокруглена картка, іконка +
+  підпис, деструктивний рядок останнім, червоний). Простіше за
+  `MessageActionsMenu`: завжди відкривається ВГОРУ від анкора без
+  двопрохідного вимірювання "з якого боку більше місця" — прев'ю
+  пересилки завжди сидить прямо над textarea, яка сама прикріплена до
+  самого низу вьюпорта, тож знизу місця ніколи не більше, ніж зверху.
+- `lib/forward-pending-hold.ts` — `ForwardPendingDraft` отримав
+  `hideSenderName?: boolean` (за замовчуванням `false`/`undefined` —
+  поведінка "показати ім'я" без змін).
+- `components/chat/message-actions-menu.tsx` — `ForwardComposeBar`
+  отримав опціональний `onClick` на кореневому div (відкриває меню);
+  кнопка-хрестик скасування тепер робить `e.stopPropagation()`, щоб клік
+  по ній не відкривав меню одночасно зі скасуванням пересилки.
+- `app/chats/[chatId]/page.tsx`:
+  - `forwardPreviewMenuAnchor` — стан для якоря меню (null = закрито).
+  - `handleForwardShowSenderName`/`handleForwardHideSenderName` —
+    просто перемикають `pendingForward.hideSenderName` на місці.
+  - `handleForwardToAnotherChat` — переоткриває `ForwardPickerModal` з
+    тими самими source-повідомленнями (`setForwardSource(pendingForward.
+    messages)`), НЕ чіпаючи сам `pendingForward` — якщо користувач
+    закриє пікер, не обравши новий чат, оригінальна пересилка
+    залишається як була. Вибір нового чату йде через вже наявний
+    `onPickSingle`-хендлер пікера без змін.
+  - `handleDoNotForward` — повторює логіку існуючого хрестика скасування
+    (`setPendingForward(null)` + `clearForwardPending()`).
+  - `forwardToOneChat` отримав 4-й параметр `hideSenderName?: boolean`:
+    коли `true`, поле `forwardFrom` у тілі POST `/api/chats/send`
+    взагалі не передається (`undefined`) — повідомлення йде як звичайне
+    нове, без підпису "Переслано від X", той самий ефект, що й
+    "Hide Sender's Name" у Telegram.
+  - `sendPendingForwardBatch` читає `pending.hideSenderName ?? false` і
+    прокидує його в обидва виклики `forwardToOneChat` (цикл по всіх,
+    крім останнього, і фінальний виклик для останнього повідомлення).
+
+Довгий тап (виділення повідомлень зліва + чекбокс/іконки
+видалити-переслати в `SelectionBottomBar`) з того самого повідомлення
+Александра НЕ чіпався окремо в цій ітерації — за кадрами з
+contact-sheet це вже повністю покрито наявною Phase-1 реалізацією
+selection-mode (чекбокс зліва від бабла, delete зліва / forward справа
+в `SelectionBottomBar`). Повідомлення Александра обірвалося на цьому
+місці ("Это разбери тоже и..."), тож якщо малося на увазі щось інше —
+потрібне уточнення.
+
+tsc-clean. Commit b7cc06c.
