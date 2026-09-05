@@ -463,16 +463,30 @@ export function ChatPhotoViewer({ lang, images, index, onIndexChange, onClose, o
             <MoreIcon className="h-5 w-5 animate-dots-bounce" />
           </button>
           {moreMenuOpen && (
-            <div className="animate-popover-up absolute bottom-full right-0 z-10 mb-2 w-52 overflow-hidden rounded-2xl bg-white py-1.5 shadow-xl dark:bg-neutral-900">
+            // 2026-09-05 (Aleksandr, live screenshot: "Сделай фон этой
+            // модалки темный с легой светлой тенью и белым текстом,
+            // такой же как иконки ниже") -- this popover used to
+            // follow the SITE's own light/dark theme (white card in
+            // light mode), even though it opens over this viewer's own
+            // always-black bg-black/95 backdrop -- a white light-mode
+            // card floated oddly on top of that dark photo/file view
+            // regardless of the site theme. Now unconditionally dark
+            // and glassy, matching ROUND_BTN (the X/share/trash/more
+            // circles just below it): same bg-white/10 + backdrop-blur
+            // treatment, plus a soft light-colored glow (his own
+            // "легкой светлой тенью") so the card still reads as its
+            // own surface against the black backdrop instead of
+            // disappearing into it.
+            <div className="animate-popover-up absolute bottom-full right-0 z-10 mb-2 w-52 overflow-hidden rounded-2xl bg-white/10 py-1.5 shadow-[0_8px_32px_rgba(255,255,255,0.12)] backdrop-blur-md">
               <button
                 type="button"
                 onClick={() => {
                   setMoreMenuOpen(false);
                   onShowInChat(image!.messageId);
                 }}
-                className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+                className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-white transition hover:bg-white/10"
               >
-                <ShowInChatIcon className="h-5 w-5 animate-list-jump text-[#335ef7] dark:text-[#0c8ce9]" />
+                <ShowInChatIcon className="h-5 w-5 animate-list-jump text-[#0c8ce9]" />
                 <T
                   uk="Показати в чаті" en="Show in chat" ru="Показать в чате" de="Im Chat anzeigen"
                   es="Mostrar en el chat" fr="Afficher dans le chat" pl="Pokaż w czacie"
@@ -485,17 +499,17 @@ export function ChatPhotoViewer({ lang, images, index, onIndexChange, onClose, o
                   setMoreMenuOpen(false);
                   onReply(image!.messageId);
                 }}
-                className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+                className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-white transition hover:bg-white/10"
               >
-                <ReplyIcon className="h-5 w-5 animate-reply-bounce text-[#335ef7] dark:text-[#0c8ce9]" />
+                <ReplyIcon className="h-5 w-5 animate-reply-bounce text-[#0c8ce9]" />
                 <T uk="Відповісти" en="Reply" ru="Ответить" de="Antworten" es="Responder" fr="Répondre" pl="Odpowiedz" ptBR="Responder" zh="回复" />
               </button>
               <button
                 type="button"
                 onClick={handleSave}
-                className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+                className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-white transition hover:bg-white/10"
               >
-                <SaveIcon className="h-5 w-5 animate-save-drop text-[#335ef7] dark:text-[#0c8ce9]" />
+                <SaveIcon className="h-5 w-5 animate-save-drop text-[#0c8ce9]" />
                 <T uk="Зберегти" en="Save" ru="Сохранить" de="Speichern" es="Guardar" fr="Enregistrer" pl="Zapisz" ptBR="Salvar" zh="保存" />
               </button>
               <button
@@ -504,7 +518,7 @@ export function ChatPhotoViewer({ lang, images, index, onIndexChange, onClose, o
                   setMoreMenuOpen(false);
                   setConfirmDeleteOpen(true);
                 }}
-                className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
+                className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[14px] font-medium text-red-400 transition hover:bg-red-500/10"
               >
                 <TrashIcon className="h-5 w-5 animate-trash-wobble" />
                 <T uk="Видалити" en="Delete" ru="Удалить" de="Löschen" es="Eliminar" fr="Supprimer" pl="Usuń" ptBR="Excluir" zh="删除" />
