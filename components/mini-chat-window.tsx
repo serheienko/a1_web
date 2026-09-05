@@ -91,6 +91,8 @@ import {
 } from "@/components/chat/icons";
 import { ChatFileTypeIcon, fileKindFromName, DocumentFallbackLabel } from "@/components/chat/file-type-icon";
 import { PdfPageThumbnail } from "@/components/chat/pdf-thumbnail";
+import { ChatPhotoGrid } from "@/components/chat/photo-grid";
+import { MessageActionsMenu } from "@/components/chat/message-actions-menu";
 import { ChatCalculationCard } from "@/components/chat/calculation-card";
 import { ContactMessageCard } from "@/components/chat/contact-message-card";
 import { ContactsPickerModal, type PickedContact } from "@/components/chat/contacts-picker-modal";
@@ -241,6 +243,17 @@ export function MiniChatWindow({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // 2026-09-05 (Aleksandr: "правая кнопка тоже должна работать для
+  // вызова купертино") -- this widget is desktop-only to begin with
+  // (components/chats-fab.tsx redirects mobile straight to the full
+  // /chats/[chatId] page instead of ever mounting this component), so
+  // right-click alone (no isTouch/tap-to-open split needed, unlike the
+  // big chat page) is the one trigger this window needs. Reply itself
+  // stays out of scope here -- no replyTarget/quote-preview state exists
+  // in this smaller widget yet -- so its own onReply below just focuses
+  // the compose box, same "started a reply" gesture without the full
+  // threading UI app/chats/[chatId]/page.tsx has.
+  const [actionsMenu, setActionsMenu] = useState<{ message: ChatMessage; anchorRect: DOMRect; mine: boolean } | null>(null);
   // 2026-09-04 (Aleksandr: "При выхове калькуляции сделай дефолтно
   // моргающий курсор возле 1.") -- same fix as app/chats/[chatId]/
   // page.tsx's own copy of this calculator panel: focus the first
@@ -725,6 +738,37 @@ export function MiniChatWindow({
           const mine = myUserId !== null && msg.fromId === myUserId;
           const text = extractMessageText(msg);
           const docMedia = messageDocumentMedia(msg);
+          // 2026-09-05 (Aleksandr, live screenshot: a multi-photo
+          // message in this widget rendering as N separate full-width
+          // rows instead of a grouped album -- "Комбинирование фото не
+          // работают в маленьком окне, надо полечить") -- this window
+          // never got the app/chats/[chatId]/page.tsx grouping pass
+          // (imageGroupStartId/ChatPhotoGrid, 6.116/6.179) at all when
+          // it was first built. Same logic, ported verbatim: a RUN of
+          // 2+ consecutive image docs renders as one ChatPhotoGrid;
+          // imageGroupStartId maps the run's first doc id to the whole
+          // run, imageGroupSkipIds is every other doc in it (skipped
+          // below since the grid already draws it). No full-size
+          // viewer exists in this widget (onOpen is a no-op, same as
+          // page.tsx's own pending-attachment ChatPhotoGrid usage) --
+          // out of scope for this fix, which is specifically about the
+          // grouping shape, not adding a new lightbox to this window.
+          const imageGroupStartId = new Map<string, typeof docMedia>();
+          const imageGroupSkipIds = new Set<string>();
+          for (let gi = 0; gi < docMedia.length; ) {
+            if (!isImageMediaDocument(docMedia[gi]!)) {
+              gi++;
+              continue;
+            }
+            let gj = gi + 1;
+            while (gj < docMedia.length && isImageMediaDocument(docMedia[gj]!)) gj++;
+            const run = docMedia.slice(gi, gj);
+            if (run.length >= 2) {
+              imageGroupStartId.set(run[0]!._id, run);
+              for (const d of run.slice(1)) imageGroupSkipIds.add(d._id);
+            }
+            gi = gj;
+          }
           const contactMedia = messageContactMedia(msg);
           const calc = messageCalculation(msg);
           // 2026-09-03 (Aleksandr, attach-menu port) -- this used to
@@ -752,6 +796,10 @@ export function MiniChatWindow({
           return (
             <div key={msg._id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
               <div
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setActionsMenu({ message: msg, anchorRect: e.currentTarget.getBoundingClientRect(), mine });
+                }}
                 className={`max-w-[80%] rounded-2xl px-3 py-1.5 text-[15.5px] leading-snug ${
                   mine
                     ? "rounded-br-sm bg-[#335ef7] text-white dark:bg-[#0c8ce9]"
@@ -761,7 +809,13 @@ export function MiniChatWindow({
                 {docMedia.length > 0 && (
                   <div className={`flex flex-col gap-1.5 ${text ? "mb-1" : ""}`}>
                     {docMedia.map((doc: MessageMediaDocument) =>
-                      isImageMediaDocument(doc) ? (
+                      imageGroupSkipIds.has(doc._id) ? null : imageGroupStartId.has(doc._id) ? (
+                        <ChatPhotoGrid
+                          key={doc._id}
+                          docs={imageGroupStartId.get(doc._id)!.map((d) => ({ id: d._id, src: getStableMediaProxyUrl(d) }))}
+                          onOpen={() => {}}
+                        />
+                      ) : isImageMediaDocument(doc) ? (
                         // eslint-disable-next-line @next/next/no-img-element -- proxied
                         // through /api/media, not a next/image-configured remote host.
                         <img
@@ -1332,6 +1386,17 @@ export function MiniChatWindow({
           }}
           onSend={() => void sendPickedContacts()}
           sending={contactsSending}
+        />
+      )}
+      {actionsMenu && (
+        <MessageActionsMenu
+          anchorRect={actionsMenu.anchorRect}
+          mine={actionsMenu.mine}
+          lang={lang}
+          onClose={() => setActionsMenu(null)}
+          onReply={() => {
+            window.requestAnimationFrame(() => textareaRef.current?.focus());
+          }}
         />
       )}
     </div>,
