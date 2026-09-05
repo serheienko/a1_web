@@ -52,7 +52,7 @@ import {
   type MessageMediaDocument,
 } from "@/lib/a1/chat-schemas";
 import { ChatPreviewLine } from "@/components/chat/chat-preview-line";
-import { MessageActionsMenu, ReplyComposeBar, MessageReplyQuote } from "@/components/chat/message-actions-menu";
+import { MessageActionsMenu, ReplyComposeBar, MessageReplyQuote, ReplyIcon } from "@/components/chat/message-actions-menu";
 import { buildMediaProxyUrl, buildMediaDownloadUrl } from "@/lib/a1/media-proxy";
 import { getStableMediaProxyUrl } from "@/lib/a1/stable-media-url";
 import type { MediaUploadUsage } from "@/lib/a1/schemas";
@@ -725,6 +725,24 @@ export default function ChatWindowPage() {
   // uploadAndSendVoice thread through to chat-server.
   const [actionsMenu, setActionsMenu] = useState<{ message: ChatMessage; anchorRect: DOMRect; mine: boolean } | null>(null);
   const [replyTarget, setReplyTarget] = useState<ChatMessage | null>(null);
+  // Swipe-to-reply (2026-09-05, Aleksandr, Telegram Web reference
+  // recording: dragging a bubble to the right pops the same "Reply to
+  // ..." compose bar this app's own actions-menu Reply row already
+  // sets) -- mobile-only in practice since it's driven entirely by
+  // touch events, which a mouse/trackpad never fires, so the existing
+  // right-click/two-finger-click path above is untouched for desktop.
+  // swipeGestureRef is a plain ref (not state) specifically so an
+  // in-progress drag survives a re-render mid-gesture (this page polls
+  // messages every few seconds -- see `load()` -- and a fresh render
+  // would otherwise re-initialize a `let` closed over inside the
+  // message-list JSX, resetting the drag's start point and making it
+  // stutter). swipeState IS real state because its `dx` needs to
+  // actually repaint the one bubble being dragged; every other row's
+  // closure reads it and no-ops when the id doesn't match.
+  const swipeGestureRef = useRef<{ msgId: string; startX: number; startY: number; active: boolean } | null>(null);
+  const [swipeState, setSwipeState] = useState<{ msgId: string; dx: number } | null>(null);
+  const SWIPE_TRIGGER_DX = 56;
+  const SWIPE_MAX_DX = 72;
   const [myUserId, setMyUserId] = useState<string | null>(null);
   // 2026-09-02 (Aleksandr: "человек прочёл, но галочки не поменялись
   // из одной в две") -- the OTHER participant's read high-water mark
@@ -3384,6 +3402,25 @@ export default function ChatWindowPage() {
                     </div>
                   )}
                   <div className={`relative flex ${mine ? "justify-end" : "justify-start"}`}>
+                    {!pending && (
+                      <div
+                        aria-hidden="true"
+                        className={`pointer-events-none flex shrink-0 items-center justify-center overflow-hidden ${
+                          swipeState && swipeState.msgId === msg._id ? "" : "transition-[width] duration-200 ease-out"
+                        }`}
+                        style={{ width: swipeState && swipeState.msgId === msg._id ? swipeState.dx : 0 }}
+                      >
+                        <span
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#335ef7]/10 text-[#335ef7] dark:bg-white/10 dark:text-[#5b8dff]"
+                          style={{
+                            opacity: swipeState && swipeState.msgId === msg._id ? Math.min(1, swipeState.dx / SWIPE_TRIGGER_DX) : 0,
+                            transform: `scale(${0.6 + 0.4 * (swipeState && swipeState.msgId === msg._id ? Math.min(1, swipeState.dx / SWIPE_TRIGGER_DX) : 0)})`,
+                          }}
+                        >
+                          <ReplyIcon className="h-4 w-4" />
+                        </span>
+                      </div>
+                    )}
                     <div
                       role={pending ? "button" : undefined}
                       tabIndex={pending ? 0 : undefined}
@@ -3437,6 +3474,79 @@ export default function ChatWindowPage() {
                               setActionsMenu({ message: msg, anchorRect: e.currentTarget.getBoundingClientRect(), mine });
                             }
                       }
+                      // Swipe-to-reply (2026-09-05, Aleksandr, Telegram
+                      // Web reference recording -- see swipeGestureRef/
+                      // swipeState's own comment above for why gesture
+                      // tracking is a ref but the repaint driver is
+                      // state). Touch-only, so this is additive next to
+                      // onContextMenu above (right-click / two-finger-
+                      // click / long-press), not a replacement for it --
+                      // a mouse/trackpad never fires touch events.
+                      onTouchStart={
+                        pending
+                          ? undefined
+                          : (e) => {
+                              if (e.touches.length !== 1) return;
+                              const t = e.touches[0]!;
+                              swipeGestureRef.current = { msgId: msg._id, startX: t.clientX, startY: t.clientY, active: false };
+                            }
+                      }
+                      onTouchMove={
+                        pending
+                          ? undefined
+                          : (e) => {
+                              const g = swipeGestureRef.current;
+                              if (!g || g.msgId !== msg._id || e.touches.length !== 1) return;
+                              const t = e.touches[0]!;
+                              const dx = t.clientX - g.startX;
+                              const dy = t.clientY - g.startY;
+                              if (!g.active) {
+                                // Claim the gesture only once horizontal intent
+                                // is clear, and never call preventDefault (React
+                                // touch listeners are passive by default) -- so
+                                // this never fights the page's own vertical
+                                // scroll or iOS's edge-swipe-back gesture;
+                                // touchAction: "pan-y" below tells the browser
+                                // the same thing up front, before this even runs.
+                                if (Math.abs(dx) < 8 || Math.abs(dx) < Math.abs(dy)) return;
+                                g.active = true;
+                              }
+                              // Reference recording swipes right in both "Saved
+                              // Messages" (peer-style, left-aligned) and "Mao"
+                              // (mine, right-aligned) -- same direction either
+                              // way, so this never branches on `mine`.
+                              const clamped = Math.max(0, Math.min(dx, SWIPE_MAX_DX));
+                              setSwipeState({ msgId: msg._id, dx: clamped });
+                            }
+                      }
+                      onTouchEnd={
+                        pending
+                          ? undefined
+                          : () => {
+                              const g = swipeGestureRef.current;
+                              swipeGestureRef.current = null;
+                              if (!g || !g.active || g.msgId !== msg._id) {
+                                setSwipeState(null);
+                                return;
+                              }
+                              setSwipeState((prev) => {
+                                if (prev && prev.msgId === msg._id && prev.dx >= SWIPE_TRIGGER_DX) {
+                                  setReplyTarget(msg);
+                                  window.requestAnimationFrame(() => textareaRef.current?.focus());
+                                }
+                                return null;
+                              });
+                            }
+                      }
+                      onTouchCancel={
+                        pending
+                          ? undefined
+                          : () => {
+                              swipeGestureRef.current = null;
+                              setSwipeState(null);
+                            }
+                      }
+                      style={{ touchAction: "pan-y" }}
                       // data-message-id + the outline below are the
                       // photo-viewer's "Show in chat" target (see
                       // handleShowInChatFromViewer above) -- undefined

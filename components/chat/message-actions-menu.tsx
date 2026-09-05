@@ -32,7 +32,11 @@ const REACTION_EMOJIS = ["👍", "👎", "❤️", "🔥", "🥰", "👏", "😄
 
 type IconProps = { className?: string };
 
-function ReplyIcon({ className }: IconProps) {
+// 2026-09-05 (swipe-to-reply follow-up) -- exported so app/chats/
+// [chatId]/page.tsx's swipe gesture can reuse the exact same glyph
+// the "Відповісти" row already uses, instead of a second copy of the
+// same SVG path.
+export function ReplyIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
       <path d="M9 17l-5-5 5-5" />
