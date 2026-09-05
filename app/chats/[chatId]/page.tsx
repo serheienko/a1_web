@@ -2503,11 +2503,20 @@ export default function ChatWindowPage() {
     });
   }
 
-  // Reply (viewer's "•••" menu) -- deliberately minimal, see photo-
-  // viewer.tsx's own header comment on why: just closes the viewer and
-  // focuses the compose box, same as tapping it manually would.
-  function handleReplyFromViewer() {
+  // Reply (viewer's "•••" menu) -- 2026-09-05 follow-up (Aleksandr:
+  // "«Відповісти» должно как раз делать реплай, над которым мы
+  // работаем") -- this used to be deliberately minimal (just close the
+  // viewer and focus the compose box, with no actual reply target set)
+  // per this file's own now-outdated comment; now looks the viewed
+  // photo's own message up in `messages` and wires it through
+  // setReplyTarget, the exact same call MessageActionsMenu's onReply
+  // makes for a bubble tapped in the normal message list -- opening
+  // this viewer and hitting Reply now produces a real quote-preview
+  // reply, not just an empty focused textarea.
+  function handleReplyFromViewer(messageId: number) {
     setViewerIndex(null);
+    const target = messages.find((m) => Number(m._id) === messageId);
+    if (target) setReplyTarget(target);
     window.requestAnimationFrame(() => textareaRef.current?.focus());
   }
 

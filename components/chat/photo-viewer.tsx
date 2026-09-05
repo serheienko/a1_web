@@ -22,10 +22,16 @@
 // messages[] state; this component only asks it to delete a message id
 // (onDelete) and reacts to its own `images` prop shrinking afterward.
 //
-// Reply is intentionally minimal here -- Aleksandr: "Я тоже UI ответов
-// на сообщения чуть позже скину" -- onReply just closes the viewer and
-// focuses the compose box; no reply-to-message UI exists yet anywhere
-// else in this file either, so this doesn't get ahead of that.
+// Reply used to be intentionally minimal here -- Aleksandr: "Я тоже
+// UI ответов на сообщения чуть позже скину" -- back when no reply-to-
+// message UI existed anywhere else in this file either. That UI has
+// since shipped (MessageActionsMenu's own Reply row, replyTarget/
+// ReplyComposeBar in app/chats/[chatId]/page.tsx), and 2026-09-05
+// (Aleksandr: "«Відповісти» должно как раз делать реплай, над которым
+// мы работаем") wired onReply below into that same setReplyTarget
+// flow -- this component itself only forwards the tapped image's
+// messageId; the parent page owns actually looking up the message and
+// setting the real reply target.
 "use client";
 
 import { useEffect, useRef, useState } from "react";
