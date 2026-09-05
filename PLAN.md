@@ -8316,3 +8316,37 @@ loop).
 tsc-clean. Commit 14d8934. **Not yet verified live or pushed** -- same
 standing network blocker; 29 commits now sitting locally ahead of
 e598c18/6.178.
+
+## 6.198 -- Fix voice waveform breaking on confirm: cache key rotates (2026-09-05, t006)
+
+Finally root-caused after 3 prior fix rounds this week (2026-09-03,
+-04, -05), all documented in lib/voice-local-waveform-cache.ts's own
+header. The local waveform cache was keyed by a media doc's
+`fileReference` -- but this codebase already proved (lib/a1/
+stable-media-url.ts, the identical bug for photo thumbnails) that the
+backend reissues `fileReference` with a new value for the same
+document on every load()/poll. uploadAndSendVoice wrote the cache once
+right after upload.confirm using THAT response's fileReference; by the
+time VoiceMessageBubble read it back for the confirmed message,
+load()'s own poll had already re-fetched the doc with a rotated
+fileReference -- a guaranteed cache miss, silently falling through to
+the server's own known-inaccurate attribute-audio.waveform every
+single time. This looked exactly like "the server swapped the data"
+(the 2026-09-04 round's conclusion) but was actually the cache never
+being hit past the very first render.
+
+Rekeyed the cache on `_id` instead -- the field stable-media-url.ts
+already proved stable across that same rotation, guaranteed present on
+the upload.confirm response by MediaDocumentSchema. Three call sites
+updated: the write in uploadAndSendVoice (app/chats/[chatId]/page.tsx),
+and both the cache-lookup and the decode-effect's dependency array in
+VoiceMessageBubble (components/chat/voice-bubble.tsx).
+
+Found and fixed via code investigation alone, no fresh screen
+recording needed this round -- cross-referencing this cache's own
+"stable id" comment against stable-media-url.ts's already-proven fix
+for the exact same rotation bug in a different feature.
+
+tsc-clean. Commit 2d3625f. **Not yet verified live or pushed** -- same
+standing network blocker; 31 commits now sitting locally ahead of
+e598c18/6.178.
