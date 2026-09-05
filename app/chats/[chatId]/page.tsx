@@ -4821,21 +4821,40 @@ export default function ChatWindowPage() {
                                 extending this to every media kind is a
                                 bigger per-kind-footer change, flagged
                                 here rather than attempted half-verified. */}
-                            {!pending && msg.forwardFrom?.object === "peer-user" && (
-                              <div className={`mb-1 truncate text-[13px] font-semibold italic ${mine ? "text-white/80" : "text-[#335ef7] dark:text-[#0c8ce9]"}`}>
-                                <T
-                                  uk={`Переслано від ${contactSummaries[msg.forwardFrom.user]?.fullName || "…"}`}
-                                  en={`Forwarded from ${contactSummaries[msg.forwardFrom.user]?.fullName || "…"}`}
-                                  ru={`Переслано от ${contactSummaries[msg.forwardFrom.user]?.fullName || "…"}`}
-                                  de={`Weitergeleitet von ${contactSummaries[msg.forwardFrom.user]?.fullName || "…"}`}
-                                  es={`Reenviado de ${contactSummaries[msg.forwardFrom.user]?.fullName || "…"}`}
-                                  fr={`Transféré de ${contactSummaries[msg.forwardFrom.user]?.fullName || "…"}`}
-                                  pl={`Przesłano od ${contactSummaries[msg.forwardFrom.user]?.fullName || "…"}`}
-                                  ptBR={`Encaminhado de ${contactSummaries[msg.forwardFrom.user]?.fullName || "…"}`}
-                                  zh={`转发自 ${contactSummaries[msg.forwardFrom.user]?.fullName || "…"}`}
-                                />
-                              </div>
-                            )}
+                            {!pending && msg.forwardFrom?.object === "peer-user" && (() => {
+                              // 2026-09-05 follow-up (Aleksandr, live
+                              // screenshot: forwarding your OWN message
+                              // -- e.g. inside your own Saved-Messages-
+                              // style self-chat -- showed "Переслано
+                              // від …" with the fallback ellipsis
+                              // instead of a real name) -- this label's
+                              // own contactSummaries lookup only ever
+                              // covers OTHER users (/api/users/summaries
+                              // never returns an entry for yourself, same
+                              // reason resolveReplyPreview/senderLabel
+                              // elsewhere in this file already special-
+                              // case `=== myUserId` before falling back
+                              // to a contactSummaries/headerTitle
+                              // lookup). Same fix here.
+                              const forwardFromUser = msg.forwardFrom.user;
+                              const forwardOwnerName =
+                                forwardFromUser === myUserId ? YOU_LABEL_TEXT[lang] : contactSummaries[forwardFromUser]?.fullName || "…";
+                              return (
+                                <div className={`mb-1 truncate text-[13px] font-semibold italic ${mine ? "text-white/80" : "text-[#335ef7] dark:text-[#0c8ce9]"}`}>
+                                  <T
+                                    uk={`Переслано від ${forwardOwnerName}`}
+                                    en={`Forwarded from ${forwardOwnerName}`}
+                                    ru={`Переслано от ${forwardOwnerName}`}
+                                    de={`Weitergeleitet von ${forwardOwnerName}`}
+                                    es={`Reenviado de ${forwardOwnerName}`}
+                                    fr={`Transféré de ${forwardOwnerName}`}
+                                    pl={`Przesłano od ${forwardOwnerName}`}
+                                    ptBR={`Encaminhado de ${forwardOwnerName}`}
+                                    zh={`转发自 ${forwardOwnerName}`}
+                                  />
+                                </div>
+                              );
+                            })()}
                             {(() => {
                               const quote = pending
                                 ? resolveReplyPreview(pending.replySnapshot)
