@@ -7567,3 +7567,39 @@ gap, unrelated to this change). Committed locally, commit 75d4d5e
 -- NOT yet pushed (see the network note above); this and the 4 commits
 already ahead of origin/main (6.166-6.168) all need a push from
 somewhere with real network access before any of them reach Vercel.
+
+
+## 6.170 -- Actions menu: reaction bar overflowed the menu width on mobile (2026-09-05)
+
+Aleksandr, screen recording: on mobile the whole Cupertino actions menu
+felt draggable sideways, revealing it was cut off and cropped text,
+then snapping back -- "На мобе в ширину тож не всегда помещается."
+
+Root cause, confirmed by extracting frames from the recording (ffmpeg,
+no live device access needed for this one -- purely a layout bug,
+visible in a static screenshot): the reaction quick-bar row
+(components/chat/message-actions-menu.tsx, 7 emoji + a chevron) was
+`self-start` -- shrink-to-fit its own content (~268px at its
+padding/gap) -- inside the menu's fixed `w-[240px]` root, instead of
+stretching to match it the way the action-list box below already does
+by default (flex-col's own align-items:stretch, which only this row
+opted out of). The ~28px of overflow past the menu's own right edge
+was invisible on desktop/wide screens with room to spare, but for a
+`mine` bubble the menu is right-aligned near the anchor's own right
+edge (idealLeft = anchorRect.right - MENU_WIDTH), which on a phone
+puts it near the SCREEN's right edge too -- no room left to absorb
+that overflow, so it pushed past the viewport's own right edge. An
+element wider than the viewport enlarges the document's scrollable
+width on iOS Safari even inside a `position: fixed` portal, which is
+what made the whole page rubber-band/draggable sideways -- not an
+intentional scroll affordance, an accidental one.
+
+Fix: `w-full justify-between` instead of `self-start gap-1` on that
+row -- same 7 emoji + chevron, now evenly spaced across the menu's own
+real width, which by construction can never exceed the already-clamped
+240px regardless of exact emoji/font rendering per device.
+
+tsc-clean, commit 50f9064. **Not yet verified live or pushed** -- this
+sandbox still has no external network access (see 6.169's own note);
+still sitting on top of the 6 already-unpushed commits from earlier
+today.
