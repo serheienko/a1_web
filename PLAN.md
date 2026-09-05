@@ -8187,3 +8187,25 @@ at all) -- CachedAvatar's own next/image branch already carries
 tsc-clean after each commit. **Not yet verified live or pushed** --
 same standing network blocker; 18 commits now sitting locally ahead of
 e598c18/6.178.
+
+
+## 6.192 -- Photo viewer: Reply now creates a real reply (2026-09-05)
+
+Aleksandr, screenshot of the photo viewer's "•••" menu: "Проверь что
+при открытие фото все кнопки фкнциональны. «Відповісти» должно как раз
+делать реплай, над которым мы работаем. «Сохранить» созранять на
+устройство." Audited all four: Показати в чаті and Видалити were
+already fully wired; Зберегти already forces a real device download
+through the dedicated /api/media/[docId]/download route (server-
+streamed with an explicit Content-Disposition -- a plain `download`
+attribute doesn't reliably force one across the S3 redirect). Відповісти
+was the actual gap -- handleReplyFromViewer predated this app's reply
+feature and never got wired into it, so it only closed the viewer and
+focused the compose box with no reply target set. Now looks the
+message up by id in `messages` and calls setReplyTarget, the same call
+MessageActionsMenu's own Reply row makes -- produces a real
+quote-preview reply now, not an empty focused textarea.
+
+tsc-clean. Commit a17b313. **Not yet verified live or pushed** -- same
+standing network blocker; 19 commits now sitting locally ahead of
+e598c18/6.178.
