@@ -30,6 +30,7 @@
 
 import { T } from "@/components/t";
 import { ChatMicGlyph, ChatCalculatorAttachIcon, ChatMeetingAttachIcon, ChatContactAttachIcon } from "./icons";
+import { ChatFileTypeIcon, fileKindFromName } from "./file-type-icon";
 
 export type MessagePreviewKind = "text" | "voice" | "photo" | "video" | "sticker" | "file" | "contact" | "calc" | "meeting";
 
@@ -81,9 +82,28 @@ export function ChatPreviewLine({
   photoUrl: string | null;
   className?: string;
 }) {
-  if (kind === "text" || kind === "file") {
+  if (kind === "text") {
     if (!text) return null;
     return <div className={className}>{text}</div>;
+  }
+  // 2026-09-05 (Aleksandr, reference screenshot of a reply-to-document
+  // quote: a small file-type badge next to the filename, same as the
+  // document row inside a real chat bubble) -- "file" used to fall
+  // into the plain-text branch above (bare filename, no icon) -- the
+  // one kind in this whole component with no icon at all.
+  // fileKindFromName/ChatFileTypeIcon are the exact same helpers the
+  // real document bubble in app/chats/[chatId]/page.tsx already uses,
+  // just without a mimetype to go on here (this line only ever gets a
+  // filename) -- extension-only detection, same as every other call
+  // site missing a mimetype.
+  if (kind === "file") {
+    if (!text) return null;
+    return (
+      <div className={`flex items-center gap-1.5 ${className ?? ""}`}>
+        <ChatFileTypeIcon kind={fileKindFromName(text)} className="h-4 w-4 shrink-0" />
+        <span className="truncate">{text}</span>
+      </div>
+    );
   }
   return (
     <div className={`flex items-center gap-1.5 ${className ?? ""}`}>

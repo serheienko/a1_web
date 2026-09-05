@@ -2607,9 +2607,18 @@ export default function ChatWindowPage() {
     if (!target) return null;
     const authorLabel = target.fromId !== null && target.fromId === myUserId ? YOU_LABEL_TEXT[lang] : headerTitle;
     const preview = describeMessagePreview(target);
+    // 2026-09-05 follow-up (Aleksandr, 4 reference screenshots: "давай
+    // расширять дальше на другие типы файлов" -- replying-with-text to
+    // a Photo/Voice Message/Sticker/document in the reference app) --
+    // this used to hardcode photoUrl to null, so replying to a photo
+    // never showed the little thumbnail ChatPreviewLine already knows
+    // how to render (it's the same component the chat list itself
+    // uses) -- describeMessagePreview already hands back the actual
+    // doc for a "photo" preview, just wasn't being read here yet.
+    const photoUrl = preview.kind === "photo" && preview.photoDoc ? getStableMediaProxyUrl(preview.photoDoc) : null;
     return {
       authorLabel,
-      node: <ChatPreviewLine kind={preview.kind} text={preview.text} photoUrl={null} className="truncate whitespace-nowrap" />,
+      node: <ChatPreviewLine kind={preview.kind} text={preview.text} photoUrl={photoUrl} className="truncate whitespace-nowrap" />,
     };
   }
 
@@ -3189,6 +3198,40 @@ export default function ChatWindowPage() {
                             }
                           : undefined
                       }
+                      // Reply feature follow-up (2026-09-05, Aleksandr,
+                      // 4 reference screenshots of replying-with-text
+                      // to a Photo/Voice Message/Sticker/document in
+                      // the reference app: "давай расширять дальше на
+                      // другие типы файлов") -- the original pass only
+                      // let you START a reply from a plain TEXT bubble
+                      // (see that ternary branch's own comment below)
+                      // because every other kind already owns its
+                      // bubble's left-click (open the photo viewer,
+                      // play/scrub voice, open a file...) and a bubble-
+                      // wide left-click handler would fight every one
+                      // of those. Right-click -- and, on effectively
+                      // every mobile browser, the long-press gesture
+                      // his own message pointed at ("как на Mac это
+                      // двумя пальцами... в мобильной версии это
+                      // обычно свайп/long-press") -- fires a completely
+                      // separate DOM event from click, so this opens
+                      // the SAME actions menu on ANY bubble kind
+                      // (photo/voice/file, and contact/meeting/sticker
+                      // along with them for free) without touching a
+                      // single one of those existing click handlers.
+                      // Known limitation, not silently decided: iOS
+                      // Safari can still show its own native image-
+                      // save callout on a long-press over an <img>
+                      // before this fires, a documented platform quirk
+                      // -- flag if that shows up live.
+                      onContextMenu={
+                        pending
+                          ? undefined
+                          : (e) => {
+                              e.preventDefault();
+                              setActionsMenu({ message: msg, anchorRect: e.currentTarget.getBoundingClientRect(), mine });
+                            }
+                      }
                       // data-message-id + the outline below are the
                       // photo-viewer's "Show in chat" target (see
                       // handleShowInChatFromViewer above) -- undefined
@@ -3642,18 +3685,22 @@ export default function ChatWindowPage() {
                             <LottiePlayer src={quickInviteCatAnimation(text)!} size={40} />
                           </div>
                         ) : (
-                          // Reply feature (2026-09-05) -- scoped to
-                          // plain text bubbles only for this first pass
-                          // (told to Aleksandr, not silently decided):
-                          // every other kind here (photo/contact/
-                          // meeting/voice/calc) has its own inner
-                          // interactive element already (open the photo
-                          // viewer, message a contact, accept a
-                          // meeting...) that a bubble-wide click handler
-                          // would fight without real risk of double-
-                          // firing both; plain text has no such
+                          // Reply feature (2026-09-05) -- LEFT-click
+                          // to open this menu is still scoped to plain
+                          // text bubbles only (told to Aleksandr, not
+                          // silently decided): every other kind here
+                          // (photo/contact/meeting/voice/calc) has its
+                          // own inner left-click action already (open
+                          // the photo viewer, message a contact, accept
+                          // a meeting...) that a bubble-wide left-click
+                          // handler would fight; plain text has no such
                           // element, so it's the one safe place to hang
-                          // this on for now.
+                          // a plain click on. Right-click/long-press
+                          // (the outer bubble's own onContextMenu, see
+                          // its 2026-09-05 follow-up comment above)
+                          // opens the SAME menu on every other kind
+                          // too, which is how a reply now actually gets
+                          // started on a Photo/Voice Message/document.
                           <>
                             {(() => {
                               const quote = pending
