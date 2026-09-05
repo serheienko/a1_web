@@ -896,6 +896,42 @@ export default function ChatWindowPage() {
     // to resubscribe this effect (that would fire it again the instant
     // the rAF callback flips replyRowGrown to true).
   }, [replyTarget]);
+  // 2026-09-05 follow-up (Aleksandr, screen recording: entering/
+  // leaving edit mode snaps the compose bar's height instantly instead
+  // of animating like Reply does) -- identical grid-template-rows 1fr/
+  // 0fr trick as displayedReplyTarget/replyRowGrown right above, just
+  // keyed on editingMessage instead of replyTarget. Same reasoning
+  // throughout: editingMessage itself still clears the INSTANT cancel/
+  // a successful save fires (saveEditedMessage's own setEditingMessage
+  // (null) call), so a genuine save/cancel is never delayed by this --
+  // displayedEditingMessage/editRowGrown are purely the animation
+  // layer on top, EditComposeBar's own JSX below stays mounted for
+  // EDIT_COLLAPSE_MS after editingMessage goes null so its wrapping row
+  // can animate back to 0 instead of vanishing mid-frame.
+  const EDIT_COLLAPSE_MS = 200;
+  const [displayedEditingMessage, setDisplayedEditingMessage] = useState<ChatMessage | null>(null);
+  const [editRowGrown, setEditRowGrown] = useState(false);
+  useEffect(() => {
+    if (editingMessage) {
+      setDisplayedEditingMessage(editingMessage);
+      if (!editRowGrown) {
+        let raf2 = 0;
+        const raf1 = window.requestAnimationFrame(() => {
+          raf2 = window.requestAnimationFrame(() => setEditRowGrown(true));
+        });
+        return () => {
+          window.cancelAnimationFrame(raf1);
+          if (raf2) window.cancelAnimationFrame(raf2);
+        };
+      }
+      return;
+    }
+    setEditRowGrown(false);
+    const t = window.setTimeout(() => setDisplayedEditingMessage(null), EDIT_COLLAPSE_MS);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- same
+    // "keyed on the target alone" reasoning as the reply effect above.
+  }, [editingMessage]);
   // Swipe-to-reply (2026-09-05, Aleksandr, Telegram Web reference
   // recording: dragging a bubble to the right pops the same "Reply to
   // ..." compose bar this app's own actions-menu Reply row already
@@ -5882,7 +5918,7 @@ export default function ChatWindowPage() {
                   practice (nothing currently lets you open both at
                   once), so no extra guard needed here beyond pending-
                   Forward itself being set. */}
-              {pendingForward && !editingMessage && (
+              {pendingForward && !displayedEditingMessage && (
                 <>
                   <ForwardComposeBar
                     inline
@@ -5908,29 +5944,35 @@ export default function ChatWindowPage() {
                   )}
                 </>
               )}
-              {editingMessage && (
-                <>
-                  <EditComposeBar
-                    inline
-                    previewText={extractMessageText(editingMessage)}
-                    onCancel={() => {
-                      setEditingMessage(null);
-                      setDraft("");
-                      setEditFailed(false);
-                    }}
-                  />
-                  {editFailed && (
-                    <p className="border-b border-neutral-200 px-3.5 py-1.5 text-[12px] text-red-500 dark:border-[#2b2b2b] dark:text-red-400">
-                      <T
-                        uk="Не вдалося зберегти. Спробуйте ще раз." en="Couldn't save. Try again."
-                        ru="Не удалось сохранить. Попробуйте ещё раз." de="Speichern fehlgeschlagen. Versuch es erneut."
-                        es="No se pudo guardar. Inténtalo de nuevo." fr="Échec de l'enregistrement. Réessayez."
-                        pl="Nie udało się zapisać. Spróbuj ponownie." ptBR="Não foi possível salvar. Tente novamente."
-                        zh="保存失败，请重试。"
-                      />
-                    </p>
-                  )}
-                </>
+              {displayedEditingMessage && (
+                <div
+                  className={`grid transition-[grid-template-rows] duration-200 ease-out ${
+                    editRowGrown ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                  }`}
+                >
+                  <div className="overflow-hidden">
+                    <EditComposeBar
+                      inline
+                      previewText={extractMessageText(displayedEditingMessage)}
+                      onCancel={() => {
+                        setEditingMessage(null);
+                        setDraft("");
+                        setEditFailed(false);
+                      }}
+                    />
+                    {editFailed && (
+                      <p className="border-b border-neutral-200 px-3.5 py-1.5 text-[12px] text-red-500 dark:border-[#2b2b2b] dark:text-red-400">
+                        <T
+                          uk="Не вдалося зберегти. Спробуйте ще раз." en="Couldn't save. Try again."
+                          ru="Не удалось сохранить. Попробуйте ещё раз." de="Speichern fehlgeschlagen. Versuch es erneut."
+                          es="No se pudo guardar. Inténtalo de nuevo." fr="Échec de l'enregistrement. Réessayez."
+                          pl="Nie udało się zapisać. Spróbuj ponownie." ptBR="Não foi possível salvar. Tente novamente."
+                          zh="保存失败，请重试。"
+                        />
+                      </p>
+                    )}
+                  </div>
+                </div>
               )}
               {displayedReplyTarget &&
                 (() => {
