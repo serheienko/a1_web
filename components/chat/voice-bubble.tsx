@@ -655,13 +655,27 @@ export function VoiceMessageBubble({
             // Aleksandr's screenshot (see FireBadgeAnimation's own
             // comment above); dark theme has no screenshot evidence so
             // keeps the pre-existing accent-tint pill unchanged.
-            className={`flex h-7 w-7 items-center justify-center rounded-[10px] transition ${
+            //
+            // 2026-09-05 (bug-tracker: "Огонек в сообщении поломан по
+            // UI", no further detail/screenshot given) -- re-diffed
+            // against the mobile source that this whole badge is
+            // ported from (voice_message_bubble_widgets.dart): its own
+            // badge container is a fixed 30x30 (`fireIconSize`), with
+            // the Lottie glyph itself rendered at only 10x10 inside it
+            // -- a 1:3 icon-to-badge ratio. This file had drifted to a
+            // 28x28 badge (h-7 w-7) with a 14px icon, a 1:2 ratio --
+            // the flame reads noticeably oversized/cramped against its
+            // own pill compared to the real app, which is the most
+            // concrete "broken" difference found with no other lead to
+            // go on. Matched mobile's exact pixel values here (30x30 /
+            // 10px) rather than eyeballing a new ratio.
+            className={`flex h-[30px] w-[30px] items-center justify-center rounded-[10px] transition ${
               mine
                 ? "bg-white/20 hover:bg-white/30"
                 : "bg-[#E5EAFC] hover:bg-[#d7e0f8] dark:bg-[#0c8ce9]/15"
             }`}
           >
-            <FireBadgeAnimation mine={mine} size={14} />
+            <FireBadgeAnimation mine={mine} size={10} />
           </button>
 
           {firePopoverOpen && (

@@ -426,7 +426,11 @@ export function ScheduleMeetingModal({
               anywhere near this row) is what answers "roughly what part
               of the day is this for them" without exposing anything
               exact. */}
-          <span className="shrink-0 text-[16px] leading-none" aria-hidden="true">{bucketEmoji(selectedBucket)}</span>
+          {/* 2026-09-05 (bug-tracker: "Во встречах сделай размер эмодзи
+              сбоку в х2 раза больше") -- was text-[16px], doubled per
+              request, same as meeting-message-card.tsx's own bucket
+              emoji. */}
+          <span className="shrink-0 text-[32px] leading-none" aria-hidden="true">{bucketEmoji(selectedBucket)}</span>
         </div>
 
         <label className="flex flex-col gap-1 text-[12px] font-medium text-neutral-500 dark:text-neutral-400">

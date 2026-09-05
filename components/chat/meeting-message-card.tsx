@@ -286,7 +286,10 @@ function ParticipantRow({
       </div>
       {mode === "exact" && <div className="shrink-0 text-[26px] font-bold leading-none tabular-nums text-white">{timeLabel}</div>}
       {mode === "bucket" && (
-        <span className="shrink-0 text-[30px] leading-none" aria-hidden="true">
+        // 2026-09-05 (bug-tracker: "Во встречах сделай размер эмодзи
+        // сбоку в х2 раза больше. Там где солнце, луна, город итд") --
+        // was text-[30px], doubled per request.
+        <span className="shrink-0 text-[60px] leading-none" aria-hidden="true">
           {bucketEmoji(bucket)}
         </span>
       )}

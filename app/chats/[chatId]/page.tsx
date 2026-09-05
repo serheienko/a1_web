@@ -795,13 +795,45 @@ export default function ChatWindowPage() {
   // warrant.
   const REPLY_COLLAPSE_MS = 200;
   const [displayedReplyTarget, setDisplayedReplyTarget] = useState<ChatMessage | null>(null);
+  // 2026-09-05 follow-up (bug-tracker: "надо так же сделать чтобы ровно
+  // такой же анимацией было при открытии, окно плавно разъезжалось
+  // наверх, так же как при схлопывании") -- the comment above this
+  // block used to argue a freshly-mounted node has no prior CSS state
+  // to transition FROM, so open always just snapped to 1fr. That's
+  // true for a single render, but nothing stops US from supplying that
+  // "prior state" ourselves: replyRowGrown starts false on a genuine
+  // open (closed -> open), so the row's very first paint is grid-rows-
+  // [0fr] (collapsed, matching a real closed state, not just "no class
+  // yet"), then a double rAF flips it to true/1fr on the NEXT frame --
+  // by then the 0fr layout has already been committed and painted, so
+  // the transition to 1fr actually animates instead of snapping. Reply
+  // A -> reply B while already open does NOT retrigger this (see the
+  // `!replyRowGrown` guard below) -- only a real closed->open edge
+  // should re-play the grow-open animation.
+  const [replyRowGrown, setReplyRowGrown] = useState(false);
   useEffect(() => {
     if (replyTarget) {
       setDisplayedReplyTarget(replyTarget);
+      if (!replyRowGrown) {
+        let raf2 = 0;
+        const raf1 = window.requestAnimationFrame(() => {
+          raf2 = window.requestAnimationFrame(() => setReplyRowGrown(true));
+        });
+        return () => {
+          window.cancelAnimationFrame(raf1);
+          if (raf2) window.cancelAnimationFrame(raf2);
+        };
+      }
       return;
     }
+    setReplyRowGrown(false);
     const t = window.setTimeout(() => setDisplayedReplyTarget(null), REPLY_COLLAPSE_MS);
     return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally
+    // keyed on replyTarget alone; replyRowGrown is read for its current
+    // value only to decide whether to re-trigger the open animation, not
+    // to resubscribe this effect (that would fire it again the instant
+    // the rAF callback flips replyRowGrown to true).
   }, [replyTarget]);
   // Swipe-to-reply (2026-09-05, Aleksandr, Telegram Web reference
   // recording: dragging a bubble to the right pops the same "Reply to
@@ -5061,7 +5093,7 @@ export default function ChatWindowPage() {
               return (
                 <div
                   className={`grid transition-[grid-template-rows] duration-200 ease-out ${
-                    replyTarget ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                    replyRowGrown ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
                   }`}
                 >
                   <div className="overflow-hidden">
@@ -5493,7 +5525,7 @@ export default function ChatWindowPage() {
                   return (
                     <div
                       className={`grid transition-[grid-template-rows] duration-200 ease-out ${
-                        replyTarget ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                        replyRowGrown ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
                       }`}
                     >
                       <div className="overflow-hidden">
