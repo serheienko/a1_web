@@ -3959,6 +3959,18 @@ export default function ChatWindowPage() {
             <button
               type="button"
               onClick={jumpToBottom}
+              // 2026-09-05 follow-up (Aleksandr: "Точнее про стрелку
+              // которая опускает чат вниз 'анимация при наведении'" --
+              // he actually meant HOVER, not just click) -- bumping the
+              // same bounce key here too remounts the svg (and so
+              // replays animate-jump-arrow) on mouse-enter as well,
+              // reusing the exact click mechanism instead of a separate
+              // .group:hover CSS rule -- simpler than layering a second
+              // hover-only rule on top of the always-on click class,
+              // and it still degrades fine on touch (mouseenter just
+              // never fires there, so tap-to-replay via onClick above
+              // is what mobile actually gets).
+              onMouseEnter={() => setJumpArrowBounceKey((k) => k + 1)}
               aria-label="Jump to bottom"
               tabIndex={showJumpToBottom ? 0 : -1}
               className="flex h-9 w-9 items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-[#335ef7] shadow-md backdrop-blur-sm transition hover:bg-neutral-50 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/90 dark:text-[#0c8ce9]"
