@@ -195,6 +195,7 @@ export function MessageActionsMenu({
   onEdit,
   onForward,
   onDelete,
+  onSelect,
 }: {
   anchorRect: DOMRect;
   mine: boolean;
@@ -219,6 +220,13 @@ export function MessageActionsMenu({
   onEdit?: () => void;
   onForward?: () => void;
   onDelete: () => void;
+  // 2026-09-05 (Форвард 2.0, Aleksandr greenlighting multi-select:
+  // "Очистить чат давай тоже сделаем... " open-questions reply) --
+  // the "Вибрати" row was a visual-only placeholder (this file's own
+  // header comment) until now. Optional for the same reason as
+  // onCopy/onEdit/onForward above: a caller with no batch-selection
+  // UI built yet can omit it and the row keeps no-oping.
+  onSelect?: () => void;
 }) {
   // 2026-09-05 follow-up (Aleksandr, live screenshot: opened near the
   // bottom of the viewport, the menu ran off the bottom edge entirely
@@ -288,6 +296,7 @@ export function MessageActionsMenu({
     if (key === "edit") onEdit?.();
     if (key === "forward") onForward?.();
     if (key === "delete") onDelete();
+    if (key === "select") onSelect?.();
     onClose();
   }
 
@@ -592,11 +601,21 @@ export function DeleteMessageConfirmDialog({
   failed,
   onCancel,
   onConfirm,
+  title,
+  description,
+  confirmLabel,
 }: {
   deleting: boolean;
   failed: boolean;
   onCancel: () => void;
   onConfirm: () => void;
+  // 2026-09-05 (Форвард 2.0: batch-delete-selected + clear-chat both
+  // want this exact same card, just with different copy) -- all
+  // optional so the original single-message delete call site (below)
+  // is unaffected and keeps its own default text.
+  title?: ReactNode;
+  description?: ReactNode;
+  confirmLabel?: ReactNode;
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6" onClick={onCancel}>
@@ -605,19 +624,23 @@ export function DeleteMessageConfirmDialog({
         className="w-full max-w-[280px] rounded-2xl bg-[#2c2c2e]/95 p-4 text-center shadow-2xl backdrop-blur-xl"
       >
         <p className="text-[15px] font-medium leading-snug text-white">
-          <T
-            uk="Видалити повідомлення?" en="Delete message?" ru="Удалить сообщение?" de="Nachricht löschen?"
-            es="¿Eliminar mensaje?" fr="Supprimer le message ?" pl="Usunąć wiadomość?" ptBR="Excluir mensagem?" zh="删除消息？"
-          />
+          {title ?? (
+            <T
+              uk="Видалити повідомлення?" en="Delete message?" ru="Удалить сообщение?" de="Nachricht löschen?"
+              es="¿Eliminar mensaje?" fr="Supprimer le message ?" pl="Usunąć wiadomość?" ptBR="Excluir mensagem?" zh="删除消息？"
+            />
+          )}
         </p>
         <p className="mt-1 text-[13px] text-white/50">
-          <T
-            uk="Повідомлення буде видалено лише для вас." en="The message will be deleted for you only."
-            ru="Сообщение будет удалено только у вас." de="Die Nachricht wird nur für dich gelöscht."
-            es="El mensaje se eliminará solo para ti." fr="Le message ne sera supprimé que pour vous."
-            pl="Wiadomość zostanie usunięta tylko u Ciebie." ptBR="A mensagem será excluída só para você."
-            zh="消息将仅对你删除。"
-          />
+          {description ?? (
+            <T
+              uk="Повідомлення буде видалено лише для вас." en="The message will be deleted for you only."
+              ru="Сообщение будет удалено только у вас." de="Die Nachricht wird nur für dich gelöscht."
+              es="El mensaje se eliminará solo para ti." fr="Le message ne sera supprimé que pour vous."
+              pl="Wiadomość zostanie usunięta tylko u Ciebie." ptBR="A mensagem será excluída só para você."
+              zh="消息将仅对你删除。"
+            />
+          )}
         </p>
         {failed && (
           <p className="mt-2 text-[13px] text-red-400">
@@ -645,7 +668,7 @@ export function DeleteMessageConfirmDialog({
             onClick={onConfirm}
             className="flex-1 rounded-full bg-red-600 py-2.5 text-[15px] font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
           >
-            <T uk="Видалити" en="Delete" ru="Удалить" de="Löschen" es="Eliminar" fr="Supprimer" pl="Usuń" ptBR="Excluir" zh="删除" />
+            {confirmLabel ?? <T uk="Видалити" en="Delete" ru="Удалить" de="Löschen" es="Eliminar" fr="Supprimer" pl="Usuń" ptBR="Excluir" zh="删除" />}
           </button>
         </div>
       </div>

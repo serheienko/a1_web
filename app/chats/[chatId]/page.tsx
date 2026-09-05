@@ -55,6 +55,7 @@ import {
 import { ChatPreviewLine } from "@/components/chat/chat-preview-line";
 import { MessageActionsMenu, ReplyComposeBar, EditComposeBar, MessageReplyQuote, ReplyIcon, DeleteMessageConfirmDialog } from "@/components/chat/message-actions-menu";
 import { ForwardPickerModal, type ForwardRowStatus } from "@/components/chat/forward-picker-modal";
+import { SelectionTopBar, SelectionBottomBar } from "@/components/chat/selection-bar";
 import { CopyToast, type CopyToastState } from "@/components/chat/copy-toast";
 import { buildMediaProxyUrl, buildMediaDownloadUrl } from "@/lib/a1/media-proxy";
 import { getStableMediaProxyUrl } from "@/lib/a1/stable-media-url";
@@ -775,7 +776,13 @@ export default function ChatWindowPage() {
   // own header) and is cleared back to null whether the send
   // succeeded or failed -- only forwardFailed distinguishes those two
   // outcomes for the modal's own error line.
-  const [forwardMessage, setForwardMessage] = useState<ChatMessage | null>(null);
+  // 2026-09-05 (Форвард 2.0, multi-select) -- widened from a single
+  // ChatMessage to an array so the SAME picker/send machinery below
+  // serves both the actions-menu's single-message Forward row (a
+  // 1-element array) and the new selection-mode batch Forward
+  // (selectedMessagesOldestFirst()'s whole list) without duplicating
+  // forwardToOneChat/handleForwardSend for the batch case.
+  const [forwardSource, setForwardSource] = useState<ChatMessage[] | null>(null);
   // 2026-09-05 follow-up (bug-tracker: "...возможность делать это
   // большому кол-во пользователей, т.е. добавить мультивыбор") --
   // replaced the single in-flight-chat-id/boolean pair with a picked
@@ -787,6 +794,21 @@ export default function ChatWindowPage() {
   const [forwardRowStatus, setForwardRowStatus] = useState<Record<string, ForwardRowStatus>>({});
   const [forwardSendingAll, setForwardSendingAll] = useState(false);
   const [forwardFailed, setForwardFailed] = useState(false);
+  // Multi-select mode (2026-09-05, Форвард 2.0 Phase 1 + Aleksandr's
+  // "Очистить чат давай тоже сделаем сразу" greenlight) -- entered via
+  // the actions menu's own "Вибрати" row (previously a visual-only
+  // placeholder, see message-actions-menu.tsx's own header comment).
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedMessageIds, setSelectedMessageIds] = useState<Set<number>>(new Set());
+  const [selectionDeleteConfirm, setSelectionDeleteConfirm] = useState(false);
+  const [selectionDeleting, setSelectionDeleting] = useState(false);
+  const [selectionDeleteFailed, setSelectionDeleteFailed] = useState(false);
+  // Clear Chat (2026-09-05) -- messages.deleteHistory via
+  // app/api/chats/clear/route.ts, see that route's own header for the
+  // confirmed request shape (mirrors mobile's clearChatForMe()).
+  const [clearChatConfirm, setClearChatConfirm] = useState(false);
+  const [clearingChat, setClearingChat] = useState(false);
+  const [clearChatFailed, setClearChatFailed] = useState(false);
   // 2026-09-05 follow-up (Aleksandr: reply-cancel via the X should
   // smoothly collapse, not just vanish) -- replyTarget itself still
   // clears the INSTANT onRemove/a real send fires (that's what
@@ -2769,6 +2791,93 @@ export default function ChatWindowPage() {
     }
   }
 
+  // Multi-select mode (2026-09-05, Форвард 2.0 Phase 1) -- entered
+  // from the actions menu's own "Вибрати" row, pre-checking whatever
+  // message was long-pressed/right-clicked, same as the mobile app's
+  // own enterSelectionMode (chat_detail_controllers.dart).
+  function enterSelectionMode(initialMessageId: number) {
+    setSelectionMode(true);
+    setSelectedMessageIds(new Set([initialMessageId]));
+  }
+  function exitSelectionMode() {
+    setSelectionMode(false);
+    setSelectedMessageIds(new Set());
+  }
+  function toggleMessageSelected(messageId: number) {
+    setSelectedMessageIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(messageId)) next.delete(messageId);
+      else next.add(messageId);
+      return next;
+    });
+  }
+  // Oldest-first, matching mobile's own _selectedMessagesOldestFirst --
+  // the forward flow always sends in the order messages were
+  // originally posted, regardless of tap order while selecting.
+  function selectedMessagesOldestFirst(): ChatMessage[] {
+    return messages
+      .filter((m) => selectedMessageIds.has(Number(m._id)))
+      .sort((a, b) => Number(a._id) - Number(b._id));
+  }
+
+  // Selection bottom bar's delete circle -- batch delete-for-me, ONE
+  // call to /api/chats/delete with every selected id (that route
+  // already accepts up to 50 ids per call, see its own header)
+  // instead of mobile's own per-message loop.
+  async function handleConfirmDeleteSelected() {
+    const ids = Array.from(selectedMessageIds);
+    if (ids.length === 0) return;
+    setSelectionDeleting(true);
+    setSelectionDeleteFailed(false);
+    try {
+      const res = await authFetch("/api/chats/delete", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ chatId, messageIds: ids }),
+      });
+      if (!res.ok) throw new Error("delete_failed");
+      setMessages((prev) => prev.filter((m) => !selectedMessageIds.has(Number(m._id))));
+      setSelectionDeleteConfirm(false);
+      exitSelectionMode();
+    } catch {
+      setSelectionDeleteFailed(true);
+    } finally {
+      setSelectionDeleting(false);
+    }
+  }
+
+  // Clear Chat (2026-09-05, Aleksandr: "Очистить чат давай тоже
+  // сделаем сразу, почему нет?") -- messages.deleteHistory via
+  // app/api/chats/clear/route.ts, maxId = highest message id
+  // currently loaded (mirrors mobile's own ids.reduce(max) inside
+  // clearChatForMe()).
+  async function handleConfirmClearChat() {
+    const ids = messages.map((m) => Number(m._id)).filter((n) => Number.isFinite(n));
+    if (ids.length === 0) {
+      setClearChatConfirm(false);
+      exitSelectionMode();
+      return;
+    }
+    const maxId = Math.max(...ids);
+    setClearingChat(true);
+    setClearChatFailed(false);
+    try {
+      const res = await authFetch("/api/chats/clear", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ chatId, maxId }),
+     });
+      if (!res.ok) throw new Error("clear_failed");
+      setMessages([]);
+      setClearChatConfirm(false);
+      exitSelectionMode();
+    } catch {
+      setClearChatFailed(true);
+    } finally {
+      setClearingChat(false);
+    }
+  }
+
   // Forward feature (2026-09-05) -- see app/api/chats/send/route.ts's
   // own header for the confirmed messages.send-with-forwardFrom shape
   // this re-uses (no dedicated forward RPC). originalAuthorId keeps a
@@ -2835,8 +2944,8 @@ export default function ChatWindowPage() {
   // won't be re-sent) while the failed ones stay picked, ready for the
   // user to just hit "Переслати" again to retry only those.
   async function handleForwardSend() {
-    const source = forwardMessage;
-    if (!source || forwardSendingAll || forwardPickedChatIds.size === 0) return;
+    const sources = forwardSource;
+    if (!sources || sources.length === 0 || forwardSendingAll || forwardPickedChatIds.size === 0) return;
     const targets = Array.from(forwardPickedChatIds);
     setForwardSendingAll(true);
     setForwardFailed(false);
@@ -2844,14 +2953,27 @@ export default function ChatWindowPage() {
     const failedIds: string[] = [];
     for (const targetChatId of targets) {
       setForwardRowStatus((prev) => ({ ...prev, [targetChatId]: "sending" }));
-      const ok = await forwardToOneChat(source, targetChatId);
+      // 2026-09-05 (Форвард 2.0, multi-select) -- sends every source
+      // message to this ONE target in order before moving to the next
+      // target, mirroring mobile's own "N ordinary messages, oldest
+      // first" semantics (_handleSelectionForward's own comment) --
+      // still exactly forwardToOneChat's single-target POST per
+      // message, just looped twice now (per source, per target).
+      let ok = true;
+      for (const source of sources) {
+        const sent = await forwardToOneChat(source, targetChatId);
+        if (!sent) {
+          ok = false;
+          break;
+        }
+      }
       setForwardRowStatus((prev) => ({ ...prev, [targetChatId]: ok ? "done" : "failed" }));
       if (ok) succeeded.push(targetChatId);
       else failedIds.push(targetChatId);
     }
     setForwardSendingAll(false);
     if (failedIds.length === 0) {
-      setForwardMessage(null);
+      setForwardSource(null);
       setForwardPickedChatIds(new Set());
       setForwardRowStatus({});
       return;
@@ -3241,6 +3363,14 @@ export default function ChatWindowPage() {
         className="fixed inset-x-0 top-0 z-10 border-b border-black/5 bg-[#f2f2f7]/90 pt-[env(safe-area-inset-top)] backdrop-blur-md dark:border-white/10 dark:bg-black/80 sm:sticky sm:pt-0"
       >
         <div className="relative mx-auto flex w-full max-w-[470px] items-center px-4 py-3">
+          {selectionMode ? (
+            <SelectionTopBar
+              count={selectedMessageIds.size}
+              onClearChat={() => setClearChatConfirm(true)}
+              onCancel={exitSelectionMode}
+            />
+          ) : (
+            <>
           {/* 2026-09-04 (Aleksandr, live test: "сделай анимацию на
               стрелку назад при ховер") -- `group` here + `animate-
               back-arrow` on the glyph itself (app/globals.css's own
@@ -3320,6 +3450,8 @@ export default function ChatWindowPage() {
               size={42}
               className="ml-auto h-[42px] w-[42px] shrink-0 rounded-full object-cover"
             />
+          )}
+            </>
           )}
         </div>
       </div>
@@ -3797,6 +3929,28 @@ export default function ChatWindowPage() {
                     </div>
                   )}
                   <div className={`relative flex ${mine ? "justify-end" : "justify-start"}`}>
+                    {selectionMode && !pending && (
+                      <div
+                        aria-hidden="true"
+                        className={`mr-2 flex h-6 w-6 shrink-0 items-center justify-center self-center rounded-full border-2 transition ${
+                          selectedMessageIds.has(Number(msg._id))
+                            ? "border-[#335ef7] bg-[#335ef7] text-white dark:border-[#0c8ce9] dark:bg-[#0c8ce9]"
+                            : "border-neutral-300 bg-white/70 dark:border-neutral-600 dark:bg-black/30"
+                        }`}
+                      >
+                        {selectedMessageIds.has(Number(msg._id)) && (
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5" aria-hidden="true">
+                            <path d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
+                    )}
+                    {selectionMode && !pending && (
+                      <div
+                        className="absolute inset-0 z-20 cursor-pointer"
+                        onClick={() => toggleMessageSelected(Number(msg._id))}
+                      />
+                    )}
                     {!pending && (
                       <div
                         aria-hidden="true"
@@ -4719,7 +4873,21 @@ export default function ChatWindowPage() {
           className="fixed inset-x-0 bottom-0 z-20 border-t border-black/5 bg-[#f2f2f7]/90 px-4 py-3 backdrop-blur-md dark:border-white/10 dark:bg-black/80"
           style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
         >
-{calcOpen ? (
+{selectionMode ? (
+  <SelectionBottomBar
+    hasSelection={selectedMessageIds.size > 0}
+    onDelete={() => setSelectionDeleteConfirm(true)}
+    onForward={() => {
+      const batch = selectedMessagesOldestFirst();
+      if (batch.length === 0) return;
+      setForwardFailed(false);
+      setForwardPickedChatIds(new Set());
+      setForwardRowStatus({});
+      setForwardSource(batch);
+      exitSelectionMode();
+    }}
+  />
+) : calcOpen ? (
             // Calculations feature (2026-09-03) -- replaces the normal
             // draft row entirely while this panel is open (matches the
             // reference video: it swaps back to a normal compose row
@@ -5877,7 +6045,7 @@ export default function ChatWindowPage() {
                   setForwardFailed(false);
                   setForwardPickedChatIds(new Set());
                   setForwardRowStatus({});
-                  setForwardMessage(actionsMenu.message);
+                  setForwardSource([actionsMenu.message]);
                 }
               : undefined
           }
@@ -5891,6 +6059,7 @@ export default function ChatWindowPage() {
               : undefined
           }
           onDelete={() => setDeleteConfirm({ messageId: Number(actionsMenu.message._id) })}
+          onSelect={() => enterSelectionMode(Number(actionsMenu.message._id))}
         />
       )}
       {deleteConfirm && (
@@ -5905,12 +6074,63 @@ export default function ChatWindowPage() {
           onConfirm={() => void handleConfirmDeleteMessage()}
         />
       )}
-      {forwardMessage && (
+      {selectionDeleteConfirm && (
+        <DeleteMessageConfirmDialog
+          deleting={selectionDeleting}
+          failed={selectionDeleteFailed}
+          title={
+            <T
+              uk={`Видалити ${selectedMessageIds.size} повідомлень?`} en={`Delete ${selectedMessageIds.size} messages?`}
+              ru={`Удалить ${selectedMessageIds.size} сообщений?`} de={`${selectedMessageIds.size} Nachrichten löschen?`}
+              es={`¿Eliminar ${selectedMessageIds.size} mensajes?`} fr={`Supprimer ${selectedMessageIds.size} messages ?`}
+              pl={`Usunąć ${selectedMessageIds.size} wiadomości?`} ptBR={`Excluir ${selectedMessageIds.size} mensagens?`}
+              zh={`删除 ${selectedMessageIds.size} 条消息？`}
+            />
+          }
+          onCancel={() => {
+            if (selectionDeleting) return;
+            setSelectionDeleteConfirm(false);
+            setSelectionDeleteFailed(false);
+          }}
+          onConfirm={() => void handleConfirmDeleteSelected()}
+        />
+      )}
+      {clearChatConfirm && (
+        <DeleteMessageConfirmDialog
+          deleting={clearingChat}
+          failed={clearChatFailed}
+          title={
+            <T
+              uk="Очистити чат?" en="Clear chat?" ru="Очистить чат?" de="Chat leeren?"
+              es="¿Vaciar el chat?" fr="Vider la discussion ?" pl="Wyczyścić czat?" ptBR="Limpar a conversa?" zh="清空聊天？"
+            />
+          }
+          description={
+            <T
+              uk="Усі повідомлення буде видалено лише для вас." en="All messages will be deleted for you only."
+              ru="Все сообщения будут удалены только у вас." de="Alle Nachrichten werden nur für dich gelöscht."
+              es="Todos los mensajes se eliminarán solo para ti." fr="Tous les messages ne seront supprimés que pour vous."
+              pl="Wszystkie wiadomości zostaną usunięte tylko u Ciebie." ptBR="Todas as mensagens serão excluídas só para você."
+              zh="所有消息将仅对你删除。"
+            />
+          }
+          confirmLabel={
+            <T uk="Очистити" en="Clear" ru="Очистить" de="Leeren" es="Vaciar" fr="Vider" pl="Wyczyść" ptBR="Limpar" zh="清空" />
+          }
+          onCancel={() => {
+            if (clearingChat) return;
+            setClearChatConfirm(false);
+            setClearChatFailed(false);
+          }}
+          onConfirm={() => void handleConfirmClearChat()}
+        />
+      )}
+      {forwardSource && (
         <ForwardPickerModal
           lang={lang}
           onClose={() => {
             if (forwardSendingAll) return;
-            setForwardMessage(null);
+            setForwardSource(null);
             setForwardFailed(false);
             setForwardPickedChatIds(new Set());
             setForwardRowStatus({});
