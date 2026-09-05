@@ -8778,3 +8778,21 @@ reach production until he does that push/deploy step on his end.
 
 tsc-clean. Commit efce071. 55 commits now sitting locally ahead of
 e598c18/6.178.
+
+## 6.217 -- Copy toast anchored to the message, not the top of the screen (2026-09-05)
+
+Aleksandr sent a Telegram reference video for the copy confirmation
+specifically: the "Copied" pill should appear right on top of the
+message that was copied, not as a fixed banner at the top of the
+viewport (6.209's original CopyToast). Reused the same `anchorRect`
+MessageActionsMenu already computes to position itself next to the
+tapped bubble (`e.currentTarget.getBoundingClientRect()`) -- the toast
+now centers on that rect's own center point via a fixed-position
+portal, clamped to stay fully on-screen near a viewport edge. The
+actual `navigator.clipboard.writeText` call was already real before
+this pass; only the popup's position changed. Kept done.json as the
+animation for now -- Aleksandr said he'll send a proper animation
+asset separately, swapping `src` later is a one-line change.
+
+tsc-clean. Commit 332a91d. 56 commits now sitting locally ahead of
+e598c18/6.178.
