@@ -221,7 +221,19 @@ export function MessageActionsMenu({
 
   return createPortal(
     <div className="fixed inset-0 z-50">
-      <div className="animate-backdrop-in absolute inset-0 bg-black/20 backdrop-blur-[1px] dark:bg-black/40" onClick={onClose} />
+      {/* 2026-09-05 follow-up (Aleksandr, Telegram Desktop reference
+          screenshot: right-click context menu pops up over the chat
+          with NO dimming or blur behind it at all -- "не надо блюр:
+          делай вот так") -- this used to dim+blur the whole screen
+          (bg-black/20 backdrop-blur-[1px]); now a fully invisible
+          click-catcher, same size/position, still closing the menu on
+          an outside click, just with no visual effect of its own. The
+          menu itself already opens via onContextMenu (right-click /
+          two-finger trackpad click) rather than a plain left-click --
+          see the outer bubble's own onContextMenu comment in
+          app/chats/[chatId]/page.tsx -- so a single click still opens
+          the photo/plays the voice/etc. exactly as he described. */}
+      <div className="absolute inset-0" onClick={onClose} />
       {placement && (
         <div
           className={`absolute flex w-[240px] flex-col gap-2 ${placement.openAbove ? "animate-popover-up" : "animate-popover-down"}`}
