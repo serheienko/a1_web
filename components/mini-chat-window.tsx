@@ -218,6 +218,26 @@ type MiniAttachment = {
 // outside-click effect tell "inside this window" apart from "outside
 // it" the same way components/chats-flyout.tsx's own panelRef already
 // does for the list popover.
+// 2026-09-05 (Aleksandr: "Кешируй боковые маленькие чаты, если их
+// ранее открывали") -- components/chats-fab.tsx mounts/unmounts this
+// widget as the popup opens/closes (`{activeChat && <MiniChatWindow
+// .../>}`, no `key`), so every reopen used to start from scratch:
+// empty `messages`, loadState "loading", a blank spinner frame while
+// /api/chats/messages made its round trip again -- even for a chat
+// the visitor had open a minute ago. Module-scope (outside the
+// component, so it survives that mount/unmount rather than resetting
+// with component state) Map keyed by routeParam, holding the last
+// messages/myUserId/peerReadMaxId this browser tab has seen for that
+// chat. Deliberately in-memory only (not Cache Storage / sessionStorage
+// like lib/avatar-image-cache.ts) -- this is live, fast-changing data
+// where "instant on reopen within this visit" is the whole ask, not
+// "survive a hard refresh"; the existing poll (POLL_MS below) still
+// re-fetches immediately in the background on every mount, so a cache
+// hit only removes the loading flash, it never shows stale-forever
+// data.
+type MiniChatCacheEntry = { messages: ChatMessage[]; myUserId: string | null; peerReadMaxId: number | null };
+const miniChatMessageCache = new Map<string, MiniChatCacheEntry>();
+
 export function MiniChatWindow({
   target,
   onBack,
@@ -230,12 +250,20 @@ export function MiniChatWindow({
   panelRef: RefObject<HTMLDivElement | null>;
 }) {
   const lang = useActiveLocale();
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [myUserId, setMyUserId] = useState<string | null>(null);
-  const [peerReadMaxId, setPeerReadMaxId] = useState<number | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>(
+    () => miniChatMessageCache.get(target.routeParam)?.messages ?? [],
+  );
+  const [myUserId, setMyUserId] = useState<string | null>(
+    () => miniChatMessageCache.get(target.routeParam)?.myUserId ?? null,
+  );
+  const [peerReadMaxId, setPeerReadMaxId] = useState<number | null>(
+    () => miniChatMessageCache.get(target.routeParam)?.peerReadMaxId ?? null,
+  );
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
-  const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
+  const [loadState, setLoadState] = useState<"loading" | "ready" | "error">(
+    () => (miniChatMessageCache.has(target.routeParam) ? "ready" : "loading"),
+  );
   const inFlight = useRef(false);
   const tick = useRef(0);
   const lastMarkedReadId = useRef(0);
@@ -333,6 +361,43 @@ export function MiniChatWindow({
     document.addEventListener("mousedown", onDocPointerDown);
     return () => document.removeEventListener("mousedown", onDocPointerDown);
   }, [calcCurrencyPickerOpen]);
+
+  // 2026-09-05 (mini-chat cache, see miniChatMessageCache's own header
+  // comment above) -- covers the OTHER reopen path, switching straight
+  // from one already-open chat to a different one without this widget
+  // ever unmounting in between (components/chats-fab.tsx can call
+  // setActiveChat(target) directly from the recent-chats list while a
+  // mini window is already showing); the useState initializers above
+  // only run once, on first mount, so without this a same-tab switch
+  // would otherwise keep the PREVIOUS chat's messages on screen until
+  // the load effect below finishes its round trip. Runs before that
+  // effect (declared first, same commit) so a cache hit paints the new
+  // chat's last-known messages immediately, and a miss clears down to
+  // a real loading state instead of showing stale messages from the
+  // chat just left.
+  useEffect(() => {
+    const cached = miniChatMessageCache.get(target.routeParam);
+    if (cached) {
+      setMessages(cached.messages);
+      setMyUserId(cached.myUserId);
+      setPeerReadMaxId(cached.peerReadMaxId);
+      setLoadState("ready");
+    } else {
+      setMessages([]);
+      setMyUserId(null);
+      setPeerReadMaxId(null);
+      setLoadState("loading");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target.routeParam]);
+
+  // Mirrors this chat's live state back into the cache on every change
+  // (new message arrives via poll/send, read-state ticks over, etc.) --
+  // whatever this window shows right now is exactly what the NEXT open
+  // of this same chat should start from.
+  useEffect(() => {
+    miniChatMessageCache.set(target.routeParam, { messages, myUserId, peerReadMaxId });
+  }, [target.routeParam, messages, myUserId, peerReadMaxId]);
 
   useEffect(() => {
     let cancelled = false;
