@@ -7462,3 +7462,25 @@ used for the name label two lines down and every other mine-bubble
 control in this codebase (voice-bubble.tsx's play button, unread dot).
 
 tsc-clean, commit 8df0ba4.
+
+## 6.168 -- Cached messages briefly rendered on the wrong side (2026-09-05)
+
+Aleksandr, screen recording: opening a chat, his own SENT messages
+briefly showed up on the left (like they were received), then snapped
+back right a beat later.
+
+Root cause: mine/theirs comes from `myUserId !== null && msg.fromId
+=== myUserId` everywhere in this file, and myUserId starts at null --
+only ever set from the real fetch's response. 6.162's cache (readCached
+Messages/writeCachedMessages) painted the cached MESSAGES immediately
+on mount but never cached myUserId, so every bubble computed
+mine=false for that first cached frame no matter who sent it, until
+the real fetch landed and myUserId caught up.
+
+app/chats/[chatId]/page.tsx: cache now stores `{ messages, myUserId }`
+together and restores both in the same mount effect. Old bare-array
+cache entries (pre-6.168) are read as messages with myUserId null
+rather than crashing -- same one-beat flip as before until the real
+fetch overwrites them, self-healing on the next write.
+
+tsc-clean, commit 8b118e3.
