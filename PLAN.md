@@ -9099,3 +9099,38 @@ cancel/успішному save (функціонально це не повин�
 поверх ще згорнутого edit-бара в ці самі 200мс.
 
 tsc-clean. Commit 7469a77.
+
+## 6.225 — Видалення повідомлення: "для мене та X" / "тільки для мене" в тій самій картці — 2026-09-05
+
+Александр, референс-скріншот: видалення повідомлення мало пропонувати
+"Delete for me and Mao" / "Delete for me" замість однієї кнопки —
+"Удаление надо показывать в той же модалке, просто менять ее по
+высоте и показывать другой текст" (тобто НЕ новий заякорений попап,
+як у референсі, а та сама центрована `DeleteMessageConfirmDialog`,
+просто на 3 кнопки замість 2).
+
+Перевірено по мобільному джерелу (`sender_message_item.dart`/
+`receiver_message_item.dart`): обидва варіанти показуються ЗАВЖДИ, для
+будь-якого повідомлення (свого й чужого), без перевірки
+власності/часу. У мобільного це "Delete from me and all" (групове
+формулювання) — тут 1:1-чати, тож замість generic "all" підставляється
+реальне ім'я співрозмовника (`headerTitle`/`target.title`), як і в
+самому референс-скріншоті ("...and Mao").
+
+- `components/chat/message-actions-menu.tsx` — `DeleteMessageConfirm-
+  Dialog` отримав `deleteForEveryoneLabel`: коли передано, малює ТРИ
+  рядки замість двох (для мене+X / тільки для мене / скасувати) замість
+  Cancel+Delete в ряд, та сама картка, просто вища. `onConfirm` тепер
+  приймає `revoke: boolean`; наявні виклики (batch-delete,
+  clear-chat) як передавали `() => ...`, так і далі можуть — функція з
+  МЕНШОЮ кількістю параметрів валідно присвоюється пропу з більшою (TS
+  bivariance), їх чіпати не довелося.
+- `app/api/chats/delete/route.ts` — `revoke` тепер приймається від
+  клієнта (опціонально, default `false` — старі виклики не змінюються).
+- `app/chats/[chatId]/page.tsx` та `components/mini-chat-window.tsx`
+  (обидві поверхні з одиночним Delete з actions-menu) —
+  `handleDeleteChatMessage`/`handleConfirmDeleteMessage` прокидують
+  `revoke`; картка `deleteConfirm` отримала `deleteForEveryoneLabel` +
+  переписаний `description`.
+
+tsc-clean. Commit bd6acec.
