@@ -8738,3 +8738,17 @@ compresses and renders as a proper photo, same as picking it through
 
 tsc-clean. Commit 08d4fee. 53 commits now sitting locally ahead of
 e598c18/6.178.
+
+## 6.215 -- 2x the attach-popover storage icon (2026-09-05)
+
+Bug-tracker: "Сделай иконку памяти в модалке в х2 больше" -- the
+daily-uploads-quota entry point in the top-right corner of the attach
+popover (Фото/Файл/Зустрічі/Розрахунок/Контакт) was h-4 w-4, doubled to
+h-8 w-8. Scoped to the main chat page's popover only (the one shown in
+the screenshot) -- mini-chat-window.tsx has its own smaller copy of
+this same icon at a different scale (h-3.5 w-3.5 for that widget's much
+more compact popover) left untouched, no evidence that one was in
+scope for this ask.
+
+tsc-clean. Commit 64abe90. 54 commits now sitting locally ahead of
+e598c18/6.178.
