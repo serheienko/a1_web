@@ -8296,3 +8296,23 @@ up nothing further to convert.
 tsc-clean. Commit e00c7f9. **Not yet verified live or pushed** -- same
 standing network blocker; 27 commits now sitting locally ahead of
 e598c18/6.178.
+
+## 6.197 -- Fix pending voice/message alignment flicker on confirm (2026-09-05, t015)
+
+Root-caused via code investigation (no fresh repro video needed for
+this one): optimistic (pending) messages snapshot `fromId: myUserId`
+at construction time, but `myUserId` is a `useState` that starts out
+`null` until the initial `load()` resolves. Tapping the mic (or
+sending text) the instant a chat opens -- before that fetch returns --
+baked `fromId: null` into the pending bubble, so `mine` computed false
+and it rendered on the wrong (received) side until the real
+server-confirmed message swapped in with the correct fromId, producing
+a visible side-flip right as the message confirms. Since a pending
+message is by definition always self-authored, `mine` now reads the
+`pending` discriminant directly for those instead of racing
+myUserId (app/chats/[chatId]/page.tsx, the displayMessages render
+loop).
+
+tsc-clean. Commit 14d8934. **Not yet verified live or pushed** -- same
+standing network blocker; 29 commits now sitting locally ahead of
+e598c18/6.178.
