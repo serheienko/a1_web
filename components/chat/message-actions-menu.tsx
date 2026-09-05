@@ -22,7 +22,7 @@
 // 6.153 already hit for that other popover, solved the same way.
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { T, type Locale } from "@/components/t";
 
@@ -548,19 +548,31 @@ export function ForwardComposeBar({
   count,
   ownerLabel,
   onCancel,
+  onClick,
   inline,
 }: {
   count: number;
   ownerLabel: string;
   onCancel: () => void;
+  // Форвард 2.0, Phase 4 (Aleksandr, Telegram Web reference screen
+  // recording: "нажать превью, и там будет... спрятать имя
+  // отправителя") -- tapping anywhere on this bar (except the X, which
+  // stops its own click from bubbling here) opens page.tsx's own
+  // ForwardPreviewMenu (Show/Hide Sender's Name, Forward to Another
+  // Chat, Do Not Forward). Optional so the type stays backward-
+  // compatible with any future caller that doesn't want this bar
+  // clickable.
+  onClick?: (e: MouseEvent<HTMLDivElement>) => void;
   inline?: boolean;
 }) {
   return (
     <div
+      onClick={onClick}
       className={
-        inline
+        (inline
           ? "flex w-full items-center gap-2 border-b border-neutral-200 px-3.5 py-2 dark:border-[#2b2b2b]"
-          : "mx-auto flex w-full max-w-[470px] items-center gap-2 rounded-[16px] border border-neutral-200 bg-white/90 px-3 py-2 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80"
+          : "mx-auto flex w-full max-w-[470px] items-center gap-2 rounded-[16px] border border-neutral-200 bg-white/90 px-3 py-2 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80") +
+        (onClick ? " cursor-pointer" : "")
       }
     >
       <div className="h-8 w-[3px] shrink-0 rounded-full bg-[#335ef7] dark:bg-[#0c8ce9]" />
@@ -576,7 +588,13 @@ export function ForwardComposeBar({
       </div>
       <button
         type="button"
-        onClick={onCancel}
+        onClick={(e) => {
+          // Stop this same click from also bubbling up to the bar's
+          // own onClick above -- cancelling the forward should never
+          // simultaneously pop open the "what to do with it" menu.
+          e.stopPropagation();
+          onCancel();
+        }}
         aria-label="Cancel forward"
         className="shrink-0 rounded-full p-1 text-[#989aa6] transition hover:bg-black/5 dark:text-[#8d8d93] dark:hover:bg-white/10"
       >

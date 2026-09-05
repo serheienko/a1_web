@@ -57,6 +57,7 @@ import { MessageActionsMenu, ReplyComposeBar, EditComposeBar, ForwardComposeBar,
 import { ForwardPickerModal, type ForwardRowStatus } from "@/components/chat/forward-picker-modal";
 import { SelectionTopBar, SelectionBottomBar } from "@/components/chat/selection-bar";
 import { putForwardPending, takeForwardPendingFor, clearForwardPending, type ForwardPendingDraft } from "@/lib/forward-pending-hold";
+import { ForwardPreviewMenu } from "@/components/chat/forward-preview-menu";
 import { CopyToast, type CopyToastState } from "@/components/chat/copy-toast";
 import { buildMediaProxyUrl, buildMediaDownloadUrl } from "@/lib/a1/media-proxy";
 import { getStableMediaProxyUrl } from "@/lib/a1/stable-media-url";
@@ -820,6 +821,12 @@ export default function ChatWindowPage() {
   // null the whole time is overwhelmingly the common case (this chat
   // was opened normally, nothing was ever forwarded into it).
   const [pendingForward, setPendingForward] = useState<ForwardPendingDraft | null>(null);
+  // Форвард 2.0, Phase 4 -- anchor rect for the small dropdown opened
+  // by tapping the pending-forward preview itself (ForwardComposeBar's
+  // own onClick below); null closes it. Deliberately its own bit of
+  // state rather than folding into pendingForward -- this is purely a
+  // "is the menu open" UI flag, unrelated to what gets sent.
+  const [forwardPreviewMenuAnchor, setForwardPreviewMenuAnchor] = useState<DOMRect | null>(null);
   const [pendingForwardFailed, setPendingForwardFailed] = useState(false);
   // Fires once per chatId mount (this route's own [chatId] segment
   // always remounts this whole component on navigation, so a plain
@@ -2974,7 +2981,7 @@ export default function ChatWindowPage() {
   // call, same single-target shape the mobile app's own
   // sendForwardedMessage has -- multi-select is a client-side loop over
   // that, never a batch backend call that doesn't exist.
-  async function forwardToOneChat(source: ChatMessage, targetChatId: string, captionOverride?: string): Promise<boolean> {
+  async function forwardToOneChat(source: ChatMessage, targetChatId: string, captionOverride?: string, hideSenderName?: boolean): Promise<boolean> {
     const originalAuthorId = (source.forwardFrom?.object === "peer-user" ? source.forwardFrom.user : null) ?? source.fromId;
     const docs = messageDocumentMedia(source);
     const contactsMedia = messageContactMedia(source);
@@ -3005,7 +3012,12 @@ export default function ChatWindowPage() {
             contactsMedia.length > 0
               ? contactsMedia.map((c) => ({ userId: c.userId, phoneNumber: c.phoneNumber, firstName: c.firstName, lastName: c.lastName }))
               : undefined,
-          forwardFrom: { userId: originalAuthorId },
+          // Форвард 2.0, Phase 4 ("спрятать имя отправителя") --
+          // omitting forwardFrom entirely sends this as a plain new
+          // message with the same content instead of a real forward,
+          // same effect Telegram's own "Hide Sender's Name" has (no
+          // "Forwarded from" header at all, not just a blanked name).
+          forwardFrom: hideSenderName ? undefined : { userId: originalAuthorId },
         }),
       });
       const data = await res.json().catch(() => null);
@@ -3128,18 +3140,23 @@ export default function ChatWindowPage() {
     const lastDocs = messageDocumentMedia(last);
     const lastContacts = messageContactMedia(last);
     const lastHasMedia = lastDocs.length > 0 || lastContacts.length > 0;
+    // Форвард 2.0, Phase 4 -- ForwardPreviewMenu's own "Show/Hide
+    // Sender's Name" rows toggle this flag on the SAME pendingForward
+    // draft (see handleForwardShowSenderName/handleForwardHideSenderName
+    // below); read it here once, at send time, same as lastHasMedia.
+    const hideSenderName = pending.hideSenderName ?? false;
     let ok = true;
     for (let i = 0; i < messages.length - 1; i++) {
       const source = messages[i];
       if (!source) continue;
-      const sent = await forwardToOneChat(source, chatId);
+      const sent = await forwardToOneChat(source, chatId, undefined, hideSenderName);
       if (!sent) {
         ok = false;
         break;
       }
     }
     if (ok) {
-      ok = await forwardToOneChat(last, chatId, lastHasMedia && captionText ? captionText : undefined);
+      ok = await forwardToOneChat(last, chatId, lastHasMedia && captionText ? captionText : undefined, hideSenderName);
     }
     setSending(false);
     if (!ok) {
@@ -3157,6 +3174,41 @@ export default function ChatWindowPage() {
       // it: it's a new message of the user's own, not a re-forward.
       await send(captionText);
     }
+  }
+
+  // Форвард 2.0, Phase 4 -- the four ForwardPreviewMenu rows, opened by
+  // tapping the pending-forward preview in the composer (Telegram Web
+  // reference: tap the forwarded-message preview -> small dropdown with
+  // Show/Hide Sender's Name, Forward to Another Chat, Do Not Forward).
+  // The two name-visibility rows just flip pendingForward's own
+  // hideSenderName flag in place -- sendPendingForwardBatch reads it at
+  // send time, nothing else needs to react to it while it's pending.
+  function handleForwardShowSenderName() {
+    setPendingForward((prev) => (prev ? { ...prev, hideSenderName: false } : prev));
+  }
+  function handleForwardHideSenderName() {
+    setPendingForward((prev) => (prev ? { ...prev, hideSenderName: true } : prev));
+  }
+  // Reopens the picker over the SAME source messages so the user can
+  // redirect this forward to a different chat -- deliberately doesn't
+  // touch pendingForward itself (only forwardSource), so backing out of
+  // the picker (onClose) leaves the original pending forward exactly as
+  // it was, same as ForwardPickerModal's own cancel behavior elsewhere.
+  // Picking a target re-runs the existing onPickSingle handler below,
+  // which builds a fresh draft and either replaces pendingForward (same
+  // chat) or stashes it and navigates (a different chat).
+  function handleForwardToAnotherChat() {
+    if (!pendingForward) return;
+    setForwardSource(pendingForward.messages);
+  }
+  // Mirrors ForwardComposeBar's own X-cancel handler exactly (see its
+  // render call below) -- "Do Not Forward" in the reference menu is
+  // just this same cancel action reachable from the preview tap too.
+  function handleDoNotForward() {
+    if (sending) return;
+    setPendingForward(null);
+    setPendingForwardFailed(false);
+    clearForwardPending();
   }
 
   // Calculations feature -- draft-row mutations, all pure state updates.
@@ -5949,6 +6001,11 @@ export default function ChatWindowPage() {
                     inline
                     count={pendingForward.messages.length}
                     ownerLabel={pendingForward.ownerLabel}
+                    // Форвард 2.0, Phase 4 -- tapping the preview itself
+                    // (not the X) opens ForwardPreviewMenu, anchored to
+                    // this bar's own rect (see that component's header
+                    // for why it always opens upward from here).
+                    onClick={(e) => setForwardPreviewMenuAnchor(e.currentTarget.getBoundingClientRect())}
                     onCancel={() => {
                       if (sending) return;
                       setPendingForward(null);
@@ -5956,6 +6013,17 @@ export default function ChatWindowPage() {
                       clearForwardPending();
                     }}
                   />
+                  {forwardPreviewMenuAnchor && (
+                    <ForwardPreviewMenu
+                      anchorRect={forwardPreviewMenuAnchor}
+                      hideSenderName={pendingForward.hideSenderName ?? false}
+                      onShowSenderName={handleForwardShowSenderName}
+                      onHideSenderName={handleForwardHideSenderName}
+                      onForwardToAnotherChat={handleForwardToAnotherChat}
+                      onDoNotForward={handleDoNotForward}
+                      onClose={() => setForwardPreviewMenuAnchor(null)}
+                    />
+                  )}
                   {pendingForwardFailed && (
                     <p className="border-b border-neutral-200 px-3.5 py-1.5 text-[12px] text-red-500 dark:border-[#2b2b2b] dark:text-red-400">
                       <T

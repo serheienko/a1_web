@@ -32,6 +32,15 @@ export type ForwardPendingDraft = {
   // has a name to show on the very first paint of the destination
   // chat -- no extra fetch/race to wait on there.
   ownerLabel: string;
+  // Форвард 2.0, Phase 4 (Aleksandr, Telegram Web reference screen
+  // recording: tapping the pending-forward banner opens a menu with
+  // "Show Sender's Name" / "Hide Sender's Name") -- undefined/false is
+  // the default ("show", i.e. every send still carries forwardFrom as
+  // before this existed). When true, page.tsx's own sendPendingForward
+  // Batch omits forwardFrom entirely on every send in this batch, so
+  // the messages land in the target chat as plain, unattributed
+  // messages instead of "Переслано від X" bubbles.
+  hideSenderName?: boolean;
 };
 
 let held: ForwardPendingDraft | null = null;
