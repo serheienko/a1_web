@@ -53,7 +53,7 @@ import {
 } from "@/lib/a1/chat-schemas";
 import { ChatPreviewLine } from "@/components/chat/chat-preview-line";
 import { MessageActionsMenu, ReplyComposeBar, EditComposeBar, MessageReplyQuote, ReplyIcon, DeleteMessageConfirmDialog } from "@/components/chat/message-actions-menu";
-import { ForwardPickerModal } from "@/components/chat/forward-picker-modal";
+import { ForwardPickerModal, type ForwardRowStatus } from "@/components/chat/forward-picker-modal";
 import { CopyToast } from "@/components/chat/copy-toast";
 import { buildMediaProxyUrl, buildMediaDownloadUrl } from "@/lib/a1/media-proxy";
 import { getStableMediaProxyUrl } from "@/lib/a1/stable-media-url";
@@ -775,7 +775,16 @@ export default function ChatWindowPage() {
   // succeeded or failed -- only forwardFailed distinguishes those two
   // outcomes for the modal's own error line.
   const [forwardMessage, setForwardMessage] = useState<ChatMessage | null>(null);
-  const [forwardSendingChatId, setForwardSendingChatId] = useState<string | null>(null);
+  // 2026-09-05 follow-up (bug-tracker: "...возможность делать это
+  // большому кол-во пользователей, т.е. добавить мультивыбор") --
+  // replaced the single in-flight-chat-id/boolean pair with a picked
+  // SET (checkbox rows, same convention as ContactsPickerModal's own
+  // pickedUserIds) plus a per-chat outcome map, so a "send to 5 chats"
+  // round can show each row's own spinner/checkmark/error instead of
+  // one opaque in-flight id.
+  const [forwardPickedChatIds, setForwardPickedChatIds] = useState<Set<string>>(new Set());
+  const [forwardRowStatus, setForwardRowStatus] = useState<Record<string, ForwardRowStatus>>({});
+  const [forwardSendingAll, setForwardSendingAll] = useState(false);
   const [forwardFailed, setForwardFailed] = useState(false);
   // 2026-09-05 follow-up (Aleksandr: reply-cancel via the X should
   // smoothly collapse, not just vanish) -- replyTarget itself still
@@ -2747,19 +2756,21 @@ export default function ChatWindowPage() {
   // (mobile's chat_forward_payload.dart) -- forwarding a message that
   // was itself already forwarded here keeps pointing at the ORIGINAL
   // sender, not whoever forwarded it into this chat.
-  async function handleForwardMessage(targetChatId: string) {
-    const source = forwardMessage;
-    if (!source || forwardSendingChatId) return;
+  // Sends `source` to ONE target chat and reports success/failure --
+  // pure network call, no state writes of its own, so handleForwardSend
+  // below can loop it over an arbitrary picked set and drive the
+  // per-row status itself. Still exactly one POST /api/chats/send per
+  // call, same single-target shape the mobile app's own
+  // sendForwardedMessage has -- multi-select is a client-side loop over
+  // that, never a batch backend call that doesn't exist.
+  async function forwardToOneChat(source: ChatMessage, targetChatId: string): Promise<boolean> {
     const originalAuthorId = (source.forwardFrom?.object === "peer-user" ? source.forwardFrom.user : null) ?? source.fromId;
     const text = extractMessageText(source);
     const docs = messageDocumentMedia(source);
     const contactsMedia = messageContactMedia(source);
     if (!originalAuthorId || (!text && docs.length === 0 && contactsMedia.length === 0)) {
-      setForwardFailed(true);
-      return;
+      return false;
     }
-    setForwardSendingChatId(targetChatId);
-    setForwardFailed(false);
     try {
       const res = await authFetch("/api/chats/send", {
         method: "POST",
@@ -2782,17 +2793,54 @@ export default function ChatWindowPage() {
         // (data.detail/data.message, see /api/chats/send's own error
         // shape) is visible in devtools instead of only the modal's
         // generic translated string.
-        console.error("[forward] send failed:", data?.message, data?.detail);
-        setForwardFailed(true);
-        return;
+        console.error("[forward] send failed:", targetChatId, data?.message, data?.detail);
+        return false;
       }
-      setForwardMessage(null);
+      return true;
     } catch (err) {
-      console.error("[forward] send threw:", err);
-      setForwardFailed(true);
-    } finally {
-      setForwardSendingChatId(null);
+      console.error("[forward] send threw:", targetChatId, err);
+      return false;
     }
+  }
+
+  // 2026-09-05 follow-up (multi-select forward) -- fires once from the
+  // picker's own bottom "Переслати" button. Sends to every picked chat
+  // ONE AT A TIME (not Promise.all): keeps the per-row spinner reading
+  // top-to-bottom instead of all rows flipping to "sending" at once,
+  // and avoids hammering the backend with N simultaneous sends for a
+  // single tap. On full success the modal closes itself, same as the
+  // old single-pick flow; on a partial failure the succeeded rows are
+  // dropped from the picked set (so they show their checkmark and
+  // won't be re-sent) while the failed ones stay picked, ready for the
+  // user to just hit "Переслати" again to retry only those.
+  async function handleForwardSend() {
+    const source = forwardMessage;
+    if (!source || forwardSendingAll || forwardPickedChatIds.size === 0) return;
+    const targets = Array.from(forwardPickedChatIds);
+    setForwardSendingAll(true);
+    setForwardFailed(false);
+    const succeeded: string[] = [];
+    const failedIds: string[] = [];
+    for (const targetChatId of targets) {
+      setForwardRowStatus((prev) => ({ ...prev, [targetChatId]: "sending" }));
+      const ok = await forwardToOneChat(source, targetChatId);
+      setForwardRowStatus((prev) => ({ ...prev, [targetChatId]: ok ? "done" : "failed" }));
+      if (ok) succeeded.push(targetChatId);
+      else failedIds.push(targetChatId);
+    }
+    setForwardSendingAll(false);
+    if (failedIds.length === 0) {
+      setForwardMessage(null);
+      setForwardPickedChatIds(new Set());
+      setForwardRowStatus({});
+      return;
+    }
+    setForwardFailed(true);
+    setForwardPickedChatIds(new Set(failedIds));
+    // Row statuses stay as-is (succeeded rows keep their checkmark,
+    // failed ones keep their "!") so a retry tap only re-sends what's
+    // still picked -- forwardToOneChat itself will flip a retried
+    // row's status back to "sending" the instant the loop reaches it.
   }
 
   // Calculations feature -- draft-row mutations, all pure state updates.
@@ -5782,6 +5830,8 @@ export default function ChatWindowPage() {
             messageContactMedia(actionsMenu.message).length > 0
               ? () => {
                   setForwardFailed(false);
+                  setForwardPickedChatIds(new Set());
+                  setForwardRowStatus({});
                   setForwardMessage(actionsMenu.message);
                 }
               : undefined
@@ -5814,12 +5864,24 @@ export default function ChatWindowPage() {
         <ForwardPickerModal
           lang={lang}
           onClose={() => {
-            if (forwardSendingChatId) return;
+            if (forwardSendingAll) return;
             setForwardMessage(null);
             setForwardFailed(false);
+            setForwardPickedChatIds(new Set());
+            setForwardRowStatus({});
           }}
-          onPick={(targetChatId) => void handleForwardMessage(targetChatId)}
-          sendingChatId={forwardSendingChatId}
+          pickedChatIds={forwardPickedChatIds}
+          onToggle={(chatId) =>
+            setForwardPickedChatIds((prev) => {
+              const next = new Set(prev);
+              if (next.has(chatId)) next.delete(chatId);
+              else next.add(chatId);
+              return next;
+            })
+          }
+          onSend={() => void handleForwardSend()}
+          sending={forwardSendingAll}
+          rowStatus={forwardRowStatus}
           failed={forwardFailed}
         />
       )}
