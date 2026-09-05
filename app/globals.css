@@ -23,6 +23,36 @@ html {
   font-size: 106.25%; /* 17px effective base (HIG Body/Callout size), was 16px */
 }
 
+/*
+ * 2026-09-05 (Aleksandr, live screenshot: the "Message" placeholder in
+ * the compose textarea rendered nowhere near vertically centered --
+ * sitting flush against the TOP of a much taller-than-expected input
+ * pill, with the date-separator label and a voice-message bubble also
+ * showing up far larger than every other screenshot from this same
+ * session). The compose row's own layout (app/chats/[chatId]/page.tsx)
+ * already sizes the textarea's box tightly to its content on every
+ * keystroke (scrollHeight-driven, TEXTAREA_LINE_PX = 20 matching the
+ * `leading-5` class) -- that JS measurement runs against the LAYOUT
+ * box, which is a different thing from what WebKit then actually
+ * PAINTS: iOS Safari's automatic text-size boost ("Larger Text" /
+ * per-site zoom, WebKit's own `-webkit-text-size-adjust: auto`
+ * default) can inflate the rendered glyph size for legibility AFTER
+ * layout, without changing the box's own scrollHeight/clientHeight --
+ * so the box stays sized for the normal (unboosted) text while WebKit
+ * paints noticeably bigger glyphs inside it, which top-aligns (a
+ * textarea's own default) and overflows/clips exactly like the
+ * screenshot shows, everywhere across the page at once (hence the
+ * oversized date label and bubble too, not just this one placeholder).
+ * `-webkit-text-size-adjust: 100%` is the standard fix -- it opts every
+ * element out of that automatic boost, so rendered text always matches
+ * whatever size Tailwind's own classes actually specify, keeping it in
+ * sync with any JS that measures those same boxes.
+ */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 @media (min-width: 640px) {
   html {
     font-size: 112.5%; /* 18px effective base, was 16px */
