@@ -271,11 +271,11 @@ function ParticipantRow({
       <ParticipantAvatar p={participant} className="h-11 w-11 shrink-0 text-[13px]" />
       <div className="min-w-0 flex-1">
         <div className="truncate text-[15px] font-semibold leading-tight text-white">{participant.name || "—"}</div>
-        <div className="truncate text-[12px] leading-snug text-white/50">
+        <div className="truncate text-[12px] leading-snug text-white/70">
           {mode === "hidden" ? t("timeHiddenUntilTheyAccept", lang) : mode === "exact" ? t("localTimeWillBe", lang) : t("localTime", lang)}
         </div>
-        {mode === "exact" && <div className="truncate text-[12.5px] font-medium leading-snug text-white/70">{dateLabel}</div>}
-        {mode === "bucket" && <div className="truncate text-[12.5px] font-medium leading-snug text-white/70">{bucketLabel(bucket, lang)}</div>}
+        {mode === "exact" && <div className="truncate text-[12.5px] font-medium leading-snug text-white/85">{dateLabel}</div>}
+        {mode === "bucket" && <div className="truncate text-[12.5px] font-medium leading-snug text-white/85">{bucketLabel(bucket, lang)}</div>}
       </div>
       {mode === "exact" && <div className="shrink-0 text-[26px] font-bold leading-none tabular-nums text-white">{timeLabel}</div>}
       {mode === "bucket" && (
@@ -283,7 +283,7 @@ function ParticipantRow({
           {bucketEmoji(bucket)}
         </span>
       )}
-      {mode === "hidden" && <HourglassIcon className="h-6 w-6 shrink-0 text-white/40" />}
+      {mode === "hidden" && <HourglassIcon className="h-6 w-6 shrink-0 text-white/65" />}
     </div>
   );
 }
@@ -351,7 +351,7 @@ export function MeetingMessageCard({
   const otherMode: "exact" | "bucket" | "hidden" = accepted ? "exact" : canAccept ? "bucket" : "hidden";
 
   return (
-    <div className="relative w-[300px] max-w-full overflow-hidden rounded-2xl bg-[#12233d] p-4 text-white shadow-sm">
+    <div className="relative w-[300px] max-w-full overflow-hidden rounded-2xl bg-[#335ef7] p-4 text-white shadow-sm dark:bg-[#009bff]">
       {/* 2026-09-04 (Aleksandr, screenshot: the "Зрозуміло!" button at
           the bottom of the time-visibility panel below was clipped by
           this root's own `overflow-hidden`, cut off flush with the
@@ -380,11 +380,11 @@ export function MeetingMessageCard({
               mascots) already uses. */}
           <LottiePlayer src="/animations/planet2.json" size={72} />
           <h3 className="text-[16px] font-semibold text-white">{t("timeVisibility", lang)}</h3>
-          <p className="text-[13px] leading-snug text-white/60">{t("timeVisibilityBody", lang)}</p>
+          <p className="text-[13px] leading-snug text-white/80">{t("timeVisibilityBody", lang)}</p>
           <button
             type="button"
             onClick={() => setShowTimeVisibility(false)}
-            className="mt-1 w-full rounded-full bg-[#335ef7] px-4 py-2.5 text-[14px] font-semibold text-white transition hover:bg-[#2748d6]"
+            className="mt-1 w-full rounded-full bg-white px-4 py-2.5 text-[14px] font-semibold text-[#335ef7] transition hover:bg-white/90 dark:text-[#009bff]"
           >
             {t("ok", lang)}
           </button>
@@ -403,7 +403,7 @@ export function MeetingMessageCard({
 
           <div className="flex flex-col gap-3">
             <ParticipantRow lang={lang} participant={proposer} startsAtUtcMs={payload.startsAtUtcMs} tz={payload.proposerTimeZone} mode="exact" />
-            <div className="h-px bg-white/10" />
+            <div className="h-px bg-white/15" />
             <ParticipantRow
               lang={lang}
               participant={other}
@@ -413,12 +413,12 @@ export function MeetingMessageCard({
             />
           </div>
 
-          <div className="mt-3.5 flex items-center gap-2 border-t border-white/10 pt-3.5">
+          <div className="mt-3.5 flex items-center gap-2 border-t border-white/20 pt-3.5">
             <button
               type="button"
               onClick={() => setShowTimeVisibility(true)}
               aria-label={t("timeVisibility", lang)}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-white/70 transition hover:bg-white/20"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/15 text-white/85 transition hover:bg-white/25"
             >
               <InfoIcon className="h-4 w-4" />
             </button>
@@ -427,7 +427,7 @@ export function MeetingMessageCard({
                 type="button"
                 onClick={onAccept}
                 disabled={accepting}
-                className="flex-1 rounded-full bg-[#335ef7] px-4 py-2 text-[14px] font-semibold text-white transition hover:bg-[#2748d6] disabled:opacity-60"
+                className="flex-1 rounded-full bg-white px-4 py-2 text-[14px] font-semibold text-[#335ef7] transition hover:bg-white/90 disabled:opacity-60 dark:text-[#009bff]"
               >
                 {t("accept", lang)}
               </button>
@@ -437,7 +437,7 @@ export function MeetingMessageCard({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-white/10 px-4 py-2 text-[14px] font-semibold text-white transition hover:bg-white/20"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-white/15 px-4 py-2 text-[14px] font-semibold text-white transition hover:bg-white/25"
               >
                 {t("joinMeeting", lang)}
               </a>
@@ -448,7 +448,7 @@ export function MeetingMessageCard({
               // looking at their own still-unaccepted proposal) --
               // native fills that same slot with an hourglass +
               // status label instead, which this now matches.
-              <div className="flex flex-1 items-center gap-1.5 text-white/45">
+              <div className="flex flex-1 items-center gap-1.5 text-white/70">
                 <HourglassIcon className="h-4 w-4 shrink-0" />
                 <span className="truncate text-[11px] font-semibold uppercase tracking-wide">
                   {accepted ? (
