@@ -8228,3 +8228,32 @@ switching with site theme.
 tsc-clean. Commit 26d0fda. **Not yet verified live or pushed** -- same
 standing network blocker; 22 commits now sitting locally ahead of
 e598c18/6.178.
+
+
+## 6.194 -- Reply compose bar: smooth collapse on cancel (2026-09-05)
+
+Aleksandr: reply-cancel (the X on the reply quote row) used to vanish
+instantly instead of smoothly collapsing. replyTarget itself still
+clears the instant onRemove/a real send fires -- functionally that's
+what matters, a send must never re-attach a stale reply. A new
+displayedReplyTarget lags one 200ms tick behind replyTarget going
+null, keeping ReplyComposeBar mounted while its own wrapping div
+animates grid-template-rows from 1fr to 0fr (height can't transition
+from auto directly, and this app has no animation library to reach
+for instead). Applied at both render sites -- the standalone floating
+card (voice-recording-bar/mic-denied states) and the inline version
+nested in the compose pill. Mount itself still snaps in instantly (a
+freshly inserted node has no prior CSS state to animate from) -- only
+the actual remove-after-transition case animates, which is what was
+asked for.
+
+Also confirmed while investigating the backlog: the 10-minute voice
+recording auto-stop cap (VOICE_MAX_SECONDS = 600,
+components/chat/voice-recorder.ts) was already fully implemented in
+both the initial-recording and pause/resume timer paths, confirmed
+against both mobile and desktop references -- nothing left to do
+there, just a stale backlog item.
+
+tsc-clean. Commit efbbae3. **Not yet verified live or pushed** -- same
+standing network blocker; 24 commits now sitting locally ahead of
+e598c18/6.178.
