@@ -171,37 +171,69 @@ export function PauseGlyph({ className }: { className?: string }) {
   );
 }
 
-// 2026-09-05 (t017, "иконка огня -- точная замена по Figma") -- this
-// used to be a hand-drawn placeholder SVG (kept above's git history,
-// never itself sourced from a real design file). The mobile app's own
-// fire badge is instead a short one-shot Lottie animation
+// 2026-09-05 (t017, "иконка огня -- точная замена по Figma", then
+// Aleksandr sent 3 real APP screenshots -- not Figma -- of this exact
+// badge live in production) -- this used to be a hand-drawn placeholder
+// SVG. The mobile app's own badge is a short one-shot Lottie animation
 // (voice_message_bubble_widgets.dart's _FireIntroAnimation), shipped as
 // assets/tgs/fire_day.tgs / fire_night.tgs -- gzip-compressed Lottie
-// JSON (the ".tgs" Telegram-sticker convention), pulled from the
-// connected a1_app repo, gunzipped, and dropped in unmodified as
-// public/animations/fire-day.json / fire-night.json. Both bake in a
-// single flat fill color already: fire-day is #4F71EB (this app's own
-// light-mode brand blue) and fire-night is #0C8CE9 (this app's own
-// dark:text-[#0c8ce9] used everywhere else in this exact file) -- so
-// the "theirs" badge (light-blue pill on a light/near-black bubble,
-// same as before) needs no recoloring at all, just the existing
-// dark:hidden / hidden dark:inline-block asset-swap convention
-// site-nav.tsx's own logo already established for this codebase (no
-// JS dark-mode hook exists here, by design -- CSS-only theming
-// throughout). The "mine" badge sits on a solid blue bubble
-// background, so (same as the old hand-drawn glyph's text-white) it
-// still needs to render pure white regardless of theme -- a
-// brightness-0+invert filter reliably flattens any single-color
-// non-transparent glyph to white, so one instance covers both themes
-// there without needing a second baked white asset.
+// JSON, pulled from the connected a1_app repo and gunzipped into
+// public/animations/fire-day.json / fire-night.json unmodified.
+//
+// Pixel-sampled the 3 screenshots (PIL, cropping the exact badge and
+// reading its most common colors) rather than eyeballing them, since
+// this glyph is a single flat fill color and gets recolored per
+// sender/theme in _buildFireIcon's own Dart logic:
+// - RECEIVED + light theme (screenshot 1, a white bubble): badge bg
+//   #E5EAFC, icon #5577A4 -- confirmed pixel-exact, and this is a
+//   DIFFERENT, more muted blue than fire-day.json's own baked #4F71EB,
+//   so that one color needed its own recolored asset
+//   (fire-received-light.json, same path data, fill patched to
+//   #5577A4) rather than reusing fire-day.json as-is.
+// - SENT + light theme (screenshot 3, a pale-blue bubble): icon
+//   measured ~#566CE3, i.e. fire-day.json's own natural #4F71EB
+//   un-tinted (within screenshot compression/anti-aliasing noise) --
+//   no recolor needed there.
+// - No dark-theme screenshot was sent for either sender, so those two
+//   stay on the pre-existing best-effort choices: RECEIVED+dark keeps
+//   fire-night.json's own natural #0C8CE9 (matches this file's own
+//   dark:text-[#0c8ce9] used everywhere else, and mirrors the
+//   confirmed RECEIVED+light case using its own theme's natural
+//   asset color); SENT+dark keeps forcing white via a
+//   brightness-0+invert filter -- NOT copied from the mobile
+//   screenshot, because mobile's own "sent" bubble is a pale
+//   near-white blue (matches its icon's natural blue fill just fine),
+//   while this web app's own SENT bubble (a pre-existing, unrelated
+//   design decision -- see the mine ? "bg-[#335ef7] ... dark:bg-
+//   [#009bff]" solid-color bubble a few dozen lines below) is a much
+//   more saturated solid blue in BOTH themes; the natural asset blue
+//   read as low-contrast (near-invisible) against that solid
+//   background in a local mockup, which is exactly why the original
+//   hand-drawn glyph forced white here too -- kept that choice rather
+//   than reproducing a contrast bug mobile's own paler bubble design
+//   never has to deal with.
+//
+// dark:hidden / hidden dark:inline-block is the same zero-JS asset-
+// swap convention site-nav.tsx's own logo already established for
+// this codebase's CSS-only theming (no JS dark-mode hook exists here
+// by design).
 function FireBadgeAnimation({ mine, size = 14 }: { mine: boolean; size?: number }) {
   if (mine) {
-    return <LottiePlayer src="/animations/fire-night.json" size={size} loop={false} className="brightness-0 invert" />;
+    return (
+      <>
+        <span className="dark:hidden">
+          <LottiePlayer src="/animations/fire-day.json" size={size} loop={false} />
+        </span>
+        <span className="hidden dark:inline-block">
+          <LottiePlayer src="/animations/fire-night.json" size={size} loop={false} className="brightness-0 invert" />
+        </span>
+      </>
+    );
   }
   return (
     <>
       <span className="dark:hidden">
-        <LottiePlayer src="/animations/fire-day.json" size={size} loop={false} />
+        <LottiePlayer src="/animations/fire-received-light.json" size={size} loop={false} />
       </span>
       <span className="hidden dark:inline-block">
         <LottiePlayer src="/animations/fire-night.json" size={size} loop={false} />
@@ -618,10 +650,15 @@ export function VoiceMessageBubble({
             type="button"
             onClick={() => setFirePopoverOpen((v) => !v)}
             aria-label="Auto-delete info"
+            // 2026-09-05 (t017 follow-up) -- bg-[#E5EAFC] is the exact
+            // received+light badge background pixel-sampled from
+            // Aleksandr's screenshot (see FireBadgeAnimation's own
+            // comment above); dark theme has no screenshot evidence so
+            // keeps the pre-existing accent-tint pill unchanged.
             className={`flex h-7 w-7 items-center justify-center rounded-[10px] transition ${
               mine
-                ? "bg-white/20 text-white hover:bg-white/30"
-                : "bg-[#335ef7]/10 text-[#335ef7] hover:bg-[#335ef7]/20 dark:bg-[#0c8ce9]/15 dark:text-[#0c8ce9]"
+                ? "bg-white/20 hover:bg-white/30"
+                : "bg-[#E5EAFC] hover:bg-[#d7e0f8] dark:bg-[#0c8ce9]/15"
             }`}
           >
             <FireBadgeAnimation mine={mine} size={14} />
