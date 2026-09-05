@@ -22,7 +22,7 @@
 // 6.153 already hit for that other popover, solved the same way.
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { T, type Locale } from "@/components/t";
 
@@ -188,20 +188,45 @@ export function MessageActionsMenu({
   onClose: () => void;
   onReply: () => void;
 }) {
-  // 2026-09-05: computed once on mount (anchorRect is a frozen snapshot
-  // from the click that opened this, not a live-tracked element -- if
-  // the message list scrolls while this is open the menu just stays
-  // put, same behavior every other portaled popover on this page
-  // already has, e.g. the photo-viewer overlay).
-  const [placement, setPlacement] = useState<{ left: number; openAbove: boolean } | null>(null);
+  // 2026-09-05 follow-up (Aleksandr, live screenshot: opened near the
+  // bottom of the viewport, the menu ran off the bottom edge entirely
+  // -- "не влезло, научись понимать позицию элемента на экране и делай
+  // так чтобы купертино всегда полностью помещалось") -- the ORIGINAL
+  // logic only compared spaceAbove vs spaceBelow and opened toward
+  // whichever side had MORE room, but never checked that side actually
+  // had ENOUGH room for the menu's own real height -- so a message
+  // sitting anywhere without a full menu's worth of clearance on
+  // either side always got clipped by whichever edge it opened toward.
+  // Fixed with a real two-pass measure: this ref'd div now always
+  // renders (just `visibility: hidden` at an off-screen 0,0 until
+  // measured, never `display: none`, so getBoundingClientRect below
+  // sees its REAL height), a layout effect measures it before paint
+  // and only THEN picks a side and a `top` that's clamped to actually
+  // fit within [VIEWPORT_MARGIN, viewport bottom - VIEWPORT_MARGIN] --
+  // not just anchored to anchorRect.top/bottom and left to overflow.
+  // useLayoutEffect (not useEffect) so this measure-then-place swap
+  // happens in the same paint frame instead of visibly flashing at the
+  // wrong spot first. anchorRect is a frozen snapshot from the click
+  // that opened this (not a live-tracked element), so this still only
+  // runs once on mount, same as before.
+  const [placement, setPlacement] = useState<{ left: number; top: number; openAbove: boolean } | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    const el = menuRef.current;
+    if (!el) return;
+    const menuHeight = Math.min(el.getBoundingClientRect().height, window.innerHeight - VIEWPORT_MARGIN * 2);
     const spaceAbove = anchorRect.top;
     const spaceBelow = window.innerHeight - anchorRect.bottom;
-    const openAbove = spaceAbove > spaceBelow;
+    // Prefer below (Telegram's own default); only flip above when below
+    // genuinely can't fit the menu AND above has more room to offer.
+    const openAbove = spaceBelow < menuHeight + VIEWPORT_MARGIN && spaceAbove > spaceBelow;
+    const idealTop = openAbove ? anchorRect.top - 8 - menuHeight : anchorRect.bottom + 8;
+    const maxTop = Math.max(VIEWPORT_MARGIN, window.innerHeight - VIEWPORT_MARGIN - menuHeight);
+    const top = Math.min(Math.max(idealTop, VIEWPORT_MARGIN), maxTop);
     const idealLeft = mine ? anchorRect.right - MENU_WIDTH : anchorRect.left;
     const left = Math.min(Math.max(idealLeft, VIEWPORT_MARGIN), window.innerWidth - MENU_WIDTH - VIEWPORT_MARGIN);
-    setPlacement({ left, openAbove });
+    setPlacement({ left, top, openAbove });
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
     }
@@ -234,16 +259,25 @@ export function MessageActionsMenu({
           app/chats/[chatId]/page.tsx -- so a single click still opens
           the photo/plays the voice/etc. exactly as he described. */}
       <div className="absolute inset-0" onClick={onClose} />
-      {placement && (
-        <div
-          className={`absolute flex w-[240px] flex-col gap-2 ${placement.openAbove ? "animate-popover-up" : "animate-popover-down"}`}
-          style={{
-            left: placement.left,
-            ...(placement.openAbove
-              ? { bottom: window.innerHeight - anchorRect.top + 8 }
-              : { top: anchorRect.bottom + 8 }),
-          }}
-        >
+      {/* Always mounted (never `{placement && ...}`) -- the layout
+          effect above needs this in the DOM, at its real width/content,
+          to measure a real height BEFORE placement is known. Hidden
+          off-screen at 0,0 until that measurement lands; visibility
+          (not display:none) so layout/measurement still happens while
+          hidden. maxHeight+overflow-y-auto is the last-resort guard for
+          a viewport too short to fit the menu at all even at the best
+          available spot -- scrolls internally instead of clipping. */}
+      <div
+        ref={menuRef}
+        className={`absolute flex w-[240px] flex-col gap-2 ${placement?.openAbove ? "animate-popover-up" : "animate-popover-down"}`}
+        style={{
+          left: placement ? placement.left : -9999,
+          top: placement ? placement.top : 0,
+          visibility: placement ? "visible" : "hidden",
+          maxHeight: `${Math.max(0, window.innerHeight - VIEWPORT_MARGIN * 2)}px`,
+          overflowY: "auto",
+        }}
+      >
           {/* Reaction quick-bar -- placeholder, see header comment. */}
           <div className="flex items-center gap-1 self-start rounded-full bg-white/95 px-2 py-1.5 shadow-xl backdrop-blur-sm dark:bg-neutral-800/95">
             {REACTION_EMOJIS.map((emoji) => (
@@ -301,7 +335,6 @@ export function MessageActionsMenu({
             ))}
           </div>
         </div>
-      )}
     </div>,
     document.body,
   );
