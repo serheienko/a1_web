@@ -9134,3 +9134,22 @@ tsc-clean. Commit 7469a77.
   переписаний `description`.
 
 tsc-clean. Commit bd6acec.
+
+## 6.226 — "Переслано від …" тепер показує ваше ім'я, а не заглушку — 2026-09-05
+
+Александр, скріншот: пересилання ВЛАСНОГО повідомлення (наприклад,
+усередині власного self-чату) показувало "Переслано від …" — заглушку
+замість імені.
+
+Причина: підпис "Переслано від X" (`app/chats/[chatId]/page.tsx`,
+рядок над текстовою бабл-строкою, "Forward feature (2026-09-05)")
+читає ім'я напряму з `contactSummaries[msg.forwardFrom.user]`, а
+`/api/users/summaries` ніколи не повертає запис для самого себе (він
+про ІНШИХ користувачів) — рівно те саме "самого себе немає в
+contactSummaries", яке `resolveReplyPreview`/`senderLabel` та мій же
+`resolveForwardOwnerLabel` (§6.220) вже обходять явною перевіркою
+`=== myUserId` перед фолбеком на `contactSummaries`. Цей єдиний
+render-сайт залишався без такої перевірки — додано (`YOU_LABEL_TEXT[lang]`
+замість заглушки, коли `forwardFrom.user === myUserId`).
+
+tsc-clean. Commit 0ca350e.
