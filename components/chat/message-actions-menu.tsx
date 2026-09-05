@@ -174,7 +174,7 @@ const ACTION_ROWS: ActionRow[] = [
   {
     key: "select",
     icon: SelectIcon,
-    group: "select",
+    group: "main",
     label: { uk: "Вибрати", en: "Select", ru: "Выбрать", de: "Auswählen", es: "Seleccionar", fr: "Sélectionner", pl: "Wybierz", ptBR: "Selecionar", zh: "选择" },
   },
 ];
@@ -329,25 +329,6 @@ export function MessageActionsMenu({
                 {/* Icon LEFT, label RIGHT -- see this file's own header
                     comment on why (Aleksandr's reference had them
                     reversed). */}
-                <row.icon className="h-5 w-5 shrink-0" />
-                <span className="flex-1">
-                  <T
-                    uk={row.label.uk} en={row.label.en} ru={row.label.ru} de={row.label.de} es={row.label.es}
-                    fr={row.label.fr} pl={row.label.pl} ptBR={row.label.ptBR} zh={row.label.zh}
-                  />
-                </span>
-              </button>
-            ))}
-          </div>
-
-          <div className="overflow-hidden rounded-2xl bg-white/95 shadow-xl backdrop-blur-sm dark:bg-neutral-800/95">
-            {ACTION_ROWS.filter((r) => r.group === "select").map((row) => (
-              <button
-                key={row.key}
-                type="button"
-                onClick={() => select(row.key)}
-                className="flex w-full items-center gap-3 px-4 py-3 text-left text-[15px] text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
-              >
                 <row.icon className="h-5 w-5 shrink-0" />
                 <span className="flex-1">
                   <T
