@@ -665,11 +665,24 @@ export function DeleteMessageConfirmDialog({
   title,
   description,
   confirmLabel,
+  deleteForEveryoneLabel,
 }: {
   deleting: boolean;
   failed: boolean;
   onCancel: () => void;
-  onConfirm: () => void;
+  // 2026-09-05 follow-up (Aleksandr, reference screenshot: "delete for
+  // me and Mao" / "delete for me" as two stacked options -- "Удаление
+  // надо показывать в той же модалке, просто менять ее по высоте и
+  // показывать другой текст", i.e. NOT a new anchored popup like the
+  // reference's own presentation, just this same centered card grown
+  // taller) -- `revoke` tells the caller which of the two the user
+  // picked. Every existing caller (batch-delete-selected, clear-chat,
+  // and this dialog's own plain one-button mode below) passes a
+  // `() => ...` callback with no parameters, which TypeScript already
+  // allows assigning to a `(revoke: boolean) => void`-typed prop (a
+  // function is assignable wherever it declares fewer parameters than
+  // the type expects) -- none of them needed to change.
+  onConfirm: (revoke: boolean) => void;
   // 2026-09-05 (Форвард 2.0: batch-delete-selected + clear-chat both
   // want this exact same card, just with different copy) -- all
   // optional so the original single-message delete call site (below)
@@ -677,6 +690,13 @@ export function DeleteMessageConfirmDialog({
   title?: ReactNode;
   description?: ReactNode;
   confirmLabel?: ReactNode;
+  // 2026-09-05 follow-up -- when set, swaps the plain Cancel+Delete row
+  // below for THREE stacked full-width rows (this label on top, in
+  // its own red button, revoke:true; confirmLabel/its default right
+  // under it, revoke:false; Cancel last) -- same card, same width,
+  // just taller. Omitted (the common case: batch-delete-selected,
+  // clear-chat) keeps the original two-button row untouched.
+  deleteForEveryoneLabel?: ReactNode;
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6" onClick={onCancel}>
@@ -714,24 +734,53 @@ export function DeleteMessageConfirmDialog({
             />
           </p>
         )}
-        <div className="mt-3.5 flex gap-2">
-          <button
-            type="button"
-            disabled={deleting}
-            onClick={onCancel}
-            className="flex-1 rounded-full bg-white/10 py-2.5 text-[15px] font-medium text-white transition hover:bg-white/15 disabled:opacity-50"
-          >
-            <T uk="Скасувати" en="Cancel" ru="Отмена" de="Abbrechen" es="Cancelar" fr="Annuler" pl="Anuluj" ptBR="Cancelar" zh="取消" />
-          </button>
-          <button
-            type="button"
-            disabled={deleting}
-            onClick={onConfirm}
-            className="flex-1 rounded-full bg-red-600 py-2.5 text-[15px] font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
-          >
-            {confirmLabel ?? <T uk="Видалити" en="Delete" ru="Удалить" de="Löschen" es="Eliminar" fr="Supprimer" pl="Usuń" ptBR="Excluir" zh="删除" />}
-          </button>
-        </div>
+        {deleteForEveryoneLabel ? (
+          <div className="mt-3.5 flex flex-col gap-2">
+            <button
+              type="button"
+              disabled={deleting}
+              onClick={() => onConfirm(true)}
+              className="w-full rounded-full bg-red-600 py-2.5 text-[15px] font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
+            >
+              {deleteForEveryoneLabel}
+            </button>
+            <button
+              type="button"
+              disabled={deleting}
+              onClick={() => onConfirm(false)}
+              className="w-full rounded-full bg-red-600 py-2.5 text-[15px] font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
+            >
+              {confirmLabel ?? <T uk="Видалити тільки для мене" en="Delete only for me" ru="Удалить только у меня" de="Nur für mich löschen" es="Eliminar solo para mí" fr="Supprimer seulement pour moi" pl="Usuń tylko u mnie" ptBR="Excluir só para mim" zh="仅对我删除" />}
+            </button>
+            <button
+              type="button"
+              disabled={deleting}
+              onClick={onCancel}
+              className="w-full rounded-full bg-white/10 py-2.5 text-[15px] font-medium text-white transition hover:bg-white/15 disabled:opacity-50"
+            >
+              <T uk="Скасувати" en="Cancel" ru="Отмена" de="Abbrechen" es="Cancelar" fr="Annuler" pl="Anuluj" ptBR="Cancelar" zh="取消" />
+            </button>
+          </div>
+        ) : (
+          <div className="mt-3.5 flex gap-2">
+            <button
+              type="button"
+              disabled={deleting}
+              onClick={onCancel}
+              className="flex-1 rounded-full bg-white/10 py-2.5 text-[15px] font-medium text-white transition hover:bg-white/15 disabled:opacity-50"
+            >
+              <T uk="Скасувати" en="Cancel" ru="Отмена" de="Abbrechen" es="Cancelar" fr="Annuler" pl="Anuluj" ptBR="Cancelar" zh="取消" />
+            </button>
+            <button
+              type="button"
+              disabled={deleting}
+              onClick={() => onConfirm(false)}
+              className="flex-1 rounded-full bg-red-600 py-2.5 text-[15px] font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
+            >
+              {confirmLabel ?? <T uk="Видалити" en="Delete" ru="Удалить" de="Löschen" es="Eliminar" fr="Supprimer" pl="Usuń" ptBR="Excluir" zh="删除" />}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

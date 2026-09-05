@@ -5,12 +5,18 @@
 // удалить для меня"). Confirmed off the OpenAPI spec:
 // messages.deleteMessages needs `{ peerTo, ids: UInt[], revoke:
 // boolean }` -- `revoke` is the "for everyone" branch chat-server
-// exposes; explicitly scoped to "delete for me" only per Aleksandr's
-// own instruction, so this route always sends `revoke: false` and
-// never accepts one from the client. `ids` are real numeric per-chat
-// message ids (MessageSchema's own `_id`, a sequential number
-// transformed to a string client-side -- see lib/a1/chat-schemas.ts's
-// own header on why), so the client must send the numeric form back.
+// exposes. `ids` are real numeric per-chat message ids (MessageSchema's
+// own `_id`, a sequential number transformed to a string client-side --
+// see lib/a1/chat-schemas.ts's own header on why), so the client must
+// send the numeric form back.
+//
+// 2026-09-05 follow-up (Aleksandr, reference screenshot: "delete for
+// me and X" / "delete for me" as two stacked options on the SAME
+// confirm card, see components/chat/message-actions-menu.tsx's own
+// DeleteMessageConfirmDialog header) -- `revoke` is now accepted from
+// the client (optional, defaults to `false` so the batch-delete-
+// selected and clear-chat call sites, which never send it, keep the
+// original delete-for-me-only behavior unchanged).
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { A1ApiError } from "@/lib/a1/client";
@@ -23,6 +29,7 @@ export const runtime = "nodejs";
 const DeleteInput = z.object({
   chatId: z.string().trim().min(1),
   messageIds: z.array(z.number().int().positive()).min(1).max(50),
+  revoke: z.boolean().optional().default(false),
 });
 
 export async function POST(request: NextRequest) {
@@ -30,13 +37,13 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ ok: false, message: "invalid_input" }, { status: 400 });
   }
-  const { chatId, messageIds } = parsed.data;
+  const { chatId, messageIds, revoke } = parsed.data;
 
   try {
     const { refreshedSession } = await callAsVisitor<unknown>("messages.deleteMessages", {
       peerTo: peerForRouteParam(chatId),
       ids: messageIds,
-      revoke: false,
+      revoke,
     });
     const response = NextResponse.json({ ok: true });
     if (refreshedSession) setSession(response, refreshedSession);

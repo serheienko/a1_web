@@ -2826,18 +2826,22 @@ export default function ChatWindowPage() {
     window.requestAnimationFrame(() => textareaRef.current?.focus());
   }
 
-  // Delete (viewer's bottom bar + "•••" menu, both share this) -- always
-  // revoke:false (delete-for-me only, see app/api/chats/delete/route.ts's
-  // own header for the explicit scope this was cut down to). Removing
-  // the message from local `messages` state here is what shrinks the
-  // viewer's own `images` prop, which its own effect reacts to (auto-
-  // advance / auto-close) -- no need to duplicate that logic here.
+  // Delete (viewer's bottom bar + "•••" menu, both share this) --
+  // `revoke` defaults to delete-for-me-only (the photo viewer's own
+  // call site below never passes one, unaffected). 2026-09-05 follow-
+  // up (Aleksandr, reference screenshot: "delete for me and X" as a
+  // second option) -- the actions-menu delete confirm now DOES pass an
+  // explicit `revoke`, see handleConfirmDeleteMessage right below.
+  // Removing the message from local `messages` state here is what
+  // shrinks the viewer's own `images` prop, which its own effect
+  // reacts to (auto-advance / auto-close) -- no need to duplicate that
+  // logic here.
   const handleDeleteChatMessage = useCallback(
-    async (messageId: number) => {
+    async (messageId: number, revoke = false) => {
       const res = await authFetch("/api/chats/delete", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ chatId, messageIds: [messageId] }),
+        body: JSON.stringify({ chatId, messageIds: [messageId], revoke }),
       });
       if (!res.ok) {
         throw new Error("delete_failed");
@@ -2851,13 +2855,15 @@ export default function ChatWindowPage() {
   // comment) -- thin wrapper around the exact same handleDeleteChat
   // Message above the photo viewer already calls, just with the
   // confirm-dialog's own deleting/failed local UI state instead of
-  // that viewer's.
-  async function handleConfirmDeleteMessage() {
+  // that viewer's. `revoke` comes straight from which of the confirm
+  // card's two stacked buttons was tapped (see DeleteMessageConfirm
+  // Dialog's own onConfirm(revoke) call sites).
+  async function handleConfirmDeleteMessage(revoke: boolean) {
     if (!deleteConfirm) return;
     setDeletingMessage(true);
     setDeleteMessageFailed(false);
     try {
-      await handleDeleteChatMessage(deleteConfirm.messageId);
+      await handleDeleteChatMessage(deleteConfirm.messageId, revoke);
       setDeleteConfirm(null);
     } catch {
       setDeleteMessageFailed(true);
@@ -6278,12 +6284,36 @@ export default function ChatWindowPage() {
         <DeleteMessageConfirmDialog
           deleting={deletingMessage}
           failed={deleteMessageFailed}
+          // 2026-09-05 follow-up (Aleksandr, reference screenshot:
+          // "delete for me and X" / "delete for me", both always
+          // offered -- confirmed off the mobile app's own delete menu,
+          // which shows both options for every message unconditionally,
+          // no ownership/time-window gating) -- description swapped
+          // for one that actually matches a card with two destructive
+          // choices instead of the plain single-button default's
+          // "only for you".
+          description={
+            <T
+              uk="Оберіть, кому видалити це повідомлення." en="Choose who to delete this message for."
+              ru="Выберите, у кого удалить это сообщение." de="Wähle, für wen diese Nachricht gelöscht wird."
+              es="Elige para quién eliminar este mensaje." fr="Choisissez pour qui supprimer ce message."
+              pl="Wybierz, dla kogo usunąć tę wiadomość." ptBR="Escolha para quem excluir esta mensagem." zh="选择要为谁删除此消息。"
+            />
+          }
+          deleteForEveryoneLabel={
+            <T
+              uk={`Видалити для мене та ${headerTitle}`} en={`Delete for me and ${headerTitle}`}
+              ru={`Удалить для меня и ${headerTitle}`} de={`Für mich und ${headerTitle} löschen`}
+              es={`Eliminar para mí y ${headerTitle}`} fr={`Supprimer pour moi et ${headerTitle}`}
+              pl={`Usuń dla mnie i ${headerTitle}`} ptBR={`Excluir para mim e ${headerTitle}`} zh={`为我和${headerTitle}删除`}
+            />
+          }
           onCancel={() => {
             if (deletingMessage) return;
             setDeleteConfirm(null);
             setDeleteMessageFailed(false);
           }}
-          onConfirm={() => void handleConfirmDeleteMessage()}
+          onConfirm={(revoke) => void handleConfirmDeleteMessage(revoke)}
         />
       )}
       {selectionDeleteConfirm && (

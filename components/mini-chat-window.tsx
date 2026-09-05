@@ -518,11 +518,14 @@ export function MiniChatWindow({
   // 2026-09-05 (delete-for-self, see app/chats/[chatId]/page.tsx's own
   // handleDeleteChatMessage for the full writeup -- identical call,
   // just against this widget's own `messages`/`target.routeParam`).
-  async function handleDeleteChatMessage(messageId: number) {
+  // 2026-09-05 follow-up (Aleksandr, reference screenshot: "delete for
+  // me and X" as a second stacked option on the same confirm card) --
+  // `revoke` mirrors that same page.tsx follow-up 1:1.
+  async function handleDeleteChatMessage(messageId: number, revoke = false) {
     const res = await authFetch("/api/chats/delete", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ chatId: target.routeParam, messageIds: [messageId] }),
+      body: JSON.stringify({ chatId: target.routeParam, messageIds: [messageId], revoke }),
     });
     if (!res.ok) {
       throw new Error("delete_failed");
@@ -530,12 +533,12 @@ export function MiniChatWindow({
     setMessages((prev) => prev.filter((m) => Number(m._id) !== messageId));
   }
 
-  async function handleConfirmDeleteMessage() {
+  async function handleConfirmDeleteMessage(revoke: boolean) {
     if (!deleteConfirm) return;
     setDeletingMessage(true);
     setDeleteMessageFailed(false);
     try {
-      await handleDeleteChatMessage(deleteConfirm.messageId);
+      await handleDeleteChatMessage(deleteConfirm.messageId, revoke);
       setDeleteConfirm(null);
     } catch {
       setDeleteMessageFailed(true);
@@ -1551,12 +1554,28 @@ export function MiniChatWindow({
         <DeleteMessageConfirmDialog
           deleting={deletingMessage}
           failed={deleteMessageFailed}
+          description={
+            <T
+              uk="Оберіть, кому видалити це повідомлення." en="Choose who to delete this message for."
+              ru="Выберите, у кого удалить это сообщение." de="Wähle, für wen diese Nachricht gelöscht wird."
+              es="Elige para quién eliminar este mensaje." fr="Choisissez pour qui supprimer ce message."
+              pl="Wybierz, dla kogo usunąć tę wiadomość." ptBR="Escolha para quem excluir esta mensagem." zh="选择要为谁删除此消息。"
+            />
+          }
+          deleteForEveryoneLabel={
+            <T
+              uk={`Видалити для мене та ${target.title || "—"}`} en={`Delete for me and ${target.title || "—"}`}
+              ru={`Удалить для меня и ${target.title || "—"}`} de={`Für mich und ${target.title || "—"} löschen`}
+              es={`Eliminar para mí y ${target.title || "—"}`} fr={`Supprimer pour moi et ${target.title || "—"}`}
+              pl={`Usuń dla mnie i ${target.title || "—"}`} ptBR={`Excluir para mim e ${target.title || "—"}`} zh={`为我和${target.title || "—"}删除`}
+            />
+          }
           onCancel={() => {
             if (deletingMessage) return;
             setDeleteConfirm(null);
             setDeleteMessageFailed(false);
           }}
-          onConfirm={() => void handleConfirmDeleteMessage()}
+          onConfirm={(revoke) => void handleConfirmDeleteMessage(revoke)}
         />
       )}
       <CopyToast state={copyToast} lang={lang} />
