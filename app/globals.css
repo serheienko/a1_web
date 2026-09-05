@@ -302,6 +302,27 @@ textarea {
 }
 
 /*
+ * Text-selection color (2026-09-05, bug-tracker: "Сделай выделение
+ * текста нашим фирменных синим цветоом, но чуть легче, примерно 50%")
+ * -- Aleksandr caught the browser's own default grey/blue selection
+ * highlight in a live screenshot of the chat compose textarea and
+ * asked for the brand accent instead, at roughly half strength so the
+ * selected text itself stays readable through it (a solid full-opacity
+ * fill would just invert to illegible white-on-blue or vice versa,
+ * exactly what browsers avoid by defaulting to a translucent tint).
+ * Just references --color-accent, so it already tracks BOTH the
+ * .dark-class toggle and the "Auto" prefers-color-scheme fallback
+ * above -- one rule for both themes, no separate .dark::selection
+ * override needed. Left text `color` untouched (browsers already keep
+ * the page's own foreground color under a selection unless overridden)
+ * since a translucent background over either this app's light/white or
+ * dark/black surfaces stays legible without forcing it.
+ */
+::selection {
+  background-color: color-mix(in srgb, var(--color-accent) 50%, transparent);
+}
+
+/*
  * Aleksandr, 2026-08-27: "Не показывай эту скролл полоску снизу возле
  * фото в моб версии" — the mobile photo gallery in
  * components/post-images.tsx is a horizontally-scrollable row
