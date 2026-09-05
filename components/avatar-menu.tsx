@@ -73,7 +73,7 @@ import { useHoverPanel } from "@/lib/use-hover-panel";
 import { InlineAuthForm } from "@/components/inline-auth-form";
 import { setAccountMenuOpen } from "@/lib/account-menu-open";
 import { authFetch } from "@/lib/auth-fetch";
-import { MEDIA_BLUR_STYLE, BLUR_DATA_URL } from "@/lib/blur-placeholder";
+import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { CachedAvatar } from "@/components/cached-avatar";
 
 type Theme = "light" | "dark" | "auto";
@@ -608,12 +608,20 @@ export function AvatarMenu() {
                   onClick={() => setOpen(false)}
                   className="flex items-center gap-2.5 px-2.5 py-2.5 transition hover:bg-neutral-100 dark:hover:bg-neutral-800"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  {/* 2026-09-05 follow-up (Aleksandr, screenshot of
+                      this exact panel: "мини аватар справа в менюшке
+                      сделай тоже с подгрузкой через блюр") -- this was
+                      the one avatar surface in this file still on a
+                      plain <img>+MEDIA_BLUR_STYLE (a same-tab CSS blur
+                      that only ever fades once, no cross-navigation
+                      cache); the button avatar right above already got
+                      the persistent Cache Storage-backed CachedAvatar
+                      earlier the same day. Same swap here. */}
+                  <CachedAvatar
                     src={profileAvatarUrl ?? pickDefaultCatAvatar(email)}
-                    alt=""
+                    blurDataURL={BLUR_DATA_URL}
+                    size={32}
                     className="h-8 w-8 shrink-0 rounded-full object-cover"
-                    style={MEDIA_BLUR_STYLE}
                   />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium text-neutral-900 dark:text-neutral-50" title={email}>
@@ -625,12 +633,11 @@ export function AvatarMenu() {
                 </Link>
               ) : (
                 <div className="flex items-center gap-2.5 px-2.5 py-2.5">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <CachedAvatar
                     src={profileAvatarUrl ?? pickDefaultCatAvatar(email)}
-                    alt=""
+                    blurDataURL={BLUR_DATA_URL}
+                    size={32}
                     className="h-8 w-8 shrink-0 rounded-full object-cover"
-                    style={MEDIA_BLUR_STYLE}
                   />
                   <span className="min-w-0 flex-1 truncate text-sm font-medium text-neutral-900 dark:text-neutral-50" title={email}>
                     {email}
