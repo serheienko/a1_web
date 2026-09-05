@@ -7242,3 +7242,22 @@ message's own content, same as before the whole Reply feature
 scope boundary so a future reply-related tweak doesn't accidentally
 grow a "Reply to X:" prefix into the chat list, which Telegram itself
 never shows there either.
+
+## 6.158 -- Message actions menu: add missing Pin row (2026-09-05)
+
+Aleksandr, 3 reference screenshots (no caption) of the reference app's
+own message menu across three contexts (a received message, an own
+text message, an own message with a photo) -- all three list Reply/
+Copy/[Edit]/Remind/Forward/Pin/Delete/Select; PLAN.md 6.154's own menu
+had every one of those except Pin.
+
+components/chat/message-actions-menu.tsx: added PinIcon (lucide's own
+"pin" glyph, same stroke style as every other icon here) and a "pin"
+ActionRow slotted right after Forward and right before Delete -- the
+same position Telegram uses in both of the directly-comparable
+examples (its third example interleaves Translate/Speak/Save Image
+before Pin, contextual extras this app doesn't have yet, but Pin sits
+in the same relative spot there too). Visual-only placeholder like
+every row but Reply, per 6.154's own established scope.
+
+tsc-clean, commit da9a651.
