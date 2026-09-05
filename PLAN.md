@@ -7227,3 +7227,18 @@ described by its own icon+label) renders exactly as before, prop
 omitted.
 
 tsc-clean, commit 5810970.
+
+## 6.157 -- Chat list preview stays reply-agnostic, confirmed not a bug (2026-09-05)
+
+Aleksandr, reference screenshot of Telegram's own chat list: "В самом
+чат листе reply НЕ пишем."
+
+Checked app/api/chats/list/route.ts, app/chats/page.tsx and
+components/chats-flyout.tsx: none of them ever read a message's own
+`replyTo` -- the last-message preview (previewKind/previewText, both
+straight from describeMessagePreview) already describes ONLY that
+message's own content, same as before the whole Reply feature
+(6.154-6.156) shipped. No code changed here; logged as a confirmed
+scope boundary so a future reply-related tweak doesn't accidentally
+grow a "Reply to X:" prefix into the chat list, which Telegram itself
+never shows there either.
