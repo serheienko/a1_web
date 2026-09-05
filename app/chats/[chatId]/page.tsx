@@ -3405,7 +3405,7 @@ export default function ChatWindowPage() {
                     {!pending && (
                       <div
                         aria-hidden="true"
-                        className={`pointer-events-none flex shrink-0 items-center justify-center overflow-hidden ${
+                        className={`pointer-events-none order-last flex shrink-0 items-center justify-center overflow-hidden ${
                           swipeState && swipeState.msgId === msg._id ? "" : "transition-[width] duration-200 ease-out"
                         }`}
                         style={{ width: swipeState && swipeState.msgId === msg._id ? swipeState.dx : 0 }}
@@ -3511,11 +3511,13 @@ export default function ChatWindowPage() {
                                 if (Math.abs(dx) < 8 || Math.abs(dx) < Math.abs(dy)) return;
                                 g.active = true;
                               }
-                              // Reference recording swipes right in both "Saved
-                              // Messages" (peer-style, left-aligned) and "Mao"
-                              // (mine, right-aligned) -- same direction either
-                              // way, so this never branches on `mine`.
-                              const clamped = Math.max(0, Math.min(dx, SWIPE_MAX_DX));
+                              // 2026-09-05 (Aleksandr: "Свайп влево") -- only
+                              // LEFTWARD drags reveal reply (dx negative), same
+                              // direction regardless of `mine`/peer alignment;
+                              // swipeState.dx itself stays a non-negative
+                              // magnitude (of how far left), same as the slot
+                              // width and icon math below expect.
+                              const clamped = Math.max(0, Math.min(-dx, SWIPE_MAX_DX));
                               setSwipeState({ msgId: msg._id, dx: clamped });
                             }
                       }
