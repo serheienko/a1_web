@@ -27,6 +27,7 @@
 // existing individual rendering entirely unchanged, flat-flush or not.
 "use client";
 
+import type { ReactNode } from "react";
 import { MEDIA_BLUR_STYLE } from "@/lib/blur-placeholder";
 
 type GridDoc = {
@@ -69,7 +70,24 @@ function layoutRows(n: number): Row[] {
   return rows;
 }
 
-export function ChatPhotoGrid({ docs, onOpen }: { docs: GridDoc[]; onOpen: (docId: string) => void }) {
+export function ChatPhotoGrid({
+  docs,
+  onOpen,
+  footer,
+}: {
+  docs: GridDoc[];
+  onOpen: (docId: string) => void;
+  // 2026-09-05 (cross-message album fallback, see app/chats/[chatId]/
+  // page.tsx's crossMessageGroupStart header) -- an absolutely
+  // positioned overlay (the caller supplies its own positioning
+  // classes, same convention as the existing single-photo time+ticks
+  // pill this mirrors) rendered as the grid's last child, inside this
+  // component's own `relative` root so `absolute bottom-1.5 right-1.5`
+  // anchors to the grid itself, not some ancestor. Undefined for the
+  // within-message grouping case (that one keeps its own separate
+  // footer row below the grid, unchanged).
+  footer?: ReactNode;
+}) {
   const rows = layoutRows(docs.length);
 
   return (
@@ -88,7 +106,7 @@ export function ChatPhotoGrid({ docs, onOpen }: { docs: GridDoc[]; onOpen: (docI
       // picked. `w-64 max-w-full` gives it the same real footprint the
       // file-attachment row already uses, capped so it never overflows
       // a narrow bubble.
-      className="grid aspect-square w-64 max-w-full gap-[2px] overflow-hidden rounded-xl"
+      className="relative grid aspect-square w-64 max-w-full gap-[2px] overflow-hidden rounded-xl"
       style={{ gridTemplateRows: rows.map((r) => `${r.heightFr}fr`).join(" ") }}
     >
       {rows.map((row, i) => (
@@ -110,6 +128,7 @@ export function ChatPhotoGrid({ docs, onOpen }: { docs: GridDoc[]; onOpen: (docI
           })}
         </div>
       ))}
+      {footer}
     </div>
   );
 }

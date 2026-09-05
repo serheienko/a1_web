@@ -49,6 +49,7 @@ import {
   SELF_DESTRUCT_VOICE_TTL_SECONDS,
   type ChatMessage,
   type MessageCalculation,
+  type MessageMediaDocument,
 } from "@/lib/a1/chat-schemas";
 import { ChatPreviewLine } from "@/components/chat/chat-preview-line";
 import { MessageActionsMenu, ReplyComposeBar, MessageReplyQuote } from "@/components/chat/message-actions-menu";
@@ -2688,6 +2689,68 @@ export default function ChatWindowPage() {
   }
   const displayMessages = rawDisplayMessages.filter((m) => decodeMeetingAcceptText(extractMessageText(m)) === null);
 
+  // 2026-09-05 (Aleksandr, repeated report even after 6.116/6.142:
+  // "Фото по-прежнему не отображаются в комбинированном виде" -- confirmed live: he
+  // multi-selects several photos and sends them as ONE compose action).
+  // The within-message grouping above (imageGroupStartId, per-message
+  // docMedia run) assumes chat-server actually stores a multi-attachment
+  // send as a single message carrying N media entries -- the OpenAPI
+  // spec only confirms `media` is an array on Resource.Message's OUTPUT
+  // shape, never confirmed live that messages.send's INPUT array
+  // survives as one grouped message rather than being split server-side
+  // into N single-media messages (no groupedId/albumId field exists on
+  // this backend at all, unlike Telegram's own MTProto). This is a
+  // defensive fallback for exactly that split-server-side case: group
+  // any run of 2+ CONSECUTIVE real (non-pending) messages from the SAME
+  // sender, each carrying nothing but a single image (no caption, no
+  // other content -- the same "solo" shape isImageOnly below already
+  // tests per-message), sent within CROSS_MESSAGE_GROUP_WINDOW_MS of
+  // each other, into one ChatPhotoGrid -- same visual result as the
+  // within-message case, just spanning message boundaries instead of
+  // one message's own media array. A message that already groups via
+  // imageGroupStartId (2+ images in its OWN media array) never
+  // qualifies as "solo" here (soloImageMessage requires exactly one doc),
+  // so the two groupings can never double-fire on the same message.
+  const CROSS_MESSAGE_GROUP_WINDOW_MS = 15_000;
+  const soloImageMessage = (m: ChatMessage | PendingMessage): { msg: ChatMessage; doc: MessageMediaDocument } | null => {
+    if (isPendingMessage(m)) return null;
+    if (extractMessageText(m)) return null;
+    if (messageCalculation(m) !== null) return null;
+    if (messageContactMedia(m).length > 0) return null;
+    const docs = messageDocumentMedia(m);
+    if (docs.length !== 1) return null;
+    const doc = docs[0]!;
+    if (!isImageMediaDocument(doc)) return null;
+    return { msg: m, doc };
+  };
+  const crossMessageGroupStart = new Map<string, { msg: ChatMessage; doc: MessageMediaDocument }[]>();
+  const crossMessageGroupSkip = new Set<string>();
+  {
+    let idx = 0;
+    while (idx < displayMessages.length) {
+      const first = soloImageMessage(displayMessages[idx]!);
+      if (!first) {
+        idx++;
+        continue;
+      }
+      const run = [first];
+      let next = idx + 1;
+      while (next < displayMessages.length) {
+        const cand = soloImageMessage(displayMessages[next]!);
+        if (!cand || cand.msg.fromId !== first.msg.fromId) break;
+        const gapMs = messageDateMs(cand.msg) - messageDateMs(run[run.length - 1]!.msg);
+        if (gapMs < 0 || gapMs > CROSS_MESSAGE_GROUP_WINDOW_MS) break;
+        run.push(cand);
+        next++;
+      }
+      if (run.length >= 2) {
+        crossMessageGroupStart.set(run[0]!.msg._id, run);
+        for (const r of run.slice(1)) crossMessageGroupSkip.add(r.msg._id);
+      }
+      idx = next;
+    }
+  }
+
   // Reply feature (2026-09-05) -- a real message's own `replyTo` (see
   // lib/a1/chat-schemas.ts's MessageReplyToSchema header) carries only
   // the target's numeric id, never a snippet of what it said -- this
@@ -3052,6 +3115,7 @@ export default function ChatWindowPage() {
         {state === "ready" && displayMessages.length > 0 && (
           <div className="flex flex-col gap-1.5">
             {displayMessages.map((msg, i) => {
+              if (crossMessageGroupSkip.has(msg._id)) return null;
               const mine = myUserId !== null && msg.fromId === myUserId;
               const text = extractMessageText(msg);
               const ms = messageDateMs(msg);
@@ -3262,6 +3326,19 @@ export default function ChatWindowPage() {
                 text === GREETING_EMOJI && !meeting && calc === null && contactMedia.length === 0 &&
                 pendingContactCards.length === 0 && pendingAttachments.length === 0 && docMedia.length === 0;
               const isFlatMedia = isVoiceOnly || isImageOnly || isFileOnly || isContactOnly || isMeetingOnly || isGreetingSticker;
+              // See crossMessageGroupStart's own header comment above.
+              const crossGroupRun = crossMessageGroupStart.get(msg._id) ?? null;
+              const crossGroupFooter = crossGroupRun
+                ? (() => {
+                    const lastMsg = crossGroupRun[crossGroupRun.length - 1]!.msg;
+                    return (
+                      <span className="pointer-events-none absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded-full bg-black/45 px-2 py-0.5 text-[11px] text-white backdrop-blur-sm">
+                        <span>{formatTime(messageDateMs(lastMsg))}</span>
+                        {mine && <MessageTicks state={messageTickState(lastMsg, peerReadMaxId)} className="h-[7.77px] w-3.5" />}
+                      </span>
+                    );
+                  })()
+                : null;
               // Unified for both a real message (real ticks) and a
               // still-pending one (spinner/not-sent icon, same as the
               // shared non-flat footer below already did) -- so a flat
@@ -3508,6 +3585,17 @@ export default function ChatWindowPage() {
                               />
                             ) : isImageMediaDocument(doc) ? (
                               isImageOnly ? (
+                                crossGroupRun ? (
+                                  <ChatPhotoGrid
+                                    key={doc._id}
+                                    docs={crossGroupRun.map((g) => ({ id: g.doc._id, src: getStableMediaProxyUrl(g.doc) }))}
+                                    onOpen={(docId) => {
+                                      const owner = crossGroupRun.find((g) => g.doc._id === docId);
+                                      openViewerForDoc(owner ? owner.msg._id : msg._id, docId);
+                                    }}
+                                    footer={crossGroupFooter}
+                                  />
+                                ) : (
                                 // 2026-09-03 (Aleksandr, third live-
                                 // feedback round: "убери подложку для
                                 // фотографий... сделай время тоже в
@@ -3554,6 +3642,7 @@ export default function ChatWindowPage() {
                                     {mine && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7.77px] w-3.5" />}
                                   </span>
                                 </div>
+                                )
                               ) : (
                                 // eslint-disable-next-line @next/next/no-img-element -- proxied
                                 // through /api/media, not a next/image-configured remote host.
