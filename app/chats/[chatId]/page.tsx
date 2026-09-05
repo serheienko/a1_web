@@ -1435,6 +1435,19 @@ export default function ChatWindowPage() {
   useEffect(() => {
     isPinnedToBottomRef.current = true;
   }, [chatId]);
+  // 2026-09-05 (Aleksandr, Telegram Desktop reference screenshots: a
+  // circular down-chevron floats above the compose bar once the newest
+  // message has scrolled almost out of view, jumping back to the very
+  // bottom on click) -- reuses the SAME pinned-to-bottom signal the
+  // effect below already computes on every scroll tick (that ref alone
+  // can't drive the button's visibility since writing a ref doesn't
+  // re-render); this state mirrors it, but only setState on an actual
+  // flip so a smooth scroll animation firing many scroll events doesn't
+  // spam re-renders the whole way down.
+  const [showJumpToBottom, setShowJumpToBottom] = useState(false);
+  useEffect(() => {
+    setShowJumpToBottom(false);
+  }, [chatId]);
   useEffect(() => {
     const el = messagesScrollRef.current;
     if (!el) return;
@@ -1442,11 +1455,20 @@ export default function ChatWindowPage() {
     function onScroll() {
       if (!el) return;
       const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-      isPinnedToBottomRef.current = distanceFromBottom <= BOTTOM_PIN_THRESHOLD_PX;
+      const pinned = distanceFromBottom <= BOTTOM_PIN_THRESHOLD_PX;
+      isPinnedToBottomRef.current = pinned;
+      setShowJumpToBottom((prev) => (prev === !pinned ? prev : !pinned));
     }
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
+  function jumpToBottom() {
+    const el = messagesScrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    isPinnedToBottomRef.current = true;
+    setShowJumpToBottom(false);
+  }
   useEffect(() => {
     const el = messagesScrollRef.current;
     const content = el?.firstElementChild;
@@ -3851,6 +3873,35 @@ export default function ChatWindowPage() {
         )}
         </div>
       </div>
+
+      {/* 2026-09-05 (Aleksandr, Telegram Desktop reference screenshots:
+          a circular down-chevron sits just above the compose row, right
+          where the mic/send button column lines up, once the newest
+          message has almost scrolled out of view -- clicking it jumps
+          straight to the bottom). `fixed inset-x-0` + an inner
+          `mx-auto max-w-[470px] justify-end` wrapper mirrors exactly how
+          the compose bar below centers its own 470px column and keeps
+          its content flush to that column's right edge, so this button
+          lines up with the send/mic button beneath it instead of the
+          bare viewport edge. Anchored composeBarHeight + a gap above the
+          (real, live-measured) compose bar, same technique the message
+          list's own bottom padding already uses. */}
+      {state !== "signed-out" && showJumpToBottom && (
+        <div className="pointer-events-none fixed inset-x-0 z-10 flex justify-center px-4" style={{ bottom: `${composeBarHeight + 12}px` }}>
+          <div className="mx-auto flex w-full max-w-[470px] justify-end">
+            <button
+              type="button"
+              onClick={jumpToBottom}
+              aria-label="Jump to bottom"
+              className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-[#335ef7] shadow-md backdrop-blur-sm transition hover:bg-neutral-50 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/90 dark:text-[#0c8ce9]"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden="true">
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
 
       {state !== "signed-out" && (
         // 2026-09-02, live-testing feedback (video + 2 screenshots): compose
