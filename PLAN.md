@@ -7754,3 +7754,40 @@ specify, keeping it in sync with any JS that measures those boxes.
 tsc-clean (CSS-only; ran tsc anyway per this repo's own bar). Commit
 ba70340. **Not yet verified live or pushed** -- same standing network
 blocker; now 14 commits sitting locally ahead of origin/main.
+
+
+## 6.175 -- Blur-up loading extended to every remaining avatar (2026-09-05)
+
+Aleksandr, screenshot of a "Пропозиція зустрічі" (meeting proposal)
+card: "Сделай подгрузку аватаров на миты через блюр тоже и ВСЕ
+последующие аватары" -- meeting-card participant avatars specifically,
+plus a blanket ask to close out every other avatar still missing the
+effect.
+
+lib/blur-placeholder.ts already has exactly the right tool for plain
+`<img>` avatars that can't use next/image's own `placeholder="blur"`:
+MEDIA_BLUR_STYLE, a CSSProperties background-image blur swatch, already
+proven on chat photo bubbles (photo-grid.tsx) -- no onLoad handler
+needed, since an unloaded/broken `<img>` paints no pixels and lets the
+CSS background show through underneath until the real image decodes.
+
+Grepped the whole codebase for every plain-`<img>` avatar render still
+missing it and added `style={MEDIA_BLUR_STYLE}` (+ the import) to all
+of them, across 5 files:
+- components/chat/meeting-message-card.tsx -- ParticipantAvatar, the
+  exact avatars in the screenshot's meeting-proposal card
+- components/chat/voice-now-playing-bar.tsx -- mini-player speaker avatar
+- components/chat/schedule-meeting-modal.tsx -- peer avatar in the
+  meeting-scheduling sheet
+- components/chat/contact-message-card.tsx -- shared-contact card avatar
+- components/avatar-menu.tsx -- own-avatar nav button + both dropdown
+  avatars (profile-link and no-username fallback cases)
+
+Deliberately excluded components/avatar-edit-button.tsx's crop-editor
+`<img>` -- that's an actively-dragged local blob on a live editing
+canvas, not a "loading from network" avatar view, so the placeholder
+doesn't apply there.
+
+tsc-clean. Commit 3ead55b. **Not yet verified live or pushed** -- same
+standing network blocker; now 15 commits sitting locally ahead of
+origin/main.
