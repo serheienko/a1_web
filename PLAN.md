@@ -7162,3 +7162,40 @@ staging an actual reply target -- untouched this pass, flagged for a
 follow-up if he wants it wired the same way.
 
 tsc-clean, commit pending.
+
+## 6.155 -- Reply: extend to photo/voice/file bubbles + fix photo thumbnail + file icon (2026-09-05)
+
+Aleksandr, 4 reference screenshots of replying-with-text to a Photo/
+Voice Message/Sticker/document in the reference app: "Нет, давай
+расширять дальше на другие типы файлов... Нам надо примерно так же как
+бы и сделать на все остальные. Видишь, у нас там есть отдельно там
+превьюшка файла. У нас будут ещё стикеры позже, но это пока так. Есть
+voice message, есть фото."
+
+- app/chats/[chatId]/page.tsx: the outer message-bubble container now
+  gets `onContextMenu` (right-click on desktop, its long-press
+  equivalent on effectively every mobile browser) opening the same
+  MessageActionsMenu on ANY message kind -- a separate DOM event from
+  the left-click each of photo/voice/file already owns (open the photo
+  viewer, play voice, open a file), so none of those existing handlers
+  needed touching. Left-click-to-open-the-menu stays text-only (PLAN.md
+  6.154's own scope cut), now documented as such explicitly rather than
+  just "scoped to text for now."
+- resolveReplyPreview no longer hardcodes photoUrl to null --
+  describeMessagePreview already hands back the photo doc for a
+  "photo" preview, just wasn't being read; replying to a photo now
+  shows the real thumbnail like the chat list does.
+- components/chat/chat-preview-line.tsx: "file" kind gets its own
+  ChatFileTypeIcon badge (same one the real document bubble uses,
+  extension-only since this call site has no mimetype) instead of
+  falling into the bare-text branch -- was the one kind in that shared
+  component with no icon at all.
+
+Stickers deliberately left without an icon here ("будут ещё стикеры
+позже, но это пока так" -- his own words, not a silent omission).
+Known limitation, told to Aleksandr in-code: iOS Safari can still show
+its own native image-save callout on a long-press over an `<img>`
+before this fires -- a documented platform quirk, flag if it shows up
+live.
+
+tsc-clean, commit d9171b0.
