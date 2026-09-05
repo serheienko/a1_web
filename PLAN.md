@@ -7996,3 +7996,66 @@ an equivalent touch trigger.
 
 tsc-clean. Commit c18acfd. **Not yet verified live or pushed** -- now
 5 commits sitting locally ahead of e598c18/6.178.
+
+
+## 6.182 -- Grouped photos go flat, no blue frame; blur the full-size viewer too (2026-09-05)
+
+Aleksandr, two quick follow-ups after confirming 6.179 live ("Красава!
+Фото комбинируются правильно теперь 😘"):
+
+**1.** "Убери только синюю рамку с фото, так будет более современно, а
+время показывай через прозрачную пилюлю" -- a grouped multi-photo
+message (2+ images in ONE message, imageGroupStartId's within-message
+grouping) was the one media kind that never got this app's existing
+flat/no-chrome treatment (isVoiceOnly/isImageOnly/isFileOnly/...)
+because isImageOnly only ever recognized a SOLE image. New
+isImageGroupOnly flag (app/chats/[chatId]/page.tsx) folds it into
+isFlatMedia, and a new imageGroupFooter -- same dark translucent pill
+crossGroupFooter and the solo-photo pill already use -- replaces the
+old separate time+ticks row that used to sit below the grid inside the
+blue/white bubble background.
+
+**2.** "Эти фото тоже подгружай через блюр, при открытии просмотра
+фото в большом формате" -- components/chat/photo-viewer.tsx's
+full-size lightbox `<img>` painted nothing at all while its (much
+larger, uncached) source loaded, unlike every other photo surface in
+the app. Applied the same MEDIA_BLUR_STYLE shimmer background
+(lib/blur-placeholder.ts) used everywhere else.
+
+tsc-clean. Commit d0831c4. **Not yet verified live or pushed** -- same
+standing network blocker; commits keep piling up locally ahead of the
+last confirmed-deployed one (e598c18/6.178).
+
+## 6.183 -- Feed: persistent avatar cache + seamless infinite scroll, page size 30 (2026-09-05)
+
+Aleksandr, flagged "Это важный фикс": "Кешируй главные ленты тоже, со
+всеми аватарами и інфой, но кстати не загружай всю ленту сразу, а
+показывай только постов 30, но потому когда пользователь будет
+приближаться к низу ленты автоматом запуская подгрузку и пагинацию,
+чтобы все посты подгружались бесшовно и при этом мы каждый раз не
+запрашивали весь список постов и не палили деньги." Landed entirely in
+the already-existing cursor-pagination plumbing (fetchFeedPage/
+LoadMore/app/api/feed), no rebuild:
+
+FEED_PAGE_SIZE (lib/a1/feed.ts) 20 -> 30, shared by both the initial
+RSC page load (app/page.tsx, app/talents/page.tsx) and every "load
+more" page after it -- the "30, not everything at once" half.
+components/load-more.tsx's manual "Show more" button is now triggered
+automatically by an IntersectionObserver on a sentinel div placed
+after the loaded posts (600px rootMargin -- fires while the visitor is
+still approaching the bottom, not already stuck there waiting) --
+still exactly ONE cursor-paginated page per trigger, same as the old
+button, so per-request cost is unchanged, only the click is gone; the
+button itself survives only as the loading-indicator/error-retry
+state. components/post-card.tsx's author avatars now go through the
+same persistent Cache Storage-backed avatar cache the chat list
+already has (CachedAvatar/lib/avatar-image-cache.ts, 6.181) instead of
+a plain next/image -- avatarUrl is built by the identical
+buildMediaProxyUrl() helper (lib/a1/mappers.ts), so the existing
+/api/media/<id> doc-id-keyed cache applies with zero changes needed
+there. One avatar per feed card makes this the single biggest
+per-render image cost on the site, so it's also the biggest "не палили
+деньги" win of any avatar surface yet.
+
+tsc-clean. Commit e8cec75. **Not yet verified live or pushed** -- same
+standing network blocker.
