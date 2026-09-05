@@ -53,7 +53,8 @@ import { T, type Locale } from "@/components/t";
 import type { ReactNode } from "react";
 import { bucketForHour, bucketEmoji, type MeetingPayload, type MeetingAcceptPayload, type MeetingTimeBucket } from "@/lib/a1/meeting-protocol";
 import { LottiePlayer } from "@/components/lottie-player";
-import { MEDIA_BLUR_STYLE } from "@/lib/blur-placeholder";
+import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
+import { CachedAvatar } from "@/components/cached-avatar";
 
 type StringKey =
   | "title"
@@ -205,9 +206,14 @@ type Participant = { name: string; avatarUrl: string | null };
 
 function ParticipantAvatar({ p, className }: { p: Participant; className?: string }) {
   if (p.avatarUrl) {
-    // eslint-disable-next-line @next/next/no-img-element -- proxied
-    // media/data URL, not a next/image-configured remote host.
-    return <img src={p.avatarUrl} alt="" className={`${className} rounded-full object-cover`} style={MEDIA_BLUR_STYLE} />;
+    // 2026-09-05 (Aleksandr: "кешировать вообще всё, если оно хотя бы
+    // 1 раз открывалось") -- same persistent Cache Storage-backed
+    // CachedAvatar every other avatar surface on the site now uses.
+    // 44px is this component's own only call site's real size (h-11
+    // w-11) -- CachedAvatar's `size` is just the img width/height
+    // attribute, the passed-through className still controls the
+    // actual rendered size.
+    return <CachedAvatar src={p.avatarUrl} blurDataURL={BLUR_DATA_URL} size={44} className={`${className} rounded-full object-cover`} />;
   }
   const initial = p.name.trim().slice(0, 1).toUpperCase() || "?";
   return (

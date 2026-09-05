@@ -63,7 +63,8 @@ import {
   toggleVoice,
 } from "@/lib/voice-playback-store";
 import { PauseGlyph, PlayGlyph } from "@/components/chat/voice-bubble";
-import { MEDIA_BLUR_STYLE } from "@/lib/blur-placeholder";
+import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
+import { CachedAvatar } from "@/components/cached-avatar";
 
 function CloseGlyph({ className }: { className?: string }) {
   return (
@@ -146,9 +147,13 @@ export function VoiceNowPlayingBar() {
     >
       <div className="flex items-center gap-2.5 px-3 py-2">
         {entry.avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element -- proxied/
-          // generated avatar, not a next/image-configured remote host.
-          <img src={entry.avatarUrl} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" style={MEDIA_BLUR_STYLE} />
+          // 2026-09-05 (Aleksandr: "кешировать вообще всё, если оно
+          // хотя бы 1 раз открывалось") -- this bar shows on every
+          // voice-message play, site-wide, so it's a high-frequency
+          // avatar surface -- same persistent Cache Storage-backed
+          // CachedAvatar every other avatar surface on the site now
+          // uses.
+          <CachedAvatar src={entry.avatarUrl} blurDataURL={BLUR_DATA_URL} size={36} className="h-9 w-9 shrink-0 rounded-full object-cover" />
         ) : (
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#335ef7]/10 text-[#335ef7] dark:bg-[#0c8ce9]/15 dark:text-[#0c8ce9]">
             <MicFallbackGlyph className="h-4 w-4" />

@@ -61,7 +61,8 @@ import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { OCCUPATION_LABELS } from "@/components/occupation-labels";
 import { T } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
-import { MEDIA_BLUR_STYLE } from "@/lib/blur-placeholder";
+import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
+import { CachedAvatar } from "@/components/cached-avatar";
 
 export type ContactCardSummary = {
   fullName: string;
@@ -175,9 +176,11 @@ export function ContactMessageCard({
       }`}
     >
       <div className="flex items-center gap-2.5">
-        {/* eslint-disable-next-line @next/next/no-img-element -- proxied/
-            generated avatar, not a next/image-configured remote host. */}
-        <img src={avatarUrl} alt="" className="h-11 w-11 shrink-0 rounded-full object-cover" style={MEDIA_BLUR_STYLE} />
+        {/* 2026-09-05 (Aleksandr: "кешировать вообще всё, если оно
+            хотя бы 1 раз открывалось") -- same persistent Cache
+            Storage-backed CachedAvatar every other avatar surface on
+            the site now uses. */}
+        <CachedAvatar src={avatarUrl} blurDataURL={BLUR_DATA_URL} size={44} className="h-11 w-11 shrink-0 rounded-full object-cover" />
         <div className="flex min-w-0 flex-col gap-1">
           <span className="truncate text-[15px] font-semibold">{name}</span>
           {occupationLabel && (
