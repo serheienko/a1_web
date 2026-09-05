@@ -39,20 +39,39 @@
 // header already documents for this codebase (no React Context needed
 // -- the writer, uploadAndSendVoice, and the reader, VoiceMessageBubble,
 // don't share a tree beyond both living somewhere under one chat page).
+//
+// 2026-09-05 (t006, still "эквалайзер ломается" after every round
+// above) -- root cause was never the decode math, it's that this cache
+// was keyed by `fileReference`, which this codebase already proved (see
+// lib/a1/stable-media-url.ts's own header, the identical bug for photo
+// thumbnails) the backend REISSUES with a new value for the same
+// document on every poll. uploadAndSendVoice writes the cache once,
+// right after upload.confirm, using THAT response's fileReference; but
+// by the time VoiceMessageBubble reads it back for the confirmed
+// message, load()'s own poll has already fetched the doc fresh with a
+// rotated fileReference -- a guaranteed cache miss, silently falling
+// through to the server's own inaccurate attribute-audio.waveform
+// every single time, which looked exactly like "the server swapped the
+// data" but was actually this cache never being hit at all past the
+// very first render. `_id` is the one field stable-media-url.ts already
+// proved survives that same rotation untouched, and
+// app/api/upload/confirm/route.ts's MediaDocumentSchema guarantees it's
+// present on the confirm response too -- so this cache is now keyed by
+// `_id` instead, exactly like stable-media-url.ts's own cache is.
 const MAX_ENTRIES = 100; // small clips only (0..1 floats, ~48 numbers each) -- capped so a long session can't leak memory
 
 const cache = new Map<string, number[]>();
 
-export function rememberLocalVoiceWaveform(fileReference: string, waveform: number[]): void {
-  if (!fileReference || waveform.length === 0) return;
-  cache.delete(fileReference); // re-insert at the end so eviction below stays LRU-ish
-  cache.set(fileReference, waveform);
+export function rememberLocalVoiceWaveform(docId: string, waveform: number[]): void {
+  if (!docId || waveform.length === 0) return;
+  cache.delete(docId); // re-insert at the end so eviction below stays LRU-ish
+  cache.set(docId, waveform);
   if (cache.size > MAX_ENTRIES) {
     const oldest = cache.keys().next().value;
     if (oldest !== undefined) cache.delete(oldest);
   }
 }
 
-export function getLocalVoiceWaveform(fileReference: string): number[] | null {
-  return cache.get(fileReference) ?? null;
+export function getLocalVoiceWaveform(docId: string): number[] | null {
+  return cache.get(docId) ?? null;
 }

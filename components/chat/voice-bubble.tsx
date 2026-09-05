@@ -240,7 +240,13 @@ export function VoiceMessageBubble({
   // and only fall back to that decode for a clip with no local entry
   // (received from the other side, or sent in an earlier session).
   const [decodedWaveform, setDecodedWaveform] = useState<number[] | null>(null);
-  const localWaveform = getLocalVoiceWaveform(doc.fileReference);
+  // 2026-09-05 (t006) -- keyed by doc._id, NOT doc.fileReference: the
+  // latter rotates on every load()/poll for the same document (see
+  // lib/a1/stable-media-url.ts's own header for the proven root cause,
+  // and lib/voice-local-waveform-cache.ts's for how it applies here) --
+  // a fileReference-keyed lookup here was a guaranteed cache miss by
+  // the time this bubble ever rendered the confirmed message.
+  const localWaveform = getLocalVoiceWaveform(doc._id);
   // 2026-09-04 (Aleksandr, still flagged after the sent-side fix above:
   // "Потом баг с эквалайзером") -- that fix only covers a clip THIS
   // browser tab itself just recorded (localWaveform, populated at send
@@ -279,7 +285,7 @@ export function VoiceMessageBubble({
   // programmatic fetch() just reads the body either way).
   useEffect(() => {
     if (localWaveform) return;
-    if (getLocalVoiceWaveform(doc.fileReference)) return;
+    if (getLocalVoiceWaveform(doc._id)) return;
     let cancelled = false;
     (async () => {
       try {
@@ -288,7 +294,7 @@ export function VoiceMessageBubble({
         const blob = await res.blob();
         const decoded = await decodeWaveformFromBlob(blob, DECODE_BARS, totalSeconds);
         if (cancelled || !decoded) return;
-        rememberLocalVoiceWaveform(doc.fileReference, decoded);
+        rememberLocalVoiceWaveform(doc._id, decoded);
         setDecodedWaveform(decoded);
       } catch {
         // Best-effort only -- decodeWaveformBars(voiceAttr?.waveform, ...)
@@ -299,7 +305,7 @@ export function VoiceMessageBubble({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doc.fileReference]);
+  }, [doc._id]);
   const bars = localWaveform
     ? resampleWaveform(localWaveform, WAVEFORM_BARS)
     : decodedWaveform

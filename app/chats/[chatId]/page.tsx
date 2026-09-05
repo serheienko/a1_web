@@ -1786,16 +1786,21 @@ export default function ChatWindowPage() {
       });
       const confirmData = await confirmRes.json().catch(() => null);
       const fileReference = confirmData?.media?.fileReference as string | undefined;
-      if (!confirmRes.ok || !confirmData?.ok || !fileReference) {
+      const mediaId = confirmData?.media?._id as string | undefined;
+      if (!confirmRes.ok || !confirmData?.ok || !fileReference || !mediaId) {
         markVoiceUploadFailed(localId);
         return;
       }
       // 2026-09-04 (see lib/voice-local-waveform-cache.ts's own header
-      // for the full live-test trail) -- keyed by this exact
-      // fileReference, so VoiceMessageBubble can render off the real
-      // locally-recorded waveform instead of whatever the server's own
-      // attribute-audio.waveform comes back as once this doc confirms.
-      rememberLocalVoiceWaveform(fileReference, stored.waveform);
+      // for the full live-test trail) -- lets VoiceMessageBubble render
+      // off the real locally-recorded waveform instead of whatever the
+      // server's own attribute-audio.waveform comes back as once this
+      // doc confirms. 2026-09-05 (t006): keyed by this doc's own stable
+      // `_id`, NOT `fileReference` -- the latter rotates on every
+      // load()/poll (same bug stable-media-url.ts already fixed for
+      // photo thumbnails), so a fileReference-keyed cache write here
+      // was already stale by the time the confirmed bubble read it back.
+      rememberLocalVoiceWaveform(mediaId, stored.waveform);
       voiceBlobsRef.current.delete(localId);
       setPendingMessages((prev) =>
         prev.map((p) =>
