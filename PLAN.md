@@ -7310,3 +7310,29 @@ they invert to a white pill with blue text/icon, same as voice-bubble
 .tsx's own play-button treatment on a mine bubble.
 
 tsc-clean, commit 3e296ac.
+
+## 6.161 -- Jump-to-bottom button over the compose bar (2026-09-05)
+
+Aleksandr, Telegram Desktop reference screenshots: "Внутри чата снизу,
+напротив записи микрофона сделай стрелочку, которая при нажатии будет
+опускать в самый низ чата. Она должна появляться сразу после того как
+у тебя почти заехало (скрылось) самое новое сообщение."
+
+app/chats/[chatId]/page.tsx already tracked a pinned-to-bottom ref
+(isPinnedToBottomRef, a scroll listener with a 96px threshold) purely
+to decide whether new messages should auto-snap the view down. Added a
+mirrored `showJumpToBottom` state driven by that same threshold check
+(setState only on an actual pinned/not-pinned flip, so a smooth-scroll
+animation's many scroll events don't spam re-renders) -- once not
+pinned, a circular down-chevron button fades in.
+
+The button is `fixed`, anchored `composeBarHeight + 12px` above the
+compose bar (the same live-measured height the message list's own
+bottom padding already reads), wrapped in the identical `mx-auto
+max-w-[470px] justify-end` pattern the compose row and message list
+both already use, so it lines up with the mic/send button column
+beneath it rather than the bare viewport edge. Clicking it calls
+`el.scrollTo({ top: el.scrollHeight, behavior: "smooth" })` and
+re-pins.
+
+tsc-clean, commit a18b1d7.
