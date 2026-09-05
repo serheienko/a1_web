@@ -77,6 +77,21 @@ function ForwardIcon({ className }: IconProps) {
   );
 }
 
+// 2026-09-05 (Aleksandr, 3 reference screenshots of the reference
+// app's own message menu: Reply/Copy/[Edit]/Remind/Forward/PIN/Delete/
+// Select -- ours was missing Pin entirely) -- lucide's own "pin" glyph
+// (same round-joins/round-caps style as every icon in this file),
+// slotted the same place Telegram puts it: right after Forward, right
+// before Delete.
+function PinIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M12 17v5" />
+      <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9a2 2 0 0 1-1.11-1.79V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" />
+    </svg>
+  );
+}
+
 function DeleteIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
@@ -98,7 +113,7 @@ function SelectIcon({ className }: IconProps) {
   );
 }
 
-type ActionKey = "reply" | "copy" | "edit" | "remind" | "forward" | "delete" | "select";
+type ActionKey = "reply" | "copy" | "edit" | "remind" | "forward" | "pin" | "delete" | "select";
 
 type ActionRow = {
   key: ActionKey;
@@ -138,6 +153,12 @@ const ACTION_ROWS: ActionRow[] = [
     icon: ForwardIcon,
     group: "main",
     label: { uk: "Переслати", en: "Forward", ru: "Переслать", de: "Weiterleiten", es: "Reenviar", fr: "Transférer", pl: "Prześlij dalej", ptBR: "Encaminhar", zh: "转发" },
+  },
+  {
+    key: "pin",
+    icon: PinIcon,
+    group: "main",
+    label: { uk: "Закріпити", en: "Pin", ru: "Закрепить", de: "Anheften", es: "Fijar", fr: "Épingler", pl: "Przypnij", ptBR: "Fixar", zh: "置顶" },
   },
   {
     key: "delete",
