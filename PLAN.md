@@ -8752,3 +8752,29 @@ scope for this ask.
 
 tsc-clean. Commit 64abe90. 54 commits now sitting locally ahead of
 e598c18/6.178.
+
+## 6.216 -- Strengthen File-input accept against iOS's photo-picker sheet (2026-09-05)
+
+Live-tested a SECOND time (Aleksandr: "Так я сразу файл и нажимал" --
+confirmed it was "Файл", not "Фото", still showing Apple's sheet).
+6.214's earlier accept fix (application/*,text/*,audio/* wildcards)
+matched every previously documented case of this WebKit quirk, but a
+bare MIME wildcard alone apparently isn't bulletproof on every iOS
+version. Added an explicit dot-extension list alongside the existing
+wildcards -- every extension file-type-icon.tsx's own KIND_EXTENSIONS
+recognizes, plus common non-media formats the backend already accepts
+with no allowlist (json/xml/html/apk/ipa/dmg/exe/etc.). None of the
+additions are image/video, so this can only make the "not a photo"
+signal to iOS more explicit, never regress anything.
+
+Also worth flagging separately (not a code fix): confirmed via `git
+log`/env inspection that this session's OWN device-bash shell sits
+behind the exact same sandboxed egress proxy as the cloud container --
+git push has been failing from BOTH all day, not just the cloud side.
+If jobs.a1appp.com (the domain Aleksandr's screenshots keep testing
+against) only deploys from a `git push` HE runs himself outside this
+session, none of today's 50+ local commits -- this one included --
+reach production until he does that push/deploy step on his end.
+
+tsc-clean. Commit efce071. 55 commits now sitting locally ahead of
+e598c18/6.178.
