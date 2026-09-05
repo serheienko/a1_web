@@ -8628,3 +8628,46 @@ shows its real colors immediately everywhere else too).
 tsc-clean. Commit c0f8471. 48 commits now sitting locally ahead of
 e598c18/6.178.
 
+## 6.210 -- Edit compose bar: show the original text, Telegram-style (2026-09-05)
+
+Direct follow-up correction on 6.204 (Aleksandr: "все так, просто
+сверху еще надо подставлять текст типа что ты редактируешь, как у
+Телеги") -- EditComposeBar only showed a generic "Editing message"
+label with no preview of what was actually being edited, unlike
+ReplyComposeBar's own author+quote treatment it was modeled after.
+Added a required previewText prop, sourced from extractMessageText
+(the message's ORIGINAL text) rather than the live `draft` state, so
+the preview keeps showing the pre-edit text as the user retypes it --
+exactly mirroring the reply quote's own "stable source text" behavior.
+
+tsc-clean. Commit 025929d. 49 commits now sitting locally ahead of
+e598c18/6.178.
+
+## 6.211 -- Fire badge size parity with mobile, 2x meeting bucket emoji, symmetric reply-bar open animation (2026-09-05)
+
+Worked through the rest of the Fix Tracker's pending items:
+
+- "Огонек в сообщении поломан по UI" (no detail attached) -- re-diffed
+  voice-bubble.tsx's fire badge against the mobile source it was
+  ported from (voice_message_bubble_widgets.dart's _FireIntroAnimation):
+  mobile's badge container is a fixed 30x30 with the Lottie glyph
+  itself rendered at only 10x10 (1:3 ratio); this file had drifted to
+  28x28 with a 14px icon (1:2), reading oversized/cramped against the
+  real app. Matched mobile's exact pixel values -- the most concrete,
+  source-grounded "broken" difference found with no screenshot or
+  further description on that tracker entry to go on.
+- "Во встречах сделай размер эмодзи сбоку в х2 раза больше" -- doubled
+  the shared bucketEmoji (sunrise/sun/cityscape/moon) rendering in both
+  places it appears: meeting-message-card.tsx's per-participant row
+  (30px->60px) and schedule-meeting-modal.tsx's peer row (16px->32px).
+- "Плавная анимация... надо так же... при открытии" -- the reply-
+  compose-bar's grid-template-rows 1fr/0fr collapse animation only ever
+  animated on CLOSE; opening snapped instantly since a freshly-mounted
+  node has no prior CSS state to transition from. Added a
+  replyRowGrown flag that starts false on a genuine closed->open edge
+  and flips to true a double-rAF later (once the 0fr frame has
+  actually painted), so opening now grows smoothly too; swapping
+  between two replies while already open does not re-trigger it.
+
+tsc-clean. Commit 717d567. 50 commits now sitting locally ahead of
+e598c18/6.178.
