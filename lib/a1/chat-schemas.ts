@@ -205,6 +205,14 @@ const RawMessageSchema = z
     // "delivered, not read" default -- costs nothing to keep, and picks
     // this up for free the moment chat-server actually sends it.
     unread: z.boolean().optional(),
+    // Edit feature (2026-09-05, Aleksandr: "чтобы можно было после
+    // того, как ты его отослал, отредачить") -- CONFIRMED off the
+    // mobile app's own source (ConversationDetailEntity.editedAt,
+    // ~/mnt/a1_app/aone_private, not guessed): an ISO date string once
+    // messages.editMessage has been called on this message, null/absent
+    // otherwise -- exactly like the raw shape comment above already
+    // showed (`editedAt: null` on a never-edited message).
+    editedAt: z.string().nullable().optional(),
   })
   .catchall(z.unknown());
 

@@ -52,7 +52,7 @@ import {
   type MessageMediaDocument,
 } from "@/lib/a1/chat-schemas";
 import { ChatPreviewLine } from "@/components/chat/chat-preview-line";
-import { MessageActionsMenu, ReplyComposeBar, MessageReplyQuote, ReplyIcon, DeleteMessageConfirmDialog } from "@/components/chat/message-actions-menu";
+import { MessageActionsMenu, ReplyComposeBar, EditComposeBar, MessageReplyQuote, ReplyIcon, DeleteMessageConfirmDialog } from "@/components/chat/message-actions-menu";
 import { CopyToast } from "@/components/chat/copy-toast";
 import { buildMediaProxyUrl, buildMediaDownloadUrl } from "@/lib/a1/media-proxy";
 import { getStableMediaProxyUrl } from "@/lib/a1/stable-media-url";
@@ -433,6 +433,19 @@ function formatTime(ms: number): string {
   }
 }
 
+// Edit feature (2026-09-05) -- Telegram's own "edited HH:MM" convention,
+// a small italic word right before the timestamp every message footer
+// already renders (see the 6 formatTime(ms) call sites below). A plain
+// word, not a full sentence, so it reads naturally inline in every
+// footer regardless of that footer's own text color/size.
+function EditedLabel() {
+  return (
+    <span className="italic opacity-80">
+      <T uk="ред. " en="edited " ru="изм. " de="bearb. " es="editado " fr="modifié " pl="edyt. " ptBR="editado " zh="已编辑 " />
+    </span>
+  );
+}
+
 function formatDateLabel(ms: number): string {
   if (!ms) return "";
   try {
@@ -743,6 +756,15 @@ export default function ChatWindowPage() {
   // re-trigger for.
   const [copyToastTrigger, setCopyToastTrigger] = useState(0);
   const [replyTarget, setReplyTarget] = useState<ChatMessage | null>(null);
+  // Edit feature (2026-09-05) -- mirrors replyTarget's own shape
+  // exactly (same "which message is this compose bar acting on" role),
+  // mutually exclusive with it: starting an edit clears any staged
+  // reply and vice versa (setEditingMessage/setReplyTarget below both
+  // clear the other), since the compose bar only has room to show one
+  // accessory row at a time and Telegram itself never lets you reply
+  // AND edit in the same draft either.
+  const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
+  const [editFailed, setEditFailed] = useState(false);
   // 2026-09-05 follow-up (Aleksandr: reply-cancel via the X should
   // smoothly collapse, not just vanish) -- replyTarget itself still
   // clears the INSTANT onRemove/a real send fires (that's what
@@ -2369,7 +2391,60 @@ export default function ChatWindowPage() {
     }).catch(() => {});
   }
 
+  // Edit feature (2026-09-05) -- POSTs to the new /api/chats/edit route
+  // (messages.editMessage, see that route's own header for the
+  // confirmed payload) and, on success, patches the edited message in
+  // place in local `messages` state so it re-renders immediately
+  // instead of waiting for the next POLL_MS poll tick. Falls back to a
+  // purely optimistic local patch (real text, no server-confirmed
+  // editedAt yet) if the response didn't come back parseable -- same
+  // "never block the UI on a parse miss" leniency MessageSchema's
+  // .catch()es already apply everywhere else in this file.
+  async function saveEditedMessage() {
+    const target = editingMessage;
+    const text = draft.trim();
+    if (!target || !text || sending) return;
+    setSending(true);
+    try {
+      const res = await authFetch("/api/chats/edit", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ chatId, messageId: Number(target._id), text }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok) {
+        setEditFailed(true);
+        return;
+      }
+      const updated = data.message as ChatMessage | null;
+      setMessages((prev) =>
+        prev.map((m) =>
+          Number(m._id) === Number(target._id)
+            ? updated ?? { ...m, entities: [{ object: "entity-text", text }], editedAt: new Date().toISOString() }
+            : m,
+        ),
+      );
+      setEditingMessage(null);
+      setDraft("");
+      setEditFailed(false);
+    } catch {
+      setEditFailed(true);
+    } finally {
+      setSending(false);
+    }
+  }
+
   async function send(overrideText?: string, meet?: MeetSendPayload) {
+    // Edit feature -- while editingMessage is set, this SAME textarea/
+    // Send-button pair this compose bar already has (Enter key + the
+    // send-arrow button, see both call sites below) saves the edit
+    // instead of sending a new message. No separate "Save" button/UI
+    // surface needed -- the editing-bar's own cancel (x) is the only
+    // new control this adds.
+    if (editingMessage) {
+      await saveEditedMessage();
+      return;
+    }
     const text = (overrideText ?? draft).trim();
     // Attachment feature: only ready (fully uploaded+confirmed)
     // attachments are ever sent -- a message can go out with zero typed
@@ -2558,7 +2633,10 @@ export default function ChatWindowPage() {
   function handleReplyFromViewer(messageId: number) {
     setViewerIndex(null);
     const target = messages.find((m) => Number(m._id) === messageId);
-    if (target) setReplyTarget(target);
+    if (target) {
+      setEditingMessage(null);
+      setReplyTarget(target);
+    }
     window.requestAnimationFrame(() => textareaRef.current?.focus());
   }
 
@@ -3469,7 +3547,7 @@ export default function ChatWindowPage() {
               const isFlatMedia = isVoiceOnly || isImageOnly || isImageGroupOnly || isFileOnly || isContactOnly || isMeetingOnly || isGreetingSticker;
               const imageGroupFooter = (
                 <span className="pointer-events-none absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded-full bg-black/45 px-2 py-0.5 text-[11px] text-white backdrop-blur-sm">
-                  <span>{formatTime(ms)}</span>
+                  <span>{msg.editedAt && <EditedLabel />}{formatTime(ms)}</span>
                   {pending ? (
                     pending.failed ? <NotSentIcon /> : <SendingSpinner />
                   ) : (
@@ -3484,7 +3562,7 @@ export default function ChatWindowPage() {
                     const lastMsg = crossGroupRun[crossGroupRun.length - 1]!.msg;
                     return (
                       <span className="pointer-events-none absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded-full bg-black/45 px-2 py-0.5 text-[11px] text-white backdrop-blur-sm">
-                        <span>{formatTime(messageDateMs(lastMsg))}</span>
+                        <span>{lastMsg.editedAt && <EditedLabel />}{formatTime(messageDateMs(lastMsg))}</span>
                         {mine && <MessageTicks state={messageTickState(lastMsg, peerReadMaxId)} className="h-[7.77px] w-3.5" />}
                       </span>
                     );
@@ -3497,7 +3575,7 @@ export default function ChatWindowPage() {
               // load() reconciles it, only the ticks glyph updates.
               const flatFooter = (
                 <div className={`flex items-center justify-end gap-1 text-[11px] ${mine ? "text-white/70" : "text-[#989aa6] dark:text-[#adafbb]"}`}>
-                  <span>{formatTime(ms)}</span>
+                  <span>{msg.editedAt && <EditedLabel />}{formatTime(ms)}</span>
                   {pending ? (
                     pending.failed ? <NotSentIcon /> : <SendingSpinner />
                   ) : (
@@ -3517,7 +3595,7 @@ export default function ChatWindowPage() {
               // light, independent of `mine`.
               const meetingFooter = (
                 <div className="flex items-center justify-end gap-1 text-[11px] text-white/60">
-                  <span>{formatTime(ms)}</span>
+                  <span>{msg.editedAt && <EditedLabel />}{formatTime(ms)}</span>
                   {pending ? (
                     pending.failed ? <NotSentIcon /> : <SendingSpinner />
                   ) : (
@@ -3699,6 +3777,7 @@ export default function ChatWindowPage() {
                               }
                               setSwipeState((prev) => {
                                 if (prev && prev.msgId === msg._id && prev.dx >= SWIPE_TRIGGER_DX) {
+                                  setEditingMessage(null);
                                   setReplyTarget(msg);
                                   window.requestAnimationFrame(() => textareaRef.current?.focus());
                                 }
@@ -3814,7 +3893,7 @@ export default function ChatWindowPage() {
                                 )}
                                 {isImageOnly && (
                                   <span className="pointer-events-none absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded-full bg-black/45 px-2 py-0.5 text-[11px] text-white backdrop-blur-sm">
-                                    <span>{formatTime(ms)}</span>
+                                    <span>{msg.editedAt && <EditedLabel />}{formatTime(ms)}</span>
                                     {pending?.failed ? <NotSentIcon /> : <SendingSpinner />}
                                   </span>
                                 )}
@@ -3940,7 +4019,7 @@ export default function ChatWindowPage() {
                                     style={MEDIA_BLUR_STYLE}
                                   />
                                   <span className="pointer-events-none absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded-full bg-black/45 px-2 py-0.5 text-[11px] text-white backdrop-blur-sm">
-                                    <span>{formatTime(ms)}</span>
+                                    <span>{msg.editedAt && <EditedLabel />}{formatTime(ms)}</span>
                                     {mine && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7.77px] w-3.5" />}
                                   </span>
                                 </div>
@@ -4282,7 +4361,7 @@ export default function ChatWindowPage() {
                             mine ? "text-white/70" : "text-[#989aa6] dark:text-[#adafbb]"
                           }`}
                         >
-                          <span>{formatTime(ms)}</span>
+                          <span>{msg.editedAt && <EditedLabel />}{formatTime(ms)}</span>
                           {pending ? (
                             pending.failed ? <NotSentIcon /> : <SendingSpinner />
                           ) : (
@@ -4928,7 +5007,13 @@ export default function ChatWindowPage() {
               <>
             <div ref={attachMenuRef} className="relative" onMouseEnter={handleAttachMouseEnter} onMouseLeave={handleAttachMouseLeave}>
               <ChatPaperclipButton
-                disabled={sending || attachments.length >= MAX_ATTACHMENTS_PER_MESSAGE}
+                // Edit feature (2026-09-05) -- editing only ever
+                // touches a message's text (see app/api/chats/edit/
+                // route.ts's own header on why), so attaching anything
+                // new mid-edit would silently go nowhere; disabled
+                // outright rather than letting it queue an attachment
+                // saveEditedMessage() would just ignore.
+                disabled={sending || attachments.length >= MAX_ATTACHMENTS_PER_MESSAGE || !!editingMessage}
                 // lib/use-hover-panel.ts, 2026-09-04 entry: same "•••"-menu
                 // tap bug -- skip the toggle when this click is the same
                 // tap that just hover-opened the menu, or it flips
@@ -5271,6 +5356,29 @@ export default function ChatWindowPage() {
               />
             </div>
             <div className="flex flex-1 flex-col rounded-[22px] border border-neutral-200 bg-white/90 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
+              {editingMessage && (
+                <>
+                  <EditComposeBar
+                    inline
+                    onCancel={() => {
+                      setEditingMessage(null);
+                      setDraft("");
+                      setEditFailed(false);
+                    }}
+                  />
+                  {editFailed && (
+                    <p className="border-b border-neutral-200 px-3.5 py-1.5 text-[12px] text-red-500 dark:border-[#2b2b2b] dark:text-red-400">
+                      <T
+                        uk="Не вдалося зберегти. Спробуйте ще раз." en="Couldn't save. Try again."
+                        ru="Не удалось сохранить. Попробуйте ещё раз." de="Speichern fehlgeschlagen. Versuch es erneut."
+                        es="No se pudo guardar. Inténtalo de nuevo." fr="Échec de l'enregistrement. Réessayez."
+                        pl="Nie udało się zapisać. Spróbuj ponownie." ptBR="Não foi possível salvar. Tente novamente."
+                        zh="保存失败，请重试。"
+                      />
+                    </p>
+                  )}
+                </>
+              )}
               {displayedReplyTarget &&
                 (() => {
                   const quote = resolveReplyPreview(displayedReplyTarget);
@@ -5518,7 +5626,15 @@ export default function ChatWindowPage() {
           lang={lang}
           onClose={() => setActionsMenu(null)}
           onReply={() => {
+            setEditingMessage(null);
             setReplyTarget(actionsMenu.message);
+            window.requestAnimationFrame(() => textareaRef.current?.focus());
+          }}
+          onEdit={() => {
+            setReplyTarget(null);
+            setEditingMessage(actionsMenu.message);
+            setDraft(extractMessageText(actionsMenu.message));
+            setEditFailed(false);
             window.requestAnimationFrame(() => textareaRef.current?.focus());
           }}
           onCopy={

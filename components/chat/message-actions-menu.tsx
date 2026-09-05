@@ -460,6 +460,46 @@ export function ReplyComposeBar({
   );
 }
 
+// Edit feature (2026-09-05) -- the compose-bar accessory row for "you
+// are editing this message", same left-accent-bar shape as ReplyCompose
+// Bar right above (and the same `inline` flavor split) but with no
+// author/preview text to show: the original content is already sitting
+// in the textarea itself once editingMessage is set (app/chats/
+// [chatId]/page.tsx copies extractMessageText(message) into `draft`),
+// so this bar's only job is naming the mode and offering a way out of
+// it -- Cancel restores the plain compose bar and clears the draft.
+export function EditComposeBar({ onCancel, inline }: { onCancel: () => void; inline?: boolean }) {
+  return (
+    <div
+      className={
+        inline
+          ? "flex w-full items-center gap-2 border-b border-neutral-200 px-3.5 py-2 dark:border-[#2b2b2b]"
+          : "mx-auto flex w-full max-w-[470px] items-center gap-2 rounded-[16px] border border-neutral-200 bg-white/90 px-3 py-2 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80"
+      }
+    >
+      <div className="h-8 w-[3px] shrink-0 rounded-full bg-[#335ef7] dark:bg-[#0c8ce9]" />
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-[13px] font-semibold text-[#335ef7] dark:text-[#0c8ce9]">
+          <T
+            uk="Редагування повідомлення" en="Editing message" ru="Редактирование сообщения" de="Nachricht bearbeiten"
+            es="Editando mensaje" fr="Modification du message" pl="Edytowanie wiadomości" ptBR="Editando mensagem" zh="正在编辑消息"
+          />
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onCancel}
+        aria-label="Cancel edit"
+        className="shrink-0 rounded-full p-1 text-[#989aa6] transition hover:bg-black/5 dark:text-[#8d8d93] dark:hover:bg-white/10"
+      >
+        <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
 export function MessageReplyQuote({
   authorLabel,
   previewText,
