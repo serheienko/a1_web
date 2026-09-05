@@ -7408,3 +7408,16 @@ opacity/translate-y + pointer-events via a plain CSS transition, so it
 fades and slides in both directions.
 
 tsc-clean, commit 472a1cb.
+
+## 6.165 -- Jump-to-bottom arrow: replay nudge on hover too (2026-09-05)
+
+Aleksandr clarified 6.164's animation was meant for hover, not click:
+"Точнее про стрелку которая опускает чат вниз 'анимация при наведении'".
+
+Reused the same bounce-key mechanism from 6.164 (app/chats/[chatId]/
+page.tsx) -- onMouseEnter now bumps jumpArrowBounceKey too, remounting
+the svg and replaying animate-jump-arrow on hover. Kept the onClick
+trigger as well since it's harmless on desktop and is what mobile
+actually gets (no mouseenter there).
+
+tsc-clean, commit d154adf.
