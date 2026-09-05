@@ -7336,3 +7336,53 @@ beneath it rather than the bare viewport edge. Clicking it calls
 re-pins.
 
 tsc-clean, commit a18b1d7.
+
+## 6.162 -- iOS file-picker sheet skip + per-chat message cache (2026-09-05)
+
+Two separate fixes from Aleksandr's screen recordings, bundled in one
+commit since both are small and independent.
+
+**1.** "Можно чтобы на моб нажатие на «файл» сразу открывало файлы, без
+дополнительного попапа от Apple?" -- the "file" attach input
+(app/chats/[chatId]/page.tsx) had no `accept` attribute at all, which
+iOS Safari treats as ambiguous (could be an image/video too) and shows
+its own "Photo Library / Take Photo or Video / Browse" sheet to
+disambiguate -- same as the "photo" input would if IT also lacked one.
+Set accept="application/*,text/*,audio/*": covers every kind
+file-type-icon.tsx recognizes (pdf/zip/doc/sheet/slides/txt/mp3 all
+register under one of those three) while excluding image/* and
+video/*, the two categories that trigger the sheet.
+
+**2.** "Почему у меня при каждом заходе чаты грузятся по новой? Мы
+можем их кешировать?" -- app/chats/page.tsx already solved this exact
+problem for the chat LIST via a per-account sessionStorage cache
+(2026-09-04 header comment there); the individual chat page never got
+the same treatment, reloading from a blank slate on every visit. Added
+the identical pattern here (chatMessagesCacheKey/readCachedMessages/
+writeCachedMessages), keyed by account + chatId this time since it's
+one cache entry per chat rather than one shared list: paint cached
+messages immediately on mount, then let the existing 3s poll reconcile
+with the server as it always did.
+
+tsc-clean, commit 89c1e3b.
+
+## 6.163 -- Actions menu: drop dim/blur backdrop entirely (2026-09-05)
+
+Aleksandr, Telegram Desktop reference screenshot of its own right-click
+context menu with no dimming/blur behind it: "Хотя не, не надо блюр:
+делай вот так." components/chat/message-actions-menu.tsx's full-screen
+overlay used to dim (bg-black/20, dark:bg-black/40) and slightly blur
+(backdrop-blur-[1px]) the whole chat behind the menu; swapped for a
+fully invisible click-catcher (still dismisses on an outside click,
+draws nothing).
+
+Also explicitly confirmed against his own description in the same
+message ("при нажатии на фото одним кликом открывать её, а 2-я
+пальцами -- меню купертино") that the trigger model already matches:
+every bubble kind's own single left-click still does its own thing
+(open the photo, play the voice...), onContextMenu (right-click, or a
+two-finger trackpad click on Mac) is what opens this menu on any kind
+-- see app/chats/[chatId]/page.tsx's own 2026-09-05 onContextMenu
+comment. No change needed there, just the backdrop style.
+
+tsc-clean, commit 9db2b6a.
