@@ -26,6 +26,7 @@ import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { profileHref } from "@/lib/profile-href";
 import { T, LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
+import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
 import { useHoverPanel } from "@/lib/use-hover-panel";
 import { formatBytes, formatRelativeTime } from "@/lib/format";
 import { LottiePlayer } from "@/components/lottie-player";
@@ -351,6 +352,44 @@ async function compressAttachmentImage(file: File): Promise<File> {
   }
 }
 
+// 2026-09-05 (Aleksandr: "Почему у меня при каждом заходе чаты грузятся
+// по новой? Мы можем их кешировать?") -- this page used to always mount
+// into state "loading" with an empty message list and show the loading
+// skeleton on every single visit, even reopening a chat that was showing
+// seconds ago. app/chats/page.tsx already solved the exact same problem
+// for the chat LIST via a per-account sessionStorage cache (see that
+// file's own 2026-09-04 header) -- same idea here, just keyed by chatId
+// too since this is one cache entry per chat, not one shared list.
+function chatMessagesCacheKey(chatId: string): string | null {
+  const match = document.cookie.match(new RegExp(`(?:^|; )${DISPLAY_COOKIE}=([^;]*)`));
+  const email = match?.[1] ? decodeURIComponent(match[1]) : null;
+  return email ? `a1:chat-messages-cache:${email}:${chatId}` : null;
+}
+
+function readCachedMessages(chatId: string): ChatMessage[] {
+  try {
+    const key = chatMessagesCacheKey(chatId);
+    if (!key) return [];
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as ChatMessage[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeCachedMessages(chatId: string, messages: ChatMessage[]): void {
+  try {
+    const key = chatMessagesCacheKey(chatId);
+    if (!key) return;
+    sessionStorage.setItem(key, JSON.stringify(messages));
+  } catch {
+    // Storage disabled/full/private mode -- caching is a nice-to-have,
+    // never worth failing the actual message load over.
+  }
+}
+
 const POLL_MS = 3000;
 // Don't re-announce "typing" on every keystroke -- once per this window
 // is plenty for a best-effort indicator, and it keeps this from firing a
@@ -616,6 +655,12 @@ export default function ChatWindowPage() {
 
   const [state, setState] = useState<LoadState>("loading");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  useEffect(() => {
+    const cached = readCachedMessages(chatId);
+    if (cached.length === 0) return;
+    setMessages(cached);
+    setState("ready");
+  }, [chatId]);
   // 2026-09-02 (Aleksandr, live bug report: "я не вижу появившееся
   // сообщение сразу после отправки") -- send() used to just POST then
   // call load() once, hoping the very next messages.getMessages
@@ -1264,6 +1309,7 @@ export default function ChatWindowPage() {
       const resolvedMyUserId: string | null = data.myUserId ?? null;
       setMessages(fetched);
       setMyUserId(resolvedMyUserId);
+      writeCachedMessages(chatId, fetched);
       // Only while the tab is actually visible -- marking a message
       // "read" from a poll tick in a backgrounded tab would be a lie,
       // same reasoning app/chats/page.tsx's own poll timer already
@@ -4726,6 +4772,20 @@ export default function ChatWindowPage() {
               <input
                 ref={fileInputRef}
                 type="file"
+                // 2026-09-05 (Aleksandr, screen recording: tapping "File" on
+                // mobile Safari popped up Apple's own "Photo Library / Take
+                // Photo or Video / Browse" sheet instead of going straight
+                // to the Files browser) -- this input had NO accept
+                // attribute at all, which iOS Safari treats as ambiguous
+                // (could be an image/video too) and shows that extra sheet
+                // to disambiguate. application/*+text/*+audio/* covers
+                // every kind file-type-icon.tsx actually recognizes
+                // (pdf/zip/doc/sheet/slides/txt/mp3 all register under one
+                // of those three) while still excluding image/* and
+                // video/* -- the two categories that trigger the sheet --
+                // so Safari now opens Files directly, same as the photo
+                // input already does for accept="image/*".
+                accept="application/*,text/*,audio/*"
                 multiple
                 className="hidden"
                 onChange={(e) => {
