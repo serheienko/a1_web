@@ -890,8 +890,29 @@ export function MiniChatWindow({
           // flat/no-chrome treatment -- this corner widget keeps one
           // simple bubble shape for everything, image included.
           if (!text && docMedia.length === 0 && contactMedia.length === 0 && !calc) return null;
+          // 2026-09-05 follow-up (Aleksandr, live screenshot: this
+          // widget's photo/photo-group messages still sitting inside
+          // the solid blue/white bubble card app/chats/[chatId]/
+          // page.tsx's own isFlatMedia already dropped for the same
+          // shapes there -- "Убери рамку у фото в маленькое окне чатов
+          // тоже") -- this widget never got that pass (see this
+          // block's own 2026-09-03 comment on why: "this corner widget
+          // keeps one simple bubble shape for everything" was a
+          // deliberate scope cut, now revisited). Scoped to the one
+          // shape actually complained about: image-only (single OR
+          // grouped, doesn't matter which -- ChatPhotoGrid handles
+          // both), no text/contact/calc riding along. A mixed message
+          // (photo + caption, photo + contact, ...) keeps the original
+          // bubble treatment unchanged.
+          const isPhotoOnly = !text && contactMedia.length === 0 && !calc && docMedia.length > 0 && docMedia.every(isImageMediaDocument);
           const dateMs = messageDateMs(msg);
-          const footer = (dateMs > 0 || mine) && (
+          const flatFooter = (dateMs > 0 || mine) && (
+            <span className="pointer-events-none absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded-full bg-black/45 px-2 py-0.5 text-[11px] text-white backdrop-blur-sm">
+              {dateMs > 0 && <span>{formatTime(dateMs)}</span>}
+              {mine && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7px] w-3" />}
+            </span>
+          );
+          const footer = !isPhotoOnly && (dateMs > 0 || mine) && (
             <div
               className={`mt-0.5 flex items-center justify-end gap-1 text-[12px] ${
                 mine ? "text-white/80" : "text-[#989aa6] dark:text-[#8d8d93]"
@@ -908,11 +929,15 @@ export function MiniChatWindow({
                   e.preventDefault();
                   setActionsMenu({ message: msg, anchorRect: e.currentTarget.getBoundingClientRect(), mine });
                 }}
-                className={`max-w-[80%] rounded-2xl px-3 py-1.5 text-[15.5px] leading-snug ${
-                  mine
-                    ? "rounded-br-sm bg-[#335ef7] text-white dark:bg-[#0c8ce9]"
-                    : "rounded-bl-sm bg-[#f2f2f7] text-[#262a34] dark:bg-neutral-800 dark:text-white"
-                }`}
+                className={
+                  isPhotoOnly
+                    ? "max-w-[80%]"
+                    : `max-w-[80%] rounded-2xl px-3 py-1.5 text-[15.5px] leading-snug ${
+                        mine
+                          ? "rounded-br-sm bg-[#335ef7] text-white dark:bg-[#0c8ce9]"
+                          : "rounded-bl-sm bg-[#f2f2f7] text-[#262a34] dark:bg-neutral-800 dark:text-white"
+                      }`
+                }
               >
                 {docMedia.length > 0 && (
                   <div className={`flex flex-col gap-1.5 ${text ? "mb-1" : ""}`}>
@@ -922,17 +947,20 @@ export function MiniChatWindow({
                           key={doc._id}
                           docs={imageGroupStartId.get(doc._id)!.map((d) => ({ id: d._id, src: getStableMediaProxyUrl(d) }))}
                           onOpen={() => {}}
+                          footer={isPhotoOnly ? flatFooter : undefined}
                         />
                       ) : isImageMediaDocument(doc) ? (
-                        // eslint-disable-next-line @next/next/no-img-element -- proxied
-                        // through /api/media, not a next/image-configured remote host.
-                        <img
-                          key={doc._id}
-                          src={getStableMediaProxyUrl(doc)}
-                          alt=""
-                          className="max-h-48 w-full rounded-xl object-cover"
-                          style={MEDIA_BLUR_STYLE}
-                        />
+                        <div key={doc._id} className="relative">
+                          {/* eslint-disable-next-line @next/next/no-img-element -- proxied
+                              through /api/media, not a next/image-configured remote host. */}
+                          <img
+                            src={getStableMediaProxyUrl(doc)}
+                            alt=""
+                            className="max-h-48 w-full rounded-xl object-cover"
+                            style={MEDIA_BLUR_STYLE}
+                          />
+                          {isPhotoOnly && flatFooter}
+                        </div>
                       ) : (
                         <a
                           key={doc._id}
