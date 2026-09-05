@@ -7717,3 +7717,40 @@ a stray double blank line left behind by the deletion.
 tsc-clean. Commit 1a1cd0d. **Not yet verified live or pushed** -- same
 standing network blocker; now 12 commits sitting locally ahead of
 origin/main.
+
+
+## 6.174 -- WebKit text-size auto-boost disabled site-wide (2026-09-05)
+
+Aleksandr, live screenshot: "По моему надписьь Message не отцентрирована
+по вертикали." The screenshot showed more than just that: the compose
+textarea's "Message" placeholder sat flush against the TOP of a much
+taller-than-expected input pill, and the date-separator label plus a
+voice-message bubble in the same screenshot were also visibly far
+larger than in every other screenshot from this same session.
+
+Diagnosis (no live device access this session, reasoned from the
+screenshot + the existing code): the compose textarea already sizes
+its own box tightly to content on every keystroke (scrollHeight-
+driven, app/chats/[chatId]/page.tsx's TEXTAREA_LINE_PX = 20 matching
+its `leading-5` class) -- that JS measurement runs against the LAYOUT
+box, a different thing from what WebKit then actually PAINTS. iOS
+Safari's automatic text-size boost (its default `-webkit-text-size-
+adjust: auto`, tied to "Larger Text" or a per-site zoom preference)
+can inflate the rendered glyph size for legibility AFTER layout,
+without touching the box's own scrollHeight/clientHeight -- so the box
+stays sized for normal text while WebKit paints noticeably bigger
+glyphs inside it, which top-aligns (a textarea's own default) and
+overflows past its own box exactly like the screenshot shows,
+everywhere on the page at once -- explaining the oversized date label
+and voice bubble too, not just the one placeholder, which is why this
+wasn't scoped to the textarea alone.
+
+Fix: `-webkit-text-size-adjust: 100%` (plus the unprefixed `text-size-
+adjust: 100%`) on `html` in app/globals.css -- the standard fix for
+this class of bug, opts every element out of the automatic boost so
+rendered text always matches whatever size Tailwind's own classes
+specify, keeping it in sync with any JS that measures those boxes.
+
+tsc-clean (CSS-only; ran tsc anyway per this repo's own bar). Commit
+ba70340. **Not yet verified live or pushed** -- same standing network
+blocker; now 14 commits sitting locally ahead of origin/main.
