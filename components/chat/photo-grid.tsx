@@ -110,20 +110,48 @@ export function ChatPhotoGrid({
       style={{ gridTemplateRows: rows.map((r) => `${r.heightFr}fr`).join(" ") }}
     >
       {rows.map((row, i) => (
-        <div key={i} className="grid gap-[2px]" style={{ gridTemplateColumns: `repeat(${row.items.length}, 1fr)` }}>
+        <div
+          key={i}
+          className="grid min-h-0 gap-[2px]"
+          style={{ gridTemplateColumns: `repeat(${row.items.length}, 1fr)` }}
+        >
           {row.items.map((idx) => {
             const doc = docs[idx]!;
             return (
-              // eslint-disable-next-line @next/next/no-img-element -- proxied
-              // through /api/media, not a next/image-configured remote host.
-              <img
-                key={doc.id}
-                src={doc.src}
-                alt=""
-                onClick={() => onOpen(doc.id)}
-                className="h-full min-h-0 w-full cursor-pointer object-cover transition hover:opacity-90"
-                style={MEDIA_BLUR_STYLE}
-              />
+              // 2026-09-05 (Aleksandr, live test: sent 3 real photos as
+              // one message -- rendered as ONE solid full-bleed tile,
+              // the other two invisible, not the intended wide-top +
+              // two-below layout). Root cause, confirmed via
+              // getBoundingClientRect() on the live DOM: with a plain
+              // `<img className="h-full w-full ...">` as the direct
+              // grid item, the browser's grid track-sizing pass can't
+              // resolve `height: 100%` against a row whose own height
+              // is still being SOLVED FOR (the classic fr-track
+              // chicken-and-egg) -- it falls back to the image's own
+              // INTRINSIC aspect ratio instead, so a tall source photo
+              // (600x800 here) demanded ~384px against this grid's
+              // resolved 288px box, and that oversized row simply
+              // pushed/overflowed past the container's own
+              // `overflow-hidden` clip, burying row two entirely under
+              // row one's own single photo. Fix: each tile is now a
+              // `relative` grid item (a plain box with NO intrinsic
+              // size of its own -- nothing for the track-sizing pass to
+              // measure) and the `<img>` inside it is `absolute
+              // inset-0`, i.e. taken out of layout/sizing entirely, so
+              // every row's fr share is exactly what layoutRows()
+              // asked for regardless of any source photo's real
+              // dimensions.
+              <div key={doc.id} className="relative min-h-0 min-w-0 overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element -- proxied
+                    through /api/media, not a next/image-configured remote host. */}
+                <img
+                  src={doc.src}
+                  alt=""
+                  onClick={() => onOpen(doc.id)}
+                  className="absolute inset-0 h-full w-full cursor-pointer object-cover transition hover:opacity-90"
+                  style={MEDIA_BLUR_STYLE}
+                />
+              </div>
             );
           })}
         </div>
