@@ -232,7 +232,17 @@ export function MessageActionsMenu({
     // genuinely can't fit the menu AND above has more room to offer.
     const openAbove = spaceBelow < menuHeight + VIEWPORT_MARGIN && spaceAbove > spaceBelow;
     const idealTop = openAbove ? anchorRect.top - 8 - menuHeight : anchorRect.bottom + 8;
-    const maxTop = Math.max(VIEWPORT_MARGIN, window.innerHeight - VIEWPORT_MARGIN - menuHeight);
+    // 2026-09-05 follow-up (Aleksandr: "Исправь математику, надо
+    // поднимать на 20 пкс снизу, если купертино показывается с самого
+    // нижнего сообщения и ему подобным") -- this maxTop clamp is what
+    // actually kicks in for a message near the bottom of the viewport
+    // (anything with room to spare below never hits it at all, so this
+    // extra margin is invisible everywhere else) -- BOTTOM_EXTRA_MARGIN
+    // on top of the normal VIEWPORT_MARGIN so the clamped position sits
+    // a further 20px clear of the bottom edge specifically, not just
+    // the same 18px every other edge already gets.
+    const BOTTOM_EXTRA_MARGIN = 20;
+    const maxTop = Math.max(VIEWPORT_MARGIN, window.innerHeight - VIEWPORT_MARGIN - BOTTOM_EXTRA_MARGIN - menuHeight);
     const top = Math.min(Math.max(idealTop, VIEWPORT_MARGIN), maxTop);
     const idealLeft = mine ? anchorRect.right - MENU_WIDTH : anchorRect.left;
     const left = Math.min(Math.max(idealLeft, VIEWPORT_MARGIN), window.innerWidth - MENU_WIDTH - VIEWPORT_MARGIN);

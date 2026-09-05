@@ -4145,9 +4145,25 @@ export default function ChatWindowPage() {
                               );
                             })()}
                             <div
-                              className={`whitespace-pre-wrap break-words ${pending ? "" : "cursor-pointer"}`}
+                              // 2026-09-05 follow-up (Aleksandr: "Отключи
+                              // чтобы в веб версии, только веб, не моб -
+                              // модалка появлялась по одному клику.
+                              // Оставь только через правую кнопку") --
+                              // this single-left-click trigger (see this
+                              // block's own 2026-09-05 header comment for
+                              // why it exists at all) was reaching desktop
+                              // mouse users too, who already have
+                              // right-click for the exact same menu --
+                              // gated on `isTouch` (this file's own
+                              // established pointer-coarse detection, see
+                              // its own comment above) so only a real
+                              // touch device keeps tap-to-open here; a
+                              // desktop/web visitor now opens this menu
+                              // via right-click only, same as every other
+                              // bubble kind already required.
+                              className={`whitespace-pre-wrap break-words ${pending || !isTouch ? "" : "cursor-pointer"}`}
                               onClick={
-                                pending
+                                pending || !isTouch
                                   ? undefined
                                   : (e) => setActionsMenu({ message: msg, anchorRect: e.currentTarget.getBoundingClientRect(), mine })
                               }
