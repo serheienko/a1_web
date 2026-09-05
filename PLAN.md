@@ -8482,3 +8482,78 @@ re-fixing something already fixed.
 tsc-clean. Commit 1693e92. **Not yet verified live or pushed** -- same
 standing network blocker; 39 commits now sitting locally ahead of
 e598c18/6.178.
+
+## 6.203 -- Delete-for-self wired into message-actions-menu (2026-09-05)
+
+Aleksandr: "давай одновременно сделаем кнопки редактировать... удалить,
+чтобы можно было удалить у себя... переслать" -- three-feature ask,
+tackled in scoped order starting with the trivial one. The backend call
+and its handler (messages.deleteMessages via /api/chats/delete,
+revoke:false -- delete-for-me only) already existed, wired only to the
+photo viewer's own delete button (§6.19x). Now the "Видалити" row in
+MessageActionsMenu (both app/chats/[chatId]/page.tsx and components/
+mini-chat-window.tsx) opens a centered confirm dialog
+(DeleteMessageConfirmDialog, new shared export in message-actions-
+menu.tsx, modeled on photo-viewer.tsx's own "Delete photo?" popover)
+and calls that same handler on confirm.
+
+Also threaded onEdit/onForward (optional, no-ops until their own
+commits below) through MessageActionsMenu's props, and hid "Редагувати"
+entirely for messages that aren't mine.
+
+tsc-clean. Commit e8ec9c5. **Not yet verified live or pushed** -- same
+standing network blocker; 41 commits now sitting locally ahead of
+e598c18/6.178.
+
+## 6.204 -- Message editing: edit sent text + "edited" label (2026-09-05)
+
+Same ask as 6.203 -- the edit piece. New app/api/chats/edit/route.ts
+proxies chat-server's messages.editMessage, payload CONFIRMED off the
+mobile app's own source (chat_detail_cubit.dart's real editMessage()
+call, not the generated OpenAPI model): {id, flags: 1|EDITED_FLAG,
+peerTo, entities}, EDITED_FLAG = 1<<6 (MessageFlag.EDITED). Text-only,
+same scope mobile's own base editMessage() has.
+
+"Редагувати" (already hidden for others' messages, 6.203) now opens
+the same compose-bar pill a reply uses, via a new EditComposeBar
+accessory row (message-actions-menu.tsx) instead of the reply quote --
+draft pre-filled with the message's existing text, Enter/Send calls
+the new saveEditedMessage() instead of a real send, paperclip disabled
+while editing (edit never touches media). MessageSchema gained
+editedAt (confirmed off ConversationDetailEntity.editedAt); every
+message-footer timestamp now shows a small "edited"/"ред." label when
+it's set.
+
+tsc-clean. Commit fd1e13d. **Not yet verified live or pushed** -- same
+standing network blocker; 42 commits now sitting locally ahead of
+e598c18/6.178.
+
+## 6.205 -- Message forwarding: target-chat picker + forwardFrom (2026-09-05)
+
+Last of the three-feature ask -- forward. CONFIRMED off the mobile
+app's own source (chat_forward_payload.dart + chat_detail_cubit.dart's
+sendForwardedMessage, not the generated model): forwarding is NOT a
+separate RPC, just messages.send carrying one extra field --
+forwardFrom: {user, object:"peer-user"}, the message's ORIGINAL author
+(Telegram-style: a re-forward keeps the FIRST author, mirrored via
+`msg.forwardFrom?.user ?? msg.fromId`). app/api/chats/send/route.ts
+now accepts it; lib/a1/chat-schemas.ts parses it back on read.
+
+New components/chat/forward-picker-modal.tsx: a chat-list picker (GET
+/api/chats/list, same route the chat list page already uses) modeled
+on contacts-picker-modal.tsx's search+list shell, single-tap-and-send
+rather than multi-pick -- matches mobile's own sendForwardedMessage
+(one target per call, not a list). Re-sends whatever the source
+message actually carries (text/document-media/contacts) --
+calculations/meetings aren't forwardable yet, same as mobile's own
+cubit routing those through separate paths.
+
+Also added a "Forwarded from X" label, scoped to plain-text bubbles
+for now (same incremental-rollout precedent the reply quote already
+set for itself, §6.19x) -- every other media kind is a flagged
+follow-up, not attempted half-verified here.
+
+tsc-clean. Commit 5c70247. **Not yet verified live or pushed** -- same
+standing network blocker; 43 commits now sitting locally ahead of
+e598c18/6.178.
+
