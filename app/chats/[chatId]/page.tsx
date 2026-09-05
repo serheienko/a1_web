@@ -4297,7 +4297,14 @@ export default function ChatWindowPage() {
               switching in and out of the voice-recording UI that row
               alternates between, the same way it survives typing --
               only an actual send (of either kind) clears it. */}
+          {/* 2026-09-05 follow-up (Aleksandr, WhatsApp reference: input
+              field grows upward, reply shows inside it) -- this standalone
+              floating card is now only for the two states that aren't the
+              textarea pill (mic-denied notice, active voice-recording bar).
+              While idle the quote renders INLINE inside that same pill,
+              see the rounded-[22px] wrapper further down. */}
           {replyTarget &&
+            recorder.state !== "idle" &&
             (() => {
               const quote = resolveReplyPreview(replyTarget);
               if (!quote) return null;
@@ -4676,7 +4683,22 @@ export default function ChatWindowPage() {
                 }}
               />
             </div>
-            <div className="flex min-h-[44px] flex-1 items-end gap-2 rounded-[22px] border border-neutral-200 bg-white/90 px-3.5 py-2 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
+            <div className="flex flex-1 flex-col rounded-[22px] border border-neutral-200 bg-white/90 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
+              {replyTarget &&
+                (() => {
+                  const quote = resolveReplyPreview(replyTarget);
+                  if (!quote) return null;
+                  return (
+                    <ReplyComposeBar
+                      inline
+                      authorLabel={quote.authorLabel}
+                      previewText={quote.node}
+                      thumbnail={quote.thumbnail}
+                      onRemove={() => setReplyTarget(null)}
+                    />
+                  );
+                })()}
+              <div className="flex min-h-[44px] items-end gap-2 px-3.5 py-2">
               <textarea
                 ref={textareaRef}
                 value={draft}
@@ -4715,6 +4737,7 @@ export default function ChatWindowPage() {
                   the combined motion the mini window's icon already has. */}
               <div className="group shrink-0 pb-0.5">
                 <ChatCatFieldIcon className="h-5 w-5 animate-chat-wiggle text-[#989aa6] dark:text-[#adafbb]" />
+              </div>
               </div>
             </div>
               </>

@@ -309,6 +309,7 @@ export function ReplyComposeBar({
   previewText,
   thumbnail,
   onRemove,
+  inline,
 }: {
   authorLabel: string;
   previewText: ReactNode;
@@ -319,9 +320,29 @@ export function ReplyComposeBar({
   // fully described by previewText's own icon+label) is unaffected.
   thumbnail?: ReactNode;
   onRemove: () => void;
+  // 2026-09-05 follow-up #2 (Aleksandr, WhatsApp reference screenshots
+  // + his own description: "у тебя расширяется инпут филд вверх, и
+  // ответ показывает внутри него") -- this used to always render as
+  // its own floating rounded card ABOVE the compose textarea's own
+  // bordered pill (two separate boxes with a gap between them); the
+  // reference app instead grows that SAME pill taller and shows the
+  // reply quote inside it, as one continuous box. `inline: true` drops
+  // this component's own border/rounding/background/max-width so the
+  // caller (that pill) can nest it directly as its top section, with
+  // just a bottom divider line separating it from the textarea row
+  // below -- the default (false/omitted) keeps the original standalone
+  // card, still used for the voice-recording-bar and mic-denied states
+  // (app/chats/[chatId]/page.tsx), which aren't that pill at all.
+  inline?: boolean;
 }) {
   return (
-    <div className="mx-auto flex w-full max-w-[470px] items-center gap-2 rounded-[16px] border border-neutral-200 bg-white/90 px-3 py-2 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
+    <div
+      className={
+        inline
+          ? "flex w-full items-center gap-2 border-b border-neutral-200 px-3.5 py-2 dark:border-[#2b2b2b]"
+          : "mx-auto flex w-full max-w-[470px] items-center gap-2 rounded-[16px] border border-neutral-200 bg-white/90 px-3 py-2 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80"
+      }
+    >
       <div className="h-8 w-[3px] shrink-0 rounded-full bg-[#335ef7] dark:bg-[#0c8ce9]" />
       {thumbnail}
       <div className="min-w-0 flex-1">
