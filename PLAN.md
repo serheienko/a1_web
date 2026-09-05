@@ -8715,3 +8715,26 @@ dark surfaces.
 
 tsc-clean. Commit 53a05cb. 52 commits now sitting locally ahead of
 e598c18/6.178.
+
+## 6.214 -- Attachment kind now derives from real MIME, not which button was tapped (2026-09-05)
+
+Live screenshot: tapping into the attach flow shows Apple's own
+"Photo Library / Take Photo / Choose Files" sheet; Aleksandr wants it
+to go straight to Files. Confirmed this is WebKit's own system UI --
+appears for ANY <input type=file> whose accept could include a photo
+(this file's own history already notes even an EMPTY accept triggers
+it), no way to suppress it while an input still accepts images. The
+"Файл" button's input already skips straight to Browse (its accept
+excludes image/video, from an earlier fix this session) -- that's the
+one existing fast path -- but a photo picked that way still got tagged
+kind: "file" purely from which button was tapped, so it uploaded
+uncompressed as a generic file row instead of a real photo bubble.
+
+handleAttachFile now derives `kind` from the file's own MIME
+(file.type.startsWith("image/")) instead of the caller's hint, so an
+image picked via "Файл" -- the straight-to-Browse path -- now
+compresses and renders as a proper photo, same as picking it through
+"Фото" would.
+
+tsc-clean. Commit 08d4fee. 53 commits now sitting locally ahead of
+e598c18/6.178.
