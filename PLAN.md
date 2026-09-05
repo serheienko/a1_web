@@ -8147,3 +8147,43 @@ matching the toast's requested lifetime.
 
 tsc-clean. Commit cc4a543. **Not yet verified live or pushed** -- same
 standing network blocker.
+
+
+## 6.188-6.191 -- CachedAvatar sweep: posts, profiles, contact pickers, chats flyout, top nav (2026-09-05)
+
+Aleksandr, across several follow-ups: "Еще сделай кеширование постов,
+если они раньше открывались" / "Свой профиль и чужие тоже кешируй,
+если открывались" / on the "Новий чат" picker screenshot, "Это тоже
+кешируй" / "Вообще наверное было бы хорошо кешировать вообще всё, если
+оно хотя бы 1 раз открывалось." Rather than a new caching mechanism,
+this is the same CachedAvatar/lib/avatar-image-cache.ts persistent
+Cache Storage cache (6.181, first landed on the chat list; 6.183, the
+feed) swept across every remaining avatar surface still on plain
+next/image or a bare <img>:
+
+- app/jobs/[slug]/page.tsx, app/talents/[slug]/page.tsx (post-detail
+  author byline), app/u/[username]/page.tsx (the big profile avatar) --
+  6.188, commit 2a80ada.
+- components/new-chat-picker-modal.tsx (the "Новий чат" modal) and
+  components/chat/contacts-picker-modal.tsx (in-chat "share a contact"
+  picker, previously a plain <img> with no blur-up at all) -- 6.189,
+  commit d0709a3.
+- components/chats-flyout.tsx (hover/tap recent-chats + contacts
+  popup, all 3 of its avatar rows) and components/avatar-menu.tsx (the
+  user's OWN avatar button in the top nav -- renders on every page
+  load site-wide, the single highest-frequency avatar of all; was a
+  CSS-shimmer-placeholder <img> since its src loads client-side with
+  no server blurDataURL, now CachedAvatar with the shared generic
+  BLUR_DATA_URL fallback) -- 6.190, commit 6c77629.
+- app/contacts/page.tsx (contact book) and app/my-activity/page.tsx
+  (saved-users tab), the last two plain-next/image avatar lists found
+  in this pass -- 6.191, commit 356660f.
+
+Every swap keeps the same visual fallback chain (real photo -> server
+blurDataURL/shimmer while loading -> cat avatar when there's no photo
+at all) -- CachedAvatar's own next/image branch already carries
+`unoptimized`, so no per-file reasoning needed there anymore either.
+
+tsc-clean after each commit. **Not yet verified live or pushed** --
+same standing network blocker; 18 commits now sitting locally ahead of
+e598c18/6.178.
