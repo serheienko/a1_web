@@ -7895,3 +7895,104 @@ transition.
 tsc-clean. Commit f9cd358. **Not yet verified live or pushed** -- same
 standing network blocker; now 6 commits sitting locally ahead of the
 last confirmed-deployed one (3dadb86/6.174).
+
+
+## 6.179 -- ChatPhotoGrid fr-track blowout: found by actually sending 3 photos (2026-09-05)
+
+Aleksandr, follow-up: "Тут чуть-чуть еще... Еще с комбинированного
+фото ты так и не сделал отображение банчем" -- 6.169's own theory
+(chat-server might split a multi-select send into N separate
+messages) turned out to be WRONG once actually tested live: uploaded
+3 real photos through the real attach flow (Chrome, this account's
+own test chat) and inspected the raw /api/chats/messages response --
+chat-server stores it exactly as hoped, ONE message with a 3-entry
+`media` array. So imageGroupStartId (the WITHIN-message grouping,
+6.116/6.169) should have fired... and the live DOM proved it DID: the
+bubble's className had the grouped (non-flat, padded bubble) shape
+and genuinely rendered 3 `<img>` tags, not 1 -- yet visually showed
+one solid full-bleed tile with the other two invisible.
+
+Root cause, confirmed via getBoundingClientRect() on the live DOM:
+components/chat/photo-grid.tsx's row divs use CSS Grid `fr` units for
+height (`gridTemplateRows: "3fr 2fr"` for a 3-photo layout), with a
+plain `<img className="h-full w-full ...">` as the direct grid item.
+The browser's track-sizing algorithm has to resolve each row's fr
+share BEFORE it can resolve `height: 100%` on that row's own content
+-- classic chicken-and-egg -- so it fell back to the image's own
+INTRINSIC aspect ratio instead: our 600x800 test photo demanded
+~384px at the resolved 288px width, versus the outer grid's own
+288px total height. That single oversized row overflowed straight
+past the container's `overflow-hidden` clip, burying row two (the
+other 2 photos) entirely underneath row one's own single image --
+looked identical to "grouping never happened" even though the DOM
+was correct the whole time.
+
+Fix: every tile is now a `relative` grid item with NO intrinsic size
+of its own (nothing for the track-sizing pass to measure), and the
+`<img>` inside it is `absolute inset-0` -- fully decoupled from
+layout/sizing, so each row's fr share is exactly what layoutRows()
+asked for regardless of any source photo's real dimensions.
+
+tsc-clean. Commit a847d50. **Not yet verified live or pushed** -- same
+standing network blocker; now 3 commits sitting locally ahead of the
+last confirmed-deployed one (e598c18/6.178).
+
+## 6.180 -- Actions menu: more viewport clearance, shorter/smaller rows (2026-09-05)
+
+Aleksandr, live screenshot, follow-up on 6.166's own measure-then-
+clamp fix: "Тут чуть-чуть еще поднимай выше модалку купертино, она не
+влезла полностью и можно уменьшить шрифт на 1 пкс и сделать модалку
+чуть ниже." Exactly what was asked, nothing more: VIEWPORT_MARGIN
+10->18 (components/chat/message-actions-menu.tsx) for real breathing
+room from the viewport edge on top of the existing clamp math, and
+the 8-row action list itself trimmed (py-3->py-2.5, text-[15px]->
+text-[14px]) so the menu is genuinely shorter overall too, not just
+repositioned closer to the edge.
+
+tsc-clean. Commit 9f10b0e. **Not yet verified live or pushed** -- now
+4 commits sitting locally ahead of e598c18/6.178.
+
+## 6.181 -- Chat-list avatars persist to disk; new-chat icon back to hover-once (2026-09-05)
+
+Two independent fixes from Aleksandr's live feedback, bundled since
+both land in the same two files.
+
+**1.** "Сделай кеширование аватаров в чат-листе, а то они кажд раз
+подгружаются через блюр, а надо один раз загрузить и чтобы были
+загруженные уже." app/chats/page.tsx already had a same-session
+"pin" for chat.avatarUrl (2026-09-04, fixing mid-session poll
+rotation), but that pin lives in a `useRef` -- gone on any fresh page
+load. The real remaining cause: app/api/media/[docId]/route.ts's own
+Cache-Control is deliberately capped at 45s (the signed S3 URL it
+redirects to expires in 120s, see that route's own header), so any
+revisit past 45s is a genuine new network round-trip and next/image's
+blur placeholder shows again, however briefly -- on every reload, new
+tab, or return visit. Added lib/avatar-image-cache.ts: a persistent,
+Cache Storage-backed (window.caches, survives reloads/new tabs on
+this origin) cache of the actual decoded image BYTES, keyed by the
+doc's stable `_id` rather than the volatile fileReference/signed-url.
+Fetched once via the sibling same-origin /download route (not the
+redirect-to-S3 proxy -- same cross-origin-redirect CORS issue 6.176
+already root-caused for the voice waveform decode) and kept as a real
+Blob. components/cached-avatar.tsx wraps this: first-ever sighting of
+an avatar doc still renders exactly as before (next/image's own
+blur-up while the real src loads, background-fetches into the cache),
+every later visit on this device renders straight from disk via a
+plain `<img src={blobUrl}>` -- zero network, no placeholder, no flash.
+
+**2.** "Тут анимация иконки сама проигрывается постоянно нон-стоп,
+надо чтобы она срабатывала только один раз при наведении" -- the
+"new chat" bubble+plus icon's `.animate-chat-wiggle-loop` (added
+2026-09-04 specifically because its hover-gated sibling
+`.animate-chat-wiggle` never fires on touch devices) read as an
+annoying constant wiggle on desktop. Swapped back to
+`.animate-chat-wiggle` + a `group` wrapper on the button, in both
+app/chats/page.tsx and components/chats-flyout.tsx -- same class
+every other wiggle icon in the app already uses, one 0.5s burst per
+hover-in, silent otherwise. Trade-off flagged in-code, not silently
+eaten: touch devices lose the attention-nudge entirely now, accepted
+since the constant loop itself was the complaint, not a request for
+an equivalent touch trigger.
+
+tsc-clean. Commit c18acfd. **Not yet verified live or pushed** -- now
+5 commits sitting locally ahead of e598c18/6.178.
