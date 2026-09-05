@@ -7693,3 +7693,27 @@ downstream needed no changes at all.
 tsc-clean. Commit 5903358. **Not yet verified live or pushed** -- same
 standing network blocker (still no external network access in this
 sandbox); now 10 commits sitting locally ahead of origin/main.
+
+
+## 6.173 -- Select folded into the actions-menu box (2026-09-05)
+
+Aleksandr, screenshot comparison (his reference app vs ours): "А че ты
+'выбрать' отдельно сделал? Посели внутри модалки." The reference app
+renders Select as the LAST row inside the same rounded box as Reply
+through Delete -- just a hairline border between Delete and Select,
+not a second floating box with its own shadow/gap sitting below the
+first one, which is what this menu had (components/chat/message-
+actions-menu.tsx already had a `group: "main" | "select"` split on
+ACTION_ROWS specifically to render two separate boxes).
+
+Fix: Select's row now has `group: "main"` like every other row, and
+the second (now permanently empty) box is deleted outright. The row-
+list box's border-between-rows logic was already computed off
+`arr.length` from the filtered array it maps over (`i < arr.length - 1
+? border : ""`), so Select simply becomes the new last, border-less
+row for free -- no separate border-logic change needed. Also collapsed
+a stray double blank line left behind by the deletion.
+
+tsc-clean. Commit 1a1cd0d. **Not yet verified live or pushed** -- same
+standing network blocker; now 12 commits sitting locally ahead of
+origin/main.
