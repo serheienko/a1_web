@@ -73,6 +73,7 @@ import { useHoverPanel } from "@/lib/use-hover-panel";
 import { InlineAuthForm } from "@/components/inline-auth-form";
 import { setAccountMenuOpen } from "@/lib/account-menu-open";
 import { authFetch } from "@/lib/auth-fetch";
+import { MEDIA_BLUR_STYLE } from "@/lib/blur-placeholder";
 
 type Theme = "light" | "dark" | "auto";
 
@@ -548,7 +549,7 @@ export function AvatarMenu() {
         {/* Real uploaded photo when whoami resolved one, cat fallback
             otherwise (e.g. still loading, or no photo set) -- see
             profileAvatarUrl's own comment above. */}
-        <img src={profileAvatarUrl ?? pickDefaultCatAvatar(email)} alt="" className="h-full w-full object-cover" />
+        <img src={profileAvatarUrl ?? pickDefaultCatAvatar(email)} alt="" className="h-full w-full object-cover" style={MEDIA_BLUR_STYLE} />
       </button>
 
       {rendered && (
@@ -601,6 +602,7 @@ export function AvatarMenu() {
                     src={profileAvatarUrl ?? pickDefaultCatAvatar(email)}
                     alt=""
                     className="h-8 w-8 shrink-0 rounded-full object-cover"
+                    style={MEDIA_BLUR_STYLE}
                   />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium text-neutral-900 dark:text-neutral-50" title={email}>
@@ -617,6 +619,7 @@ export function AvatarMenu() {
                     src={profileAvatarUrl ?? pickDefaultCatAvatar(email)}
                     alt=""
                     className="h-8 w-8 shrink-0 rounded-full object-cover"
+                    style={MEDIA_BLUR_STYLE}
                   />
                   <span className="min-w-0 flex-1 truncate text-sm font-medium text-neutral-900 dark:text-neutral-50" title={email}>
                     {email}

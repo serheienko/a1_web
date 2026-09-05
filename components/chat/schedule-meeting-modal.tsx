@@ -33,6 +33,7 @@ import { T, LOCALE_TAG, type Locale } from "@/components/t";
 import { ChatBackArrow, ChatMeetingAttachIcon } from "./icons";
 import { bucketForHour, bucketEmoji } from "@/lib/a1/meeting-protocol";
 import { LottiePlayer } from "@/components/lottie-player";
+import { MEDIA_BLUR_STYLE } from "@/lib/blur-placeholder";
 
 type StringKey =
   | "title"
@@ -406,7 +407,7 @@ export function ScheduleMeetingModal({
           {peerAvatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element -- proxied
             // media URL, not a next/image-configured remote host.
-            <img src={peerAvatarUrl} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
+            <img src={peerAvatarUrl} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" style={MEDIA_BLUR_STYLE} />
           ) : (
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#8a93ff] to-[#5c6bff] text-[13px] font-semibold text-white">
               {peerName.trim().slice(0, 1).toUpperCase() || "?"}

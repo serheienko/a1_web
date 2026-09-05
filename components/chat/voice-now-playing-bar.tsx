@@ -63,6 +63,7 @@ import {
   toggleVoice,
 } from "@/lib/voice-playback-store";
 import { PauseGlyph, PlayGlyph } from "@/components/chat/voice-bubble";
+import { MEDIA_BLUR_STYLE } from "@/lib/blur-placeholder";
 
 function CloseGlyph({ className }: { className?: string }) {
   return (
@@ -147,7 +148,7 @@ export function VoiceNowPlayingBar() {
         {entry.avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element -- proxied/
           // generated avatar, not a next/image-configured remote host.
-          <img src={entry.avatarUrl} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
+          <img src={entry.avatarUrl} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" style={MEDIA_BLUR_STYLE} />
         ) : (
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#335ef7]/10 text-[#335ef7] dark:bg-[#0c8ce9]/15 dark:text-[#0c8ce9]">
             <MicFallbackGlyph className="h-4 w-4" />

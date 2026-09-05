@@ -53,6 +53,7 @@ import { T, type Locale } from "@/components/t";
 import type { ReactNode } from "react";
 import { bucketForHour, bucketEmoji, type MeetingPayload, type MeetingAcceptPayload, type MeetingTimeBucket } from "@/lib/a1/meeting-protocol";
 import { LottiePlayer } from "@/components/lottie-player";
+import { MEDIA_BLUR_STYLE } from "@/lib/blur-placeholder";
 
 type StringKey =
   | "title"
@@ -206,7 +207,7 @@ function ParticipantAvatar({ p, className }: { p: Participant; className?: strin
   if (p.avatarUrl) {
     // eslint-disable-next-line @next/next/no-img-element -- proxied
     // media/data URL, not a next/image-configured remote host.
-    return <img src={p.avatarUrl} alt="" className={`${className} rounded-full object-cover`} />;
+    return <img src={p.avatarUrl} alt="" className={`${className} rounded-full object-cover`} style={MEDIA_BLUR_STYLE} />;
   }
   const initial = p.name.trim().slice(0, 1).toUpperCase() || "?";
   return (
