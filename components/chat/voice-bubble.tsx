@@ -78,7 +78,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore, type PointerEvent, type ReactNode } from "react";
 import { T, type Locale } from "@/components/t";
-import { buildMediaProxyUrl } from "@/lib/a1/media-proxy";
+import { buildMediaProxyUrl, buildMediaDownloadUrl } from "@/lib/a1/media-proxy";
 import {
   decodeWaveformBars,
   formatVoiceDeleteCountdown,
@@ -255,13 +255,35 @@ export function VoiceMessageBubble({
   // result in that same cache (keyed by fileReference) so every other
   // bubble for this clip (a re-render, the now-playing bar, reopening the
   // chat) reads it back instantly instead of re-decoding.
+  // 2026-09-05 (Aleksandr, still "эквалайзер так и не работает" after
+  // every earlier round on this feature) -- root cause was never the
+  // sampling/timing logic those rounds fixed, it's that this effect was
+  // fetching buildMediaProxyUrl(doc): the SIBLING route
+  // (app/api/media/[docId]/route.ts) that 302-redirects cross-origin to
+  // a signed S3 URL. That's exactly the situation this codebase already
+  // has a documented fix for -- see app/api/media/[docId]/download/
+  // route.ts's own header comment: a browser-side feature that needs to
+  // actually READ the bytes (there: the `download` attribute; here:
+  // decodeAudioData needing the real ArrayBuffer) breaks across that
+  // cross-origin redirect boundary, because nothing guarantees the S3
+  // bucket answers with CORS headers for this origin -- so `fetch()`
+  // rejects with a plain network error the instant it tries to follow
+  // the redirect and read the response, caught below and silently
+  // falling back to the inaccurate attribute-waveform forever, on every
+  // single received clip, no matter how correct the decode math itself
+  // was. buildMediaDownloadUrl(doc) hits that download route instead,
+  // which already fetches the S3 bytes SERVER-SIDE and streams them
+  // back same-origin -- no cross-origin response for the browser to
+  // read at all. The route's Content-Disposition: attachment header is
+  // irrelevant here (only a browser navigation honors that; a
+  // programmatic fetch() just reads the body either way).
   useEffect(() => {
     if (localWaveform) return;
     if (getLocalVoiceWaveform(doc.fileReference)) return;
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(buildMediaProxyUrl(doc));
+        const res = await fetch(buildMediaDownloadUrl(doc));
         if (!res.ok) return;
         const blob = await res.blob();
         const decoded = await decodeWaveformFromBlob(blob, DECODE_BARS, totalSeconds);
