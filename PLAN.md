@@ -7860,3 +7860,38 @@ the same accept="application/*,text/*,audio/*" there too.
 tsc-clean. Commit dbf2557. **Not yet verified live or pushed** -- same
 standing network blocker; now 5 commits sitting locally ahead of the
 last confirmed-deployed one (3dadb86/6.174).
+
+
+## 6.178 -- Swipe-to-reply: received bubbles slide too (2026-09-05)
+
+Aleksandr, screen recording: swiping left on a message FROM the other
+person already correctly fired the reply (compose box showed "Reply to
+<name>"), but the bubble itself never visibly moved -- "Не просто
+срабатывала реакция reply, а чтобы само сообщение тоже заезжало."
+
+Root cause: `mine`'s row is justify-end, so the reveal-slot (a flex
+sibling growing WIDTH as you drag) pushes the bubble left automatically
+-- a side effect of the row's total content having to stay flush right.
+A received message's row is justify-start, where a TRAILING sibling
+growing can never move the LEADING bubble; it's pinned to the row's
+start regardless. So the reply-trigger math (independent of any of
+this, computed straight off touch dx) fired correctly the whole time,
+but nothing ever visibly happened for that side.
+
+Fix (app/chats/[chatId]/page.tsx): for `!mine`, apply the identical
+`translateX(-dx)` to both the bubble and the reveal-slot. Transform
+repaints without touching layout, so the slot's layout box stays
+exactly where it always was (right after the bubble's own unmoved
+layout box) -- shifting both by the same amount keeps them visually
+glued edge-to-edge, while the slot's far edge stays pinned at the
+bubble's ORIGINAL position, reproducing the same "grows from a fixed
+edge" look `mine` gets for free from flex. The transform transitions
+back smoothly on release (200ms) via an inline `transition` that
+restates the existing outline-color/outline-offset pair too, since
+inline style replaces the whole transition-property list outright and
+would otherwise silently kill the unrelated message-highlight-flash
+transition.
+
+tsc-clean. Commit f9cd358. **Not yet verified live or pushed** -- same
+standing network blocker; now 6 commits sitting locally ahead of the
+last confirmed-deployed one (3dadb86/6.174).
