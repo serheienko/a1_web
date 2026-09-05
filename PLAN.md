@@ -8671,3 +8671,30 @@ Worked through the rest of the Fix Tracker's pending items:
 
 tsc-clean. Commit 717d567. 50 commits now sitting locally ahead of
 e598c18/6.178.
+
+## 6.212 -- Forward: multi-select target picker (2026-09-05)
+
+Last remaining Fix Tracker item (Aleksandr: "Давай добавим...
+возможность делать это большому кол-во пользователей, т.е. добавить
+мультивыбор"). forward-picker-modal.tsx's own header had explicitly
+scoped multi-select OUT back in 6.205, since the mobile app's own
+sendForwardedMessage contract only ever takes one userId -- this is a
+genuine web-only enhancement past that contract, not a port of one.
+
+Reworked the picker into checkbox rows + a bottom "Переслати (N)"
+button (same picked-set convention contacts-picker-modal.tsx already
+established for its own multi-pick contact flow), each row showing its
+own live status once a send round starts (spinner/checkmark/"!").
+app/chats/[chatId]/page.tsx's old handleForwardMessage(targetChatId)
+split into forwardToOneChat (pure single-target POST /api/chats/send,
+returns ok/fail, no state writes) and handleForwardSend (loops it
+sequentially -- not Promise.all, so rows visibly complete top to
+bottom -- over every picked chat id). A partial failure leaves the
+modal open with only the failed chats still picked and the succeeded
+ones showing their checkmark, so a second tap on "Переслати" retries
+only what didn't go through.
+
+tsc-clean. Commit 46cea21. 51 commits now sitting locally ahead of
+e598c18/6.178.
+
+**All Fix Tracker items from this session are now done.**
