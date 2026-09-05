@@ -8121,3 +8121,29 @@ hard refresh; the poll still re-fetches in the background regardless.
 
 tsc-clean. Commit fa4d3a3. **Not yet verified live or pushed** -- same
 standing network blocker.
+
+
+## 6.187 -- Chat: working Copy action + top toast with done.tgs animation (2026-09-05)
+
+Aleksandr: "Сделай чтобы 'скопировать' работало и показывай попап
+сверху, типа скопировано и добавляй в него анимацию, попап должен сам
+исчезать через 3 сек" (attached done.tgs). MessageActionsMenu's Copy
+row was one of its own original placeholder rows ("всё placeholder,
+кроме кнопки Reply") -- now takes an optional onCopy, called only when
+extractMessageText() finds actual text on the tapped message (a bare
+photo/voice/contact card still no-ops -- nothing to copy there yet).
+Both callers (app/chats/[chatId]/page.tsx, mini-chat-window.tsx) wire
+it to navigator.clipboard.writeText plus a new components/chat/
+copy-toast.tsx, kept as its OWN component rather than rendered inside
+the menu -- that menu unmounts the instant any row fires, which would
+kill an in-menu toast well before its 3 seconds. done.tgs (gzipped
+Lottie/Telegram sticker) decompressed to plain Lottie JSON, committed
+as public/animations/done.json -- same format every other animation
+here already uses, played through lottie-player.tsx's new `loop` prop
+(default true, every existing decorative-icon caller unaffected; the
+toast is the one caller passing loop={false}). done.json's own
+animation happens to run exactly 3s at its authored frame rate,
+matching the toast's requested lifetime.
+
+tsc-clean. Commit cc4a543. **Not yet verified live or pushed** -- same
+standing network blocker.
