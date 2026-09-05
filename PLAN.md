@@ -7199,3 +7199,31 @@ before this fires -- a documented platform quirk, flag if it shows up
 live.
 
 tsc-clean, commit d9171b0.
+
+## 6.156 -- Reply quote: attachment thumbnail alongside a captioned message (2026-09-05)
+
+Aleksandr, reference screenshot (no caption text this time, just the
+image): a reply-quote in the reference app for a message that mixes a
+photo/document WITH caption text shows that attachment's own thumbnail
+right next to the caption -- not the caption alone, which is what
+6.155 above still did for this exact case.
+
+Root cause: describeMessagePreview (lib/a1/chat-schemas.ts) classifies
+a message as "text" the instant it has ANY text, caption or not, and
+checks that BEFORE it ever looks at the message's own docs -- so a
+captioned photo/file never reached the photo/file branches 6.155 fixed
+at all, it always took the plain-text path with zero icon.
+
+resolveReplyPreview (app/chats/[chatId]/page.tsx) now takes a second,
+independent look at the target's own docs specifically for that "text"
+case (messageDocumentMedia + isImageMediaDocument/etc.) and returns a
+`thumbnail` alongside its existing preview node. MessageReplyQuote and
+ReplyComposeBar (components/chat/message-actions-menu.tsx) both take a
+new optional `thumbnail` prop rendered as its own element next to the
+name+text column (restructured from a column-only layout to a row:
+thumbnail | name+text), instead of trying to cram an image inside
+previewText -- a plain-text or pure-media target (already fully
+described by its own icon+label) renders exactly as before, prop
+omitted.
+
+tsc-clean, commit 5810970.
