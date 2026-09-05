@@ -2461,7 +2461,13 @@ export default function ChatWindowPage() {
     // instead of sending a new message. No separate "Save" button/UI
     // surface needed -- the editing-bar's own cancel (x) is the only
     // new control this adds.
-    if (editingMessage) {
+    // Guarded to the plain manual path (no overrideText/meet) -- those
+    // two only ever fire from the attach popover's own quick-invite/
+    // meeting rows, which are unreachable while editingMessage is set
+    // (the paperclip itself is disabled then, see ChatPaperclipButton's
+    // own disabled prop above), but this keeps saveEditedMessage() from
+    // ever silently swallowing one of those sends if that ever changes.
+    if (editingMessage && !overrideText && !meet) {
       await saveEditedMessage();
       return;
     }
