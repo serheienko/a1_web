@@ -8059,3 +8059,45 @@ per-render image cost on the site, so it's also the biggest "не палили
 
 tsc-clean. Commit e8cec75. **Not yet verified live or pushed** -- same
 standing network blocker.
+
+
+## 6.184 -- Mini chat window: photo grouping + right-click Cupertino menu (2026-09-05)
+
+Aleksandr: "Комбинирование фото не работают в маленьком окне, надо
+полечить, + правая кнопка тоже должна работать для вызова купертино."
+The small popup chat window (components/mini-chat-window.tsx) never
+got either of two features the full /chats/[chatId] page already has:
+
+**Grouping.** Ported the exact within-message image-run grouping from
+the main page verbatim (imageGroupStartId/imageGroupSkipIds -> a
+single ChatPhotoGrid instead of N stacked full-width rows). No
+full-size lightbox exists in this widget -- out of scope here, same as
+the main page's own pending-attachment grid usage (onOpen no-op).
+
+**Cupertino menu.** Each bubble now has onContextMenu wired to open
+MessageActionsMenu, same component the main page uses. This widget is
+desktop-only to begin with (components/chats-fab.tsx already redirects
+mobile straight to the full page instead of ever mounting this one),
+so right-click alone is the one trigger it needs -- no isTouch/tap
+gating like the main page required. Reply threading (quote preview,
+replyTarget) doesn't exist in this smaller widget yet, so its onReply
+just focuses the compose textarea -- same "started a reply" gesture,
+without the full threading UI.
+
+tsc-clean. Commit 1327bac. **Not yet verified live or pushed** -- same
+standing network blocker; commits keep piling up locally.
+
+## 6.185 -- Fix Tracker: persistent online checklist (2026-09-05)
+
+Aleksandr: "Давай придумаем какой-то механизм, куда будем вписывать
+все правки чек-листом, чтобы они жили онлайн и не терялись?" Built as
+a Claude Artifact (not app code) backed by the Artifact db capability
+-- a live, shared checklist page with add/toggle/delete, a progress
+ring, and Open/All/Done filters, synced in realtime via onSnapshot so
+every open tab sees the same state. Seeded with the full backlog: done
+items (6.179-6.184's work) marked done, everything still open (voice
+waveform bug, mini-chat caching, copy+toast with the done.tgs
+animation, post/profile caching, the reply-bar-width bug, etc.) filed
+as pending. Lives outside this repo/PLAN.md entirely -- its whole
+point is surviving independent of any one conversation's context
+window. Link shared with Aleksandr directly in chat.
