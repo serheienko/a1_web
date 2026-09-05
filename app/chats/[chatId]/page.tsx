@@ -3180,7 +3180,22 @@ export default function ChatWindowPage() {
           <div className="flex flex-col gap-1.5">
             {displayMessages.map((msg, i) => {
               if (crossMessageGroupSkip.has(msg._id)) return null;
-              const mine = myUserId !== null && msg.fromId === myUserId;
+              // 2026-09-05 (t015 bug report: pending voice bubble briefly
+              // flips left->right when it lands) -- optimistic messages are
+              // built with `fromId: myUserId` baked in at construction time,
+              // but myUserId itself is a useState that starts out null until
+              // the initial load() resolves. Tapping the mic (or sending
+              // text) the instant a chat opens -- before that fetch returns
+              // -- used to snapshot fromId: null into the pending bubble,
+              // rendering it on the wrong (received) side until the *real*
+              // server-confirmed message swapped in with the correct
+              // fromId, producing a visible side-flip. A pending message is
+              // by definition always self-authored (nothing else in this
+              // app produces one), so for those we skip the fromId/myUserId
+              // race entirely and read the `pending` discriminant instead.
+              const mine = "pending" in msg && msg.pending
+                ? true
+                : myUserId !== null && msg.fromId === myUserId;
               const text = extractMessageText(msg);
               const ms = messageDateMs(msg);
               // 2026-09-02: displayMessages[i - 1] types as
