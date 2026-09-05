@@ -488,9 +488,12 @@ export function ChatsFlyout({
                 type="button"
                 onClick={() => setNewChatOpen(true)}
                 aria-label={STRINGS.newChatTitle[lang]}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+                // See app/chats/page.tsx's own identical button for the
+                // full 2026-09-05 header comment -- same fix, same icon,
+                // same reasoning, this flyout just carries its own copy.
+                className="group flex h-8 w-8 items-center justify-center rounded-full text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
               >
-                <NewChatBubbleIcon className="animate-chat-wiggle-loop" />
+                <NewChatBubbleIcon className="animate-chat-wiggle" />
               </button>
               <Link
                 href="/chats"

@@ -44,6 +44,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import { CachedAvatar } from "@/components/cached-avatar";
 import Link from "next/link";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { T, LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
@@ -353,9 +354,23 @@ export default function ChatsPage() {
             type="button"
             onClick={() => setNewChatOpen(true)}
             aria-label="New chat"
-            className="flex h-9 w-9 items-center justify-center rounded-full text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+            // 2026-09-05 (Aleksandr, live screenshot: "анимация иконки сама
+            // проигрывается постоянно нон-стоп, надо чтобы она срабатывала
+            // только один раз при наведении") -- reverses the 2026-09-04
+            // choice of `.animate-chat-wiggle-loop` (see that class's own
+            // header in app/globals.css) specifically FOR this desktop web
+            // list-header button: back to the shared `.animate-chat-wiggle`
+            // (`group`-hover-gated, plays its one 0.5s burst per hover-in,
+            // never repeats while just sitting there) every other wiggle
+            // icon in this app already uses. Trade-off noted, not silently
+            // dropped: that class is hover-only, so this specific icon goes
+            // back to static-until-touched on a touch device with no mouse
+            // hover at all -- accepted here since Aleksandr's own report is
+            // that the constant loop itself is the problem, not asking for
+            // an equivalent touch trigger.
+            className="group flex h-9 w-9 items-center justify-center rounded-full text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
           >
-            <NewChatBubbleIcon className="animate-chat-wiggle-loop" />
+            <NewChatBubbleIcon className="animate-chat-wiggle" />
           </button>
         </div>
 
@@ -511,15 +526,21 @@ export default function ChatsPage() {
                 href={`/chats/${chat.id}?title=${encodeURIComponent(chat.title)}&avatar=${encodeURIComponent(chat.avatarUrl)}${chat.avatarBlurDataUrl ? `&avatarBlur=${encodeURIComponent(chat.avatarBlurDataUrl)}` : ""}${chat.username ? `&username=${encodeURIComponent(chat.username)}` : ""}`}
                 className="flex items-center gap-3 rounded-xl px-2 py-2.5 hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
               >
-                <Image
+                {/* 2026-09-05 (Aleksandr: "Сделай кеширование аватаров в
+                    чат-листе, а то они кажд раз подгружаются через блюр, а
+                    надо один раз загрузить и чтобы были загруженные уже")
+                    -- CachedAvatar (components/cached-avatar.tsx) checks a
+                    persistent, Cache Storage-backed blob cache before ever
+                    falling back to this same next/image blur-up. See that
+                    file's own header for why the existing avatarUrl "pin"
+                    (this list's own pinnedAvatarUrls, right above) wasn't
+                    enough on its own -- it only survives within one tab,
+                    not a reload or a new one. */}
+                <CachedAvatar
                   src={chat.avatarUrl}
-                  alt=""
-                  width={52}
-                  height={52}
-                  className="h-[52px] w-[52px] shrink-0 rounded-full object-cover"
-                  placeholder="blur"
                   blurDataURL={chat.avatarBlurDataUrl ?? BLUR_DATA_URL}
-                  unoptimized
+                  size={52}
+                  className="h-[52px] w-[52px] shrink-0 rounded-full object-cover"
                 />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline justify-between gap-2">
