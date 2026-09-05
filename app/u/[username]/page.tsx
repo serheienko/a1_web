@@ -20,7 +20,7 @@ export const revalidate = 60;
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import Image from "next/image";
+import { CachedAvatar } from "@/components/cached-avatar";
 import { fetchUserByUsername, fetchUserRawByUsername } from "@/lib/a1/users";
 import { fetchPostsByAuthor } from "@/lib/a1/feed";
 import { PostCard } from "@/components/post-card";
@@ -399,22 +399,19 @@ export default async function ProfilePage({ params }: Props) {
             badge's own `left-full` positioning (below) is anchored to. */}
         <div className="relative shrink-0">
           <VoiceIntroRing>
+          {/* 2026-09-05 (Aleksandr: "Еще сделай кеширование постов,
+              если они раньше открывались") -- same persistent Cache
+              Storage-backed avatar cache components/post-card.tsx's
+              feed cards already use (CachedAvatar/lib/avatar-image-
+              cache.ts, 6.183) instead of a plain next/image -- once a
+              visitor has seen this author's avatar anywhere on the
+              site, reopening this exact profile never re-fetches it. */}
           {profile.avatarUrl ? (
-            <Image
+            <CachedAvatar
               src={profile.avatarUrl}
-              alt=""
-              width={150}
-              height={150}
-              placeholder="blur"
               blurDataURL={avatarBlurDataUrl ?? BLUR_DATA_URL}
+              size={150}
               className="h-[72px] w-[72px] shrink-0 rounded-full object-cover sm:h-[112.5px] sm:w-[112.5px]"
-              // 2026-08-31 (live report: "сломалось отображение аватаров"):
-              // see app/jobs/[slug]/page.tsx's identical comment -- same
-              // /api/media proxy, same Vercel Image Optimizer quota fix.
-              // (The Favorites cover art just above stays on the optimizer
-              // -- those are third-party OpenLibrary/TMDB/RAWG images that
-              // genuinely benefit from it and aren't the quota driver.)
-              unoptimized
             />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element

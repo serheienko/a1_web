@@ -10,7 +10,7 @@ import type { Metadata } from "next";
 import { fetchPostById } from "@/lib/a1/posts";
 import { slugify, parseSlugId } from "@/lib/seo/slug";
 import { buildJobPostingJsonLd, isJobPostingExpired } from "@/lib/seo/jsonld";
-import Image from "next/image";
+import { CachedAvatar } from "@/components/cached-avatar";
 import { PostImages } from "@/components/post-images";
 import { truncateAtWordBoundary } from "@/lib/format";
 import { RelativeTime, SalaryLabel, LocationLabel } from "@/components/locale-format";
@@ -132,25 +132,19 @@ export default async function JobDetailPage({ params }: Props) {
           instead of the card's single-row version. */}
       <div className="mt-4 flex items-center gap-3">
         {(() => {
+            // 2026-09-05 (Aleksandr: "Еще сделай кеширование постов,
+            // если они раньше открывались") -- same persistent Cache
+            // Storage-backed avatar cache components/post-card.tsx's
+            // feed cards already use (CachedAvatar/lib/avatar-image-
+            // cache.ts, 6.183) instead of a plain next/image -- once a
+            // visitor has seen this author's avatar anywhere on the
+            // site, reopening this exact post never re-fetches it.
           const avatarImg = post.author.avatarUrl ? (
-            <Image
+            <CachedAvatar
               src={post.author.avatarUrl}
-              alt=""
-              width={48}
-              height={48}
-              placeholder="blur"
               blurDataURL={authorAvatarBlurDataUrl ?? BLUR_DATA_URL}
+              size={48}
               className="h-12 w-12 shrink-0 rounded-full object-cover"
-              // 2026-08-31 (live report: "сломалось отображение аватаров"):
-              // avatarUrl is our own /api/media proxy, already served at a
-              // fixed, pre-sized JPEG (see that route's `size` param) --
-              // routing it through Vercel's Image Optimizer too just burns
-              // through the Hobby plan's optimization quota one more time
-              // per unique avatar, and once that's exhausted every
-              // /_next/image request site-wide starts failing (402/404),
-              // which is exactly what broke every avatar at once. Same fix
-              // applied everywhere else this proxy feeds an <Image>.
-              unoptimized
             />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
