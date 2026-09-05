@@ -7285,3 +7285,28 @@ states that aren't that pill (mic-denied notice, active voice-recording
 bar), where there's no pill to nest into.
 
 tsc-clean, commit bfff42a.
+
+## 6.160 -- Meeting proposal card: sent-bubble blue instead of fixed dark navy (2026-09-05)
+
+Aleksandr, screenshot: "Сделай это предложение встречи с такой же
+синей подложкой как и остальные сообщения, цвета шрифтов адаптируй."
+
+Note: this deliberately reverses 6.15x round three's "one fixed
+dark-navy card regardless of sender" call in meeting-message-card.tsx
+-- that round's complaint was specifically about SIZE (labels forced
+small to fit inside a bubble-colored card), not the color itself; this
+is his latest explicit direction, taken at face value.
+
+components/chat/meeting-message-card.tsx: root fill bg-[#12233d] ->
+bg-[#335ef7] dark:bg-[#009bff] (same pair every sent bubble already
+uses in page.tsx/voice-bubble.tsx/contact-message-card.tsx). Secondary
+text opacities (white/40, /45, /50, /60, /70) bumped up a notch
+(white/65, /70, /70, /80, /85) since they were tuned for near-black
+and read too dim against the brighter blue. Dividers/borders and the
+translucent info/join buttons: white/10 -> white/15, hover white/20 ->
+white/25. Accept/OK buttons used to be solid bg-[#335ef7] on the dark
+card -- now that the card itself is that blue they'd disappear, so
+they invert to a white pill with blue text/icon, same as voice-bubble
+.tsx's own play-button treatment on a mine bubble.
+
+tsc-clean, commit 3e296ac.
