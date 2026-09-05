@@ -830,6 +830,33 @@ textarea {
   animation: back-arrow-nudge 0.45s ease-in-out;
 }
 
+/* 2026-09-05 (Aleksandr: "Сделай анимацию стрелки вниз при клике") --
+   same nudge convention as animate-send-arrow/animate-back-arrow above,
+   just CLICK-triggered instead of hover-triggered (this button has no
+   hover-only affordance on mobile, where it's arguably needed most) --
+   see the button's own onClick in app/chats/[chatId]/page.tsx, which
+   bumps a key so this class re-mounts (and so re-plays) on every tap
+   rather than only once. Nudges DOWN since the chevron already points
+   down, same "give in the direction it's already pointing" reasoning
+   as those two.
+*/
+@keyframes jump-arrow-nudge {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(2.5px);
+  }
+  70% {
+    transform: translateY(-0.5px);
+  }
+}
+
+.animate-jump-arrow {
+  animation: jump-arrow-nudge 0.45s ease-in-out;
+}
+
 @keyframes paperclip-wiggle {
   0%,
   100% {

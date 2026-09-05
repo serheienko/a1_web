@@ -1508,12 +1508,19 @@ export default function ChatWindowPage() {
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
+  // 2026-09-05 (Aleksandr: "Сделай анимацию стрелки вниз при клике") --
+  // bumping this key remounts the chevron's own svg element, which
+  // re-triggers its animate-jump-arrow CSS animation (app/globals.css)
+  // on every tap -- a plain className toggle wouldn't replay on a
+  // SECOND click while the first play was still finishing.
+  const [jumpArrowBounceKey, setJumpArrowBounceKey] = useState(0);
   function jumpToBottom() {
     const el = messagesScrollRef.current;
     if (!el) return;
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
     isPinnedToBottomRef.current = true;
     setShowJumpToBottom(false);
+    setJumpArrowBounceKey((k) => k + 1);
   }
   useEffect(() => {
     const el = messagesScrollRef.current;
@@ -3932,16 +3939,31 @@ export default function ChatWindowPage() {
           bare viewport edge. Anchored composeBarHeight + a gap above the
           (real, live-measured) compose bar, same technique the message
           list's own bottom padding already uses. */}
-      {state !== "signed-out" && showJumpToBottom && (
-        <div className="pointer-events-none fixed inset-x-0 z-10 flex justify-center px-4" style={{ bottom: `${composeBarHeight + 12}px` }}>
+      {state !== "signed-out" && (
+        // 2026-09-05 follow-up (Aleksandr: "сделай чтобы она появлялась
+        // плавнее, через затухание и плавный переход") -- used to be a
+        // conditionally-RENDERED block (mounted/unmounted outright on
+        // showJumpToBottom), which pops instantly with no way to
+        // transition since there's no "before" frame to transition
+        // FROM on mount, and no time to transition to on unmount
+        // either. Always mounted now; showJumpToBottom instead toggles
+        // opacity/translate-y + pointer-events through a plain CSS
+        // transition, so it fades and slides both in and out.
+        <div
+          className={`fixed inset-x-0 z-10 flex justify-center px-4 transition-all duration-200 ease-out ${
+            showJumpToBottom ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-1.5 opacity-0"
+          }`}
+          style={{ bottom: `${composeBarHeight + 12}px` }}
+        >
           <div className="mx-auto flex w-full max-w-[470px] justify-end">
             <button
               type="button"
               onClick={jumpToBottom}
               aria-label="Jump to bottom"
-              className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-[#335ef7] shadow-md backdrop-blur-sm transition hover:bg-neutral-50 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/90 dark:text-[#0c8ce9]"
+              tabIndex={showJumpToBottom ? 0 : -1}
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-[#335ef7] shadow-md backdrop-blur-sm transition hover:bg-neutral-50 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/90 dark:text-[#0c8ce9]"
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden="true">
+              <svg key={jumpArrowBounceKey} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 animate-jump-arrow" aria-hidden="true">
                 <path d="M6 9l6 6 6-6" />
               </svg>
             </button>
