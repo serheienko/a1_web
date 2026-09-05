@@ -5422,9 +5422,11 @@ export default function ChatWindowPage() {
                     type="button"
                     onClick={() => setAttachDailyUploadsOpen(true)}
                     aria-label="Daily uploads"
+                    // 2026-09-05 (bug-tracker: "Сделай иконку памяти в
+                    // модалке в х2 больше") -- was h-4 w-4.
                     className="group absolute right-2 top-2 rounded-full p-1 text-neutral-400 transition hover:bg-black/5 hover:text-neutral-700 dark:text-neutral-500 dark:hover:bg-white/10 dark:hover:text-neutral-200"
                   >
-                    <ChatStorageIcon className="animate-storage-icon h-4 w-4" />
+                    <ChatStorageIcon className="animate-storage-icon h-8 w-8" />
                   </button>
                   {/* Photo/File rows dim to 50% and stop opening a
                       picker once today's quota is fully used (Figma
