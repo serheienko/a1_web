@@ -19,8 +19,8 @@
 // falls back to plain, unlinked text/image.
 
 import type { ReactNode } from "react";
-import Image from "next/image";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
+import { CachedAvatar } from "@/components/cached-avatar";
 import Link from "next/link";
 import type { WebPost } from "@/types/web-post";
 import { RelativeTime, SalaryLabel, LocationLabel } from "@/components/locale-format";
@@ -120,20 +120,25 @@ export function PostCard({
   const profileHref = post.author.username ? buildProfileHref(post.author.username) : null;
 
   const avatarImg = avatarUrl ? (
-    <Image
+    // 2026-09-05 (Aleksandr: "Кешируй главные ленты тоже, со всеми
+    // аватарами и інфою") -- same persistent, Cache Storage-backed
+    // avatar cache the chat list already got (lib/avatar-image-cache.ts/
+    // components/cached-avatar.tsx, 6.181) -- avatarUrl here is built
+    // via the identical buildMediaProxyUrl() (lib/a1/mappers.ts's own
+    // mapAuthor), so the same /api/media/<id> doc-id extraction applies
+    // unchanged. First sighting of a given author's avatar anywhere on
+    // the site still blurs up via next/image exactly as before; every
+    // later feed render (this page, "Load more", a revisit) paints
+    // straight from disk, no re-fetch, no blur flash -- this is the
+    // single biggest per-feed-render image cost on the site (every post
+    // card renders one), so this is also the biggest win for "не палили
+    // деньги" (needless Image Optimizer/network churn) of any avatar
+    // surface in the app.
+    <CachedAvatar
       src={avatarUrl}
-      alt=""
-      width={56}
-      height={56}
-      placeholder="blur"
       blurDataURL={avatarBlurDataUrl ?? BLUR_DATA_URL}
+      size={56}
       className="h-14 w-14 rounded-full object-cover"
-      // 2026-08-31 (live report: "сломалось отображение аватаров"): see
-      // app/jobs/[slug]/page.tsx's identical comment -- same /api/media
-      // proxy, same Vercel Image Optimizer quota fix. This card renders
-      // once per feed post, so it's the single biggest source of
-      // optimizer transformations on the site.
-      unoptimized
     />
   ) : (
     // eslint-disable-next-line @next/next/no-img-element

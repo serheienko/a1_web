@@ -10,7 +10,12 @@ import { mapPosts } from "./mappers";
 import { PostsSearchOutputSchema } from "./schemas";
 import type { WebPost, WebPostKind } from "@/types/web-post";
 
-export const FEED_PAGE_SIZE = 20;
+// 2026-09-05 (Aleksandr: "не загружай всю ленту сразу, а показывай
+// только постов 30... подгрузку и пагинацию") -- bumped from the
+// original 20 to the 30 he explicitly asked for as the first page/
+// per-page size; the actual seamless-infinite-scroll trigger lives in
+// components/load-more.tsx (IntersectionObserver), not here.
+export const FEED_PAGE_SIZE = 30;
 
 const KIND_TO_OBJECT: Record<WebPostKind, string> = {
   hiring: "post-job-employing",
