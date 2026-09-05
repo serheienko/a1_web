@@ -8842,3 +8842,74 @@ Two issues from one live screenshot (Aleksandr: "текст message не по
 
 tsc-clean. Commit e7b330c. 57 commits now sitting locally ahead of
 e598c18/6.178.
+
+## 6.219 — Мультивибір повідомлень + Очистити чат (Форвард 2.0, Phase 1) — 2026-09-05
+
+Aleksandr, отвечая на "Open Questions" из ранее опубликованного мастер-плана
+"Форвард 2.0" (артефакт https://claude.ai/code/artifact/d3a9d152-f20b-4ae1-adc5-1fc683ae6934):
+"Очистить чат давай тоже сделаем сразу, почему нет?" — greenlight на
+multi-select + Clear Chat прямо сейчас, реакции-эмодзи функционал явно
+отложенный ("пока визуально отображаются"), pending-forward storage подход
+одобрен в общих чертах.
+
+Оба построены строго по референсу мобильного приложения (не угадано):
+`lib/features/chat/presentation/chat_detail/managers/chat_detail_controllers.dart`
+(isSelectionMode/selectedMessageIds ValueNotifiers),
+`.../components/chat_detail_selection_app_bar.dart` (верхний бар: Clear Chat
+пилюля / счётчик / Cancel пилюля), `.../widgets/chat_selection_action_bar.dart`
+(нижний бар вместо композера: delete слева, forward справа, dim+disabled при
+пустом выборе), `chat_detail_cubit.dart`'s `clearChatForMe()` (messages.deleteHistory
+контракт: `{peerTo, revoke:false, maxId}`, maxId = максимальный id из уже
+загруженных сообщений).
+
+1. **Selection mode** — пункт меню "Вибрати" в `MessageActionsMenu`
+   (`components/chat/message-actions-menu.tsx`) был чисто визуальным
+   плейсхолдером (см. собственный header-комментарий файла) — теперь
+   вызывает новый `onSelect` проп → `enterSelectionMode()` в page.tsx,
+   предвыбирая то сообщение, на котором открыли меню. Чекбокс на каждом
+   пузыре сообщения (кроме pending) + невидимый `absolute inset-0 z-20`
+   оверлей поверх всего ряда, ловящий клик раньше любого существующего
+   обработчика внутри пузыря (открыть фото/играть войс/т.д.) — тот же
+   трюк "z-index побеждает клик независимо от DOM-порядка", что уже
+   использует свой click-catcher у `MessageActionsMenu`.
+
+   Новый файл `components/chat/selection-bar.tsx`: `SelectionTopBar`
+   (заменяет обычный header, пока `selectionMode` активен) и
+   `SelectionBottomBar` (заменяет композер) — оба читаны 1-в-1 с
+   мобильного UI, никакой визуальной отсебятины.
+
+2. **Batch delete** — один вызов существующего `/api/chats/delete` со
+   ВСЕМИ выбранными id разом (маршрут уже принимал массив до 50 id, не
+   нужен был отдельный роут) — эффективнее, чем поштучный цикл на
+   мобильном.
+
+3. **Clear Chat** — новый `app/api/chats/clear/route.ts`, вызывающий
+   `messages.deleteHistory` (`peerTo`, `revoke:false`, `maxId`) — точная
+   копия контракта `clearChatForMe()`. Доступен через "Очистити чат"
+   пилюлю в `SelectionTopBar`.
+
+4. **Forward обобщён на массив** — `forwardMessage: ChatMessage | null`
+   → `forwardSource: ChatMessage[] | null`, чтобы ОДНА и та же
+   картинка-пикер/отправка обслуживала и одиночный Forward из меню
+   действий (массив из 1), и новый batch-Forward из selection mode
+   (`selectedMessagesOldestFirst()` — сортировка по возрастанию id, как
+   у мобильного `_selectedMessagesOldestFirst`). `handleForwardSend`
+   теперь шлёт КАЖДОЕ сообщение из `forwardSource` на каждый выбранный
+   чат по порядку (oldest-first), прежде чем переходить к следующему
+   чату — то же "N обычных сообщений подряд", что и у мобильного
+   `_handleSelectionForward`.
+
+5. `DeleteMessageConfirmDialog` (message-actions-menu.tsx) получил
+   опциональные `title`/`description`/`confirmLabel` — тот же диалог
+   теперь обслуживает одиночное удаление (без изменений копирайта),
+   batch-удаление выбранных ("Видалити N повідомлень?") и Clear Chat
+   ("Очистити чат?").
+
+tsc-clean. Commit cdc1c67.
+
+Не сделано в этом батче (осознанно, следующие шаги): Phase 2 (picker
+tap=navigate vs Select=batch) и Phase 3 (pending-forward preview banner
+в композере при открытии чата-получателя) — Aleksandr явно повторно
+подчеркнул именно этот момент ("должен быть момент, что ты типа когда
+пересылаешь и открываешь чат, и там тоже сверху это появляется в
+композере") — идёт следующим отдельным батчем.
