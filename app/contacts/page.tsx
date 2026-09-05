@@ -58,7 +58,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
+import { CachedAvatar } from "@/components/cached-avatar";
 import Link from "next/link";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { profileHref } from "@/lib/profile-href";
@@ -311,15 +311,15 @@ export default function ContactsPage() {
             const avatarSrc = linkedUser?.avatarUrl ?? pickDefaultCatAvatar(contact._id);
             const profileBody = (
               <>
-                <Image
+                {/* 2026-09-05 (Aleksandr: "кешировать вообще всё,
+                    если оно хотя бы 1 раз открывалось") -- same
+                    persistent Cache Storage-backed CachedAvatar every
+                    other avatar surface on the site now uses. */}
+                <CachedAvatar
                   src={avatarSrc}
-                  alt=""
-                  width={40}
-                  height={40}
-                  className="h-10 w-10 shrink-0 rounded-full object-cover"
-                  placeholder="blur"
                   blurDataURL={linkedUser?.avatarBlurDataUrl ?? BLUR_DATA_URL}
-                  unoptimized
+                  size={40}
+                  className="h-10 w-10 shrink-0 rounded-full object-cover"
                 />
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium text-neutral-900 dark:text-neutral-50">

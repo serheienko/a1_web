@@ -30,7 +30,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Image from "next/image";
+import { CachedAvatar } from "@/components/cached-avatar";
 import Link from "next/link";
 import { T, LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { PostCard } from "@/components/post-card";
@@ -363,15 +363,15 @@ export default function MyActivityPage() {
             const avatarSrc = u.avatarUrl ?? pickDefaultCatAvatar(u.id);
             const row = (
               <div className="flex items-center gap-3 rounded-xl px-2 py-2.5 hover:bg-neutral-50 dark:hover:bg-neutral-900">
-                <Image
+                {/* 2026-09-05 (Aleksandr: "кешировать вообще всё,
+                    если оно хотя бы 1 раз открывалось") -- same
+                    persistent Cache Storage-backed CachedAvatar every
+                    other avatar surface on the site now uses. */}
+                <CachedAvatar
                   src={avatarSrc}
-                  alt=""
-                  width={40}
-                  height={40}
-                  className="h-10 w-10 shrink-0 rounded-full object-cover"
-                  placeholder="blur"
                   blurDataURL={u.avatarBlurDataUrl ?? BLUR_DATA_URL}
-                  unoptimized
+                  size={40}
+                  className="h-10 w-10 shrink-0 rounded-full object-cover"
                 />
                 <div className="min-w-0 truncate text-sm font-medium text-neutral-900 dark:text-neutral-50">{u.fullName || "—"}</div>
               </div>
