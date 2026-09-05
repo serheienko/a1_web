@@ -8257,3 +8257,42 @@ there, just a stale backlog item.
 tsc-clean. Commit efbbae3. **Not yet verified live or pushed** -- same
 standing network blocker; 24 commits now sitting locally ahead of
 e598c18/6.178.
+
+## 6.195 -- Contact/meeting cards + now-playing bar: persistent avatar cache (2026-09-05)
+
+Continuing Aleksandr's "кешировать вообще всё, если оно хотя бы 1 раз
+открывалось" directive: swept the remaining plain-`<img>` avatar
+surfaces in components/chat/contact-message-card.tsx,
+components/chat/meeting-message-card.tsx, and
+components/chat/voice-now-playing-bar.tsx over to the same persistent
+Cache Storage-backed CachedAvatar component every other avatar surface
+in the app now uses.
+
+tsc-clean. Commit 0b3987f. **Not yet verified live or pushed** -- same
+standing network blocker; 26 commits now sitting locally ahead of
+e598c18/6.178.
+
+## 6.196 -- Chat header + mini-chat header avatars: persistent avatar cache (2026-09-05)
+
+Extends the same sweep to the two remaining high-frequency avatar
+surfaces: the main chat window's title-bar peer avatar
+(app/chats/[chatId]/page.tsx, both branches of the
+headerProfileHref ternary) and the mini-chat popup's header avatar
+(components/mini-chat-window.tsx's avatarImg). Both now render via
+CachedAvatar instead of a plain next/image.
+
+Hit the recurring `{/* JSX comment */}`-inside-plain-JS-ternary syntax
+error a third time this session (valid only in true JSX-children
+position, not inside a `) : ( ... )` grouping) -- fixed by switching to
+a `//` line comment there.
+
+With this, the avatar-cache sweep is essentially complete across the
+app's chat surfaces; a final grep for remaining `<Image`/`<img`
+avatar usages outside deliberately-skipped cases (e.g.
+profile-editor.tsx's own upload-preview, which must stay uncached so
+it doesn't show a stale photo right after the user changes it) turned
+up nothing further to convert.
+
+tsc-clean. Commit e00c7f9. **Not yet verified live or pushed** -- same
+standing network blocker; 27 commits now sitting locally ahead of
+e598c18/6.178.
