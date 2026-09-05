@@ -44,6 +44,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { authFetch } from "@/lib/auth-fetch";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
+import { CachedAvatar } from "@/components/cached-avatar";
+import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { T, type Locale } from "@/components/t";
 import type { Contact } from "@/lib/a1/schemas";
 import type { ContactCardSummary } from "@/components/chat/contact-message-card";
@@ -246,11 +248,18 @@ export function ContactsPickerModal({
                       }
                       className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition hover:bg-black/[0.03] dark:hover:bg-white/[0.05]"
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element -- proxied/
-                          generated avatar, not a next/image-configured remote host. */}
-                      <img
+                      {/* 2026-09-05 (Aleksandr: "Вообще наверное было
+                          бы хорошо кешировать вообще всё, если оно хотя
+                          бы 1 раз открывалось") -- same persistent Cache
+                          Storage-backed avatar cache every other avatar
+                          surface on the site now uses (CachedAvatar/
+                          lib/avatar-image-cache.ts), replacing the plain
+                          <img> this modal used to render straight from
+                          the network every time it opened. */}
+                      <CachedAvatar
                         src={summary?.avatarUrl ?? pickDefaultCatAvatar(userId)}
-                        alt=""
+                        blurDataURL={BLUR_DATA_URL}
+                        size={40}
                         className="h-10 w-10 shrink-0 rounded-full object-cover"
                       />
                       <div className="min-w-0 flex-1">

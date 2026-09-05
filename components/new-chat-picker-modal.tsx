@@ -22,7 +22,7 @@
 // popup's only job is "start a chat", per his own spec above.
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
+import { CachedAvatar } from "@/components/cached-avatar";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { T, type Locale } from "@/components/t";
@@ -242,15 +242,20 @@ export function NewChatPickerModal({ lang, onClose }: { lang: Locale; onClose: (
                       chatErrored ? "bg-red-50 dark:bg-red-950/30" : "hover:bg-neutral-50 dark:hover:bg-neutral-800"
                     }`}
                   >
-                    <Image
+                    {/* 2026-09-05 (Aleksandr, "Новий чат" contact
+                        picker screenshot: "Это тоже кешируй") -- same
+                        persistent Cache Storage-backed avatar cache
+                        every other avatar surface on the site now uses
+                        (CachedAvatar/lib/avatar-image-cache.ts). Falls
+                        back to a plain next/image transparently for the
+                        pickDefaultCatAvatar() fallback src (no /api/media
+                        doc id to key a cache entry on), same as it
+                        always has. */}
+                    <CachedAvatar
                       src={avatarSrc}
-                      alt=""
-                      width={40}
-                      height={40}
-                      className="h-10 w-10 shrink-0 rounded-full object-cover"
-                      placeholder="blur"
                       blurDataURL={linkedUser?.avatarBlurDataUrl ?? BLUR_DATA_URL}
-                      unoptimized
+                      size={40}
+                      className="h-10 w-10 shrink-0 rounded-full object-cover"
                     />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-[14px] font-medium text-neutral-900 dark:text-neutral-50">{name}</div>
