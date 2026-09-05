@@ -8350,3 +8350,29 @@ for the exact same rotation bug in a different feature.
 tsc-clean. Commit 2d3625f. **Not yet verified live or pushed** -- same
 standing network blocker; 31 commits now sitting locally ahead of
 e598c18/6.178.
+
+## 6.199 -- Fix reply-preview width bug: flex-item min-width floor (2026-09-05, t014)
+
+Second stuck bug resolved via code investigation alone this round.
+Root cause: ChatPreviewLine's icon+label rows (file, photo, voice,
+calc, meeting, contact kinds) render the label in a `<span
+className="truncate">` that's a flex item with no `min-w-0`. A flex
+item's default min-width is `auto` -- its own min-content size, which
+for nowrap+truncate text is the full unwrapped label width -- so
+flex-shrink could never push it below that floor. The label always
+laid out at its natural content width instead of shrinking to the
+reply bar's actual available width. This only showed up on longer
+non-text labels (a filename, or a longer localized string like
+"Запланована зустріч"/"Reunião agendada") while plain-text replies (a
+separate, non-flex render branch in the same component) looked fine --
+exactly why it was hard to pin down without knowing which reply
+content triggered it, and why the earlier investigation stalled
+waiting on a screen recording.
+
+Added min-w-0 to both label spans (components/chat/
+chat-preview-line.tsx) so truncate's overflow:hidden + ellipsis can
+actually take effect.
+
+tsc-clean. Commit 0dabe72. **Not yet verified live or pushed** -- same
+standing network blocker; 33 commits now sitting locally ahead of
+e598c18/6.178.
