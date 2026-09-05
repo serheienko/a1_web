@@ -7261,3 +7261,27 @@ in the same relative spot there too). Visual-only placeholder like
 every row but Reply, per 6.154's own established scope.
 
 tsc-clean, commit da9a651.
+
+## 6.159 -- Compose reply-quote nests inline inside textarea pill (2026-09-05)
+
+Aleksandr, WhatsApp/mobile-app reference screenshots: "Попробуй сделать
+UI как у нас в апке. Т.е. у тебя расширяется инпут филд вверх, и ответ
+показывает внутри него."
+
+The reply-quote (ReplyComposeBar) used to render as its own standalone
+floating card, positioned above the compose row -- two separate boxes
+with a gap between them. The reference app instead grows that same
+input pill taller and shows the quote inside it, as one continuous box.
+
+ReplyComposeBar (components/chat/message-actions-menu.tsx) gained an
+`inline?: boolean` prop that drops its own border/rounding/background/
+max-width in favor of a bottom divider, so it can nest directly as the
+top section of another bordered container. app/chats/[chatId]/page.tsx
+restructured the textarea's own rounded-[22px] pill into a flex-column
+wrapper holding <ReplyComposeBar inline .../> (when a reply is staged)
+above the textarea+cat-icon row. The old standalone card is now gated
+to `recorder.state !== "idle"` -- it's still used as-is for the two
+states that aren't that pill (mic-denied notice, active voice-recording
+bar), where there's no pill to nest into.
+
+tsc-clean, commit bfff42a.
