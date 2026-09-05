@@ -7828,3 +7828,35 @@ changes on that route's side at all.
 tsc-clean. Commit 2761941. **Not yet verified live or pushed** -- same
 standing network blocker; now 17 commits sitting locally ahead of
 origin/main.
+
+
+## 6.177 -- Mini chat widget: same iOS file-picker fix, deploy status check (2026-09-05)
+
+Aleksandr, screen recording: "При надатии на файл все равно сначала
+вызывается окно apple" -- looked like the EXACT bug already fixed
+earlier today in commit 89c1e3b (app/chats/[chatId]/page.tsx's file
+input had no `accept` attribute, so iOS Safari showed its own "Photo
+Library / Take Video / Choose Files" disambiguation sheet instead of
+opening Files directly).
+
+Checked Vercel (vercel.com/serheienko-7585, a1-web project) directly
+rather than guessing: the live production deployment IS "PLAN.md: log
+6.174 (WebKit text-size auto-boost disabled, commit ba70340)" /
+3dadb86, deployed 16 minutes before this check -- and 89c1e3b is
+confirmed a git ancestor of 3dadb86 (`git merge-base --is-ancestor`).
+So that fix was already live; this screen recording most likely
+predates the deploy actually reaching production (the standing push
+blocker means commits sit locally for a while before whatever
+eventually gets them to GitHub).
+
+While confirming that, grepped the whole repo for every `type="file"`
+input to make sure nothing else shares the same bug -- found
+components/mini-chat-window.tsx (a separate floating mini chat popup)
+keeps its OWN independent copy of the attach-menu file inputs, never
+sharing code with the main chat page's, so it never received the
+89c1e3b fix and still has the identical missing-`accept` bug. Applied
+the same accept="application/*,text/*,audio/*" there too.
+
+tsc-clean. Commit dbf2557. **Not yet verified live or pushed** -- same
+standing network blocker; now 5 commits sitting locally ahead of the
+last confirmed-deployed one (3dadb86/6.174).
