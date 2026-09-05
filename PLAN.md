@@ -8698,3 +8698,20 @@ tsc-clean. Commit 46cea21. 51 commits now sitting locally ahead of
 e598c18/6.178.
 
 **All Fix Tracker items from this session are now done.**
+
+## 6.213 -- Brand-blue text selection color at 50% opacity (2026-09-05)
+
+New bug-list entry, caught live (Aleksandr: "Сделай выделение текста
+нашим фирменных синим цветоом, но чуть легче, примерно 50%") --
+screenshot showed the browser's default grey/blue selection highlight
+in the chat compose textarea. Single `::selection { background-color:
+color-mix(in srgb, var(--color-accent) 50%, transparent); }` rule in
+app/globals.css -- references the existing --color-accent token
+directly, so it automatically tracks both the .dark class toggle and
+the "Auto" prefers-color-scheme fallback already wired for that token,
+no separate dark-mode override needed. Left at 50% opacity (not solid)
+so selected text stays readable through the tint on both light and
+dark surfaces.
+
+tsc-clean. Commit 53a05cb. 52 commits now sitting locally ahead of
+e598c18/6.178.
