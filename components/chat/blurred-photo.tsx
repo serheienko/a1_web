@@ -11,6 +11,21 @@
 // never a reason to limit this to just the grouped-album case) gets the
 // same real-colors-not-grey-shimmer treatment instead of duplicating
 // this same state/effect at each call site.
+//
+// 2026-09-05 second follow-up (Aleksandr, live screenshot: a freshly
+// loaded chat's grouped photos still showing plain white tiles -- "я
+// хочу, чтобы сначала показывался блюр самой картинки с минимальным
+// весом") -- the canvas-snapshot cache above only ever has data on a
+// REPEAT view; a genuinely first load has nothing to snapshot from
+// yet. `serverThumb` is the real fix for that first paint: chat-server
+// already sends a tiny inline blurred preview on the message itself
+// (lib/a1/chat-schemas.ts's mediaDocumentThumbnail(), Telegram's own
+// `size-stripped` convention) -- shown immediately, no loading involved
+// at all, with the client-snapshotted `blurUrl` still taking over once
+// a real view has captured this exact photo's own colors (marginally
+// sharper since it is a real crop of the full image rather than a
+// generic stripped preview, and doesn't depend on the caller having
+// this field at all for older call sites that don't pass it yet).
 "use client";
 
 import { useState, type MouseEventHandler, type SyntheticEvent } from "react";
@@ -20,6 +35,7 @@ import { getPhotoBlur, rememberPhotoBlur } from "@/lib/photo-blur-cache";
 export function BlurredChatPhoto({
   docId,
   src,
+  serverThumb,
   alt = "",
   className,
   onClick,
@@ -30,12 +46,17 @@ export function BlurredChatPhoto({
   // `fileReference`.
   docId: string;
   src: string;
+  // The message's own `size-stripped` preview (mediaDocumentThumbnail())
+  // -- a real blurred placeholder available from the very first render,
+  // no earlier view needed. Optional: older/other call sites (a local
+  // blob preview before upload, say) simply have none to give.
+  serverThumb?: string | null;
   alt?: string;
   className?: string;
   onClick?: MouseEventHandler<HTMLImageElement>;
   draggable?: boolean;
 }) {
-  const [blurUrl, setBlurUrl] = useState<string | null>(() => getPhotoBlur(docId));
+  const [blurUrl, setBlurUrl] = useState<string | null>(() => getPhotoBlur(docId) ?? serverThumb ?? null);
   // See GridPhoto's own header comment (photo-grid.tsx) for why this
   // flag exists -- CSS `filter` composites over an element's WHOLE
   // rendered output, not just a background layer, so the placeholder

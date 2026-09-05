@@ -40,6 +40,7 @@ import {
   isVoiceMediaDocument,
   mediaDocumentBytes,
   mediaDocumentFileName,
+  mediaDocumentThumbnail,
   messageCalculation,
   messageContactMedia,
   messageDateMs,
@@ -2676,6 +2677,7 @@ export default function ChatWindowPage() {
           docId: doc._id,
           url: buildMediaProxyUrl(doc),
           downloadUrl: buildMediaDownloadUrl(doc, fileName || undefined),
+          thumbnail: mediaDocumentThumbnail(doc),
           fileName,
           messageId: numericId,
           senderLabel,
@@ -4130,7 +4132,7 @@ export default function ChatWindowPage() {
                               // PdfPageThumbnail, now fixed here for plain <img> photos too).
                               <ChatPhotoGrid
                                 key={doc._id}
-                                docs={imageGroupStartId.get(doc._id)!.map((d) => ({ id: d._id, src: getStableMediaProxyUrl(d) }))}
+                                docs={imageGroupStartId.get(doc._id)!.map((d) => ({ id: d._id, src: getStableMediaProxyUrl(d), thumbnail: mediaDocumentThumbnail(d) }))}
                                 onOpen={(docId) => openViewerForDoc(msg._id, docId)}
                                 footer={isImageGroupOnly ? imageGroupFooter : undefined}
                               />
@@ -4151,7 +4153,7 @@ export default function ChatWindowPage() {
                                 crossGroupRun ? (
                                   <ChatPhotoGrid
                                     key={doc._id}
-                                    docs={crossGroupRun.map((g) => ({ id: g.doc._id, src: getStableMediaProxyUrl(g.doc) }))}
+                                    docs={crossGroupRun.map((g) => ({ id: g.doc._id, src: getStableMediaProxyUrl(g.doc), thumbnail: mediaDocumentThumbnail(g.doc) }))}
                                     onOpen={(docId) => {
                                       const owner = crossGroupRun.find((g) => g.doc._id === docId);
                                       openViewerForDoc(owner ? owner.msg._id : msg._id, docId);
@@ -4182,6 +4184,7 @@ export default function ChatWindowPage() {
                                   <BlurredChatPhoto
                                     docId={doc._id}
                                     src={getStableMediaProxyUrl(doc)}
+                                    serverThumb={mediaDocumentThumbnail(doc)}
                                     onClick={() => openViewerForDoc(msg._id, doc._id)}
                                     // 2026-09-04 (Aleksandr, live screenshot: a small-resolution
                                     // source photo rendering as a ~90px postage stamp between two
@@ -4212,6 +4215,7 @@ export default function ChatWindowPage() {
                                   key={doc._id}
                                   docId={doc._id}
                                   src={getStableMediaProxyUrl(doc)}
+                                  serverThumb={mediaDocumentThumbnail(doc)}
                                   onClick={() => openViewerForDoc(msg._id, doc._id)}
                                   // Same tiny-source-photo fix as the flat isImageOnly branch
                                   // above -- see that img's own comment.
@@ -5637,7 +5641,20 @@ export default function ChatWindowPage() {
                 // auto-grow effect above hits its line cap, just without
                 // drawing a visible scrollbar (app/globals.css's
                 // chat-textarea-no-scrollbar).
-                className="chat-textarea-no-scrollbar flex-1 resize-none bg-transparent text-[17px] leading-5 text-[#262a34] outline-none placeholder:text-[#989aa6] dark:text-white dark:placeholder:text-[#98989f]"
+                //
+                // 2026-09-05 (Aleksandr, live screenshot: "текст message
+                // не по центру филда") -- the row above is items-end on
+                // purpose (see that comment: keeps the paperclip/cat/send
+                // pinned to the bottom edge as the textarea grows), but
+                // that also bottom-aligns a single empty line inside the
+                // row's min-h-[44px], leaving a visibly bigger gap above
+                // the placeholder than below it. self-center overrides
+                // just THIS child's cross-axis alignment: it centers the
+                // one-line case properly, and is a no-op once the
+                // textarea grows tall enough to be the row's tallest
+                // item (nothing to center against then), so the
+                // pinned-to-bottom icons behavior is untouched.
+                className="chat-textarea-no-scrollbar flex-1 resize-none self-center bg-transparent text-[17px] leading-5 text-[#262a34] outline-none placeholder:text-[#989aa6] dark:text-white dark:placeholder:text-[#98989f]"
               />
               {/* group: 2026-09-02 (Aleksandr: "анимацию на кота, чтобы он
                   глазками двигал") -- app/globals.css's own

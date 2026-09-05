@@ -71,6 +71,7 @@ import {
   messageCalculation,
   isImageMediaDocument,
   mediaDocumentFileName,
+  mediaDocumentThumbnail,
   mediaDocumentBytes,
   type ChatMessage,
   type MessageMediaDocument,
@@ -948,7 +949,7 @@ export function MiniChatWindow({
                       imageGroupSkipIds.has(doc._id) ? null : imageGroupStartId.has(doc._id) ? (
                         <ChatPhotoGrid
                           key={doc._id}
-                          docs={imageGroupStartId.get(doc._id)!.map((d) => ({ id: d._id, src: getStableMediaProxyUrl(d) }))}
+                          docs={imageGroupStartId.get(doc._id)!.map((d) => ({ id: d._id, src: getStableMediaProxyUrl(d), thumbnail: mediaDocumentThumbnail(d) }))}
                           onOpen={() => {}}
                           footer={isPhotoOnly ? flatFooter : undefined}
                         />
@@ -957,6 +958,7 @@ export function MiniChatWindow({
                           <BlurredChatPhoto
                             docId={doc._id}
                             src={getStableMediaProxyUrl(doc)}
+                            serverThumb={mediaDocumentThumbnail(doc)}
                             className="max-h-48 w-full rounded-xl object-cover"
                           />
                           {isPhotoOnly && flatFooter}

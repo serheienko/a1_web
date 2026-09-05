@@ -262,12 +262,24 @@ const MessageMediaAttributeSchema = z
   })
   .catchall(z.unknown());
 
+// `bytes` is a genuine numeric byte count on most size variants (a
+// plain file size) but a base64-encoded JPEG STRING on `size-stripped`
+// (Telegram-style: a tiny inline blur-preview blob, not a real
+// fetchable size -- CONFIRMED against the mobile app's own
+// conversation_detail_entity.dart Media.fromJson: `sizeMap["bytes"] is
+// String` is exactly how it tells the two apart). Typing this as
+// `z.number().optional()` alone silently failed validation for any
+// size-stripped entry, and since z.array(...).catch([]) fails the
+// WHOLE array on a single bad element, that quietly dropped every
+// size in `sizes` -- including size-photo/size-original -- for any
+// photo message that had a stripped preview, not just the preview
+// itself. Union fixes both at once.
 const MessageMediaSizeSchema = z
   .object({
     object: z.string().optional(),
     w: z.number().optional(),
     h: z.number().optional(),
-    bytes: z.number().optional(),
+    bytes: z.union([z.number(), z.string()]).optional(),
   })
   .catchall(z.unknown());
 
@@ -335,6 +347,44 @@ export function messageDocumentMedia(msg: ChatMessage): MessageMediaDocument[] {
 
 export function isImageMediaDocument(doc: MessageMediaDocument): boolean {
   return doc.mimetype.startsWith("image/");
+}
+
+// 2026-09-05 (Aleksandr, live screenshot of a fresh chat load: grouped
+// photos still painting as plain white tiles instead of a colorful
+// blur while they decode -- "фотографии подгружаются всё-таки не через
+// блюр... я хочу, чтобы сначала показывался блюр самой картинки с
+// минимальным весом") -- lib/photo-blur-cache.ts's client-side canvas
+// snapshot only ever has something to show on a REPEAT view (it needs
+// the real photo to have already painted once, in this browser
+// session, to snapshot it); a genuinely first-ever load had nothing
+// to fall back on but the flat grey shimmer. This is the real fix:
+// chat-server already sends a tiny inline blurred preview on photo
+// messages the exact same way it does for post photos and avatars
+// (Telegram's own `size-stripped` convention, CONFIRMED against the
+// mobile app's Media.fromJson -- `json["thumbnail"]` when present,
+// else the first `size-stripped` entry's `bytes`), so there is no need
+// to wait for anything to load at all: this base64 blob rides along
+// on the very first /api/chats/messages response.
+//
+// The mobile app's own decodeBase64UrlNullable() confirms the encoding
+// is URL-safe base64 (`-`/`_` instead of `+`/`/`, possibly unpadded) --
+// swapped back to standard base64 and re-padded here so `atob`/a data:
+// URI can decode it directly in the browser. Assumed image/jpeg (this
+// backend's stripped sizes are always a truncated JPEG, same as every
+// other Telegram-shaped size-stripped payload already confirmed
+// elsewhere in this codebase, e.g. lib/a1/schemas.ts's own comment).
+export function mediaDocumentThumbnail(doc: MessageMediaDocument): string | null {
+  const topLevel = (doc as { thumbnail?: unknown }).thumbnail;
+  const raw =
+    typeof topLevel === "string" && topLevel.length > 0
+      ? topLevel
+      : (doc.sizes.find((s) => s.object === "size-stripped" && typeof s.bytes === "string")
+          ?.bytes as string | undefined);
+  if (!raw) return null;
+  let normalized = raw.replace(/-/g, "+").replace(/_/g, "/");
+  const pad = normalized.length % 4;
+  if (pad > 0) normalized += "=".repeat(4 - pad);
+  return `data:image/jpeg;base64,${normalized}`;
 }
 
 // 2026-09-03 (Aleksandr, live screenshot: a batch of chat attachments

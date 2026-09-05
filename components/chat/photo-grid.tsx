@@ -33,6 +33,12 @@ import { BlurredChatPhoto } from "@/components/chat/blurred-photo";
 type GridDoc = {
   id: string;
   src: string;
+  // 2026-09-05 (see blurred-photo.tsx's own header) -- the message's
+  // own size-stripped preview, forwarded straight through to each
+  // tile's BlurredChatPhoto. Optional: a not-yet-sent local blob
+  // preview has none, and doesn't need one (its src already paints
+  // instantly).
+  thumbnail?: string | null;
 };
 
 type Row = { items: number[]; heightFr: number };
@@ -170,6 +176,7 @@ function GridPhoto({ doc, onOpen }: { doc: GridDoc; onOpen: (docId: string) => v
     <BlurredChatPhoto
       docId={doc.id}
       src={doc.src}
+      serverThumb={doc.thumbnail}
       onClick={() => onOpen(doc.id)}
       className="absolute inset-0 h-full w-full cursor-pointer object-cover transition hover:opacity-90"
     />

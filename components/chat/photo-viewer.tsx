@@ -47,6 +47,12 @@ export type ChatViewerImage = {
   docId: string;
   url: string;
   downloadUrl: string;
+  // 2026-09-05 (see blurred-photo.tsx's own header) -- forwarded
+  // straight through to this viewer's BlurredChatPhoto so the
+  // full-size lightbox also gets the real server blur instead of
+  // waiting on either the network or an earlier grid/bubble view to
+  // have warmed the client-side snapshot cache.
+  thumbnail?: string | null;
   fileName: string;
   messageId: number;
   senderLabel: string;
@@ -369,6 +375,7 @@ export function ChatPhotoViewer({ lang, images, index, onIndexChange, onClose, o
           key={image.key}
           docId={image.docId}
           src={image.url}
+          serverThumb={image.thumbnail}
           className="max-h-full max-w-full select-none rounded-md object-contain"
           draggable={false}
         />
