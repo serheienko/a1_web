@@ -527,6 +527,62 @@ export function EditComposeBar({
   );
 }
 
+// Pending-forward composer preview (Форвард 2.0, Phase 3 -- see lib/
+// forward-pending-hold.ts's own header for Aleksandr's exact request:
+// "должен быть момент, что ты типа когда пересылаешь и открываешь
+// чат, и там тоже сверху это появляется в композере"). Modeled 1:1 on
+// EditComposeBar right above -- same accent-bar/title/preview-line/X
+// shell, just with a message-count-aware title (mirrors the existing
+// "Delete N messages?" convention elsewhere in this file's own caller,
+// app/chats/[chatId]/page.tsx's selectionDeleteConfirm dialog: the
+// count is always interpolated as a raw number, no per-locale plural
+// grammar) and ownerLabel (the original sender's name, precomputed by
+// the caller at pick time) as the preview line instead of a text
+// snippet.
+export function ForwardComposeBar({
+  count,
+  ownerLabel,
+  onCancel,
+  inline,
+}: {
+  count: number;
+  ownerLabel: string;
+  onCancel: () => void;
+  inline?: boolean;
+}) {
+  return (
+    <div
+      className={
+        inline
+          ? "flex w-full items-center gap-2 border-b border-neutral-200 px-3.5 py-2 dark:border-[#2b2b2b]"
+          : "mx-auto flex w-full max-w-[470px] items-center gap-2 rounded-[16px] border border-neutral-200 bg-white/90 px-3 py-2 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80"
+      }
+    >
+      <div className="h-8 w-[3px] shrink-0 rounded-full bg-[#335ef7] dark:bg-[#0c8ce9]" />
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-[13px] font-semibold text-[#335ef7] dark:text-[#0c8ce9]">
+          <T
+            uk={`Переслати ${count} повідомлень`} en={`Forward ${count} messages`} ru={`Переслать ${count} сообщений`}
+            de={`${count} Nachrichten weiterleiten`} es={`Reenviar ${count} mensajes`} fr={`Transférer ${count} messages`}
+            pl={`Przekaż ${count} wiadomości`} ptBR={`Encaminhar ${count} mensagens`} zh={`转发 ${count} 条消息`}
+          />
+        </div>
+        <div className="truncate text-[13px] text-[#262a34] dark:text-white">{ownerLabel}</div>
+      </div>
+      <button
+        type="button"
+        onClick={onCancel}
+        aria-label="Cancel forward"
+        className="shrink-0 rounded-full p-1 text-[#989aa6] transition hover:bg-black/5 dark:text-[#8d8d93] dark:hover:bg-white/10"
+      >
+        <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
 export function MessageReplyQuote({
   authorLabel,
   previewText,

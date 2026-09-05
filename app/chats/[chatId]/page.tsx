@@ -53,9 +53,10 @@ import {
   type MessageMediaDocument,
 } from "@/lib/a1/chat-schemas";
 import { ChatPreviewLine } from "@/components/chat/chat-preview-line";
-import { MessageActionsMenu, ReplyComposeBar, EditComposeBar, MessageReplyQuote, ReplyIcon, DeleteMessageConfirmDialog } from "@/components/chat/message-actions-menu";
+import { MessageActionsMenu, ReplyComposeBar, EditComposeBar, ForwardComposeBar, MessageReplyQuote, ReplyIcon, DeleteMessageConfirmDialog } from "@/components/chat/message-actions-menu";
 import { ForwardPickerModal, type ForwardRowStatus } from "@/components/chat/forward-picker-modal";
 import { SelectionTopBar, SelectionBottomBar } from "@/components/chat/selection-bar";
+import { putForwardPending, takeForwardPendingFor, clearForwardPending, type ForwardPendingDraft } from "@/lib/forward-pending-hold";
 import { CopyToast, type CopyToastState } from "@/components/chat/copy-toast";
 import { buildMediaProxyUrl, buildMediaDownloadUrl } from "@/lib/a1/media-proxy";
 import { getStableMediaProxyUrl } from "@/lib/a1/stable-media-url";
@@ -809,6 +810,34 @@ export default function ChatWindowPage() {
   const [clearChatConfirm, setClearChatConfirm] = useState(false);
   const [clearingChat, setClearingChat] = useState(false);
   const [clearChatFailed, setClearChatFailed] = useState(false);
+  // Pending-forward composer preview (Форвард 2.0, Phase 3) --
+  // lib/forward-pending-hold.ts's own module-level holder is what
+  // actually survives the router.push between picking a destination
+  // chat and this component remounting for it; this state is just
+  // this ONE mounted chat's local copy of whatever it consumed from
+  // that holder (or was handed directly, same-chat case -- see
+  // ForwardPickerModal's onPickSingle handler below). pendingForward
+  // null the whole time is overwhelmingly the common case (this chat
+  // was opened normally, nothing was ever forwarded into it).
+  const [pendingForward, setPendingForward] = useState<ForwardPendingDraft | null>(null);
+  const [pendingForwardFailed, setPendingForwardFailed] = useState(false);
+  // Fires once per chatId mount (this route's own [chatId] segment
+  // always remounts this whole component on navigation, so a plain
+  // mount-time check is enough; no need to also watch chatId in the
+  // dep array). A cross-chat forward (ForwardPickerModal's
+  // onPickSingle navigated here via router.push) stashed its draft in
+  // the module-level holder BEFORE navigating -- takeForwardPendingFor
+  // only returns it if it was actually meant for THIS chat, see that
+  // function's own header. The same-chat case (forwarding while
+  // already inside the target chat) never touches the holder at all --
+  // onPickSingle sets pendingForward directly there instead, since no
+  // navigation (and therefore no remount racing this effect) ever
+  // happens.
+  useEffect(() => {
+    const draft = takeForwardPendingFor(chatId);
+    if (draft) setPendingForward(draft);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // 2026-09-05 follow-up (Aleksandr: reply-cancel via the X should
   // smoothly collapse, not just vanish) -- replyTarget itself still
   // clears the INSTANT onRemove/a real send fires (that's what
@@ -2555,6 +2584,16 @@ export default function ChatWindowPage() {
       await saveEditedMessage();
       return;
     }
+    // Pending-forward composer preview (Форвард 2.0, Phase 3) -- same
+    // guard shape as the editingMessage branch right above (manual
+    // sends only; never the empty-chat greeting sticker or a meeting
+    // accept, neither of which has a forward staged at the point they
+    // fire). sendPendingForwardBatch owns clearing pendingForward/the
+    // draft itself once every message in the batch is actually out.
+    if (pendingForward && !overrideText && !meet) {
+      await sendPendingForwardBatch();
+      return;
+    }
     const text = (overrideText ?? draft).trim();
     // Attachment feature: only ready (fully uploaded+confirmed)
     // attachments are ever sent -- a message can go out with zero typed
@@ -2893,11 +2932,22 @@ export default function ChatWindowPage() {
   // call, same single-target shape the mobile app's own
   // sendForwardedMessage has -- multi-select is a client-side loop over
   // that, never a batch backend call that doesn't exist.
-  async function forwardToOneChat(source: ChatMessage, targetChatId: string): Promise<boolean> {
+  async function forwardToOneChat(source: ChatMessage, targetChatId: string, captionOverride?: string): Promise<boolean> {
     const originalAuthorId = (source.forwardFrom?.object === "peer-user" ? source.forwardFrom.user : null) ?? source.fromId;
-    const text = extractMessageText(source);
     const docs = messageDocumentMedia(source);
     const contactsMedia = messageContactMedia(source);
+    const hasMedia = docs.length > 0 || contactsMedia.length > 0;
+    // Pending-forward composer caption (Форвард 2.0, Phase 3) --
+    // mirrors forward_multi_send.dart's _sendOne(): a typed caption
+    // REPLACES this message's own text/entities in the SAME send call,
+    // but only when this message actually carries media -- a caption
+    // typed for a plain-text forward goes out as a separate follow-up
+    // message instead (see sendPendingForwardBatch below), never
+    // merged in here. `captionOverride ?? ""` would wrongly blank out
+    // a media message's original caption if the override were ever an
+    // empty string, so this only ever engages for a genuinely non-
+    // empty override.
+    const text = hasMedia && captionOverride ? captionOverride : extractMessageText(source);
     if (!originalAuthorId || (!text && docs.length === 0 && contactsMedia.length === 0)) {
       return false;
     }
@@ -2984,6 +3034,87 @@ export default function ChatWindowPage() {
     // failed ones keep their "!") so a retry tap only re-sends what's
     // still picked -- forwardToOneChat itself will flip a retried
     // row's status back to "sending" the instant the loop reaches it.
+  }
+
+  // Pending-forward composer preview (Форвард 2.0, Phase 3) -- the
+  // name shown under the "Forward N messages" title in ForwardCompose-
+  // Bar. Resolved once, at pick time (ForwardPickerModal's onPickSingle
+  // below), from whatever's already in contactSummaries for the LAST
+  // message's original author -- same fallback chain forwardToOneChat
+  // itself uses for originalAuthorId, and the same "…" placeholder the
+  // existing "Forwarded from X" bubble label already falls back to
+  // elsewhere in this file while that contact's card is still loading.
+  function resolveForwardOwnerLabel(messages: ChatMessage[]): string {
+    const last = messages[messages.length - 1];
+    if (!last) return "…";
+    const originalAuthorId = (last.forwardFrom?.object === "peer-user" ? last.forwardFrom.user : null) ?? last.fromId;
+    if (originalAuthorId && originalAuthorId === myUserId) return YOU_LABEL_TEXT[lang];
+    if (originalAuthorId) return contactSummaries[originalAuthorId]?.fullName || "…";
+    return "…";
+  }
+
+  // Pending-forward composer preview (Форвард 2.0, Phase 3) -- fires
+  // from send()'s own early branch (see that function) once the user
+  // hits Send/Enter while a forward is staged. Mirrors forward_multi_
+  // send.dart's own oldest-first loop and its exact caption-attachment
+  // rule (see that file's header, already cited on forwardToOneChat's
+  // captionOverride param above): a typed caption merges into the
+  // SAME send call only for the newest/last message when it carries
+  // media; for a text-only last message the forward goes out
+  // unmodified and the caption follows as its own separate plain
+  // message via this component's normal send() pipeline (no
+  // forwardFrom on that one -- it's just an ordinary new message).
+  // Deliberately NOT Promise.all'd, same reasoning as handleForward-
+  // Send above: keeps this one target's messages landing in the
+  // chat in the same order they were selected, not racing each other.
+  async function sendPendingForwardBatch() {
+    const pending = pendingForward;
+    if (!pending || pending.messages.length === 0 || sending) return;
+    setSending(true);
+    setPendingForwardFailed(false);
+    const captionText = draft.trim();
+    const messages = pending.messages;
+    const last = messages[messages.length - 1];
+    if (!last) {
+      // Defensive only -- pending.messages.length === 0 already
+      // returns above, so this array access can't actually be
+      // undefined; satisfies noUncheckedIndexedAccess.
+      setSending(false);
+      setPendingForwardFailed(true);
+      return;
+    }
+    const lastDocs = messageDocumentMedia(last);
+    const lastContacts = messageContactMedia(last);
+    const lastHasMedia = lastDocs.length > 0 || lastContacts.length > 0;
+    let ok = true;
+    for (let i = 0; i < messages.length - 1; i++) {
+      const source = messages[i];
+      if (!source) continue;
+      const sent = await forwardToOneChat(source, chatId);
+      if (!sent) {
+        ok = false;
+        break;
+      }
+    }
+    if (ok) {
+      ok = await forwardToOneChat(last, chatId, lastHasMedia && captionText ? captionText : undefined);
+    }
+    setSending(false);
+    if (!ok) {
+      setPendingForwardFailed(true);
+      return;
+    }
+    setPendingForward(null);
+    clearForwardPending();
+    setDraft("");
+    if (captionText && !lastHasMedia) {
+      // The forward itself already went out unmodified above -- this
+      // is the separate follow-up plain message carrying the caption,
+      // same send() pipeline any ordinary typed message goes through
+      // (optimistic bubble, attemptSend, the works). No forwardFrom on
+      // it: it's a new message of the user's own, not a re-forward.
+      await send(captionText);
+    }
   }
 
   // Calculations feature -- draft-row mutations, all pure state updates.
@@ -5742,6 +5873,41 @@ export default function ChatWindowPage() {
               />
             </div>
             <div className="flex flex-1 flex-col rounded-[22px] border border-neutral-200 bg-white/90 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
+              {/* Pending-forward composer preview (Форвард 2.0, Phase 3
+                  -- Aleksandr: "должен быть момент, что ты типа когда
+                  пересылаешь и открываешь чат, и там тоже сверху это
+                  появляется в композере, типа в input field'е"). Same
+                  inline shell as EditComposeBar/ReplyComposeBar right
+                  below -- mutually exclusive with editingMessage in
+                  practice (nothing currently lets you open both at
+                  once), so no extra guard needed here beyond pending-
+                  Forward itself being set. */}
+              {pendingForward && !editingMessage && (
+                <>
+                  <ForwardComposeBar
+                    inline
+                    count={pendingForward.messages.length}
+                    ownerLabel={pendingForward.ownerLabel}
+                    onCancel={() => {
+                      if (sending) return;
+                      setPendingForward(null);
+                      setPendingForwardFailed(false);
+                      clearForwardPending();
+                    }}
+                  />
+                  {pendingForwardFailed && (
+                    <p className="border-b border-neutral-200 px-3.5 py-1.5 text-[12px] text-red-500 dark:border-[#2b2b2b] dark:text-red-400">
+                      <T
+                        uk="Не вдалося переслати. Спробуйте ще раз." en="Couldn't forward. Try again."
+                        ru="Не удалось переслать. Попробуйте ещё раз." de="Weiterleiten fehlgeschlagen. Versuch es erneut."
+                        es="No se pudo reenviar. Inténtalo de nuevo." fr="Échec du transfert. Réessayez."
+                        pl="Nie udało się przekazać. Spróbuj ponownie." ptBR="Não foi possível encaminhar. Tente novamente."
+                        zh="转发失败，请重试。"
+                      />
+                    </p>
+                  )}
+                </>
+              )}
               {editingMessage && (
                 <>
                   <EditComposeBar
@@ -5845,7 +6011,7 @@ export default function ChatWindowPage() {
             </div>
               </>
             )}
-            {recorder.state === "idle" && (draft.trim() || attachments.length > 0 || pendingContacts.length > 0) ? (
+            {recorder.state === "idle" && (draft.trim() || attachments.length > 0 || pendingContacts.length > 0 || pendingForward) ? (
               <button
                 type="button"
                 onClick={() => send()}
@@ -5859,7 +6025,11 @@ export default function ChatWindowPage() {
                 // background, see maybeFinalizePendingSend.
                 disabled={
                   sending ||
-                  (!draft.trim() && attachments.length === 0 && pendingContacts.length === 0) ||
+                  // Pending-forward composer preview (Форвард 2.0,
+                  // Phase 3) -- a staged forward is always "enough to
+                  // send" on its own, caption or not (an empty caption
+                  // just means "forward it as-is").
+                  (!pendingForward && !draft.trim() && attachments.length === 0 && pendingContacts.length === 0) ||
                   // 2026-09-03 (Figma "4.1 ... exceeded limit": send
                   // button dims once the current selection alone would
                   // blow past today's remaining quota) -- blocks the
@@ -6134,6 +6304,37 @@ export default function ChatWindowPage() {
             setForwardFailed(false);
             setForwardPickedChatIds(new Set());
             setForwardRowStatus({});
+          }}
+          // Forward picker Phase 2 (tap=navigate, Aleksandr greenlight-
+          // ing the master-plan's own open question) -- fires once per
+          // plain row tap while the modal is in its default "tap" mode
+          // (see forward-picker-modal.tsx's own header for the two-mode
+          // design). Builds the SAME ForwardPendingDraft shape either
+          // way; the only branch is whether the target is the chat
+          // already open here (attach locally, no navigation -- a
+          // router.push to the current route wouldn't even remount
+          // this component, so the mount-time takeForwardPendingFor
+          // effect would never fire for it) or a different one (stash
+          // in the module-level holder, then navigate there).
+          onPickSingle={(targetChatId) => {
+            const sources = forwardSource;
+            if (!sources || sources.length === 0) return;
+            const draft: ForwardPendingDraft = {
+              targetChatId,
+              messages: sources,
+              ownerLabel: resolveForwardOwnerLabel(sources),
+            };
+            setForwardSource(null);
+            setForwardFailed(false);
+            setForwardPickedChatIds(new Set());
+            setForwardRowStatus({});
+            if (targetChatId === chatId) {
+              setPendingForward(draft);
+              setPendingForwardFailed(false);
+              return;
+            }
+            putForwardPending(draft);
+            router.push(`/chats/${targetChatId}`);
           }}
           pickedChatIds={forwardPickedChatIds}
           onToggle={(chatId) =>

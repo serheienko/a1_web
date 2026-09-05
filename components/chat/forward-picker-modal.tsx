@@ -11,17 +11,28 @@
 //
 // 2026-09-05 follow-up (bug-tracker: "Давай добавим... возможность
 // делать это большому кол-во пользователей, т.е. добавить мультивыбор")
-// -- this used to be single-tap-and-close (a straight 1:1 port of the
-// mobile app's own sendForwardedMessage, which only takes one `userId:
-// String` per call, no list). Aleksandr explicitly asked for multi-
-// select past that mobile contract, so this is now a genuine web-only
-// enhancement: checkbox rows (same picked-set + bottom-Send convention
-// contacts-picker-modal.tsx already established) instead of tap-to-
-// send, with the actual fan-out to N chats handled by the caller
-// (app/chats/[chatId]/page.tsx's handleForwardSend) looping the SAME
-// single-target POST /api/chats/send call once per picked chat --
-// still N ordinary forwarded messages under the hood, never a batch
-// backend call that doesn't exist.
+// -- checkbox multi-select + batch-send-from-modal, still N ordinary
+// single-target POST /api/chats/send calls under the hood (see
+// app/chats/[chatId]/page.tsx's own forwardToOneChat/handleForwardSend).
+//
+// 2026-09-05 follow-up #2 ("Форвард 2.0" master plan, Phase 2 --
+// Aleksandr greenlighting the plan's own open question) -- this used to
+// be tap-to-send-immediately for every row. Telegram's own forward
+// picker instead defaults to tap = NAVIGATE to that chat with the
+// forward staged as a composer preview (so you can add a caption
+// before it actually sends, see lib/forward-pending-hold.ts) and only
+// switches to the old immediate-batch-send behavior once you explicitly
+// enable "Вибрати" for fanning out to many chats at once with no
+// preview step. Two modes, one picker:
+//   - "tap" (default): plain click on a row -> onPickSingle(chatId).
+//     No checkboxes, no Send button here at all -- the caller closes
+//     this modal and either navigates (a different chat) or attaches
+//     the pending forward locally (the SAME chat), per that prop's own
+//     comment on the caller side.
+//   - "select" (toggled via the header button): reverts to the
+//     original checkbox rows + bottom "Переслати" button, sending to
+//     every picked chat immediately with no per-chat caption step --
+//     still the right tool for "blast this to 10 people at once".
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -51,9 +62,18 @@ function Spinner({ className }: { className?: string }) {
   );
 }
 
+function ChevronRightIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M9 6l6 6-6 6" />
+    </svg>
+  );
+}
+
 export function ForwardPickerModal({
   lang,
   onClose,
+  onPickSingle,
   pickedChatIds,
   onToggle,
   onSend,
@@ -63,27 +83,33 @@ export function ForwardPickerModal({
 }: {
   lang: Locale;
   onClose: () => void;
-  // Chats currently checked in this picker -- owned by the caller, same
-  // division of responsibility as ContactsPickerModal's own
-  // pickedUserIds/onToggle pair.
+  // Tap mode (default) -- fires once per row tap, caller navigates or
+  // attaches locally (see this file's own header for the two cases).
+  // Never fires while in select mode.
+  onPickSingle: (chatId: string) => void;
+  // Select mode's own picked set -- owned by the caller, same division
+  // of responsibility as ContactsPickerModal's own pickedUserIds/
+  // onToggle pair.
   pickedChatIds: Set<string>;
   onToggle: (chatId: string) => void;
-  // Fires once for the whole picked set; the caller owns looping the
-  // actual per-chat send calls and closing this modal once every pick
-  // has gone through (see handleForwardSend's own header).
+  // Fires once for the whole picked set (select mode's bottom button
+  // only); the caller owns looping the actual per-chat send calls and
+  // closing this modal once every pick has gone through.
   onSend: () => void;
   sending: boolean;
-  // Per-chat outcome while a send round is in flight, so a picked row
-  // can show its own spinner/checkmark/error instead of one opaque
-  // "sending" state for the whole list -- lets a partial failure (2 of
-  // 3 chats went through) read clearly instead of an all-or-nothing
-  // banner.
+  // Per-chat outcome while a select-mode send round is in flight, so a
+  // picked row can show its own spinner/checkmark/error instead of one
+  // opaque "sending" state for the whole list.
   rowStatus: Record<string, ForwardRowStatus>;
   failed: boolean;
 }) {
   const [state, setState] = useState<LoadState>("loading");
   const [chats, setChats] = useState<ForwardChatRow[]>([]);
   const [query, setQuery] = useState("");
+  // 2026-09-05 (Форвард 2.0 Phase 2) -- "tap" is the default per
+  // Telegram's own reference behavior (see this file's own header);
+  // "select" is the explicit opt-in for the old immediate-batch flow.
+  const [mode, setMode] = useState<"tap" | "select">("tap");
 
   useEffect(() => {
     let cancelled = false;
@@ -116,23 +142,37 @@ export function ForwardPickerModal({
     [chats, trimmed],
   );
 
+  const busy = sending;
+
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4" onClick={sending ? undefined : onClose}>
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4" onClick={busy ? undefined : onClose}>
       <div
         className="flex h-[min(32rem,80vh)] w-full max-w-sm flex-col rounded-2xl bg-white shadow-xl dark:bg-neutral-900"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 pt-5">
-          <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">
+        <div className="flex items-center justify-between gap-2 px-5 pt-5">
+          <h2 className="min-w-0 flex-1 truncate text-sm font-semibold text-neutral-900 dark:text-neutral-50">
             <T uk="Переслати" en="Forward to" ru="Переслать" de="Weiterleiten an" es="Reenviar a" fr="Transférer à" pl="Prześlij do" ptBR="Encaminhar para" zh="转发给" />
-            {pickedChatIds.size > 0 && ` (${pickedChatIds.size})`}
+            {mode === "select" && pickedChatIds.size > 0 && ` (${pickedChatIds.size})`}
           </h2>
           <button
             type="button"
+            onClick={() => setMode((m) => (m === "tap" ? "select" : "tap"))}
+            disabled={busy}
+            className="shrink-0 whitespace-nowrap text-[13px] font-semibold text-[#335ef7] transition hover:brightness-110 disabled:opacity-40 dark:text-[#0c8ce9]"
+          >
+            {mode === "tap" ? (
+              <T uk="Вибрати" en="Select" ru="Выбрать" de="Auswählen" es="Seleccionar" fr="Sélectionner" pl="Wybierz" ptBR="Selecionar" zh="选择" />
+            ) : (
+              <T uk="Скасувати" en="Cancel" ru="Отмена" de="Abbrechen" es="Cancelar" fr="Annuler" pl="Anuluj" ptBR="Cancelar" zh="取消" />
+            )}
+          </button>
+          <button
+            type="button"
             onClick={onClose}
-            disabled={sending}
+            disabled={busy}
             aria-label="Close"
-            className="text-neutral-400 hover:text-neutral-900 disabled:opacity-40 dark:hover:text-neutral-50"
+            className="shrink-0 text-neutral-400 hover:text-neutral-900 disabled:opacity-40 dark:hover:text-neutral-50"
           >
             ×
           </button>
@@ -194,8 +234,8 @@ export function ForwardPickerModal({
                 <button
                   key={c.id}
                   type="button"
-                  disabled={sending}
-                  onClick={() => onToggle(c.id)}
+                  disabled={busy}
+                  onClick={() => (mode === "tap" ? onPickSingle(c.id) : onToggle(c.id))}
                   className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition hover:bg-black/[0.03] disabled:opacity-60 dark:hover:bg-white/[0.05]"
                 >
                   <CachedAvatar
@@ -207,7 +247,9 @@ export function ForwardPickerModal({
                   <div className="min-w-0 flex-1 truncate text-[15px] font-medium text-neutral-900 dark:text-neutral-50">
                     {c.title || "—"}
                   </div>
-                  {status === "sending" ? (
+                  {mode === "tap" ? (
+                    <ChevronRightIcon className="h-4 w-4 shrink-0 text-neutral-300 dark:text-neutral-600" />
+                  ) : status === "sending" ? (
                     <Spinner className="h-4 w-4 shrink-0 animate-spin text-[#335ef7] dark:text-[#0c8ce9]" />
                   ) : status === "failed" ? (
                     <span className="shrink-0 text-[12px] font-medium text-red-500 dark:text-red-400">!</span>
@@ -231,23 +273,25 @@ export function ForwardPickerModal({
             })}
         </div>
 
-        <div className="border-t border-neutral-100 px-4 py-3 dark:border-neutral-800">
-          <button
-            type="button"
-            onClick={onSend}
-            disabled={pickedChatIds.size === 0 || sending}
-            className="w-full rounded-full bg-[#335ef7] py-2.5 text-sm font-semibold text-white transition hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:brightness-100 dark:bg-[#0c8ce9]"
-          >
-            {sending ? (
-              <span className="flex items-center justify-center gap-2">
-                <Spinner className="h-4 w-4 animate-spin" />
-                <T uk="Надсилання…" en="Sending…" ru="Отправка…" de="Wird gesendet…" es="Enviando…" fr="Envoi…" pl="Wysyłanie…" ptBR="Enviando…" zh="发送中…" />
-              </span>
-            ) : (
-              <T uk="Переслати" en="Forward" ru="Переслать" de="Weiterleiten" es="Reenviar" fr="Transférer" pl="Prześlij" ptBR="Encaminhar" zh="转发" />
-            )}
-          </button>
-        </div>
+        {mode === "select" && (
+          <div className="border-t border-neutral-100 px-4 py-3 dark:border-neutral-800">
+            <button
+              type="button"
+              onClick={onSend}
+              disabled={pickedChatIds.size === 0 || sending}
+              className="w-full rounded-full bg-[#335ef7] py-2.5 text-sm font-semibold text-white transition hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:brightness-100 dark:bg-[#0c8ce9]"
+            >
+              {sending ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Spinner className="h-4 w-4 animate-spin" />
+                  <T uk="Надсилання…" en="Sending…" ru="Отправка…" de="Wird gesendet…" es="Enviando…" fr="Envoi…" pl="Wysyłanie…" ptBR="Enviando…" zh="发送中…" />
+                </span>
+              ) : (
+                <T uk="Переслати" en="Forward" ru="Переслать" de="Weiterleiten" es="Reenviar" fr="Transférer" pl="Prześlij" ptBR="Encaminhar" zh="转发" />
+              )}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
