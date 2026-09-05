@@ -94,7 +94,7 @@ import { PdfPageThumbnail } from "@/components/chat/pdf-thumbnail";
 import { ChatPhotoGrid } from "@/components/chat/photo-grid";
 import { BlurredChatPhoto } from "@/components/chat/blurred-photo";
 import { MessageActionsMenu, DeleteMessageConfirmDialog } from "@/components/chat/message-actions-menu";
-import { CopyToast } from "@/components/chat/copy-toast";
+import { CopyToast, type CopyToastState } from "@/components/chat/copy-toast";
 import { ChatCalculationCard } from "@/components/chat/calculation-card";
 import { ContactMessageCard } from "@/components/chat/contact-message-card";
 import { ContactsPickerModal, type PickedContact } from "@/components/chat/contacts-picker-modal";
@@ -295,9 +295,11 @@ export function MiniChatWindow({
   const [deletingMessage, setDeletingMessage] = useState(false);
   const [deleteMessageFailed, setDeleteMessageFailed] = useState(false);
   // 2026-09-05 (Copy-action toast, see app/chats/[chatId]/page.tsx's
-  // own copy of this same state for the full writeup) -- bump-only
-  // counter so copying twice in a row restarts CopyToast's 3s timer.
-  const [copyToastTrigger, setCopyToastTrigger] = useState(0);
+  // own copy of this same state for the full writeup) -- a fresh object
+  // every copy (trigger + the copied bubble's own anchorRect) so the
+  // pill both restarts its 3s timer and re-centers itself on whichever
+  // bubble was copied this time.
+  const [copyToast, setCopyToast] = useState<CopyToastState | null>(null);
   // 2026-09-04 (Aleksandr: "При выхове калькуляции сделай дефолтно
   // моргающий курсор возле 1.") -- same fix as app/chats/[chatId]/
   // page.tsx's own copy of this calculator panel: focus the first
@@ -1536,7 +1538,7 @@ export function MiniChatWindow({
               ? () => {
                   const copyText = extractMessageText(actionsMenu.message);
                   navigator.clipboard?.writeText(copyText).catch(() => {});
-                  setCopyToastTrigger((n) => n + 1);
+                  setCopyToast({ trigger: Date.now(), anchorRect: actionsMenu.anchorRect });
                 }
               : undefined
           }
@@ -1555,7 +1557,7 @@ export function MiniChatWindow({
           onConfirm={() => void handleConfirmDeleteMessage()}
         />
       )}
-      <CopyToast trigger={copyToastTrigger} lang={lang} />
+      <CopyToast state={copyToast} lang={lang} />
     </div>,
     document.body,
   );

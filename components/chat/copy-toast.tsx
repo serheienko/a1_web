@@ -3,16 +3,35 @@
 // 2026-09-05 (Aleksandr, MessageActionsMenu's Copy row + attached
 // done.tgs: "Сделай чтобы 'скопировать' работало и показывай попап
 // сверху, типа скопировано и добавляй в него анимацию, попап должен
-// сам исчезать через 3 сек") -- a small top-of-viewport confirmation
-// pill, deliberately its OWN component rather than something
-// message-actions-menu.tsx renders internally: that menu unmounts the
-// instant any row is picked (Copy included, same `onClose()` every
-// other row already calls), so a toast living inside it would vanish
-// with the menu instead of surviving its own 3 seconds. Lifted out to
-// whichever page owns the actionsMenu state instead (app/chats/
-// [chatId]/page.tsx, components/mini-chat-window.tsx), same way
-// onReply already hands the "what happens next" decision back up to
-// the parent rather than deciding it here.
+// сам исчезать через 3 сек") -- a small confirmation pill, deliberately
+// its OWN component rather than something message-actions-menu.tsx
+// renders internally: that menu unmounts the instant any row is
+// picked (Copy included, same `onClose()` every other row already
+// calls), so a toast living inside it would vanish with the menu
+// instead of surviving its own 3 seconds. Lifted out to whichever page
+// owns the actionsMenu state instead (app/chats/[chatId]/page.tsx,
+// components/mini-chat-window.tsx), same way onReply already hands the
+// "what happens next" decision back up to the parent rather than
+// deciding it here.
+//
+// 2026-09-05 follow-up (Aleksandr, live Telegram reference video: "Еще
+// сделай такой попап сверху на кнопку «скопировать», и реально копируй
+// текст, анимацию я тебе пришлю позже") -- was a fixed pill centered at
+// the TOP of the viewport; the reference shows it instead appearing
+// right ON TOP of the message bubble that was actually copied, then
+// fading out in place. Repositioned to float over the same
+// `anchorRect` MessageActionsMenu already uses to place itself next to
+// that bubble (both page.tsx and mini-chat-window.tsx already compute
+// it via `e.currentTarget.getBoundingClientRect()` when opening the
+// menu), centered on the bubble's own center point instead of a fixed
+// screen location. The real `navigator.clipboard.writeText` call
+// itself was already there before this follow-up -- both callers pass
+// `onCopy` only when there is actual text to copy, so this pass is
+// about *where* the confirmation shows, not whether the copy itself
+// happens. The animation is still done.json (see below) as a
+// placeholder; Aleksandr said he will send a proper animation asset
+// separately -- swapping it later is just changing the `src` below,
+// nothing structural.
 //
 // done.tgs (a gzipped Lottie/Telegram sticker) was decompressed to
 // plain Lottie JSON and committed as public/animations/done.json --
@@ -33,40 +52,67 @@ import { LottiePlayer } from "@/components/lottie-player";
 import { T, type Locale } from "@/components/t";
 
 const VISIBLE_MS = 3000;
+// Keeps the pill fully on-screen even when the copied bubble sits right
+// at an edge (a narrow mini-chat window, a message near the top of a
+// short viewport) -- same margin concept message-actions-menu.tsx
+// already clamps its own popup against.
+const VIEWPORT_MARGIN = 14;
+
+export type CopyToastState = {
+  // A bump-only value, not a boolean: two copies in a row (copy one
+  // message, then immediately copy another, possibly at the very same
+  // spot) need the 3-second timer -- and the anchor -- to restart from
+  // zero each time. Date.now() also doubles as a fresh React key for
+  // the LottiePlayer below.
+  trigger: number;
+  // The copied bubble's own on-screen rect at the moment Copy was
+  // pressed (MessageActionsMenu's `anchorRect`, reused as-is rather
+  // than recomputed) -- the pill centers itself on this rect's own
+  // center point.
+  anchorRect: DOMRect;
+};
 
 export function CopyToast({
-  // A bump-only counter, not a boolean: two copies in a row (copy one
-  // message, then immediately copy another) need the 3-second timer to
-  // restart from zero each time, which a boolean staying `true` across
-  // both clicks would never re-trigger the effect for.
-  trigger,
+  state,
   lang,
 }: {
-  trigger: number;
+  state: CopyToastState | null;
   lang: Locale;
 }) {
   const [open, setOpen] = useState(false);
+  const [point, setPoint] = useState<{ left: number; top: number } | null>(null);
 
   useEffect(() => {
-    if (trigger === 0) return;
+    if (!state) return;
+    const { anchorRect } = state;
+    const left = Math.min(
+      Math.max(anchorRect.left + anchorRect.width / 2, VIEWPORT_MARGIN),
+      window.innerWidth - VIEWPORT_MARGIN,
+    );
+    const top = Math.min(
+      Math.max(anchorRect.top + anchorRect.height / 2, VIEWPORT_MARGIN),
+      window.innerHeight - VIEWPORT_MARGIN,
+    );
+    setPoint({ left, top });
     setOpen(true);
     const hide = window.setTimeout(() => setOpen(false), VISIBLE_MS);
     return () => window.clearTimeout(hide);
-  }, [trigger]);
+  }, [state]);
 
-  if (typeof document === "undefined") return null;
+  if (typeof document === "undefined" || !point) return null;
 
   return createPortal(
     <div
       aria-hidden={!open}
-      className={`pointer-events-none fixed left-1/2 top-4 z-[70] flex -translate-x-1/2 items-center gap-2 rounded-full bg-neutral-900/90 py-1.5 pl-2 pr-4 text-[14px] font-medium text-white shadow-xl backdrop-blur-sm transition-all duration-300 ease-out dark:bg-neutral-800/95 ${
-        open ? "translate-y-0 opacity-100" : "-translate-y-3 opacity-0"
+      style={{ left: point.left, top: point.top }}
+      className={`pointer-events-none fixed z-[70] flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full bg-neutral-900/90 py-1.5 pl-2 pr-4 text-[14px] font-medium text-white shadow-xl backdrop-blur-sm transition-all duration-300 ease-out dark:bg-neutral-800/95 ${
+        open ? "scale-100 opacity-100" : "scale-90 opacity-0"
       }`}
     >
-      {/* key={trigger} forces a fresh LottiePlayer mount (and so a
+      {/* key={state.trigger} forces a fresh LottiePlayer mount (and so a
           fresh one-shot play) every time the toast re-fires, instead of
           reusing an already-completed, frozen-on-last-frame instance. */}
-      <LottiePlayer key={trigger} src="/animations/done.json" size={26} loop={false} />
+      <LottiePlayer key={state?.trigger} src="/animations/done.json" size={26} loop={false} />
       <span>
         <T uk="Скопійовано" en="Copied" ru="Скопировано" de="Kopiert" es="Copiado" fr="Copié" pl="Skopiowano" ptBR="Copiado" zh="已复制" />
       </span>

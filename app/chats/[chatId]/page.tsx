@@ -54,7 +54,7 @@ import {
 import { ChatPreviewLine } from "@/components/chat/chat-preview-line";
 import { MessageActionsMenu, ReplyComposeBar, EditComposeBar, MessageReplyQuote, ReplyIcon, DeleteMessageConfirmDialog } from "@/components/chat/message-actions-menu";
 import { ForwardPickerModal, type ForwardRowStatus } from "@/components/chat/forward-picker-modal";
-import { CopyToast } from "@/components/chat/copy-toast";
+import { CopyToast, type CopyToastState } from "@/components/chat/copy-toast";
 import { buildMediaProxyUrl, buildMediaDownloadUrl } from "@/lib/a1/media-proxy";
 import { getStableMediaProxyUrl } from "@/lib/a1/stable-media-url";
 import type { MediaUploadUsage } from "@/lib/a1/schemas";
@@ -756,7 +756,7 @@ export default function ChatWindowPage() {
   // CopyToast's own dismiss timer to restart from zero each time,
   // which a boolean already `true` from the first copy wouldn't
   // re-trigger for.
-  const [copyToastTrigger, setCopyToastTrigger] = useState(0);
+  const [copyToast, setCopyToast] = useState<CopyToastState | null>(null);
   const [replyTarget, setReplyTarget] = useState<ChatMessage | null>(null);
   // Edit feature (2026-09-05) -- mirrors replyTarget's own shape
   // exactly (same "which message is this compose bar acting on" role),
@@ -5869,7 +5869,7 @@ export default function ChatWindowPage() {
               ? () => {
                   const copyText = extractMessageText(actionsMenu.message);
                   navigator.clipboard?.writeText(copyText).catch(() => {});
-                  setCopyToastTrigger((n) => n + 1);
+                  setCopyToast({ trigger: Date.now(), anchorRect: actionsMenu.anchorRect });
                 }
               : undefined
           }
@@ -5913,7 +5913,7 @@ export default function ChatWindowPage() {
           failed={forwardFailed}
         />
       )}
-      <CopyToast trigger={copyToastTrigger} lang={lang} />
+      <CopyToast state={copyToast} lang={lang} />
     </div>
   );
 }
