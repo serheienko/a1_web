@@ -7421,3 +7421,44 @@ trigger as well since it's harmless on desktop and is what mobile
 actually gets (no mouseenter there).
 
 tsc-clean, commit d154adf.
+
+## 6.166 -- Actions menu: measure real height, clamp to viewport (2026-09-05)
+
+Aleksandr, live screenshot: opened near the bottom of the chat, the
+menu ran off the viewport's bottom edge -- "Не влезло, научись понимать
+позицию элемента на экране и делай так чтобы купертино всегда полностью
+помещалось."
+
+Old logic only compared spaceAbove vs spaceBelow and opened toward
+whichever had MORE room, never checking whether that side had ENOUGH
+room for the menu's real height. components/chat/message-actions-menu
+.tsx now always mounts the menu (visibility: hidden at an off-screen
+0,0 until placed -- never display:none, so it still lays out), a
+useLayoutEffect measures its real height before paint, then clamps
+`top` to [VIEWPORT_MARGIN, viewport bottom - VIEWPORT_MARGIN] instead
+of just anchoring to anchorRect and letting it overflow. max-height +
+overflow-y-auto is the last-resort guard if the viewport is too short
+to fit the menu anywhere.
+
+tsc-clean, commit 377f0ba.
+
+## 6.167 -- Sent-bubble reply quote: white accent bar on blue (2026-09-05)
+
+Aleksandr: "В компоузере ты полечил UI отлично, а в самом сообщении
+надо добавлять слева черточку возле цитирования/реплая."
+
+The bar was already in the code (border-l-[3px] border-[#335ef7]) but
+invisible in practice: a `mine` bubble's quote box only tints its
+background to bg-white/15 over the bubble's OWN solid #335ef7 fill, so
+that same-blue border read as no border at all against a background
+still ~85% that blue -- my earlier assessment that this already
+matched the WhatsApp reference was wrong; should have checked contrast
+against the real rendered bubble, not just confirmed the border class
+existed.
+
+components/chat/message-actions-menu.tsx's MessageReplyQuote: `mine`
+now flips the bar to white, same accent-inversion convention already
+used for the name label two lines down and every other mine-bubble
+control in this codebase (voice-bubble.tsx's play button, unread dot).
+
+tsc-clean, commit 8df0ba4.
