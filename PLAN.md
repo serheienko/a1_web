@@ -8101,3 +8101,23 @@ animation, post/profile caching, the reply-bar-width bug, etc.) filed
 as pending. Lives outside this repo/PLAN.md entirely -- its whole
 point is surviving independent of any one conversation's context
 window. Link shared with Aleksandr directly in chat.
+
+
+## 6.186 -- Mini chat window: cache previously-opened chats (2026-09-05)
+
+Aleksandr: "Кешируй боковые маленькие чаты, если их ранее открывали."
+components/chats-fab.tsx mounts/unmounts MiniChatWindow per open/close
+(no `key`), so every reopen used to start from an empty messages array
+and loadState "loading" -- a blank spinner even for a chat opened a
+minute earlier. New module-scope miniChatMessageCache (Map keyed by
+routeParam) holds each chat's last-seen messages/myUserId/
+peerReadMaxId; useState initializers seed from it on (re)mount, plus a
+small early effect covers switching from one already-open chat
+straight to another without an unmount in between (setActiveChat can
+be called directly from the recent-chats list). A mirror effect keeps
+the cache current. In-memory only, not Cache Storage -- this is live
+data, so the goal is "instant on reopen this visit," not surviving a
+hard refresh; the poll still re-fetches in the background regardless.
+
+tsc-clean. Commit fa4d3a3. **Not yet verified live or pushed** -- same
+standing network blocker.
