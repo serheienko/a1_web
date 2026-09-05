@@ -92,7 +92,7 @@ import {
 import { ChatFileTypeIcon, fileKindFromName, DocumentFallbackLabel } from "@/components/chat/file-type-icon";
 import { PdfPageThumbnail } from "@/components/chat/pdf-thumbnail";
 import { ChatPhotoGrid } from "@/components/chat/photo-grid";
-import { MessageActionsMenu } from "@/components/chat/message-actions-menu";
+import { MessageActionsMenu, DeleteMessageConfirmDialog } from "@/components/chat/message-actions-menu";
 import { CopyToast } from "@/components/chat/copy-toast";
 import { ChatCalculationCard } from "@/components/chat/calculation-card";
 import { ContactMessageCard } from "@/components/chat/contact-message-card";
@@ -283,6 +283,16 @@ export function MiniChatWindow({
   // the compose box, same "started a reply" gesture without the full
   // threading UI app/chats/[chatId]/page.tsx has.
   const [actionsMenu, setActionsMenu] = useState<{ message: ChatMessage; anchorRect: DOMRect; mine: boolean } | null>(null);
+  // 2026-09-05 (Aleksandr: delete-for-self, see app/chats/[chatId]/
+  // page.tsx's own copy of this same state for the full writeup) --
+  // this mini widget gets the trivial delete win too (no backend or
+  // UI to build, just wiring), same as its own onReply above already
+  // does a scoped-down version of the big page's reply. Edit/Forward
+  // stay out of scope HERE on purpose, same "no full threading UI in
+  // this smaller widget" line this file already draws for Reply.
+  const [deleteConfirm, setDeleteConfirm] = useState<{ messageId: number } | null>(null);
+  const [deletingMessage, setDeletingMessage] = useState(false);
+  const [deleteMessageFailed, setDeleteMessageFailed] = useState(false);
   // 2026-09-05 (Copy-action toast, see app/chats/[chatId]/page.tsx's
   // own copy of this same state for the full writeup) -- bump-only
   // counter so copying twice in a row restarts CopyToast's 3s timer.
@@ -500,6 +510,35 @@ export function MiniChatWindow({
     const el = listRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages.length]);
+
+  // 2026-09-05 (delete-for-self, see app/chats/[chatId]/page.tsx's own
+  // handleDeleteChatMessage for the full writeup -- identical call,
+  // just against this widget's own `messages`/`target.routeParam`).
+  async function handleDeleteChatMessage(messageId: number) {
+    const res = await authFetch("/api/chats/delete", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ chatId: target.routeParam, messageIds: [messageId] }),
+    });
+    if (!res.ok) {
+      throw new Error("delete_failed");
+    }
+    setMessages((prev) => prev.filter((m) => Number(m._id) !== messageId));
+  }
+
+  async function handleConfirmDeleteMessage() {
+    if (!deleteConfirm) return;
+    setDeletingMessage(true);
+    setDeleteMessageFailed(false);
+    try {
+      await handleDeleteChatMessage(deleteConfirm.messageId);
+      setDeleteConfirm(null);
+    } catch {
+      setDeleteMessageFailed(true);
+    } finally {
+      setDeletingMessage(false);
+    }
+  }
 
   async function handleSend(extra?: { contacts?: PickedContact[]; overrideText?: string }) {
     const text = (extra?.overrideText ?? draft).trim();
@@ -1475,6 +1514,19 @@ export function MiniChatWindow({
                 }
               : undefined
           }
+          onDelete={() => setDeleteConfirm({ messageId: Number(actionsMenu.message._id) })}
+        />
+      )}
+      {deleteConfirm && (
+        <DeleteMessageConfirmDialog
+          deleting={deletingMessage}
+          failed={deleteMessageFailed}
+          onCancel={() => {
+            if (deletingMessage) return;
+            setDeleteConfirm(null);
+            setDeleteMessageFailed(false);
+          }}
+          onConfirm={() => void handleConfirmDeleteMessage()}
         />
       )}
       <CopyToast trigger={copyToastTrigger} lang={lang} />

@@ -52,7 +52,7 @@ import {
   type MessageMediaDocument,
 } from "@/lib/a1/chat-schemas";
 import { ChatPreviewLine } from "@/components/chat/chat-preview-line";
-import { MessageActionsMenu, ReplyComposeBar, MessageReplyQuote, ReplyIcon } from "@/components/chat/message-actions-menu";
+import { MessageActionsMenu, ReplyComposeBar, MessageReplyQuote, ReplyIcon, DeleteMessageConfirmDialog } from "@/components/chat/message-actions-menu";
 import { CopyToast } from "@/components/chat/copy-toast";
 import { buildMediaProxyUrl, buildMediaDownloadUrl } from "@/lib/a1/media-proxy";
 import { getStableMediaProxyUrl } from "@/lib/a1/stable-media-url";
@@ -725,6 +725,17 @@ export default function ChatWindowPage() {
   // below and the `replyTo` this chat's own send()/attemptSend/
   // uploadAndSendVoice thread through to chat-server.
   const [actionsMenu, setActionsMenu] = useState<{ message: ChatMessage; anchorRect: DOMRect; mine: boolean } | null>(null);
+  // 2026-09-05 (Aleksandr: "и удалить, чтобы можно было удалить у
+  // себя") -- deleting from the actions menu asks first, same as the
+  // photo viewer's own delete button already does; the menu itself has
+  // already closed by the time this opens (select() in message-
+  // actions-menu.tsx always calls onClose right after firing onDelete),
+  // so this is a SEPARATE centered dialog, not something anchored to
+  // the row that triggered it -- see DeleteMessageConfirmDialog's own
+  // header for why.
+  const [deleteConfirm, setDeleteConfirm] = useState<{ messageId: number } | null>(null);
+  const [deletingMessage, setDeletingMessage] = useState(false);
+  const [deleteMessageFailed, setDeleteMessageFailed] = useState(false);
   // 2026-09-05 (Aleksandr: "попап должен сам исчезать через 3 сек") --
   // a bump-only counter, not a boolean: copying twice in a row needs
   // CopyToast's own dismiss timer to restart from zero each time,
@@ -2571,6 +2582,25 @@ export default function ChatWindowPage() {
     },
     [chatId],
   );
+
+  // 2026-09-05 (actions-menu delete, see deleteConfirm's own state
+  // comment) -- thin wrapper around the exact same handleDeleteChat
+  // Message above the photo viewer already calls, just with the
+  // confirm-dialog's own deleting/failed local UI state instead of
+  // that viewer's.
+  async function handleConfirmDeleteMessage() {
+    if (!deleteConfirm) return;
+    setDeletingMessage(true);
+    setDeleteMessageFailed(false);
+    try {
+      await handleDeleteChatMessage(deleteConfirm.messageId);
+      setDeleteConfirm(null);
+    } catch {
+      setDeleteMessageFailed(true);
+    } finally {
+      setDeletingMessage(false);
+    }
+  }
 
   // Calculations feature -- draft-row mutations, all pure state updates.
   function calcAddRow() {
@@ -5500,6 +5530,19 @@ export default function ChatWindowPage() {
                 }
               : undefined
           }
+          onDelete={() => setDeleteConfirm({ messageId: Number(actionsMenu.message._id) })}
+        />
+      )}
+      {deleteConfirm && (
+        <DeleteMessageConfirmDialog
+          deleting={deletingMessage}
+          failed={deleteMessageFailed}
+          onCancel={() => {
+            if (deletingMessage) return;
+            setDeleteConfirm(null);
+            setDeleteMessageFailed(false);
+          }}
+          onConfirm={() => void handleConfirmDeleteMessage()}
         />
       )}
       <CopyToast trigger={copyToastTrigger} lang={lang} />

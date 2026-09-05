@@ -192,6 +192,9 @@ export function MessageActionsMenu({
   onClose,
   onReply,
   onCopy,
+  onEdit,
+  onForward,
+  onDelete,
 }: {
   anchorRect: DOMRect;
   mine: boolean;
@@ -205,6 +208,17 @@ export function MessageActionsMenu({
   // so callers that can't build copy text for the tapped message just
   // omit this prop and the row quietly no-ops, same as before.
   onCopy?: () => void;
+  // 2026-09-05 follow-up (Aleksandr: "Давай одновременно сделаем
+  // кнопки редактировать... удалить... И переслать") -- three more
+  // rows go live. onEdit/onForward optional for the same reason as
+  // onCopy above (a caller with nothing sensible to do yet can omit
+  // the prop and the row no-ops), but onDelete is NOT optional --
+  // every message, mine or theirs, can always be deleted for-me (see
+  // app/api/chats/delete/route.ts's own header: this is always
+  // revoke:false), so every caller has this action available.
+  onEdit?: () => void;
+  onForward?: () => void;
+  onDelete: () => void;
 }) {
   // 2026-09-05 follow-up (Aleksandr, live screenshot: opened near the
   // bottom of the viewport, the menu ran off the bottom edge entirely
@@ -266,11 +280,14 @@ export function MessageActionsMenu({
   if (typeof document === "undefined") return null;
 
   function select(key: ActionKey) {
-    // Every row except Reply/Copy is a visual-only placeholder for now
-    // (see this file's own header comment) -- close the menu, nothing
-    // else.
+    // Reaction row + Remind/Pin/Select stay visual-only placeholders
+    // (see this file's own header comment) -- everything else now does
+    // something real.
     if (key === "reply") onReply();
     if (key === "copy") onCopy?.();
+    if (key === "edit") onEdit?.();
+    if (key === "forward") onForward?.();
+    if (key === "delete") onDelete();
     onClose();
   }
 
@@ -343,7 +360,7 @@ export function MessageActionsMenu({
           </div>
 
           <div className="overflow-hidden rounded-2xl bg-white/95 shadow-xl backdrop-blur-sm dark:bg-neutral-800/95">
-            {ACTION_ROWS.filter((r) => r.group === "main").map((row, i, arr) => (
+            {ACTION_ROWS.filter((r) => r.group === "main" && (r.key !== "edit" || mine)).map((row, i, arr) => (
               <button
                 key={row.key}
                 type="button"
@@ -493,5 +510,87 @@ export function MessageReplyQuote({
         <div className={`w-full truncate text-[13px] ${mine ? "text-white/85" : "text-[#262a34] dark:text-white"}`}>{previewText}</div>
       </span>
     </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Delete-for-self confirm dialog (2026-09-05, Aleksandr: "и удалить,
+// чтобы можно было удалить у себя") -- shared between app/chats/
+// [chatId]/page.tsx and components/mini-chat-window.tsx (both already
+// duplicate a fair amount of chat-window logic from one another, see
+// that file's own header) so the same confirm copy/styling doesn't
+// drift between the two. Modeled directly on components/chat/photo-
+// viewer.tsx's own "Delete photo?" popover -- same copy pattern
+// ("...only for you"), same dark iOS-sheet card this codebase already
+// uses for the voice-recording discard confirm (app/chats/[chatId]/
+// page.tsx's own discardConfirmOpen block) -- just centered instead of
+// anchored, since by the time this fires the actions menu that
+// triggered it has already closed and there's no anchor left to hug.
+// Always delete-for-me (revoke:false, see app/api/chats/delete/
+// route.ts's own header) -- there is no "delete for everyone" copy
+// here on purpose, this app doesn't offer that option anywhere yet.
+export function DeleteMessageConfirmDialog({
+  deleting,
+  failed,
+  onCancel,
+  onConfirm,
+}: {
+  deleting: boolean;
+  failed: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6" onClick={onCancel}>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-[280px] rounded-2xl bg-[#2c2c2e]/95 p-4 text-center shadow-2xl backdrop-blur-xl"
+      >
+        <p className="text-[15px] font-medium leading-snug text-white">
+          <T
+            uk="Видалити повідомлення?" en="Delete message?" ru="Удалить сообщение?" de="Nachricht löschen?"
+            es="¿Eliminar mensaje?" fr="Supprimer le message ?" pl="Usunąć wiadomość?" ptBR="Excluir mensagem?" zh="删除消息？"
+          />
+        </p>
+        <p className="mt-1 text-[13px] text-white/50">
+          <T
+            uk="Повідомлення буде видалено лише для вас." en="The message will be deleted for you only."
+            ru="Сообщение будет удалено только у вас." de="Die Nachricht wird nur für dich gelöscht."
+            es="El mensaje se eliminará solo para ti." fr="Le message ne sera supprimé que pour vous."
+            pl="Wiadomość zostanie usunięta tylko u Ciebie." ptBR="A mensagem será excluída só para você."
+            zh="消息将仅对你删除。"
+          />
+        </p>
+        {failed && (
+          <p className="mt-2 text-[13px] text-red-400">
+            <T
+              uk="Не вдалося видалити. Спробуйте ще раз." en="Couldn't delete. Try again."
+              ru="Не удалось удалить. Попробуйте ещё раз." de="Löschen fehlgeschlagen. Versuch es erneut."
+              es="No se pudo eliminar. Inténtalo de nuevo." fr="Échec de la suppression. Réessayez."
+              pl="Nie udało się usunąć. Spróbuj ponownie." ptBR="Não foi possível excluir. Tente novamente."
+              zh="删除失败，请重试。"
+            />
+          </p>
+        )}
+        <div className="mt-3.5 flex gap-2">
+          <button
+            type="button"
+            disabled={deleting}
+            onClick={onCancel}
+            className="flex-1 rounded-full bg-white/10 py-2.5 text-[15px] font-medium text-white transition hover:bg-white/15 disabled:opacity-50"
+          >
+            <T uk="Скасувати" en="Cancel" ru="Отмена" de="Abbrechen" es="Cancelar" fr="Annuler" pl="Anuluj" ptBR="Cancelar" zh="取消" />
+          </button>
+          <button
+            type="button"
+            disabled={deleting}
+            onClick={onConfirm}
+            className="flex-1 rounded-full bg-red-600 py-2.5 text-[15px] font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
+          >
+            <T uk="Видалити" en="Delete" ru="Удалить" de="Löschen" es="Eliminar" fr="Supprimer" pl="Usuń" ptBR="Excluir" zh="删除" />
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
