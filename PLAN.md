@@ -8376,3 +8376,41 @@ actually take effect.
 tsc-clean. Commit 0dabe72. **Not yet verified live or pushed** -- same
 standing network blocker; 33 commits now sitting locally ahead of
 e598c18/6.178.
+
+## 6.200 -- Voice bubble: real animated fire badge, sourced from the mobile app (2026-09-05, t017)
+
+Third and last stuck item cleared this round. Aleksandr said he'd
+already shared screenshots + a Figma link for this earlier, but
+neither turned up in this session's own history -- rather than keep
+asking for something already sent, found something even more exact
+sitting on disk: the connected a1_app repo (the Flutter mobile
+codebase) ships the REAL production asset this badge is based on,
+found by grepping its Dart source for the fire-icon widget
+(voice_message_bubble_widgets.dart's `_FireIntroAnimation`) --
+assets/tgs/fire_day.tgs and fire_night.tgs, a one-shot Lottie
+animation in Telegram's gzip-compressed ".tgs" format.
+
+Gunzipped both (plain Lottie JSON underneath, ~11KB each, 90 frames @
+30fps) and committed them as public/animations/fire-day.json /
+fire-night.json, replacing the old hand-drawn placeholder flame SVG
+with a real <LottiePlayer> (the same imperative lottie-web loader
+already used for every other animated icon in this app) in a new
+FireBadgeAnimation component (components/chat/voice-bubble.tsx).
+
+Both source assets already bake in a single flat fill color that
+happens to match this app's own existing accent colors almost exactly
+-- fire-day is #4F71EB (light-mode brand blue), fire-night is #0C8CE9
+(this file's own dark:text-[#0c8ce9]) -- so the "theirs" badge needed
+no recoloring at all, just the dark:hidden / hidden dark:inline-block
+asset-swap convention site-nav.tsx's own logo already established for
+this codebase's CSS-only (no JS hook) theming. The "mine" badge, which
+sits on a solid blue bubble and needs to read as pure white regardless
+of theme (same as the old glyph's text-white), gets there via a
+brightness-0+invert CSS filter on top of either source asset -- exact
+for a single-color glyph.
+
+tsc-clean. Commit f000fda. **Not yet verified live or pushed** -- same
+standing network blocker; 35 commits now sitting locally ahead of
+e598c18/6.178.
+
+**All 20 backlog items from this session's Fix Tracker are now done.**
