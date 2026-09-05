@@ -234,6 +234,17 @@ export async function POST(request: NextRequest) {
         })),
       });
       payload.entities = entities;
+    } else if (forwardFrom) {
+      // Forward feature (2026-09-05 follow-up, live-tested failure:
+      // "Не вдалося переслати") -- root-caused against the mobile
+      // app's own sendForwardedMessage, which NEVER uses the flat
+      // `message` shorthand for a forward, only ever `entities`
+      // (chatForwardEntitiesJson), even for a plain caption-less text
+      // forward. Whatever chat-server's own validation is doing with
+      // forwardFrom + a bare `message` string together, the confirmed-
+      // working shape is entities, so this mirrors that exactly rather
+      // than re-guessing.
+      if (text) payload.entities = [{ object: "entity-text", text }];
     } else if (text) {
       payload.message = text;
     }
