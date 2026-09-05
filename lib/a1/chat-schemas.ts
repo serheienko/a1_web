@@ -213,6 +213,14 @@ const RawMessageSchema = z
     // otherwise -- exactly like the raw shape comment above already
     // showed (`editedAt: null` on a never-edited message).
     editedAt: z.string().nullable().optional(),
+    // Forward feature (2026-09-05) -- see app/api/chats/send/route.ts's
+    // own header for the confirmed shape/semantics (the ORIGINAL
+    // author, Telegram-style, not whoever last re-forwarded it). Only
+    // ever a peer-user in practice (chat-server's own ForwardFrom type
+    // per the mobile app's source), but PeerSchema is reused as-is
+    // rather than narrowed, same "don't guess past what's confirmed"
+    // rule replyTo's own schema above follows.
+    forwardFrom: PeerSchema.nullable().optional(),
   })
   .catchall(z.unknown());
 

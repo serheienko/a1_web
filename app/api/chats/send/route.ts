@@ -139,6 +139,25 @@ const SendInput = z
         userId: z.string().trim().min(1),
       })
       .optional(),
+    // Forward feature (2026-09-05, Aleksandr: "И переслать... это
+    // форвард обычный") -- CONFIRMED off the mobile app's own source
+    // (chat_detail_cubit.dart's sendForwardedMessage -- read directly,
+    // not guessed): a forward is NOT a separate RPC, it's a flavor of
+    // this same messages.send carrying one extra field, `forwardFrom`
+    // (`{user, object:"peer-user"}, the ORIGINAL author -- Telegram-
+    // style re-forward keeps the first author, not whoever last
+    // forwarded it, see chat_forward_payload.dart's own
+    // chatForwardFromUserId comment). `userId` here is already that
+    // resolved original-author id (app/chats/[chatId]/page.tsx picks
+    // `msg.forwardFrom?.user ?? msg.fromId` before calling this route,
+    // mirroring chatForwardFromUserId's own `forwardFrom ?? peerFrom`
+    // fallback) -- this route itself does no such resolution, same
+    // "client already did the lookup" division every other route here
+    // already has for e.g. replyTo's userId. The forwarded CONTENT
+    // itself (text/media/contacts) rides in this SAME request's
+    // existing text/media/contacts fields, re-using the original
+    // message's own entities/media -- nothing forward-specific there.
+    forwardFrom: z.object({ userId: z.string().trim().min(1) }).optional(),
   })
   .refine(
     (v) =>
@@ -155,7 +174,7 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ ok: false, message: "invalid_input" }, { status: 400 });
   }
-  const { chatId, text, media, contacts, calculation, meet, replyTo } = parsed.data;
+  const { chatId, text, media, contacts, calculation, meet, replyTo, forwardFrom } = parsed.data;
 
   try {
     // `message` and `media` are both optional on MessageInput (only
@@ -170,6 +189,9 @@ export async function POST(request: NextRequest) {
     const payload: Record<string, unknown> = { peerTo: peerForRouteParam(chatId) };
     if (replyTo) {
       payload.replyTo = { message: Number(replyTo.messageId), object: "peer-user", user: replyTo.userId };
+    }
+    if (forwardFrom) {
+      payload.forwardFrom = { user: forwardFrom.userId, object: "peer-user" };
     }
     const mediaItems: Record<string, unknown>[] = [];
     if (media && media.length > 0) {

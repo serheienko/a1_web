@@ -53,6 +53,7 @@ import {
 } from "@/lib/a1/chat-schemas";
 import { ChatPreviewLine } from "@/components/chat/chat-preview-line";
 import { MessageActionsMenu, ReplyComposeBar, EditComposeBar, MessageReplyQuote, ReplyIcon, DeleteMessageConfirmDialog } from "@/components/chat/message-actions-menu";
+import { ForwardPickerModal } from "@/components/chat/forward-picker-modal";
 import { CopyToast } from "@/components/chat/copy-toast";
 import { buildMediaProxyUrl, buildMediaDownloadUrl } from "@/lib/a1/media-proxy";
 import { getStableMediaProxyUrl } from "@/lib/a1/stable-media-url";
@@ -765,6 +766,16 @@ export default function ChatWindowPage() {
   // AND edit in the same draft either.
   const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
   const [editFailed, setEditFailed] = useState(false);
+  // Forward feature (2026-09-05) -- forwardMessage is the source
+  // message the picker was opened for; forwardSendingChatId names
+  // whichever target row is currently mid-send (drives that row's own
+  // spinner + disables the rest of the list, see ForwardPickerModal's
+  // own header) and is cleared back to null whether the send
+  // succeeded or failed -- only forwardFailed distinguishes those two
+  // outcomes for the modal's own error line.
+  const [forwardMessage, setForwardMessage] = useState<ChatMessage | null>(null);
+  const [forwardSendingChatId, setForwardSendingChatId] = useState<string | null>(null);
+  const [forwardFailed, setForwardFailed] = useState(false);
   // 2026-09-05 follow-up (Aleksandr: reply-cancel via the X should
   // smoothly collapse, not just vanish) -- replyTarget itself still
   // clears the INSTANT onRemove/a real send fires (that's what
@@ -2043,6 +2054,15 @@ export default function ChatWindowPage() {
           ids.add(c.userId);
         }
       }
+      // Forward feature (2026-09-05) -- the "Forwarded from X" label
+      // (plain-text bubbles only for now, see its own render-site
+      // comment) reuses this SAME batch-summary fetch/cache for the
+      // original author's display name instead of standing up a
+      // second lookup mechanism.
+      const forwardUserId = msg.forwardFrom?.object === "peer-user" ? msg.forwardFrom.user : null;
+      if (forwardUserId && !contactSummaries[forwardUserId] && !attemptedContactIdsRef.current.has(forwardUserId)) {
+        ids.add(forwardUserId);
+      }
     }
     if (ids.size === 0) return;
     for (const id of ids) attemptedContactIdsRef.current.add(id);
@@ -2677,6 +2697,55 @@ export default function ChatWindowPage() {
       setDeleteMessageFailed(true);
     } finally {
       setDeletingMessage(false);
+    }
+  }
+
+  // Forward feature (2026-09-05) -- see app/api/chats/send/route.ts's
+  // own header for the confirmed messages.send-with-forwardFrom shape
+  // this re-uses (no dedicated forward RPC). originalAuthorId keeps a
+  // re-forward attributed to the FIRST author, Telegram-style, mirror-
+  // ing chatForwardFromUserId's own `forwardFrom ?? peerFrom` fallback
+  // (mobile's chat_forward_payload.dart) -- forwarding a message that
+  // was itself already forwarded here keeps pointing at the ORIGINAL
+  // sender, not whoever forwarded it into this chat.
+  async function handleForwardMessage(targetChatId: string) {
+    const source = forwardMessage;
+    if (!source || forwardSendingChatId) return;
+    const originalAuthorId = (source.forwardFrom?.object === "peer-user" ? source.forwardFrom.user : null) ?? source.fromId;
+    const text = extractMessageText(source);
+    const docs = messageDocumentMedia(source);
+    const contactsMedia = messageContactMedia(source);
+    if (!originalAuthorId || (!text && docs.length === 0 && contactsMedia.length === 0)) {
+      setForwardFailed(true);
+      return;
+    }
+    setForwardSendingChatId(targetChatId);
+    setForwardFailed(false);
+    try {
+      const res = await authFetch("/api/chats/send", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          chatId: targetChatId,
+          text: text || undefined,
+          media: docs.length > 0 ? docs.map((d) => ({ fileReference: d.fileReference })) : undefined,
+          contacts:
+            contactsMedia.length > 0
+              ? contactsMedia.map((c) => ({ userId: c.userId, phoneNumber: c.phoneNumber, firstName: c.firstName, lastName: c.lastName }))
+              : undefined,
+          forwardFrom: { userId: originalAuthorId },
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok) {
+        setForwardFailed(true);
+        return;
+      }
+      setForwardMessage(null);
+    } catch {
+      setForwardFailed(true);
+    } finally {
+      setForwardSendingChatId(null);
     }
   }
 
@@ -4300,6 +4369,31 @@ export default function ChatWindowPage() {
                           // too, which is how a reply now actually gets
                           // started on a Photo/Voice Message/document.
                           <>
+                            {/* Forward feature (2026-09-05) -- scoped to
+                                plain-text bubbles for now, same
+                                incremental-rollout precedent this reply
+                                quote right below already set (its own
+                                2026-09-05 header comment: "LEFT-click...
+                                scoped to plain text bubbles only, told
+                                to Aleksandr, not silently decided") --
+                                extending this to every media kind is a
+                                bigger per-kind-footer change, flagged
+                                here rather than attempted half-verified. */}
+                            {!pending && msg.forwardFrom?.object === "peer-user" && (
+                              <div className={`mb-1 truncate text-[13px] font-semibold italic ${mine ? "text-white/80" : "text-[#335ef7] dark:text-[#0c8ce9]"}`}>
+                                <T
+                                  uk={`Переслано від ${contactSummaries[msg.forwardFrom.user]?.fullName || "…"}`}
+                                  en={`Forwarded from ${contactSummaries[msg.forwardFrom.user]?.fullName || "…"}`}
+                                  ru={`Переслано от ${contactSummaries[msg.forwardFrom.user]?.fullName || "…"}`}
+                                  de={`Weitergeleitet von ${contactSummaries[msg.forwardFrom.user]?.fullName || "…"}`}
+                                  es={`Reenviado de ${contactSummaries[msg.forwardFrom.user]?.fullName || "…"}`}
+                                  fr={`Transféré de ${contactSummaries[msg.forwardFrom.user]?.fullName || "…"}`}
+                                  pl={`Przesłano od ${contactSummaries[msg.forwardFrom.user]?.fullName || "…"}`}
+                                  ptBR={`Encaminhado de ${contactSummaries[msg.forwardFrom.user]?.fullName || "…"}`}
+                                  zh={`转发自 ${contactSummaries[msg.forwardFrom.user]?.fullName || "…"}`}
+                                />
+                              </div>
+                            )}
                             {(() => {
                               const quote = pending
                                 ? resolveReplyPreview(pending.replySnapshot)
@@ -5637,6 +5731,16 @@ export default function ChatWindowPage() {
             setEditFailed(false);
             window.requestAnimationFrame(() => textareaRef.current?.focus());
           }}
+          onForward={
+            extractMessageText(actionsMenu.message) ||
+            messageDocumentMedia(actionsMenu.message).length > 0 ||
+            messageContactMedia(actionsMenu.message).length > 0
+              ? () => {
+                  setForwardFailed(false);
+                  setForwardMessage(actionsMenu.message);
+                }
+              : undefined
+          }
           onCopy={
             extractMessageText(actionsMenu.message)
               ? () => {
@@ -5659,6 +5763,19 @@ export default function ChatWindowPage() {
             setDeleteMessageFailed(false);
           }}
           onConfirm={() => void handleConfirmDeleteMessage()}
+        />
+      )}
+      {forwardMessage && (
+        <ForwardPickerModal
+          lang={lang}
+          onClose={() => {
+            if (forwardSendingChatId) return;
+            setForwardMessage(null);
+            setForwardFailed(false);
+          }}
+          onPick={(targetChatId) => void handleForwardMessage(targetChatId)}
+          sendingChatId={forwardSendingChatId}
+          failed={forwardFailed}
         />
       )}
       <CopyToast trigger={copyToastTrigger} lang={lang} />
