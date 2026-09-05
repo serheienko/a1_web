@@ -7603,3 +7603,66 @@ tsc-clean, commit 50f9064. **Not yet verified live or pushed** -- this
 sandbox still has no external network access (see 6.169's own note);
 still sitting on top of the 6 already-unpushed commits from earlier
 today.
+
+
+## 6.171 -- Swipe-to-reply on mobile (2026-09-05)
+
+Aleksandr, Telegram Web reference recording (web.telegram.org, "Saved
+Messages" and "Mao" chats): "Сделай чтобы на моб версии свайпом
+вызывался 'reply'." Extracted frames (ffmpeg) to confirm the target
+behaviour precisely -- dragging a bubble to the right reveals a reply
+arrow and, past a threshold, pops the exact same "Reply to <sender> /
+<preview>" compose-bar state this app's own actions-menu already has
+(setReplyTarget + focusing the textarea) -- so this isn't a new reply
+mechanism, just a second trigger for the one that already exists
+(actions menu's "Відповісти" row, and the photo-viewer's reply button
+both already call the identical two-line pattern).
+
+Implementation, both in app/chats/[chatId]/page.tsx unless noted:
+touch-only (onTouchStart/Move/End/Cancel added to the existing bubble
+wrapper div, right alongside its onContextMenu -- additive, not a
+replacement, since a mouse/trackpad never fires touch events at all,
+so desktop's right-click/two-finger-click path is untouched). Gesture
+tracking is a plain ref (swipeGestureRef) rather than state on
+purpose: this page polls for new messages periodically (see `load()`),
+and a `let` closed over inside the message-list JSX would silently
+reset mid-drag on that poll's re-render, making the gesture stutter --
+a ref survives across renders. The visible drag offset (swipeState) IS
+real state, since it has to repaint the one bubble being dragged.
+onTouchMove only claims the gesture once horizontal intent is clear
+(|dx| >= 8 and |dx| >= |dy|), and never calls preventDefault (React's
+touch listeners are passive by default, so calling it would just log a
+warning and do nothing) -- touchAction: "pan-y" tells the browser the
+same thing declaratively, so a vertical scroll or iOS's edge-swipe-
+back gesture is never fought over. Only rightward drags register
+(same direction in both halves of the reference recording, independent
+of `mine`/peer alignment), clamped to SWIPE_MAX_DX (72px); crossing
+SWIPE_TRIGGER_DX (56px) at release fires setReplyTarget + the textarea
+focus, identical to the two existing call sites.
+
+The reveal icon deliberately does NOT use a transform on the bubble
+itself -- that would need the bubble's own rendered width to look
+right for a `mine` (right-aligned) bubble that could be anywhere from
+very narrow up to the 78% max-width cap, which isn't known without a
+DOM measurement. Instead it's a plain flex sibling rendered right
+before the bubble, whose width IS swipeState.dx while dragging --
+flexbox's own layout math does the rest for free: in a justify-start
+(peer) row this pushes the bubble right by exactly that many px (the
+classic "message slides right"); in a justify-end (mine) row the
+bubble stays flush against the row's own right edge (it's still the
+last/only real flex item, so growing a PRECEDING sibling can't move
+it) while the slot simply grows into view immediately to its left --
+same reveal, without needing to move a bubble that's already pinned to
+the far edge. Icon opacity/scale fades in with dx/SWIPE_TRIGGER_DX;
+spring-back on release is a plain `transition-[width] duration-200
+ease-out` class, suppressed only while a drag targeting that exact
+message is live (so a fast swipe isn't fighting a 200ms easing meant
+for the release). ReplyIcon (components/chat/message-actions-menu.tsx)
+is now exported instead of private to that file, so this reuses the
+exact same glyph as the "Відповісти" row rather than a second copy of
+the same SVG path.
+
+tsc-clean (npx tsc --noEmit, 0 errors). Commit 36bb17f. **Not yet
+verified live or pushed** -- same standing network blocker as 6.169/
+6.170 (this sandbox still has no external network access at all);
+now 9 commits sitting locally ahead of origin/main.
