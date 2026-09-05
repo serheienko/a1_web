@@ -7386,3 +7386,25 @@ two-finger trackpad click on Mac) is what opens this menu on any kind
 comment. No change needed there, just the backdrop style.
 
 tsc-clean, commit 9db2b6a.
+
+## 6.164 -- Jump-to-bottom: click-nudge arrow + smooth fade in/out (2026-09-05)
+
+Aleksandr, live-testing the new 6.161 button: "Сделай анимацию стрелки
+вниз при клике", then "И сделай чтобы она появлялась плавнее, через
+затухание и плавный переход."
+
+app/globals.css: added animate-jump-arrow (same nudge-in-its-own-
+direction convention as animate-send-arrow/animate-back-arrow, just
+click-triggered rather than hover -- this button matters most on
+mobile, where hover never fires). The svg carries a bounce key bumped
+on every click so the CSS animation replays each tap instead of only
+the first.
+
+app/chats/[chatId]/page.tsx: the button's wrapper used to be
+conditionally RENDERED (mounted/unmounted outright on
+showJumpToBottom) -- pops instantly, nothing to transition from/to on
+mount/unmount. Now always mounted; showJumpToBottom instead toggles
+opacity/translate-y + pointer-events via a plain CSS transition, so it
+fades and slides in both directions.
+
+tsc-clean, commit 472a1cb.
