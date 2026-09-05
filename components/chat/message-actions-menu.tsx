@@ -27,7 +27,13 @@ import { createPortal } from "react-dom";
 import { T, type Locale } from "@/components/t";
 
 const MENU_WIDTH = 240;
-const VIEWPORT_MARGIN = 10;
+// 2026-09-05, second follow-up (Aleksandr, live screenshot: even with
+// the two-pass measure-then-clamp above, the menu still sat flush
+// against the very bottom edge on his real screen -- "подними еще
+// выше, она не влезла полностью") -- was 10, bumped to 18 for real
+// breathing room, paired with the row-height/font trims below so the
+// menu is also genuinely a bit shorter overall, not just repositioned.
+const VIEWPORT_MARGIN = 18;
 const REACTION_EMOJIS = ["👍", "👎", "❤️", "🔥", "🥰", "👏", "😄"];
 
 type IconProps = { className?: string };
@@ -322,7 +328,7 @@ export function MessageActionsMenu({
                 key={row.key}
                 type="button"
                 onClick={() => select(row.key)}
-                className={`flex w-full items-center gap-3 px-4 py-3 text-left text-[15px] transition hover:bg-black/5 dark:hover:bg-white/10 ${
+                className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-[14px] transition hover:bg-black/5 dark:hover:bg-white/10 ${
                   row.destructive ? "text-[#ff3b30]" : "text-[#262a34] dark:text-white"
                 } ${i < arr.length - 1 ? "border-b border-black/5 dark:border-white/10" : ""}`}
               >
