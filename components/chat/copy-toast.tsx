@@ -75,9 +75,21 @@ export type CopyToastState = {
 export function CopyToast({
   state,
   lang,
+  minTop,
 }: {
   state: CopyToastState | null;
   lang: Locale;
+  // 2026-09-05 follow-up (Aleksandr, live screenshot: a message copied
+  // right at the top of the chat put this pill directly on top of the
+  // sticky header, covering the contact's name) -- the anchor-to-
+  // bubble behavior above is otherwise correct (the whole point of
+  // that follow-up), this only raises the floor `top` can never go
+  // above so the pill lands just BELOW the header instead of over it.
+  // Optional: app/chats/[chatId]/page.tsx passes its own live-measured
+  // headerHeight; any caller that skips this (components/mini-chat-
+  // window.tsx, whose header never sits over the message list to begin
+  // with) keeps the old VIEWPORT_MARGIN-only clamp.
+  minTop?: number;
 }) {
   const [open, setOpen] = useState(false);
   const [point, setPoint] = useState<{ left: number; top: number } | null>(null);
@@ -90,13 +102,14 @@ export function CopyToast({
       window.innerWidth - VIEWPORT_MARGIN,
     );
     const top = Math.min(
-      Math.max(anchorRect.top + anchorRect.height / 2, VIEWPORT_MARGIN),
+      Math.max(anchorRect.top + anchorRect.height / 2, minTop ?? VIEWPORT_MARGIN),
       window.innerHeight - VIEWPORT_MARGIN,
     );
     setPoint({ left, top });
     setOpen(true);
     const hide = window.setTimeout(() => setOpen(false), VISIBLE_MS);
     return () => window.clearTimeout(hide);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
   if (typeof document === "undefined" || !point) return null;

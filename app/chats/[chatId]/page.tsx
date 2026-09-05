@@ -6351,7 +6351,13 @@ export default function ChatWindowPage() {
           failed={forwardFailed}
         />
       )}
-      <CopyToast state={copyToast} lang={lang} />
+      {/* 2026-09-05 follow-up (Aleksandr, live screenshot: copying a
+          message near the top of the chat put the "Скопійовано" pill
+          directly over the sticky header, covering the contact name)
+          -- minTop is this page's own live-measured headerHeight (+12
+          for a small gap), same value paddingTop already uses right
+          above to keep the message list itself clear of the header. */}
+      <CopyToast state={copyToast} lang={lang} minTop={headerHeight + 12} />
     </div>
   );
 }
