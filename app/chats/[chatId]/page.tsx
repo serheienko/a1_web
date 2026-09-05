@@ -5540,20 +5540,27 @@ export default function ChatWindowPage() {
               <input
                 ref={fileInputRef}
                 type="file"
-                // 2026-09-05 (Aleksandr, screen recording: tapping "File" on
-                // mobile Safari popped up Apple's own "Photo Library / Take
-                // Photo or Video / Browse" sheet instead of going straight
-                // to the Files browser) -- this input had NO accept
-                // attribute at all, which iOS Safari treats as ambiguous
-                // (could be an image/video too) and shows that extra sheet
-                // to disambiguate. application/*+text/*+audio/* covers
-                // every kind file-type-icon.tsx actually recognizes
-                // (pdf/zip/doc/sheet/slides/txt/mp3 all register under one
-                // of those three) while still excluding image/* and
-                // video/* -- the two categories that trigger the sheet --
-                // so Safari now opens Files directly, same as the photo
-                // input already does for accept="image/*".
-                accept="application/*,text/*,audio/*"
+                // 2026-09-05 (Aleksandr, screen recording, then confirmed
+                // AGAIN live: "Так я сразу файл и нажимал" -- he WAS
+                // already tapping "Файл", not "Фото", and still got
+                // Apple's "Photo Library / Take Photo / Choose Files"
+                // sheet) -- the original fix here (accept="application/*,
+                // text/*,audio/*", replacing no accept at all) matched
+                // every documented case of this WebKit quirk, but
+                // evidently the broad `application/*` WILDCARD alone
+                // isn't reliably enough for iOS to rule out photos on
+                // every version -- an explicit dot-extension list is the
+                // more bulletproof form other sites report actually
+                // working. Kept the MIME wildcards too (harmless --
+                // that's a comma-separated OR, adding more explicit
+                // matches only helps) and added every extension file-
+                // type-icon.tsx's own KIND_EXTENSIONS recognizes, plus a
+                // broad set of other common non-media document/archive/
+                // data formats this app has no special icon for but the
+                // backend still accepts (app/api/upload/create/route.ts
+                // takes any mimetype, no allowlist) -- none of these are
+                // image/video, so none of them can reintroduce the sheet.
+                accept="application/*,text/*,audio/*,.pdf,.doc,.docx,.rtf,.pages,.odt,.xls,.xlsx,.csv,.numbers,.ppt,.pptx,.key,.odp,.zip,.rar,.7z,.tar,.gz,.txt,.md,.log,.mp3,.wav,.m4a,.ogg,.aac,.json,.xml,.html,.css,.js,.ts,.yaml,.yml,.sql,.epub,.ics,.vcf,.apk,.ipa,.dmg,.exe"
                 multiple
                 className="hidden"
                 onChange={(e) => {
