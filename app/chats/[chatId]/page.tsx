@@ -3849,14 +3849,24 @@ export default function ChatWindowPage() {
           scrollable message list, same "always visible, not part of
           the scroll" placement as mobile's own PinnedMessageItem (it
           sits in the AppBar's own bottom area there). Renders nothing
-          when the chat has no pin. */}
+          when the chat has no pin.
+          2026-09-06 (Fix Tracker: "Сузь закреп на ширину нашего
+          чатового окна начиная от стрелки назад, заканчивая аватаром
+          справа. Делай по этой ширине.") -- wrapped in the exact same
+          `mx-auto w-full max-w-[470px] px-4` container the header row
+          above uses (see that row's own className a bit further up),
+          so the banner's edges land flush with the back-arrow's left
+          edge and the avatar's right edge instead of the component's
+          own fixed mx-3. */}
       {pinnedMessage && (
-        <PinnedMessageBanner
-          pinnedMessage={pinnedMessage}
-          onTap={() => handleJumpToPinnedMessage(Number(pinnedMessage._id))}
-          onUnpin={() => handleTogglePin(pinnedMessage)}
-          unpinning={pinBusy}
-        />
+        <div className="mx-auto w-full max-w-[470px] px-4">
+          <PinnedMessageBanner
+            pinnedMessage={pinnedMessage}
+            onTap={() => handleJumpToPinnedMessage(Number(pinnedMessage._id))}
+            onUnpin={() => handleTogglePin(pinnedMessage)}
+            unpinning={pinBusy}
+          />
+        </div>
       )}
 
       {/* 2026-09-02: bottom padding clears the now-fixed compose bar below

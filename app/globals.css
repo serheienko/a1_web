@@ -429,12 +429,56 @@ textarea {
   animation: backdrop-in 0.15s ease-out;
 }
 
+/* 2026-09-06 (Fix Tracker: "При нажатии закрепа, делай чтобы он сверху
+ * появлялся плавно, с эффектом fade in, или плавной анимацией" + "Так
+ * же, чтобы работали плавно все механики внутри него и тексты") --
+ * components/chat/pinned-message-banner.tsx used to mount/unmount with
+ * zero transition (the pin banner just snapped into existence under
+ * the header) and its own internal tap-to-confirm swap (default row
+ * <-> "Unpin pinned message?") swapped DOM instantly too.
+ * .animate-pin-banner-in is the banner's own mount transition (fade +
+ * a slight drop, same easing/duration family as .animate-popover-up
+ * above); .animate-pin-content-fade is the shorter, translate-less
+ * crossfade the banner applies to whichever of its two inner states
+ * (default row / confirm row) is currently mounted, keyed so React
+ * re-triggers it on every swap between them.
+ */
+@keyframes pin-banner-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-pin-banner-in {
+  animation: pin-banner-in 0.22s ease-out;
+}
+
+@keyframes pin-content-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-pin-content-fade {
+  animation: pin-content-fade 0.15s ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-popover,
   .animate-modal-in,
   .animate-popover-up,
   .animate-popover-down,
-  .animate-backdrop-in {
+  .animate-backdrop-in,
+  .animate-pin-banner-in,
+  .animate-pin-content-fade {
     animation: none;
   }
 }

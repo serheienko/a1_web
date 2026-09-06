@@ -27,6 +27,21 @@
 //     whenever the pinned message itself changes (a fresh pin should
 //     never silently reopen an already-showing "Unpin?" prompt for the
 //     previous one).
+//
+// 2026-09-06 (Fix Tracker: "Сузь закреп на ширину нашего чатового окна
+// начиная от стрелки назад, заканчивая аватаром справа" + "делай чтобы
+// он сверху появлялся плавно, с эффектом fade in" + "чтобы работали
+// плавно все механики внутри него и тексты") -- this component no
+// longer sets its own horizontal margin (the caller, app/chats/
+// [chatId]/page.tsx, now wraps it in the SAME `mx-auto w-full max-w-
+// [470px] px-4` container the header row above it uses, so the banner
+// lines up edge-to-edge with the back-arrow/avatar instead of its own
+// fixed mx-3); it mounts with .animate-pin-banner-in (fade + slight
+// drop, app/globals.css), and the two inner states below (default row
+// / confirm row) each carry .animate-pin-content-fade + a `key` so
+// swapping between them (and the pinned message's own text/preview
+// changing under an already-open banner) crossfades instead of
+// snapping.
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -76,9 +91,9 @@ export function PinnedMessageBanner({
   const photoUrl = preview.kind === "photo" && preview.photoDoc ? getStableMediaProxyUrl(preview.photoDoc) : null;
 
   return (
-    <div className="mx-3 mt-2 flex h-[46px] items-stretch overflow-hidden rounded-[20px] border border-black/10 bg-white/80 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-[#1c1c1e]/80">
+    <div className="animate-pin-banner-in mt-2 flex h-[46px] w-full items-stretch overflow-hidden rounded-[20px] border border-black/10 bg-white/80 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-[#1c1c1e]/80">
       {confirming ? (
-        <div className="flex flex-1 items-center px-4">
+        <div key="confirm" className="animate-pin-content-fade flex flex-1 items-center px-4">
           <span className="truncate text-[15px] font-medium leading-tight text-[#1c1c1e] dark:text-white">
             <T
               uk="Відкріпити закріплене повідомлення?" en="Unpin pinned message?" ru="Открепить закреплённое сообщение?"
@@ -88,7 +103,7 @@ export function PinnedMessageBanner({
           </span>
         </div>
       ) : (
-        <button type="button" onClick={onTap} className="flex min-w-0 flex-1 items-center gap-2.5 px-2.5 text-left">
+        <button key="default" type="button" onClick={onTap} className="animate-pin-content-fade flex min-w-0 flex-1 items-center gap-2.5 px-2.5 text-left">
           <span className="h-[30px] w-[3px] shrink-0 rounded-full bg-[#262a34] dark:bg-white" />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[15px] font-medium leading-tight text-[#262a34] dark:text-white">
@@ -107,19 +122,21 @@ export function PinnedMessageBanner({
       <div className="flex w-[54px] shrink-0 items-center justify-center">
         {confirming ? (
           <button
+            key="unpin"
             type="button"
             disabled={unpinning}
             onClick={confirmUnpin}
-            className="rounded-full bg-[#ff3b30] px-3 py-1 text-[13px] font-semibold text-white transition hover:bg-[#e6352b] disabled:opacity-60"
+            className="animate-pin-content-fade rounded-full bg-[#ff3b30] px-3 py-1 text-[13px] font-semibold text-white transition hover:bg-[#e6352b] disabled:opacity-60"
           >
             <T uk="Відкріпити" en="Unpin" ru="Открепить" de="Lösen" es="Desfijar" fr="Détacher" pl="Odepnij" ptBR="Desafixar" zh="取消" />
           </button>
         ) : (
           <button
+            key="close"
             type="button"
             onClick={enterConfirmation}
             aria-label="Close"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-[#262a34]/60 transition hover:bg-black/5 hover:text-[#262a34] dark:text-white/60 dark:hover:bg-white/10 dark:hover:text-white"
+            className="animate-pin-content-fade flex h-8 w-8 items-center justify-center rounded-full text-[#262a34]/60 transition hover:bg-black/5 hover:text-[#262a34] dark:text-white/60 dark:hover:bg-white/10 dark:hover:text-white"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
               <path d="M18 6L6 18" />
