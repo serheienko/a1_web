@@ -385,24 +385,49 @@ async function compressAttachmentImage(file: File): Promise<File> {
 // can be JPEG/WEBP, so this is the one format every target (this
 // browser's paste target, GPT's own upload box, another chat's own
 // paste-to-attach) can be expected to accept.
-async function copyImageMessageToClipboard(url: string): Promise<void> {
+// 2026-09-06 (Fix Tracker: "Копирование фото пока не работает" -- a
+// live regression report on this same function, one commit after it
+// shipped) -- root cause: Safari (and Chromium builds enforcing the
+// same rule) only allows navigator.clipboard.write() to run within the
+// synchronous call stack of a user gesture, OR accepts a ClipboardItem
+// whose value is a still-pending Promise resolved later. The original
+// version awaited fetch/createImageBitmap/canvas.toBlob BEFORE calling
+// write() -- by the time write() ran, several microtask/macrotask
+// turns had passed since the click, so the browser no longer
+// considered it "in response to a user gesture" and silently refused
+// (Safari) or threw NotAllowedError. Fix: build the PNG in a plain
+// async function but hand write() a live Promise<Blob> immediately,
+// synchronously, from inside the click handler -- lib.dom.d.ts's own
+// ClipboardItem constructor type (Record<string, string | Blob |
+// PromiseLike<string | Blob>>) explicitly supports this, it's the
+// documented pattern for exactly this "data isn't ready yet" case.
+function buildPngBlobForClipboard(url: string): Promise<Blob> {
+  return (async () => {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
+    const srcBlob = await res.blob();
+    const bitmap = await createImageBitmap(srcBlob);
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("no 2d context");
+    ctx.drawImage(bitmap, 0, 0);
+    bitmap.close?.();
+    const pngBlob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+    if (!pngBlob) throw new Error("toBlob failed");
+    return pngBlob;
+  })();
+}
+
+// Must be called SYNCHRONOUSLY from the click handler (no leading
+// `await` before this call anywhere in the caller) -- see this file's
+// buildPngBlobForClipboard header above for why.
+function copyImageMessageToClipboard(url: string): Promise<void> {
   if (typeof ClipboardItem === "undefined" || !navigator.clipboard?.write) {
-    throw new Error("clipboard image copy not supported");
+    return Promise.reject(new Error("clipboard image copy not supported"));
   }
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
-  const srcBlob = await res.blob();
-  const bitmap = await createImageBitmap(srcBlob);
-  const canvas = document.createElement("canvas");
-  canvas.width = bitmap.width;
-  canvas.height = bitmap.height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("no 2d context");
-  ctx.drawImage(bitmap, 0, 0);
-  bitmap.close?.();
-  const pngBlob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
-  if (!pngBlob) throw new Error("toBlob failed");
-  await navigator.clipboard.write([new ClipboardItem({ "image/png": pngBlob })]);
+  return navigator.clipboard.write([new ClipboardItem({ "image/png": buildPngBlobForClipboard(url) })]);
 }
 
 // 2026-09-05 (Aleksandr: "Почему у меня при каждом заходе чаты грузятся
