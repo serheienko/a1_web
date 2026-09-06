@@ -47,6 +47,16 @@ function isVideoPreviewUrl(url: string): boolean {
   return /\.(mp4|webm|mov)(\?|$)/i.test(url);
 }
 
+// Fix Tracker: "кэшируй GIF" -- gif search results were refetched from
+// scratch on every reopen of the panel and every retype of the same
+// query, even though klipy results for a given query don't change
+// second to second. Module-level (outside the component) so it
+// survives the panel itself unmounting -- mediaPanelOpen in
+// app/chats/[chatId]/page.tsx conditionally unmounts this whole
+// component on close, so a component-local cache (state/ref) would
+// have been wiped every time anyway.
+const gifSearchCache = new Map<string, { items: MediaDocument[]; previewUrls: Record<string, string> }>();
+
 // Quick-filter row on the GIF tab (reference screenshot: a row of mood
 // icons above the results grid) -- each just fires a canned search
 // term, there's no backend "mood" concept to key off of.
@@ -145,6 +155,16 @@ export function MediaPickerPanel({
 
   useEffect(() => {
     if (tab !== "gifs") return;
+    // Fix Tracker: "кэшируй GIF" -- a cache hit renders immediately,
+    // no spinner/skeleton flash, no network round-trip.
+    const cached = gifSearchCache.get(gifQuery);
+    if (cached) {
+      gifSearchSeqRef.current += 1; // cancel any still-in-flight fetch for a previous query
+      setGifItems(cached.items);
+      setGifPreviewUrls(cached.previewUrls);
+      setGifLoading(false);
+      return;
+    }
     const seq = ++gifSearchSeqRef.current;
     setGifLoading(true);
     const handle = setTimeout(
@@ -154,8 +174,12 @@ export function MediaPickerPanel({
           .then((r) => r.json())
           .then((data) => {
             if (gifSearchSeqRef.current !== seq) return;
-            setGifItems(Array.isArray(data?.items) ? data.items : []);
-            setGifPreviewUrls(data?.previewUrls && typeof data.previewUrls === "object" ? data.previewUrls : {});
+            const items: MediaDocument[] = Array.isArray(data?.items) ? data.items : [];
+            const previewUrls: Record<string, string> =
+              data?.previewUrls && typeof data.previewUrls === "object" ? data.previewUrls : {};
+            gifSearchCache.set(gifQuery, { items, previewUrls });
+            setGifItems(items);
+            setGifPreviewUrls(previewUrls);
           })
           .catch(() => {
             if (gifSearchSeqRef.current !== seq) return;
@@ -327,7 +351,18 @@ export function MediaPickerPanel({
 
         {tab === "gifs" &&
           (gifLoading ? (
-            <div className="flex h-full items-center justify-center text-[13px] text-[#989aa6]">Загрузка...</div>
+            // Fix Tracker: "сделай скелетон загрузку для гифок" -- was a
+            // single centered "Загрузка..." string; now a grid of
+            // pulsing placeholders shaped exactly like the real tiles
+            // below (aspect-video, rounded-[12px]), same animate-pulse
+            // gray-block language every other loading list in this app
+            // already uses (components/chats-flyout.tsx's ChatRowSkeleton
+            // etc.) rather than inventing a new loading language here.
+            <div className="grid grid-cols-2 gap-2">
+              {Array.from({ length: 6 }, (_, i) => (
+                <div key={i} className="aspect-video animate-pulse rounded-[12px] bg-black/5 dark:bg-white/10" />
+              ))}
+            </div>
           ) : gifItems.length === 0 ? (
             <div className="flex h-full items-center justify-center text-[13px] text-[#989aa6]">Ничего не найдено</div>
           ) : (
