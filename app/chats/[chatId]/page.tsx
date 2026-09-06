@@ -5170,21 +5170,44 @@ export default function ChatWindowPage() {
                               // to a contactSummaries/headerTitle
                               // lookup). Same fix here.
                               const forwardFromUser = msg.forwardFrom.user;
-                              const forwardOwnerName =
-                                forwardFromUser === myUserId ? YOU_LABEL_FROM_TEXT[lang] : contactSummaries[forwardFromUser]?.fullName || "…";
+                              const isForwardFromMe = forwardFromUser === myUserId;
+                              const forwardOwnerName = isForwardFromMe ? YOU_LABEL_FROM_TEXT[lang] : contactSummaries[forwardFromUser]?.fullName || "…";
+                              // 2026-09-06 (Aleksandr, 2 reference
+                              // screenshots -- our own live "Переслано
+                              // від X" one-liner vs. a WhatsApp
+                              // forwarded-message header: "имя пиши
+                              // снизу и ставь аватарку как в Телеге, ее
+                              // еле видно, поэтому должен быть очень
+                              // легкий вес") -- was one line ("Переслано
+                              // від X"); now the label sits on its own
+                              // line, the name moves to a second line
+                              // below it, prefixed by a small avatar.
+                              // "еле видно" (barely visible, i.e. a very
+                              // LIGHT visual weight, not a bold/full-
+                              // opacity avatar like the header's own) is
+                              // why this one is tiny (14px) and
+                              // opacity-70 rather than the header
+                              // avatar's full-weight treatment.
+                              const forwardAvatarUrl = isForwardFromMe
+                                ? myAvatarUrl || pickDefaultCatAvatar(myUserId ?? "me")
+                                : contactSummaries[forwardFromUser]?.avatarUrl || pickDefaultCatAvatar(forwardFromUser);
                               return (
-                                <div className={`mb-1 truncate text-[13px] font-semibold italic ${mine ? "text-white/80" : "text-[#335ef7] dark:text-[#0c8ce9]"}`}>
-                                  <T
-                                    uk={`Переслано від ${forwardOwnerName}`}
-                                    en={`Forwarded from ${forwardOwnerName}`}
-                                    ru={`Переслано от ${forwardOwnerName}`}
-                                    de={`Weitergeleitet von ${forwardOwnerName}`}
-                                    es={`Reenviado de ${forwardOwnerName}`}
-                                    fr={`Transféré de ${forwardOwnerName}`}
-                                    pl={`Przesłano od ${forwardOwnerName}`}
-                                    ptBR={`Encaminhado de ${forwardOwnerName}`}
-                                    zh={`转发自 ${forwardOwnerName}`}
-                                  />
+                                <div className={`mb-1 flex flex-col gap-0.5 text-[13px] italic ${mine ? "text-white/80" : "text-[#335ef7] dark:text-[#0c8ce9]"}`}>
+                                  <span className="font-semibold">
+                                    <T
+                                      uk="Переслано від" en="Forwarded from" ru="Переслано от" de="Weitergeleitet von"
+                                      es="Reenviado de" fr="Transféré de" pl="Przesłano od" ptBR="Encaminhado de" zh="转发自"
+                                    />
+                                  </span>
+                                  <span className="flex min-w-0 items-center gap-1 font-semibold">
+                                    <CachedAvatar
+                                      src={forwardAvatarUrl}
+                                      blurDataURL={BLUR_DATA_URL}
+                                      size={14}
+                                      className="h-3.5 w-3.5 shrink-0 rounded-full object-cover opacity-70"
+                                    />
+                                    <span className="truncate">{forwardOwnerName}</span>
+                                  </span>
                                 </div>
                               );
                             })()}
