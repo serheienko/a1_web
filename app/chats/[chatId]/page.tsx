@@ -3856,51 +3856,35 @@ export default function ChatWindowPage() {
             )}
           </div>
 
-          {/* 2026-09-06 (Reminders list follow-up) -- wraps the
-              header's right-side items (this new trigger + the avatar
-              below) in one flex group so `ml-auto` pushes both of them
-              together instead of just the avatar alone; same 42px
-              circle + border/bg treatment the back-arrow button at the
-              top of this row already uses, for visual consistency. */}
-          <div className="ml-auto flex shrink-0 items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setRemindersListOpen(true)}
-              aria-label="Reminders"
-              className="flex h-[42px] w-[42px] items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-[#335ef7] backdrop-blur-sm transition hover:bg-neutral-50 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80 dark:text-[#0c8ce9] dark:hover:bg-[#1c1c1e]"
-            >
-              <RemindIcon className="h-[18px] w-[18px]" />
-            </button>
-            {headerProfileHref ? (
-              <Link href={headerProfileHref} aria-label={headerTitle || undefined} className="shrink-0">
-                {/* 2026-09-05 (Aleksandr: "кешировать вообще всё, если
-                    оно хотя бы 1 раз открывалось") -- this header avatar
-                    renders on every chat open, one of the highest-
-                    frequency avatar surfaces in the app -- same
-                    persistent Cache Storage-backed CachedAvatar every
-                    other avatar surface on the site now uses. */}
-                <CachedAvatar
-                  src={headerAvatar}
-                  blurDataURL={headerAvatarBlur ?? BLUR_DATA_URL}
-                  size={42}
-                  className="h-[42px] w-[42px] shrink-0 rounded-full object-cover"
-                />
-              </Link>
-            ) : (
-              // 2026-09-05 (Aleksandr: "кешировать вообще всё, если оно
-              // хотя бы 1 раз открывалось") -- this header avatar renders
-              // on every chat open, one of the highest-frequency avatar
-              // surfaces in the app -- same persistent Cache Storage-
-              // backed CachedAvatar every other avatar surface on the
-              // site now uses.
+          {headerProfileHref ? (
+            <Link href={headerProfileHref} aria-label={headerTitle || undefined} className="ml-auto shrink-0">
+              {/* 2026-09-05 (Aleksandr: "кешировать вообще всё, если
+                  оно хотя бы 1 раз открывалось") -- this header avatar
+                  renders on every chat open, one of the highest-
+                  frequency avatar surfaces in the app -- same
+                  persistent Cache Storage-backed CachedAvatar every
+                  other avatar surface on the site now uses. */}
               <CachedAvatar
                 src={headerAvatar}
                 blurDataURL={headerAvatarBlur ?? BLUR_DATA_URL}
                 size={42}
                 className="h-[42px] w-[42px] shrink-0 rounded-full object-cover"
               />
-            )}
-          </div>
+            </Link>
+          ) : (
+            // 2026-09-05 (Aleksandr: "кешировать вообще всё, если оно
+            // хотя бы 1 раз открывалось") -- this header avatar renders
+            // on every chat open, one of the highest-frequency avatar
+            // surfaces in the app -- same persistent Cache Storage-
+            // backed CachedAvatar every other avatar surface on the
+            // site now uses.
+            <CachedAvatar
+              src={headerAvatar}
+              blurDataURL={headerAvatarBlur ?? BLUR_DATA_URL}
+              size={42}
+              className="ml-auto h-[42px] w-[42px] shrink-0 rounded-full object-cover"
+            />
+          )}
             </>
           )}
         </div>
@@ -6395,6 +6379,24 @@ export default function ChatWindowPage() {
               <div className="group shrink-0 pb-0.5">
                 <ChatCatFieldIcon className="h-5 w-5 animate-chat-wiggle text-[#989aa6] dark:text-[#adafbb]" />
               </div>
+              {/* Reminders list (Fix Tracker: "Я не понимаю куда
+                  сохраняется напоминание? Оно должно сохраняться возле
+                  инпут филда в виде такого звоночка, возле кота и при
+                  нажатии открывать попап с сообщениями") -- placed
+                  right next to the cat icon above, exactly as
+                  specified, instead of this file's own earlier guess
+                  (a header button, no explicit placement reference
+                  existed for it at the time). Only a hover/active tint
+                  (no background pill) so it reads as part of the same
+                  icon row as the cat, not a separate control. */}
+              <button
+                type="button"
+                onClick={() => setRemindersListOpen(true)}
+                aria-label="Reminders"
+                className="flex shrink-0 items-center pb-0.5 text-[#989aa6] transition hover:text-[#335ef7] dark:text-[#adafbb] dark:hover:text-[#0c8ce9]"
+              >
+                <RemindIcon className="h-5 w-5" />
+              </button>
               </div>
             </div>
               </>
