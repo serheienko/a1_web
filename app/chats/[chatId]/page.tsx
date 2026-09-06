@@ -54,6 +54,7 @@ import {
 } from "@/lib/a1/chat-schemas";
 import { ChatPreviewLine } from "@/components/chat/chat-preview-line";
 import { MessageActionsMenu, ReplyComposeBar, EditComposeBar, ForwardComposeBar, MessageReplyQuote, ReplyIcon, DeleteMessageConfirmDialog } from "@/components/chat/message-actions-menu";
+import { RemindModal } from "@/components/chat/remind-modal";
 import { ForwardPickerModal, type ForwardRowStatus } from "@/components/chat/forward-picker-modal";
 import { SelectionTopBar, SelectionBottomBar } from "@/components/chat/selection-bar";
 import { putForwardPending, takeForwardPendingFor, clearForwardPending, type ForwardPendingDraft } from "@/lib/forward-pending-hold";
@@ -755,6 +756,15 @@ export default function ChatWindowPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<{ messageId: number } | null>(null);
   const [deletingMessage, setDeletingMessage] = useState(false);
   const [deleteMessageFailed, setDeleteMessageFailed] = useState(false);
+  // "Remind" feature (2026-09-06, Aleksandr: "У нас есть еще фича
+  // «remind» она работает на каждое сообщение... Можно поставить
+  // ремайндер на кажд сообщение") -- same "separate centered dialog,
+  // not anchored to the row that triggered it" shape as deleteConfirm
+  // right above (the actions menu that opened this is already closed
+  // by the time select() fires onRemind).
+  const [remindTarget, setRemindTarget] = useState<{ messageId: number } | null>(null);
+  const [remindSubmitting, setRemindSubmitting] = useState(false);
+  const [remindFailed, setRemindFailed] = useState(false);
   // 2026-09-05 (Aleksandr: "попап должен сам исчезать через 3 сек") --
   // a bump-only counter, not a boolean: copying twice in a row needs
   // CopyToast's own dismiss timer to restart from zero each time,
@@ -2876,6 +2886,32 @@ export default function ChatWindowPage() {
       setDeleteMessageFailed(true);
     } finally {
       setDeletingMessage(false);
+    }
+  }
+
+  // "Remind" feature (2026-09-06) -- POSTs to the new app/api/chats/
+  // reminders/create route (ground-truthed off the mobile app's own
+  // messages.createReminder call, see that route's own header). No
+  // optimistic local state to update afterward -- unlike a delete or
+  // edit, a reminder has no visible effect on the message list itself;
+  // the backend delivers it server-side at scheduleAt regardless of
+  // whether this tab is even open.
+  async function handleConfirmRemind(scheduleAt: number, local: boolean) {
+    if (!remindTarget) return;
+    setRemindSubmitting(true);
+    setRemindFailed(false);
+    try {
+      const res = await authFetch("/api/chats/reminders/create", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ chatId, messageId: remindTarget.messageId, scheduleAt, local }),
+      });
+      if (!res.ok) throw new Error("reminder_failed");
+      setRemindTarget(null);
+    } catch {
+      setRemindFailed(true);
+    } finally {
+      setRemindSubmitting(false);
     }
   }
 
@@ -6365,6 +6401,22 @@ export default function ChatWindowPage() {
           }
           onDelete={() => setDeleteConfirm({ messageId: Number(actionsMenu.message._id) })}
           onSelect={() => enterSelectionMode(Number(actionsMenu.message._id))}
+          onRemind={() => {
+            setRemindFailed(false);
+            setRemindTarget({ messageId: Number(actionsMenu.message._id) });
+          }}
+        />
+      )}
+      {remindTarget && (
+        <RemindModal
+          peerDisplayName={headerTitle}
+          submitting={remindSubmitting}
+          failed={remindFailed}
+          onCancel={() => {
+            if (remindSubmitting) return;
+            setRemindTarget(null);
+          }}
+          onConfirm={(scheduleAt, local) => void handleConfirmRemind(scheduleAt, local)}
         />
       )}
       {deleteConfirm && (

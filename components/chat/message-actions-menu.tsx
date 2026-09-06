@@ -201,6 +201,7 @@ export function MessageActionsMenu({
   onForward,
   onDelete,
   onSelect,
+  onRemind,
 }: {
   anchorRect: DOMRect;
   mine: boolean;
@@ -224,6 +225,12 @@ export function MessageActionsMenu({
   // revoke:false), so every caller has this action available.
   onEdit?: () => void;
   onForward?: () => void;
+  // 2026-09-06 (Aleksandr: "У нас есть еще фича «remind» она работает
+  // на каждое сообщение... Можно поставить ремайндер на кажд
+  // сообщение") -- the "Нагадати" row was a visual-only placeholder
+  // since this file's own original header comment; optional for the
+  // same reason as onCopy/onEdit/onForward above.
+  onRemind?: () => void;
   onDelete: () => void;
   // 2026-09-05 (Форвард 2.0, Aleksandr greenlighting multi-select:
   // "Очистить чат давай тоже сделаем... " open-questions reply) --
@@ -293,12 +300,13 @@ export function MessageActionsMenu({
   if (typeof document === "undefined") return null;
 
   function select(key: ActionKey) {
-    // Reaction row + Remind/Pin/Select stay visual-only placeholders
-    // (see this file's own header comment) -- everything else now does
-    // something real.
+    // Reaction row + Pin/Select (remain visual-only placeholders --
+    // see this file's own header comment) -- Remind now does something
+    // real too (2026-09-06).
     if (key === "reply") onReply();
     if (key === "copy") onCopy?.();
     if (key === "edit") onEdit?.();
+    if (key === "remind") onRemind?.();
     if (key === "forward") onForward?.();
     if (key === "delete") onDelete();
     if (key === "select") onSelect?.();
