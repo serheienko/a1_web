@@ -6736,6 +6736,27 @@ export default function ChatWindowPage() {
                   attachMenuRef already uses just above for the
                   paperclip menu, so the click-outside effect can test
                   a single ref. */}
+              {/* Reminders list (Fix Tracker: "Я не понимаю куда
+                  сохраняется напоминание? Оно должно сохраняться возле
+                  инпут филда в виде такого звоночка, возле кота и при
+                  нажатии открывать попап с сообщениями") -- placed
+                  right next to the cat icon, exactly as specified,
+                  instead of this file's own earlier guess (a header
+                  button, no explicit placement reference existed for
+                  it at the time). Only a hover/active tint (no
+                  background pill) so it reads as part of the same icon
+                  row as the cat, not a separate control.
+                  2026-09-06 (Fix Tracker: "Колокольчик должен быть
+                  левее от кота, поменяй местами") -- moved to render
+                  before the cat icon below so it sits to its left. */}
+              <button
+                type="button"
+                onClick={() => setRemindersListOpen(true)}
+                aria-label="Reminders"
+                className="flex shrink-0 items-center pb-0.5 text-[#989aa6] transition hover:text-[#335ef7] dark:text-[#adafbb] dark:hover:text-[#0c8ce9]"
+              >
+                <RemindIcon className="h-5 w-5" />
+              </button>
               <div ref={mediaPanelRef} className="group relative shrink-0 pb-0.5">
                 <button
                   type="button"
@@ -6761,24 +6782,6 @@ export default function ChatWindowPage() {
                   </div>
                 )}
               </div>
-              {/* Reminders list (Fix Tracker: "Я не понимаю куда
-                  сохраняется напоминание? Оно должно сохраняться возле
-                  инпут филда в виде такого звоночка, возле кота и при
-                  нажатии открывать попап с сообщениями") -- placed
-                  right next to the cat icon above, exactly as
-                  specified, instead of this file's own earlier guess
-                  (a header button, no explicit placement reference
-                  existed for it at the time). Only a hover/active tint
-                  (no background pill) so it reads as part of the same
-                  icon row as the cat, not a separate control. */}
-              <button
-                type="button"
-                onClick={() => setRemindersListOpen(true)}
-                aria-label="Reminders"
-                className="flex shrink-0 items-center pb-0.5 text-[#989aa6] transition hover:text-[#335ef7] dark:text-[#adafbb] dark:hover:text-[#0c8ce9]"
-              >
-                <RemindIcon className="h-5 w-5" />
-              </button>
               </div>
             </div>
               </>

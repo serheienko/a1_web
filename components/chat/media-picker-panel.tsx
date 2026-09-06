@@ -61,6 +61,15 @@ const MOOD_QUERIES: { icon: string; q: string }[] = [
   { icon: "🙄", q: "eyeroll" },
 ];
 
+// Fix Tracker: "Назови пак со стикерами MR.KIT а не A1 Business app" --
+// the pack's real title comes straight from the backend
+// (messages.getAllStickers) and isn't ours to rename, so this maps the
+// known raw title to the name Alex wants shown, everywhere else falling
+// back to whatever the backend actually sent.
+function displayStickerSetTitle(title: string): string {
+  return title.trim().toLowerCase() === "a1 business app" ? "MR.KIT" : title;
+}
+
 function StickerChipFallback({ size }: { size: number }) {
   return (
     <div
@@ -129,7 +138,7 @@ export function MediaPickerPanel({
           : [];
         setSets(realSets);
         setRecent(realRecent);
-        setActiveSetId(realRecent.length > 0 ? "recent" : (realSets[0]?._id ?? null));
+        setActiveSetId(realSets[0]?._id ?? (realRecent.length > 0 ? "recent" : null));
       })
       .finally(() => setStickersLoading(false));
   }, [tab]);
@@ -164,8 +173,7 @@ export function MediaPickerPanel({
 
   const activeSet = activeSetId && activeSetId !== "recent" ? (sets ?? []).find((s) => s._id === activeSetId) : null;
   const activeStickers: MediaDocument[] = activeSetId === "recent" ? recent : (activeSet?.documents ?? []);
-  const activeStickerHeaderTitle = activeSetId === "recent" ? "Недавние" : (activeSet?.title ?? "");
-  const activeStickerHeaderThumb = activeSetId === "recent" ? null : activeSet?.thumb ?? null;
+  const activeStickerHeaderTitle = activeSetId === "recent" ? "Недавние" : displayStickerSetTitle(activeSet?.title ?? "");
 
   // Emoji search: no per-emoji keyword text (see lib/a1/emoji-data.ts's
   // own scope-cut comment), so a non-empty query matches by CATEGORY
@@ -189,9 +197,6 @@ export function MediaPickerPanel({
       <div className="flex shrink-0 items-center justify-between border-b border-black/5 px-3 py-2 dark:border-white/10">
         <span className="flex min-w-0 items-center gap-1.5">
           {tab === "stickers" && activeSetId === "recent" && <span className="text-[13px]">🕐</span>}
-          {tab === "stickers" && activeStickerHeaderThumb && (
-            <img src={buildMediaProxyUrl(activeStickerHeaderThumb)} alt="" className="h-4 w-4 shrink-0 rounded-full object-cover" />
-          )}
           <span className="truncate text-[13px] font-semibold text-[#262a34] dark:text-white">
             {tab === "stickers" ? activeStickerHeaderTitle : tab === "gifs" ? "GIF" : "Emoji"}
           </span>
@@ -283,7 +288,7 @@ export function MediaPickerPanel({
               key={s._id}
               type="button"
               onClick={() => setActiveSetId(s._id)}
-              title={s.title}
+              title={displayStickerSetTitle(s.title)}
               className={`flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full transition ${
                 activeSetId === s._id ? "ring-2 ring-[#335ef7] dark:ring-[#0c8ce9]" : "bg-black/5 dark:bg-white/10"
               }`}
@@ -291,7 +296,7 @@ export function MediaPickerPanel({
               {s.thumb ? (
                 <img src={buildMediaProxyUrl(s.thumb)} alt="" className="h-full w-full object-cover" />
               ) : (
-                <span className="text-[13px] font-semibold text-[#262a34] dark:text-white">{s.title.charAt(0)}</span>
+                <span className="text-[13px] font-semibold text-[#262a34] dark:text-white">{displayStickerSetTitle(s.title).charAt(0)}</span>
               )}
             </button>
           ))}
