@@ -2067,6 +2067,12 @@ export default function ChatWindowPage() {
       fromId: myUserId,
       pending: true,
       localId,
+      // 2026-09-06: обязательное поле ChatMessage с тех пор, как в
+      // MessageSchema появились реакции (§6.238) -- у оптимистичного
+      // бабла их заведомо нет, но поле не опциональное, и без него
+      // сборка падает на типах. Локально это не ловилось: tsc не
+      // запускается из-за выгруженного iCloud'ом node_modules.
+      reactions: [],
       failed: false,
       pendingAttachments: [
         {
@@ -2268,6 +2274,12 @@ export default function ChatWindowPage() {
       fromId: myUserId,
       pending: true,
       localId,
+      // 2026-09-06: обязательное поле ChatMessage с тех пор, как в
+      // MessageSchema появились реакции (§6.238) -- у оптимистичного
+      // бабла их заведомо нет, но поле не опциональное, и без него
+      // сборка падает на типах. Локально это не ловилось: tsc не
+      // запускается из-за выгруженного iCloud'ом node_modules.
+      reactions: [],
       failed: false,
       replySnapshot: replyToSend ?? undefined,
       pendingAttachments: [
@@ -2933,6 +2945,12 @@ export default function ChatWindowPage() {
       fromId: myUserId,
       pending: true,
       localId,
+      // 2026-09-06: обязательное поле ChatMessage с тех пор, как в
+      // MessageSchema появились реакции (§6.238) -- у оптимистичного
+      // бабла их заведомо нет, но поле не опциональное, и без него
+      // сборка падает на типах. Локально это не ловилось: tsc не
+      // запускается из-за выгруженного iCloud'ом node_modules.
+      reactions: [],
       failed: false,
       pendingAttachments: attachmentsToSend.length > 0 ? attachmentsToSend : undefined,
       pendingContacts: contactsToSend.length > 0 ? contactsToSend : undefined,
@@ -3674,6 +3692,12 @@ export default function ChatWindowPage() {
       fromId: myUserId,
       pending: true,
       localId,
+      // 2026-09-06: обязательное поле ChatMessage с тех пор, как в
+      // MessageSchema появились реакции (§6.238) -- у оптимистичного
+      // бабла их заведомо нет, но поле не опциональное, и без него
+      // сборка падает на типах. Локально это не ловилось: tsc не
+      // запускается из-за выгруженного iCloud'ом node_modules.
+      reactions: [],
       failed: false,
       pendingCalc: { note: calcNote.trim(), currency: calcCurrency, rows, object: "entity-calculation" },
     };
