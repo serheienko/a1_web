@@ -364,6 +364,43 @@ async function compressAttachmentImage(file: File): Promise<File> {
   }
 }
 
+// 2026-09-06 (Fix Tracker: "Надо сделать, чтобы картинки тоже можно
+// было копировать и потом вставлять туда где это поддерживается,
+// например в GPT можно делать paste картинки") -- "Скопіювати" in
+// message-actions-menu.tsx only ever copied TEXT (navigator.clipboard.
+// writeText below, gated on extractMessageText(msg)); a photo message
+// usually has none, so the row didn't even show for one. This is the
+// photo counterpart: fetches the already-rendered image (same
+// getStableMediaProxyUrl every photo bubble/viewer already uses, so it
+// works for any photo already visible in the chat -- no separate
+// download step) and re-encodes it to PNG via canvas before handing it
+// to the Clipboard API. Re-encoding rather than writing the fetched
+// blob's own type directly because the Clipboard API's image support
+// is still PNG-first across browsers (Safari in particular only
+// accepted image/png for the longest time) -- our own source images
+// can be JPEG/WEBP, so this is the one format every target (this
+// browser's paste target, GPT's own upload box, another chat's own
+// paste-to-attach) can be expected to accept.
+async function copyImageMessageToClipboard(url: string): Promise<void> {
+  if (typeof ClipboardItem === "undefined" || !navigator.clipboard?.write) {
+    throw new Error("clipboard image copy not supported");
+  }
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
+  const srcBlob = await res.blob();
+  const bitmap = await createImageBitmap(srcBlob);
+  const canvas = document.createElement("canvas");
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("no 2d context");
+  ctx.drawImage(bitmap, 0, 0);
+  bitmap.close?.();
+  const pngBlob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+  if (!pngBlob) throw new Error("toBlob failed");
+  await navigator.clipboard.write([new ClipboardItem({ "image/png": pngBlob })]);
+}
+
 // 2026-09-05 (Aleksandr: "Почему у меня при каждом заходе чаты грузятся
 // по новой? Мы можем их кешировать?") -- this page used to always mount
 // into state "loading" with an empty message list and show the loading
@@ -6546,15 +6583,31 @@ export default function ChatWindowPage() {
                 }
               : undefined
           }
-          onCopy={
-            extractMessageText(actionsMenu.message)
-              ? () => {
-                  const copyText = extractMessageText(actionsMenu.message);
-                  navigator.clipboard?.writeText(copyText).catch(() => {});
-                  setCopyToast({ trigger: Date.now(), anchorRect: actionsMenu.anchorRect });
-                }
-              : undefined
-          }
+          onCopy={(() => {
+            const copyText = extractMessageText(actionsMenu.message);
+            if (copyText) {
+              return () => {
+                navigator.clipboard?.writeText(copyText).catch(() => {});
+                setCopyToast({ trigger: Date.now(), anchorRect: actionsMenu.anchorRect });
+              };
+            }
+            // Fix Tracker, 2026-09-06: "картинки тоже можно было
+            // копировать и потом вставлять... например в GPT" -- a
+            // captionless photo message has no text to copy above, so
+            // this is the same "Скопіювати" row instead copying the
+            // actual image (see copyImageMessageToClipboard's own
+            // header comment).
+            const preview = describeMessagePreview(actionsMenu.message);
+            if (preview.kind === "photo" && preview.photoDoc) {
+              const photoUrl = getStableMediaProxyUrl(preview.photoDoc);
+              return () => {
+                copyImageMessageToClipboard(photoUrl)
+                  .then(() => setCopyToast({ trigger: Date.now(), anchorRect: actionsMenu.anchorRect }))
+                  .catch(() => {});
+              };
+            }
+            return undefined;
+          })()}
           onDelete={() => setDeleteConfirm({ messageId: Number(actionsMenu.message._id) })}
           onSelect={() => enterSelectionMode(Number(actionsMenu.message._id))}
           onRemind={() => {
