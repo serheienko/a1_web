@@ -188,6 +188,108 @@ const MessageReplyToSchema = z
   .catch(null);
 export type MessageReplyTo = z.infer<typeof MessageReplyToSchema>;
 
+// Reactions feature (2026-09-06, Aleksandr, reference screenshots +
+// video: "делаем реакции на сообщения... правой кнопкой мыши появляются
+// как у нас сейчас есть эти реакции... при клике на неё повторном, если
+// она уже поставлена, она убирается"). CONFIRMED off chat-server's own
+// source this time (not just the mobile client) -- packages/types/
+// resources/Message.d.ts's own `Message.Reaction`/`Message.PeerReaction`
+// types, plus the actual messages.addReaction / messages.deleteReaction
+// method handlers (apps/chat-server/src/services/messages/methods/
+// {add,delete}Reaction.ts):
+//   Reaction     = { object: "reaction-emoji", emoticon: string }
+//   PeerReaction = { peer: Peer, date: DATE_ISO8601, reaction: Reaction }
+// A message's `reactions` array is a flat, UN-deduplicated list of these
+// events -- chat-server's own addReaction handler just $push'es a new
+// PeerReaction onto the array every time (its own query guard only
+// blocks an EXACT duplicate peer+reaction pair, not a second DIFFERENT
+// emoji from the same user), so the same user can accumulate several
+// simultaneous reactions server-side. The mobile app's "one reaction per
+// user, latest wins" behavior is a CLIENT-SIDE rule only (ported below
+// as dedupeReactionsToLatestPerUser, off lib/features/reactions/domain/
+// reaction_list_normalizer.dart) -- MessageSchema's own transform below
+// applies it eagerly so every read site only ever sees the deduped view,
+// same as mobile.
+//
+// Deleting a reaction is NOT just "send the emoticon back" --
+// messages.deleteReaction's own input type wants the full PeerReaction
+// (`{peer, date, reaction}`, not just `{emoticon}`) because chat-server
+// matches it with `$pull: { reactions: peerReaction }`, an exact-object
+// match against the array entry including its original `date`. The
+// caller (app/chats/[chatId]/page.tsx's handleToggleReaction) always
+// looks up the exact PeerReaction entry it already has locally (from
+// this same deduped `reactions` array) and sends that back verbatim --
+// never reconstructs `date` itself.
+export const MessageReactionSchema = z
+  .object({
+    object: z.literal("reaction-emoji").catch("reaction-emoji"),
+    emoticon: z.string().catch(""),
+  })
+  .catchall(z.unknown());
+export type MessageReaction = z.infer<typeof MessageReactionSchema>;
+
+export const MessagePeerReactionSchema = z
+  .object({
+    peer: PeerSchema.nullable().catch(null),
+    date: z.string().catch(""),
+    reaction: MessageReactionSchema,
+  })
+  .catchall(z.unknown());
+export type MessagePeerReaction = z.infer<typeof MessagePeerReactionSchema>;
+
+function peerKey(peer: Peer | null): string {
+  if (!peer) return "";
+  return peer.object === "peer-user" ? `u:${peer.user}` : `c:${peer.chat}`;
+}
+
+// Ported 1:1 off reaction_list_normalizer.dart's own
+// dedupeReactionsToLatestPerUser -- keeps only the MOST RECENT reaction
+// per distinct peer (by `date`), same semantics mobile already applies
+// everywhere it reads a message's reactions.
+export function dedupeReactionsToLatestPerUser(reactions: MessagePeerReaction[]): MessagePeerReaction[] {
+  const latestByPeer = new Map<string, MessagePeerReaction>();
+  for (const r of reactions) {
+    const key = peerKey(r.peer);
+    const existing = latestByPeer.get(key);
+    if (!existing || r.date >= existing.date) {
+      latestByPeer.set(key, r);
+    }
+  }
+  // Preserve first-seen order (oldest reactor first) rather than however
+  // Map iteration would otherwise land -- matches the array's own
+  // original ordering for anyone who never changed their reaction.
+  const seen = new Set<string>();
+  const ordered: MessagePeerReaction[] = [];
+  for (const r of reactions) {
+    const key = peerKey(r.peer);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    ordered.push(latestByPeer.get(key)!);
+  }
+  return ordered;
+}
+
+// One chip per distinct emoji (Telegram/mobile grouping), each carrying
+// every peer currently reacting with it (already deduped to one
+// reaction per peer by the caller). Order: first-appeared emoji first.
+export type GroupedReaction = { emoticon: string; reactors: Peer[] };
+export function groupReactionsByEmoji(reactions: MessagePeerReaction[]): GroupedReaction[] {
+  const groups: GroupedReaction[] = [];
+  const indexByEmoji = new Map<string, number>();
+  for (const r of reactions) {
+    if (!r.peer) continue;
+    const emoticon = r.reaction.emoticon;
+    let idx = indexByEmoji.get(emoticon);
+    if (idx === undefined) {
+      idx = groups.length;
+      indexByEmoji.set(emoticon, idx);
+      groups.push({ emoticon, reactors: [] });
+    }
+    groups[idx]!.reactors.push(r.peer);
+  }
+  return groups;
+}
+
 const RawMessageSchema = z
   .object({
     _id: z.union([z.string(), z.number()]).transform((v) => String(v)),
@@ -221,12 +323,18 @@ const RawMessageSchema = z
     // rather than narrowed, same "don't guess past what's confirmed"
     // rule replyTo's own schema above follows.
     forwardFrom: PeerSchema.nullable().optional(),
+    // Reactions feature -- see MessagePeerReactionSchema's own header
+    // comment above for the confirmed shape/semantics.
+    reactions: z.array(MessagePeerReactionSchema).catch([]),
   })
   .catchall(z.unknown());
 
 export const MessageSchema = RawMessageSchema.transform((msg) => ({
   ...msg,
   fromId: msg.peerFrom && msg.peerFrom.object === "peer-user" ? msg.peerFrom.user : null,
+  // Deduped the same way mobile already does (see dedupeReactionsToLatestPerUser's
+  // own header comment) -- every read site sees at most one reaction per peer.
+  reactions: dedupeReactionsToLatestPerUser(msg.reactions),
 }));
 export type ChatMessage = z.infer<typeof MessageSchema>;
 

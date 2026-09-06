@@ -32,6 +32,7 @@ import { formatBytes, formatRelativeTime } from "@/lib/format";
 import { LottiePlayer } from "@/components/lottie-player";
 import {
   describeMessagePreview,
+  dedupeReactionsToLatestPerUser,
   encodeBase64Waveform,
   extractMessageText,
   isImageMediaDocument,
@@ -53,9 +54,11 @@ import {
   type ChatMessage,
   type MessageCalculation,
   type MessageMediaDocument,
+  type MessagePeerReaction,
+  type Peer,
 } from "@/lib/a1/chat-schemas";
 import { ChatPreviewLine } from "@/components/chat/chat-preview-line";
-import { MessageActionsMenu, ReplyComposeBar, EditComposeBar, ForwardComposeBar, MessageReplyQuote, ReplyIcon, RemindIcon, DeleteMessageConfirmDialog } from "@/components/chat/message-actions-menu";
+import { MessageActionsMenu, ReplyComposeBar, EditComposeBar, ForwardComposeBar, MessageReplyQuote, ReplyIcon, RemindIcon, DeleteMessageConfirmDialog, ReactionsBar } from "@/components/chat/message-actions-menu";
 import { PinnedMessageBanner } from "@/components/chat/pinned-message-banner";
 // Reminders list (2026-09-06, design-reference screenshots of an
 // iOS-style "Remind me" sheet grouping reminders by date -- see this
@@ -875,6 +878,14 @@ export default function ChatWindowPage() {
   // which a boolean already `true` from the first copy wouldn't
   // re-trigger for.
   const [copyToast, setCopyToast] = useState<CopyToastState | null>(null);
+  // Reactions feature (2026-09-06, Aleksandr's go-ahead: "делаем всё
+  // сразу... делаем реакции для расчётных сообщений... для фото и для
+  // файлов... для всего, что у нас лежит в чате"). `trigger` is a
+  // bump-only counter (same convention as CopyToastState above) so
+  // reacting with the SAME heart twice in a row still replays the
+  // burst; `messageId` says which message's row should render it (see
+  // the heart-burst overlay inside the message row below).
+  const [heartBurst, setHeartBurst] = useState<{ messageId: number; trigger: number } | null>(null);
   const [replyTarget, setReplyTarget] = useState<ChatMessage | null>(null);
   // Edit feature (2026-09-05) -- mirrors replyTarget's own shape
   // exactly (same "which message is this compose bar acting on" role),
@@ -3115,6 +3126,80 @@ export default function ChatWindowPage() {
     }
   }
 
+  // Reactions feature (2026-09-06, Aleksandr: "нажимаем — реакция
+  // ставится... при клике на неё повторном, если она уже поставлена,
+  // она убирается"). Same optimistic-update-then-revert-on-failure
+  // shape as handleTogglePin right above, just against `messages`
+  // instead of `pinnedMessage` -- and reused from THREE call sites:
+  // the right-click menu's reaction row, a click on an already-
+  // rendered ReactionsBar chip (adds mine if it's someone else's
+  // reaction, removes mine if it's already mine -- see ReactionsBar's
+  // own `iReacted` check), and (later) the mobile-style single-tap
+  // picker. `message` is always the CURRENT (already deduped) message
+  // from `messages`/`actionsMenu`, never a stale closure -- every
+  // caller re-reads it fresh at click time.
+  //
+  // messages.deleteReaction needs the reaction's own exact `date` (see
+  // app/api/chats/reaction/delete/route.ts's own header) -- looked up
+  // here from the message's already-deduped `reactions` array, never
+  // reconstructed.
+  async function handleToggleReaction(message: ChatMessage, emoticon: string) {
+    if (!myUserId) return;
+    const messageId = Number(message._id);
+    const myPeer: Peer = { object: "peer-user", user: myUserId };
+    const existingMine = (message.reactions ?? []).find(
+      (r) => r.peer?.object === "peer-user" && r.peer.user === myUserId && r.reaction.emoticon === emoticon,
+    );
+
+    function applyReactions(updater: (reactions: MessagePeerReaction[]) => MessagePeerReaction[]) {
+      setMessages((prev) =>
+        prev.map((m) => (Number(m._id) === messageId ? { ...m, reactions: updater(m.reactions ?? []) } : m)),
+      );
+    }
+
+    if (existingMine) {
+      applyReactions((reactions) => reactions.filter((r) => r !== existingMine));
+      try {
+        const res = await authFetch("/api/chats/reaction/delete", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ chatId, messageId, emoticon, date: existingMine.date, peer: myPeer }),
+        });
+        if (!res.ok) throw new Error("reaction_delete_failed");
+      } catch {
+        applyReactions((reactions) => dedupeReactionsToLatestPerUser([...reactions, existingMine]));
+      }
+      return;
+    }
+
+    const optimistic: MessagePeerReaction = {
+      peer: myPeer,
+      date: new Date().toISOString(),
+      reaction: { object: "reaction-emoji", emoticon },
+    };
+    applyReactions((reactions) => dedupeReactionsToLatestPerUser([...reactions, optimistic]));
+    // Heart burst (2026-09-06, Aleksandr: "ставится реакция, у нас
+    // такая анимация... может получится у тебя её вытащить тоже") --
+    // ported off mobile's own reaction_confetti.dart _stickerBursts map,
+    // which plays this Lottie burst ONLY for a heart reaction (every
+    // other emoji gets mobile's own lightweight particle confetti,
+    // intentionally not reproduced here yet -- see
+    // STICKERS_AND_REACTIONS_PLAN.md). Fired optimistically, same
+    // moment the chip itself appears, not gated on the network call
+    // below succeeding.
+    if (emoticon === "❤️") setHeartBurst({ messageId, trigger: Date.now() });
+    try {
+      const res = await authFetch("/api/chats/reaction/add", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ chatId, messageId, emoticon }),
+      });
+      if (!res.ok) throw new Error("reaction_add_failed");
+    } catch {
+      applyReactions((reactions) => reactions.filter((r) => r !== optimistic));
+    }
+  }
+
   // Pinned banner's own "tap to jump" (components/chat/
   // pinned-message-banner.tsx's own onTap) -- identical scroll+flash
   // mechanism to handleShowInChatFromViewer above (same
@@ -5342,7 +5427,53 @@ export default function ChatWindowPage() {
                         </div>
                       </div>
                     )}
+                    {/* Reactions feature, heart-burst half (2026-09-06,
+                        Aleksandr: "ставится реакция, у нас такая
+                        анимация... может получится у тебя её вытащить
+                        тоже") -- ported off mobile's own reaction_sticker_
+                        overlay.dart / reaction_confetti.dart, which play
+                        this exact Lottie burst ONLY for a heart reaction,
+                        centered over the bubble it was just set on.
+                        Anchored inside THIS row (already `position:
+                        relative` from the className above) rather than
+                        the outer `key={msg._id}` wrapper below, so it
+                        overlays the bubble itself instead of the row's
+                        own (unpositioned) box. */}
+                    {!pending && heartBurst && heartBurst.messageId === Number(msg._id) && (
+                      <div
+                        key={heartBurst.trigger}
+                        aria-hidden="true"
+                        className={`pointer-events-none absolute inset-x-0 top-0 flex ${mine ? "justify-end" : "justify-start"}`}
+                      >
+                        <LottiePlayer
+                          src="/animations/heart_reaction.json"
+                          size={75}
+                          loop={false}
+                          onComplete={() =>
+                            setHeartBurst((cur) => (cur && cur.trigger === heartBurst.trigger ? null : cur))
+                          }
+                        />
+                      </div>
+                    )}
                   </div>
+                  {/* Reactions bar (2026-09-06) -- its own line below the
+                      bubble row above, same side as `mine` (see
+                      ReactionsBar's own header comment for why this
+                      lives HERE, one shared insertion point, rather than
+                      inside each of the message-kind branches above).
+                      Skipped for a still-pending (not yet confirmed
+                      sent) message -- chat-server has never seen it yet,
+                      so it can't have any reactions. */}
+                  {!pending && (
+                    <ReactionsBar
+                      reactions={msg.reactions ?? []}
+                      mine={mine}
+                      myUserId={myUserId}
+                      otherAvatarUrl={headerAvatar}
+                      otherInitial={headerTitle ? headerTitle.charAt(0).toUpperCase() : undefined}
+                      onToggle={(emoticon) => void handleToggleReaction(msg, emoticon)}
+                    />
+                  )}
                 </div>
               );
             })}
@@ -6661,6 +6792,14 @@ export default function ChatWindowPage() {
             setReplyTarget(actionsMenu.message);
             window.requestAnimationFrame(() => textareaRef.current?.focus());
           }}
+          onReact={(emoticon) => void handleToggleReaction(actionsMenu.message, emoticon)}
+          myReactionEmoticon={
+            myUserId
+              ? ((actionsMenu.message.reactions ?? []).find(
+                  (r) => r.peer?.object === "peer-user" && r.peer.user === myUserId,
+                )?.reaction.emoticon ?? null)
+              : null
+          }
           onEdit={() => {
             setReplyTarget(null);
             setEditingMessage(actionsMenu.message);

@@ -25,6 +25,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { T, type Locale } from "@/components/t";
+import { groupReactionsByEmoji, type MessagePeerReaction } from "@/lib/a1/chat-schemas";
 
 const MENU_WIDTH = 240;
 // 2026-09-05, second follow-up (Aleksandr, live screenshot: even with
@@ -34,7 +35,11 @@ const MENU_WIDTH = 240;
 // breathing room, paired with the row-height/font trims below so the
 // menu is also genuinely a bit shorter overall, not just repositioned.
 const VIEWPORT_MARGIN = 18;
-const REACTION_EMOJIS = ["👍", "👎", "❤️", "🔥", "🥰", "👏", "😄"];
+// 2026-09-06 fix (Aleksandr's reactions feature go-ahead): this used to
+// end in "😄", a guess -- CONFIRMED off mobile's own
+// lib/features/reactions/components/emoji_reactions_panel.dart, the
+// real static set is "😁" as the 7th emoji, not "😄".
+const REACTION_EMOJIS = ["👍", "👎", "❤️", "🔥", "🥰", "👏", "😁"];
 
 type IconProps = { className?: string };
 
@@ -226,6 +231,8 @@ export function MessageActionsMenu({
   lang,
   onClose,
   onReply,
+  onReact,
+  myReactionEmoticon,
   onCopy,
   onEdit,
   onForward,
@@ -240,6 +247,20 @@ export function MessageActionsMenu({
   lang: Locale;
   onClose: () => void;
   onReply: () => void;
+  // 2026-09-06 (Aleksandr's reactions feature go-ahead: "делаем реакции
+  // на сообщения... правой кнопкой мыши появляются... нажимаем — реакция
+  // ставится... при клике на неё повторном, если она уже поставлена, она
+  // убирается") -- the reaction quick-bar up top was a visual-only
+  // placeholder since this file's own header comment; optional for the
+  // same reason as onCopy/onEdit/onForward below (a caller with nothing
+  // to do yet just omits it and the row keeps no-oping).
+  onReact?: (emoticon: string) => void;
+  // Which emoji (if any) the CURRENT USER already has set on this
+  // message -- highlights that button and lets tapping it again remove
+  // the reaction instead of re-adding it (the toggle half of the
+  // feature; see app/chats/[chatId]/page.tsx's handleToggleReaction,
+  // which is what actually decides add vs. delete).
+  myReactionEmoticon?: string | null;
   // 2026-09-05 (Aleksandr: "Сделай чтобы 'скопировать' работало") --
   // optional, same reasoning as this file's own header comment on why
   // every OTHER row stayed a placeholder: a message with no copyable
@@ -422,7 +443,17 @@ export function MessageActionsMenu({
               than it regardless of exact emoji/font rendering. */}
           <div className="flex w-full items-center justify-between rounded-full bg-white/95 px-2 py-1.5 shadow-xl backdrop-blur-sm dark:bg-neutral-800/95">
             {REACTION_EMOJIS.map((emoji) => (
-              <button key={emoji} type="button" onClick={onClose} className="rounded-full p-1 text-[19px] leading-none transition hover:scale-110">
+              <button
+                key={emoji}
+                type="button"
+                onClick={() => {
+                  onReact?.(emoji);
+                  onClose();
+                }}
+                className={`rounded-full p-1 text-[19px] leading-none transition hover:scale-110 ${
+                  myReactionEmoticon === emoji ? "scale-110 bg-[#335ef7]/10 dark:bg-white/10" : ""
+                }`}
+              >
                 {emoji}
               </button>
             ))}
@@ -471,6 +502,80 @@ export function MessageActionsMenu({
         </div>
     </div>,
     document.body,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Reactions bar -- one chip per distinct emoji reacting peers currently
+// have on a message, rendered on its own line right under the bubble
+// (app/chats/[chatId]/page.tsx inserts this as a sibling of the bubble
+// row, not inside it, so it works for every message kind -- text,
+// photo, file, contact card, calculation -- without touching any of
+// those individual render branches). 2026-09-06 (Aleksandr, reference
+// screenshots of his own real chat: a reaction chip shows the emoji
+// PLUS the reacting peer's own avatar, not a bare count) -- this app's
+// chats are 1:1 only for now (see chat-schemas.ts's own CHAT_FLAG_
+// PERSONAL/resolvePersonalChat comments), so there are only ever two
+// possible reactors: me (no avatar needed, the chip's own highlighted
+// fill already shows it's mine) or the other participant, whose avatar
+// the caller already has loaded as `headerAvatar` for the chat header
+// itself -- passed straight through as `otherAvatarUrl` rather than
+// this component doing its own lookup. Group-chat avatar-per-reactor
+// (mobile's own _StackedReactorAvatars) is intentionally out of scope
+// until this app actually has group chats.
+export function ReactionsBar({
+  reactions,
+  mine,
+  myUserId,
+  otherAvatarUrl,
+  otherInitial,
+  onToggle,
+}: {
+  reactions: MessagePeerReaction[];
+  mine: boolean;
+  myUserId: string | null;
+  otherAvatarUrl?: string | null;
+  // Falls back to a plain initial-letter avatar when the other
+  // participant has no profile photo -- same "always show SOMETHING
+  // circular" convention the chat header itself already follows.
+  otherInitial?: string;
+  onToggle: (emoticon: string) => void;
+}) {
+  if (reactions.length === 0) return null;
+  const groups = groupReactionsByEmoji(reactions);
+  if (groups.length === 0) return null;
+
+  return (
+    <div className={`mt-1 flex flex-wrap gap-1 ${mine ? "justify-end" : "justify-start"}`}>
+      {groups.map((group) => {
+        const iReacted = myUserId !== null && group.reactors.some((p) => p.object === "peer-user" && p.user === myUserId);
+        const otherReacted = group.reactors.some((p) => p.object === "peer-user" && p.user !== myUserId);
+        return (
+          <button
+            key={group.emoticon}
+            type="button"
+            onClick={() => onToggle(group.emoticon)}
+            className={`flex items-center gap-1 rounded-full py-0.5 pl-2 pr-1.5 text-[14px] leading-none shadow-sm transition hover:scale-105 ${
+              iReacted
+                ? "bg-[#335ef7] text-white dark:bg-[#0c8ce9]"
+                : "bg-white text-[#262a34] dark:bg-[#1a1a1a] dark:text-white"
+            }`}
+          >
+            <span className="leading-none">{group.emoticon}</span>
+            {otherReacted &&
+              (otherAvatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- tiny
+                // 18px reaction avatar, not worth next/image's overhead here.
+                <img src={otherAvatarUrl} alt="" className="h-[18px] w-[18px] shrink-0 rounded-full object-cover" />
+              ) : (
+                <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-black/10 text-[10px] font-semibold dark:bg-white/15">
+                  {otherInitial ?? "?"}
+                </span>
+              ))}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
