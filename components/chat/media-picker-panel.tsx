@@ -22,6 +22,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { authFetch } from "@/lib/auth-fetch";
 import { EMOJI_CATEGORIES } from "@/lib/a1/emoji-data";
 import { buildMediaProxyUrl } from "@/lib/a1/media-proxy";
+import { getStableMediaProxyUrl } from "@/lib/a1/stable-media-url";
 import type { MediaDocument } from "@/lib/a1/schemas";
 import {
   isRealMediaDocument,
@@ -31,6 +32,20 @@ import {
 import { TgsSticker } from "./tgs-sticker";
 
 type Tab = "gifs" | "stickers" | "emoji";
+
+// Fix Tracker: GIF grid showed broken-image icons for every result.
+// Root cause -- media.globalSearch's previewUrls (media-server,
+// media.globalSearch.ts) come from the klipy GIF provider as short .mp4
+// clips, not actual GIF/raster images (confirmed live: every request in
+// the browser network tab for a "GIF" result was a 200 to a
+// static.klipy.com/.../*.mp4 URL) -- an <img> can't decode video, so it
+// silently fails to the browser's broken-image icon. The one non-video
+// case is the backend's own USER_PHOTO_FALLBACK (a real static image),
+// so branch on the URL's extension rather than assuming every preview is
+// one or the other.
+function isVideoPreviewUrl(url: string): boolean {
+  return /\.(mp4|webm|mov)(\?|$)/i.test(url);
+}
 
 // Quick-filter row on the GIF tab (reference screenshot: a row of mood
 // icons above the results grid) -- each just fires a canned search
@@ -299,7 +314,7 @@ export function MediaPickerPanel({
                   onClick={() => onSendMedia(doc)}
                   className="flex items-center justify-center rounded-[12px] p-1 transition hover:bg-black/5 dark:hover:bg-white/10"
                 >
-                  <TgsSticker src={buildMediaProxyUrl(doc)} size={64} fallback={<StickerChipFallback size={64} />} />
+                  <TgsSticker src={getStableMediaProxyUrl(doc)} size={64} fallback={<StickerChipFallback size={64} />} />
                 </button>
               ))}
             </div>
@@ -319,11 +334,21 @@ export function MediaPickerPanel({
                   onClick={() => onSendMedia(doc)}
                   className="aspect-video overflow-hidden rounded-[12px] bg-black/5 transition hover:opacity-85 dark:bg-white/10"
                 >
-                  <img
-                    src={gifPreviewUrls[doc._id] ?? buildMediaProxyUrl(doc)}
-                    alt=""
-                    className="h-full w-full object-cover"
-                  />
+                  {(() => {
+                    const previewSrc = gifPreviewUrls[doc._id] ?? buildMediaProxyUrl(doc);
+                    return isVideoPreviewUrl(previewSrc) ? (
+                      <video
+                        src={previewSrc}
+                        className="h-full w-full object-cover"
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                      />
+                    ) : (
+                      <img src={previewSrc} alt="" className="h-full w-full object-cover" />
+                    );
+                  })()}
                 </button>
               ))}
             </div>

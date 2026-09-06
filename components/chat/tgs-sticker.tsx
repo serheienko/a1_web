@@ -29,6 +29,25 @@
 // placeholder chip) rather than showing a broken box -- same "always
 // degrade to something, never a dead render" rule LottiePlayer's own
 // error path follows.
+//
+// Fix Tracker (2026-09-06, "когда показывается сразу много котов
+// анимаций в паке они жестко виснут"): a sticker grid/pack renders
+// every doc with no virtualization, so every single TgsSticker mounted
+// -- visible or not -- used to fetch+gunzip+JSON.parse+loadAnimation
+// immediately and run its own full SVG animation loop forever. With a
+// few dozen stickers on screen at once that's a few dozen concurrent
+// rAF-driven SVG re-renders, which is exactly the freeze Aleksandr saw.
+// Telegram's own web client avoids this the same two ways applied
+// below: (1) only decode/play what is actually in (or near) the
+// viewport -- an IntersectionObserver gates the whole load, and
+// scrolling something off-screen pauses rather than destroys it, so
+// scrolling back doesn't re-fetch/re-decode; (2) render to canvas
+// instead of SVG -- canvas playback is a cheap bitmap blit per frame,
+// SVG playback means lottie-web mutating a live DOM subtree every
+// frame, which is the more expensive of the two for busy vector
+// stickers. This isn't Telegram's full RLottie/WASM pipeline (that's a
+// much bigger rewrite), but it removes the actual cause of the hang --
+// dozens of animations nobody's looking at -- with no new dependency.
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 async function gunzipToJson(bytes: ArrayBuffer): Promise<unknown> {
@@ -40,6 +59,12 @@ async function gunzipToJson(bytes: ArrayBuffer): Promise<unknown> {
   return JSON.parse(text);
 }
 
+type LottieAnimation = {
+  destroy: () => void;
+  play?: () => void;
+  pause?: () => void;
+};
+
 export function TgsSticker({
   src,
   size,
@@ -47,23 +72,64 @@ export function TgsSticker({
   loop = true,
   fallback,
 }: {
-  /** buildMediaProxyUrl(doc) -- resolves to the raw .tgs bytes. */
+  /** getStableMediaProxyUrl(doc) (or buildMediaProxyUrl for a non-rotating id) -- resolves to the raw .tgs bytes. */
   src: string;
   size: number;
   className?: string;
   loop?: boolean;
   fallback: ReactNode;
 }) {
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const animRef = useRef<LottieAnimation | null>(null);
+  const loadedSrcRef = useRef<string | null>(null);
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [visible, setVisible] = useState(false);
 
+  // Gate everything on real viewport visibility -- see header comment.
+  // rootMargin gives a little lookahead so scrolling feels instant
+  // instead of popping the sticker in a beat late.
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") {
+      setVisible(true);
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry) setVisible(entry.isIntersecting);
+      },
+      { rootMargin: "200px", threshold: 0.01 }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  // New sticker identity -- drop whatever was loaded for the old one.
   useEffect(() => {
     setFailed(false);
     setLoaded(false);
-    let cancelled = false;
-    let anim: { destroy: () => void } | null = null;
+    loadedSrcRef.current = null;
+    animRef.current?.destroy();
+    animRef.current = null;
+  }, [src]);
 
+  // Load lazily on first visibility; otherwise just play/pause the
+  // already-decoded animation instead of re-fetching it every time it
+  // scrolls in and out of view.
+  useEffect(() => {
+    if (!visible) {
+      animRef.current?.pause?.();
+      return;
+    }
+    if (loadedSrcRef.current === src && animRef.current) {
+      animRef.current.play?.();
+      return;
+    }
+
+    let cancelled = false;
     (async () => {
       try {
         const [lottieModule, res] = await Promise.all([import("lottie-web"), fetch(src)]);
@@ -72,13 +138,15 @@ export function TgsSticker({
         const animationData = await gunzipToJson(bytes);
         if (cancelled || !containerRef.current) return;
         const lottie = lottieModule.default;
-        anim = lottie.loadAnimation({
+        const anim = lottie.loadAnimation({
           container: containerRef.current,
-          renderer: "svg",
+          renderer: "canvas",
           loop,
           autoplay: true,
           animationData: animationData as object,
         });
+        animRef.current = anim;
+        loadedSrcRef.current = src;
         setLoaded(true);
       } catch (err) {
         // Expected for anything not actually a gzipped Lottie file (or
@@ -93,16 +161,24 @@ export function TgsSticker({
 
     return () => {
       cancelled = true;
-      anim?.destroy();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- loop is
-    // fixed per call site, src identity alone should restart the load.
-  }, [src]);
+    // fixed per call site, [visible, src] alone should drive reloads.
+  }, [visible, src]);
+
+  // Unmount: always tear the animation down.
+  useEffect(() => {
+    return () => {
+      animRef.current?.destroy();
+      animRef.current = null;
+    };
+  }, []);
 
   if (failed) return <>{fallback}</>;
 
   return (
     <div
+      ref={wrapperRef}
       className={className}
       style={{ position: "relative", width: size, height: size, flexShrink: 0 }}
     >

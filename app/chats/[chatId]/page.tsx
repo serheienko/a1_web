@@ -5131,7 +5131,15 @@ export default function ChatWindowPage() {
                               // screenshot, same as Telegram's own.
                               <TgsSticker
                                 key={doc._id}
-                                src={buildMediaProxyUrl(doc)}
+                                // getStableMediaProxyUrl, not buildMediaProxyUrl -- Fix Tracker
+                                // "Стикер кота моргает в чате": buildMediaProxyUrl(doc) embeds
+                                // doc.fileReference, which the backend rotates on every poll (the
+                                // exact same class of bug stable-media-url.ts's own header already
+                                // documents fixing for photos/voice waveforms). TgsSticker's effect
+                                // depends on [src], so a rotated fileReference changed the string on
+                                // every message-list refetch, restarting the gunzip+Lottie load and
+                                // flashing the loading placeholder over the sticker repeatedly.
+                                src={getStableMediaProxyUrl(doc)}
                                 size={132}
                                 fallback={
                                   <div
@@ -5660,7 +5668,17 @@ export default function ChatWindowPage() {
               onMouseEnter={() => setJumpArrowBounceKey((k) => k + 1)}
               aria-label="Jump to bottom"
               tabIndex={showJumpToBottom ? 0 : -1}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-[#335ef7] shadow-md backdrop-blur-sm transition hover:bg-neutral-50 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/90 dark:text-[#0c8ce9]"
+              // Fix Tracker (2026-09-06, Aleksandr: "в темной теме не
+              // надо менять цвет заливки кнопки со стрелочкой при
+              // ховере... минимально, но не так ярко") -- hover:bg-
+              // neutral-50 has no dark: override here, so dark mode was
+              // falling through to that same near-white fill on hover,
+              // flashing bright against the dark compose area. Same fix
+              // as the paperclip button above (dark:hover:bg-[#1c1c1e]):
+              // hover just goes to the button's own dark background at
+              // full opacity instead of a lighter one, barely
+              // perceptible instead of a bright flash.
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-[#335ef7] shadow-md backdrop-blur-sm transition hover:bg-neutral-50 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/90 dark:text-[#0c8ce9] dark:hover:bg-[#1c1c1e]"
             >
               <svg key={jumpArrowBounceKey} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 animate-jump-arrow" aria-hidden="true">
                 <path d="M6 9l6 6 6-6" />

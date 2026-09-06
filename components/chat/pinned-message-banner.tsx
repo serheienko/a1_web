@@ -78,7 +78,16 @@ export function PinnedMessageBanner({
   function enterConfirmation() {
     if (resetTimer.current) window.clearTimeout(resetTimer.current);
     setConfirming(true);
-    resetTimer.current = window.setTimeout(() => setConfirming(false), 3000);
+    // Fix Tracker: "Откреп не всегда работает" -- mobile's own
+    // _autoResetTimer uses 3s, which suits a tap-X-then-tap-Unpin
+    // mobile gesture, but on the web a mouse-driven click often took
+    // long enough (moving the cursor, reading "Відкріпити закріплене
+    // повідомлення?" first) that the window closed back to the plain X
+    // before the second click landed -- which then just re-opened the
+    // confirmation instead of unpinning, reading as "doesn't work".
+    // 6s keeps the same auto-reset behavior, just with real room for a
+    // deliberate mouse click.
+    resetTimer.current = window.setTimeout(() => setConfirming(false), 6000);
   }
 
   function confirmUnpin() {
