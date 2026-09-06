@@ -75,6 +75,7 @@ import { setAccountMenuOpen } from "@/lib/account-menu-open";
 import { authFetch } from "@/lib/auth-fetch";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { CachedAvatar } from "@/components/cached-avatar";
+import { GLASS } from "@/lib/glass";
 
 type Theme = "light" | "dark" | "auto";
 
@@ -261,8 +262,16 @@ function ChevronRightIcon() {
 // Same circular icon-button style account-menu.tsx used for its
 // signed-out "Sign in" link, kept byte-for-byte so nothing shifts in the
 // signed-out layout.
+// Fix Tracker (2026-09-06, Aleksandr, screenshot of the signed-out nav:
+// "сделай кнопки «войти» и ••• тоже стеклянными как и рядом «вакансии»
+// «фахивци»") -- was a plain solid white/dark circle, standing out
+// against the glass Вакансії/Фахівці pill right next to it. Same GLASS
+// recipe (lib/glass.ts), no sm: reset -- unlike site-nav.tsx's own
+// toggle this renders in every viewport but was never meant to revert
+// to a flat button on desktop, so it just stays glass everywhere.
 const ICON_BUTTON_CLASS =
-  "flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full bg-white px-0 text-neutral-500 shadow-sm ring-1 ring-black/5 transition hover:text-neutral-900 sm:w-auto sm:px-3.5 dark:bg-neutral-800 dark:text-neutral-400 dark:ring-white/10 dark:hover:text-neutral-50";
+  "flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full px-0 text-neutral-500 transition hover:text-neutral-900 sm:w-auto sm:px-3.5 dark:text-neutral-400 dark:hover:text-neutral-50 " +
+  GLASS;
 
 function readDisplayCookie(): string | null {
   const match = document.cookie.match(new RegExp(`(?:^|; )${DISPLAY_COOKIE}=([^;]*)`));
@@ -515,7 +524,9 @@ export function AvatarMenu() {
               <div className="absolute right-0 top-full z-50 w-80 max-w-[calc(100vw-2rem)] origin-top-right pt-2" ref={panelOuterRef}>
                 <div
                   className={
-                    "max-h-[85vh] overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-5 shadow-lg transition duration-150 ease-out dark:border-neutral-700 dark:bg-neutral-900 " +
+                    "max-h-[85vh] overflow-y-auto rounded-2xl p-5 shadow-lg transition duration-150 ease-out " +
+                    GLASS +
+                    " " +
                     (visible ? "opacity-100 scale-100" : "pointer-events-none opacity-0 scale-95")
                   }
                 >

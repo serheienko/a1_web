@@ -40,6 +40,7 @@ import { setAccountMenuOpen } from "@/lib/account-menu-open";
 import { createPortal } from "react-dom";
 import { LOCALES, LOCALE_CLASS, LOCALE_TAG, type Locale } from "@/components/t";
 import { useHoverPanel } from "@/lib/use-hover-panel";
+import { GLASS } from "@/lib/glass";
 
 type Theme = "light" | "dark" | "auto";
 
@@ -288,7 +289,11 @@ export function SettingsMenu() {
         }}
         aria-label={str("settings")}
         aria-expanded={open}
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-neutral-500 shadow-sm ring-1 ring-black/5 transition hover:text-neutral-900 dark:bg-neutral-800 dark:text-neutral-400 dark:ring-white/10 dark:hover:text-neutral-50"
+        // Fix Tracker (2026-09-06, Aleksandr: "сделай кнопки «войти» и
+        // ••• тоже стеклянными как и рядом «вакансии» «фахивци»") --
+        // same GLASS swap as this button's sign-in sibling in
+        // avatar-menu.tsx's ICON_BUTTON_CLASS.
+        className={"flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-neutral-500 transition hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50 " + GLASS}
       >
         <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5 animate-dots-bounce" aria-hidden="true">
           <circle cx="4" cy="10" r="1.7" />
@@ -338,7 +343,7 @@ export function SettingsMenu() {
           )}
           <div
             ref={panelRef}
-            className="animate-popover absolute right-0 top-full z-50 mt-2 w-64 max-w-[calc(100vw-2rem)] origin-top-right overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900"
+            className={"animate-popover absolute right-0 top-full z-50 mt-2 w-64 max-w-[calc(100vw-2rem)] origin-top-right overflow-y-auto rounded-2xl p-2 shadow-lg " + GLASS}
           >
             {panelBody}
           </div>
