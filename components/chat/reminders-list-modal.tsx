@@ -293,29 +293,38 @@ export function RemindersListModal({
             </div>
           ) : (
             <div className="flex flex-col gap-4">
-              {groups.map((group) => (
-                <div key={dateHourKey(group[0].scheduleAt)} className="flex flex-col gap-2">
-                  <div className="flex justify-center">
-                    <span className="rounded-full bg-white/10 px-3 py-1 text-[12px] font-medium text-white/80">
-                      {groupHeaderLabel(group[0].scheduleAt, lang)}
-                    </span>
+              {groups.map((group) => {
+                // group is always non-empty (groupByDateHour only creates a
+                // bucket when pushing its first item), but noUncheckedIndexedAccess
+                // still types group[0] as possibly undefined -- guard explicitly
+                // instead of a non-null assertion so a real empty group is a no-op,
+                // not a crash.
+                const first = group[0];
+                if (!first) return null;
+                return (
+                  <div key={dateHourKey(first.scheduleAt)} className="flex flex-col gap-2">
+                    <div className="flex justify-center">
+                      <span className="rounded-full bg-white/10 px-3 py-1 text-[12px] font-medium text-white/80">
+                        {groupHeaderLabel(first.scheduleAt, lang)}
+                      </span>
+                    </div>
+                    {group.map((reminder) => (
+                      <ReminderRow
+                        key={reminder.message._id}
+                        reminder={reminder}
+                        mine={myUserId !== null && reminder.message.fromId === myUserId}
+                        onJump={() => {
+                          onJumpToMessage(Number(reminder.message._id));
+                          onClose();
+                        }}
+                        onEdit={() => setEditing(reminder)}
+                        onDelete={() => void handleDelete(Number(reminder.message._id))}
+                        deleting={deletingId === Number(reminder.message._id)}
+                      />
+                    ))}
                   </div>
-                  {group.map((reminder) => (
-                    <ReminderRow
-                      key={reminder.message._id}
-                      reminder={reminder}
-                      mine={myUserId !== null && reminder.message.fromId === myUserId}
-                      onJump={() => {
-                        onJumpToMessage(Number(reminder.message._id));
-                        onClose();
-                      }}
-                      onEdit={() => setEditing(reminder)}
-                      onDelete={() => void handleDelete(Number(reminder.message._id))}
-                      deleting={deletingId === Number(reminder.message._id)}
-                    />
-                  ))}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
