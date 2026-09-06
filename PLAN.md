@@ -9421,3 +9421,29 @@ Aleksandr, з веб-чек-листа Fix Tracker (додав самостій�
 `app/chats/[chatId]/page.tsx`, `app/globals.css`.
 
 Commit 07eaaa2.
+
+## 6.232 — "Скопіювати" на фото копіює саму картинку в буфер обміну — 2026-09-06
+
+Aleksandr, з веб-чек-листа Fix Tracker: "Надо сделать, чтобы картинки
+тоже можно было копировать и потом вставлять туда где это
+поддерживается, например в GPT можно делать paste картинки".
+
+"Скопіювати" в меню повідомлення раніше працював тільки для тексту
+(`navigator.clipboard.writeText`, гейт на `extractMessageText`); у
+фото без підпису тексту нема, і пункт мовчки нічого не робив (сам рядок
+меню при цьому й так завжди рендериться незалежно від `onCopy` —
+`message-actions-menu.tsx`'s `ACTION_ROWS.filter` не фільтрує "copy" за
+наявністю хендлера).
+
+Тепер для фото-повідомлень (`describeMessagePreview().kind === "photo"`)
+той самий пункт качає вже відрендерене зображення
+(`getStableMediaProxyUrl`, без окремого запиту), перекодує в PNG через
+canvas (`copyImageMessageToClipboard`, `app/chats/[chatId]/page.tsx`) і
+кладе в буфer через `navigator.clipboard.write([new ClipboardItem(...)])`.
+PNG обраний як формат з максимальною підтримкою Clipboard API у
+отримувачів (paste в ChatGPT, інший чат тощо), навіть якщо джерело
+JPEG/WEBP.
+
+Файли: `app/chats/[chatId]/page.tsx`.
+
+Commit 4babc88.
