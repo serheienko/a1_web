@@ -3033,18 +3033,23 @@ export default function ChatWindowPage() {
   }
 
   // "Show in chat" (viewer's "•••" menu) -- closes the viewer, scrolls
-  // the source message into view, and flashes an outline on it for
-  // ~1.5s. Relies on the `data-message-id` attribute the bubble below
-  // carries for exactly this.
+  // the source message into view, and flashes the highlight band on its
+  // whole row for ~2.2s (see that row's own comment below). Relies on
+  // the `data-message-id` attribute the bubble below carries for
+  // exactly this.
   function handleShowInChatFromViewer(messageId: number) {
     setViewerIndex(null);
     window.requestAnimationFrame(() => {
       const el = document.querySelector(`[data-message-id="${messageId}"]`);
       el?.scrollIntoView({ behavior: "smooth", block: "center" });
       setHighlightedMessageId(messageId);
+      // 2026-09-06: 1500 -> 2200. Полоса гаснет transition'ом на 500 мс,
+      // так что при старом значении на «зажжённом» состоянии оставалось
+      // около секунды -- ровно та жалоба, что подсветку не поймать
+      // глазом после прокрутки.
       window.setTimeout(() => {
         setHighlightedMessageId((cur) => (cur === messageId ? null : cur));
-      }, 1500);
+      }, 2200);
     });
   }
 
@@ -3280,7 +3285,7 @@ export default function ChatWindowPage() {
     setHighlightedMessageId(messageId);
     window.setTimeout(() => {
       setHighlightedMessageId((cur) => (cur === messageId ? null : cur));
-    }, 1500);
+    }, 2200);
   }
 
   // Multi-select mode (2026-09-05, Форвард 2.0 Phase 1) -- entered
@@ -4603,7 +4608,27 @@ export default function ChatWindowPage() {
                       </span>
                     </div>
                   )}
-                  <div className={`relative flex ${mine ? "justify-end" : "justify-start"}`}>
+                  {/* 2026-09-06 (Fix Tracker, Aleksandr: "Делай
+                      подсвечивание сообщения на вэбе такой подобной
+                      полосой, чтобы проще находилось, когда показываешь
+                      исходник сообщения после Reply или Pinned
+                      message") -- раньше подсветка была тонким синим
+                      outline вокруг самого бабла (см. его className
+                      ниже): на длинной ленте её было почти не поймать
+                      глазом, о чём он и написал. Теперь подсвечивается
+                      вся строка сообщения целиком, во всю ширину окна
+                      чата -- как полоса в Telegram. Фон вешается прямо
+                      на этот и без того существующий ряд (никакого
+                      оверлея и никаких сдвигов лейаута: добавляются
+                      только background-color и скругление), поэтому
+                      высота/отступы сообщений не меняются вообще. */}
+                  <div
+                    className={`relative flex rounded-lg transition-colors duration-500 ${mine ? "justify-end" : "justify-start"} ${
+                      !pending && highlightedMessageId === Number(msg._id)
+                        ? "bg-[#335ef7]/10 dark:bg-[#0c8ce9]/20"
+                        : "bg-transparent"
+                    }`}
+                  >
                     {selectionMode && !pending && (
                       <div
                         aria-hidden="true"
@@ -4812,36 +4837,38 @@ export default function ChatWindowPage() {
                         // 2026-09-05 follow-up) -- this is the other half
                         // of the same fix: the bubble itself now visibly
                         // slides left for a received message too, not
-                        // just the invisible reply-trigger math. An
-                        // inline `transition` (rather than adding to the
-                        // className's own transition-[outline-color,
-                        // outline-offset] below) is required here: inline
-                        // style always wins the whole transition-property
-                        // slot outright, so it has to restate that pair
-                        // itself to keep the highlight-flash transition
-                        // working, rather than silently clobbering it.
+                        // just the invisible reply-trigger math.
                         transform:
                           !mine && swipeState && swipeState.msgId === msg._id
                             ? `translateX(-${swipeState.dx}px)`
                             : undefined,
+                        // 2026-09-06: раньше здесь inline-стилем
+                        // восстанавливалась transition-пара
+                        // outline-color/outline-offset, потому что
+                        // подсветка была outline'ом на самом бабле.
+                        // Подсветка переехала на строку целиком (см.
+                        // комментарий у ряда выше), у бабла больше нет
+                        // ни outline'а, ни его анимации -- остался
+                        // только свайповый transform.
                         transition:
                           swipeState && swipeState.msgId === msg._id
-                            ? "outline-color 500ms, outline-offset 500ms"
-                            : "outline-color 500ms, outline-offset 500ms, transform 200ms ease-out",
+                            ? undefined
+                            : "transform 200ms ease-out",
                       }}
-                      // data-message-id + the outline below are the
-                      // photo-viewer's "Show in chat" target (see
-                      // handleShowInChatFromViewer above) -- undefined
-                      // for a pending bubble, which has no real message
-                      // id to scroll back to yet.
+                      // data-message-id -- цель прокрутки для
+                      // "Показати в чаті" из просмотрщика фото и для
+                      // перехода к закреплённому сообщению (см.
+                      // handleShowInChatFromViewer /
+                      // handleJumpToPinnedMessage выше). Сама вспышка
+                      // подсветки рисуется на строке-родителе, не здесь.
+                      // undefined для ещё не отправленного бабла -- к
+                      // нему нечем возвращаться, реального id пока нет.
                       data-message-id={pending ? undefined : msg._id}
-                      className={`animate-message-in max-w-[78%] rounded-[18px] text-[17px] leading-snug outline-offset-2 outline-[#335ef7] transition-[outline-color,outline-offset] duration-500 ${pending ? "cursor-pointer" : ""} ${
+                      className={`animate-message-in max-w-[78%] rounded-[18px] text-[17px] leading-snug ${pending ? "cursor-pointer" : ""} ${
                         isFlatMedia
                           ? ""
                           : `px-3 py-2 ${mine ? "rounded-tr-[6px] bg-[#335ef7] text-white dark:bg-[#009bff]" : "rounded-tl-[6px] bg-white text-[#262a34] dark:bg-[#1a1a1a] dark:text-white"}`
-                      } ${pending?.failed ? "opacity-70" : ""} ${
-                        !pending && highlightedMessageId === Number(msg._id) ? "outline outline-2" : "outline-0"
-                      }`}
+                      } ${pending?.failed ? "opacity-70" : ""}`}
                     >
                       {pendingAttachments.length > 0 && (
                         <div className="mb-1 flex flex-col gap-1.5">
