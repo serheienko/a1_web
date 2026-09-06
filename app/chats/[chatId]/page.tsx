@@ -72,7 +72,9 @@ import { ForwardPreviewMenu } from "@/components/chat/forward-preview-menu";
 import { CopyToast, type CopyToastState } from "@/components/chat/copy-toast";
 import { buildMediaProxyUrl, buildMediaDownloadUrl } from "@/lib/a1/media-proxy";
 import { getStableMediaProxyUrl } from "@/lib/a1/stable-media-url";
-import type { MediaUploadUsage } from "@/lib/a1/schemas";
+import type { MediaUploadUsage, MediaDocument } from "@/lib/a1/schemas";
+import { MediaPickerPanel } from "@/components/chat/media-picker-panel";
+import { TgsSticker } from "@/components/chat/tgs-sticker";
 import {
   ChatAttachmentSpinner,
   ChatBackArrow,
@@ -1228,6 +1230,14 @@ export default function ChatWindowPage() {
   // are out of scope for this pass).
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
+  // Block 1 (stickers/GIF/emoji panel, 2026-09-06 go-ahead) -- plain
+  // click-to-toggle + click-outside-to-close, same shape attachMenuOpen
+  // uses just above (that one additionally uses useHoverPanel for a
+  // hover-to-open convenience this panel doesn't need -- picking a
+  // sticker/GIF/emoji is a deliberate action, not something to
+  // accidentally trigger on mouseover).
+  const [mediaPanelOpen, setMediaPanelOpen] = useState(false);
+  const mediaPanelRef = useRef<HTMLDivElement>(null);
   // 2026-09-03 (Aleksandr, "давай следующей фичой сделаем запись
   // голосового сообщения") -- recording ENGINE (components/chat/voice-
   // recorder.ts), wired to handleVoiceFinish below (defined later as a
@@ -2030,6 +2040,51 @@ export default function ChatWindowPage() {
     }
   }
 
+  // Block 1 (stickers/GIF/emoji panel, Aleksandr 2026-09-06 go-ahead:
+  // "делаем всё сразу... для расчётных сообщений, да, и также для фото
+  // и для файлов" -- confirmed off app/api/chats/send/route.ts that a
+  // sticker or GIF needs no upload step at all: both are already-
+  // stored MediaDocuments on the backend (media.globalSearch/
+  // messages.getAllStickers hand back the SAME resource shape a
+  // freshly-uploaded photo gets after handleAttachFile's own upload
+  // pipeline finishes), so this skips straight to attemptSend() with
+  // the doc's existing fileReference instead of restaging it through
+  // /api/upload/create. The optimistic bubble reuses the `image` kind
+  // PendingAttachment already renders for photos -- previewUrl is just
+  // this doc's own /api/media proxy URL, so the bubble shows the real
+  // sticker/GIF immediately rather than a blank placeholder until
+  // load() reconciles it into a real message.
+  async function sendMediaDocument(doc: MediaDocument) {
+    const localId = `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const optimistic: PendingMessage = {
+      _id: localId,
+      flags: 0,
+      peerFrom: myUserId ? { object: "peer-user", user: myUserId } : null,
+      peerTo: null,
+      date: new Date().toISOString(),
+      entities: [],
+      media: [],
+      fromId: myUserId,
+      pending: true,
+      localId,
+      failed: false,
+      pendingAttachments: [
+        {
+          localId,
+          kind: "image",
+          fileName: "",
+          mimetype: doc.mimetype,
+          previewUrl: buildMediaProxyUrl(doc),
+          status: "ready",
+          fileReference: doc.fileReference,
+          bytes: 0,
+        },
+      ],
+    };
+    setPendingMessages((prev) => [...prev, optimistic]);
+    await attemptSend(localId, "", [{ fileReference: doc.fileReference }]);
+  }
+
   // Voice messages (2026-09-03): marks the pending bubble's voice
   // attachment (and the bubble itself) failed -- same visible state
   // (red "not sent" dot, retry/cancel popover) a failed text/photo send
@@ -2324,6 +2379,17 @@ export default function ChatWindowPage() {
     document.addEventListener("mousedown", handleDocClick);
     return () => document.removeEventListener("mousedown", handleDocClick);
   }, [attachMenuOpen]);
+
+  useEffect(() => {
+    if (!mediaPanelOpen) return;
+    function handleDocClick(e: MouseEvent) {
+      if (mediaPanelRef.current && !mediaPanelRef.current.contains(e.target as Node)) {
+        setMediaPanelOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleDocClick);
+    return () => document.removeEventListener("mousedown", handleDocClick);
+  }, [mediaPanelOpen]);
 
   useEffect(() => {
     if (!calcCurrencyPickerOpen) return;
@@ -4393,6 +4459,24 @@ export default function ChatWindowPage() {
                   !isVoiceMediaDocument(soleDoc) && !isImageMediaDocument(soleDoc) &&
                   !isVideoMediaDocument(soleDoc) && !isStickerMediaDocument(soleDoc)) ||
                   (docMedia.length === 0 && singlePendingAttachment?.kind === "file"));
+              // 2026-09-06 (Block 1 follow-up) -- a real (non-greeting)
+              // sticker is now an actual transparent 132px animation
+              // (see TgsSticker's own call site below), not the old
+              // opaque labeled chip that used to look fine sitting
+              // inside a colored bubble. Without this, a sole sticker
+              // message would render flat WHILE pending (isImageOnly's
+              // singlePendingAttachment branch already covers
+              // kind:"image", which sendMediaDocument's optimistic
+              // bubble uses) and then suddenly gain bubble chrome the
+              // instant load() reconciles it into a real
+              // isStickerMediaDocument -- exactly the "shows one thing,
+              // then changes" flicker the 2026-09-03 isVoiceOnly/
+              // isImageOnly/isFileOnly comment above already fixed for
+              // other kinds, just not yet for this one.
+              const isStickerOnly =
+                !text && calc === null && contactMedia.length === 0 && pendingContactCards.length === 0 &&
+                ((pendingAttachments.length === 0 && soleDoc !== null && isStickerMediaDocument(soleDoc)) ||
+                  (docMedia.length === 0 && singlePendingAttachment?.kind === "image"));
               const isContactOnly =
                 !text && pendingAttachments.length === 0 && docMedia.length === 0 && calc === null &&
                 ((contactMedia.length === 1 && pendingContactCards.length === 0) ||
@@ -4451,7 +4535,7 @@ export default function ChatWindowPage() {
                 !text && calc === null && contactMedia.length === 0 && pendingContactCards.length === 0 &&
                 ((pendingAttachments.length === 0 && wholeMessageImageGroup !== null) ||
                   (docMedia.length === 0 && pendingWholeMessageImageGroup !== null));
-              const isFlatMedia = isVoiceOnly || isImageOnly || isImageGroupOnly || isFileOnly || isContactOnly || isMeetingOnly || isGreetingSticker;
+              const isFlatMedia = isVoiceOnly || isImageOnly || isImageGroupOnly || isFileOnly || isContactOnly || isMeetingOnly || isGreetingSticker || isStickerOnly;
               const imageGroupFooter = (
                 <span className="pointer-events-none absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded-full bg-black/45 px-2 py-0.5 text-[11px] text-white backdrop-blur-sm">
                   <span>{msg.editedAt && <EditedLabel />}{formatTime(ms)}</span>
@@ -4983,46 +5067,43 @@ export default function ChatWindowPage() {
                                 className="max-h-64 w-full rounded-xl bg-black"
                               />
                             ) : isStickerMediaDocument(doc) ? (
-                              // 2026-09-03 (Aleksandr, live screenshot:
-                              // "Надо название файла, вес, другие
-                              // иконки, а не надпись 'file'") -- traced
-                              // to `application/x-tgsticker` attachments
-                              // (see isStickerMediaDocument's own
-                              // comment) falling through to the generic
-                              // document row, which has no filename to
-                              // show for a sticker (stickers never carry
-                              // one) and no matching file-type-icon.tsx
-                              // kind, hence the bare "Документ"/"FILE"
-                              // badge he flagged. Scoped fix: a properly
-                              // labeled sticker chip instead of a fake
-                              // document row -- NOT an actual rendered
-                              // sticker image yet (the underlying file is
-                              // a gzipped Lottie/TGS animation, not a
-                              // browser-renderable raster format; doing
-                              // that properly needs its own decode pass,
-                              // separate follow-up). Plain div, no href
-                              // -- unlike a real document there is
-                              // nothing useful to open here.
-                              <div
+                              // 2026-09-06 (Block 1 follow-up, Aleksandr's
+                              // go-ahead): the 2026-09-03 placeholder
+                              // chip below is now only the FALLBACK --
+                              // components/chat/tgs-sticker.tsx does the
+                              // actual gunzip+Lottie decode this
+                              // comment used to flag as a "separate
+                              // follow-up". No bubble chrome around it
+                              // (unlike every other attachment kind) --
+                              // stickers render on a transparent
+                              // background in every reference
+                              // screenshot, same as Telegram's own.
+                              <TgsSticker
                                 key={doc._id}
-                                className={`flex items-center gap-2.5 rounded-xl px-2.5 py-2 ${
-                                  mine ? "bg-white/15" : "bg-black/5 dark:bg-white/10"
-                                }`}
-                              >
-                                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-[#8b5cf6]">
-                                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                                    <circle cx="12" cy="12" r="8.5" />
-                                    <path d="M9 10.2h.01M15 10.2h.01" />
-                                    <path d="M8.7 14.2c1.9 1.6 4.7 1.6 6.6 0" />
-                                  </svg>
-                                </span>
-                                <span className="truncate text-[14px] font-medium">
-                                  <T
-                                    uk="Стікер" en="Sticker" ru="Стикер" de="Sticker" es="Sticker"
-                                    fr="Sticker" pl="Naklejka" ptBR="Figurinha" zh="贴纸"
-                                  />
-                                </span>
-                              </div>
+                                src={buildMediaProxyUrl(doc)}
+                                size={132}
+                                fallback={
+                                  <div
+                                    className={`flex items-center gap-2.5 rounded-xl px-2.5 py-2 ${
+                                      mine ? "bg-white/15" : "bg-black/5 dark:bg-white/10"
+                                    }`}
+                                  >
+                                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-[#8b5cf6]">
+                                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                        <circle cx="12" cy="12" r="8.5" />
+                                        <path d="M9 10.2h.01M15 10.2h.01" />
+                                        <path d="M8.7 14.2c1.9 1.6 4.7 1.6 6.6 0" />
+                                      </svg>
+                                    </span>
+                                    <span className="truncate text-[14px] font-medium">
+                                      <T
+                                        uk="Стікер" en="Sticker" ru="Стикер" de="Sticker" es="Sticker"
+                                        fr="Sticker" pl="Naklejka" ptBR="Figurinha" zh="贴纸"
+                                      />
+                                    </span>
+                                  </div>
+                                }
+                              />
                             ) : (
                               // 2026-09-03 (Aleksandr, Figma ref node
                               // 24368:126, "5. Chat view": "надо, чтобы
@@ -6578,8 +6659,38 @@ export default function ChatWindowPage() {
                   pupil) rather than replacing it -- both fire off the
                   same .group hover already wrapping this icon, exactly
                   the combined motion the mini window's icon already has. */}
-              <div className="group shrink-0 pb-0.5">
-                <ChatCatFieldIcon className="h-5 w-5 animate-chat-wiggle text-[#989aa6] dark:text-[#adafbb]" />
+              {/* Block 1 (Aleksandr, 2026-09-06 go-ahead, "Давай
+                  делать" -- stickers/GIF/emoji picker panel): this icon
+                  was purely decorative until now (no onClick at all).
+                  Wrapped in `relative` together with the panel below,
+                  same one-div-holds-trigger-and-popover shape
+                  attachMenuRef already uses just above for the
+                  paperclip menu, so the click-outside effect can test
+                  a single ref. */}
+              <div ref={mediaPanelRef} className="group relative shrink-0 pb-0.5">
+                <button
+                  type="button"
+                  onClick={() => setMediaPanelOpen((v) => !v)}
+                  aria-label="Stickers, GIFs and emoji"
+                  className="flex items-center"
+                >
+                  <ChatCatFieldIcon className="h-5 w-5 animate-chat-wiggle text-[#989aa6] dark:text-[#adafbb]" />
+                </button>
+                {mediaPanelOpen && (
+                  <div className="absolute bottom-full right-0 z-10 mb-2">
+                    <MediaPickerPanel
+                      onClose={() => setMediaPanelOpen(false)}
+                      onPickEmoji={(emoji) => {
+                        setDraft((d) => d + emoji);
+                        textareaRef.current?.focus();
+                      }}
+                      onSendMedia={(doc) => {
+                        setMediaPanelOpen(false);
+                        void sendMediaDocument(doc);
+                      }}
+                    />
+                  </div>
+                )}
               </div>
               {/* Reminders list (Fix Tracker: "Я не понимаю куда
                   сохраняется напоминание? Оно должно сохраняться возле
