@@ -107,6 +107,20 @@ function PinIcon({ className }: IconProps) {
   );
 }
 
+// Mobile's own icon for the unpinned/"about to pin" and pinned/"tap
+// to unpin" states are two different glyphs (CupertinoIcons.pin vs
+// .pin_slash) -- ported as the same PinIcon glyph above plus a
+// diagonal strike, rather than inventing a second unrelated icon.
+function PinSlashIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M12 17v5" />
+      <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9a2 2 0 0 1-1.11-1.79V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" />
+      <path d="M3 3l18 18" />
+    </svg>
+  );
+}
+
 function DeleteIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
@@ -190,6 +204,16 @@ const ACTION_ROWS: ActionRow[] = [
   },
 ];
 
+// The "Pin" row's label/icon by `pinState` -- ground-truthed off
+// mobile's own receiver_message_item.dart / sender_message_item.dart
+// (this file's own onPin/pinState header comment). "pin" reuses
+// ACTION_ROWS's own static default entry below rather than repeating
+// it here.
+const PIN_STATE_LABELS: Record<"replace" | "unpin", Record<Locale, string>> = {
+  replace: { uk: "Замінити закріплене", en: "Replace Pin", ru: "Заменить закреп", de: "Anheftung ersetzen", es: "Reemplazar fijado", fr: "Remplacer l'épingle", pl: "Zastąp przypięte", ptBR: "Substituir fixado", zh: "替换置顶" },
+  unpin: { uk: "Відкріпити", en: "Unpin", ru: "Открепить", de: "Loslösen", es: "Desfijar", fr: "Détacher", pl: "Odepnij", ptBR: "Desafixar", zh: "取消置顶" },
+};
+
 export function MessageActionsMenu({
   anchorRect,
   mine,
@@ -202,6 +226,8 @@ export function MessageActionsMenu({
   onDelete,
   onSelect,
   onRemind,
+  onPin,
+  pinState,
 }: {
   anchorRect: DOMRect;
   mine: boolean;
@@ -231,6 +257,25 @@ export function MessageActionsMenu({
   // since this file's own original header comment; optional for the
   // same reason as onCopy/onEdit/onForward above.
   onRemind?: () => void;
+  // 2026-09-06 follow-up (Aleksandr, reference screenshot: "Посмотри
+  // еще функцию закрепов сообщений «пин» найди документацию и
+  // подготовься к имплементации") -- ground-truthed off the ACTUAL
+  // BACKEND SOURCE this time (~/mnt/a1_app/aone-api-private-main's
+  // own messages_updatePinnedMessage.d.ts + messages.constants.ts),
+  // not just the mobile client: mobile's own receiver_message_item.dart
+  // / sender_message_item.dart show one dynamic row here that reads
+  // "Pin" / "Replace Pin" / "Unpin" depending on pin state -- ported
+  // as the separate `pinState` prop below rather than three ActionKeys,
+  // same optional-prop convention as onCopy/onEdit/onForward/onRemind
+  // (a caller with nothing sensible to do yet can omit it and the row
+  // no-ops).
+  onPin?: () => void;
+  // Which of the three labels/icons the "Pin" row shows. Omitted (or
+  // "pin") is the plain placeholder default already in ACTION_ROWS
+  // below; a real caller always passes one explicitly once it knows
+  // the tapped message's own pinned state and whether the chat already
+  // has a different message pinned (mobile's own 1-pin-per-chat rule).
+  pinState?: "pin" | "replace" | "unpin";
   onDelete: () => void;
   // 2026-09-05 (Форвард 2.0, Aleksandr greenlighting multi-select:
   // "Очистить чат давай тоже сделаем... " open-questions reply) --
@@ -300,14 +345,15 @@ export function MessageActionsMenu({
   if (typeof document === "undefined") return null;
 
   function select(key: ActionKey) {
-    // Reaction row + Pin/Select (remain visual-only placeholders --
-    // see this file's own header comment) -- Remind now does something
-    // real too (2026-09-06).
+    // Reaction row + Select (remain visual-only placeholders -- see
+    // this file's own header comment). Remind (2026-09-06) and Pin
+    // (2026-09-06 follow-up) now do something real too.
     if (key === "reply") onReply();
     if (key === "copy") onCopy?.();
     if (key === "edit") onEdit?.();
     if (key === "remind") onRemind?.();
     if (key === "forward") onForward?.();
+    if (key === "pin") onPin?.();
     if (key === "delete") onDelete();
     if (key === "select") onSelect?.();
     onClose();
@@ -382,27 +428,39 @@ export function MessageActionsMenu({
           </div>
 
           <div className="overflow-hidden rounded-2xl bg-white/95 shadow-xl backdrop-blur-sm dark:bg-neutral-800/95">
-            {ACTION_ROWS.filter((r) => r.group === "main" && (r.key !== "edit" || mine)).map((row, i, arr) => (
-              <button
-                key={row.key}
-                type="button"
-                onClick={() => select(row.key)}
-                className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-[14px] transition hover:bg-black/5 dark:hover:bg-white/10 ${
-                  row.destructive ? "text-[#ff3b30]" : "text-[#262a34] dark:text-white"
-                } ${i < arr.length - 1 ? "border-b border-black/5 dark:border-white/10" : ""}`}
-              >
-                {/* Icon LEFT, label RIGHT -- see this file's own header
-                    comment on why (Aleksandr's reference had them
-                    reversed). */}
-                <row.icon className="h-5 w-5 shrink-0" />
-                <span className="flex-1">
-                  <T
-                    uk={row.label.uk} en={row.label.en} ru={row.label.ru} de={row.label.de} es={row.label.es}
-                    fr={row.label.fr} pl={row.label.pl} ptBR={row.label.ptBR} zh={row.label.zh}
-                  />
-                </span>
-              </button>
-            ))}
+            {ACTION_ROWS.filter((r) => r.group === "main" && (r.key !== "edit" || mine)).map((row, i, arr) => {
+              // Pin row only: swap in the dynamic icon/label for
+              // whichever of the three states this tapped message is
+              // actually in (see this file's own onPin/pinState header
+              // comment); every other row just uses its static entry.
+              const isUnpinState = row.key === "pin" && pinState === "unpin";
+              const RowIcon = isUnpinState ? PinSlashIcon : row.icon;
+              const rowLabel =
+                row.key === "pin" && (pinState === "replace" || pinState === "unpin")
+                  ? PIN_STATE_LABELS[pinState]
+                  : row.label;
+              return (
+                <button
+                  key={row.key}
+                  type="button"
+                  onClick={() => select(row.key)}
+                  className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-[14px] transition hover:bg-black/5 dark:hover:bg-white/10 ${
+                    row.destructive ? "text-[#ff3b30]" : "text-[#262a34] dark:text-white"
+                  } ${i < arr.length - 1 ? "border-b border-black/5 dark:border-white/10" : ""}`}
+                >
+                  {/* Icon LEFT, label RIGHT -- see this file's own header
+                      comment on why (Aleksandr's reference had them
+                      reversed). */}
+                  <RowIcon className="h-5 w-5 shrink-0" />
+                  <span className="flex-1">
+                    <T
+                      uk={rowLabel.uk} en={rowLabel.en} ru={rowLabel.ru} de={rowLabel.de} es={rowLabel.es}
+                      fr={rowLabel.fr} pl={rowLabel.pl} ptBR={rowLabel.ptBR} zh={rowLabel.zh}
+                    />
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
     </div>,

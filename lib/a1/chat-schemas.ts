@@ -648,6 +648,22 @@ export function isVoiceViewDestroy(doc: MessageMediaDocument): boolean {
   return (doc.flags & VOICE_FLAG_VIEW_DESTROY) !== 0;
 }
 
+// Top-level Message flags bitmask (msg.flags -- a different field/
+// namespace than a media DOC's own VOICE_FLAG_*/MEDIA_FLAG_* above,
+// which live on doc.flags, not msg.flags). CONFIRMED off the actual
+// backend source, not the mobile client's own guess-by-usage: ~/mnt/
+// a1_app/aone-api-private-main/packages/constants/src/
+// messages.constants.ts's own MESSAGE_FLAG.PINNED = 1 << 3 (Aleksandr,
+// "Посмотри еще функцию закрепов сообщений «пин» найди документацию
+// и подготовься к имплементации" -- see components/chat/
+// pinned-message-banner.tsx's own header for the feature this
+// unlocks).
+export const MESSAGE_FLAG_PINNED = 1 << 3;
+
+export function isMessagePinned(msg: ChatMessage): boolean {
+  return (msg.flags & MESSAGE_FLAG_PINNED) !== 0;
+}
+
 // 2026-09-05 (Aleksandr: "ты забыл про огонек и самоудаление, это надо
 // чтобы ты нашел по API и документации и сделал") -- this file already
 // had every piece needed to DISPLAY a self-destructing voice note (the

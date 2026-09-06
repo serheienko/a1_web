@@ -35,6 +35,7 @@ import {
   encodeBase64Waveform,
   extractMessageText,
   isImageMediaDocument,
+  isMessagePinned,
   isStickerMediaDocument,
   isVideoMediaDocument,
   isVoiceMediaDocument,
@@ -46,6 +47,7 @@ import {
   messageDateMs,
   messageDocumentMedia,
   messageTickState,
+  MESSAGE_FLAG_PINNED,
   SELF_DESTRUCT_VOICE_FLAGS,
   SELF_DESTRUCT_VOICE_TTL_SECONDS,
   type ChatMessage,
@@ -54,6 +56,7 @@ import {
 } from "@/lib/a1/chat-schemas";
 import { ChatPreviewLine } from "@/components/chat/chat-preview-line";
 import { MessageActionsMenu, ReplyComposeBar, EditComposeBar, ForwardComposeBar, MessageReplyQuote, ReplyIcon, DeleteMessageConfirmDialog } from "@/components/chat/message-actions-menu";
+import { PinnedMessageBanner } from "@/components/chat/pinned-message-banner";
 import { RemindModal } from "@/components/chat/remind-modal";
 import { ForwardPickerModal, type ForwardRowStatus } from "@/components/chat/forward-picker-modal";
 import { SelectionTopBar, SelectionBottomBar } from "@/components/chat/selection-bar";
@@ -765,6 +768,16 @@ export default function ChatWindowPage() {
   const [remindTarget, setRemindTarget] = useState<{ messageId: number } | null>(null);
   const [remindSubmitting, setRemindSubmitting] = useState(false);
   const [remindFailed, setRemindFailed] = useState(false);
+  // "Pin" feature (2026-09-06 follow-up, Aleksandr: "Посмотри еще
+  // функцию закрепов сообщений «пин» найди документацию и подготовься
+  // к имплементации") -- unlike Remind above, mobile's own context-menu
+  // Pin/Unpin row acts IMMEDIATELY with no confirmation dialog (only
+  // the top banner's own X button has a confirm step -- see
+  // components/chat/pinned-message-banner.tsx's own header), so this
+  // is just the current pin's data, not a pending target awaiting
+  // confirmation.
+  const [pinnedMessage, setPinnedMessage] = useState<ChatMessage | null>(null);
+  const [pinBusy, setPinBusy] = useState(false);
   // 2026-09-05 (Aleksandr: "попап должен сам исчезать через 3 сек") --
   // a bump-only counter, not a boolean: copying twice in a row needs
   // CopyToast's own dismiss timer to restart from zero each time,
@@ -1708,6 +1721,29 @@ export default function ChatWindowPage() {
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [load]);
+
+  // "Pin" feature -- fetches the chat's current pin once per chat open
+  // (mobile's own getPinnedMessages() cache-once shape, see
+  // app/api/chats/pinned/route.ts's own header on why this is a
+  // SEPARATE call from the regular messages poll above rather than a
+  // flag read off `messages`: the pinned message can be older than
+  // that poll's own 50-message window).
+  const fetchPinned = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/chats/pinned?chat=${encodeURIComponent(chatId)}`);
+      const data = await res.json().catch(() => null);
+      if (data?.ok) setPinnedMessage(data.message ?? null);
+    } catch {
+      // Best-effort -- a failed pinned-message lookup just means no
+      // banner shows this time; the regular poll/pin actions still
+      // work independently of this.
+    }
+  }, [chatId]);
+
+  useEffect(() => {
+    setPinnedMessage(null);
+    fetchPinned();
+  }, [fetchPinned]);
 
   // 2026-09-02 (Aleksandr, screen recording: "Новое сообщение должно
   // подниматься выше, чем сейчас") -- scrollIntoView({block: "end"}) on
@@ -2915,6 +2951,75 @@ export default function ChatWindowPage() {
     }
   }
 
+  // "Pin" feature -- mobile's own context-menu Pin/Unpin row acts
+  // immediately (see the pinnedMessage state's own header comment
+  // above for why there's no confirmation dialog here, unlike Remind).
+  // Applies the SAME optimistic-update-then-revert-on-failure shape as
+  // mobile's own pinMessage()/_applyOptimisticPin/_revertPinOptimistic
+  // (chat_detail_cubit.dart): the banner and the actions-menu row's own
+  // label both react instantly off `pinnedMessage`/`messages[].flags`,
+  // with fetchPinned() as the correction if the API call actually
+  // failed (rather than hand-reconstructing the exact previous state
+  // like mobile's own revert does -- simpler, and the round-trip is
+  // already in flight regardless).
+  async function handleTogglePin(message: ChatMessage) {
+    if (pinBusy) return;
+    const messageId = Number(message._id);
+    const currentlyPinned = isMessagePinned(message);
+    const replacingMessageId =
+      !currentlyPinned && pinnedMessage && Number(pinnedMessage._id) !== messageId
+        ? Number(pinnedMessage._id)
+        : undefined;
+
+    setPinBusy(true);
+    setPinnedMessage(currentlyPinned ? null : message);
+    setMessages((prev) =>
+      prev.map((m) => {
+        const id = Number(m._id);
+        if (id === messageId) {
+          return { ...m, flags: currentlyPinned ? m.flags & ~MESSAGE_FLAG_PINNED : m.flags | MESSAGE_FLAG_PINNED };
+        }
+        if (replacingMessageId !== undefined && id === replacingMessageId) {
+          return { ...m, flags: m.flags & ~MESSAGE_FLAG_PINNED };
+        }
+        return m;
+      })
+    );
+
+    try {
+      const res = await authFetch("/api/chats/pin", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ chatId, messageId, unpin: currentlyPinned, replacingMessageId }),
+      });
+      if (!res.ok) throw new Error("pin_failed");
+    } catch {
+      // Revert by re-asking the backend what's actually pinned, rather
+      // than hand-rolling the previous state back -- same reasoning as
+      // this function's own header comment.
+      fetchPinned();
+    } finally {
+      setPinBusy(false);
+    }
+  }
+
+  // Pinned banner's own "tap to jump" (components/chat/
+  // pinned-message-banner.tsx's own onTap) -- identical scroll+flash
+  // mechanism to handleShowInChatFromViewer above (same
+  // data-message-id attribute, same highlightedMessageId state); a
+  // no-op if the pinned message isn't in the currently-loaded window,
+  // same accepted limitation resolveReplyPreview's own header
+  // documents for its reply-quote lookup below.
+  function handleJumpToPinnedMessage(messageId: number) {
+    const el = document.querySelector(`[data-message-id="${messageId}"]`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    setHighlightedMessageId(messageId);
+    window.setTimeout(() => {
+      setHighlightedMessageId((cur) => (cur === messageId ? null : cur));
+    }, 1500);
+  }
+
   // Multi-select mode (2026-09-05, Форвард 2.0 Phase 1) -- entered
   // from the actions menu's own "Вибрати" row, pre-checking whatever
   // message was long-pressed/right-clicked, same as the mobile app's
@@ -3716,6 +3821,20 @@ export default function ChatWindowPage() {
           )}
         </div>
       </div>
+
+      {/* "Pin" feature -- persistent banner between the header and the
+          scrollable message list, same "always visible, not part of
+          the scroll" placement as mobile's own PinnedMessageItem (it
+          sits in the AppBar's own bottom area there). Renders nothing
+          when the chat has no pin. */}
+      {pinnedMessage && (
+        <PinnedMessageBanner
+          pinnedMessage={pinnedMessage}
+          onTap={() => handleJumpToPinnedMessage(Number(pinnedMessage._id))}
+          onUnpin={() => handleTogglePin(pinnedMessage)}
+          unpinning={pinBusy}
+        />
+      )}
 
       {/* 2026-09-02: bottom padding clears the now-fixed compose bar below
           (it no longer takes up flex space of its own -- see that bar's
@@ -6405,6 +6524,14 @@ export default function ChatWindowPage() {
             setRemindFailed(false);
             setRemindTarget({ messageId: Number(actionsMenu.message._id) });
           }}
+          onPin={() => handleTogglePin(actionsMenu.message)}
+          pinState={
+            isMessagePinned(actionsMenu.message)
+              ? "unpin"
+              : pinnedMessage && Number(pinnedMessage._id) !== Number(actionsMenu.message._id)
+                ? "replace"
+                : "pin"
+          }
         />
       )}
       {remindTarget && (
