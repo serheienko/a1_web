@@ -527,6 +527,29 @@ const YOU_LABEL_TEXT: Record<Locale, string> = {
   zh: "你",
 };
 
+// Forward-from-you grammar fix (Aleksandr, 2026-09-06 screenshot + Fix
+// Tracker item: "Должно быть 'Переслано від Вас'" -- YOU_LABEL_TEXT
+// above is the NOMINATIVE "You" (a subject/name label -- "Ти: привіт",
+// photo-viewer header, etc.), but "Переслано від X"/"Forwarded from X"
+// puts the pronoun after a preposition, which several of these
+// languages inflect for: Ukrainian/Russian "від"/"от" take the
+// genitive (Ви -> Вас, Вы -> Вас), German "von" takes the dative
+// (Du -> dir), Spanish "de" takes the oblique "ti" (not the subject
+// "Tú"), Polish "od" takes the genitive (Ty -> Ciebie). English/
+// French/Portuguese/Chinese pronouns don't inflect for this, so they
+// keep the same word as YOU_LABEL_TEXT.
+const YOU_LABEL_FROM_TEXT: Record<Locale, string> = {
+  uk: "Вас",
+  en: "You",
+  ru: "Вас",
+  de: "dir",
+  es: "ti",
+  fr: "Vous",
+  pl: "Ciebie",
+  ptBR: "Você",
+  zh: "你",
+};
+
 // Daily upload quota (Aleksandr, 2026-09-02: "лимит по daily uploads
 // на 1 пользователя 20 мб день, на вэбе надо тоже прокинуть... Возьми
 // всю логику с моб версии") -- the byte figures and reset countdown
@@ -5045,7 +5068,7 @@ export default function ChatWindowPage() {
                               // lookup). Same fix here.
                               const forwardFromUser = msg.forwardFrom.user;
                               const forwardOwnerName =
-                                forwardFromUser === myUserId ? YOU_LABEL_TEXT[lang] : contactSummaries[forwardFromUser]?.fullName || "…";
+                                forwardFromUser === myUserId ? YOU_LABEL_FROM_TEXT[lang] : contactSummaries[forwardFromUser]?.fullName || "…";
                               return (
                                 <div className={`mb-1 truncate text-[13px] font-semibold italic ${mine ? "text-white/80" : "text-[#335ef7] dark:text-[#0c8ce9]"}`}>
                                   <T
@@ -5994,10 +6017,14 @@ export default function ChatWindowPage() {
                     onClick={() => setAttachDailyUploadsOpen(true)}
                     aria-label="Daily uploads"
                     // 2026-09-05 (bug-tracker: "Сделай иконку памяти в
-                    // модалке в х2 больше") -- was h-4 w-4.
+                    // модалке в х2 больше") -- was h-4 w-4, doubled to
+                    // h-8 w-8.
+                    // 2026-09-06 (Aleksandr, screenshot: "Иконка памяти
+                    // слишком огромная, уменьши на 50%") -- h-8 w-8
+                    // halved back to the original h-4 w-4.
                     className="group absolute right-2 top-2 rounded-full p-1 text-neutral-400 transition hover:bg-black/5 hover:text-neutral-700 dark:text-neutral-500 dark:hover:bg-white/10 dark:hover:text-neutral-200"
                   >
-                    <ChatStorageIcon className="animate-storage-icon h-8 w-8" />
+                    <ChatStorageIcon className="animate-storage-icon h-4 w-4" />
                   </button>
                   {/* Photo/File rows dim to 50% and stop opening a
                       picker once today's quota is fully used (Figma
