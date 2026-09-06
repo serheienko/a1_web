@@ -521,7 +521,23 @@ export function AvatarMenu() {
                   <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} aria-hidden="true" />,
                   document.body,
                 )}
-              <div className="absolute right-0 top-full z-50 w-80 max-w-[calc(100vw-2rem)] origin-top-right pt-2" ref={panelOuterRef}>
+              {/* Fix Tracker (2026-09-06, Aleksandr, mobile screenshot:
+                  "окно регистрации чуть не влезло в моб версию, надо
+                  подвинуть на 10 px от края") -- max-w-[calc(100vw-2rem)]
+                  assumed this popup's right edge sits ~16px (the nav's
+                  own px-4) off the true viewport edge, same as
+                  site-nav.tsx's other popovers. It doesn't: right:0 here
+                  anchors to wrapperRef, which is the sign-in BUTTON's own
+                  box, sitting to the LEFT of the "•••" SettingsMenu
+                  button (w-9 + gap-1 = ~40px) -- so the real gap to the
+                  true right edge is ~56px, not 16px. On any phone
+                  narrower than ~376px CSS width (iPhone SE/mini and
+                  older), the old formula let the panel's left edge go
+                  negative -- flush against (or just past) the screen's
+                  left edge, no margin at all. calc(100vw-66px) accounts
+                  for that real 56px offset plus a 10px cushion past it,
+                  same ask as the numbers he gave. */}
+              <div className="absolute right-0 top-full z-50 w-80 max-w-[calc(100vw-66px)] origin-top-right pt-2" ref={panelOuterRef}>
                 <div
                   className={
                     "max-h-[85vh] overflow-y-auto rounded-2xl p-5 shadow-lg transition duration-150 ease-out " +
