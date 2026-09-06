@@ -25,6 +25,18 @@
 // surface already has that "centered card over a dim backdrop"
 // pattern established for confirmations, and a date/time picker fits
 // it fine without inventing a second modal shape.
+//
+// 2026-09-06 (reminders list follow-up -- mobile's own RemindMeModal
+// doubles as its EDIT dialog too: reminders_modal_item.dart's
+// `_showEditReminder` reopens this exact same widget with
+// `initialScheduleAt`/`initialLocal` prefilled and its "Set reminder"
+// button just calls `createReminder` again -- there is no separate
+// "updateReminder" backend method, editing is just re-creating with a
+// new scheduleAt for the same message id). `initialScheduleAt`/
+// `initialLocal` below are that same optional pair, used only by
+// components/chat/reminders-list-modal.tsx's own edit flow; the
+// original "Нагадати" call site (a brand-new reminder) simply omits
+// them and gets the old default-to-now-plus-a-minute behavior.
 "use client";
 
 import { useState } from "react";
@@ -54,6 +66,8 @@ export function RemindModal({
   peerDisplayName,
   submitting,
   failed,
+  initialScheduleAt,
+  initialLocal,
   onCancel,
   onConfirm,
 }: {
@@ -63,13 +77,24 @@ export function RemindModal({
   peerDisplayName?: string;
   submitting: boolean;
   failed: boolean;
+  // Editing an existing reminder (see this file's own 2026-09-06
+  // header entry): unix seconds + the wire `local` value exactly as
+  // stored, same pair reminders-list-modal.tsx reads off the reminder
+  // it's editing.
+  initialScheduleAt?: number;
+  initialLocal?: boolean;
   onCancel: () => void;
   // Unix seconds + the wire `local` value (already inverted from
   // whatever the toggle showed -- see this file's own header comment).
   onConfirm: (scheduleAt: number, local: boolean) => void;
 }) {
-  const [remindPeerToo, setRemindPeerToo] = useState(false);
-  const [selected, setSelected] = useState(() => minimumScheduleTime(new Date()));
+  const [remindPeerToo, setRemindPeerToo] = useState(() => initialLocal === false);
+  const [selected, setSelected] = useState(() => {
+    const min = minimumScheduleTime(new Date());
+    if (initialScheduleAt === undefined) return min;
+    const fromInitial = new Date(initialScheduleAt * 1000);
+    return fromInitial < min ? min : fromInitial;
+  });
 
   const minValue = toDatetimeLocalValue(minimumScheduleTime(new Date()));
 

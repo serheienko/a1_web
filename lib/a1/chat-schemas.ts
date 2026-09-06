@@ -1229,3 +1229,34 @@ export function extractMessages(raw: unknown): ChatMessage[] {
   }
   return out.sort((a, b) => messageDateMs(a) - messageDateMs(b));
 }
+
+// Reminders list (2026-09-06 follow-up to the "Remind" feature --
+// mobile's own reminders_modal_item.dart / Reminders bottom sheet, a
+// design-reference screenshot showing "Remind on <date>" pill headers
+// over each reminded message's own bubble preview). Ground-truthed off
+// the backend's own resources/MessageReminder.d.ts: `messages.
+// getReminderMessages` returns a bare array of `{ local, message,
+// scheduleAt, object: "message-reminder" }` -- NOT `Message` objects
+// directly, so this can't reuse extractMessages above (which expects
+// bare/wrapped Message items, not this reminder-wrapper shape).
+export type ReminderItem = {
+  local: boolean;
+  scheduleAt: number;
+  message: ChatMessage;
+};
+
+const ReminderItemSchema = z.object({
+  local: z.boolean().default(false),
+  scheduleAt: z.number(),
+  message: MessageSchema,
+});
+
+export function extractReminders(raw: unknown): ReminderItem[] {
+  const list = Array.isArray(raw) ? raw : [];
+  const out: ReminderItem[] = [];
+  for (const item of list) {
+    const parsed = ReminderItemSchema.safeParse(item);
+    if (parsed.success) out.push(parsed.data);
+  }
+  return out.sort((a, b) => a.scheduleAt - b.scheduleAt);
+}

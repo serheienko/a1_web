@@ -55,8 +55,12 @@ import {
   type MessageMediaDocument,
 } from "@/lib/a1/chat-schemas";
 import { ChatPreviewLine } from "@/components/chat/chat-preview-line";
-import { MessageActionsMenu, ReplyComposeBar, EditComposeBar, ForwardComposeBar, MessageReplyQuote, ReplyIcon, DeleteMessageConfirmDialog } from "@/components/chat/message-actions-menu";
+import { MessageActionsMenu, ReplyComposeBar, EditComposeBar, ForwardComposeBar, MessageReplyQuote, ReplyIcon, RemindIcon, DeleteMessageConfirmDialog } from "@/components/chat/message-actions-menu";
 import { PinnedMessageBanner } from "@/components/chat/pinned-message-banner";
+// Reminders list (2026-09-06, design-reference screenshots of an
+// iOS-style "Remind me" sheet grouping reminders by date -- see this
+// component's own header comment for the full ground-truth trail).
+import { RemindersListModal } from "@/components/chat/reminders-list-modal";
 import { RemindModal } from "@/components/chat/remind-modal";
 import { ForwardPickerModal, type ForwardRowStatus } from "@/components/chat/forward-picker-modal";
 import { SelectionTopBar, SelectionBottomBar } from "@/components/chat/selection-bar";
@@ -1041,6 +1045,10 @@ export default function ChatWindowPage() {
   const SWIPE_TRIGGER_DX = 56;
   const SWIPE_MAX_DX = 72;
   const [myUserId, setMyUserId] = useState<string | null>(null);
+  // Reminders list (2026-09-06) -- the chat header's own new trigger
+  // button below opens this; RemindersListModal fetches its own data
+  // on mount, nothing to preload here.
+  const [remindersListOpen, setRemindersListOpen] = useState(false);
   // 2026-09-02 (Aleksandr: "человек прочёл, но галочки не поменялись
   // из одной в две") -- the OTHER participant's read high-water mark
   // (lib/a1/chat-schemas.ts's ChatParticipantSchema.reaMaxId comment
@@ -3848,35 +3856,51 @@ export default function ChatWindowPage() {
             )}
           </div>
 
-          {headerProfileHref ? (
-            <Link href={headerProfileHref} aria-label={headerTitle || undefined} className="ml-auto shrink-0">
-              {/* 2026-09-05 (Aleksandr: "кешировать вообще всё, если
-                  оно хотя бы 1 раз открывалось") -- this header avatar
-                  renders on every chat open, one of the highest-
-                  frequency avatar surfaces in the app -- same
-                  persistent Cache Storage-backed CachedAvatar every
-                  other avatar surface on the site now uses. */}
+          {/* 2026-09-06 (Reminders list follow-up) -- wraps the
+              header's right-side items (this new trigger + the avatar
+              below) in one flex group so `ml-auto` pushes both of them
+              together instead of just the avatar alone; same 42px
+              circle + border/bg treatment the back-arrow button at the
+              top of this row already uses, for visual consistency. */}
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setRemindersListOpen(true)}
+              aria-label="Reminders"
+              className="flex h-[42px] w-[42px] items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-[#335ef7] backdrop-blur-sm transition hover:bg-neutral-50 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80 dark:text-[#0c8ce9] dark:hover:bg-[#1c1c1e]"
+            >
+              <RemindIcon className="h-[18px] w-[18px]" />
+            </button>
+            {headerProfileHref ? (
+              <Link href={headerProfileHref} aria-label={headerTitle || undefined} className="shrink-0">
+                {/* 2026-09-05 (Aleksandr: "кешировать вообще всё, если
+                    оно хотя бы 1 раз открывалось") -- this header avatar
+                    renders on every chat open, one of the highest-
+                    frequency avatar surfaces in the app -- same
+                    persistent Cache Storage-backed CachedAvatar every
+                    other avatar surface on the site now uses. */}
+                <CachedAvatar
+                  src={headerAvatar}
+                  blurDataURL={headerAvatarBlur ?? BLUR_DATA_URL}
+                  size={42}
+                  className="h-[42px] w-[42px] shrink-0 rounded-full object-cover"
+                />
+              </Link>
+            ) : (
+              // 2026-09-05 (Aleksandr: "кешировать вообще всё, если оно
+              // хотя бы 1 раз открывалось") -- this header avatar renders
+              // on every chat open, one of the highest-frequency avatar
+              // surfaces in the app -- same persistent Cache Storage-
+              // backed CachedAvatar every other avatar surface on the
+              // site now uses.
               <CachedAvatar
                 src={headerAvatar}
                 blurDataURL={headerAvatarBlur ?? BLUR_DATA_URL}
                 size={42}
                 className="h-[42px] w-[42px] shrink-0 rounded-full object-cover"
               />
-            </Link>
-          ) : (
-            // 2026-09-05 (Aleksandr: "кешировать вообще всё, если оно
-            // хотя бы 1 раз открывалось") -- this header avatar renders
-            // on every chat open, one of the highest-frequency avatar
-            // surfaces in the app -- same persistent Cache Storage-
-            // backed CachedAvatar every other avatar surface on the
-            // site now uses.
-            <CachedAvatar
-              src={headerAvatar}
-              blurDataURL={headerAvatarBlur ?? BLUR_DATA_URL}
-              size={42}
-              className="ml-auto h-[42px] w-[42px] shrink-0 rounded-full object-cover"
-            />
-          )}
+            )}
+          </div>
             </>
           )}
         </div>
@@ -6721,6 +6745,15 @@ export default function ChatWindowPage() {
             setClearChatFailed(false);
           }}
           onConfirm={() => void handleConfirmClearChat()}
+        />
+      )}
+      {remindersListOpen && (
+        <RemindersListModal
+          chatId={chatId}
+          myUserId={myUserId}
+          lang={lang}
+          onClose={() => setRemindersListOpen(false)}
+          onJumpToMessage={handleJumpToPinnedMessage}
         />
       )}
       {forwardSource && (
