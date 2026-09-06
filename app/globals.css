@@ -1024,6 +1024,51 @@ textarea {
   animation: cat-eyes-dart 0.6s ease-in-out;
 }
 
+/* Fix Tracker: "анимация при наведении на колокольчик" -- the
+   Reminders bell trigger next to the cat icon (RemindIcon,
+   components/chat/message-actions-menu.tsx) had a color-only hover
+   before this, unlike every other icon in this row. Same
+   `.group:hover .animate-X` convention as everything else here: a
+   swing pivoted near the bell's top loop (where a real bell would
+   hang), decaying like it's actually ringing. The button itself gets
+   the `group` class (app/chats/[chatId]/page.tsx), same one-element
+   pattern .animate-paperclip-wiggle's own trigger uses. */
+@keyframes bell-ring {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  15% {
+    transform: rotate(14deg);
+  }
+  30% {
+    transform: rotate(-12deg);
+  }
+  45% {
+    transform: rotate(9deg);
+  }
+  60% {
+    transform: rotate(-6deg);
+  }
+  75% {
+    transform: rotate(3deg);
+  }
+  90% {
+    transform: rotate(-1deg);
+  }
+}
+
+.group:hover .animate-bell-ring {
+  transform-origin: 50% 15%;
+  animation: bell-ring 0.5s ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .group:hover .animate-bell-ring {
+    animation: none;
+  }
+}
+
 /* 2026-09-03 (Aleksandr, attach-popover screenshot: "Анимируй все
    иконки тут") -- the paperclip trigger already wiggles
    (.animate-paperclip-wiggle above); these four cover the row icons

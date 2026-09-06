@@ -6753,9 +6753,12 @@ export default function ChatWindowPage() {
                 type="button"
                 onClick={() => setRemindersListOpen(true)}
                 aria-label="Reminders"
-                className="flex shrink-0 items-center pb-0.5 text-[#989aa6] transition hover:text-[#335ef7] dark:text-[#adafbb] dark:hover:text-[#0c8ce9]"
+                className="group flex shrink-0 items-center pb-0.5 text-[#989aa6] transition hover:text-[#335ef7] dark:text-[#adafbb] dark:hover:text-[#0c8ce9]"
               >
-                <RemindIcon className="h-5 w-5" />
+                {/* Fix Tracker: "анимация при наведении на колокольчик" --
+                    swing-on-hover, same .group:hover .animate-X convention
+                    as the cat icon just below (app/globals.css). */}
+                <RemindIcon className="h-5 w-5 animate-bell-ring" />
               </button>
               <div ref={mediaPanelRef} className="group relative shrink-0 pb-0.5">
                 <button
