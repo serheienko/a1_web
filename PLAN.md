@@ -9267,3 +9267,84 @@ Terminal після `npm install` (або Finder → "Download Now" на всю
 папку) — тоді ж стане видно, чи є реальні помилки типів.
 
 Commit 9f70f61.
+
+## 6.229 — "Pin": закріплення/відкріплення повідомлення в чаті — 2026-09-06
+
+Александр, той самий референс-скріншот меню повідомлення: "Посмотри
+еще функцию закрепов сообщений «пин» найди документацию и подготовься
+к имплементации". На відміну від Remind (6.228, звірено лише з
+мобільним клієнтом), цього разу знайдено й прочитано САМ БЕКЕНД
+(`~/mnt/a1_app/aone-api-private-main`), не тільки мобільний код:
+
+- `packages/types/methods/messages_updatePinnedMessage.d.ts` —
+  `POST messages.updatePinnedMessage` з тілом
+  `{ id: <numeric message id>, peerTo, unpin: boolean, local: boolean }`,
+  повертає `boolean`.
+- `packages/types/methods/messages_getMessages.d.ts` — той самий
+  `messages.getMessages`, який чат уже використовує для polling, має
+  необов'язковий `onlyPinned?: boolean` — окремого "get pinned"
+  ендпоінту нема.
+- `packages/constants/src/messages.constants.ts` — `MESSAGE_FLAG.PINNED
+  = 1 << 3` (біт у полі `Message.flags`, підтверджено з першоджерела,
+  а не вгадано з мобільного використання).
+
+Мобільний `chat_detail_cubit.dart`'s власний `pinMessage()` НІКОЛИ не
+дає користувачу вибір `local` — усі ~20 реальних викликів у коді
+жорстко передають `pinForAll: true` (→ `local: false`), тобто "Pin" у
+референсному застосунку завжди закріплює для всього чату. Веб робить
+так само — без тумблера "тільки для мене" (на відміну від Remind, де
+такий тумблер є). Ще одне мобільне правило, відтворене тут: 1 пін на
+чат — закріплення нового повідомлення при вже існуючому піні мовчки
+відкріплює старе (fire-and-forget другий виклик).
+
+- `app/api/chats/pin/route.ts` (новий) — POST пін/анпін;
+  `replacingMessageId` (опційно) — той самий "тихо відкріпи старе"
+  виклик, коли замінюємо пін.
+- `app/api/chats/pinned/route.ts` (новий) — GET поточного піна чату
+  (`onlyPinned: true, limit: 1`). Окремий від `app/api/chats/messages/
+  route.ts`'s власного polling (той завжди перечитує останні 50
+  повідомлень) — закріплене повідомлення може бути старішим за це
+  вікно, тож потребує власного завжди-коректного пошуку; викликається
+  раз при відкритті чату і повторно після успішного піна/анпіна.
+- `lib/a1/chat-schemas.ts` — `MESSAGE_FLAG_PINNED = 1 << 3` +
+  `isMessagePinned(msg)`.
+- `components/chat/message-actions-menu.tsx` — рядок "Pin" тепер
+  реальний, з новими пропсами `onPin?`/`pinState?: "pin" | "replace" |
+  "unpin"`; іконка й підпис міняються залежно від стану (як у
+  мобільних `receiver_message_item.dart`/`sender_message_item.dart`).
+  На відміну від Remind, тут НЕМА модалки підтвердження — мобільний
+  контекст-меню пін/анпін діє одразу.
+- `components/chat/pinned-message-banner.tsx` (новий) — плашка над
+  списком повідомлень (портовано з мобільного `PinnedMessageItem`):
+  акцентна смужка + "Pinned Message" + прев'ю змісту (перевикористано
+  вже наявні `ChatPreviewLine`/`describeMessagePreview` з реплай-квоти,
+  а не нова реалізація прев'ю); тап — скрол+підсвітка повідомлення
+  (той самий механізм `data-message-id`/`highlightedMessageId`, що й
+  "Show in chat" у фотов'ювері); хрестик — 3-секундне підтвердження
+  "Unpin pinned message?" перш ніж реально відкріпити (мобільний
+  `_enterConfirmation`/`_autoResetTimer`), а не миттєвий унпін.
+- `app/chats/[chatId]/page.tsx` — стейт `pinnedMessage`/`pinBusy`,
+  `fetchPinned()` (раз на відкриття чату), `handleTogglePin()`
+  (оптимістичне оновлення `messages[].flags` + `pinnedMessage`, як у
+  мобільного `_applyOptimisticPin`, відкат через повторний
+  `fetchPinned()` при помилці), `handleJumpToPinnedMessage()`.
+
+Свідомо НЕ будувалося: мобільна вкладка "Reminders"-подібного списку
+пінів нема в референсі взагалі (пін завжди один на чат), тож нічого
+пропускати не довелось — фіча зроблена повністю в межах того, що є в
+мобільному застосунку.
+
+Примітка з верифікації: та сама блокуюча проблема iCloud "Optimize Mac
+Storage" на `~/Desktop/a1_web`'s `node_modules` (див. 6.228) не дала
+прогнати повний `npx tsc --noEmit` цього разу теж (`next`'s власний
+`dist/bin/next` і транзитивні require теж виявились вивантажені —
+точкова підвантажка через міст не масштабується на весь `node_modules`).
+Перевірено вручну: `node --check` пройшов чисто на обох нових `.ts`
+роутах і на всьому `lib/a1/chat-schemas.ts` (звичайний `.ts`, без JSX);
+`.tsx`-файли (`message-actions-menu.tsx`, `pinned-message-banner.tsx`,
+`page.tsx`) вичитані рядок-в-рядок по кожній вставленій ділянці.
+Повноцінний `tsc`/`build` — після `npm install` чи Finder → "Download
+Now" на папку в реальному Terminal.
+
+Commit c3fe215.
+
