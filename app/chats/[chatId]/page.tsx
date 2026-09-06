@@ -867,6 +867,8 @@ export default function ChatWindowPage() {
   // confirmation.
   const [pinnedMessage, setPinnedMessage] = useState<ChatMessage | null>(null);
   const [pinBusy, setPinBusy] = useState(false);
+  // 2026-09-06 (Fix Tracker: "відкріпити сделай, чтобы тоже плавно исчезало как и появлялось") -- the banner below used to be a plain `{pinnedMessage && (...)}` conditional, so React unmounted it the INSTANT handleTogglePin's optimistic update set pinnedMessage to null -- no time for any exit CSS animation to play (a mount-time animation like .animate-pin-banner-in has nothing to animate on unmount, the DOM node is just gone). This lagging "displayed" copy is the same trick this file's own displayedReplyTarget (t016) already uses for the reply-bar collapse: it tracks the REAL pinnedMessage on the way in (instant), but on the way out it holds the last known message for PIN_BANNER_EXIT_MS while a reverse (fade+slide-up) animation plays, then clears for real.
+  const [displayedPinnedMessage, setDisplayedPinnedMessage] = useState<ChatMessage | null>(null);
   // 2026-09-05 (Aleksandr: "попап должен сам исчезать через 3 сек") --
   // a bump-only counter, not a boolean: copying twice in a row needs
   // CopyToast's own dismiss timer to restart from zero each time,
@@ -1835,8 +1837,25 @@ export default function ChatWindowPage() {
 
   useEffect(() => {
     setPinnedMessage(null);
+    // Instant, not animated -- this is a chat switch, not a real
+    // unpin, so there's nothing to play an exit transition over (see
+    // displayedPinnedMessage's own header comment above).
+    setDisplayedPinnedMessage(null);
     fetchPinned();
   }, [fetchPinned]);
+
+  // Matches .animate-pin-banner-out's own duration in app/globals.css.
+  const PIN_BANNER_EXIT_MS = 200;
+  useEffect(() => {
+    if (pinnedMessage) {
+      setDisplayedPinnedMessage(pinnedMessage);
+      return;
+    }
+    if (!displayedPinnedMessage) return;
+    const timer = window.setTimeout(() => setDisplayedPinnedMessage(null), PIN_BANNER_EXIT_MS);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pinnedMessage]);
 
   // 2026-09-02 (Aleksandr, screen recording: "Новое сообщение должно
   // подниматься выше, чем сейчас") -- scrollIntoView({block: "end"}) on
@@ -3928,12 +3947,16 @@ export default function ChatWindowPage() {
           so the banner's edges land flush with the back-arrow's left
           edge and the avatar's right edge instead of the component's
           own fixed mx-3. */}
-      {pinnedMessage && (
-        <div className="mx-auto w-full max-w-[470px] px-4">
+      {displayedPinnedMessage && (
+        <div
+          className={`mx-auto w-full max-w-[470px] px-4 ${
+            pinnedMessage ? "" : "pointer-events-none animate-pin-banner-out"
+          }`}
+        >
           <PinnedMessageBanner
-            pinnedMessage={pinnedMessage}
-            onTap={() => handleJumpToPinnedMessage(Number(pinnedMessage._id))}
-            onUnpin={() => handleTogglePin(pinnedMessage)}
+            pinnedMessage={displayedPinnedMessage}
+            onTap={() => handleJumpToPinnedMessage(Number(displayedPinnedMessage._id))}
+            onUnpin={() => handleTogglePin(displayedPinnedMessage)}
             unpinning={pinBusy}
           />
         </div>

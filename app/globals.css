@@ -442,6 +442,14 @@ textarea {
  * crossfade the banner applies to whichever of its two inner states
  * (default row / confirm row) is currently mounted, keyed so React
  * re-triggers it on every swap between them.
+ *
+ * 2026-09-06 (Fix Tracker: "відкріпити сделай, чтобы тоже плавно
+ * исчезало как и появлялось") -- .animate-pin-banner-out is the exact
+ * reverse of -in (same duration/easing, opacity+translateY run
+ * backwards), played on the way out instead of an instant unmount;
+ * app/chats/[chatId]/page.tsx's own displayedPinnedMessage lag/timeout
+ * pair is what keeps the DOM node around long enough (PIN_BANNER_EXIT_MS,
+ * matching this animation's 0.2s) for this to actually be visible.
  */
 @keyframes pin-banner-in {
   from {
@@ -456,6 +464,21 @@ textarea {
 
 .animate-pin-banner-in {
   animation: pin-banner-in 0.22s ease-out;
+}
+
+@keyframes pin-banner-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+.animate-pin-banner-out {
+  animation: pin-banner-out 0.2s ease-in;
 }
 
 @keyframes pin-content-fade {
@@ -478,6 +501,7 @@ textarea {
   .animate-popover-down,
   .animate-backdrop-in,
   .animate-pin-banner-in,
+  .animate-pin-banner-out,
   .animate-pin-content-fade {
     animation: none;
   }
