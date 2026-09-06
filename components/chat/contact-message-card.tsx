@@ -82,7 +82,15 @@ type AddState = "idle" | "adding" | "added" | "error";
 // as the neighboring Message button (no more hardcoded color of its
 // own, so the glyph just inherits currentColor) and a thinner,
 // smaller stroke.
-function PlusIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
+// 2026-09-06 (Aleksandr, повторно по этой же кнопке: "Сделай + на 50%
+// меньше, должен быть нормальный аккуратный") -- прошлый заход
+// (см. комментарий выше) только сменил заливку и толщину штриха, но
+// сам кружок остался высотой во всю кнопку "Повідомлення" рядом, из-за
+// чего плюс читался как второй равноправный CTA, а не как мелкое
+// вторичное действие. Теперь ровно вдвое меньше: кружок 36 -> 18px,
+// глиф 14 -> 10px (55% от кружка -- при меньшем глифе плюс в таком
+// диаметре уже не читается).
+function PlusIcon({ className = "h-2.5 w-2.5" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className={className} aria-hidden="true">
       <path d="M12 5v14M5 12h14" />
@@ -228,7 +236,7 @@ export function ContactMessageCard({
             aria-label="Add to contacts"
             className={`group flex shrink-0 items-center justify-center overflow-hidden rounded-full transition-all duration-300 ease-out disabled:cursor-default ${
               mine ? "bg-white/20 hover:bg-white/30" : "bg-black/5 hover:bg-black/10 dark:bg-white/15 dark:hover:bg-white/25"
-            } ${addState === "added" ? "w-0 opacity-0" : "h-9 w-9 opacity-100 active:scale-95"}`}
+            } ${addState === "added" ? "w-0 opacity-0" : "h-[18px] w-[18px] opacity-100 active:scale-95"}`}
           >
             {addState === "adding" ? <AddSpinner /> : <PlusIcon className="animate-theme-pop" />}
           </button>

@@ -333,13 +333,32 @@ export function MessageActionsMenu({
   // wrong spot first. anchorRect is a frozen snapshot from the click
   // that opened this (not a live-tracked element), so this still only
   // runs once on mount, same as before.
-  const [placement, setPlacement] = useState<{ left: number; top: number; openAbove: boolean } | null>(null);
+  const [placement, setPlacement] = useState<{ left: number; top: number; openAbove: boolean; needsScroll: boolean } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
     const el = menuRef.current;
     if (!el) return;
-    const menuHeight = Math.min(el.getBoundingClientRect().height, window.innerHeight - VIEWPORT_MARGIN * 2);
+    // 2026-09-06 (Aleksandr, два тикета про одно и то же место: "На
+    // купертино меню есть трабла с каким то квадратным фоном в левом
+    // нижнем углу, какая то типа подложка, надо ее убрать" + "Убери эту
+    // штуку для скролла снизу в купертино") -- обе жалобы даёт один и
+    // тот же корень: у корневого дива меню безусловно стояли maxHeight
+    // + overflowY:"auto". Скролл-контейнер в Chrome, во-первых, рисует
+    // собственную полосу прокрутки (это и есть "штука для скролла"), а
+    // во-вторых -- обрезает всё, что вылезает за его бокс, включая
+    // shadow-xl у обеих внутренних карточек: мягкая тень у скруглённых
+    // углов срезается по прямой и читается как квадратная подложка,
+    // выглядывающая из-под меню. Оба артефакта не нужны в норме: меню
+    // помещается на экран практически всегда, а overflow был лишь
+    // "последней страховкой" на совсем низкий вьюпорт (см. комментарий
+    // ниже). Теперь страховка включается только когда реально не
+    // помещается, и даже тогда полоса прокрутки прячется через
+    // .no-scrollbar (app/globals.css).
+    const rawHeight = el.getBoundingClientRect().height;
+    const available = window.innerHeight - VIEWPORT_MARGIN * 2;
+    const needsScroll = rawHeight > available;
+    const menuHeight = Math.min(rawHeight, available);
     const spaceAbove = anchorRect.top;
     const spaceBelow = window.innerHeight - anchorRect.bottom;
     // Prefer below (Telegram's own default); only flip above when below
@@ -360,7 +379,7 @@ export function MessageActionsMenu({
     const top = Math.min(Math.max(idealTop, VIEWPORT_MARGIN), maxTop);
     const idealLeft = mine ? anchorRect.right - MENU_WIDTH : anchorRect.left;
     const left = Math.min(Math.max(idealLeft, VIEWPORT_MARGIN), window.innerWidth - MENU_WIDTH - VIEWPORT_MARGIN);
-    setPlacement({ left, top, openAbove });
+    setPlacement({ left, top, openAbove, needsScroll });
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
     }
@@ -411,13 +430,19 @@ export function MessageActionsMenu({
           available spot -- scrolls internally instead of clipping. */}
       <div
         ref={menuRef}
-        className={`absolute flex w-[240px] flex-col gap-2 ${placement?.openAbove ? "animate-popover-up" : "animate-popover-down"}`}
+        className={`absolute flex w-[240px] flex-col gap-2 ${placement?.openAbove ? "animate-popover-up" : "animate-popover-down"} ${
+          placement?.needsScroll ? "no-scrollbar" : ""
+        }`}
         style={{
           left: placement ? placement.left : -9999,
           top: placement ? placement.top : 0,
           visibility: placement ? "visible" : "hidden",
-          maxHeight: `${Math.max(0, window.innerHeight - VIEWPORT_MARGIN * 2)}px`,
-          overflowY: "auto",
+          // maxHeight/overflow навешиваются только если меню реально не
+          // влезает по высоте -- см. комментарий в layout-эффекте выше о
+          // том, что безусловный скролл-контейнер давал и полосу
+          // прокрутки, и срезанные в квадрат тени.
+          maxHeight: placement?.needsScroll ? `${Math.max(0, window.innerHeight - VIEWPORT_MARGIN * 2)}px` : undefined,
+          overflowY: placement?.needsScroll ? "auto" : "visible",
         }}
       >
           {/* Reaction quick-bar -- placeholder, see header comment.

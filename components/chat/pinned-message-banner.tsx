@@ -93,7 +93,7 @@ export function PinnedMessageBanner({
   return (
     <div className="animate-pin-banner-in mt-2 flex h-[46px] w-full items-stretch overflow-hidden rounded-[20px] border border-black/10 bg-white/80 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-[#1c1c1e]/80">
       {confirming ? (
-        <div key="confirm" className="animate-pin-content-fade flex flex-1 items-center px-4">
+        <div key="confirm" className="animate-pin-content-fade flex min-w-0 flex-1 items-center px-4">
           <span className="truncate text-[15px] font-medium leading-tight text-[#1c1c1e] dark:text-white">
             <T
               uk="Відкріпити закріплене повідомлення?" en="Unpin pinned message?" ru="Открепить закреплённое сообщение?"
@@ -119,7 +119,26 @@ export function PinnedMessageBanner({
           </span>
         </button>
       )}
-      <div className="flex w-[54px] shrink-0 items-center justify-center">
+      {/* 2026-09-06 (Aleksandr, скриншот: красная кнопка "Відкріпити"
+          обрезана правым краем баннера -- "Не влезла кнопка. можешь
+          весь бар расширять с 2-х сторон чуть, чтобы был норм паддинг,
+          если она не влезает?") -- корень не в ширине бара, а в этом
+          слоте: он был жёстко w-[54px], под маленький крестик (h-8 w-8)
+          в обычном состоянии. В состоянии подтверждения сюда встаёт
+          пилюля "Відкріпити", которая заметно шире 54px, а у контейнера
+          выше стоит overflow-hidden -- отсюда и срез ровно по краю.
+          Бар при этом специально сужен по ширине чатового окна (см.
+          §6.235 и его же просьбу "Сузь закреп на ширину нашего чатового
+          окна"), поэтому расширять его обратно нельзя -- вместо этого
+          слот теперь в режиме подтверждения занимает ровно столько,
+          сколько нужно пилюле, со своим правым паддингом, а вопрос
+          слева ужимается через min-w-0 + truncate, если места мало.
+          Клипа не будет ни при какой ширине окна. */}
+      <div
+        className={`flex shrink-0 items-center justify-center ${
+          confirming ? "pl-1 pr-3" : "w-[54px]"
+        }`}
+      >
         {confirming ? (
           <button
             key="unpin"
