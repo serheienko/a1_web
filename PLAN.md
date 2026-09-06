@@ -9210,3 +9210,60 @@ selection-mode (чекбокс зліва від бабла, delete зліва /
 потрібне уточнення.
 
 tsc-clean. Commit b7cc06c.
+
+## 6.228 — "Remind": фіча нагадування по кожному повідомленню — 2026-09-06
+
+Александр, скріншот референсного меню повідомлення (Reply/Copy/
+Remind/Forward/Pin/Delete/Select): "У нас есть еще фича «remind» она
+работает на каждое сообщение... Можно поставить ремайндер на кажд
+сообщение". Пункт "Нагадати" в `message-actions-menu.tsx` лишався
+візуальною заглушкою ще з початкового заголовка цього файлу
+("everything placeholder except Reply") — підключено до реального
+бекенду, звірено безпосередньо з вихідним кодом мобільного застосунку
+(НЕ вгадано):
+`lib/features/chat/presentation/chat_detail/cubit/chat_detail_cubit.dart`'s
+власний `createReminder()` + `lib/core/constants/api_constants.dart`'s
+`chatCreateReminder = 'https://api.a1appp.com/api/v1/messages.
+createReminder'`.
+
+- `components/chat/remind-modal.tsx` (новий) — центрована картка (той
+  самий візуальний стиль, що й `DeleteMessageConfirmDialog`), поле
+  `<input type="datetime-local">` (мінімум — початок наступної
+  хвилини, як і в моб. `RemindMeModal`'s `_minimumScheduleTime` —
+  "avoids backend rejection"), плюс опціональний тумблер "Нагадати
+  також {peer}" коли є ім'я чату — інвертований відносно wire-поля
+  `local` так само, як у моб. версії (тумблер вимкнено за замовчуванням
+  → `local: true`, тобто нагадування лише собі; увімкнено → `local:
+  false`, нагадує і іншій стороні чату).
+- `app/api/chats/reminders/create/route.ts` (новий) — POST
+  `messages.createReminder` через вже наявний `callAsVisitor`, тіло
+  `{ peerTo, message: <numeric message id>, scheduleAt: <unix seconds>,
+  local: boolean }`.
+- `components/chat/message-actions-menu.tsx` — `ActionRow` "remind"
+  отримав `onRemind?: () => void`, підключено в `select()`.
+- `app/chats/[chatId]/page.tsx` — `remindTarget`/`remindSubmitting`/
+  `remindFailed` стейт (той самий патерн, що й у `deleteConfirm` —
+  окрема центрована модалка, а не щось прив'язане до рядка меню, бо
+  меню вже закрите на момент відкриття); `handleConfirmRemind` шле
+  POST і закриває модалку при успіху.
+
+Свідомо НЕ будувалося в цій ітерації: моб. "Reminders" bottom sheet
+(перегляд/редагування/видалення вже встановлених нагадувань у чаті,
+`messages.getReminderMessages`/`messages.deleteReminders`) і глобальна
+вкладка "Reminders" у Shortcuts-екрані (`reminders_tab.dart`) — сам
+ремайндер доставляється бекендом за розкладом незалежно від наявності
+такого перегляду, тож функціонально фіча вже працює; UI для керування
+наявними нагадуваннями — окрема більша задача, якщо знадобиться.
+
+Примітка з верифікації: `npx tsc --noEmit` у цій сесії впав НЕ через
+код, а тому що `node_modules` у `~/Desktop/a1_web` виявився вивантажений
+в iCloud (Optimize Mac Storage), і міст не може дочитати файли-
+заглушки (`Resource deadlock avoided` / `errno -35`) — той самий ефект
+ловився і на мобільному репо (`~/Desktop/a1_app`) раніше цього ж дня.
+Правки перевірено вручну (структура ідентична вже перевіреним
+`DeleteMessageConfirmDialog`/`ForwardPreviewMenu`, дужки/дужки
+збалансовано), але повноцінний `tsc`/`build` варто прогнати у власному
+Terminal після `npm install` (або Finder → "Download Now" на всю
+папку) — тоді ж стане видно, чи є реальні помилки типів.
+
+Commit 9f70f61.
