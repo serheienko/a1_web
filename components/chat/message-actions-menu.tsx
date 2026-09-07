@@ -650,19 +650,29 @@ export function ReactionsBar({
   if (groups.length === 0) return null;
 
   return (
-    // Fix Tracker ("реакции не помещаются в текущие пилюли", 2026-09-07):
-    // pills were too tight for emoji+avatar (py-0.5/14px/18px avatar) --
-    // bumped padding/type/avatar size below so nothing clips. Also pulled
-    // the whole row half a step closer to the bubble (mt-1 -> mt-0.5) so
-    // reactions read as attached to the message rather than a separate
-    // floating line. NOT overlapped further (e.g. negative margin) on
-    // purpose: photo/video bubbles already anchor their own time badge at
-    // `bottom-1.5 right-1.5` INSIDE the image (see flatFooter/crossGroupFooter
-    // in page.tsx), and an overlap large enough to look "inside" the bubble
-    // would sit right on top of that badge for `mine` messages -- needs a
-    // live screenshot/video from Aleksandr before going further, same as
-    // the still-open reaction-position ticket (order 56).
-    <div className={`-mt-0.5 flex flex-wrap gap-1.5 ${mine ? "justify-end" : "justify-start"}`}>
+    // Fix Tracker (2026-09-07, Aleksandr's own reference screenshot,
+    // order 83: "вот как должны выглядеть реакции... на некоторых
+    // типах сообщений они снаружи, на некоторых внутри") -- Telegram
+    // straddles the pill right on the bubble's own bottom corner, half
+    // sitting ON the bubble/image and half hanging below it, the SAME
+    // way for text bubbles, the calculation table (order 82: the old
+    // flow-row layout below made a wide bubble push the pill down as
+    // its own separate line instead of sitting on the corner) and
+    // photo/video bubbles alike. Anchored absolutely to the bottom
+    // corner of the SAME `relative` bubble row in page.tsx (see that
+    // call site's own comment) instead of the previous plain flow row,
+    // and pinned to the same side as `mine` so it always lands on the
+    // bubble's own edge no matter the bubble's width. `pointer-events-
+    // none` on the row + `pointer-events-auto` back on each pill keeps
+    // the empty space around a short pill from blocking taps on the
+    // bubble underneath it. page.tsx reserves a little extra bottom
+    // margin on any message that has reactions (see `hasReactions`
+    // there) so the hanging half doesn't touch the next bubble.
+    <div
+      className={`pointer-events-none absolute inset-x-1 bottom-0 z-10 flex translate-y-1/2 flex-wrap gap-1.5 ${
+        mine ? "justify-end" : "justify-start"
+      }`}
+    >
       {groups.map((group) => {
         const iReacted = myUserId !== null && group.reactors.some((p) => p.object === "peer-user" && p.user === myUserId);
         const otherReacted = group.reactors.some((p) => p.object === "peer-user" && p.user !== myUserId);
@@ -671,10 +681,10 @@ export function ReactionsBar({
             key={group.emoticon}
             type="button"
             onClick={() => onToggle(group.emoticon)}
-            className={`flex items-center gap-1 rounded-full py-1 pl-2.5 pr-2 text-[16px] leading-none shadow-sm transition hover:scale-105 ${
+            className={`pointer-events-auto flex items-center gap-1 rounded-full py-1 pl-2.5 pr-2 text-[16px] leading-none shadow-md ring-2 transition hover:scale-105 ${
               iReacted
-                ? "bg-[#335ef7] text-white dark:bg-[#0c8ce9]"
-                : "bg-white text-[#262a34] dark:bg-[#1a1a1a] dark:text-white"
+                ? "bg-[#335ef7] text-white ring-white dark:bg-[#0c8ce9] dark:ring-[#0e1116]"
+                : "bg-white text-[#262a34] ring-white dark:bg-[#1a1a1a] dark:text-white dark:ring-[#0e1116]"
             }`}
           >
             <span className="leading-none">{group.emoticon}</span>

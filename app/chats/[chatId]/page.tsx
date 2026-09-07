@@ -4440,6 +4440,16 @@ export default function ChatWindowPage() {
               const mine = "pending" in msg && msg.pending
                 ? true
                 : myUserId !== null && msg.fromId === myUserId;
+              // Fix Tracker (2026-09-07, orders 82/83) -- ReactionsBar
+              // now straddles the bubble's own bottom corner instead of
+              // flowing as its own line (see that component's header
+              // comment), so a reacted-to message no longer reserves
+              // any height for it by itself. Half the pill still hangs
+              // below the bubble on purpose (that's the whole point of
+              // the overlap look) -- this reserves just enough extra
+              // margin below THIS message so that hanging half doesn't
+              // touch the next bubble up.
+              const hasReactions = !("pending" in msg && msg.pending) && (msg.reactions ?? []).length > 0;
               const text = extractMessageText(msg);
               const ms = messageDateMs(msg);
               // 2026-09-02: displayMessages[i - 1] types as
@@ -4753,7 +4763,7 @@ export default function ChatWindowPage() {
                 </div>
               );
               return (
-                <div key={msg._id}>
+                <div key={msg._id} className={hasReactions ? "mb-3" : undefined}>
                   {showDate && (
                     <div className="my-3 flex justify-center">
                       <span className="rounded-full bg-black/5 px-3 py-1 text-[13px] font-medium text-[#262a34] backdrop-blur-sm dark:bg-white/10 dark:text-white">
@@ -5742,25 +5752,31 @@ export default function ChatWindowPage() {
                         />
                       </div>
                     )}
+                    {/* Reactions bar (2026-09-06, moved 2026-09-07 --
+                        see ReactionsBar's own header comment, orders 82
+                        & 83) -- straddles the bottom corner of THIS row
+                        (already `position: relative`, same anchor the
+                        heart-burst overlay above already uses), same
+                        side as `mine`, rather than the outer
+                        `key={msg._id}` wrapper below -- one shared
+                        insertion point that works for every message
+                        kind (text, photo, file, contact card,
+                        calculation) without touching each of those
+                        render branches above. Skipped for a still-
+                        pending (not yet confirmed sent) message --
+                        chat-server has never seen it yet, so it can't
+                        have any reactions. */}
+                    {!pending && (
+                      <ReactionsBar
+                        reactions={msg.reactions ?? []}
+                        mine={mine}
+                        myUserId={myUserId}
+                        otherAvatarUrl={headerAvatar}
+                        otherInitial={headerTitle ? headerTitle.charAt(0).toUpperCase() : undefined}
+                        onToggle={(emoticon) => void handleToggleReaction(msg, emoticon)}
+                      />
+                    )}
                   </div>
-                  {/* Reactions bar (2026-09-06) -- its own line below the
-                      bubble row above, same side as `mine` (see
-                      ReactionsBar's own header comment for why this
-                      lives HERE, one shared insertion point, rather than
-                      inside each of the message-kind branches above).
-                      Skipped for a still-pending (not yet confirmed
-                      sent) message -- chat-server has never seen it yet,
-                      so it can't have any reactions. */}
-                  {!pending && (
-                    <ReactionsBar
-                      reactions={msg.reactions ?? []}
-                      mine={mine}
-                      myUserId={myUserId}
-                      otherAvatarUrl={headerAvatar}
-                      otherInitial={headerTitle ? headerTitle.charAt(0).toUpperCase() : undefined}
-                      onToggle={(emoticon) => void handleToggleReaction(msg, emoticon)}
-                    />
-                  )}
                 </div>
               );
             })}
