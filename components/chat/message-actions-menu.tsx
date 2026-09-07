@@ -28,7 +28,12 @@ import { T, type Locale } from "@/components/t";
 import { groupReactionsByEmoji, type MessagePeerReaction } from "@/lib/a1/chat-schemas";
 import { EMOJI_CATEGORIES } from "@/lib/a1/emoji-data";
 
-const MENU_WIDTH = 240;
+// Fix Tracker (2026-09-07, order 92: "Расширь модалку + поле сверху с
+// эмодзи и вставь стрелку внутрь, а не отдельно снаружи") -- was 240,
+// which is why the expanded emoji grid below had to shrink to 6
+// columns (see that grid's own comment) instead of matching this
+// row's 7 quick-react emoji. Widened so the grid gets a 7th column.
+const MENU_WIDTH = 280;
 // 2026-09-05, second follow-up (Aleksandr, live screenshot: even with
 // the two-pass measure-then-clamp above, the menu still sat flush
 // against the very bottom edge on his real screen -- "подними еще
@@ -425,7 +430,16 @@ export function MessageActionsMenu({
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-50">
+    // Fix Tracker (2026-09-07, Aleksandr: "В мини-чатах модалка с
+    // действиями появляется под чатами. Проблемы с оверлеем.") -- this
+    // portal renders into document.body (escaping the mini-chat
+    // window's own overflow-hidden), but z-50 still lost to that
+    // window's own floating panel at z-[70] (components/mini-chat-
+    // window.tsx), so the menu visually rendered BEHIND it. Bumped
+    // above the highest z-index anywhere else in the app (z-[75]) so
+    // this context menu is always on top regardless of which surface
+    // (full chat page or mini-chat widget) opened it.
+    <div className="fixed inset-0 z-[80]">
       {/* 2026-09-05 follow-up (Aleksandr, Telegram Desktop reference
           screenshot: right-click context menu pops up over the chat
           with NO dimming or blur behind it at all -- "не надо блюр:
@@ -449,7 +463,7 @@ export function MessageActionsMenu({
           available spot -- scrolls internally instead of clipping. */}
       <div
         ref={menuRef}
-        className={`absolute flex w-[240px] flex-col gap-2 ${placement?.openAbove ? "animate-popover-up" : "animate-popover-down"} ${
+        className={`absolute flex w-[280px] flex-col gap-2 ${placement?.openAbove ? "animate-popover-up" : "animate-popover-down"} ${
           placement?.needsScroll ? "no-scrollbar" : ""
         }`}
         style={{
@@ -485,88 +499,111 @@ export function MessageActionsMenu({
               instead of `self-start gap-1` -- same content, evenly
               spaced across the menu's own real width, never wider
               than it regardless of exact emoji/font rendering. */}
-          <div className="flex w-full items-center justify-between rounded-full bg-white/95 px-2 py-1.5 shadow-xl backdrop-blur-sm dark:bg-neutral-800/95">
-            {REACTION_EMOJIS.map((emoji) => (
+          {/* Fix Tracker (2026-09-07, order 92: "Расширь модалку +
+              поле сверху с эмодзи и вставь стрелку внутрь, а не
+              отдельно снаружи") -- the quick-react row and the
+              expanded grid below used to be two separate
+              rounded-full/rounded-2xl white cards stacked with a gap,
+              so the chevron read as opening a whole separate floating
+              panel rather than the row itself growing. Now ONE
+              container: rounded-full while collapsed, rounded-[26px]
+              once the grid is open (still one continuous card, just a
+              gentler radius that suits the taller rectangle), with
+              the grid section separated from the quick-react row by
+              nothing more than an internal hairline divider instead
+              of a gap -- the arrow now visibly toggles content INSIDE
+              this one surface instead of summoning a separate one
+              below it. Also widened from 240 to 280 (MENU_WIDTH
+              above) so the grid gets a 7th column, matching the
+              quick-react row's own 7 emoji instead of cramming into
+              6. */}
+          <div
+            className={`flex w-full flex-col overflow-hidden bg-white/95 shadow-xl backdrop-blur-sm transition-[border-radius] duration-150 dark:bg-neutral-800/95 ${
+              emojiPickerOpen ? "rounded-[26px]" : "rounded-full"
+            }`}
+          >
+            <div className="flex w-full items-center justify-between px-2 py-1.5">
+              {REACTION_EMOJIS.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => {
+                    onReact?.(emoji);
+                    onClose();
+                  }}
+                  className={`rounded-full p-1 text-[19px] leading-none transition hover:scale-110 ${
+                    myReactionEmoticon === emoji ? "scale-110 bg-[#335ef7]/10 dark:bg-white/10" : ""
+                  }`}
+                >
+                  {emoji}
+                </button>
+              ))}
               <button
-                key={emoji}
                 type="button"
-                onClick={() => {
-                  onReact?.(emoji);
-                  onClose();
-                }}
-                className={`rounded-full p-1 text-[19px] leading-none transition hover:scale-110 ${
-                  myReactionEmoticon === emoji ? "scale-110 bg-[#335ef7]/10 dark:bg-white/10" : ""
-                }`}
+                onClick={() => setEmojiPickerOpen((v) => !v)}
+                aria-label="More"
+                aria-expanded={emojiPickerOpen}
+                className="rounded-full p-1 text-neutral-400 transition hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300"
               >
-                {emoji}
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={`h-4 w-4 transition-transform ${emojiPickerOpen ? "rotate-180" : ""}`}
+                  aria-hidden="true"
+                >
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
               </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => setEmojiPickerOpen((v) => !v)}
-              aria-label="More"
-              aria-expanded={emojiPickerOpen}
-              className="rounded-full p-1 text-neutral-400 transition hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className={`h-4 w-4 transition-transform ${emojiPickerOpen ? "rotate-180" : ""}`}
-                aria-hidden="true"
-              >
-                <path d="M6 9l6 6 6-6" />
-              </svg>
-            </button>
-          </div>
-
-          {/* Full emoji dropdown -- toggled by the chevron above. Same
-              EMOJI_CATEGORIES data + category-row pattern as
-              media-picker-panel.tsx's own emoji tab, condensed to fit
-              this menu's fixed 240px width: icon-only scrollable
-              category row (no room for text labels), 6-column grid
-              (vs. that panel's 8, which was sized for a wider sheet),
-              capped height with its own internal scroll so this
-              doesn't blow out the whole popup's height budget --
-              picking any emoji here reacts + closes the menu exactly
-              like the quick-react row above. */}
-          {emojiPickerOpen && (
-            <div className="flex w-full flex-col gap-1.5 rounded-2xl bg-white/95 p-2 shadow-xl backdrop-blur-sm dark:bg-neutral-800/95">
-              <div className="flex gap-1 overflow-x-auto pb-0.5 no-scrollbar">
-                {EMOJI_CATEGORIES.map((c) => (
-                  <button
-                    key={c.key}
-                    type="button"
-                    onClick={() => setEmojiPickerCategory(c.key)}
-                    title={c.labelRu}
-                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[14px] transition ${
-                      emojiPickerCategory === c.key ? "bg-[#335ef7]/15 dark:bg-[#0c8ce9]/20" : "bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15"
-                    }`}
-                  >
-                    {c.icon}
-                  </button>
-                ))}
-              </div>
-              <div className="grid max-h-[168px] grid-cols-6 gap-1 overflow-y-auto no-scrollbar">
-                {(EMOJI_CATEGORIES.find((c) => c.key === emojiPickerCategory)?.emojis ?? []).map((emoji, idx) => (
-                  <button
-                    key={`${emoji}-${idx}`}
-                    type="button"
-                    onClick={() => {
-                      onReact?.(emoji);
-                      onClose();
-                    }}
-                    className="flex h-8 w-8 items-center justify-center rounded-[10px] text-[17px] leading-none transition hover:bg-black/5 dark:hover:bg-white/10"
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </div>
             </div>
-          )}
+
+            {/* Full emoji dropdown -- toggled by the chevron above. Same
+                EMOJI_CATEGORIES data + category-row pattern as
+                media-picker-panel.tsx's own emoji tab: icon-only
+                scrollable category row (no room for text labels), a
+                7-column grid now that this menu is 280px wide, capped
+                height with its own internal scroll so this doesn't
+                blow out the whole popup's height budget -- picking any
+                emoji here reacts + closes the menu exactly like the
+                quick-react row above. */}
+            {emojiPickerOpen && (
+              <div className="flex w-full flex-col gap-1.5 border-t border-black/5 p-2 dark:border-white/10">
+                <div className="flex gap-1 overflow-x-auto pb-0.5 no-scrollbar">
+                  {EMOJI_CATEGORIES.map((c) => (
+                    <button
+                      key={c.key}
+                      type="button"
+                      onClick={() => setEmojiPickerCategory(c.key)}
+                      title={c.labelRu}
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[14px] transition ${
+                        emojiPickerCategory === c.key ? "bg-[#335ef7]/15 dark:bg-[#0c8ce9]/20" : "bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15"
+                      }`}
+                    >
+                      {c.icon}
+                    </button>
+                  ))}
+                </div>
+                <div className="grid max-h-[168px] grid-cols-7 gap-1 overflow-y-auto no-scrollbar">
+                  {(EMOJI_CATEGORIES.find((c) => c.key === emojiPickerCategory)?.emojis ?? []).map((emoji, idx) => (
+                    <button
+                      key={`${emoji}-${idx}`}
+                      type="button"
+                      onClick={() => {
+                        onReact?.(emoji);
+                        onClose();
+                      }}
+                      className="flex h-8 w-8 items-center justify-center rounded-[10px] text-[17px] leading-none transition hover:bg-black/5 dark:hover:bg-white/10"
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className="overflow-hidden rounded-2xl bg-white/95 shadow-xl backdrop-blur-sm dark:bg-neutral-800/95">
             {ACTION_ROWS.filter((r) => r.group === "main" && (r.key !== "edit" || mine)).map((row, i, arr) => {
@@ -1023,7 +1060,11 @@ export function DeleteMessageConfirmDialog({
   deleteForEveryoneLabel?: ReactNode;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6" onClick={onCancel}>
+    // Fix Tracker (2026-09-07, order 95): same z-index fix as the
+    // context menu above -- this confirm dialog has no createPortal of
+    // its own, so a `fixed` z-50 here could still lose to the
+    // mini-chat window's z-[70] floating panel when opened from there.
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 px-6" onClick={onCancel}>
       <div
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-[280px] rounded-2xl bg-[#2c2c2e]/95 p-4 text-center shadow-2xl backdrop-blur-xl"
