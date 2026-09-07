@@ -35,7 +35,7 @@
 //     still the right tool for "blast this to 10 people at once".
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { authFetch } from "@/lib/auth-fetch";
 import { CachedAvatar } from "@/components/cached-avatar";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
@@ -80,6 +80,7 @@ export function ForwardPickerModal({
   sending,
   rowStatus,
   failed,
+  anchorRect,
 }: {
   lang: Locale;
   onClose: () => void;
@@ -102,8 +103,16 @@ export function ForwardPickerModal({
   // opaque "sending" state for the whole list.
   rowStatus: Record<string, ForwardRowStatus>;
   failed: boolean;
+  // Fix Tracker (2026-09-07, order 117: same "Переслати" modal shown
+  // centered on the full page/desktop instead of over the mini-chat
+  // widget it was opened from) -- same anchored-recenter trick as
+  // DeleteMessageConfirmDialog/RemindModal's own `anchorRect`. Omitted
+  // (the main chat page) keeps the original full-viewport centering.
+  anchorRect?: { top: number; left: number; width: number; height: number } | null;
 }) {
   const [state, setState] = useState<LoadState>("loading");
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [anchoredStyle, setAnchoredStyle] = useState<{ position: "fixed"; left: number; top: number; margin: number } | undefined>(undefined);
   const [chats, setChats] = useState<ForwardChatRow[]>([]);
   const [query, setQuery] = useState("");
   // 2026-09-05 (Форвард 2.0 Phase 2) -- "tap" is the default per
@@ -144,9 +153,30 @@ export function ForwardPickerModal({
 
   const busy = sending;
 
+  useLayoutEffect(() => {
+    if (!anchorRect || !cardRef.current) {
+      setAnchoredStyle(undefined);
+      return;
+    }
+    const rect = cardRef.current.getBoundingClientRect();
+    const margin = 12;
+    const idealLeft = anchorRect.left + anchorRect.width / 2 - rect.width / 2;
+    const idealTop = anchorRect.top + anchorRect.height / 2 - rect.height / 2;
+    const maxLeft = Math.max(margin, window.innerWidth - rect.width - margin);
+    const maxTop = Math.max(margin, window.innerHeight - rect.height - margin);
+    setAnchoredStyle({
+      position: "fixed",
+      left: Math.min(Math.max(idealLeft, margin), maxLeft),
+      top: Math.min(Math.max(idealTop, margin), maxTop),
+      margin: 0,
+    });
+  }, [anchorRect]);
+
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4" onClick={busy ? undefined : onClose}>
       <div
+        ref={cardRef}
+        style={anchoredStyle}
         className="flex h-[min(32rem,80vh)] w-full max-w-sm flex-col rounded-2xl bg-white shadow-xl dark:bg-neutral-900"
         onClick={(e) => e.stopPropagation()}
       >

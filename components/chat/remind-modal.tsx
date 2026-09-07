@@ -55,7 +55,7 @@
 // weekday label -- a deliberate, smaller scope than that file's.
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { T } from "@/components/t";
 
 // Minimum schedule time is the start of the next minute, same rule as
@@ -182,6 +182,7 @@ export function RemindModal({
   initialLocal,
   onCancel,
   onConfirm,
+  anchorRect,
 }: {
   // Chat's own display name (headerTitle) -- omitted/empty just hides
   // the "remind X too" toggle row, same as mobile's own `peerDisplayName
@@ -199,8 +200,36 @@ export function RemindModal({
   // Unix seconds + the wire `local` value (already inverted from
   // whatever the toggle showed -- see this file's own header comment).
   onConfirm: (scheduleAt: number, local: boolean) => void;
+  // Fix Tracker (2026-09-07, order 113: "Модалка с вводом даты и часу
+  // нагадування повинна з'являтися поверх мини-чата не по-центру
+  // десктопа") -- same anchored-recenter trick as
+  // DeleteMessageConfirmDialog's own `anchorRect` (message-actions-
+  // menu.tsx): when set, the card re-centers over that rect instead of
+  // the full viewport. Omitted (the main chat page) keeps the original
+  // full-viewport centering.
+  anchorRect?: { top: number; left: number; width: number; height: number } | null;
 }) {
   const [remindPeerToo, setRemindPeerToo] = useState(() => initialLocal === false);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [anchoredStyle, setAnchoredStyle] = useState<{ position: "fixed"; left: number; top: number; margin: number } | undefined>(undefined);
+  useLayoutEffect(() => {
+    if (!anchorRect || !cardRef.current) {
+      setAnchoredStyle(undefined);
+      return;
+    }
+    const rect = cardRef.current.getBoundingClientRect();
+    const margin = 12;
+    const idealLeft = anchorRect.left + anchorRect.width / 2 - rect.width / 2;
+    const idealTop = anchorRect.top + anchorRect.height / 2 - rect.height / 2;
+    const maxLeft = Math.max(margin, window.innerWidth - rect.width - margin);
+    const maxTop = Math.max(margin, window.innerHeight - rect.height - margin);
+    setAnchoredStyle({
+      position: "fixed",
+      left: Math.min(Math.max(idealLeft, margin), maxLeft),
+      top: Math.min(Math.max(idealTop, margin), maxTop),
+      margin: 0,
+    });
+  }, [anchorRect]);
 
   // `today` is a single fixed local-midnight anchor, captured once at
   // mount and shared by both `days` (below) and `initial` (further
@@ -283,7 +312,9 @@ export function RemindModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6" onClick={onCancel}>
       <div
+        ref={cardRef}
         onClick={(e) => e.stopPropagation()}
+        style={anchoredStyle}
         className="w-full max-w-[300px] rounded-2xl bg-[#2c2c2e]/95 p-4 text-center shadow-2xl backdrop-blur-xl"
       >
         <p className="text-[15px] font-medium leading-snug text-white">

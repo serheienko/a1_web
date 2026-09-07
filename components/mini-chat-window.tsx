@@ -100,7 +100,7 @@ import { PdfPageThumbnail } from "@/components/chat/pdf-thumbnail";
 import { ChatPhotoGrid } from "@/components/chat/photo-grid";
 import { BlurredChatPhoto } from "@/components/chat/blurred-photo";
 import { ChatPhotoViewer, type ChatViewerImage } from "@/components/chat/photo-viewer";
-import { MessageActionsMenu, DeleteMessageConfirmDialog, ReactionsBar } from "@/components/chat/message-actions-menu";
+import { MessageActionsMenu, DeleteMessageConfirmDialog, ReactionsBar, EditComposeBar } from "@/components/chat/message-actions-menu";
 import { RemindModal } from "@/components/chat/remind-modal";
 import { ForwardPickerModal, type ForwardRowStatus } from "@/components/chat/forward-picker-modal";
 import { CopyToast, type CopyToastState } from "@/components/chat/copy-toast";
@@ -1833,31 +1833,22 @@ export function MiniChatWindow({
           </div>
         )}
         {editingMessage && (
-          // Fix Tracker (2026-09-07, edit port) -- minimal "you're
-          // editing" indicator (page.tsx's own editing bar has a full
-          // quote-preview treatment this smaller widget skips, same
-          // "no full threading UI here" line this file already draws
-          // for Reply) -- just enough that Enter/Send isn't a silent
-          // surprise switch from "new message" to "save edit".
-          <div className="flex items-center justify-between gap-2 rounded-lg bg-black/5 px-2.5 py-1.5 text-[12px] text-[#262a34] dark:bg-white/10 dark:text-white">
-            <span className="truncate font-medium">
-              <T uk="Редагування повідомлення" en="Editing message" ru="Редактирование сообщения" de="Nachricht bearbeiten" es="Editando mensaje" fr="Modification du message" pl="Edycja wiadomości" ptBR="Editando mensagem" zh="编辑消息" />
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                setEditingMessage(null);
-                setDraft("");
-                setEditFailed(false);
-              }}
-              aria-label="Cancel edit"
-              className="shrink-0 text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100"
-            >
-              <svg viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5" aria-hidden="true">
-                <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-              </svg>
-            </button>
-          </div>
+          // Fix Tracker (2026-09-07, order 114: "UI редактирования
+          // должен быть взят из основных чатов 1в1, имею ввиду
+          // компоузер") -- this used to be its own hand-rolled minimal
+          // bar with no preview of the original text, unlike page.tsx's
+          // own edit flow which already reuses this exact shared
+          // EditComposeBar (accent stripe + truncated original-text
+          // preview line). Switching to the same component instead of
+          // a parallel one-off copy.
+          <EditComposeBar
+            previewText={extractMessageText(editingMessage)}
+            onCancel={() => {
+              setEditingMessage(null);
+              setDraft("");
+              setEditFailed(false);
+            }}
+          />
         )}
         {editFailed && (
           <p className="px-1 text-[12px] text-red-500 dark:text-red-400">
@@ -2101,10 +2092,23 @@ export function MiniChatWindow({
             // pill's `flex-1` claim that space for real, and the
             // reverse transition on the way back in reads as the
             // button animating into existence rather than just fading.
-            // Height (h-9, 36px) already matched the pill's own
-            // min-h-[36px] before this change -- untouched.
-            className={`group flex h-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#335ef7] text-white transition-all duration-200 ease-out hover:brightness-110 active:scale-95 disabled:hover:brightness-100 dark:bg-[#0c8ce9] ${
-              hasSendableContent ? "w-9 ml-0 opacity-100" : "w-0 -ml-2 opacity-0"
+            //
+            // 2026-09-07 follow-up (orders 115 + 118, live-measured:
+            // this button rendered 40.5px tall/wide against the pill's
+            // real 36px) -- `h-9`/`w-9` are REM-based (2.25rem), and
+            // this app's root font-size is 18px (not the Tailwind-
+            // default 16px), so `h-9` actually computes to 40.5px here
+            // while the pill next to it uses a literal `min-h-[36px]`
+            // px value. The two "36px"s only matched on paper; the
+            // button rendering 4.5px taller than the pill (with this
+            // row's own `items-end` alignment) is exactly the
+            // misalignment Aleksandr's order-115 screenshot shows as
+            // the send button having "уехала" (drifted) during edit --
+            // it was never actually edit-specific, just easiest to
+            // notice there once the pill briefly grows. Switching both
+            // to the same literal px unit fixes it in every state.
+            className={`group flex h-[36px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#335ef7] text-white transition-all duration-200 ease-out hover:brightness-110 active:scale-95 disabled:hover:brightness-100 dark:bg-[#0c8ce9] ${
+              hasSendableContent ? "w-[36px] ml-0 opacity-100" : "w-0 -ml-2 opacity-0"
             }`}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="animate-send-arrow shrink-0">
@@ -2194,22 +2198,17 @@ export function MiniChatWindow({
         <DeleteMessageConfirmDialog
           deleting={deletingMessage}
           failed={deleteMessageFailed}
-          description={
-            <T
-              uk="Оберіть, кому видалити це повідомлення." en="Choose who to delete this message for."
-              ru="Выберите, у кого удалить это сообщение." de="Wähle, für wen diese Nachricht gelöscht wird."
-              es="Elige para quién eliminar este mensaje." fr="Choisissez pour qui supprimer ce message."
-              pl="Wybierz, dla kogo usunąć tę wiadomość." ptBR="Escolha para quem excluir esta mensagem." zh="选择要为谁删除此消息。"
-            />
-          }
-          deleteForEveryoneLabel={
-            <T
-              uk={`Видалити для мене та ${target.title || "—"}`} en={`Delete for me and ${target.title || "—"}`}
-              ru={`Удалить для меня и ${target.title || "—"}`} de={`Für mich und ${target.title || "—"} löschen`}
-              es={`Eliminar para mí y ${target.title || "—"}`} fr={`Supprimer pour moi et ${target.title || "—"}`}
-              pl={`Usuń dla mnie i ${target.title || "—"}`} ptBR={`Excluir para mim e ${target.title || "—"}`} zh={`为我和${target.title || "—"}删除`}
-            />
-          }
+          // Fix Tracker (2026-09-07, order 116: "надо убрать возможность
+          // видаляти у другого користувача, оставить только у себя")
+          // -- this used to pass deleteForEveryoneLabel (+ a matching
+          // "who to delete for" description), which swaps in the
+          // three-button "delete for me and X / delete only for me /
+          // cancel" variant. Dropping both falls back to the
+          // component's own default two-button copy+behavior
+          // ("Delete?" / Cancel+Delete, onConfirm(false) == for-me-
+          // only) -- exactly the one remaining option Aleksandr asked
+          // for, no new prop needed.
+          anchorRect={panelRef.current?.getBoundingClientRect() ?? null}
           onCancel={() => {
             if (deletingMessage) return;
             setDeleteConfirm(null);
@@ -2223,6 +2222,9 @@ export function MiniChatWindow({
           peerDisplayName={target.title}
           submitting={remindSubmitting}
           failed={remindFailed}
+          // Fix Tracker (2026-09-07, order 113): recenter over this
+          // mini-chat panel instead of the full desktop viewport.
+          anchorRect={panelRef.current?.getBoundingClientRect() ?? null}
           onCancel={() => {
             if (remindSubmitting) return;
             setRemindTarget(null);
@@ -2234,6 +2236,10 @@ export function MiniChatWindow({
       {forwardSource && (
         <ForwardPickerModal
           lang={lang}
+          // Fix Tracker (2026-09-07, order 117): same recenter-over-
+          // the-mini-chat-panel fix as RemindModal/
+          // DeleteMessageConfirmDialog just above.
+          anchorRect={panelRef.current?.getBoundingClientRect() ?? null}
           onClose={() => {
             if (forwardSendingAll) return;
             setForwardSource(null);

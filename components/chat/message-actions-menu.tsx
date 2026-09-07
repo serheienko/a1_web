@@ -1053,6 +1053,7 @@ export function DeleteMessageConfirmDialog({
   description,
   confirmLabel,
   deleteForEveryoneLabel,
+  anchorRect,
 }: {
   deleting: boolean;
   failed: boolean;
@@ -1084,7 +1085,38 @@ export function DeleteMessageConfirmDialog({
   // just taller. Omitted (the common case: batch-delete-selected,
   // clear-chat) keeps the original two-button row untouched.
   deleteForEveryoneLabel?: ReactNode;
+  // Fix Tracker (2026-09-07, order 116: "Модалка должна быть над
+  // миничатами" -- reference screenshot shows this dialog centered on
+  // the WHOLE page/viewport while the mini-chat floating widget it was
+  // opened from sits off to the side, so the dialog lands nowhere near
+  // what the user was just looking at) -- when the caller passes the
+  // rect of its own floating panel (mini-chat-window.tsx's own
+  // panelRef), the card below re-centers itself over THAT rect instead
+  // of the full viewport. Omitted (every other caller: the main chat
+  // page, which IS the full viewport) keeps the original centered
+  // behavior untouched.
+  anchorRect?: { top: number; left: number; width: number; height: number } | null;
 }) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [anchoredStyle, setAnchoredStyle] = useState<{ position: "fixed"; left: number; top: number; margin: number } | undefined>(undefined);
+  useLayoutEffect(() => {
+    if (!anchorRect || !cardRef.current) {
+      setAnchoredStyle(undefined);
+      return;
+    }
+    const rect = cardRef.current.getBoundingClientRect();
+    const margin = 12;
+    const idealLeft = anchorRect.left + anchorRect.width / 2 - rect.width / 2;
+    const idealTop = anchorRect.top + anchorRect.height / 2 - rect.height / 2;
+    const maxLeft = Math.max(margin, window.innerWidth - rect.width - margin);
+    const maxTop = Math.max(margin, window.innerHeight - rect.height - margin);
+    setAnchoredStyle({
+      position: "fixed",
+      left: Math.min(Math.max(idealLeft, margin), maxLeft),
+      top: Math.min(Math.max(idealTop, margin), maxTop),
+      margin: 0,
+    });
+  }, [anchorRect]);
   return (
     // Fix Tracker (2026-09-07, order 95): same z-index fix as the
     // context menu above -- this confirm dialog has no createPortal of
@@ -1092,7 +1124,9 @@ export function DeleteMessageConfirmDialog({
     // mini-chat window's z-[70] floating panel when opened from there.
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 px-6" onClick={onCancel}>
       <div
+        ref={cardRef}
         onClick={(e) => e.stopPropagation()}
+        style={anchoredStyle}
         className="w-full max-w-[280px] rounded-2xl bg-[#2c2c2e]/95 p-4 text-center shadow-2xl backdrop-blur-xl"
       >
         <p className="text-[15px] font-medium leading-snug text-white">
