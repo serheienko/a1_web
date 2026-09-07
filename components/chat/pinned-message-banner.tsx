@@ -253,9 +253,25 @@ export function PinnedMessageBanner({
             type="button"
             onClick={enterConfirmation}
             aria-label="Close"
-            className="animate-pin-content-fade flex h-8 w-8 items-center justify-center rounded-full text-[#262a34]/60 transition hover:bg-black/5 hover:text-[#262a34] dark:text-white/60 dark:hover:bg-white/10 dark:hover:text-white"
+            className="animate-pin-content-fade group flex h-8 w-8 items-center justify-center rounded-full text-[#262a34]/60 transition hover:bg-black/5 hover:text-[#262a34] dark:text-white/60 dark:hover:bg-white/10 dark:hover:text-white"
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+            {/* Fix Tracker (order 81, "сделай анимацию для крестика в
+                закрепе сообщений") -- the X itself never moved, only
+                its background hover state did. Rotating it a quarter
+                turn on hover (+ a quick press-squash) is the same
+                group/group-hover:rotate-90 close-icon language
+                profile-editor.tsx's own CloseIcon and create-post-fab.tsx's
+                plus-to-X button already use elsewhere in this app. */}
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-4 w-4 transition-transform duration-200 ease-out group-hover:rotate-90 group-active:scale-90"
+              aria-hidden="true"
+            >
               <path d="M18 6L6 18" />
               <path d="M6 6l12 12" />
             </svg>
