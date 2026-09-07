@@ -218,7 +218,19 @@ export function ChatsFab() {
       const insideTrigger = flyoutTriggerRef.current?.contains(node);
       const insideFlyout = flyoutPanelRef.current?.contains(node);
       const insideMiniChat = miniChatPanelRef.current?.contains(node);
-      if (insideTrigger || insideFlyout || insideMiniChat) return;
+      // Fix Tracker (2026-09-07, order 106: "При нажатии любого
+      // функционала в мини-чате... чат отлетает и всё закрывается. Не
+      // работают кнопки") -- components/chat/message-actions-menu.tsx
+      // (the Reply/Copy/Pin/Delete context menu, opened from a message
+      // inside the mini chat) portals straight to document.body, so its
+      // DOM nodes are NOT inside miniChatPanelRef even though it's
+      // nested there in the JSX tree -- every click on a menu item was
+      // "outside" by this check and closed the whole mini-chat before
+      // the click could do anything. That menu's real portal root
+      // carries `data-chat-action-menu` precisely so it can be
+      // recognized here too.
+      const insideActionMenu = node instanceof Element ? node.closest("[data-chat-action-menu]") : null;
+      if (insideTrigger || insideFlyout || insideMiniChat || insideActionMenu) return;
       handleCloseAll();
     }
     document.addEventListener("mousedown", handlePointerDown);

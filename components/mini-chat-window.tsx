@@ -53,13 +53,13 @@
 import { CachedAvatar } from "@/components/cached-avatar";
 import Link from "next/link";
 import { createPortal } from "react-dom";
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { authFetch } from "@/lib/auth-fetch";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { profileHref } from "@/lib/profile-href";
 import { formatBytes } from "@/lib/format";
 import { useHoverPanel } from "@/lib/use-hover-panel";
-import { buildMediaProxyUrl } from "@/lib/a1/media-proxy";
+import { buildMediaProxyUrl, buildMediaDownloadUrl } from "@/lib/a1/media-proxy";
 import { getStableMediaProxyUrl } from "@/lib/a1/stable-media-url";
 import {
   extractMessages,
@@ -94,6 +94,7 @@ import { ChatFileTypeIcon, fileKindFromName, DocumentFallbackLabel } from "@/com
 import { PdfPageThumbnail } from "@/components/chat/pdf-thumbnail";
 import { ChatPhotoGrid } from "@/components/chat/photo-grid";
 import { BlurredChatPhoto } from "@/components/chat/blurred-photo";
+import { ChatPhotoViewer, type ChatViewerImage } from "@/components/chat/photo-viewer";
 import { MessageActionsMenu, DeleteMessageConfirmDialog } from "@/components/chat/message-actions-menu";
 import { CopyToast, type CopyToastState } from "@/components/chat/copy-toast";
 import { ChatCalculationCard } from "@/components/chat/calculation-card";
@@ -241,6 +242,23 @@ type MiniAttachment = {
 type MiniChatCacheEntry = { messages: ChatMessage[]; myUserId: string | null; peerReadMaxId: number | null };
 const miniChatMessageCache = new Map<string, MiniChatCacheEntry>();
 
+// Fix Tracker (2026-09-07, order 106) -- same short label
+// app/chats/[chatId]/page.tsx's own YOU_LABEL_TEXT uses for "you" as
+// the photo-viewer's sender label; duplicated here (not imported --
+// this file deliberately never imports from that page, see its own
+// header comment) since ChatViewerImage needs a senderLabel too.
+const YOU_LABEL_TEXT: Record<Locale, string> = {
+  uk: "Ви",
+  en: "You",
+  ru: "Вы",
+  de: "Du",
+  es: "Tú",
+  fr: "Vous",
+  pl: "Ty",
+  ptBR: "Você",
+  zh: "你",
+};
+
 export function MiniChatWindow({
   target,
   onBack,
@@ -285,6 +303,16 @@ export function MiniChatWindow({
   // the compose box, same "started a reply" gesture without the full
   // threading UI app/chats/[chatId]/page.tsx has.
   const [actionsMenu, setActionsMenu] = useState<{ message: ChatMessage; anchorRect: DOMRect; mine: boolean } | null>(null);
+  // Fix Tracker (2026-09-07, order 106: "документы отображаются
+  // по-старому... Ты можешь сделать, чтобы он полностью дублировал
+  // весь функционал большого чата, просто был мини-версией??") --
+  // photo bubbles below had zero onClick (dead thumbnails), unlike
+  // app/chats/[chatId]/page.tsx's full-screen ChatPhotoViewer. These
+  // two plus chatViewerImages/openViewerForDoc/handleShowInChatFromViewer
+  // below port that same viewer in, scoped to this widget's own
+  // `messages` array.
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<number | null>(null);
   // 2026-09-05 (Aleksandr: delete-for-self, see app/chats/[chatId]/
   // page.tsx's own copy of this same state for the full writeup) --
   // this mini widget gets the trivial delete win too (no backend or
@@ -527,6 +555,64 @@ export function MiniChatWindow({
   // 2026-09-05 follow-up (Aleksandr, reference screenshot: "delete for
   // me and X" as a second stacked option on the same confirm card) --
   // `revoke` mirrors that same page.tsx follow-up 1:1.
+  const chatViewerImages: ChatViewerImage[] = useMemo(() => {
+    const out: ChatViewerImage[] = [];
+    for (const msg of messages) {
+      const mine = myUserId !== null && msg.fromId === myUserId;
+      const senderLabel = mine ? YOU_LABEL_TEXT[lang] : target.title || "—";
+      const ms = messageDateMs(msg);
+      const numericId = Number(msg._id);
+      for (const doc of messageDocumentMedia(msg)) {
+        if (!isImageMediaDocument(doc)) continue;
+        const fileName = mediaDocumentFileName(doc);
+        out.push({
+          key: `${msg._id}:${doc._id}`,
+          docId: doc._id,
+          url: buildMediaProxyUrl(doc),
+          downloadUrl: buildMediaDownloadUrl(doc, fileName || undefined),
+          thumbnail: mediaDocumentThumbnail(doc),
+          fileName,
+          messageId: numericId,
+          senderLabel,
+          dateMs: ms,
+        });
+      }
+    }
+    return out;
+  }, [messages, myUserId, lang, target.title]);
+
+  function openViewerForDoc(messageId: string, docId: string) {
+    const i = chatViewerImages.findIndex((im) => im.messageId === Number(messageId) && im.docId === docId);
+    if (i >= 0) setViewerIndex(i);
+  }
+
+  // "Show in chat" (viewer's "•••" menu) -- same shape as
+  // app/chats/[chatId]/page.tsx's own handleShowInChatFromViewer:
+  // scrolls the source row into view and flashes it for ~2.2s. Relies
+  // on the data-message-id this widget's message row now carries
+  // (added right below, in the render loop).
+  function handleShowInChatFromViewer(messageId: number) {
+    setViewerIndex(null);
+    window.requestAnimationFrame(() => {
+      const el = panelRef.current?.querySelector(`[data-message-id="${messageId}"]`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      setHighlightedMessageId(messageId);
+      window.setTimeout(() => {
+        setHighlightedMessageId((cur) => (cur === messageId ? null : cur));
+      }, 2200);
+    });
+  }
+
+  // Reply from the viewer -- kept as this file's own deliberately
+  // minimal gesture (focus the compose box only, see actionsMenu's own
+  // onReply above and this file's header comment on why no
+  // replyTarget/quote-preview state exists here), not page.tsx's full
+  // quote-preview reply.
+  function handleReplyFromViewer(messageId: number) {
+    setViewerIndex(null);
+    window.requestAnimationFrame(() => textareaRef.current?.focus());
+  }
+
   async function handleDeleteChatMessage(messageId: number, revoke = false) {
     const res = await authFetch("/api/chats/delete", {
       method: "POST",
@@ -942,8 +1028,14 @@ export function MiniChatWindow({
             </div>
           );
           return (
-            <div key={msg._id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+            <div
+              key={msg._id}
+              className={`flex rounded-lg transition-colors duration-500 ${mine ? "justify-end" : "justify-start"} ${
+                highlightedMessageId === Number(msg._id) ? "bg-[#335ef7]/10 dark:bg-[#0c8ce9]/20" : "bg-transparent"
+              }`}
+            >
               <div
+                data-message-id={msg._id}
                 onContextMenu={(e) => {
                   e.preventDefault();
                   setActionsMenu({ message: msg, anchorRect: e.currentTarget.getBoundingClientRect(), mine });
@@ -965,7 +1057,7 @@ export function MiniChatWindow({
                         <ChatPhotoGrid
                           key={doc._id}
                           docs={imageGroupStartId.get(doc._id)!.map((d) => ({ id: d._id, src: getStableMediaProxyUrl(d), thumbnail: mediaDocumentThumbnail(d) }))}
-                          onOpen={() => {}}
+                          onOpen={(docId) => openViewerForDoc(msg._id, docId)}
                           footer={isPhotoOnly ? flatFooter : undefined}
                         />
                       ) : isImageMediaDocument(doc) ? (
@@ -974,7 +1066,8 @@ export function MiniChatWindow({
                             docId={doc._id}
                             src={getStableMediaProxyUrl(doc)}
                             serverThumb={mediaDocumentThumbnail(doc)}
-                            className="max-h-48 w-full rounded-xl object-cover"
+                            className="max-h-48 w-full cursor-pointer rounded-xl object-cover"
+                            onClick={() => openViewerForDoc(msg._id, doc._id)}
                           />
                           {isPhotoOnly && flatFooter}
                         </div>
@@ -1607,6 +1700,18 @@ export function MiniChatWindow({
         />
       )}
       <CopyToast state={copyToast} lang={lang} />
+      {viewerIndex !== null && chatViewerImages[viewerIndex] && (
+        <ChatPhotoViewer
+          lang={lang}
+          images={chatViewerImages}
+          index={viewerIndex}
+          onIndexChange={setViewerIndex}
+          onClose={() => setViewerIndex(null)}
+          onShowInChat={handleShowInChatFromViewer}
+          onReply={handleReplyFromViewer}
+          onDelete={handleDeleteChatMessage}
+        />
+      )}
     </div>,
     document.body,
   );

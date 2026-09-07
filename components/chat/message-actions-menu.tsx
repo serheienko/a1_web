@@ -439,7 +439,21 @@ export function MessageActionsMenu({
     // above the highest z-index anywhere else in the app (z-[75]) so
     // this context menu is always on top regardless of which surface
     // (full chat page or mini-chat widget) opened it.
-    <div className="fixed inset-0 z-[80]">
+    //
+    // Fix Tracker (2026-09-07, order 106: "При нажатии любого
+    // функционала в мини-чате... чат отлетает и всё закрывается") --
+    // this menu portals straight to document.body, escaping mini-chat-
+    // window.tsx's own `panelRef` div even though it's nested inside it
+    // in the JSX tree. components/chats-fab.tsx's outside-click
+    // listener checks `panelRef.current.contains(event.target)` to
+    // decide whether to close the whole mini-chat widget, and a click
+    // on any item in THIS menu (Reply/Copy/Pin/Delete/...) landed
+    // outside that DOM subtree -- so every click here both fired its
+    // own action AND closed the mini-chat out from under it (mousedown
+    // fires first, unmounting everything before the click handler
+    // could even run). `data-chat-action-menu` marks this portal's
+    // real root so that listener can special-case it.
+    <div className="fixed inset-0 z-[80]" data-chat-action-menu="true">
       {/* 2026-09-05 follow-up (Aleksandr, Telegram Desktop reference
           screenshot: right-click context menu pops up over the chat
           with NO dimming or blur behind it at all -- "не надо блюр:
