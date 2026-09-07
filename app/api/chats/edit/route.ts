@@ -24,6 +24,13 @@
 // clearing a caption entirely isn't a flow this app offers yet, so an
 // empty edit is rejected client-side before this route is ever called
 // (see the compose-bar's own Save-button disabled state).
+//
+// 2026-09-07 follow-up, live-tested failure: chat-server rejected this
+// with "root is missing required property 'message'" (502) -- unlike
+// messages.send (where a plain-text send uses ONLY the flat `message`
+// string, see that route's own header), messages.editMessage apparently
+// requires `message` at the root even when `entities` is also present.
+// Sending both now -- pending a live re-test after this deploys.
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { A1ApiError } from "@/lib/a1/client";
@@ -53,6 +60,7 @@ export async function POST(request: NextRequest) {
       id: messageId,
       flags: EDITED_FLAG,
       peerTo: peerForRouteParam(chatId),
+      message: text,
       entities: [{ object: "entity-text", text }],
     });
     const parsedMessage = MessageSchema.safeParse(data);
