@@ -209,8 +209,16 @@ export function RemindersListModal({
   onClose: () => void;
   onJumpToMessage: (messageId: number) => void;
 }) {
-  const [reminders, setReminders] = useState<ReminderItem[] | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Fix Tracker (2026-09-07, order 85: "Если напоминания уже
+  // закешированы - не надо показывать скелетон лоад, потому что это
+  // создает визуальный баг") -- these used to always start as
+  // `null`/`true` and only synced to the cache inside the effect
+  // below, which runs AFTER the first paint -- so a cache hit still
+  // flashed one frame of skeleton before flipping to the real list.
+  // Lazy initializers read the cache synchronously for the very first
+  // render instead, so a cached chat never shows a skeleton at all.
+  const [reminders, setReminders] = useState<ReminderItem[] | null>(() => remindersCache.get(chatId) ?? null);
+  const [loading, setLoading] = useState(() => !remindersCache.has(chatId));
   const [error, setError] = useState(false);
   const [editing, setEditing] = useState<ReminderItem | null>(null);
   const [editSubmitting, setEditSubmitting] = useState(false);
@@ -241,10 +249,16 @@ export function RemindersListModal({
     // list immediately (no skeleton), then fetchReminders below still
     // refreshes it in the background so edits/deletes made elsewhere
     // (another tab, mobile) eventually show up here too.
+    // The lazy initializers above already applied a cache hit
+    // synchronously for the very first render of a given chatId; this
+    // effect's job is just the background refresh (and re-checking the
+    // cache if `chatId` itself changes without a full remount).
     const cached = remindersCache.get(chatId);
     if (cached) {
       setReminders(cached);
       setLoading(false);
+    } else {
+      setLoading(true);
     }
     void fetchReminders();
     // eslint-disable-next-line react-hooks/exhaustive-deps
