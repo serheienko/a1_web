@@ -73,8 +73,13 @@ import {
   mediaDocumentFileName,
   mediaDocumentThumbnail,
   mediaDocumentBytes,
+  dedupeReactionsToLatestPerUser,
+  isMessagePinned,
+  MESSAGE_FLAG_PINNED,
   type ChatMessage,
   type MessageMediaDocument,
+  type MessagePeerReaction,
+  type Peer,
 } from "@/lib/a1/chat-schemas";
 import { T, LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import {
@@ -95,7 +100,9 @@ import { PdfPageThumbnail } from "@/components/chat/pdf-thumbnail";
 import { ChatPhotoGrid } from "@/components/chat/photo-grid";
 import { BlurredChatPhoto } from "@/components/chat/blurred-photo";
 import { ChatPhotoViewer, type ChatViewerImage } from "@/components/chat/photo-viewer";
-import { MessageActionsMenu, DeleteMessageConfirmDialog } from "@/components/chat/message-actions-menu";
+import { MessageActionsMenu, DeleteMessageConfirmDialog, ReactionsBar } from "@/components/chat/message-actions-menu";
+import { RemindModal } from "@/components/chat/remind-modal";
+import { ForwardPickerModal, type ForwardRowStatus } from "@/components/chat/forward-picker-modal";
 import { CopyToast, type CopyToastState } from "@/components/chat/copy-toast";
 import { ChatCalculationCard } from "@/components/chat/calculation-card";
 import { ContactMessageCard } from "@/components/chat/contact-message-card";
@@ -317,9 +324,13 @@ export function MiniChatWindow({
   // page.tsx's own copy of this same state for the full writeup) --
   // this mini widget gets the trivial delete win too (no backend or
   // UI to build, just wiring), same as its own onReply above already
-  // does a scoped-down version of the big page's reply. Edit/Forward
-  // stay out of scope HERE on purpose, same "no full threading UI in
-  // this smaller widget" line this file already draws for Reply.
+  // does a scoped-down version of the big page's reply.
+  // 2026-09-07 update (Aleksandr: "В мини-чате ВСЁ из этого должно
+  // работать") -- Edit/Forward/Remind/Pin/Select, previously scoped
+  // out on purpose here, are now wired up too (see editingMessage/
+  // remindTarget/forwardSource/selectionMode state above and their
+  // handlers below) -- same API routes page.tsx's own copies already
+  // call, just against this widget's own local state.
   const [deleteConfirm, setDeleteConfirm] = useState<{ messageId: number } | null>(null);
   const [deletingMessage, setDeletingMessage] = useState(false);
   const [deleteMessageFailed, setDeleteMessageFailed] = useState(false);
@@ -329,6 +340,35 @@ export function MiniChatWindow({
   // pill both restarts its 3s timer and re-centers itself on whichever
   // bubble was copied this time.
   const [copyToast, setCopyToast] = useState<CopyToastState | null>(null);
+  // Fix Tracker (2026-09-07, Aleksandr live screenshot: "В мини-чате
+  // ВСЁ из этого должно работать" -- react/edit/remind/forward/pin/
+  // select rows in the actions menu above all rendered but did
+  // nothing here, unlike app/chats/[chatId]/page.tsx's full versions.
+  // Ported below, same self-contained-widget convention this file's
+  // own header draws elsewhere (own local state + the SAME already-
+  // shipped API routes page.tsx's own copies of these features call,
+  // no import from that page itself).
+  const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
+  const [editFailed, setEditFailed] = useState(false);
+  const [remindTarget, setRemindTarget] = useState<{ messageId: number } | null>(null);
+  const [remindSubmitting, setRemindSubmitting] = useState(false);
+  const [remindFailed, setRemindFailed] = useState(false);
+  const [pinBusyMessageId, setPinBusyMessageId] = useState<number | null>(null);
+  // forwardSource holds every message being forwarded at once -- one
+  // entry from the actions menu's own "Переслати" row, or the whole
+  // (oldest-first) selection when fired from selection mode's bottom
+  // bar, same shape page.tsx's own forwardSource carries.
+  const [forwardSource, setForwardSource] = useState<ChatMessage[] | null>(null);
+  const [forwardPickedChatIds, setForwardPickedChatIds] = useState<Set<string>>(new Set());
+  const [forwardSendingAll, setForwardSendingAll] = useState(false);
+  const [forwardRowStatus, setForwardRowStatus] = useState<Record<string, ForwardRowStatus>>({});
+  const [forwardFailed, setForwardFailed] = useState(false);
+  // Multi-select mode ("Вибрати" row) -- same shape as page.tsx's own
+  // selectionMode/selectedMessageIds pair.
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedMessageIds, setSelectedMessageIds] = useState<Set<number>>(new Set());
+  const [selectionDeleting, setSelectionDeleting] = useState(false);
+  const [selectionDeleteFailed, setSelectionDeleteFailed] = useState(false);
   // 2026-09-04 (Aleksandr: "При выхове калькуляции сделай дефолтно
   // моргающий курсор возле 1.") -- same fix as app/chats/[chatId]/
   // page.tsx's own copy of this calculator panel: focus the first
@@ -613,16 +653,294 @@ export function MiniChatWindow({
     window.requestAnimationFrame(() => textareaRef.current?.focus());
   }
 
-  async function handleDeleteChatMessage(messageId: number, revoke = false) {
+  // Generalized to accept multiple ids (2026-09-07, selection-mode
+  // batch delete) -- same single POST /api/chats/delete call page.tsx's
+  // own handleConfirmDeleteSelected makes (that route already accepts
+  // up to 50 ids per call). handleDeleteChatMessage below is now a
+  // one-id wrapper so every existing single-delete call site (the
+  // action menu's own delete confirm, the photo viewer) is unaffected.
+  async function handleDeleteMessages(messageIds: number[], revoke = false) {
     const res = await authFetch("/api/chats/delete", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ chatId: target.routeParam, messageIds: [messageId], revoke }),
+      body: JSON.stringify({ chatId: target.routeParam, messageIds, revoke }),
     });
     if (!res.ok) {
       throw new Error("delete_failed");
     }
-    setMessages((prev) => prev.filter((m) => Number(m._id) !== messageId));
+    setMessages((prev) => prev.filter((m) => !messageIds.includes(Number(m._id))));
+  }
+
+  async function handleDeleteChatMessage(messageId: number, revoke = false) {
+    return handleDeleteMessages([messageId], revoke);
+  }
+
+  async function handleConfirmDeleteSelected() {
+    const ids = Array.from(selectedMessageIds);
+    if (ids.length === 0) return;
+    setSelectionDeleting(true);
+    setSelectionDeleteFailed(false);
+    try {
+      await handleDeleteMessages(ids);
+      exitSelectionMode();
+    } catch {
+      setSelectionDeleteFailed(true);
+    } finally {
+      setSelectionDeleting(false);
+    }
+  }
+
+  // Reactions (2026-09-07 port, see app/chats/[chatId]/page.tsx's own
+  // handleToggleReaction for the full writeup) -- same optimistic-
+  // update-then-revert-on-failure shape against this widget's own
+  // `messages`, same two API routes.
+  async function handleToggleReaction(message: ChatMessage, emoticon: string) {
+    if (!myUserId) return;
+    const messageId = Number(message._id);
+    const myPeer: Peer = { object: "peer-user", user: myUserId };
+    const existingMine = (message.reactions ?? []).find(
+      (r) => r.peer?.object === "peer-user" && r.peer.user === myUserId && r.reaction.emoticon === emoticon,
+    );
+
+    function applyReactions(updater: (reactions: MessagePeerReaction[]) => MessagePeerReaction[]) {
+      setMessages((prev) =>
+        prev.map((m) => (Number(m._id) === messageId ? { ...m, reactions: updater(m.reactions ?? []) } : m)),
+      );
+    }
+
+    if (existingMine) {
+      applyReactions((reactions) => reactions.filter((r) => r !== existingMine));
+      try {
+        const res = await authFetch("/api/chats/reaction/delete", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ chatId: target.routeParam, messageId, emoticon, date: existingMine.date, peer: myPeer }),
+        });
+        if (!res.ok) throw new Error("reaction_delete_failed");
+      } catch {
+        applyReactions((reactions) => dedupeReactionsToLatestPerUser([...reactions, existingMine]));
+      }
+      return;
+    }
+
+    const optimistic: MessagePeerReaction = {
+      peer: myPeer,
+      date: new Date().toISOString(),
+      reaction: { object: "reaction-emoji", emoticon },
+    };
+    applyReactions((reactions) => dedupeReactionsToLatestPerUser([...reactions, optimistic]));
+    try {
+      const res = await authFetch("/api/chats/reaction/add", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ chatId: target.routeParam, messageId, emoticon }),
+      });
+      if (!res.ok) throw new Error("reaction_add_failed");
+    } catch {
+      applyReactions((reactions) => reactions.filter((r) => r !== optimistic));
+    }
+  }
+
+  // Pin (2026-09-07 port, see page.tsx's own handleTogglePin for the
+  // full writeup) -- no pinned-banner UI in this corner widget, so
+  // this only flips the message's own `flags` bit locally + the
+  // backend; the actions-menu row's own pinState always re-derives
+  // from isMessagePinned(message), same as page.tsx's menu-triggered
+  // call site does.
+  async function handleTogglePin(message: ChatMessage) {
+    const messageId = Number(message._id);
+    const currentlyPinned = isMessagePinned(message);
+    setPinBusyMessageId(messageId);
+    setMessages((prev) =>
+      prev.map((m) => {
+        if (Number(m._id) !== messageId) return m;
+        return { ...m, flags: currentlyPinned ? m.flags & ~MESSAGE_FLAG_PINNED : m.flags | MESSAGE_FLAG_PINNED };
+      }),
+    );
+    try {
+      const res = await authFetch("/api/chats/pin", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ chatId: target.routeParam, messageId, unpin: currentlyPinned }),
+      });
+      if (!res.ok) throw new Error("pin_failed");
+    } catch {
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (Number(m._id) !== messageId) return m;
+          return { ...m, flags: currentlyPinned ? m.flags | MESSAGE_FLAG_PINNED : m.flags & ~MESSAGE_FLAG_PINNED };
+        }),
+      );
+    } finally {
+      setPinBusyMessageId(null);
+    }
+  }
+
+  // Edit (2026-09-07 port, see page.tsx's own saveEditedMessage) --
+  // POSTs /api/chats/edit, patches the message in place on success so
+  // it re-renders immediately instead of waiting for the next poll.
+  async function saveEditedMessage() {
+    const target2 = editingMessage;
+    const text = draft.trim();
+    if (!target2 || !text || sending) return;
+    setSending(true);
+    try {
+      const res = await authFetch("/api/chats/edit", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ chatId: target.routeParam, messageId: Number(target2._id), text }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok) {
+        setEditFailed(true);
+        return;
+      }
+      const updated = data.message as ChatMessage | null;
+      setMessages((prev) =>
+        prev.map((m) =>
+          Number(m._id) === Number(target2._id)
+            ? updated ?? { ...m, entities: [{ object: "entity-text", text }], editedAt: new Date().toISOString() }
+            : m,
+        ),
+      );
+      setEditingMessage(null);
+      setDraft("");
+      setEditFailed(false);
+    } catch {
+      setEditFailed(true);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  // Forward (2026-09-07 port, simplified from page.tsx's own "Форвард
+  // 2.0": no pendingForward composer-preview step (that's a full-page,
+  // navigation-based flow that doesn't fit this floating widget) --
+  // "tap" mode sends immediately to the one chat tapped, "select" mode
+  // (the picker's own header toggle) fans out to every picked chat,
+  // same forwardToOneChat POST /api/chats/send per target either way.
+  async function forwardToOneChat(source: ChatMessage, targetChatId: string): Promise<boolean> {
+    const originalAuthorId = (source.forwardFrom?.object === "peer-user" ? source.forwardFrom.user : null) ?? source.fromId;
+    const docs = messageDocumentMedia(source);
+    const contactsMedia = messageContactMedia(source);
+    const text = extractMessageText(source);
+    if (!originalAuthorId || (!text && docs.length === 0 && contactsMedia.length === 0)) return false;
+    try {
+      const res = await authFetch("/api/chats/send", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          chatId: targetChatId,
+          text: text || undefined,
+          media: docs.length > 0 ? docs.map((d) => ({ fileReference: d.fileReference })) : undefined,
+          contacts:
+            contactsMedia.length > 0
+              ? contactsMedia.map((c) => ({ userId: c.userId, phoneNumber: c.phoneNumber, firstName: c.firstName, lastName: c.lastName }))
+              : undefined,
+          forwardFrom: { userId: originalAuthorId },
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      return !!res.ok && !!data?.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  async function handleForwardPickSingle(targetChatId: string) {
+    const sources = forwardSource;
+    if (!sources || sources.length === 0) return;
+    setForwardSource(null);
+    setForwardPickedChatIds(new Set());
+    setForwardRowStatus({});
+    setForwardFailed(false);
+    for (const source of sources) {
+      await forwardToOneChat(source, targetChatId);
+    }
+    exitSelectionMode();
+  }
+
+  async function handleForwardSend() {
+    const sources = forwardSource;
+    if (!sources || sources.length === 0 || forwardSendingAll || forwardPickedChatIds.size === 0) return;
+    const targets = Array.from(forwardPickedChatIds);
+    setForwardSendingAll(true);
+    setForwardFailed(false);
+    const succeeded: string[] = [];
+    const failedIds: string[] = [];
+    for (const targetChatId of targets) {
+      setForwardRowStatus((prev) => ({ ...prev, [targetChatId]: "sending" }));
+      let ok = true;
+      for (const source of sources) {
+        const sent = await forwardToOneChat(source, targetChatId);
+        if (!sent) {
+          ok = false;
+          break;
+        }
+      }
+      setForwardRowStatus((prev) => ({ ...prev, [targetChatId]: ok ? "done" : "failed" }));
+      if (ok) succeeded.push(targetChatId);
+      else failedIds.push(targetChatId);
+    }
+    setForwardSendingAll(false);
+    if (failedIds.length === 0) {
+      setForwardSource(null);
+      setForwardPickedChatIds(new Set());
+      setForwardRowStatus({});
+      exitSelectionMode();
+      return;
+    }
+    setForwardFailed(true);
+    setForwardPickedChatIds(new Set(failedIds));
+  }
+
+  // Multi-select mode (2026-09-07 port, see page.tsx's own
+  // enterSelectionMode/exitSelectionMode/toggleMessageSelected for the
+  // full writeup) -- entered from the actions menu's own "Вибрати" row.
+  function enterSelectionMode(initialMessageId: number) {
+    setSelectionMode(true);
+    setSelectedMessageIds(new Set([initialMessageId]));
+  }
+  function exitSelectionMode() {
+    setSelectionMode(false);
+    setSelectedMessageIds(new Set());
+    setSelectionDeleteFailed(false);
+  }
+  function toggleMessageSelected(messageId: number) {
+    setSelectedMessageIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(messageId)) next.delete(messageId);
+      else next.add(messageId);
+      return next;
+    });
+  }
+  function selectedMessagesOldestFirst(): ChatMessage[] {
+    return messages
+      .filter((m) => selectedMessageIds.has(Number(m._id)))
+      .sort((a, b) => Number(a._id) - Number(b._id));
+  }
+
+  // Remind (2026-09-07 port, see page.tsx's own handleConfirmRemind) --
+  // POSTs /api/chats/reminders/create, no local message-list effect
+  // (the backend delivers it server-side at scheduleAt regardless of
+  // whether this widget is even open).
+  async function handleConfirmRemind(scheduleAt: number, local: boolean) {
+    if (!remindTarget) return;
+    setRemindSubmitting(true);
+    setRemindFailed(false);
+    try {
+      const res = await authFetch("/api/chats/reminders/create", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ chatId: target.routeParam, messageId: remindTarget.messageId, scheduleAt, local }),
+      });
+      if (!res.ok) throw new Error("reminder_failed");
+      setRemindTarget(null);
+    } catch {
+      setRemindFailed(true);
+    } finally {
+      setRemindSubmitting(false);
+    }
   }
 
   async function handleConfirmDeleteMessage(revoke: boolean) {
@@ -640,6 +958,13 @@ export function MiniChatWindow({
   }
 
   async function handleSend(extra?: { contacts?: PickedContact[]; overrideText?: string }) {
+    // Edit feature (2026-09-07 port) -- while editingMessage is set,
+    // this SAME textarea/Send-button pair saves the edit instead of
+    // sending a new message, same guard shape as page.tsx's own send().
+    if (editingMessage && !extra?.overrideText && !(extra?.contacts && extra.contacts.length > 0)) {
+      await saveEditedMessage();
+      return;
+    }
     const text = (extra?.overrideText ?? draft).trim();
     const readyAttachment = attachment && attachment.status === "ready" ? attachment : null;
     const contactsToSend = extra?.contacts ?? [];
@@ -1015,6 +1340,13 @@ export function MiniChatWindow({
           // (photo + caption, photo + contact, ...) keeps the original
           // bubble treatment unchanged.
           const isPhotoOnly = !text && contactMedia.length === 0 && !calc && docMedia.length > 0 && docMedia.every(isImageMediaDocument);
+          // Fix Tracker (2026-09-07, Aleksandr: "Вид документа тоже
+          // должен быть как в основном чате") -- a lone file (no
+          // caption/calc/contact riding along) now gets the same
+          // wide, self-backgrounded card app/chats/[chatId]/page.tsx's
+          // own isFileOnly draws, instead of always sitting inside a
+          // compact translucent chip meant for a MIXED message.
+          const isFileOnly = !text && contactMedia.length === 0 && !calc && docMedia.length === 1 && !isImageMediaDocument(docMedia[0]!);
           const dateMs = messageDateMs(msg);
           const flatFooter = (dateMs > 0 || mine) && (
             <span className="pointer-events-none absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded-full bg-black/45 px-2 py-0.5 text-[11px] text-white backdrop-blur-sm">
@@ -1022,7 +1354,12 @@ export function MiniChatWindow({
               {mine && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7px] w-3" />}
             </span>
           );
-          const footer = !isPhotoOnly && (dateMs > 0 || mine) && (
+          // Plain (non-absolute) time+ticks row -- used both as the
+          // regular below-bubble footer (any non-flat shape) and, for
+          // isFileOnly, tucked inside the file card itself (flatFooter
+          // above is pre-styled as an absolute photo overlay, wrong
+          // fit for a card that isn't relatively positioned).
+          const timeFooter = (dateMs > 0 || mine) && (
             <div
               className={`mt-0.5 flex items-center justify-end gap-1 text-[12px] ${
                 mine ? "text-white/80" : "text-[#989aa6] dark:text-[#8d8d93]"
@@ -1032,23 +1369,52 @@ export function MiniChatWindow({
               {mine && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7px] w-3" />}
             </div>
           );
+          const footer = !isPhotoOnly && !isFileOnly && timeFooter;
+          const selected = selectedMessageIds.has(Number(msg._id));
           return (
             <div
               key={msg._id}
-              className={`flex rounded-lg transition-colors duration-500 ${mine ? "justify-end" : "justify-start"} ${
+              className={`flex items-end gap-1.5 rounded-lg transition-colors duration-500 ${mine ? "justify-end" : "justify-start"} ${
                 highlightedMessageId === Number(msg._id) ? "bg-[#335ef7]/10 dark:bg-[#0c8ce9]/20" : "bg-transparent"
               }`}
             >
+              {/* Fix Tracker (2026-09-07, select-mode port) -- same
+                  checkbox-before-bubble shape page.tsx's own selection
+                  slot uses, simplified (no width-collapse animation --
+                  mounts/unmounts with selectionMode outright). `order-
+                  last` for `mine` keeps it at the row's own outer edge,
+                  same reasoning page.tsx's order 104 comment gives. */}
+              {selectionMode && (
+                <button
+                  type="button"
+                  onClick={() => toggleMessageSelected(Number(msg._id))}
+                  aria-label="Select message"
+                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${mine ? "order-last" : ""} ${
+                    selected
+                      ? "border-[#335ef7] bg-[#335ef7] text-white dark:border-[#0c8ce9] dark:bg-[#0c8ce9]"
+                      : "border-neutral-300 bg-white/70 dark:border-neutral-600 dark:bg-black/30"
+                  }`}
+                >
+                  {selected && (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5" aria-hidden="true">
+                      <path d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </button>
+              )}
+              <div className={`flex max-w-[80%] flex-col ${mine ? "items-end" : "items-start"}`}>
               <div
                 data-message-id={msg._id}
                 onContextMenu={(e) => {
                   e.preventDefault();
+                  if (selectionMode) return;
                   setActionsMenu({ message: msg, anchorRect: e.currentTarget.getBoundingClientRect(), mine });
                 }}
+                onClick={selectionMode ? () => toggleMessageSelected(Number(msg._id)) : undefined}
                 className={
-                  isPhotoOnly
-                    ? "max-w-[80%]"
-                    : `max-w-[80%] rounded-2xl px-3 py-1.5 text-[15.5px] leading-snug ${
+                  isPhotoOnly || isFileOnly
+                    ? `w-full ${selectionMode ? "cursor-pointer" : ""}`
+                    : `w-full rounded-2xl px-3 py-1.5 text-[15.5px] leading-snug ${selectionMode ? "cursor-pointer" : ""} ${
                         mine
                           ? "rounded-br-sm bg-[#335ef7] text-white dark:bg-[#0c8ce9]"
                           : "rounded-bl-sm bg-[#f2f2f7] text-[#262a34] dark:bg-neutral-800 dark:text-white"
@@ -1082,9 +1448,26 @@ export function MiniChatWindow({
                           href={buildMediaProxyUrl(doc)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className={`flex items-center gap-2 rounded-xl px-2 py-1.5 transition hover:opacity-80 ${
-                            mine ? "bg-white/15" : "bg-black/5 dark:bg-white/10"
-                          }`}
+                          // Fix Tracker (2026-09-07, "Вид документа тоже
+                          // должен быть як в основному чаті") -- a lone
+                          // file (isFileOnly) now gets the same wide
+                          // self-backgrounded card page.tsx's own
+                          // isFileOnly draws, icon/name/size sized up to
+                          // match and its own flatFooter-equivalent
+                          // tucked under the name/size column instead of
+                          // this row sitting inside the colored bubble.
+                          // A file inside a MIXED message (with text, or
+                          // alongside other attachments) keeps the
+                          // original compact translucent-chip styling.
+                          className={
+                            isFileOnly
+                              ? `flex w-64 max-w-full items-center gap-2.5 rounded-[18px] px-3 py-2.5 transition hover:opacity-90 ${
+                                  mine ? "rounded-tr-[6px] bg-[#335ef7] text-white dark:bg-[#009bff]" : "rounded-tl-[6px] bg-white text-[#262a34] dark:bg-[#1a1a1a] dark:text-white"
+                                }`
+                              : `flex items-center gap-2 rounded-xl px-2 py-1.5 transition hover:opacity-80 ${
+                                  mine ? "bg-white/15" : "bg-black/5 dark:bg-white/10"
+                                }`
+                          }
                         >
                           {fileKindFromName(mediaDocumentFileName(doc), doc.mimetype) === "pdf" ? (
                             // 2026-09-04 (Aleksandr: "В мелкой модалке
@@ -1103,14 +1486,14 @@ export function MiniChatWindow({
                             <PdfPageThumbnail
                               src={buildMediaProxyUrl(doc)}
                               cacheKey={doc._id}
-                              className="h-9 w-9 shrink-0 rounded-[10px] object-cover object-top"
-                              fallback={<ChatFileTypeIcon kind="pdf" className="h-9 w-9" />}
+                              className={isFileOnly ? "h-11 w-11 shrink-0 rounded-[12px] object-cover object-top" : "h-9 w-9 shrink-0 rounded-[10px] object-cover object-top"}
+                              fallback={<ChatFileTypeIcon kind="pdf" className={isFileOnly ? "h-11 w-11" : "h-9 w-9"} />}
                             />
                           ) : (
-                            <ChatFileTypeIcon kind={fileKindFromName(mediaDocumentFileName(doc), doc.mimetype)} className="h-9 w-9" />
+                            <ChatFileTypeIcon kind={fileKindFromName(mediaDocumentFileName(doc), doc.mimetype)} className={isFileOnly ? "h-11 w-11" : "h-9 w-9"} />
                           )}
-                          <span className="flex min-w-0 flex-1 flex-col">
-                            <span className="truncate text-[13px] font-medium">
+                          <span className="flex min-w-0 flex-1 flex-col gap-1">
+                            <span className={isFileOnly ? "truncate text-[14px] font-medium" : "truncate text-[13px] font-medium"}>
                               {mediaDocumentFileName(doc) || (
                                 // 2026-09-04: see DocumentFallbackLabel's own
                                 // header comment (components/chat/file-type-icon.tsx)
@@ -1120,6 +1503,7 @@ export function MiniChatWindow({
                             {mediaDocumentBytes(doc) !== null && (
                               <span className={`text-[11px] ${mine ? "opacity-80" : "opacity-60"}`}>{formatBytes(mediaDocumentBytes(doc) as number)}</span>
                             )}
+                            {isFileOnly && <span className="mt-0.5">{timeFooter}</span>}
                           </span>
                         </a>
                       ),
@@ -1164,6 +1548,15 @@ export function MiniChatWindow({
                 )}
                 {footer}
               </div>
+              <ReactionsBar
+                reactions={msg.reactions ?? []}
+                mine={mine}
+                myUserId={myUserId}
+                otherAvatarUrl={target.avatarUrl}
+                otherInitial={(target.title || "?").trim().charAt(0).toUpperCase() || "?"}
+                onToggle={(emoticon) => void handleToggleReaction(msg, emoticon)}
+              />
+              </div>
             </div>
           );
         })}
@@ -1171,7 +1564,58 @@ export function MiniChatWindow({
       </div>
 
       <div className="flex shrink-0 flex-col gap-2 border-t border-neutral-100 px-2.5 py-2 dark:border-neutral-800">
-        {calcOpen ? (
+        {selectionMode ? (
+          // Fix Tracker (2026-09-07, select-mode port) -- replaces the
+          // normal compose row while selecting, same "the compose bar
+          // becomes an action bar" swap page.tsx's own selectionMode
+          // header does, shrunk to a single row for this widget.
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center justify-between gap-2 px-1 py-1">
+              <button
+                type="button"
+                onClick={exitSelectionMode}
+                className="text-[13px] font-semibold text-[#335ef7] dark:text-[#0c8ce9]"
+              >
+                <T uk="Скасувати" en="Cancel" ru="Отмена" de="Abbrechen" es="Cancelar" fr="Annuler" pl="Anuluj" ptBR="Cancelar" zh="取消" />
+              </button>
+              <span className="text-[13px] font-medium tabular-nums text-[#262a34] dark:text-white">{selectedMessageIds.size}</span>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  disabled={selectedMessageIds.size === 0}
+                  onClick={() => {
+                    setForwardFailed(false);
+                    setForwardPickedChatIds(new Set());
+                    setForwardRowStatus({});
+                    setForwardSource(selectedMessagesOldestFirst());
+                  }}
+                  aria-label="Forward selected"
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-[#335ef7] transition hover:bg-black/5 disabled:opacity-40 dark:text-[#0c8ce9] dark:hover:bg-white/10"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px]" aria-hidden="true">
+                    <path d="M4 12h15M13 5l7 7-7 7" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  disabled={selectedMessageIds.size === 0 || selectionDeleting}
+                  onClick={() => void handleConfirmDeleteSelected()}
+                  aria-label="Delete selected"
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-red-500 transition hover:bg-black/5 disabled:opacity-40 dark:hover:bg-white/10"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px]" aria-hidden="true">
+                    <path d="M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2m1 0-.8 12.2A2 2 0 0 1 15.2 21H8.8a2 2 0 0 1-2-1.8L6 7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            {selectionDeleteFailed && (
+              <p className="px-1 text-[12px] text-red-500 dark:text-red-400">
+                <T uk="Не вдалося видалити" en="Couldn't delete" ru="Не удалось удалить" de="Löschen fehlgeschlagen" es="No se pudo eliminar" fr="Échec de la suppression" pl="Nie udało się usunąć" ptBR="Não foi possível excluir" zh="删除失败" />
+              </p>
+            )}
+          </div>
+        ) : calcOpen ? (
           // 2026-09-03 (Aleksandr, attach-menu port) -- same calculator
           // panel app/chats/[chatId]/page.tsx's own compose bar swaps in
           // for the normal draft row, shrunk to fit this window's own
@@ -1388,6 +1832,38 @@ export function MiniChatWindow({
             </div>
           </div>
         )}
+        {editingMessage && (
+          // Fix Tracker (2026-09-07, edit port) -- minimal "you're
+          // editing" indicator (page.tsx's own editing bar has a full
+          // quote-preview treatment this smaller widget skips, same
+          // "no full threading UI here" line this file already draws
+          // for Reply) -- just enough that Enter/Send isn't a silent
+          // surprise switch from "new message" to "save edit".
+          <div className="flex items-center justify-between gap-2 rounded-lg bg-black/5 px-2.5 py-1.5 text-[12px] text-[#262a34] dark:bg-white/10 dark:text-white">
+            <span className="truncate font-medium">
+              <T uk="Редагування повідомлення" en="Editing message" ru="Редактирование сообщения" de="Nachricht bearbeiten" es="Editando mensaje" fr="Modification du message" pl="Edycja wiadomości" ptBR="Editando mensagem" zh="编辑消息" />
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingMessage(null);
+                setDraft("");
+                setEditFailed(false);
+              }}
+              aria-label="Cancel edit"
+              className="shrink-0 text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100"
+            >
+              <svg viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5" aria-hidden="true">
+                <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+        )}
+        {editFailed && (
+          <p className="px-1 text-[12px] text-red-500 dark:text-red-400">
+            <T uk="Не вдалося зберегти зміни" en="Couldn't save changes" ru="Не удалось сохранить изменения" de="Änderungen konnten nicht gespeichert werden" es="No se pudieron guardar los cambios" fr="Impossible d'enregistrer les modifications" pl="Nie udało się zapisać zmian" ptBR="Não foi possível salvar as alterações" zh="无法保存更改" />
+          </p>
+        )}
         <div className="flex items-end gap-2">
           {/* 2026-09-02 (Aleksandr: "надо добавить скрепку слева, а кота
               поставить справа как в обычных чатах" + "надо тут тоже
@@ -1410,7 +1886,7 @@ export function MiniChatWindow({
                 if (isAttachRecentHoverOpen()) return;
                 setAttachMenuOpen((v) => !v);
               }}
-              disabled={sending}
+              disabled={sending || !!editingMessage}
               aria-label="Attach"
               className="group flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-neutral-400 transition hover:bg-black/5 hover:text-neutral-600 disabled:opacity-40 dark:text-[#8d8d93] dark:hover:bg-white/10 dark:hover:text-neutral-200"
             >
@@ -1662,8 +2138,39 @@ export function MiniChatWindow({
           lang={lang}
           onClose={() => setActionsMenu(null)}
           onReply={() => {
+            setEditingMessage(null);
             window.requestAnimationFrame(() => textareaRef.current?.focus());
           }}
+          onReact={(emoticon) => void handleToggleReaction(actionsMenu.message, emoticon)}
+          myReactionEmoticon={
+            myUserId
+              ? ((actionsMenu.message.reactions ?? []).find(
+                  (r) => r.peer?.object === "peer-user" && r.peer.user === myUserId,
+                )?.reaction.emoticon ?? null)
+              : null
+          }
+          onEdit={
+            extractMessageText(actionsMenu.message)
+              ? () => {
+                  setEditingMessage(actionsMenu.message);
+                  setDraft(extractMessageText(actionsMenu.message));
+                  setEditFailed(false);
+                  window.requestAnimationFrame(() => textareaRef.current?.focus());
+                }
+              : undefined
+          }
+          onForward={
+            extractMessageText(actionsMenu.message) ||
+            messageDocumentMedia(actionsMenu.message).length > 0 ||
+            messageContactMedia(actionsMenu.message).length > 0
+              ? () => {
+                  setForwardFailed(false);
+                  setForwardPickedChatIds(new Set());
+                  setForwardRowStatus({});
+                  setForwardSource([actionsMenu.message]);
+                }
+              : undefined
+          }
           onCopy={
             extractMessageText(actionsMenu.message)
               ? () => {
@@ -1674,6 +2181,13 @@ export function MiniChatWindow({
               : undefined
           }
           onDelete={() => setDeleteConfirm({ messageId: Number(actionsMenu.message._id) })}
+          onSelect={() => enterSelectionMode(Number(actionsMenu.message._id))}
+          onRemind={() => {
+            setRemindFailed(false);
+            setRemindTarget({ messageId: Number(actionsMenu.message._id) });
+          }}
+          onPin={() => void handleTogglePin(actionsMenu.message)}
+          pinState={isMessagePinned(actionsMenu.message) ? "unpin" : "pin"}
         />
       )}
       {deleteConfirm && (
@@ -1702,6 +2216,45 @@ export function MiniChatWindow({
             setDeleteMessageFailed(false);
           }}
           onConfirm={(revoke) => void handleConfirmDeleteMessage(revoke)}
+        />
+      )}
+      {remindTarget && (
+        <RemindModal
+          peerDisplayName={target.title}
+          submitting={remindSubmitting}
+          failed={remindFailed}
+          onCancel={() => {
+            if (remindSubmitting) return;
+            setRemindTarget(null);
+            setRemindFailed(false);
+          }}
+          onConfirm={(scheduleAt, local) => void handleConfirmRemind(scheduleAt, local)}
+        />
+      )}
+      {forwardSource && (
+        <ForwardPickerModal
+          lang={lang}
+          onClose={() => {
+            if (forwardSendingAll) return;
+            setForwardSource(null);
+            setForwardFailed(false);
+            setForwardPickedChatIds(new Set());
+            setForwardRowStatus({});
+          }}
+          onPickSingle={(targetChatId) => void handleForwardPickSingle(targetChatId)}
+          pickedChatIds={forwardPickedChatIds}
+          onToggle={(chatId) =>
+            setForwardPickedChatIds((prev) => {
+              const next = new Set(prev);
+              if (next.has(chatId)) next.delete(chatId);
+              else next.add(chatId);
+              return next;
+            })
+          }
+          onSend={() => void handleForwardSend()}
+          sending={forwardSendingAll}
+          rowStatus={forwardRowStatus}
+          failed={forwardFailed}
         />
       )}
       <CopyToast state={copyToast} lang={lang} />
