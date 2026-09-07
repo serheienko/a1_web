@@ -72,6 +72,7 @@ export function TgsSticker({
   loop = true,
   fallback,
   previewUrl,
+  pathPreview,
 }: {
   /** getStableMediaProxyUrl(doc) (or buildMediaProxyUrl for a non-rotating id) -- resolves to the raw .tgs bytes. */
   src: string;
@@ -83,10 +84,21 @@ export function TgsSticker({
   // форму, но просто темные стикеры") -- lib/a1/media-proxy.ts's own
   // strippedPreviewDataUrl(doc), computed by the caller (this component
   // only ever gets a plain `src` string, not the doc itself, so it
-  // can't derive this on its own). Optional: a call site with no
-  // stripped preview available (or that hasn't been updated to pass
-  // one yet) just keeps the old plain grey pulse box.
+  // can't derive this on its own). This backend's sticker docs never
+  // actually carry the `size-stripped` field this reads (confirmed
+  // live), so in practice previewUrl is always null here and this
+  // falls through to pathPreview below -- kept as a fallback in case a
+  // future doc ever does carry one, since it's a strictly better (real
+  // colors) preview than the vector outline when available.
   previewUrl?: string | null;
+  // Fix Tracker (2026-09-07, order 68 follow-up): lib/a1/media-proxy.ts's
+  // decodeStickerPathPreview(doc) -- an SVG path `d` string decoded
+  // from the doc's `size-path` vector-thumbnail entry (Telegram's
+  // photoPathSize format), which THIS backend's sticker docs do
+  // actually carry. Takes priority over previewUrl since it's what's
+  // really available; renders as a dimmed silhouette of the sticker's
+  // real shape instead of a generic grey box.
+  pathPreview?: string | null;
 }) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -192,7 +204,15 @@ export function TgsSticker({
       style={{ position: "relative", width: size, height: size, flexShrink: 0 }}
     >
       {!loaded &&
-        (previewUrl ? (
+        (pathPreview ? (
+          <svg
+            viewBox="0 0 512 512"
+            className="absolute inset-0 h-full w-full animate-pulse rounded-[12px]"
+            aria-hidden="true"
+          >
+            <path d={pathPreview} className="fill-black/25 dark:fill-white/25" />
+          </svg>
+        ) : previewUrl ? (
           // eslint-disable-next-line @next/next/no-img-element -- an inline base64 blob, not a proxied URL.
           <img
             src={previewUrl}

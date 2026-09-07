@@ -63,7 +63,7 @@ import { ChatPreviewLine } from "@/components/chat/chat-preview-line";
 import { TgsSticker } from "@/components/chat/tgs-sticker";
 import { ChatFileTypeIcon, fileKindFromName } from "@/components/chat/file-type-icon";
 import { getStableMediaProxyUrl } from "@/lib/a1/stable-media-url";
-import { strippedPreviewDataUrl } from "@/lib/a1/media-proxy";
+import { strippedPreviewDataUrl, decodeStickerPathPreview } from "@/lib/a1/media-proxy";
 import { describeMessagePreview, mediaDocumentThumbnail, mediaDocumentFileName, type ChatMessage } from "@/lib/a1/chat-schemas";
 
 // Fix Tracker (2026-09-07, "В закрепах надо слева показывать маленькую
@@ -163,6 +163,7 @@ export function PinnedMessageBanner({
         size={32}
         fallback={<StickerThumbFallback />}
         previewUrl={strippedPreviewDataUrl(preview.stickerDoc)}
+        pathPreview={decodeStickerPathPreview(preview.stickerDoc)}
       />
     ) : preview.kind === "file" && preview.fileDoc ? (
       fileThumbUrl ? (

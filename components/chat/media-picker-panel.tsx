@@ -22,7 +22,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { authFetch } from "@/lib/auth-fetch";
 import { EMOJI_CATEGORIES } from "@/lib/a1/emoji-data";
-import { buildMediaProxyUrl, strippedPreviewDataUrl } from "@/lib/a1/media-proxy";
+import { buildMediaProxyUrl, strippedPreviewDataUrl, decodeStickerPathPreview } from "@/lib/a1/media-proxy";
 import { getStableMediaProxyUrl } from "@/lib/a1/stable-media-url";
 import type { MediaDocument } from "@/lib/a1/schemas";
 import { type Stickerset } from "@/lib/a1/media-panel-schemas";
@@ -502,6 +502,7 @@ export function MediaPickerPanel({
                     size={64}
                     fallback={<StickerChipFallback size={64} />}
                     previewUrl={strippedPreviewDataUrl(doc)}
+                    pathPreview={decodeStickerPathPreview(doc)}
                   />
                 </button>
               ))}

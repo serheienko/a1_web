@@ -66,6 +66,63 @@ export function buildMediaProxyUrl(doc: { _id: string; fileReference: string; si
 // box, degrading to that grey box when a given document has no stripped
 // entry (unconfirmed either doc shape's sticker rows in this backend
 // actually carry one -- falls back harmlessly either way).
+// Fix Tracker (2026-09-07, order 68 follow-up): strippedPreviewDataUrl()
+// above degrades to the plain grey box for EVERY sticker on this
+// backend -- confirmed live (2026-09-07, /api/chats/stickers/recent
+// and /api/chats/stickers/sets responses) that sticker MediaDocuments
+// here only ever carry `size-original` and `size-path` entries, never
+// `size-stripped`. `size-path` turns out to be exactly the right tool
+// for this job instead: Telegram's `photoPathSize` vector-thumbnail
+// format (TL: photoPathSize#d8214d41, type "j" -- see
+// https://core.telegram.org/constructor/photoPathSize and the "Vector
+// thumbnails" section of https://core.telegram.org/api/files),
+// designed specifically to show an outline of a sticker before its
+// real (Lottie/.tgs) animation has loaded. Confirmed correct by
+// decoding this app's own live sticker data and rendering the result
+// as an actual <path> -- it reproduces a recognizable cat-silhouette
+// outline for the MR.KIT pack's stickers, not garbage.
+//
+// Decode algorithm ported from gotd/td's DecodePathTo (MIT licensed,
+// github.com/gotd/td/blob/v0.161.0/telegram/thumbnail/svg.go), which
+// itself implements the format documented at the URL above: `bytes` is
+// base64 (this backend's usual URL-safe variant, same normalization as
+// strippedPreviewDataUrl) of a raw byte string; each byte maps either
+// to a literal path-command/punctuation character (bytes >= 192, via
+// the 64-entry `lookup` table) or to a signed small integer emitted as
+// a decimal digit sequence (bytes < 192, sign from the 64/128 range,
+// value from the low 6 bits) forming the coordinate list between
+// commands. The whole thing is wrapped M...z and is meant for a
+// `viewBox="0 0 512 512"` per Telegram's own doc comment.
+const VECTOR_PATH_LOOKUP = "AACAAAAHAAALMAAAQASTAVAAAZaacaaaahaaalmaaaqastava.az0123456789-,";
+
+export function decodeStickerPathPreview(doc: { sizes: Array<{ object?: string; bytes?: unknown }> }): string | null {
+  const raw = doc.sizes.find((s) => s.object === "size-path" && typeof s.bytes === "string")?.bytes as
+    | string
+    | undefined;
+  if (!raw) return null;
+  let normalized = raw.replace(/-/g, "+").replace(/_/g, "/");
+  const pad = normalized.length % 4;
+  if (pad > 0) normalized += "=".repeat(4 - pad);
+  let binary: string;
+  try {
+    binary = atob(normalized);
+  } catch {
+    return null;
+  }
+  let d = "M";
+  for (let i = 0; i < binary.length; i++) {
+    const num = binary.charCodeAt(i);
+    if (num >= 128 + 64) {
+      d += VECTOR_PATH_LOOKUP[num - 128 - 64];
+    } else {
+      if (num >= 128) d += ",";
+      else if (num >= 64) d += "-";
+      d += String(num & 63);
+    }
+  }
+  return d + "z";
+}
+
 export function strippedPreviewDataUrl(doc: { sizes: Array<{ object?: string; bytes?: unknown }> }): string | null {
   const raw = doc.sizes.find((s) => s.object === "size-stripped" && typeof s.bytes === "string")?.bytes as
     | string

@@ -71,7 +71,7 @@ import { SelectionTopBar, SelectionBottomBar } from "@/components/chat/selection
 import { putForwardPending, takeForwardPendingFor, clearForwardPending, type ForwardPendingDraft } from "@/lib/forward-pending-hold";
 import { ForwardPreviewMenu } from "@/components/chat/forward-preview-menu";
 import { CopyToast, type CopyToastState } from "@/components/chat/copy-toast";
-import { buildMediaProxyUrl, buildMediaDownloadUrl, strippedPreviewDataUrl } from "@/lib/a1/media-proxy";
+import { buildMediaProxyUrl, buildMediaDownloadUrl, strippedPreviewDataUrl, decodeStickerPathPreview } from "@/lib/a1/media-proxy";
 import { getStableMediaProxyUrl } from "@/lib/a1/stable-media-url";
 import type { MediaUploadUsage, MediaDocument } from "@/lib/a1/schemas";
 import { MediaPickerPanel } from "@/components/chat/media-picker-panel";
@@ -5440,6 +5440,7 @@ export default function ChatWindowPage() {
                                   src={getStableMediaProxyUrl(doc)}
                                   size={132}
                                   previewUrl={strippedPreviewDataUrl(doc)}
+                                  pathPreview={decodeStickerPathPreview(doc)}
                                   fallback={
                                     <div
                                       className={`flex items-center gap-2.5 rounded-xl px-2.5 py-2 ${
