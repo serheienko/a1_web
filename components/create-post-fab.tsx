@@ -50,11 +50,6 @@ import { authFetch } from "@/lib/auth-fetch";
 
 type FabStringKey = "label";
 
-// 2026-09-03: see handleClick's own comment -- how long /api/posts/mine
-// can stay in flight before the drafts popover is allowed to open at
-// all.
-const DRAFTS_POPOVER_DELAY_MS = 220;
-
 const STRINGS: Record<FabStringKey, Record<Locale, string>> = {
   label: {
     uk: "Створити допис", en: "Create post", ru: "Создать публикацию", de: "Beitrag erstellen",
@@ -170,6 +165,25 @@ export function CreatePostFab() {
   // `loading` prop) and only closes itself back down into a blank
   // editor if the fetch comes back with nothing to show, same as the
   // original zero-drafts fast path.
+  // Fix Tracker (2026-09-07, order 98: "При нажатии на создание поста
+  // форма для заполнения полей должна появляться прям вообще сразу,
+  // без какой-либо задержки... надо сразу загружать, а потом типа
+  // [проверять]") -- the previous version (2026-09-03 comment below,
+  // now superseded) already stopped blocking the DRAFTS popover on the
+  // fetch, but the far more common zero-drafts path still `await`ed
+  // /api/posts/mine to fully resolve before calling setEditorOpen(true)
+  // at all -- so a plain "write a new post" click still sat waiting on
+  // a full round-trip with nothing visible happening, exactly the
+  // "подвисание" complaint this same fetch already got called out for
+  // once before. Now the blank editor opens OPTIMISTICALLY the instant
+  // you click, and the drafts check runs after, in the background --
+  // only swapping the already-open blank editor for the DraftsPicker
+  // if it actually finds something. Trade-off, stated plainly: on a
+  // slow connection where the visitor starts typing in that first
+  // second, a drafts hit would still swap the view out from under them
+  // -- accepted deliberately per this ticket's explicit "show it
+  // immediately" ask; nothing this app does about it, but the previous
+  // behavior's "always wait first" was reported as the actual bug.
   async function handleClick() {
     if (!email) {
       setAuthPromptOpen(true);
@@ -177,17 +191,10 @@ export function CreatePostFab() {
     }
     if (checking) return; // already mid-check from a previous click -- avoid a second overlapping fetch
     setDrafts(null);
-    // 2026-09-03 (Aleksandr, repeating an earlier request -- see
-    // `checking` state's own comment above for the full history):
-    // nothing here opens DraftsPicker anymore until /api/posts/mine has
-    // actually come back AND actually found something -- a zero-drafts
-    // click now goes straight to a blank editor with no modal ever
-    // appearing, at any response speed. `checking` only drives a small
-    // spinner on the button itself (debounced the same
-    // DRAFTS_POPOVER_DELAY_MS as before, so a normal fast response never
-    // shows even that -- it is purely for a genuinely slow round-trip
-    // so the click does not read as unresponsive).
-    const spinnerTimer = window.setTimeout(() => setChecking(true), DRAFTS_POPOVER_DELAY_MS);
+    setDraftsPickerOpen(false);
+    setEditingDraft(null);
+    setEditorOpen(true);
+    setChecking(true);
     try {
       const res = await authFetch("/api/posts/mine");
       const data = await res.json();
@@ -205,22 +212,17 @@ export function CreatePostFab() {
       const draftPosts: DraftPost[] = (data.posts ?? []).filter(
         (p: DraftPost) => p.isDraft || (p.scheduled != null && p.published == null),
       );
-      window.clearTimeout(spinnerTimer);
-      setChecking(false);
       if (draftPosts.length > 0) {
         setDrafts(draftPosts);
+        setEditorOpen(false);
         setDraftsPickerOpen(true);
-        return;
       }
     } catch {
-      // Same "never let a broken drafts lookup block posting" fallback
-      // as below -- open a blank editor same as always.
-      window.clearTimeout(spinnerTimer);
+      // Never let a broken drafts lookup get in the way of posting --
+      // the blank editor opened optimistically above just stays open.
+    } finally {
       setChecking(false);
     }
-    setDraftsPickerOpen(false);
-    setEditingDraft(null);
-    setEditorOpen(true);
   }
 
   return (
