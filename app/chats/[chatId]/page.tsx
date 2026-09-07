@@ -5027,10 +5027,33 @@ export default function ChatWindowPage() {
                       // undefined для ещё не отправленного бабла -- к
                       // нему нечем возвращаться, реального id пока нет.
                       data-message-id={pending ? undefined : msg._id}
+                      // Fix Tracker (2026-09-07, Aleksandr, screenshot
+                      // of the overlapping reaction pill: "она наехала
+                      // на время, а надо расширять бабл") -- once
+                      // ReactionsBar (see its own header comment, orders
+                      // 82/83) started straddling THIS bubble's own
+                      // bottom corner, the time/ticks footer sitting
+                      // right at that same corner (flatFooter inline for
+                      // text-ish bubbles, the absolute bottom-1.5
+                      // right-1.5 badge for flat media) ended up under
+                      // the pill instead of next to it. Rather than
+                      // shrinking the overlap (which would fight the
+                      // reference screenshot's own look), a message
+                      // with reactions gets a bit of extra bottom
+                      // padding on THIS shared bubble div -- pushing its
+                      // real content up and leaving the pill's overlap
+                      // land on blank bubble space instead of the
+                      // clock. One change here covers every message
+                      // kind (text, calculation table, photo, contact
+                      // card, ...) since they all render inside this
+                      // same div, same as ReactionsBar's own insertion
+                      // point in page.tsx.
                       className={`animate-message-in max-w-[78%] rounded-[18px] text-[17px] leading-snug ${pending ? "cursor-pointer" : ""} ${
                         isFlatMedia
-                          ? ""
-                          : `px-3 py-2 ${mine ? "rounded-tr-[6px] bg-[#335ef7] text-white dark:bg-[#009bff]" : "rounded-tl-[6px] bg-white text-[#262a34] dark:bg-[#1a1a1a] dark:text-white"}`
+                          ? hasReactions
+                            ? "pb-3.5"
+                            : ""
+                          : `px-3 pt-2 ${hasReactions ? "pb-3.5" : "pb-2"} ${mine ? "rounded-tr-[6px] bg-[#335ef7] text-white dark:bg-[#009bff]" : "rounded-tl-[6px] bg-white text-[#262a34] dark:bg-[#1a1a1a] dark:text-white"}`
                       } ${pending?.failed ? "opacity-70" : ""}`}
                     >
                       {pendingAttachments.length > 0 && (
