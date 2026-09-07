@@ -355,7 +355,22 @@ export function MediaPickerPanel({
   if (typeof document === "undefined" || !placement) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50">
+    // Fix Tracker (2026-09-07, order 119 follow-up): z-50 was fine back
+    // when this panel only ever opened from the main chat page (nothing
+    // else there sits anywhere near that high), but order 119 wired the
+    // exact same trigger button into mini-chat-window.tsx too -- and
+    // that window itself renders at z-[70] (see its own className).
+    // z-50 < z-[70] meant the panel was rendering, fully interactive,
+    // completely INVISIBLE the whole time when opened from a mini-chat
+    // -- silently painted behind the window that opened it. Confirmed
+    // live (2026-09-07): clicking the cat icon in a mini-chat DID open
+    // the panel (DOM has it, real sticker-pack tabs and content inside)
+    // but nothing appeared on screen -- only a few stray pixels of its
+    // edge poked out past the mini-chat window's own left edge.
+    // z-[80] matches message-actions-menu.tsx's own already-established
+    // convention for exactly this "must beat the mini-chat window's
+    // z-[70]" case (see that file's own comment on its two z-[80]s).
+    <div className="fixed inset-0 z-[80]">
       {/* No dim/blur backdrop -- same "Cupertino menu, no scrim" style
           message-actions-menu.tsx/forward-preview-menu.tsx already use
           for their own popups. Doubles as the outside-click-to-close
