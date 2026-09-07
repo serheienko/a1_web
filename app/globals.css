@@ -666,6 +666,39 @@ textarea {
 }
 
 /*
+ * Fix Tracker (2026-09-07, order 86: pinned-message segment indicator
+ * -- "анимация появления черточек, чтобы одна длинная делилась
+ * красиво на секции"). Only animates the vertical scale (squished ->
+ * full height, centered) so it reads as one bar unfolding into its
+ * segments; deliberately leaves `opacity` untouched here (each
+ * segment's own opacity-100/opacity-45 utility class in
+ * pinned-message-banner.tsx sets the active/inactive state) --
+ * animating opacity to a single shared "to" value in this keyframe
+ * would win over that per-segment utility once the animation's fill-
+ * mode holds its end state, permanently flattening every segment back
+ * to the same opacity.
+ */
+@keyframes pin-segment-in {
+  from {
+    transform: scaleY(0.15);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+.animate-pin-segment {
+  transform-origin: center;
+  animation: pin-segment-in 0.22s cubic-bezier(0.2, 0.8, 0.4, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pin-segment {
+    animation: none;
+  }
+}
+
+/*
  * 2026-09-02 (Aleksandr, after the chat-bubble-wiggle above:
  * "Добавь анимации на эти иконки тоже теперь, у тебя круто получилось
  * с иконкой чатов... Надо како-то моушн на увійти, °°° (анимацию сразу

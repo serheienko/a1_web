@@ -197,9 +197,28 @@ export function PinnedMessageBanner({
         </div>
       ) : (
         <button key="default" type="button" onClick={onTap} className="animate-pin-content-fade flex min-w-0 flex-1 items-center gap-2.5 px-2.5 text-left">
+          {/* Fix Tracker (2026-09-07, order 86: "Сделай чтобы
+              черточка полностью белой была только актуальная по
+              позиции, активная, остальные черточки 50% цвета или
+              серые. Еще сделай анимацию появления черточек, чтобы одна
+              длинная делилась красиво на секции") -- this banner only
+              ever shows the most-recently-pinned message, so that's
+              the "active position": the LAST segment (bottom of this
+              vertical stack) is now full-opacity, every earlier one
+              dimmed to 45%. Each segment also mounts with
+              .animate-pin-segment (app/globals.css) staggered by
+              index (transitionDelay-style stagger via animationDelay)
+              so a fresh set of segments reads as one bar splitting
+              into its sections rather than all popping in at once. */}
           <span className="flex h-[30px] w-[3px] shrink-0 flex-col gap-[2px]">
-            {Array.from({ length: Math.min(pinCount, 4) }).map((_, i) => (
-              <span key={i} className="w-full flex-1 rounded-full bg-[#262a34] dark:bg-white" />
+            {Array.from({ length: Math.min(pinCount, 4) }).map((_, i, arr) => (
+              <span
+                key={i}
+                className={`animate-pin-segment w-full flex-1 rounded-full bg-[#262a34] dark:bg-white ${
+                  i === arr.length - 1 ? "opacity-100" : "opacity-45"
+                }`}
+                style={{ animationDelay: `${i * 70}ms` }}
+              />
             ))}
           </span>
           {thumbBox}
