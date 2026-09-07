@@ -882,7 +882,16 @@ export default function ChatWindowPage() {
   // keeps working unchanged. `allPinsOpen` and `pinActionMessageId`
   // back the new AllPinsModal this ticket also added.
   const [pinnedMessages, setPinnedMessages] = useState<ChatMessage[]>([]);
-  const pinnedMessage = pinnedMessages[0] ?? null;
+  // Fix Tracker (order 77, "При повторно нажатии на закреп сверху надо,
+  // чтобы он поднимался к следующему закрепу"): a repeat tap on the
+  // banner should cycle through `pinnedMessages` instead of always
+  // re-jumping to the same (newest) pin. `activePinIndex` is which pin
+  // the banner currently shows; handleTapPinnedBanner (below) advances
+  // it with wraparound after each jump. Falls back to index 0 whenever
+  // the index is stale (chat switch, or the active pin got unpinned) --
+  // see the reset in the chat-switch effect and handleTogglePin below.
+  const [activePinIndex, setActivePinIndex] = useState(0);
+  const pinnedMessage = pinnedMessages[activePinIndex] ?? pinnedMessages[0] ?? null;
   const [allPinsOpen, setAllPinsOpen] = useState(false);
   const [pinBusy, setPinBusy] = useState(false);
   const [pinActionMessageId, setPinActionMessageId] = useState<number | null>(null);
@@ -1934,6 +1943,7 @@ export default function ChatWindowPage() {
 
   useEffect(() => {
     setPinnedMessages([]);
+    setActivePinIndex(0);
     // Instant, not animated -- this is a chat switch, not a real
     // unpin, so there's nothing to play an exit transition over (see
     // displayedPinnedMessage's own header comment above).
@@ -3277,6 +3287,7 @@ export default function ChatWindowPage() {
         ? prev.filter((m) => Number(m._id) !== messageId)
         : [message, ...prev.filter((m) => Number(m._id) !== messageId)]
     );
+    if (!currentlyPinned) setActivePinIndex(0);
     setMessages((prev) =>
       prev.map((m) => {
         if (Number(m._id) !== messageId) return m;
@@ -3391,6 +3402,19 @@ export default function ChatWindowPage() {
     window.setTimeout(() => {
       setHighlightedMessageId((cur) => (cur === messageId ? null : cur));
     }, 2200);
+  }
+
+  // Fix Tracker (order 77): the banner's own onTap -- jumps to the
+  // currently-shown pin (same handleJumpToPinnedMessage as before),
+  // then advances activePinIndex with wraparound so the NEXT tap shows
+  // the next pin in `pinnedMessages`. A single pin just keeps jumping
+  // to itself, same as the old always-jump-to-pinnedMessages[0] behavior.
+  function handleTapPinnedBanner() {
+    if (!pinnedMessage) return;
+    handleJumpToPinnedMessage(Number(pinnedMessage._id));
+    if (pinnedMessages.length > 1) {
+      setActivePinIndex((i) => (i + 1) % pinnedMessages.length);
+    }
   }
 
   // Multi-select mode (2026-09-05, Форвард 2.0 Phase 1) -- entered
@@ -4222,7 +4246,7 @@ export default function ChatWindowPage() {
         >
           <PinnedMessageBanner
             pinnedMessage={displayedPinnedMessage}
-            onTap={() => handleJumpToPinnedMessage(Number(displayedPinnedMessage._id))}
+            onTap={handleTapPinnedBanner}
             onUnpin={() => handleTogglePin(displayedPinnedMessage)}
             unpinning={pinBusy}
             pinCount={pinnedMessages.length}
