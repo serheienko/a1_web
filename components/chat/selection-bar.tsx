@@ -94,23 +94,34 @@ export function SelectionBottomBar({
 }) {
   return (
     <div className="mx-auto flex w-full max-w-[470px] items-center justify-between px-3.5 py-2">
+      {/* Fix Tracker (2026-09-07, order 105: "Сделай анимации иконки
+          мусорки и стрелочки в чатах когда сообщения выбраны") --
+          both icons just sat static before; reusing this app's own
+          existing hover-animation language instead of inventing a new
+          one: animate-trash-wobble (already used for every other
+          delete icon -- reminders-list-modal.tsx, photo-viewer.tsx,
+          post-owner-menu.tsx) for delete, and animate-send-arrow (the
+          same nudge-forward motion the compose bar's own send button
+          and forward-picker use) for forward, since this icon is
+          itself a forward-pointing arrow. `group` added to each
+          button so `.group:hover` on the wrapper drives the SVG. */}
       <button
         type="button"
         disabled={!hasSelection}
         onClick={onDelete}
         aria-label="Delete selected"
-        className="flex h-11 w-11 items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-[#ff3b30] backdrop-blur-sm transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80 dark:hover:bg-[#1c1c1e]"
+        className="group flex h-11 w-11 items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-[#ff3b30] backdrop-blur-sm transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80 dark:hover:bg-[#1c1c1e]"
       >
-        <DeleteCircleIcon className="h-5 w-5" />
+        <DeleteCircleIcon className="h-5 w-5 animate-trash-wobble" />
       </button>
       <button
         type="button"
         disabled={!hasSelection}
         onClick={onForward}
         aria-label="Forward selected"
-        className="flex h-11 w-11 items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-[#335ef7] backdrop-blur-sm transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80 dark:text-[#0c8ce9] dark:hover:bg-[#1c1c1e]"
+        className="group flex h-11 w-11 items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-[#335ef7] backdrop-blur-sm transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80 dark:text-[#0c8ce9] dark:hover:bg-[#1c1c1e]"
       >
-        <ForwardCircleIcon className="h-5 w-5" />
+        <ForwardCircleIcon className="h-5 w-5 animate-send-arrow" />
       </button>
     </div>
   );
