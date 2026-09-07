@@ -103,6 +103,8 @@ import { ChatPhotoViewer, type ChatViewerImage } from "@/components/chat/photo-v
 import { MessageActionsMenu, DeleteMessageConfirmDialog, ReactionsBar, EditComposeBar } from "@/components/chat/message-actions-menu";
 import { RemindModal } from "@/components/chat/remind-modal";
 import { ForwardPickerModal, type ForwardRowStatus } from "@/components/chat/forward-picker-modal";
+import { MediaPickerPanel } from "@/components/chat/media-picker-panel";
+import type { MediaDocument } from "@/lib/a1/schemas";
 import { CopyToast, type CopyToastState } from "@/components/chat/copy-toast";
 import { ChatCalculationCard } from "@/components/chat/calculation-card";
 import { ContactMessageCard } from "@/components/chat/contact-message-card";
@@ -390,6 +392,19 @@ export function MiniChatWindow({
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
   const attachMenuRef = useRef<HTMLDivElement>(null);
   const attachPanelRef = useRef<HTMLDivElement>(null);
+  // Fix Tracker (2026-09-07, order 119: "навесь полный функционал из
+  // основных чатов на иконку кота в мини-чатах") -- the cat icon here
+  // used to be pure decoration (just the wiggling SVG, no button, no
+  // handler at all); app/chats/[chatId]/page.tsx's own cat icon opens
+  // MediaPickerPanel (stickers/GIFs/emoji), anchored to the icon's own
+  // rect exactly like this file's own attach-menu/forward/actions-menu
+  // anchoring already works. MediaPickerPanel already portals itself
+  // to document.body and clamps its own on-screen position (see that
+  // file's own anchorRect comment), so no extra positioning work is
+  // needed here beyond capturing the rect on click, same as page.tsx.
+  const [mediaPanelOpen, setMediaPanelOpen] = useState(false);
+  const [mediaPanelAnchorRect, setMediaPanelAnchorRect] = useState<DOMRect | null>(null);
+  const mediaPanelRef = useRef<HTMLButtonElement>(null);
   const {
     handleMouseEnter: handleAttachMouseEnter,
     handleMouseLeave: handleAttachMouseLeave,
@@ -1005,6 +1020,38 @@ export function MiniChatWindow({
     } finally {
       setSending(false);
       textareaRef.current?.focus();
+    }
+  }
+
+  // Fix Tracker (2026-09-07, order 119) -- MediaPickerPanel's own
+  // onSendMedia callback for a picked sticker/GIF. Modeled on page.tsx's
+  // own sendMediaDocument, but this window has no pendingMessages/
+  // optimistic-bubble machinery of its own (messages here just append
+  // on the actual /api/chats/send response, same as every other send
+  // path in this file) -- so this is the same POST handleSend's own
+  // media branch already makes, just fired directly with the picked
+  // doc's fileReference instead of routing through the attach/draft
+  // staging state (there's no staged attachment here to reuse).
+  async function sendMediaDocument(doc: MediaDocument) {
+    if (sending) return;
+    setSending(true);
+    try {
+      const res = await authFetch("/api/chats/send", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          chatId: target.routeParam,
+          media: [{ fileReference: doc.fileReference }],
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (data?.ok && data.message) {
+        setMessages((prev) => [...prev, data.message as ChatMessage]);
+      }
+    } catch {
+      // Best-effort, same "next poll reconciles" contract as handleSend.
+    } finally {
+      setSending(false);
     }
   }
 
@@ -2070,10 +2117,24 @@ export function MiniChatWindow({
                 the eye-dart treatment that page's icon supports, so it
                 reuses ChatsFab's own generic animate-chat-wiggle
                 (rotate+scale) instead -- still a real hover reaction,
-                just a different motion. */}
-            <div className="group shrink-0">
+                just a different motion.
+                Fix Tracker (2026-09-07, order 119) -- this used to be
+                non-interactive decoration; now a real button opening
+                the same MediaPickerPanel (stickers/GIFs/emoji) page.tsx's
+                own cat icon opens, anchored to this wrapper's own rect. */}
+            <button
+              type="button"
+              ref={mediaPanelRef}
+              onClick={() => {
+                setMediaPanelAnchorRect(mediaPanelRef.current?.getBoundingClientRect() ?? null);
+                setMediaPanelOpen((v) => !v);
+              }}
+              disabled={sending || !!editingMessage}
+              aria-label="Stickers, GIFs and emoji"
+              className="group flex shrink-0 items-center disabled:opacity-40"
+            >
               <ChatCatFieldIcon className="h-4 w-4 animate-chat-wiggle text-neutral-400 dark:text-[#adafbb]" />
-            </div>
+            </button>
           </div>
           <button
             type="button"
@@ -2261,6 +2322,20 @@ export function MiniChatWindow({
           sending={forwardSendingAll}
           rowStatus={forwardRowStatus}
           failed={forwardFailed}
+        />
+      )}
+      {mediaPanelOpen && mediaPanelAnchorRect && (
+        <MediaPickerPanel
+          anchorRect={mediaPanelAnchorRect}
+          onClose={() => setMediaPanelOpen(false)}
+          onPickEmoji={(emoji) => {
+            setDraft((d) => d + emoji);
+            textareaRef.current?.focus();
+          }}
+          onSendMedia={(doc) => {
+            setMediaPanelOpen(false);
+            void sendMediaDocument(doc);
+          }}
         />
       )}
       <CopyToast state={copyToast} lang={lang} />
