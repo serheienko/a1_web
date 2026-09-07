@@ -241,11 +241,24 @@ export function ContactMessageCard({
             // button's own py-1.5-driven height). `self-stretch`
             // instead makes it match this row's real height (set by
             // the Message button, the only sibling that isn't
-            // stretched) whatever that renders to, and `aspect-square`
-            // keeps it a circle instead of a stretched oval.
+            // stretched) whatever that renders to.
+            // Fix Tracker (2026-09-07, order 107: "Пилюля крестика
+            // должна быть круглой и чуть шире, а кнопку сообщения
+            // уменьши по ширине чуть, чтобы поместился + с заливкой")
+            // -- the previous `aspect-square` pinned this pill's width
+            // to the row's height, which (at this row's ~32px height)
+            // read as a cramped near-square rather than a rounded
+            // pill. `px-3` replaces that: width now comes from the
+            // icon plus real horizontal padding instead of matching
+            // height, so `rounded-full` renders a proper wide stadium/
+            // pill (still fully round ends) with its existing bg-fill
+            // visibly filling more area. Message is `flex-1` (see its
+            // own className below) so it automatically gives up
+            // exactly the extra width this pill now takes -- no
+            // separate width change needed there.
             className={`group flex shrink-0 items-center justify-center self-stretch overflow-hidden rounded-full transition-all duration-300 ease-out disabled:cursor-default ${
               mine ? "bg-white/20 hover:bg-white/30" : "bg-black/5 hover:bg-black/10 dark:bg-white/15 dark:hover:bg-white/25"
-            } ${addState === "added" ? "w-0 opacity-0" : "aspect-square opacity-100 active:scale-95"}`}
+            } ${addState === "added" ? "w-0 opacity-0" : "px-3 opacity-100 active:scale-95"}`}
           >
             {addState === "adding" ? <AddSpinner className="h-3.5 w-3.5" /> : <PlusIcon className="h-3.5 w-3.5 animate-theme-pop" />}
           </button>
