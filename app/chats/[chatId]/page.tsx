@@ -4653,6 +4653,24 @@ export default function ChatWindowPage() {
                   !isVoiceMediaDocument(soleDoc) && !isImageMediaDocument(soleDoc) &&
                   !isVideoMediaDocument(soleDoc) && !isStickerMediaDocument(soleDoc)) ||
                   (docMedia.length === 0 && singlePendingAttachment?.kind === "file"));
+              // Fix Tracker order 124 (Aleksandr, live screenshot: "Гифки как
+              // то очень дико выглядят на моб... без рамки синей и без
+              // элементов проигрывания") -- every video/mp4 message in this
+              // app IS a GIF in practice: there is no UI path anywhere
+              // (mini-chat or here) that lets someone attach a real video
+              // file (checked every file-input `accept` list in both this
+              // page and mini-chat-window.tsx -- none include video/*). The
+              // ONLY source of a video/mp4 doc is the GIF picker
+              // (MediaPickerPanel's GIFs tab, klipy.com .mp4 clips), so a
+              // sole video doc is safe to treat as flat/chromeless the same
+              // way a sole photo already is right above -- that's what was
+              // producing the "blue frame": isFileOnly explicitly excludes
+              // video (see !isVideoMediaDocument(soleDoc) above), so a solo
+              // video used to match NONE of the isXOnly flags and fell back
+              // to this row's own generic bubble background.
+              const isVideoOnly =
+                !text && calc === null && contactMedia.length === 0 && pendingContactCards.length === 0 &&
+                pendingAttachments.length === 0 && soleDoc !== null && isVideoMediaDocument(soleDoc);
               // 2026-09-06 (Block 1 follow-up) -- a real (non-greeting)
               // sticker is now an actual transparent 132px animation
               // (see TgsSticker's own call site below), not the old
@@ -4751,7 +4769,7 @@ export default function ChatWindowPage() {
               // set used before this optimization existed) so the
               // forward label always sits on real fill.
               const hasForwardLabel = !pending && msg.forwardFrom?.object === "peer-user";
-              const isFlatMedia = !hasForwardLabel && (isVoiceOnly || isImageOnly || isImageGroupOnly || isFileOnly || isContactOnly || isMeetingOnly || isGreetingSticker || isStickerOnly);
+              const isFlatMedia = !hasForwardLabel && (isVoiceOnly || isImageOnly || isImageGroupOnly || isFileOnly || isContactOnly || isMeetingOnly || isGreetingSticker || isStickerOnly || isVideoOnly);
               const imageGroupFooter = (
                 <span className="pointer-events-none absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded-full bg-black/45 px-2 py-0.5 text-[11px] text-white backdrop-blur-sm">
                   <span>{msg.editedAt && <EditedLabel />}{formatTime(ms)}</span>
@@ -5338,20 +5356,37 @@ export default function ChatWindowPage() {
                                 />
                               )
                             ) : isVideoMediaDocument(doc) ? (
-                              // 2026-09-03 (Aleksandr, live data trace --
-                              // see isVideoMediaDocument's own comment,
-                              // lib/a1/chat-schemas.ts): browsers can
-                              // play mp4 natively, so this gets a real
-                              // <video> instead of falling through to
-                              // the generic file badge like every other
-                              // non-image attachment used to.
-                              <video
-                                key={doc._id}
-                                src={buildMediaProxyUrl(doc)}
-                                controls
-                                playsInline
-                                className="max-h-64 w-full rounded-xl bg-black"
-                              />
+                              // 2026-09-07 (Fix Tracker order 124, Aleksandr:
+                              // "без рамки синей и без элементов
+                              // проигрывания") -- every video/mp4 message here
+                              // is a GIF in practice (see isVideoOnly's own
+                              // comment above), so this now renders GIF-style:
+                              // autoplay/muted/loop with no native player
+                              // controls, same as Telegram's own GIF bubbles,
+                              // instead of the old `controls` scrubber/play
+                              // button UI. Wrapped the same way the sole-photo
+                              // case above is (relative + overflow-hidden) so
+                              // a solo GIF (isVideoOnly, now also isFlatMedia)
+                              // can drop the colored bubble behind it and get
+                              // the same dark translucent time+ticks pill
+                              // overlaid directly on it instead of the row's
+                              // own footer.
+                              <div key={doc._id} className="relative min-w-[200px] overflow-hidden rounded-xl">
+                                <video
+                                  src={buildMediaProxyUrl(doc)}
+                                  autoPlay
+                                  muted
+                                  loop
+                                  playsInline
+                                  className="max-h-64 w-full rounded-xl bg-black object-cover"
+                                />
+                                {isVideoOnly && (
+                                  <span className="pointer-events-none absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded-full bg-black/45 px-2 py-0.5 text-[11px] text-white backdrop-blur-sm">
+                                    <span>{msg.editedAt && <EditedLabel />}{formatTime(ms)}</span>
+                                    {mine && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7.77px] w-3.5" />}
+                                  </span>
+                                )}
+                              </div>
                             ) : isStickerMediaDocument(doc) ? (
                               // 2026-09-06 (Block 1 follow-up, Aleksandr's
                               // go-ahead): the 2026-09-03 placeholder
