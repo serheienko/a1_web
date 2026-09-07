@@ -919,7 +919,12 @@ export function MiniChatWindow({
         </div>
 
         {targetProfileHref ? (
-          <Link href={targetProfileHref} onClick={onNavigate} aria-label={target.title || undefined} className="ml-auto shrink-0">
+          // Fix Tracker (2026-09-07, order 109) -- ?photo=1 opens the
+          // profile page straight into components/profile-photo-
+          // viewer.tsx's full-size lightbox, same as the chat-list's
+          // own avatar link (app/chats/page.tsx) and the main chat
+          // page's own header avatar below.
+          <Link href={`${targetProfileHref}?photo=1`} onClick={onNavigate} aria-label={target.title || undefined} className="ml-auto shrink-0">
             {avatarImg}
           </Link>
         ) : (

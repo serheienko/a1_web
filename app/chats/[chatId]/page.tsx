@@ -4214,7 +4214,12 @@ export default function ChatWindowPage() {
           </div>
 
           {headerProfileHref ? (
-            <Link href={headerProfileHref} aria-label={headerTitle || undefined} className="ml-auto shrink-0">
+            // Fix Tracker (2026-09-07, order 109) -- ?photo=1 opens the
+            // profile page straight into components/profile-photo-
+            // viewer.tsx's full-size lightbox, same as the chat-list's
+            // own avatar link (app/chats/page.tsx) and the mini-chat
+            // window's own header avatar.
+            <Link href={`${headerProfileHref}?photo=1`} aria-label={headerTitle || undefined} className="ml-auto shrink-0">
               {/* 2026-09-05 (Aleksandr: "кешировать вообще всё, если
                   оно хотя бы 1 раз открывалось") -- this header avatar
                   renders on every chat open, one of the highest-

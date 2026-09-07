@@ -18,6 +18,7 @@ export const revalidate = 60;
 // any other field that might carry PII.
 
 import type { ReactNode } from "react";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { CachedAvatar } from "@/components/cached-avatar";
@@ -42,6 +43,7 @@ import { T, LOCALES, type Locale } from "@/components/t";
 import { translateWorkStyleOption, translateHobbyItem, translateWorkInterest } from "@/lib/pill-translations";
 import { VoiceIntroProvider } from "@/components/voice-intro-context";
 import { VoiceIntroRing } from "@/components/voice-intro-ring";
+import { ProfilePhotoViewer } from "@/components/profile-photo-viewer";
 import { VoiceIntroPlayer } from "@/components/voice-intro-player";
 import { OccupationIcon } from "@/components/occupation-icon";
 import { OCCUPATION_LABELS } from "@/components/occupation-labels";
@@ -398,42 +400,60 @@ export default async function ProfilePage({ params }: Props) {
             stays on this avatar wrapper too -- it's what the weekly cat
             badge's own `left-full` positioning (below) is anchored to. */}
         <div className="relative shrink-0">
-          <VoiceIntroRing>
-          {/* 2026-09-05 (Aleksandr: "Еще сделай кеширование постов,
-              если они раньше открывались") -- same persistent Cache
-              Storage-backed avatar cache components/post-card.tsx's
-              feed cards already use (CachedAvatar/lib/avatar-image-
-              cache.ts, 6.183) instead of a plain next/image -- once a
-              visitor has seen this author's avatar anywhere on the
-              site, reopening this exact profile never re-fetches it. */}
+          {/* Fix Tracker (2026-09-07, order 109) -- see components/
+              profile-photo-viewer.tsx's own header for why this is a
+              separate right-click/`?photo=1` entry point rather than
+              reusing VoiceIntroRing's left-click. Suspense is required
+              here (not optional boilerplate): ProfilePhotoViewer reads
+              useSearchParams(), and Next.js requires any client
+              component doing that to sit under a Suspense boundary,
+              or this page (statically rendered, `revalidate = 60`
+              above) would be forced fully dynamic. Only wraps the
+              avatar when there's a real photo to show full-size --
+              the generic default-cat mascot below has nothing to
+              enlarge. */}
           {profile.avatarUrl ? (
-            <CachedAvatar
-              src={profile.avatarUrl}
-              blurDataURL={avatarBlurDataUrl ?? BLUR_DATA_URL}
-              size={150}
-              className="h-[72px] w-[72px] shrink-0 rounded-full object-cover sm:h-[112.5px] sm:w-[112.5px]"
-            />
+            <Suspense fallback={null}>
+              <ProfilePhotoViewer photoUrl={profile.avatarUrl}>
+                <VoiceIntroRing>
+                  {/* 2026-09-05 (Aleksandr: "Еще сделай кеширование постов,
+                      если они раньше открывались") -- same persistent Cache
+                      Storage-backed avatar cache components/post-card.tsx's
+                      feed cards already use (CachedAvatar/lib/avatar-image-
+                      cache.ts, 6.183) instead of a plain next/image -- once a
+                      visitor has seen this author's avatar anywhere on the
+                      site, reopening this exact profile never re-fetches it. */}
+                  <CachedAvatar
+                    src={profile.avatarUrl}
+                    blurDataURL={avatarBlurDataUrl ?? BLUR_DATA_URL}
+                    size={150}
+                    className="h-[72px] w-[72px] shrink-0 rounded-full object-cover sm:h-[112.5px] sm:w-[112.5px]"
+                  />
+                </VoiceIntroRing>
+              </ProfilePhotoViewer>
+            </Suspense>
           ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={pickDefaultCatAvatar(profile.username)}
-              alt=""
-              width={150}
-              height={150}
-              // Rounded-full (circle), matching the real-photo branch
-              // above. Aleksandr, 2026-08-29: reverted an earlier same-
-              // day square-crop change here -- "профиль должен быть без
-              // квадрата, там анимированные коти без фона которые
-              // говорят про роль пользователя" (the profile's own
-              // default-cat presentation is a separate thing, distinct
-              // from the feed's and onboarding's, and was already right
-              // before that square-crop change). See components/
-              // post-card.tsx's PLAN.md §6.35 for the matching feed-side
-              // revert of the same over-generalized fix.
-              className="h-[72px] w-[72px] shrink-0 rounded-full object-cover sm:h-[112.5px] sm:w-[112.5px]"
-            />
+            <VoiceIntroRing>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={pickDefaultCatAvatar(profile.username)}
+                alt=""
+                width={150}
+                height={150}
+                // Rounded-full (circle), matching the real-photo branch
+                // above. Aleksandr, 2026-08-29: reverted an earlier same-
+                // day square-crop change here -- "профиль должен быть без
+                // квадрата, там анимированные коти без фона которые
+                // говорят про роль пользователя" (the profile's own
+                // default-cat presentation is a separate thing, distinct
+                // from the feed's and onboarding's, and was already right
+                // before that square-crop change). See components/
+                // post-card.tsx's PLAN.md §6.35 for the matching feed-side
+                // revert of the same over-generalized fix.
+                className="h-[72px] w-[72px] shrink-0 rounded-full object-cover sm:h-[112.5px] sm:w-[112.5px]"
+              />
+            </VoiceIntroRing>
           )}
-          </VoiceIntroRing>
           {/* 2026-08-31: the weekly-rotating cat badge that briefly lived
               here moved to components/avatar-menu.tsx instead --
               Aleksandr, after seeing it live: "я имел в виду верхнюю

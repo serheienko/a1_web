@@ -46,6 +46,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { CachedAvatar } from "@/components/cached-avatar";
 import Link from "next/link";
+import { profileHref } from "@/lib/profile-href";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { T, LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
@@ -521,80 +522,120 @@ export default function ChatsPage() {
 
         {state === "ready" && filteredChats.length > 0 && (
           <div className="mt-6 flex flex-col gap-1">
-            {filteredChats.map((chat) => (
-              <Link
-                key={chat.id}
-                // Title/avatar ride along in the query string so the chat
-                // window (app/chats/[chatId]/page.tsx) has something to
-                // show in its header immediately, without a second
-                // "get one chat" endpoint that doesn't exist yet -- purely
-                // a display hint, the window's own polling loop is the
-                // source of truth for anything else.
-                href={`/chats/${chat.id}?title=${encodeURIComponent(chat.title)}&avatar=${encodeURIComponent(chat.avatarUrl)}${chat.avatarBlurDataUrl ? `&avatarBlur=${encodeURIComponent(chat.avatarBlurDataUrl)}` : ""}${chat.username ? `&username=${encodeURIComponent(chat.username)}` : ""}`}
-                className="flex items-center gap-3 rounded-xl px-2 py-2.5 hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
-              >
-                {/* 2026-09-05 (Aleksandr: "Сделай кеширование аватаров в
-                    чат-листе, а то они кажд раз подгружаются через блюр, а
-                    надо один раз загрузить и чтобы были загруженные уже")
-                    -- CachedAvatar (components/cached-avatar.tsx) checks a
-                    persistent, Cache Storage-backed blob cache before ever
-                    falling back to this same next/image blur-up. See that
-                    file's own header for why the existing avatarUrl "pin"
-                    (this list's own pinnedAvatarUrls, right above) wasn't
-                    enough on its own -- it only survives within one tab,
-                    not a reload or a new one. */}
+            {filteredChats.map((chat) => {
+              // Title/avatar ride along in the query string so the chat
+              // window (app/chats/[chatId]/page.tsx) has something to
+              // show in its header immediately, without a second
+              // "get one chat" endpoint that doesn't exist yet -- purely
+              // a display hint, the window's own polling loop is the
+              // source of truth for anything else.
+              const chatHref = `/chats/${chat.id}?title=${encodeURIComponent(chat.title)}&avatar=${encodeURIComponent(chat.avatarUrl)}${chat.avatarBlurDataUrl ? `&avatarBlur=${encodeURIComponent(chat.avatarBlurDataUrl)}` : ""}${chat.username ? `&username=${encodeURIComponent(chat.username)}` : ""}`;
+              const avatarNode = (
                 <CachedAvatar
                   src={chat.avatarUrl}
                   blurDataURL={chat.avatarBlurDataUrl ?? BLUR_DATA_URL}
                   size={52}
                   className="h-[52px] w-[52px] shrink-0 rounded-full object-cover"
                 />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline justify-between gap-2">
-                    {/* 2026-09-03 (Aleksandr, live screenshot of the chat list:
-                        "Увелич шрифты имени и текстов сообщений, где то
-                        +2") -- name 16px -> 18px, preview/draft text
-                        14px -> 16px below. */}
-                    <div className="truncate text-[18px] font-medium text-[#262a34] dark:text-white">
-                      {chat.title || "—"}
+              );
+              const titleNode = <>{chat.title || "—"}</>;
+              return (
+                // Fix Tracker (2026-09-07, orders 108/109 -- "При
+                // нажатии на имя в чатах: надо делать переход в
+                // профиль" / "При нажатии на аватар в чатах: надо
+                // делать переход в профиль и сразу открывать фото
+                // профиля в большом виде") -- this row used to be one
+                // single <Link> to the chat itself (avatar+name+
+                // preview all opened the chat). Same split app/
+                // contacts/page.tsx's own rows already use (avatar+
+                // name -> profile, a separate control -> chat), applied
+                // here as a "stretched link": a full-row invisible Link
+                // to the chat sits underneath everything (z-0), the
+                // title/preview/badge column above it is pointer-
+                // events-none so clicks fall through to that stretched
+                // link, and only the avatar and the name carve out
+                // their own pointer-events-auto Link to the profile
+                // (avatar's own link adds ?photo=1 so the profile page
+                // opens with its photo already enlarged -- see that
+                // page's own handling of this param). Falls back to the
+                // old whole-row-opens-chat behavior when this chat has
+                // no username to link a profile to.
+                <div
+                  key={chat.id}
+                  className="relative flex items-center gap-3 rounded-xl px-2 py-2.5 hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
+                >
+                  <Link href={chatHref} aria-label={chat.title || undefined} className="absolute inset-0 z-0 rounded-xl" />
+                  {/* 2026-09-05 (Aleksandr: "Сделай кеширование аватаров в
+                      чат-листе, а то они кажд раз подгружаются через блюр, а
+                      надо один раз загрузить и чтобы были загруженные уже")
+                      -- CachedAvatar (components/cached-avatar.tsx) checks a
+                      persistent, Cache Storage-backed blob cache before ever
+                      falling back to this same next/image blur-up. See that
+                      file's own header for why the existing avatarUrl "pin"
+                      (this list's own pinnedAvatarUrls, right above) wasn't
+                      enough on its own -- it only survives within one tab,
+                      not a reload or a new one. */}
+                  {chat.username ? (
+                    <Link href={`${profileHref(chat.username)}?photo=1`} aria-label={chat.title || undefined} className="relative z-10 shrink-0">
+                      {avatarNode}
+                    </Link>
+                  ) : (
+                    avatarNode
+                  )}
+                  <div className="relative z-10 min-w-0 flex-1 pointer-events-none">
+                    <div className="flex items-baseline justify-between gap-2">
+                      {/* 2026-09-03 (Aleksandr, live screenshot of the chat list:
+                          "Увелич шрифты имени и текстов сообщений, где то
+                          +2") -- name 16px -> 18px, preview/draft text
+                          14px -> 16px below. */}
+                      {chat.username ? (
+                        <Link
+                          href={profileHref(chat.username)}
+                          className="pointer-events-auto truncate text-[18px] font-medium text-[#262a34] hover:underline dark:text-white"
+                        >
+                          {titleNode}
+                        </Link>
+                      ) : (
+                        <div className="truncate text-[18px] font-medium text-[#262a34] dark:text-white">{titleNode}</div>
+                      )}
+                      {chat.previewDateMs > 0 && (
+                        <div className="flex shrink-0 items-center gap-1 text-[13px] text-[#989aa6] dark:text-[#8d8d93]">
+                          {chat.previewMine && chat.previewTick && (
+                            <MessageTicks
+                              state={chat.previewTick}
+                              className={`h-[10px] w-[17px] ${chat.previewTick === "read" ? "text-[#335ef7] dark:text-[#0c8ce9]" : ""}`}
+                            />
+                          )}
+                          <span>{formatTime(chat.previewDateMs)}</span>
+                        </div>
+                      )}
                     </div>
-                    {chat.previewDateMs > 0 && (
-                      <div className="flex shrink-0 items-center gap-1 text-[13px] text-[#989aa6] dark:text-[#8d8d93]">
-                        {chat.previewMine && chat.previewTick && (
-                          <MessageTicks
-                            state={chat.previewTick}
-                            className={`h-[10px] w-[17px] ${chat.previewTick === "read" ? "text-[#335ef7] dark:text-[#0c8ce9]" : ""}`}
-                          />
-                        )}
-                        <span>{formatTime(chat.previewDateMs)}</span>
+                    {chat.draftText ? (
+                      <div className="truncate text-[16px]">
+                        <span className="font-medium text-[#ef392c]">
+                          <T uk="Чернетка" en="Draft" ru="Черновик" de="Entwurf" es="Borrador" fr="Brouillon" pl="Wersja robocza" ptBR="Rascunho" zh="草稿" />
+                        </span>{" "}
+                        <span className="text-[#989aa6] dark:text-[#8d8d93]">{chat.draftText}</span>
                       </div>
+                    ) : (
+                      <ChatPreviewLine
+                        kind={chat.previewKind}
+                        text={chat.previewText}
+                        photoUrl={chat.previewPhotoUrl}
+                        stickerPreviewUrl={chat.previewStickerPreview}
+                        isForwarded={chat.previewForwarded}
+                        className="truncate text-[16px] text-[#989aa6] dark:text-[#8d8d93]"
+                      />
                     )}
                   </div>
-                  {chat.draftText ? (
-                    <div className="truncate text-[16px]">
-                      <span className="font-medium text-[#ef392c]">
-                        <T uk="Чернетка" en="Draft" ru="Черновик" de="Entwurf" es="Borrador" fr="Brouillon" pl="Wersja robocza" ptBR="Rascunho" zh="草稿" />
-                      </span>{" "}
-                      <span className="text-[#989aa6] dark:text-[#8d8d93]">{chat.draftText}</span>
-                    </div>
-                  ) : (
-                    <ChatPreviewLine
-                      kind={chat.previewKind}
-                      text={chat.previewText}
-                      photoUrl={chat.previewPhotoUrl}
-                      stickerPreviewUrl={chat.previewStickerPreview}
-                      isForwarded={chat.previewForwarded}
-                      className="truncate text-[16px] text-[#989aa6] dark:text-[#8d8d93]"
-                    />
+                  {chat.unreadCount > 0 && (
+                    <span className="relative z-10 flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[#335ef7] px-1.5 text-[12px] font-medium text-white pointer-events-none dark:bg-[#0c8ce9]">
+                      {chat.unreadCount > 99 ? "99+" : chat.unreadCount}
+                    </span>
                   )}
                 </div>
-                {chat.unreadCount > 0 && (
-                  <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[#335ef7] px-1.5 text-[12px] font-medium text-white dark:bg-[#0c8ce9]">
-                    {chat.unreadCount > 99 ? "99+" : chat.unreadCount}
-                  </span>
-                )}
-              </Link>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>
