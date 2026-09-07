@@ -6,16 +6,28 @@
 // виде - то его надо сделать правой кнопкой мыше, чтобы оно не
 // конфликтовало с аудиовизиткой") -- this app had no full-size profile
 // photo view anywhere yet, so this component adds one for app/u/
-// [username]/page.tsx's own avatar. Two ways in:
+// [username]/page.tsx's own avatar. Ways in:
 //
-// 1. Right-click (onContextMenu, preventDefault to suppress the
+// 1. Left-click -- ONLY when this profile has no recorded voice intro
+//    (useVoiceIntro() below returns null in that case, see
+//    voice-intro-context.tsx's own `if (!url) return <>{children}</>`).
+//    Fix Tracker order 122 (Aleksandr, live screenshot on Sofia
+//    Benett's profile: "При нажатии на аватар из профиля открывай
+//    аватар крупно") -- order 109 above deliberately scoped this to
+//    right-click ONLY, for every profile, out of caution about
+//    fighting voice-intro-ring.tsx's left-click-to-play; but the vast
+//    majority of profiles have no voice intro at all, so for THEM
+//    left-click did nothing (no ring, no context menu on mobile
+//    either) -- the plain tap Aleksandr expected simply had no handler.
+//    Right-click remains the only way in for a profile that DOES have
+//    a voice intro, unchanged from order 109.
+// 2. Right-click (onContextMenu, preventDefault to suppress the
 //    browser's own image context menu) -- works everywhere this wraps
-//    an avatar, deliberately independent of left-click, because this
-//    exact avatar is also wrapped in components/voice-intro-ring.tsx
-//    when the profile has a recorded voice intro, and THAT already
-//    owns left-click (tap to play/pause) -- see that file's own
-//    header. Left-click here must never fight that existing gesture.
-// 2. A `?photo=1` URL param, auto-opening this viewer on mount -- this
+//    an avatar, independent of left-click; the one entry point left for
+//    a profile whose avatar's left-click is already spoken for by
+//    voice-intro-ring.tsx (tap to play/pause) -- see that file's own
+//    header.
+// 3. A `?photo=1` URL param, auto-opening this viewer on mount -- this
 //    is what app/chats/page.tsx's chat-list avatar link (and any other
 //    future "open this profile's photo" entry point) targets, since
 //    THOSE avatars have no voice-intro conflict of their own and can
@@ -25,9 +37,14 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { useVoiceIntro } from "@/components/voice-intro-context";
 
 export function ProfilePhotoViewer({ photoUrl, children }: { photoUrl: string; children: ReactNode }) {
   const searchParams = useSearchParams();
+  // null whenever THIS profile has no recorded voice intro (see header
+  // comment, entry point 1) -- that's when left-click is free to open
+  // the photo instead of being reserved for voice-intro-ring's tap-to-play.
+  const voice = useVoiceIntro();
   const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -71,6 +88,11 @@ export function ProfilePhotoViewer({ photoUrl, children }: { photoUrl: string; c
           e.preventDefault();
           setOpen(true);
         }}
+        onClick={
+          voice
+            ? undefined
+            : () => setOpen(true)
+        }
       >
         {children}
       </div>
