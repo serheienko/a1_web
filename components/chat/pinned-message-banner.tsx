@@ -197,7 +197,11 @@ export function PinnedMessageBanner({
         </div>
       ) : (
         <button key="default" type="button" onClick={onTap} className="animate-pin-content-fade flex min-w-0 flex-1 items-center gap-2.5 px-2.5 text-left">
-          <span className="h-[30px] w-[3px] shrink-0 rounded-full bg-[#262a34] dark:bg-white" />
+          <span className="flex h-[30px] w-[3px] shrink-0 flex-col gap-[2px]">
+            {Array.from({ length: Math.min(pinCount, 4) }).map((_, i) => (
+              <span key={i} className="w-full flex-1 rounded-full bg-[#262a34] dark:bg-white" />
+            ))}
+          </span>
           {thumbBox}
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[15px] font-medium leading-tight text-[#262a34] dark:text-white">
@@ -228,16 +232,6 @@ export function PinnedMessageBanner({
           сколько нужно пилюле, со своим правым паддингом, а вопрос
           слева ужимается через min-w-0 + truncate, если места мало.
           Клипа не будет ни при какой ширине окна. */}
-      {!confirming && pinCount > 1 && onOpenAll && (
-        <button
-          type="button"
-          onClick={onOpenAll}
-          className="animate-pin-content-fade flex shrink-0 items-center self-center rounded-full bg-black/5 px-2 py-1 text-[12px] font-semibold text-[#262a34]/70 transition hover:bg-black/10 dark:bg-white/10 dark:text-white/70 dark:hover:bg-white/15"
-          aria-label="All pinned messages"
-        >
-          {pinCount}
-        </button>
-      )}
       <div
         className={`flex shrink-0 items-center justify-center ${
           confirming ? "pl-1 pr-3" : "w-[54px]"
@@ -249,7 +243,7 @@ export function PinnedMessageBanner({
             type="button"
             disabled={unpinning}
             onClick={confirmUnpin}
-            className="animate-pin-content-fade rounded-full bg-[#ff3b30] px-3 py-1 text-[13px] font-semibold text-white transition hover:bg-[#e6352b] disabled:opacity-60"
+            className="animate-pin-content-fade flex min-h-[32px] items-center rounded-full bg-[#ff3b30] px-4 py-1.5 text-[13px] font-semibold text-white transition hover:bg-[#e6352b] disabled:opacity-60"
           >
             <T uk="Відкріпити" en="Unpin" ru="Открепить" de="Lösen" es="Desfijar" fr="Détacher" pl="Odepnij" ptBR="Desafixar" zh="取消" />
           </button>
