@@ -101,6 +101,39 @@ function displayStickerSetTitle(title: string): string {
   return title.trim().toLowerCase() === "a1 business app" ? "MR.KIT" : title;
 }
 
+// Fix Tracker (order 77, 2026-09-07, "сломанная иконка (заглушка)
+// слева от часов в панели стикеров") -- a pack's own thumb doc can
+// itself be an animated sticker (gzipped Lottie .tgs), same format
+// app/chats/[chatId]/page.tsx's message bubbles needed TgsSticker for
+// instead of a plain <img> (see tgs-sticker.tsx's header comment for
+// why <img> can never decode that format). Rendering the category row
+// with a raw <img> showed the browser's own broken-image icon for any
+// pack whose thumb happens to be animated. This tries <img> first (the
+// common case, unchanged) and only falls back to TgsSticker's
+// gunzip+lottie-web decode on a load error; if the thumb is neither a
+// real image nor a real .tgs (a genuinely dead URL), TgsSticker's own
+// fallback prop below still lands on the same first-letter chip as
+// before, so nothing regresses to a worse state than today.
+function StickerSetIcon({ thumb, letter }: { thumb: MediaDocument | null; letter: string }) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const fallback = <span className="text-[13px] font-semibold text-[#262a34] dark:text-white">{letter}</span>;
+
+  if (!thumb) return fallback;
+
+  if (!imgFailed) {
+    return (
+      <img
+        src={buildMediaProxyUrl(thumb)}
+        alt=""
+        className="h-full w-full object-cover"
+        onError={() => setImgFailed(true)}
+      />
+    );
+  }
+
+  return <TgsSticker src={buildMediaProxyUrl(thumb)} size={36} fallback={fallback} />;
+}
+
 function StickerChipFallback({ size }: { size: number }) {
   return (
     <div
@@ -414,11 +447,7 @@ export function MediaPickerPanel({
                 activeSetId === s._id ? "ring-2 ring-[#335ef7] dark:ring-[#0c8ce9]" : "bg-black/5 dark:bg-white/10"
               }`}
             >
-              {s.thumb ? (
-                <img src={buildMediaProxyUrl(s.thumb)} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <span className="text-[13px] font-semibold text-[#262a34] dark:text-white">{displayStickerSetTitle(s.title).charAt(0)}</span>
-              )}
+              <StickerSetIcon thumb={s.thumb} letter={displayStickerSetTitle(s.title).charAt(0)} />
             </button>
           ))}
         </div>
