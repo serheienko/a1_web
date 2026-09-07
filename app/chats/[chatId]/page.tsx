@@ -3275,10 +3275,32 @@ export default function ChatWindowPage() {
   // with: pinning adds it to the front of `pinnedMessages` (so it
   // becomes the one the banner shows), unpinning just removes it from
   // that array, whatever else stays pinned is left alone.
-  async function handleTogglePin(message: ChatMessage) {
+  // Fix Tracker (2026-09-07, order 94: "На разрахунках не работает
+  // кнопка открепить сообщение, возможно еще на каких-то ассетах не
+  // работает тоже") -- this used to always re-derive currentlyPinned
+  // from isMessagePinned(message), i.e. from that specific message
+  // object's OWN `flags` bit. Every call site that opens this from an
+  // ALREADY-KNOWN-PINNED context (the pin banner's confirm button, the
+  // "see all pins" modal -- both only ever show messages that are, by
+  // construction, in `pinnedMessages`) doesn't need to re-derive
+  // anything: it already knows for certain this is an unpin. Re-
+  // deriving it instead left this at the mercy of that particular
+  // message object's own `flags` field happening to still carry
+  // MESSAGE_FLAG_PINNED correctly -- for a calculation message (and
+  // possibly other non-plain-text entities, per Aleksandr's "возможно
+  // еще на каких-то ассетах" -- unconfirmed which without live repro)
+  // whatever copy of the message ends up in `pinnedMessages`/
+  // `displayedPinnedMessage` can apparently go stale on that bit,
+  // which silently flipped the confirm button's action from unpin to
+  // (redundant) pin -- reading as "the button does nothing". The new
+  // `forceUnpin` param lets those two unambiguous call sites just say
+  // so directly instead of trusting that bit; the action-menu's
+  // Pin/Unpin toggle (genuinely ambiguous there) keeps deriving it as
+  // before.
+  async function handleTogglePin(message: ChatMessage, forceUnpin?: boolean) {
     if (pinBusy) return;
     const messageId = Number(message._id);
-    const currentlyPinned = isMessagePinned(message);
+    const currentlyPinned = forceUnpin ?? isMessagePinned(message);
 
     setPinBusy(true);
     setPinActionMessageId(messageId);
@@ -4247,7 +4269,7 @@ export default function ChatWindowPage() {
           <PinnedMessageBanner
             pinnedMessage={displayedPinnedMessage}
             onTap={handleTapPinnedBanner}
-            onUnpin={() => handleTogglePin(displayedPinnedMessage)}
+            onUnpin={() => handleTogglePin(displayedPinnedMessage, true)}
             unpinning={pinBusy}
             pinCount={pinnedMessages.length}
             onOpenAll={() => setAllPinsOpen(true)}
@@ -4267,7 +4289,7 @@ export default function ChatWindowPage() {
           unpinningId={pinActionMessageId}
           onClose={() => setAllPinsOpen(false)}
           onJumpToMessage={handleJumpToPinnedMessage}
-          onUnpin={(message) => void handleTogglePin(message)}
+          onUnpin={(message) => void handleTogglePin(message, true)}
         />
       )}
 
@@ -4791,20 +4813,44 @@ export default function ChatWindowPage() {
                         : "bg-transparent"
                     }`}
                   >
-                    {selectionMode && !pending && (
+                    {/* Fix Tracker (2026-09-07, order 89: "При
+                        мультиселекте сообщений анимация раздвижения
+                        сообщений должна быть плавной в бок") -- this
+                        checkbox used to only mount/unmount with
+                        `selectionMode && !pending`, so every message
+                        row instantly jumped left/right by its own
+                        width the moment selection mode toggled --
+                        nothing to animate once a node simply
+                        isn't there yet. Always renders now (whenever
+                        !pending); selectionMode instead only toggles
+                        this outer slot's own width/opacity/margin
+                        (overflow-hidden clips the circle while it's
+                        collapsed to 0), so the whole row slides
+                        sideways smoothly as this slot grows/shrinks,
+                        same width<->0 transition language
+                        contact-message-card.tsx's own "+" button and
+                        mini-chat-window.tsx's send button (order 97)
+                        already use. */}
+                    {!pending && (
                       <div
-                        aria-hidden="true"
-                        className={`mr-2 flex h-6 w-6 shrink-0 items-center justify-center self-center rounded-full border-2 transition ${
-                          selectedMessageIds.has(Number(msg._id))
-                            ? "border-[#335ef7] bg-[#335ef7] text-white dark:border-[#0c8ce9] dark:bg-[#0c8ce9]"
-                            : "border-neutral-300 bg-white/70 dark:border-neutral-600 dark:bg-black/30"
+                        className={`flex shrink-0 items-center self-center overflow-hidden transition-all duration-200 ease-out ${
+                          selectionMode ? "mr-2 w-6 opacity-100" : "mr-0 w-0 opacity-0"
                         }`}
                       >
-                        {selectedMessageIds.has(Number(msg._id)) && (
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5" aria-hidden="true">
-                            <path d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
+                        <div
+                          aria-hidden="true"
+                          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
+                            selectedMessageIds.has(Number(msg._id))
+                              ? "border-[#335ef7] bg-[#335ef7] text-white dark:border-[#0c8ce9] dark:bg-[#0c8ce9]"
+                              : "border-neutral-300 bg-white/70 dark:border-neutral-600 dark:bg-black/30"
+                          }`}
+                        >
+                          {selectedMessageIds.has(Number(msg._id)) && (
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5" aria-hidden="true">
+                              <path d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </div>
                       </div>
                     )}
                     {selectionMode && !pending && (
@@ -6948,11 +6994,14 @@ export default function ChatWindowPage() {
                   type="button"
                   onClick={() => setRemindersListOpen(true)}
                   aria-label="Reminders"
-                  className="group flex shrink-0 items-center pb-0.5 text-[#989aa6] transition hover:text-[#335ef7] dark:text-[#adafbb] dark:hover:text-[#0c8ce9]"
+                  // Fix Tracker (2026-09-07, order 88: "Не выделяй
+                  // цветом иконку колокольчика при наведении") -- the
+                  // hover/dark:hover text-color swap below tinted the
+                  // bell blue on hover; dropped both so only the swing
+                  // animation (animate-bell-ring, unchanged) signals
+                  // hover, same as before this color was added.
+                  className="group flex shrink-0 items-center pb-0.5 text-[#989aa6] transition dark:text-[#adafbb]"
                 >
-                  {/* Fix Tracker: "анимация при наведении на колокольчик" --
-                      swing-on-hover, same .group:hover .animate-X convention
-                      as the cat icon just below (app/globals.css). */}
                   <RemindIcon className="h-5 w-5 animate-bell-ring" />
                 </button>
               )}
