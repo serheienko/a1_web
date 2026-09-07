@@ -4724,7 +4724,29 @@ export default function ChatWindowPage() {
                 !text && calc === null && contactMedia.length === 0 && pendingContactCards.length === 0 &&
                 ((pendingAttachments.length === 0 && wholeMessageImageGroup !== null) ||
                   (docMedia.length === 0 && pendingWholeMessageImageGroup !== null));
-              const isFlatMedia = isVoiceOnly || isImageOnly || isImageGroupOnly || isFileOnly || isContactOnly || isMeetingOnly || isGreetingSticker || isStickerOnly;
+              // Fix Tracker (2026-09-07, order 99: "Шо это за ужасная
+              // черная рамка? Там должна быть заливка как в макете" --
+              // a forwarded solo-voice message, live screenshot) --
+              // root cause: a flat-media bubble (see this flag's own
+              // definition below) renders with NO padding/background
+              // of its own on purpose, so a solo photo/voice/sticker
+              // sits edge-to-edge -- but the "Forwarded from X" label
+              // above it (further down this same render, gated on
+              // msg.forwardFrom) has no backdrop of its own either, so
+              // it just floated as plain text over the page's dark
+              // background with nothing but the media's own pill
+              // filling color below it -- reading as a message that's
+              // missing its fill / has a stray dark gap where a
+              // continuous colored bubble should be, exactly what
+              // Aleksandr's reference macOS screenshot shows instead
+              // (one continuous filled bubble). A forwarded message
+              // now always falls back to the normal padded/colored
+              // bubble treatment (the same one every text message
+              // already uses, and the same one this exact flat-media
+              // set used before this optimization existed) so the
+              // forward label always sits on real fill.
+              const hasForwardLabel = !pending && msg.forwardFrom?.object === "peer-user";
+              const isFlatMedia = !hasForwardLabel && (isVoiceOnly || isImageOnly || isImageGroupOnly || isFileOnly || isContactOnly || isMeetingOnly || isGreetingSticker || isStickerOnly);
               const imageGroupFooter = (
                 <span className="pointer-events-none absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded-full bg-black/45 px-2 py-0.5 text-[11px] text-white backdrop-blur-sm">
                   <span>{msg.editedAt && <EditedLabel />}{formatTime(ms)}</span>
@@ -4831,11 +4853,28 @@ export default function ChatWindowPage() {
                         contact-message-card.tsx's own "+" button and
                         mini-chat-window.tsx's send button (order 97)
                         already use. */}
+                    {/* Fix Tracker (2026-09-07, order 104: "На выбор
+                        своих сообщений кружки селекта должны быть
+                        вровень по правому краю, перед сообщениями") --
+                        this slot sits BEFORE the bubble in the DOM,
+                        and with the row's own justify-end (for `mine`)
+                        pushing [checkbox, bubble] together as one
+                        group, the checkbox's actual X position ended
+                        up depending on each bubble's own width instead
+                        of lining up in one column at the row's outer
+                        edge. `order-last` (mine only) moves it to the
+                        VISUAL end of this same flex row without
+                        touching DOM/click-handler structure -- for
+                        `mine` that outer edge is the right side, so
+                        the circle now sits at a fixed distance from
+                        the screen edge and the bubble is what shifts
+                        with its own width instead. `theirs` keeps its
+                        already-correct default (source) order. */}
                     {!pending && (
                       <div
                         className={`flex shrink-0 items-center self-center overflow-hidden transition-all duration-200 ease-out ${
-                          selectionMode ? "mr-2 w-6 opacity-100" : "mr-0 w-0 opacity-0"
-                        }`}
+                          mine ? "order-last" : ""
+                        } ${selectionMode ? (mine ? "ml-2 w-6 opacity-100" : "mr-2 w-6 opacity-100") : "m-0 w-0 opacity-0"}`}
                       >
                         <div
                           aria-hidden="true"
@@ -5700,41 +5739,81 @@ export default function ChatWindowPage() {
                           component via `flatFooter` -- this shared row
                           would just duplicate it below an otherwise-
                           chromeless bubble. */}
+                      {/* Fix Tracker (2026-09-07, order 102: "Короткие
+                          сообщения с реакциями лучше расширяй в
+                          сторону и время ставь в ровень с реакцией как
+                          на референсе телеграма (но это не везде,
+                          только под определенный тип коротких
+                          сообщений)") -- for a regular (non-flat)
+                          bubble WITH reactions, the time/ticks footer
+                          and the reaction pills now share one
+                          flex-wrap row instead of two stacked blocks:
+                          on a short message there's horizontal room
+                          left after the text, so both land on the same
+                          line (Telegram's own layout) and the bubble
+                          widens to fit that combined line same as it
+                          already does for its widest text line; on a
+                          longer message flex-wrap just drops the
+                          reactions to their own line below, same as
+                          order 87's original stacked layout -- no width
+                          measurement needed either way. isFlatMedia
+                          bubbles are untouched: flatFooter already
+                          renders time INSIDE the media itself, so
+                          ReactionsBar stays a separate row below it,
+                          same as before this ticket. */}
                       {!isFlatMedia && (
-                        <div
-                          className={`mt-0.5 flex items-center justify-end gap-1 text-[11px] ${
-                            mine ? "text-white/70" : "text-[#989aa6] dark:text-[#adafbb]"
-                          }`}
-                        >
-                          <span>{msg.editedAt && <EditedLabel />}{formatTime(ms)}</span>
-                          {pending ? (
-                            pending.failed ? <NotSentIcon /> : <SendingSpinner />
-                          ) : (
-                            mine && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7.77px] w-3.5" />
-                          )}
-                        </div>
+                        hasReactions ? (
+                          <div
+                            className={`mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] ${
+                              mine ? "justify-end text-white/70" : "justify-start text-[#989aa6] dark:text-[#adafbb]"
+                            }`}
+                          >
+                            <span className={`flex shrink-0 items-center gap-1 ${mine ? "order-2" : "order-1"}`}>
+                              <span>{msg.editedAt && <EditedLabel />}{formatTime(ms)}</span>
+                              {pending ? (
+                                pending.failed ? <NotSentIcon /> : <SendingSpinner />
+                              ) : (
+                                mine && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7.77px] w-3.5" />
+                              )}
+                            </span>
+                            <ReactionsBar
+                              reactions={msg.reactions ?? []}
+                              mine={mine}
+                              myUserId={myUserId}
+                              otherAvatarUrl={headerAvatar}
+                              otherInitial={headerTitle ? headerTitle.charAt(0).toUpperCase() : undefined}
+                              inline
+                              onToggle={(emoticon) => void handleToggleReaction(msg, emoticon)}
+                            />
+                          </div>
+                        ) : (
+                          <div
+                            className={`mt-0.5 flex items-center justify-end gap-1 text-[11px] ${
+                              mine ? "text-white/70" : "text-[#989aa6] dark:text-[#adafbb]"
+                            }`}
+                          >
+                            <span>{msg.editedAt && <EditedLabel />}{formatTime(ms)}</span>
+                            {pending ? (
+                              pending.failed ? <NotSentIcon /> : <SendingSpinner />
+                            ) : (
+                              mine && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7.77px] w-3.5" />
+                            )}
+                          </div>
+                        )
                       )}
-                      {/* Reactions bar (order 87, 2026-09-07, Aleksandr:
-                          "я хотел чтобы... показывал реакции полностью
-                          внутри", correcting orders 82/83's straddle-
-                          the-corner look) -- this bubble div's own last
-                          child now, in normal flow, so the bubble
-                          simply grows taller to fit it (with
-                          animate-message-in's existing mount transition
-                          already covering the smooth-appearance ask;
-                          ReactionsBar's own animate-reactions-in handles
-                          the pill row itself popping in). Skipped for a
-                          still-pending (not yet confirmed sent) message
-                          -- chat-server has never seen it yet, so it
-                          can't have any reactions. */}
-                      {hasReactions && (
+                      {/* Reactions bar (order 87, 2026-09-07) -- for a
+                          flat-media (chromeless) bubble only: still its
+                          own row below the media, unchanged. Non-flat
+                          bubbles now render ReactionsBar via the merged
+                          footer block above instead. */}
+                      {isFlatMedia && hasReactions && (
                         <ReactionsBar
                           reactions={msg.reactions ?? []}
                           mine={mine}
                           myUserId={myUserId}
                           otherAvatarUrl={headerAvatar}
                           otherInitial={headerTitle ? headerTitle.charAt(0).toUpperCase() : undefined}
-                          flatMedia={isFlatMedia}
+                          flatMedia
                           onToggle={(emoticon) => void handleToggleReaction(msg, emoticon)}
                         />
                       )}

@@ -687,6 +687,17 @@ export function ReactionsBar({
   // that case only; a regular padded bubble already surrounds every
   // child (this one included) with its own px-3/pt-2/pb-2.
   flatMedia?: boolean;
+  // Fix Tracker (2026-09-07, order 102: "Короткие сообщения с
+  // реакциями лучше расширяй в сторону и время ставь в ровень с
+  // реакцией как на референсе телеграма") -- when true, this row skips
+  // its own top margin so a caller can nest it as a flex-wrap ITEM
+  // inside the same row as the time/ticks footer: on a short message
+  // there's room for both on one line (the bubble naturally widens to
+  // fit that combined line, since a bubble's width already tracks its
+  // widest content line), and on a longer one flex-wrap just drops
+  // this row to a line of its own -- same visual result as before,
+  // with no JS width measurement needed either way.
+  inline?: boolean;
   onToggle: (emoticon: string) => void;
 }) {
   if (reactions.length === 0) return null;
@@ -709,7 +720,7 @@ export function ReactionsBar({
     // voice-only) that has none of its own to inherit; a regular
     // padded bubble only needs the top margin below.
     <div
-      className={`animate-reactions-in flex flex-wrap gap-1.5 ${flatMedia ? "px-2 pb-2 pt-1.5" : "mt-1.5"} ${
+      className={`animate-reactions-in flex flex-wrap gap-1.5 ${flatMedia ? "px-2 pb-2 pt-1.5" : inline ? "" : "mt-1.5"} ${
         mine ? "justify-end" : "justify-start"
       }`}
     >
