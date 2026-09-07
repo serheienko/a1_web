@@ -633,6 +633,39 @@ textarea {
 }
 
 /*
+ * Fix Tracker (order 87, 2026-09-07, Aleksandr: "я хотел чтобы ты
+ * автоматически увеличивал их высоту (плавной анимацией)... реакции
+ * полностью внутри") -- ReactionsBar (components/chat/message-actions-
+ * menu.tsx) now renders as the message bubble's own last flow child, so
+ * the bubble growing to fit it is free (plain box layout); this is just
+ * the pill row itself popping in the moment it mounts (reactions go
+ * from none to some), same mount-only-replays-once convention as
+ * .animate-message-in above (a fresh key on first reaction, never
+ * replayed on an unrelated re-render).
+ */
+@keyframes reactions-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-reactions-in {
+  transform-origin: top;
+  animation: reactions-in 0.2s cubic-bezier(0.2, 0.8, 0.4, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-reactions-in {
+    animation: none;
+  }
+}
+
+/*
  * 2026-09-02 (Aleksandr, after the chat-bubble-wiggle above:
  * "Добавь анимации на эти иконки тоже теперь, у тебя круто получилось
  * с иконкой чатов... Надо како-то моушн на увійти, °°° (анимацию сразу

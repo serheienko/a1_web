@@ -4440,15 +4440,14 @@ export default function ChatWindowPage() {
               const mine = "pending" in msg && msg.pending
                 ? true
                 : myUserId !== null && msg.fromId === myUserId;
-              // Fix Tracker (2026-09-07, orders 82/83) -- ReactionsBar
-              // now straddles the bubble's own bottom corner instead of
-              // flowing as its own line (see that component's header
-              // comment), so a reacted-to message no longer reserves
-              // any height for it by itself. Half the pill still hangs
-              // below the bubble on purpose (that's the whole point of
-              // the overlap look) -- this reserves just enough extra
-              // margin below THIS message so that hanging half doesn't
-              // touch the next bubble up.
+              // Fix Tracker (order 87, 2026-09-07, Aleksandr: "сейчас
+              // ты сделал реакции врезанными в сообщение, а я хотел
+              // чтобы... показывал реакции полностью внутри") -- orders
+              // 82/83's straddle-the-corner look (half on the bubble,
+              // half hanging below it) is gone; ReactionsBar now renders
+              // as the bubble's own last child, in normal flow, so the
+              // bubble simply grows to contain it like any other content
+              // -- no reserved margin/padding trick needed here anymore.
               const hasReactions = !("pending" in msg && msg.pending) && (msg.reactions ?? []).length > 0;
               const text = extractMessageText(msg);
               const ms = messageDateMs(msg);
@@ -4763,7 +4762,7 @@ export default function ChatWindowPage() {
                 </div>
               );
               return (
-                <div key={msg._id} className={hasReactions ? "mb-3" : undefined}>
+                <div key={msg._id}>
                   {showDate && (
                     <div className="my-3 flex justify-center">
                       <span className="rounded-full bg-black/5 px-3 py-1 text-[13px] font-medium text-[#262a34] backdrop-blur-sm dark:bg-white/10 dark:text-white">
@@ -5027,33 +5026,17 @@ export default function ChatWindowPage() {
                       // undefined для ещё не отправленного бабла -- к
                       // нему нечем возвращаться, реального id пока нет.
                       data-message-id={pending ? undefined : msg._id}
-                      // Fix Tracker (2026-09-07, Aleksandr, screenshot
-                      // of the overlapping reaction pill: "она наехала
-                      // на время, а надо расширять бабл") -- once
-                      // ReactionsBar (see its own header comment, orders
-                      // 82/83) started straddling THIS bubble's own
-                      // bottom corner, the time/ticks footer sitting
-                      // right at that same corner (flatFooter inline for
-                      // text-ish bubbles, the absolute bottom-1.5
-                      // right-1.5 badge for flat media) ended up under
-                      // the pill instead of next to it. Rather than
-                      // shrinking the overlap (which would fight the
-                      // reference screenshot's own look), a message
-                      // with reactions gets a bit of extra bottom
-                      // padding on THIS shared bubble div -- pushing its
-                      // real content up and leaving the pill's overlap
-                      // land on blank bubble space instead of the
-                      // clock. One change here covers every message
-                      // kind (text, calculation table, photo, contact
-                      // card, ...) since they all render inside this
-                      // same div, same as ReactionsBar's own insertion
-                      // point in page.tsx.
+                      // Fix Tracker (order 87) -- ReactionsBar renders
+                      // as this div's own last child now (in normal
+                      // flow, see that insertion point further down),
+                      // so it just pushes the bubble taller like any
+                      // other content -- no special reserved padding
+                      // needed for it here anymore (superseded orders
+                      // 82/83's straddle-corner padding hack).
                       className={`animate-message-in max-w-[78%] rounded-[18px] text-[17px] leading-snug ${pending ? "cursor-pointer" : ""} ${
                         isFlatMedia
-                          ? hasReactions
-                            ? "pb-3.5"
-                            : ""
-                          : `px-3 pt-2 ${hasReactions ? "pb-3.5" : "pb-2"} ${mine ? "rounded-tr-[6px] bg-[#335ef7] text-white dark:bg-[#009bff]" : "rounded-tl-[6px] bg-white text-[#262a34] dark:bg-[#1a1a1a] dark:text-white"}`
+                          ? ""
+                          : `px-3 pt-2 pb-2 ${mine ? "rounded-tr-[6px] bg-[#335ef7] text-white dark:bg-[#009bff]" : "rounded-tl-[6px] bg-white text-[#262a34] dark:bg-[#1a1a1a] dark:text-white"}`
                       } ${pending?.failed ? "opacity-70" : ""}`}
                     >
                       {pendingAttachments.length > 0 && (
@@ -5685,6 +5668,30 @@ export default function ChatWindowPage() {
                           )}
                         </div>
                       )}
+                      {/* Reactions bar (order 87, 2026-09-07, Aleksandr:
+                          "я хотел чтобы... показывал реакции полностью
+                          внутри", correcting orders 82/83's straddle-
+                          the-corner look) -- this bubble div's own last
+                          child now, in normal flow, so the bubble
+                          simply grows taller to fit it (with
+                          animate-message-in's existing mount transition
+                          already covering the smooth-appearance ask;
+                          ReactionsBar's own animate-reactions-in handles
+                          the pill row itself popping in). Skipped for a
+                          still-pending (not yet confirmed sent) message
+                          -- chat-server has never seen it yet, so it
+                          can't have any reactions. */}
+                      {hasReactions && (
+                        <ReactionsBar
+                          reactions={msg.reactions ?? []}
+                          mine={mine}
+                          myUserId={myUserId}
+                          otherAvatarUrl={headerAvatar}
+                          otherInitial={headerTitle ? headerTitle.charAt(0).toUpperCase() : undefined}
+                          flatMedia={isFlatMedia}
+                          onToggle={(emoticon) => void handleToggleReaction(msg, emoticon)}
+                        />
+                      )}
                     </div>
 
                     {/* 2026-09-02 (Aleksandr: "надо учесть ошибки с сетью...
@@ -5752,18 +5759,27 @@ export default function ChatWindowPage() {
                         анимация... может получится у тебя её вытащить
                         тоже") -- ported off mobile's own reaction_sticker_
                         overlay.dart / reaction_confetti.dart, which play
-                        this exact Lottie burst ONLY for a heart reaction,
-                        centered over the bubble it was just set on.
-                        Anchored inside THIS row (already `position:
-                        relative` from the className above) rather than
-                        the outer `key={msg._id}` wrapper below, so it
-                        overlays the bubble itself instead of the row's
-                        own (unpositioned) box. */}
+                        this exact Lottie burst ONLY for a heart reaction.
+                        Fix Tracker (order 84, "конфетти и анимация
+                        реакции должна появляться поверх места где
+                        появляется реакция, не сверху") -- this used to
+                        anchor to the row's top edge regardless of where
+                        the bubble actually was; now that ReactionsBar
+                        (order 87) lands as the bubble's own last child
+                        at the bottom, anchoring the burst to that same
+                        bottom corner (same side as `mine`) puts it right
+                        over the pill that just appeared instead of
+                        floating over the top of the message. Anchored
+                        inside THIS row (already `position: relative`
+                        from the className above) rather than the outer
+                        `key={msg._id}` wrapper below, so it overlays the
+                        bubble itself instead of the row's own
+                        (unpositioned) box. */}
                     {!pending && heartBurst && heartBurst.messageId === Number(msg._id) && (
                       <div
                         key={heartBurst.trigger}
                         aria-hidden="true"
-                        className={`pointer-events-none absolute inset-x-0 top-0 flex ${mine ? "justify-end" : "justify-start"}`}
+                        className={`pointer-events-none absolute inset-x-0 bottom-0 z-20 flex ${mine ? "justify-end" : "justify-start"}`}
                       >
                         <LottiePlayer
                           src="/animations/heart_reaction.json"
@@ -5774,30 +5790,6 @@ export default function ChatWindowPage() {
                           }
                         />
                       </div>
-                    )}
-                    {/* Reactions bar (2026-09-06, moved 2026-09-07 --
-                        see ReactionsBar's own header comment, orders 82
-                        & 83) -- straddles the bottom corner of THIS row
-                        (already `position: relative`, same anchor the
-                        heart-burst overlay above already uses), same
-                        side as `mine`, rather than the outer
-                        `key={msg._id}` wrapper below -- one shared
-                        insertion point that works for every message
-                        kind (text, photo, file, contact card,
-                        calculation) without touching each of those
-                        render branches above. Skipped for a still-
-                        pending (not yet confirmed sent) message --
-                        chat-server has never seen it yet, so it can't
-                        have any reactions. */}
-                    {!pending && (
-                      <ReactionsBar
-                        reactions={msg.reactions ?? []}
-                        mine={mine}
-                        myUserId={myUserId}
-                        otherAvatarUrl={headerAvatar}
-                        otherInitial={headerTitle ? headerTitle.charAt(0).toUpperCase() : undefined}
-                        onToggle={(emoticon) => void handleToggleReaction(msg, emoticon)}
-                      />
                     )}
                   </div>
                 </div>

@@ -633,6 +633,7 @@ export function ReactionsBar({
   myUserId,
   otherAvatarUrl,
   otherInitial,
+  flatMedia,
   onToggle,
 }: {
   reactions: MessagePeerReaction[];
@@ -643,6 +644,12 @@ export function ReactionsBar({
   // participant has no profile photo -- same "always show SOMETHING
   // circular" convention the chat header itself already follows.
   otherInitial?: string;
+  // True for a chromeless/edge-to-edge bubble (photo, sticker, voice-
+  // only, ...) which has no padding of its own to inherit -- see
+  // page.tsx's own isFlatMedia flag. Adds this row's own padding in
+  // that case only; a regular padded bubble already surrounds every
+  // child (this one included) with its own px-3/pt-2/pb-2.
+  flatMedia?: boolean;
   onToggle: (emoticon: string) => void;
 }) {
   if (reactions.length === 0) return null;
@@ -650,26 +657,22 @@ export function ReactionsBar({
   if (groups.length === 0) return null;
 
   return (
-    // Fix Tracker (2026-09-07, Aleksandr's own reference screenshot,
-    // order 83: "вот как должны выглядеть реакции... на некоторых
-    // типах сообщений они снаружи, на некоторых внутри") -- Telegram
-    // straddles the pill right on the bubble's own bottom corner, half
-    // sitting ON the bubble/image and half hanging below it, the SAME
-    // way for text bubbles, the calculation table (order 82: the old
-    // flow-row layout below made a wide bubble push the pill down as
-    // its own separate line instead of sitting on the corner) and
-    // photo/video bubbles alike. Anchored absolutely to the bottom
-    // corner of the SAME `relative` bubble row in page.tsx (see that
-    // call site's own comment) instead of the previous plain flow row,
-    // and pinned to the same side as `mine` so it always lands on the
-    // bubble's own edge no matter the bubble's width. `pointer-events-
-    // none` on the row + `pointer-events-auto` back on each pill keeps
-    // the empty space around a short pill from blocking taps on the
-    // bubble underneath it. page.tsx reserves a little extra bottom
-    // margin on any message that has reactions (see `hasReactions`
-    // there) so the hanging half doesn't touch the next bubble.
+    // Fix Tracker (order 87, 2026-09-07, Aleksandr: "сейчас ты сделал
+    // реакции врезанными в сообщение, а я хотел чтобы ты автоматически
+    // увеличивал их высоту (плавной анимацией) и показывал реакции
+    // полностью внутри") -- supersedes orders 82/83's Telegram-style
+    // straddle (half on the bubble, half hanging below it): renders as
+    // a normal flow row instead of an absolutely-positioned overlay, so
+    // it's page.tsx's own bubble div that pushes itself taller to fit
+    // this row like any other content -- no manual height math needed
+    // for "the bubble should expand". animate-reactions-in (globals.css)
+    // gives the row itself a quick pop-in on mount, i.e. exactly when a
+    // message's reactions go from none to some. `flatMedia` supplies
+    // this row's own padding for a chromeless bubble (photo/sticker/
+    // voice-only) that has none of its own to inherit; a regular
+    // padded bubble only needs the top margin below.
     <div
-      className={`pointer-events-none absolute inset-x-1 bottom-0 z-10 flex translate-y-1/2 flex-wrap gap-1.5 ${
+      className={`animate-reactions-in flex flex-wrap gap-1.5 ${flatMedia ? "px-2 pb-2 pt-1.5" : "mt-1.5"} ${
         mine ? "justify-end" : "justify-start"
       }`}
     >
@@ -681,7 +684,7 @@ export function ReactionsBar({
             key={group.emoticon}
             type="button"
             onClick={() => onToggle(group.emoticon)}
-            className={`pointer-events-auto flex items-center gap-1 rounded-full py-1 pl-2.5 pr-2 text-[16px] leading-none shadow-md ring-2 transition hover:scale-105 ${
+            className={`flex items-center gap-1 rounded-full py-1 pl-2.5 pr-2 text-[16px] leading-none shadow-md ring-2 transition hover:scale-105 ${
               iReacted
                 ? "bg-[#335ef7] text-white ring-white dark:bg-[#0c8ce9] dark:ring-[#0e1116]"
                 : "bg-white text-[#262a34] ring-white dark:bg-[#1a1a1a] dark:text-white dark:ring-[#0e1116]"
