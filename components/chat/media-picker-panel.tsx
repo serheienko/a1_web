@@ -263,16 +263,30 @@ export function MediaPickerPanel({
   // a ref'd pre-render pass first. Opens ABOVE-and-left-of the trigger
   // (mirrors the old bottom-full/right-0 CSS intent) but clamped so it
   // never crosses any viewport edge.
-  const [placement, setPlacement] = useState<{ left: number; top: number; width: number } | null>(null);
+  //
+  // Fix Tracker (order 69, "не влезла модалка в чатах, надо
+  // оптимизировать"): this used to clamp LEFT/WIDTH against the
+  // viewport (see this fix's own header comment above PANEL_WIDTH) but
+  // still rendered at a hardcoded h-[420px] with no equivalent check on
+  // the VERTICAL axis -- on a short viewport (mobile landscape, a phone
+  // keyboard open shrinking the visual viewport, a small split-screen
+  // window) the panel got pinned to VIEWPORT_MARGIN from the top but
+  // stayed 420px tall, overflowing off the bottom edge with nothing to
+  // scroll it. `height` is now clamped the same way width already was,
+  // and the card's fixed h-[420px] class is replaced with this
+  // computed height so a short viewport shrinks the panel instead of
+  // letting it run off-screen.
+  const [placement, setPlacement] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
 
   useLayoutEffect(() => {
     const width = Math.min(PANEL_WIDTH, window.innerWidth - VIEWPORT_MARGIN * 2);
     const idealLeft = anchorRect.right - width;
     const left = Math.min(Math.max(idealLeft, VIEWPORT_MARGIN), window.innerWidth - width - VIEWPORT_MARGIN);
-    const idealTop = anchorRect.top - 8 - PANEL_HEIGHT;
-    const maxTop = Math.max(VIEWPORT_MARGIN, window.innerHeight - VIEWPORT_MARGIN - PANEL_HEIGHT);
+    const height = Math.min(PANEL_HEIGHT, window.innerHeight - VIEWPORT_MARGIN * 2);
+    const idealTop = anchorRect.top - 8 - height;
+    const maxTop = Math.max(VIEWPORT_MARGIN, window.innerHeight - VIEWPORT_MARGIN - height);
     const top = Math.min(Math.max(idealTop, VIEWPORT_MARGIN), maxTop);
-    setPlacement({ left, top, width });
+    setPlacement({ left, top, width, height });
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
     }
@@ -293,8 +307,8 @@ export function MediaPickerPanel({
           ref -- no longer true now that this renders through a portal). */}
       <div className="absolute inset-0" onClick={onClose} />
       <div
-        className="animate-popover-up absolute flex h-[420px] flex-col overflow-hidden rounded-2xl bg-white shadow-xl dark:bg-neutral-900"
-        style={{ left: placement.left, top: placement.top, width: placement.width }}
+        className="animate-popover-up absolute flex flex-col overflow-hidden rounded-2xl bg-white shadow-xl dark:bg-neutral-900"
+        style={{ left: placement.left, top: placement.top, width: placement.width, height: placement.height }}
       >
       {/* Close/collapse arrow -- reference screenshots show it top-right. */}
       <div className="flex shrink-0 items-center justify-between border-b border-black/5 px-3 py-2 dark:border-white/10">
