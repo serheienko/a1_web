@@ -27,9 +27,9 @@ import { getStableMediaProxyUrl } from "@/lib/a1/stable-media-url";
 import type { MediaDocument } from "@/lib/a1/schemas";
 import {
   isRealMediaDocument,
-  isRealStickerset,
   type Stickerset,
 } from "@/lib/a1/media-panel-schemas";
+import { getStickerSets } from "@/lib/a1/sticker-sets-cache";
 import { TgsSticker } from "./tgs-sticker";
 
 type Tab = "gifs" | "stickers" | "emoji";
@@ -124,6 +124,8 @@ export function MediaPickerPanel({
   onClose,
   onPickEmoji,
   onSendMedia,
+  initialTab,
+  initialSetId,
 }: {
   // Frozen snapshot of the trigger button's getBoundingClientRect() at
   // the moment it was opened (same convention as ForwardPreviewMenu's
@@ -133,9 +135,16 @@ export function MediaPickerPanel({
   onClose: () => void;
   onPickEmoji: (emoji: string) => void;
   onSendMedia: (doc: MediaDocument) => void;
+  // Fix Tracker (order 71, "открывать стикерпак полностью"): tapping an
+  // already-sent sticker in the message list opens this same panel but
+  // needs it to land straight on the Stickers tab, showing that
+  // sticker's own pack -- rather than always defaulting to whichever
+  // pack happened to load first.
+  initialTab?: Tab;
+  initialSetId?: string;
 }) {
   // Stickers is the reference screenshots' default/starting tab.
-  const [tab, setTab] = useState<Tab>("stickers");
+  const [tab, setTab] = useState<Tab>(initialTab ?? "stickers");
 
   const [sets, setSets] = useState<Stickerset[] | null>(null);
   const [recent, setRecent] = useState<MediaDocument[]>([]);
@@ -164,24 +173,29 @@ export function MediaPickerPanel({
     fetchedStickersRef.current = true;
     setStickersLoading(true);
     Promise.all([
-      authFetch("/api/chats/stickers/sets")
-        .then((r) => r.json())
-        .catch(() => null),
+      // Shared module-level cache (lib/a1/sticker-sets-cache.ts) -- a
+      // sticker-bubble click in the message list can resolve/prefetch
+      // the same sets this panel needs, so this joins that fetch
+      // instead of always re-requesting /api/chats/stickers/sets.
+      getStickerSets(),
       authFetch("/api/chats/stickers/recent")
         .then((r) => r.json())
         .catch(() => null),
     ])
-      .then(([setsData, recentData]) => {
-        const realSets: Stickerset[] = Array.isArray(setsData?.sets) ? setsData.sets.filter(isRealStickerset) : [];
+      .then(([realSets, recentData]) => {
         const realRecent: MediaDocument[] = Array.isArray(recentData?.stickers)
           ? recentData.stickers.filter(isRealMediaDocument)
           : [];
         setSets(realSets);
         setRecent(realRecent);
-        setActiveSetId(realSets[0]?._id ?? (realRecent.length > 0 ? "recent" : null));
+        // initialSetId (order 71) wins when the caller asked to jump
+        // straight to a specific pack and it's actually in the list;
+        // otherwise same default as before (first pack, else Recent).
+        const requestedSet = initialSetId ? realSets.find((s) => s._id === initialSetId) : undefined;
+        setActiveSetId(requestedSet?._id ?? realSets[0]?._id ?? (realRecent.length > 0 ? "recent" : null));
       })
       .finally(() => setStickersLoading(false));
-  }, [tab]);
+  }, [tab, initialSetId]);
 
   useEffect(() => {
     if (tab !== "gifs") return;

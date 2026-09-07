@@ -75,6 +75,7 @@ import { buildMediaProxyUrl, buildMediaDownloadUrl, strippedPreviewDataUrl } fro
 import { getStableMediaProxyUrl } from "@/lib/a1/stable-media-url";
 import type { MediaUploadUsage, MediaDocument } from "@/lib/a1/schemas";
 import { MediaPickerPanel } from "@/components/chat/media-picker-panel";
+import { getStickerSets, findStickerSetIdForDocId } from "@/lib/a1/sticker-sets-cache";
 import { TgsSticker } from "@/components/chat/tgs-sticker";
 import {
   ChatAttachmentSpinner,
@@ -1293,6 +1294,26 @@ export default function ChatWindowPage() {
   // comment) instead of the old plain-CSS `right-0` anchor that
   // overflowed off-screen on a narrow phone.
   const [mediaPanelAnchorRect, setMediaPanelAnchorRect] = useState<DOMRect | null>(null);
+  // Fix Tracker (order 71, "при нажатии на стикер в чате надо открывать
+  // стикерпак полностью"): set once a sent sticker's own pack has been
+  // resolved (see handleStickerBubbleClick below), so MediaPickerPanel
+  // opens straight onto that pack instead of its usual default. Cleared
+  // on close so the NEXT open (via the cat-icon trigger) goes back to
+  // defaulting to the first pack, not whatever sticker was last tapped.
+  const [mediaPanelInitialSetId, setMediaPanelInitialSetId] = useState<string | null>(null);
+  // Tapping a sticker bubble reuses the cat-icon trigger's own anchor
+  // rect (mediaPanelRef) -- there's no dedicated per-message trigger
+  // element to measure, and anchoring off the same composer-row icon
+  // keeps the panel in the same on-screen spot regardless of which
+  // message in the list was tapped.
+  async function handleStickerBubbleClick(docId: string) {
+    const sets = await getStickerSets();
+    const setId = findStickerSetIdForDocId(sets, docId);
+    if (!setId) return; // pack couldn't be resolved -- no-op, per the ticket's known limitation
+    setMediaPanelAnchorRect(mediaPanelRef.current?.getBoundingClientRect() ?? null);
+    setMediaPanelInitialSetId(setId);
+    setMediaPanelOpen(true);
+  }
   // 2026-09-03 (Aleksandr, "давай следующей фичой сделаем запись
   // голосового сообщения") -- recording ENGINE (components/chat/voice-
   // recorder.ts), wired to handleVoiceFinish below (defined later as a
@@ -5213,41 +5234,58 @@ export default function ChatWindowPage() {
                               // stickers render on a transparent
                               // background in every reference
                               // screenshot, same as Telegram's own.
-                              <TgsSticker
+                              // Fix Tracker (order 71, "при нажатии на стикер надо
+                              // открывать стикерпак полностью"): wraps TgsSticker in a
+                              // plain button so a tap resolves the sticker's own pack
+                              // (via the shared sticker-sets cache -- doc._id is the
+                              // only stable identifier a message attachment carries,
+                              // see lib/a1/sticker-sets-cache.ts's header) and opens
+                              // the same MediaPickerPanel the cat-icon trigger uses,
+                              // landing straight on that pack. No visual change --
+                              // button is unstyled so the sticker still renders on a
+                              // transparent background, matching every other bubble.
+                              <button
                                 key={doc._id}
-                                // getStableMediaProxyUrl, not buildMediaProxyUrl -- Fix Tracker
-                                // "Стикер кота моргает в чате": buildMediaProxyUrl(doc) embeds
-                                // doc.fileReference, which the backend rotates on every poll (the
-                                // exact same class of bug stable-media-url.ts's own header already
-                                // documents fixing for photos/voice waveforms). TgsSticker's effect
-                                // depends on [src], so a rotated fileReference changed the string on
-                                // every message-list refetch, restarting the gunzip+Lottie load and
-                                // flashing the loading placeholder over the sticker repeatedly.
-                                src={getStableMediaProxyUrl(doc)}
-                                size={132}
-                                previewUrl={strippedPreviewDataUrl(doc)}
-                                fallback={
-                                  <div
-                                    className={`flex items-center gap-2.5 rounded-xl px-2.5 py-2 ${
-                                      mine ? "bg-white/15" : "bg-black/5 dark:bg-white/10"
-                                    }`}
-                                  >
-                                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-[#8b5cf6]">
-                                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                                        <circle cx="12" cy="12" r="8.5" />
-                                        <path d="M9 10.2h.01M15 10.2h.01" />
-                                        <path d="M8.7 14.2c1.9 1.6 4.7 1.6 6.6 0" />
-                                      </svg>
-                                    </span>
-                                    <span className="truncate text-[14px] font-medium">
-                                      <T
-                                        uk="Стікер" en="Sticker" ru="Стикер" de="Sticker" es="Sticker"
-                                        fr="Sticker" pl="Naklejka" ptBR="Figurinha" zh="贴纸"
-                                      />
-                                    </span>
-                                  </div>
-                                }
-                              />
+                                type="button"
+                                onClick={() => void handleStickerBubbleClick(doc._id)}
+                                className="block"
+                                aria-label="Open sticker pack"
+                              >
+                                <TgsSticker
+                                  // getStableMediaProxyUrl, not buildMediaProxyUrl -- Fix Tracker
+                                  // "Стикер кота моргает в чате": buildMediaProxyUrl(doc) embeds
+                                  // doc.fileReference, which the backend rotates on every poll (the
+                                  // exact same class of bug stable-media-url.ts's own header already
+                                  // documents fixing for photos/voice waveforms). TgsSticker's effect
+                                  // depends on [src], so a rotated fileReference changed the string on
+                                  // every message-list refetch, restarting the gunzip+Lottie load and
+                                  // flashing the loading placeholder over the sticker repeatedly.
+                                  src={getStableMediaProxyUrl(doc)}
+                                  size={132}
+                                  previewUrl={strippedPreviewDataUrl(doc)}
+                                  fallback={
+                                    <div
+                                      className={`flex items-center gap-2.5 rounded-xl px-2.5 py-2 ${
+                                        mine ? "bg-white/15" : "bg-black/5 dark:bg-white/10"
+                                      }`}
+                                    >
+                                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-[#8b5cf6]">
+                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                          <circle cx="12" cy="12" r="8.5" />
+                                          <path d="M9 10.2h.01M15 10.2h.01" />
+                                          <path d="M8.7 14.2c1.9 1.6 4.7 1.6 6.6 0" />
+                                        </svg>
+                                      </span>
+                                      <span className="truncate text-[14px] font-medium">
+                                        <T
+                                          uk="Стікер" en="Sticker" ru="Стикер" de="Sticker" es="Sticker"
+                                          fr="Sticker" pl="Naklejka" ptBR="Figurinha" zh="贴纸"
+                                        />
+                                      </span>
+                                    </div>
+                                  }
+                                />
+                              </button>
                             ) : (
                               // 2026-09-03 (Aleksandr, Figma ref node
                               // 24368:126, "5. Chat view": "надо, чтобы
@@ -6878,13 +6916,19 @@ export default function ChatWindowPage() {
                 {mediaPanelOpen && mediaPanelAnchorRect && (
                   <MediaPickerPanel
                     anchorRect={mediaPanelAnchorRect}
-                    onClose={() => setMediaPanelOpen(false)}
+                    initialTab={mediaPanelInitialSetId ? "stickers" : undefined}
+                    initialSetId={mediaPanelInitialSetId ?? undefined}
+                    onClose={() => {
+                      setMediaPanelOpen(false);
+                      setMediaPanelInitialSetId(null);
+                    }}
                     onPickEmoji={(emoji) => {
                       setDraft((d) => d + emoji);
                       textareaRef.current?.focus();
                     }}
                     onSendMedia={(doc) => {
                       setMediaPanelOpen(false);
+                      setMediaPanelInitialSetId(null);
                       void sendMediaDocument(doc);
                     }}
                   />
