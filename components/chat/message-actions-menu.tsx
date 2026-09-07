@@ -685,6 +685,7 @@ export function ReactionsBar({
   otherAvatarUrl,
   otherInitial,
   flatMedia,
+  inline,
   onToggle,
 }: {
   reactions: MessagePeerReaction[];
