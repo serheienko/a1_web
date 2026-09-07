@@ -234,11 +234,20 @@ export function ContactMessageCard({
             onClick={handleAddContact}
             disabled={addState === "adding" || addState === "added"}
             aria-label="Add to contacts"
-            className={`group flex shrink-0 items-center justify-center overflow-hidden rounded-full transition-all duration-300 ease-out disabled:cursor-default ${
+            // Fix Tracker (2026-09-07, order 93: "Заливка крестика
+            // должна быть такой же высоты как и кнопка 'сообщение'")
+            // -- reverses the 2026-09-06 fix above that hardcoded this
+            // circle to a fixed 18px (independent of the Message
+            // button's own py-1.5-driven height). `self-stretch`
+            // instead makes it match this row's real height (set by
+            // the Message button, the only sibling that isn't
+            // stretched) whatever that renders to, and `aspect-square`
+            // keeps it a circle instead of a stretched oval.
+            className={`group flex shrink-0 items-center justify-center self-stretch overflow-hidden rounded-full transition-all duration-300 ease-out disabled:cursor-default ${
               mine ? "bg-white/20 hover:bg-white/30" : "bg-black/5 hover:bg-black/10 dark:bg-white/15 dark:hover:bg-white/25"
-            } ${addState === "added" ? "w-0 opacity-0" : "h-[18px] w-[18px] opacity-100 active:scale-95"}`}
+            } ${addState === "added" ? "w-0 opacity-0" : "aspect-square opacity-100 active:scale-95"}`}
           >
-            {addState === "adding" ? <AddSpinner /> : <PlusIcon className="animate-theme-pop" />}
+            {addState === "adding" ? <AddSpinner className="h-3.5 w-3.5" /> : <PlusIcon className="h-3.5 w-3.5 animate-theme-pop" />}
           </button>
         </div>
       ) : (
