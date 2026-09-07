@@ -25,11 +25,8 @@ import { EMOJI_CATEGORIES } from "@/lib/a1/emoji-data";
 import { buildMediaProxyUrl, strippedPreviewDataUrl } from "@/lib/a1/media-proxy";
 import { getStableMediaProxyUrl } from "@/lib/a1/stable-media-url";
 import type { MediaDocument } from "@/lib/a1/schemas";
-import {
-  isRealMediaDocument,
-  type Stickerset,
-} from "@/lib/a1/media-panel-schemas";
-import { getStickerSets } from "@/lib/a1/sticker-sets-cache";
+import { type Stickerset } from "@/lib/a1/media-panel-schemas";
+import { getStickerSets, getRecentStickers, bumpRecentSticker, hasCachedStickerData } from "@/lib/a1/sticker-sets-cache";
 import { TgsSticker } from "./tgs-sticker";
 
 type Tab = "gifs" | "stickers" | "emoji";
@@ -168,32 +165,39 @@ export function MediaPickerPanel({
   // same single-use refresh token, the loser gets logged out. Firing
   // both in Promise.all below is exactly that shape, so both go through
   // authFetch's shared queue instead of bare fetch.
+  //
+  // Fix Tracker (order 79, Aleksandr: "стикеры сейчас не кешируются") --
+  // this panel unmounts on close, so `fetchedStickersRef` (still just a
+  // per-mount guard against re-running this same effect twice) used to
+  // mean a fresh network round-trip on EVERY reopen. getStickerSets()
+  // and getRecentStickers() are now module-level singleton caches
+  // (lib/a1/sticker-sets-cache.ts) that outlive the panel's own mount,
+  // so a reopen within the same page session reuses whatever was
+  // already fetched instead of re-requesting both endpoints from
+  // scratch, and the loading flag below is skipped entirely on a cache
+  // hit -- no skeleton flash (order 68) for data that's already sitting
+  // in memory.
   useEffect(() => {
     if (tab !== "stickers" || fetchedStickersRef.current) return;
     fetchedStickersRef.current = true;
-    setStickersLoading(true);
-    Promise.all([
-      // Shared module-level cache (lib/a1/sticker-sets-cache.ts) -- a
-      // sticker-bubble click in the message list can resolve/prefetch
-      // the same sets this panel needs, so this joins that fetch
-      // instead of always re-requesting /api/chats/stickers/sets.
-      getStickerSets(),
-      authFetch("/api/chats/stickers/recent")
-        .then((r) => r.json())
-        .catch(() => null),
-    ])
-      .then(([realSets, recentData]) => {
-        const realRecent: MediaDocument[] = Array.isArray(recentData?.stickers)
-          ? recentData.stickers.filter(isRealMediaDocument)
-          : [];
-        setSets(realSets);
-        setRecent(realRecent);
-        // initialSetId (order 71) wins when the caller asked to jump
-        // straight to a specific pack and it's actually in the list;
-        // otherwise same default as before (first pack, else Recent).
-        const requestedSet = initialSetId ? realSets.find((s) => s._id === initialSetId) : undefined;
-        setActiveSetId(requestedSet?._id ?? realSets[0]?._id ?? (realRecent.length > 0 ? "recent" : null));
-      })
+    const applyResults = (realSets: Stickerset[], realRecent: MediaDocument[]) => {
+      setSets(realSets);
+      setRecent(realRecent);
+      // initialSetId (order 71) wins when the caller asked to jump
+      // straight to a specific pack and it's actually in the list;
+      // otherwise same default as before (first pack, else Recent).
+      const requestedSet = initialSetId ? realSets.find((s) => s._id === initialSetId) : undefined;
+      setActiveSetId(requestedSet?._id ?? realSets[0]?._id ?? (realRecent.length > 0 ? "recent" : null));
+    };
+    // A cache hit resolves synchronously-ish (Promise.resolve under
+    // the hood) but still a tick later than this render -- checking
+    // the cache directly here, rather than just waiting for that tick,
+    // is what actually skips the loading flag (and its skeleton) for a
+    // reopen instead of merely flipping it true-then-false too fast to
+    // notice.
+    if (!hasCachedStickerData()) setStickersLoading(true);
+    Promise.all([getStickerSets(), getRecentStickers()])
+      .then(([realSets, realRecent]) => applyResults(realSets, realRecent))
       .finally(() => setStickersLoading(false));
   }, [tab, initialSetId]);
 
@@ -433,7 +437,15 @@ export function MediaPickerPanel({
                 <button
                   key={doc._id}
                   type="button"
-                  onClick={() => onSendMedia(doc)}
+                  onClick={() => {
+                    // Fix Tracker (order 79) -- keeps the Recent cache
+                    // (lib/a1/sticker-sets-cache.ts) in sync with what
+                    // the user just did, so the NEXT panel open shows
+                    // this sticker under Recent without waiting on a
+                    // refetch of /api/chats/stickers/recent.
+                    bumpRecentSticker(doc);
+                    onSendMedia(doc);
+                  }}
                   className="flex items-center justify-center rounded-[12px] p-1 transition hover:bg-black/5 dark:hover:bg-white/10"
                 >
                   <TgsSticker

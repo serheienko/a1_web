@@ -15,7 +15,8 @@
 // re-requesting it -- a bare click on a sticker bubble shouldn't refire
 // the same network call the panel just made (or is about to make).
 import { authFetch } from "@/lib/auth-fetch";
-import { isRealStickerset, type Stickerset } from "./media-panel-schemas";
+import { isRealStickerset, isRealMediaDocument, type Stickerset } from "./media-panel-schemas";
+import type { MediaDocument } from "./schemas";
 
 let cachedSets: Stickerset[] | null = null;
 let inFlight: Promise<Stickerset[]> | null = null;
@@ -41,6 +42,57 @@ export function getStickerSets(): Promise<Stickerset[]> {
   if (cachedSets) return Promise.resolve(cachedSets);
   if (!inFlight) inFlight = fetchSets();
   return inFlight;
+}
+
+// Synchronous peek, no fetch triggered -- lets a caller (the panel's
+// own loading-skeleton gate, order 79) tell a genuine first-load apart
+// from a cache-hit reopen BEFORE it commits to showing a spinner.
+export function hasCachedStickerData(): boolean {
+  return cachedSets !== null && cachedRecent !== null;
+}
+
+// Fix Tracker (order 79, Aleksandr: "стикеры сейчас не кешируются" --
+// closing and reopening the sticker panel re-fetched everything from
+// scratch every single time, sets AND recent alike, flashing the
+// loading skeleton (order 68) on every open even though nothing had
+// changed). `getStickerSets` above already solved half of this (the
+// pack list); this is the same module-level singleton pattern for
+// /api/chats/stickers/recent, so a re-open within the same page session
+// reads the cached array instantly instead of round-tripping again.
+// `bumpRecentSticker` keeps this in sync the moment the user actually
+// sends a sticker (see media-picker-panel.tsx's own onSendMedia), so
+// the NEXT open shows it under Recent without waiting on a refetch.
+let cachedRecent: MediaDocument[] | null = null;
+let recentInFlight: Promise<MediaDocument[]> | null = null;
+
+async function fetchRecent(): Promise<MediaDocument[]> {
+  try {
+    const data = await authFetch("/api/chats/stickers/recent").then((r) => r.json());
+    const realRecent: MediaDocument[] = Array.isArray(data?.stickers) ? data.stickers.filter(isRealMediaDocument) : [];
+    cachedRecent = realRecent;
+    return realRecent;
+  } catch {
+    return [];
+  } finally {
+    recentInFlight = null;
+  }
+}
+
+export function getRecentStickers(): Promise<MediaDocument[]> {
+  if (cachedRecent) return Promise.resolve(cachedRecent);
+  if (!recentInFlight) recentInFlight = fetchRecent();
+  return recentInFlight;
+}
+
+// Optimistically moves a just-sent sticker to the front of the cached
+// Recent list (deduped by _id, same MAX_RECENT the server itself caps
+// /api/chats/stickers/recent at) so the picker doesn't need a network
+// round-trip to reflect what the user just did.
+const MAX_RECENT = 30;
+
+export function bumpRecentSticker(doc: MediaDocument): void {
+  const withoutDupe = (cachedRecent ?? []).filter((d) => d._id !== doc._id);
+  cachedRecent = [doc, ...withoutDupe].slice(0, MAX_RECENT);
 }
 
 // Scans every set's documents for a matching doc _id (stable across
