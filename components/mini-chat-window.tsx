@@ -309,6 +309,12 @@ export function MiniChatWindow({
   const calcFirstRowInputRef = useRef<HTMLInputElement>(null);
   const [attachment, setAttachment] = useState<MiniAttachment | null>(null);
 
+  // Fix Tracker (2026-09-07, order 97) -- whether the send button
+  // should be shown at all (vs. the input pill claiming its space).
+  // Same "something to actually send" condition the button's own
+  // `disabled` already used, just also driving its own visibility now.
+  const hasSendableContent = draft.trim().length > 0 || attachment?.status === "ready";
+
   // 2026-09-03 (Aleksandr, attach-menu port) -- attach popover open
   // state + its own outside-hover close, same useHoverPanel hook that
   // page's own attach menu uses (lib/use-hover-panel.ts, already a
@@ -805,9 +811,15 @@ export function MiniChatWindow({
           type="button"
           onClick={onBack}
           aria-label="Back"
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-neutral-500 transition hover:bg-black/5 dark:text-neutral-300 dark:hover:bg-white/10"
+          // Fix Tracker (2026-09-07, order 96: "Анимируй стрелку назад
+          // в мини-чатах") -- every other back arrow in the app
+          // (app/chats/[chatId]/page.tsx, chats-flyout.tsx,
+          // daily-uploads-modal.tsx) already nudges left on hover via
+          // `group` + `.animate-back-arrow` (app/globals.css); this
+          // widget's own back button just never got either class.
+          className="group flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-neutral-500 transition hover:bg-black/5 dark:text-neutral-300 dark:hover:bg-white/10"
         >
-          <ChatBackArrow className="h-3 w-[7px]" />
+          <ChatBackArrow className="h-3 w-[7px] animate-back-arrow" />
         </button>
 
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-10 text-[#262a34] dark:text-white">
@@ -1501,11 +1513,27 @@ export function MiniChatWindow({
           <button
             type="button"
             onClick={() => void handleSend()}
-            disabled={sending || attachment?.status === "uploading" || (!draft.trim() && attachment?.status !== "ready")}
+            disabled={sending || attachment?.status === "uploading" || !hasSendableContent}
             aria-label="Send"
-            className="group flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#335ef7] text-white transition hover:brightness-110 active:scale-95 disabled:opacity-40 disabled:hover:brightness-100 dark:bg-[#0c8ce9]"
+            // Fix Tracker (2026-09-07, order 97: "кнопка 'отправить'
+            // должна появляться после ввода первого символа. До этого
+            // инпут филд должен быть шире... Потом она должна
+            // появляться через анимацию и быть такой же высоты как и
+            // инпут филд") -- this used to always render at full size,
+            // just `disabled`+dimmed to 40% opacity when empty, so the
+            // input pill next to it never actually got any wider.
+            // Collapsing width+opacity (with a matching negative
+            // margin to close this row's own gap-2) instead lets the
+            // pill's `flex-1` claim that space for real, and the
+            // reverse transition on the way back in reads as the
+            // button animating into existence rather than just fading.
+            // Height (h-9, 36px) already matched the pill's own
+            // min-h-[36px] before this change -- untouched.
+            className={`group flex h-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#335ef7] text-white transition-all duration-200 ease-out hover:brightness-110 active:scale-95 disabled:hover:brightness-100 dark:bg-[#0c8ce9] ${
+              hasSendableContent ? "w-9 ml-0 opacity-100" : "w-0 -ml-2 opacity-0"
+            }`}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="animate-send-arrow">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="animate-send-arrow shrink-0">
               <path d="M4 12h15M13 5l7 7-7 7" />
             </svg>
           </button>
