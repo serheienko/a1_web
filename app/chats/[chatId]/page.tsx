@@ -5907,8 +5907,14 @@ export default function ChatWindowPage() {
                         className={`pointer-events-none absolute inset-x-0 bottom-0 z-20 flex ${mine ? "justify-end" : "justify-start"}`}
                       >
                         <LottiePlayer
+                          // Fix Tracker (order 56, 2026-09-07, second
+                          // half: "увеличить анимацию реакции" -- 75px
+                          // read as a small blip over a full message
+                          // bubble; bumped to 130 so the heart burst
+                          // reads clearly without a live video reference
+                          // from Aleksandr).
                           src="/animations/heart_reaction.json"
-                          size={75}
+                          size={130}
                           loop={false}
                           onComplete={() =>
                             setHeartBurst((cur) => (cur && cur.trigger === heartBurst.trigger ? null : cur))
