@@ -41,10 +41,30 @@ export async function GET(request: NextRequest) {
       ...(next ? { next } : {}),
     });
     const gifs = GifSearchOutputSchema.safeParse(data);
+    // Fix Tracker (order 63, 2026-09-07): route every preview URL
+    // through our own /api/chats/gifs/proxy instead of handing the
+    // client the raw static.klipy.com URL straight from
+    // media.globalSearch -- see that proxy route's header comment for
+    // why a same-origin byte-proxy (not just a redirect) is what
+    // actually fixes GIF previews silently never loading. Any URL that
+    // isn't actually klipy's own CDN (shouldn't happen, but the proxy
+    // route itself also allowlist-checks) is left as-is rather than
+    // wrapped, so it fails the same way it would have before instead of
+    // being silently swallowed by the proxy's own host check.
+    const previewUrls = gifs.success
+      ? Object.fromEntries(
+          Object.entries(gifs.data.previewUrls).map(([id, url]) => [
+            id,
+            /^https:\/\/([a-z0-9-]+\.)*klipy\.com\//i.test(url)
+              ? `/api/chats/gifs/proxy?u=${encodeURIComponent(url)}`
+              : url,
+          ]),
+        )
+      : {};
     const response = NextResponse.json({
       ok: true,
       items: gifs.success ? gifs.data.items : [],
-      previewUrls: gifs.success ? gifs.data.previewUrls : {},
+      previewUrls,
       pagination: gifs.success ? gifs.data.pagination : { next: null, previous: null, hasMore: false },
     });
     if (refreshedSession) setSession(response, refreshedSession);

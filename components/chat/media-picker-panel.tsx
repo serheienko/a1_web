@@ -65,6 +65,26 @@ const VIEWPORT_MARGIN = 12;
 // so branch on the URL's extension rather than assuming every preview is
 // one or the other.
 function isVideoPreviewUrl(url: string): boolean {
+  // Fix Tracker (order 63, 2026-09-07): previewUrls now come back
+  // wrapped as /api/chats/gifs/proxy?u=<encoded original klipy URL>
+  // (see that API route + its search-route caller for why), so the
+  // real extension to sniff lives inside the `u` query param, not
+  // necessarily at the very end of this string anymore -- a klipy URL
+  // with its own query string (a signed token, say) would put more
+  // encoded characters after ".mp4" and silently break the old
+  // end-of-string check. Unwrap first when this is our own proxy URL;
+  // fall back to testing the raw string as before for anything else
+  // (the panel's one non-video case, USER_PHOTO_FALLBACK, never goes
+  // through the proxy).
+  try {
+    const parsed = new URL(url, "http://localhost");
+    if (parsed.pathname === "/api/chats/gifs/proxy") {
+      const inner = parsed.searchParams.get("u");
+      if (inner) return /\.(mp4|webm|mov)(\?|$)/i.test(inner);
+    }
+  } catch {
+    // not a parseable URL (relative or malformed) -- fall through
+  }
   return /\.(mp4|webm|mov)(\?|$)/i.test(url);
 }
 
