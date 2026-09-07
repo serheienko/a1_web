@@ -5409,11 +5409,23 @@ export default function ChatWindowPage() {
                               // landing straight on that pack. No visual change --
                               // button is unstyled so the sticker still renders on a
                               // transparent background, matching every other bubble.
+                              // Fix Tracker order 123 (Aleksandr: "На моб версии у
+                              // стикеров не показывает время") -- isStickerOnly is
+                              // already in isFlatMedia (see that flag's own comment
+                              // above), so the shared non-flat footer below never
+                              // rendered for a sole sticker, and unlike the flat
+                              // photo/video cases, nothing here ever added a
+                              // replacement -- a sole sticker showed literally no
+                              // timestamp anywhere. Same dark translucent pill those
+                              // cases already use, absolutely positioned over the
+                              // sticker's own transparent canvas (wrapper below is
+                              // now `relative` to anchor it) instead of sitting in a
+                              // separate row, so the sticker itself stays chromeless.
                               <button
                                 key={doc._id}
                                 type="button"
                                 onClick={() => void handleStickerBubbleClick(doc._id)}
-                                className="block"
+                                className="relative block"
                                 aria-label="Open sticker pack"
                               >
                                 <TgsSticker
@@ -5450,6 +5462,12 @@ export default function ChatWindowPage() {
                                     </div>
                                   }
                                 />
+                                {isStickerOnly && (
+                                  <span className="pointer-events-none absolute bottom-0.5 right-0.5 flex items-center gap-1 rounded-full bg-black/45 px-2 py-0.5 text-[11px] text-white backdrop-blur-sm">
+                                    <span>{msg.editedAt && <EditedLabel />}{formatTime(ms)}</span>
+                                    {mine && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7.77px] w-3.5" />}
+                                  </span>
+                                )}
                               </button>
                             ) : (
                               // 2026-09-03 (Aleksandr, Figma ref node
