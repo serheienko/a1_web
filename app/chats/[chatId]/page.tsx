@@ -6436,11 +6436,19 @@ export default function ChatWindowPage() {
                   key={c.userId}
                   className="group relative flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white/90 py-1 pl-1 pr-2.5 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element -- proxied/
-                      generated avatar, not a next/image-configured remote host. */}
-                  <img
+                  {/* Fix Tracker (2026-09-07, Aleksandr: "эту иконку тоже
+                      будем подгружать через блюр, а то её иногда выбивает
+                      и она выглядит знаком вопроса") -- this was the one
+                      remaining plain <img> avatar left in the app with no
+                      blur placeholder AND no failed-load resilience;
+                      every other avatar surface already went through
+                      CachedAvatar (components/cached-avatar.tsx, now with
+                      its own onError-falls-back-to-blur fix from the same
+                      request). */}
+                  <CachedAvatar
                     src={c.summary?.avatarUrl ?? pickDefaultCatAvatar(c.userId)}
-                    alt=""
+                    blurDataURL={BLUR_DATA_URL}
+                    size={24}
                     className="h-6 w-6 rounded-full object-cover"
                   />
                   <span className="max-w-[100px] truncate text-[12px] text-[#262a34] dark:text-white">
