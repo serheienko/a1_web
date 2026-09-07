@@ -18,10 +18,11 @@
 // photos/files). Picking an emoji calls onPickEmoji and stays open, so
 // several emoji can be inserted into the draft in a row -- closing on
 // every tap would make multi-emoji messages tedious.
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { authFetch } from "@/lib/auth-fetch";
 import { EMOJI_CATEGORIES } from "@/lib/a1/emoji-data";
-import { buildMediaProxyUrl } from "@/lib/a1/media-proxy";
+import { buildMediaProxyUrl, strippedPreviewDataUrl } from "@/lib/a1/media-proxy";
 import { getStableMediaProxyUrl } from "@/lib/a1/stable-media-url";
 import type { MediaDocument } from "@/lib/a1/schemas";
 import {
@@ -32,6 +33,29 @@ import {
 import { TgsSticker } from "./tgs-sticker";
 
 type Tab = "gifs" | "stickers" | "emoji";
+
+// Fix Tracker (2026-09-06/07, "не влезла модалка в чатах" + "надо чтобы
+// модалка стикеров по расположению показывась так же как и меню которое
+// высплывает при наведении на скрепку") -- this panel used to render
+// nested inside its own trigger button's wrapper div, positioned via
+// plain CSS (`absolute bottom-full right-0 mb-2`, page.tsx's own call
+// site). That anchors the panel's RIGHT edge to the trigger's right
+// edge -- fine as long as the trigger sits flush against the actual
+// screen edge (true for the paperclip attach-menu, which anchors LEFT
+// off the leftmost icon in the composer row), but the sticker/GIF/emoji
+// trigger (the cat icon) sits further right in that same row, with the
+// reminder bell/mic/send button still to its right -- so a fixed
+// 340px-wide panel anchored off THAT narrower trigger overflowed clean
+// off the left edge of the viewport on any phone-width screen (live
+// screenshot: "Недавние" clipped to "едавние" at x=0). Same root class
+// of bug message-actions-menu.tsx and forward-preview-menu.tsx already
+// solve for their own popups: measure the real anchor + viewport once
+// at open time and clamp, rather than trusting a CSS corner anchor to
+// always have room. PANEL_WIDTH/PANEL_HEIGHT mirror this panel's own
+// fixed h-[420px] w-[340px] card size.
+const PANEL_WIDTH = 340;
+const PANEL_HEIGHT = 420;
+const VIEWPORT_MARGIN = 12;
 
 // Fix Tracker: GIF grid showed broken-image icons for every result.
 // Root cause -- media.globalSearch's previewUrls (media-server,
@@ -96,10 +120,16 @@ function StickerChipFallback({ size }: { size: number }) {
 }
 
 export function MediaPickerPanel({
+  anchorRect,
   onClose,
   onPickEmoji,
   onSendMedia,
 }: {
+  // Frozen snapshot of the trigger button's getBoundingClientRect() at
+  // the moment it was opened (same convention as ForwardPreviewMenu's
+  // own anchorRect prop) -- not a live-tracked element, so this only
+  // needs to be captured once by the caller, on click.
+  anchorRect: DOMRect;
   onClose: () => void;
   onPickEmoji: (emoji: string) => void;
   onSendMedia: (doc: MediaDocument) => void;
@@ -212,11 +242,46 @@ export function MediaPickerPanel({
     return matchingCats.flatMap((c) => c.emojis);
   }, [emojiQuery, emojiCategory]);
 
-  return (
-    <div
-      className="animate-popover-up flex h-[420px] w-[340px] max-w-[92vw] flex-col overflow-hidden rounded-2xl bg-white shadow-xl dark:bg-neutral-900"
-      onMouseDown={(e) => e.stopPropagation()}
-    >
+  // Measures nothing from the DOM -- the card's own size is fixed
+  // (PANEL_WIDTH/PANEL_HEIGHT, modulo the 92vw cap on a narrow phone),
+  // so it's computed straight from window dimensions, same idea as
+  // ForwardPreviewMenu's single-measurement clamp just without needing
+  // a ref'd pre-render pass first. Opens ABOVE-and-left-of the trigger
+  // (mirrors the old bottom-full/right-0 CSS intent) but clamped so it
+  // never crosses any viewport edge.
+  const [placement, setPlacement] = useState<{ left: number; top: number; width: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const width = Math.min(PANEL_WIDTH, window.innerWidth - VIEWPORT_MARGIN * 2);
+    const idealLeft = anchorRect.right - width;
+    const left = Math.min(Math.max(idealLeft, VIEWPORT_MARGIN), window.innerWidth - width - VIEWPORT_MARGIN);
+    const idealTop = anchorRect.top - 8 - PANEL_HEIGHT;
+    const maxTop = Math.max(VIEWPORT_MARGIN, window.innerHeight - VIEWPORT_MARGIN - PANEL_HEIGHT);
+    const top = Math.min(Math.max(idealTop, VIEWPORT_MARGIN), maxTop);
+    setPlacement({ left, top, width });
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [anchorRect]);
+
+  if (typeof document === "undefined" || !placement) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-50">
+      {/* No dim/blur backdrop -- same "Cupertino menu, no scrim" style
+          message-actions-menu.tsx/forward-preview-menu.tsx already use
+          for their own popups. Doubles as the outside-click-to-close
+          handler instead of page.tsx's old document-mousedown listener
+          (which assumed the panel was a DOM child of the trigger's own
+          ref -- no longer true now that this renders through a portal). */}
+      <div className="absolute inset-0" onClick={onClose} />
+      <div
+        className="animate-popover-up absolute flex h-[420px] flex-col overflow-hidden rounded-2xl bg-white shadow-xl dark:bg-neutral-900"
+        style={{ left: placement.left, top: placement.top, width: placement.width }}
+      >
       {/* Close/collapse arrow -- reference screenshots show it top-right. */}
       <div className="flex shrink-0 items-center justify-between border-b border-black/5 px-3 py-2 dark:border-white/10">
         <span className="flex min-w-0 items-center gap-1.5">
@@ -343,7 +408,12 @@ export function MediaPickerPanel({
                   onClick={() => onSendMedia(doc)}
                   className="flex items-center justify-center rounded-[12px] p-1 transition hover:bg-black/5 dark:hover:bg-white/10"
                 >
-                  <TgsSticker src={getStableMediaProxyUrl(doc)} size={64} fallback={<StickerChipFallback size={64} />} />
+                  <TgsSticker
+                    src={getStableMediaProxyUrl(doc)}
+                    size={64}
+                    fallback={<StickerChipFallback size={64} />}
+                    previewUrl={strippedPreviewDataUrl(doc)}
+                  />
                 </button>
               ))}
             </div>
@@ -434,6 +504,8 @@ export function MediaPickerPanel({
           </button>
         ))}
       </div>
-    </div>
+      </div>
+    </div>,
+    document.body,
   );
 }

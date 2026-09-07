@@ -49,6 +49,34 @@ export function buildMediaProxyUrl(doc: { _id: string; fileReference: string; si
   return `/api/media/${doc._id}?ref=${encodeURIComponent(doc.fileReference)}&size=${encodeURIComponent(sizeParam)}`;
 }
 
+// Fix Tracker (2026-09-07, "Сделай загрузку стикеров хитро... они в
+// процессе подгрузки показывают скелетон лоад но как-будто их
+// актульную форму, но просто темные стикеры") -- same Telegram-style
+// `size-stripped` inline base64 blur-preview convention lib/a1/
+// chat-schemas.ts's own mediaDocumentThumbnail() already decodes for
+// photo messages (that one is typed for MessageMediaDocument's
+// `object: "media-doc"` shape specifically). Stickers render from TWO
+// different doc shapes depending on call site -- a sent sticker message
+// (MessageMediaDocument, chat-schemas.ts) and a sticker picked from the
+// picker panel (MediaDocument, schemas.ts's own `object: "media-
+// document"` shape) -- so this is typed loosely against just the one
+// field both actually share (`sizes`) instead of either one, and used
+// by TgsSticker as the shown-while-loading preview: a real (if tiny and
+// dimmed) glimpse of the sticker's own shape/colors, not a generic grey
+// box, degrading to that grey box when a given document has no stripped
+// entry (unconfirmed either doc shape's sticker rows in this backend
+// actually carry one -- falls back harmlessly either way).
+export function strippedPreviewDataUrl(doc: { sizes: Array<{ object?: string; bytes?: unknown }> }): string | null {
+  const raw = doc.sizes.find((s) => s.object === "size-stripped" && typeof s.bytes === "string")?.bytes as
+    | string
+    | undefined;
+  if (!raw) return null;
+  let normalized = raw.replace(/-/g, "+").replace(/_/g, "/");
+  const pad = normalized.length % 4;
+  if (pad > 0) normalized += "=".repeat(4 - pad);
+  return `data:image/jpeg;base64,${normalized}`;
+}
+
 /** 2026-09-03 (photo-viewer's "Save" action) -- same doc, same `ref`/
  *  `size` params as buildMediaProxyUrl above, but pointed at the
  *  sibling /download route (app/api/media/[docId]/download/route.ts)

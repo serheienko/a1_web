@@ -26,6 +26,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type Rea
 import { createPortal } from "react-dom";
 import { T, type Locale } from "@/components/t";
 import { groupReactionsByEmoji, type MessagePeerReaction } from "@/lib/a1/chat-schemas";
+import { EMOJI_CATEGORIES } from "@/lib/a1/emoji-data";
 
 const MENU_WIDTH = 240;
 // 2026-09-05, second follow-up (Aleksandr, live screenshot: even with
@@ -335,6 +336,19 @@ export function MessageActionsMenu({
   // runs once on mount, same as before.
   const [placement, setPlacement] = useState<{ left: number; top: number; openAbove: boolean; needsScroll: boolean } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  // 2026-09-06 (Aleksandr, screenshot of the reaction row's chevron:
+  // "Надо стрелочку возле эмодзи тоже, чтобы можно было открывать
+  // полный дропдаун с эмодзи") -- the chevron used to just call
+  // onClose() (a leftover no-op from this file's original
+  // all-placeholder-except-Reply scope, never wired up once
+  // reactions became real). Now it expands an inline emoji grid
+  // reusing the same EMOJI_CATEGORIES data as the draft composer's
+  // own picker (media-picker-panel.tsx), just without that panel's
+  // search box/multi-tab chrome -- there isn't room for those in a
+  // 240px-wide popup, and a plain category-row + grid matches this
+  // menu's own compact style.
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
+  const [emojiPickerCategory, setEmojiPickerCategory] = useState(EMOJI_CATEGORIES[0]?.key ?? "smileys");
 
   useLayoutEffect(() => {
     const el = menuRef.current;
@@ -385,8 +399,13 @@ export function MessageActionsMenu({
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
+    // Re-runs when the emoji grid opens/closes (not just on mount)
+    // so the menu re-measures its new real height and repositions --
+    // otherwise expanding the grid on a message near the bottom of
+    // the viewport would grow the popup downward off-screen instead
+    // of the whole thing re-clamping/flipping like it does on open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [emojiPickerOpen]);
 
   if (typeof document === "undefined") return null;
 
@@ -482,12 +501,72 @@ export function MessageActionsMenu({
                 {emoji}
               </button>
             ))}
-            <button type="button" onClick={onClose} aria-label="More" className="rounded-full p-1 text-neutral-400 transition hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+            <button
+              type="button"
+              onClick={() => setEmojiPickerOpen((v) => !v)}
+              aria-label="More"
+              aria-expanded={emojiPickerOpen}
+              className="rounded-full p-1 text-neutral-400 transition hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className={`h-4 w-4 transition-transform ${emojiPickerOpen ? "rotate-180" : ""}`}
+                aria-hidden="true"
+              >
                 <path d="M6 9l6 6 6-6" />
               </svg>
             </button>
           </div>
+
+          {/* Full emoji dropdown -- toggled by the chevron above. Same
+              EMOJI_CATEGORIES data + category-row pattern as
+              media-picker-panel.tsx's own emoji tab, condensed to fit
+              this menu's fixed 240px width: icon-only scrollable
+              category row (no room for text labels), 6-column grid
+              (vs. that panel's 8, which was sized for a wider sheet),
+              capped height with its own internal scroll so this
+              doesn't blow out the whole popup's height budget --
+              picking any emoji here reacts + closes the menu exactly
+              like the quick-react row above. */}
+          {emojiPickerOpen && (
+            <div className="flex w-full flex-col gap-1.5 rounded-2xl bg-white/95 p-2 shadow-xl backdrop-blur-sm dark:bg-neutral-800/95">
+              <div className="flex gap-1 overflow-x-auto pb-0.5 no-scrollbar">
+                {EMOJI_CATEGORIES.map((c) => (
+                  <button
+                    key={c.key}
+                    type="button"
+                    onClick={() => setEmojiPickerCategory(c.key)}
+                    title={c.labelRu}
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[14px] transition ${
+                      emojiPickerCategory === c.key ? "bg-[#335ef7]/15 dark:bg-[#0c8ce9]/20" : "bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15"
+                    }`}
+                  >
+                    {c.icon}
+                  </button>
+                ))}
+              </div>
+              <div className="grid max-h-[168px] grid-cols-6 gap-1 overflow-y-auto no-scrollbar">
+                {(EMOJI_CATEGORIES.find((c) => c.key === emojiPickerCategory)?.emojis ?? []).map((emoji, idx) => (
+                  <button
+                    key={`${emoji}-${idx}`}
+                    type="button"
+                    onClick={() => {
+                      onReact?.(emoji);
+                      onClose();
+                    }}
+                    className="flex h-8 w-8 items-center justify-center rounded-[10px] text-[17px] leading-none transition hover:bg-black/5 dark:hover:bg-white/10"
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="overflow-hidden rounded-2xl bg-white/95 shadow-xl backdrop-blur-sm dark:bg-neutral-800/95">
             {ACTION_ROWS.filter((r) => r.group === "main" && (r.key !== "edit" || mine)).map((row, i, arr) => {
@@ -571,7 +650,19 @@ export function ReactionsBar({
   if (groups.length === 0) return null;
 
   return (
-    <div className={`mt-1 flex flex-wrap gap-1 ${mine ? "justify-end" : "justify-start"}`}>
+    // Fix Tracker ("реакции не помещаются в текущие пилюли", 2026-09-07):
+    // pills were too tight for emoji+avatar (py-0.5/14px/18px avatar) --
+    // bumped padding/type/avatar size below so nothing clips. Also pulled
+    // the whole row half a step closer to the bubble (mt-1 -> mt-0.5) so
+    // reactions read as attached to the message rather than a separate
+    // floating line. NOT overlapped further (e.g. negative margin) on
+    // purpose: photo/video bubbles already anchor their own time badge at
+    // `bottom-1.5 right-1.5` INSIDE the image (see flatFooter/crossGroupFooter
+    // in page.tsx), and an overlap large enough to look "inside" the bubble
+    // would sit right on top of that badge for `mine` messages -- needs a
+    // live screenshot/video from Aleksandr before going further, same as
+    // the still-open reaction-position ticket (order 56).
+    <div className={`-mt-0.5 flex flex-wrap gap-1.5 ${mine ? "justify-end" : "justify-start"}`}>
       {groups.map((group) => {
         const iReacted = myUserId !== null && group.reactors.some((p) => p.object === "peer-user" && p.user === myUserId);
         const otherReacted = group.reactors.some((p) => p.object === "peer-user" && p.user !== myUserId);
@@ -580,7 +671,7 @@ export function ReactionsBar({
             key={group.emoticon}
             type="button"
             onClick={() => onToggle(group.emoticon)}
-            className={`flex items-center gap-1 rounded-full py-0.5 pl-2 pr-1.5 text-[14px] leading-none shadow-sm transition hover:scale-105 ${
+            className={`flex items-center gap-1 rounded-full py-1 pl-2.5 pr-2 text-[16px] leading-none shadow-sm transition hover:scale-105 ${
               iReacted
                 ? "bg-[#335ef7] text-white dark:bg-[#0c8ce9]"
                 : "bg-white text-[#262a34] dark:bg-[#1a1a1a] dark:text-white"
@@ -590,10 +681,10 @@ export function ReactionsBar({
             {otherReacted &&
               (otherAvatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element -- tiny
-                // 18px reaction avatar, not worth next/image's overhead here.
-                <img src={otherAvatarUrl} alt="" className="h-[18px] w-[18px] shrink-0 rounded-full object-cover" />
+                // 20px reaction avatar, not worth next/image's overhead here.
+                <img src={otherAvatarUrl} alt="" className="h-5 w-5 shrink-0 rounded-full object-cover" />
               ) : (
-                <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-black/10 text-[10px] font-semibold dark:bg-white/15">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-black/10 text-[11px] font-semibold dark:bg-white/15">
                   {otherInitial ?? "?"}
                 </span>
               ))}

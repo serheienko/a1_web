@@ -1030,6 +1030,15 @@ export type MessagePreview = {
   kind: MessagePreviewKind;
   text: string;
   photoDoc?: MessageMediaDocument;
+  // Fix Tracker (2026-09-07, "в закрепах надо слева показывать
+  // маленькую картинку превью... так же со всеми остальными энтити
+  // включая стикеры и все файлы") -- photoDoc above already let the pin
+  // banner show a real thumbnail for a pinned photo; sticker/file pins
+  // had no doc reference to build one from at all, just the bare kind
+  // tag. Same optional-field convention as photoDoc (every existing
+  // caller of describeMessagePreview keeps compiling unchanged).
+  stickerDoc?: MessageMediaDocument;
+  fileDoc?: MessageMediaDocument;
   // 2026-09-05 (Aleksandr, reference screenshot: chat list shows a
   // small forward-arrow before the preview text/label when the last
   // message was forwarded, e.g. "↪ А кроссы Асикс?") -- orthogonal to
@@ -1070,8 +1079,8 @@ export function describeMessagePreview(msg: ChatMessage): MessagePreview {
   const videoDoc = docs.find((d) => isVideoMediaDocument(d));
   if (videoDoc) return { kind: "video", text: "", isForwarded };
   const stickerDoc = docs.find((d) => isStickerMediaDocument(d));
-  if (stickerDoc) return { kind: "sticker", text: "", isForwarded };
-  if (docs.length > 0) return { kind: "file", text: mediaDocumentFileName(docs[0]!), isForwarded };
+  if (stickerDoc) return { kind: "sticker", text: "", stickerDoc, isForwarded };
+  if (docs.length > 0) return { kind: "file", text: mediaDocumentFileName(docs[0]!), fileDoc: docs[0], isForwarded };
   if (messageContactMedia(msg).length > 0) return { kind: "contact", text: "", isForwarded };
   if (messageCalculation(msg)) return { kind: "calc", text: "", isForwarded };
   return { kind: "text", text: "", isForwarded };

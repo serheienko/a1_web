@@ -16,13 +16,18 @@
 // whole chat, no per-user toggle -- this route does the same, no
 // `local` param accepted from the client at all.
 //
-// Mobile's own 1-pin-per-chat rule (chat_detail_cubit.dart's own
-// pinMessage()): pinning a NEW message while a different one is
-// already pinned silently unpins the old one first (a second,
-// fire-and-forget updatePinnedMessage call) -- reproduced below via
-// `replacingMessageId` so the web client can just always call this
-// route with the message it wants pinned, same as mobile's own single
-// "Pin"/"Replace Pin" action from the caller's point of view.
+// Mobile's own 1-pin-per-chat rule -- chat_detail_cubit.dart's own
+// pinMessage() pins a NEW message by silently unpinning whichever one
+// was already pinned first -- turns out to be mobile's OWN
+// client-side convention, not a backend limit -- this method is a
+// plain per-message pin/unpin toggle, nothing here caps
+// how many messages can carry the pinned flag at once. Fix Tracker
+// (2026-09-07, "Есть ли возможность сделать мультизакреп?"): dropped
+// the auto-replace behavior entirely -- pinning a message now just
+// pins IT, alongside whatever else is already pinned, and unpinning
+// only ever affects the one message asked for. See
+// app/api/chats/pinned/route.ts's own header for the read-side half
+// of this (now returns every pinned message, not just one).
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { A1ApiError } from "@/lib/a1/client";
@@ -36,10 +41,6 @@ const PinInput = z.object({
   chatId: z.string().trim().min(1),
   messageId: z.number().int().positive(),
   unpin: z.boolean(),
-  // Set only when replacing an existing pin with this new one -- a
-  // plain unpin, or a pin into a chat with nothing currently pinned,
-  // has nothing to replace and omits this.
-  replacingMessageId: z.number().int().positive().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -47,22 +48,10 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ ok: false, message: "invalid_input" }, { status: 400 });
   }
-  const { chatId, messageId, unpin, replacingMessageId } = parsed.data;
+  const { chatId, messageId, unpin } = parsed.data;
 
   try {
     const peerTo = peerForRouteParam(chatId);
-
-    if (replacingMessageId && replacingMessageId !== messageId) {
-      // Fire-and-forget, same as mobile's own unawaited() call -- a
-      // failure unpinning the OLD pin shouldn't block pinning the new
-      // message.
-      callAsVisitor<boolean>("messages.updatePinnedMessage", {
-        id: replacingMessageId,
-        peerTo,
-        unpin: true,
-        local: false,
-      }).catch(() => {});
-    }
 
     const { refreshedSession } = await callAsVisitor<boolean>("messages.updatePinnedMessage", {
       id: messageId,

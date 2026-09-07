@@ -71,6 +71,7 @@ export function TgsSticker({
   className,
   loop = true,
   fallback,
+  previewUrl,
 }: {
   /** getStableMediaProxyUrl(doc) (or buildMediaProxyUrl for a non-rotating id) -- resolves to the raw .tgs bytes. */
   src: string;
@@ -78,6 +79,14 @@ export function TgsSticker({
   className?: string;
   loop?: boolean;
   fallback: ReactNode;
+  // Fix Tracker (2026-09-07, "скелетон лоад но как-будто их актульную
+  // форму, но просто темные стикеры") -- lib/a1/media-proxy.ts's own
+  // strippedPreviewDataUrl(doc), computed by the caller (this component
+  // only ever gets a plain `src` string, not the doc itself, so it
+  // can't derive this on its own). Optional: a call site with no
+  // stripped preview available (or that hasn't been updated to pass
+  // one yet) just keeps the old plain grey pulse box.
+  previewUrl?: string | null;
 }) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -182,7 +191,18 @@ export function TgsSticker({
       className={className}
       style={{ position: "relative", width: size, height: size, flexShrink: 0 }}
     >
-      {!loaded && <div className="absolute inset-0 animate-pulse rounded-[12px] bg-black/5 dark:bg-white/10" />}
+      {!loaded &&
+        (previewUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- an inline base64 blob, not a proxied URL.
+          <img
+            src={previewUrl}
+            alt=""
+            className="absolute inset-0 h-full w-full animate-pulse rounded-[12px] object-contain"
+            style={{ filter: "brightness(0.4) saturate(1.15)" }}
+          />
+        ) : (
+          <div className="absolute inset-0 animate-pulse rounded-[12px] bg-black/5 dark:bg-white/10" />
+        ))}
       <div ref={containerRef} style={{ position: "absolute", inset: 0 }} aria-hidden="true" />
     </div>
   );

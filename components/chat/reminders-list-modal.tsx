@@ -45,6 +45,16 @@ import { getStableMediaProxyUrl } from "@/lib/a1/stable-media-url";
 import { describeMessagePreview, type ReminderItem } from "@/lib/a1/chat-schemas";
 import { RemindModal } from "@/components/chat/remind-modal";
 
+// Fix Tracker: "закэшируй напоминания + скелетон загрузку для них" --
+// this modal fully unmounts on close (app/chats/[chatId]/page.tsx only
+// renders it while remindersListOpen), so a per-render state/ref cache
+// would be wiped every time; module-level survives that. Keyed by
+// chatId since each chat has its own reminder list. Stale-while-
+// revalidate: a cache hit renders instantly with no skeleton flash,
+// then a fresh fetch still runs in the background and quietly updates
+// both the cache and the list once it lands.
+export const remindersCache = new Map<string, ReminderItem[]>();
+
 function dateHourKey(scheduleAt: number): string {
   const d = new Date(scheduleAt * 1000);
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}-${d.getHours()}`;
@@ -73,6 +83,22 @@ function groupHeaderLabel(scheduleAt: number, lang: Locale): string {
     hour12: false,
   }).format(d);
   return `${dateStr}, ${timeStr}`;
+}
+
+// Fix Tracker: "скелетон загрузку" -- same shape as a real ReminderRow
+// below (a flex-1 bubble placeholder + two circular action-button
+// placeholders), same animate-pulse gray-block language every other
+// loading list in this app already uses.
+function ReminderRowSkeleton() {
+  return (
+    <div className="flex items-stretch gap-2">
+      <div className="h-[52px] flex-1 animate-pulse rounded-2xl bg-white/10" />
+      <div className="flex shrink-0 items-center gap-1">
+        <div className="h-8 w-8 animate-pulse rounded-full bg-white/10" />
+        <div className="h-8 w-8 animate-pulse rounded-full bg-white/10" />
+      </div>
+    </div>
+  );
 }
 
 function ReminderRow({
@@ -196,7 +222,9 @@ export function RemindersListModal({
       const res = await fetch(`/api/chats/reminders/list?chat=${encodeURIComponent(chatId)}`);
       const data = await res.json().catch(() => null);
       if (data?.ok) {
-        setReminders(data.reminders ?? []);
+        const list: ReminderItem[] = data.reminders ?? [];
+        remindersCache.set(chatId, list);
+        setReminders(list);
         setError(false);
       } else {
         setError(true);
@@ -209,6 +237,15 @@ export function RemindersListModal({
   }
 
   useEffect(() => {
+    // Fix Tracker: "закэшируй напоминания" -- a cache hit shows the
+    // list immediately (no skeleton), then fetchReminders below still
+    // refreshes it in the background so edits/deletes made elsewhere
+    // (another tab, mobile) eventually show up here too.
+    const cached = remindersCache.get(chatId);
+    if (cached) {
+      setReminders(cached);
+      setLoading(false);
+    }
     void fetchReminders();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId]);
@@ -222,7 +259,11 @@ export function RemindersListModal({
         body: JSON.stringify({ chatId, messageId }),
       });
       if (res.ok) {
-        setReminders((prev) => prev?.filter((r) => Number(r.message._id) !== messageId) ?? null);
+        setReminders((prev) => {
+          const next = prev?.filter((r) => Number(r.message._id) !== messageId) ?? null;
+          if (next) remindersCache.set(chatId, next);
+          return next;
+        });
       }
     } finally {
       setDeletingId(null);
@@ -279,8 +320,14 @@ export function RemindersListModal({
         </div>
         <div className="mt-2 min-h-[120px] flex-1 overflow-y-auto px-4 pb-4">
           {loading ? (
-            <div className="flex h-24 items-center justify-center text-[14px] text-white/60">
-              <T uk="Завантаження…" en="Loading…" ru="Загрузка…" de="Wird geladen…" es="Cargando…" fr="Chargement…" pl="Wczytywanie…" ptBR="Carregando…" zh="加载中…" />
+            // Fix Tracker: "скелетон загрузку" -- was a single centered
+            // "Загрузка…" string; now a stack of row-shaped
+            // placeholders (only reached on a cold, uncached fetch --
+            // see the cache check in the effect above).
+            <div className="flex flex-col gap-2.5">
+              {Array.from({ length: 3 }, (_, i) => (
+                <ReminderRowSkeleton key={i} />
+              ))}
             </div>
           ) : error ? (
             <div className="flex h-24 flex-col items-center justify-center gap-2 text-center text-[14px] text-white/60">

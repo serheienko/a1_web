@@ -42,24 +42,74 @@
 // swapping between them (and the pinned message's own text/preview
 // changing under an already-open banner) crossfades instead of
 // snapping.
+//
+// Fix Tracker (2026-09-07, "Есть ли возможность сделать мультизакреп?
+// ... при нажатии на определенную кнопку или правую кнопку мыши
+// показывать все закрепы в модалке одновременно") -- the chat can now
+// carry more than one pin (app/api/chats/pin(ned)/route.ts's own
+// headers). This banner still only ever shows ONE pin at a time (the
+// most-recently-pinned message, same "one visible slot" mobile itself
+// still has no design for) -- `pinCount`/`onOpenAll` below add the
+// "see everything" escape hatch Aleksandr asked for: a small counter
+// pill next to the preview when there's more than one pin, PLUS a
+// right-click anywhere on the banner, both opening the new
+// AllPinsModal (components/chat/all-pins-modal.tsx) rather than
+// redesigning this banner into a carousel.
 "use client";
 
 import { useEffect, useRef, useState } from "react";
 import { T } from "@/components/t";
 import { ChatPreviewLine } from "@/components/chat/chat-preview-line";
+import { TgsSticker } from "@/components/chat/tgs-sticker";
+import { ChatFileTypeIcon, fileKindFromName } from "@/components/chat/file-type-icon";
 import { getStableMediaProxyUrl } from "@/lib/a1/stable-media-url";
-import { describeMessagePreview, type ChatMessage } from "@/lib/a1/chat-schemas";
+import { strippedPreviewDataUrl } from "@/lib/a1/media-proxy";
+import { describeMessagePreview, mediaDocumentThumbnail, mediaDocumentFileName, type ChatMessage } from "@/lib/a1/chat-schemas";
+
+// Fix Tracker (2026-09-07, "В закрепах надо слева показывать маленькую
+// картинку превью, если закрепили фото и так же со всеми остальными
+// энтити включая стикеры и все файлы") -- describeMessagePreview
+// already exposed a photoDoc for a pinned photo (used below via
+// photoUrl/ChatPreviewLine), but sticker/file pins had no thumbnail at
+// all, just the plain accent bar + "Pinned Message" + label text. Same
+// "always degrade to something real, never a dead render" thumbnail
+// sources this app already ships elsewhere: a real (if tiny) sticker
+// render for stickers (TgsSticker, same component chat bubbles and the
+// media picker use), and the message's own size-stripped preview blob
+// for a file (mediaDocumentThumbnail -- the exact same helper
+// components/chat/blurred-photo.tsx already uses for photo bubbles),
+// falling back to a plain file-type badge when no stripped preview
+// came down for that particular document.
+function StickerThumbFallback() {
+  return (
+    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-black/5 dark:bg-white/10">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-[#989aa6]" aria-hidden="true">
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="M9 10.2h.01M15 10.2h.01" />
+        <path d="M8.7 14.2c1.9 1.6 4.7 1.6 6.6 0" />
+      </svg>
+    </div>
+  );
+}
 
 export function PinnedMessageBanner({
   pinnedMessage,
   onTap,
   onUnpin,
   unpinning,
+  pinCount = 1,
+  onOpenAll,
 }: {
   pinnedMessage: ChatMessage;
   onTap: () => void;
   onUnpin: () => void;
   unpinning?: boolean;
+  // Total number of currently-pinned messages in this chat -- 1 (the
+  // default) hides the counter pill below entirely, same as before
+  // this ticket for every chat that only ever has the one pin mobile
+  // already supports.
+  pinCount?: number;
+  onOpenAll?: () => void;
 }) {
   const [confirming, setConfirming] = useState(false);
   const resetTimer = useRef<number | null>(null);
@@ -99,8 +149,42 @@ export function PinnedMessageBanner({
   const preview = describeMessagePreview(pinnedMessage);
   const photoUrl = preview.kind === "photo" && preview.photoDoc ? getStableMediaProxyUrl(preview.photoDoc) : null;
 
+  // See this file's own header comment above for the "why" -- this is
+  // just picking which of the three real thumbnail sources applies (or
+  // none, for text/voice/contact/calc/meeting, same as before this fix).
+  const fileThumbUrl = preview.kind === "file" && preview.fileDoc ? mediaDocumentThumbnail(preview.fileDoc) : null;
+  const thumbBox =
+    preview.kind === "photo" && photoUrl ? (
+      // eslint-disable-next-line @next/next/no-img-element -- proxied through /api/media.
+      <img src={photoUrl} alt="" className="h-8 w-8 shrink-0 rounded-[10px] object-cover" />
+    ) : preview.kind === "sticker" && preview.stickerDoc ? (
+      <TgsSticker
+        src={getStableMediaProxyUrl(preview.stickerDoc)}
+        size={32}
+        fallback={<StickerThumbFallback />}
+        previewUrl={strippedPreviewDataUrl(preview.stickerDoc)}
+      />
+    ) : preview.kind === "file" && preview.fileDoc ? (
+      fileThumbUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element -- inline base64 blob, not a proxied URL.
+        <img src={fileThumbUrl} alt="" className="h-8 w-8 shrink-0 rounded-[10px] object-cover" />
+      ) : (
+        <ChatFileTypeIcon kind={fileKindFromName(mediaDocumentFileName(preview.fileDoc))} className="h-8 w-8" />
+      )
+    ) : null;
+
   return (
-    <div className="animate-pin-banner-in mt-2 flex h-[46px] w-full items-stretch overflow-hidden rounded-[20px] border border-black/10 bg-white/80 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-[#1c1c1e]/80">
+    <div
+      onContextMenu={
+        onOpenAll
+          ? (e) => {
+              e.preventDefault();
+              onOpenAll();
+            }
+          : undefined
+      }
+      className="animate-pin-banner-in mt-2 flex h-[46px] w-full items-stretch overflow-hidden rounded-[20px] border border-black/10 bg-white/80 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-[#1c1c1e]/80"
+    >
       {confirming ? (
         <div key="confirm" className="animate-pin-content-fade flex min-w-0 flex-1 items-center px-4">
           <span className="truncate text-[15px] font-medium leading-tight text-[#1c1c1e] dark:text-white">
@@ -114,6 +198,7 @@ export function PinnedMessageBanner({
       ) : (
         <button key="default" type="button" onClick={onTap} className="animate-pin-content-fade flex min-w-0 flex-1 items-center gap-2.5 px-2.5 text-left">
           <span className="h-[30px] w-[3px] shrink-0 rounded-full bg-[#262a34] dark:bg-white" />
+          {thumbBox}
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[15px] font-medium leading-tight text-[#262a34] dark:text-white">
               <T uk="Закріплене повідомлення" en="Pinned Message" ru="Закреплённое сообщение" de="Angeheftete Nachricht" es="Mensaje fijado" fr="Message épinglé" pl="Przypięta wiadomość" ptBR="Mensagem fixada" zh="置顶消息" />
@@ -143,6 +228,16 @@ export function PinnedMessageBanner({
           сколько нужно пилюле, со своим правым паддингом, а вопрос
           слева ужимается через min-w-0 + truncate, если места мало.
           Клипа не будет ни при какой ширине окна. */}
+      {!confirming && pinCount > 1 && onOpenAll && (
+        <button
+          type="button"
+          onClick={onOpenAll}
+          className="animate-pin-content-fade flex shrink-0 items-center self-center rounded-full bg-black/5 px-2 py-1 text-[12px] font-semibold text-[#262a34]/70 transition hover:bg-black/10 dark:bg-white/10 dark:text-white/70 dark:hover:bg-white/15"
+          aria-label="All pinned messages"
+        >
+          {pinCount}
+        </button>
+      )}
       <div
         className={`flex shrink-0 items-center justify-center ${
           confirming ? "pl-1 pr-3" : "w-[54px]"

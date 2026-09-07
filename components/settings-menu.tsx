@@ -341,9 +341,18 @@ export function SettingsMenu() {
             <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} aria-hidden="true" />,
             document.body,
           )}
+          {/* Fix Tracker (2026-09-06, Aleksandr, screenshots of the mobile
+              login/theme/language popovers: "После переделки, в модалках слишком
+              большая прозрачность") -- GLASS (lib/glass.ts, bg-white/55 +
+              backdrop-blur-xl) was meant for small button/pill surfaces, not a
+              full readable panel: at 55% opacity over the scrolling job feed it
+              read as a dark, blurred smear with the page bleeding through. Back
+              to the same solid card every other popover in this app uses -- the
+              "..." trigger button above keeps its glass per his original ask,
+              only this content panel changes back. */}
           <div
             ref={panelRef}
-            className={"animate-popover absolute right-0 top-full z-50 mt-2 w-64 max-w-[calc(100vw-2rem)] origin-top-right overflow-y-auto rounded-2xl p-2 shadow-lg " + GLASS}
+            className={"animate-popover absolute right-0 top-full z-50 mt-2 w-64 max-w-[calc(100vw-2rem)] origin-top-right overflow-y-auto rounded-2xl p-2 shadow-lg border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900"}
           >
             {panelBody}
           </div>

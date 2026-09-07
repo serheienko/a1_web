@@ -540,8 +540,17 @@ export function AvatarMenu() {
               <div className="absolute right-0 top-full z-50 w-80 max-w-[calc(100vw-66px)] origin-top-right pt-2" ref={panelOuterRef}>
                 <div
                   className={
-                    "max-h-[85vh] overflow-y-auto rounded-2xl p-5 shadow-lg transition duration-150 ease-out " +
-                    GLASS +
+                    // Fix Tracker (2026-09-06, Aleksandr, screenshots of the mobile
+                    // login/theme/language popovers: "После переделки, в модалках
+                    // слишком большая прозрачность") -- GLASS (lib/glass.ts, bg-white/55
+                    // + backdrop-blur-xl) was meant for small button/pill surfaces, not a
+                    // full readable panel: at 55% opacity over the scrolling job feed it
+                    // read as a dark, blurred smear with the page bleeding through. Back
+                    // to the same solid card every other popover in this app uses (same
+                    // as this file's own signed-in panel below, and fab-auth-prompt.tsx's
+                    // popover) -- the "sign in"/"..." BUTTONS keep their glass per his
+                    // original ask, only this content panel changes back.
+                    "max-h-[85vh] overflow-y-auto rounded-2xl p-5 shadow-lg transition duration-150 ease-out border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900 " +
                     " " +
                     (visible ? "opacity-100 scale-100" : "pointer-events-none opacity-0 scale-95")
                   }

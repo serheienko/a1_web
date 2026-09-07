@@ -60,17 +60,18 @@ import {
 import { ChatPreviewLine } from "@/components/chat/chat-preview-line";
 import { MessageActionsMenu, ReplyComposeBar, EditComposeBar, ForwardComposeBar, MessageReplyQuote, ReplyIcon, RemindIcon, DeleteMessageConfirmDialog, ReactionsBar } from "@/components/chat/message-actions-menu";
 import { PinnedMessageBanner } from "@/components/chat/pinned-message-banner";
+import { AllPinsModal } from "@/components/chat/all-pins-modal";
 // Reminders list (2026-09-06, design-reference screenshots of an
 // iOS-style "Remind me" sheet grouping reminders by date -- see this
 // component's own header comment for the full ground-truth trail).
-import { RemindersListModal } from "@/components/chat/reminders-list-modal";
+import { RemindersListModal, remindersCache } from "@/components/chat/reminders-list-modal";
 import { RemindModal } from "@/components/chat/remind-modal";
 import { ForwardPickerModal, type ForwardRowStatus } from "@/components/chat/forward-picker-modal";
 import { SelectionTopBar, SelectionBottomBar } from "@/components/chat/selection-bar";
 import { putForwardPending, takeForwardPendingFor, clearForwardPending, type ForwardPendingDraft } from "@/lib/forward-pending-hold";
 import { ForwardPreviewMenu } from "@/components/chat/forward-preview-menu";
 import { CopyToast, type CopyToastState } from "@/components/chat/copy-toast";
-import { buildMediaProxyUrl, buildMediaDownloadUrl } from "@/lib/a1/media-proxy";
+import { buildMediaProxyUrl, buildMediaDownloadUrl, strippedPreviewDataUrl } from "@/lib/a1/media-proxy";
 import { getStableMediaProxyUrl } from "@/lib/a1/stable-media-url";
 import type { MediaUploadUsage, MediaDocument } from "@/lib/a1/schemas";
 import { MediaPickerPanel } from "@/components/chat/media-picker-panel";
@@ -870,8 +871,20 @@ export default function ChatWindowPage() {
   // components/chat/pinned-message-banner.tsx's own header), so this
   // is just the current pin's data, not a pending target awaiting
   // confirmation.
-  const [pinnedMessage, setPinnedMessage] = useState<ChatMessage | null>(null);
+  // Fix Tracker (2026-09-07, "Есть ли возможность сделать
+  // мультизакреп?"): a chat can now carry more than one pin (see
+  // app/api/chats/pin(ned)/route.ts's own headers) -- `pinnedMessages`
+  // is the real list (newest-pinned first, straight off fetchPinned's
+  // own response), `pinnedMessage` stays a plain derived "top of
+  // stack" value so every existing single-pin call site below (the
+  // banner, the exit-animation effect, the actions-menu pinState)
+  // keeps working unchanged. `allPinsOpen` and `pinActionMessageId`
+  // back the new AllPinsModal this ticket also added.
+  const [pinnedMessages, setPinnedMessages] = useState<ChatMessage[]>([]);
+  const pinnedMessage = pinnedMessages[0] ?? null;
+  const [allPinsOpen, setAllPinsOpen] = useState(false);
   const [pinBusy, setPinBusy] = useState(false);
+  const [pinActionMessageId, setPinActionMessageId] = useState<number | null>(null);
   // 2026-09-06 (Fix Tracker: "відкріпити сделай, чтобы тоже плавно исчезало как и появлялось") -- the banner below used to be a plain `{pinnedMessage && (...)}` conditional, so React unmounted it the INSTANT handleTogglePin's optimistic update set pinnedMessage to null -- no time for any exit CSS animation to play (a mount-time animation like .animate-pin-banner-in has nothing to animate on unmount, the DOM node is just gone). This lagging "displayed" copy is the same trick this file's own displayedReplyTarget (t016) already uses for the reply-bar collapse: it tracks the REAL pinnedMessage on the way in (instant), but on the way out it holds the last known message for PIN_BANNER_EXIT_MS while a reverse (fade+slide-up) animation plays, then clears for real.
   const [displayedPinnedMessage, setDisplayedPinnedMessage] = useState<ChatMessage | null>(null);
   // 2026-09-05 (Aleksandr: "попап должен сам исчезать через 3 сек") --
@@ -1089,6 +1102,40 @@ export default function ChatWindowPage() {
   // button below opens this; RemindersListModal fetches its own data
   // on mount, nothing to preload here.
   const [remindersListOpen, setRemindersListOpen] = useState(false);
+  // Fix Tracker (2026-09-07, Aleksandr: "если нет напоминаний, то
+  // иконка колокольчика не должна показываться, и соответственно
+  // этого попапа тоже не должно быть") -- a lightweight count check,
+  // independent of RemindersListModal ever having been opened: reads
+  // reminders-list-modal.tsx's own module-level cache first (instant,
+  // already warm if the modal was opened earlier this session), then
+  // hits the same list endpoint that modal uses so a fresh chat with
+  // no cache yet still gets an accurate answer.
+  const [hasReminders, setHasReminders] = useState(false);
+  useEffect(() => {
+    if (!chatId) return;
+    const cached = remindersCache.get(chatId);
+    if (cached) setHasReminders(cached.length > 0);
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/chats/reminders/list?chat=${encodeURIComponent(chatId)}`);
+        const data = await res.json().catch(() => null);
+        if (!cancelled && data?.ok) {
+          const list = data.reminders ?? [];
+          remindersCache.set(chatId, list);
+          setHasReminders(list.length > 0);
+        }
+      } catch {
+        // Leave whatever the cache already told us (or the false
+        // default) -- same "don't flip to a worse state on a
+        // transient network error" convention this file's other
+        // background refreshes follow.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [chatId]);
   // 2026-09-02 (Aleksandr: "человек прочёл, но галочки не поменялись
   // из одной в две") -- the OTHER participant's read high-water mark
   // (lib/a1/chat-schemas.ts's ChatParticipantSchema.reaMaxId comment
@@ -1238,6 +1285,14 @@ export default function ChatWindowPage() {
   // accidentally trigger on mouseover).
   const [mediaPanelOpen, setMediaPanelOpen] = useState(false);
   const mediaPanelRef = useRef<HTMLDivElement>(null);
+  // Fix Tracker (2026-09-07, viewport-overflow fix): a frozen snapshot
+  // of the trigger's getBoundingClientRect() taken at the moment it's
+  // opened, same convention as ForwardPreviewMenu's own anchorRect prop
+  // -- MediaPickerPanel now renders through a portal and clamps its own
+  // position against the real viewport (see that file's own header
+  // comment) instead of the old plain-CSS `right-0` anchor that
+  // overflowed off-screen on a narrow phone.
+  const [mediaPanelAnchorRect, setMediaPanelAnchorRect] = useState<DOMRect | null>(null);
   // 2026-09-03 (Aleksandr, "давай следующей фичой сделаем запись
   // голосового сообщения") -- recording ENGINE (components/chat/voice-
   // recorder.ts), wired to handleVoiceFinish below (defined later as a
@@ -1848,7 +1903,7 @@ export default function ChatWindowPage() {
     try {
       const res = await fetch(`/api/chats/pinned?chat=${encodeURIComponent(chatId)}`);
       const data = await res.json().catch(() => null);
-      if (data?.ok) setPinnedMessage(data.message ?? null);
+      if (data?.ok) setPinnedMessages(data.messages ?? []);
     } catch {
       // Best-effort -- a failed pinned-message lookup just means no
       // banner shows this time; the regular poll/pin actions still
@@ -1857,11 +1912,12 @@ export default function ChatWindowPage() {
   }, [chatId]);
 
   useEffect(() => {
-    setPinnedMessage(null);
+    setPinnedMessages([]);
     // Instant, not animated -- this is a chat switch, not a real
     // unpin, so there's nothing to play an exit transition over (see
     // displayedPinnedMessage's own header comment above).
     setDisplayedPinnedMessage(null);
+    setAllPinsOpen(false);
     fetchPinned();
   }, [fetchPinned]);
 
@@ -2392,16 +2448,16 @@ export default function ChatWindowPage() {
     return () => document.removeEventListener("mousedown", handleDocClick);
   }, [attachMenuOpen]);
 
-  useEffect(() => {
-    if (!mediaPanelOpen) return;
-    function handleDocClick(e: MouseEvent) {
-      if (mediaPanelRef.current && !mediaPanelRef.current.contains(e.target as Node)) {
-        setMediaPanelOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleDocClick);
-    return () => document.removeEventListener("mousedown", handleDocClick);
-  }, [mediaPanelOpen]);
+  // Fix Tracker (2026-09-07): this used to be a document-mousedown
+  // listener closing the panel on any click mediaPanelRef didn't
+  // contain -- worked while the panel rendered as a DOM child of that
+  // ref, but MediaPickerPanel now portals itself to document.body (see
+  // its own header comment, viewport-overflow fix), so every click
+  // INSIDE the panel -- including picking a sticker -- landed as
+  // "outside" here and closed the panel on mousedown, a beat before the
+  // sticker's own onClick (onSendMedia) ever got to fire. The panel's
+  // own full-screen backdrop (its `<div className="absolute inset-0"
+  // onClick={onClose} />`) now owns outside-click-to-close instead.
 
   useEffect(() => {
     if (!calcCurrencyPickerOpen) return;
@@ -3156,6 +3212,11 @@ export default function ChatWindowPage() {
       });
       if (!res.ok) throw new Error("reminder_failed");
       setRemindTarget(null);
+      // Fix Tracker: the bell (hasReminders above) shouldn't stay
+      // hidden for a chat that just got its first reminder created
+      // from the message context menu -- RemindersListModal isn't
+      // necessarily open/mounted to pick this up itself.
+      setHasReminders(true);
     } catch {
       setRemindFailed(true);
     } finally {
@@ -3164,37 +3225,41 @@ export default function ChatWindowPage() {
   }
 
   // "Pin" feature -- mobile's own context-menu Pin/Unpin row acts
-  // immediately (see the pinnedMessage state's own header comment
+  // immediately (see the pinnedMessages state's own header comment
   // above for why there's no confirmation dialog here, unlike Remind).
   // Applies the SAME optimistic-update-then-revert-on-failure shape as
   // mobile's own pinMessage()/_applyOptimisticPin/_revertPinOptimistic
   // (chat_detail_cubit.dart): the banner and the actions-menu row's own
-  // label both react instantly off `pinnedMessage`/`messages[].flags`,
+  // label both react instantly off `pinnedMessages`/`messages[].flags`,
   // with fetchPinned() as the correction if the API call actually
   // failed (rather than hand-reconstructing the exact previous state
   // like mobile's own revert does -- simpler, and the round-trip is
   // already in flight regardless).
+  //
+  // Fix Tracker (2026-09-07, multi-pin): used to auto-unpin whatever
+  // was already pinned before pinning a new message (mobile's own
+  // 1-pin-per-chat convention -- see app/api/chats/pin/route.ts's own
+  // header for why that turned out to be client-side, not a backend
+  // rule). Now this ONLY ever touches the one message it was called
+  // with: pinning adds it to the front of `pinnedMessages` (so it
+  // becomes the one the banner shows), unpinning just removes it from
+  // that array, whatever else stays pinned is left alone.
   async function handleTogglePin(message: ChatMessage) {
     if (pinBusy) return;
     const messageId = Number(message._id);
     const currentlyPinned = isMessagePinned(message);
-    const replacingMessageId =
-      !currentlyPinned && pinnedMessage && Number(pinnedMessage._id) !== messageId
-        ? Number(pinnedMessage._id)
-        : undefined;
 
     setPinBusy(true);
-    setPinnedMessage(currentlyPinned ? null : message);
+    setPinActionMessageId(messageId);
+    setPinnedMessages((prev) =>
+      currentlyPinned
+        ? prev.filter((m) => Number(m._id) !== messageId)
+        : [message, ...prev.filter((m) => Number(m._id) !== messageId)]
+    );
     setMessages((prev) =>
       prev.map((m) => {
-        const id = Number(m._id);
-        if (id === messageId) {
-          return { ...m, flags: currentlyPinned ? m.flags & ~MESSAGE_FLAG_PINNED : m.flags | MESSAGE_FLAG_PINNED };
-        }
-        if (replacingMessageId !== undefined && id === replacingMessageId) {
-          return { ...m, flags: m.flags & ~MESSAGE_FLAG_PINNED };
-        }
-        return m;
+        if (Number(m._id) !== messageId) return m;
+        return { ...m, flags: currentlyPinned ? m.flags & ~MESSAGE_FLAG_PINNED : m.flags | MESSAGE_FLAG_PINNED };
       })
     );
 
@@ -3202,7 +3267,7 @@ export default function ChatWindowPage() {
       const res = await authFetch("/api/chats/pin", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ chatId, messageId, unpin: currentlyPinned, replacingMessageId }),
+        body: JSON.stringify({ chatId, messageId, unpin: currentlyPinned }),
       });
       if (!res.ok) throw new Error("pin_failed");
     } catch {
@@ -3212,6 +3277,7 @@ export default function ChatWindowPage() {
       fetchPinned();
     } finally {
       setPinBusy(false);
+      setPinActionMessageId(null);
     }
   }
 
@@ -4138,8 +4204,26 @@ export default function ChatWindowPage() {
             onTap={() => handleJumpToPinnedMessage(Number(displayedPinnedMessage._id))}
             onUnpin={() => handleTogglePin(displayedPinnedMessage)}
             unpinning={pinBusy}
+            pinCount={pinnedMessages.length}
+            onOpenAll={() => setAllPinsOpen(true)}
           />
         </div>
+      )}
+      {/* Fix Tracker (2026-09-07, multi-pin): "показывать все закрепы
+          в модалке одновременно" -- opened from the banner's own
+          counter pill or a right-click on it (see
+          PinnedMessageBanner's own onOpenAll/onContextMenu). Reuses
+          handleJumpToPinnedMessage/handleTogglePin, the exact same
+          jump/unpin actions the banner and the message actions menu
+          already call. */}
+      {allPinsOpen && (
+        <AllPinsModal
+          pinnedMessages={pinnedMessages}
+          unpinningId={pinActionMessageId}
+          onClose={() => setAllPinsOpen(false)}
+          onJumpToMessage={handleJumpToPinnedMessage}
+          onUnpin={(message) => void handleTogglePin(message)}
+        />
       )}
 
       {/* 2026-09-02: bottom padding clears the now-fixed compose bar below
@@ -5141,6 +5225,7 @@ export default function ChatWindowPage() {
                                 // flashing the loading placeholder over the sticker repeatedly.
                                 src={getStableMediaProxyUrl(doc)}
                                 size={132}
+                                previewUrl={strippedPreviewDataUrl(doc)}
                                 fallback={
                                   <div
                                     className={`flex items-center gap-2.5 rounded-xl px-2.5 py-2 ${
@@ -6211,7 +6296,7 @@ export default function ChatWindowPage() {
               <VoiceRecordingBar recorder={recorder} lang={lang} />
             ) : (
               <>
-            <div ref={attachMenuRef} className="relative" onMouseEnter={handleAttachMouseEnter} onMouseLeave={handleAttachMouseLeave}>
+            <div ref={attachMenuRef} className="relative shrink-0" onMouseEnter={handleAttachMouseEnter} onMouseLeave={handleAttachMouseLeave}>
               <ChatPaperclipButton
                 // Edit feature (2026-09-05) -- editing only ever
                 // touches a message's text (see app/api/chats/edit/
@@ -6574,7 +6659,7 @@ export default function ChatWindowPage() {
                 }}
               />
             </div>
-            <div className="flex flex-1 flex-col rounded-[22px] border border-neutral-200 bg-white/90 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
+            <div className="flex min-w-0 flex-1 flex-col rounded-[22px] border border-neutral-200 bg-white/90 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
               {/* Pending-forward composer preview (Форвард 2.0, Phase 3
                   -- Aleksandr: "должен быть момент, что ты типа когда
                   пересылаешь и открываешь чат, и там тоже сверху это
@@ -6748,41 +6833,61 @@ export default function ChatWindowPage() {
                   row as the cat, not a separate control.
                   2026-09-06 (Fix Tracker: "Колокольчик должен быть
                   левее от кота, поменяй местами") -- moved to render
-                  before the cat icon below so it sits to its left. */}
-              <button
-                type="button"
-                onClick={() => setRemindersListOpen(true)}
-                aria-label="Reminders"
-                className="group flex shrink-0 items-center pb-0.5 text-[#989aa6] transition hover:text-[#335ef7] dark:text-[#adafbb] dark:hover:text-[#0c8ce9]"
-              >
-                {/* Fix Tracker: "анимация при наведении на колокольчик" --
-                    swing-on-hover, same .group:hover .animate-X convention
-                    as the cat icon just below (app/globals.css). */}
-                <RemindIcon className="h-5 w-5 animate-bell-ring" />
-              </button>
+                  before the cat icon below so it sits to its left.
+                  2026-09-07 (Fix Tracker: "Появление колокольчика не
+                  должно двигать кнопки записи микрофона и скрепки") --
+                  root cause: this pill is flex-1 inside the outer
+                  paperclip/pill/mic row (voiceRowRef below), but flex
+                  items default to min-width:auto, so the pill's own
+                  min-content (textarea + bell + cat) could exceed the
+                  space the outer row actually had, overflowing past
+                  max-w-[470px] -- the paperclip wrapper had no shrink-0
+                  (unlike the send/mic button, which already did), so
+                  IT absorbed that overflow and visibly shrank/shifted
+                  whenever the bell mounted or unmounted. Fixed at the
+                  source: this pill now also carries min-w-0 (lets it
+                  actually shrink instead of overflowing) and the
+                  paperclip wrapper now carries shrink-0 too, so it
+                  stays a fixed size regardless of what this pill's own
+                  content does. */}
+              {hasReminders && (
+                <button
+                  type="button"
+                  onClick={() => setRemindersListOpen(true)}
+                  aria-label="Reminders"
+                  className="group flex shrink-0 items-center pb-0.5 text-[#989aa6] transition hover:text-[#335ef7] dark:text-[#adafbb] dark:hover:text-[#0c8ce9]"
+                >
+                  {/* Fix Tracker: "анимация при наведении на колокольчик" --
+                      swing-on-hover, same .group:hover .animate-X convention
+                      as the cat icon just below (app/globals.css). */}
+                  <RemindIcon className="h-5 w-5 animate-bell-ring" />
+                </button>
+              )}
               <div ref={mediaPanelRef} className="group relative shrink-0 pb-0.5">
                 <button
                   type="button"
-                  onClick={() => setMediaPanelOpen((v) => !v)}
+                  onClick={() => {
+                    setMediaPanelAnchorRect(mediaPanelRef.current?.getBoundingClientRect() ?? null);
+                    setMediaPanelOpen((v) => !v);
+                  }}
                   aria-label="Stickers, GIFs and emoji"
                   className="flex items-center"
                 >
                   <ChatCatFieldIcon className="h-5 w-5 animate-chat-wiggle text-[#989aa6] dark:text-[#adafbb]" />
                 </button>
-                {mediaPanelOpen && (
-                  <div className="absolute bottom-full right-0 z-10 mb-2">
-                    <MediaPickerPanel
-                      onClose={() => setMediaPanelOpen(false)}
-                      onPickEmoji={(emoji) => {
-                        setDraft((d) => d + emoji);
-                        textareaRef.current?.focus();
-                      }}
-                      onSendMedia={(doc) => {
-                        setMediaPanelOpen(false);
-                        void sendMediaDocument(doc);
-                      }}
-                    />
-                  </div>
+                {mediaPanelOpen && mediaPanelAnchorRect && (
+                  <MediaPickerPanel
+                    anchorRect={mediaPanelAnchorRect}
+                    onClose={() => setMediaPanelOpen(false)}
+                    onPickEmoji={(emoji) => {
+                      setDraft((d) => d + emoji);
+                      textareaRef.current?.focus();
+                    }}
+                    onSendMedia={(doc) => {
+                      setMediaPanelOpen(false);
+                      void sendMediaDocument(doc);
+                    }}
+                  />
                 )}
               </div>
               </div>
@@ -7037,13 +7142,7 @@ export default function ChatWindowPage() {
             setRemindTarget({ messageId: Number(actionsMenu.message._id) });
           }}
           onPin={() => handleTogglePin(actionsMenu.message)}
-          pinState={
-            isMessagePinned(actionsMenu.message)
-              ? "unpin"
-              : pinnedMessage && Number(pinnedMessage._id) !== Number(actionsMenu.message._id)
-                ? "replace"
-                : "pin"
-          }
+          pinState={isMessagePinned(actionsMenu.message) ? "unpin" : "pin"}
         />
       )}
       {remindTarget && (
@@ -7150,7 +7249,15 @@ export default function ChatWindowPage() {
           chatId={chatId}
           myUserId={myUserId}
           lang={lang}
-          onClose={() => setRemindersListOpen(false)}
+          onClose={() => {
+            setRemindersListOpen(false);
+            // Fix Tracker: the modal's own handleDelete keeps
+            // remindersCache in sync as reminders are removed inside
+            // it -- re-read it on close so the bell disappears the
+            // same session if that just emptied the list.
+            const cached = remindersCache.get(chatId);
+            if (cached) setHasReminders(cached.length > 0);
+          }}
           onJumpToMessage={handleJumpToPinnedMessage}
         />
       )}

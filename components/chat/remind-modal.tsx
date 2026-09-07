@@ -37,9 +37,25 @@
 // components/chat/reminders-list-modal.tsx's own edit flow; the
 // original "Нагадати" call site (a brand-new reminder) simply omits
 // them and gets the old default-to-now-plus-a-minute behavior.
+//
+// 2026-09-06, round two (Fix Tracker "Сделай этот пикер даты более
+// современным и более удобным" -- this was the app's last remaining
+// raw <input type="datetime-local">, the browser/OS's own stock
+// widget, next to schedule-meeting-modal.tsx's own day/hour/minute
+// scroll-wheel already shipped for "Schedule meeting"). Replaces it
+// with that same wheel-picker LANGUAGE (day / hour / minute columns,
+// tap-or-flick-to-select, selected row highlighted) -- kept as its
+// own trimmed copy of WheelColumn rather than importing that other
+// file's, since this card is a fixed dark surface regardless of the
+// app's own light/dark theme (schedule-meeting-modal's WheelColumn is
+// theme-aware, this one only ever needs white-on-dark). The day
+// column shows locale-free "DD.MM" for everything past "Today" (no
+// weekday-name table to keep in sync across 9 languages just for a
+// date wheel) rather than schedule-meeting-modal's own localized
+// weekday label -- a deliberate, smaller scope than that file's.
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { T } from "@/components/t";
 
 // Minimum schedule time is the start of the next minute, same rule as
@@ -52,14 +68,110 @@ function minimumScheduleTime(from: Date): Date {
   return next;
 }
 
-// <input type="datetime-local">'s value has no timezone -- it's always
-// "wall clock time in the browser's own local zone", which is exactly
-// what we want here (the picker should show/accept the user's own
-// local time); this just formats a Date into that exact string shape
-// without going through any UTC conversion.
-function toDatetimeLocalValue(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+// Fixed row height for every wheel column, in px -- the item height
+// CSS below and this scroll-math have to agree on the exact same
+// number, so it's pulled out once rather than repeated as a magic
+// value in three different places. Same idea as schedule-meeting-
+// modal.tsx's own WHEEL_ITEM_H, just a touch shorter (34 vs 40) to fit
+// this card's own much more compact "Нагадати" layout.
+const WHEEL_ITEM_H = 34;
+// Odd number of visible rows so the selected one sits dead center.
+const WHEEL_VISIBLE_ROWS = 5;
+const WHEEL_H = WHEEL_ITEM_H * WHEEL_VISIBLE_ROWS;
+const WHEEL_PAD = (WHEEL_H - WHEEL_ITEM_H) / 2;
+
+// One scrollable, snap-to-row column -- day, hour and minute all reuse
+// this exact same widget, just with different `items`/`selectedIndex`
+// (see this file's own header entry for why this is a separate copy
+// of schedule-meeting-modal.tsx's own WheelColumn rather than a shared
+// import). Native overflow-y + CSS scroll-snap does the actual drag/
+// flick/snap physics (touch AND mouse-wheel both work for free); this
+// only needs to (a) seed the initial scroll position on mount/
+// selection change coming from OUTSIDE (e.g. a tap on another row),
+// and (b) read back which row ended up centered once the user's own
+// scroll settles.
+function WheelColumn({
+  items,
+  selectedIndex,
+  onSelect,
+  align = "center",
+  className,
+}: {
+  items: { key: string; label: ReactNode; bold?: boolean }[];
+  selectedIndex: number;
+  onSelect: (index: number) => void;
+  align?: "center" | "start" | "end";
+  className?: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // True while THIS column is driving its own scroll position (either
+  // the initial seed or a tap-to-select smooth-scroll) -- the onScroll
+  // handler ignores index updates while a programmatic scroll is still
+  // in flight, so it doesn't fight itself mid-animation.
+  const programmatic = useRef(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const target = selectedIndex * WHEEL_ITEM_H;
+    if (Math.abs(el.scrollTop - target) < 1) return;
+    programmatic.current = true;
+    el.scrollTo({ top: target, behavior: "auto" });
+    const id = requestAnimationFrame(() => {
+      programmatic.current = false;
+    });
+    return () => cancelAnimationFrame(id);
+    // Only re-seed when the index was changed from OUTSIDE this column
+    // -- this column's own scroll gestures update selectedIndex via
+    // onSelect below without needing this effect to fire back.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedIndex, items.length]);
+
+  function handleScroll() {
+    if (programmatic.current) return;
+    if (settleTimer.current) clearTimeout(settleTimer.current);
+    settleTimer.current = setTimeout(() => {
+      const el = ref.current;
+      if (!el) return;
+      const index = Math.max(0, Math.min(items.length - 1, Math.round(el.scrollTop / WHEEL_ITEM_H)));
+      if (index !== selectedIndex) onSelect(index);
+    }, 80);
+  }
+
+  return (
+    <div
+      ref={ref}
+      onScroll={handleScroll}
+      className={`snap-y snap-mandatory overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${className ?? ""}`}
+      style={{ height: WHEEL_H, paddingTop: WHEEL_PAD, paddingBottom: WHEEL_PAD }}
+    >
+      {items.map((item, i) => {
+        const isSelected = i === selectedIndex;
+        return (
+          <button
+            type="button"
+            key={item.key}
+            onClick={() => {
+              const el = ref.current;
+              if (el) el.scrollTo({ top: i * WHEEL_ITEM_H, behavior: "smooth" });
+              onSelect(i);
+            }}
+            className={`flex w-full shrink-0 snap-center items-center text-[15px] tabular-nums transition-colors ${
+              align === "start" ? "justify-start pl-1" : align === "end" ? "justify-end pr-1" : "justify-center"
+            } ${isSelected ? "font-semibold text-white" : "text-white/40"} ${item.bold && isSelected ? "font-bold" : ""}`}
+            style={{ height: WHEEL_ITEM_H }}
+          >
+            {item.label}
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 export function RemindModal({
@@ -89,14 +201,77 @@ export function RemindModal({
   onConfirm: (scheduleAt: number, local: boolean) => void;
 }) {
   const [remindPeerToo, setRemindPeerToo] = useState(() => initialLocal === false);
-  const [selected, setSelected] = useState(() => {
-    const min = minimumScheduleTime(new Date());
-    if (initialScheduleAt === undefined) return min;
-    const fromInitial = new Date(initialScheduleAt * 1000);
-    return fromInitial < min ? min : fromInitial;
-  });
 
-  const minValue = toDatetimeLocalValue(minimumScheduleTime(new Date()));
+  // `today` is a single fixed local-midnight anchor, captured once at
+  // mount and shared by both `days` (below) and `initial` (further
+  // below) -- same reasoning as schedule-meeting-modal.tsx's own
+  // identical anchor (computing "now" separately in each spot risks a
+  // dayIndex off-by-one right around local midnight).
+  const today = useMemo(() => {
+    const n = new Date();
+    return new Date(n.getFullYear(), n.getMonth(), n.getDate());
+  }, []);
+  // Two-week horizon, same as schedule-meeting-modal.tsx's own day
+  // wheel -- plenty for "remind me about this message", without an
+  // unbounded/scrolling-forever list.
+  const days = useMemo(() => {
+    const list: { key: string; label: ReactNode; iso: string; bold?: boolean }[] = [];
+    for (let i = 0; i < 14; i++) {
+      const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
+      const iso = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+      list.push({
+        key: iso,
+        iso,
+        bold: i === 0,
+        label:
+          i === 0 ? (
+            <T
+              uk="Сьогодні" en="Today" ru="Сегодня" de="Heute" es="Hoy"
+              fr="Aujourd’hui" pl="Dzisiaj" ptBR="Hoje" zh="今天"
+            />
+          ) : (
+            `${pad2(d.getDate())}.${pad2(d.getMonth() + 1)}`
+          ),
+      });
+    }
+    return list;
+  }, [today]);
+  const hours = useMemo(() => Array.from({ length: 24 }, (_, h) => ({ key: String(h), label: pad2(h) })), []);
+  const minutes = useMemo(() => Array.from({ length: 60 }, (_, m) => ({ key: String(m), label: pad2(m) })), []);
+
+  // Default selection: the minimum schedulable moment (start of the
+  // next minute from now), same default the old native input's own
+  // `value` used -- or, when editing, the reminder's existing
+  // scheduleAt (clamped up to that same minimum if it's somehow
+  // already in the past). dayIndex is derived from the actual
+  // calendar-day difference against `today`, not hardcoded to 0, for
+  // the same local-midnight-rollover reason schedule-meeting-modal.tsx
+  // documents on its own identical `initial`.
+  const initial = useMemo(() => {
+    const min = minimumScheduleTime(new Date());
+    const fromInitial = initialScheduleAt === undefined ? null : new Date(initialScheduleAt * 1000);
+    const base = fromInitial && fromInitial >= min ? fromInitial : min;
+    const baseDay = new Date(base.getFullYear(), base.getMonth(), base.getDate());
+    const dayIndexRaw = Math.round((baseDay.getTime() - today.getTime()) / 86400000);
+    return {
+      dayIndex: Math.max(0, Math.min(days.length - 1, dayIndexRaw)),
+      hourIndex: base.getHours(),
+      minuteIndex: base.getMinutes(),
+    };
+    // Only meant to seed the initial useState values below, same as
+    // schedule-meeting-modal.tsx's own `initial` -- not meant to
+    // re-derive on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [today, days.length]);
+  const [dayIndex, setDayIndex] = useState(initial.dayIndex);
+  const [hourIndex, setHourIndex] = useState(initial.hourIndex);
+  const [minuteIndex, setMinuteIndex] = useState(initial.minuteIndex);
+
+  const selected = useMemo(() => {
+    const day = days[dayIndex] ?? days[0]!;
+    const [y, m, d] = day.iso.split("-").map(Number);
+    return new Date(y!, m! - 1, d!, hourIndex, minuteIndex);
+  }, [days, dayIndex, hourIndex, minuteIndex]);
 
   function handleConfirm() {
     const min = minimumScheduleTime(new Date());
@@ -125,16 +300,22 @@ export function RemindModal({
             />
           </p>
         )}
-        <input
-          type="datetime-local"
-          min={minValue}
-          value={toDatetimeLocalValue(selected)}
-          onChange={(e) => {
-            const parsed = e.target.valueAsNumber;
-            if (!Number.isNaN(parsed)) setSelected(new Date(parsed));
-          }}
-          className="mt-3.5 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-[15px] text-white [color-scheme:dark] focus:outline-none focus:ring-2 focus:ring-white/20"
-        />
+        <div className="relative mt-3.5">
+          {/* Selected-row highlight, spanning the full width behind all
+              three columns -- drawn once here rather than inside each
+              WheelColumn, so it reads as one continuous pill across
+              day/hour/minute, same trick schedule-meeting-modal.tsx's
+              own wheel uses. */}
+          <div
+            className="pointer-events-none absolute inset-x-1 rounded-lg bg-white/10"
+            style={{ top: WHEEL_PAD, height: WHEEL_ITEM_H }}
+          />
+          <div className="grid grid-cols-[1fr_auto_auto] items-stretch rounded-xl border border-white/10 bg-white/5">
+            <WheelColumn items={days} selectedIndex={dayIndex} onSelect={setDayIndex} align="start" className="pl-3" />
+            <WheelColumn items={hours} selectedIndex={hourIndex} onSelect={setHourIndex} className="w-10" />
+            <WheelColumn items={minutes} selectedIndex={minuteIndex} onSelect={setMinuteIndex} align="end" className="w-10 pr-3" />
+          </div>
+        </div>
         {peerDisplayName && (
           <label className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-white/5 px-3.5 py-2.5">
             <span className="truncate text-[14px] text-white">
