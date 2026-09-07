@@ -5770,8 +5770,15 @@ export default function ChatWindowPage() {
                         hasReactions ? (
                           <div
                             className={`mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] ${
-                              mine ? "justify-end text-white/70" : "justify-start text-[#989aa6] dark:text-[#adafbb]"
-                            }`}
+                              /* Fix Tracker (2026-09-07, order 110: "Ставь время
+                                 в правый край на расчетах тоже") -- calc
+                                 messages always push the time+reactions
+                                 group to the right edge, same as flatFooter
+                                 does unconditionally for every flat-media
+                                 kind; every other bubble keeps aligning by
+                                 `mine` as order 102 set up. */
+                              mine || calc ? "justify-end" : "justify-start"
+                            } ${mine ? "text-white/70" : "text-[#989aa6] dark:text-[#adafbb]"}`}
                           >
                             <span className={`flex shrink-0 items-center gap-1 ${mine ? "order-2" : "order-1"}`}>
                               <span>{msg.editedAt && <EditedLabel />}{formatTime(ms)}</span>
