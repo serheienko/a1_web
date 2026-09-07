@@ -57,6 +57,9 @@ type ChatRow = {
   // header; same split as app/chats/page.tsx's own Chat type.
   previewKind: "text" | "voice" | "photo" | "video" | "sticker" | "file" | "contact" | "calc" | "meeting";
   previewPhotoUrl: string | null;
+  // Fix Tracker (order 78) -- small static preview for a "sticker"-kind
+  // last message, see chat-preview-line.tsx's own comment.
+  previewStickerPreview: string | null;
   // 2026-09-05 (reference screenshot: forward-arrow before a
   // forwarded last message's preview) -- see /api/chats/list's own
   // header comment on previewForwarded.
@@ -637,7 +640,7 @@ export function ChatsFlyout({
                     className={`h-[8px] w-[14px] shrink-0 ${chat.previewTick === "read" ? "text-[#335ef7] dark:text-[#0c8ce9]" : ""}`}
                   />
                 )}
-                <ChatPreviewLine kind={chat.previewKind} text={chat.previewText} photoUrl={chat.previewPhotoUrl} isForwarded={chat.previewForwarded} className="truncate" />
+                <ChatPreviewLine kind={chat.previewKind} text={chat.previewText} photoUrl={chat.previewPhotoUrl} stickerPreviewUrl={chat.previewStickerPreview} isForwarded={chat.previewForwarded} className="truncate" />
               </div>
             </div>
             {chat.unreadCount > 0 && (

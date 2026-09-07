@@ -114,6 +114,9 @@ type ChatListItem = {
   // from `previewKind`.
   previewKind: "text" | "voice" | "photo" | "video" | "sticker" | "file" | "contact" | "calc" | "meeting";
   previewPhotoUrl: string | null;
+  // Fix Tracker (order 78) -- small static preview for a "sticker"-kind
+  // last message, see chat-preview-line.tsx's own comment.
+  previewStickerPreview: string | null;
   // 2026-09-05 (reference screenshot: forward-arrow before a
   // forwarded last message's preview) -- see /api/chats/list's own
   // header comment on previewForwarded.
@@ -579,6 +582,7 @@ export default function ChatsPage() {
                       kind={chat.previewKind}
                       text={chat.previewText}
                       photoUrl={chat.previewPhotoUrl}
+                      stickerPreviewUrl={chat.previewStickerPreview}
                       isForwarded={chat.previewForwarded}
                       className="truncate text-[16px] text-[#989aa6] dark:text-[#8d8d93]"
                     />

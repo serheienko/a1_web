@@ -76,12 +76,23 @@ export function ChatPreviewLine({
   kind,
   text,
   photoUrl,
+  stickerPreviewUrl,
   isForwarded,
   className,
 }: {
   kind: MessagePreviewKind;
   text: string;
   photoUrl: string | null;
+  // Fix Tracker (order 78, 2026-09-07, "в списке чатов показывать
+  // превью стикера слева от текста 'Стікер'") -- same inline-thumbnail
+  // idea the `photo` kind already gets below, but a sticker's real
+  // bytes are a gzipped Lottie file a plain <img> can't decode (see
+  // tgs-sticker.tsx), so this takes the small static JPEG frame off
+  // the doc's own "size-stripped" size entry (lib/a1/media-proxy.ts's
+  // strippedPreviewDataUrl) instead of a proxied media URL -- cheap
+  // (already inline in the message payload, no extra request) and
+  // good enough for a 16px list-row icon.
+  stickerPreviewUrl?: string | null;
   // 2026-09-05 (Aleksandr, reference screenshot of a chat-list row: a
   // small forward-arrow rendered before the preview text/label, e.g.
   // "↪ А кроссы Асикс?") -- orthogonal to `kind` (a forwarded message
@@ -137,6 +148,10 @@ export function ChatPreviewLine({
         // eslint-disable-next-line @next/next/no-img-element -- proxied
         // through /api/media, not a next/image-configured remote host.
         <img src={photoUrl} alt="" className="h-4 w-4 shrink-0 rounded-[4px] object-cover" />
+      )}
+      {kind === "sticker" && stickerPreviewUrl && (
+        // eslint-disable-next-line @next/next/no-img-element -- inline base64 blob, not a proxied URL.
+        <img src={stickerPreviewUrl} alt="" className="h-4 w-4 shrink-0 rounded-[4px] object-cover" />
       )}
       {/* 2026-09-04 (Aleksandr, screenshot of the chat list: "На
           голосовое сообщение и калькуляции добавь иконки слева

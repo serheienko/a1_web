@@ -110,6 +110,7 @@ import {
 import { resolveChatDisplay, pickChatAvatar } from "@/lib/a1/chat-mappers";
 import { parseUserProfile } from "@/lib/a1/schemas";
 import { buildMediaProxyUrl } from "@/lib/a1/mappers";
+import { strippedPreviewDataUrl } from "@/lib/a1/media-proxy";
 import { generateAvatarBlurDataUrl } from "@/lib/avatar-blur";
 
 // Best-effort name/avatar resolution for every distinct "other
@@ -289,6 +290,15 @@ export async function GET() {
           previewText: preview.text,
           previewKind: preview.kind,
           previewPhotoUrl: preview.kind === "photo" && preview.photoDoc ? buildMediaProxyUrl(preview.photoDoc) : null,
+          // Fix Tracker (order 78, "в списке чатов показывать превью
+          // стикера слева от текста 'Стікер'") -- a sticker's own raw
+          // bytes are a gzipped Lottie file (see tgs-sticker.tsx's
+          // header comment), not something a list-row <img> could ever
+          // show even through buildMediaProxyUrl's redirect, so this
+          // sends the doc's small inline "size-stripped" JPEG frame as
+          // a data URI instead -- already embedded in the message
+          // payload, no extra request.
+          previewStickerPreview: preview.kind === "sticker" && preview.stickerDoc ? strippedPreviewDataUrl(preview.stickerDoc) : null,
           // 2026-09-05 (Aleksandr, reference screenshot: a small
           // forward-arrow before the preview text/label when the
           // chat's last message was forwarded) -- see describeMessage-
