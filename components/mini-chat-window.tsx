@@ -60,6 +60,11 @@ import { profileHref } from "@/lib/profile-href";
 import { formatBytes } from "@/lib/format";
 import { useHoverPanel } from "@/lib/use-hover-panel";
 import { buildMediaProxyUrl, buildMediaDownloadUrl, decodeStickerPathPreview, strippedPreviewDataUrl } from "@/lib/a1/media-proxy";
+import { encodeBase64Waveform, SELF_DESTRUCT_VOICE_FLAGS, SELF_DESTRUCT_VOICE_TTL_SECONDS } from "@/lib/a1/chat-schemas";
+import { useVoiceRecorder, type VoiceRecordingResult } from "@/components/chat/voice-recorder";
+import { rememberLocalVoiceWaveform } from "@/lib/voice-local-waveform-cache";
+import { VoiceRecordButton, VoiceRecordingBar, VoiceMicDeniedNotice } from "@/components/chat/voice-message";
+import { VoiceMessageBubble } from "@/components/chat/voice-bubble";
 import { getStableMediaProxyUrl } from "@/lib/a1/stable-media-url";
 import {
   extractMessages,
@@ -72,6 +77,7 @@ import {
   isImageMediaDocument,
   isVideoMediaDocument,
   isStickerMediaDocument,
+  isVoiceMediaDocument,
   mediaDocumentFileName,
   mediaDocumentThumbnail,
   mediaDocumentBytes,
@@ -292,6 +298,27 @@ export function MiniChatWindow({
   const [peerReadMaxId, setPeerReadMaxId] = useState<number | null>(
     () => miniChatMessageCache.get(target.routeParam)?.peerReadMaxId ?? null,
   );
+  // Fix Tracker (2026-09-08, Aleksandr: "сделай мини-чат таким же
+  // функциональным, как основной чат" -- voice messages) -- same
+  // one-shot /api/account/whoami fetch app/chats/[chatId]/page.tsx's
+  // own myAvatarUrl already does, needed here for the exact same
+  // reason: VoiceMessageBubble's now-playing-bar entry for a
+  // self-sent clip shows this instead of falling back to a generic
+  // mic glyph.
+  const [myAvatarUrl, setMyAvatarUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    authFetch("/api/account/whoami")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data?.ok) return;
+        if (data.avatarUrl) setMyAvatarUrl(data.avatarUrl);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error">(
@@ -303,6 +330,13 @@ export function MiniChatWindow({
   const listRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  // Fix Tracker (2026-09-08, voice messages) -- same voiceBlobsRef
+  // pattern app/chats/[chatId]/page.tsx uses: the recorded Blob can't
+  // ride along in message/pending state (not serializable the way
+  // this file wants to cache messages -- see miniChatMessageCache
+  // above), so it's held here, keyed by a throwaway localId, purely to
+  // survive from handleVoiceFinish to uploadAndSendVoice.
+  const voiceBlobsRef = useRef<Map<string, { blob: Blob; mimeType: string; durationSeconds: number; waveform: number[] }>>(new Map());
   const fileInputRef = useRef<HTMLInputElement>(null);
   // 2026-09-05 (Aleksandr: "правая кнопка тоже должна работать для
   // вызова купертино") -- this widget is desktop-only to begin with
@@ -1058,6 +1092,107 @@ export function MiniChatWindow({
     }
   }
 
+  // Fix Tracker (2026-09-08, Aleksandr: "сделай мини-чат таким же
+  // функциональным, как основной чат" -- voice messages) -- this
+  // window had zero voice-message support (no mic button, no recorder,
+  // no playback bubble). Ported using the SAME shared components
+  // app/chats/[chatId]/page.tsx's own voice feature already uses
+  // (useVoiceRecorder/VoiceRecordButton/VoiceRecordingBar/
+  // VoiceMessageBubble) rather than rebuilding any of the recording UI
+  // or waveform math from scratch -- only the send plumbing below is
+  // new, adapted to this file's own simpler "append on the real /api/
+  // chats/send response" send model (no optimistic PendingMessage
+  // machinery exists here, unlike that page -- see sendMediaDocument's
+  // own header above for why every send path in this file already
+  // works this way).
+  //
+  // Same create -> S3 PUT -> confirm upload pipeline handleAttach
+  // above already runs for photos/files, just off a recorded Blob
+  // (voiceBlobsRef) instead of a picked File, plus the voice-specific
+  // create-body fields (duration/waveform/self-destruct flags) page.tsx's
+  // own uploadAndSendVoice sends -- same reasoning, see that function's
+  // own comment on why the self-destruct flags are the mobile app's
+  // own default for every voice note, not optional here either.
+  async function uploadAndSendVoice(localId: string) {
+    const stored = voiceBlobsRef.current.get(localId);
+    if (!stored) return;
+    setSending(true);
+    try {
+      const file = new File([stored.blob], `voice-${Date.now()}.webm`, { type: stored.mimeType });
+      const createRes = await authFetch("/api/upload/create", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          mimetype: file.type || "audio/webm",
+          bytes: file.size,
+          voiceDuration: stored.durationSeconds,
+          voiceWaveform: encodeBase64Waveform(stored.waveform),
+          flags: SELF_DESTRUCT_VOICE_FLAGS,
+          ttlSeconds: SELF_DESTRUCT_VOICE_TTL_SECONDS,
+        }),
+      });
+      const createData = await createRes.json().catch(() => null);
+      if (!createRes.ok || !createData?.ok || !createData.result?.url) return;
+      const { id, url, fields } = createData.result as { id: string; url: string; fields: Record<string, string> };
+      const formData = new FormData();
+      for (const [key, value] of Object.entries(fields ?? {})) formData.append(key, value);
+      formData.append("file", file);
+      const uploadRes = await fetch(url, { method: "POST", body: formData });
+      if (!uploadRes.ok) return;
+      const confirmRes = await authFetch("/api/upload/confirm", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ documentId: id }),
+      });
+      const confirmData = await confirmRes.json().catch(() => null);
+      const fileReference = confirmData?.media?.fileReference as string | undefined;
+      const mediaId = confirmData?.media?._id as string | undefined;
+      if (!confirmRes.ok || !confirmData?.ok || !fileReference || !mediaId) return;
+      // Same doc._id-keyed local-waveform cache write as page.tsx's own
+      // uploadAndSendVoice -- see lib/voice-local-waveform-cache.ts's
+      // own header for why fileReference (which rotates on every poll)
+      // would be a guaranteed miss here instead.
+      rememberLocalVoiceWaveform(mediaId, stored.waveform);
+      const res = await authFetch("/api/chats/send", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          chatId: target.routeParam,
+          media: [{ fileReference }],
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (data?.ok && data.message) {
+        setMessages((prev) => [...prev, data.message as ChatMessage]);
+      }
+    } catch {
+      // Best-effort, same "next poll reconciles" contract every other
+      // send path in this file already follows -- no retry-on-failure
+      // UI exists here (unlike page.tsx's PendingMessage machinery), so
+      // a failed voice upload just silently doesn't appear, same as a
+      // failed sticker/GIF send already does.
+    } finally {
+      voiceBlobsRef.current.delete(localId);
+      setSending(false);
+    }
+  }
+
+  // Record-button release (components/chat/voice-recorder.ts's own
+  // onFinish). No optimistic bubble here (see uploadAndSendVoice's own
+  // header) -- the Blob is stashed and upload starts immediately.
+  function handleVoiceFinish(result: VoiceRecordingResult) {
+    const localId = `voice-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    voiceBlobsRef.current.set(localId, {
+      blob: result.blob,
+      mimeType: result.mimeType,
+      durationSeconds: result.durationSeconds,
+      waveform: result.waveform,
+    });
+    void uploadAndSendVoice(localId);
+  }
+
+  const recorder = useVoiceRecorder(handleVoiceFinish);
+
   // 2026-09-03 (Aleksandr, attach-menu port) -- Contacts row opens
   // components/chat/contacts-picker-modal.tsx (a shared component, not
   // a page.tsx internal); its own bottom "Send" button fires this
@@ -1492,6 +1627,28 @@ export function MiniChatWindow({
                           />
                           {isPhotoOnly && flatFooter}
                         </div>
+                      ) : isVoiceMediaDocument(doc) ? (
+                        // Fix Tracker (2026-09-08, Aleksandr: "сделай
+                        // мини-чат таким же функциональным, как основной
+                        // чат") -- voice messages had no rendering here
+                        // at all (fell through to the generic file-link
+                        // card, same "Документ" bug class as the video/
+                        // sticker cases below). Same shared
+                        // VoiceMessageBubble component and props
+                        // app/chats/[chatId]/page.tsx's own isVoiceMediaDocument
+                        // branch uses -- playback, waveform, now-playing-bar
+                        // entry all come for free from that component.
+                        <VoiceMessageBubble
+                          key={doc._id}
+                          doc={doc}
+                          mine={mine}
+                          messageDateMs={dateMs}
+                          lang={lang}
+                          peerName={target.title}
+                          peerAvatarUrl={target.avatarUrl}
+                          myAvatarUrl={myAvatarUrl}
+                          footer={isFileOnly ? flatFooter : undefined}
+                        />
                       ) : isVideoMediaDocument(doc) ? (
                         // Fix Tracker (2026-09-08, Aleksandr: "в миничате
                         // стикеры/GIF показываются как карточка
@@ -2003,6 +2160,20 @@ export function MiniChatWindow({
           </p>
         )}
         <div className="flex items-end gap-2">
+          {/* Fix Tracker (2026-09-08, voice messages) -- same three-way
+              swap app/chats/[chatId]/page.tsx's own compose row does:
+              a denied mic permission replaces the whole row with a
+              dismissible notice; an active recording replaces just the
+              attach+textarea pair with VoiceRecordingBar (the mic
+              button itself, further down, stays mounted the whole time
+              -- see its own comment on why unmounting it mid-gesture
+              broke pointer capture there, same risk here). */}
+          {recorder.state === "denied" ? (
+            <VoiceMicDeniedNotice lang={lang} onDismiss={recorder.dismissDenied} />
+          ) : recorder.state !== "idle" ? (
+            <VoiceRecordingBar recorder={recorder} lang={lang} />
+          ) : (
+            <>
           {/* 2026-09-02 (Aleksandr: "надо добавить скрепку слева, а кота
               поставить справа как в обычных чатах" + "надо тут тоже
               анимации при наведении на иконки") -- paperclip leads the
@@ -2236,6 +2407,9 @@ export function MiniChatWindow({
               <ChatCatFieldIcon className="h-4 w-4 animate-chat-wiggle text-neutral-400 dark:text-[#adafbb]" />
             </button>
           </div>
+            </>
+          )}
+          {recorder.state === "idle" && hasSendableContent ? (
           <button
             type="button"
             onClick={() => void handleSend()}
@@ -2276,6 +2450,9 @@ export function MiniChatWindow({
               <path d="M4 12h15M13 5l7 7-7 7" />
             </svg>
           </button>
+          ) : recorder.state !== "denied" ? (
+            <VoiceRecordButton recorder={recorder} disabled={sending} lang={lang} />
+          ) : null}
         </div>
           </>
         )}
