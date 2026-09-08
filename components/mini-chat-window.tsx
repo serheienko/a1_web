@@ -2441,6 +2441,7 @@ export function MiniChatWindow({
           {recorder.state === "denied" ? (
             <VoiceMicDeniedNotice lang={lang} onDismiss={recorder.dismissDenied} />
           ) : recorder.state !== "idle" ? (
+            <>
             {/* Fix Tracker (2026-09-08, Aleksandr: "Размер кнопки
                 микрофона должен быть такой же по высоте как инпут
                 филд") -- mini-chat's own compose pill is 36px
@@ -2448,6 +2449,7 @@ export function MiniChatWindow({
                 voice-message.tsx components need their own `compact`
                 variant here to match it. */}
             <VoiceRecordingBar recorder={recorder} lang={lang} compact />
+            </>
           ) : (
             <>
           {/* 2026-09-02 (Aleksandr: "надо добавить скрепку слева, а кота
