@@ -823,8 +823,16 @@ export function ReplyComposeBar({
       {thumbnail}
       <div className="min-w-0 flex-1">
         <div className="truncate text-[13px] font-semibold text-[#335ef7] dark:text-[#0c8ce9]">
-          <T uk={`Відповідь ${authorLabel}`} en={`Reply to ${authorLabel}`} ru={`Ответ ${authorLabel}`} de={`Antwort an ${authorLabel}`}
-             es={`Responder a ${authorLabel}`} fr={`Répondre à ${authorLabel}`} pl={`Odpowiedź ${authorLabel}`}
+          {/* Fix Tracker (2026-09-08, Aleksandr: "Reply тоже сделай
+              update по UI... надо поправить текст в обоих чатах") --
+              uk/ru/de/pl used to read as a noun ("Відповідь X" / "Ответ
+              X", i.e. "Reply to X" as a label) instead of the same verb
+              phrasing the actions-menu's own Reply row already uses
+              right above (uk "Відповісти", ru "Ответить", see this
+              file's own MENU_ITEMS). Both chats share this ONE
+              component, so fixing it here fixes it everywhere at once. */}
+          <T uk={`Відповісти ${authorLabel}`} en={`Reply to ${authorLabel}`} ru={`Ответить ${authorLabel}`} de={`Antworten ${authorLabel}`}
+             es={`Responder a ${authorLabel}`} fr={`Répondre à ${authorLabel}`} pl={`Odpowiedz ${authorLabel}`}
              ptBR={`Responder a ${authorLabel}`} zh={`回复 ${authorLabel}`} />
         </div>
         <div className="truncate text-[13px] text-[#262a34] dark:text-white">{previewText}</div>

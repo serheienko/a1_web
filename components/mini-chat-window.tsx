@@ -53,7 +53,7 @@
 import { CachedAvatar } from "@/components/cached-avatar";
 import Link from "next/link";
 import { createPortal } from "react-dom";
-import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { authFetch } from "@/lib/auth-fetch";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { profileHref } from "@/lib/profile-href";
@@ -111,6 +111,8 @@ import { ChatPhotoGrid } from "@/components/chat/photo-grid";
 import { BlurredChatPhoto } from "@/components/chat/blurred-photo";
 import { ChatPhotoViewer, type ChatViewerImage } from "@/components/chat/photo-viewer";
 import { MessageActionsMenu, DeleteMessageConfirmDialog, ReactionsBar, EditComposeBar, ReplyComposeBar, MessageReplyQuote } from "@/components/chat/message-actions-menu";
+import { PinnedMessageBanner } from "@/components/chat/pinned-message-banner";
+import { AllPinsModal } from "@/components/chat/all-pins-modal";
 import { RemindModal } from "@/components/chat/remind-modal";
 import { ForwardPickerModal, type ForwardRowStatus } from "@/components/chat/forward-picker-modal";
 import { MediaPickerPanel } from "@/components/chat/media-picker-panel";
@@ -401,10 +403,76 @@ export function MiniChatWindow({
   // immediately without a lookup).
   const [replyTarget, setReplyTarget] = useState<ChatMessage | null>(null);
   const [editFailed, setEditFailed] = useState(false);
+  // Fix Tracker (2026-09-08, Aleksandr: "Reply тоже сделай update по
+  // UI, чтобы был такой же как в основных, а именно компоузер
+  // анимацией выезжает наверх") -- same grid-template-rows 1fr/0fr
+  // "grows the pill" trick app/chats/[chatId]/page.tsx's own
+  // displayedReplyTarget/replyRowGrown and displayedEditingMessage/
+  // editRowGrown pairs use, ported 1:1 (see that file's own header
+  // comments on both for the full writeup) so entering/leaving reply
+  // or edit mode animates here the same way it does on the main chat
+  // page, instead of snapping.
+  const REPLY_COLLAPSE_MS = 200;
+  const [displayedReplyTarget, setDisplayedReplyTarget] = useState<ChatMessage | null>(null);
+  const [replyRowGrown, setReplyRowGrown] = useState(false);
+  useEffect(() => {
+    if (replyTarget) {
+      setDisplayedReplyTarget(replyTarget);
+      if (!replyRowGrown) {
+        let raf2 = 0;
+        const raf1 = window.requestAnimationFrame(() => {
+          raf2 = window.requestAnimationFrame(() => setReplyRowGrown(true));
+        });
+        return () => {
+          window.cancelAnimationFrame(raf1);
+          if (raf2) window.cancelAnimationFrame(raf2);
+        };
+      }
+      return;
+    }
+    setReplyRowGrown(false);
+    const t = window.setTimeout(() => setDisplayedReplyTarget(null), REPLY_COLLAPSE_MS);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [replyTarget]);
+  const EDIT_COLLAPSE_MS = 200;
+  const [displayedEditingMessage, setDisplayedEditingMessage] = useState<ChatMessage | null>(null);
+  const [editRowGrown, setEditRowGrown] = useState(false);
+  useEffect(() => {
+    if (editingMessage) {
+      setDisplayedEditingMessage(editingMessage);
+      if (!editRowGrown) {
+        let raf2 = 0;
+        const raf1 = window.requestAnimationFrame(() => {
+          raf2 = window.requestAnimationFrame(() => setEditRowGrown(true));
+        });
+        return () => {
+          window.cancelAnimationFrame(raf1);
+          if (raf2) window.cancelAnimationFrame(raf2);
+        };
+      }
+      return;
+    }
+    setEditRowGrown(false);
+    const t = window.setTimeout(() => setDisplayedEditingMessage(null), EDIT_COLLAPSE_MS);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingMessage]);
   const [remindTarget, setRemindTarget] = useState<{ messageId: number } | null>(null);
   const [remindSubmitting, setRemindSubmitting] = useState(false);
   const [remindFailed, setRemindFailed] = useState(false);
   const [pinBusyMessageId, setPinBusyMessageId] = useState<number | null>(null);
+  // Fix Tracker (2026-09-08, Aleksandr: "закрепить функциональными в
+  // мини-чатах, должно быть идентично по UX/UI как в основных чатах")
+  // -- same pinnedMessages/activePinIndex/displayedPinnedMessage shape
+  // app/chats/[chatId]/page.tsx uses, ported 1:1 so the shared
+  // PinnedMessageBanner/AllPinsModal components behave identically
+  // here.
+  const [pinnedMessages, setPinnedMessages] = useState<ChatMessage[]>([]);
+  const [activePinIndex, setActivePinIndex] = useState(0);
+  const pinnedMessage = pinnedMessages[activePinIndex] ?? pinnedMessages[0] ?? null;
+  const [displayedPinnedMessage, setDisplayedPinnedMessage] = useState<ChatMessage | null>(null);
+  const [allPinsOpen, setAllPinsOpen] = useState(false);
   // forwardSource holds every message being forwarded at once -- one
   // entry from the actions menu's own "Переслати" row, or the whole
   // (oldest-first) selection when fired from selection mode's bottom
@@ -621,6 +689,45 @@ export function MiniChatWindow({
       window.clearInterval(timer);
     };
   }, [target.routeParam]);
+  // "Pin" feature (2026-09-08 port) -- fetches the chat's current
+  // pin(s) once per chat open, same reasoning as page.tsx's own
+  // fetchPinned: a SEPARATE call from the regular messages poll above,
+  // since a pin can be older than that poll's own recent-messages
+  // window.
+  const fetchPinned = useCallback(async () => {
+    try {
+      const res = await authFetch(`/api/chats/pinned?chat=${encodeURIComponent(target.routeParam)}`);
+      const data = await res.json().catch(() => null);
+      if (data?.ok) setPinnedMessages(data.messages ?? []);
+    } catch {
+      // Best-effort -- a failed pinned-message lookup just means no
+      // banner shows this time.
+    }
+  }, [target.routeParam]);
+
+  useEffect(() => {
+    setPinnedMessages([]);
+    setActivePinIndex(0);
+    // Instant, not animated -- this is a chat switch, not a real
+    // unpin (see displayedPinnedMessage's own exit-animation effect
+    // right below).
+    setDisplayedPinnedMessage(null);
+    setAllPinsOpen(false);
+    fetchPinned();
+  }, [fetchPinned]);
+
+  // Matches .animate-pin-banner-out's own duration in app/globals.css.
+  const PIN_BANNER_EXIT_MS = 200;
+  useEffect(() => {
+    if (pinnedMessage) {
+      setDisplayedPinnedMessage(pinnedMessage);
+      return;
+    }
+    if (!displayedPinnedMessage) return;
+    const timer = window.setTimeout(() => setDisplayedPinnedMessage(null), PIN_BANNER_EXIT_MS);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pinnedMessage]);
 
   const isPinnedToBottomRef = useRef(true);
   useEffect(() => {
@@ -749,6 +856,32 @@ export function MiniChatWindow({
       }, 2200);
     });
   }
+  // Pinned banner's own "tap to jump" (components/chat/pinned-message-
+  // banner.tsx's own onTap) -- identical scroll+flash mechanism to
+  // handleShowInChatFromViewer right above, scoped to this widget's
+  // own panelRef the same way; a no-op if the pinned message isn't in
+  // the currently-loaded window.
+  function handleJumpToPinnedMessage(messageId: number) {
+    const el = panelRef.current?.querySelector(`[data-message-id="${messageId}"]`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    setHighlightedMessageId(messageId);
+    window.setTimeout(() => {
+      setHighlightedMessageId((cur) => (cur === messageId ? null : cur));
+    }, 2200);
+  }
+
+  // Banner's own onTap -- jumps to the currently-shown pin, then
+  // advances activePinIndex with wraparound so the next tap shows the
+  // next pin in `pinnedMessages` (same as page.tsx's own
+  // handleTapPinnedBanner).
+  function handleTapPinnedBanner() {
+    if (!pinnedMessage) return;
+    handleJumpToPinnedMessage(Number(pinnedMessage._id));
+    if (pinnedMessages.length > 1) {
+      setActivePinIndex((i) => (i + 1) % pinnedMessages.length);
+    }
+  }
 
   // Reply from the viewer -- now a real reply (2026-09-08, Aleksandr:
   // "сделай мини-чат таким же функциональным, как основной чат"),
@@ -850,16 +983,26 @@ export function MiniChatWindow({
     }
   }
 
-  // Pin (2026-09-07 port, see page.tsx's own handleTogglePin for the
-  // full writeup) -- no pinned-banner UI in this corner widget, so
-  // this only flips the message's own `flags` bit locally + the
-  // backend; the actions-menu row's own pinState always re-derives
-  // from isMessagePinned(message), same as page.tsx's menu-triggered
-  // call site does.
-  async function handleTogglePin(message: ChatMessage) {
+  // Pin (2026-09-07 port; 2026-09-08 follow-up, Aleksandr: "закрепить
+  // функциональными в мини-чатах, должно быть идентично по UX/UI как в
+  // основных чатах") -- this used to only flip the message's own
+  // `flags` bit with no pinned-banner UI at all (see this file's OLD
+  // comment here, now out of date). Same optimistic-update-then-
+  // revert-via-fetchPinned shape as page.tsx's own handleTogglePin,
+  // including the same `forceUnpin` escape hatch for call sites that
+  // already know for certain this is an unpin (the banner's own
+  // confirm control, the all-pins modal) instead of re-deriving it
+  // from that specific message object's own `flags` bit.
+  async function handleTogglePin(message: ChatMessage, forceUnpin?: boolean) {
     const messageId = Number(message._id);
-    const currentlyPinned = isMessagePinned(message);
+    const currentlyPinned = forceUnpin ?? isMessagePinned(message);
     setPinBusyMessageId(messageId);
+    setPinnedMessages((prev) =>
+      currentlyPinned
+        ? prev.filter((m) => Number(m._id) !== messageId)
+        : [message, ...prev.filter((m) => Number(m._id) !== messageId)],
+    );
+    if (!currentlyPinned) setActivePinIndex(0);
     setMessages((prev) =>
       prev.map((m) => {
         if (Number(m._id) !== messageId) return m;
@@ -874,12 +1017,7 @@ export function MiniChatWindow({
       });
       if (!res.ok) throw new Error("pin_failed");
     } catch {
-      setMessages((prev) =>
-        prev.map((m) => {
-          if (Number(m._id) !== messageId) return m;
-          return { ...m, flags: currentlyPinned ? m.flags | MESSAGE_FLAG_PINNED : m.flags & ~MESSAGE_FLAG_PINNED };
-        }),
-      );
+      fetchPinned();
     } finally {
       setPinBusyMessageId(null);
     }
@@ -1517,6 +1655,35 @@ export function MiniChatWindow({
           <div className="ml-auto shrink-0">{avatarImg}</div>
         )}
       </div>
+      {/* "Pin" feature (2026-09-08 port, Aleksandr: "закрепить
+          функциональными в мини-чатах, должно быть идентично по
+          UX/UI как в основных чатах") -- same shared
+          PinnedMessageBanner/AllPinsModal app/chats/[chatId]/page.tsx
+          renders between its own header and scrollable message list;
+          this widget has no `max-w-[470px] px-4` header row to match
+          (fixed w-80 card instead), so it just reuses the header's own
+          px-3 horizontal padding. */}
+      {displayedPinnedMessage && (
+        <div className={`px-3 pt-2 ${pinnedMessage ? "" : "pointer-events-none animate-pin-banner-out"}`}>
+          <PinnedMessageBanner
+            pinnedMessage={displayedPinnedMessage}
+            onTap={handleTapPinnedBanner}
+            onUnpin={() => handleTogglePin(displayedPinnedMessage, true)}
+            unpinning={pinBusyMessageId === Number(displayedPinnedMessage._id)}
+            pinCount={pinnedMessages.length}
+            onOpenAll={() => setAllPinsOpen(true)}
+          />
+        </div>
+      )}
+      {allPinsOpen && (
+        <AllPinsModal
+          pinnedMessages={pinnedMessages}
+          unpinningId={pinBusyMessageId}
+          onClose={() => setAllPinsOpen(false)}
+          onJumpToMessage={handleJumpToPinnedMessage}
+          onUnpin={(message) => void handleTogglePin(message, true)}
+        />
+      )}
 
       <div ref={listRef} className="relative flex-1 overflow-y-auto px-3 py-2.5">
       <div className="space-y-1.5">
@@ -2235,21 +2402,25 @@ export function MiniChatWindow({
             </div>
           </div>
         )}
-        {replyTarget &&
-          !editingMessage &&
+        {/* Fix Tracker (2026-09-08, Aleksandr: "Reply тоже сделай
+            update по UI, чтобы был такой же как в основных, а именно
+            компоузер анимацией выезжает наверх") -- app/chats/
+            [chatId]/page.tsx's own WhatsApp-style "grows the textarea
+            pill" variant (displayedReplyTarget/replyRowGrown) is now
+            this window's default too, rendered INSIDE the compose pill
+            further down. This floating non-inline card is kept only
+            for the one state that isn't that pill -- an active voice
+            recording -- exact same split page.tsx's own copy of this
+            card uses. Edit mode has no equivalent here: editingMessage
+            and an active recording are mutually exclusive already, so
+            EditComposeBar only needs the one (inline, in-pill) copy,
+            moved there together with editFailed. */}
+        {displayedReplyTarget &&
+          recorder.state !== "idle" &&
           (() => {
-            const quote = resolveReplyPreview(replyTarget);
+            const quote = resolveReplyPreview(displayedReplyTarget);
             if (!quote) return null;
             return (
-              // Fix Tracker (2026-09-08, Aleksandr: "сделай мини-чат
-              // таким же функциональным, как основной чат" -- real
-              // reply threading) -- same shared ReplyComposeBar
-              // app/chats/[chatId]/page.tsx's own floating (non-inline)
-              // reply card uses; this window skips that page's newer
-              // WhatsApp-style "grows the textarea pill" variant for
-              // now (a bigger compose-row restructure) and reuses the
-              // simpler floating-card placement, same slot
-              // EditComposeBar already occupies right below.
               <ReplyComposeBar
                 authorLabel={quote.authorLabel}
                 previewText={quote.node}
@@ -2258,29 +2429,6 @@ export function MiniChatWindow({
               />
             );
           })()}
-        {editingMessage && (
-          // Fix Tracker (2026-09-07, order 114: "UI редактирования
-          // должен быть взят из основных чатов 1в1, имею ввиду
-          // компоузер") -- this used to be its own hand-rolled minimal
-          // bar with no preview of the original text, unlike page.tsx's
-          // own edit flow which already reuses this exact shared
-          // EditComposeBar (accent stripe + truncated original-text
-          // preview line). Switching to the same component instead of
-          // a parallel one-off copy.
-          <EditComposeBar
-            previewText={extractMessageText(editingMessage)}
-            onCancel={() => {
-              setEditingMessage(null);
-              setDraft("");
-              setEditFailed(false);
-            }}
-          />
-        )}
-        {editFailed && (
-          <p className="px-1 text-[12px] text-red-500 dark:text-red-400">
-            <T uk="Не вдалося зберегти зміни" en="Couldn't save changes" ru="Не удалось сохранить изменения" de="Änderungen konnten nicht gespeichert werden" es="No se pudieron guardar los cambios" fr="Impossible d'enregistrer les modifications" pl="Nie udało się zapisać zmian" ptBR="Não foi possível salvar as alterações" zh="无法保存更改" />
-          </p>
-        )}
         <div className="flex items-end gap-2">
           {/* Fix Tracker (2026-09-08, voice messages) -- same three-way
               swap app/chats/[chatId]/page.tsx's own compose row does:
@@ -2480,60 +2628,92 @@ export function MiniChatWindow({
               }}
             />
           </div>
-          <div className="flex min-h-[36px] flex-1 items-center gap-1.5 rounded-full bg-[#f2f2f7] px-3 py-1.5 dark:bg-[#1c1c1e]">
-            <textarea
-              ref={textareaRef}
-              rows={1}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  void handleSend();
-                }
-              }}
-              // 2026-09-03 (Aleksandr, live test: "В пустой инпут добавь
-              // слово message серым текстом, так же как в главных
-              // чатах") -- this was an empty string (no visible
-              // placeholder at all) even though the gray placeholder:*
-              // classes below were already there and unused; app/chats/
-              // [chatId]/page.tsx's own textarea already shows "Message"
-              // the same way.
-              placeholder="Message"
-              // 2026-09-02 (Aleksandr, live screenshot: a Cyrillic "у"'s
-              // descender getting clipped by the pill's own bottom edge)
-              // -- leading-[18px] on 13.5px text left no room below the
-              // baseline for a descender; leading-5 (20px, same value
-              // app/chats/[chatId]/page.tsx's own textarea already uses)
-              // fixes it. min-h matched to the same 20px so the single-
-              // line pill height doesn't visibly jump.
-              className="max-h-24 min-h-[20px] flex-1 resize-none bg-transparent text-[15.5px] leading-5 text-[#262a34] outline-none placeholder:text-[#989aa6] dark:text-white dark:placeholder:text-[#8d8d93]"
-            />
-            {/* group: own small wrapper (not the whole pill, which would
-                fire on every keystroke) -- same reasoning app/chats/
-                [chatId]/page.tsx's own cat-icon wrapper comment gives.
-                This particular glyph has no chat-cat-pupil sub-paths for
-                the eye-dart treatment that page's icon supports, so it
-                reuses ChatsFab's own generic animate-chat-wiggle
-                (rotate+scale) instead -- still a real hover reaction,
-                just a different motion.
-                Fix Tracker (2026-09-07, order 119) -- this used to be
-                non-interactive decoration; now a real button opening
-                the same MediaPickerPanel (stickers/GIFs/emoji) page.tsx's
-                own cat icon opens, anchored to this wrapper's own rect. */}
-            <button
-              type="button"
-              ref={mediaPanelRef}
-              onClick={() => {
-                setMediaPanelAnchorRect(mediaPanelRef.current?.getBoundingClientRect() ?? null);
-                setMediaPanelOpen((v) => !v);
-              }}
-              disabled={sending || !!editingMessage}
-              aria-label="Stickers, GIFs and emoji"
-              className="group flex shrink-0 items-center disabled:opacity-40"
-            >
-              <ChatCatFieldIcon className="h-4 w-4 animate-chat-wiggle text-neutral-400 dark:text-[#adafbb]" />
-            </button>
+          <div className="flex min-w-0 flex-1 flex-col rounded-[18px] bg-[#f2f2f7] dark:bg-[#1c1c1e]">
+            {displayedEditingMessage && (
+              <div
+                className={`grid transition-[grid-template-rows] duration-200 ease-out ${
+                  editRowGrown ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                }`}
+              >
+                <div className="overflow-hidden">
+                  <EditComposeBar
+                    inline
+                    previewText={extractMessageText(displayedEditingMessage)}
+                    onCancel={() => {
+                      setEditingMessage(null);
+                      setDraft("");
+                      setEditFailed(false);
+                    }}
+                  />
+                  {editFailed && (
+                    <p className="border-b border-neutral-200 px-3.5 py-1.5 text-[12px] text-red-500 dark:border-[#2b2b2b] dark:text-red-400">
+                      <T uk="Не вдалося зберегти зміни" en="Couldn't save changes" ru="Не удалось сохранить изменения" de="Änderungen konnten nicht gespeichert werden" es="No se pudieron guardar los cambios" fr="Impossible d'enregistrer les modifications" pl="Nie udało się zapisać zmian" ptBR="Não foi possível salvar as alterações" zh="无法保存更改" />
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+            {/* Fix Tracker (2026-09-08, Aleksandr: "Reply тоже сделай
+                update по UI, чтобы был такой же как в основных, а
+                именно компоузер анимацией выезжает наверх") -- this
+                grows the SAME pill the textarea sits in, exact same
+                grid-template-rows 1fr/0fr trick app/chats/[chatId]/
+                page.tsx's own inline ReplyComposeBar uses, instead of
+                the old separate floating card (that card is now kept
+                ONLY for the active-voice-recording state right above,
+                where this pill isn't mounted at all). */}
+            {displayedReplyTarget &&
+              recorder.state === "idle" &&
+              (() => {
+                const quote = resolveReplyPreview(displayedReplyTarget);
+                if (!quote) return null;
+                return (
+                  <div
+                    className={`grid transition-[grid-template-rows] duration-200 ease-out ${
+                      replyRowGrown ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                    }`}
+                  >
+                    <div className="overflow-hidden">
+                      <ReplyComposeBar
+                        inline
+                        authorLabel={quote.authorLabel}
+                        previewText={quote.node}
+                        thumbnail={quote.thumbnail}
+                        onRemove={() => setReplyTarget(null)}
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
+            <div className="flex min-h-[36px] items-center gap-1.5 px-3 py-1.5">
+              <textarea
+                ref={textareaRef}
+                rows={1}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    void handleSend();
+                  }
+                }}
+                placeholder="Message"
+                className="max-h-24 min-h-[20px] flex-1 resize-none bg-transparent text-[15.5px] leading-5 text-[#262a34] outline-none placeholder:text-[#989aa6] dark:text-white dark:placeholder:text-[#8d8d93]"
+              />
+              <button
+                type="button"
+                ref={mediaPanelRef}
+                onClick={() => {
+                  setMediaPanelAnchorRect(mediaPanelRef.current?.getBoundingClientRect() ?? null);
+                  setMediaPanelOpen((v) => !v);
+                }}
+                disabled={sending || !!editingMessage}
+                aria-label="Stickers, GIFs and emoji"
+                className="group flex shrink-0 items-center disabled:opacity-40"
+              >
+                <ChatCatFieldIcon className="h-4 w-4 animate-chat-wiggle text-neutral-400 dark:text-[#adafbb]" />
+              </button>
+            </div>
           </div>
             </>
           )}
