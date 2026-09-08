@@ -201,7 +201,7 @@ export default async function JobDetailPage({ params }: Props) {
         authorUsername={post.author.username}
         authorName={post.author.name}
         authorAvatarUrl={post.author.avatarUrl}
-        shareUrl={`${SITE_URL}/jobs/${canonicalSlug}`}
+        shareUrl={`https://a1appp.com/postDetails/${post.id}`}
         shareTitle={post.title}
       />
 

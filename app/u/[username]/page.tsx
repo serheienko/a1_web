@@ -536,7 +536,11 @@ export default async function ProfilePage({ params }: Props) {
       <ProfileActionRow
         username={profile.username}
         profileUserId={rawProfile?.object === "user" ? rawProfile._id : null}
-        shareUrl={`${SITE_URL}${profileHref(profile.username)}`}
+        shareUrl={
+          rawProfile?.object === "user"
+            ? `https://a1appp.com/userProfile/${rawProfile._id}`
+            : `${SITE_URL}${profileHref(profile.username)}`
+        }
         shareTitle={profile.fullName}
         avatarUrl={profile.avatarUrl}
       />
