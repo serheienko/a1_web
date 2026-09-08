@@ -53,7 +53,7 @@
 import { CachedAvatar } from "@/components/cached-avatar";
 import Link from "next/link";
 import { createPortal } from "react-dom";
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { authFetch } from "@/lib/auth-fetch";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { profileHref } from "@/lib/profile-href";
@@ -84,6 +84,7 @@ import {
   dedupeReactionsToLatestPerUser,
   isMessagePinned,
   MESSAGE_FLAG_PINNED,
+  describeMessagePreview,
   type ChatMessage,
   type MessageMediaDocument,
   type MessagePeerReaction,
@@ -104,11 +105,12 @@ import {
   ChatAttachmentSpinner,
 } from "@/components/chat/icons";
 import { ChatFileTypeIcon, fileKindFromName, DocumentFallbackLabel } from "@/components/chat/file-type-icon";
+import { ChatPreviewLine } from "@/components/chat/chat-preview-line";
 import { PdfPageThumbnail } from "@/components/chat/pdf-thumbnail";
 import { ChatPhotoGrid } from "@/components/chat/photo-grid";
 import { BlurredChatPhoto } from "@/components/chat/blurred-photo";
 import { ChatPhotoViewer, type ChatViewerImage } from "@/components/chat/photo-viewer";
-import { MessageActionsMenu, DeleteMessageConfirmDialog, ReactionsBar, EditComposeBar } from "@/components/chat/message-actions-menu";
+import { MessageActionsMenu, DeleteMessageConfirmDialog, ReactionsBar, EditComposeBar, ReplyComposeBar, MessageReplyQuote } from "@/components/chat/message-actions-menu";
 import { RemindModal } from "@/components/chat/remind-modal";
 import { ForwardPickerModal, type ForwardRowStatus } from "@/components/chat/forward-picker-modal";
 import { MediaPickerPanel } from "@/components/chat/media-picker-panel";
@@ -337,6 +339,7 @@ export function MiniChatWindow({
   // above), so it's held here, keyed by a throwaway localId, purely to
   // survive from handleVoiceFinish to uploadAndSendVoice.
   const voiceBlobsRef = useRef<Map<string, { blob: Blob; mimeType: string; durationSeconds: number; waveform: number[] }>>(new Map());
+  const voiceReplyRef = useRef<Map<string, ChatMessage | null>>(new Map());
   const fileInputRef = useRef<HTMLInputElement>(null);
   // 2026-09-05 (Aleksandr: "правая кнопка тоже должна работать для
   // вызова купертино") -- this widget is desktop-only to begin with
@@ -388,6 +391,15 @@ export function MiniChatWindow({
   // shipped API routes page.tsx's own copies of these features call,
   // no import from that page itself).
   const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
+  // Fix Tracker (2026-09-08, Aleksandr: "сделай мини-чат таким же
+  // функциональным, как основной чат" -- real reply threading) -- this
+  // used to be a stub: actionsMenu's own onReply just focused the
+  // textarea with no quote captured anywhere (see this file's OLD
+  // header comment on handleReplyFromViewer, now out of date). Same
+  // replyTarget shape app/chats/[chatId]/page.tsx uses (a full
+  // ChatMessage, not just an id, so the compose-bar quote can render
+  // immediately without a lookup).
+  const [replyTarget, setReplyTarget] = useState<ChatMessage | null>(null);
   const [editFailed, setEditFailed] = useState(false);
   const [remindTarget, setRemindTarget] = useState<{ messageId: number } | null>(null);
   const [remindSubmitting, setRemindSubmitting] = useState(false);
@@ -678,6 +690,49 @@ export function MiniChatWindow({
     if (i >= 0) setViewerIndex(i);
   }
 
+  // Reply feature -- resolves a real message's `replyTo` (only ever a
+  // numeric id, see lib/a1/chat-schemas.ts's MessageReplyToSchema
+  // header) against whatever's already loaded in THIS window's own
+  // `messages` array. Same "best-effort, no second round-trip" call as
+  // app/chats/[chatId]/page.tsx's own messagesById/resolveReplyPreview
+  // pair -- a target outside this window's history just renders no
+  // quote rather than fetching it specially.
+  const messagesById = useMemo(() => {
+    const map = new Map<string, ChatMessage>();
+    for (const m of messages) map.set(m._id, m);
+    return map;
+  }, [messages]);
+
+  function resolveReplyPreview(replyMsg: ChatMessage | null | undefined): { authorLabel: string; node: ReactNode; thumbnail: ReactNode } | null {
+    if (!replyMsg) return null;
+    const authorLabel = replyMsg.fromId !== null && replyMsg.fromId === myUserId ? YOU_LABEL_TEXT[lang] : target.title || "—";
+    const preview = describeMessagePreview(replyMsg);
+    const photoUrl = preview.kind === "photo" && preview.photoDoc ? getStableMediaProxyUrl(preview.photoDoc) : null;
+    let thumbnail: ReactNode = null;
+    if (preview.kind === "text") {
+      const docs = messageDocumentMedia(replyMsg);
+      const captionPhoto = docs.find((d) => isImageMediaDocument(d));
+      const captionFile = docs.find(
+        (d) => !isVoiceMediaDocument(d) && !isImageMediaDocument(d) && !isVideoMediaDocument(d) && !isStickerMediaDocument(d),
+      );
+      if (captionPhoto) {
+        thumbnail = (
+          // eslint-disable-next-line @next/next/no-img-element -- proxied through /api/media.
+          <img src={getStableMediaProxyUrl(captionPhoto)} alt="" className="h-9 w-9 shrink-0 rounded-[6px] object-cover" />
+        );
+      } else if (captionFile) {
+        thumbnail = (
+          <ChatFileTypeIcon kind={fileKindFromName(mediaDocumentFileName(captionFile), captionFile.mimetype)} className="h-9 w-9 shrink-0" />
+        );
+      }
+    }
+    return {
+      authorLabel,
+      node: <ChatPreviewLine kind={preview.kind} text={preview.text} photoUrl={photoUrl} className="truncate whitespace-nowrap" />,
+      thumbnail,
+    };
+  }
+
   // "Show in chat" (viewer's "•••" menu) -- same shape as
   // app/chats/[chatId]/page.tsx's own handleShowInChatFromViewer:
   // scrolls the source row into view and flashes it for ~2.2s. Relies
@@ -695,13 +750,15 @@ export function MiniChatWindow({
     });
   }
 
-  // Reply from the viewer -- kept as this file's own deliberately
-  // minimal gesture (focus the compose box only, see actionsMenu's own
-  // onReply above and this file's header comment on why no
-  // replyTarget/quote-preview state exists here), not page.tsx's full
-  // quote-preview reply.
+  // Reply from the viewer -- now a real reply (2026-09-08, Aleksandr:
+  // "сделай мини-чат таким же функциональным, как основной чат"),
+  // same replyTarget this window's own message-row actionsMenu sets.
   function handleReplyFromViewer(messageId: number) {
+    const msg = messagesById.get(String(messageId));
+    if (!msg) return;
     setViewerIndex(null);
+    setEditingMessage(null);
+    setReplyTarget(msg);
     window.requestAnimationFrame(() => textareaRef.current?.focus());
   }
 
@@ -1027,6 +1084,12 @@ export function MiniChatWindow({
       if (attachment?.previewUrl) URL.revokeObjectURL(attachment.previewUrl);
       setAttachment(null);
     }
+    // Reply feature (2026-09-08) -- same "only a real, hands-on send
+    // clears the staged reply" rule app/chats/[chatId]/page.tsx's own
+    // send() follows; captured before clearing so a concurrent second
+    // reply-start can't race this in-flight request.
+    const replyToSend = replyTarget;
+    setReplyTarget(null);
     try {
       const res = await authFetch("/api/chats/send", {
         method: "POST",
@@ -1044,6 +1107,7 @@ export function MiniChatWindow({
                   lastName: c.lastName,
                 }))
               : undefined,
+          replyTo: replyToSend && replyToSend.fromId ? { messageId: replyToSend._id, userId: replyToSend.fromId } : undefined,
         }),
       });
       const data = await res.json().catch(() => null);
@@ -1072,6 +1136,8 @@ export function MiniChatWindow({
   async function sendMediaDocument(doc: MediaDocument) {
     if (sending) return;
     setSending(true);
+    const replyToSend = replyTarget;
+    setReplyTarget(null);
     try {
       const res = await authFetch("/api/chats/send", {
         method: "POST",
@@ -1079,6 +1145,7 @@ export function MiniChatWindow({
         body: JSON.stringify({
           chatId: target.routeParam,
           media: [{ fileReference: doc.fileReference }],
+          replyTo: replyToSend && replyToSend.fromId ? { messageId: replyToSend._id, userId: replyToSend.fromId } : undefined,
         }),
       });
       const data = await res.json().catch(() => null);
@@ -1153,12 +1220,14 @@ export function MiniChatWindow({
       // own header for why fileReference (which rotates on every poll)
       // would be a guaranteed miss here instead.
       rememberLocalVoiceWaveform(mediaId, stored.waveform);
+      const replyToSend = voiceReplyRef.current.get(localId) ?? null;
       const res = await authFetch("/api/chats/send", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           chatId: target.routeParam,
           media: [{ fileReference }],
+          replyTo: replyToSend && replyToSend.fromId ? { messageId: replyToSend._id, userId: replyToSend.fromId } : undefined,
         }),
       });
       const data = await res.json().catch(() => null);
@@ -1173,6 +1242,7 @@ export function MiniChatWindow({
       // failed sticker/GIF send already does.
     } finally {
       voiceBlobsRef.current.delete(localId);
+      voiceReplyRef.current.delete(localId);
       setSending(false);
     }
   }
@@ -1182,6 +1252,12 @@ export function MiniChatWindow({
   // header) -- the Blob is stashed and upload starts immediately.
   function handleVoiceFinish(result: VoiceRecordingResult) {
     const localId = `voice-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    // Reply feature (2026-09-08): captured now, same as every other
+    // send path in this file, so a staged reply survives into the
+    // voice note it applies to rather than whatever's staged by the
+    // time the upload finishes.
+    voiceReplyRef.current.set(localId, replyTarget);
+    setReplyTarget(null);
     voiceBlobsRef.current.set(localId, {
       blob: result.blob,
       mimeType: result.mimeType,
@@ -1606,6 +1682,29 @@ export function MiniChatWindow({
                       }`
                 }
               >
+                {(() => {
+                  // Fix Tracker (2026-09-08, real reply threading) --
+                  // same non-pending-only lookup app/chats/[chatId]/
+                  // page.tsx's own render does (this window has no
+                  // optimistic pending-message concept, see
+                  // sendMediaDocument's own header, so there is no
+                  // pending.replySnapshot branch to mirror here).
+                  const quote = msg.replyTo ? resolveReplyPreview(messagesById.get(msg.replyTo.message) ?? null) : null;
+                  if (!quote) return null;
+                  return (
+                    <MessageReplyQuote
+                      authorLabel={quote.authorLabel}
+                      previewText={quote.node}
+                      thumbnail={quote.thumbnail}
+                      mine={mine}
+                      onClick={
+                        msg.replyTo && messagesById.has(msg.replyTo.message)
+                          ? () => handleShowInChatFromViewer(Number(msg.replyTo!.message))
+                          : undefined
+                      }
+                    />
+                  );
+                })()}
                 {docMedia.length > 0 && (
                   <div className={`flex flex-col gap-1.5 ${text ? "mb-1" : ""}`}>
                     {docMedia.map((doc: MessageMediaDocument) =>
@@ -2136,6 +2235,29 @@ export function MiniChatWindow({
             </div>
           </div>
         )}
+        {replyTarget &&
+          !editingMessage &&
+          (() => {
+            const quote = resolveReplyPreview(replyTarget);
+            if (!quote) return null;
+            return (
+              // Fix Tracker (2026-09-08, Aleksandr: "сделай мини-чат
+              // таким же функциональным, как основной чат" -- real
+              // reply threading) -- same shared ReplyComposeBar
+              // app/chats/[chatId]/page.tsx's own floating (non-inline)
+              // reply card uses; this window skips that page's newer
+              // WhatsApp-style "grows the textarea pill" variant for
+              // now (a bigger compose-row restructure) and reuses the
+              // simpler floating-card placement, same slot
+              // EditComposeBar already occupies right below.
+              <ReplyComposeBar
+                authorLabel={quote.authorLabel}
+                previewText={quote.node}
+                thumbnail={quote.thumbnail}
+                onRemove={() => setReplyTarget(null)}
+              />
+            );
+          })()}
         {editingMessage && (
           // Fix Tracker (2026-09-07, order 114: "UI редактирования
           // должен быть взят из основных чатов 1в1, имею ввиду
@@ -2481,6 +2603,7 @@ export function MiniChatWindow({
           onClose={() => setActionsMenu(null)}
           onReply={() => {
             setEditingMessage(null);
+            setReplyTarget(actionsMenu.message);
             window.requestAnimationFrame(() => textareaRef.current?.focus());
           }}
           onReact={(emoticon) => void handleToggleReaction(actionsMenu.message, emoticon)}
@@ -2495,6 +2618,7 @@ export function MiniChatWindow({
             extractMessageText(actionsMenu.message)
               ? () => {
                   setEditingMessage(actionsMenu.message);
+                  setReplyTarget(null);
                   setDraft(extractMessageText(actionsMenu.message));
                   setEditFailed(false);
                   window.requestAnimationFrame(() => textareaRef.current?.focus());
