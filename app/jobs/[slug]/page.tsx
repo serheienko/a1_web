@@ -23,6 +23,7 @@ import { PostViewerMenu } from "@/components/post-viewer-menu";
 import { profileHref } from "@/lib/profile-href";
 import { TagLabel } from "@/components/tag-label";
 import { LocationMap } from "@/components/location-map";
+import { GetAppBanner } from "@/components/get-app-banner";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -110,6 +111,8 @@ export default async function JobDetailPage({ params }: Props) {
         // eslint-disable-next-line react/no-danger
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       )}
+
+      <GetAppBanner href={`https://a1appp.com/postDetails/${post.id}`} />
 
       {expired && (
         <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">

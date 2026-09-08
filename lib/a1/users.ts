@@ -55,3 +55,34 @@ export const fetchUserByUsername = cache(async function fetchUserByUsername(
   if (!profile) return null;
   return mapUserProfile(profile);
 });
+
+/**
+ * Fetch just the username for a raw user id, via users.getUsers (the same
+ * batched-by-id endpoint app/api/users/summaries/route.ts and
+ * app/api/chats/list/route.ts already use — see those for the confirmed
+ * `{ids: UserId[]} -> (Resource.User | Resource.UserEmpty)[]` shape).
+ *
+ * Added 2026-09-08 for app/resolve/route.ts: the `/userProfile/<id>`
+ * Universal Link the mobile app shares carries a raw user id, but the web
+ * profile page is keyed by username (app/u/[username], via
+ * lib/profile-href.ts's profileHref()) — this bridges the two without
+ * needing a signed-in visitor session (unlike callAsVisitor-based routes),
+ * matching fetchPostById's service-account `call()` pattern below.
+ *
+ * Returns null for: not found, a hidden/deleted account (UserEmpty /
+ * user-hidden), or a real account with no username set — same "treat as
+ * gone" contract fetchPostById uses, so the caller can fall back cleanly.
+ */
+export const fetchUsernameById = cache(async function fetchUsernameById(id: string): Promise<string | null> {
+  let raw: unknown;
+  try {
+    raw = await call<unknown>("users.getUsers", { ids: [id] });
+  } catch (err) {
+    if (err instanceof A1ApiError) return null;
+    throw err;
+  }
+  const list = Array.isArray(raw) ? raw : [];
+  const profile = parseUserProfile(list[0]);
+  if (!profile || profile.object !== "user") return null;
+  return profile.username || null;
+});
