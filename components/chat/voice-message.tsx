@@ -313,7 +313,27 @@ function vt(key: StringKey, lang: Locale): string {
 
 type Recorder = ReturnType<typeof useVoiceRecorder>;
 
-export function VoiceRecordButton({ recorder, disabled, lang }: { recorder: Recorder; disabled?: boolean; lang: Locale }) {
+export function VoiceRecordButton({
+  recorder,
+  disabled,
+  lang,
+  compact,
+}: {
+  recorder: Recorder;
+  disabled?: boolean;
+  lang: Locale;
+  // Fix Tracker (2026-09-08, Aleksandr, live screenshot: "Размер кнопки
+  // микрофона должен быть такой же по высоте как инпут филд") -- this
+  // shared button is sized 44px to match app/chats/[chatId]/page.tsx's
+  // own min-h-[44px] compose row (see that file's own VoiceRecordButton
+  // usage), but mini-chat-window.tsx's compose pill is only 36px
+  // (min-h-[36px], same literal-px fix order 115/118 already applied
+  // to the Send button next to it) -- so the same 44px button read as
+  // oversized there. `compact` opts into a 36px version instead of
+  // changing the shared default and risking the main chat page's own
+  // already-correct 44px sizing.
+  compact?: boolean;
+}) {
   const buttonRef = useRef<HTMLButtonElement>(null);
   function centerOf(el: HTMLElement): VoiceRecorderPointer {
     const rect = el.getBoundingClientRect();
@@ -326,7 +346,9 @@ export function VoiceRecordButton({ recorder, disabled, lang }: { recorder: Reco
         type="button"
         onClick={() => recorder.stopAndSend()}
         aria-label="Send voice message"
-        className="group relative flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full bg-[#335ef7] text-white transition hover:brightness-110 active:scale-95 dark:bg-[#0c8ce9]"
+        className={`group relative flex shrink-0 items-center justify-center rounded-full bg-[#335ef7] text-white transition hover:brightness-110 active:scale-95 dark:bg-[#0c8ce9] ${
+          compact ? "h-[36px] w-[36px]" : "h-[44px] w-[44px]"
+        }`}
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M12 19V5M5 12l7-7 7 7" />
@@ -338,7 +360,7 @@ export function VoiceRecordButton({ recorder, disabled, lang }: { recorder: Reco
   const isActive = recorder.state === "recording" || recorder.state === "requesting";
 
   return (
-    <div className="relative w-[44px] shrink-0">
+    <div className={`relative shrink-0 ${compact ? "w-[36px]" : "w-[44px]"}`}>
       {/* 2026-09-04 (Aleksandr, live screenshot: a mouse press on this
           button still showed the old drag-up-to-lock badge + "release
           outside the circle to cancel" hint -- "Убираем свайпы,
@@ -388,7 +410,9 @@ export function VoiceRecordButton({ recorder, disabled, lang }: { recorder: Reco
         // onContextMenu guard above and the new tap-to-auto-lock gesture
         // itself (shorter hold before any release matters), not a
         // replacement for it.
-        className={`group relative flex h-[44px] w-[44px] shrink-0 touch-none select-none items-center justify-center rounded-full border transition disabled:opacity-40 [-webkit-touch-callout:none] ${
+        className={`group relative flex shrink-0 touch-none select-none items-center justify-center rounded-full border transition disabled:opacity-40 [-webkit-touch-callout:none] ${
+          compact ? "h-[36px] w-[36px]" : "h-[44px] w-[44px]"
+        } ${
           isActive
             ? "border-transparent bg-[#ff3b30] text-white"
             : "border-neutral-200 bg-white/90 text-neutral-400 backdrop-blur-sm hover:border-neutral-300 hover:text-neutral-600 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80 dark:text-[#adafbb] dark:hover:border-[#3a3a3a] dark:hover:text-white"
@@ -396,7 +420,7 @@ export function VoiceRecordButton({ recorder, disabled, lang }: { recorder: Reco
       >
         {isActive && (
           <div className="absolute inset-0 -m-1 flex items-center justify-center">
-            <VoiceBlobCanvas amplitudeRef={recorder.amplitudeRef} size={56} />
+            <VoiceBlobCanvas amplitudeRef={recorder.amplitudeRef} size={compact ? 46 : 56} />
           </div>
         )}
         {/* 2026-09-03 (Aleksandr, second live test round: "ты поломал
@@ -412,7 +436,7 @@ export function VoiceRecordButton({ recorder, disabled, lang }: { recorder: Reco
             same `.group:hover .animate-mic-pulse` continuous-bounce
             convention (app/globals.css) as that original button had --
             `group` above is what makes the hover trigger reach it. */}
-        <ChatMicGlyph className="relative h-[30px] w-[30px] animate-mic-pulse" />
+        <ChatMicGlyph className={`relative animate-mic-pulse ${compact ? "h-[24px] w-[24px]" : "h-[30px] w-[30px]"}`} />
       </button>
     </div>
   );
@@ -432,7 +456,18 @@ export function VoiceRecordButton({ recorder, disabled, lang }: { recorder: Reco
 // "text stays visible above a growing card" combine mechanic.
 // ---------------------------------------------------------------------------
 
-export function VoiceRecordingBar({ recorder, lang }: { recorder: Recorder; lang: Locale }) {
+export function VoiceRecordingBar({
+  recorder,
+  lang,
+  compact,
+}: {
+  recorder: Recorder;
+  lang: Locale;
+  // Same mini-chat-vs-main-chat height mismatch VoiceRecordButton's own
+  // `compact` prop above fixes -- this bar sits in the same compose
+  // row, so it needs to shrink from 44px to 36px together with it.
+  compact?: boolean;
+}) {
   const timer = formatVoiceTimer(recorder.seconds);
   const nearMax = recorder.seconds >= VOICE_MAX_SECONDS - 10;
 
@@ -445,7 +480,11 @@ export function VoiceRecordingBar({ recorder, lang }: { recorder: Recorder; lang
   // show first. Originally this was touch's own "максимально просто"
   // bar (2026-09-03); now every pointer type lands here straight away.
   return (
-      <div className="flex h-[44px] flex-1 items-center gap-3 rounded-[22px] border border-neutral-200 bg-white/90 px-3.5 py-2 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80">
+      <div
+        className={`flex flex-1 items-center gap-3 border border-neutral-200 bg-white/90 px-3.5 py-2 backdrop-blur-sm dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80 ${
+          compact ? "h-[36px] rounded-[18px]" : "h-[44px] rounded-[22px]"
+        }`}
+      >
         {/* 2026-09-04 (Aleksandr, live test: "убери кнопку паузы, она не
             нужна, оставь просто моргающий индикатор, так же как при
             шорт тапе") -- desktop's manual drag-to-lock path used to
@@ -457,7 +496,7 @@ export function VoiceRecordingBar({ recorder, lang }: { recorder: Recorder; lang
             nothing else in this UI exposes a toggle for them and
             removing the hook logic itself is a separate, unrequested
             change. */}
-        <span className="relative flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden="true">
+        <span className={`relative flex shrink-0 items-center justify-center ${compact ? "h-6 w-6" : "h-8 w-8"}`} aria-hidden="true">
           <span className="relative flex h-2.5 w-2.5">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#ff3b30] opacity-75" />
             <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#ff3b30]" />
