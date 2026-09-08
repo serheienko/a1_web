@@ -72,6 +72,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { AvatarMenu } from "@/components/avatar-menu";
+import { AppOpenBanner } from "@/components/app-open-banner";
 import { T } from "@/components/t";
 import { GLASS } from "@/lib/glass";
 
@@ -171,6 +172,7 @@ export function SiteNav() {
       }sticky top-0 z-40 isolate bg-app/80 pt-[env(safe-area-inset-top)] backdrop-blur-xl [will-change:transform] dark:bg-black/80`}
       style={{ transform: "translateZ(0)" }}
     >
+      <AppOpenBanner />
       <div className="relative flex items-center gap-4 px-4 py-3">
         <div className="flex min-w-0 flex-1 items-center gap-4">
           <Link href="/" className="shrink-0 transition-opacity hover:opacity-80">
