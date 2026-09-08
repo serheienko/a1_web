@@ -5373,7 +5373,22 @@ export default function ChatWindowPage() {
                               // own footer.
                               <div key={doc._id} className="relative min-w-[200px] overflow-hidden rounded-xl">
                                 <video
-                                  src={buildMediaProxyUrl(doc)}
+                                  // Fix Tracker (2026-09-08, Aleksandr: "гифки моргают в
+                                  // чатах") -- same class of bug already fixed for photos
+                                  // (stable-media-url.ts's own header) and for stickers
+                                  // (see the "Стикер кота моргает в чате" fix a few
+                                  // hundred lines below): buildMediaProxyUrl(doc) embeds
+                                  // doc.fileReference, which the backend rotates on every
+                                  // poll, so a plain <video src={buildMediaProxyUrl(doc)}>
+                                  // got handed a brand-new src string on every message-list
+                                  // refetch -- confirmed live via read_network_requests:
+                                  // dozens of repeated /api/media/<id>?ref=...&size=size-video
+                                  // requests for the very same doc within seconds. A changed
+                                  // `src` always restarts a <video> from zero, which is the
+                                  // visible "blink" -- getStableMediaProxyUrl memoizes the
+                                  // URL per doc._id so the same GIF keeps its original src
+                                  // (and thus its already-playing decode) across every poll.
+                                  src={getStableMediaProxyUrl(doc)}
                                   autoPlay
                                   muted
                                   loop
