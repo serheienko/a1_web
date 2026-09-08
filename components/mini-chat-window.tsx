@@ -1508,7 +1508,7 @@ export function MiniChatWindow({
                         // 7112a63 just fixed there: a stable src stops the
                         // backend's per-poll fileReference rotation from
                         // restarting the video and causing it to blink.
-                        <div key={doc._id} className="relative">
+                        <div key={doc._id} className="flex flex-col items-end gap-1">
                           <video
                             src={getStableMediaProxyUrl(doc)}
                             autoPlay
@@ -1517,7 +1517,23 @@ export function MiniChatWindow({
                             playsInline
                             className="max-h-48 w-full rounded-xl bg-black object-cover"
                           />
-                          {isFileOnly && flatFooter}
+                          {/* Fix Tracker (2026-09-08, Aleksandr, screenshot:
+                              "Время в гифках надо тоже опустить чуть ниже")
+                              -- flatFooter overlays the time+ticks pill
+                              absolutely INSIDE the media's own bottom-right
+                              corner, which for a GIF sat right at (and
+                              visually crowded) the frame's bottom edge. A
+                              plain non-absolute row under the video --
+                              same pill look, no positioning classes --
+                              puts it below the frame instead, with real
+                              clearance, matching the "opustit nizhe" ask.
+                              Same fix shape as the sticker branch below. */}
+                          {isFileOnly && (dateMs > 0 || mine) && (
+                            <span className="flex items-center gap-1 rounded-full bg-black/45 px-2 py-0.5 text-[11px] text-white">
+                              {dateMs > 0 && <span>{formatTime(dateMs)}</span>}
+                              {mine && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7px] w-3" />}
+                            </span>
+                          )}
                         </div>
                       ) : isStickerMediaDocument(doc) ? (
                         // Same "Документ" fallback bug as the video case
@@ -1526,7 +1542,7 @@ export function MiniChatWindow({
                         // same component and props app/chats/[chatId]/
                         // page.tsx's own sticker branch uses) instead of
                         // falling through to the generic file card.
-                        <div key={doc._id} className="relative inline-block">
+                        <div key={doc._id} className="flex flex-col items-end gap-1">
                         <TgsSticker
                           src={getStableMediaProxyUrl(doc)}
                           size={112}
@@ -1554,7 +1570,24 @@ export function MiniChatWindow({
                             </div>
                           }
                         />
-                        {isFileOnly && flatFooter}
+                        {/* Fix Tracker (2026-09-08, Aleksandr, screenshot:
+                            "время не должно перекрывать котов, надо
+                            опускать время чуть ниже так же как и в
+                            основных чатах") -- flatFooter's absolute
+                            bottom-right overlay sat directly on top of
+                            the sticker's own artwork (a sticker's
+                            transparent canvas often has the character
+                            drawn right into that corner, unlike a
+                            rectangular photo/video). Plain non-absolute
+                            row below the sticker instead -- same pill,
+                            no overlap, ever, regardless of a given
+                            sticker's own drawn bounds. */}
+                        {isFileOnly && (dateMs > 0 || mine) && (
+                          <span className="flex items-center gap-1 rounded-full bg-black/45 px-2 py-0.5 text-[11px] text-white">
+                            {dateMs > 0 && <span>{formatTime(dateMs)}</span>}
+                            {mine && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7px] w-3" />}
+                          </span>
+                        )}
                         </div>
                       ) : (
                         <a
