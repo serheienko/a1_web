@@ -370,7 +370,7 @@ export function MediaPickerPanel({
     // z-[80] matches message-actions-menu.tsx's own already-established
     // convention for exactly this "must beat the mini-chat window's
     // z-[70]" case (see that file's own comment on its two z-[80]s).
-    <div className="fixed inset-0 z-[80]">
+    <div className="fixed inset-0 z-[80]" data-media-picker-panel>
       {/* No dim/blur backdrop -- same "Cupertino menu, no scrim" style
           message-actions-menu.tsx/forward-preview-menu.tsx already use
           for their own popups. Doubles as the outside-click-to-close

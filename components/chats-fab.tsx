@@ -230,7 +230,19 @@ export function ChatsFab() {
       // carries `data-chat-action-menu` precisely so it can be
       // recognized here too.
       const insideActionMenu = node instanceof Element ? node.closest("[data-chat-action-menu]") : null;
-      if (insideTrigger || insideFlyout || insideMiniChat || insideActionMenu) return;
+      // Fix Tracker (2026-09-08, order 119 follow-up): same order-106
+      // bug, new portal. MediaPickerPanel (stickers/GIF/emoji, wired
+      // into the mini-chat's cat icon by order 119) also portals
+      // straight to document.body -- so picking a sticker/GIF, or
+      // even scrolling its pack list, was "outside" by this check and
+      // this effect's OWN mousedown fired handleCloseAll() before the
+      // panel's own onClick ever got a chance to run: confirmed live,
+      // clicking a sticker closed the whole mini-chat with no
+      // /api/chats/send request ever made. Same fix as the action-menu
+      // case -- its portal root carries `data-media-picker-panel` for
+      // exactly this exemption.
+      const insideMediaPicker = node instanceof Element ? node.closest("[data-media-picker-panel]") : null;
+      if (insideTrigger || insideFlyout || insideMiniChat || insideActionMenu || insideMediaPicker) return;
       handleCloseAll();
     }
     document.addEventListener("mousedown", handlePointerDown);
