@@ -65,11 +65,26 @@
 // (both shipped and live-tested earlier the same day). Every other
 // page (home, /talents, a profile, chats, ...) has no single piece of
 // content to deep-link to, so it falls back to the real App Store
-// listing on iOS (confirmed live, id6443859764). No Play Store link
-// exists anywhere in either repo yet (grepped both, and the "Для
+// listing (confirmed live, id6443859764).
+//
+// Platform gate (2026-09-08, Aleksandr, on being asked about Android/
+// desktop: "в зависимости от девайса показываем... на андроидных
+// девайсах нам надо их тречить и показывать ссылку на ГП... на
+// десктопе — скрываем"): iOS only for now, detected once from
+// navigator.userAgent on mount -- same device-not-browser signal any
+// "smart banner" implementation reads (Safari vs. Chrome-on-iPhone
+// doesn't matter, the OS does). Android is a real, separate future
+// branch, not a permanent skip -- there is simply no Google Play URL
+// to link to anywhere in either repo yet (grepped both, and the "Для
 // Android" button on a1appp.com's own homepage isn't wired to one
-// either) — Android/desktop visitors fall back to a1appp.com itself
-// until Aleksandr has a real one to swap in here.
+// either): the app is still in Play Store review. Wire ANDROID_STORE_URL
+// below the moment Aleksandr has one and this becomes a real 3-way
+// (iOS/Android/hidden) instead of a 2-way (iOS/hidden). Desktop stays
+// hidden on purpose, not as a stand-in for a missing link -- standard
+// practice (per that same conversation) is either no install nag on
+// desktop web at all, or a QR code; a QR code is a deliberate follow-up
+// if Aleksandr wants the more conversion-minded version later, not an
+// oversight here.
 "use client";
 
 import { useEffect, useState } from "react";
@@ -79,24 +94,40 @@ import { parseSlugId } from "@/lib/seo/slug";
 
 const APP_STORE_URL =
   "https://apps.apple.com/us/app/a1-job-search-jobs-hiring/id6443859764";
-// No confirmed Play Store URL yet — see header comment. Swap this the
-// moment Aleksandr hands one over; every Android/desktop visitor lands
-// here in the meantime, which at least has its own download section.
-const FALLBACK_URL = "https://a1appp.com/";
+// Still in Play Store review as of 2026-09-08 -- no real URL to put
+// here yet. Once it exists, give Android the same treatment iOS
+// already gets below instead of leaving it hidden.
+const ANDROID_STORE_URL: string | null = null;
 
 const DISMISS_KEY = "a1_app_banner_dismissed";
 const COLLAPSE_MS = 280;
 
-function resolveHref(pathname: string | null): string {
+type Platform = "ios" | "android" | "other";
+
+function detectPlatform(): Platform {
+  if (typeof navigator === "undefined") return "other";
+  const ua = navigator.userAgent;
+  if (/iphone|ipad|ipod/i.test(ua)) return "ios";
+  if (/android/i.test(ua)) return "android";
+  return "other";
+}
+
+function resolveHref(pathname: string | null, platform: Platform): string | null {
+  // Desktop: hidden everywhere, on purpose, regardless of page -- see
+  // header comment. Android: hidden until ANDROID_STORE_URL is real,
+  // same reasoning, checked before the job-page branch below so a job
+  // page can't accidentally show a deep link on a platform this
+  // banner otherwise hides on entirely.
+  if (platform === "other") return null;
+  if (platform === "android" && !ANDROID_STORE_URL) return null;
+
   if (pathname?.startsWith("/jobs/")) {
     const slug = pathname.slice("/jobs/".length);
     const id = parseSlugId(slug);
     if (id) return `https://a1appp.com/postDetails/${id}`;
   }
-  if (typeof navigator !== "undefined" && /iphone|ipad|ipod/i.test(navigator.userAgent)) {
-    return APP_STORE_URL;
-  }
-  return FALLBACK_URL;
+  if (platform === "ios") return APP_STORE_URL;
+  return ANDROID_STORE_URL;
 }
 
 function CloseGlyph({ className }: { className?: string }) {
@@ -118,21 +149,24 @@ function CloseGlyph({ className }: { className?: string }) {
 export function AppOpenBanner() {
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
+  const [platform, setPlatform] = useState<Platform>("other");
   const [closing, setClosing] = useState(false);
   const [removed, setRemoved] = useState(false);
 
-  // Reads localStorage only after mount (never on the server) so this
-  // never causes a hydration mismatch — same tradeoff app/layout.tsx's
-  // own THEME_INIT_SCRIPT comment already documents for anti-flash
-  // client-only state, just without that script's beforeInteractive
-  // trick: a one-frame flash on a *returning, already-dismissed*
-  // visitor is a fair trade against a second server-vs-client theme
+  // Reads localStorage and the platform only after mount (never on the
+  // server) so neither ever causes a hydration mismatch — same
+  // tradeoff app/layout.tsx's own THEME_INIT_SCRIPT comment already
+  // documents for anti-flash client-only state, just without that
+  // script's beforeInteractive trick: a one-frame flash on a
+  // *returning, already-dismissed* visitor (or one on a platform this
+  // banner hides on) is a fair trade against a second server-vs-client
   // script just for this. Jumps straight past the collapse animation
-  // for that visitor (closing=true with no transition class applied
-  // yet) rather than playing it on a page load, which is reserved for
-  // an actual, in-session close click below.
+  // for an already-dismissed visitor (closing=true with no transition
+  // class applied yet) rather than playing it on a page load, which is
+  // reserved for an actual, in-session close click below.
   useEffect(() => {
     setMounted(true);
+    setPlatform(detectPlatform());
     try {
       if (localStorage.getItem(DISMISS_KEY) === "1") {
         setClosing(true);
@@ -147,9 +181,9 @@ export function AppOpenBanner() {
     return () => clearTimeout(timer);
   }, [closing, removed]);
 
-  if (!mounted || removed) return null;
+  const href = resolveHref(pathname, platform);
 
-  const href = resolveHref(pathname);
+  if (!mounted || removed || !href) return null;
 
   function handleClose() {
     try {
