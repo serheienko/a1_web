@@ -59,7 +59,7 @@ import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { profileHref } from "@/lib/profile-href";
 import { formatBytes } from "@/lib/format";
 import { useHoverPanel } from "@/lib/use-hover-panel";
-import { buildMediaProxyUrl, buildMediaDownloadUrl } from "@/lib/a1/media-proxy";
+import { buildMediaProxyUrl, buildMediaDownloadUrl, decodeStickerPathPreview, strippedPreviewDataUrl } from "@/lib/a1/media-proxy";
 import { getStableMediaProxyUrl } from "@/lib/a1/stable-media-url";
 import {
   extractMessages,
@@ -70,6 +70,8 @@ import {
   messageContactMedia,
   messageCalculation,
   isImageMediaDocument,
+  isVideoMediaDocument,
+  isStickerMediaDocument,
   mediaDocumentFileName,
   mediaDocumentThumbnail,
   mediaDocumentBytes,
@@ -104,6 +106,7 @@ import { MessageActionsMenu, DeleteMessageConfirmDialog, ReactionsBar, EditCompo
 import { RemindModal } from "@/components/chat/remind-modal";
 import { ForwardPickerModal, type ForwardRowStatus } from "@/components/chat/forward-picker-modal";
 import { MediaPickerPanel } from "@/components/chat/media-picker-panel";
+import { TgsSticker } from "@/components/chat/tgs-sticker";
 import type { MediaDocument } from "@/lib/a1/schemas";
 import { CopyToast, type CopyToastState } from "@/components/chat/copy-toast";
 import { ChatCalculationCard } from "@/components/chat/calculation-card";
@@ -1488,6 +1491,70 @@ export function MiniChatWindow({
                             onClick={() => openViewerForDoc(msg._id, doc._id)}
                           />
                           {isPhotoOnly && flatFooter}
+                        </div>
+                      ) : isVideoMediaDocument(doc) ? (
+                        // Fix Tracker (2026-09-08, Aleksandr: "в миничате
+                        // стикеры/GIF показываются как карточка
+                        // 'Документ'") -- this map() had no branch at all
+                        // for a video/GIF MessageMediaDocument, so it fell
+                        // through to the generic file-link case below and
+                        // rendered as a plain "Документ" card instead of
+                        // playing the GIF. Same GIF-as-looping-video
+                        // treatment as app/chats/[chatId]/page.tsx's own
+                        // isVideoMediaDocument branch (every video message
+                        // here is a GIF in practice, per that branch's own
+                        // comment) -- getStableMediaProxyUrl, not
+                        // buildMediaProxyUrl, for the same reason commit
+                        // 7112a63 just fixed there: a stable src stops the
+                        // backend's per-poll fileReference rotation from
+                        // restarting the video and causing it to blink.
+                        <div key={doc._id} className="relative">
+                          <video
+                            src={getStableMediaProxyUrl(doc)}
+                            autoPlay
+                            muted
+                            loop
+                            playsInline
+                            className="max-h-48 w-full rounded-xl bg-black object-cover"
+                          />
+                          {isFileOnly && flatFooter}
+                        </div>
+                      ) : isStickerMediaDocument(doc) ? (
+                        // Same "Документ" fallback bug as the video case
+                        // just above, same fix shape: render the actual
+                        // sticker (gunzip+Lottie decode via TgsSticker,
+                        // same component and props app/chats/[chatId]/
+                        // page.tsx's own sticker branch uses) instead of
+                        // falling through to the generic file card.
+                        <div key={doc._id} className="relative inline-block">
+                        <TgsSticker
+                          src={getStableMediaProxyUrl(doc)}
+                          size={112}
+                          previewUrl={strippedPreviewDataUrl(doc)}
+                          pathPreview={decodeStickerPathPreview(doc)}
+                          fallback={
+                            <div
+                              className={`flex items-center gap-2.5 rounded-xl px-2.5 py-2 ${
+                                mine ? "bg-white/15" : "bg-black/5 dark:bg-white/10"
+                              }`}
+                            >
+                              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-[#8b5cf6]">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                  <circle cx="12" cy="12" r="8.5" />
+                                  <path d="M9 10.2h.01M15 10.2h.01" />
+                                  <path d="M8.7 14.2c1.9 1.6 4.7 1.6 6.6 0" />
+                                </svg>
+                              </span>
+                              <span className="truncate text-[14px] font-medium">
+                                <T
+                                  uk="Стікер" en="Sticker" ru="Стикер" de="Sticker" es="Sticker"
+                                  fr="Sticker" pl="Naklejka" ptBR="Figurinha" zh="贴纸"
+                                />
+                              </span>
+                            </div>
+                          }
+                        />
+                        {isFileOnly && flatFooter}
                         </div>
                       ) : (
                         <a
