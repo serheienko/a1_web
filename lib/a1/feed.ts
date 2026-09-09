@@ -22,6 +22,29 @@ const KIND_TO_OBJECT: Record<WebPostKind, string> = {
   seeking: "post-job-seeking",
 };
 
+// Aleksandr, 09.09.2026: "выдачу надо показывать вчера, позавчера и тд
+// -- от самой свежей вначале до самой поздней" -- posts.search itself
+// paginates in the backend's own order (roughly: when the post was
+// created on A1), which for imported DOU vacancies is "whenever we ran
+// the parser/backfill", not the vacancy's real DOU publish date
+// (sourcePublishedAt, see lib/a1/mappers.ts). This re-sorts every page
+// this module hands back so the freshest DOU date (or, for a native A1
+// post with no sourcePublishedAt, its own publishedAt) shows first.
+// LIMITATION: this only sorts WITHIN one fetched page/scan window (the
+// 30 posts.search returns per request, or up to 500 for the client-side
+// q-search scan below) -- it can't retroactively reorder posts already
+// rendered on an earlier "load more" page, because the backend doesn't
+// offer a sourcePublished-ordered cursor to paginate by. Good enough in
+// practice while the live feed is a few hundred posts; would need real
+// backend sort support to be exact at larger scale.
+function sortByFreshness<T extends { publishedAt: Date; sourcePublishedAt: Date | null }>(posts: T[]): T[] {
+  return [...posts].sort((a, b) => {
+    const aTime = (a.sourcePublishedAt ?? a.publishedAt).getTime();
+    const bTime = (b.sourcePublishedAt ?? b.publishedAt).getTime();
+    return bTime - aTime;
+  });
+}
+
 export type FeedPage = {
   posts: WebPost[];
   next: string | null;
@@ -161,7 +184,7 @@ export async function fetchFeedPage(
     const offset = cursor?.startsWith(CLIENT_SEARCH_CURSOR_PREFIX)
       ? Number(cursor.slice(CLIENT_SEARCH_CURSOR_PREFIX.length)) || 0
       : 0;
-    const allMatches = await scanFeedForQuery(kind, filters);
+    const allMatches = sortByFreshness(await scanFeedForQuery(kind, filters));
     const nextOffset = offset + FEED_PAGE_SIZE;
     const hasMore = nextOffset < allMatches.length;
     return {
@@ -188,7 +211,7 @@ export async function fetchFeedPage(
   const parsed = PostsSearchOutputSchema.parse(raw);
 
   return {
-    posts: mapPosts(parsed.items),
+    posts: sortByFreshness(mapPosts(parsed.items)),
     next: parsed.pagination.next,
     hasMore: parsed.pagination.hasMore,
   };
