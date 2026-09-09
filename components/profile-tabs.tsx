@@ -177,6 +177,11 @@ export function ProfileTabs({
             post: {
               ...card.post,
               publishedAt: new Date(card.post.publishedAt),
+              // Same JSON-round-trip revival as publishedAt/updatedAt
+              // above (2026-09-09: sourcePublishedAt added alongside
+              // them to WebPost, same "Date over the wire is a string"
+              // trap this comment block already explains).
+              sourcePublishedAt: card.post.sourcePublishedAt ? new Date(card.post.sourcePublishedAt) : null,
               updatedAt: card.post.updatedAt ? new Date(card.post.updatedAt) : null,
             },
           }));

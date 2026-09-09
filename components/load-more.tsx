@@ -35,8 +35,9 @@ import { authFetch } from "@/lib/auth-fetch";
 // avatarBlurDataUrl rides along as an extra field (see app/api/feed/
 // route.ts) rather than living on WebPost itself — it's a render-layer
 // artifact (lib/avatar-blur.ts), not real post data.
-type RawFeedPost = Omit<WebPost, "publishedAt" | "updatedAt"> & {
+type RawFeedPost = Omit<WebPost, "publishedAt" | "sourcePublishedAt" | "updatedAt"> & {
   publishedAt: string;
+  sourcePublishedAt: string | null;
   updatedAt: string | null;
   avatarBlurDataUrl: string | null;
 };
@@ -45,6 +46,7 @@ function reviveDates(post: RawFeedPost): WebPost & { avatarBlurDataUrl: string |
   return {
     ...post,
     publishedAt: new Date(post.publishedAt),
+    sourcePublishedAt: post.sourcePublishedAt ? new Date(post.sourcePublishedAt) : null,
     updatedAt: post.updatedAt ? new Date(post.updatedAt) : null,
   };
 }

@@ -63,6 +63,12 @@ export type WebPost = {
   contentText: string;
   contentHtml: string;
   publishedAt: Date;
+  // Original publish date at the source (e.g. DOU) for imported posts;
+  // null for posts created directly on A1. Display-only — use
+  // `sourcePublishedAt ?? publishedAt` where the visible "posted X ago"
+  // label should reflect real vacancy freshness (2026-09-09,
+  // Aleksandr: показывать дату публикации на DOU, а не на A1).
+  sourcePublishedAt: Date | null;
   updatedAt: Date | null;
   author: WebPostAuthor;
   location: WebPostLocation | null;

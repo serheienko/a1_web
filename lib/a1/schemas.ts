@@ -182,6 +182,12 @@ const BasePostFields = {
   created: z.number(),
   updated: z.number().nullable().catch(null),
   published: z.number().nullable().catch(null),
+  // 2026-09-09: original publish date at the source (e.g. DOU), when this
+  // post was imported from an external source — distinct from `published`
+  // (when it went live on A1 itself). Display-only on our side too (see
+  // lib/a1/mappers.ts's sourcePublishedAt): used to show real vacancy
+  // freshness instead of "posted on A1" time for imported posts.
+  sourcePublished: z.number().nullable().catch(null),
   scheduled: z.number().nullable().catch(null),
   author: AuthorSchema,
   categories: z.array(z.number()).catch([]),

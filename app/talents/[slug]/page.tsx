@@ -171,7 +171,8 @@ export default async function TalentDetailPage({ params }: Props) {
             )}
             <span aria-hidden="true">·</span>
             <span>
-              <RelativeTime date={post.publishedAt} />
+              {/* 2026-09-09: real DOU publish date for imported posts, see components/post-card.tsx */}
+              <RelativeTime date={post.sourcePublishedAt ?? post.publishedAt} />
             </span>
           </div>
         </div>

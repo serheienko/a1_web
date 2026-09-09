@@ -366,7 +366,11 @@ export function PostCard({
           )}
           <span aria-hidden="true">·</span>
           <span>
-            <RelativeTime date={post.publishedAt} />
+            {/* 2026-09-09, Aleksandr: show the DOU publish date (real
+                vacancy freshness) for imported posts instead of when it
+                landed on A1; native posts have no sourcePublishedAt, so
+                this falls back to publishedAt exactly as before. */}
+            <RelativeTime date={post.sourcePublishedAt ?? post.publishedAt} />
           </span>
         </div>
 
