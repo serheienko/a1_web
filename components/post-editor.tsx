@@ -125,6 +125,28 @@
 // upload path (handleFileSelected(), previously only checked by
 // submit()) now redirects to /sign-in the same way, via a small shared
 // isNotSignedIn() helper.
+//
+// 2026-09-09 (Aleksandr, 5 screenshots — the native app's own salary
+// picker with its "Фіксована сума"/"Від - До" toggle, plus this site's
+// own feed and profile page already rendering a mobile-created post's
+// range salary correctly as "100 USD - 1500 USD /рік"): "по зп у нас
+// прям в приложении предусмотрен вид до. Надо просто это прокинуть на
+// сайте в полях... Поэтому надо это вернуть назад и сделать там." Range
+// was deliberately left out of this editor on 2026-08-29 (see the old
+// MoneyInput/ExistingMoney comment just below) because Range's exact
+// wire shape wasn't confirmed at the time — lib/a1/schemas.ts's
+// PostInputMoneySchema (and the read-side mapSalary() in
+// lib/a1/mappers.ts, already live and already correctly rendering
+// mobile-created range posts) settle that: `unitAmount` is a 2-element
+// `[min, max]` array, not separate from/to keys. salaryMode ("fixed" |
+// "range") is a new toggle next to the existing month/year one; range
+// mode swaps the single amount input for two (Від/До) and buildMoney()
+// below sorts them into `[min, max]` regardless of which box the
+// smaller number ended up in, since mapSalary() trusts index 0 as the
+// floor. Leaving "Від" blank sends 0 as the floor — the natural way to
+// enter DOU-style "up to $4400" (see a1-parser's separate money_parser.py
+// note about the same wording) as a real range instead of a flattened
+// single number.
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -138,20 +160,33 @@ import { authFetch } from "@/lib/auth-fetch";
 type PostObject = "post-job-employing" | "post-job-seeking";
 
 // Deliberately local/self-contained rather than importing PostInputMoney
-// from lib/a1/schemas.ts — this file only ever produces two of its four
-// variants (Range isn't built here, see header comment), so a narrower
-// local type is enough and keeps this client bundle from depending on
+// from lib/a1/schemas.ts — keeps this client bundle from depending on
 // the server-side schema module for anything but the two small dataset
 // types above (already an established pattern — see
 // app/onboarding/profile/profile-setup-form.tsx's own `type Category`
-// import from the same file).
+// import from the same file). Field-for-field these mirror
+// PostInputMoneySchema's four variants exactly (2026-09-09: Range's
+// `unitAmount` is a 2-element array, confirmed by lib/a1/mappers.ts's
+// mapSalary() already reading it that way on the display side).
 type MoneyInput = { unitAmount: number; currency: string; object: "post-money-single" | "post-money-single-annual" };
-// A Range/RangeAnnual salary can only exist on a post created some other
-// way (this editor never produces one) — kept loosely typed here since
-// the only thing this file does with it is pass it through untouched
-// when the user hasn't touched the salary fields (buildMoney() below),
-// never render or interpret its shape.
-type ExistingMoney = MoneyInput | (Record<string, unknown> & { object: string }) | null;
+type RangeMoneyInput = { unitAmount: number[]; currency: string; object: "post-money-range" | "post-money-range-annual" };
+type ExistingMoney = MoneyInput | RangeMoneyInput | null;
+
+type MoneyKind = "single" | "single-annual" | "range" | "range-annual" | "none";
+function moneyKindOf(money: ExistingMoney): MoneyKind {
+  switch (money?.object) {
+    case "post-money-single":
+      return "single";
+    case "post-money-single-annual":
+      return "single-annual";
+    case "post-money-range":
+      return "range";
+    case "post-money-range-annual":
+      return "range-annual";
+    default:
+      return "none";
+  }
+}
 
 // Passed straight through to posts.createPost/updatePost's `media`
 // array untouched — this file never needs to interpret a MediaDocument
@@ -363,6 +398,7 @@ type StringKey =
   | "workType" | "employmentType" | "experience" | "otherTags"
   | "customTagPlaceholder" | "addCount"
   | "salaryLabel" | "salaryPlaceholder" | "perMonth" | "perYear"
+  | "salaryTypeFixed" | "salaryTypeRange" | "salaryFromPlaceholder" | "salaryToPlaceholder"
   | "questionsLabel" | "questionPlaceholder"
   | "photoLabel" | "photoTooMany" | "photoTooBig" | "photoUploadFailed" | "photoUploadQuotaExceeded"
   | "saveDraft" | "draftSaved" | "post" | "saveChanges" | "schedulePost"
@@ -424,6 +460,10 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   salaryPlaceholder: { uk: "Сума", en: "Amount", ru: "Сумма", de: "Betrag", es: "Monto", fr: "Montant", pl: "Kwota", ptBR: "Valor", zh: "金额" },
   perMonth: { uk: "міс", en: "mo", ru: "мес", de: "Mon.", es: "mes", fr: "mois", pl: "mies.", ptBR: "mês", zh: "月" },
   perYear: { uk: "рік", en: "year", ru: "год", de: "Jahr", es: "año", fr: "an", pl: "rok", ptBR: "ano", zh: "年" },
+  salaryTypeFixed: { uk: "Фіксована сума", en: "Fixed amount", ru: "Фиксированная сумма", de: "Fester Betrag", es: "Monto fijo", fr: "Montant fixe", pl: "Stała kwota", ptBR: "Valor fixo", zh: "固定金额" },
+  salaryTypeRange: { uk: "Від - До", en: "From - To", ru: "От - До", de: "Von - Bis", es: "Desde - Hasta", fr: "De - À", pl: "Od - Do", ptBR: "De - Até", zh: "从 - 到" },
+  salaryFromPlaceholder: { uk: "Від", en: "From", ru: "От", de: "Von", es: "Desde", fr: "De", pl: "Od", ptBR: "De", zh: "从" },
+  salaryToPlaceholder: { uk: "До", en: "To", ru: "До", de: "Bis", es: "Hasta", fr: "À", pl: "Do", ptBR: "Até", zh: "到" },
   questionsLabel: { uk: "Питання до відгуку", en: "Application questions", ru: "Вопросы к отклику", de: "Bewerbungsfragen", es: "Preguntas de postulación", fr: "Questions de candidature", pl: "Pytania do zgłoszenia", ptBR: "Perguntas de candidatura", zh: "申请问题" },
   questionPlaceholder: { uk: "Питання...", en: "Question...", ru: "Вопрос...", de: "Frage...", es: "Pregunta...", fr: "Question...", pl: "Pytanie...", ptBR: "Pergunta...", zh: "问题..." },
   photoLabel: { uk: "Фото", en: "Photos", ru: "Фото", de: "Fotos", es: "Fotos", fr: "Photos", pl: "Zdjęcia", ptBR: "Fotos", zh: "照片" },
@@ -656,15 +696,28 @@ export function PostEditor({
   const [selectedTags, setSelectedTags] = useState<string[]>(initialPost?.tags ?? []);
   const [customTagInput, setCustomTagInput] = useState("");
 
-  const initialMoneyIsSimple =
-    initialPost?.money?.object === "post-money-single" || initialPost?.money?.object === "post-money-single-annual";
-  const [salaryAmount, setSalaryAmount] = useState(
-    initialMoneyIsSimple ? String((initialPost!.money as MoneyInput).unitAmount) : "",
-  );
+  const initialMoneyKind = moneyKindOf(initialPost?.money ?? null);
+  const initialMoneyIsRange = initialMoneyKind === "range" || initialMoneyKind === "range-annual";
+  const [salaryMode, setSalaryMode] = useState<"fixed" | "range">(initialMoneyIsRange ? "range" : "fixed");
+  const [salaryAmount, setSalaryAmount] = useState(() => {
+    if (initialMoneyKind === "single" || initialMoneyKind === "single-annual") {
+      return String((initialPost!.money as MoneyInput).unitAmount);
+    }
+    if (initialMoneyIsRange) {
+      const [lo] = (initialPost!.money as RangeMoneyInput).unitAmount;
+      return lo != null ? String(lo) : "";
+    }
+    return "";
+  });
+  const [salaryAmountTo, setSalaryAmountTo] = useState(() => {
+    if (!initialMoneyIsRange) return "";
+    const [, hi] = (initialPost!.money as RangeMoneyInput).unitAmount;
+    return hi != null ? String(hi) : "";
+  });
   const [salaryCurrency, setSalaryCurrency] = useState(
-    initialMoneyIsSimple ? (initialPost!.money as MoneyInput).currency : "",
+    initialMoneyKind !== "none" ? (initialPost!.money as MoneyInput | RangeMoneyInput).currency : "",
   );
-  const [salaryAnnual, setSalaryAnnual] = useState(initialPost?.money?.object === "post-money-single-annual");
+  const [salaryAnnual, setSalaryAnnual] = useState(initialMoneyKind === "single-annual" || initialMoneyKind === "range-annual");
 
   const [questions, setQuestions] = useState<string[]>([]);
   const [questionInput, setQuestionInput] = useState("");
@@ -1059,7 +1112,9 @@ export function PostEditor({
       linkUrl: linkUrl.trim(),
       tags: selectedTags,
       category: category?.value ?? null,
+      salaryMode,
       salaryAmount: salaryAmount.trim(),
+      salaryAmountTo: salaryAmountTo.trim(),
       questions,
       media: media.map((m) => m.doc),
     });
@@ -1075,6 +1130,7 @@ export function PostEditor({
         selectedTags.length > 0 ||
         category !== null ||
         salaryAmount.trim().length > 0 ||
+        salaryAmountTo.trim().length > 0 ||
         questions.length > 0 ||
         media.length > 0
       : fieldsSnapshot() !== savedSnapshotRef.current);
@@ -1122,12 +1178,29 @@ export function PostEditor({
   const isSubmittingPost = pendingAction === "post" || pendingAction === "schedule";
 
   function buildMoney(): ExistingMoney {
+    if (salaryMode === "range") {
+      // "До" (the ceiling) is the one required box — it's the natural
+      // home for DOU-style "up to $4400" wording (see the header
+      // comment), where there simply is no floor to type. "Від" left
+      // blank sends 0, not "leave the range untouched": an explicit
+      // empty-floor range is exactly what that wording means.
+      const to = Number(salaryAmountTo);
+      if (!salaryAmountTo || Number.isNaN(to) || to <= 0 || !salaryCurrency) {
+        return null;
+      }
+      const fromRaw = salaryAmount.trim();
+      const from = fromRaw === "" ? 0 : Number(fromRaw);
+      const safeFrom = Number.isNaN(from) || from < 0 ? 0 : from;
+      // mapSalary() (lib/a1/mappers.ts) trusts unitAmount[0] as the floor
+      // and [1] as the ceiling with no reordering of its own — sort here
+      // so a floor typed larger than the ceiling still displays sanely
+      // instead of rendering backwards everywhere this post shows up.
+      const [lo, hi] = safeFrom <= to ? [safeFrom, to] : [to, safeFrom];
+      return { unitAmount: [lo, hi], currency: salaryCurrency, object: salaryAnnual ? "post-money-range-annual" : "post-money-range" };
+    }
     const amount = Number(salaryAmount);
     if (!salaryAmount || Number.isNaN(amount) || amount <= 0 || !salaryCurrency) {
-      // Nothing entered in the (visible) salary fields. If the post
-      // being edited already had a Range/RangeAnnual salary this editor
-      // doesn't expose, send it back unchanged rather than clearing it.
-      return initialPost && !initialMoneyIsSimple ? initialPost.money : null;
+      return null;
     }
     return { unitAmount: amount, currency: salaryCurrency, object: salaryAnnual ? "post-money-single-annual" : "post-money-single" };
   }
@@ -1845,16 +1918,51 @@ export function PostEditor({
               buttons are hidden (they were eating into its usable width
               too) — "USD пікер уже, а само поле зарплата пошире". */}
           <div className="mb-4 flex flex-col gap-1.5">
-            <label className={labelClass}>{t("salaryLabel", lang)}</label>
-            <div className="grid grid-cols-[1fr_4rem_auto] items-stretch gap-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <label className={labelClass}>{t("salaryLabel", lang)}</label>
+              {/* 2026-09-09: Fixed/Range toggle, same pill style as the
+                  month/year one below it — mirrors the native app's own
+                  salary-type picker (screenshot: "Фіксована сума" /
+                  "Від - До", shown together with the month/year picker in
+                  one dropdown there; kept as two separate pill rows here
+                  rather than building a new dropdown control, consistent
+                  with how month/year already works in this file). */}
+              <div className="flex shrink-0 overflow-hidden rounded-xl border border-neutral-300 dark:border-neutral-700">
+                <button
+                  type="button"
+                  onClick={() => setSalaryMode("fixed")}
+                  className={"px-2.5 py-1 text-xs font-medium transition " + (salaryMode === "fixed" ? "bg-accent/10 text-accent" : "text-neutral-500 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800")}
+                >
+                  {t("salaryTypeFixed", lang)}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSalaryMode("range")}
+                  className={"border-l border-neutral-300 px-2.5 py-1 text-xs font-medium transition dark:border-neutral-700 " + (salaryMode === "range" ? "bg-accent/10 text-accent" : "text-neutral-500 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800")}
+                >
+                  {t("salaryTypeRange", lang)}
+                </button>
+              </div>
+            </div>
+            <div className={"grid items-stretch gap-1.5 " + (salaryMode === "range" ? "grid-cols-[1fr_1fr_4rem_auto]" : "grid-cols-[1fr_4rem_auto]")}>
               <input
                 type="number"
                 min="0"
                 value={salaryAmount}
                 onChange={(e) => setSalaryAmount(e.target.value)}
-                placeholder={t("salaryPlaceholder", lang)}
+                placeholder={salaryMode === "range" ? t("salaryFromPlaceholder", lang) : t("salaryPlaceholder", lang)}
                 className={inputClass + " min-w-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"}
               />
+              {salaryMode === "range" && (
+                <input
+                  type="number"
+                  min="0"
+                  value={salaryAmountTo}
+                  onChange={(e) => setSalaryAmountTo(e.target.value)}
+                  placeholder={t("salaryToPlaceholder", lang)}
+                  className={inputClass + " min-w-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"}
+                />
+              )}
               <div className="relative min-w-0">
                 <select
                   value={salaryCurrency}

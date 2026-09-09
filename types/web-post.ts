@@ -21,6 +21,12 @@ export type WebPostAuthor = {
   username: string | null;
   avatarUrl: string | null;
   isAnonymous: boolean;
+  // 2026-09-09: true for a parser-created technical account whose email/
+  // password haven't been handed to the real company yet (see lib/a1/
+  // schemas.ts's UserPreviewSchema.unclaimed comment) — components/post-
+  // viewer-menu.tsx shows "Apply" + a thank-you popup instead of "Message"
+  // while this is true. Always false until the backend field ships.
+  unclaimed: boolean;
 };
 
 export type WebPostLocation = {

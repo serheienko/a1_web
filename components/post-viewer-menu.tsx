@@ -69,6 +69,7 @@ import { useHoverPanel } from "@/lib/use-hover-panel";
 
 type StringKey =
   | "message"
+  | "apply"
   | "menuLabel"
   | "addContact"
   | "removeContact"
@@ -81,10 +82,19 @@ type StringKey =
   | "authPromptTitle"
   | "authPromptBody"
   | "signInCta"
-  | "cancel";
+  | "cancel"
+  | "thanksTitle"
+  | "thanksBody"
+  | "thanksOk";
 
 const STRINGS: Record<StringKey, Record<Locale, string>> = {
   message: { uk: "Повідомлення", en: "Message", ru: "Сообщение", de: "Nachricht", es: "Mensaje", fr: "Message", pl: "Wiadomość", ptBR: "Mensagem", zh: "消息" },
+  // 2026-09-09 (Aleksandr: "все посты которые мы парсим должны иметь
+  // кнопку Apply, вместо Message... при первом apply пока компания еще
+  // не забрала акк, мы показываем пользователь попап") — shown instead
+  // of "message" whenever authorUnclaimed is true (see this file's own
+  // openChat()/thanksOpen below for the actual behavior swap).
+  apply: { uk: "Відгукнутися", en: "Apply", ru: "Откликнуться", de: "Bewerben", es: "Postularme", fr: "Postuler", pl: "Aplikuj", ptBR: "Candidatar-se", zh: "申请" },
   menuLabel: { uk: "Дії", en: "Actions", ru: "Действия", de: "Aktionen", es: "Acciones", fr: "Actions", pl: "Działania", ptBR: "Ações", zh: "操作" },
   addContact: { uk: "Додати контакт", en: "Add contact", ru: "Добавить контакт", de: "Kontakt hinzufügen", es: "Añadir contacto", fr: "Ajouter un contact", pl: "Dodaj kontakt", ptBR: "Adicionar contato", zh: "添加联系人" },
   removeContact: { uk: "Прибрати з контактів", en: "Remove from contacts", ru: "Убрать из контактов", de: "Aus Kontakten entfernen", es: "Quitar de contactos", fr: "Retirer des contacts", pl: "Usuń z kontaktów", ptBR: "Remover dos contatos", zh: "从联系人中移除" },
@@ -124,6 +134,26 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   cancel: {
     uk: "Скасувати", en: "Cancel", ru: "Отмена", de: "Abbrechen", es: "Cancelar",
     fr: "Annuler", pl: "Anuluj", ptBR: "Cancelar", zh: "取消",
+  },
+  // Same "спасибо, передали вашу заявку компании" popup Aleksandr asked
+  // for — the click still goes through the real openChat() flow below
+  // (so the message lands in the technical account's inbox, same as
+  // any other chat), it's just this popup instead of a redirect into
+  // /chats/[chatId], since there's no real company on the other end yet.
+  thanksTitle: {
+    uk: "Дякуємо!", en: "Thanks!", ru: "Спасибо!", de: "Danke!", es: "¡Gracias!",
+    fr: "Merci !", pl: "Dziękujemy!", ptBR: "Obrigado!", zh: "谢谢！",
+  },
+  thanksBody: {
+    uk: "Ваш відгук передано компанії.", en: "Your application has been passed to the company.",
+    ru: "Ваш отклик передан компании.", de: "Ihre Bewerbung wurde an das Unternehmen weitergeleitet.",
+    es: "Tu postulación ha sido enviada a la empresa.", fr: "Votre candidature a été transmise à l'entreprise.",
+    pl: "Twoje zgłoszenie zostało przekazane firmie.", ptBR: "Sua candidatura foi enviada à empresa.",
+    zh: "您的申请已转交给公司。",
+  },
+  thanksOk: {
+    uk: "Гаразд", en: "OK", ru: "Хорошо", de: "OK", es: "Vale",
+    fr: "OK", pl: "OK", ptBR: "OK", zh: "好的",
   },
 };
 
@@ -225,6 +255,7 @@ export function PostViewerMenu({
   authorUsername,
   authorName,
   authorAvatarUrl,
+  authorUnclaimed,
   shareUrl,
   shareTitle,
 }: {
@@ -238,6 +269,13 @@ export function PostViewerMenu({
   // component's existing shareTitle (the post's own title).
   authorName?: string | null;
   authorAvatarUrl?: string | null;
+  // 2026-09-09: post.author.unclaimed (types/web-post.ts) -- true for a
+  // parser-imported company account nobody has claimed yet. Swaps the
+  // "Message" button to "Apply" and, on click, shows a thank-you popup
+  // instead of opening the chat. Defaults to false so every caller that
+  // hasn't been updated yet (there are none left, but belt and suspenders)
+  // keeps today's behavior.
+  authorUnclaimed?: boolean;
   shareUrl: string;
   shareTitle: string;
 }) {
@@ -266,6 +304,9 @@ export function PostViewerMenu({
   }, [authPromptOpen]);
   const [openingChat, setOpeningChat] = useState(false);
   const [chatErrored, setChatErrored] = useState(false);
+  // 2026-09-09: shown instead of navigating into the chat when the click
+  // succeeded but authorUnclaimed is true — see openChat() below.
+  const [thanksOpen, setThanksOpen] = useState(false);
 
   // 2026-09-02 (Aleksandr: "И сюда, на сообщение и °°°" -- same hover-
   // appear effect asked for on components/chats-fab.tsx/components/
@@ -408,6 +449,14 @@ export function PostViewerMenu({
       });
       const data = await res.json().catch(() => null);
       if (data?.ok && typeof data.chatId === "string") {
+        // The chat is still opened for real (same /api/chats/open call,
+        // same technical account inbox) so nothing is lost once the
+        // company is claimed — the visitor just doesn't get routed into
+        // it while there's no real company on the other end yet.
+        if (authorUnclaimed) {
+          setThanksOpen(true);
+          return;
+        }
         const qs = new URLSearchParams();
         if (authorName) qs.set("title", authorName);
         if (authorAvatarUrl) qs.set("avatar", authorAvatarUrl);
@@ -533,7 +582,7 @@ export function PostViewerMenu({
         type="button"
         onClick={openChat}
         disabled={openingChat}
-        aria-label={chatErrored ? STRINGS.actionFailed[lang] : STRINGS.message[lang]}
+        aria-label={chatErrored ? STRINGS.actionFailed[lang] : authorUnclaimed ? STRINGS.apply[lang] : STRINGS.message[lang]}
         className={
           chatErrored
             ? "group flex flex-1 items-center justify-center gap-2 rounded-full bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-default disabled:opacity-60"
@@ -541,7 +590,7 @@ export function PostViewerMenu({
         }
       >
         <MessageIcon />
-        {chatErrored ? STRINGS.actionFailed[lang] : STRINGS.message[lang]}
+        {chatErrored ? STRINGS.actionFailed[lang] : authorUnclaimed ? STRINGS.apply[lang] : STRINGS.message[lang]}
       </button>
 
       <div className="dots-trigger-group relative z-40 shrink-0" ref={dotsWrapperRef} onMouseEnter={handleDotsMouseEnter} onMouseLeave={handleDotsMouseLeave}>
@@ -665,6 +714,35 @@ export function PostViewerMenu({
                 </div>
               </>
             )}
+          </div>
+        </div>,
+        document.body,
+      )}
+
+    {thanksOpen &&
+      createPortal(
+        <div
+          className="animate-backdrop-in fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setThanksOpen(false)}
+        >
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+            className="animate-modal-in w-full max-w-xs rounded-2xl bg-white p-5 shadow-xl dark:bg-neutral-900"
+          >
+            <div className="mb-3 flex justify-center">
+              <LottiePlayer src="/animations/cat-blink.json" size={64} />
+            </div>
+            <p className="text-center text-sm font-semibold text-neutral-900 dark:text-neutral-50">{STRINGS.thanksTitle[lang]}</p>
+            <p className="mt-1 text-center text-xs text-neutral-500 dark:text-neutral-400">{STRINGS.thanksBody[lang]}</p>
+            <button
+              type="button"
+              onClick={() => setThanksOpen(false)}
+              className="mt-4 w-full rounded-full bg-accent py-2.5 text-sm font-bold tracking-wide text-white transition hover:opacity-90"
+            >
+              {STRINGS.thanksOk[lang]}
+            </button>
           </div>
         </div>,
         document.body,

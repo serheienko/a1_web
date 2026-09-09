@@ -98,6 +98,15 @@ export const UserPreviewSchema = z.object({
   // to UserHiddenSchema and rendered every post as "Anonymous". Nothing in
   // WebPostAuthor reads this field, so accept anything.
   emojiStatus: z.unknown().optional(),
+  // 2026-09-09: NOT a live field yet — asked Andrew to add it (A1 message,
+  // "имейл/пароль ещё не переданы компании" flag on parser-created technical
+  // accounts). Scaffolded here ahead of the backend change so wiring it up
+  // later is a one-line flip, not a new PR: absent from every real response
+  // today, so `.optional()` alone (no `.catch()`) means it's simply
+  // `undefined` and mapAuthor() below treats that as `false` — current
+  // behavior (every post shows "Message") is unchanged until the backend
+  // actually starts sending `true`.
+  unclaimed: z.boolean().optional(),
   object: z.literal("user-preview"),
 });
 export type UserPreview = z.infer<typeof UserPreviewSchema>;

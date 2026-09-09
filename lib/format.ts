@@ -148,10 +148,26 @@ const PERIOD_SUFFIX: Record<Locale, { year: string; month: string }> = {
   zh: { year: "年", month: "月" },
 };
 
+// 2026-09-09 (Aleksandr, live: the post-editor's new range fields let
+// "Від" be left blank as the natural way to type a DOU-style "up to
+// $4400" ceiling — that lands here as min=0, and formatSalary was
+// showing it literally, "0 USD–4 400 USD/міс": "если человек... от не
+// пишет, то тогда у нас будет написано... до суммы", а не ноль-тире.
+// A real min of 0 (someone actually typing 0 as a floor) reads
+// identically to "no floor entered" here on purpose — a job with a
+// stated $0 floor isn't a distinguishable real case worth a separate
+// code path.
+const UP_TO_PREFIX: Record<Locale, string> = {
+  uk: "до", en: "up to", ru: "до", de: "bis zu", es: "hasta", fr: "jusqu'à", pl: "do", ptBR: "até", zh: "最高",
+};
+
 export function formatSalary(salary: WebPostSalary, locale: Locale): string {
   const suffix = PERIOD_SUFFIX[locale];
   const period = "/" + (salary.period === "YEAR" ? suffix.year : suffix.month);
   if (salary.min != null && salary.max != null && salary.min !== salary.max) {
+    if (salary.min === 0) {
+      return `${UP_TO_PREFIX[locale]} ${formatAmount(salary.max, salary.currency)}${period}`;
+    }
     return `${formatAmount(salary.min, salary.currency)}–${formatAmount(salary.max, salary.currency)}${period}`;
   }
   const single = salary.min ?? salary.max;

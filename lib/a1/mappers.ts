@@ -67,7 +67,7 @@ function mapAuthor(author: Post["author"], flags: number): WebPostAuthor {
   if (authorIsHidden(flags) || author.object !== "user-preview") {
     // Covers the documented UserHidden variant and any shape our schema
     // couldn't match — PLAN.md §0.3: "must render as Anonymous, never crash."
-    return { userId: null, name: "Anonymous", username: null, avatarUrl: null, isAnonymous: true };
+    return { userId: null, name: "Anonymous", username: null, avatarUrl: null, isAnonymous: true, unclaimed: false };
   }
   // Deliberately NOT `author.photo` — confirmed live twice now (once on
   // 2026-08-26 against a raw response, and again via a screen recording
@@ -90,6 +90,7 @@ function mapAuthor(author: Post["author"], flags: number): WebPostAuthor {
     username: author.username ?? null,
     avatarUrl: avatarDoc ? buildMediaProxyUrl(avatarDoc) : null,
     isAnonymous: false,
+    unclaimed: author.unclaimed ?? false,
   };
 }
 

@@ -32,7 +32,11 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/api/"],
+      // 2026-09-09: /admin/posts (app/admin/posts/page.tsx) is a private,
+      // email-allowlisted internal tool, not a page meant for crawlers —
+      // same reasoning as /api/ right above, not the /talents noindex-
+      // but-crawlable carve-out this file's own header comment explains.
+      disallow: ["/api/", "/admin/"],
     },
     sitemap: sitemaps,
   };
