@@ -19,16 +19,18 @@
 // necessity; there is no caching concern here since nobody but the
 // allowlisted account(s) should ever load it.
 //
-// Data itself comes from the EXISTING /api/posts/mine (same one
-// components/my-posts-panel.tsx already uses) — no new backend
-// endpoint. That route is scoped to `author: "me"` on the backend, so
-// this page only ever lists posts owned by WHICHEVER account is
-// currently signed in in the browser hitting it; it does not aggregate
-// across other accounts. Fine for now — every scraped/test vacancy
-// currently lives under one shared account (claimcompanies@a1appp.com)
-// — but once Aleksandr's multi-account scaling plan is live, an
-// allowlisted admin signed in as a DIFFERENT account would only see
-// that account's own posts here, not everyone's. Revisit then.
+// 2026-09-09, same day, round 2 (Aleksandr: "хочу чтобы админ-страница
+// показывала посты со всех технических аккаунтов сразу... сейчас на
+// сервисном акке показывает только одну вакансию"): confirmed live,
+// exactly the risk this comment used to flag below — every scraped/
+// bulk-provisioned company has its OWN account (see lib/a1/admin-
+// accounts.ts), so the original /api/posts/mine-based version only ever
+// showed whichever ONE account was signed in in this browser. Data now
+// comes from app/api/admin/all-posts (lib/a1/admin-post-aggregate.ts),
+// which logs into every account on file and merges their posts — see
+// components/admin-posts-panel.tsx's own header for the rest of the
+// story. This page component itself is unchanged: it only gates access
+// (the allowlist check below) and hands off to the panel.
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { readSession } from "@/lib/a1/session";

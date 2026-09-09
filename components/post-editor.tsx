@@ -627,6 +627,7 @@ export function PostEditor({
   initialPost,
   onClose,
   onSaved,
+  adminActingAs,
 }: {
   mode: "create" | "edit";
   initialPost?: EditablePost;
@@ -635,6 +636,19 @@ export function PostEditor({
    *  purely "data changed, refresh whatever list is behind you." Never
    *  closes the dialog itself; only onClose does that. */
   onSaved?: () => void;
+  /**
+   * 2026-09-09 (Aleksandr, admin "all posts" aggregate view — see
+   * components/admin-posts-panel.tsx and lib/a1/admin-accounts.ts):
+   * when set, this editor is saving/deleting a post that belongs to a
+   * DIFFERENT account than whoever's signed in in this browser (every
+   * technical account is its own account, one per company). Routes
+   * every write through the app/api/admin/posts/* endpoints instead of
+   * the normal cookie-session ones, with this email telling the server
+   * which account's own stored password to log in with for that one
+   * call. Undefined (every other caller) keeps today's behavior
+   * byte-for-byte — acts as whoever's browser session this is.
+   */
+  adminActingAs?: { email: string };
 }) {
   const lang = useActiveLocale();
   const [bootstrap, setBootstrap] = useState<Bootstrap>(EMPTY_BOOTSTRAP);
@@ -1067,10 +1081,14 @@ export function PostEditor({
     setDeleteError(false);
     setDeleting(true);
     try {
-      const res = await authFetch("/api/posts/delete", {
+      // 2026-09-09: same adminActingAs redirect as submit() above — see
+      // this component's own adminActingAs prop comment.
+      const endpoint = adminActingAs ? "/api/admin/posts/delete" : "/api/posts/delete";
+      const body = adminActingAs ? { id: initialPost.id, email: adminActingAs.email } : { id: initialPost.id };
+      const res = await authFetch(endpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ id: initialPost.id }),
+        body: JSON.stringify(body),
       });
       const data = await res.json().catch(() => ({ ok: false }));
       if (!res.ok || !data.ok) {
@@ -1360,8 +1378,26 @@ export function PostEditor({
 
     try {
       const targetId = savedPostId ?? (mode === "edit" ? initialPost?.id : undefined);
-      const endpoint = targetId ? "/api/posts/update" : "/api/posts/create";
-      const body = targetId ? { id: targetId, input } : { input };
+      // 2026-09-09: adminActingAs routes this same submit() through the
+      // app/api/admin/posts/* endpoints instead — see this component's
+      // own adminActingAs prop comment above for why. Those routes take
+      // the same { id, input } / { input } bodies as their normal
+      // counterparts, plus `email` telling the server which account to
+      // log in as.
+      const endpoint = adminActingAs
+        ? targetId
+          ? "/api/admin/posts/update"
+          : "/api/admin/posts/create"
+        : targetId
+          ? "/api/posts/update"
+          : "/api/posts/create";
+      const body = adminActingAs
+        ? targetId
+          ? { id: targetId, input, email: adminActingAs.email }
+          : { input, email: adminActingAs.email }
+        : targetId
+          ? { id: targetId, input }
+          : { input };
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },

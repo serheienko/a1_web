@@ -9,13 +9,19 @@
 // (eventually, as the scraped dataset grows) more than a couple of
 // rows without a tiny modal's own scroll area fighting the page's.
 //
-// Data/actions are the exact same ones my-posts-panel.tsx already uses
-// (app/api/posts/mine for the list, components/post-editor.tsx for
-// edit, app/api/posts/delete for delete) — this is a different VIEW
-// over the same CRUD, not a new backend surface. Search is client-side
-// only (filter over the list already fetched) since /api/posts/mine
-// already returns everything the signed-in account owns in one shot —
-// no separate search endpoint needed for the volumes this handles today.
+// 2026-09-09, same day, round 2 (Aleksandr: "хочу чтобы админ-страница
+// показывала посты со всех технических аккаунтов сразу... сейчас на
+// сервисном акке показывает только одну вакансию"): confirmed live —
+// every scraped/bulk-provisioned company gets its OWN account (see
+// lib/a1/admin-accounts.ts), so the original app/api/posts/mine-based
+// version of this panel only ever showed whichever ONE account was
+// signed in in the browser. Now backed by app/api/admin/all-posts
+// (lib/a1/admin-post-aggregate.ts), which logs into every account on
+// file and merges their posts — the account each post belongs to now
+// rides along as companyName/companyEmail, and Edit/Delete pass that
+// through to components/post-editor.tsx's adminActingAs prop so a save
+// logs in as the OWNING account, not whoever's browser this is. Search
+// is still client-side only (filter over the list already fetched).
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -28,6 +34,8 @@ type AdminPost = EditablePost & {
   published: number | null;
   scheduled: number | null;
   isDraft: boolean;
+  companyName: string;
+  companyEmail: string;
 };
 
 type StringKey =
@@ -100,7 +108,7 @@ export function AdminPostsPanel({ signedInAs }: { signedInAs: string }) {
 
   function load() {
     setError(false);
-    authFetch("/api/posts/mine")
+    authFetch("/api/admin/all-posts")
       .then((r) => r.json())
       .then((data) => {
         if (!data.ok) throw new Error("not ok");
@@ -118,17 +126,22 @@ export function AdminPostsPanel({ signedInAs }: { signedInAs: string }) {
     const q = query.trim().toLowerCase();
     if (!q) return posts;
     return posts.filter(
-      (p) => p.title.toLowerCase().includes(q) || p.content.toLowerCase().includes(q),
+      (p) =>
+        p.title.toLowerCase().includes(q) ||
+        p.content.toLowerCase().includes(q) ||
+        p.companyName.toLowerCase().includes(q),
     );
   }, [posts, query]);
 
   async function confirmDelete(id: string) {
     setDeleteError(null);
+    const target = posts?.find((p) => p.id === id);
+    if (!target) return;
     try {
-      const res = await authFetch("/api/posts/delete", {
+      const res = await authFetch("/api/admin/posts/delete", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ id }),
+        body: JSON.stringify({ id, email: target.companyEmail }),
       });
       const data = await res.json().catch(() => ({ ok: false }));
       if (!res.ok || !data.ok) {
@@ -146,7 +159,15 @@ export function AdminPostsPanel({ signedInAs }: { signedInAs: string }) {
   // dialog markup) — same as my-posts-panel.tsx's usage, no wrapper
   // needed here.
   if (editing) {
-    return <PostEditor mode="edit" initialPost={editing} onClose={() => setEditing(null)} onSaved={load} />;
+    return (
+      <PostEditor
+        mode="edit"
+        initialPost={editing}
+        onClose={() => setEditing(null)}
+        onSaved={load}
+        adminActingAs={{ email: editing.companyEmail }}
+      />
+    );
   }
 
   return (
@@ -197,7 +218,9 @@ export function AdminPostsPanel({ signedInAs }: { signedInAs: string }) {
                 <span className="min-w-0 flex-1 truncate text-sm font-medium text-neutral-900 dark:text-neutral-50">{post.title || "—"}</span>
                 <span className={"shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium " + status.className}>{status.label}</span>
               </div>
-              <div className="mb-1.5 text-xs text-neutral-400 dark:text-neutral-500">{kindLabel}</div>
+              <div className="mb-1.5 text-xs text-neutral-400 dark:text-neutral-500">
+                {kindLabel} · {post.companyName}
+              </div>
               <p className="mb-2.5 text-xs text-neutral-500 dark:text-neutral-400">
                 {preview || STRINGS.noDescription[lang]}
               </p>
