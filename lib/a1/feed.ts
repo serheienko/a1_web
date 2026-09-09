@@ -27,16 +27,16 @@ const KIND_TO_OBJECT: Record<WebPostKind, string> = {
 // paginates in the backend's own order (roughly: when the post was
 // created on A1), which for imported DOU vacancies is "whenever we ran
 // the parser/backfill", not the vacancy's real DOU publish date
-// (sourcePublishedAt, see lib/a1/mappers.ts). This re-sorts every page
-// this module hands back so the freshest DOU date (or, for a native A1
-// post with no sourcePublishedAt, its own publishedAt) shows first.
-// LIMITATION: this only sorts WITHIN one fetched page/scan window (the
-// 30 posts.search returns per request, or up to 500 for the client-side
-// q-search scan below) -- it can't retroactively reorder posts already
-// rendered on an earlier "load more" page, because the backend doesn't
-// offer a sourcePublished-ordered cursor to paginate by. Good enough in
-// practice while the live feed is a few hundred posts; would need real
-// backend sort support to be exact at larger scale.
+// (sourcePublishedAt, see lib/a1/mappers.ts).
+//
+// First version of this only re-sorted each page in isolation (30 posts
+// at a time) -- worked fine while the feed was small, but broke visibly
+// the moment one parser run added ~1,600 posts at once (Aleksandr,
+// 09.09.2026: "ранжирование по дате отлетело с новым парсингом"): a
+// genuinely newer vacancy sitting a few backend-pages back never got a
+// chance to surface onto page 1, because the backend's own pagination
+// doesn't know about sourcePublishedAt at all. Fixed by getSortedFeed
+// below -- see its own comment.
 function sortByFreshness<T extends { publishedAt: Date; sourcePublishedAt: Date | null }>(posts: T[]): T[] {
   return [...posts].sort((a, b) => {
     const aTime = (a.sourcePublishedAt ?? a.publishedAt).getTime();
@@ -72,29 +72,40 @@ export type FeedFilters = {
 // подбирал не только по введенному полному слову, а начиная... со
 // второго символа" (typing "FR" should already surface "Frontend...").
 // Confirmed live: the backend's own `q` on posts.search needs something
-// close to a full word — "frontend" finds the post, "fr" finds nothing —
+// close to a full word -- "frontend" finds the post, "fr" finds nothing --
 // and the openapi spec (Method.v1_posts_search_input) has no alternate
 // matchType/fuzzy/prefix param to ask it to do this differently, and we
 // don't know where exactly its cutoff is between "fr" and "frontend"
 // either. So rather than guess a length threshold, ANY non-empty `q`
 // bypasses the backend's own matching entirely and substring-matches
-// client-side instead, against a bounded scan of this feed's own posts
-// (ignoring `q` in that scan, keeping categories/tags).
-const CLIENT_SEARCH_SCAN_PAGES = 5; // 5 * 100 = 500 posts scanned, max
-const CLIENT_SEARCH_SCAN_PAGE_SIZE = 100; // posts.search's documented max
-const CLIENT_SEARCH_CURSOR_PREFIX = "local-q-offset:";
+// client-side instead (categories/tags/location filters still go to the
+// backend as normal).
+//
+// 2026-09-09: this used to be a `q`-only code path (scanFeedForQuery) --
+// generalized into scanFullFeed below so the SAME "walk every matching
+// post" approach also powers plain (no-`q`) listings, which is what
+// getSortedFeed needs to sort the whole feed instead of one page at a
+// time. `needle` is undefined for a plain listing, and every post is
+// then treated as a match (see the `!needle ||` below).
+const FULL_SCAN_MAX_PAGES = 30; // 30 * 100 = 3,000 posts scanned, max
+const FULL_SCAN_PAGE_SIZE = 100; // posts.search's documented max per request
+const LOCAL_CURSOR_PREFIX = "local-offset:";
 
-async function scanFeedForQuery(
-  kind: WebPostKind,
-  filters: FeedFilters,
-): Promise<WebPost[]> {
-  const needle = (filters.q ?? "").trim().toLowerCase();
+// LIMITATION (same idea as before, just a much higher ceiling now that
+// this runs for every listing, not only text search): past
+// FULL_SCAN_MAX_PAGES * FULL_SCAN_PAGE_SIZE live posts for one filter
+// combination, the oldest ones stop being seen (and sorted) at all --
+// comfortable headroom over today's ~1,700 live posts total; revisit
+// (raise the cap, or get real backend sort support) if the live feed for
+// one category/tag/location/q combination ever approaches 3,000.
+async function scanFullFeed(kind: WebPostKind, filters: FeedFilters): Promise<WebPost[]> {
+  const needle = filters.q?.trim().toLowerCase();
   const matches: WebPost[] = [];
   let cursor: string | null | undefined;
 
-  for (let page = 0; page < CLIENT_SEARCH_SCAN_PAGES; page++) {
+  for (let page = 0; page < FULL_SCAN_MAX_PAGES; page++) {
     const raw = await call<unknown>("posts.search", {
-      limit: CLIENT_SEARCH_SCAN_PAGE_SIZE,
+      limit: FULL_SCAN_PAGE_SIZE,
       object: KIND_TO_OBJECT[kind],
       ...(cursor ? { next: cursor } : {}),
       ...(filters.categories && filters.categories.length > 0 ? { categories: filters.categories } : {}),
@@ -103,7 +114,7 @@ async function scanFeedForQuery(
     });
     const parsed = PostsSearchOutputSchema.parse(raw);
     for (const post of mapPosts(parsed.items)) {
-      if (post.title.toLowerCase().includes(needle) || post.contentText.toLowerCase().includes(needle)) {
+      if (!needle || post.title.toLowerCase().includes(needle) || post.contentText.toLowerCase().includes(needle)) {
         matches.push(post);
       }
     }
@@ -111,12 +122,52 @@ async function scanFeedForQuery(
     cursor = parsed.pagination.next;
   }
 
-  // Not logged/surfaced anywhere further than this comment: past
-  // CLIENT_SEARCH_SCAN_PAGES * CLIENT_SEARCH_SCAN_PAGE_SIZE posts, a
-  // short-query match can silently go unseen. Fine at today's post
-  // volume; revisit (real backend prefix search, or a raised cap) if a
-  // feed ever gets close to 500 live posts.
   return matches;
+}
+
+// 2026-09-09: scanFullFeed above is NOT cheap -- up to 30 sequential
+// requests to api.a1appp.com just to answer one page of the feed. Doing
+// that on every single "Load more" click (app/api/feed/route.ts is
+// force-dynamic, so it gets no page-level caching at all) would make
+// every click take several seconds. This is a small in-memory cache --
+// one Node process (one warm serverless instance) reuses the same
+// sorted list for TTL_MS instead of re-scanning, so a burst of "Load
+// more" clicks (or the RSC page render plus the client's own first
+// fetch) pays the full scan once, not once per request.
+//
+// Deliberately NOT Next's `unstable_cache`: that would share the cache
+// across every server instance on Vercel (stronger), but it round-trips
+// the result through serialization, and WebPost carries real `Date`
+// objects (publishedAt, sourcePublishedAt, updatedAt) that a JSON-based
+// cache would hand back as strings instead -- silently breaking every
+// caller that expects `Date`. Safer to keep this in plain memory (real
+// object references, no serialization) even though it only helps within
+// one warm instance; revisit if that turns out not to be enough.
+const SORTED_FEED_CACHE_TTL_MS = 30_000;
+const sortedFeedCache = new Map<string, { expiresAt: number; promise: Promise<WebPost[]> }>();
+
+function sortedFeedCacheKey(kind: WebPostKind, filters: FeedFilters): string {
+  return JSON.stringify([
+    kind,
+    filters.q?.trim().toLowerCase() ?? "",
+    [...(filters.categories ?? [])].sort(),
+    [...(filters.tags ?? [])].sort(),
+    filters.location ?? null,
+  ]);
+}
+
+async function getSortedFeed(kind: WebPostKind, filters: FeedFilters): Promise<WebPost[]> {
+  const key = sortedFeedCacheKey(kind, filters);
+  const now = Date.now();
+  const cached = sortedFeedCache.get(key);
+  if (cached && cached.expiresAt > now) return cached.promise;
+
+  const promise = scanFullFeed(kind, filters).then(sortByFreshness);
+  sortedFeedCache.set(key, { expiresAt: now + SORTED_FEED_CACHE_TTL_MS, promise });
+  // A failed scan shouldn't keep serving/retrying the same rejection for
+  // the rest of the TTL window -- let the next call try fresh.
+  promise.catch(() => sortedFeedCache.delete(key));
+  return promise;
 }
 
 // Aleksandr, 2026-08-27: "Категории в которых пока пусто показывай 50%
@@ -178,42 +229,21 @@ export async function fetchFeedPage(
   cursor?: string | null,
   filters: FeedFilters = {},
 ): Promise<FeedPage> {
-  const q = filters.q?.trim() ?? "";
-
-  if (q.length > 0) {
-    const offset = cursor?.startsWith(CLIENT_SEARCH_CURSOR_PREFIX)
-      ? Number(cursor.slice(CLIENT_SEARCH_CURSOR_PREFIX.length)) || 0
-      : 0;
-    const allMatches = sortByFreshness(await scanFeedForQuery(kind, filters));
-    const nextOffset = offset + FEED_PAGE_SIZE;
-    const hasMore = nextOffset < allMatches.length;
-    return {
-      posts: allMatches.slice(offset, nextOffset),
-      next: hasMore ? `${CLIENT_SEARCH_CURSOR_PREFIX}${nextOffset}` : null,
-      hasMore,
-    };
-  }
-
-  // q is always "" here — any non-empty q already returned above.
-  const raw = await call<unknown>("posts.search", {
-    limit: FEED_PAGE_SIZE,
-    object: KIND_TO_OBJECT[kind],
-    ...(cursor ? { next: cursor } : {}),
-    ...(filters.categories && filters.categories.length > 0 ? { categories: filters.categories } : {}),
-    ...(filters.tags && filters.tags.length > 0 ? { tags: filters.tags } : {}),
-    ...(filters.location != null ? { location: filters.location } : {}),
-  });
-
-  // The envelope itself must be well-formed, or something is badly wrong
-  // upstream — let this throw and surface via the route's/page's error
-  // handling. Individual malformed *items* inside it are handled by
-  // mapPosts(), which never throws (PLAN.md §5 rule 6).
-  const parsed = PostsSearchOutputSchema.parse(raw);
-
+  // 2026-09-09: always paginate over the FULL, already-sorted feed (see
+  // getSortedFeed above) instead of forwarding the backend's own cursor
+  // -- that's what lets a genuinely newer post several backend-pages
+  // back still land on page 1. `cursor` here is always one of OUR
+  // offsets (LOCAL_CURSOR_PREFIX), never the backend's own `next`.
+  const offset = cursor?.startsWith(LOCAL_CURSOR_PREFIX)
+    ? Number(cursor.slice(LOCAL_CURSOR_PREFIX.length)) || 0
+    : 0;
+  const allMatches = await getSortedFeed(kind, filters);
+  const nextOffset = offset + FEED_PAGE_SIZE;
+  const hasMore = nextOffset < allMatches.length;
   return {
-    posts: sortByFreshness(mapPosts(parsed.items)),
-    next: parsed.pagination.next,
-    hasMore: parsed.pagination.hasMore,
+    posts: allMatches.slice(offset, nextOffset),
+    next: hasMore ? `${LOCAL_CURSOR_PREFIX}${nextOffset}` : null,
+    hasMore,
   };
 }
 

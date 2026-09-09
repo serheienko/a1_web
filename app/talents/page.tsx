@@ -97,7 +97,7 @@ export default async function TalentsPage({ searchParams }: Props) {
           <ul className="flex flex-col gap-4">
             {posts.map((post, i) => (
               <li key={post.id}>
-                <PostCard post={post} avatarBlurDataUrl={avatarBlurs[i]} />
+                <PostCard post={post} avatarBlurDataUrl={avatarBlurs[i]} highlightQuery={filters.q} />
               </li>
             ))}
           </ul>

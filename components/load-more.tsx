@@ -149,7 +149,7 @@ export function LoadMore({
         <ul className="mt-4 flex flex-col gap-4">
           {posts.map((post) => (
             <li key={post.id}>
-              <PostCard post={post} avatarBlurDataUrl={post.avatarBlurDataUrl} />
+              <PostCard post={post} avatarBlurDataUrl={post.avatarBlurDataUrl} highlightQuery={query} />
             </li>
           ))}
         </ul>

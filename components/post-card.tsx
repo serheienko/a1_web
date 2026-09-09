@@ -30,6 +30,7 @@ import { TagLabel } from "@/components/tag-label";
 import { MyPostBadge } from "@/components/my-post-badge";
 import { PostOwnerMenu } from "@/components/post-owner-menu";
 import { profileHref as buildProfileHref } from "@/lib/profile-href";
+import { HighlightMatches } from "@/components/highlight-match";
 
 export function PostCard({
   post,
@@ -81,12 +82,20 @@ export function PostCard({
   // tabs.tsx's own ownDrafts list only ever renders on the visitor's own
   // profile in the first place.
   ownerMenu,
+  // 2026-09-09 (Aleksandr, looking at a search for "consultant" with no
+  // visual cue which words actually matched): the current search box
+  // value, passed through so a match inside the title/description can be
+  // highlighted. Optional -- every non-search caller (profile tabs, a
+  // plain unfiltered feed) just omits it and titles/descriptions render
+  // exactly as before.
+  highlightQuery,
 }: {
   post: WebPost;
   avatarBlurDataUrl?: string | null;
   statusBadge?: { label: ReactNode; className: string } | null;
   onOpen?: () => void;
   ownerMenu?: { redirectAfterDeleteTo: string };
+  highlightQuery?: string | null;
 }) {
   // 2026-08-30, live-testing feedback ("Berlin, Germany - нужна
   // локализация", reported against the profile page but this feed card
@@ -242,14 +251,14 @@ export function PostCard({
                 onClick={onOpen}
                 className="text-left cursor-pointer block truncate sm:line-clamp-3 after:absolute after:inset-0 after:z-0 after:content-['']"
               >
-                <span className="hover:underline">{post.title}</span>
+                <span className="hover:underline"><HighlightMatches text={post.title} query={highlightQuery} /></span>
               </button>
             ) : (
               <Link
                 href={href}
                 className="block truncate sm:line-clamp-3 after:absolute after:inset-0 after:z-0 after:content-['']"
               >
-                <span className="hover:underline">{post.title}</span>
+                <span className="hover:underline"><HighlightMatches text={post.title} query={highlightQuery} /></span>
               </Link>
             )}
           </h2>
@@ -392,14 +401,14 @@ export function PostCard({
             onClick={onOpen}
             className="text-left cursor-pointer mt-3 line-clamp-6 text-sm text-ink transition-opacity hover:opacity-80 dark:text-neutral-400"
           >
-            {post.contentText}
+            <HighlightMatches text={post.contentText} query={highlightQuery} />
           </button>
         ) : (
           <Link
             href={href}
             className="mt-3 line-clamp-6 text-sm text-ink transition-opacity hover:opacity-80 dark:text-neutral-400"
           >
-            {post.contentText}
+            <HighlightMatches text={post.contentText} query={highlightQuery} />
           </Link>
         )}
 

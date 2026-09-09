@@ -39,7 +39,7 @@ type AdminPost = EditablePost & {
 };
 
 type StringKey =
-  | "title" | "signedInAs" | "searchPlaceholder"
+  | "title" | "signedInAs" | "totalCount" | "searchPlaceholder"
   | "empty" | "noMatches" | "loadError"
   | "jobs" | "talents"
   | "statusPublished" | "statusDraft" | "statusScheduled"
@@ -48,6 +48,13 @@ type StringKey =
 const STRINGS: Record<StringKey, Record<Locale, string>> = {
   title: { uk: "Усі дописи", en: "All posts", ru: "Все публикации", de: "Alle Beiträge", es: "Todas las publicaciones", fr: "Toutes les publications", pl: "Wszystkie posty", ptBR: "Todas as publicações", zh: "所有帖子" },
   signedInAs: { uk: "Обліковий запис", en: "Signed in as", ru: "Аккаунт", de: "Angemeldet als", es: "Sesión iniciada como", fr: "Connecté en tant que", pl: "Zalogowano jako", ptBR: "Conectado como", zh: "已登录" },
+  // 2026-09-09 (Aleksandr, looking at the admin list after the big bulk
+  // import: "выведи тут наверх где то общее кол-во вакансий") -- total
+  // count of everything this page loaded (across every technical
+  // account, both Jobs and Talents posts -- see the file header comment
+  // on why this list is already an aggregate), not the search-filtered
+  // count below it.
+  totalCount: { uk: "Всього дописів: {n}", en: "Total posts: {n}", ru: "Всего публикаций: {n}", de: "Beiträge insgesamt: {n}", es: "Total de publicaciones: {n}", fr: "Total des publications : {n}", pl: "Łącznie postów: {n}", ptBR: "Total de publicações: {n}", zh: "共 {n} 篇帖子" },
   searchPlaceholder: { uk: "Пошук за назвою або текстом…", en: "Search by title or text…", ru: "Поиск по названию или тексту…", de: "Suche nach Titel oder Text…", es: "Buscar por título o texto…", fr: "Rechercher par titre ou texte…", pl: "Szukaj po tytule lub tekście…", ptBR: "Buscar por título ou texto…", zh: "按标题或内容搜索…" },
   empty: { uk: "Ще немає жодного допису", en: "No posts yet", ru: "Пока нет ни одной публикации", de: "Noch keine Beiträge", es: "Aún no hay publicaciones", fr: "Aucune publication pour le moment", pl: "Jeszcze nie ma żadnego posta", ptBR: "Ainda não há publicações", zh: "还没有帖子" },
   noMatches: { uk: "Нічого не знайдено", en: "Nothing found", ru: "Ничего не найдено", de: "Nichts gefunden", es: "No se encontró nada", fr: "Rien trouvé", pl: "Nic nie znaleziono", ptBR: "Nada encontrado", zh: "未找到任何内容" },
@@ -64,6 +71,12 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   deleteFailed: { uk: "Не вдалося видалити", en: "Couldn't delete", ru: "Не удалось удалить", de: "Löschen fehlgeschlagen", es: "No se pudo eliminar", fr: "Échec de la suppression", pl: "Nie udało się usunąć", ptBR: "Não foi possível excluir", zh: "删除失败" },
   noDescription: { uk: "Без опису", en: "No description", ru: "Без описания", de: "Keine Beschreibung", es: "Sin descripción", fr: "Sans description", pl: "Bez opisu", ptBR: "Sem descrição", zh: "无描述" },
 };
+
+function t(key: StringKey, lang: Locale, vars?: Record<string, string | number>): string {
+  let s = STRINGS[key][lang];
+  if (vars) for (const [k, v] of Object.entries(vars)) s = s.replace(`{${k}}`, String(v));
+  return s;
+}
 
 function useActiveLocale(): Locale {
   const [lang, setLang] = useState<Locale>("uk");
@@ -177,6 +190,9 @@ export function AdminPostsPanel({ signedInAs }: { signedInAs: string }) {
         <p className="mt-0.5 text-xs text-neutral-400 dark:text-neutral-500">
           {STRINGS.signedInAs[lang]}: {signedInAs}
         </p>
+        {posts !== null && (
+          <p className="mt-0.5 text-xs text-neutral-400 dark:text-neutral-500">{t("totalCount", lang, { n: posts.length })}</p>
+        )}
       </div>
 
       <input
