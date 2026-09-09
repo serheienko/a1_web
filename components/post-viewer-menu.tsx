@@ -593,7 +593,7 @@ export function PostViewerMenu({
         sm: reverts every one of these back to plain static flow --
         Aleksandr asked for this on mobile specifically, desktop is
         unaffected. */}
-    <div className="sticky top-[calc(var(--site-nav-h,64px)+8px)] z-20 -mx-4 mt-4 flex items-center gap-2 bg-app/90 px-4 py-2 backdrop-blur-xl dark:bg-black/90 sm:static sm:top-auto sm:z-auto sm:mx-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-none dark:sm:bg-transparent">
+    <div className="sticky top-[var(--site-nav-h,64px)] z-20 -mx-4 mt-4 flex items-center gap-2 bg-app/90 px-4 pb-2 pt-3 backdrop-blur-xl dark:bg-black/90 sm:static sm:top-auto sm:z-auto sm:mx-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-none dark:sm:bg-transparent">
       <button
         type="button"
         onClick={openChat}
