@@ -577,7 +577,23 @@ export function PostViewerMenu({
 
   return (
     <>
-    <div className="mt-4 flex items-center gap-2">
+    {/* 2026-09-09 (Aleksandr, from a live screenshot: message + dots row
+        should rise up and stick) -- on mobile only, once scrolling
+        carries this row up to just under the sticky site nav, it
+        detaches and stays there instead of continuing to scroll away
+        with the avatar header above it; everything below (tags, post
+        text, images) keeps scrolling underneath as normal. Reuses the
+        same --site-nav-h var + background/blur treatment
+        components/site-nav.tsx publishes and components/chat/voice-now-
+        playing-bar.tsx already reuses the same way, so it sits flush
+        under the real nav on every device instead of a guessed pixel
+        offset. -mx-4/px-4 cancel out to fill the page own side padding
+        so the sticky bar background reaches both edges while the
+        buttons inside stay aligned with the rest of the content.
+        sm: reverts every one of these back to plain static flow --
+        Aleksandr asked for this on mobile specifically, desktop is
+        unaffected. */}
+    <div className="sticky top-[calc(var(--site-nav-h,64px)+8px)] z-20 -mx-4 mt-4 flex items-center gap-2 bg-app/90 px-4 py-2 backdrop-blur-xl dark:bg-black/90 sm:static sm:top-auto sm:z-auto sm:mx-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-none dark:sm:bg-transparent">
       <button
         type="button"
         onClick={openChat}
