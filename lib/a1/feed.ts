@@ -71,12 +71,19 @@ function authorKey(post: WebPost): string {
 
 function interleaveByAuthor(posts: WebPost[]): WebPost[] {
   const result = [...posts];
+  // Non-null assertions below: every index used here is guarded by the
+  // loop bounds it came from (i < result.length, j < result.length), so
+  // result[i] etc. is always defined -- this is only needed because
+  // tsconfig's noUncheckedIndexedAccess types plain array indexing as
+  // possibly-undefined regardless of the bounds check (2026-09-10,
+  // caught by the Vercel build: "Type WebPost | undefined is not
+  // assignable to type WebPost").
   for (let i = 1; i < result.length; i++) {
-    if (authorKey(result[i]) !== authorKey(result[i - 1])) continue;
+    if (authorKey(result[i]!) !== authorKey(result[i - 1]!)) continue;
     let j = i + 1;
-    while (j < result.length && authorKey(result[j]) === authorKey(result[i - 1])) j++;
+    while (j < result.length && authorKey(result[j]!) === authorKey(result[i - 1]!)) j++;
     if (j < result.length) {
-      [result[i], result[j]] = [result[j], result[i]];
+      [result[i], result[j]] = [result[j]!, result[i]!];
     }
     // No such j: every remaining post is the same company as this run --
     // nothing left to interleave with, leave it (the pigeonhole case
