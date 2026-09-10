@@ -16,6 +16,13 @@ import { fetchAllAccountsPosts } from "@/lib/a1/admin-post-aggregate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// 2026-09-10: with TECHNICAL_ACCOUNTS_JSON now ~490 entries, a cold
+// lambda doing the full fetchAllAccountsPosts() pass (even with the
+// concurrency cap in lib/a1/admin-post-aggregate.ts) can run past the
+// platform's default function timeout. Raise it explicitly -- 60s is
+// within the Hobby plan's own ceiling too, so this is safe regardless
+// of which Vercel plan this project is on.
+export const maxDuration = 60;
 
 export async function GET() {
   const session = await readSession();

@@ -80,7 +80,7 @@ export default async function HomePage({ searchParams }: Props) {
           <T uk="Вакансії" en="Jobs" ru="Вакансии" de="Stellenangebote" es="Vacantes" fr="Offres d'emploi" pl="Oferty pracy" ptBR="Vagas" zh="职位" />
         </h1>
         <p className="mt-2 text-neutral-500 dark:text-neutral-400">
-          <T uk="Актуальні вакансії від компаній та приватних осіб в A1." en="Current job listings from companies and individuals on A1." ru="Актуальные вакансии от компаний и частных лиц в A1." de="Aktuelle Stellenangebote von Unternehmen und Privatpersonen auf A1." es="Vacantes actuales de empresas y particulares en A1." fr="Offres d'emploi actuelles d'entreprises et de particuliers sur A1." pl="Aktualne oferty pracy od firm i osób prywatnych na A1." ptBR="Vagas atuais de empresas e pessoas físicas na A1." zh="A1 上企业与个人发布的最新职位。" />
+          <T uk="Знаходьте найкращу роботу якомога швидше" en="Find the best job as fast as possible" ru="Находите лучшую работу как можно быстрее" de="Finden Sie den besten Job so schnell wie möglich" es="Encuentra el mejor trabajo lo más rápido posible" fr="Trouvez le meilleur emploi le plus rapidement possible" pl="Znajdź najlepszą pracę jak najszybciej" ptBR="Encontre o melhor emprego o mais rápido possível" zh="尽快找到最好的工作" />
         </p>
       </header>
 

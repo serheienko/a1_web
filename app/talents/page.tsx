@@ -68,7 +68,7 @@ export default async function TalentsPage({ searchParams }: Props) {
           <T uk="Фахівці" en="Talents" ru="Специалисты" de="Fachkräfte" es="Especialistas" fr="Spécialistes" pl="Specjaliści" ptBR="Especialistas" zh="人才" />
         </h1>
         <p className="mt-2 text-neutral-500 dark:text-neutral-400">
-          <T uk="Люди, які шукають роботу або проєкти через A1." en="People looking for work or projects through A1." ru="Люди, которые ищут работу или проекты через A1." de="Menschen, die über A1 nach Arbeit oder Projekten suchen." es="Personas que buscan trabajo o proyectos a través de A1." fr="Des personnes à la recherche d'un emploi ou de projets via A1." pl="Osoby szukające pracy lub projektów przez A1." ptBR="Pessoas em busca de trabalho ou projetos através da A1." zh="通过 A1 寻找工作或项目的人。" />
+          <T uk="Знаходьте спеціалістів, та підсилюйте Вашу команду" en="Find specialists and strengthen your team" ru="Находите специалистов и усиливайте свою команду" de="Finden Sie Fachkräfte und stärken Sie Ihr Team" es="Encuentra especialistas y fortalece tu equipo" fr="Trouvez des spécialistes et renforcez votre équipe" pl="Znajdź specjalistów i wzmocnij swój zespół" ptBR="Encontre especialistas e fortaleça sua equipe" zh="寻找专业人才，壮大你的团队" />
         </p>
       </header>
 

@@ -11,18 +11,48 @@
 // (lib/a1/client.ts's call() `accessToken` option, the same mechanism
 // app/api/account/update-profile already uses for a per-visitor token).
 //
-// Deliberately no cross-request token cache yet (2026-09-09): with a
-// single test account today, a fresh login per account per request is
-// cheap and simplest to reason about. Revisit with an in-memory
-// (per-warm-lambda) token cache and a concurrency cap on the
-// Promise.all below once TECHNICAL_ACCOUNTS_JSON actually holds
-// hundreds of entries — logging into 500 accounts on every page load
-// would be much too slow and hammer the backend.
-
+// 2026-09-10 (Aleksandr: bulk-provisioning grew TECHNICAL_ACCOUNTS_JSON
+// from a handful of pilot accounts to ~490 -- the "revisit" this
+// comment used to flag is now due). Two changes below: a concurrency
+// cap (CONCURRENCY) instead of firing every account's login at once,
+// which was both hammering the A1 backend and risking this route's own
+// Vercel execution timeout; and a short in-memory cache (CACHE_TTL_MS)
+// so repeated admin-page loads on a still-warm lambda don't redo the
+// full ~490-account fetch every time -- a cold start still pays the
+// full cost once. Each account's own 3 posts.search variants (plain /
+// drafts / scheduled) now also run in parallel instead of sequentially
+// -- they're independent reads, merged by _id same as before.
 import { call, A1ApiError } from "./client";
 import { parsePost, type Post } from "./schemas";
 import { isArchived } from "./post-flags";
 import { loadTechnicalAccounts, type TechnicalAccount } from "./admin-accounts";
+
+const CONCURRENCY = 25;
+const CACHE_TTL_MS = 45_000;
+let cache: { data: AdminAggregatedPost[]; fetchedAt: number } | null = null;
+
+// Runs `worker` over `items` with at most `limit` in flight at once --
+// see the comment above for why an unbounded Promise.all stopped being
+// safe once TECHNICAL_ACCOUNTS_JSON grew to hundreds of entries.
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  async function run() {
+    while (next < items.length) {
+      const i = next++;
+      const item = items[i];
+      if (item === undefined) continue;
+      results[i] = await worker(item);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, run));
+  return results;
+}
+
 
 // Field-for-field the same shape app/api/posts/mine/route.ts's own
 // summarize() returns (title/content/object/etc, enough to both list a
@@ -86,13 +116,21 @@ async function fetchAccountPosts(account: TechnicalAccount): Promise<AdminAggreg
     // posts.search's `author: "me"` alone isn't confirmed to already
     // include drafts/scheduled posts (see that route's own header
     // comment), so this doesn't bet on an unconfirmed default either.
+    // The three variants are independent reads, so run them in
+    // parallel (2026-09-10) instead of one-at-a-time -- with ~490
+    // accounts now in play, tripling every account's own latency by
+    // going sequential here was adding up.
+    const searchResults = await Promise.all(
+      [{}, { drafts: true }, { scheduled: true }].map((extra) =>
+        call<SearchOutput>(
+          "posts.search",
+          { author: "me", limit: 100, ...extra },
+          { accessToken: login.accessToken },
+        ),
+      ),
+    );
     const collected = new Map<string, Post>();
-    for (const extra of [{}, { drafts: true }, { scheduled: true }]) {
-      const data = await call<SearchOutput>(
-        "posts.search",
-        { author: "me", limit: 100, ...extra },
-        { accessToken: login.accessToken },
-      );
+    for (const data of searchResults) {
       for (const raw of data.items ?? []) {
         const post = parsePost(raw);
         if (post) collected.set(post._id, post);
@@ -117,7 +155,12 @@ async function fetchAccountPosts(account: TechnicalAccount): Promise<AdminAggreg
 }
 
 export async function fetchAllAccountsPosts(): Promise<AdminAggregatedPost[]> {
+  if (cache && Date.now() - cache.fetchedAt < CACHE_TTL_MS) {
+    return cache.data;
+  }
   const accounts = loadTechnicalAccounts();
-  const results = await Promise.all(accounts.map(fetchAccountPosts));
-  return results.flat().sort((a, b) => b.created - a.created);
+  const results = await mapWithConcurrency(accounts, CONCURRENCY, fetchAccountPosts);
+  const data = results.flat().sort((a, b) => b.created - a.created);
+  cache = { data, fetchedAt: Date.now() };
+  return data;
 }
