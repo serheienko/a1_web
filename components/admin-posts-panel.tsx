@@ -32,9 +32,26 @@
 // where fetching all ~500 accounts in a single request did not. Posts
 // are appended and re-sorted after every page, so the list visibly
 // fills in rather than staying blank until everything has loaded.
+//
+// 2026-09-10, later same day (Aleksandr: the auto-loop above still
+// silently fetched ALL ~500 accounts in the background right after
+// mount -- fine for avoiding the 504, but wasteful, and the "load the
+// newest posts first" ordering wasn't reliable while later pages kept
+// reshuffling the list. Changed to real lazy pagination: load() now
+// only fetches the FIRST page and stops. loadMore() fetches one more
+// page at a time and is wired to an IntersectionObserver on a sentinel
+// element below the list, so the next page only loads once the user
+// has actually scrolled near the bottom -- same idea Aleksandr asked
+// for originally ("догружать следующие, когда доскроллил до низа").
+// reloadAfterSave() is a separate path used after editing a post: a
+// plain load() would reset back to just the first page, and if the
+// edited post's account wasn't in it, the post would appear to vanish
+// right after saving -- so this refetches from the start but keeps
+// paging until it's back to at least as many accounts as were loaded
+// before the save.
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { PostEditor, type EditablePost } from "@/components/post-editor";
 import { authFetch } from "@/lib/auth-fetch";
@@ -65,9 +82,12 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   // on why this list is already an aggregate), not the search-filtered
   // count below it.
   totalCount: { uk: "Всього дописів: {n}", en: "Total posts: {n}", ru: "Всего публикаций: {n}", de: "Beiträge insgesamt: {n}", es: "Total de publicaciones: {n}", fr: "Total des publications : {n}", pl: "Łącznie postów: {n}", ptBR: "Total de publicações: {n}", zh: "共 {n} 篇帖子" },
-  // 2026-09-10: shown under totalCount while pages are still coming in
-  // (loadedAccounts < totalAccounts) -- see this file's header comment.
-  loadingMore: { uk: "Довантажується… ({loaded}/{total} акаунтів)", en: "Loading more… ({loaded}/{total} accounts)", ru: "Догружается… ({loaded}/{total} аккаунтов)", de: "Wird nachgeladen… ({loaded}/{total} Konten)", es: "Cargando más… ({loaded}/{total} cuentas)", fr: "Chargement en cours… ({loaded}/{total} comptes)", pl: "Wczytywanie… ({loaded}/{total} kont)", ptBR: "Carregando mais… ({loaded}/{total} contas)", zh: "加载中…（{loaded}/{total} 个账号）" },
+  // 2026-09-10: shown under totalCount whenever more accounts remain
+  // to load (hasMore) -- with lazy scroll-pagination the next page
+  // isn't actually being fetched until the user scrolls near the
+  // bottom, so this is phrased as "scroll for more" rather than
+  // "loading", see this file's header comment.
+  loadingMore: { uk: "Завантажено {loaded}/{total} акаунтів — прокрутіть вниз, щоб довантажити", en: "Loaded {loaded}/{total} accounts — scroll down to load more", ru: "Загружено {loaded}/{total} аккаунтов — прокрутите вниз, чтобы догрузить", de: "{loaded}/{total} Konten geladen — nach unten scrollen, um mehr zu laden", es: "Cargadas {loaded}/{total} cuentas — desplázate hacia abajo para cargar más", fr: "{loaded}/{total} comptes chargés — faites défiler vers le bas pour en charger plus", pl: "Załadowano {loaded}/{total} kont — przewiń w dół, aby wczytać więcej", ptBR: "Carregadas {loaded}/{total} contas — role para baixo para carregar mais", zh: "已加载 {loaded}/{total} 个账号 — 向下滚动加载更多" },
   searchPlaceholder: { uk: "Пошук за назвою або текстом…", en: "Search by title or text…", ru: "Поиск по названию или тексту…", de: "Suche nach Titel oder Text…", es: "Buscar por título o texto…", fr: "Rechercher par titre ou texte…", pl: "Szukaj po tytule lub tekście…", ptBR: "Buscar por título ou texto…", zh: "按标题或内容搜索…" },
   empty: { uk: "Ще немає жодного допису", en: "No posts yet", ru: "Пока нет ни одной публикации", de: "Noch keine Beiträge", es: "Aún no hay publicaciones", fr: "Aucune publication pour le moment", pl: "Jeszcze nie ma żadnego posta", ptBR: "Ainda não há publicações", zh: "还没有帖子" },
   noMatches: { uk: "Нічого не знайдено", en: "Nothing found", ru: "Ничего не найдено", de: "Nichts gefunden", es: "No se encontró nada", fr: "Rien trouvé", pl: "Nic nie znaleziono", ptBR: "Nada encontrado", zh: "未找到任何内容" },
@@ -128,11 +148,34 @@ function shortDescription(content: string): string {
 // header comment for why this is paginated at all.
 const ACCOUNT_PAGE_SIZE = 20;
 
+type PostsPage = { posts: AdminPost[]; total: number; nextOffset: number | null; hasMore: boolean };
+
+// Pure network call, no component state -- both load() and loadMore()
+// use this, and reloadAfterSave() loops over it directly without
+// waiting on React state between iterations (state updates aren't
+// visible to a function's own local loop, only to the next render).
+async function fetchPage(offset: number): Promise<PostsPage> {
+  const res = await authFetch(`/api/admin/all-posts?offset=${offset}&limit=${ACCOUNT_PAGE_SIZE}`);
+  const data = await res.json();
+  if (!data.ok) throw new Error("not ok");
+  return {
+    posts: data.posts ?? [],
+    total: data.total ?? 0,
+    nextOffset: data.nextOffset ?? null,
+    hasMore: Boolean(data.hasMore) && data.nextOffset !== null && data.nextOffset !== undefined,
+  };
+}
+
 export function AdminPostsPanel({ signedInAs }: { signedInAs: string }) {
   const lang = useActiveLocale();
   const [posts, setPosts] = useState<AdminPost[] | null>(null);
   const [totalAccounts, setTotalAccounts] = useState<number | null>(null);
   const [loadedAccounts, setLoadedAccounts] = useState(0);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const loadingRef = useRef(false);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
   const [error, setError] = useState(false);
   const [query, setQuery] = useState("");
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
@@ -144,28 +187,82 @@ export function AdminPostsPanel({ signedInAs }: { signedInAs: string }) {
     setPosts(null);
     setLoadedAccounts(0);
     setTotalAccounts(null);
-
-    let offset = 0;
-    let collected: AdminPost[] = [];
+    setOffset(0);
+    setHasMore(true);
     try {
-      // Keep fetching pages until the server says there's nothing left
-      // (hasMore/nextOffset) -- see this file's header comment for why
-      // this can no longer be a single request. Each page is appended
-      // and re-sorted immediately so the list visibly grows instead of
-      // staying blank for the whole ~500-account fetch.
+      const page = await fetchPage(0);
+      const sorted = page.posts.slice().sort((a, b) => b.created - a.created);
+      setPosts(sorted);
+      setTotalAccounts(page.total);
+      setLoadedAccounts(Math.min(ACCOUNT_PAGE_SIZE, page.total));
+      setHasMore(page.hasMore);
+      setOffset(page.nextOffset ?? 0);
+    } catch {
+      setError(true);
+    }
+  }
+
+  // Fetches exactly one more page, wired to the IntersectionObserver
+  // below on the sentinel div at the bottom of the list. loadingRef
+  // (not the loadingMore state) is what guards against overlapping
+  // calls -- the observer callback can fire again before a re-render
+  // updates its closure over the loadingMore state, but a ref is
+  // always read fresh.
+  async function loadMore() {
+    if (loadingRef.current || !hasMore) return;
+    loadingRef.current = true;
+    setLoadingMore(true);
+    try {
+      const page = await fetchPage(offset);
+      setPosts((prev) => {
+        const merged = (prev ?? []).concat(page.posts);
+        merged.sort((a, b) => b.created - a.created);
+        return merged;
+      });
+      setTotalAccounts(page.total);
+      setLoadedAccounts((prev) => Math.min(prev + ACCOUNT_PAGE_SIZE, page.total));
+      setHasMore(page.hasMore);
+      if (page.hasMore) setOffset(page.nextOffset ?? offset);
+    } catch {
+      // Stop trying rather than leave the sentinel spinning forever --
+      // a full reload (e.g. reopening the page) tries again from
+      // scratch.
+      setHasMore(false);
+    } finally {
+      loadingRef.current = false;
+      setLoadingMore(false);
+    }
+  }
+
+  // See this file's header comment -- used instead of load() right
+  // after a save, so an already-visible post never disappears.
+  async function reloadAfterSave() {
+    const targetAccounts = Math.max(loadedAccounts, ACCOUNT_PAGE_SIZE);
+    setError(false);
+    setPosts(null);
+    setLoadedAccounts(0);
+    setTotalAccounts(null);
+    try {
+      let acc: AdminPost[] = [];
+      let off = 0;
+      let more = true;
+      let total = 0;
+      let loaded = 0;
       for (;;) {
-        const res = await authFetch(`/api/admin/all-posts?offset=${offset}&limit=${ACCOUNT_PAGE_SIZE}`);
-        const data = await res.json();
-        if (!data.ok) throw new Error("not ok");
-
-        collected = collected.concat(data.posts ?? []).sort((a: AdminPost, b: AdminPost) => b.created - a.created);
-        setPosts([...collected]);
-        setTotalAccounts(data.total ?? 0);
-        setLoadedAccounts(Math.min(offset + ACCOUNT_PAGE_SIZE, data.total ?? 0));
-
-        if (!data.hasMore || data.nextOffset === null || data.nextOffset === undefined) break;
-        offset = data.nextOffset;
+        const page = await fetchPage(off);
+        acc = acc.concat(page.posts);
+        total = page.total;
+        loaded = Math.min(loaded + ACCOUNT_PAGE_SIZE, total);
+        more = page.hasMore;
+        off = page.nextOffset ?? off;
+        if (!more || loaded >= targetAccounts) break;
       }
+      acc.sort((a, b) => b.created - a.created);
+      setPosts(acc);
+      setTotalAccounts(total);
+      setLoadedAccounts(loaded);
+      setHasMore(more);
+      setOffset(more ? off : 0);
     } catch {
       setError(true);
     }
@@ -174,6 +271,23 @@ export function AdminPostsPanel({ signedInAs }: { signedInAs: string }) {
   useEffect(() => {
     load();
   }, []);
+
+  // Scroll-triggered pagination: once the sentinel below the list
+  // enters the viewport (with a generous rootMargin so it starts a
+  // little before the user actually hits bottom), load the next page.
+  useEffect(() => {
+    if (!hasMore || posts === null) return;
+    const node = sentinelRef.current;
+    if (!node) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) loadMore();
+      },
+      { rootMargin: "800px 0px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [hasMore, offset, posts]);
 
   const filtered = useMemo(() => {
     if (!posts) return null;
@@ -218,7 +332,7 @@ export function AdminPostsPanel({ signedInAs }: { signedInAs: string }) {
         mode="edit"
         initialPost={editing}
         onClose={() => setEditing(null)}
-        onSaved={load}
+        onSaved={reloadAfterSave}
         adminActingAs={{ email: editing.companyEmail }}
       />
     );
@@ -234,7 +348,7 @@ export function AdminPostsPanel({ signedInAs }: { signedInAs: string }) {
         {posts !== null && (
           <p className="mt-0.5 text-xs text-neutral-400 dark:text-neutral-500">{t("totalCount", lang, { n: posts.length })}</p>
         )}
-        {posts !== null && totalAccounts !== null && loadedAccounts < totalAccounts && (
+        {posts !== null && totalAccounts !== null && hasMore && (
           <p className="mt-0.5 text-xs text-neutral-400 dark:text-neutral-500">
             {t("loadingMore", lang, { loaded: loadedAccounts, total: totalAccounts })}
           </p>
@@ -327,6 +441,17 @@ export function AdminPostsPanel({ signedInAs }: { signedInAs: string }) {
           );
         })}
       </div>
+
+      {posts !== null && hasMore && (
+        <div ref={sentinelRef} className="flex justify-center py-6">
+          {loadingMore && (
+            <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5 animate-spin text-neutral-400" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" strokeOpacity="0.25" />
+              <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+            </svg>
+          )}
+        </div>
+      )}
     </div>
   );
 }

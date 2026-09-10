@@ -5,6 +5,7 @@
 // (app/api/feed/route.ts), so cursor handling and object-type mapping only
 // live in one place.
 
+import { unstable_cache } from "next/cache";
 import { call } from "./client";
 import { mapPosts } from "./mappers";
 import { PostsSearchOutputSchema } from "./schemas";
@@ -182,25 +183,90 @@ async function scanFullFeed(kind: WebPostKind, filters: FeedFilters): Promise<We
   return matches;
 }
 
-// 2026-09-09: scanFullFeed above is NOT cheap -- up to 30 sequential
-// requests to api.a1appp.com just to answer one page of the feed. Doing
-// that on every single "Load more" click (app/api/feed/route.ts is
-// force-dynamic, so it gets no page-level caching at all) would make
-// every click take several seconds. This is a small in-memory cache --
-// one Node process (one warm serverless instance) reuses the same
-// sorted list for TTL_MS instead of re-scanning, so a burst of "Load
-// more" clicks (or the RSC page render plus the client's own first
-// fetch) pays the full scan once, not once per request.
+// 2026-09-10 (Aleksandr: главная грузится долго, "х100 костит" -- сервер
+// пересчитывал всю ленту заново практически на каждый заход): first
+// attempt at a real fix was going to be a scheduled background job
+// (Vercel Cron) writing a precomputed result to Vercel Blob storage --
+// works, but frequent Cron (more than once/day) needs the paid Pro plan.
+// Turns out that's not actually necessary: Next's own Data Cache
+// (`unstable_cache`, see https://vercel.com/docs/caching/runtime-cache/
+// data-cache) already IS a cache shared across every serverless instance
+// and region on Vercel -- including Hobby -- unlike sortedFeedCache
+// below, which only helps within one warm process. Revalidation is
+// stale-while-revalidate: whoever's request happens to land after the
+// interval below still gets the last cached list INSTANTLY, while Next
+// reruns the scan in the background for the next request -- nobody
+// actually waits on scanFullFeed anymore, regardless of the interval.
 //
-// Deliberately NOT Next's `unstable_cache`: that would share the cache
-// across every server instance on Vercel (stronger), but it round-trips
-// the result through serialization, and WebPost carries real `Date`
-// objects (publishedAt, sourcePublishedAt, updatedAt) that a JSON-based
-// cache would hand back as strings instead -- silently breaking every
-// caller that expects `Date`. Safer to keep this in plain memory (real
-// object references, no serialization) even though it only helps within
-// one warm instance; revisit if that turns out not to be enough.
-const SORTED_FEED_CACHE_TTL_MS = 30_000;
+// Two things that shaped this:
+// 1. Data Cache entries are capped at 2MB (Vercel's documented limit) --
+//    caching the WHOLE scanned feed (up to FULL_SCAN_MAX_PAGES *
+//    FULL_SCAN_PAGE_SIZE = 3,000 posts) risks that as the live post
+//    count grows. Only the first CACHED_FEED_PREFIX posts (already
+//    sorted + interleaved) are cached -- comfortably covers every
+//    "Load more" click a real visitor makes in practice. Paging past
+//    it (rare) falls through to the older live-scan path below.
+// 2. unstable_cache serializes its result through JSON, which silently
+//    turns every `Date` into a string and does NOT turn it back --
+//    serializeForCache/deserializeFromCache below convert WebPost's 3
+//    date fields before caching and back to real Dates after reading,
+//    so every caller still gets real Date objects same as before.
+//
+// Deliberately scoped to the UNFILTERED feed only (no q/category/tag/
+// location) -- that's what app/page.tsx and app/talents/page.tsx render
+// by default, and it keeps the cache key space small. A filtered/search
+// view still goes through getSortedFeed/sortedFeedCache below,
+// unchanged -- lower-traffic, and correctness there matters more than
+// speed.
+const CACHED_FEED_PREFIX = 300; // 10 pages of FEED_PAGE_SIZE -- covers the overwhelming majority of visits
+const FEED_CACHE_REVALIDATE_SECONDS = 60;
+
+type SerializedWebPost = Omit<WebPost, "publishedAt" | "sourcePublishedAt" | "updatedAt"> & {
+  publishedAt: string;
+  sourcePublishedAt: string | null;
+  updatedAt: string | null;
+};
+
+function serializeForCache(post: WebPost): SerializedWebPost {
+  return {
+    ...post,
+    publishedAt: post.publishedAt.toISOString(),
+    sourcePublishedAt: post.sourcePublishedAt ? post.sourcePublishedAt.toISOString() : null,
+    updatedAt: post.updatedAt ? post.updatedAt.toISOString() : null,
+  };
+}
+
+function deserializeFromCache(post: SerializedWebPost): WebPost {
+  return {
+    ...post,
+    publishedAt: new Date(post.publishedAt),
+    sourcePublishedAt: post.sourcePublishedAt ? new Date(post.sourcePublishedAt) : null,
+    updatedAt: post.updatedAt ? new Date(post.updatedAt) : null,
+  };
+}
+
+const getCachedFeedPrefixRaw = unstable_cache(
+  async (kind: WebPostKind): Promise<SerializedWebPost[]> => {
+    const sorted = interleaveByAuthor(sortByFreshness(await scanFullFeed(kind, {})));
+    return sorted.slice(0, CACHED_FEED_PREFIX).map(serializeForCache);
+  },
+  ["feed-prefix"],
+  { revalidate: FEED_CACHE_REVALIDATE_SECONDS },
+);
+
+async function getCachedFeedPrefix(kind: WebPostKind): Promise<WebPost[]> {
+  const serialized = await getCachedFeedPrefixRaw(kind);
+  return serialized.map(deserializeFromCache);
+}
+
+// 2026-09-09: scanFullFeed is NOT cheap -- up to 30 sequential requests
+// to api.a1appp.com just to answer one page of the feed. This in-memory
+// cache (one warm serverless instance reuses the same sorted list for
+// TTL_MS instead of re-scanning) is now only the FALLBACK path -- a
+// filtered/search view, or paging past CACHED_FEED_PREFIX on the
+// unfiltered feed above. Both are comparatively rare, so a per-instance
+// (not cross-instance) cache is an acceptable trade-off here.
+const SORTED_FEED_CACHE_TTL_MS = 60_000;
 const sortedFeedCache = new Map<string, { expiresAt: number; promise: Promise<WebPost[]> }>();
 
 function sortedFeedCacheKey(kind: WebPostKind, filters: FeedFilters): string {
@@ -286,16 +352,35 @@ export async function fetchFeedPage(
   cursor?: string | null,
   filters: FeedFilters = {},
 ): Promise<FeedPage> {
-  // 2026-09-09: always paginate over the FULL, already-sorted feed (see
-  // getSortedFeed above) instead of forwarding the backend's own cursor
-  // -- that's what lets a genuinely newer post several backend-pages
-  // back still land on page 1. `cursor` here is always one of OUR
-  // offsets (LOCAL_CURSOR_PREFIX), never the backend's own `next`.
+  // 2026-09-09: always paginate over the FULL, already-sorted feed
+  // instead of forwarding the backend's own cursor -- that's what lets
+  // a genuinely newer post several backend-pages back still land on
+  // page 1. `cursor` here is always one of OUR offsets
+  // (LOCAL_CURSOR_PREFIX), never the backend's own `next`.
   const offset = cursor?.startsWith(LOCAL_CURSOR_PREFIX)
     ? Number(cursor.slice(LOCAL_CURSOR_PREFIX.length)) || 0
     : 0;
-  const allMatches = await getSortedFeed(kind, filters);
   const nextOffset = offset + FEED_PAGE_SIZE;
+
+  // 2026-09-10: the common case (unfiltered feed, within the first
+  // CACHED_FEED_PREFIX posts) is served from the shared cross-instance
+  // cache above -- no live scan at all. See that block's comment.
+  if (!hasActiveFilters(filters) && nextOffset <= CACHED_FEED_PREFIX) {
+    const cachedPrefix = await getCachedFeedPrefix(kind);
+    // cachedPrefix.length === CACHED_FEED_PREFIX means the real feed
+    // might continue beyond what we cached -- we don't know the true
+    // total from this alone, so optimistically say hasMore; the NEXT
+    // call's offset will be past CACHED_FEED_PREFIX and fall through to
+    // the live-scan branch below, which knows the real answer.
+    const hasMore = nextOffset < cachedPrefix.length || cachedPrefix.length === CACHED_FEED_PREFIX;
+    return {
+      posts: cachedPrefix.slice(offset, nextOffset),
+      next: hasMore ? `${LOCAL_CURSOR_PREFIX}${nextOffset}` : null,
+      hasMore,
+    };
+  }
+
+  const allMatches = await getSortedFeed(kind, filters);
   const hasMore = nextOffset < allMatches.length;
   return {
     posts: allMatches.slice(offset, nextOffset),
