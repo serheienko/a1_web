@@ -249,7 +249,7 @@ export function ProfileTabs({
               : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50")
           }
         >
-          <T uk="Про мене" en="Bio" ru="О себе" de="Bio" es="Bio" fr="Bio" pl="Bio" ptBR="Bio" zh="简介" />
+          <T uk="Біо" en="Bio" ru="О себе" de="Bio" es="Bio" fr="Bio" pl="Bio" ptBR="Bio" zh="简介" />
         </button>
         <button
           type="button"

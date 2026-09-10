@@ -45,6 +45,46 @@ function sortByFreshness<T extends { publishedAt: Date; sourcePublishedAt: Date 
   });
 }
 
+// Aleksandr, 2026-09-10, looking at the now-date-sorted feed: "постятся
+// вакансии все подряд от одной компании... надо аранжировать... но
+// должен быть верхний левел, что если вакансия вчера опубликована, то
+// она должна показываться" -- keep the real-date order as the top-level
+// rule, just mix so same-company posts don't run in a row --
+// sorting strictly by real date (above) brought this back: a company
+// that posted 3 vacancies on DOU the same day now clusters those 3
+// together again, same visual problem the round-robin publish order
+// (bulk_provision.py's publish_all_vacancies) was originally built to
+// avoid, just caused by the date sort instead of the old creation-order
+// pagination. Fix: after sorting by date, do one pass that breaks up any
+// run of consecutive same-company posts by swapping in the nearest
+// later post from a DIFFERENT company -- this is a small local
+// rearrangement (a post can only move down to make room for one behind
+// it), not a re-sort, so the feed still reads top-to-bottom as
+// newest-first; it just guarantees no two adjacent cards share a
+// company, exactly like the round-robin publish order used to.
+// Impossible to fully satisfy if one company alone holds a majority of
+// the whole list (pigeonhole) -- in that case this does the best it can
+// and leaves the unavoidable remainder as-is.
+function authorKey(post: WebPost): string {
+  return post.author.userId ?? post.author.username ?? post.author.name;
+}
+
+function interleaveByAuthor(posts: WebPost[]): WebPost[] {
+  const result = [...posts];
+  for (let i = 1; i < result.length; i++) {
+    if (authorKey(result[i]) !== authorKey(result[i - 1])) continue;
+    let j = i + 1;
+    while (j < result.length && authorKey(result[j]) === authorKey(result[i - 1])) j++;
+    if (j < result.length) {
+      [result[i], result[j]] = [result[j], result[i]];
+    }
+    // No such j: every remaining post is the same company as this run --
+    // nothing left to interleave with, leave it (the pigeonhole case
+    // from the comment above).
+  }
+  return result;
+}
+
 export type FeedPage = {
   posts: WebPost[];
   next: string | null;
@@ -162,7 +202,7 @@ async function getSortedFeed(kind: WebPostKind, filters: FeedFilters): Promise<W
   const cached = sortedFeedCache.get(key);
   if (cached && cached.expiresAt > now) return cached.promise;
 
-  const promise = scanFullFeed(kind, filters).then(sortByFreshness);
+  const promise = scanFullFeed(kind, filters).then(sortByFreshness).then(interleaveByAuthor);
   sortedFeedCache.set(key, { expiresAt: now + SORTED_FEED_CACHE_TTL_MS, promise });
   // A failed scan shouldn't keep serving/retrying the same rejection for
   // the rest of the TTL window -- let the next call try fresh.
