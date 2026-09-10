@@ -12,16 +12,22 @@
 // app/api/account/update-profile already uses for a per-visitor token).
 //
 // 2026-09-10 (Aleksandr: bulk-provisioning grew TECHNICAL_ACCOUNTS_JSON
-// from a handful of pilot accounts to ~490 -- the "revisit" this
-// comment used to flag is now due). Two changes below: a concurrency
-// cap (CONCURRENCY) instead of firing every account's login at once,
-// which was both hammering the A1 backend and risking this route's own
-// Vercel execution timeout; and a short in-memory cache (CACHE_TTL_MS)
-// so repeated admin-page loads on a still-warm lambda don't redo the
-// full ~490-account fetch every time -- a cold start still pays the
-// full cost once. Each account's own 3 posts.search variants (plain /
-// drafts / scheduled) now also run in parallel instead of sequentially
-// -- they're independent reads, merged by _id same as before.
+// from a handful of pilot accounts to ~500). First attempt was a
+// concurrency cap (CONCURRENCY) plus a whole-list in-memory cache --
+// that stopped this from hammering the A1 backend, but fetching ALL
+// ~500 accounts in one request still blew past Vercel's 60s function
+// limit on Hobby (confirmed: /api/admin/all-posts was 504ing every
+// time). Fixed properly this round (Aleksandr: "пагинация в самой
+// админке -- частями по 50 + кеширование"): this module now serves one
+// PAGE of accounts at a time (fetchAccountsPostsPage), and
+// app/api/admin/all-posts/route.ts's caller loads page after page --
+// each page's own aggregate fetch comfortably finishes in a few
+// seconds instead of the whole thing racing a 60s clock. Each page's
+// result is cached separately (CACHE_TTL_MS) so re-requesting the same
+// page within the window is instant. Each account's own 3
+// posts.search variants (plain / drafts / scheduled) still run in
+// parallel instead of sequentially -- independent reads, merged by
+// _id same as before.
 import { call, A1ApiError } from "./client";
 import { parsePost, type Post } from "./schemas";
 import { isArchived } from "./post-flags";
@@ -29,7 +35,7 @@ import { loadTechnicalAccounts, type TechnicalAccount } from "./admin-accounts";
 
 const CONCURRENCY = 25;
 const CACHE_TTL_MS = 45_000;
-let cache: { data: AdminAggregatedPost[]; fetchedAt: number } | null = null;
+const pageCache = new Map<string, { data: AccountsPostsPage; fetchedAt: number }>();
 
 // Runs `worker` over `items` with at most `limit` in flight at once --
 // see the comment above for why an unbounded Promise.all stopped being
@@ -154,13 +160,32 @@ async function fetchAccountPosts(account: TechnicalAccount): Promise<AdminAggreg
   }
 }
 
-export async function fetchAllAccountsPosts(): Promise<AdminAggregatedPost[]> {
-  if (cache && Date.now() - cache.fetchedAt < CACHE_TTL_MS) {
-    return cache.data;
+export type AccountsPostsPage = {
+  posts: AdminAggregatedPost[];
+  // Total number of technical accounts on file -- lets the caller know
+  // how many pages there are and show "loaded X/Y accounts" progress.
+  total: number;
+  nextOffset: number | null;
+  hasMore: boolean;
+};
+
+export async function fetchAccountsPostsPage(offset: number, limit: number): Promise<AccountsPostsPage> {
+  const cacheKey = `${offset}:${limit}`;
+  const cached = pageCache.get(cacheKey);
+  if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
+    return cached.data;
   }
   const accounts = loadTechnicalAccounts();
-  const results = await mapWithConcurrency(accounts, CONCURRENCY, fetchAccountPosts);
-  const data = results.flat().sort((a, b) => b.created - a.created);
-  cache = { data, fetchedAt: Date.now() };
+  const page = accounts.slice(offset, offset + limit);
+  const results = await mapWithConcurrency(page, CONCURRENCY, fetchAccountPosts);
+  const posts = results.flat().sort((a, b) => b.created - a.created);
+  const nextOffset = offset + limit < accounts.length ? offset + limit : null;
+  const data: AccountsPostsPage = {
+    posts,
+    total: accounts.length,
+    nextOffset,
+    hasMore: nextOffset !== null,
+  };
+  pageCache.set(cacheKey, { data, fetchedAt: Date.now() });
   return data;
 }

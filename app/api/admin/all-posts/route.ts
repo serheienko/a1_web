@@ -8,11 +8,17 @@
 // lib/a1/admin-accounts.ts instead of app/api/posts/mine's single
 // signed-in-account scope — see lib/a1/admin-post-aggregate.ts for the
 // actual fetch-and-merge logic.
+//
+// 2026-09-10: paginated by ACCOUNT (?offset=&limit=, default 50) now
+// that TECHNICAL_ACCOUNTS_JSON holds ~500 entries -- fetching all of
+// them in one call was blowing past Vercel's 60s function limit (see
+// admin-post-aggregate.ts's own header). The caller (components/
+// admin-posts-panel.tsx) fetches page after page instead.
 
 import { NextResponse } from "next/server";
 import { readSession } from "@/lib/a1/session";
 import { isAdminEmail } from "@/lib/admin-access";
-import { fetchAllAccountsPosts } from "@/lib/a1/admin-post-aggregate";
+import { fetchAccountsPostsPage } from "@/lib/a1/admin-post-aggregate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,7 +30,10 @@ export const dynamic = "force-dynamic";
 // of which Vercel plan this project is on.
 export const maxDuration = 60;
 
-export async function GET() {
+const DEFAULT_PAGE_SIZE = 20;
+const MAX_PAGE_SIZE = 100;
+
+export async function GET(request: Request) {
   const session = await readSession();
   if (!isAdminEmail(session?.email ?? null)) {
     // Same "plain 404, not 401/403" choice app/admin/posts/page.tsx
@@ -33,6 +42,10 @@ export async function GET() {
     return NextResponse.json({ ok: false, message: "not_found" }, { status: 404 });
   }
 
-  const posts = await fetchAllAccountsPosts();
-  return NextResponse.json({ ok: true, posts });
+  const { searchParams } = new URL(request.url);
+  const offset = Math.max(0, Number(searchParams.get("offset")) || 0);
+  const limit = Math.min(MAX_PAGE_SIZE, Math.max(1, Number(searchParams.get("limit")) || DEFAULT_PAGE_SIZE));
+
+  const page = await fetchAccountsPostsPage(offset, limit);
+  return NextResponse.json({ ok: true, ...page });
 }

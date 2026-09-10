@@ -22,6 +22,16 @@
 // through to components/post-editor.tsx's adminActingAs prop so a save
 // logs in as the OWNING account, not whoever's browser this is. Search
 // is still client-side only (filter over the list already fetched).
+//
+// 2026-09-10 (Aleksandr: "пагинация в самой админке -- частями по 50 +
+// кеширование", after /api/admin/all-posts started 504ing once
+// TECHNICAL_ACCOUNTS_JSON grew to ~500 accounts): load() below now
+// fetches one PAGE of accounts at a time (ACCOUNT_PAGE_SIZE) and keeps
+// going until the server says there's no more -- each individual page
+// request comfortably finishes well under Vercel's function timeout,
+// where fetching all ~500 accounts in a single request did not. Posts
+// are appended and re-sorted after every page, so the list visibly
+// fills in rather than staying blank until everything has loaded.
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -39,7 +49,7 @@ type AdminPost = EditablePost & {
 };
 
 type StringKey =
-  | "title" | "signedInAs" | "totalCount" | "searchPlaceholder"
+  | "title" | "signedInAs" | "totalCount" | "loadingMore" | "searchPlaceholder"
   | "empty" | "noMatches" | "loadError"
   | "jobs" | "talents"
   | "statusPublished" | "statusDraft" | "statusScheduled"
@@ -55,6 +65,9 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   // on why this list is already an aggregate), not the search-filtered
   // count below it.
   totalCount: { uk: "Всього дописів: {n}", en: "Total posts: {n}", ru: "Всего публикаций: {n}", de: "Beiträge insgesamt: {n}", es: "Total de publicaciones: {n}", fr: "Total des publications : {n}", pl: "Łącznie postów: {n}", ptBR: "Total de publicações: {n}", zh: "共 {n} 篇帖子" },
+  // 2026-09-10: shown under totalCount while pages are still coming in
+  // (loadedAccounts < totalAccounts) -- see this file's header comment.
+  loadingMore: { uk: "Довантажується… ({loaded}/{total} акаунтів)", en: "Loading more… ({loaded}/{total} accounts)", ru: "Догружается… ({loaded}/{total} аккаунтов)", de: "Wird nachgeladen… ({loaded}/{total} Konten)", es: "Cargando más… ({loaded}/{total} cuentas)", fr: "Chargement en cours… ({loaded}/{total} comptes)", pl: "Wczytywanie… ({loaded}/{total} kont)", ptBR: "Carregando mais… ({loaded}/{total} contas)", zh: "加载中…（{loaded}/{total} 个账号）" },
   searchPlaceholder: { uk: "Пошук за назвою або текстом…", en: "Search by title or text…", ru: "Поиск по названию или тексту…", de: "Suche nach Titel oder Text…", es: "Buscar por título o texto…", fr: "Rechercher par titre ou texte…", pl: "Szukaj po tytule lub tekście…", ptBR: "Buscar por título ou texto…", zh: "按标题或内容搜索…" },
   empty: { uk: "Ще немає жодного допису", en: "No posts yet", ru: "Пока нет ни одной публикации", de: "Noch keine Beiträge", es: "Aún no hay publicaciones", fr: "Aucune publication pour le moment", pl: "Jeszcze nie ma żadnego posta", ptBR: "Ainda não há publicações", zh: "还没有帖子" },
   noMatches: { uk: "Нічого не знайдено", en: "Nothing found", ru: "Ничего не найдено", de: "Nichts gefunden", es: "No se encontró nada", fr: "Rien trouvé", pl: "Nic nie znaleziono", ptBR: "Nada encontrado", zh: "未找到任何内容" },
@@ -110,24 +123,52 @@ function shortDescription(content: string): string {
   return flat.length > 140 ? flat.slice(0, 140) + "…" : flat;
 }
 
+// How many technical accounts' posts to fetch per /api/admin/all-posts
+// request -- matches DEFAULT_PAGE_SIZE in that route. See this file's
+// header comment for why this is paginated at all.
+const ACCOUNT_PAGE_SIZE = 20;
+
 export function AdminPostsPanel({ signedInAs }: { signedInAs: string }) {
   const lang = useActiveLocale();
   const [posts, setPosts] = useState<AdminPost[] | null>(null);
+  const [totalAccounts, setTotalAccounts] = useState<number | null>(null);
+  const [loadedAccounts, setLoadedAccounts] = useState(0);
   const [error, setError] = useState(false);
   const [query, setQuery] = useState("");
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [editing, setEditing] = useState<AdminPost | null>(null);
 
-  function load() {
+  async function load() {
     setError(false);
-    authFetch("/api/admin/all-posts")
-      .then((r) => r.json())
-      .then((data) => {
+    setPosts(null);
+    setLoadedAccounts(0);
+    setTotalAccounts(null);
+
+    let offset = 0;
+    let collected: AdminPost[] = [];
+    try {
+      // Keep fetching pages until the server says there's nothing left
+      // (hasMore/nextOffset) -- see this file's header comment for why
+      // this can no longer be a single request. Each page is appended
+      // and re-sorted immediately so the list visibly grows instead of
+      // staying blank for the whole ~500-account fetch.
+      for (;;) {
+        const res = await authFetch(`/api/admin/all-posts?offset=${offset}&limit=${ACCOUNT_PAGE_SIZE}`);
+        const data = await res.json();
         if (!data.ok) throw new Error("not ok");
-        setPosts(data.posts ?? []);
-      })
-      .catch(() => setError(true));
+
+        collected = collected.concat(data.posts ?? []).sort((a: AdminPost, b: AdminPost) => b.created - a.created);
+        setPosts([...collected]);
+        setTotalAccounts(data.total ?? 0);
+        setLoadedAccounts(Math.min(offset + ACCOUNT_PAGE_SIZE, data.total ?? 0));
+
+        if (!data.hasMore || data.nextOffset === null || data.nextOffset === undefined) break;
+        offset = data.nextOffset;
+      }
+    } catch {
+      setError(true);
+    }
   }
 
   useEffect(() => {
@@ -192,6 +233,11 @@ export function AdminPostsPanel({ signedInAs }: { signedInAs: string }) {
         </p>
         {posts !== null && (
           <p className="mt-0.5 text-xs text-neutral-400 dark:text-neutral-500">{t("totalCount", lang, { n: posts.length })}</p>
+        )}
+        {posts !== null && totalAccounts !== null && loadedAccounts < totalAccounts && (
+          <p className="mt-0.5 text-xs text-neutral-400 dark:text-neutral-500">
+            {t("loadingMore", lang, { loaded: loadedAccounts, total: totalAccounts })}
+          </p>
         )}
       </div>
 
