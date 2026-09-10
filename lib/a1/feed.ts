@@ -49,45 +49,55 @@ function sortByFreshness<T extends { publishedAt: Date; sourcePublishedAt: Date 
 // вакансии все подряд от одной компании... надо аранжировать... но
 // должен быть верхний левел, что если вакансия вчера опубликована, то
 // она должна показываться" -- keep the real-date order as the top-level
-// rule, just mix so same-company posts don't run in a row --
-// sorting strictly by real date (above) brought this back: a company
-// that posted 3 vacancies on DOU the same day now clusters those 3
-// together again, same visual problem the round-robin publish order
-// (bulk_provision.py's publish_all_vacancies) was originally built to
-// avoid, just caused by the date sort instead of the old creation-order
-// pagination. Fix: after sorting by date, do one pass that breaks up any
-// run of consecutive same-company posts by swapping in the nearest
-// later post from a DIFFERENT company -- this is a small local
-// rearrangement (a post can only move down to make room for one behind
-// it), not a re-sort, so the feed still reads top-to-bottom as
-// newest-first; it just guarantees no two adjacent cards share a
-// company, exactly like the round-robin publish order used to.
-// Impossible to fully satisfy if one company alone holds a majority of
-// the whole list (pigeonhole) -- in that case this does the best it can
-// and leaves the unavoidable remainder as-is.
+// rule, just mix so same-company posts don't run in a row.
+//
+// First version of this only did one local pass: walk the date-sorted
+// list and swap the nearest later post from a different company into
+// any spot that repeated its immediate neighbor. That only guarantees
+// no two ADJACENT cards share a company -- with few companies and many
+// posts each, the same company can still resurface every 2-3 cards.
+//
+// Aleksandr, 2026-09-10 (2nd round), on that: "надо все равно
+// придумывать какой-то более крутой механизм... если есть 100 вакансий
+// и 50 компаний, то мы сначала показываем 50 разных постов от компаний,
+// а потом по очереди повторяем" -- replaced with a real round-robin:
+// group the (already date-sorted) posts into one bucket per company,
+// each bucket staying newest-first internally, then build the output in
+// "rounds" -- round 0 is each company's newest post (so with 50
+// companies, the first 50 cards are 50 DIFFERENT companies before any
+// repeat), round 1 is each company's 2nd-newest, etc. A company with
+// fewer posts just drops out of later rounds. Because the input is
+// already freshness-sorted, a bucket's place in the round order is
+// fixed by ITS newest post's date -- so this still reads top-to-bottom
+// as newest-first overall, it just spreads repeats across whole rounds
+// instead of letting them cluster.
 function authorKey(post: WebPost): string {
   return post.author.userId ?? post.author.username ?? post.author.name;
 }
 
 function interleaveByAuthor(posts: WebPost[]): WebPost[] {
-  const result = [...posts];
-  // Non-null assertions below: every index used here is guarded by the
-  // loop bounds it came from (i < result.length, j < result.length), so
-  // result[i] etc. is always defined -- this is only needed because
-  // tsconfig's noUncheckedIndexedAccess types plain array indexing as
-  // possibly-undefined regardless of the bounds check (2026-09-10,
-  // caught by the Vercel build: "Type WebPost | undefined is not
-  // assignable to type WebPost").
-  for (let i = 1; i < result.length; i++) {
-    if (authorKey(result[i]!) !== authorKey(result[i - 1]!)) continue;
-    let j = i + 1;
-    while (j < result.length && authorKey(result[j]!) === authorKey(result[i - 1]!)) j++;
-    if (j < result.length) {
-      [result[i], result[j]] = [result[j]!, result[i]!];
+  const buckets = new Map<string, WebPost[]>();
+  for (const post of posts) {
+    const key = authorKey(post);
+    const bucket = buckets.get(key);
+    if (bucket) {
+      bucket.push(post);
+    } else {
+      buckets.set(key, [post]);
     }
-    // No such j: every remaining post is the same company as this run --
-    // nothing left to interleave with, leave it (the pigeonhole case
-    // from the comment above).
+  }
+  const bucketList = [...buckets.values()];
+
+  const result: WebPost[] = [];
+  let round = 0;
+  while (result.length < posts.length) {
+    for (const bucket of bucketList) {
+      const post = bucket[round];
+      if (post !== undefined) {
+        result.push(post);
+      }
+    }
+    round++;
   }
   return result;
 }
