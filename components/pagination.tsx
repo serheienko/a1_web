@@ -35,6 +35,12 @@
 //     floating "+" button for attention;
 //   - the whole nav gets bottom room on phones so the "Далі" arrow does
 //     not come to rest underneath the floating chat / "+" buttons.
+//
+// Same day, seeing that live ("норм, ток засунь цифры между назад и дали,
+// уменьши паддинг между ними"): the phone row is no longer a second line
+// under the arrows -- arrows and numbers share one row at every width, and
+// the phone variant tightens its paddings and gaps so five numbers plus both
+// arrows fit across a narrow screen without wrapping.
 import Link from "next/link";
 import { T } from "./t";
 
@@ -85,19 +91,19 @@ export function Pagination({
   for (let p = blockStart; p <= blockEnd; p++) pages.push(p);
 
   const arrowClass =
-    "shrink-0 rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 transition hover:border-neutral-400 dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-neutral-500";
+    "shrink-0 rounded-lg border border-neutral-300 px-2.5 py-2 text-sm font-medium text-neutral-700 transition hover:border-neutral-400 sm:px-4 dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-neutral-500";
   const arrowDisabledClass =
-    "shrink-0 rounded-lg border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-300 dark:border-neutral-800 dark:text-neutral-700";
+    "shrink-0 rounded-lg border border-neutral-200 px-2.5 py-2 text-sm font-medium text-neutral-300 sm:px-4 dark:border-neutral-800 dark:text-neutral-700";
   const numberClass =
-    "min-w-9 rounded-lg px-2.5 py-1.5 text-center text-sm font-medium text-neutral-600 transition hover:bg-black/[0.05] dark:text-neutral-400 dark:hover:bg-white/[0.06]";
+    "min-w-7 rounded-lg px-1.5 py-1.5 text-center text-sm font-medium text-neutral-600 transition hover:bg-black/[0.05] sm:min-w-9 sm:px-2.5 dark:text-neutral-400 dark:hover:bg-white/[0.06]";
   const numberCurrentClass =
-    "min-w-9 rounded-lg bg-accent/10 px-2.5 py-1.5 text-center text-sm font-semibold text-accent dark:bg-white/10";
+    "min-w-7 rounded-lg bg-accent/10 px-1.5 py-1.5 text-center text-sm font-semibold text-accent sm:min-w-9 sm:px-2.5 dark:bg-white/10";
 
   const phonePages = mobilePages(page, Math.max(totalPages, page));
 
   return (
-    <nav className="mt-8 flex flex-col items-center gap-4 pb-24 sm:pb-0" aria-label="Pagination">
-      <div className="flex w-full items-center justify-between gap-4">
+    <nav className="mt-8 pb-24 sm:pb-0" aria-label="Pagination">
+      <div className="flex w-full items-center justify-between gap-1.5 sm:gap-4">
         {page > 1 ? (
           <Link href={pageHref(basePath, params, page - 1)} className={arrowClass} rel="prev">
             <T uk="Назад" en="Back" ru="Назад" de="Zurück" es="Atrás" fr="Précédent" pl="Wstecz" ptBR="Voltar" zh="上一页" />
@@ -108,9 +114,22 @@ export function Pagination({
           </span>
         )}
 
-        {/* Numbers sit between the arrows on desktop and move to their own
-            centred row on narrow screens -- a full block never fits on a
-            phone next to both arrows. */}
+        {/* Two number strips, one row: the phone one (five, sliding) and the
+            desktop one (a block of ten). Only ever one of them is displayed. */}
+        <div className="flex flex-nowrap items-center justify-center gap-0.5 sm:hidden">
+          {phonePages.map((p) =>
+            p === page ? (
+              <span key={p} className={numberCurrentClass} aria-current="page">
+                {p}
+              </span>
+            ) : (
+              <Link key={p} href={pageHref(basePath, params, p)} className={numberClass}>
+                {p}
+              </Link>
+            ),
+          )}
+        </div>
+
         <div className="hidden flex-nowrap items-center justify-center gap-1 sm:flex">
           {pages.map((p) =>
             p === page ? (
@@ -133,20 +152,6 @@ export function Pagination({
           <span className={arrowDisabledClass} aria-hidden="true">
             <T uk="Далі" en="Next" ru="Далее" de="Weiter" es="Siguiente" fr="Suivant" pl="Dalej" ptBR="Próximo" zh="下一页" />
           </span>
-        )}
-      </div>
-
-      <div className="flex max-w-full flex-nowrap items-center justify-center gap-1 sm:hidden">
-        {phonePages.map((p) =>
-          p === page ? (
-            <span key={p} className={numberCurrentClass} aria-current="page">
-              {p}
-            </span>
-          ) : (
-            <Link key={p} href={pageHref(basePath, params, p)} className={numberClass}>
-              {p}
-            </Link>
-          ),
         )}
       </div>
     </nav>
