@@ -134,7 +134,11 @@ export function AdminCompaniesPanel({ signedInAs }: { signedInAs: string }) {
           : reason === "unknown_account"
             ? STRINGS.errUnknownAccount[lang]
             : STRINGS.errUnknown[lang];
-      setErrors((prev) => ({ ...prev, [email]: message }));
+      // The backend's own words when there are any (admin-only route, see
+      // app/api/admin/claim-link/route.ts's `debug`) — a generic "couldn't
+      // create the link" told nobody anything the first time this failed.
+      const debug = typeof data?.debug === "string" && data.debug ? ` — ${data.debug}` : "";
+      setErrors((prev) => ({ ...prev, [email]: message + debug }));
     } catch {
       setErrors((prev) => ({ ...prev, [email]: STRINGS.errUnknown[lang] }));
     } finally {

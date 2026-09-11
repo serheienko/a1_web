@@ -78,6 +78,19 @@ export async function POST(request: NextRequest) {
     } else {
       console.error("[api/admin/claim-link] unexpected error:", err);
     }
-    return NextResponse.json({ ok: false, reason }, { status: reason === "unknown" ? 500 : 409 });
+    // 2026-09-11: the first live try of this button failed with nothing but
+    // the panel's generic message, and Vercel's own logs are not something
+    // Aleksandr reads — so an unrecognised failure now carries the backend's
+    // real status and message back to the admin UI. Safe here specifically
+    // because this route is already behind the isAdminEmail gate above and
+    // never reaches a normal visitor; the public claim routes
+    // (app/api/claim/*) deliberately keep returning nothing but a reason.
+    const debug =
+      err instanceof A1ApiError
+        ? `${err.httpStatus}: ${(err.detail ?? err.body).slice(0, 300)}`
+        : err instanceof Error
+          ? err.message.slice(0, 300)
+          : null;
+    return NextResponse.json({ ok: false, reason, debug }, { status: reason === "unknown" ? 500 : 409 });
   }
 }

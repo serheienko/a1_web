@@ -102,7 +102,26 @@ export function Pagination({
   const phonePages = mobilePages(page, Math.max(totalPages, page));
 
   return (
-    <nav className="mt-8 pb-24 sm:pb-0" aria-label="Pagination">
+    // 2026-09-11 (Aleksandr, phone screenshots: "на мобильном практически
+    // невозможно нажать на кнопку далее справа, потому что её перекрывает
+    // кнопка с перехода в чаты... чтобы типа можно было доскроллить выше
+    // этот далее. Потому что сейчас ты скроллишь наверх, оно возвращается
+    // назад" -- i.e. only the browser's overscroll bounce could move "Далі"
+    // out from under the FABs, and it springs right back). The old pb-24
+    // (96px) was less than the floating buttons' own stack: components/
+    // create-post-fab.tsx sits at `1.25rem + safe-area` and is 56px tall,
+    // components/chats-fab.tsx stacks 12px above it and is another 48px --
+    // so the topmost floating pixel is 1.25rem + 56 + 12 + 48 above the
+    // viewport bottom, a good 40px past where the pagination row could
+    // scroll to. This padding is that exact stack plus a 16px breathing gap,
+    // built from the same numbers those two files use (change them together),
+    // so at the bottom of the page the whole row -- "Далі" included -- comes
+    // to rest ABOVE the buttons instead of under them. Phone only: sm:pb-0
+    // still wins from 640px up, where the FABs are nowhere near it.
+    <nav
+      className="mt-8 pb-[calc(1.25rem_+_56px_+_12px_+_48px_+_16px_+_env(safe-area-inset-bottom))] sm:pb-0"
+      aria-label="Pagination"
+    >
       <div className="flex w-full items-center justify-between gap-1.5 sm:gap-4">
         {page > 1 ? (
           <Link href={pageHref(basePath, params, page - 1)} className={arrowClass} rel="prev">
