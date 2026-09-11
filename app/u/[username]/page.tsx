@@ -181,19 +181,32 @@ function favoriteTile(
   // category-icon fallback (components/favorite-cover.tsx's
   // FavoriteCoverFallback) otherwise -- so the grid always lines up
   // regardless of which titles had art.
+  // 2026-09-11: the caption is passed INTO FavoriteCover (not rendered
+  // after it) so that its runtime "cover failed to load" pill -- which
+  // already shows the title itself -- doesn't get the title repeated
+  // underneath (Aleksandr's screenshot: Blade Runner / Forrest Gump).
+  const caption = (
+    <div>
+      <div className="line-clamp-2 text-sm font-medium leading-snug text-neutral-800 dark:text-neutral-200">
+        {title}
+      </div>
+      {subtitle && (
+        <div className="mt-0.5 line-clamp-1 text-xs text-neutral-500 dark:text-neutral-400">
+          {subtitle}
+        </div>
+      )}
+    </div>
+  );
   return (
     <div key={itemKey} className="flex flex-col gap-1.5">
-      {cover ? <FavoriteCover cover={cover} kind={kind} title={title} subtitle={subtitle} /> : <FavoriteCoverFallback kind={kind} />}
-      <div>
-        <div className="line-clamp-2 text-sm font-medium leading-snug text-neutral-800 dark:text-neutral-200">
-          {title}
-        </div>
-        {subtitle && (
-          <div className="mt-0.5 line-clamp-1 text-xs text-neutral-500 dark:text-neutral-400">
-            {subtitle}
-          </div>
-        )}
-      </div>
+      {cover ? (
+        <FavoriteCover cover={cover} kind={kind} title={title} subtitle={subtitle} caption={caption} />
+      ) : (
+        <>
+          <FavoriteCoverFallback kind={kind} />
+          {caption}
+        </>
+      )}
     </div>
   );
 }

@@ -15,10 +15,10 @@ export const revalidate = 15; // lowered from 60 — 2026-08-26, founder wants p
 // still at /talents.
 
 import type { Metadata } from "next";
-import { fetchFeedPage, toURLSearchParams, parseFeedFilters, hasActiveFilters } from "@/lib/a1/feed";
+import { fetchFeedPage, toURLSearchParams, parseFeedFilters, hasActiveFilters, pageToCursor, parsePageParam } from "@/lib/a1/feed";
 import { generateAvatarBlurDataUrl } from "@/lib/avatar-blur";
 import { PostCard } from "@/components/post-card";
-import { LoadMore } from "@/components/load-more";
+import { Pagination } from "@/components/pagination";
 import { EmptyState } from "@/components/empty-state";
 import { Filters } from "@/components/filters";
 import { T } from "@/components/t";
@@ -30,8 +30,10 @@ type Props = {
 };
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
-  const filters = parseFeedFilters(toURLSearchParams(await searchParams));
+  const params = toURLSearchParams(await searchParams);
+  const filters = parseFeedFilters(params);
   const filtered = hasActiveFilters(filters);
+  const page = parsePageParam(params);
 
   // 2026-08-28, per Aleksandr's review of the SEO copy ("Текст норм" —
   // approved as final): Ukrainian, matching the site's real default
@@ -49,7 +51,11 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     // Filtered/search views are noindex with a canonical back to the clean
     // feed URL (PLAN.md §3.1) — search-result-shaped pages shouldn't carry
     // JobPosting-adjacent signals into the index.
-    alternates: { canonical: SITE_URL },
+    // 2026-09-10: each page beyond the first now canonicalizes to
+    // ITSELF, not back to page 1 -- unlike a duplicate/tracking-param
+    // URL, page 2's posts genuinely aren't on page 1, so collapsing the
+    // canonical there would tell Google not to index them.
+    alternates: { canonical: page > 1 ? `${SITE_URL}/?page=${page}` : SITE_URL },
     robots: filtered ? { index: false, follow: true } : undefined,
     // og:image comes from the sibling app/opengraph-image.tsx file
     // convention — Next merges it in automatically, no `images` needed
@@ -62,7 +68,8 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 export default async function HomePage({ searchParams }: Props) {
   const params = toURLSearchParams(await searchParams);
   const filters = parseFeedFilters(params);
-  const { posts, next, hasMore } = await fetchFeedPage("hiring", undefined, filters);
+  const page = parsePageParam(params);
+  const { posts, hasMore } = await fetchFeedPage("hiring", pageToCursor(page), filters);
   const currentCategory = filters.categories?.[0];
   // Real per-avatar blur (lib/avatar-blur.ts) instead of the generic
   // shared shimmer — see that file's comment for why this lives here
@@ -113,14 +120,7 @@ export default async function HomePage({ searchParams }: Props) {
               </li>
             ))}
           </ul>
-          <LoadMore
-            kind="hiring"
-            initialCursor={next}
-            initialHasMore={hasMore}
-            query={filters.q}
-            category={currentCategory}
-            tags={filters.tags}
-          />
+          <Pagination basePath="/" params={params} page={page} hasMore={hasMore} />
         </>
       )}
     </main>

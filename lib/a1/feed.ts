@@ -13,10 +13,15 @@ import type { WebPost, WebPostKind } from "@/types/web-post";
 
 // 2026-09-05 (Aleksandr: "не загружай всю ленту сразу, а показывай
 // только постов 30... подгрузку и пагинацию") -- bumped from the
-// original 20 to the 30 he explicitly asked for as the first page/
-// per-page size; the actual seamless-infinite-scroll trigger lives in
-// components/load-more.tsx (IntersectionObserver), not here.
-export const FEED_PAGE_SIZE = 30;
+// original 20 to 30 for the (since replaced) infinite-scroll version of
+// this feed.
+//
+// 2026-09-10 (Aleksandr: "страницы по двадцать... для SEO") -- back down
+// to 20, now as a real per-page size for numbered pagination
+// (components/pagination.tsx) instead of infinite scroll: separate
+// `?page=N` URLs Google can actually crawl and index, which it can't do
+// for content that only appears after a client-side scroll fetch.
+export const FEED_PAGE_SIZE = 20;
 
 const KIND_TO_OBJECT: Record<WebPostKind, string> = {
   hiring: "post-job-employing",
@@ -387,6 +392,23 @@ export async function fetchFeedPage(
     next: hasMore ? `${LOCAL_CURSOR_PREFIX}${nextOffset}` : null,
     hasMore,
   };
+}
+
+/**
+ * Turns a 1-based page number into the cursor fetchFeedPage expects --
+ * page 1 has no cursor (offset 0), page 2 is offset FEED_PAGE_SIZE, etc.
+ * Callers (app/page.tsx, app/talents/page.tsx) never need to know the
+ * cursor's actual string shape.
+ */
+export function pageToCursor(page: number): string | undefined {
+  const offset = (Math.max(1, page) - 1) * FEED_PAGE_SIZE;
+  return offset > 0 ? `${LOCAL_CURSOR_PREFIX}${offset}` : undefined;
+}
+
+/** Reads `?page=N` off the URL, clamped to a sane 1-based integer. */
+export function parsePageParam(params: URLSearchParams): number {
+  const raw = Number(params.get("page"));
+  return Number.isInteger(raw) && raw > 1 ? raw : 1;
 }
 
 /**

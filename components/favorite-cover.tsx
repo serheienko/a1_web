@@ -21,7 +21,7 @@
 // games the way there is for people.
 "use client";
 
-import { useState, type ReactElement } from "react";
+import { useState, type ReactElement, type ReactNode } from "react";
 import Image from "next/image";
 import type { CoverImage } from "@/lib/covers";
 
@@ -144,32 +144,59 @@ export function FavoriteFallbackPill({
 // already has on hand for its OWN pill branch (withoutCover) -- now
 // threaded through here as well so this runtime-failure branch can
 // render the identical pill instead of the plain icon tile.
+// 2026-09-11 (Aleksandr, live screenshot of the Films row: "Blade
+// Runner" / "Forrest Gump" whose cover URL failed to load showed the
+// fallback pill WITH the title inside it AND the same title repeated
+// underneath): the caption used to be rendered by the caller
+// (app/u/[username]/page.tsx's favoriteTile) below whichever tile this
+// returned, so the runtime-failure pill -- which already carries the
+// title and subtitle itself -- got a second copy. The caption now comes
+// in as a prop and is only rendered next to a real cover image; the
+// pill branch drops it entirely, matching the server-side "no cover
+// found" pill that never had a caption.
 export function FavoriteCover({
   cover,
   kind,
   title,
   subtitle,
+  caption,
 }: {
   cover: CoverImage;
   kind: FavoriteKind;
   title: string;
   subtitle?: string | null;
+  caption?: ReactNode;
 }) {
   const [failed, setFailed] = useState(false);
   if (failed) return <FavoriteFallbackPill kind={kind} title={title} subtitle={subtitle} />;
   return (
+    <>
     <div className="relative aspect-square overflow-hidden rounded-xl bg-neutral-100 dark:bg-neutral-800">
+      {/* 2026-09-10 (Aleksandr: Image Optimization "Exceeded" on Vercel
+          Usage, 5K/5K transformations) -- this was the ONLY <Image> left
+          on the whole site still going through Vercel's real image
+          optimizer; every other one (avatars, post photos) is already
+          `unoptimized` for the same reason: lib/covers.ts's own URLs
+          (OpenLibrary's `-M.jpg`, TMDB's `w342`) already come back
+          pre-sized close to this tile's real display size, so Vercel was
+          just re-transforming an image that didn't need it -- one
+          "transformation" billed per distinct cover x size Vercel
+          generated, across potentially thousands of distinct
+          books/movies/games. `unoptimized` makes this consistent with
+          the rest of the site and free again; nothing changes visually
+          since the source was already the right size. */}
       <Image
         src={cover.url}
         alt=""
         fill
-        quality={60}
-        sizes="(min-width: 640px) 200px, 33vw"
+        unoptimized
         className="object-cover"
         placeholder={cover.blurDataUrl ? "blur" : "empty"}
         blurDataURL={cover.blurDataUrl ?? undefined}
         onError={() => setFailed(true)}
       />
     </div>
+    {caption}
+    </>
   );
 }

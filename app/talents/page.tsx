@@ -16,10 +16,10 @@ export const revalidate = 15; // lowered from 60 — 2026-08-26, founder wants p
 // as the safe default, independent of whether filters are active (this
 // page is always noindex either way). Revisit once he decides.
 
-import { fetchFeedPage, toURLSearchParams, parseFeedFilters, hasActiveFilters } from "@/lib/a1/feed";
+import { fetchFeedPage, toURLSearchParams, parseFeedFilters, hasActiveFilters, pageToCursor, parsePageParam } from "@/lib/a1/feed";
 import { generateAvatarBlurDataUrl } from "@/lib/avatar-blur";
 import { PostCard } from "@/components/post-card";
-import { LoadMore } from "@/components/load-more";
+import { Pagination } from "@/components/pagination";
 import { EmptyState } from "@/components/empty-state";
 import { Filters } from "@/components/filters";
 import { T } from "@/components/t";
@@ -50,7 +50,8 @@ type Props = {
 export default async function TalentsPage({ searchParams }: Props) {
   const params = toURLSearchParams(await searchParams);
   const filters = parseFeedFilters(params);
-  const { posts, next, hasMore } = await fetchFeedPage("seeking", undefined, filters);
+  const page = parsePageParam(params);
+  const { posts, hasMore } = await fetchFeedPage("seeking", pageToCursor(page), filters);
   const currentCategory = filters.categories?.[0];
   // Real per-avatar blur (lib/avatar-blur.ts) instead of the generic
   // shared shimmer — see that file's comment for why this lives here
@@ -101,14 +102,7 @@ export default async function TalentsPage({ searchParams }: Props) {
               </li>
             ))}
           </ul>
-          <LoadMore
-            kind="seeking"
-            initialCursor={next}
-            initialHasMore={hasMore}
-            query={filters.q}
-            category={currentCategory}
-            tags={filters.tags}
-          />
+          <Pagination basePath="/talents" params={params} page={page} hasMore={hasMore} />
         </>
       )}
     </main>
