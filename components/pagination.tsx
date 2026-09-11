@@ -11,14 +11,20 @@
 // 2026-09-11 (Aleksandr, screenshot of the bare "Назад · 1 · Далі" row:
 // "покажи тут цифрами 20 страниц 1 2 3 ... и тд, после 20-й меняй весь
 // ряд на 20-40, выделенную показывай синим") -- real numbered pagination
-// in blocks of PAGE_BLOCK: page 1-20 show the row 1..20, page 21 shows
-// 21..40, and so on, always clipped to the number of pages that actually
-// exist (FeedPage.total, added to lib/a1/feed.ts for exactly this). The
-// current page is a filled blue chip, never a link to itself.
+// in blocks of PAGE_BLOCK: the row shows one block at a time, always
+// clipped to the number of pages that actually exist (FeedPage.total,
+// added to lib/a1/feed.ts for exactly this). The current page is a filled
+// blue chip, never a link to itself.
+//
+// Same day, after seeing 20 numbers live ("хуйня вышла, давай лучше 10
+// показывать снизу"): 20 chips wrapped onto a second line between the
+// arrows and looked broken, so a block is 10 -- 1..10, then 11..20, and
+// so on. The row is explicitly nowrap now: a block must never wrap, and
+// on a narrow phone it scrolls sideways instead.
 import Link from "next/link";
 import { T } from "./t";
 
-const PAGE_BLOCK = 20;
+const PAGE_BLOCK = 10;
 
 function pageHref(basePath: string, params: URLSearchParams, page: number): string {
   const next = new URLSearchParams(params);
@@ -76,9 +82,9 @@ export function Pagination({
         )}
 
         {/* Numbers sit between the arrows on desktop and move to their own
-            centred, wrapping row on narrow screens -- 20 chips never fit on
-            a phone next to both arrows. */}
-        <div className="hidden flex-wrap items-center justify-center gap-1 sm:flex">
+            centred row on narrow screens -- a full block never fits on a
+            phone next to both arrows. */}
+        <div className="hidden flex-nowrap items-center justify-center gap-1 sm:flex">
           {pages.map((p) =>
             p === page ? (
               <span key={p} className={numberCurrentClass} aria-current="page">
@@ -103,7 +109,7 @@ export function Pagination({
         )}
       </div>
 
-      <div className="flex flex-wrap items-center justify-center gap-1 sm:hidden">
+      <div className="flex max-w-full flex-nowrap items-center justify-center gap-1 overflow-x-auto sm:hidden">
         {pages.map((p) =>
           p === page ? (
             <span key={p} className={numberCurrentClass} aria-current="page">
