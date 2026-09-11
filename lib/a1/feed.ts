@@ -1,11 +1,26 @@
 // lib/a1/feed.ts
 //
 // Shared "fetch one page of a feed" logic used by both the RSC pages
-// (app/jobs/page.tsx, app/talents/page.tsx) and the "Load more" API route
+// (app/page.tsx, app/talents/page.tsx) and the "Load more" API route
 // (app/api/feed/route.ts), so cursor handling and object-type mapping only
 // live in one place.
+//
+// 2026-09-11 -- this file used to be much bigger. It read the ENTIRE live
+// feed through posts.search (up to 30 sequential requests of 100 posts),
+// sorted it by real publish date, interleaved it round-robin by company and
+// served pages out of that, with two layers of caching bolted on to hide the
+// cost. All of that now lives in the backend instead (aone-api-private,
+// docs/superpowers/specs/2026-09-11-feed-ordering-design.md): posts.search
+// ranks and paginates the feed itself, and takes an `offset`, so a page of
+// this feed is one ordinary request again -- and the mobile app, which calls
+// the same method directly, gets the identical order for free.
+//
+// One thing stayed here: free-text search. The backend's `q` matches whole
+// words ("fr" finds nothing, "frontend" finds the post), and Aleksandr asked
+// for typing "FR" to already surface "Frontend..." (2026-08-27), so a search
+// query still scans the feed and substring-matches locally. That path is the
+// only remaining reason scanFullFeed exists.
 
-import { unstable_cache } from "next/cache";
 import { call } from "./client";
 import { mapPosts } from "./mappers";
 import { PostsSearchOutputSchema } from "./schemas";
@@ -28,95 +43,13 @@ const KIND_TO_OBJECT: Record<WebPostKind, string> = {
   seeking: "post-job-seeking",
 };
 
-// Aleksandr, 09.09.2026: "выдачу надо показывать вчера, позавчера и тд
-// -- от самой свежей вначале до самой поздней" -- posts.search itself
-// paginates in the backend's own order (roughly: when the post was
-// created on A1), which for imported DOU vacancies is "whenever we ran
-// the parser/backfill", not the vacancy's real DOU publish date
-// (sourcePublishedAt, see lib/a1/mappers.ts).
-//
-// First version of this only re-sorted each page in isolation (30 posts
-// at a time) -- worked fine while the feed was small, but broke visibly
-// the moment one parser run added ~1,600 posts at once (Aleksandr,
-// 09.09.2026: "ранжирование по дате отлетело с новым парсингом"): a
-// genuinely newer vacancy sitting a few backend-pages back never got a
-// chance to surface onto page 1, because the backend's own pagination
-// doesn't know about sourcePublishedAt at all. Fixed by getSortedFeed
-// below -- see its own comment.
-function sortByFreshness<T extends { publishedAt: Date; sourcePublishedAt: Date | null }>(posts: T[]): T[] {
-  return [...posts].sort((a, b) => {
-    const aTime = (a.sourcePublishedAt ?? a.publishedAt).getTime();
-    const bTime = (b.sourcePublishedAt ?? b.publishedAt).getTime();
-    return bTime - aTime;
-  });
-}
-
-// Aleksandr, 2026-09-10, looking at the now-date-sorted feed: "постятся
-// вакансии все подряд от одной компании... надо аранжировать... но
-// должен быть верхний левел, что если вакансия вчера опубликована, то
-// она должна показываться" -- keep the real-date order as the top-level
-// rule, just mix so same-company posts don't run in a row.
-//
-// First version of this only did one local pass: walk the date-sorted
-// list and swap the nearest later post from a different company into
-// any spot that repeated its immediate neighbor. That only guarantees
-// no two ADJACENT cards share a company -- with few companies and many
-// posts each, the same company can still resurface every 2-3 cards.
-//
-// Aleksandr, 2026-09-10 (2nd round), on that: "надо все равно
-// придумывать какой-то более крутой механизм... если есть 100 вакансий
-// и 50 компаний, то мы сначала показываем 50 разных постов от компаний,
-// а потом по очереди повторяем" -- replaced with a real round-robin:
-// group the (already date-sorted) posts into one bucket per company,
-// each bucket staying newest-first internally, then build the output in
-// "rounds" -- round 0 is each company's newest post (so with 50
-// companies, the first 50 cards are 50 DIFFERENT companies before any
-// repeat), round 1 is each company's 2nd-newest, etc. A company with
-// fewer posts just drops out of later rounds. Because the input is
-// already freshness-sorted, a bucket's place in the round order is
-// fixed by ITS newest post's date -- so this still reads top-to-bottom
-// as newest-first overall, it just spreads repeats across whole rounds
-// instead of letting them cluster.
-function authorKey(post: WebPost): string {
-  return post.author.userId ?? post.author.username ?? post.author.name;
-}
-
-function interleaveByAuthor(posts: WebPost[]): WebPost[] {
-  const buckets = new Map<string, WebPost[]>();
-  for (const post of posts) {
-    const key = authorKey(post);
-    const bucket = buckets.get(key);
-    if (bucket) {
-      bucket.push(post);
-    } else {
-      buckets.set(key, [post]);
-    }
-  }
-  const bucketList = [...buckets.values()];
-
-  const result: WebPost[] = [];
-  let round = 0;
-  while (result.length < posts.length) {
-    for (const bucket of bucketList) {
-      const post = bucket[round];
-      if (post !== undefined) {
-        result.push(post);
-      }
-    }
-    round++;
-  }
-  return result;
-}
-
 export type FeedPage = {
   posts: WebPost[];
   next: string | null;
   hasMore: boolean;
-  // 2026-09-11 (Aleksandr: "покажи цифрами 20 страниц... после 20-й меняй
-  // весь ряд на 20-40") -- numbered pagination needs to know how many pages
-  // there are, which "hasMore" alone can't answer. Free to carry: both code
-  // paths below already hold the full match list, they were just throwing
-  // its length away.
+  // How many posts match this listing in total, so numbered pagination
+  // (components/pagination.tsx) knows how many pages exist. Comes from
+  // posts.search's own `expand=count` on the common path.
   total: number;
 };
 
@@ -137,53 +70,68 @@ export type FeedFilters = {
   locationLabel?: string;
 };
 
-// Aleksandr, 2026-08-27: "надо модернизировать и улучшить поиск, чтобы он
-// подбирал не только по введенному полному слову, а начиная... со
-// второго символа" (typing "FR" should already surface "Frontend...").
-// Confirmed live: the backend's own `q` on posts.search needs something
-// close to a full word -- "frontend" finds the post, "fr" finds nothing --
-// and the openapi spec (Method.v1_posts_search_input) has no alternate
-// matchType/fuzzy/prefix param to ask it to do this differently, and we
-// don't know where exactly its cutoff is between "fr" and "frontend"
-// either. So rather than guess a length threshold, ANY non-empty `q`
-// bypasses the backend's own matching entirely and substring-matches
-// client-side instead (categories/tags/location filters still go to the
-// backend as normal).
-//
-// 2026-09-09: this used to be a `q`-only code path (scanFeedForQuery) --
-// generalized into scanFullFeed below so the SAME "walk every matching
-// post" approach also powers plain (no-`q`) listings, which is what
-// getSortedFeed needs to sort the whole feed instead of one page at a
-// time. `needle` is undefined for a plain listing, and every post is
-// then treated as a match (see the `!needle ||` below).
-const FULL_SCAN_MAX_PAGES = 30; // 30 * 100 = 3,000 posts scanned, max
-const FULL_SCAN_PAGE_SIZE = 100; // posts.search's documented max per request
+// This app's own cursor: an offset into the listing, not the backend's
+// opaque cursor. Pages are addressed by number here (`?page=N`), so the
+// offset is what a page maps to.
 const LOCAL_CURSOR_PREFIX = "local-offset:";
 
-// LIMITATION (same idea as before, just a much higher ceiling now that
-// this runs for every listing, not only text search): past
-// FULL_SCAN_MAX_PAGES * FULL_SCAN_PAGE_SIZE live posts for one filter
-// combination, the oldest ones stop being seen (and sorted) at all --
-// comfortable headroom over today's ~1,700 live posts total; revisit
-// (raise the cap, or get real backend sort support) if the live feed for
-// one category/tag/location/q combination ever approaches 3,000.
-async function scanFullFeed(kind: WebPostKind, filters: FeedFilters): Promise<WebPost[]> {
-  const needle = filters.q?.trim().toLowerCase();
+function cursorToOffset(cursor?: string | null): number {
+  return cursor?.startsWith(LOCAL_CURSOR_PREFIX) ? Number(cursor.slice(LOCAL_CURSOR_PREFIX.length)) || 0 : 0;
+}
+
+/**
+ * Turns a 1-based page number into the cursor fetchFeedPage expects --
+ * page 1 has no cursor (offset 0), page 2 is offset FEED_PAGE_SIZE, etc.
+ * Callers (app/page.tsx, app/talents/page.tsx) never need to know the
+ * cursor's actual string shape.
+ */
+export function pageToCursor(page: number): string | undefined {
+  const offset = (Math.max(1, page) - 1) * FEED_PAGE_SIZE;
+  return offset > 0 ? `${LOCAL_CURSOR_PREFIX}${offset}` : undefined;
+}
+
+/** Reads `?page=N` off the URL, clamped to a sane 1-based integer. */
+export function parsePageParam(params: URLSearchParams): number {
+  const raw = Number(params.get("page"));
+  return Number.isInteger(raw) && raw > 1 ? raw : 1;
+}
+
+/** The filter half of a posts.search request, shared by both paths below.
+ *  `q` is deliberately NOT forwarded — see this file's header. */
+function filterParams(kind: WebPostKind, filters: FeedFilters): Record<string, unknown> {
+  return {
+    object: KIND_TO_OBJECT[kind],
+    ...(filters.categories && filters.categories.length > 0 ? { categories: filters.categories } : {}),
+    ...(filters.tags && filters.tags.length > 0 ? { tags: filters.tags } : {}),
+    ...(filters.location != null ? { location: filters.location } : {}),
+  };
+}
+
+// LIMITATION (search path only): past FULL_SCAN_MAX_PAGES *
+// FULL_SCAN_PAGE_SIZE live posts for one filter combination, the oldest ones
+// stop being searched at all. Comfortable headroom over today's ~1,700 live
+// posts; revisit if one filter combination ever approaches 3,000.
+const FULL_SCAN_MAX_PAGES = 30; // 30 * 100 = 3,000 posts scanned, max
+const FULL_SCAN_PAGE_SIZE = 100; // posts.search's documented max per request
+
+/**
+ * Walks the whole (already backend-ordered) listing and keeps the posts whose
+ * title or body contains `needle`. Order is preserved exactly as the backend
+ * returned it, so the result reads the same as the unfiltered feed.
+ */
+async function scanForQuery(kind: WebPostKind, filters: FeedFilters, needle: string): Promise<WebPost[]> {
   const matches: WebPost[] = [];
   let cursor: string | null | undefined;
 
   for (let page = 0; page < FULL_SCAN_MAX_PAGES; page++) {
     const raw = await call<unknown>("posts.search", {
       limit: FULL_SCAN_PAGE_SIZE,
-      object: KIND_TO_OBJECT[kind],
+      ...filterParams(kind, filters),
       ...(cursor ? { next: cursor } : {}),
-      ...(filters.categories && filters.categories.length > 0 ? { categories: filters.categories } : {}),
-      ...(filters.tags && filters.tags.length > 0 ? { tags: filters.tags } : {}),
-      ...(filters.location != null ? { location: filters.location } : {}),
     });
     const parsed = PostsSearchOutputSchema.parse(raw);
     for (const post of mapPosts(parsed.items)) {
-      if (!needle || post.title.toLowerCase().includes(needle) || post.contentText.toLowerCase().includes(needle)) {
+      if (post.title.toLowerCase().includes(needle) || post.contentText.toLowerCase().includes(needle)) {
         matches.push(post);
       }
     }
@@ -194,146 +142,83 @@ async function scanFullFeed(kind: WebPostKind, filters: FeedFilters): Promise<We
   return matches;
 }
 
-// 2026-09-10 (Aleksandr: главная грузится долго, "х100 костит" -- сервер
-// пересчитывал всю ленту заново практически на каждый заход): first
-// attempt at a real fix was going to be a scheduled background job
-// (Vercel Cron) writing a precomputed result to Vercel Blob storage --
-// works, but frequent Cron (more than once/day) needs the paid Pro plan.
-// Turns out that's not actually necessary: Next's own Data Cache
-// (`unstable_cache`, see https://vercel.com/docs/caching/runtime-cache/
-// data-cache) already IS a cache shared across every serverless instance
-// and region on Vercel -- including Hobby -- unlike sortedFeedCache
-// below, which only helps within one warm process. Revalidation is
-// stale-while-revalidate: whoever's request happens to land after the
-// interval below still gets the last cached list INSTANTLY, while Next
-// reruns the scan in the background for the next request -- nobody
-// actually waits on scanFullFeed anymore, regardless of the interval.
-//
-// Two things that shaped this:
-// 1. Data Cache entries are capped at 2MB (Vercel's documented limit) --
-//    caching the WHOLE scanned feed (up to FULL_SCAN_MAX_PAGES *
-//    FULL_SCAN_PAGE_SIZE = 3,000 posts) risks that as the live post
-//    count grows. Only the first CACHED_FEED_PREFIX posts (already
-//    sorted + interleaved) are cached -- comfortably covers every
-//    "Load more" click a real visitor makes in practice. Paging past
-//    it (rare) falls through to the older live-scan path below.
-// 2. unstable_cache serializes its result through JSON, which silently
-//    turns every `Date` into a string and does NOT turn it back --
-//    serializeForCache/deserializeFromCache below convert WebPost's 3
-//    date fields before caching and back to real Dates after reading,
-//    so every caller still gets real Date objects same as before.
-//
-// Deliberately scoped to the UNFILTERED feed only (no q/category/tag/
-// location) -- that's what app/page.tsx and app/talents/page.tsx render
-// by default, and it keeps the cache key space small. A filtered/search
-// view still goes through getSortedFeed/sortedFeedCache below,
-// unchanged -- lower-traffic, and correctness there matters more than
-// speed.
-// 2026-09-11: raised from 300 to 600 (30 pages of FEED_PAGE_SIZE) now that a
-// cached post is ~8x smaller -- see serializeForCache below. Numbered
-// pagination (components/pagination.tsx) made deep pages reachable for
-// visitors AND crawlable for Google, and every page past this prefix costs a
-// full live scan, so the prefix should cover as much of the feed as fits.
-const CACHED_FEED_PREFIX = 600;
-const FEED_CACHE_REVALIDATE_SECONDS = 60;
-// Comfortably more than a feed card can show (post-card.tsx renders the
-// description as line-clamp-6, i.e. ~700 characters at the widest), and small
-// enough that even an all-Cyrillic worst case (600 posts x 6,000-character
-// descriptions, 2 bytes per character) serializes to ~1.3MB, inside the 2MB
-// limit -- measured, not guessed.
-const FEED_CACHE_EXCERPT_CHARS = 900;
+// A scan is expensive, and paging through search results would otherwise
+// repeat it per page. One warm serverless instance reuses the same match list
+// for this window instead. Search is a comparatively rare path, so a
+// per-instance (not cross-instance) cache is fine here.
+const SEARCH_CACHE_TTL_MS = 60_000;
+const searchCache = new Map<string, { expiresAt: number; promise: Promise<WebPost[]> }>();
 
-type SerializedWebPost = Omit<WebPost, "publishedAt" | "sourcePublishedAt" | "updatedAt"> & {
-  publishedAt: string;
-  sourcePublishedAt: string | null;
-  updatedAt: string | null;
-};
-
-// 2026-09-11 -- measured against the live feed: an average post is ~12KB of
-// JSON, almost all of it the description, which WebPost carries TWICE
-// (contentText plus contentHtml, the latter purely derived from it by
-// mapPosts). 300 such posts is ~3.5MB, well over Vercel's documented 2MB
-// per-entry limit for the Data Cache -- an oversized entry is silently not
-// cached, so the "shared feed cache" was quietly doing nothing and every
-// request fell through to the per-instance cache and, failing that, a full
-// live scan. The cached copy therefore keeps only what the feed itself
-// renders: a generous excerpt instead of the whole description, and no
-// derived HTML at all (only the job/talent detail pages read contentHtml,
-// and they load their post separately via fetchPostById). Result: ~1.5KB per
-// post, under ~1MB for the whole 600-post prefix, comfortably inside it.
-function serializeForCache(post: WebPost): SerializedWebPost {
-  return {
-    ...post,
-    contentText:
-      post.contentText.length > FEED_CACHE_EXCERPT_CHARS
-        ? `${post.contentText.slice(0, FEED_CACHE_EXCERPT_CHARS)}…`
-        : post.contentText,
-    contentHtml: "",
-    publishedAt: post.publishedAt.toISOString(),
-    sourcePublishedAt: post.sourcePublishedAt ? post.sourcePublishedAt.toISOString() : null,
-    updatedAt: post.updatedAt ? post.updatedAt.toISOString() : null,
-  };
-}
-
-function deserializeFromCache(post: SerializedWebPost): WebPost {
-  return {
-    ...post,
-    publishedAt: new Date(post.publishedAt),
-    sourcePublishedAt: post.sourcePublishedAt ? new Date(post.sourcePublishedAt) : null,
-    updatedAt: post.updatedAt ? new Date(post.updatedAt) : null,
-  };
-}
-
-// `total` is the size of the WHOLE scanned feed, not of the cached prefix --
-// it costs nothing extra (the scan already produced the full list) and it is
-// what numbered pagination needs. Cache key bumped to -v2 because the shape
-// of the cached value changed; a stale v1 entry would deserialize wrong.
-const getCachedFeedPrefixRaw = unstable_cache(
-  async (kind: WebPostKind): Promise<{ posts: SerializedWebPost[]; total: number }> => {
-    const sorted = interleaveByAuthor(sortByFreshness(await scanFullFeed(kind, {})));
-    return { posts: sorted.slice(0, CACHED_FEED_PREFIX).map(serializeForCache), total: sorted.length };
-  },
-  ["feed-prefix-v3"],
-  { revalidate: FEED_CACHE_REVALIDATE_SECONDS },
-);
-
-async function getCachedFeedPrefix(kind: WebPostKind): Promise<{ posts: WebPost[]; total: number }> {
-  const cached = await getCachedFeedPrefixRaw(kind);
-  return { posts: cached.posts.map(deserializeFromCache), total: cached.total };
-}
-
-// 2026-09-09: scanFullFeed is NOT cheap -- up to 30 sequential requests
-// to api.a1appp.com just to answer one page of the feed. This in-memory
-// cache (one warm serverless instance reuses the same sorted list for
-// TTL_MS instead of re-scanning) is now only the FALLBACK path -- a
-// filtered/search view, or paging past CACHED_FEED_PREFIX on the
-// unfiltered feed above. Both are comparatively rare, so a per-instance
-// (not cross-instance) cache is an acceptable trade-off here.
-const SORTED_FEED_CACHE_TTL_MS = 60_000;
-const sortedFeedCache = new Map<string, { expiresAt: number; promise: Promise<WebPost[]> }>();
-
-function sortedFeedCacheKey(kind: WebPostKind, filters: FeedFilters): string {
+function searchCacheKey(kind: WebPostKind, filters: FeedFilters, needle: string): string {
   return JSON.stringify([
     kind,
-    filters.q?.trim().toLowerCase() ?? "",
+    needle,
     [...(filters.categories ?? [])].sort(),
     [...(filters.tags ?? [])].sort(),
     filters.location ?? null,
   ]);
 }
 
-async function getSortedFeed(kind: WebPostKind, filters: FeedFilters): Promise<WebPost[]> {
-  const key = sortedFeedCacheKey(kind, filters);
+async function getSearchMatches(kind: WebPostKind, filters: FeedFilters, needle: string): Promise<WebPost[]> {
+  const key = searchCacheKey(kind, filters, needle);
   const now = Date.now();
-  const cached = sortedFeedCache.get(key);
+  const cached = searchCache.get(key);
   if (cached && cached.expiresAt > now) return cached.promise;
 
-  const promise = scanFullFeed(kind, filters).then(sortByFreshness).then(interleaveByAuthor);
-  sortedFeedCache.set(key, { expiresAt: now + SORTED_FEED_CACHE_TTL_MS, promise });
+  const promise = scanForQuery(kind, filters, needle);
+  searchCache.set(key, { expiresAt: now + SEARCH_CACHE_TTL_MS, promise });
   // A failed scan shouldn't keep serving/retrying the same rejection for
   // the rest of the TTL window -- let the next call try fresh.
-  promise.catch(() => sortedFeedCache.delete(key));
+  promise.catch(() => searchCache.delete(key));
   return promise;
+}
+
+export async function fetchFeedPage(
+  kind: WebPostKind,
+  cursor?: string | null,
+  filters: FeedFilters = {},
+): Promise<FeedPage> {
+  const offset = cursorToOffset(cursor);
+  const nextOffset = offset + FEED_PAGE_SIZE;
+  const needle = filters.q?.trim().toLowerCase();
+
+  if (!needle) {
+    // The common case: one request. The backend ranks the feed (real publish
+    // date + round-robin by company), slices the page with `offset`, and
+    // `expand=count` rides along so we know how many pages exist.
+    const raw = await call<unknown>("posts.search", {
+      limit: FEED_PAGE_SIZE,
+      ...(offset > 0 ? { offset } : {}),
+      ...filterParams(kind, filters),
+      expand: "count",
+    });
+    const parsed = PostsSearchOutputSchema.parse(raw);
+    const posts = mapPosts(parsed.items);
+    const hasMore = parsed.pagination.hasMore;
+    // count.total spans every post type (the backend counts with `object`
+    // cleared), so the per-kind number is the one to use; fall back to what
+    // this page proves exists if the expand is ever missing.
+    const total =
+      parsed.count?.object[KIND_TO_OBJECT[kind]] ??
+      parsed.count?.total ??
+      offset + posts.length + (hasMore ? 1 : 0);
+
+    return {
+      posts,
+      next: hasMore ? `${LOCAL_CURSOR_PREFIX}${nextOffset}` : null,
+      hasMore,
+      total,
+    };
+  }
+
+  const matches = await getSearchMatches(kind, filters, needle);
+  const hasMore = nextOffset < matches.length;
+  return {
+    posts: matches.slice(offset, nextOffset),
+    next: hasMore ? `${LOCAL_CURSOR_PREFIX}${nextOffset}` : null,
+    hasMore,
+    total: matches.length,
+  };
 }
 
 // Aleksandr, 2026-08-27: "Категории в которых пока пусто показывай 50%
@@ -390,71 +275,12 @@ export async function fetchPostsByAuthor(authorId: string, limit = 12): Promise<
   return mapPosts(parsed.data.items);
 }
 
-export async function fetchFeedPage(
-  kind: WebPostKind,
-  cursor?: string | null,
-  filters: FeedFilters = {},
-): Promise<FeedPage> {
-  // 2026-09-09: always paginate over the FULL, already-sorted feed
-  // instead of forwarding the backend's own cursor -- that's what lets
-  // a genuinely newer post several backend-pages back still land on
-  // page 1. `cursor` here is always one of OUR offsets
-  // (LOCAL_CURSOR_PREFIX), never the backend's own `next`.
-  const offset = cursor?.startsWith(LOCAL_CURSOR_PREFIX)
-    ? Number(cursor.slice(LOCAL_CURSOR_PREFIX.length)) || 0
-    : 0;
-  const nextOffset = offset + FEED_PAGE_SIZE;
-
-  // 2026-09-10: the common case (unfiltered feed, within the first
-  // CACHED_FEED_PREFIX posts) is served from the shared cross-instance
-  // cache above -- no live scan at all. See that block's comment.
-  if (!hasActiveFilters(filters) && nextOffset <= CACHED_FEED_PREFIX) {
-    // 2026-09-11: `total` now comes from the cache too, so this branch knows
-    // the real feed size even though it only holds the first
-    // CACHED_FEED_PREFIX posts -- no more optimistic "probably hasMore".
-    const { posts: cachedPrefix, total } = await getCachedFeedPrefix(kind);
-    const hasMore = nextOffset < total;
-    return {
-      posts: cachedPrefix.slice(offset, nextOffset),
-      next: hasMore ? `${LOCAL_CURSOR_PREFIX}${nextOffset}` : null,
-      hasMore,
-      total,
-    };
-  }
-
-  const allMatches = await getSortedFeed(kind, filters);
-  const hasMore = nextOffset < allMatches.length;
-  return {
-    posts: allMatches.slice(offset, nextOffset),
-    next: hasMore ? `${LOCAL_CURSOR_PREFIX}${nextOffset}` : null,
-    hasMore,
-    total: allMatches.length,
-  };
-}
-
-/**
- * Turns a 1-based page number into the cursor fetchFeedPage expects --
- * page 1 has no cursor (offset 0), page 2 is offset FEED_PAGE_SIZE, etc.
- * Callers (app/page.tsx, app/talents/page.tsx) never need to know the
- * cursor's actual string shape.
- */
-export function pageToCursor(page: number): string | undefined {
-  const offset = (Math.max(1, page) - 1) * FEED_PAGE_SIZE;
-  return offset > 0 ? `${LOCAL_CURSOR_PREFIX}${offset}` : undefined;
-}
-
-/** Reads `?page=N` off the URL, clamped to a sane 1-based integer. */
-export function parsePageParam(params: URLSearchParams): number {
-  const raw = Number(params.get("page"));
-  return Number.isInteger(raw) && raw > 1 ? raw : 1;
-}
-
 /**
  * Next 15 hands RSC pages `searchParams` as a plain
  * `{ [key: string]: string | string[] | undefined }` object, not a real
  * URLSearchParams like a Route Handler gets from `request.nextUrl`. This
  * normalizes either into one shape so parseFeedFilters() below works from
- * both app/jobs/page.tsx and app/api/feed/route.ts.
+ * both app/page.tsx and app/api/feed/route.ts.
  */
 export function toURLSearchParams(
   record: Record<string, string | string[] | undefined>,
