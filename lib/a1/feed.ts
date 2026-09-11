@@ -112,6 +112,12 @@ export type FeedPage = {
   posts: WebPost[];
   next: string | null;
   hasMore: boolean;
+  // 2026-09-11 (Aleksandr: "покажи цифрами 20 страниц... после 20-й меняй
+  // весь ряд на 20-40") -- numbered pagination needs to know how many pages
+  // there are, which "hasMore" alone can't answer. Free to carry: both code
+  // paths below already hold the full match list, they were just throwing
+  // its length away.
+  total: number;
 };
 
 /** Phase 3: category/tag/free-text filters, all optional and all
@@ -250,18 +256,22 @@ function deserializeFromCache(post: SerializedWebPost): WebPost {
   };
 }
 
+// `total` is the size of the WHOLE scanned feed, not of the cached prefix --
+// it costs nothing extra (the scan already produced the full list) and it is
+// what numbered pagination needs. Cache key bumped to -v2 because the shape
+// of the cached value changed; a stale v1 entry would deserialize wrong.
 const getCachedFeedPrefixRaw = unstable_cache(
-  async (kind: WebPostKind): Promise<SerializedWebPost[]> => {
+  async (kind: WebPostKind): Promise<{ posts: SerializedWebPost[]; total: number }> => {
     const sorted = interleaveByAuthor(sortByFreshness(await scanFullFeed(kind, {})));
-    return sorted.slice(0, CACHED_FEED_PREFIX).map(serializeForCache);
+    return { posts: sorted.slice(0, CACHED_FEED_PREFIX).map(serializeForCache), total: sorted.length };
   },
-  ["feed-prefix"],
+  ["feed-prefix-v2"],
   { revalidate: FEED_CACHE_REVALIDATE_SECONDS },
 );
 
-async function getCachedFeedPrefix(kind: WebPostKind): Promise<WebPost[]> {
-  const serialized = await getCachedFeedPrefixRaw(kind);
-  return serialized.map(deserializeFromCache);
+async function getCachedFeedPrefix(kind: WebPostKind): Promise<{ posts: WebPost[]; total: number }> {
+  const cached = await getCachedFeedPrefixRaw(kind);
+  return { posts: cached.posts.map(deserializeFromCache), total: cached.total };
 }
 
 // 2026-09-09: scanFullFeed is NOT cheap -- up to 30 sequential requests
@@ -371,17 +381,16 @@ export async function fetchFeedPage(
   // CACHED_FEED_PREFIX posts) is served from the shared cross-instance
   // cache above -- no live scan at all. See that block's comment.
   if (!hasActiveFilters(filters) && nextOffset <= CACHED_FEED_PREFIX) {
-    const cachedPrefix = await getCachedFeedPrefix(kind);
-    // cachedPrefix.length === CACHED_FEED_PREFIX means the real feed
-    // might continue beyond what we cached -- we don't know the true
-    // total from this alone, so optimistically say hasMore; the NEXT
-    // call's offset will be past CACHED_FEED_PREFIX and fall through to
-    // the live-scan branch below, which knows the real answer.
-    const hasMore = nextOffset < cachedPrefix.length || cachedPrefix.length === CACHED_FEED_PREFIX;
+    // 2026-09-11: `total` now comes from the cache too, so this branch knows
+    // the real feed size even though it only holds the first
+    // CACHED_FEED_PREFIX posts -- no more optimistic "probably hasMore".
+    const { posts: cachedPrefix, total } = await getCachedFeedPrefix(kind);
+    const hasMore = nextOffset < total;
     return {
       posts: cachedPrefix.slice(offset, nextOffset),
       next: hasMore ? `${LOCAL_CURSOR_PREFIX}${nextOffset}` : null,
       hasMore,
+      total,
     };
   }
 
@@ -391,6 +400,7 @@ export async function fetchFeedPage(
     posts: allMatches.slice(offset, nextOffset),
     next: hasMore ? `${LOCAL_CURSOR_PREFIX}${nextOffset}` : null,
     hasMore,
+    total: allMatches.length,
   };
 }
 

@@ -15,7 +15,7 @@ export const revalidate = 15; // lowered from 60 — 2026-08-26, founder wants p
 // still at /talents.
 
 import type { Metadata } from "next";
-import { fetchFeedPage, toURLSearchParams, parseFeedFilters, hasActiveFilters, pageToCursor, parsePageParam } from "@/lib/a1/feed";
+import { fetchFeedPage, toURLSearchParams, parseFeedFilters, hasActiveFilters, pageToCursor, parsePageParam, FEED_PAGE_SIZE } from "@/lib/a1/feed";
 import { generateAvatarBlurDataUrl } from "@/lib/avatar-blur";
 import { PostCard } from "@/components/post-card";
 import { Pagination } from "@/components/pagination";
@@ -69,7 +69,8 @@ export default async function HomePage({ searchParams }: Props) {
   const params = toURLSearchParams(await searchParams);
   const filters = parseFeedFilters(params);
   const page = parsePageParam(params);
-  const { posts, hasMore } = await fetchFeedPage("hiring", pageToCursor(page), filters);
+  const { posts, hasMore, total } = await fetchFeedPage("hiring", pageToCursor(page), filters);
+  const totalPages = Math.max(1, Math.ceil(total / FEED_PAGE_SIZE));
   const currentCategory = filters.categories?.[0];
   // Real per-avatar blur (lib/avatar-blur.ts) instead of the generic
   // shared shimmer — see that file's comment for why this lives here
@@ -120,7 +121,7 @@ export default async function HomePage({ searchParams }: Props) {
               </li>
             ))}
           </ul>
-          <Pagination basePath="/" params={params} page={page} hasMore={hasMore} />
+          <Pagination basePath="/" params={params} page={page} hasMore={hasMore} totalPages={totalPages} />
         </>
       )}
     </main>
