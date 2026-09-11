@@ -21,10 +21,35 @@
 // arrows and looked broken, so a block is 10 -- 1..10, then 11..20, and
 // so on. The row is explicitly nowrap now: a block must never wrap, and
 // on a narrow phone it scrolls sideways instead.
+//
+// 2026-09-11, phone screenshot (Aleksandr: "в мобильной версии это выдача
+// десяти страниц чуть поломалась... не десять, а пять, и подсвечивать чуть
+// более лёгким вариантом, не такой синей заливкой, прям яркой, потому что
+// она конфликтует с кнопкой создать пост"):
+//   - the phone row shows MOBILE_BLOCK numbers, and unlike the desktop
+//     block it SLIDES with the current page (page 7 of 9 -> 5..9) instead
+//     of jumping in fixed tens, so the current page is never off-screen
+//     and the row never needs sideways scrolling;
+//   - the current page is a light tinted chip like the "Вакансії" tab
+//     rather than a saturated blue fill, which was competing with the
+//     floating "+" button for attention;
+//   - the whole nav gets bottom room on phones so the "Далі" arrow does
+//     not come to rest underneath the floating chat / "+" buttons.
 import Link from "next/link";
 import { T } from "./t";
 
 const PAGE_BLOCK = 10;
+const MOBILE_BLOCK = 5;
+
+/** The phone window: MOBILE_BLOCK pages centred on `page`, clamped to 1..totalPages. */
+function mobilePages(page: number, totalPages: number): number[] {
+  const size = Math.min(MOBILE_BLOCK, Math.max(1, totalPages));
+  const half = Math.floor(size / 2);
+  const start = Math.min(Math.max(1, page - half), Math.max(1, totalPages - size + 1));
+  const out: number[] = [];
+  for (let p = start; p < start + size && p <= totalPages; p++) out.push(p);
+  return out;
+}
 
 function pageHref(basePath: string, params: URLSearchParams, page: number): string {
   const next = new URLSearchParams(params);
@@ -66,10 +91,12 @@ export function Pagination({
   const numberClass =
     "min-w-9 rounded-lg px-2.5 py-1.5 text-center text-sm font-medium text-neutral-600 transition hover:bg-black/[0.05] dark:text-neutral-400 dark:hover:bg-white/[0.06]";
   const numberCurrentClass =
-    "min-w-9 rounded-lg bg-[#335ef7] px-2.5 py-1.5 text-center text-sm font-semibold text-white dark:bg-[#0c8ce9]";
+    "min-w-9 rounded-lg bg-accent/10 px-2.5 py-1.5 text-center text-sm font-semibold text-accent dark:bg-white/10";
+
+  const phonePages = mobilePages(page, Math.max(totalPages, page));
 
   return (
-    <nav className="mt-8 flex flex-col items-center gap-4" aria-label="Pagination">
+    <nav className="mt-8 flex flex-col items-center gap-4 pb-24 sm:pb-0" aria-label="Pagination">
       <div className="flex w-full items-center justify-between gap-4">
         {page > 1 ? (
           <Link href={pageHref(basePath, params, page - 1)} className={arrowClass} rel="prev">
@@ -109,8 +136,8 @@ export function Pagination({
         )}
       </div>
 
-      <div className="flex max-w-full flex-nowrap items-center justify-center gap-1 overflow-x-auto sm:hidden">
-        {pages.map((p) =>
+      <div className="flex max-w-full flex-nowrap items-center justify-center gap-1 sm:hidden">
+        {phonePages.map((p) =>
           p === page ? (
             <span key={p} className={numberCurrentClass} aria-current="page">
               {p}
