@@ -164,12 +164,21 @@ export function SiteNav() {
     return () => observer.disconnect();
   }, []);
 
+  // 2026-09-11 (Aleksandr, screenshot of the avatar menu open over a job
+  // page: "кнопка ••• пролазит через попап модалки, надо ее положить под
+  // попап"): this bar is `isolate`, so the avatar menu's own z-50 panel is
+  // trapped inside THIS element's stacking context and competes with the page
+  // as a whole at the bar's z-index. The post page's ⋯ trigger group is also
+  // z-40 and comes later in the document, so at a tie it painted on top of the
+  // menu. z-[45] puts the whole bar above it while staying below every
+  // fixed-overlay in the app (the image viewer and the modals are z-50, the
+  // portals above that) -- those must keep covering the bar.
   return (
     <nav
       ref={navRef}
       className={`${
         isChatDetailRoute ? "hidden sm:block " : ""
-      }sticky top-0 z-40 isolate bg-app/80 pt-[env(safe-area-inset-top)] backdrop-blur-xl [will-change:transform] dark:bg-black/80`}
+      }sticky top-0 z-[45] isolate bg-app/80 pt-[env(safe-area-inset-top)] backdrop-blur-xl [will-change:transform] dark:bg-black/80`}
       style={{ transform: "translateZ(0)" }}
     >
       <AppOpenBanner />
