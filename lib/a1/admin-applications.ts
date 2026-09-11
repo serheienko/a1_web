@@ -38,9 +38,29 @@ import {
 } from "./chat-schemas";
 
 const CONCURRENCY = 10;
-const CACHE_TTL_MS = 45_000;
+// 2026-09-11 (Aleksandr: "надо делать максимально эффективно по косту и
+// ресурсам"). One full pass is ~500 logins against our own backend, so the
+// cheap win is to not repeat it: 10 minutes instead of the posts aggregate's
+// 45 seconds. Reopening the page inside that window costs nothing at all, and
+// the panel's own "Оновити" button asks for a fresh pass (refresh: true)
+// whenever the cached answer is not good enough.
+const CACHE_TTL_MS = 10 * 60_000;
 const MESSAGES_PER_CHAT = 20;
 const pageCache = new Map<string, { data: AccountsApplicationsPage; fetchedAt: number }>();
+
+// Emails of the accounts that HAD a chat the last time they were checked, in
+// this server instance's memory. Nearly every imported account has no chats at
+// all, so checking these first puts the handful of real applications on screen
+// within the first page instead of somewhere in the middle of a ~500-account
+// walk (Aleksandr: "оно не может выдавать точечно где есть?" — the backend has
+// no "which accounts have chats" query at all, only "the chats of whoever is
+// logged in", so this ordering is as close to pointwise as it gets).
+//
+// Deliberately just a module-level Set, not storage: it is an optimization,
+// never a source of truth. A cold lambda starts empty and the page behaves
+// exactly as it did before — one ordinary full pass, results appearing as they
+// come in.
+const knownActive = new Set<string>();
 
 async function mapWithConcurrency<T, R>(
   items: T[],
@@ -103,7 +123,11 @@ async function fetchAccountApplications(account: TechnicalAccount): Promise<Admi
 
     const chatsRaw = await call<unknown>("chats.getChats", {}, { accessToken: token });
     const chats = extractChats(chatsRaw);
-    if (chats.length === 0) return [];
+    if (chats.length === 0) {
+      knownActive.delete(account.email);
+      return [];
+    }
+    knownActive.add(account.email);
 
     // One messages.getMessages per chat, in parallel — same shape the
     // web chat list already uses, just asking for a window instead of
@@ -196,13 +220,33 @@ export type AccountsApplicationsPage = {
   hasMore: boolean;
 };
 
-export async function fetchAccountsApplicationsPage(offset: number, limit: number): Promise<AccountsApplicationsPage> {
+// Every known-active account first (see knownActive above), everything else in
+// its own file order. The set only ever grows by accounts that really do have a
+// chat, so the reshuffle is small and the caller's own dedupe (by
+// companyEmail:chatId) covers an account that moved between two pages of the
+// same walk.
+function orderedAccounts(): TechnicalAccount[] {
+  const all = loadTechnicalAccounts();
+  if (knownActive.size === 0) return all;
+  const first: TechnicalAccount[] = [];
+  const rest: TechnicalAccount[] = [];
+  for (const account of all) {
+    (knownActive.has(account.email) ? first : rest).push(account);
+  }
+  return first.concat(rest);
+}
+
+export async function fetchAccountsApplicationsPage(
+  offset: number,
+  limit: number,
+  opts: { refresh?: boolean } = {},
+): Promise<AccountsApplicationsPage> {
   const cacheKey = `${offset}:${limit}`;
   const cached = pageCache.get(cacheKey);
-  if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
+  if (!opts.refresh && cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
     return cached.data;
   }
-  const accounts = loadTechnicalAccounts();
+  const accounts = orderedAccounts();
   const page = accounts.slice(offset, offset + limit);
   const results = await mapWithConcurrency(page, CONCURRENCY, fetchAccountApplications);
   const applications = results.flat().sort((a, b) => b.lastMessageAtMs - a.lastMessageAtMs);

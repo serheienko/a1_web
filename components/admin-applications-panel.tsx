@@ -83,8 +83,10 @@ const ACCOUNT_PAGE_SIZE = 40;
 
 type ApplicationsPage = { applications: Application[]; total: number; nextOffset: number | null; hasMore: boolean };
 
-async function fetchPage(offset: number): Promise<ApplicationsPage> {
-  const res = await authFetch(`/api/admin/applications?offset=${offset}&limit=${ACCOUNT_PAGE_SIZE}`);
+async function fetchPage(offset: number, refresh: boolean): Promise<ApplicationsPage> {
+  const res = await authFetch(
+    `/api/admin/applications?offset=${offset}&limit=${ACCOUNT_PAGE_SIZE}${refresh ? "&refresh=1" : ""}`,
+  );
   const data = await res.json();
   if (!data.ok) throw new Error("not ok");
   return {
@@ -93,6 +95,12 @@ async function fetchPage(offset: number): Promise<ApplicationsPage> {
     nextOffset: data.nextOffset ?? null,
     hasMore: Boolean(data.hasMore) && data.nextOffset !== null && data.nextOffset !== undefined,
   };
+}
+
+function dedupe(items: Application[]): Application[] {
+  const seen = new Map<string, Application>();
+  for (const item of items) seen.set(`${item.companyEmail}:${item.chatId}`, item);
+  return Array.from(seen.values());
 }
 
 export function AdminApplicationsPanel({ signedInAs }: { signedInAs: string }) {
@@ -113,7 +121,7 @@ export function AdminApplicationsPanel({ signedInAs }: { signedInAs: string }) {
   // server side (lib/a1/admin-applications.ts's CONCURRENCY), and firing
   // several pages at once would just multiply that against the same
   // backend.
-  async function scanAll() {
+  async function scanAll(refresh = false) {
     const runId = ++runIdRef.current;
     setError(false);
     setItems(null);
@@ -124,9 +132,13 @@ export function AdminApplicationsPanel({ signedInAs }: { signedInAs: string }) {
       let acc: Application[] = [];
       let offset = 0;
       for (;;) {
-        const page = await fetchPage(offset);
+        const page = await fetchPage(offset, refresh);
         if (runIdRef.current !== runId) return;
-        acc = acc.concat(page.applications);
+        // Dedupe by company+chat: the server puts the accounts that had
+        // applications last time at the front of the walk (see
+        // lib/a1/admin-applications.ts's knownActive), so an account can move
+        // between pages mid-scan and come back twice.
+        acc = dedupe(acc.concat(page.applications));
         acc.sort((a, b) => b.lastMessageAtMs - a.lastMessageAtMs);
         setItems(acc.slice());
         setTotalAccounts(page.total);
@@ -182,7 +194,7 @@ export function AdminApplicationsPanel({ signedInAs }: { signedInAs: string }) {
         </div>
         <button
           type="button"
-          onClick={scanAll}
+          onClick={() => scanAll(true)}
           className="shrink-0 rounded-full border border-neutral-300 px-3 py-1 text-xs font-medium text-neutral-600 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
         >
           {STRINGS.refresh[lang]}

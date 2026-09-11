@@ -35,6 +35,11 @@ export async function GET(request: Request) {
   const offset = Math.max(0, Number(searchParams.get("offset")) || 0);
   const limit = Math.min(MAX_PAGE_SIZE, Math.max(1, Number(searchParams.get("limit")) || DEFAULT_PAGE_SIZE));
 
-  const page = await fetchAccountsApplicationsPage(offset, limit);
+  // 2026-09-11: `?refresh=1` skips the module cache in
+  // lib/a1/admin-applications.ts (10 minutes by default) — that is what the
+  // panel's "Оновити" button sends, so a routine reopen stays free while a
+  // deliberate refresh still reaches the backend.
+  const refresh = searchParams.get("refresh") === "1";
+  const page = await fetchAccountsApplicationsPage(offset, limit, { refresh });
   return NextResponse.json({ ok: true, ...page });
 }
