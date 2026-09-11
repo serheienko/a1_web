@@ -229,8 +229,19 @@ async function scanFullFeed(kind: WebPostKind, filters: FeedFilters): Promise<We
 // view still goes through getSortedFeed/sortedFeedCache below,
 // unchanged -- lower-traffic, and correctness there matters more than
 // speed.
-const CACHED_FEED_PREFIX = 300; // 10 pages of FEED_PAGE_SIZE -- covers the overwhelming majority of visits
+// 2026-09-11: raised from 300 to 600 (30 pages of FEED_PAGE_SIZE) now that a
+// cached post is ~8x smaller -- see serializeForCache below. Numbered
+// pagination (components/pagination.tsx) made deep pages reachable for
+// visitors AND crawlable for Google, and every page past this prefix costs a
+// full live scan, so the prefix should cover as much of the feed as fits.
+const CACHED_FEED_PREFIX = 600;
 const FEED_CACHE_REVALIDATE_SECONDS = 60;
+// Comfortably more than a feed card can show (post-card.tsx renders the
+// description as line-clamp-6, i.e. ~700 characters at the widest), and small
+// enough that even an all-Cyrillic worst case (600 posts x 6,000-character
+// descriptions, 2 bytes per character) serializes to ~1.3MB, inside the 2MB
+// limit -- measured, not guessed.
+const FEED_CACHE_EXCERPT_CHARS = 900;
 
 type SerializedWebPost = Omit<WebPost, "publishedAt" | "sourcePublishedAt" | "updatedAt"> & {
   publishedAt: string;
@@ -238,9 +249,26 @@ type SerializedWebPost = Omit<WebPost, "publishedAt" | "sourcePublishedAt" | "up
   updatedAt: string | null;
 };
 
+// 2026-09-11 -- measured against the live feed: an average post is ~12KB of
+// JSON, almost all of it the description, which WebPost carries TWICE
+// (contentText plus contentHtml, the latter purely derived from it by
+// mapPosts). 300 such posts is ~3.5MB, well over Vercel's documented 2MB
+// per-entry limit for the Data Cache -- an oversized entry is silently not
+// cached, so the "shared feed cache" was quietly doing nothing and every
+// request fell through to the per-instance cache and, failing that, a full
+// live scan. The cached copy therefore keeps only what the feed itself
+// renders: a generous excerpt instead of the whole description, and no
+// derived HTML at all (only the job/talent detail pages read contentHtml,
+// and they load their post separately via fetchPostById). Result: ~1.5KB per
+// post, under ~1MB for the whole 600-post prefix, comfortably inside it.
 function serializeForCache(post: WebPost): SerializedWebPost {
   return {
     ...post,
+    contentText:
+      post.contentText.length > FEED_CACHE_EXCERPT_CHARS
+        ? `${post.contentText.slice(0, FEED_CACHE_EXCERPT_CHARS)}…`
+        : post.contentText,
+    contentHtml: "",
     publishedAt: post.publishedAt.toISOString(),
     sourcePublishedAt: post.sourcePublishedAt ? post.sourcePublishedAt.toISOString() : null,
     updatedAt: post.updatedAt ? post.updatedAt.toISOString() : null,
@@ -265,7 +293,7 @@ const getCachedFeedPrefixRaw = unstable_cache(
     const sorted = interleaveByAuthor(sortByFreshness(await scanFullFeed(kind, {})));
     return { posts: sorted.slice(0, CACHED_FEED_PREFIX).map(serializeForCache), total: sorted.length };
   },
-  ["feed-prefix-v2"],
+  ["feed-prefix-v3"],
   { revalidate: FEED_CACHE_REVALIDATE_SECONDS },
 );
 
