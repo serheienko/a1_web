@@ -85,7 +85,8 @@ type StringKey =
   | "cancel"
   | "thanksTitle"
   | "thanksBody"
-  | "thanksOk";
+  | "thanksOk"
+  | "applyMessage";
 
 const STRINGS: Record<StringKey, Record<Locale, string>> = {
   message: { uk: "Повідомлення", en: "Message", ru: "Сообщение", de: "Nachricht", es: "Mensaje", fr: "Message", pl: "Wiadomość", ptBR: "Mensagem", zh: "消息" },
@@ -95,6 +96,32 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   // of "message" whenever authorUnclaimed is true (see this file's own
   // openChat()/thanksOpen below for the actual behavior swap).
   apply: { uk: "Відгукнутися", en: "Apply", ru: "Откликнуться", de: "Bewerben", es: "Postularme", fr: "Postuler", pl: "Aplikuj", ptBR: "Candidatar-se", zh: "申请" },
+  // 2026-09-11 (Aleksandr: "Я сам рандомно откликнусь и хочу посмотреть
+  // что отклик пришел") — the actual TEXT of the application message
+  // this button now sends. Until today the unclaimed-company branch of
+  // openChat() below only called /api/chats/open and showed the
+  // thank-you popup; that route deliberately does NOT create anything
+  // (see its own header: this backend has no "pre-create an empty
+  // personal chat" method at all — a personal chat is resolved-or-
+  // created by chat-server only when a message is actually SENT to a
+  // peer-user peer). So every "application" so far left literally no
+  // trace on the company's account: no chat, no message, nothing for
+  // the company to find once it claims the account, and nothing for
+  // /admin/applications to list. One real messages.send fixes all of
+  // that at once — the message lands in the company account's own
+  // inbox and is waiting there when the account is handed over.
+  // {title} is the post's own title, {url} its public page.
+  applyMessage: {
+    uk: "Відгук на вакансію «{title}»\n{url}",
+    en: "Application for “{title}”\n{url}",
+    ru: "Отклик на вакансию «{title}»\n{url}",
+    de: "Bewerbung auf „{title}“\n{url}",
+    es: "Candidatura para «{title}»\n{url}",
+    fr: "Candidature pour « {title} »\n{url}",
+    pl: "Aplikacja na „{title}”\n{url}",
+    ptBR: "Candidatura para “{title}”\n{url}",
+    zh: "应聘「{title}」\n{url}",
+  },
   menuLabel: { uk: "Дії", en: "Actions", ru: "Действия", de: "Aktionen", es: "Acciones", fr: "Actions", pl: "Działania", ptBR: "Ações", zh: "操作" },
   addContact: { uk: "Додати контакт", en: "Add contact", ru: "Добавить контакт", de: "Kontakt hinzufügen", es: "Añadir contacto", fr: "Ajouter un contact", pl: "Dodaj kontakt", ptBR: "Adicionar contato", zh: "添加联系人" },
   removeContact: { uk: "Прибрати з контактів", en: "Remove from contacts", ru: "Убрать из контактов", de: "Aus Kontakten entfernen", es: "Quitar de contactos", fr: "Retirer des contacts", pl: "Usuń z kontaktów", ptBR: "Remover dos contatos", zh: "从联系人中移除" },
@@ -449,11 +476,29 @@ export function PostViewerMenu({
       });
       const data = await res.json().catch(() => null);
       if (data?.ok && typeof data.chatId === "string") {
-        // The chat is still opened for real (same /api/chats/open call,
-        // same technical account inbox) so nothing is lost once the
-        // company is claimed — the visitor just doesn't get routed into
-        // it while there's no real company on the other end yet.
+        // 2026-09-11: an unclaimed company's "Apply" now SENDS a real
+        // message instead of only resolving a chat id and showing the
+        // popup — see STRINGS.applyMessage above for why that was not
+        // enough (no chat exists until a message goes out, so nothing
+        // ever arrived). `data.chatId` here is either a real chat id or
+        // the `u_<userId>` sentinel; /api/chats/send resolves both via
+        // peerForRouteParam, and for the sentinel chat-server creates
+        // the personal chat as part of this same send. The thank-you
+        // popup is only shown after the send actually succeeded — a
+        // failed send flashes the same red "try again" state every
+        // other action here uses, rather than telling the visitor their
+        // application went through when it did not.
         if (authorUnclaimed) {
+          const text = STRINGS.applyMessage[lang]
+            .replace("{title}", shareTitle)
+            .replace("{url}", shareUrl);
+          const sent = await authFetch("/api/chats/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ chatId: data.chatId, text }),
+          });
+          const sentData = await sent.json().catch(() => null);
+          if (!sentData?.ok) throw new Error("apply_failed");
           setThanksOpen(true);
           return;
         }
