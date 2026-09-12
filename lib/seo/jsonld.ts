@@ -39,7 +39,14 @@ export function buildJobPostingJsonLd(post: WebPost): Record<string, unknown> {
     "@type": "JobPosting",
     title: cleanTitle(post.title),
     description: post.contentHtml,
-    datePosted: post.publishedAt.toISOString(),
+    // 2026-09-12: the DATE GOOGLE SEES must be the date the vacancy really
+    // went live on its source, not the moment we imported it -- the visible
+    // date on the page already uses sourcePublishedAt (app/jobs/[slug]/page.tsx),
+    // and a JobPosting whose datePosted disagrees with the rendered date is
+    // exactly what Search Console flags. validThrough stays anchored to
+    // publishedAt on purpose: it is our listing window, and anchoring it to an
+    // older source date would mark freshly imported vacancies as expired.
+    datePosted: (post.sourcePublishedAt ?? post.publishedAt).toISOString(),
     validThrough: jobPostingValidThrough(post).toISOString(),
     identifier: {
       "@type": "PropertyValue",

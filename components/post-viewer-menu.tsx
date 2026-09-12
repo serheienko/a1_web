@@ -81,6 +81,8 @@ type StringKey =
   | "actionFailed"
   | "authPromptTitle"
   | "authPromptBody"
+  | "applyPromptTitle"
+  | "applyPromptBody"
   | "signInCta"
   | "cancel"
   | "thanksTitle"
@@ -152,6 +154,29 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
     pl: "Zarejestruj się lub zaloguj, aby napisać wiadomość, dodać do kontaktów lub zapisać post.",
     ptBR: "Cadastre-se ou entre para enviar mensagem, adicionar aos contatos ou salvar a publicação.",
     zh: "注册或登录即可发消息、添加联系人或保存此帖子。",
+  },
+  // 2026-09-11 (Aleksandr, phone screenshot of this popup on an imported
+  // vacancy: the button says "Відгукнутися" but the popup offered to sign in
+  // "to message, add to contacts, or save this post" — three things the
+  // visitor did not ask for). For an unclaimed company's post the action IS
+  // applying, so the popup says that and nothing else. The general wording
+  // above still stands everywhere the button is "Message".
+  applyPromptTitle: {
+    uk: "Увійдіть, щоб відгукнутися", en: "Sign in to apply", ru: "Войдите, чтобы откликнуться",
+    de: "Melden Sie sich an, um sich zu bewerben", es: "Inicia sesión para postularte",
+    fr: "Connectez-vous pour postuler", pl: "Zaloguj się, aby aplikować",
+    ptBR: "Entre para se candidatar", zh: "登录后即可申请",
+  },
+  applyPromptBody: {
+    uk: "Зареєструйтесь або увійдіть, щоб надіслати відгук на цю вакансію.",
+    en: "Sign up or sign in to send your application for this job.",
+    ru: "Зарегистрируйтесь или войдите, чтобы отправить отклик на эту вакансию.",
+    de: "Registrieren oder anmelden, um Ihre Bewerbung auf diese Stelle zu senden.",
+    es: "Regístrate o inicia sesión para enviar tu candidatura a esta vacante.",
+    fr: "Inscrivez-vous ou connectez-vous pour envoyer votre candidature à cette offre.",
+    pl: "Zarejestruj się lub zaloguj, aby wysłać aplikację na to stanowisko.",
+    ptBR: "Cadastre-se ou entre para enviar sua candidatura a esta vaga.",
+    zh: "注册或登录即可投递这个职位的申请。",
   },
   signInCta: {
     uk: "Увійти або зареєструватися", en: "Sign in or sign up", ru: "Войти или зарегистрироваться",
@@ -755,8 +780,12 @@ export function PostViewerMenu({
                 <div className="mb-3 flex justify-center">
                   <LottiePlayer src="/animations/cat-blink.json" size={64} />
                 </div>
-                <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">{STRINGS.authPromptTitle[lang]}</p>
-                <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{STRINGS.authPromptBody[lang]}</p>
+                <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">
+                  {authorUnclaimed ? STRINGS.applyPromptTitle[lang] : STRINGS.authPromptTitle[lang]}
+                </p>
+                <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                  {authorUnclaimed ? STRINGS.applyPromptBody[lang] : STRINGS.authPromptBody[lang]}
+                </p>
                 <div className="mt-4 flex flex-col gap-2">
                   <button
                     type="button"
