@@ -231,13 +231,21 @@ export function PostCard({
                 обрывались на полуслове. Теснить теперь нечего -- та
                 плашка на телефоне не рисуется, а statusBadge стоит
                 сверху справа и от двух строк только едет вниз вся
-                карточка. Старый текст ниже про `block truncate` описывал
-                именно ту, прежнюю раскладку (both
-                unprefixed, same bucket as `sm:line-clamp-3` sits in its
-                own later media-query bucket, so it doesn't fight
-                line-clamp's display at sm+ -- only replaces the default
-                `inline`/`inline-block` an <a>/<button> would otherwise
-                have below sm, which text-overflow:ellipsis needs). */}
+                карточка.
+
+                И сразу следом (Александр, скриншот с заголовком в ЧЕТЫРЕ
+                строки: "Разрешай максимум 2 строки в заголовке на
+                мобильном") пришлось убрать отсюда и сам `block`. С
+                `truncate` он был безобиден -- тот display не трогает. А
+                line-clamp как раз ставит свой display (-webkit-box), без
+                которого обрезка по строкам не работает вовсе: `block` и
+                `line-clamp-2` -- два безусловных правила одного веса, и
+                `block` перебивал. Ровно об этой ловушке предупреждает
+                текст выше -- я в неё и попал. На sm и выше всё работало
+                и раньше, потому что `sm:line-clamp-3` лежит в своём
+                медиа-блоке и выигрывает у безусловного `block`: оттого
+                на широком экране три строки были, а на телефоне
+                заголовок разворачивался во всю длину. */}
             {/* 2026-08-30, live-testing feedback: "не надо чтобы заголовок
                 подчеркивался линией при наведении на пост в других местах,
                 линия только при наведении на сам заголовок" -- hover:underline
@@ -257,14 +265,14 @@ export function PostCard({
               <button
                 type="button"
                 onClick={onOpen}
-                className="text-left cursor-pointer block line-clamp-2 sm:line-clamp-3 after:absolute after:inset-0 after:z-0 after:content-['']"
+                className="text-left cursor-pointer line-clamp-2 sm:line-clamp-3 after:absolute after:inset-0 after:z-0 after:content-['']"
               >
                 <span className="hover:underline"><HighlightMatches text={post.title} query={highlightQuery} /></span>
               </button>
             ) : (
               <Link
                 href={href}
-                className="block line-clamp-2 sm:line-clamp-3 after:absolute after:inset-0 after:z-0 after:content-['']"
+                className="line-clamp-2 sm:line-clamp-3 after:absolute after:inset-0 after:z-0 after:content-['']"
               >
                 <span className="hover:underline"><HighlightMatches text={post.title} query={highlightQuery} /></span>
               </Link>
