@@ -649,10 +649,13 @@ export function PostViewerMenu({
         offset. -mx-4/px-4 cancel out to fill the page own side padding
         so the sticky bar background reaches both edges while the
         buttons inside stay aligned with the rest of the content.
-        sm: reverts every one of these back to plain static flow --
-        Aleksandr asked for this on mobile specifically, desktop is
-        unaffected. */}
-    <div className="sticky top-[var(--site-nav-h,64px)] z-20 -mx-4 mt-4 flex items-center gap-2 bg-app/90 px-4 pb-2 pt-3 backdrop-blur-xl dark:bg-black/90 sm:static sm:top-auto sm:z-auto sm:mx-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-none dark:sm:bg-transparent">
+        2026-09-13 (Александр: "Еще давай кнопки «откликнуться» ··· тоже
+        закрепим сверху при скролле, так же как на мобильном") -- раньше
+        тут стоял набор sm:-классов, который на широком экране возвращал
+        строку в обычный поток. Убрал: теперь она закрепляется одинаково
+        на любом размере окна. Отступы -mx-4/px-4 совпадают с px-4 самой
+        страницы (app/jobs/[slug]/page.tsx) и на десктопе тоже. */}
+    <div className="sticky top-[var(--site-nav-h,64px)] z-20 -mx-4 mt-4 flex items-center gap-2 bg-app/90 px-4 pb-2 pt-3 backdrop-blur-xl dark:bg-black/90">
       <button
         type="button"
         onClick={openChat}
