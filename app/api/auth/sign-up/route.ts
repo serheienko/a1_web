@@ -11,10 +11,20 @@
 // three plus password are required") — the rest of its accepted field
 // surface belongs to Phase 6's profile editor, not sign-up.
 
+// 2026-09-13 (Александр: "как сделать, чтобы эти никнеймы на все новые
+// профили предлагались более красивые ... на те, которые пользователи
+// создают вручную") -- without a `username` in this payload the backend
+// names the account `a1_<userId>` (createUser.ts's own
+// `if (!data.username)`), which is what every profile created through
+// this app has been getting. One derived from the person's own name is
+// sent instead; see lib/username-slug.ts. Sign-ups made in the MOBILE
+// app don't pass through this route at all and still need the backend's
+// own default changed.
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { call, A1ApiError } from "@/lib/a1/client";
 import { setSession } from "@/lib/a1/session";
+import { pickAvailableUsername } from "@/lib/username-slug";
 
 export const runtime = "nodejs";
 
@@ -41,6 +51,15 @@ export async function POST(request: NextRequest) {
   }
   const input = parsed.data;
 
+  // account.checkUsername is public (its own `security: []`) and returns
+  // true when the name is free. Any failure in here resolves to null and
+  // the sign-up proceeds exactly as it did before -- a nicer handle is
+  // never worth a failed registration.
+  const username = await pickAvailableUsername(
+    `${input.firstName} ${input.lastName}`,
+    (candidate) => call<boolean>("account.checkUsername", { username: candidate }, { skipAuth: true }),
+  );
+
   try {
     const data = await call<CreateUserResponse>(
       "users.createUser",
@@ -49,6 +68,7 @@ export async function POST(request: NextRequest) {
         password: input.password,
         firstName: input.firstName,
         lastName: input.lastName,
+        ...(username ? { username } : {}),
       },
       { skipAuth: true },
     );
