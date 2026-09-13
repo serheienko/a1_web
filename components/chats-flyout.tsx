@@ -37,6 +37,7 @@ import { ChatPreviewLine } from "@/components/chat/chat-preview-line";
 import { chatRouteParamForUser } from "@/lib/a1/chat-schemas";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
+import type { UserSearchHit } from "@/app/api/users/search/route";
 
 export type ChatFlyoutOpenTarget = {
   routeParam: string;
@@ -160,6 +161,10 @@ const STRINGS = {
     uk: "Не вдалося завантажити", en: "Couldn't load", ru: "Не удалось загрузить", de: "Laden fehlgeschlagen",
     es: "No se pudo cargar", fr: "Échec du chargement", pl: "Nie udało się załadować", ptBR: "Falha ao carregar", zh: "加载失败",
   },
+  peopleHeading: {
+    uk: "Люди на A1", en: "People on A1", ru: "Люди на A1", de: "Leute auf A1", es: "Personas en A1",
+    fr: "Personnes sur A1", pl: "Osoby na A1", ptBR: "Pessoas no A1", zh: "A1 上的用户",
+  },
   contactsHeading: {
     uk: "Контакти", en: "Contacts", ru: "Контакты", de: "Kontakte", es: "Contactos",
     fr: "Contacts", pl: "Kontakty", ptBR: "Contatos", zh: "联系人",
@@ -268,6 +273,12 @@ export function ChatsFlyout({
   const [chats, setChats] = useState<ChatRow[]>([]);
   const [contacts, setContacts] = useState<ContactRow[] | null>(null);
   const [query, setQuery] = useState("");
+  // 2026-09-13 (Александр: "чтобы поиск контактов работал тоже в чатах,
+  // не только контактов, которые у нас добавлены, а всех global"). Ниже
+  // ищется только среди своих чатов и добавленных контактов -- человека,
+  // которому ещё не писали и которого нет в книге, найти было нельзя.
+  // Это тот же общий поиск, что и в строке поиска в шапке.
+  const [globalPeople, setGlobalPeople] = useState<UserSearchHit[]>([]);
   // "Новий чат" nested screen -- see NewChatBubbleIcon's own comment
   // above and the header/body render below.
   const [newChatOpen, setNewChatOpen] = useState(false);
@@ -405,6 +416,39 @@ export function ChatsFlyout({
   // surfaced once you start typing, as a fallback under the recent-chat
   // results), this shows every linked contact up front and narrows as
   // you type, same as components/new-chat-picker-modal.tsx's own list.
+  useEffect(() => {
+    const q = trimmed;
+    if (!open || q.length < 2) {
+      setGlobalPeople([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      fetch(`/api/users/search?q=${encodeURIComponent(q)}`)
+        .then((res) => res.json())
+        .then((data: { ok?: boolean; users?: UserSearchHit[] }) => {
+          if (!cancelled && data?.ok) setGlobalPeople(data.users ?? []);
+        })
+        .catch(() => {
+          if (!cancelled) setGlobalPeople([]);
+        });
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [trimmed, open]);
+
+  // Из общего поиска убираем тех, кто и так уже показан выше -- своим
+  // чатом или контактом из книги: одна и та же строка дважды в списке
+  // выглядит как ошибка.
+  const shownUsernames = new Set(
+    [...filteredChats.map((c) => c.username), ...matchingContacts.map((c) => c.username)]
+      .filter(Boolean)
+      .map((u) => (u as string).toLowerCase()),
+  );
+  const otherPeople = globalPeople.filter((u) => !shownUsernames.has(u.username.toLowerCase()));
+
   const pickerContacts = trimmed
     ? (contacts ?? []).filter(
         (c) => c.title.toLowerCase().includes(trimmed) || (c.username ?? "").toLowerCase().includes(trimmed),
@@ -603,7 +647,7 @@ export function ChatsFlyout({
         {state === "error" && chats.length === 0 && (
           <p className="px-2 py-4 text-center text-[15px] text-[#989aa6] dark:text-[#8d8d93]">{STRINGS.error[lang]}</p>
         )}
-        {state === "ready" && filteredChats.length === 0 && matchingContacts.length === 0 && (
+        {state === "ready" && filteredChats.length === 0 && matchingContacts.length === 0 && otherPeople.length === 0 && (
           <p className="px-2 py-4 text-center text-[15px] text-[#989aa6] dark:text-[#8d8d93]">
             {trimmed ? STRINGS.noResults[lang] : STRINGS.empty[lang]}
           </p>
@@ -689,6 +733,47 @@ export function ChatsFlyout({
                   className="h-10 w-10 shrink-0 rounded-full object-cover"
                 />
                 <div className="min-w-0 flex-1 truncate text-[16px] font-medium text-[#262a34] dark:text-white">{c.title || "—"}</div>
+              </button>
+            ))}
+          </>
+        )}
+
+        {otherPeople.length > 0 && (
+          <>
+            <div className="mt-2 px-2.5 pb-1 text-[13px] font-medium uppercase tracking-wide text-[#989aa6] dark:text-[#8d8d93]">
+              {STRINGS.peopleHeading[lang]}
+            </div>
+            {otherPeople.map((u) => (
+              <button
+                key={u.userId}
+                type="button"
+                // Тот же путь, что и у контакта из книги: сперва ищется
+                // уже существующая переписка, и только если её нет --
+                // открывается новая. Иначе человек, которому когда-то
+                // писали, открылся бы пустым чатом.
+                onClick={() =>
+                  void openContactChat({
+                    contactId: `global-${u.userId}`,
+                    userId: u.userId,
+                    title: u.fullName,
+                    avatarUrl: u.avatarUrl ?? pickDefaultCatAvatar(u.username),
+                    avatarBlurDataUrl: u.avatarBlurDataUrl,
+                    username: u.username,
+                  })
+                }
+                disabled={openingContactUserId === u.userId}
+                className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
+              >
+                <CachedAvatar
+                  src={u.avatarUrl ?? pickDefaultCatAvatar(u.username)}
+                  blurDataURL={u.avatarBlurDataUrl ?? BLUR_DATA_URL}
+                  size={40}
+                  className="h-10 w-10 shrink-0 rounded-full object-cover"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[16px] font-medium text-[#262a34] dark:text-white">{u.fullName || "—"}</div>
+                  <div className="truncate text-[14.5px] text-[#989aa6] dark:text-[#8d8d93]">@{u.username}</div>
+                </div>
               </button>
             ))}
           </>

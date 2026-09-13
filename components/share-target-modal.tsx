@@ -30,12 +30,18 @@ import { CachedAvatar } from "@/components/cached-avatar";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { T, type Locale } from "@/components/t";
 import { SearchIcon } from "@/components/search-icon";
+import { chatRouteParamForUser } from "@/lib/a1/chat-schemas";
+import { pickDefaultCatAvatar } from "@/lib/avatars";
+import type { UserSearchHit } from "@/app/api/users/search/route";
 
 type ChatRow = {
   id: string;
   title: string;
   avatarUrl: string;
   avatarBlurDataUrl: string | null;
+  // Есть только у строк из списка чатов -- по нему отсеиваются двойники,
+  // когда тот же человек приходит ещё и из общего поиска.
+  username?: string | null;
 };
 
 export type ShareTarget =
@@ -117,6 +123,14 @@ export function ShareTargetModal({
   // здесь речь про ссылку -- смешивать их значит врать человеку о
   // том, что именно не получилось.
   const [copyFailed, setCopyFailed] = useState(false);
+  // 2026-09-13 (Александр: "При поделиься контактом и постом тоже должно
+  // искать пользователей global по никам"). Список чатов -- это только
+  // те, с кем уже переписывались; поделиться с человеком, которому ещё
+  // не писали, было нельзя вовсе. Общий поиск по людям добавляется к
+  // тому же списку: отправить можно и в ещё не начатую переписку --
+  // адрес "u_<id>" сервер понимает как "личный чат с этим человеком"
+  // (lib/a1/chat-schemas.ts, peerForRouteParam).
+  const [globalPeople, setGlobalPeople] = useState<ChatRow[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -156,6 +170,57 @@ export function ShareTargetModal({
     () => (trimmed ? chats.filter((c) => c.title.toLowerCase().includes(trimmed)) : chats),
     [chats, trimmed],
   );
+
+  // Общий поиск -- только когда что-то набрано: без запроса показывать
+  // "всех людей платформы" бессмысленно, там должны быть свои чаты.
+  useEffect(() => {
+    const q = trimmed;
+    if (q.length < 2) {
+      setGlobalPeople([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      fetch(`/api/users/search?q=${encodeURIComponent(q)}`)
+        .then((res) => res.json())
+        .then((data: { ok?: boolean; users?: UserSearchHit[] }) => {
+          if (cancelled || !data?.ok) return;
+          setGlobalPeople(
+            (data.users ?? []).map((u) => ({
+              id: chatRouteParamForUser(u.userId),
+              title: u.fullName,
+              avatarUrl: u.avatarUrl ?? pickDefaultCatAvatar(u.username),
+              avatarBlurDataUrl: u.avatarBlurDataUrl,
+              username: u.username,
+            })),
+          );
+        })
+        .catch(() => {
+          if (!cancelled) setGlobalPeople([]);
+        });
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [trimmed]);
+
+  // Один список вместо двух: человек ищет, кому отправить, и ему всё
+  // равно, была ли до этого переписка. Свои чаты идут первыми -- они
+  // почти всегда и есть ответ, -- а из общего поиска добавляются только
+  // те, кого в списке ещё нет.
+  const visible = useMemo(() => {
+    const seenUsernames = new Set(
+      filtered.map((c) => (c.username ?? "").toLowerCase()).filter(Boolean),
+    );
+    const seenIds = new Set(filtered.map((c) => c.id));
+    return [
+      ...filtered,
+      ...globalPeople.filter(
+        (p) => !seenIds.has(p.id) && !seenUsernames.has((p.username ?? "").toLowerCase()),
+      ),
+    ];
+  }, [filtered, globalPeople]);
 
   function toggle(id: string) {
     setFailed(false);
@@ -374,7 +439,7 @@ export function ShareTargetModal({
             </div>
           )}
 
-          {state === "ready" && filtered.length === 0 && (
+          {state === "ready" && visible.length === 0 && (
             <div className="flex items-center justify-center py-10 text-center text-sm text-neutral-500 dark:text-neutral-400">
               {chats.length === 0 ? (
                 <T
@@ -388,9 +453,9 @@ export function ShareTargetModal({
             </div>
           )}
 
-          {state === "ready" && filtered.length > 0 && (
+          {state === "ready" && visible.length > 0 && (
             <div className="grid grid-cols-4 gap-x-2 gap-y-4 sm:grid-cols-5">
-              {filtered.map((c) => {
+              {visible.map((c) => {
                 const isPicked = picked.has(c.id);
                 return (
                   <button
