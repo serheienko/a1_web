@@ -66,6 +66,10 @@ import type { Contact } from "@/lib/a1/schemas";
 import { LottiePlayer } from "@/components/lottie-player";
 import { InlineAuthForm } from "@/components/inline-auth-form";
 import { useHoverPanel } from "@/lib/use-hover-panel";
+// 2026-09-13: оба пункта «поділитися» ниже раньше были заглушками --
+// теперь открывают общее окно выбора получателя (внутри чатов) с
+// кнопкой «вовне» на месте прежнего системного меню.
+import { ShareTargetModal, type ShareTarget } from "@/components/share-target-modal";
 
 type StringKey =
   | "message"
@@ -401,7 +405,10 @@ export function PostViewerMenu({
   // of contacts.
   const [saveStatus, setSaveStatus] = useState<ToggleStatus>("loading");
 
-  const [shareFeedback, setShareFeedback] = useState(false);
+  // Что именно сейчас расшаривают, null -- окно закрыто. Одно окно на
+  // оба пункта меню: отличается только содержимым, не выбором
+  // получателя.
+  const [shareTarget, setShareTarget] = useState<ShareTarget | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -611,32 +618,14 @@ export function PostViewerMenu({
     }
   }
 
-  async function sharePost() {
-    // Only the "real" half exists yet (external share) — dropping a
-    // customized card into a chat is the other branch, once chats
-    // exist. Native share sheet first (mobile Safari/Chrome, some
-    // desktop browsers), clipboard copy as the universal fallback.
-    if (typeof navigator !== "undefined" && "share" in navigator) {
-      try {
-        await navigator.share({ title: shareTitle, url: shareUrl });
-        setOpen(false);
-        return;
-      } catch {
-        // User cancelled the share sheet, or the browser rejected it —
-        // fall through to clipboard copy rather than leaving the menu
-        // stuck open with no feedback.
-      }
-    }
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setShareFeedback(true);
-      setTimeout(() => setShareFeedback(false), 2000);
-    } catch {
-      // Nothing more to fall back to — silently close, same as any
-      // other best-effort action in this menu.
-    }
-    setOpen(false);
+  /** Абсолютная ссылка на профиль автора -- запасной вариант для
+   *  карточки контакта и то, чем делятся «вовне». */
+  function authorProfileUrl(): string {
+    const path = authorUsername ? `/u/${authorUsername}` : "";
+    if (!path) return shareUrl;
+    return typeof window === "undefined" ? path : `${window.location.origin}${path}`;
   }
+
 
   const contactLabel =
     contactStatus === "error" ? STRINGS.actionFailed[lang] : contactStatus === "on" ? STRINGS.removeContact[lang] : STRINGS.addContact[lang];
@@ -718,20 +707,31 @@ export function PostViewerMenu({
                   {contactLabel}
                 </button>
               )}
+              {authorUserId && (
               <button
                 type="button"
-                // Stub — real chat-drop later, same as the Message button
-                // above. Still closes the menu, like every other row --
-                // for a signed-out visitor, opens the auth popup instead.
+                // 2026-09-13: было заглушкой (закрывало меню и всё).
+                // Теперь открывает тот же выбор получателя, что и «допис»
+                // ниже. Отдельного экрана входа тут не нужно: окно само
+                // покажет «увійдіть, щоб поділитися в чаті» и при этом
+                // оставит рабочей кнопку «вовне» -- гостю тоже есть что
+                // сделать, в отличие от прежнего поведения.
                 onClick={() => {
                   setOpen(false);
-                  if (isAnon) setAuthPromptOpen(true);
+                  if (!authorUserId) return;
+                  setShareTarget({
+                    kind: "contact",
+                    userId: authorUserId,
+                    name: authorName || shareTitle,
+                    profileUrl: authorProfileUrl(),
+                  });
                 }}
                 className="group flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 transition hover:bg-accent/10 hover:text-accent dark:text-neutral-300"
               >
                 <ContactCardIcon />
                 {STRINGS.shareContact[lang]}
               </button>
+              )}
               <button
                 type="button"
                 onClick={toggleSave}
@@ -743,11 +743,14 @@ export function PostViewerMenu({
               </button>
               <button
                 type="button"
-                onClick={sharePost}
+                onClick={() => {
+                  setOpen(false);
+                  setShareTarget({ kind: "post", title: shareTitle, url: shareUrl });
+                }}
                 className="group flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 transition hover:bg-accent/10 hover:text-accent dark:text-neutral-300"
               >
                 <SharePostIcon />
-                {shareFeedback ? STRINGS.linkCopied[lang] : STRINGS.sharePost[lang]}
+                {STRINGS.sharePost[lang]}
               </button>
             </div>
           </>
@@ -835,6 +838,15 @@ export function PostViewerMenu({
             </button>
           </div>
         </div>,
+        document.body,
+      )}
+
+    {/* Портал, как и у попапов выше: это меню живёт внутри шапки
+        страницы, у которой свой контекст наложения, и окно на весь
+        экран из неё иначе оказалось бы под ней. */}
+    {shareTarget &&
+      createPortal(
+        <ShareTargetModal lang={lang} target={shareTarget} onClose={() => setShareTarget(null)} />,
         document.body,
       )}
     </>

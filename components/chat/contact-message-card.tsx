@@ -203,10 +203,24 @@ export function ContactMessageCard({
         </div>
       </div>
 
-      <div className="flex items-center gap-2 text-[13px] opacity-90">
-        <ChatPhoneIcon className="h-4 w-4 shrink-0 opacity-70" />
-        <span className="truncate">{phoneNumber}</span>
-      </div>
+      {/* 2026-09-13: телефона может не быть вовсе -- карточку теперь
+          шлют и из «Поділитися контактом» у вакансии, где взять его
+          неоткуда (app/api/chats/send/route.ts, contacts). Пустая
+          строка рисовала иконку трубки и пустоту рядом, будто номер
+          потерялся. */}
+      {phoneNumber.trim() ? (
+        <div className="flex items-center gap-2 text-[13px] opacity-90">
+          <ChatPhoneIcon className="h-4 w-4 shrink-0 opacity-70" />
+          <span className="truncate">{phoneNumber}</span>
+        </div>
+      ) : (
+        summary?.username && (
+          <div className="flex items-center gap-2 text-[13px] opacity-90">
+            <span className="w-4 shrink-0 text-center opacity-70">@</span>
+            <span className="truncate">{summary.username}</span>
+          </div>
+        )
+      )}
 
       {summary?.expertise && (
         <div className="flex items-center gap-2 text-[13px] opacity-90">

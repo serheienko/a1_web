@@ -54,13 +54,23 @@ const SendInput = z
     // simply can't be sent this way -- that UI will need to filter or
     // grey those out, not something this route can paper over given the
     // backend's own required field.
+    // 2026-09-13 (шаринг контакта из меню ⋯ у вакансии, см.
+    // components/share-target-modal.tsx): phoneNumber и lastName больше
+    // не обязаны быть непустыми. Телефона у отправляющей стороны тут
+    // просто НЕТ -- app/api/users/summaries/route.ts намеренно его не
+    // отдаёт (см. её собственный комментарий про безопасность), а у
+    // аккаунта компании его обычно и не существует; фамилии у названия
+    // компании нет тем более. Пустая строка -- честное «не знаю»:
+    // components/chat/contact-message-card.tsx такую строку не рисует
+    // вовсе. userId и firstName остаются обязательными -- без них
+    // карточка ни на что не ссылается и никак не подписана.
     contacts: z
       .array(
         z.object({
           userId: z.string().trim().min(1),
-          phoneNumber: z.string().trim().min(1),
+          phoneNumber: z.string().trim(),
           firstName: z.string().trim().min(1),
-          lastName: z.string().trim().min(1),
+          lastName: z.string().trim(),
         }),
       )
       .max(5)
