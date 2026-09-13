@@ -49,9 +49,20 @@ export async function GET() {
       return NextResponse.json({ ok: false, message: "unexpected_profile_shape" }, { status: 502 });
     }
 
+    // 2026-09-13: скрыт ли профиль из поиска прямо сейчас. Отдаём
+    // отдельным полем, а не через EditableProfileSchema: это не
+    // редактируемое поле профиля, а состояние переключателя в блоке
+    // «Акаунт» внизу редактора. Бэкенд отдаёт набор признаков одним
+    // числом, где каждый бит -- свой признак; нас интересует
+    // HIDDEN_FROM_SEARCH (1 << 27, packages/constants/src/
+    // users.constants.ts в aone-api-private).
+    const flags = Number((profileResult.data as { flags?: unknown })?.flags ?? 0);
+    const hiddenFromSearch = Number.isFinite(flags) ? (flags & (1 << 27)) !== 0 : false;
+
     const response = NextResponse.json({
       ok: true,
       profile: parsed.data,
+      hiddenFromSearch,
       companyCategories,
       hobbyGroups,
       workInterests,

@@ -69,6 +69,11 @@ import { LOCALES, LOCALE_CLASS, LOCALE_TAG, type Locale } from "@/components/t";
 import { OccupationIcon } from "@/components/occupation-icon";
 import { OCCUPATION_LABELS } from "@/components/occupation-labels";
 import { WORK_STYLE_PREFERENCE_SECTIONS } from "@/components/work-style-labels";
+// 2026-09-13 (Александр: "В редактировании профиля надо добавить
+// возможность его удалить в самом низу. Это надо сделать умно с
+// начальным предложением просто деактивировать, не удаляя") -- блок
+// живёт отдельным файлом, см. его собственный комментарий.
+import { AccountDangerZone } from "@/components/account-danger-zone";
 // Value import from the client-safe standalone module, NOT lib/a1/
 // datasets.ts directly — that file's own real dependency chain (lib/a1/
 // client.ts -> lib/a1/auth.ts, the server-only service-account token
@@ -939,6 +944,10 @@ export function ProfileEditor({
   const [selectedHobbies, setSelectedHobbies] = useState<Set<number>>(new Set());
   const [selectedWorkInterests, setSelectedWorkInterests] = useState<Set<number>>(new Set());
   const [workStylePrefs, setWorkStylePrefs] = useState<Record<string, Set<number>>>({});
+  // Скрыт ли профиль из поиска прямо сейчас -- приходит отдельным полем
+  // из bootstrap, это не редактируемое поле профиля, а состояние
+  // переключателя в блоке «Акаунт» внизу.
+  const [hiddenFromSearch, setHiddenFromSearch] = useState(false);
 
   // Company-category searchable picker (per-row open state keyed by
   // company id, same combobox pattern app/onboarding/profile/profile-
@@ -961,7 +970,7 @@ export function ProfileEditor({
     let cancelled = false;
     authFetch("/api/account/profile-editor/bootstrap")
       .then((r) => r.json())
-      .then((data: { ok: boolean; message?: string } & Partial<Bootstrap>) => {
+      .then((data: { ok: boolean; message?: string; hiddenFromSearch?: boolean } & Partial<Bootstrap>) => {
         if (cancelled) return;
         if (!data.ok || !data.profile) {
           if (isNotSignedIn(data)) {
@@ -1054,6 +1063,7 @@ export function ProfileEditor({
           wsp[key] = new Set(p.workStylePreferences[key]);
         }
         setWorkStylePrefs(wsp);
+        setHiddenFromSearch(data.hiddenFromSearch === true);
         setBootstrap({
           profile: p,
           companyCategories,
@@ -2852,6 +2862,8 @@ export function ProfileEditor({
               );
             })}
           </Section>
+
+          <AccountDangerZone lang={lang} initialHidden={hiddenFromSearch} />
         </div>
 
         <div className="border-t border-neutral-100 px-5 py-3.5 dark:border-neutral-800">
