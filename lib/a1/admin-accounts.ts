@@ -92,6 +92,41 @@ export function loadTechnicalAccounts(): TechnicalAccount[] {
   }
 }
 
+// 2026-09-13: диагностика для /api/admin/companies?diag=1. Возвращает ТОЛЬКО
+// безличные признаки значения переменной (есть ли она, длина, первые
+// несколько символов, текст ошибки) -- ни одного пароля и ни одного куска
+// расшифрованного списка. Нужна была, потому что при пустом списке снаружи
+// не отличить "переменная не сохранилась" от "сохранилась, но не
+// расшифровывается", а логи Vercel за этим смотреть дольше.
+export function describeAccountsEnv(): Record<string, unknown> {
+  const raw = process.env.TECHNICAL_ACCOUNTS_JSON;
+  if (!raw) return { present: false };
+  const trimmed = raw.trim();
+  const info: Record<string, unknown> = {
+    present: true,
+    rawLength: raw.length,
+    trimmedLength: trimmed.length,
+    head: trimmed.slice(0, 8),
+    tail: trimmed.slice(-4),
+    looksLikeJson: trimmed.startsWith("["),
+    hasWhitespaceInside: /\s/.test(trimmed),
+  };
+  try {
+    const decoded = decodeAccountsEnv(raw);
+    info.decodedLength = decoded.length;
+    info.decodedHead = decoded.slice(0, 12);
+    const parsed = JSON.parse(decoded);
+    info.parsedIsArray = Array.isArray(parsed);
+    info.parsedCount = Array.isArray(parsed) ? parsed.length : null;
+    const result = z.array(TechnicalAccountSchema).safeParse(parsed);
+    info.schemaOk = result.success;
+    if (!result.success) info.schemaError = result.error.message.slice(0, 300);
+  } catch (err) {
+    info.error = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+  }
+  return info;
+}
+
 export function findTechnicalAccount(email: string): TechnicalAccount | null {
   const target = email.trim().toLowerCase();
   return loadTechnicalAccounts().find((a) => a.email === target) ?? null;

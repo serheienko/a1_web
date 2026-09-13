@@ -14,15 +14,20 @@
 import { NextResponse } from "next/server";
 import { readSession } from "@/lib/a1/session";
 import { isAdminEmail } from "@/lib/admin-access";
-import { loadTechnicalAccounts } from "@/lib/a1/admin-accounts";
+import { describeAccountsEnv, loadTechnicalAccounts } from "@/lib/a1/admin-accounts";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: Request) {
   const session = await readSession();
   if (!isAdminEmail(session?.email ?? null)) {
     return NextResponse.json({ ok: false, message: "not_found" }, { status: 404 });
+  }
+  // ?diag=1 -- почему список пуст (см. describeAccountsEnv: только признаки
+  // значения, без самих аккаунтов). За админской проверкой выше.
+  if (new URL(request.url).searchParams.get("diag") === "1") {
+    return NextResponse.json({ ok: true, diag: describeAccountsEnv() });
   }
   const companies = loadTechnicalAccounts().map((a) => ({ name: a.name, email: a.email }));
   return NextResponse.json({ ok: true, companies });
