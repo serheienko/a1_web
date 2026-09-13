@@ -354,14 +354,30 @@ export function ShareTargetModal({
             <T uk="Поділитися з" en="Share with" ru="Поделиться с" de="Teilen mit" es="Compartir con" fr="Partager avec" pl="Udostępnij" ptBR="Compartilhar com" zh="分享给" />
             {picked.size > 0 && ` (${picked.size})`}
           </h2>
+          {/* 2026-09-13 (Александр: "Сделай анимацию для крестика
+              закрытия при наведении") -- раньше это был голый символ «×»
+              без своей области нажатия: попасть по нему было тесно, а на
+              наведение он только менял цвет. Теперь это круглая кнопка
+              с подложкой, а сам крестик поворачивается на четверть --
+              тем же приёмом, что и «+» на плавающей кнопке. */}
           <button
             type="button"
             onClick={onClose}
             disabled={busy}
             aria-label="Close"
-            className="shrink-0 text-neutral-400 hover:text-neutral-900 disabled:opacity-40 dark:hover:text-neutral-50"
+            className="group/close flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-neutral-400 transition hover:bg-black/5 hover:text-neutral-900 active:scale-90 disabled:cursor-default disabled:opacity-40 dark:hover:bg-white/10 dark:hover:text-neutral-50"
           >
-            ×
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              className="h-4 w-4 transition-transform duration-200 ease-out group-hover/close:rotate-90 motion-reduce:transition-none"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
           </button>
         </div>
 
@@ -406,8 +422,17 @@ export function ShareTargetModal({
 
         {/* Четыре в ряд на телефоне и пять на широком экране: при высоте
             списка в четыре ряда это те самые 16-20 лиц, которые видно
-            без прокрутки. */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-2">
+            без прокрутки.
+
+            2026-09-13 (Александр, запись экрана: "Не меняй высоту окна
+            при поиске и введении пользователя") -- высота у списка
+            фиксированная, а не «по содержимому». Раньше он был flex-1 и
+            рос вместе с числом найденных: на каждую набранную букву окно
+            дёргалось вверх-вниз. Теперь сколько бы людей ни нашлось --
+            один или двадцать -- окно одной и той же высоты, меняется
+            только прокрутка внутри. min(...) -- чтобы на невысоком
+            экране список не вылезал за пределы окна. */}
+        <div className="h-[min(19rem,45vh)] shrink-0 overflow-y-auto px-4 pb-2">
           {state === "loading" && (
             <div className="grid grid-cols-4 gap-x-2 gap-y-4 sm:grid-cols-5" aria-hidden="true">
               {Array.from({ length: 10 }, (_, i) => (

@@ -239,13 +239,15 @@ export function NewChatPickerModal({ lang, onClose }: { lang: Locale; onClose: (
       >
         <div className="flex items-center gap-3">
           <h2 className="flex-1 text-[17px] font-semibold text-neutral-900 dark:text-neutral-50">{TITLE_STRINGS[lang]}</h2>
+          {/* Тот же крестик с поворотом, что и в окне «Поділитися з»
+              (2026-09-13) -- чтобы закрытие вело себя одинаково везде. */}
           <button
             type="button"
             onClick={onClose}
             aria-label={TITLE_STRINGS[lang]}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-neutral-400 transition hover:bg-black/5 hover:text-neutral-900 dark:hover:bg-white/10 dark:hover:text-neutral-50"
+            className="group/close flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-neutral-400 transition hover:bg-black/5 hover:text-neutral-900 active:scale-90 dark:hover:bg-white/10 dark:hover:text-neutral-50"
           >
-            <CloseIcon />
+            <CloseIcon className="transition-transform duration-200 ease-out group-hover/close:rotate-90 motion-reduce:transition-none" />
           </button>
         </div>
 
@@ -261,7 +263,11 @@ export function NewChatPickerModal({ lang, onClose }: { lang: Locale; onClose: (
           />
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        {/* Высота фиксированная, а не «по содержимому» -- та же правка,
+            что и в окне «Поділитися з» (2026-09-13): пока человек
+            набирает ник, список то короче, то длиннее, и окно прыгало бы
+            на каждую букву. */}
+        <div className="h-[min(19rem,45vh)] shrink-0 overflow-y-auto">
           {state === "loading" && (
             <div className="flex flex-col gap-1 py-1">
               {Array.from({ length: 5 }).map((_, i) => (
