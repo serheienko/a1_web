@@ -462,8 +462,19 @@ export function ChatsFlyout({
   // z-40 FAB trigger, same structure (and same reason) as components/
   // fab-auth-prompt.tsx's own render -- see that file's header for the
   // open/close flicker loop this exact convention fixes.
+  //
+  // 2026-09-13 (Aleksandr: "кнопка ⋯ перекладывается на передний план от
+  // модалки мини чатов"): the panel used to be a CHILD of that backdrop,
+  // and a positioned element with a z-index starts its own stacking
+  // context -- so the panel's z-[70] only ordered it inside the backdrop,
+  // and against the page the whole thing sat at the backdrop's z-30. The
+  // post page's ⋯ trigger group is z-40, so it painted over the panel.
+  // Backdrop and panel are siblings now: the backdrop keeps z-30 (the FAB
+  // above it is the point), and the panel's z-[70] finally counts against
+  // the page.
   return createPortal(
-    <div className="animate-backdrop-in fixed inset-0 z-30" onClick={onClose}>
+    <>
+    <div className="animate-backdrop-in fixed inset-0 z-30" onClick={onClose} />
     <div
       role="dialog"
       aria-label={STRINGS.title[lang]}
@@ -686,7 +697,7 @@ export function ChatsFlyout({
         )}
       </div>
     </div>
-    </div>,
+    </>,
     document.body,
   );
 }
