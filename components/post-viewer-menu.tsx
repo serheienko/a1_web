@@ -349,18 +349,29 @@ export function PostViewerMenu({
   // Прилипла ли строка прямо сейчас. Считаем по самой строке: пока она
   // в обычном потоке, её верх ниже шапки; как только sticky её поймал,
   // верх становится ровно вровень с шапкой и ниже уже не опускается.
-  // Высоту шапки берём из той же переменной --site-nav-h, на которую
-  // опирается и сам top у строки, чтобы числа не разъезжались.
-  const rowRef = useRef<HTMLDivElement | null>(null);
+  // Высоту шапки берём из той же переменной --site-nav-h (её публикует
+  // components/site-nav.tsx), на которую опирается и сам top у строки,
+  // чтобы числа не разъезжались.
+  //
+  // 2026-09-13, вторая попытка (Александр про первую: "Че то ниче не
+  // появилось"). Первый вариант держал ссылку в useRef и подписывался
+  // на прокрутку один раз при монтировании -- и никогда не срабатывал:
+  // на первом рендере viewerStatus ещё "loading", компонент возвращает
+  // null (см. ниже), строки в разметке нет, ref пустой, подписка молча
+  // не ставилась, а повторно эффект уже не запускался. Поэтому теперь
+  // сам элемент лежит в состоянии: React зовёт эту функцию в тот
+  // момент, когда строка реально появилась, эффект перезапускается и
+  // подписка наконец встаёт.
+  const [rowEl, setRowEl] = useState<HTMLDivElement | null>(null);
   const [stuck, setStuck] = useState(false);
 
   useEffect(() => {
-    const el = rowRef.current;
-    if (!el) return;
+    if (!rowEl) return;
     function read() {
+      if (!rowEl) return;
       const raw = getComputedStyle(document.documentElement).getPropertyValue("--site-nav-h");
       const navH = Number.parseFloat(raw) || 64;
-      setStuck(el!.getBoundingClientRect().top <= navH + 1);
+      setStuck(rowEl.getBoundingClientRect().top <= navH + 1);
     }
     read();
     window.addEventListener("scroll", read, { passive: true });
@@ -369,7 +380,7 @@ export function PostViewerMenu({
       window.removeEventListener("scroll", read);
       window.removeEventListener("resize", read);
     };
-  }, []);
+  }, [rowEl]);
   // 2026-09-02: was a single `visible` boolean gated on "signed in AND
   // viewing someone else's post" -- now a state machine so a signed-out
   // visitor still sees the row (per Aleksandr's request, same treatment
@@ -701,7 +712,7 @@ export function PostViewerMenu({
         До закрепа на десктопе строка была обычной, слоя не создавала,
         поэтому там всё работало. */}
     <div
-      ref={rowRef}
+      ref={setRowEl}
       className="sticky top-[var(--site-nav-h,64px)] z-40 -mx-4 mt-4 flex items-center gap-2 bg-app/90 px-4 pb-2 pt-3 backdrop-blur-xl dark:bg-black/90"
     >
       {/* Контекст поста: аватарка, заголовок и автор. В обычном
