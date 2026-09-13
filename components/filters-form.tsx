@@ -76,6 +76,10 @@ import { translateTagLabel, translateCategoryLabel } from "@/components/label-tr
 import { useHoverPanel } from "@/lib/use-hover-panel";
 import { authFetch } from "@/lib/auth-fetch";
 import { GLASS } from "@/lib/glass";
+import { CachedAvatar } from "@/components/cached-avatar";
+import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
+import { pickDefaultCatAvatar } from "@/lib/avatars";
+import type { UserSearchHit } from "@/app/api/users/search/route";
 
 const MAX_SUGGESTIONS_PER_GROUP = 5;
 
@@ -88,6 +92,7 @@ type FiltersFormStringKey =
   | "searchPlaceholderShort"
   | "clear"
   | "categories"
+  | "people"
   | "tags"
   | "filters"
   | "category"
@@ -116,6 +121,10 @@ const FILTERS_FORM_STRINGS: Record<FiltersFormStringKey, Record<Locale, string>>
   categories: {
     uk: "Категорії", en: "Categories", ru: "Категории", de: "Kategorien", es: "Categorías",
     fr: "Catégories", pl: "Kategorie", ptBR: "Categorias", zh: "分类",
+  },
+  people: {
+    uk: "Люди", en: "People", ru: "Люди", de: "Personen", es: "Personas",
+    fr: "Personnes", pl: "Osoby", ptBR: "Pessoas", zh: "用户",
   },
   tags: {
     uk: "Теги", en: "Tags", ru: "Теги", de: "Tags", es: "Etiquetas",
@@ -178,6 +187,11 @@ export function FiltersForm({
   const [isPending, startTransition] = useTransition();
   const [query, setQuery] = useState(currentQuery ?? "");
   const [inputFocused, setInputFocused] = useState(false);
+  // 2026-09-13 (Александр: "Надо чтобы с поиска можно было быстро и
+  // легко найти пользователя по нику"). Люди приходят отдельным
+  // запросом -- в отличие от категорий и тегов, которые уже лежат в
+  // пропсах, их список зависит от набранного и сидит на бэкенде.
+  const [people, setPeople] = useState<UserSearchHit[]>([]);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -497,7 +511,38 @@ export function FiltersForm({
         .filter((t) => !currentTags.includes(t.value) && t.text.toLowerCase().includes(needle))
         .slice(0, MAX_SUGGESTIONS_PER_GROUP)
     : [];
-  const showSuggestions = inputFocused && needle.length > 0 && (categorySuggestions.length > 0 || tagSuggestions.length > 0);
+  // Отдельный поход на сервер за людьми, с той же задержкой в 350 мс,
+  // что и у самого поиска: набор ника -- это те же несколько нажатий
+  // подряд, и дёргать сервер на каждое незачем. Отменяется на лету:
+  // пока идёт запрос, человек успевает дописать ещё букву, и ответ на
+  // прошлую подстроку до списка уже не доходит.
+  useEffect(() => {
+    const q = needle.trim();
+    if (!inputFocused || q.length < 2) {
+      setPeople([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      fetch(`/api/users/search?q=${encodeURIComponent(q)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (!cancelled && data?.ok) setPeople(data.users ?? []);
+        })
+        .catch(() => {
+          // Подсказка по людям -- приятное дополнение: не вышло, значит
+          // в списке просто останутся категории и теги.
+          if (!cancelled) setPeople([]);
+        });
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [needle, inputFocused]);
+
+  const showSuggestions =
+    inputFocused && needle.length > 0 && (people.length > 0 || categorySuggestions.length > 0 || tagSuggestions.length > 0);
 
   // Aleksandr, 2026-08-27: "автоподбор слов вот как гугл делает, таким
   // выпадающим списком. Список именно того что у нас уже есть" —
@@ -509,6 +554,39 @@ export function FiltersForm({
   // wrapper, `absolute ... top-full`).
   const suggestionsDropdown = showSuggestions && (
     <div className="absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+      {/* Люди -- первой группой: если человек набрал чей-то ник, он ищет
+          именно человека, а не вакансию со словом из ника. Строка ведёт
+          сразу на профиль, а не подставляет текст в фильтр, как строки
+          ниже: профиль и есть ответ на такой запрос. */}
+      {people.length > 0 && (
+        <div className="border-b border-neutral-100 py-1 last:border-b-0 dark:border-neutral-800">
+          <div className="px-3 py-1 text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+            {FILTERS_FORM_STRINGS.people[lang]}
+          </div>
+          {people.map((u) => (
+            <button
+              key={u.userId}
+              type="button"
+              onClick={() => {
+                setInputFocused(false);
+                router.push(`/u/${u.username}`);
+              }}
+              className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left hover:bg-neutral-100 dark:hover:bg-neutral-800"
+            >
+              <CachedAvatar
+                src={u.avatarUrl ?? pickDefaultCatAvatar(u.username)}
+                blurDataURL={u.avatarBlurDataUrl ?? BLUR_DATA_URL}
+                size={56}
+                className="h-7 w-7 shrink-0 rounded-full object-cover"
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm text-neutral-800 dark:text-neutral-200">{u.fullName}</span>
+                <span className="block truncate text-[12px] text-neutral-400 dark:text-neutral-500">@{u.username}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
       {categorySuggestions.length > 0 && (
         <div className="border-b border-neutral-100 py-1 last:border-b-0 dark:border-neutral-800">
           <div className="px-3 py-1 text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
