@@ -224,7 +224,15 @@ export function PostCard({
                 версии подрезай длинный текст через троеточие, чтобы
                 помещался с беджами" -- a long title's 3-line wrap could
                 push past/crowd the status badge on a narrow mobile
-                column): below sm, `block truncate` wins instead (both
+                column): below sm, `block truncate` won instead.
+                2026-09-13: на телефоне это стало line-clamp-2 -- в том
+                же разговоре, где убрали плашку «Вакансія/Фахівець»
+                (см. ниже): место освободилось, а заголовки всё равно
+                обрывались на полуслове. Теснить теперь нечего -- та
+                плашка на телефоне не рисуется, а statusBadge стоит
+                сверху справа и от двух строк только едет вниз вся
+                карточка. Старый текст ниже про `block truncate` описывал
+                именно ту, прежнюю раскладку (both
                 unprefixed, same bucket as `sm:line-clamp-3` sits in its
                 own later media-query bucket, so it doesn't fight
                 line-clamp's display at sm+ -- only replaces the default
@@ -249,14 +257,14 @@ export function PostCard({
               <button
                 type="button"
                 onClick={onOpen}
-                className="text-left cursor-pointer block truncate sm:line-clamp-3 after:absolute after:inset-0 after:z-0 after:content-['']"
+                className="text-left cursor-pointer block line-clamp-2 sm:line-clamp-3 after:absolute after:inset-0 after:z-0 after:content-['']"
               >
                 <span className="hover:underline"><HighlightMatches text={post.title} query={highlightQuery} /></span>
               </button>
             ) : (
               <Link
                 href={href}
-                className="block truncate sm:line-clamp-3 after:absolute after:inset-0 after:z-0 after:content-['']"
+                className="block line-clamp-2 sm:line-clamp-3 after:absolute after:inset-0 after:z-0 after:content-['']"
               >
                 <span className="hover:underline"><HighlightMatches text={post.title} query={highlightQuery} /></span>
               </Link>
@@ -279,7 +287,20 @@ export function PostCard({
               ) : (
                 <span
                   className={
-                    "shrink-0 rounded-full px-2.5 py-1 text-xs font-medium " +
+                    // 2026-09-13 (Александр, два скриншота ленты с
+                    // iPhone: "убери пожалуйста на мобильной версии вот
+                    // эту плашку вакансии и фахівці справа. Она
+                    // красивая, прикольная, но она съедает место, и
+                    // получается не помещаются некоторые эти... Лучше
+                    // пусть будет это полезное место для заголовка...
+                    // Можно на веб-версии оставить, пусть будет, а на
+                    // мобильной именно убрать"). На телефоне заголовки
+                    // обрезались на полуслове ("DevOps / Securi..."),
+                    // хотя тип и так понятен по вкладке сверху
+                    // (Вакансії/Фахівці). Прячем только эту плашку --
+                    // statusBadge выше (чернетка, заплановано) остаётся
+                    // на всех размерах, это уже не украшение.
+                    "hidden shrink-0 rounded-full px-2.5 py-1 text-xs font-medium sm:inline " +
                     (post.kind === "hiring"
                       ? "bg-accent/10 text-accent dark:bg-accent/20"
                       : "bg-[#C830FF]/10 text-[#C830FF] dark:bg-[#C830FF]/20")
@@ -329,7 +350,8 @@ export function PostCard({
           ) : (
             <span
               className={
-                "shrink-0 rounded-full px-2.5 py-1 text-xs font-medium " +
+                // Та же плашка, ветка без "•••" -- см. комментарий выше.
+                "hidden shrink-0 rounded-full px-2.5 py-1 text-xs font-medium sm:inline " +
                 (post.kind === "hiring"
                   ? "bg-accent/10 text-accent dark:bg-accent/20"
                   : "bg-[#C830FF]/10 text-[#C830FF] dark:bg-[#C830FF]/20")
