@@ -283,10 +283,25 @@ export function AvatarMenu() {
   const [lang, setLang] = useState<Locale>("uk");
   const [theme, setTheme] = useState<Theme>("auto");
   const [isGeoUa, setIsGeoUa] = useState(false);
-  // null = "not signed in" — same accepted brief-flash tradeoff
-  // account-menu.tsx already documented (its own comment), unchanged
-  // here.
-  const [email, setEmail] = useState<string | null>(null);
+  // Три состояния, а не два, и это главное здесь:
+  //   undefined -- ещё не знаем, куку не читали (так начинается КАЖДЫЙ
+  //                рендер, включая серверный);
+  //   null      -- точно не вошёл;
+  //   строка    -- вошёл, это его почта.
+  //
+  // 2026-09-13 (Александр, дважды: "При перезагрузке страницы справа
+  // показывается кнопка «увійти», как будто я вышел из акка, но я не
+  // выходил", потом со скриншота телефона -- "На мобильном тоже").
+  // Раньше здесь было два состояния, и "ещё не знаем" было неотличимо
+  // от "не вошёл": до гидрации всем рисовалась кнопка входа. Первая
+  // попытка чинила это классом на <html> из скрипта в app/layout.tsx --
+  // но полагаться на то, что такой скрипт успеет отработать до первой
+  // отрисовки, нельзя: ровно по этой причине в этом же приложении до
+  // сих пор моргает тёмная тема (см. комментарий к viewport в
+  // app/layout.tsx). Третье состояние ни от какого тайминга не зависит:
+  // пока не знаем -- рисуем нейтральный кружок, и кнопка входа просто
+  // не может появиться у вошедшего человека.
+  const [email, setEmail] = useState<string | null | undefined>(undefined);
   const [signingOut, setSigningOut] = useState(false);
   const [open, setOpen] = useState(false);
   // Aleksandr, 2026-08-30: "у вас (Claude) это сделано для левого меню...
@@ -388,14 +403,7 @@ export function AvatarMenu() {
     if (active) setLang(active);
     setTheme(root.classList.contains("dark") ? "dark" : root.classList.contains("light") ? "light" : "auto");
     setIsGeoUa(root.classList.contains("geo-ua"));
-    const cookieEmail = readDisplayCookie();
-    setEmail(cookieEmail);
-    // С этого момента настоящее состояние знает React, а не кука: класс
-    // has-session (app/layout.tsx) свою работу отработал -- он лишь не
-    // давал мигнуть кнопкой "Увійти" до гидрации. Снимаем его, иначе у
-    // человека с протухшей сессией (ниже, ответ 401) кнопка входа
-    // осталась бы спрятанной навсегда.
-    if (!cookieEmail) root.classList.remove("has-session");
+    setEmail(readDisplayCookie());
   }, []);
 
   // Resolve a "View profile" target once we know the visitor is signed
@@ -434,8 +442,6 @@ export function AvatarMenu() {
         // 401 and leaving the stale identity on screen.
         if (cancelled) return null;
         if (r.status === 401) {
-          // Сессии больше нет -- кнопку входа надо показать.
-          document.documentElement.classList.remove("has-session");
           setEmail(null);
           setProfileUsername(null);
           setProfileAvatarUrl(null);
@@ -506,23 +512,21 @@ export function AvatarMenu() {
   // job IS signing in, so there's no separate short pitch to show
   // first. A plain tap with no prior hover (touch devices, where hover
   // never fires) still just navigates through the Link as before.
+  // Пока не знаем -- нейтральный кружок размером с аватар. Ни кнопки
+  // входа, ни чужого аватара: показывать нечего, но место занято, чтобы
+  // шапка не дёргалась, когда состояние выяснится.
+  if (email === undefined) {
+    return (
+      <div
+        className="h-9 w-9 shrink-0 animate-pulse rounded-full bg-neutral-200 dark:bg-neutral-800"
+        aria-hidden="true"
+      />
+    );
+  }
+
   if (!email) {
     return (
-      <>
-        {/* 2026-09-13 (Александр: "При перезагрузке страницы справа
-            показывается кнопка «увійти», как будто я вышел из акка, но
-            я не выходил"). Пока React не прочитал куку, он всегда рисует
-            именно эту ветку -- и на медленной загрузке "Увійти" висит
-            секундами. Класс has-session ставится ещё до первой
-            отрисовки (app/layout.tsx), и до тех пор, пока он стоит,
-            CSS в app/globals.css прячет кнопку и показывает вот этот
-            кружок размером с аватар. Снимаем класс ниже, в эффекте,
-            когда состояние уже настоящее. */}
-        <div
-          className="a1-nav-session-placeholder h-9 w-9 shrink-0 animate-pulse rounded-full bg-neutral-200 dark:bg-neutral-800"
-          aria-hidden="true"
-        />
-      <div className="a1-nav-signed-out flex items-center gap-1">
+      <div className="flex items-center gap-1">
         <div className="relative shrink-0 cursor-pointer" ref={wrapperRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
           <Link
             href="/sign-in"
@@ -586,7 +590,6 @@ export function AvatarMenu() {
         </div>
         <SettingsMenu />
       </div>
-      </>
     );
   }
 
