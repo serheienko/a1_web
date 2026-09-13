@@ -47,7 +47,25 @@ import sharp from "sharp";
 const FETCH_TIMEOUT_MS = 4000;
 const SITE_URL = "https://jobs.a1appp.com";
 
-async function computeAvatarBlurDataUrl(avatarUrl: string): Promise<string | null> {
+// 2026-09-13 (Aleksandr, screen recording: the full-size photo viewer's
+// blurred stand-in was visibly WIDER than the photo that replaced it --
+// "получается такой прыжок, типа. Ну, мне это не нравится") -- the
+// placeholder can only be the exact size of the photo if the photo's
+// real pixel dimensions are known BEFORE it loads, and the client can't
+// know them. sharp already has them right here, for free, as a
+// by-product of the resize this function was doing anyway -- so the
+// cached unit is now the blur plus those dimensions, and
+// generateAvatarBlurDataUrl() below just reads the blur back out of it.
+// No extra fetch and no extra sharp pass for any existing call site.
+export type AvatarBlurMeta = {
+  blurDataUrl: string;
+  /** The photo's own pixel size, so a placeholder can reserve exactly
+   *  the box the photo will occupy. */
+  width: number;
+  height: number;
+};
+
+async function computeAvatarBlurMeta(avatarUrl: string): Promise<AvatarBlurMeta | null> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
@@ -62,29 +80,51 @@ async function computeAvatarBlurDataUrl(avatarUrl: string): Promise<string | nul
     clearTimeout(timeout);
     if (!res.ok) return null;
     const buffer = Buffer.from(await res.arrayBuffer());
-    const tiny = await sharp(buffer)
+    const image = sharp(buffer);
+    const meta = await image.metadata();
+    const tiny = await image
       .resize(16, 16, { fit: "cover" })
       .jpeg({ quality: 40 })
       .toBuffer();
-    return `data:image/jpeg;base64,${tiny.toString("base64")}`;
+    return {
+      blurDataUrl: `data:image/jpeg;base64,${tiny.toString("base64")}`,
+      // A photo sharp can decode always reports both, but the types say
+      // optional -- 0 is a safe "unknown", and every consumer below
+      // treats a non-positive size as "no dimensions, fall back".
+      width: meta.width ?? 0,
+      height: meta.height ?? 0,
+    };
   } catch {
     return null;
   }
 }
 
-const cachedComputeAvatarBlurDataUrl = unstable_cache(computeAvatarBlurDataUrl, ["avatar-blur-v1"], {
+// v2: the cached VALUE changed shape (string -> AvatarBlurMeta), so the
+// key has to change with it or a warm v1 entry would be read back as an
+// object it isn't.
+const cachedComputeAvatarBlurMeta = unstable_cache(computeAvatarBlurMeta, ["avatar-blur-v2"], {
   revalidate: 86400,
+});
+
+/** Blur placeholder + the photo's real pixel size. Reach for this when
+ *  the caller needs to reserve the photo's exact box (the full-size
+ *  viewer); everything that only paints a placeholder behind a
+ *  fixed-size avatar wants generateAvatarBlurDataUrl() below. */
+export const generateAvatarBlurMeta = cache(async function generateAvatarBlurMeta(
+  avatarUrl: string | null,
+): Promise<AvatarBlurMeta | null> {
+  if (!avatarUrl) return null;
+  try {
+    return await cachedComputeAvatarBlurMeta(avatarUrl);
+  } catch {
+    return null;
+  }
 });
 
 export const generateAvatarBlurDataUrl = cache(async function generateAvatarBlurDataUrl(
   avatarUrl: string | null,
 ): Promise<string | null> {
-  if (!avatarUrl) return null;
-  try {
-    return await cachedComputeAvatarBlurDataUrl(avatarUrl);
-  } catch {
-    return null;
-  }
+  return (await generateAvatarBlurMeta(avatarUrl))?.blurDataUrl ?? null;
 });
 
 // 2026-08-28: "на будущее все фото/видео делаем через такую подгрузку" —

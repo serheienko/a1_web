@@ -52,15 +52,47 @@
 // lib/avatar-blur.ts, so it costs this page nothing extra -- is shown
 // blown up and blurred, holding the box at a sensible size, and the
 // real photo cross-fades in over it once decoded.
+//
+// 2026-09-13 follow-up, same day (Aleksandr, second screen recording on
+// Mavericks Agency's profile: the stand-in was a square guess, the photo
+// that replaced it was narrower -- "получается такой прыжок, типа. Ну,
+// мне это не нравится... чтобы он в своём размере появился, в таком же
+// как и аватар, и плавненько себе загрузился"). Both halves of that:
+//   * Exact size, not a guess. The client cannot know a photo's
+//     dimensions before it loads, but the SERVER already had them --
+//     lib/avatar-blur.ts runs the photo through sharp anyway to make the
+//     blur, so it now returns width/height alongside it
+//     (generateAvatarBlurMeta) at no extra cost, and they come in here
+//     as width/height attributes on the <img>. A browser lays a replaced
+//     element out from those before the image loads, so the box is
+//     correct from the first frame and the blur is pinned to that exact
+//     box.
+//   * A fade, not a cut. The photo transitions opacity 0 -> 1 over
+//     PHOTO_FADE_MS ON TOP of the blur, which stays fully opaque
+//     underneath for the whole fade and is dropped afterwards.
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useVoiceIntro } from "@/components/voice-intro-context";
 
+// How long the photo takes to fade in over its own blur. Long enough to
+// read as "плавненько", short enough not to feel like a wait.
+const PHOTO_FADE_MS = 450;
+
+// The backdrop's own padding (p-4, plus the safe-area inset at the top),
+// subtracted here so the photo's max box is expressed in viewport units
+// rather than as a percentage of a parent whose height is auto -- a
+// percentage there silently resolves to "no limit" and lets a tall photo
+// run off the screen.
+const MAX_W = "calc(100vw - 2rem)";
+const MAX_H = "calc(100dvh - 2rem - env(safe-area-inset-top))";
+
 export function ProfilePhotoViewer({
   photoUrl,
   blurDataUrl,
+  photoWidth,
+  photoHeight,
   children,
 }: {
   photoUrl: string;
@@ -69,6 +101,12 @@ export function ProfilePhotoViewer({
   // caller without one falls back to a neutral pulsing box, which is
   // still a box rather than nothing.
   blurDataUrl?: string | null;
+  // The photo's real pixel size (generateAvatarBlurMeta()). This is
+  // what makes the placeholder exactly the size of the photo instead
+  // of a guess -- see the header. 0/absent falls back to a square,
+  // which is what a profile avatar almost always is anyway.
+  photoWidth?: number;
+  photoHeight?: number;
   children: ReactNode;
 }) {
   const searchParams = useSearchParams();
@@ -85,6 +123,14 @@ export function ProfilePhotoViewer({
   // empty box -- when it is still cached, onLoad fires synchronously
   // enough that the placeholder is never perceived.
   const [loaded, setLoaded] = useState(false);
+  // The blur layer sits UNDER the photo and is only dropped once the
+  // photo has finished fading in over it. Keeping it up for the whole
+  // fade is the point: two layers cross-fading at 50/50 would show the
+  // dark backdrop through both, which is the flicker this is meant to
+  // remove. Dropping it afterwards matters for a logo saved as a PNG
+  // with a transparent background -- leave it mounted and its blur
+  // shows through the photo forever.
+  const [showBlur, setShowBlur] = useState(true);
 
   // Auto-open once on arrival when the link that brought us here asked
   // for it (see this file's own header, entry point 2).
@@ -95,6 +141,7 @@ export function ProfilePhotoViewer({
   function close() {
     setOpen(false);
     setLoaded(false);
+    setShowBlur(true);
     // Drop ?photo=1 so a reload/back button doesn't reopen the viewer
     // out of nowhere -- this page's other query-free URL is the real
     // "at rest" state.
@@ -112,6 +159,16 @@ export function ProfilePhotoViewer({
     return () => window.removeEventListener("keydown", onKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // Matches PHOTO_FADE_MS below. A timer rather than onTransitionEnd:
+  // that event never fires at all when the photo was already in cache
+  // and painted at opacity 1 on its very first frame, which would pin
+  // the blur layer under it permanently.
+  useEffect(() => {
+    if (!loaded) return;
+    const t = setTimeout(() => setShowBlur(false), PHOTO_FADE_MS + 60);
+    return () => clearTimeout(t);
+  }, [loaded]);
 
   return (
     <>
@@ -151,63 +208,84 @@ export function ProfilePhotoViewer({
               <path d="M6 6l12 12M18 6L6 18" />
             </svg>
           </button>
-          {/* Deliberately a SIBLING of the <img> below rather than a
-              wrapper around it: `max-h-full` on the photo resolves
-              against this backdrop's own definite height (it is
-              `fixed inset-0`), and an intermediate auto-height box
-              would break that percentage and let a tall photo overflow
-              the viewport. The placeholder simply takes the flex slot
-              while the photo has no size of its own, then gets out of
-              the way. A square is the right guess for it: this viewer
-              only ever shows a profile avatar, and those are stored
-              already cropped square. `overflow-hidden` keeps the blur
-              inside the rounded corners, and the inner `scale-110`
-              hides the soft, half-transparent edge a CSS blur always
-              leaves behind. */}
-          {!loaded && (
-            <div
-              aria-hidden
-              onClick={(e) => e.stopPropagation()}
-              className="h-[min(85vw,80vh)] w-[min(85vw,80vh)] shrink-0 overflow-hidden rounded-2xl bg-white/5"
-            >
-              {blurDataUrl ? (
-                <div
-                  className="h-full w-full scale-110 bg-cover bg-center"
-                  style={{ backgroundImage: `url(${blurDataUrl})`, filter: "blur(24px)" }}
-                />
-              ) : (
-                <div className="h-full w-full animate-pulse bg-white/10" />
-              )}
-            </div>
-          )}
-          {/* eslint-disable-next-line @next/next/no-img-element -- a
-              full-res lightbox render, not a thumbnail; next/image's
-              fixed-layout sizing fights the "shrink to fit viewport,
-              whatever its aspect ratio" behavior this needs. */}
-          <img
-            src={photoUrl}
-            alt=""
-            onLoad={() => setLoaded(true)}
-            // A photo that fails outright would otherwise pin the
-            // placeholder on screen forever; better to fall back to the
-            // browser's own empty <img>, exactly as before this.
-            onError={() => setLoaded(true)}
-            // Parked in a 1px invisible corner rather than `hidden`
-            // while it loads -- a display:none image is still fetched,
-            // but this keeps that off the list of things to be sure
-            // about. No cross-fade between the two on purpose: the
-            // blurred stand-in is replaced by the sharp photo in one
-            // frame, the same way components/chat/blurred-photo.tsx
-            // swaps its own placeholder out; fading them over each
-            // other would show the dark backdrop through both for a
-            // moment -- the very emptiness this is here to remove.
-            className={
-              loaded
-                ? "max-h-full max-w-full rounded-2xl object-contain"
-                : "pointer-events-none absolute h-px w-px opacity-0"
-            }
-            onClick={(e) => e.stopPropagation()}
-          />
+          {/* One box, sized from the photo's own pixel dimensions, with
+              the blur underneath and the photo fading in on top of it.
+              The size comes from the width/height attributes on the
+              <img>: a browser lays a replaced element out from those
+              (and the max constraints, ratio preserved) BEFORE a single
+              byte of the image arrives, so the blur below -- absolutely
+              positioned against this same box -- is exactly the size
+              the photo lands at. No guess, no jump. The wrapper is
+              inline-flex so it shrink-wraps that box rather than
+              stretching. */}
+          <div className="relative inline-flex" onClick={(e) => e.stopPropagation()}>
+            {showBlur && (
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl bg-white/5"
+              >
+                {blurDataUrl ? (
+                  <div
+                    className="h-full w-full scale-110 bg-cover bg-center"
+                    style={{ backgroundImage: `url(${blurDataUrl})`, filter: "blur(24px)" }}
+                  />
+                ) : (
+                  <div className="h-full w-full animate-pulse bg-white/10" />
+                )}
+              </div>
+            )}
+            {/* eslint-disable-next-line @next/next/no-img-element -- a
+                full-res lightbox render, not a thumbnail; next/image's
+                fixed-layout sizing fights the "shrink to fit viewport,
+                whatever its aspect ratio" behavior this needs. */}
+            <img
+              src={photoUrl}
+              alt=""
+              // Fallbacks, not guesses about this particular photo: a
+              // profile avatar is square, and any square number here
+              // gives the right SHAPE even when the server-side probe
+              // came back empty -- the max constraints below decide the
+              // actual size either way.
+              width={photoWidth && photoWidth > 0 ? photoWidth : 640}
+              height={photoHeight && photoHeight > 0 ? photoHeight : 640}
+              // A photo still in the browser's cache can finish loading
+              // BEFORE React has attached onLoad, and its load event is
+              // then already gone -- without this the photo would sit at
+              // opacity 0 under the blur forever. `complete` +
+              // naturalWidth is the standard way to ask "did I miss it?".
+              // Re-setting an already-true state is a no-op in React, so
+              // this cannot loop.
+              ref={(el) => {
+                if (el?.complete && el.naturalWidth > 0) setLoaded(true);
+              }}
+              onLoad={() => setLoaded(true)}
+              // A photo that fails outright would otherwise leave the
+              // blur up forever; better to fall back to the browser's
+              // own empty <img>, exactly as before this.
+              onError={() => setLoaded(true)}
+              // `relative` purely to put it in the paint order ABOVE the
+              // absolutely positioned blur layer -- an in-flow sibling
+              // would sit under it.
+              className="relative rounded-2xl object-contain"
+              style={{
+                // Required, and not redundant with the attributes: left
+                // at their attribute values, width and height are both
+                // "specified", and the max constraints below then clamp
+                // each one independently -- a 900x900 photo in an
+                // 800px-tall window comes out 900x768, i.e. squashed,
+                // with the blur showing through the letterbox gaps.
+                // `auto` restores the ratio-preserving shrink-to-fit,
+                // while the attributes still supply the ratio and the
+                // pre-load layout.
+                width: "auto",
+                height: "auto",
+                maxWidth: MAX_W,
+                maxHeight: MAX_H,
+                opacity: loaded ? 1 : 0,
+                transition: `opacity ${PHOTO_FADE_MS}ms ease-out`,
+              }}
+            />
+          </div>
         </div>
       )}
     </>

@@ -36,7 +36,7 @@ import {
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { profileHref } from "@/lib/profile-href";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
-import { generateAvatarBlurDataUrl } from "@/lib/avatar-blur";
+import { generateAvatarBlurMeta } from "@/lib/avatar-blur";
 import { formatLanguageName } from "@/lib/format";
 import { LocationLabel } from "@/components/locale-format";
 import { T, LOCALES, type Locale } from "@/components/t";
@@ -301,7 +301,12 @@ export default async function ProfilePage({ params }: Props) {
   // Real per-avatar blur (lib/avatar-blur.ts) instead of the generic
   // shared shimmer — same fix as components/post-card.tsx's feed
   // avatars ("аватары подгружаются не через блюр с разными цветами").
-  const avatarBlurDataUrl = await generateAvatarBlurDataUrl(profile.avatarUrl);
+  // The full-size viewer needs the photo's real pixel size on top of
+  // the blur itself, so that its placeholder can reserve exactly the
+  // box the photo will land in (see components/profile-photo-viewer
+  // .tsx) -- same single cached fetch either way.
+  const avatarBlur = await generateAvatarBlurMeta(profile.avatarUrl);
+  const avatarBlurDataUrl = avatarBlur?.blurDataUrl ?? null;
 
   const locationLabel = profile.location ? profile.location.display : null;
 
@@ -427,7 +432,12 @@ export default async function ProfilePage({ params }: Props) {
               enlarge. */}
           {profile.avatarUrl ? (
             <Suspense fallback={null}>
-              <ProfilePhotoViewer photoUrl={profile.avatarUrl} blurDataUrl={avatarBlurDataUrl}>
+              <ProfilePhotoViewer
+                photoUrl={profile.avatarUrl}
+                blurDataUrl={avatarBlurDataUrl}
+                photoWidth={avatarBlur?.width ?? 0}
+                photoHeight={avatarBlur?.height ?? 0}
+              >
                 <VoiceIntroRing>
                   {/* 2026-09-05 (Aleksandr: "Еще сделай кеширование постов,
                       если они раньше открывались") -- same persistent Cache
