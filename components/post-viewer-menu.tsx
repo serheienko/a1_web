@@ -733,11 +733,26 @@ export function PostViewerMenu({
         До закрепа на десктопе строка была обычной, слоя не создавала,
         поэтому там всё работало.
 
-        Фон: на телефоне сплошной, без размытия. Размытие под прилипшей
-        полосой браузер пересчитывает на каждый кадр прокрутки -- на
-        телефоне это заметная трата ни за что. Выглядит так же: под
-        полосой всё равно ничего не должно просвечивать. На sm и выше
-        размытие остаётся. */}
+        2026-09-13, самое важное про эту строку (Александр, уже после
+        нескольких попыток починить «глюки»: «Там была трабла что после
+        возвращения наверх вместо кнопок пустое место»). Это не
+        запаздывание состояния и не анимация -- это известный изъян
+        отрисовки в Safari на iOS: прилипшая полоса, у которой есть
+        размытие фона, при откреплении иногда не перерисовывается и
+        остаётся пустым прямоугольником. Отсюда «пустое место вместо
+        кнопок». Лечится двумя вещами, обе здесь:
+
+        * размытия на телефоне нет вовсе -- фон сплошной. Выглядит так
+          же (под полосой всё равно ничего не должно просвечивать), а
+          поводов для изъяна на одну меньше. На sm и выше размытие
+          остаётся: на десктопе такого не бывает;
+        * translateZ(0) + will-change:transform -- полоса получает свой
+          отдельный слой отрисовки, и браузер перестаёт «забывать» её
+          перерисовать. Тот же приём уже стоит на самой шапке сайта
+          (components/site-nav.tsx), по той же причине.
+
+        Проверить это я могу только на живом iPhone -- в моих
+        инструментах такого Safari нет. */}
     {/* Метка, по которой строка понимает, что прилипла -- см. эффект
         выше. Нулевой высоты, ничего не рисует; весь верхний отступ
         переехал сюда со строки, чтобы в обычном состоянии их верхние
@@ -745,14 +760,17 @@ export function PostViewerMenu({
     <div ref={setSentinelEl} aria-hidden="true" className="mt-4 h-0" />
     <div
       ref={setRowEl}
-      className="sticky top-[var(--site-nav-h,64px)] z-40 -mx-4 flex items-center gap-2 bg-app px-4 pb-2 pt-3 dark:bg-black sm:bg-app/90 sm:backdrop-blur-xl dark:sm:bg-black/90"
+      className="sticky top-[var(--site-nav-h,64px)] z-40 -mx-4 flex items-center gap-2 bg-app px-4 pb-2 pt-3 [transform:translateZ(0)] [will-change:transform] dark:bg-black sm:bg-app/90 sm:backdrop-blur-xl dark:sm:bg-black/90"
     >
       {/* Контекст поста: аватарка, заголовок и автор. В обычном
           положении его не видно вовсе (max-width 0), в прилипшем он
           раскрывается, и кнопка «Відгукнутися» ужимается сама -- она
           так и осталась flex-1, поэтому переход получается плавным, без
-          скачка. На телефоне блок не показывается вовсе -- почему
-          именно так, подробно расписано у shared ниже.
+          скачка. На узком экране места меньше, поэтому доля уже и
+          вторая строка (название компании) не показывается. Доля и
+          боковые поля кнопки на телефоне подобраны так, чтобы надпись
+          «Відгукнутися» помещалась целиком: сокращается заголовок, а не
+          действие -- проверено на 390px.
 
           2026-09-13 (Александр: "Сделай, чтобы в таком состоянии аватар
           и имя тоже нажимались и добавь какой-то ховер") -- весь блок
@@ -788,34 +806,24 @@ export function PostViewerMenu({
           </>
         );
 
-        // 2026-09-13 (Александр, две записи экрана с iPhone подряд:
-        // «Анимация трансформации кнопки глючит пдзц на мобильном» и
-        // после первой правки -- «Не работает»). На телефоне контекст
-        // больше не показывается вовсе: hidden sm:flex.
+        // 2026-09-13 (Александр, запись экрана с iPhone: «Анимация
+        // трансформации кнопки глючит пдзц на мобильном, надо
+        // починить»). Раньше здесь анимировалась ШИРИНА (max-width).
+        // Это самая дорогая анимация из возможных: на каждый кадр
+        // браузер заново раскладывает строку, а на телефоне это
+        // совпадает с прокруткой, которую Safari ведёт отдельно от
+        // основного потока -- отсюда рывки.
         //
-        // Почему не «ещё раз подкрутить анимацию». По кадрам второй
-        // записи видно, что дело не в ней: страница уже вернулась
-        // наверх, большой заголовок целиком на экране -- а полоса ещё
-        // несколько кадров стоит в «прилипшем» виде и только потом
-        // резко разворачивается. То есть запаздывает само состояние, а
-        // не его отрисовка.
-        //
-        // Причина в том, что «прилипла ли» считает JS, а он узнаёт о
-        // прокрутке из события scroll. iOS во время инерционной
-        // прокрутки двигает страницу отдельно от основного потока и
-        // присылает эти события с опозданием. На десктопе такого нет --
-        // там всё совпадает кадр в кадр. Способа узнать «прилипло» силами
-        // одного CSS, который понимал бы Safari, сегодня не существует
-        // (scroll-driven animations он ещё не умеет), поэтому честнее
-        // убрать с телефона саму зависимость, чем городить обходные пути
-        // поверх запаздывающего сигнала.
-        //
-        // На телефоне полоса снова такая, какой была до всей этой
-        // истории: кнопка во всю ширину и «···». Ничего не меняется на
-        // ходу -- дёргаться нечему. На широком экране всё как было.
+        // На телефоне теперь анимируется только прозрачность (её
+        // браузер считает «бесплатной»), а ширина меняется мгновенно:
+        // блок просто проявляется, кнопка сразу становится нужной
+        // ширины. На широком экране (sm и выше) остаётся прежнее плавное
+        // сжатие -- там оно не дёргается, и Александр просил именно его.
         const shared =
-          "group/ctx hidden min-w-0 items-center gap-2 overflow-hidden rounded-xl sm:flex sm:transition-all sm:duration-200 sm:ease-out motion-reduce:transition-none " +
-          (stuck ? "sm:max-w-[340px] sm:opacity-100" : "pointer-events-none sm:max-w-0 sm:opacity-0");
+          "group/ctx flex min-w-0 items-center gap-2 overflow-hidden rounded-xl transition-opacity duration-200 ease-out sm:transition-all motion-reduce:transition-none " +
+          (stuck
+            ? "max-w-[42%] opacity-100 sm:max-w-[340px]"
+            : "pointer-events-none max-w-0 opacity-0");
 
         if (!authorUsername) {
           return (
@@ -845,8 +853,8 @@ export function PostViewerMenu({
         aria-label={chatErrored ? STRINGS.actionFailed[lang] : authorUnclaimed ? STRINGS.apply[lang] : STRINGS.message[lang]}
         className={
           chatErrored
-            ? "group flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-default disabled:opacity-60"
-            : "group flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-accent transition hover:bg-accent/5 disabled:cursor-default disabled:opacity-60 dark:border-neutral-700 dark:bg-neutral-900"
+            ? "group flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-red-600 px-2.5 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-default disabled:opacity-60 sm:px-4"
+            : "group flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full border border-neutral-200 bg-white px-2.5 py-2 text-sm font-medium text-accent transition hover:bg-accent/5 disabled:cursor-default disabled:opacity-60 dark:border-neutral-700 dark:bg-neutral-900 sm:px-4"
         }
       >
         <MessageIcon />
