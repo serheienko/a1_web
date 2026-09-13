@@ -113,6 +113,10 @@ export function ShareTargetModal({
   const [sent, setSent] = useState(false);
   const [failed, setFailed] = useState(false);
   const [copied, setCopied] = useState(false);
+  // Отдельно от `failed`: та надпись говорит про отправку в чат, а
+  // здесь речь про ссылку -- смешивать их значит врать человеку о
+  // том, что именно не получилось.
+  const [copyFailed, setCopyFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -175,21 +179,31 @@ export function ShareTargetModal({
       return Boolean(res.ok && data?.ok);
     }
 
-    try {
-      if (target.kind === "post") {
+    if (target.kind === "post") {
+      try {
         return await post({ text: `${target.title}\n${target.url}` });
+      } catch {
+        return false;
       }
+    }
 
-      const { firstName, lastName } = splitName(target.name);
-      const ok = await post({
-        contacts: [{ userId: target.userId, phoneNumber: "", firstName, lastName }],
-      });
-      if (ok) return true;
+    const { firstName, lastName } = splitName(target.name);
+    try {
+      if (await post({ contacts: [{ userId: target.userId, phoneNumber: "", firstName, lastName }] })) {
+        return true;
+      }
+    } catch {
+      // Отдельный try именно вокруг первой попытки: раньше один общий
+      // блок глотал и её исключение тоже, и запасной вариант ниже тогда
+      // не срабатывал вовсе -- то есть спасал ровно от половины случаев,
+      // ради которых был написан.
+    }
 
-      // Карточку могли не принять -- у неё на бэкенде телефон описан как
-      // обязательное поле, и пустая строка теоретически может не пройти
-      // проверку. Терять из-за этого сам шаринг незачем: то же самое
-      // уходит обычным сообщением со ссылкой на профиль.
+    // Карточку могли не принять: телефон у неё на бэкенде описан как
+    // обязательное поле, и пустая строка теоретически может не пройти
+    // проверку. Терять из-за этого сам шаринг незачем -- то же самое
+    // уходит обычным сообщением со ссылкой на профиль.
+    try {
       return await post({ text: `${target.name}\n${target.profileUrl}` });
     } catch {
       return false;
@@ -220,13 +234,21 @@ export function ShareTargetModal({
   async function handleExternalShare() {
     const url = target.kind === "post" ? target.url : target.profileUrl;
     const title = target.kind === "post" ? target.title : target.name;
+    setCopyFailed(false);
     if (typeof navigator !== "undefined" && "share" in navigator) {
       try {
         await navigator.share({ title, url });
         return;
-      } catch {
-        // Человек закрыл системное меню или браузер отказал -- падаем в
-        // копию ссылки, как это уже делает components/post-viewer-menu.tsx.
+      } catch (e) {
+        // 2026-09-13 (Александр, живой скриншот: красное «Не вдалося
+        // надіслати» при том, что в чат вообще ничего не отправлялось --
+        // в логах сервера за это время ни одного POST на /api/chats/send).
+        // Закрыть системное меню -- нормальное действие, а не сбой:
+        // браузер отвечает на это AbortError, и раньше мы валились с ним
+        // в копирование, которое в Safari после этого уже не разрешено
+        // (потеряно подтверждение действия пользователя) и бросало своё
+        // исключение -- отсюда и бралась ошибка на ровном месте.
+        if (e instanceof DOMException && e.name === "AbortError") return;
       }
     }
     try {
@@ -234,11 +256,25 @@ export function ShareTargetModal({
       setCopied(true);
       setTimeout(() => setCopied(false), 1600);
     } catch {
-      setFailed(true);
+      setCopyFailed(true);
+      setTimeout(() => setCopyFailed(false), 2600);
     }
   }
 
   const busy = sending;
+
+  // Кнопка слева осталась без подписи, но название ей всё равно нужно --
+  // и для подсказки при наведении, и для читалок с экрана.
+  const externalShareLabel =
+    lang === "uk" ? "Поділитися деінде"
+    : lang === "ru" ? "Поделиться вовне"
+    : lang === "de" ? "Woanders teilen"
+    : lang === "es" ? "Compartir en otra app"
+    : lang === "fr" ? "Partager ailleurs"
+    : lang === "pl" ? "Udostępnij gdzie indziej"
+    : lang === "ptBR" ? "Compartilhar em outro app"
+    : lang === "zh" ? "分享到其他应用"
+    : "Share elsewhere";
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4" onClick={busy ? undefined : onClose}>
@@ -263,6 +299,18 @@ export function ShareTargetModal({
             ×
           </button>
         </div>
+
+        {copyFailed && (
+          <p className="px-5 pt-2 text-[13px] text-red-500 dark:text-red-400">
+            <T
+              uk="Не вдалося скопіювати посилання" en="Couldn't copy the link"
+              ru="Не удалось скопировать ссылку" de="Link konnte nicht kopiert werden"
+              es="No se pudo copiar el enlace" fr="Impossible de copier le lien"
+              pl="Nie udało się skopiować linku" ptBR="Não foi possível copiar o link"
+              zh="无法复制链接"
+            />
+          </p>
+        )}
 
         {failed && (
           <p className="px-5 pt-2 text-[13px] text-red-500 dark:text-red-400">
@@ -388,17 +436,28 @@ export function ShareTargetModal({
         </div>
 
         <div className="flex items-center gap-2 border-t border-neutral-200 px-5 py-3 dark:border-neutral-800">
+          {/* 2026-09-13 (Александр: «сделай кнопку слева без текста, просто
+              иконку поделиться, а "надіслати" просто шире») -- подпись
+              съедала треть нижней полосы ради действия, которое и так
+              узнаётся по значку. Осталась квадратная кнопка-иконка,
+              название ушло в подсказку при наведении и в имя для
+              читалок с экрана. Про удачное копирование говорит сама
+              иконка, ставшая галочкой: строчки текста для этого больше
+              нет. */}
           <button
             type="button"
             onClick={handleExternalShare}
             disabled={busy}
-            className="flex shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-3.5 py-2 text-[13px] font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-40 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+            title={externalShareLabel}
+            aria-label={externalShareLabel}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-neutral-200 text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-40 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
           >
-            <ExternalShareIcon className="h-4 w-4" />
             {copied ? (
-              <T uk="Скопійовано" en="Copied" ru="Скопировано" de="Kopiert" es="Copiado" fr="Copié" pl="Skopiowano" ptBR="Copiado" zh="已复制" />
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+                <path d="M20 6L9 17l-5-5" />
+              </svg>
             ) : (
-              <T uk="Інше" en="Elsewhere" ru="Вовне" de="Woanders" es="En otra app" fr="Ailleurs" pl="Gdzie indziej" ptBR="Em outro app" zh="其他应用" />
+              <ExternalShareIcon className="h-[18px] w-[18px]" />
             )}
           </button>
 
