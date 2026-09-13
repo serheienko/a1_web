@@ -70,6 +70,14 @@ import { useHoverPanel } from "@/lib/use-hover-panel";
 // теперь открывают общее окно выбора получателя (внутри чатов) с
 // кнопкой «вовне» на месте прежнего системного меню.
 import { ShareTargetModal, type ShareTarget } from "@/components/share-target-modal";
+// 2026-09-13 (Александр: "При закрепе... пусть она трансформируется в
+// более маленькую по ширине... И слева мы напишем Junior Manual QA,
+// покажем аватарку, покажем BroTrades") -- прилипшая строка уезжает из
+// контекста: заголовок вакансии и компания остаются выше и не видны.
+// Поэтому в прилипшем виде строка показывает их сама.
+import { CachedAvatar } from "@/components/cached-avatar";
+import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
+import { pickDefaultCatAvatar } from "@/lib/avatars";
 
 type StringKey =
   | "message"
@@ -337,6 +345,31 @@ export function PostViewerMenu({
 }) {
   const lang = useActiveLocale();
   const router = useRouter();
+
+  // Прилипла ли строка прямо сейчас. Считаем по самой строке: пока она
+  // в обычном потоке, её верх ниже шапки; как только sticky её поймал,
+  // верх становится ровно вровень с шапкой и ниже уже не опускается.
+  // Высоту шапки берём из той же переменной --site-nav-h, на которую
+  // опирается и сам top у строки, чтобы числа не разъезжались.
+  const rowRef = useRef<HTMLDivElement | null>(null);
+  const [stuck, setStuck] = useState(false);
+
+  useEffect(() => {
+    const el = rowRef.current;
+    if (!el) return;
+    function read() {
+      const raw = getComputedStyle(document.documentElement).getPropertyValue("--site-nav-h");
+      const navH = Number.parseFloat(raw) || 64;
+      setStuck(el!.getBoundingClientRect().top <= navH + 1);
+    }
+    read();
+    window.addEventListener("scroll", read, { passive: true });
+    window.addEventListener("resize", read);
+    return () => {
+      window.removeEventListener("scroll", read);
+      window.removeEventListener("resize", read);
+    };
+  }, []);
   // 2026-09-02: was a single `visible` boolean gated on "signed in AND
   // viewing someone else's post" -- now a state machine so a signed-out
   // visitor still sees the row (per Aleksandr's request, same treatment
@@ -667,7 +700,45 @@ export function PostViewerMenu({
         ниже самой шапки сайта (z-45), так что порядок остаётся прежним.
         До закрепа на десктопе строка была обычной, слоя не создавала,
         поэтому там всё работало. */}
-    <div className="sticky top-[var(--site-nav-h,64px)] z-40 -mx-4 mt-4 flex items-center gap-2 bg-app/90 px-4 pb-2 pt-3 backdrop-blur-xl dark:bg-black/90">
+    <div
+      ref={rowRef}
+      className="sticky top-[var(--site-nav-h,64px)] z-40 -mx-4 mt-4 flex items-center gap-2 bg-app/90 px-4 pb-2 pt-3 backdrop-blur-xl dark:bg-black/90"
+    >
+      {/* Контекст поста: аватарка, заголовок и автор. В обычном
+          положении его не видно вовсе (max-width 0), в прилипшем он
+          раскрывается, и кнопка «Відгукнутися» ужимается сама -- она
+          так и осталась flex-1, поэтому переход получается плавным, без
+          скачка. На узком экране места меньше, поэтому доля уже и
+          вторая строка (название компании) не показывается. Доля и
+          боковые поля кнопки на телефоне подобраны так, чтобы надпись
+          «Відгукнутися» помещалась целиком: сокращается заголовок, а не
+          действие -- проверено на 390px.
+          aria-hidden: для читалки это повтор шапки страницы. */}
+      <div
+        aria-hidden="true"
+        className={
+          "flex min-w-0 items-center gap-2 overflow-hidden transition-all duration-300 ease-out motion-reduce:transition-none " +
+          (stuck ? "max-w-[42%] opacity-100 sm:max-w-[340px]" : "max-w-0 opacity-0")
+        }
+      >
+        <CachedAvatar
+          src={authorAvatarUrl || pickDefaultCatAvatar(authorUserId ?? shareTitle)}
+          blurDataURL={BLUR_DATA_URL}
+          size={64}
+          className="h-8 w-8 shrink-0 rounded-full object-cover"
+        />
+        <div className="min-w-0">
+          <div className="truncate text-[13px] font-semibold leading-tight text-neutral-900 dark:text-neutral-50">
+            {shareTitle}
+          </div>
+          {authorName && (
+            <div className="hidden truncate text-[12px] leading-tight text-neutral-500 dark:text-neutral-400 sm:block">
+              {authorName}
+            </div>
+          )}
+        </div>
+      </div>
+
       <button
         type="button"
         onClick={openChat}
@@ -675,12 +746,18 @@ export function PostViewerMenu({
         aria-label={chatErrored ? STRINGS.actionFailed[lang] : authorUnclaimed ? STRINGS.apply[lang] : STRINGS.message[lang]}
         className={
           chatErrored
-            ? "group flex flex-1 items-center justify-center gap-2 rounded-full bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-default disabled:opacity-60"
-            : "group flex flex-1 items-center justify-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-accent transition hover:bg-accent/5 disabled:cursor-default disabled:opacity-60 dark:border-neutral-700 dark:bg-neutral-900"
+            ? "group flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-red-600 px-2.5 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-default disabled:opacity-60 sm:px-4"
+            : "group flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full border border-neutral-200 bg-white px-2.5 py-2 text-sm font-medium text-accent transition hover:bg-accent/5 disabled:cursor-default disabled:opacity-60 dark:border-neutral-700 dark:bg-neutral-900 sm:px-4"
         }
       >
         <MessageIcon />
-        {chatErrored ? STRINGS.actionFailed[lang] : authorUnclaimed ? STRINGS.apply[lang] : STRINGS.message[lang]}
+        {/* min-w-0 на кнопке и truncate здесь -- чтобы в прилипшем виде,
+            когда слева появился контекст поста, надпись укорачивалась
+            многоточием, а не переносилась на вторую строку и не ломала
+            высоту всей полосы. */}
+        <span className="truncate">
+          {chatErrored ? STRINGS.actionFailed[lang] : authorUnclaimed ? STRINGS.apply[lang] : STRINGS.message[lang]}
+        </span>
       </button>
 
       <div className="dots-trigger-group relative z-40 shrink-0" ref={dotsWrapperRef} onMouseEnter={handleDotsMouseEnter} onMouseLeave={handleDotsMouseLeave}>
