@@ -346,41 +346,60 @@ export function PostViewerMenu({
   const lang = useActiveLocale();
   const router = useRouter();
 
-  // Прилипла ли строка прямо сейчас. Считаем по самой строке: пока она
-  // в обычном потоке, её верх ниже шапки; как только sticky её поймал,
-  // верх становится ровно вровень с шапкой и ниже уже не опускается.
-  // Высоту шапки берём из той же переменной --site-nav-h (её публикует
-  // components/site-nav.tsx), на которую опирается и сам top у строки,
-  // чтобы числа не разъезжались.
+  // Прилипла ли строка прямо сейчас.
   //
-  // 2026-09-13, вторая попытка (Александр про первую: "Че то ниче не
-  // появилось"). Первый вариант держал ссылку в useRef и подписывался
-  // на прокрутку один раз при монтировании -- и никогда не срабатывал:
-  // на первом рендере viewerStatus ещё "loading", компонент возвращает
-  // null (см. ниже), строки в разметке нет, ref пустой, подписка молча
-  // не ставилась, а повторно эффект уже не запускался. Поэтому теперь
-  // сам элемент лежит в состоянии: React зовёт эту функцию в тот
-  // момент, когда строка реально появилась, эффект перезапускается и
-  // подписка наконец встаёт.
+  // 2026-09-13, третья попытка, и обе прошлые стоит помнить.
+  //
+  // Первая: подписка стояла в эффекте с пустыми зависимостями и брала
+  // строку через useRef. На первом рендере viewerStatus ещё "loading",
+  // компонент возвращает null, строки нет, ref пустой -- подписка молча
+  // не вставала («Че то ниче не появилось»).
+  //
+  // Вторая: сравнивали верх строки с высотой шапки, взятой из
+  // --site-nav-h. На телефоне это и сломалось (Александр, видео с
+  // iPhone: "Тут откат по анимациям когда поднимаешь наверх на мобе,
+  // надо фиксануть красиво, чтобы не прыгало"): у шапки есть отступ под
+  // «чёлку» (env(safe-area-inset-top)), и Safari меняет его на ходу,
+  // пока прячет и показывает свою панель. Высота шапки при этом гуляет,
+  // а вместе с ней и порог -- строка успевала десять раз решить, что
+  // она то прилипла, то нет, и анимация каждый раз начиналась заново.
+  //
+  // Теперь без высоты шапки вообще. Прямо перед строкой стоит невидимая
+  // метка нулевой высоты. Пока строка в обычном потоке, они на одной
+  // линии. Как только sticky её поймал, метка продолжает уезжать вверх,
+  // а строка остаётся -- разница между ними и есть признак «прилипла».
+  // Ни отступы, ни панель браузера на это не влияют. Отступ сверху
+  // (mt-4) перенесён на метку, чтобы в обычном состоянии разница была
+  // ровно нулевой.
   const [rowEl, setRowEl] = useState<HTMLDivElement | null>(null);
+  const [sentinelEl, setSentinelEl] = useState<HTMLDivElement | null>(null);
   const [stuck, setStuck] = useState(false);
 
   useEffect(() => {
-    if (!rowEl) return;
+    if (!rowEl || !sentinelEl) return;
+    let frame = 0;
     function read() {
-      if (!rowEl) return;
-      const raw = getComputedStyle(document.documentElement).getPropertyValue("--site-nav-h");
-      const navH = Number.parseFloat(raw) || 64;
-      setStuck(rowEl.getBoundingClientRect().top <= navH + 1);
+      frame = 0;
+      if (!rowEl || !sentinelEl) return;
+      // 4px запаса -- дробные значения при плавной прокрутке не должны
+      // считаться прилипанием.
+      setStuck(rowEl.getBoundingClientRect().top - sentinelEl.getBoundingClientRect().top > 4);
+    }
+    function onScroll() {
+      // Один замер на кадр: иначе на каждый тик прокрутки мы дёргаем
+      // раскладку, и на телефоне это само по себе заметно.
+      if (frame) return;
+      frame = window.requestAnimationFrame(read);
     }
     read();
-    window.addEventListener("scroll", read, { passive: true });
-    window.addEventListener("resize", read);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
     return () => {
-      window.removeEventListener("scroll", read);
-      window.removeEventListener("resize", read);
+      if (frame) window.cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
     };
-  }, [rowEl]);
+  }, [rowEl, sentinelEl]);
   // 2026-09-02: was a single `visible` boolean gated on "signed in AND
   // viewing someone else's post" -- now a state machine so a signed-out
   // visitor still sees the row (per Aleksandr's request, same treatment
@@ -711,9 +730,14 @@ export function PostViewerMenu({
         ниже самой шапки сайта (z-45), так что порядок остаётся прежним.
         До закрепа на десктопе строка была обычной, слоя не создавала,
         поэтому там всё работало. */}
+    {/* Метка, по которой строка понимает, что прилипла -- см. эффект
+        выше. Нулевой высоты, ничего не рисует; весь верхний отступ
+        переехал сюда со строки, чтобы в обычном состоянии их верхние
+        края совпадали. */}
+    <div ref={setSentinelEl} aria-hidden="true" className="mt-4 h-0" />
     <div
       ref={setRowEl}
-      className="sticky top-[var(--site-nav-h,64px)] z-40 -mx-4 mt-4 flex items-center gap-2 bg-app/90 px-4 pb-2 pt-3 backdrop-blur-xl dark:bg-black/90"
+      className="sticky top-[var(--site-nav-h,64px)] z-40 -mx-4 flex items-center gap-2 bg-app/90 px-4 pb-2 pt-3 backdrop-blur-xl dark:bg-black/90"
     >
       {/* Контекст поста: аватарка, заголовок и автор. В обычном
           положении его не видно вовсе (max-width 0), в прилипшем он
@@ -728,7 +752,7 @@ export function PostViewerMenu({
       <div
         aria-hidden="true"
         className={
-          "flex min-w-0 items-center gap-2 overflow-hidden transition-all duration-300 ease-out motion-reduce:transition-none " +
+          "flex min-w-0 items-center gap-2 overflow-hidden transition-all duration-200 ease-out motion-reduce:transition-none " +
           (stuck ? "max-w-[42%] opacity-100 sm:max-w-[340px]" : "max-w-0 opacity-0")
         }
       >
