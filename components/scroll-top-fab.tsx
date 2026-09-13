@@ -18,31 +18,65 @@
 // своего окна, а не страницей, так что кнопка ничего бы не делала).
 // Ровно тот же список исключений, что у components/chats-fab.tsx.
 //
-// Позиция: СЛЕВА от "+", на той же линии, а не третьей в колонке.
-// 2026-09-13, сразу после первой версии (Александр, скриншот
-// раскрытого окна чатов поверх колонки кнопок): "Стрелку надо левее от
-// кнопки (+), я говорил об этом, потому что если сверху -- ее
-// перекрывает модалка мини-чатов". Так и есть: список чатов
-// (components/chats-flyout.tsx) раскрывается вверх от кнопки чатов и
-// накрывает собой всё, что стоит над ней.
+// Место кнопки -- левый нижний угол, и это уже третий подход, каждый
+// по его правке:
+//   1) третьей в колонке над "+" -- "ее перекрывает модалка мини-чатов"
+//      (список чатов, components/chats-flyout.tsx, раскрывается вверх
+//      от своей кнопки и накрывает всё, что стоит выше);
+//   2) слева от "+" на той же линии -- всё ещё в том же углу;
+//   3) "Можно стрелку в принципе вообще повесить на левый край" -- то,
+//      что сейчас: противоположный угол, где ничего не всплывает.
 //
-// Считаем от правого края: отступ страницы 1.25rem + ширина "+" (56px)
-// + зазор 12px. По высоте центрируем против "+": он 56px, эта кнопка
-// 48px, значит её собственный нижний отступ на 4px больше.
+// Клавиша: "Можно... добавить функционал на клавиатуру, чтобы при
+// нажатии на какую-то клавишу страницу поднимало вверх". Взял Home --
+// не выдуманное сочетание, а та самая клавиша, которой это делают во
+// всех браузерах, так что человеку не придётся запоминать наше личное.
+// Обрабатываем её сами, чтобы прокрутка была такой же плавной, как по
+// кнопке, и чтобы не срабатывать, когда человек печатает в поле.
+//
+// Подсказка: "Попап показывать 1 раз, как обучение, он должен быть
+// прямо возле кнопки". Появляется рядом с кнопкой в первый раз, когда
+// кнопка вообще показалась, и больше никогда -- отметка лежит в
+// localStorage, там же, где тема и язык.
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 
-const STRINGS: Record<Locale, string> = {
+const LABEL: Record<Locale, string> = {
   uk: "Нагору", en: "Back to top", ru: "Наверх", de: "Nach oben",
   es: "Ir arriba", fr: "Haut de page", pl: "Do góry", ptBR: "Voltar ao topo", zh: "回到顶部",
 };
 
-// Порог в один экран: кнопка не мельтешит от случайного движения
-// колёсика, но и не заставляет крутить полстраницы, чтобы её увидеть.
+// Подсказка намеренно короткая: одна мысль -- "есть клавиша".
+const HINT: Record<Locale, string> = {
+  uk: "Нагору — або клавіша Home",
+  en: "Back to top — or the Home key",
+  ru: "Наверх — или клавиша Home",
+  de: "Nach oben — oder die Home-Taste",
+  es: "Ir arriba — o la tecla Inicio",
+  fr: "Haut de page — ou la touche Origine",
+  pl: "Do góry — albo klawisz Home",
+  ptBR: "Voltar ao topo — ou a tecla Home",
+  zh: "回到顶部 — 或按 Home 键",
+};
+
+const HINT_CLOSE: Record<Locale, string> = {
+  uk: "Зрозуміло", en: "Got it", ru: "Понятно", de: "Alles klar", es: "Entendido",
+  fr: "Compris", pl: "Jasne", ptBR: "Entendi", zh: "知道了",
+};
+
+// Порог примерно в один экран: кнопка не мельтешит от случайного
+// движения колёсика, но и не заставляет крутить полстраницы.
 const SHOW_AFTER_PX = 600;
+
+// Версия в ключе -- на случай, если подсказку когда-нибудь придётся
+// показать заново с другим текстом.
+const HINT_SEEN_KEY = "a1_scroll_top_hint_v1";
+
+// Подсказка не висит вечно: если человек её не закрыл, она уходит сама.
+const HINT_AUTO_HIDE_MS = 9000;
 
 function ArrowUpIcon() {
   return (
@@ -62,50 +96,122 @@ function ArrowUpIcon() {
   );
 }
 
+function scrollToTop() {
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
+}
+
 export function ScrollTopFab() {
   const pathname = usePathname();
   const [lang, setLang] = useState<Locale>("uk");
   const [shown, setShown] = useState(false);
+  const [hintOpen, setHintOpen] = useState(false);
+  // Показать подсказку можно только один раз за всю жизнь вкладки и
+  // только если её ещё ни разу не видели.
+  const hintDoneRef = useRef(true);
 
   useEffect(() => {
     const root = document.documentElement;
     const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
     if (active) setLang(active);
+    try {
+      hintDoneRef.current = localStorage.getItem(HINT_SEEN_KEY) === "1";
+    } catch {
+      // Хранилище может быть недоступно -- тогда просто не показываем
+      // подсказку вовсе, это лучше, чем показывать её каждый раз.
+      hintDoneRef.current = true;
+    }
   }, []);
+
+  function closeHint() {
+    setHintOpen(false);
+    hintDoneRef.current = true;
+    try {
+      localStorage.setItem(HINT_SEEN_KEY, "1");
+    } catch {
+      // Не страшно: в этой вкладке подсказка всё равно больше не выйдет.
+    }
+  }
 
   useEffect(() => {
     function onScroll() {
-      setShown(window.scrollY > SHOW_AFTER_PX);
+      const next = window.scrollY > SHOW_AFTER_PX;
+      setShown(next);
+      if (next && !hintDoneRef.current) {
+        hintDoneRef.current = true;
+        setHintOpen(true);
+      }
     }
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, [pathname]);
 
+  useEffect(() => {
+    if (!hintOpen) return;
+    const timer = window.setTimeout(() => closeHint(), HINT_AUTO_HIDE_MS);
+    return () => window.clearTimeout(timer);
+  }, [hintOpen]);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "Home") return;
+      // С модификатором Home означает совсем другое (например, выделить
+      // до начала документа) -- не перехватываем.
+      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      const el = e.target as HTMLElement | null;
+      // Человек печатает -- Home должен ставить курсор в начало строки,
+      // а не увозить страницу.
+      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
+      e.preventDefault();
+      scrollToTop();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   if (pathname?.startsWith("/sign-in") || pathname?.startsWith("/chats")) return null;
 
   return (
-    <button
-      type="button"
-      onClick={() => {
-        // Плавно, но уважая системную настройку "меньше движения" --
-        // тот же принцип, что у анимаций в app/globals.css.
-        const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-        window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
-      }}
-      aria-label={STRINGS[lang]}
-      title={STRINGS[lang]}
-      aria-hidden={!shown}
-      tabIndex={shown ? undefined : -1}
-      className={`group fixed z-40 flex h-12 w-12 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-700 shadow-lg transition duration-200 hover:bg-neutral-50 active:scale-95 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800 ${
-        shown ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-2 opacity-0"
-      }`}
-      style={{
-        right: "calc(1.25rem + 56px + 12px)",
-        bottom: "calc(1.25rem + 4px + env(safe-area-inset-bottom))",
-      }}
+    <div
+      className="fixed left-5 z-40 flex items-center gap-2"
+      style={{ bottom: "calc(1.25rem + 4px + env(safe-area-inset-bottom))" }}
     >
-      <ArrowUpIcon />
-    </button>
+      <button
+        type="button"
+        onClick={() => {
+          closeHint();
+          scrollToTop();
+        }}
+        aria-label={LABEL[lang]}
+        title={LABEL[lang]}
+        aria-hidden={!shown}
+        tabIndex={shown ? undefined : -1}
+        className={`group flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-700 shadow-lg transition duration-200 hover:bg-neutral-50 active:scale-95 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800 ${
+          shown ? "translate-x-0 opacity-100" : "pointer-events-none -translate-x-2 opacity-0"
+        }`}
+      >
+        <ArrowUpIcon />
+      </button>
+
+      {/* Подсказка стоит прямо рядом с кнопкой, как и просили, и не
+          перекрывает её саму. На узком экране ограничена шириной
+          вьюпорта минус место под саму кнопку и поля. */}
+      {shown && hintOpen && (
+        <div
+          role="status"
+          className="animate-popover-right flex max-w-[calc(100vw-6.5rem)] items-center gap-2 rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-[13px] text-neutral-700 shadow-lg dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"
+        >
+          <span>{HINT[lang]}</span>
+          <button
+            type="button"
+            onClick={closeHint}
+            className="shrink-0 rounded-full px-2 py-1 text-[12px] font-medium text-accent transition hover:bg-accent/10"
+          >
+            {HINT_CLOSE[lang]}
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

@@ -1702,3 +1702,15 @@ html.has-session .a1-nav-session-placeholder {
 html.has-session .a1-nav-signed-out {
   display: none;
 }
+
+/* 2026-09-13 (Александр про кнопку «наверх»: "Попап показывать 1 раз,
+ * как обучение, он должен быть прямо возле кнопки") -- та же
+ * анимация появления, что у .animate-popover-up выше, но точка роста
+ * слева: подсказка стоит СПРАВА от своей кнопки в левом нижнем углу,
+ * поэтому расти она должна от кнопки наружу, а не из своего правого
+ * края внутрь.
+ */
+.animate-popover-right {
+  transform-origin: left center;
+  animation: popover-in 0.15s ease-out;
+}
