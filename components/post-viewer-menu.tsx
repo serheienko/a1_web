@@ -75,6 +75,8 @@ import { ShareTargetModal, type ShareTarget } from "@/components/share-target-mo
 // покажем аватарку, покажем BroTrades") -- прилипшая строка уезжает из
 // контекста: заголовок вакансии и компания остаются выше и не видны.
 // Поэтому в прилипшем виде строка показывает их сама.
+import Link from "next/link";
+import { profileHref } from "@/lib/profile-href";
 import { CachedAvatar } from "@/components/cached-avatar";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
@@ -748,31 +750,67 @@ export function PostViewerMenu({
           боковые поля кнопки на телефоне подобраны так, чтобы надпись
           «Відгукнутися» помещалась целиком: сокращается заголовок, а не
           действие -- проверено на 390px.
-          aria-hidden: для читалки это повтор шапки страницы. */}
-      <div
-        aria-hidden="true"
-        className={
-          "flex min-w-0 items-center gap-2 overflow-hidden transition-all duration-200 ease-out motion-reduce:transition-none " +
-          (stuck ? "max-w-[42%] opacity-100 sm:max-w-[340px]" : "max-w-0 opacity-0")
-        }
-      >
-        <CachedAvatar
-          src={authorAvatarUrl || pickDefaultCatAvatar(authorUserId ?? shareTitle)}
-          blurDataURL={BLUR_DATA_URL}
-          size={64}
-          className="h-8 w-8 shrink-0 rounded-full object-cover"
-        />
-        <div className="min-w-0">
-          <div className="truncate text-[13px] font-semibold leading-tight text-neutral-900 dark:text-neutral-50">
-            {shareTitle}
-          </div>
-          {authorName && (
-            <div className="hidden truncate text-[12px] leading-tight text-neutral-500 dark:text-neutral-400 sm:block">
-              {authorName}
+
+          2026-09-13 (Александр: "Сделай, чтобы в таком состоянии аватар
+          и имя тоже нажимались и добавь какой-то ховер") -- весь блок
+          стал ссылкой на профиль автора, ровно туда же, куда ведут его
+          аватарка и имя в шапке страницы выше. Под курсором подсвечивается
+          подложка, аватарка получает тонкий ободок, название компании
+          подчёркивается.
+
+          Пока строка не прилипла, блок свёрнут в ноль: убираем его и из
+          обхода с клавиатуры, и из чтения читалкой, иначе получилась бы
+          невидимая ссылка, на которую можно попасть табом. Когда
+          прилипла -- это осмысленная ссылка, и прятать её от читалки уже
+          неправильно. */}
+      {(() => {
+        const inner = (
+          <>
+            <CachedAvatar
+              src={authorAvatarUrl || pickDefaultCatAvatar(authorUserId ?? shareTitle)}
+              blurDataURL={BLUR_DATA_URL}
+              size={64}
+              className="h-8 w-8 shrink-0 rounded-full object-cover transition duration-200 group-hover/ctx:ring-2 group-hover/ctx:ring-neutral-300 dark:group-hover/ctx:ring-neutral-600"
+            />
+            <div className="min-w-0">
+              <div className="truncate text-[13px] font-semibold leading-tight text-neutral-900 dark:text-neutral-50">
+                {shareTitle}
+              </div>
+              {authorName && (
+                <div className="hidden truncate text-[12px] leading-tight text-neutral-500 transition-colors group-hover/ctx:text-neutral-900 group-hover/ctx:underline dark:text-neutral-400 dark:group-hover/ctx:text-neutral-50 sm:block">
+                  {authorName}
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      </div>
+          </>
+        );
+
+        const shared =
+          "group/ctx flex min-w-0 items-center gap-2 overflow-hidden rounded-xl transition-all duration-200 ease-out motion-reduce:transition-none " +
+          (stuck
+            ? "max-w-[42%] opacity-100 sm:max-w-[340px]"
+            : "pointer-events-none max-w-0 opacity-0");
+
+        if (!authorUsername) {
+          return (
+            <div aria-hidden="true" className={shared}>
+              {inner}
+            </div>
+          );
+        }
+
+        return (
+          <Link
+            href={profileHref(authorUsername)}
+            aria-hidden={!stuck}
+            tabIndex={stuck ? undefined : -1}
+            aria-label={authorName ?? shareTitle}
+            className={shared + " cursor-pointer py-1 pl-1 pr-2 hover:bg-black/5 dark:hover:bg-white/10"}
+          >
+            {inner}
+          </Link>
+        );
+      })()}
 
       <button
         type="button"
