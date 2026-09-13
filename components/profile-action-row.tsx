@@ -61,6 +61,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+// 2026-09-13 (Александр: "В профилях есть тоже кнопка поделиться, на
+// неё тоже надо сделать 2 сценария, шерить внутри приложения и
+// наружу и такой же global поиск") -- то же окно, что у вакансии:
+// сетка лиц с общим поиском людей плюс кнопка "вовне" на месте
+// прежнего системного меню.
+import { ShareTargetModal } from "@/components/share-target-modal";
 import { useRouter } from "next/navigation";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
@@ -373,7 +379,7 @@ export function ProfileActionRow({
   // bug (wasOn computed from saveStatus === "on", which "error" broke).
   const [saveErrored, setSaveErrored] = useState(false);
 
-  const [shareFeedback, setShareFeedback] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   // 2026-09-02 (Aleksandr: show this row to signed-out visitors too --
   // "можно показывать и когда не залогинен, просто при нажатии на
@@ -572,26 +578,6 @@ export function ProfileActionRow({
     setMenuOpen(false);
   }
 
-  async function shareProfile() {
-    if (typeof navigator !== "undefined" && "share" in navigator) {
-      try {
-        await navigator.share({ title: shareTitle, url: shareUrl });
-        return;
-      } catch {
-        // Cancelled the share sheet, or the browser rejected it — fall
-        // through to clipboard copy, same as post-viewer-menu.tsx's
-        // sharePost().
-      }
-    }
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setShareFeedback(true);
-      setTimeout(() => setShareFeedback(false), 2000);
-    } catch {
-      // Nothing more to fall back to.
-    }
-  }
-
   async function openChat() {
     if (isAnon) {
       setAuthPromptOpen(true);
@@ -662,9 +648,9 @@ export function ProfileActionRow({
 
       <button
         type="button"
-        onClick={shareProfile}
-        aria-label={shareFeedback ? STRINGS.linkCopied[lang] : STRINGS.shareProfile[lang]}
-        title={shareFeedback ? STRINGS.linkCopied[lang] : STRINGS.shareProfile[lang]}
+        onClick={() => setShareOpen(true)}
+        aria-label={STRINGS.shareProfile[lang]}
+        title={STRINGS.shareProfile[lang]}
         className={CELL_BUTTON_CLASS}
       >
         <ShareIcon />
@@ -844,6 +830,24 @@ export function ProfileActionRow({
         </div>,
         document.body,
       )}
+
+      {/* Окно с выбором, кому отправить: те же лица и тот же общий
+          поиск, что у «поделиться дописом». profileUserId здесь уже
+          точно есть -- без него этот компонент выше вернул null. */}
+      {shareOpen &&
+        createPortal(
+          <ShareTargetModal
+            lang={lang}
+            target={{
+              kind: "contact",
+              userId: profileUserId,
+              name: shareTitle,
+              profileUrl: shareUrl,
+            }}
+            onClose={() => setShareOpen(false)}
+          />,
+          document.body,
+        )}
     </>
   );
 }
