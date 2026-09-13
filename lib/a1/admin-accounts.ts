@@ -18,16 +18,20 @@
 // list). Kept in a Vercel env var (server-only, never sent to the
 // browser) rather than committed to this PUBLIC repo, since it holds
 // real account passwords. Aleksandr updates this by hand today (paste
-// the updated JSON after each bulk-provisioning batch, Vercel dashboard
+// the updated value after each bulk-provisioning batch, Vercel dashboard
 // -> Settings -> Environment Variables) — no code change or redeploy
 // request needed to add a company, same pattern as ADMIN_EMAILS
-// (lib/admin-access.ts).
+// (lib/admin-access.ts). The value may be the plain JSON array or, past
+// a couple of hundred accounts, its gzip+base64 form — see
+// decodeAccountsEnv below for why and how.
 //
 // Deliberately degrades to an EMPTY list on any parse problem (missing
 // var, invalid JSON, wrong shape) rather than throwing — this gets
 // imported by the admin routes, which should render "shows nothing"
 // rather than 500 the whole admin page if the env var is ever briefly
 // malformed mid-paste.
+
+import { gunzipSync } from "node:zlib";
 
 import { z } from "zod";
 
@@ -46,11 +50,34 @@ const TechnicalAccountSchema = z.object({
 
 export type TechnicalAccount = z.infer<typeof TechnicalAccountSchema>;
 
+// 2026-09-13 (Aleksandr: "код не вставляется, он слишком большой походу").
+// At 525 accounts the plain JSON is ~62 KB, which the Vercel dashboard's
+// value field will not take, and Vercel caps the TOTAL size of a
+// deployment's env vars at 64 KB anyway — so this one variable was about
+// to exhaust the whole budget on its own. gzip + base64 brings the same
+// 525 accounts down to ~19 KB.
+//
+// The variable therefore accepts EITHER form and sniffs which one it
+// got: a value that starts with "[" after trimming is plain JSON (what
+// was there before, and what a hand-written 3-account list still looks
+// like), anything else is treated as base64-encoded gzip. Nothing has to
+// be migrated in a particular order, and a half-pasted value fails the
+// same way it always did — empty list, one line in the log.
+//
+// Produced by "Claude outputs"/pack_accounts.py on Aleksandr's machine.
+function decodeAccountsEnv(raw: string): string {
+  const trimmed = raw.trim();
+  if (trimmed.startsWith("[")) return trimmed;
+  // Whitespace is stripped because a value pasted out of a text editor
+  // can carry line breaks; base64 itself never contains any.
+  return gunzipSync(Buffer.from(trimmed.replace(/\s+/g, ""), "base64")).toString("utf8");
+}
+
 export function loadTechnicalAccounts(): TechnicalAccount[] {
   const raw = process.env.TECHNICAL_ACCOUNTS_JSON;
   if (!raw) return [];
   try {
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(decodeAccountsEnv(raw));
     const result = z.array(TechnicalAccountSchema).safeParse(parsed);
     if (!result.success) {
       console.error("[lib/a1/admin-accounts] TECHNICAL_ACCOUNTS_JSON failed validation:", result.error.message);
@@ -58,7 +85,9 @@ export function loadTechnicalAccounts(): TechnicalAccount[] {
     }
     return result.data;
   } catch (err) {
-    console.error("[lib/a1/admin-accounts] TECHNICAL_ACCOUNTS_JSON is not valid JSON:", err);
+    // Covers both shapes: bad JSON, and a base64/gzip value that did not
+    // decode (truncated paste).
+    console.error("[lib/a1/admin-accounts] TECHNICAL_ACCOUNTS_JSON could not be read:", err);
     return [];
   }
 }
