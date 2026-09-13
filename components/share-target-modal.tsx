@@ -464,7 +464,14 @@ export function ShareTargetModal({
                     onClick={() => toggle(c.id)}
                     disabled={busy}
                     aria-pressed={isPicked}
-                    className="flex flex-col items-center gap-1.5 rounded-xl py-1 outline-none transition disabled:opacity-60"
+                    // 2026-09-13 (Александр, скриншот окна «Поділитися з»:
+                    // "Во всех 'поделиться' сделай какой-то ховер при
+                    // наведении на контакт") -- до этого плитка вообще
+                    // никак не отзывалась на мышь, и было не понять, что
+                    // она нажимается. Подсветка живёт на кнопке, а
+                    // аватарка и подпись реагируют через group-hover,
+                    // чтобы всё поднималось одним движением.
+                    className="group flex cursor-pointer flex-col items-center gap-1.5 rounded-xl px-0.5 py-1.5 outline-none transition hover:bg-neutral-100 focus-visible:bg-neutral-100 disabled:cursor-default disabled:opacity-60 dark:hover:bg-neutral-800 dark:focus-visible:bg-neutral-800"
                   >
                     <span className="relative">
                       <CachedAvatar
@@ -472,10 +479,10 @@ export function ShareTargetModal({
                         blurDataURL={c.avatarBlurDataUrl ?? BLUR_DATA_URL}
                         size={112}
                         className={
-                          "h-14 w-14 rounded-full object-cover transition " +
+                          "h-14 w-14 rounded-full object-cover transition duration-200 group-hover:scale-105 " +
                           (isPicked
                             ? "ring-2 ring-[#335ef7] ring-offset-2 ring-offset-white dark:ring-[#0c8ce9] dark:ring-offset-neutral-900"
-                            : "")
+                            : "group-hover:ring-2 group-hover:ring-neutral-300 group-hover:ring-offset-2 group-hover:ring-offset-neutral-100 dark:group-hover:ring-neutral-600 dark:group-hover:ring-offset-neutral-800")
                         }
                       />
                       {isPicked && <CheckBadge />}
@@ -485,10 +492,10 @@ export function ShareTargetModal({
                         // min-h под ДВЕ строки всегда: без него ряд, в
                         // котором попалось длинное название, становится
                         // выше остальных, и сетка идёт волной.
-                        "line-clamp-2 min-h-[27px] w-full px-0.5 text-center text-[11.5px] leading-tight " +
+                        "line-clamp-2 min-h-[27px] w-full px-0.5 text-center text-[11.5px] leading-tight transition-colors " +
                         (isPicked
                           ? "font-semibold text-[#335ef7] dark:text-[#0c8ce9]"
-                          : "text-neutral-600 dark:text-neutral-300")
+                          : "text-neutral-600 group-hover:text-neutral-900 dark:text-neutral-300 dark:group-hover:text-neutral-50")
                       }
                     >
                       {c.title}
