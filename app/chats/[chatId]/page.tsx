@@ -2570,10 +2570,16 @@ export default function ChatWindowPage() {
   const contactBookRequestedRef = useRef(false);
   useEffect(() => {
     if (contactBookRequestedRef.current || myUserId === null) return;
-    const hasReceivedContactCard = messages.some(
-      (msg) => msg.fromId !== myUserId && messageContactMedia(msg).length > 0,
-    );
-    if (!hasReceivedContactCard) return;
+    // 2026-09-13 (Александр: "куда делась кнопка добавить контакт? ...
+    // если пользователь не у нас в контактах, то мы показываем ещё
+    // справа кнопку с плюсиком"). Раньше книга контактов запрашивалась
+    // только если в чате есть ПОЛУЧЕННАЯ карточка: считалось, что своя
+    // карточка приходит из собственной книги, а значит добавлять нечего.
+    // С появлением "Поділитися контактом" у вакансии это перестало быть
+    // правдой -- поделиться можно компанией, которой у себя нет, и такую
+    // карточку тоже надо уметь добавить.
+    const hasContactCard = messages.some((msg) => messageContactMedia(msg).length > 0);
+    if (!hasContactCard) return;
     contactBookRequestedRef.current = true;
     authFetch("/api/contacts/list")
       .then((res) => res.json())
@@ -5598,7 +5604,17 @@ export default function ChatWindowPage() {
                               phoneNumber={c.phoneNumber}
                               summary={contactSummaries[c.userId] ?? null}
                               mine={mine}
-                              canAddContact={!mine && myContactUserIds !== null && !myContactUserIds.has(c.userId)}
+                              // Без оглядки на `mine`: решает книга
+                              // контактов, а не то, кто отправил
+                              // карточку (см. эффект с contactBook-
+                              // RequestedRef). Себя самого + не
+                              // предлагает -- себя в контакты не
+                              // добавляют.
+                              canAddContact={
+                                c.userId !== myUserId &&
+                                myContactUserIds !== null &&
+                                !myContactUserIds.has(c.userId)
+                              }
                               onContactAdded={() =>
                                 setMyContactUserIds((prev) => {
                                   if (!prev) return prev;

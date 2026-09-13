@@ -481,6 +481,13 @@ export function MiniChatWindow({
   // нет и не будет, а сообщения перечитываются по опросу -- без этой
   // отметки запрос уходил бы заново на каждый тик, вечно.
   const askedContactIdsRef = useRef<Set<string>>(new Set());
+  // 2026-09-13 (Александр: "куда делась кнопка добавить контакт?").
+  // Плюсик у карточки показывается, только если человека нет в книге
+  // контактов -- а книгу тут никто не спрашивал, поэтому плюсик не
+  // появлялся никогда. null = ещё не спросили; карточка в этом случае
+  // ведёт себя как "уже в контактах", чтобы кнопка не мигала.
+  const [myContactUserIds, setMyContactUserIds] = useState<Set<string> | null>(null);
+  const contactBookRequestedRef = useRef(false);
 
   useEffect(() => {
     const ids = new Set<string>();
@@ -511,6 +518,29 @@ export function MiniChatWindow({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages]);
+
+  useEffect(() => {
+    if (contactBookRequestedRef.current) return;
+    if (!messages.some((msg) => messageContactMedia(msg).length > 0)) return;
+    contactBookRequestedRef.current = true;
+    let cancelled = false;
+    authFetch("/api/contacts/list")
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled || !data?.ok) return;
+        const ids = new Set<string>();
+        for (const c of data.contacts ?? []) {
+          if (c.user) ids.add(c.user as string);
+        }
+        setMyContactUserIds(ids);
+      })
+      .catch(() => {
+        // Не вышло -- плюсик просто не покажется, как и до этой правки.
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [messages]);
   const [activePinIndex, setActivePinIndex] = useState(0);
   const pinnedMessage = pinnedMessages[activePinIndex] ?? pinnedMessages[0] ?? null;
@@ -2134,7 +2164,22 @@ export function MiniChatWindow({
                         phoneNumber={c.phoneNumber}
                         summary={contactSummaries[c.userId]}
                         mine={mine}
-                        canAddContact={false}
+                        // Решает книга контактов, а не то, кто прислал
+                        // карточку: поделиться можно и компанией,
+                        // которой у себя нет.
+                        canAddContact={
+                          c.userId !== myUserId &&
+                          myContactUserIds !== null &&
+                          !myContactUserIds.has(c.userId)
+                        }
+                        onContactAdded={() =>
+                          setMyContactUserIds((prev) => {
+                            if (!prev) return prev;
+                            const next = new Set(prev);
+                            next.add(c.userId);
+                            return next;
+                          })
+                        }
                         onMessage={onNavigate}
                       />
                     ))}
