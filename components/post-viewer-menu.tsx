@@ -733,26 +733,29 @@ export function PostViewerMenu({
         До закрепа на десктопе строка была обычной, слоя не создавала,
         поэтому там всё работало.
 
-        2026-09-13, самое важное про эту строку (Александр, уже после
-        нескольких попыток починить «глюки»: «Там была трабла что после
-        возвращения наверх вместо кнопок пустое место»). Это не
-        запаздывание состояния и не анимация -- это известный изъян
-        отрисовки в Safari на iOS: прилипшая полоса, у которой есть
-        размытие фона, при откреплении иногда не перерисовывается и
-        остаётся пустым прямоугольником. Отсюда «пустое место вместо
-        кнопок». Лечится двумя вещами, обе здесь:
+2026-09-13, итог долгой серии попыток (Александр прислал четыре
+        записи экрана подряд: «глючит пдзц», «Не работает», «Все равно
+        трабла», «:(»). Ниже -- что выяснилось и почему сейчас на
+        телефоне намеренно ничего не происходит.
 
-        * размытия на телефоне нет вовсе -- фон сплошной. Выглядит так
-          же (под полосой всё равно ничего не должно просвечивать), а
-          поводов для изъяна на одну меньше. На sm и выше размытие
-          остаётся: на десктопе такого не бывает;
-        * translateZ(0) + will-change:transform -- полоса получает свой
-          отдельный слой отрисовки, и браузер перестаёт «забывать» её
-          перерисовать. Тот же приём уже стоит на самой шапке сайта
-          (components/site-nav.tsx), по той же причине.
+        Что было настоящей причиной хотя бы раз:
+        * ширина блока с контекстом менялась мгновенно, а проявление шло
+          200 мс -- всё это время место занято, а содержимого не видно:
+          «пустое место вместо кнопок». Это была моя ошибка, исправлена;
+        * до того анимировалась сама ширина -- дорого на каждый кадр.
 
-        Проверить это я могу только на живом iPhone -- в моих
-        инструментах такого Safari нет. */}
+        Чего добиться не удалось: на последней записи полоса всё ещё
+        двоится -- видно её и наверху, и на своём месте в потоке
+        одновременно. Это уже не раскладка и не анимация, а отрисовка
+        Safari на iOS. Попытка помочь ему отдельным слоем (translateZ +
+        will-change) убрана: на sticky-элементе она в iOS сама по себе
+        бывает источником таких призраков, а проверить я это не могу --
+        живого iPhone у меня нет.
+
+        Поэтому на телефоне блок с контекстом снова не показывается
+        вовсе: полоса стоит неподвижно, кнопка во всю ширину, ничего не
+        перестраивается -- призраку нечего копировать. На широком экране
+        всё остаётся: контекст, плавное сжатие, ссылка и ховер. */}
     {/* Метка, по которой строка понимает, что прилипла -- см. эффект
         выше. Нулевой высоты, ничего не рисует; весь верхний отступ
         переехал сюда со строки, чтобы в обычном состоянии их верхние
@@ -760,7 +763,7 @@ export function PostViewerMenu({
     <div ref={setSentinelEl} aria-hidden="true" className="mt-4 h-0" />
     <div
       ref={setRowEl}
-      className="sticky top-[var(--site-nav-h,64px)] z-40 -mx-4 flex items-center gap-2 bg-app px-4 pb-2 pt-3 [transform:translateZ(0)] [will-change:transform] dark:bg-black sm:bg-app/90 sm:backdrop-blur-xl dark:sm:bg-black/90"
+      className="sticky top-[var(--site-nav-h,64px)] z-40 -mx-4 flex items-center gap-2 bg-app px-4 pb-2 pt-3 dark:bg-black sm:bg-app/90 sm:backdrop-blur-xl dark:sm:bg-black/90"
     >
       {/* Контекст поста: аватарка, заголовок и автор. В обычном
           положении его не видно вовсе (max-width 0), в прилипшем он
@@ -831,10 +834,8 @@ export function PostViewerMenu({
         // нет. На широком экране остаётся плавное сжатие -- там ширина и
         // прозрачность идут вместе, пустоты не возникает.
         const shared =
-          "group/ctx flex min-w-0 items-center gap-2 overflow-hidden rounded-xl transition-none sm:transition-all sm:duration-200 sm:ease-out motion-reduce:transition-none " +
-          (stuck
-            ? "max-w-[42%] opacity-100 sm:max-w-[340px]"
-            : "pointer-events-none max-w-0 opacity-0");
+          "group/ctx hidden min-w-0 items-center gap-2 overflow-hidden rounded-xl sm:flex sm:transition-all sm:duration-200 sm:ease-out motion-reduce:transition-none " +
+          (stuck ? "sm:max-w-[340px] sm:opacity-100" : "pointer-events-none sm:max-w-0 sm:opacity-0");
 
         if (!authorUsername) {
           return (
@@ -864,8 +865,8 @@ export function PostViewerMenu({
         aria-label={chatErrored ? STRINGS.actionFailed[lang] : authorUnclaimed ? STRINGS.apply[lang] : STRINGS.message[lang]}
         className={
           chatErrored
-            ? "group flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-red-600 px-2.5 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-default disabled:opacity-60 sm:px-4"
-            : "group flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full border border-neutral-200 bg-white px-2.5 py-2 text-sm font-medium text-accent transition hover:bg-accent/5 disabled:cursor-default disabled:opacity-60 dark:border-neutral-700 dark:bg-neutral-900 sm:px-4"
+            ? "group flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-default disabled:opacity-60"
+            : "group flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-accent transition hover:bg-accent/5 disabled:cursor-default disabled:opacity-60 dark:border-neutral-700 dark:bg-neutral-900"
         }
       >
         <MessageIcon />
