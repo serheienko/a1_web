@@ -7,6 +7,8 @@ import { SiteNav } from "@/components/site-nav";
 import { CreatePostFab } from "@/components/create-post-fab";
 import { ChatsFab } from "@/components/chats-fab";
 import { VoiceNowPlayingBar } from "@/components/chat/voice-now-playing-bar";
+// Только имя куки, без next/headers -- см. комментарий в самом файле.
+import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
 
 // Commissioner: the real typeface used in the Figma mockups (confirmed via
 // Inspect on "Feed Preview White", 2026-08-26), not a generic system stack.
@@ -121,6 +123,38 @@ const LANG_INIT_SCRIPT = `
 })();
 `;
 
+// 2026-09-13 (Александр, два скриншота перезагрузки jobs.a1appp.com:
+// "При перезагрузке страницы справа показывается кнопка «увійти», как
+// будто я вышел из акка, но я не выходил. Надо это пофиксить").
+//
+// Причина: components/avatar-menu.tsx стартует с email = null, то есть
+// "не вошёл", и узнаёт правду только в useEffect ПОСЛЕ гидрации --
+// собственный комментарий того файла честно называл это "accepted
+// brief-flash tradeoff". Пока страница грузится медленно (а на
+// скриншотах лента ещё вся в серых заглушках), эта "вспышка" висит
+// секундами и читается как "меня разлогинило".
+//
+// Чинится тем же приёмом, что THEME_INIT_SCRIPT и LANG_INIT_SCRIPT выше:
+// beforeInteractive-скрипт ставит класс на <html> ДО первой отрисовки.
+// Читаем ровно ту же нехитрую куку с e-mail (DISPLAY_COOKIE, не
+// httpOnly), которую avatar-menu.tsx и так читает у себя -- настоящая
+// сессионная кука остаётся httpOnly и тут не нужна. Сервер по-прежнему
+// ничего не читает, значит ISR (app/page.tsx, app/talents/page.tsx) не
+// ломается -- ровно то ограничение, которое описано в viewport ниже.
+//
+// Дальше классом распоряжается CSS в app/globals.css: пока он стоит,
+// кнопка "Увійти" спрятана, а на её месте -- кружок-заглушка размером
+// с аватар. Как только React разобрался сам, класс снимается
+// (avatar-menu.tsx), и дальше всё как обычно.
+const SESSION_INIT_SCRIPT = `
+(function () {
+  try {
+    var m = document.cookie.match(/(?:^|; )${DISPLAY_COOKIE}=([^;]*)/);
+    if (m && m[1]) document.documentElement.classList.add("has-session");
+  } catch (e) {}
+})();
+`;
+
 export const metadata: Metadata = {
   // Absolute base for every relative URL in metadata across the app —
   // notably the file-convention opengraph-image.tsx/twitter-image
@@ -171,6 +205,7 @@ export default function RootLayout({
       <body className="bg-app font-sans text-ink dark:bg-black dark:text-neutral-100">
         <Script id="theme-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <Script id="lang-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: LANG_INIT_SCRIPT }} />
+        <Script id="session-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: SESSION_INIT_SCRIPT }} />
         <SiteNav />
         {/* 2026-09-03: cross-page voice-message "now playing" mini-bar --
             mounted globally for the same reason ChatsFab/CreatePostFab

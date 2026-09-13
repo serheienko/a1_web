@@ -388,7 +388,14 @@ export function AvatarMenu() {
     if (active) setLang(active);
     setTheme(root.classList.contains("dark") ? "dark" : root.classList.contains("light") ? "light" : "auto");
     setIsGeoUa(root.classList.contains("geo-ua"));
-    setEmail(readDisplayCookie());
+    const cookieEmail = readDisplayCookie();
+    setEmail(cookieEmail);
+    // С этого момента настоящее состояние знает React, а не кука: класс
+    // has-session (app/layout.tsx) свою работу отработал -- он лишь не
+    // давал мигнуть кнопкой "Увійти" до гидрации. Снимаем его, иначе у
+    // человека с протухшей сессией (ниже, ответ 401) кнопка входа
+    // осталась бы спрятанной навсегда.
+    if (!cookieEmail) root.classList.remove("has-session");
   }, []);
 
   // Resolve a "View profile" target once we know the visitor is signed
@@ -427,6 +434,8 @@ export function AvatarMenu() {
         // 401 and leaving the stale identity on screen.
         if (cancelled) return null;
         if (r.status === 401) {
+          // Сессии больше нет -- кнопку входа надо показать.
+          document.documentElement.classList.remove("has-session");
           setEmail(null);
           setProfileUsername(null);
           setProfileAvatarUrl(null);
@@ -499,7 +508,21 @@ export function AvatarMenu() {
   // never fires) still just navigates through the Link as before.
   if (!email) {
     return (
-      <div className="flex items-center gap-1">
+      <>
+        {/* 2026-09-13 (Александр: "При перезагрузке страницы справа
+            показывается кнопка «увійти», как будто я вышел из акка, но
+            я не выходил"). Пока React не прочитал куку, он всегда рисует
+            именно эту ветку -- и на медленной загрузке "Увійти" висит
+            секундами. Класс has-session ставится ещё до первой
+            отрисовки (app/layout.tsx), и до тех пор, пока он стоит,
+            CSS в app/globals.css прячет кнопку и показывает вот этот
+            кружок размером с аватар. Снимаем класс ниже, в эффекте,
+            когда состояние уже настоящее. */}
+        <div
+          className="a1-nav-session-placeholder h-9 w-9 shrink-0 animate-pulse rounded-full bg-neutral-200 dark:bg-neutral-800"
+          aria-hidden="true"
+        />
+      <div className="a1-nav-signed-out flex items-center gap-1">
         <div className="relative shrink-0 cursor-pointer" ref={wrapperRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
           <Link
             href="/sign-in"
@@ -563,6 +586,7 @@ export function AvatarMenu() {
         </div>
         <SettingsMenu />
       </div>
+      </>
     );
   }
 
