@@ -45,8 +45,31 @@ export function slugUsername(name: string): string | null {
   s = [...s].map((ch) => TRANSLIT[ch] ?? ch).join("");
   s = s.replace(/[\u0300-\u036f]/g, "");
   s = s.replace(/[^a-z0-9]+/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "");
-  s = s.slice(0, USERNAME_MAX).replace(/_+$/, "");
+  s = cutToLimit(s);
   return s.length >= USERNAME_MIN ? s : null;
+}
+
+/**
+ * Trim to the length limit on a word boundary rather than mid-word --
+ * "7 Корпус Швидкого Реагування ДШВ" otherwise ends in a stranded "_d",
+ * which is valid but reads like a typo. A name with no underscore to cut
+ * back to, or one where cutting back would leave almost nothing, keeps
+ * the plain hard slice.
+ */
+function cutToLimit(s: string): string {
+  if (s.length <= USERNAME_MAX) return s.replace(/_+$/, "");
+
+  let cut = s.slice(0, USERNAME_MAX);
+
+  // A "_" exactly at the limit means the slice already landed on a word
+  // boundary and there is nothing to cut back.
+  if (s[USERNAME_MAX] !== "_" && cut.includes("_")) {
+    const trimmed = cut.slice(0, cut.lastIndexOf("_"));
+
+    if (trimmed.length >= 8) cut = trimmed;
+  }
+
+  return cut.replace(/_+$/, "");
 }
 
 /** The first free username for this name, or null to let the backend do
