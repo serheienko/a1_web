@@ -18,10 +18,17 @@
 // своего окна, а не страницей, так что кнопка ничего бы не делала).
 // Ровно тот же список исключений, что у components/chats-fab.tsx.
 //
-// Позиция: третьей в той же колонке, что "+" (56px) и кнопка чатов
-// (48px) -- см. их собственные комментарии про отступы. Считаем ту же
-// сумму: нижний отступ страницы + высоты обеих кнопок + два зазора по
-// 12px + безопасная зона снизу.
+// Позиция: СЛЕВА от "+", на той же линии, а не третьей в колонке.
+// 2026-09-13, сразу после первой версии (Александр, скриншот
+// раскрытого окна чатов поверх колонки кнопок): "Стрелку надо левее от
+// кнопки (+), я говорил об этом, потому что если сверху -- ее
+// перекрывает модалка мини-чатов". Так и есть: список чатов
+// (components/chats-flyout.tsx) раскрывается вверх от кнопки чатов и
+// накрывает собой всё, что стоит над ней.
+//
+// Считаем от правого края: отступ страницы 1.25rem + ширина "+" (56px)
+// + зазор 12px. По высоте центрируем против "+": он 56px, эта кнопка
+// 48px, значит её собственный нижний отступ на 4px больше.
 "use client";
 
 import { useEffect, useState } from "react";
@@ -90,10 +97,13 @@ export function ScrollTopFab() {
       title={STRINGS[lang]}
       aria-hidden={!shown}
       tabIndex={shown ? undefined : -1}
-      className={`group fixed right-5 z-40 flex h-12 w-12 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-700 shadow-lg transition duration-200 hover:bg-neutral-50 active:scale-95 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800 ${
-        shown ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-2 opacity-0"
+      className={`group fixed z-40 flex h-12 w-12 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-700 shadow-lg transition duration-200 hover:bg-neutral-50 active:scale-95 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800 ${
+        shown ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-2 opacity-0"
       }`}
-      style={{ bottom: "calc(1.25rem + 56px + 12px + 48px + 12px + env(safe-area-inset-bottom))" }}
+      style={{
+        right: "calc(1.25rem + 56px + 12px)",
+        bottom: "calc(1.25rem + 4px + env(safe-area-inset-bottom))",
+      }}
     >
       <ArrowUpIcon />
     </button>
