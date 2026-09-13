@@ -819,8 +819,19 @@ export function PostViewerMenu({
         // блок просто проявляется, кнопка сразу становится нужной
         // ширины. На широком экране (sm и выше) остаётся прежнее плавное
         // сжатие -- там оно не дёргается, и Александр просил именно его.
+        // 2026-09-13, и вот теперь причина «пустого места вместо кнопок»
+        // видна на кадре (Александр, третья запись): ширина у блока
+        // менялась МГНОВЕННО, а прозрачность -- за 200 мс. Все эти 200
+        // мс место под контекст уже занято, а самого контекста ещё не
+        // видно: кнопка стоит сжатая, слева от неё пустота. Именно это и
+        // попадало в записи.
+        //
+        // На телефоне убираю переход совсем: место и содержимое
+        // появляются одним движением, промежуточного состояния больше
+        // нет. На широком экране остаётся плавное сжатие -- там ширина и
+        // прозрачность идут вместе, пустоты не возникает.
         const shared =
-          "group/ctx flex min-w-0 items-center gap-2 overflow-hidden rounded-xl transition-opacity duration-200 ease-out sm:transition-all motion-reduce:transition-none " +
+          "group/ctx flex min-w-0 items-center gap-2 overflow-hidden rounded-xl transition-none sm:transition-all sm:duration-200 sm:ease-out motion-reduce:transition-none " +
           (stuck
             ? "max-w-[42%] opacity-100 sm:max-w-[340px]"
             : "pointer-events-none max-w-0 opacity-0");
