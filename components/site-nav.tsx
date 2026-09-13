@@ -220,7 +220,16 @@ export function SiteNav() {
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <div
             className={
-              "pointer-events-auto flex items-center gap-1 rounded-full p-1 " +
+              // 2026-09-13 (Александр, увеличенный скриншот шапки: «Ток
+              // выровня аватар по высоте с кнопкой»). Высота пилюли
+              // раньше складывалась сама собой -- из отступов и высоты
+              // строки текста, -- и с учётом рамки выходила 46 против
+              // 44 у аватара. Плюс на iPhone человек нередко смотрит с
+              // увеличением страницы, а там дробные полпикселя
+              // округляются в разные стороны, и расхождение становится
+              // заметным. Теперь высота задана явно -- ровно 44, как у
+              // аватара, -- и совпадать они будут при любом масштабе.
+              "pointer-events-auto flex h-11 items-center gap-1 rounded-full p-1 " +
               GLASS +
               " sm:border-0 sm:bg-white sm:shadow-none sm:backdrop-blur-none sm:backdrop-saturate-100 sm:dark:border-0 sm:dark:bg-neutral-900 sm:dark:shadow-none"
             }
