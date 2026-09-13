@@ -6,6 +6,7 @@ import "./globals.css";
 import { SiteNav } from "@/components/site-nav";
 import { CreatePostFab } from "@/components/create-post-fab";
 import { ChatsFab } from "@/components/chats-fab";
+import { ScrollTopFab } from "@/components/scroll-top-fab";
 import { VoiceNowPlayingBar } from "@/components/chat/voice-now-playing-bar";
 // Только имя куки, без next/headers -- см. комментарий в самом файле.
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
@@ -227,6 +228,7 @@ export default function RootLayout({
             components/chats-fab.tsx's own comment for the exact offset
             math and why it hides on /chats itself. */}
         <ChatsFab />
+        <ScrollTopFab />
         <CreatePostFab />
         <Analytics />
       </body>
