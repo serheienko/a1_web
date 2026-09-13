@@ -29,6 +29,11 @@ import { T, type Locale } from "@/components/t";
 import type { Contact } from "@/lib/a1/schemas";
 import { authFetch } from "@/lib/auth-fetch";
 import { SearchIcon } from "@/components/search-icon";
+// 2026-09-13 (Александр, скриншот "Новий чат" с запросом "serheienko" и
+// ответом "Нічого не знайдено": "Еще надо, чтобы кнопка новый чат еще
+// искала контакты по глобалу"). Тот же общий поиск людей, что уже стоит
+// в шапке сайта, во всплывающих чатах и в окне "поделиться".
+import type { UserSearchHit } from "@/app/api/users/search/route";
 
 type LoadState = "loading" | "signed-out" | "error" | "ready";
 
@@ -66,6 +71,16 @@ const NO_RESULTS_STRINGS: Record<Locale, string> = {
   pl: "Nie znaleziono wyników", ptBR: "Nenhum resultado encontrado", zh: "未找到结果",
 };
 
+const CONTACTS_HEADING_STRINGS: Record<Locale, string> = {
+  uk: "Контакти", en: "Contacts", ru: "Контакты", de: "Kontakte", es: "Contactos",
+  fr: "Contacts", pl: "Kontakty", ptBR: "Contatos", zh: "联系人",
+};
+
+const PEOPLE_HEADING_STRINGS: Record<Locale, string> = {
+  uk: "Люди на A1", en: "People on A1", ru: "Люди на A1", de: "Leute auf A1", es: "Personas en A1",
+  fr: "Personnes sur A1", pl: "Osoby na A1", ptBR: "Pessoas no A1", zh: "A1 上的用户",
+};
+
 const LOAD_FAILED_STRINGS: Record<Locale, string> = {
   uk: "Не вдалося завантажити контакти", en: "Couldn't load contacts", ru: "Не удалось загрузить контакты",
   de: "Kontakte konnten nicht geladen werden", es: "No se pudieron cargar los contactos",
@@ -95,6 +110,10 @@ export function NewChatPickerModal({ lang, onClose }: { lang: Locale; onClose: (
   const [state, setState] = useState<LoadState>("loading");
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactUsers, setContactUsers] = useState<Record<string, ContactUserSummary>>({});
+  // Общий поиск по всем людям A1, а не только по своей книге контактов:
+  // раньше человека, которого нет у тебя в контактах, отсюда было не
+  // достать вовсе -- ровно случай со скриншота.
+  const [globalPeople, setGlobalPeople] = useState<UserSearchHit[]>([]);
   const [openingChatFor, setOpeningChatFor] = useState<string | null>(null);
   const [chatErrorFor, setChatErrorFor] = useState<string | null>(null);
 
@@ -140,6 +159,48 @@ export function NewChatPickerModal({ lang, onClose }: { lang: Locale; onClose: (
         return name.includes(trimmedQuery) || phone.includes(trimmedQuery);
       })
     : linkedContacts;
+
+  // Тот же запрос и та же задержка в 300 мс, что в components/chats-
+  // flyout.tsx: меньше двух символов не ищем, чтобы не дёргать сервер на
+  // каждую букву. Обычный fetch, а не authFetch -- маршрут отвечает и
+  // тем, кто не вошёл (он ходит на бэкенд под служебным аккаунтом).
+  useEffect(() => {
+    const q = query.trim().replace(/^@+/, "");
+    if (q.length < 2) {
+      setGlobalPeople([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      fetch(`/api/users/search?q=${encodeURIComponent(q)}`)
+        .then((res) => res.json())
+        .then((data: { ok?: boolean; users?: UserSearchHit[] }) => {
+          if (!cancelled && data?.ok) setGlobalPeople(data.users ?? []);
+        })
+        .catch(() => {
+          if (!cancelled) setGlobalPeople([]);
+        });
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [query]);
+
+  // Тех, кто уже показан выше как контакт, из общего списка убираем:
+  // одна и та же строка дважды выглядит как ошибка. Сверяем и по
+  // идентификатору, и по нику -- контакт может быть записан под своим
+  // именем из телефонной книги.
+  const shownUserIds = new Set(filteredContacts.map((c) => c.user).filter(Boolean) as string[]);
+  const shownUsernames = new Set(
+    filteredContacts
+      .map((c) => (c.user ? contactUsers[c.user]?.username : null))
+      .filter(Boolean)
+      .map((u) => (u as string).toLowerCase()),
+  );
+  const otherPeople = globalPeople.filter(
+    (u) => !shownUserIds.has(u.userId) && !(u.username && shownUsernames.has(u.username.toLowerCase())),
+  );
 
   async function openChat(userId: string, title: string, avatarUrl: string | null, username: string | null) {
     if (openingChatFor) return;
@@ -216,16 +277,24 @@ export function NewChatPickerModal({ lang, onClose }: { lang: Locale; onClose: (
 
           {state === "signed-out" && <p className="py-6 text-center text-[13px] text-neutral-500 dark:text-neutral-400">{LOAD_FAILED_STRINGS[lang]}</p>}
 
-          {state === "ready" && linkedContacts.length === 0 && (
+          {/* Пустые надписи учитывают и найденных «по глобалу»: раньше
+              тут было «Нічого не знайдено» даже тогда, когда человек в
+              A1 есть -- просто он не записан в книге контактов. */}
+          {state === "ready" && linkedContacts.length === 0 && otherPeople.length === 0 && !trimmedQuery && (
             <p className="py-6 text-center text-[13px] text-neutral-500 dark:text-neutral-400">{NO_LINKED_CONTACTS_STRINGS[lang]}</p>
           )}
 
-          {state === "ready" && linkedContacts.length > 0 && filteredContacts.length === 0 && (
+          {state === "ready" && trimmedQuery && filteredContacts.length === 0 && otherPeople.length === 0 && (
             <p className="py-6 text-center text-[13px] text-neutral-500 dark:text-neutral-400">{NO_RESULTS_STRINGS[lang]}</p>
           )}
 
           {state === "ready" && filteredContacts.length > 0 && (
             <div className="flex flex-col gap-0.5">
+              {otherPeople.length > 0 && (
+                <div className="px-2 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+                  {CONTACTS_HEADING_STRINGS[lang]}
+                </div>
+              )}
               {filteredContacts.map((contact) => {
                 const linkedUser = contact.user ? contactUsers[contact.user] : undefined;
                 const avatarSrc = linkedUser?.avatarUrl ?? pickDefaultCatAvatar(contact._id);
@@ -260,6 +329,49 @@ export function NewChatPickerModal({ lang, onClose }: { lang: Locale; onClose: (
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-[14px] font-medium text-neutral-900 dark:text-neutral-50">{name}</div>
                       {contact.phone && <div className="truncate text-[12px] text-neutral-500 dark:text-neutral-400">{contact.phone}</div>}
+                    </div>
+                    {isOpeningThisChat && (
+                      <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 shrink-0 animate-spin text-neutral-400" aria-hidden="true">
+                        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeOpacity="0.3" />
+                        <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+                      </svg>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Люди из общего поиска. Чата с ними может ещё не быть --
+              /api/chats/open заводит его сам по идентификатору
+              пользователя, ровно как для контакта выше. */}
+          {otherPeople.length > 0 && (
+            <div className="flex flex-col gap-0.5 pt-1">
+              <div className="px-2 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+                {PEOPLE_HEADING_STRINGS[lang]}
+              </div>
+              {otherPeople.map((user) => {
+                const isOpeningThisChat = openingChatFor === user.userId;
+                const chatErrored = chatErrorFor === user.userId;
+                return (
+                  <button
+                    type="button"
+                    key={user.userId}
+                    disabled={isOpeningThisChat}
+                    onClick={() => void openChat(user.userId, user.fullName, user.avatarUrl, user.username)}
+                    className={`flex items-center gap-3 rounded-xl px-2 py-1.5 text-left transition disabled:opacity-60 ${
+                      chatErrored ? "bg-red-50 dark:bg-red-950/30" : "hover:bg-neutral-50 dark:hover:bg-neutral-800"
+                    }`}
+                  >
+                    <CachedAvatar
+                      src={user.avatarUrl ?? pickDefaultCatAvatar(user.userId)}
+                      blurDataURL={user.avatarBlurDataUrl ?? BLUR_DATA_URL}
+                      size={40}
+                      className="h-10 w-10 shrink-0 rounded-full object-cover"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[14px] font-medium text-neutral-900 dark:text-neutral-50">{user.fullName}</div>
+                      {user.username && <div className="truncate text-[12px] text-neutral-500 dark:text-neutral-400">@{user.username}</div>}
                     </div>
                     {isOpeningThisChat && (
                       <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 shrink-0 animate-spin text-neutral-400" aria-hidden="true">
