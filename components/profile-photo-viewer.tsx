@@ -33,13 +33,44 @@
 //    THOSE avatars have no voice-intro conflict of their own and can
 //    freely use a plain left-click Link straight into this page with
 //    the param already set.
+//
+// 2026-09-13 (Aleksandr, screen recording on Solidgate's profile:
+// "Сделай подгрузку аватарки в профиле через блюр тоже, чтобы не было
+// пустоты") -- opening this viewer used to paint NOTHING for as long as
+// the full-size photo took to come back: the <img> below is the only
+// child of the backdrop, and an <img> that hasn't decoded yet has no
+// intrinsic size at all, so `max-h-full max-w-full object-contain`
+// collapsed it to a 0x0 box and left the dark overlay visibly empty for
+// a beat. (The small avatar on the page underneath is NOT a free
+// warm-up here: components/cached-avatar.tsx renders it from a blob:
+// URL out of lib/avatar-image-cache.ts, while this lightbox loads the
+// /api/media proxy URL itself, whose own Cache-Control window is 45s --
+// see that route's header.) Fixed the same way every other photo
+// surface in this app already handles it (lib/blur-placeholder.ts's own
+// header, components/chat/blurred-photo.tsx): the profile's real 16x16
+// blur data URL -- already computed server-side for the small avatar by
+// lib/avatar-blur.ts, so it costs this page nothing extra -- is shown
+// blown up and blurred, holding the box at a sensible size, and the
+// real photo cross-fades in over it once decoded.
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useVoiceIntro } from "@/components/voice-intro-context";
 
-export function ProfilePhotoViewer({ photoUrl, children }: { photoUrl: string; children: ReactNode }) {
+export function ProfilePhotoViewer({
+  photoUrl,
+  blurDataUrl,
+  children,
+}: {
+  photoUrl: string;
+  // The same per-photo 16x16 JPEG placeholder (lib/avatar-blur.ts)
+  // the small avatar on this page is already given. Optional: a
+  // caller without one falls back to a neutral pulsing box, which is
+  // still a box rather than nothing.
+  blurDataUrl?: string | null;
+  children: ReactNode;
+}) {
   const searchParams = useSearchParams();
   // null whenever THIS profile has no recorded voice intro (see header
   // comment, entry point 1) -- that's when left-click is free to open
@@ -48,6 +79,12 @@ export function ProfilePhotoViewer({ photoUrl, children }: { photoUrl: string; c
   const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  // Whether the full-size photo has decoded. Reset on every close so
+  // a reopen after the browser dropped the image again (45s proxy
+  // cache, see header) shows the placeholder once more instead of an
+  // empty box -- when it is still cached, onLoad fires synchronously
+  // enough that the placeholder is never perceived.
+  const [loaded, setLoaded] = useState(false);
 
   // Auto-open once on arrival when the link that brought us here asked
   // for it (see this file's own header, entry point 2).
@@ -57,6 +94,7 @@ export function ProfilePhotoViewer({ photoUrl, children }: { photoUrl: string; c
 
   function close() {
     setOpen(false);
+    setLoaded(false);
     // Drop ?photo=1 so a reload/back button doesn't reopen the viewer
     // out of nowhere -- this page's other query-free URL is the real
     // "at rest" state.
@@ -113,6 +151,35 @@ export function ProfilePhotoViewer({ photoUrl, children }: { photoUrl: string; c
               <path d="M6 6l12 12M18 6L6 18" />
             </svg>
           </button>
+          {/* Deliberately a SIBLING of the <img> below rather than a
+              wrapper around it: `max-h-full` on the photo resolves
+              against this backdrop's own definite height (it is
+              `fixed inset-0`), and an intermediate auto-height box
+              would break that percentage and let a tall photo overflow
+              the viewport. The placeholder simply takes the flex slot
+              while the photo has no size of its own, then gets out of
+              the way. A square is the right guess for it: this viewer
+              only ever shows a profile avatar, and those are stored
+              already cropped square. `overflow-hidden` keeps the blur
+              inside the rounded corners, and the inner `scale-110`
+              hides the soft, half-transparent edge a CSS blur always
+              leaves behind. */}
+          {!loaded && (
+            <div
+              aria-hidden
+              onClick={(e) => e.stopPropagation()}
+              className="h-[min(85vw,80vh)] w-[min(85vw,80vh)] shrink-0 overflow-hidden rounded-2xl bg-white/5"
+            >
+              {blurDataUrl ? (
+                <div
+                  className="h-full w-full scale-110 bg-cover bg-center"
+                  style={{ backgroundImage: `url(${blurDataUrl})`, filter: "blur(24px)" }}
+                />
+              ) : (
+                <div className="h-full w-full animate-pulse bg-white/10" />
+              )}
+            </div>
+          )}
           {/* eslint-disable-next-line @next/next/no-img-element -- a
               full-res lightbox render, not a thumbnail; next/image's
               fixed-layout sizing fights the "shrink to fit viewport,
@@ -120,7 +187,25 @@ export function ProfilePhotoViewer({ photoUrl, children }: { photoUrl: string; c
           <img
             src={photoUrl}
             alt=""
-            className="max-h-full max-w-full rounded-2xl object-contain"
+            onLoad={() => setLoaded(true)}
+            // A photo that fails outright would otherwise pin the
+            // placeholder on screen forever; better to fall back to the
+            // browser's own empty <img>, exactly as before this.
+            onError={() => setLoaded(true)}
+            // Parked in a 1px invisible corner rather than `hidden`
+            // while it loads -- a display:none image is still fetched,
+            // but this keeps that off the list of things to be sure
+            // about. No cross-fade between the two on purpose: the
+            // blurred stand-in is replaced by the sharp photo in one
+            // frame, the same way components/chat/blurred-photo.tsx
+            // swaps its own placeholder out; fading them over each
+            // other would show the dark backdrop through both for a
+            // moment -- the very emptiness this is here to remove.
+            className={
+              loaded
+                ? "max-h-full max-w-full rounded-2xl object-contain"
+                : "pointer-events-none absolute h-px w-px opacity-0"
+            }
             onClick={(e) => e.stopPropagation()}
           />
         </div>

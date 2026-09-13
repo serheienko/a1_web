@@ -427,7 +427,7 @@ export default async function ProfilePage({ params }: Props) {
               enlarge. */}
           {profile.avatarUrl ? (
             <Suspense fallback={null}>
-              <ProfilePhotoViewer photoUrl={profile.avatarUrl}>
+              <ProfilePhotoViewer photoUrl={profile.avatarUrl} blurDataUrl={avatarBlurDataUrl}>
                 <VoiceIntroRing>
                   {/* 2026-09-05 (Aleksandr: "Еще сделай кеширование постов,
                       если они раньше открывались") -- same persistent Cache
