@@ -315,11 +315,6 @@ function SharePostIcon() {
   );
 }
 
-// Сколько длится затухание полосы на телефоне. Достаточно, чтобы глаз
-// не увидел перестройку, и достаточно мало, чтобы не ощущалось как
-// подтормаживание.
-const FADE_MS = 130;
-
 export function PostViewerMenu({
   postId,
   authorUserId,
@@ -407,37 +402,6 @@ export function PostViewerMenu({
       window.removeEventListener("resize", onScroll);
     };
   }, [rowEl, sentinelEl]);
-
-  // 2026-09-13 (Александр, после того как я убрал контекст с телефона:
-  // «Так может на телефоне просто анимацию поменяешь? Типа можно
-  // показывать всё через затухание и появление?»). Так и сделано, и это
-  // решает ровно ту проблему, из-за которой контекст пришлось убирать.
-  //
-  // Напомню её: «прилипла ли» считает JS по событиям прокрутки, а iOS
-  // во время инерционной прокрутки присылает их с опозданием. Догнать
-  // сигнал нельзя. Но можно сделать так, чтобы опоздание не бросалось в
-  // глаза: перестройка полосы не должна происходить у человека на
-  // глазах.
-  //
-  // Поэтому раскладкой управляет не stuck, а shownStuck, и меняется он
-  // не сразу: сначала полоса гаснет, уже невидимой меняет раскладку,
-  // потом появляется обратно. Запоздавший сигнал превращается в чуть
-  // запоздавшее затухание -- это читается как задумка, а не как рывок.
-  //
-  // На широком экране затухания нет (см. классы ниже): там сигнал
-  // приходит кадр в кадр, и плавное сжатие кнопки выглядит лучше.
-  const [shownStuck, setShownStuck] = useState(false);
-  const [fading, setFading] = useState(false);
-
-  useEffect(() => {
-    if (stuck === shownStuck) return;
-    setFading(true);
-    const timer = window.setTimeout(() => {
-      setShownStuck(stuck);
-      setFading(false);
-    }, FADE_MS);
-    return () => window.clearTimeout(timer);
-  }, [stuck, shownStuck]);
   // 2026-09-02: was a single `visible` boolean gated on "signed in AND
   // viewing someone else's post" -- now a state machine so a signed-out
   // visitor still sees the row (per Aleksandr's request, same treatment
@@ -783,18 +747,6 @@ export function PostViewerMenu({
       ref={setRowEl}
       className="sticky top-[var(--site-nav-h,64px)] z-40 -mx-4 flex items-center gap-2 bg-app px-4 pb-2 pt-3 dark:bg-black sm:bg-app/90 sm:backdrop-blur-xl dark:sm:bg-black/90"
     >
-      {/* Обёртка, которая гаснет на время перестройки. Именно под ней
-          происходит смена раскладки: пока она прозрачная, человек не
-          видит, как блок с контекстом появляется, а кнопка меняет
-          ширину. На широком экране затухания нет -- sm:opacity-100
-          держит её видимой всегда, там раскладка меняется плавным
-          сжатием и прятать нечего. */}
-      <div
-        className={
-          "flex w-full items-center gap-2 transition-opacity duration-150 ease-out motion-reduce:transition-none " +
-          (fading ? "opacity-0 sm:opacity-100" : "opacity-100")
-        }
-      >
       {/* Контекст поста: аватарка, заголовок и автор. В обычном
           положении его не видно вовсе (max-width 0), в прилипшем он
           раскрывается, и кнопка «Відгукнутися» ужимается сама -- она
@@ -861,14 +813,9 @@ export function PostViewerMenu({
         // На телефоне полоса снова такая, какой была до всей этой
         // истории: кнопка во всю ширину и «···». Ничего не меняется на
         // ходу -- дёргаться нечему. На широком экране всё как было.
-        // Ширина здесь меняется БЕЗ анимации на телефоне -- она и не
-        // нужна: в этот момент вся полоса прозрачна (см. fading выше).
-        // На широком экране, наоборот, остаётся плавное сжатие.
         const shared =
-          "group/ctx flex min-w-0 items-center gap-2 overflow-hidden rounded-xl sm:transition-all sm:duration-200 sm:ease-out motion-reduce:transition-none " +
-          (shownStuck
-            ? "max-w-[42%] opacity-100 sm:max-w-[340px]"
-            : "pointer-events-none max-w-0 opacity-0");
+          "group/ctx hidden min-w-0 items-center gap-2 overflow-hidden rounded-xl sm:flex sm:transition-all sm:duration-200 sm:ease-out motion-reduce:transition-none " +
+          (stuck ? "sm:max-w-[340px] sm:opacity-100" : "pointer-events-none sm:max-w-0 sm:opacity-0");
 
         if (!authorUsername) {
           return (
@@ -881,8 +828,8 @@ export function PostViewerMenu({
         return (
           <Link
             href={profileHref(authorUsername)}
-            aria-hidden={!shownStuck}
-            tabIndex={shownStuck ? undefined : -1}
+            aria-hidden={!stuck}
+            tabIndex={stuck ? undefined : -1}
             aria-label={authorName ?? shareTitle}
             className={shared + " cursor-pointer py-1 pl-1 pr-2 hover:bg-black/5 dark:hover:bg-white/10"}
           >
@@ -898,8 +845,8 @@ export function PostViewerMenu({
         aria-label={chatErrored ? STRINGS.actionFailed[lang] : authorUnclaimed ? STRINGS.apply[lang] : STRINGS.message[lang]}
         className={
           chatErrored
-            ? "group flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-red-600 px-2.5 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-default disabled:opacity-60 sm:px-4"
-            : "group flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full border border-neutral-200 bg-white px-2.5 py-2 text-sm font-medium text-accent transition hover:bg-accent/5 disabled:cursor-default disabled:opacity-60 dark:border-neutral-700 dark:bg-neutral-900 sm:px-4"
+            ? "group flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-default disabled:opacity-60"
+            : "group flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-accent transition hover:bg-accent/5 disabled:cursor-default disabled:opacity-60 dark:border-neutral-700 dark:bg-neutral-900"
         }
       >
         <MessageIcon />
@@ -999,7 +946,6 @@ export function PostViewerMenu({
             </div>
           </>
         )}
-      </div>
       </div>
     </div>
 
