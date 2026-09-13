@@ -162,20 +162,58 @@ async function fetchAccountPosts(account: TechnicalAccount): Promise<AdminAggreg
 
 export type AccountsPostsPage = {
   posts: AdminAggregatedPost[];
-  // Total number of technical accounts on file -- lets the caller know
-  // how many pages there are and show "loaded X/Y accounts" progress.
+  // How many accounts this listing covers -- every account on file, or
+  // just the ones a search narrowed it to. Lets the caller show
+  // "loaded X/Y accounts" progress against the right total.
   total: number;
+  // How many company names the query matched; null when there is no
+  // query. Zero means the search narrowed nothing and the caller should
+  // say "no such company" rather than show an empty list.
+  matchedAccounts: number | null;
   nextOffset: number | null;
   hasMore: boolean;
 };
 
-export async function fetchAccountsPostsPage(offset: number, limit: number): Promise<AccountsPostsPage> {
-  const cacheKey = `${offset}:${limit}`;
+// 2026-09-13 (Aleksandr: "а как нам ускорить поиск в админке?" — he typed a
+// company name into the admin search box while the panel had loaded 140 of
+// 525 accounts, and got "нічого не знайдено" for a company that is on file).
+// The box only ever filtered posts ALREADY fetched, so finding a company
+// meant waiting for the paging loop to crawl past it — for the last accounts
+// alphabetically, that is every one of the 525 logins.
+//
+// The list of companies, though, is sitting in the env var: matching a query
+// against NAMES costs nothing and needs no network at all. So a query first
+// narrows the accounts, and only the matching ones are fetched — one company
+// is one login instead of 525.
+//
+// Word-by-word on purpose: "horizon tech" should find "Horizon Tech", and
+// "tech horizon" (or a stray double space) should too. A query that matches
+// no company name narrows nothing and is reported as such, so the caller can
+// say so instead of showing a bare empty list.
+function normalizeForMatch(value: string): string {
+  return value.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function accountMatchesQuery(account: TechnicalAccount, words: string[]): boolean {
+  const haystack = `${normalizeForMatch(account.name)} ${normalizeForMatch(account.email)}`;
+  return words.every((word) => haystack.includes(word));
+}
+
+export async function fetchAccountsPostsPage(
+  offset: number,
+  limit: number,
+  query = "",
+): Promise<AccountsPostsPage> {
+  const words = normalizeForMatch(query).split(" ").filter(Boolean);
+  const cacheKey = `${offset}:${limit}:${words.join(" ")}`;
   const cached = pageCache.get(cacheKey);
   if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
     return cached.data;
   }
-  const accounts = loadTechnicalAccounts();
+  const allAccounts = loadTechnicalAccounts();
+  const accounts = words.length
+    ? allAccounts.filter((account) => accountMatchesQuery(account, words))
+    : allAccounts;
   const page = accounts.slice(offset, offset + limit);
   const results = await mapWithConcurrency(page, CONCURRENCY, fetchAccountPosts);
   const posts = results.flat().sort((a, b) => b.created - a.created);
@@ -183,6 +221,7 @@ export async function fetchAccountsPostsPage(offset: number, limit: number): Pro
   const data: AccountsPostsPage = {
     posts,
     total: accounts.length,
+    matchedAccounts: words.length ? accounts.length : null,
     nextOffset,
     hasMore: nextOffset !== null,
   };
