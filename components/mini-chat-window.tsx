@@ -120,7 +120,7 @@ import { TgsSticker } from "@/components/chat/tgs-sticker";
 import type { MediaDocument } from "@/lib/a1/schemas";
 import { CopyToast, type CopyToastState } from "@/components/chat/copy-toast";
 import { ChatCalculationCard } from "@/components/chat/calculation-card";
-import { ContactMessageCard } from "@/components/chat/contact-message-card";
+import { ContactMessageCard, type ContactCardSummary } from "@/components/chat/contact-message-card";
 import { ContactsPickerModal, type PickedContact } from "@/components/chat/contacts-picker-modal";
 import { CurrencyPickerModal } from "@/components/chat/currency-picker-modal";
 import { DailyUploadsModal } from "@/components/daily-uploads-modal";
@@ -469,6 +469,49 @@ export function MiniChatWindow({
   // PinnedMessageBanner/AllPinsModal components behave identically
   // here.
   const [pinnedMessages, setPinnedMessages] = useState<ChatMessage[]>([]);
+  // 2026-09-13 (Александр, скриншот одной и той же карточки контакта в
+  // мини-чате и в полном: "Поправь отображение контакта в мини-чате").
+  // Здесь она рисовалась с summary={null} -- то есть вообще без
+  // подтягивания профиля, -- и получалась куцей: кот вместо логотипа,
+  // без рода занятий и без ника. Полная страница чата
+  // (app/chats/[chatId]/page.tsx) для этого разом запрашивает
+  // /api/users/summaries; тот же запрос делается и тут.
+  const [contactSummaries, setContactSummaries] = useState<Record<string, ContactCardSummary>>({});
+  // «Уже спрашивали» вместо «уже знаем»: у удалённого аккаунта профиля
+  // нет и не будет, а сообщения перечитываются по опросу -- без этой
+  // отметки запрос уходил бы заново на каждый тик, вечно.
+  const askedContactIdsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const ids = new Set<string>();
+    for (const msg of messages) {
+      for (const c of messageContactMedia(msg)) {
+        if (!contactSummaries[c.userId] && !askedContactIdsRef.current.has(c.userId)) {
+          ids.add(c.userId);
+        }
+      }
+    }
+    if (ids.size === 0) return;
+    for (const id of ids) askedContactIdsRef.current.add(id);
+    let cancelled = false;
+    authFetch("/api/users/summaries", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ids: Array.from(ids) }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled || !data?.ok || !data.users) return;
+        setContactSummaries((prev) => ({ ...prev, ...data.users }));
+      })
+      .catch(() => {
+        // Не критично: карточка и без профиля рисуется -- просто имя.
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages]);
   const [activePinIndex, setActivePinIndex] = useState(0);
   const pinnedMessage = pinnedMessages[activePinIndex] ?? pinnedMessages[0] ?? null;
   const [displayedPinnedMessage, setDisplayedPinnedMessage] = useState<ChatMessage | null>(null);
@@ -2089,7 +2132,7 @@ export function MiniChatWindow({
                         firstName={c.firstName}
                         lastName={c.lastName}
                         phoneNumber={c.phoneNumber}
-                        summary={null}
+                        summary={contactSummaries[c.userId]}
                         mine={mine}
                         canAddContact={false}
                         onMessage={onNavigate}
