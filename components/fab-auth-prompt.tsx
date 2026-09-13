@@ -157,7 +157,13 @@ export function FabAuthPrompt({
     // Still well above ordinary page content for outside-click-to-
     // dismiss, and still below this popover's own card (z-[70] below,
     // unchanged -- only the backdrop needed to move).
-    <div className="animate-backdrop-in fixed inset-0 z-30" onClick={onClose}>
+    <>
+    {/* 2026-09-13: подложка и панель -- соседи, а не вложенные. Позиционированный
+        элемент с z-index заводит собственный контекст наложения, поэтому, лёжа
+        ВНУТРИ подложки z-30, панель со своим z-[70] оказывалась над страницей
+        всё равно на уровне 30 -- и кнопка ⋯ на странице вакансии (z-40) рисовалась
+        поверх неё. Та же правка, что в components/chats-flyout.tsx. */}
+    <div className="animate-backdrop-in fixed inset-0 z-30" onClick={onClose} />
       <div
         role="alertdialog"
         aria-modal="true"
@@ -210,7 +216,7 @@ export function FabAuthPrompt({
           aria-hidden="true"
         />
       </div>
-    </div>,
+    </>,
     document.body,
   );
 }
