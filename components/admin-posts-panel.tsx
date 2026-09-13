@@ -67,7 +67,7 @@ type AdminPost = EditablePost & {
 
 type StringKey =
   | "title" | "signedInAs" | "totalCount" | "loadingMore" | "searchPlaceholder"
-  | "empty" | "noMatches" | "loadError"
+  | "empty" | "noMatches" | "loadError" | "noCompanyMatch"
   | "jobs" | "talents"
   | "statusPublished" | "statusDraft" | "statusScheduled"
   | "edit" | "delete" | "confirmDelete" | "cancel" | "deleteFailed" | "noDescription";
@@ -91,6 +91,10 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   searchPlaceholder: { uk: "Пошук за назвою або текстом…", en: "Search by title or text…", ru: "Поиск по названию или тексту…", de: "Suche nach Titel oder Text…", es: "Buscar por título o texto…", fr: "Rechercher par titre ou texte…", pl: "Szukaj po tytule lub tekście…", ptBR: "Buscar por título ou texto…", zh: "按标题或内容搜索…" },
   empty: { uk: "Ще немає жодного допису", en: "No posts yet", ru: "Пока нет ни одной публикации", de: "Noch keine Beiträge", es: "Aún no hay publicaciones", fr: "Aucune publication pour le moment", pl: "Jeszcze nie ma żadnego posta", ptBR: "Ainda não há publicações", zh: "还没有帖子" },
   noMatches: { uk: "Нічого не знайдено", en: "Nothing found", ru: "Ничего не найдено", de: "Nichts gefunden", es: "No se encontró nada", fr: "Rien trouvé", pl: "Nic nie znaleziono", ptBR: "Nada encontrado", zh: "未找到任何内容" },
+  // 2026-09-13: shown when the search text matches no company name --
+  // the listing falls back to the ordinary one, and this says why,
+  // instead of leaving the user to guess from an empty list.
+  noCompanyMatch: { uk: "Компанії з такою назвою немає — шукаю серед завантажених дописів", en: "No company by that name — searching the posts loaded so far", ru: "Компании с таким названием нет — ищу среди загруженных публикаций", de: "Kein Unternehmen mit diesem Namen — es wird in den bereits geladenen Beiträgen gesucht", es: "No hay ninguna empresa con ese nombre: se busca en las publicaciones ya cargadas", fr: "Aucune entreprise de ce nom — recherche dans les publications déjà chargées", pl: "Nie ma firmy o takiej nazwie — szukam wśród wczytanych postów", ptBR: "Nenhuma empresa com esse nome — buscando nas publicações já carregadas", zh: "没有这个名称的公司 — 正在已加载的帖子中搜索" },
   loadError: { uk: "Не вдалося завантажити дописи", en: "Couldn't load posts", ru: "Не удалось загрузить публикации", de: "Beiträge konnten nicht geladen werden", es: "No se pudieron cargar las publicaciones", fr: "Impossible de charger les publications", pl: "Nie udało się załadować postów", ptBR: "Não foi possível carregar as publicações", zh: "无法加载帖子" },
   jobs: { uk: "Вакансія", en: "Job", ru: "Вакансия", de: "Job", es: "Empleo", fr: "Emploi", pl: "Praca", ptBR: "Vaga", zh: "职位" },
   talents: { uk: "Резюме", en: "Profile", ru: "Резюме", de: "Profil", es: "Perfil", fr: "Profil", pl: "Profil", ptBR: "Perfil", zh: "简历" },
@@ -148,19 +152,31 @@ function shortDescription(content: string): string {
 // header comment for why this is paginated at all.
 const ACCOUNT_PAGE_SIZE = 20;
 
-type PostsPage = { posts: AdminPost[]; total: number; nextOffset: number | null; hasMore: boolean };
+type PostsPage = {
+  posts: AdminPost[];
+  total: number;
+  // How many company names the query matched (null when no query) --
+  // see lib/a1/admin-post-aggregate.ts.
+  matchedAccounts: number | null;
+  nextOffset: number | null;
+  hasMore: boolean;
+};
 
 // Pure network call, no component state -- both load() and loadMore()
 // use this, and reloadAfterSave() loops over it directly without
 // waiting on React state between iterations (state updates aren't
 // visible to a function's own local loop, only to the next render).
-async function fetchPage(offset: number): Promise<PostsPage> {
-  const res = await authFetch(`/api/admin/all-posts?offset=${offset}&limit=${ACCOUNT_PAGE_SIZE}`);
+async function fetchPage(offset: number, query = ""): Promise<PostsPage> {
+  const res = await authFetch(
+    `/api/admin/all-posts?offset=${offset}&limit=${ACCOUNT_PAGE_SIZE}` +
+      (query ? `&q=${encodeURIComponent(query)}` : ""),
+  );
   const data = await res.json();
   if (!data.ok) throw new Error("not ok");
   return {
     posts: data.posts ?? [],
     total: data.total ?? 0,
+    matchedAccounts: data.matchedAccounts ?? null,
     nextOffset: data.nextOffset ?? null,
     hasMore: Boolean(data.hasMore) && data.nextOffset !== null && data.nextOffset !== undefined,
   };
@@ -178,19 +194,39 @@ export function AdminPostsPanel({ signedInAs }: { signedInAs: string }) {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const [error, setError] = useState(false);
   const [query, setQuery] = useState("");
+  // 2026-09-13: the box used to filter ONLY what was already fetched, so
+  // typing a company that the paging loop hadn't reached yet said
+  // "нічого не знайдено" about a company that is very much on file. Now
+  // the text also goes to the server, which narrows to the matching
+  // companies BEFORE logging into anything (see
+  // lib/a1/admin-post-aggregate.ts) -- one company is one login instead
+  // of 525. appliedQuery is the debounced copy that actually gets sent,
+  // so a request doesn't go out on every keystroke.
+  const [appliedQuery, setAppliedQuery] = useState("");
+  // Set when the text matched no company at all: the listing then falls
+  // back to the normal one and the note below says so, instead of
+  // showing a bare empty list.
+  const [noCompanyMatch, setNoCompanyMatch] = useState(false);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [editing, setEditing] = useState<AdminPost | null>(null);
 
-  async function load() {
+  async function load(searchText = appliedQuery) {
     setError(false);
     setPosts(null);
     setLoadedAccounts(0);
     setTotalAccounts(null);
     setOffset(0);
     setHasMore(true);
+    setNoCompanyMatch(false);
     try {
-      const page = await fetchPage(0);
+      let page = await fetchPage(0, searchText);
+      // No company by that name: keep the ordinary listing so searching
+      // by words from a vacancy's own text still works locally.
+      if (searchText && page.matchedAccounts === 0) {
+        setNoCompanyMatch(true);
+        page = await fetchPage(0, "");
+      }
       const sorted = page.posts.slice().sort((a, b) => b.created - a.created);
       setPosts(sorted);
       setTotalAccounts(page.total);
@@ -213,7 +249,7 @@ export function AdminPostsPanel({ signedInAs }: { signedInAs: string }) {
     loadingRef.current = true;
     setLoadingMore(true);
     try {
-      const page = await fetchPage(offset);
+      const page = await fetchPage(offset, noCompanyMatch ? "" : appliedQuery);
       setPosts((prev) => {
         const merged = (prev ?? []).concat(page.posts);
         merged.sort((a, b) => b.created - a.created);
@@ -249,7 +285,7 @@ export function AdminPostsPanel({ signedInAs }: { signedInAs: string }) {
       let total = 0;
       let loaded = 0;
       for (;;) {
-        const page = await fetchPage(off);
+        const page = await fetchPage(off, noCompanyMatch ? "" : appliedQuery);
         acc = acc.concat(page.posts);
         total = page.total;
         loaded = Math.min(loaded + ACCOUNT_PAGE_SIZE, total);
@@ -268,9 +304,16 @@ export function AdminPostsPanel({ signedInAs }: { signedInAs: string }) {
     }
   }
 
+  // One request per pause in typing, not per keystroke.
   useEffect(() => {
-    load();
-  }, []);
+    const timer = setTimeout(() => setAppliedQuery(query.trim()), 350);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  useEffect(() => {
+    load(appliedQuery);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appliedQuery]);
 
   // Scroll-triggered pagination: once the sentinel below the list
   // enters the viewport (with a generous rootMargin so it starts a
@@ -360,8 +403,12 @@ export function AdminPostsPanel({ signedInAs }: { signedInAs: string }) {
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder={STRINGS.searchPlaceholder[lang]}
-        className="mb-4 w-full rounded-xl border border-neutral-200 bg-white px-3.5 py-2.5 text-sm text-neutral-900 outline-none transition focus:border-accent dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-50"
+        className="mb-2 w-full rounded-xl border border-neutral-200 bg-white px-3.5 py-2.5 text-sm text-neutral-900 outline-none transition focus:border-accent dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-50"
       />
+      {noCompanyMatch && (
+        <p className="mb-4 text-xs text-neutral-400 dark:text-neutral-500">{STRINGS.noCompanyMatch[lang]}</p>
+      )}
+      {!noCompanyMatch && <div className="mb-2" />}
 
       {error && <p className="text-sm text-red-600 dark:text-red-400">{STRINGS.loadError[lang]}</p>}
       {deleteError && <p className="mb-2 text-sm text-red-600 dark:text-red-400">{deleteError}</p>}

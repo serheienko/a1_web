@@ -45,7 +45,12 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const offset = Math.max(0, Number(searchParams.get("offset")) || 0);
   const limit = Math.min(MAX_PAGE_SIZE, Math.max(1, Number(searchParams.get("limit")) || DEFAULT_PAGE_SIZE));
+  // 2026-09-13: ?q= narrows to the companies whose name (or technical
+  // email) matches, before any account is logged into -- see
+  // lib/a1/admin-post-aggregate.ts. Capped so a stray paste can't turn
+  // into a giant match expression.
+  const query = (searchParams.get("q") ?? "").slice(0, 120);
 
-  const page = await fetchAccountsPostsPage(offset, limit);
+  const page = await fetchAccountsPostsPage(offset, limit, query);
   return NextResponse.json({ ok: true, ...page });
 }
