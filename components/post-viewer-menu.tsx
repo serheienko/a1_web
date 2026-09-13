@@ -731,7 +731,13 @@ export function PostViewerMenu({
         меню просто закрывалось. Ставим строке z-40 -- выше подложки и
         ниже самой шапки сайта (z-45), так что порядок остаётся прежним.
         До закрепа на десктопе строка была обычной, слоя не создавала,
-        поэтому там всё работало. */}
+        поэтому там всё работало.
+
+        Фон: на телефоне сплошной, без размытия. Размытие под прилипшей
+        полосой браузер пересчитывает на каждый кадр прокрутки, и на
+        iPhone это вторая половина тех самых рывков (первая -- анимация
+        ширины, см. ниже). Выглядит так же: под полосой всё равно ничего
+        не должно просвечивать. На sm и выше размытие остаётся. */}
     {/* Метка, по которой строка понимает, что прилипла -- см. эффект
         выше. Нулевой высоты, ничего не рисует; весь верхний отступ
         переехал сюда со строки, чтобы в обычном состоянии их верхние
@@ -739,7 +745,7 @@ export function PostViewerMenu({
     <div ref={setSentinelEl} aria-hidden="true" className="mt-4 h-0" />
     <div
       ref={setRowEl}
-      className="sticky top-[var(--site-nav-h,64px)] z-40 -mx-4 flex items-center gap-2 bg-app/90 px-4 pb-2 pt-3 backdrop-blur-xl dark:bg-black/90"
+      className="sticky top-[var(--site-nav-h,64px)] z-40 -mx-4 flex items-center gap-2 bg-app px-4 pb-2 pt-3 dark:bg-black sm:bg-app/90 sm:backdrop-blur-xl dark:sm:bg-black/90"
     >
       {/* Контекст поста: аватарка, заголовок и автор. В обычном
           положении его не видно вовсе (max-width 0), в прилипшем он
@@ -785,8 +791,21 @@ export function PostViewerMenu({
           </>
         );
 
+        // 2026-09-13 (Александр, запись экрана с iPhone: «Анимация
+        // трансформации кнопки глючит пдзц на мобильном, надо
+        // починить»). Раньше здесь анимировалась ШИРИНА (max-width).
+        // Это самая дорогая анимация из возможных: на каждый кадр
+        // браузер заново раскладывает строку, а на телефоне это
+        // совпадает с прокруткой, которую Safari ведёт отдельно от
+        // основного потока -- отсюда рывки.
+        //
+        // На телефоне теперь анимируется только прозрачность (её
+        // браузер считает «бесплатной»), а ширина меняется мгновенно:
+        // блок просто проявляется, кнопка сразу становится нужной
+        // ширины. На широком экране (sm и выше) остаётся прежнее плавное
+        // сжатие -- там оно не дёргается, и Александр просил именно его.
         const shared =
-          "group/ctx flex min-w-0 items-center gap-2 overflow-hidden rounded-xl transition-all duration-200 ease-out motion-reduce:transition-none " +
+          "group/ctx flex min-w-0 items-center gap-2 overflow-hidden rounded-xl transition-opacity duration-200 ease-out sm:transition-all motion-reduce:transition-none " +
           (stuck
             ? "max-w-[42%] opacity-100 sm:max-w-[340px]"
             : "pointer-events-none max-w-0 opacity-0");
