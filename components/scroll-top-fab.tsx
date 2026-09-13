@@ -34,6 +34,14 @@
 // Обрабатываем её сами, чтобы прокрутка была такой же плавной, как по
 // кнопке, и чтобы не срабатывать, когда человек печатает в поле.
 //
+// Про Mac (Александр: "Home это какая на маке?"). Отдельной клавиши
+// Home на ноутбуках Apple нет -- там это Fn + Left, и браузер в этом
+// случае присылает ровно тот же key: "Home", так что наш обработчик
+// срабатывает. Но привычнее маководам Cmd + Up, и это встроенное
+// поведение самого браузера -- перехватывать его мы не лезем, просто
+// называем в подсказке именно его, а не Home. Определяем платформу
+// один раз при монтировании (на сервере navigator нет).
+//
 // Подсказка: "Попап показывать 1 раз, как обучение, он должен быть
 // прямо возле кнопки". Появляется рядом с кнопкой в первый раз, когда
 // кнопка вообще показалась, и больше никогда -- отметка лежит в
@@ -49,17 +57,30 @@ const LABEL: Record<Locale, string> = {
   es: "Ir arriba", fr: "Haut de page", pl: "Do góry", ptBR: "Voltar ao topo", zh: "回到顶部",
 };
 
-// Подсказка намеренно короткая: одна мысль -- "есть клавиша".
+// Подсказка намеренно короткая: одна мысль -- "есть клавиша". {key}
+// подставляется по платформе, см. keyHint() ниже.
 const HINT: Record<Locale, string> = {
-  uk: "Нагору — або клавіша Home",
-  en: "Back to top — or the Home key",
-  ru: "Наверх — или клавиша Home",
-  de: "Nach oben — oder die Home-Taste",
-  es: "Ir arriba — o la tecla Inicio",
-  fr: "Haut de page — ou la touche Origine",
-  pl: "Do góry — albo klawisz Home",
-  ptBR: "Voltar ao topo — ou a tecla Home",
-  zh: "回到顶部 — 或按 Home 键",
+  uk: "Нагору — або {key}",
+  en: "Back to top — or {key}",
+  ru: "Наверх — или {key}",
+  de: "Nach oben — oder {key}",
+  es: "Ir arriba — o {key}",
+  fr: "Haut de page — ou {key}",
+  pl: "Do góry — albo {key}",
+  ptBR: "Voltar ao topo — ou {key}",
+  zh: "回到顶部 — 或按 {key}",
+};
+
+const KEY_NAME: Record<Locale, { mac: string; other: string }> = {
+  uk: { mac: "⌘ ↑", other: "клавіша Home" },
+  en: { mac: "⌘ ↑", other: "the Home key" },
+  ru: { mac: "⌘ ↑", other: "клавиша Home" },
+  de: { mac: "⌘ ↑", other: "die Home-Taste" },
+  es: { mac: "⌘ ↑", other: "la tecla Inicio" },
+  fr: { mac: "⌘ ↑", other: "la touche Origine" },
+  pl: { mac: "⌘ ↑", other: "klawisz Home" },
+  ptBR: { mac: "⌘ ↑", other: "a tecla Home" },
+  zh: { mac: "⌘ ↑", other: "Home 键" },
 };
 
 const HINT_CLOSE: Record<Locale, string> = {
@@ -106,6 +127,7 @@ export function ScrollTopFab() {
   const [lang, setLang] = useState<Locale>("uk");
   const [shown, setShown] = useState(false);
   const [hintOpen, setHintOpen] = useState(false);
+  const [isMac, setIsMac] = useState(false);
   // Показать подсказку можно только один раз за всю жизнь вкладки и
   // только если её ещё ни разу не видели.
   const hintDoneRef = useRef(true);
@@ -114,6 +136,10 @@ export function ScrollTopFab() {
     const root = document.documentElement;
     const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
     if (active) setLang(active);
+    // iPhone/iPad сюда тоже попадают -- физической клавиатуры у них
+    // обычно нет, но подсказку они и так почти не увидят: кнопку там
+    // нажимают пальцем.
+    setIsMac(/Mac|iPhone|iPad|iPod/.test(navigator.platform) || /Mac OS X/.test(navigator.userAgent));
     try {
       hintDoneRef.current = localStorage.getItem(HINT_SEEN_KEY) === "1";
     } catch {
@@ -202,7 +228,7 @@ export function ScrollTopFab() {
           role="status"
           className="animate-popover-right flex max-w-[calc(100vw-6.5rem)] items-center gap-2 rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-[13px] text-neutral-700 shadow-lg dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"
         >
-          <span>{HINT[lang]}</span>
+          <span>{HINT[lang].replace("{key}", isMac ? KEY_NAME[lang].mac : KEY_NAME[lang].other)}</span>
           <button
             type="button"
             onClick={closeHint}
