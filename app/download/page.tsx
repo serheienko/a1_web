@@ -29,6 +29,7 @@ import { DOWNLOAD_COPY, DOWNLOAD_LINKS } from "./copy";
 import { LangSwitch } from "./lang-switch";
 import { ThemeSwitch } from "./theme-switch";
 import { Interactions } from "./interactions";
+import { ShareButton } from "./share-button";
 import { SitePreview } from "./site-preview";
 import { Ambience } from "./ambience";
 import styles from "./download.module.css";
@@ -179,6 +180,7 @@ export default function DownloadPage() {
             <SitePreview />
             <LangSwitch />
             <ThemeSwitch />
+            <ShareButton />
           </div>
         </header>
       </div>
@@ -210,6 +212,7 @@ export default function DownloadPage() {
               href={DOWNLOAD_LINKS.googlePlay}
               rel="noopener"
               data-track="android"
+              data-magnet=""
             >
               <AndroidIcon />
               <span className={styles.btnText}>
@@ -229,6 +232,7 @@ export default function DownloadPage() {
               href={DOWNLOAD_LINKS.appStore}
               rel="noopener"
               data-track="ios"
+              data-magnet=""
             >
               <AppleIcon />
               <span className={styles.btnText}>

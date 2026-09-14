@@ -51,6 +51,7 @@
   --haze-d: rgba(65, 95, 240, 0.28);
   --logo-glow: rgba(70, 120, 255, 0.45);
   --focus-ring: #ffffff;
+  --spotlight: rgba(130, 160, 255, 0.14);
 
   position: relative;
   isolation: isolate;
@@ -106,6 +107,7 @@
   --haze-d: rgba(105, 130, 250, 0.16);
   --logo-glow: rgba(70, 120, 255, 0.22);
   --focus-ring: #12163a;
+  --spotlight: rgba(120, 90, 235, 0.1);
 }
 
 @media (prefers-color-scheme: light) {
@@ -137,6 +139,7 @@
   --haze-d: rgba(105, 130, 250, 0.16);
   --logo-glow: rgba(70, 120, 255, 0.22);
   --focus-ring: #12163a;
+  --spotlight: rgba(120, 90, 235, 0.1);
   }
 }
 
@@ -157,7 +160,9 @@
   position: absolute;
   inset: -24px;
   z-index: -2;
-  transform: translate3d(calc(var(--a1-px, 0) * -1px), calc(var(--a1-py, 0) * -1px), 0);
+  /* параллакс + короткий «подскок» по нажатию на кота (--a1-pop) */
+  transform: translate3d(calc(var(--a1-px, 0) * -1px), calc(var(--a1-py, 0) * -1px), 0)
+    scale(var(--a1-pop, 1));
   transition: transform 400ms cubic-bezier(0.22, 0.61, 0.36, 1);
   will-change: transform;
 }
@@ -350,6 +355,17 @@
   min-width: 0;
 }
 
+/*
+ * Aleksandr, 14.09.2026: «подними весь блок на 30-40 px выше». Сдвиг
+ * трансформом, а не отступом: колонка центрирована по высоте, и любой
+ * margin тут же утащил бы за собой и центрирование, и QR под кнопками.
+ */
+@media (min-width: 901px) {
+  .copy {
+    transform: translateY(-36px);
+  }
+}
+
 .headline {
   margin: 0;
   font-weight: 800;
@@ -433,8 +449,15 @@
   border-radius: 999px;
   color: #fff;
   text-decoration: none;
+  /*
+   * Смещение кнопки собрано из двух частей: --btn-x/--btn-y ставит
+   * магнит (курсор рядом — кнопка тянется к нему, см. ./ambience.tsx),
+   * --btn-lift — привычный подъём на наведении. Раньше подъём был
+   * отдельным transform и магнит бы его затёр.
+   */
+  transform: translate3d(var(--btn-x, 0px), calc(var(--btn-y, 0px) + var(--btn-lift, 0px)), 0);
   transition:
-    transform 200ms ease,
+    transform 180ms cubic-bezier(0.22, 0.61, 0.36, 1),
     box-shadow 200ms ease,
     filter 200ms ease;
   will-change: transform;
@@ -479,7 +502,7 @@
 }
 
 .android:hover {
-  transform: translateY(-2px);
+  --btn-lift: -2px;
   box-shadow:
     inset 0 2px 5px rgba(255, 255, 255, 0.4),
     inset 0 -3px 8px rgba(0, 15, 120, 0.25),
@@ -489,7 +512,7 @@
 }
 
 .android:active {
-  transform: translateY(0);
+  --btn-lift: 0px;
 }
 
 .ios {
@@ -504,7 +527,7 @@
 }
 
 .ios:hover {
-  transform: translateY(-2px);
+  --btn-lift: -2px;
   box-shadow:
     inset 0 2px 5px rgba(255, 255, 255, 0.4),
     inset 0 -3px 8px rgba(40, 0, 100, 0.25),
@@ -514,7 +537,7 @@
 }
 
 .ios:active {
-  transform: translateY(0);
+  --btn-lift: 0px;
 }
 
 .btn::after {
@@ -1302,6 +1325,117 @@
 
 
 
+
+/* ---------- свет за курсором ---------- */
+
+/*
+ * Мягкое пятно света идёт за мышью — сцена перестаёт быть плоской
+ * картинкой, будто человек водит по ней фонариком. Слой фиксированный и
+ * полностью прозрачный для кликов; на устройствах без мыши его нет.
+ */
+.spotlight {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .spotlight {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: radial-gradient(
+      380px circle at var(--a1-mx, 50%) var(--a1-my, 40%),
+      var(--spotlight),
+      transparent 72%
+    );
+    transition: background 120ms linear;
+  }
+}
+
+/* ---------- всплеск искр по нажатию на кота ---------- */
+
+.burst {
+  position: fixed;
+  z-index: 1;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.burstSpark {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  margin: -3.5px 0 0 -3.5px;
+  border-radius: 999px;
+  background: var(--spark);
+  box-shadow: 0 0 10px 2px var(--spark-glow);
+  animation: burstOut 800ms cubic-bezier(0.16, 0.7, 0.3, 1) forwards;
+}
+
+/* десять искр расходятся веером — по кругу, с разной длиной и скоростью */
+.burstSpark:nth-child(1) { --bx: 54px; --by: -46px; animation-duration: 760ms; }
+.burstSpark:nth-child(2) { --bx: -60px; --by: -34px; animation-duration: 840ms; }
+.burstSpark:nth-child(3) { --bx: 24px; --by: -74px; animation-duration: 800ms; }
+.burstSpark:nth-child(4) { --bx: -30px; --by: -68px; animation-duration: 700ms; }
+.burstSpark:nth-child(5) { --bx: 72px; --by: 12px; animation-duration: 820ms; }
+.burstSpark:nth-child(6) { --bx: -74px; --by: 6px; animation-duration: 780ms; }
+.burstSpark:nth-child(7) { --bx: 40px; --by: 52px; animation-duration: 730ms; }
+.burstSpark:nth-child(8) { --bx: -44px; --by: 48px; animation-duration: 810ms; }
+.burstSpark:nth-child(9) { --bx: 8px; --by: 76px; animation-duration: 770ms; }
+.burstSpark:nth-child(10) { --bx: -12px; --by: -88px; animation-duration: 860ms; }
+
+@keyframes burstOut {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(0.4);
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--bx, 0), var(--by, 0), 0) scale(1);
+  }
+}
+
+/* ---------- кнопка «поділитися» ---------- */
+
+.shareButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--chip-border);
+  background: var(--chip-bg);
+  color: var(--ink);
+  cursor: pointer;
+  transition:
+    background 200ms ease,
+    border-color 200ms ease,
+    color 500ms ease;
+}
+
+.shareButton:hover {
+  background: var(--chip-hover-bg);
+  border-color: var(--chip-hover-border);
+}
+
+.shareButton:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+
+.shareIcon {
+  width: 18px;
+  height: 18px;
+}
+
 /* ---------- QR и порядок кнопок ---------- */
 
 /*
@@ -1914,6 +2048,11 @@
   .themeIconMoon,
   .page {
     transition: none;
+  }
+
+  .spotlight,
+  .burst {
+    display: none;
   }
 
   .siteLink:hover .siteArrow,
