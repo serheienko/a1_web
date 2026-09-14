@@ -25,7 +25,6 @@ import type { Metadata } from "next";
 import { Montserrat } from "next/font/google";
 import { LOCALES } from "@/components/t";
 import { DOWNLOAD_COPY, DOWNLOAD_LINKS } from "./copy";
-import { A1Logo } from "./logo";
 import { LangSwitch } from "./lang-switch";
 import styles from "./download.module.css";
 
@@ -103,7 +102,11 @@ export default function DownloadPage() {
 
       <div className={styles.container}>
         <header className={styles.header}>
-          <A1Logo className={styles.logo} />
+          {/* Логотип — файл, который прислал Александр 14.09.2026
+              (синий градиент с белой обводкой и свечением), а не
+              brand-SVG сайта: на тёмном фоне он выглядит лучше. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className={styles.logo} src="/download/a1-logo.webp" alt="A1" width={400} height={300} />
 
           <div className={styles.headerRight}>
             <a className={styles.siteLink} href={DOWNLOAD_LINKS.website}>
@@ -132,22 +135,6 @@ export default function DownloadPage() {
           <p className={styles.subtitle}>
             <Loc render={(copy) => copy.subtitle} />
           </p>
-
-          {/* Иллюстрация в мобильной раскладке: между текстом и
-              кнопками, отдельным кадром, где кот виден целиком.
-              На десктопе этот блок скрыт — там та же иллюстрация
-              работает фоном всей секции (.bg). */}
-          <div className={styles.art} aria-hidden="true">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              className={styles.artImage}
-              src="/download/hero-mobile.webp"
-              alt=""
-              width={1012}
-              height={941}
-              fetchPriority="high"
-            />
-          </div>
 
           <div className={styles.actions}>
             <a
