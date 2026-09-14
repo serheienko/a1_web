@@ -415,6 +415,21 @@
   }
 }
 
+/*
+ * «Припаркованная» панель: живая рамка внутри остаётся загруженной, но
+ * сама панель не занимает места и не участвует ни в наведении, ни в
+ * кликах. Именно это даёт один запрос к сайту за посещение вместо
+ * нового на каждое наведение.
+ */
+.sitePreviewParked {
+  width: 0;
+  height: 0;
+  padding: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .sitePreview {
   display: block;
   width: 340px;
@@ -441,7 +456,35 @@
 .sitePreviewShot {
   display: block;
   position: relative;
+  overflow: hidden;
   background: #f3f4f8;
+}
+
+/*
+ * Живая главная сайта внутри превью. Рамка рисуется в «настоящем»
+ * десктопном размере (1280x760) и ужимается трансформом — иначе сайт
+ * внутри окна 340 px решил бы, что это телефон, и показал бы мобильную
+ * раскладку вместо той, что человек увидит, перейдя по ссылке.
+ */
+.sitePreviewFrame {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 260ms ease;
+  pointer-events: none;
+}
+
+.sitePreviewFrameReady {
+  opacity: 1;
+}
+
+.sitePreviewFrame iframe {
+  width: 1280px;
+  height: 760px;
+  border: 0;
+  transform: scale(0.2657);
+  transform-origin: top left;
+  pointer-events: none;
 }
 
 .sitePreviewShot img {
@@ -755,8 +798,8 @@
 
   /* на телефоне заголовок крупнее — он здесь главный элемент экрана */
   .headline {
-    font-size: clamp(38px, 9.6vw, 52px);
-    line-height: 1.08;
+    font-size: clamp(42px, 10.8vw, 58px);
+    line-height: 1.06;
   }
 
   .subtitle {
@@ -816,7 +859,7 @@
 /* Телефон: заголовок чуть мельче, поля уже. */
 @media (max-width: 559px) {
   .headline {
-    font-size: clamp(36px, 9.6vw, 46px);
+    font-size: clamp(38px, 10.4vw, 50px);
   }
 
   .subtitle {
