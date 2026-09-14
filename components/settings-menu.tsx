@@ -33,14 +33,26 @@
 // this component only ever uses `position: absolute` — which anchors to
 // its own nearest positioned ancestor regardless of transforms elsewhere
 // — that trap no longer applies and the portal is gone.)
+//
+// 2026-09-14 (Александр, скриншот мобильной шапки: «А мы можем на мобиле
+// как то смерджить эти 2 кнопки, чтобы был только человечек без •••?
+// Сделать в одну модалку удобную?»). У ЗАЛОГИНЕННОГО пользователя давно
+// одна кнопка -- аватар, и тема с языком живут прямо в ней. Две кнопки
+// видел только разлогиненный: человечек (вход) и это «•••». Теперь их
+// одна и там, и там.
+//
+// Поэтому от этого файла осталось только содержимое панели --
+// <SettingsPanelBody/>. Кнопка «•••» и вся её обвязка (состояние
+// открытия, hover-панель, подложка-портал, зеркалирование в
+// lib/account-menu-open.ts) удалены: единственным местом, где это
+// монтировалось, был разлогиненный ветвь components/avatar-menu.tsx, а
+// там теперь тот же <SettingsPanelBody/> лежит внутри панели входа, под
+// формой. Вся плумбинг-часть у той панели уже своя и ровно такая же.
+//
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { setAccountMenuOpen } from "@/lib/account-menu-open";
-import { createPortal } from "react-dom";
 import { LOCALES, LOCALE_CLASS, LOCALE_TAG, type Locale } from "@/components/t";
-import { useHoverPanel } from "@/lib/use-hover-panel";
-import { GLASS } from "@/lib/glass";
 
 type Theme = "light" | "dark" | "auto";
 
@@ -113,24 +125,15 @@ function ThemeIcon({ theme }: { theme: Theme }) {
     </svg>
   );
 }
-
-export function SettingsMenu() {
-  const [open, setOpen] = useState(false);
-  // 2026-09-02 (Aleksandr, screenshot of the signed-out top nav: "Еще на
-  // кнопку °°° возле увійти") -- same hover-intent effect components/
-  // avatar-menu.tsx's own avatar button already has (this is that
-  // button's signed-out sibling, see this file's header comment), via
-  // the shared lib/use-hover-panel.ts hook. Unlike components/fab-auth-
-  // prompt.tsx's popover, this panel is a plain (non-portaled) DOM
-  // descendant of the wrapping `relative` div below, so one pair of
-  // handlers on that wrapper covers both the trigger and the panel --
-  // no separate ref/handlers needed on the panel itself, same as
-  // avatar-menu.tsx's own wrapperRef/panelOuterRef pair.
-  const wrapperRef = useRef<HTMLDivElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
-  const { handleMouseEnter, handleMouseLeave, isRecentHoverOpen } = useHoverPanel(open, setOpen, [
-    { trigger: wrapperRef, panel: panelRef },
-  ]);
+/**
+ * Содержимое панели настроек: выбор темы и выбор языка.
+ *
+ * Только тело -- ни кнопки, ни попапа, ни подложки. Кто монтирует, тот
+ * и отвечает за открытие/закрытие: сейчас это панель входа в
+ * components/avatar-menu.tsx (разлогиненный), а у залогиненного те же
+ * два блока живут прямо в его собственной панели там же.
+ */
+export function SettingsPanelBody() {
   const [theme, setTheme] = useState<Theme | null>(null);
   const [lang, setLang] = useState<Locale | null>(null);
   const [isGeoUa, setIsGeoUa] = useState(false);
@@ -145,22 +148,16 @@ export function SettingsMenu() {
     if (!el) return;
     setLangMoreBelow(el.scrollHeight - el.scrollTop - el.clientHeight > 1);
   };
-  // This panel only mounts while `open` (unlike avatar-menu.tsx's
-  // always-mounted-but-opacity-toggled one) -- re-measure each time it
-  // actually enters the DOM.
+  // Тело монтируется вместе с панелью, поэтому достаточно одного
+  // замера на маунте.
   useEffect(() => {
     updateLangMoreBelow();
-  }, [open]);
+  }, []);
 
-  // 2026-09-02 (Aleksandr, live mobile screenshot -- same fix as
-  // components/avatar-menu.tsx's signed-in panel, this is its signed-
-  // out sibling): mirror `open` into the shared store components/
-  // chats-fab.tsx reads, so that fixed button fades out while THIS
-  // panel is up too, not just the avatar one.
-  useEffect(() => {
-    setAccountMenuOpen(open);
-    return () => setAccountMenuOpen(false);
-  }, [open]);
+  // Зеркалирование открытости в lib/account-menu-open.ts (чтобы
+  // плавающая кнопка чатов пряталась) здесь больше не нужно: панель,
+  // внутри которой мы теперь живём, делает это сама -- см. эффект на
+  // `open` в components/avatar-menu.tsx.
 
   useEffect(() => {
     const root = document.documentElement;
@@ -205,7 +202,7 @@ export function SettingsMenu() {
   const languageOptions = LOCALES.filter((l) => !(isGeoUa && l === "ru"));
   const str = (key: string) => (lang ? SETTINGS_MENU_STRINGS[key]?.[lang] ?? "" : "");
 
-  const panelBody = (
+  return (
     <>
       <div className="px-1 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
         {str("theme")}
@@ -235,16 +232,15 @@ export function SettingsMenu() {
         {str("language")}
       </div>
       {/* 2026-09-02 (Aleksandr: "в розлогиненому стані показуй всі
-          дев'ять мов, попап сам по собі невисокий") -- unlike avatar-
-          menu.tsx's own signed-in language list, which is capped short
-          because it shares the popover with My Activity/Chats/Contacts/
-          theme/account/sign-out, this signed-out sibling (components/
-          site-nav.tsx: "when signed out, AvatarMenu renders the same
-          sign-in link + <SettingsMenu/> pair") has nothing else
-          competing for height, so all of LOCALES fits without a
-          scrollable cap. */}
+          дев'ять мов, попап сам по собі невисокий") -- тогда эта панель
+          была отдельной и кроме темы с языками в ней ничего не было,
+          поэтому все девять помещались без ограничения по высоте.
+          2026-09-14: панель больше не отдельная -- она лежит под формой
+          входа, и без ограничения весь попап на телефоне выходил за
+          экран. Те же max-h-36 (~4 строки) и та же нижняя растушёвка,
+          что у залогиненного списка в components/avatar-menu.tsx. */}
       <div className="relative">
-        <div ref={langScrollRef} onScroll={updateLangMoreBelow} className="overflow-y-auto">
+        <div ref={langScrollRef} onScroll={updateLangMoreBelow} className="max-h-36 overflow-y-auto">
           {languageOptions.map((l) => {
             const isSelected = l === lang;
             return (
@@ -274,90 +270,5 @@ export function SettingsMenu() {
         )}
       </div>
     </>
-  );
-
-  return (
-    <div className="dots-trigger-group relative shrink-0" ref={wrapperRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
-      <button
-        type="button"
-        // lib/use-hover-panel.ts, 2026-09-04 entry: same "•••"-menu tap
-        // bug -- skip the toggle when this click is the same tap that
-        // just hover-opened the panel, or it flips straight back closed.
-        onClick={() => {
-          if (isRecentHoverOpen()) return;
-          setOpen((v) => !v);
-        }}
-        aria-label={str("settings")}
-        aria-expanded={open}
-        // Fix Tracker (2026-09-06, Aleksandr: "сделай кнопки «войти» и
-        // ••• тоже стеклянными как и рядом «вакансии» «фахивци»") --
-        // same GLASS swap as this button's sign-in sibling in
-        // avatar-menu.tsx's ICON_BUTTON_CLASS.
-        className={"flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-neutral-500 transition hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50 " + GLASS}
-      >
-        <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5 animate-dots-bounce" aria-hidden="true">
-          <circle cx="4" cy="10" r="1.7" />
-          <circle cx="10" cy="10" r="1.7" />
-          <circle cx="16" cy="10" r="1.7" />
-        </svg>
-      </button>
-
-      {open && (
-        <>
-          {/* 2026-08-28: "тап в любом месте вне модалки сначала
-              закрытием модалки, а потом уже ответ на тап по конкретному
-              элементу" — a global outside-mousedown listener (what this
-              used to be) closes the panel but lets the SAME tap still
-              reach whatever's underneath, so tapping a post card behind
-              an open popover both closed the popover and navigated away
-              in one go. A full-viewport backdrop between the popover and
-              the page fixes it structurally: the backdrop itself is what
-              catches that first tap (closing on it), so the element
-              underneath never sees it at all — a second, genuinely
-              separate tap is what reaches it, now that the backdrop (and
-              popover) are gone.
-
-              2026-08-28, later same day: that backdrop broke outside-tap
-              -to-close entirely on desktop, in the exact way the OLD
-              "Historical portal note" above warns about — this component
-              renders inside <nav>, which sets `transform: translateZ(0)`,
-              and a transformed ancestor becomes the CONTAINING BLOCK for
-              any `position: fixed` descendant. This backdrop is fixed,
-              so instead of covering the viewport it was silently clipped
-              to nav's own small box (just the header row, ~60-90px
-              tall) — a tap anywhere on the actual page below that never
-              reached it, so the popover just... never closed. Portaling
-              it to document.body escapes nav's box the same way the old
-              mobile sheet used to need a portal for (see that note).
-              z-30 is deliberately BELOW the nav bar's z-40, not above
-              it: the popover panel below is a normal (non-portaled)
-              child of <nav>, so it stacks *inside* nav's own z-40
-              bracket — a body-level backdrop above z-40 would out-rank
-              that whole bracket and sit on top of the panel itself,
-              swallowing clicks meant for it (the exact bug this same
-              backdrop pattern hit in filters-form.tsx's desktop popover,
-              which portals INTO nav instead — see that file's comment). */}
-          {createPortal(
-            <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} aria-hidden="true" />,
-            document.body,
-          )}
-          {/* Fix Tracker (2026-09-06, Aleksandr, screenshots of the mobile
-              login/theme/language popovers: "После переделки, в модалках слишком
-              большая прозрачность") -- GLASS (lib/glass.ts, bg-white/55 +
-              backdrop-blur-xl) was meant for small button/pill surfaces, not a
-              full readable panel: at 55% opacity over the scrolling job feed it
-              read as a dark, blurred smear with the page bleeding through. Back
-              to the same solid card every other popover in this app uses -- the
-              "..." trigger button above keeps its glass per his original ask,
-              only this content panel changes back. */}
-          <div
-            ref={panelRef}
-            className={"animate-popover absolute right-0 top-full z-50 mt-2 w-64 max-w-[calc(100vw-2rem)] origin-top-right overflow-y-auto rounded-2xl p-2 shadow-lg border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900"}
-          >
-            {panelBody}
-          </div>
-        </>
-      )}
-    </div>
   );
 }

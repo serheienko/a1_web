@@ -68,7 +68,7 @@ import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { profileHref } from "@/lib/profile-href";
 import { LOCALES, LOCALE_CLASS, LOCALE_TAG, type Locale } from "@/components/t";
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
-import { SettingsMenu } from "@/components/settings-menu";
+import { SettingsPanelBody } from "@/components/settings-menu";
 import { useHoverPanel } from "@/lib/use-hover-panel";
 import { InlineAuthForm } from "@/components/inline-auth-form";
 import { setAccountMenuOpen } from "@/lib/account-menu-open";
@@ -526,20 +526,42 @@ export function AvatarMenu() {
 
   if (!email) {
     return (
-      <div className="flex items-center gap-1">
-        <div className="relative shrink-0 cursor-pointer" ref={wrapperRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
-          <Link
-            href="/sign-in"
+      // 2026-09-14 (Александр: «А мы можем на мобиле как то смерджить эти
+      // 2 кнопки, чтобы был только человечек без •••? Сделать в одну
+      // модалку удобную?»). Тут был ряд из двух кнопок -- этой и
+      // <SettingsMenu/> с «•••». Теперь кнопка одна, а тема с языком
+      // переехали внутрь этой же панели, под форму входа: ровно так, как
+      // у залогиненного пользователя, у которого одна кнопка (аватар) с
+      // тем же содержимым была с самого начала. Ряд-обёртка больше не
+      // нужен -- остался один элемент.
+      <div className="relative shrink-0 cursor-pointer" ref={wrapperRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+          {/* 2026-09-14: была <Link href="/sign-in">, и на телефоне тап по
+              ней уводил на отдельную страницу -- панель открывалась только
+              наведением, а наведения на тач-экране не бывает. Пока рядом
+              стояло «•••», тема и язык всё равно были доступны; теперь они
+              внутри ЭТОЙ панели, и уход на /sign-in сделал бы их
+              недостижимыми с телефона. Поэтому обычная кнопка, которая
+              открывает панель по тапу -- ровно как аватар у залогиненного
+              и как прежнее «•••». Сама страница /sign-in никуда не делась,
+              просто из шапки в неё больше не уводит: форма входа тут же в
+              панели, за этим её сюда и встраивали.
+
+              isRecentHoverOpen(): lib/use-hover-panel.ts, запись от
+              2026-09-04 -- iOS на первом тапе синтезирует mouseenter и
+              click вместе, и голый toggle закрыл бы панель сразу же. */}
+          <button
+            type="button"
             aria-label={STRINGS.signIn[lang]}
             aria-expanded={open}
-            onClick={(e) => {
-              if (open) e.preventDefault();
+            onClick={() => {
+              if (isRecentHoverOpen()) return;
+              setOpen((v) => !v);
             }}
             className={ICON_BUTTON_CLASS + " w-9 group"}
           >
             <UserIcon />
             <span className="hidden text-sm font-medium sm:inline">{STRINGS.signIn[lang]}</span>
-          </Link>
+          </button>
 
           {rendered && (
             <>
@@ -548,23 +570,23 @@ export function AvatarMenu() {
                   <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} aria-hidden="true" />,
                   document.body,
                 )}
-              {/* Fix Tracker (2026-09-06, Aleksandr, mobile screenshot:
-                  "окно регистрации чуть не влезло в моб версию, надо
-                  подвинуть на 10 px от края") -- max-w-[calc(100vw-2rem)]
-                  assumed this popup's right edge sits ~16px (the nav's
-                  own px-4) off the true viewport edge, same as
-                  site-nav.tsx's other popovers. It doesn't: right:0 here
-                  anchors to wrapperRef, which is the sign-in BUTTON's own
-                  box, sitting to the LEFT of the "•••" SettingsMenu
-                  button (w-9 + gap-1 = ~40px) -- so the real gap to the
-                  true right edge is ~56px, not 16px. On any phone
-                  narrower than ~376px CSS width (iPhone SE/mini and
-                  older), the old formula let the panel's left edge go
-                  negative -- flush against (or just past) the screen's
-                  left edge, no margin at all. calc(100vw-66px) accounts
-                  for that real 56px offset plus a 10px cushion past it,
-                  same ask as the numbers he gave. */}
-              <div className="absolute right-0 top-full z-50 w-80 max-w-[calc(100vw-66px)] origin-top-right pt-2" ref={panelOuterRef}>
+              {/* История ширины, она тут нетривиальная.
+                  2026-09-06 (Александр, скриншот с телефона: "окно
+                  регистрации чуть не влезло в моб версию, надо подвинуть
+                  на 10 px от края") -- calc(100vw-2rem) исходило из того,
+                  что правый край попапа отстоит от края экрана на ~16px
+                  (px-4 у шапки). Это было неверно: right:0 считается от
+                  wrapperRef, то есть от кнопки входа, а СПРАВА от неё
+                  стояло ещё "•••" (w-9 + gap-1 ≈ 40px) -- реальный отступ
+                  был ~56px. На экранах уже ~376px левый край попапа
+                  уезжал за границу. Тогда поставили calc(100vw-66px):
+                  56px реального смещения плюс 10px запаса.
+                  2026-09-14: "•••" больше нет, кнопка входа снова крайняя
+                  справа, и right:0 действительно означает те самые ~16px.
+                  Поэтому обратно calc(100vw-2rem) -- как у всех остальных
+                  попапов в шапке. Оставлять 66px теперь значило бы зря
+                  сужать панель на 34px, а в ней прибавилось содержимого. */}
+              <div className="absolute right-0 top-full z-50 w-80 max-w-[calc(100vw-2rem)] origin-top-right pt-2" ref={panelOuterRef}>
                 <div
                   className={
                     // Fix Tracker (2026-09-06, Aleksandr, screenshots of the mobile
@@ -583,12 +605,17 @@ export function AvatarMenu() {
                   }
                 >
                   <InlineAuthForm lang={lang} compact />
+
+                  {/* 2026-09-14: тема и язык переехали сюда из отдельной
+                      кнопки «•••» -- см. комментарий у ветки выше и шапку
+                      components/settings-menu.tsx. Вход остаётся главным и
+                      первым, настройки -- под чертой, вторым эшелоном. */}
+                  <div className="my-4 border-t border-neutral-100 dark:border-neutral-800" />
+                  <SettingsPanelBody />
                 </div>
               </div>
             </>
           )}
-        </div>
-        <SettingsMenu />
       </div>
     );
   }
