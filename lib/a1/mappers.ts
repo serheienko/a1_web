@@ -7,6 +7,7 @@
 // email-leak class of bug becomes structurally impossible.
 
 import { NULL_LOCATION_MEANS_REMOTE, PUBLISH_ONLY_NATIVE, isNativePost } from "./config";
+import { jobContentToHtml } from "./job-content";
 import { authorIsHidden, isArchived, isArchivedOrDraft } from "./post-flags";
 import { parsePost, type Post } from "./schemas";
 import { slugify } from "../seo/slug";
@@ -163,13 +164,11 @@ function mapImages(post: Post): WebPostImage[] {
  * escape, then wrap blank-line-separated blocks in <p>. Revisit if post
  * content grows real formatting.
  */
-function paragraphWrap(text: string): string {
-  const escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  return escaped
-    .split(/\n{2,}/)
-    .map((block) => `<p>${block.replace(/\n/g, "<br />")}</p>`)
-    .join("");
-}
+// 2026-09-14: было paragraphWrap() -- плоская простыня из <p>, где
+// единственной структурой был перенос строки. Теперь тот же текст
+// разбирается на заголовки и списки (lib/a1/job-content.ts): это поле
+// уходит в description разметки JobPosting, а Google прямо пишет, что
+// списки и подзаголовки помогают ему разобрать вакансию.
 
 /**
  * Raw Post -> our WebPost. Returns null only when PUBLISH_ONLY_NATIVE gates
@@ -195,7 +194,7 @@ export function mapPost(post: Post): WebPost | null {
     title: post.title,
     slug: slugify(post.title, post._id),
     contentText: post.content,
-    contentHtml: paragraphWrap(post.content),
+    contentHtml: jobContentToHtml(post.content),
     publishedAt: fromUnixSeconds(post.published ?? post.created),
     sourcePublishedAt: post.sourcePublished ? fromUnixSeconds(post.sourcePublished) : null,
     updatedAt: post.updated ? fromUnixSeconds(post.updated) : null,
@@ -241,7 +240,7 @@ export function mapOwnPost(post: Post): WebPost | null {
     title: post.title,
     slug: slugify(post.title, post._id),
     contentText: post.content,
-    contentHtml: paragraphWrap(post.content),
+    contentHtml: jobContentToHtml(post.content),
     publishedAt: fromUnixSeconds(post.published ?? post.created),
     sourcePublishedAt: post.sourcePublished ? fromUnixSeconds(post.sourcePublished) : null,
     updatedAt: post.updated ? fromUnixSeconds(post.updated) : null,

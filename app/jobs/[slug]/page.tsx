@@ -24,6 +24,7 @@ import { profileHref } from "@/lib/profile-href";
 import { TagLabel } from "@/components/tag-label";
 import { LocationMap } from "@/components/location-map";
 import { RelatedJobs } from "@/components/related-jobs";
+import { JobContent } from "@/components/job-content";
 import { fetchRelatedJobs } from "@/lib/a1/related";
 
 const SITE_URL = "https://jobs.a1appp.com";
@@ -233,7 +234,7 @@ export default async function JobDetailPage({ params }: Props) {
         </div>
       )}
 
-      <div className="mt-6 whitespace-pre-wrap text-neutral-700 dark:text-neutral-300">{post.contentText}</div>
+      <JobContent text={post.contentText} />
 
       {/* 2026-08-31: same decorative OpenStreetMap embed as before, but
           moved below the main text ("после основного текста, а не сверху")

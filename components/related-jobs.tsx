@@ -25,13 +25,18 @@ function JobRow({ post }: { post: WebPost }) {
     <li>
       <Link
         href={`/jobs/${post.slug}`}
-        className="group block rounded-xl px-3 py-3 transition hover:bg-neutral-50 dark:hover:bg-neutral-900"
+        className="group flex h-full flex-col rounded-xl border border-neutral-200 px-3.5 py-3 transition hover:border-neutral-300 hover:bg-neutral-50 dark:border-neutral-800 dark:hover:border-neutral-700 dark:hover:bg-neutral-900"
       >
-        <span className="block text-[15px] font-medium leading-snug text-neutral-900 group-hover:text-accent dark:text-neutral-50">
+        {/* line-clamp-2 БЕЗ соседнего `block`: у них одинаковый вес, и
+            безусловный `block` перебил бы display:-webkit-box, без
+            которого line-clamp на Safari/iOS просто не работает. Та же
+            грабля, что в components/post-card.tsx -- см. её длинный
+            комментарий там. */}
+        <span className="line-clamp-2 text-[14px] font-medium leading-snug text-neutral-900 group-hover:text-accent dark:text-neutral-50">
           {post.title}
         </span>
         {meta && (
-          <span className="mt-0.5 block truncate text-[13px] text-neutral-500 dark:text-neutral-400">
+          <span className="mt-1 truncate text-[12px] text-neutral-500 dark:text-neutral-400">
             {meta}
           </span>
         )}
@@ -48,10 +53,18 @@ function Section({ title, posts }: { title: React.ReactNode; posts: WebPost[] })
           своих подзаголовков почти нет (только «Посилання» и «Питання
           до відгуку»), и этот -- первый, который реально описывает
           содержимое блока. */}
-      <h2 className="px-3 text-sm font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
         {title}
       </h2>
-      <ul className="mt-1 -mx-3">
+      {/* 2026-09-14 (Александр, скриншот десктопа: «слишком высокая
+          страница, ну то есть надо далеко листать... по три
+          горизонтально, и тем самым экономить место»). Было девять
+          строк в одну колонку -- почти два экрана пустоты справа и
+          длинная прокрутка.
+          На телефоне остаётся одна колонка: там ширины физически нет, и
+          три плитки по ~110px превратили бы каждый заголовок в
+          многоточие. Две колонки с sm, три с lg. */}
+      <ul className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {posts.map((post) => (
           <JobRow key={post.id} post={post} />
         ))}
