@@ -36,27 +36,10 @@ const PARALLAX_PX = 14;
 const MAGNET_RADIUS = 150;
 const MAGNET_STRENGTH = 0.16;
 
-// Сезон по месяцу посетителя: зима — декабрь-февраль, весна — март-май,
-// осень — сентябрь-ноябрь. Лето своего слоя не имеет: летние светлячки —
-// это искры, которые на странице и так живут круглый год.
-function seasonOf(month: number): "winter" | "spring" | "autumn" | null {
-  if (month === 11 || month <= 1) return "winter";
-  if (month >= 2 && month <= 4) return "spring";
-  if (month >= 8 && month <= 10) return "autumn";
-  return null;
-}
-
 export function Ambience() {
   // всплески искр от нажатий на кота: каждый живёт ~0,8 с и исчезает
   const [bursts, setBursts] = useState<{ id: number; x: number; y: number }[]>([]);
   const burstId = useRef(0);
-  // считается только в браузере: на сервере «сейчас» — это время
-  // Vercel, а не посетителя, и разметка разошлась бы при гидратации
-  const [season, setSeason] = useState<"winter" | "spring" | "autumn" | null>(null);
-
-  useEffect(() => {
-    setSeason(seasonOf(new Date().getMonth()));
-  }, []);
 
   useEffect(() => {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -155,23 +138,6 @@ export function Ambience() {
         {/* дымка у скалы */}
         <div className={styles.haze} />
         <div className={styles.hazeAlt} />
-
-        {/* сезонный слой: снег, пыльца или золотая пыль */}
-        {season && (
-          <div
-            className={`${styles.season} ${
-              season === "winter"
-                ? styles.seasonWinter
-                : season === "spring"
-                  ? styles.seasonSpring
-                  : styles.seasonAutumn
-            }`}
-          >
-            {Array.from({ length: 18 }, (_, i) => (
-              <span key={i} className={styles.seasonParticle} />
-            ))}
-          </div>
-        )}
 
         {/* искры-светлячки, поднимающиеся снизу вверх */}
         <div className={styles.sparks}>
