@@ -705,79 +705,6 @@
   }
 }
 
-/* --- падающие звёзды --- */
-
-/*
- * Aleksandr, 14.09.2026 (видео): «летит какая-то белая хреновина». Это
- * была она же — хвост рисовался строго горизонтально, а летела звезда
- * по диагонали, поэтому выглядела как палка поперёк экрана. Теперь весь
- * элемент повёрнут на угол полёта (хвост всегда позади), стал тоньше,
- * короче и прозрачнее, а пролёт — быстрее и реже.
- */
-.shootingStar,
-.shootingStarAlt {
-  position: absolute;
-  width: 2px;
-  height: 2px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.9);
-  opacity: 0;
-  box-shadow: 0 0 6px 1px rgba(200, 220, 255, 0.6);
-  will-change: transform, opacity;
-}
-
-/* хвост: сужается к концу и идёт ровно вдоль траектории */
-.shootingStar::after,
-.shootingStarAlt::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  right: 1px;
-  width: 64px;
-  height: 1px;
-  transform: translateY(-50%);
-  border-radius: 999px;
-  background: linear-gradient(270deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0));
-  filter: blur(0.4px);
-}
-
-.shootingStar {
-  top: 9%;
-  left: 82%;
-  animation: shoot 27s linear infinite;
-  animation-delay: 6s;
-}
-
-.shootingStarAlt {
-  top: 22%;
-  left: 58%;
-  animation: shoot 41s linear infinite;
-  animation-delay: 19s;
-}
-
-/*
- * Пролёт занимает лишь ~2,5% цикла — остальное время звезда невидима и
- * неподвижна. Так «редко и неожиданно» получается одной анимацией, без
- * единого таймера в JS. rotate(30deg) — тот самый угол траектории.
- */
-@keyframes shoot {
-  0% {
-    opacity: 0;
-    transform: translate3d(0, 0, 0) rotate(30deg);
-  }
-  0.4% {
-    opacity: 0.9;
-  }
-  2.5% {
-    opacity: 0;
-    transform: translate3d(-320px, 185px, 0) rotate(30deg);
-  }
-  100% {
-    opacity: 0;
-    transform: translate3d(-320px, 185px, 0) rotate(30deg);
-  }
-}
-
 /* --- дымка у скалы --- */
 
 .haze,
@@ -1636,8 +1563,6 @@
   /* никакой атмосферы и никакого появления — только статичная страница */
   .star,
   .bg::after,
-  .shootingStar,
-  .shootingStarAlt,
   .haze,
   .hazeAlt,
   .spark,
@@ -1649,9 +1574,7 @@
     animation: none;
   }
 
-  .spark,
-  .shootingStar,
-  .shootingStarAlt {
+  .spark {
     display: none;
   }
 
