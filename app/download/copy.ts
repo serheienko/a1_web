@@ -13,7 +13,10 @@ import type { Locale } from "@/components/t";
 export const DOWNLOAD_LINKS = {
   googlePlay: "https://play.google.com/store/apps/details?id=com.aone.aoneapp",
   appStore: "https://apps.apple.com/ua/app/a1-job-search-jobs-hiring/id6443859764",
-  website: "https://a1appp.com",
+  // Aleksandr, 14.09.2026: раньше вела на a1appp.com — маркетинговый
+  // лендинг-заглушку, толку от которой ноль. Теперь «Сайт A1» ведёт на
+  // сам джоб-борд, над которым мы и работаем.
+  website: "https://jobs.a1appp.com",
 } as const;
 
 export type DownloadCopy = {
