@@ -55,10 +55,34 @@
   transform: translate3d(calc(var(--a1-px, 0) * -1px), calc(var(--a1-py, 0) * -1px), 0);
   transition: transform 400ms cubic-bezier(0.22, 0.61, 0.36, 1);
   will-change: transform;
+}
+
+/*
+ * Сама иллюстрация живёт на псевдоэлементе, а не на .bg: параллакс уже
+ * занял transform контейнера, а здесь нужен ещё и очень медленный
+ * «вдох» — 44 секунды от 1.0 до 1.045 с лёгким сносом. По отдельности
+ * кадр не отличить, но сцена перестаёт быть мёртвой картинкой
+ * (Aleksandr, 14.09.2026: «добавил бы ещё моушена, а то еле видно»).
+ */
+.bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
   background-image: url("/download/hero.webp");
   background-repeat: no-repeat;
   background-position: right center;
   background-size: cover;
+  animation: breathe 44s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+@keyframes breathe {
+  from {
+    transform: scale(1) translate3d(0, 0, 0);
+  }
+  to {
+    transform: scale(1.045) translate3d(-0.8%, -0.6%, 0);
+  }
 }
 
 /* Мягкое затемнение слева — только ради читаемости текста поверх звёзд. */
@@ -418,113 +442,339 @@
 
 /* --- мерцающие звёзды --- */
 
-.stars,
-.starsAlt {
+/*
+ * Aleksandr, 14.09.2026: «звёзды не мерцают». И правда: раньше мерцали
+ * два СЛОЯ целиком, то есть все звёзды разом и в одной фазе — глаз
+ * такое читает как ровный свет. Теперь каждая звезда — отдельная точка
+ * со своими размером, скоростью и фазой, поэтому мерцание видно.
+ */
+.starfield {
   position: absolute;
   inset: -24px;
   /* параллакс: звёзды ближе к зрителю, чем фон, поэтому едут заметнее */
   transform: translate3d(calc(var(--a1-px, 0) * -1.8px), calc(var(--a1-py, 0) * -1.8px), 0);
   transition: transform 500ms cubic-bezier(0.22, 0.61, 0.36, 1);
-  background-repeat: no-repeat;
-  will-change: transform, opacity;
+  will-change: transform;
 }
 
-.stars {
-  background-image:
-    radial-gradient(1.6px 1.6px at 12% 18%, rgba(255, 255, 255, 0.9), transparent 60%),
-    radial-gradient(1.4px 1.4px at 27% 9%, rgba(200, 220, 255, 0.85), transparent 60%),
-    radial-gradient(1.8px 1.8px at 41% 24%, rgba(255, 255, 255, 0.8), transparent 60%),
-    radial-gradient(1.3px 1.3px at 58% 12%, rgba(220, 200, 255, 0.9), transparent 60%),
-    radial-gradient(1.7px 1.7px at 73% 21%, rgba(255, 255, 255, 0.75), transparent 60%),
-    radial-gradient(1.4px 1.4px at 88% 8%, rgba(210, 225, 255, 0.85), transparent 60%),
-    radial-gradient(1.5px 1.5px at 34% 38%, rgba(255, 255, 255, 0.7), transparent 60%),
-    radial-gradient(1.3px 1.3px at 66% 33%, rgba(230, 215, 255, 0.75), transparent 60%);
-  animation: twinkle 5.5s ease-in-out infinite;
+.star {
+  position: absolute;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 0 6px 1px rgba(190, 210, 255, 0.7);
+  animation-name: twinkle;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  will-change: opacity, transform;
 }
 
-.starsAlt {
-  background-image:
-    radial-gradient(1.5px 1.5px at 18% 29%, rgba(255, 255, 255, 0.75), transparent 60%),
-    radial-gradient(1.2px 1.2px at 47% 6%, rgba(200, 215, 255, 0.8), transparent 60%),
-    radial-gradient(1.9px 1.9px at 62% 42%, rgba(255, 255, 255, 0.7), transparent 60%),
-    radial-gradient(1.3px 1.3px at 79% 31%, rgba(225, 205, 255, 0.8), transparent 60%),
-    radial-gradient(1.6px 1.6px at 92% 44%, rgba(255, 255, 255, 0.65), transparent 60%),
-    radial-gradient(1.4px 1.4px at 7% 41%, rgba(215, 230, 255, 0.7), transparent 60%);
-  animation: twinkle 7.5s ease-in-out infinite;
-  animation-delay: -3s;
+.star:nth-child(1) {
+  top: 29.1%;
+  left: 55.9%;
+  width: 3.3px;
+  height: 3.3px;
+  animation-duration: 4.3s;
+  animation-delay: -3.0s;
+}
+.star:nth-child(2) {
+  top: 37.2%;
+  left: 19.1%;
+  width: 2.5px;
+  height: 2.5px;
+  animation-duration: 5.0s;
+  animation-delay: -4.8s;
+}
+.star:nth-child(3) {
+  top: 7.6%;
+  left: 30.7%;
+  width: 1.8px;
+  height: 1.8px;
+  animation-duration: 5.7s;
+  animation-delay: -4.2s;
+}
+.star:nth-child(4) {
+  top: 4.5%;
+  left: 97.3%;
+  width: 3.3px;
+  height: 3.3px;
+  animation-duration: 5.1s;
+  animation-delay: -3.7s;
+}
+.star:nth-child(5) {
+  top: 11.4%;
+  left: 2.5%;
+  width: 2.6px;
+  height: 2.6px;
+  animation-duration: 2.6s;
+  animation-delay: -1.1s;
+}
+.star:nth-child(6) {
+  top: 16.5%;
+  left: 3.9%;
+  width: 2.4px;
+  height: 2.4px;
+  animation-duration: 4.2s;
+  animation-delay: -5.1s;
+}
+.star:nth-child(7) {
+  top: 33.1%;
+  left: 63.7%;
+  width: 2.5px;
+  height: 2.5px;
+  animation-duration: 5.1s;
+  animation-delay: -2.7s;
+}
+.star:nth-child(8) {
+  top: 18.7%;
+  left: 98.8%;
+  width: 3.4px;
+  height: 3.4px;
+  animation-duration: 5.8s;
+  animation-delay: -4.2s;
+}
+.star:nth-child(9) {
+  top: 20.9%;
+  left: 23.5%;
+  width: 2.1px;
+  height: 2.1px;
+  animation-duration: 2.7s;
+  animation-delay: -4.6s;
+}
+.star:nth-child(10) {
+  top: 26.0%;
+  left: 84.0%;
+  width: 2.3px;
+  height: 2.3px;
+  animation-duration: 6.3s;
+  animation-delay: -5.1s;
+}
+.star:nth-child(11) {
+  top: 2.0%;
+  left: 21.6%;
+  width: 3.2px;
+  height: 3.2px;
+  animation-duration: 4.3s;
+  animation-delay: -5.9s;
+}
+.star:nth-child(12) {
+  top: 25.8%;
+  left: 8.2%;
+  width: 2.7px;
+  height: 2.7px;
+  animation-duration: 5.6s;
+  animation-delay: -1.6s;
+}
+.star:nth-child(13) {
+  top: 7.2%;
+  left: 33.6%;
+  width: 3.3px;
+  height: 3.3px;
+  animation-duration: 5.5s;
+  animation-delay: -0.7s;
+}
+.star:nth-child(14) {
+  top: 16.8%;
+  left: 10.9%;
+  width: 1.7px;
+  height: 1.7px;
+  animation-duration: 5.7s;
+  animation-delay: -1.1s;
+}
+.star:nth-child(15) {
+  top: 35.6%;
+  left: 44.8%;
+  width: 1.9px;
+  height: 1.9px;
+  animation-duration: 5.4s;
+  animation-delay: -0.8s;
+}
+.star:nth-child(16) {
+  top: 40.6%;
+  left: 12.4%;
+  width: 2.4px;
+  height: 2.4px;
+  animation-duration: 3.3s;
+  animation-delay: -1.6s;
+}
+.star:nth-child(17) {
+  top: 60.3%;
+  left: 79.7%;
+  width: 2.1px;
+  height: 2.1px;
+  animation-duration: 6.0s;
+  animation-delay: -1.3s;
+}
+.star:nth-child(18) {
+  top: 25.7%;
+  left: 84.7%;
+  width: 2.8px;
+  height: 2.8px;
+  animation-duration: 2.8s;
+  animation-delay: -5.9s;
+}
+.star:nth-child(19) {
+  top: 14.8%;
+  left: 26.3%;
+  width: 3.0px;
+  height: 3.0px;
+  animation-duration: 3.7s;
+  animation-delay: -1.8s;
+}
+.star:nth-child(20) {
+  top: 6.4%;
+  left: 9.8%;
+  width: 2.6px;
+  height: 2.6px;
+  animation-duration: 3.4s;
+  animation-delay: -3.6s;
+}
+.star:nth-child(21) {
+  top: 24.3%;
+  left: 45.4%;
+  width: 3.3px;
+  height: 3.3px;
+  animation-duration: 4.4s;
+  animation-delay: -3.4s;
+}
+.star:nth-child(22) {
+  top: 54.0%;
+  left: 18.9%;
+  width: 1.9px;
+  height: 1.9px;
+  animation-duration: 6.1s;
+  animation-delay: -4.9s;
+}
+.star:nth-child(23) {
+  top: 17.0%;
+  left: 19.6%;
+  width: 2.9px;
+  height: 2.9px;
+  animation-duration: 6.3s;
+  animation-delay: -1.2s;
+}
+.star:nth-child(24) {
+  top: 59.0%;
+  left: 87.5%;
+  width: 2.7px;
+  height: 2.7px;
+  animation-duration: 4.1s;
+  animation-delay: -0.6s;
+}
+.star:nth-child(25) {
+  top: 4.3%;
+  left: 95.3%;
+  width: 2.0px;
+  height: 2.0px;
+  animation-duration: 5.3s;
+  animation-delay: -1.5s;
+}
+.star:nth-child(26) {
+  top: 51.4%;
+  left: 59.5%;
+  width: 2.1px;
+  height: 2.1px;
+  animation-duration: 3.1s;
+  animation-delay: -4.3s;
+}
+.star:nth-child(27) {
+  top: 6.1%;
+  left: 23.4%;
+  width: 2.6px;
+  height: 2.6px;
+  animation-duration: 5.9s;
+  animation-delay: -3.7s;
+}
+.star:nth-child(28) {
+  top: 18.8%;
+  left: 90.9%;
+  width: 2.0px;
+  height: 2.0px;
+  animation-duration: 2.5s;
+  animation-delay: -1.6s;
 }
 
 @keyframes twinkle {
   0%,
   100% {
-    opacity: 0.45;
+    opacity: 0.15;
+    transform: scale(0.8);
   }
   50% {
     opacity: 1;
+    transform: scale(1.25);
   }
 }
 
-/* --- падающие звёзды: короткий пролёт раз в ~15-20 секунд --- */
+/* --- падающие звёзды --- */
 
+/*
+ * Aleksandr, 14.09.2026 (видео): «летит какая-то белая хреновина». Это
+ * была она же — хвост рисовался строго горизонтально, а летела звезда
+ * по диагонали, поэтому выглядела как палка поперёк экрана. Теперь весь
+ * элемент повёрнут на угол полёта (хвост всегда позади), стал тоньше,
+ * короче и прозрачнее, а пролёт — быстрее и реже.
+ */
 .shootingStar,
 .shootingStarAlt {
   position: absolute;
   width: 2px;
   height: 2px;
   border-radius: 999px;
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.9);
   opacity: 0;
-  box-shadow: 0 0 6px 1px rgba(255, 255, 255, 0.8);
+  box-shadow: 0 0 6px 1px rgba(200, 220, 255, 0.6);
   will-change: transform, opacity;
 }
 
-/* хвост */
+/* хвост: сужается к концу и идёт ровно вдоль траектории */
 .shootingStar::after,
 .shootingStarAlt::after {
   content: "";
   position: absolute;
   top: 50%;
-  right: 0;
-  width: 90px;
-  height: 1.5px;
+  right: 1px;
+  width: 64px;
+  height: 1px;
   transform: translateY(-50%);
-  background: linear-gradient(270deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0));
+  border-radius: 999px;
+  background: linear-gradient(270deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0));
+  filter: blur(0.4px);
 }
 
 .shootingStar {
-  top: 12%;
-  left: 78%;
-  animation: shoot 16s linear infinite;
-  animation-delay: 4s;
+  top: 9%;
+  left: 82%;
+  animation: shoot 27s linear infinite;
+  animation-delay: 6s;
 }
 
 .shootingStarAlt {
-  top: 26%;
-  left: 54%;
-  animation: shoot 23s linear infinite;
-  animation-delay: 12s;
+  top: 22%;
+  left: 58%;
+  animation: shoot 41s linear infinite;
+  animation-delay: 19s;
 }
 
 /*
- * Пролёт занимает лишь первые ~6% цикла — остальное время звезда
- * невидима и неподвижна. Так «редко и неожиданно» получается одной
- * анимацией, без таймеров в JS.
+ * Пролёт занимает лишь ~2,5% цикла — остальное время звезда невидима и
+ * неподвижна. Так «редко и неожиданно» получается одной анимацией, без
+ * единого таймера в JS. rotate(30deg) — тот самый угол траектории.
  */
 @keyframes shoot {
   0% {
     opacity: 0;
-    transform: translate3d(0, 0, 0);
+    transform: translate3d(0, 0, 0) rotate(30deg);
   }
-  1% {
-    opacity: 1;
+  0.4% {
+    opacity: 0.9;
   }
-  6% {
+  2.5% {
     opacity: 0;
-    transform: translate3d(-260px, 150px, 0);
+    transform: translate3d(-320px, 185px, 0) rotate(30deg);
   }
   100% {
     opacity: 0;
-    transform: translate3d(-260px, 150px, 0);
+    transform: translate3d(-320px, 185px, 0) rotate(30deg);
   }
 }
 
@@ -537,21 +787,21 @@
   right: -10%;
   height: 46%;
   bottom: -6%;
-  filter: blur(22px);
+  filter: blur(26px);
   will-change: transform, opacity;
 }
 
 .haze {
   background:
-    radial-gradient(60% 70% at 30% 80%, rgba(120, 70, 220, 0.28), transparent 70%),
-    radial-gradient(50% 60% at 70% 85%, rgba(80, 110, 255, 0.22), transparent 70%);
+    radial-gradient(60% 70% at 30% 80%, rgba(130, 75, 235, 0.42), transparent 70%),
+    radial-gradient(50% 60% at 70% 85%, rgba(85, 120, 255, 0.34), transparent 70%);
   animation: drift 34s ease-in-out infinite;
 }
 
 .hazeAlt {
   background:
-    radial-gradient(55% 65% at 55% 90%, rgba(160, 90, 255, 0.22), transparent 70%),
-    radial-gradient(45% 55% at 15% 95%, rgba(60, 90, 230, 0.18), transparent 70%);
+    radial-gradient(55% 65% at 55% 90%, rgba(170, 95, 255, 0.34), transparent 70%),
+    radial-gradient(45% 55% at 15% 95%, rgba(65, 95, 240, 0.28), transparent 70%);
   animation: drift 47s ease-in-out infinite reverse;
   animation-delay: -12s;
 }
@@ -579,8 +829,8 @@
   position: absolute;
   bottom: 4%;
   border-radius: 999px;
-  background: rgba(210, 190, 255, 0.95);
-  box-shadow: 0 0 8px 2px rgba(150, 100, 255, 0.55);
+  background: rgba(225, 210, 255, 1);
+  box-shadow: 0 0 12px 3px rgba(160, 110, 255, 0.75);
   opacity: 0;
   animation-name: rise;
   animation-timing-function: ease-in-out;
@@ -589,116 +839,180 @@
 }
 
 .spark:nth-child(1) {
-  left: 34.5%;
-  width: 2.1px;
-  height: 2.1px;
-  animation-delay: 1.8s;
-  animation-duration: 13.6s;
-  --drift: 2px;
+  left: 89.1%;
+  width: 2.7px;
+  height: 2.7px;
+  animation-delay: 10.4s;
+  animation-duration: 13.3s;
+  --drift: 6px;
 }
 .spark:nth-child(2) {
-  left: 38.2%;
-  width: 2.1px;
-  height: 2.1px;
-  animation-delay: 0.7s;
-  animation-duration: 12.6s;
+  left: 43.0%;
+  width: 3.0px;
+  height: 3.0px;
+  animation-delay: 5.8s;
+  animation-duration: 8.3s;
   --drift: -4px;
 }
 .spark:nth-child(3) {
-  left: 12.1%;
-  width: 3.7px;
-  height: 3.7px;
-  animation-delay: 1.1s;
-  animation-duration: 12.0s;
-  --drift: -21px;
+  left: 24.3%;
+  width: 2.7px;
+  height: 2.7px;
+  animation-delay: 5.0s;
+  animation-duration: 7.7s;
+  --drift: 14px;
 }
 .spark:nth-child(4) {
-  left: 25.6%;
-  width: 3.2px;
-  height: 3.2px;
-  animation-delay: 7.5s;
-  animation-duration: 15.6s;
-  --drift: -6px;
+  left: 42.8%;
+  width: 3.4px;
+  height: 3.4px;
+  animation-delay: 5.6s;
+  animation-duration: 12.3s;
+  --drift: -30px;
 }
 .spark:nth-child(5) {
-  left: 91.9%;
+  left: 76.0%;
+  width: 4.1px;
+  height: 4.1px;
+  animation-delay: 6.5s;
+  animation-duration: 11.8s;
+  --drift: 32px;
+}
+.spark:nth-child(6) {
+  left: 37.4%;
+  width: 3.9px;
+  height: 3.9px;
+  animation-delay: 8.4s;
+  animation-duration: 9.9s;
+  --drift: 11px;
+}
+.spark:nth-child(7) {
+  left: 32.9%;
+  width: 4.3px;
+  height: 4.3px;
+  animation-delay: 0.9s;
+  animation-duration: 10.6s;
+  --drift: 6px;
+}
+.spark:nth-child(8) {
+  left: 45.2%;
+  width: 2.9px;
+  height: 2.9px;
+  animation-delay: 7.1s;
+  animation-duration: 8.7s;
+  --drift: -12px;
+}
+.spark:nth-child(9) {
+  left: 79.1%;
+  width: 2.7px;
+  height: 2.7px;
+  animation-delay: 2.2s;
+  animation-duration: 8.2s;
+  --drift: -31px;
+}
+.spark:nth-child(10) {
+  left: 29.4%;
+  width: 3.3px;
+  height: 3.3px;
+  animation-delay: 6.3s;
+  animation-duration: 12.8s;
+  --drift: -9px;
+}
+.spark:nth-child(11) {
+  left: 30.5%;
+  width: 3.9px;
+  height: 3.9px;
+  animation-delay: 3.4s;
+  animation-duration: 12.6s;
+  --drift: -16px;
+}
+.spark:nth-child(12) {
+  left: 13.9%;
+  width: 4.6px;
+  height: 4.6px;
+  animation-delay: 8.6s;
+  animation-duration: 12.1s;
+  --drift: -18px;
+}
+.spark:nth-child(13) {
+  left: 54.2%;
+  width: 4.9px;
+  height: 4.9px;
+  animation-delay: 10.1s;
+  animation-duration: 11.4s;
+  --drift: -23px;
+}
+.spark:nth-child(14) {
+  left: 93.7%;
   width: 2.6px;
   height: 2.6px;
   animation-delay: 0.6s;
-  animation-duration: 15.0s;
-  --drift: -20px;
+  animation-duration: 10.2s;
+  --drift: 21px;
 }
-.spark:nth-child(6) {
-  left: 16.4%;
-  width: 2.4px;
-  height: 2.4px;
-  animation-delay: 3.7s;
-  animation-duration: 14.7s;
-  --drift: 5px;
+.spark:nth-child(15) {
+  left: 67.2%;
+  width: 4.9px;
+  height: 4.9px;
+  animation-delay: 10.7s;
+  animation-duration: 12.7s;
+  --drift: 3px;
 }
-.spark:nth-child(7) {
-  left: 62.2%;
-  width: 2.1px;
-  height: 2.1px;
-  animation-delay: 4.5s;
-  animation-duration: 12.8s;
-  --drift: -25px;
-}
-.spark:nth-child(8) {
-  left: 24.1%;
-  width: 2.6px;
-  height: 2.6px;
+.spark:nth-child(16) {
+  left: 94.9%;
+  width: 4.9px;
+  height: 4.9px;
   animation-delay: 8.2s;
-  animation-duration: 12.0s;
-  --drift: 5px;
+  animation-duration: 9.7s;
+  --drift: -8px;
 }
-.spark:nth-child(9) {
-  left: 45.9%;
-  width: 3.4px;
-  height: 3.4px;
-  animation-delay: 3.6s;
-  animation-duration: 14.6s;
-  --drift: -14px;
+.spark:nth-child(17) {
+  left: 21.8%;
+  width: 3.0px;
+  height: 3.0px;
+  animation-delay: 0.8s;
+  animation-duration: 10.5s;
+  --drift: 29px;
 }
-.spark:nth-child(10) {
-  left: 56.5%;
-  width: 3.5px;
-  height: 3.5px;
-  animation-delay: 6.3s;
-  animation-duration: 15.1s;
-  --drift: -12px;
+.spark:nth-child(18) {
+  left: 91.4%;
+  width: 3.8px;
+  height: 3.8px;
+  animation-delay: 2.4s;
+  animation-duration: 8.2s;
+  --drift: -22px;
 }
-.spark:nth-child(11) {
-  left: 92.3%;
-  width: 3.5px;
-  height: 3.5px;
-  animation-delay: 1.4s;
-  animation-duration: 11.9s;
-  --drift: -19px;
+.spark:nth-child(19) {
+  left: 54.0%;
+  width: 3.6px;
+  height: 3.6px;
+  animation-delay: 8.9s;
+  animation-duration: 9.1s;
+  --drift: 27px;
 }
-.spark:nth-child(12) {
-  left: 49.0%;
-  width: 3.5px;
-  height: 3.5px;
-  animation-delay: 0.5s;
-  animation-duration: 13.7s;
-  --drift: 4px;
-}
-.spark:nth-child(13) {
-  left: 83.0%;
-  width: 3.2px;
-  height: 3.2px;
+.spark:nth-child(20) {
+  left: 44.9%;
+  width: 4.5px;
+  height: 4.5px;
   animation-delay: 3.8s;
-  animation-duration: 13.9s;
-  --drift: 4px;
+  animation-duration: 13.3s;
+  --drift: 27px;
 }
-.spark:nth-child(14) {
-  left: 46.1%;
-  width: 2.9px;
-  height: 2.9px;
-  animation-delay: 10.1s;
-  animation-duration: 15.6s;
+.spark:nth-child(21) {
+  left: 67.3%;
+  width: 4.6px;
+  height: 4.6px;
+  animation-delay: 4.5s;
+  animation-duration: 12.0s;
   --drift: 9px;
+}
+.spark:nth-child(22) {
+  left: 25.9%;
+  width: 4.4px;
+  height: 4.4px;
+  animation-delay: 3.2s;
+  animation-duration: 10.2s;
+  --drift: 4px;
 }
 
 @keyframes rise {
@@ -1119,7 +1433,7 @@
  * отдельная картинка в потоке.
  */
 @media (max-width: 900px) {
-  .bg {
+  .bg::after {
     background-image: url("/download/hero-portrait.webp");
     /*
      * Aleksandr, 14.09.2026: «поднять кота и опустить кнопки вниз, чтобы
@@ -1320,8 +1634,8 @@
   }
 
   /* никакой атмосферы и никакого появления — только статичная страница */
-  .stars,
-  .starsAlt,
+  .star,
+  .bg::after,
   .shootingStar,
   .shootingStarAlt,
   .haze,
@@ -1342,8 +1656,8 @@
   }
 
   .bg,
-  .stars,
-  .starsAlt {
+  .bg::after,
+  .starfield {
     transform: none;
     transition: none;
   }

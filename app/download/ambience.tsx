@@ -61,9 +61,13 @@ export function Ambience() {
 
   return (
     <div className={styles.ambience} aria-hidden="true">
-      {/* мерцающие звёзды: два слоя с разными точками и разной фазой */}
-      <div className={styles.stars} />
-      <div className={styles.starsAlt} />
+      {/* мерцающие звёзды: каждая — отдельная точка со своей фазой,
+          иначе мерцание всего слоя разом глаз читает как ровный свет */}
+      <div className={styles.starfield}>
+        {Array.from({ length: 28 }, (_, i) => (
+          <span key={i} className={styles.star} />
+        ))}
+      </div>
 
       {/* редкие падающие звёзды */}
       <span className={styles.shootingStar} />
@@ -75,7 +79,7 @@ export function Ambience() {
 
       {/* искры-светлячки, поднимающиеся снизу вверх */}
       <div className={styles.sparks}>
-        {Array.from({ length: 14 }, (_, i) => (
+        {Array.from({ length: 22 }, (_, i) => (
           <span key={i} className={styles.spark} />
         ))}
       </div>
