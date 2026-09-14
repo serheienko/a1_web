@@ -23,6 +23,8 @@ import { PostViewerMenu } from "@/components/post-viewer-menu";
 import { profileHref } from "@/lib/profile-href";
 import { TagLabel } from "@/components/tag-label";
 import { LocationMap } from "@/components/location-map";
+import { RelatedJobs } from "@/components/related-jobs";
+import { fetchRelatedJobs } from "@/lib/a1/related";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -89,9 +91,16 @@ export default async function JobDetailPage({ params }: Props) {
   // comment for why this has to be computed here (a server component)
   // rather than inside that client component. Both run concurrently, not
   // one after the other.
-  const [authorAvatarBlurDataUrl, postImages] = await Promise.all([
+  //
+  // 2026-09-14: подборка «схожі вакансії» едет в этом же Promise.all --
+  // она ничем не связана с картинками, и ждать её отдельно означало бы
+  // сложить два времени вместо того, чтобы взять максимум. Считается
+  // здесь, на сервере: ссылки обязаны быть в HTML, иначе весь смысл
+  // блока теряется (см. шапку components/related-jobs.tsx).
+  const [authorAvatarBlurDataUrl, postImages, related] = await Promise.all([
     generateImageBlurDataUrl(post.author.avatarUrl),
     Promise.all(post.images.map(async (img) => ({ ...img, blurDataUrl: await generateImageBlurDataUrl(img.url) }))),
+    fetchRelatedJobs(post),
   ]);
 
   // 2026-08-30, live-testing feedback ("Berlin, Germany - нужна
@@ -280,6 +289,12 @@ export default async function JobDetailPage({ params }: Props) {
           </ul>
         </div>
       )}
+
+      <RelatedJobs
+        sameCompany={related.sameCompany}
+        similar={related.similar}
+        companyName={post.author.name}
+      />
     </main>
   );
 }
