@@ -25,7 +25,7 @@
 // свои запросы, к остальным полям профиля он не имеет отношения.
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
@@ -198,6 +198,28 @@ function TrashIcon() {
   );
 }
 
+// 2026-09-14 (Александр: «Еще добавь кнопку "отменить", или крестик
+// сверху закрытия. С анимацией при наведении»). Из первого шага окна
+// выйти можно было только кликом по затемнению -- на телефоне это
+// вообще не читается как «закрыть». Крестик здесь ровно тот же, что в
+// «поділитися» и в «новий чат»: круглая подложка на hover, сам
+// крестик поворачивается на четверть. Плюс Escape.
+function CloseIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      className="h-4 w-4 transition-transform duration-200 ease-out group-hover/close:rotate-90 motion-reduce:transition-none"
+      aria-hidden="true"
+    >
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  );
+}
+
 export function AccountDangerZone({ lang, initialHidden }: { lang: Locale; initialHidden: boolean }) {
   const [hidden, setHidden] = useState(initialHidden);
   const [open, setOpen] = useState(false);
@@ -213,6 +235,21 @@ export function AccountDangerZone({ lang, initialHidden }: { lang: Locale; initi
     setConfirming(false);
     setErrorKey(null);
   }
+
+  useEffect(() => {
+    if (!open) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "Escape") return;
+      // busy -- запрос уже ушёл; закрывать окно под ним нельзя, close()
+      // это и так проверяет, но лишний preventDefault тут ни к чему.
+      if (busy) return;
+      e.preventDefault();
+      close();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, busy]);
 
   async function toggleHidden(next: boolean) {
     if (busy) return;
@@ -297,12 +334,26 @@ export function AccountDangerZone({ lang, initialHidden }: { lang: Locale; initi
               className="animate-modal-in flex w-full max-w-sm flex-col gap-4 rounded-3xl bg-white p-5 shadow-xl dark:bg-neutral-900"
               onClick={(e) => e.stopPropagation()}
             >
+              {/* Заголовок вынесен из обеих веток: он в любом случае один,
+                  а крестик должен стоять на одном и том же месте и на
+                  первом шаге, и на подтверждении удаления. */}
+              <div className="flex items-start gap-3">
+                <h2 className="min-w-0 flex-1 text-[19px] font-bold leading-snug text-neutral-900 dark:text-neutral-50">
+                  {confirming ? STRINGS.confirmTitle[lang] : STRINGS.modalTitle[lang]}
+                </h2>
+                <button
+                  type="button"
+                  onClick={close}
+                  disabled={busy}
+                  aria-label={STRINGS.cancel[lang]}
+                  className="group/close -mr-1 -mt-1 flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-neutral-400 transition hover:bg-black/5 hover:text-neutral-900 active:scale-90 disabled:cursor-default disabled:opacity-40 dark:hover:bg-white/10 dark:hover:text-neutral-50"
+                >
+                  <CloseIcon />
+                </button>
+              </div>
+
               {!confirming ? (
                 <>
-                  <h2 className="text-[19px] font-bold leading-snug text-neutral-900 dark:text-neutral-50">
-                    {STRINGS.modalTitle[lang]}
-                  </h2>
-
                   <div className="flex gap-3 text-neutral-500 dark:text-neutral-400">
                     <EyeOffIcon />
                     <div className="min-w-0">
@@ -343,9 +394,6 @@ export function AccountDangerZone({ lang, initialHidden }: { lang: Locale; initi
                 </>
               ) : (
                 <>
-                  <h2 className="text-[19px] font-bold leading-snug text-neutral-900 dark:text-neutral-50">
-                    {STRINGS.confirmTitle[lang]}
-                  </h2>
                   <p className="text-[13px] leading-snug text-neutral-500 dark:text-neutral-400">{STRINGS.confirmText[lang]}</p>
 
                   {errorKey && <p className="text-[13px] text-red-600 dark:text-red-400">{STRINGS[errorKey][lang]}</p>}
