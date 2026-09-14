@@ -392,11 +392,50 @@
   opacity: 0.85;
 }
 
-.langMenu {
+/*
+ * Разовая анимация планеты (Aleksandr, 14.09.2026): на десктопе — при
+ * наведении, на телефоне hover'а нет, поэтому там её запускает класс
+ * .langGlobeSpin, который вешается при открытии списка тапом.
+ */
+@keyframes globeSpin {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  55% {
+    transform: rotate(200deg) scale(1.12);
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+  }
+}
+
+@media (hover: hover) {
+  .langWrap:hover .langGlobe {
+    animation: globeSpin 700ms ease-in-out;
+    opacity: 1;
+  }
+}
+
+.langGlobeSpin {
+  animation: globeSpin 700ms ease-in-out;
+  opacity: 1;
+}
+
+/*
+ * Внешняя обёртка — «мост» между кнопкой и списком: её padding-top
+ * делает область наведения одним непрерывным прямоугольником, иначе
+ * курсор проваливается в ничей зазор и список моргает (баг №1 из
+ * заголовка lib/use-hover-panel.ts).
+ */
+.langPanelOuter {
   position: absolute;
-  top: calc(100% + 8px);
+  top: 100%;
   right: 0;
   z-index: 5;
+  padding-top: 8px;
+}
+
+.langMenu {
   margin: 0;
   padding: 6px;
   list-style: none;
@@ -409,6 +448,18 @@
      и звёздное небо — полупрозрачная панель на них нечитаема */
   background: #0b0f33;
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55);
+  /* появление/исчезновение — те же 150 мс, что зашиты в хук */
+  opacity: 0;
+  transform: scale(0.95);
+  transform-origin: top right;
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease;
+}
+
+.langMenuVisible {
+  opacity: 1;
+  transform: scale(1);
 }
 
 .langItem {
@@ -683,5 +734,14 @@
   .btn:hover::after,
   .btn:focus-visible::after {
     animation: none;
+  }
+
+  .langWrap:hover .langGlobe,
+  .langGlobeSpin {
+    animation: none;
+  }
+
+  .langMenu {
+    transition: none;
   }
 }

@@ -6,11 +6,20 @@
 // components/settings-menu.tsx. Это его компактная версия для шапки
 // страницы.
 //
-// Логика один в один как там же: класс lang-XX на <html> решает, какой
-// из девяти отрендеренных вариантов текста видно, выбор запоминается в
-// localStorage("lang") — тот самый ключ, который app/layout.tsx читает
-// в LANG_INIT_SCRIPT ещё до первой отрисовки, так что выбранный тут
-// язык подхватывается и на всех остальных страницах сайта.
+// Тот же день, вторая правка: «при наведении сделать, чтобы у нас был
+// такой выпадающий список, как мы много где сделали на основном сайте.
+// Абсолютно такая же механика» — поэтому здесь тот же самый хук
+// lib/use-hover-panel.ts, что и у components/avatar-menu.tsx и
+// components/filters-form.tsx, а не своя копия логики. Все четыре
+// вылеченных там бага (пропущенный mouseleave, отсутствие плавного
+// появления, мобильный «двойной тап», геометрический backstop) уже
+// внутри хука — переиспользование и есть способ их не повторить.
+//
+// Логика языка — один в один как в settings-menu.tsx: класс lang-XX на
+// <html> решает, какой из девяти отрендеренных вариантов текста видно,
+// выбор запоминается в localStorage("lang") — тот самый ключ, который
+// app/layout.tsx читает в LANG_INIT_SCRIPT ещё до первой отрисовки, так
+// что выбранный тут язык подхватывается и на всех остальных страницах.
 //
 // Украинская оговорка соблюдена и здесь: у посетителя из Украины
 // (класс geo-ua, который ставит тот же скрипт по cookie из
@@ -19,6 +28,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { LOCALES, LOCALE_CLASS, LOCALE_TAG, type Locale } from "@/components/t";
+import { useHoverPanel } from "@/lib/use-hover-panel";
 import styles from "./download.module.css";
 
 const LANGUAGE_NAMES: Record<Locale, string> = {
@@ -52,6 +62,11 @@ export function LangSwitch() {
   const [isGeoUa, setIsGeoUa] = useState(false);
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  const { rendered, visible, handleMouseEnter, handleMouseLeave, isRecentHoverOpen } = useHoverPanel(open, setOpen, [
+    { trigger: wrapRef, panel: panelRef },
+  ]);
 
   // Активный язык читается из класса на <html>, а не из localStorage:
   // класс уже учитывает и сохранённый выбор, и определение по стране.
@@ -62,6 +77,8 @@ export function LangSwitch() {
     setIsGeoUa(root.classList.contains("geo-ua"));
   }, []);
 
+  // На телефоне hover'а нет — там список закрывается тапом мимо него
+  // или клавишей Escape.
   useEffect(() => {
     if (!open) return;
     function onPointerDown(event: MouseEvent | TouchEvent) {
@@ -101,16 +118,34 @@ export function LangSwitch() {
   const options = LOCALES.filter((l) => !(isGeoUa && l === "ru"));
 
   return (
-    <div className={styles.langWrap} ref={wrapRef}>
+    <div
+      className={styles.langWrap}
+      ref={wrapRef}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
       <button
         type="button"
         className={styles.langButton}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          // см. lib/use-hover-panel.ts, запись 2026-09-04: на телефоне
+          // первый тап синтезирует и mouseenter, и click — без этой
+          // проверки список открылся бы и тут же закрылся
+          if (isRecentHoverOpen()) return;
+          setOpen(!open);
+        }}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label="Language"
       >
-        <svg className={styles.langGlobe} viewBox="0 0 24 24" aria-hidden="true">
+        {/* Разовая анимация планеты: на десктопе — при наведении
+            (:hover), на телефоне — при открытии списка тапом (класс
+            ниже), как просил Александр. */}
+        <svg
+          className={open ? `${styles.langGlobe} ${styles.langGlobeSpin}` : styles.langGlobe}
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
           <path
             fill="none"
             stroke="currentColor"
@@ -123,22 +158,33 @@ export function LangSwitch() {
         <span>{LANGUAGE_SHORT[lang ?? "uk"]}</span>
       </button>
 
-      {open && (
-        <ul className={styles.langMenu} role="listbox">
-          {options.map((l) => (
-            <li key={l}>
-              <button
-                type="button"
-                role="option"
-                aria-selected={l === lang}
-                className={l === lang ? `${styles.langItem} ${styles.langItemActive}` : styles.langItem}
-                onClick={() => selectLocale(l)}
-              >
-                {LANGUAGE_NAMES[l]}
-              </button>
-            </li>
-          ))}
-        </ul>
+      {rendered && (
+        /*
+         * Внешняя обёртка держит отступ между кнопкой и списком своим
+         * padding'ом, а не margin'ом: иначе между ними остаётся ничей
+         * зазор, на котором курсор «проваливается» и список моргает —
+         * ровно тот баг №1, что описан в заголовке use-hover-panel.ts.
+         */
+        <div className={styles.langPanelOuter} ref={panelRef}>
+          <ul
+            className={visible ? `${styles.langMenu} ${styles.langMenuVisible}` : styles.langMenu}
+            role="listbox"
+          >
+            {options.map((l) => (
+              <li key={l}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={l === lang}
+                  className={l === lang ? `${styles.langItem} ${styles.langItemActive}` : styles.langItem}
+                  onClick={() => selectLocale(l)}
+                >
+                  {LANGUAGE_NAMES[l]}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   );

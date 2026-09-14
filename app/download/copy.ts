@@ -20,10 +20,18 @@ export const DOWNLOAD_LINKS = {
 } as const;
 
 export type DownloadCopy = {
-  /** Первая часть заголовка — белая. */
+  /**
+   * Первая часть заголовка — белая.
+   *
+   * Aleksandr, 14.09.2026: «наш основной текст, который должен быть
+   * большим, это как раз "Знаходь роботу та спеціалістів" — ты с первых
+   * слов понимаешь, что это за оффер». Так и сделано: крупно то, что
+   * объясняет продукт, слоган ушёл в подзаголовок.
+   */
   headline: string;
   /** Вторая (последняя смысловая) строка заголовка — синим акцентом. */
   headlineAccent: string;
+  /** Подзаголовок — слоган и вторая мысль (прямое общение). */
   subtitle: string;
   /** Верхняя строка на обеих кнопках («Завантажити»). */
   downloadVerb: string;
@@ -39,9 +47,9 @@ export type DownloadCopy = {
 
 export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
   uk: {
-    headline: "Твоя наступна можливість —",
-    headlineAccent: "в один дотик.",
-    subtitle: "Знаходь роботу та спеціалістів. Спілкуйся напряму.",
+    headline: "Знаходь роботу",
+    headlineAccent: "та спеціалістів.",
+    subtitle: "Твоя наступна можливість — в один дотик. Спілкуйся напряму.",
     downloadVerb: "Завантажити",
     android: "для Android",
     ios: "для iOS",
@@ -49,9 +57,9 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     site: "Сайт A1",
   },
   en: {
-    headline: "Your next opportunity —",
-    headlineAccent: "one tap away.",
-    subtitle: "Find jobs and specialists. Message them directly.",
+    headline: "Find jobs",
+    headlineAccent: "and specialists.",
+    subtitle: "Your next opportunity — one tap away. Message people directly.",
     downloadVerb: "Download",
     android: "for Android",
     ios: "for iOS",
@@ -59,9 +67,9 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     site: "A1 website",
   },
   ru: {
-    headline: "Твоя следующая возможность —",
-    headlineAccent: "в одно касание.",
-    subtitle: "Находи работу и специалистов. Общайся напрямую.",
+    headline: "Находи работу",
+    headlineAccent: "и специалистов.",
+    subtitle: "Твоя следующая возможность — в одно касание. Общайся напрямую.",
     downloadVerb: "Скачать",
     android: "для Android",
     ios: "для iOS",
@@ -69,9 +77,9 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     site: "Сайт A1",
   },
   de: {
-    headline: "Deine nächste Chance —",
-    headlineAccent: "nur ein Fingertipp.",
-    subtitle: "Finde Jobs und Fachkräfte. Schreib direkt.",
+    headline: "Finde Jobs",
+    headlineAccent: "und Fachkräfte.",
+    subtitle: "Deine nächste Chance — nur ein Fingertipp. Schreib direkt.",
     downloadVerb: "Herunterladen",
     android: "für Android",
     ios: "für iOS",
@@ -79,9 +87,9 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     site: "A1-Website",
   },
   es: {
-    headline: "Tu próxima oportunidad —",
-    headlineAccent: "a un solo toque.",
-    subtitle: "Encuentra trabajo y especialistas. Habla directamente.",
+    headline: "Encuentra trabajo",
+    headlineAccent: "y especialistas.",
+    subtitle: "Tu próxima oportunidad — a un solo toque. Habla directamente.",
     downloadVerb: "Descargar",
     android: "para Android",
     ios: "para iOS",
@@ -89,9 +97,9 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     site: "Sitio de A1",
   },
   fr: {
-    headline: "Ta prochaine opportunité —",
-    headlineAccent: "en un seul geste.",
-    subtitle: "Trouve un emploi et des spécialistes. Échange en direct.",
+    headline: "Trouve un emploi",
+    headlineAccent: "et des spécialistes.",
+    subtitle: "Ta prochaine opportunité — en un seul geste. Échange en direct.",
     downloadVerb: "Télécharger",
     android: "pour Android",
     ios: "pour iOS",
@@ -99,9 +107,9 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     site: "Site A1",
   },
   pl: {
-    headline: "Twoja kolejna szansa —",
-    headlineAccent: "w jednym dotknięciu.",
-    subtitle: "Znajdź pracę i specjalistów. Pisz bezpośrednio.",
+    headline: "Znajdź pracę",
+    headlineAccent: "i specjalistów.",
+    subtitle: "Twoja kolejna szansa — w jednym dotknięciu. Pisz bezpośrednio.",
     downloadVerb: "Pobierz",
     android: "na Androida",
     ios: "na iOS",
@@ -109,9 +117,9 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     site: "Strona A1",
   },
   ptBR: {
-    headline: "Sua próxima oportunidade —",
-    headlineAccent: "a um toque de distância.",
-    subtitle: "Encontre vagas e especialistas. Converse direto.",
+    headline: "Encontre vagas",
+    headlineAccent: "e especialistas.",
+    subtitle: "Sua próxima oportunidade — a um toque. Converse direto.",
     downloadVerb: "Baixar",
     android: "para Android",
     ios: "para iOS",
@@ -119,9 +127,9 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     site: "Site do A1",
   },
   zh: {
-    headline: "你的下一个机会 —",
-    headlineAccent: "只需轻轻一点。",
-    subtitle: "寻找工作与专业人才，直接沟通。",
+    headline: "寻找工作",
+    headlineAccent: "与专业人才。",
+    subtitle: "你的下一个机会，只需轻轻一点。可直接沟通。",
     downloadVerb: "下载",
     android: "Android 版",
     ios: "iOS 版",
