@@ -503,8 +503,17 @@
 @media (max-width: 900px) {
   .bg {
     background-image: url("/download/hero-portrait.webp");
+    /*
+     * Aleksandr, 14.09.2026: «поднять кота и опустить кнопки вниз, чтобы
+     * кот как будто сидел на кнопках». Ключевое здесь — size: 100% auto
+     * вместо cover: кадр масштабируется ТОЛЬКО по ширине экрана, и его
+     * низ всегда прибит к низу страницы. Значит кот стоит на одном и том
+     * же расстоянии от кнопок на любом телефоне, а лишняя высота
+     * срезается сверху, где всё равно только небо под текстом. С cover
+     * кот ездил и обрезался, потому что масштаб зависел от высоты экрана.
+     */
     background-position: center bottom;
-    background-size: cover;
+    background-size: 100% auto;
   }
 
   /* затемнение только сверху — под текст и кнопки; кот внизу остаётся чистым */
@@ -512,9 +521,12 @@
     background: linear-gradient(
       180deg,
       rgba(3, 5, 31, 0.92) 0%,
-      rgba(3, 5, 31, 0.8) 30%,
-      rgba(3, 5, 31, 0.45) 48%,
-      rgba(3, 5, 31, 0) 66%
+      rgba(3, 5, 31, 0.78) 24%,
+      rgba(3, 5, 31, 0.3) 40%,
+      rgba(3, 5, 31, 0) 55%,
+      rgba(3, 5, 31, 0) 74%,
+      rgba(3, 5, 31, 0.55) 88%,
+      rgba(3, 5, 31, 0.85) 100%
     );
   }
 
@@ -523,10 +535,11 @@
     padding-right: clamp(20px, 5vw, 24px);
   }
 
+  /* весь экран: текст сверху, кот в середине, кнопки внизу */
   .hero {
-    align-items: flex-start;
+    align-items: stretch;
     padding-top: 18px;
-    padding-bottom: calc(28px + env(safe-area-inset-bottom));
+    padding-bottom: calc(22px + env(safe-area-inset-bottom));
   }
 
   .copy {
@@ -548,10 +561,13 @@
     max-width: 34ch;
   }
 
+  /* margin-top: auto прижимает кнопки к нижнему краю экрана, а
+     100svh у .page гарантирует, что панель браузера их не накроет */
   .actions {
     flex-direction: column;
     align-items: stretch;
-    margin-top: 26px;
+    margin-top: auto;
+    padding-top: 28px;
     gap: 12px;
   }
 
@@ -641,8 +657,10 @@
     font-size: 17px;
   }
 
+  /* margin-top здесь НЕ трогаем: auto из мобильного блока выше —
+     это то, что прижимает кнопки к низу экрана */
   .actions {
-    margin-top: 18px;
+    padding-top: 16px;
     gap: 10px;
   }
 
