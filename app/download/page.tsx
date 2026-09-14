@@ -16,7 +16,8 @@
 //    этом маршруте скрыты — см. pathname-гварды в components/site-nav.tsx,
 //    chats-fab.tsx, scroll-top-fab.tsx, create-post-fab.tsx. Это
 //    рекламная страница-плакат, а не часть ленты. Взамен в её
-//    собственной шапке стоит переключатель языков (./lang-switch.tsx).
+//    собственной шапке стоит меню «…» (./menu.tsx): тема, язык и
+//    «поділитися».
 //
 // 3. Тексты и ссылки вынесены целиком в ./copy.ts. Все девять языков
 //    рендерятся сразу, нужный показывает CSS — тот же приём, что и в
@@ -26,10 +27,8 @@ import type { Metadata } from "next";
 import { Montserrat } from "next/font/google";
 import { LOCALES } from "@/components/t";
 import { DOWNLOAD_COPY, DOWNLOAD_LINKS } from "./copy";
-import { LangSwitch } from "./lang-switch";
-import { ThemeSwitch } from "./theme-switch";
 import { Interactions } from "./interactions";
-import { ShareButton } from "./share-button";
+import { Menu } from "./menu";
 import { SitePreview } from "./site-preview";
 import { Ambience } from "./ambience";
 import styles from "./download.module.css";
@@ -178,9 +177,8 @@ export default function DownloadPage() {
           <div className={styles.headerRight}>
             {/* ссылка на сайт + мини-превью, раскрывающееся по наведению */}
             <SitePreview />
-            <LangSwitch />
-            <ThemeSwitch />
-            <ShareButton />
+            {/* одна кнопка «…»: тема, язык и «поділитися» внутри */}
+            <Menu />
           </div>
         </header>
       </div>

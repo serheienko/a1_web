@@ -57,6 +57,17 @@ export type DownloadCopy = {
   previewText: string;
   /** Надпись на кнопке внутри превью. */
   previewCta: string;
+  /** Заголовок секции выбора темы в меню «…». */
+  menuTheme: string;
+  /** Заголовок секции выбора языка в меню «…». */
+  menuLanguage: string;
+  /** Подписи трёх режимов темы. */
+  themeLight: string;
+  themeDark: string;
+  themeAuto: string;
+  /** Пункт «поділитися» и подтверждение после копирования ссылки. */
+  shareLabel: string;
+  shareCopied: string;
 };
 
 export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
@@ -72,6 +83,13 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     previewTitle: "Завітайте до веб-версії A1 🐈‍⬛",
     previewText: "Вакансії та фахівці прямо у браузері",
     previewCta: "Перейти на сайт",
+    menuTheme: "Тема",
+    menuLanguage: "Мова",
+    themeLight: "Світла",
+    themeDark: "Темна",
+    themeAuto: "Авто",
+    shareLabel: "Поділитися",
+    shareCopied: "Посилання скопійовано",
   },
   en: {
     headline: "Find jobs",
@@ -85,6 +103,13 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     previewTitle: "Visit the A1 web version 🐈‍⬛",
     previewText: "Jobs and specialists right in your browser",
     previewCta: "Open the site",
+    menuTheme: "Theme",
+    menuLanguage: "Language",
+    themeLight: "Light",
+    themeDark: "Dark",
+    themeAuto: "Auto",
+    shareLabel: "Share",
+    shareCopied: "Link copied",
   },
   ru: {
     headline: "Находите работу",
@@ -98,6 +123,13 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     previewTitle: "Загляните в веб-версию A1 🐈‍⬛",
     previewText: "Вакансии и специалисты прямо в браузере",
     previewCta: "Перейти на сайт",
+    menuTheme: "Тема",
+    menuLanguage: "Язык",
+    themeLight: "Светлая",
+    themeDark: "Тёмная",
+    themeAuto: "Авто",
+    shareLabel: "Поделиться",
+    shareCopied: "Ссылка скопирована",
   },
   de: {
     headline: "Finden Sie Jobs",
@@ -111,6 +143,13 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     previewTitle: "Schau in die A1 Web-Version 🐈‍⬛",
     previewText: "Jobs und Fachkräfte direkt im Browser",
     previewCta: "Zur Website",
+    menuTheme: "Design",
+    menuLanguage: "Sprache",
+    themeLight: "Hell",
+    themeDark: "Dunkel",
+    themeAuto: "Auto",
+    shareLabel: "Teilen",
+    shareCopied: "Link kopiert",
   },
   es: {
     headline: "Encuentre trabajo",
@@ -124,6 +163,13 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     previewTitle: "Visita la versión web de A1 🐈‍⬛",
     previewText: "Vacantes y especialistas en tu navegador",
     previewCta: "Ir al sitio",
+    menuTheme: "Tema",
+    menuLanguage: "Idioma",
+    themeLight: "Claro",
+    themeDark: "Oscuro",
+    themeAuto: "Auto",
+    shareLabel: "Compartir",
+    shareCopied: "Enlace copiado",
   },
   fr: {
     headline: "Trouvez un emploi",
@@ -137,6 +183,13 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     previewTitle: "Découvre la version web d'A1 🐈‍⬛",
     previewText: "Offres et spécialistes directement dans le navigateur",
     previewCta: "Ouvrir le site",
+    menuTheme: "Thème",
+    menuLanguage: "Langue",
+    themeLight: "Clair",
+    themeDark: "Sombre",
+    themeAuto: "Auto",
+    shareLabel: "Partager",
+    shareCopied: "Lien copié",
   },
   pl: {
     headline: "Znajdź pracę",
@@ -150,6 +203,13 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     previewTitle: "Zajrzyj do wersji webowej A1 🐈‍⬛",
     previewText: "Oferty i specjaliści prosto w przeglądarce",
     previewCta: "Przejdź na stronę",
+    menuTheme: "Motyw",
+    menuLanguage: "Język",
+    themeLight: "Jasny",
+    themeDark: "Ciemny",
+    themeAuto: "Auto",
+    shareLabel: "Udostępnij",
+    shareCopied: "Link skopiowany",
   },
   ptBR: {
     headline: "Encontre vagas",
@@ -163,6 +223,13 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     previewTitle: "Conheça a versão web do A1 🐈‍⬛",
     previewText: "Vagas e especialistas direto no navegador",
     previewCta: "Abrir o site",
+    menuTheme: "Tema",
+    menuLanguage: "Idioma",
+    themeLight: "Claro",
+    themeDark: "Escuro",
+    themeAuto: "Auto",
+    shareLabel: "Compartilhar",
+    shareCopied: "Link copiado",
   },
   zh: {
     headline: "寻找工作",
@@ -176,5 +243,12 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     previewTitle: "来看看 A1 网页版 🐈‍⬛",
     previewText: "职位与人才，直接在浏览器里",
     previewCta: "打开网站",
+    menuTheme: "主题",
+    menuLanguage: "语言",
+    themeLight: "浅色",
+    themeDark: "深色",
+    themeAuto: "自动",
+    shareLabel: "分享",
+    shareCopied: "链接已复制",
   },
 };

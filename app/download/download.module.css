@@ -1400,42 +1400,6 @@
   }
 }
 
-/* ---------- кнопка «поділитися» ---------- */
-
-.shareButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  flex: 0 0 auto;
-  padding: 0;
-  border-radius: 999px;
-  border: 1px solid var(--chip-border);
-  background: var(--chip-bg);
-  color: var(--ink);
-  cursor: pointer;
-  transition:
-    background 200ms ease,
-    border-color 200ms ease,
-    color 500ms ease;
-}
-
-.shareButton:hover {
-  background: var(--chip-hover-bg);
-  border-color: var(--chip-hover-border);
-}
-
-.shareButton:focus-visible {
-  outline: 3px solid var(--focus-ring);
-  outline-offset: 3px;
-}
-
-.shareIcon {
-  width: 18px;
-  height: 18px;
-}
-
 /* ---------- QR и порядок кнопок ---------- */
 
 /*
@@ -1502,19 +1466,24 @@
   }
 }
 
-/* ---------- переключатель темы ---------- */
+/* ---------- меню «…»: тема, язык, поділитися ---------- */
 
 /*
- * Та же пилюля, что у языков, но квадратная. Внутри обе иконки сразу:
- * видимая меняется прозрачностью, поэтому переключение темы выглядит как
- * одно общее растворение, а не как подмена картинки.
+ * Aleksandr, 14.09.2026: «сделаем это одной кнопкой ⋯ и там в модалку
+ * поместим эти функции, по схеме сайта». Панель повторяет меню профиля
+ * на jobs.a1appp.com: секция темы тремя вариантами, список языков с
+ * галочкой, пункт «поділитися» за разделителем.
  */
-.themeButton {
+.menuWrap {
   position: relative;
+}
+
+.menuButton {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
+  gap: 4px;
+  width: 42px;
   height: 38px;
   flex: 0 0 auto;
   padding: 0;
@@ -1529,191 +1498,157 @@
     color 500ms ease;
 }
 
-.themeButton:hover {
+.menuButton:hover,
+.menuButtonOpen {
   background: var(--chip-hover-bg);
   border-color: var(--chip-hover-border);
 }
 
-.themeButton:focus-visible {
+.menuButton:focus-visible {
   outline: 3px solid var(--focus-ring);
   outline-offset: 3px;
 }
 
-.themeIconSun,
-.themeIconMoon {
-  position: absolute;
-  width: 19px;
-  height: 19px;
-  transition:
-    opacity 320ms ease,
-    transform 320ms ease;
-}
-
-/* в тёмной теме кнопка предлагает светлую — показываем солнце */
-.themeIconSun {
-  opacity: 1;
-  transform: rotate(0deg) scale(1);
-}
-
-.themeIconMoon {
-  opacity: 0;
-  transform: rotate(-40deg) scale(0.7);
-}
-
-:global(html.light) .themeIconSun {
-  opacity: 0;
-  transform: rotate(40deg) scale(0.7);
-}
-
-:global(html.light) .themeIconMoon {
-  opacity: 1;
-  transform: rotate(0deg) scale(1);
-}
-
-@media (prefers-color-scheme: light) {
-  :global(html:not(.dark)) .themeIconSun {
-    opacity: 0;
-    transform: rotate(40deg) scale(0.7);
-  }
-
-  :global(html:not(.dark)) .themeIconMoon {
-    opacity: 1;
-    transform: rotate(0deg) scale(1);
-  }
-}
-
-/*
- * Текстовые блоки красятся своими токенами, поэтому каждому нужен
- * собственный переход — иначе при смене темы они меняли бы цвет
- * мгновенно, пока фон ещё растворяется.
- */
-.headline,
-.accent,
-.subtitle,
-.note,
-.siteLink,
-.langButton,
-.langItem {
-  transition-property: color, background, border-color, box-shadow;
-  transition-duration: 500ms;
-  transition-timing-function: ease;
-}
-
-/* ---------- переключатель языков ---------- */
-
-.langWrap {
-  position: relative;
-}
-
-.langButton {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 8px 14px;
+.menuDot {
+  width: 4px;
+  height: 4px;
   border-radius: 999px;
-  border: 1px solid var(--chip-border);
-  background: var(--chip-bg);
-  color: var(--ink);
-  font: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1;
-  cursor: pointer;
-  transition:
-    background 180ms ease,
-    border-color 180ms ease;
-}
-
-.langButton:hover {
-  background: var(--chip-hover-bg);
-  border-color: var(--chip-hover-border);
-}
-
-.langButton:focus-visible {
-  outline: 3px solid var(--focus-ring);
-  outline-offset: 3px;
-}
-
-.langGlobe {
-  width: 17px;
-  height: 17px;
-  flex: 0 0 auto;
-  opacity: 0.85;
+  background: currentColor;
 }
 
 /*
- * Разовая анимация планеты (Aleksandr, 14.09.2026): на десктопе — при
- * наведении, на телефоне hover'а нет, поэтому там её запускает класс
- * .langGlobeSpin, который вешается при открытии списка тапом.
+ * Анимация при наведении: точки подпрыгивают волной — одна за другой,
+ * с задержкой в 90 мс. Волна идёт слева направо и повторяется, пока
+ * курсор на кнопке.
  */
-@keyframes globeSpin {
-  0% {
-    transform: rotate(0deg) scale(1);
-  }
-  55% {
-    transform: rotate(200deg) scale(1.12);
-  }
+@keyframes dotWave {
+  0%,
+  60%,
   100% {
-    transform: rotate(360deg) scale(1);
+    transform: translateY(0) scale(1);
+    opacity: 0.85;
+  }
+  30% {
+    transform: translateY(-4px) scale(1.25);
+    opacity: 1;
   }
 }
 
 @media (hover: hover) {
-  .langWrap:hover .langGlobe {
-    animation: globeSpin 700ms ease-in-out;
-    opacity: 1;
+  .menuWrap:hover .menuDot {
+    animation: dotWave 900ms ease-in-out infinite;
+  }
+
+  .menuWrap:hover .menuDot:nth-child(2) {
+    animation-delay: 90ms;
+  }
+
+  .menuWrap:hover .menuDot:nth-child(3) {
+    animation-delay: 180ms;
   }
 }
 
-.langGlobeSpin {
-  animation: globeSpin 700ms ease-in-out;
-  opacity: 1;
-}
-
-/*
- * Внешняя обёртка — «мост» между кнопкой и списком: её padding-top
- * делает область наведения одним непрерывным прямоугольником, иначе
- * курсор проваливается в ничей зазор и список моргает (баг №1 из
- * заголовка lib/use-hover-panel.ts).
- */
-.langPanelOuter {
+/* «мост» между кнопкой и панелью: без него курсор проваливается в
+   ничей зазор и меню моргает (см. lib/use-hover-panel.ts) */
+.menuPanelOuter {
   position: absolute;
   top: 100%;
   right: 0;
-  z-index: 5;
-  padding-top: 8px;
+  z-index: 6;
+  padding-top: 10px;
 }
 
-.langMenu {
-  margin: 0;
-  padding: 6px;
-  list-style: none;
-  min-width: 190px;
-  max-width: min(260px, calc(100vw - 32px));
-  max-height: min(60vh, 420px);
+.menuPanel {
+  width: 244px;
+  max-width: calc(100vw - 32px);
+  max-height: min(70vh, 460px);
   overflow-y: auto;
-  border-radius: 16px;
+  padding: 10px;
+  border-radius: 18px;
   border: 1px solid var(--panel-border);
-  /* подложка без прозрачности: под меню может оказаться и кот, и небо —
-     полупрозрачная панель на них нечитаема */
   background: var(--panel-bg);
   box-shadow: var(--panel-shadow);
-  /* появление/исчезновение — те же 150 мс, что зашиты в хук */
   opacity: 0;
-  transform: scale(0.95);
+  transform: translateY(-6px) scale(0.97);
   transform-origin: top right;
   transition:
     opacity 150ms ease,
     transform 150ms ease;
 }
 
-.langMenuVisible {
+.menuPanelVisible {
   opacity: 1;
-  transform: scale(1);
+  transform: translateY(0) scale(1);
 }
 
-.langItem {
-  display: block;
+.menuSectionTitle {
+  margin: 6px 0 8px;
+  padding: 0 6px;
+  color: var(--ink-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* --- тема: три варианта в ряд, как на сайте --- */
+
+.menuThemes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.menuTheme {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 9px 4px;
+  border-radius: 12px;
+  border: 1px solid var(--panel-border);
+  background: transparent;
+  color: var(--panel-item);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.menuTheme:hover {
+  background: var(--panel-item-hover);
+  color: var(--ink);
+}
+
+.menuThemeActive {
+  background: var(--panel-item-active);
+  border-color: var(--chip-hover-border);
+  color: var(--accent);
+}
+
+.menuThemeIcon {
+  width: 18px;
+  height: 18px;
+}
+
+/* --- языки --- */
+
+.menuLangs {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   width: 100%;
   padding: 9px 12px;
   border: 0;
@@ -1725,17 +1660,43 @@
   font-weight: 500;
   text-align: left;
   cursor: pointer;
+  transition:
+    background 160ms ease,
+    color 160ms ease;
 }
 
-.langItem:hover {
+.menuItem:hover {
   background: var(--panel-item-hover);
   color: var(--ink);
 }
 
-.langItemActive {
+.menuItemActive {
   background: var(--panel-item-active);
-  color: var(--ink);
+  color: var(--accent);
   font-weight: 700;
+}
+
+.menuCheck,
+.menuShareIcon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.menuDivider {
+  height: 1px;
+  margin: 10px 4px;
+  background: var(--panel-border);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menuWrap:hover .menuDot {
+    animation: none;
+  }
+
+  .menuPanel {
+    transition: none;
+  }
 }
 
 /* ---------- локализация ---------- */
