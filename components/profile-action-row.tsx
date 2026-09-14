@@ -73,6 +73,7 @@ import { authFetch } from "@/lib/auth-fetch";
 import type { Contact } from "@/lib/a1/schemas";
 import { LottiePlayer } from "@/components/lottie-player";
 import { InlineAuthForm } from "@/components/inline-auth-form";
+import { useCloseOnScroll } from "@/lib/use-close-on-scroll";
 import { useHoverPanel } from "@/lib/use-hover-panel";
 
 type StringKey =
@@ -345,6 +346,11 @@ export function ProfileActionRow({
   useEffect(() => {
     if (!authPromptOpen) setAuthFormExpanded(false);
   }, [authPromptOpen]);
+
+  // 2026-09-14 (Александр: «сделай чтобы модалка пряталась при скролле
+  // на мобиле»). Выключено, пока открыта форма входа: мобильная
+  // клавиатура сама двигает вьюпорт -- см. lib/use-close-on-scroll.ts.
+  useCloseOnScroll(authPromptOpen && !authFormExpanded, () => setAuthPromptOpen(false));
 
   // 2026-09-02 (Aleksandr, live screenshots of a real profile: "зроби,
   // щоб іконка чатів у профілях тепер відкривала чат з ними") -- same
@@ -815,13 +821,6 @@ export function ProfileActionRow({
                     className="rounded-full bg-accent py-2.5 text-sm font-bold tracking-wide text-white transition hover:opacity-90"
                   >
                     {STRINGS.signInCta[lang]}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAuthPromptOpen(false)}
-                    className="rounded-full border border-neutral-300 py-2.5 text-sm font-medium text-neutral-600 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
-                  >
-                    {STRINGS.cancel[lang]}
                   </button>
                 </div>
               </>

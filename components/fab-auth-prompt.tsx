@@ -42,6 +42,7 @@ import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { useEffect, useState, type RefObject } from "react";
 import { LottiePlayer } from "@/components/lottie-player";
 import { InlineAuthForm } from "@/components/inline-auth-form";
+import { useCloseOnScroll } from "@/lib/use-close-on-scroll";
 
 type FabAuthPromptStringKey = "title" | "body" | "signInCta" | "cancel";
 
@@ -132,6 +133,12 @@ export function FabAuthPrompt({
     if (!open) setExpanded(false);
   }, [open]);
 
+  // 2026-09-14 (Александр: «сделай чтобы модалка пряталась при скролле
+  // на мобиле»). Тот же попап, что на странице вакансии, только
+  // прижатый к кнопкам внизу -- ведёт себя одинаково. Выключено, пока
+  // открыта форма входа: мобильная клавиатура сама двигает вьюпорт.
+  useCloseOnScroll(open && !expanded, onClose);
+
   if (!open) return null;
 
   return createPortal(
@@ -197,13 +204,6 @@ export function FabAuthPrompt({
                 className="rounded-full bg-accent py-2 text-sm font-bold tracking-wide text-white transition hover:opacity-90"
               >
                 {STRINGS.signInCta[lang]}
-              </button>
-              <button
-                type="button"
-                onClick={onClose}
-                className="rounded-full border border-neutral-300 py-2 text-xs font-medium text-neutral-600 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
-              >
-                {STRINGS.cancel[lang]}
               </button>
             </div>
           </>
