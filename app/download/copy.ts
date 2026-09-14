@@ -31,7 +31,12 @@ export type DownloadCopy = {
   headline: string;
   /** Вторая (последняя смысловая) строка заголовка — синим акцентом. */
   headlineAccent: string;
-  /** Подзаголовок — слоган и вторая мысль (прямое общение). */
+  /**
+   * Подзаголовок — слоган и вторая мысль (прямое общение).
+   * Aleksandr, 14.09.2026: «поменяй "твоя" на "Ваша"» — вежливая форма.
+   * Глагол согласован с ней там, где язык различает формы (uk, ru, de,
+   * es, fr); в en/pt/zh обращение и так нейтральное.
+   */
   subtitle: string;
   /** Верхняя строка на обеих кнопках («Завантажити»). */
   downloadVerb: string;
@@ -58,7 +63,7 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
   uk: {
     headline: "Знаходь роботу",
     headlineAccent: "та спеціалістів.",
-    subtitle: "Твоя наступна можливість — в один дотик. Спілкуйся напряму.",
+    subtitle: "Ваша наступна можливість — в один дотик. Спілкуйтеся напряму.",
     downloadVerb: "Завантажити",
     android: "для Android",
     ios: "для iOS",
@@ -84,7 +89,7 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
   ru: {
     headline: "Находи работу",
     headlineAccent: "и специалистов.",
-    subtitle: "Твоя следующая возможность — в одно касание. Общайся напрямую.",
+    subtitle: "Ваша следующая возможность — в одно касание. Общайтесь напрямую.",
     downloadVerb: "Скачать",
     android: "для Android",
     ios: "для iOS",
@@ -97,7 +102,7 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
   de: {
     headline: "Finde Jobs",
     headlineAccent: "und Fachkräfte.",
-    subtitle: "Deine nächste Chance — nur ein Fingertipp. Schreib direkt.",
+    subtitle: "Ihre nächste Chance — nur ein Fingertipp. Schreiben Sie direkt.",
     downloadVerb: "Herunterladen",
     android: "für Android",
     ios: "für iOS",
@@ -110,7 +115,7 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
   es: {
     headline: "Encuentra trabajo",
     headlineAccent: "y especialistas.",
-    subtitle: "Tu próxima oportunidad — a un solo toque. Habla directamente.",
+    subtitle: "Su próxima oportunidad — a un solo toque. Hable directamente.",
     downloadVerb: "Descargar",
     android: "para Android",
     ios: "para iOS",
@@ -123,7 +128,7 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
   fr: {
     headline: "Trouve un emploi",
     headlineAccent: "et des spécialistes.",
-    subtitle: "Ta prochaine opportunité — en un seul geste. Échange en direct.",
+    subtitle: "Votre prochaine opportunité — en un seul geste. Échangez en direct.",
     downloadVerb: "Télécharger",
     android: "pour Android",
     ios: "pour iOS",
