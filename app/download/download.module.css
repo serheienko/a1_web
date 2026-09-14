@@ -111,28 +111,56 @@
   gap: clamp(10px, 1.5vw, 20px);
 }
 
+/*
+ * Aleksandr, 14.09.2026: «нижнее подчёркивание — как будто из старого
+ * мира, давай что-то более современно, стрелочку оставим». Вместо
+ * text-decoration ссылка ведёт себя как кнопка-пилюля: на наведении
+ * подсвечивается стеклянный фон с мягким синим свечением, а стрелка
+ * уезжает по диагонали вверх-вправо — привычный современный жест
+ * «откроется в другом месте».
+ */
+.siteWrap {
+  position: relative;
+}
+
 .siteLink {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   color: var(--ink);
   font-size: 15px;
-  font-weight: 500;
+  font-weight: 600;
   text-decoration: none;
-  padding: 8px 4px;
-  opacity: 0.9;
-  transition: opacity 180ms ease;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  transition:
+    background 200ms ease,
+    border-color 200ms ease,
+    box-shadow 200ms ease;
 }
 
-.siteLink:hover {
-  opacity: 1;
-  text-decoration: underline;
-  text-underline-offset: 4px;
+.siteLink:hover,
+.siteWrap:hover .siteLink {
+  background: rgba(89, 114, 255, 0.16);
+  border-color: rgba(133, 167, 255, 0.55);
+  box-shadow: 0 0 18px rgba(60, 110, 255, 0.35);
+}
+
+.siteLink:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 3px;
 }
 
 .siteArrow {
-  font-size: 0.9em;
+  font-size: 0.95em;
   line-height: 1;
+  transition: transform 200ms ease;
+}
+
+.siteLink:hover .siteArrow,
+.siteWrap:hover .siteArrow {
+  transform: translate(2px, -2px);
 }
 
 /* ---------- первый экран ---------- */
@@ -146,17 +174,28 @@
 }
 
 .copy {
-  width: 46%;
+  width: 52%;
   min-width: 0;
 }
 
 .headline {
   margin: 0;
   font-weight: 800;
-  font-size: clamp(40px, 4.5vw, 72px);
-  line-height: 1.07;
+  /*
+   * Aleksandr, 14.09.2026: «Знаходь роботу» должно стоять одной
+   * строкой, «та спеціалістів» — второй. Размер подобран так, чтобы
+   * первая строка гарантированно влезала в колонку на десктопе,
+   * а nowrap ниже страхует от переноса на промежуточных ширинах.
+   */
+  font-size: clamp(38px, 4vw, 62px);
+  line-height: 1.08;
   letter-spacing: -0.035em;
-  text-wrap: balance;
+}
+
+@media (min-width: 901px) {
+  .headline {
+    white-space: nowrap;
+  }
 }
 
 /*
@@ -349,6 +388,117 @@
   outline-offset: 4px;
 }
 
+
+
+/* ---------- превью сайта при наведении ---------- */
+
+/*
+ * padding-top тут тот же «мост» между ссылкой и карточкой, что и у
+ * переключателя языков: без него курсор проваливается в ничей зазор и
+ * попап моргает (баг №1 из lib/use-hover-panel.ts).
+ *
+ * Показывается только там, где есть настоящее наведение мышью: на
+ * телефоне ссылка остаётся просто ссылкой.
+ */
+.sitePreviewOuter {
+  display: none;
+}
+
+@media (hover: hover) and (min-width: 901px) {
+  .sitePreviewOuter {
+    display: block;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    z-index: 6;
+    padding-top: 10px;
+  }
+}
+
+.sitePreview {
+  display: block;
+  width: 340px;
+  overflow: hidden;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: #0b0f33;
+  box-shadow: 0 22px 56px rgba(0, 0, 0, 0.6);
+  text-decoration: none;
+  color: var(--ink);
+  opacity: 0;
+  transform: translateY(-6px) scale(0.97);
+  transform-origin: top right;
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease;
+}
+
+.sitePreviewVisible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.sitePreviewShot {
+  display: block;
+  position: relative;
+  background: #f3f4f8;
+}
+
+.sitePreviewShot img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* лёгкое затемнение к низу картинки, чтобы стык с тёмной карточкой
+   не читался жёсткой линией */
+.sitePreviewShot::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 42%;
+  background: linear-gradient(180deg, rgba(11, 15, 51, 0) 0%, rgba(11, 15, 51, 0.85) 100%);
+}
+
+.sitePreviewBody {
+  display: block;
+  padding: 14px 16px 16px;
+}
+
+.sitePreviewTitle {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.sitePreviewText {
+  display: block;
+  margin-top: 6px;
+  color: var(--ink-muted);
+  font-size: 13.5px;
+  line-height: 1.4;
+}
+
+.sitePreviewCta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(180deg, #3575ff 0%, #1747ff 55%, #1834e8 100%);
+  border: 1px solid #85a7ff;
+  box-shadow: 0 0 16px rgba(48, 94, 255, 0.5);
+  transition: box-shadow 200ms ease;
+}
+
+.sitePreview:hover .sitePreviewCta {
+  box-shadow: 0 0 26px rgba(80, 130, 255, 0.75);
+}
 
 /* ---------- переключатель языков ---------- */
 
@@ -741,7 +891,14 @@
     animation: none;
   }
 
-  .langMenu {
+  .langMenu,
+  .sitePreview,
+  .siteArrow {
     transition: none;
+  }
+
+  .siteLink:hover .siteArrow,
+  .siteWrap:hover .siteArrow {
+    transform: none;
   }
 }

@@ -26,6 +26,7 @@ import { Montserrat } from "next/font/google";
 import { LOCALES } from "@/components/t";
 import { DOWNLOAD_COPY, DOWNLOAD_LINKS } from "./copy";
 import { LangSwitch } from "./lang-switch";
+import { SitePreview } from "./site-preview";
 import styles from "./download.module.css";
 
 // Montserrat — шрифт из макета: геометричный гротеск с круглыми «о» и
@@ -109,12 +110,8 @@ export default function DownloadPage() {
           <img className={styles.logo} src="/download/a1-logo.webp" alt="A1" width={400} height={300} />
 
           <div className={styles.headerRight}>
-            <a className={styles.siteLink} href={DOWNLOAD_LINKS.website}>
-              <Loc inline render={(copy) => copy.site} />
-              <span className={styles.siteArrow} aria-hidden="true">
-                ↗
-              </span>
-            </a>
+            {/* ссылка на сайт + мини-превью, раскрывающееся по наведению */}
+            <SitePreview />
             <LangSwitch />
           </div>
         </header>

@@ -43,6 +43,12 @@ export type DownloadCopy = {
   note: string;
   /** Текст ссылки на основной сайт, вверху справа. */
   site: string;
+  /** Заголовок мини-превью сайта, которое раскрывается при наведении. */
+  previewTitle: string;
+  /** Одна строка о том, что человека ждёт на сайте. */
+  previewText: string;
+  /** Надпись на кнопке внутри превью. */
+  previewCta: string;
 };
 
 export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
@@ -55,6 +61,9 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     ios: "для iOS",
     note: "Обери свою платформу та приєднуйся до A1",
     site: "Сайт A1",
+    previewTitle: "Джоб-борд A1",
+    previewText: "Вакансії та фахівці — прямо у браузері, без застосунку.",
+    previewCta: "Перейти на сайт",
   },
   en: {
     headline: "Find jobs",
@@ -65,6 +74,9 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     ios: "for iOS",
     note: "Choose your platform and join A1",
     site: "A1 website",
+    previewTitle: "A1 job board",
+    previewText: "Jobs and specialists right in your browser, no app needed.",
+    previewCta: "Open the site",
   },
   ru: {
     headline: "Находи работу",
@@ -75,6 +87,9 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     ios: "для iOS",
     note: "Выбери свою платформу и присоединяйся к A1",
     site: "Сайт A1",
+    previewTitle: "Джоб-борд A1",
+    previewText: "Вакансии и специалисты прямо в браузере, без приложения.",
+    previewCta: "Перейти на сайт",
   },
   de: {
     headline: "Finde Jobs",
@@ -85,6 +100,9 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     ios: "für iOS",
     note: "Wähle deine Plattform und komm zu A1",
     site: "A1-Website",
+    previewTitle: "A1 Jobbörse",
+    previewText: "Jobs und Fachkräfte direkt im Browser, ganz ohne App.",
+    previewCta: "Zur Website",
   },
   es: {
     headline: "Encuentra trabajo",
@@ -95,6 +113,9 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     ios: "para iOS",
     note: "Elige tu plataforma y únete a A1",
     site: "Sitio de A1",
+    previewTitle: "Portal de empleo A1",
+    previewText: "Vacantes y especialistas en el navegador, sin app.",
+    previewCta: "Ir al sitio",
   },
   fr: {
     headline: "Trouve un emploi",
@@ -105,6 +126,9 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     ios: "pour iOS",
     note: "Choisis ta plateforme et rejoins A1",
     site: "Site A1",
+    previewTitle: "Job board A1",
+    previewText: "Offres et spécialistes directement dans le navigateur.",
+    previewCta: "Ouvrir le site",
   },
   pl: {
     headline: "Znajdź pracę",
@@ -115,6 +139,9 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     ios: "na iOS",
     note: "Wybierz swoją platformę i dołącz do A1",
     site: "Strona A1",
+    previewTitle: "Tablica ofert A1",
+    previewText: "Oferty i specjaliści prosto w przeglądarce, bez aplikacji.",
+    previewCta: "Przejdź na stronę",
   },
   ptBR: {
     headline: "Encontre vagas",
@@ -125,6 +152,9 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     ios: "para iOS",
     note: "Escolha sua plataforma e entre no A1",
     site: "Site do A1",
+    previewTitle: "Mural de vagas A1",
+    previewText: "Vagas e especialistas direto no navegador, sem app.",
+    previewCta: "Abrir o site",
   },
   zh: {
     headline: "寻找工作",
@@ -135,5 +165,8 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     ios: "iOS 版",
     note: "选择你的平台，加入 A1",
     site: "A1 官网",
+    previewTitle: "A1 招聘板",
+    previewText: "在浏览器里直接查看职位与人才，无需安装应用。",
+    previewCta: "打开网站",
   },
 };
