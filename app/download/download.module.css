@@ -1,0 +1,467 @@
+/*
+ * app/download/download.module.css
+ *
+ * Aleksandr, 2026-09-14: установочная страница (/download), которую он
+ * шарит в соцсетях. Сознательно написана обычным CSS-модулем, а не
+ * Tailwind-классами: страница всегда тёмная и не должна зависеть ни от
+ * светлой/тёмной темы сайта, ни от глобальной типографики globals.css —
+ * это отдельный «плакат», а не обычная страница ленты.
+ *
+ * Локализация: разметка рендерит все девять языков сразу, а показывает
+ * нужный CSS — ровно тот же приём, что и components/t.tsx (класс
+ * lang-XX на <html> ставит LANG_INIT_SCRIPT в app/layout.tsx ещё до
+ * первой отрисовки). Отличие только в том, что здесь правила написаны
+ * руками через :global(html.lang-XX), а не через Tailwind-варианты —
+ * нужен display: block/flex, а не только inline.
+ */
+
+.page {
+  box-sizing: border-box;
+  --ink: #f8f9ff;
+  --ink-desc: #e3e5f5;
+  --ink-muted: #a7abca;
+  --accent: #5972ff;
+  --bg: #03051f;
+
+  position: relative;
+  isolation: isolate;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-inter), system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * Десктопный фон. Иллюстрация ставится фоном самой секции (а не <img>),
+ * чтобы кот всегда сидел в правой части экрана независимо от высоты
+ * окна: background-position: right center + cover даёт ровно ту же
+ * композицию, что в макете, и на 1920 не оставляет пустых полей.
+ * На узких экранах этот слой выключается — там иллюстрация показывается
+ * отдельным блоком .art между текстом и кнопками (см. медиа-запрос).
+ */
+.bg {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background-image: url("/download/hero.webp");
+  background-repeat: no-repeat;
+  background-position: right center;
+  background-size: cover;
+}
+
+/* Мягкое затемнение слева — только ради читаемости текста поверх звёзд. */
+.bgFade {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(3, 5, 31, 0.95) 0%,
+      rgba(3, 5, 31, 0.88) 26%,
+      rgba(3, 5, 31, 0.45) 46%,
+      rgba(3, 5, 31, 0) 62%
+    );
+}
+
+/*
+ * box-sizing проставлен явно, а не в расчёте на глобальный preflight
+ * Tailwind: страница нарочно отвязана от глобальных стилей, а без него
+ * боковые padding'и прибавляются к 100% ширины и правый край (ссылка
+ * «Сайт A1») уезжает за экран — поймано на скриншоте 1440px.
+ */
+.container {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding-left: clamp(24px, 4vw, 64px);
+  padding-right: clamp(24px, 4vw, 64px);
+}
+
+/* ---------- шапка ---------- */
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: clamp(20px, 3vw, 36px);
+}
+
+.logo {
+  display: block;
+  width: clamp(64px, 6vw, 96px);
+  height: auto;
+}
+
+.siteLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 500;
+  text-decoration: none;
+  padding: 8px 4px;
+  opacity: 0.9;
+  transition: opacity 180ms ease;
+}
+
+.siteLink:hover {
+  opacity: 1;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.siteArrow {
+  font-size: 0.9em;
+  line-height: 1;
+}
+
+/* ---------- первый экран ---------- */
+
+.hero {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  padding-top: clamp(24px, 4vw, 48px);
+  padding-bottom: clamp(32px, 5vw, 72px);
+}
+
+.copy {
+  width: 46%;
+  min-width: 0;
+}
+
+.headline {
+  margin: 0;
+  font-weight: 800;
+  font-size: clamp(40px, 4.5vw, 72px);
+  line-height: 1.07;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+/*
+ * Последняя смысловая строка заголовка — синим и всегда с новой строки
+ * (в макете «в один дотик.» стоит отдельной строкой). display: block
+ * надёжнее <br/>: не ломается, если перевод на другом языке длиннее и
+ * первая часть сама переносится на две строки.
+ */
+.accent {
+  display: block;
+  color: var(--accent);
+}
+
+.subtitle {
+  margin: 26px 0 0;
+  color: var(--ink-desc);
+  font-size: clamp(19px, 1.7vw, 25px);
+  font-weight: 400;
+  line-height: 1.45;
+  max-width: 26ch;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 40px;
+}
+
+.note {
+  margin: 20px 0 0;
+  color: var(--ink-muted);
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+/* ---------- кнопки установки ---------- */
+
+.btn {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 260px;
+  min-height: 84px;
+  padding: 18px 28px;
+  border-radius: 999px;
+  color: #fff;
+  text-decoration: none;
+  transition:
+    transform 200ms ease,
+    box-shadow 200ms ease,
+    filter 200ms ease;
+  will-change: transform;
+}
+
+.btnIcon {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  fill: #fff;
+}
+
+.btnText {
+  display: block;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: left;
+}
+
+.btnTop {
+  display: block;
+  font-weight: 700;
+}
+
+.btnBottom {
+  display: block;
+  font-weight: 700;
+}
+
+.android {
+  background: linear-gradient(180deg, #3575ff 0%, #1747ff 55%, #1834e8 100%);
+  border: 2px solid #85a7ff;
+  box-shadow:
+    inset 0 2px 5px rgba(255, 255, 255, 0.35),
+    inset 0 -3px 8px rgba(0, 15, 120, 0.25),
+    0 0 18px rgba(48, 94, 255, 0.55),
+    0 0 42px rgba(48, 94, 255, 0.22);
+}
+
+.android:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    inset 0 2px 5px rgba(255, 255, 255, 0.4),
+    inset 0 -3px 8px rgba(0, 15, 120, 0.25),
+    0 0 26px rgba(48, 94, 255, 0.75),
+    0 0 64px rgba(48, 94, 255, 0.35);
+}
+
+.android:active {
+  transform: translateY(0);
+}
+
+.ios {
+  background: linear-gradient(180deg, #963fff 0%, #7422f1 55%, #5414d1 100%);
+  border: 2px solid #c08aff;
+  box-shadow:
+    inset 0 2px 5px rgba(255, 255, 255, 0.35),
+    inset 0 -3px 8px rgba(40, 0, 100, 0.25),
+    0 0 18px rgba(149, 56, 255, 0.55),
+    0 0 42px rgba(149, 56, 255, 0.22);
+}
+
+.ios:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    inset 0 2px 5px rgba(255, 255, 255, 0.4),
+    inset 0 -3px 8px rgba(40, 0, 100, 0.25),
+    0 0 26px rgba(149, 56, 255, 0.75),
+    0 0 64px rgba(149, 56, 255, 0.35);
+}
+
+.ios:active {
+  transform: translateY(0);
+}
+
+.btn:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 4px;
+}
+
+/* ---------- иллюстрация в мобильной раскладке ---------- */
+
+.art {
+  display: none;
+}
+
+/* ---------- локализация ---------- */
+
+/*
+ * Каждый локализуемый кусок текста отрендерен девять раз; видимым
+ * остаётся ровно один. --loc-display позволяет элементу самому сказать,
+ * каким display он должен показываться (block по умолчанию, inline для
+ * ссылки в шапке) — без !important и без display: revert, который
+ * снёс бы и собственные значения из этого же файла.
+ */
+.loc {
+  display: none;
+}
+
+:global(html.lang-uk) .loc[data-lang="uk"],
+:global(html.lang-en) .loc[data-lang="en"],
+:global(html.lang-ru) .loc[data-lang="ru"],
+:global(html.lang-de) .loc[data-lang="de"],
+:global(html.lang-es) .loc[data-lang="es"],
+:global(html.lang-fr) .loc[data-lang="fr"],
+:global(html.lang-pl) .loc[data-lang="pl"],
+:global(html.lang-ptbr) .loc[data-lang="ptBR"],
+:global(html.lang-zh) .loc[data-lang="zh"] {
+  display: var(--loc-display, block);
+}
+
+.locInline {
+  --loc-display: inline;
+}
+
+/* ---------- адаптация ---------- */
+
+/*
+ * 1180px — момент, когда две кнопки по ~270px перестают спокойно
+ * помещаться в 46%-колонку рядом друг с другом.
+ */
+@media (max-width: 1180px) {
+  .copy {
+    width: 52%;
+  }
+
+  .actions {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .btn {
+    width: 100%;
+    max-width: 340px;
+  }
+}
+
+/*
+ * Ниже 900px десктопная композиция ломается (текст неизбежно наезжает
+ * на кота), поэтому раскладка перестраивается целиком: логотип,
+ * заголовок, описание, иллюстрация, кнопки — как просил макет для
+ * телефона. Фон-иллюстрация выключается, вместо неё отдельный блок с
+ * собственным кадрированием, где кот виден полностью.
+ */
+@media (max-width: 900px) {
+  .page {
+    min-height: 0;
+  }
+
+  .bg {
+    background-image: none;
+  }
+
+  .bgFade {
+    background: radial-gradient(120% 80% at 50% 40%, rgba(60, 30, 160, 0.35) 0%, rgba(3, 5, 31, 0) 70%);
+  }
+
+  .container {
+    padding-left: clamp(20px, 5vw, 24px);
+    padding-right: clamp(20px, 5vw, 24px);
+  }
+
+  .hero {
+    display: block;
+    padding-top: 28px;
+    padding-bottom: 48px;
+  }
+
+  /*
+   * Колонка не растягивается на всю ширину планшета: строка длиной в
+   * 700+ px читается плохо, а заголовок из макета рассчитан на две-три
+   * строки, а не на одну сплошную.
+   */
+  .copy {
+    width: 100%;
+    max-width: 560px;
+  }
+
+  .headline {
+    font-size: clamp(34px, 5.5vw, 46px);
+    line-height: 1.1;
+  }
+
+  .subtitle {
+    margin-top: 16px;
+    font-size: 19px;
+    max-width: 34ch;
+  }
+
+  .art {
+    display: block;
+    position: relative;
+    width: 100%;
+    max-width: 560px;
+    margin: 24px 0 8px;
+  }
+
+  .artImage {
+    display: block;
+    width: 100%;
+    height: auto;
+    /* на планшете кадр стоит в полях — скругление, чтобы он не читался
+       как вставленный квадрат; на телефоне ниже скругление снимается,
+       там картинка выходит за края экрана */
+    border-radius: 28px;
+    /* мягкий уход картинки в фон снизу, чтобы не было жёсткого края */
+    -webkit-mask-image: linear-gradient(180deg, #000 68%, rgba(0, 0, 0, 0) 100%);
+    mask-image: linear-gradient(180deg, #000 68%, rgba(0, 0, 0, 0) 100%);
+  }
+
+  .actions {
+    margin-top: 8px;
+    gap: 12px;
+  }
+
+  .btn {
+    width: 100%;
+    max-width: none;
+    min-height: 68px;
+    padding: 14px 22px;
+    gap: 14px;
+  }
+
+  .btnIcon {
+    width: 30px;
+    height: 30px;
+  }
+
+  .btnText {
+    font-size: 18px;
+  }
+
+  .note {
+    font-size: 14px;
+  }
+}
+
+/*
+ * Телефон: иллюстрация выходит за боковые поля на всю ширину экрана —
+ * так кот крупнее и кадр не выглядит «открыткой в рамке».
+ */
+@media (max-width: 559px) {
+  .art {
+    width: calc(100% + 2 * clamp(20px, 5vw, 24px));
+    max-width: none;
+    margin-left: calc(-1 * clamp(20px, 5vw, 24px));
+  }
+
+  .artImage {
+    border-radius: 0;
+  }
+
+  .headline {
+    font-size: clamp(34px, 9vw, 44px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn,
+  .siteLink {
+    transition: none;
+  }
+
+  .android:hover,
+  .ios:hover {
+    transform: none;
+  }
+}

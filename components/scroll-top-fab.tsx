@@ -196,7 +196,10 @@ export function ScrollTopFab() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  if (pathname?.startsWith("/sign-in") || pathname?.startsWith("/chats")) return null;
+  // 2026-09-14: /download -- отдельная установочная страница-плакат
+  // (app/download/page.tsx), которую Александр шарит в соцсетях. Ни
+  // навигации сайта, ни плавающих кнопок на ней быть не должно.
+  if (pathname?.startsWith("/sign-in") || pathname?.startsWith("/chats") || pathname === "/download") return null;
 
   return (
     <div

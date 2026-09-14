@@ -173,6 +173,11 @@ export function SiteNav() {
   // menu. z-[45] puts the whole bar above it while staying below every
   // fixed-overlay in the app (the image viewer and the modals are z-50, the
   // portals above that) -- those must keep covering the bar.
+  // 2026-09-14: установочная страница /download (app/download/page.tsx)
+  // -- отдельный тёмный плакат для соцсетей со своей шапкой (логотип
+  // + ссылка на основной сайт). Общая навигация сайта на ней лишняя.
+  if (pathname === "/download") return null;
+
   return (
     <nav
       ref={navRef}

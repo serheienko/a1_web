@@ -148,7 +148,8 @@ export function CreatePostFab() {
   // applies), but /chats itself now gets the SAME real FAB every other
   // page does instead of a smaller one-off header button, cat+progress-
   // bar popup and all (this component's own posting-cat.json below).
-  if (pathname?.startsWith("/sign-in") || pathname?.startsWith("/chats/")) return null;
+  // 2026-09-14: та же причина для /download -- см. app/download/page.tsx.
+  if (pathname?.startsWith("/sign-in") || pathname?.startsWith("/chats/") || pathname === "/download") return null;
 
   // 2026-09-02 (Aleksandr: "В незалогиненых тоже показывай модалку на
   // обе кнопки и не уводи со страницы") -- this used to navigate
