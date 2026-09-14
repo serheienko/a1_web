@@ -43,11 +43,11 @@ const montserrat = Montserrat({
 
 export const metadata: Metadata = {
   title: "Завантаж A1 — робота та спеціалісти в один дотик",
-  description: "Знаходь роботу та спеціалістів. Спілкуйся напряму. Застосунок A1 для Android та iOS.",
+  description: "Знаходьте роботу та спеціалістів. Спілкуйтеся напряму. Застосунок A1 для Android та iOS.",
   alternates: { canonical: "/download" },
   openGraph: {
     title: "Завантаж A1 — робота та спеціалісти в один дотик",
-    description: "Знаходь роботу та спеціалістів. Спілкуйся напряму. Застосунок A1 для Android та iOS.",
+    description: "Знаходьте роботу та спеціалістів. Спілкуйтеся напряму. Застосунок A1 для Android та iOS.",
     url: "https://jobs.a1appp.com/download",
     siteName: "A1",
     type: "website",
