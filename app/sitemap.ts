@@ -21,6 +21,7 @@
 import type { MetadataRoute } from "next";
 import { fetchAllSitemapJobPosts, SITEMAP_CHUNK_SIZE } from "@/lib/a1/sitemap-posts";
 import { profileHref } from "@/lib/profile-href";
+import { JOB_LANDINGS } from "@/lib/seo/job-landings";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -45,6 +46,11 @@ export default async function sitemap({ id }: { id: number }): Promise<MetadataR
   // it no longer gets its own sitemap entry.
   if (id === 0) {
     entries.push({ url: SITE_URL });
+    // 2026-09-14: посадочные по формату работы (lib/seo/job-landings.ts).
+    // Их три, поэтому едут вместе с корнем, а не отдельным чанком.
+    for (const landing of JOB_LANDINGS) {
+      entries.push({ url: `${SITE_URL}/jobs/${landing.slug}` });
+    }
   }
 
   for (const post of chunk) {

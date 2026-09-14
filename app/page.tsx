@@ -22,6 +22,8 @@ import { Pagination } from "@/components/pagination";
 import { EmptyState } from "@/components/empty-state";
 import { Filters } from "@/components/filters";
 import { T } from "@/components/t";
+import Link from "next/link";
+import { JOB_LANDINGS } from "@/lib/seo/job-landings";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -91,6 +93,26 @@ export default async function HomePage({ searchParams }: Props) {
           <T uk="Знаходьте найкращу роботу якомога швидше" en="Find the best job as fast as possible" ru="Находите лучшую работу как можно быстрее" de="Finden Sie den besten Job so schnell wie möglich" es="Encuentra el mejor trabajo lo más rápido posible" fr="Trouvez le meilleur emploi le plus rapidement possible" pl="Znajdź najlepszą pracę jak najszybciej" ptBR="Encontre o melhor emprego o mais rápido possível" zh="尽快找到最好的工作" />
         </p>
       </header>
+
+      {/* 2026-09-14: ссылки на посадочные по формату работы.
+          Без них страницы /jobs/remote, /jobs/office и /jobs/hybrid
+          существуют только в карте сайта -- а карта говорит роботу «вот
+          адрес», тогда как ссылка ещё и передаёт вес. Настоящие <Link>,
+          а не кнопки фильтра: фильтры у нас меняют адрес через
+          router.replace, и по ним робот пройти не может (и не должен --
+          отфильтрованные выдачи закрыты от индексации).
+          Видны и на телефоне, в отличие от заголовка выше. */}
+      <nav aria-label="job formats" className="mb-4 flex flex-wrap gap-2">
+        {JOB_LANDINGS.map((landing) => (
+          <Link
+            key={landing.slug}
+            href={`/jobs/${landing.slug}`}
+            className="rounded-full border border-neutral-200 px-3 py-1.5 text-[13px] font-medium text-neutral-600 transition hover:border-accent/40 hover:bg-accent/5 hover:text-accent dark:border-neutral-800 dark:text-neutral-400"
+          >
+            <T {...landing.h1} />
+          </Link>
+        ))}
+      </nav>
 
       <Filters
         kind="hiring"
