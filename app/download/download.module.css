@@ -1301,6 +1301,77 @@
 }
 
 
+
+/* ---------- QR и порядок кнопок ---------- */
+
+.afterActions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+/*
+ * QR показывается только на большом экране. На телефоне он бессмыслен:
+ * человек уже держит в руках то устройство, на которое ставит приложение.
+ */
+.qr {
+  display: none;
+}
+
+@media (min-width: 901px) {
+  /*
+   * Подпись под кнопками и QR стоят колонкой, а не в строку: рядом они
+   * не помещались в текстовую колонку и подпись заезжала на кота —
+   * поймано на скриншотах 1440 в обеих темах.
+   */
+  .qr {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 0 0 auto;
+  }
+
+  .qrFrame {
+    display: block;
+    padding: 8px;
+    border-radius: 12px;
+    background: #ffffff;
+    color: #03051f;
+    box-shadow: 0 0 22px rgba(60, 110, 255, 0.28);
+  }
+
+  .qrImage {
+    display: block;
+    width: 74px;
+    height: 74px;
+  }
+
+  .qrHint {
+    max-width: 13ch;
+    color: var(--ink-muted);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.35;
+    transition: color 500ms ease;
+  }
+}
+
+/*
+ * Кнопка своей платформы идёт первой — но только в мобильной раскладке,
+ * где кнопки стоят колонкой. На десктопе порядок Android/iOS Александр
+ * просил оставить фиксированным.
+ */
+@media (max-width: 900px) {
+  :global(html.platform-ios) .ios {
+    order: -1;
+  }
+
+  :global(html.platform-android) .android {
+    order: -1;
+  }
+}
+
 /* ---------- переключатель темы ---------- */
 
 /*
