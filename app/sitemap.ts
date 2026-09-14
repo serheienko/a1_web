@@ -20,6 +20,7 @@
 
 import type { MetadataRoute } from "next";
 import { fetchAllSitemapJobPosts, SITEMAP_CHUNK_SIZE } from "@/lib/a1/sitemap-posts";
+import { profileHref } from "@/lib/profile-href";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -51,6 +52,35 @@ export default async function sitemap({ id }: { id: number }): Promise<MetadataR
       url: `${SITE_URL}/jobs/${post.slug}`,
       lastModified: post.updatedAt ?? post.publishedAt,
     });
+  }
+
+  // 2026-09-14 (Александр, SEO-разбор): страницы компаний.
+  //
+  // Профили работодателей (app/u/[username]/page.tsx) индексируемы с
+  // 2026-08-26, но в карте сайта их не было -- то есть Google узнавал о
+  // них только случайно, по ссылке с вакансии. А это ровно те страницы,
+  // которые ищут запросом «робота в SoftServe»: у каждой свой заголовок,
+  // описание компании и список её вакансий.
+  //
+  // Кто попадает: ТОЛЬКО авторы опубликованных вакансий, то есть
+  // работодатели. Обычные профили соискателей сюда не берутся намеренно
+  // -- вопрос приватности живых людей в PLAN.md до сих пор открыт (по
+  // нему же вся лента «Фахівці» стоит под noindex), и класть их в карту
+  // сайта значило бы активно проталкивать в индекс то, по чему решения
+  // ещё нет. Публикация вакансии -- это уже заявление «я работодатель и
+  // хочу, чтобы меня нашли».
+  //
+  // Ездят в chunk 0 вместе с корнем: их сотни, а не десятки тысяч, и
+  // размазывать их по чанкам смысла нет.
+  if (id === 0) {
+    const seen = new Set<string>();
+    for (const post of posts) {
+      const username = post.author.username;
+      if (!username || post.author.isAnonymous) continue;
+      if (seen.has(username)) continue;
+      seen.add(username);
+      entries.push({ url: `${SITE_URL}${profileHref(username)}` });
+    }
   }
 
   return entries;
