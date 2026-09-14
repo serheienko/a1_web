@@ -27,6 +27,7 @@ import { LOCALES } from "@/components/t";
 import { DOWNLOAD_COPY, DOWNLOAD_LINKS } from "./copy";
 import { LangSwitch } from "./lang-switch";
 import { SitePreview } from "./site-preview";
+import { Ambience } from "./ambience";
 import styles from "./download.module.css";
 
 // Montserrat — шрифт из макета: геометричный гротеск с круглыми «о» и
@@ -100,6 +101,8 @@ export default function DownloadPage() {
     <main className={`${montserrat.variable} ${styles.page}`}>
       <div className={styles.bg} aria-hidden="true" />
       <div className={styles.bgFade} aria-hidden="true" />
+      {/* звёзды, падающие звёзды, дымка и искры + параллакс за курсором */}
+      <Ambience />
 
       <div className={styles.container}>
         <header className={styles.header}>
