@@ -9,7 +9,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { fetchPostById } from "@/lib/a1/posts";
 import { slugify, parseSlugId } from "@/lib/seo/slug";
-import { buildJobPostingJsonLd, isJobPostingExpired } from "@/lib/seo/jsonld";
+import { buildJobPostingJsonLd, buildJobBreadcrumbJsonLd, isJobPostingExpired } from "@/lib/seo/jsonld";
 import { CachedAvatar } from "@/components/cached-avatar";
 import { PostImages } from "@/components/post-images";
 import { truncateAtWordBoundary } from "@/lib/format";
@@ -86,6 +86,12 @@ export default async function JobDetailPage({ params }: Props) {
 
   const expired = isJobPostingExpired(post);
   const jsonLd = expired ? null : buildJobPostingJsonLd(post);
+  // 2026-09-14: хлебные крошки. Отдаются ВСЕГДА, в том числе у истёкшей
+  // вакансии: JobPosting у неё мы снимаем намеренно (её больше нет как
+  // вакансии), а дорожка «Вакансії -> ...» остаётся правдой. Подпись
+  // украинская, как и <html lang="uk">, который отдаёт сервер: разметка
+  // одна на страницу, девяти языков в ней не бывает.
+  const breadcrumbJsonLd = buildJobBreadcrumbJsonLd(post, "Вакансії");
 
   // 2026-08-28: real per-image blur-up (lib/avatar-blur.ts), same as the
   // feed already does for avatars — see components/post-images.tsx's own
@@ -120,6 +126,19 @@ export default async function JobDetailPage({ params }: Props) {
         // eslint-disable-next-line react/no-danger
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       )}
+      {/* eslint-disable-next-line react/no-danger */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
+
+      {/* Видимая дорожка под ту же разметку. Google просит, чтобы
+          BreadcrumbList соответствовал тому, что видит человек, и это
+          заодно первая ссылка со страницы вакансии ОБРАТНО в ленту --
+          до этой правки её не было вовсе, кроме логотипа в шапке. */}
+      <nav aria-label="breadcrumb" className="mb-4 text-[13px] text-neutral-400 dark:text-neutral-500">
+        <Link href="/" className="transition hover:text-accent">
+          <T uk="Вакансії" en="Jobs" ru="Вакансии" de="Stellen" es="Vacantes" fr="Offres" pl="Oferty" ptBR="Vagas" zh="职位" />
+        </Link>
+        <span aria-hidden="true" className="px-1.5">/</span>
+      </nav>
 
       {expired && (
         <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">

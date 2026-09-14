@@ -33,6 +33,50 @@ function cleanTitle(title: string): string {
     .trim();
 }
 
+/**
+ * Тег вакансии -> employmentType из словаря Google.
+ *
+ * 2026-09-14. Раньше поле не отдавалось вовсе, и в комментарии ниже
+ * значилось «нужна таблица тег -> enum, которой пока нет». Таблица
+ * маленькая и строится не из догадок: значения тегов у бэкенда -- это
+ * английские подписи в нижнем регистре через дефис, тот же ключ, по
+ * которому их переводит components/label-translations.ts
+ * (TAG_LABEL_TRANSLATIONS_BY_LOWER_KEY). Оттуда же известно
+ * исключение: «On-site» хранится как "no-site" -- но это формат
+ * работы, а не тип занятости, и сюда всё равно не попадает.
+ *
+ * employmentType -- это ЧАСТОТА/характер занятости, поэтому remote,
+ * hybrid и on-site здесь намеренно отсутствуют: они описывают место
+ * работы, для него у Google есть отдельное jobLocationType.
+ *
+ * Незнакомый тег просто игнорируется -- поле необязательное, и лучше
+ * не отдать его, чем отдать неверно.
+ */
+const TAG_TO_EMPLOYMENT_TYPE: Record<string, string> = {
+  "full-time": "FULL_TIME",
+  "part-time": "PART_TIME",
+  contract: "CONTRACTOR",
+  freelance: "CONTRACTOR",
+  temporary: "TEMPORARY",
+  internship: "INTERN",
+  intern: "INTERN",
+  volunteer: "VOLUNTEER",
+};
+
+/** Приводит тег к тому же виду, в каком лежат ключи выше. */
+function normalizeTag(tag: string): string {
+  return tag.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+export function employmentTypesFor(post: WebPost): string[] {
+  const seen = new Set<string>();
+  for (const tag of post.tags) {
+    const mapped = TAG_TO_EMPLOYMENT_TYPE[normalizeTag(tag)];
+    if (mapped) seen.add(mapped);
+  }
+  return [...seen];
+}
+
 export function buildJobPostingJsonLd(post: WebPost): Record<string, unknown> {
   const jsonLd: Record<string, unknown> = {
     "@context": "https://schema.org",
@@ -107,8 +151,42 @@ export function buildJobPostingJsonLd(post: WebPost): Record<string, unknown> {
     };
   }
 
-  // employmentType omitted: needs a tag/category -> enum mapping table
-  // that doesn't exist yet (PLAN.md OPEN QUESTIONS #4).
+  // 2026-09-14: employmentType больше не пропускается -- см.
+  // TAG_TO_EMPLOYMENT_TYPE выше. Это один из фильтров в Google Jobs
+  // («повна зайнятість», «part-time»), и без него вакансия из этих
+  // фильтров просто выпадала. Массивом, а не строкой: у вакансии может
+  // быть и «full-time», и «contract» одновременно, схема это
+  // допускает. Пусто -- поле не отдаём вовсе.
+  const employmentTypes = employmentTypesFor(post);
+  if (employmentTypes.length > 0) {
+    jsonLd.employmentType = employmentTypes.length === 1 ? employmentTypes[0] : employmentTypes;
+  }
 
   return jsonLd;
+}
+
+/**
+ * Хлебные крошки для страницы вакансии: «Вакансії -> <заголовок>».
+ *
+ * 2026-09-14 (Александр, SEO-разбор). Две вещи сразу. Для Google это
+ * BreadcrumbList -- та самая дорожка, которую он рисует в выдаче вместо
+ * голого адреса, и ради которой у нас в Search Console уже есть отдельный
+ * отчёт «Строки навигации». Для человека и для обхода -- это первая
+ * ссылка СО страницы вакансии ОБРАТНО в ленту: до этой правки её не было
+ * вовсе, кроме логотипа в шапке.
+ *
+ * Уровня всего два. Третьего (категория) сознательно нет: страниц
+ * категорий у нас пока не существует, а крошка, ведущая в никуда или на
+ * закрытую от индексации выдачу с фильтром, хуже, чем её отсутствие.
+ * Появятся посадочные страницы -- добавится и уровень.
+ */
+export function buildJobBreadcrumbJsonLd(post: WebPost, jobsLabel: string): Record<string, unknown> {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: jobsLabel, item: SITE_URL },
+      { "@type": "ListItem", position: 2, name: cleanTitle(post.title) },
+    ],
+  };
 }
