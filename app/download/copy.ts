@@ -57,8 +57,6 @@ export type DownloadCopy = {
   previewText: string;
   /** Надпись на кнопке внутри превью. */
   previewCta: string;
-  /** Подпись к QR-коду (показывается только на десктопе). */
-  qrHint: string;
 };
 
 export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
@@ -74,7 +72,6 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     previewTitle: "Завітайте до веб-версії A1 🐈‍⬛",
     previewText: "Вакансії та фахівці прямо у браузері",
     previewCta: "Перейти на сайт",
-    qrHint: "Наведіть камеру телефона",
   },
   en: {
     headline: "Find jobs",
@@ -88,7 +85,6 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     previewTitle: "Visit the A1 web version 🐈‍⬛",
     previewText: "Jobs and specialists right in your browser",
     previewCta: "Open the site",
-    qrHint: "Point your phone camera here",
   },
   ru: {
     headline: "Находите работу",
@@ -102,7 +98,6 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     previewTitle: "Загляните в веб-версию A1 🐈‍⬛",
     previewText: "Вакансии и специалисты прямо в браузере",
     previewCta: "Перейти на сайт",
-    qrHint: "Наведите камеру телефона",
   },
   de: {
     headline: "Finden Sie Jobs",
@@ -116,7 +111,6 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     previewTitle: "Schau in die A1 Web-Version 🐈‍⬛",
     previewText: "Jobs und Fachkräfte direkt im Browser",
     previewCta: "Zur Website",
-    qrHint: "Handykamera darauf richten",
   },
   es: {
     headline: "Encuentre trabajo",
@@ -130,7 +124,6 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     previewTitle: "Visita la versión web de A1 🐈‍⬛",
     previewText: "Vacantes y especialistas en tu navegador",
     previewCta: "Ir al sitio",
-    qrHint: "Apunta la cámara del móvil",
   },
   fr: {
     headline: "Trouvez un emploi",
@@ -144,7 +137,6 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     previewTitle: "Découvre la version web d'A1 🐈‍⬛",
     previewText: "Offres et spécialistes directement dans le navigateur",
     previewCta: "Ouvrir le site",
-    qrHint: "Vise avec l'appareil photo",
   },
   pl: {
     headline: "Znajdź pracę",
@@ -158,7 +150,6 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     previewTitle: "Zajrzyj do wersji webowej A1 🐈‍⬛",
     previewText: "Oferty i specjaliści prosto w przeglądarce",
     previewCta: "Przejdź na stronę",
-    qrHint: "Zeskanuj telefonem",
   },
   ptBR: {
     headline: "Encontre vagas",
@@ -172,7 +163,6 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     previewTitle: "Conheça a versão web do A1 🐈‍⬛",
     previewText: "Vagas e especialistas direto no navegador",
     previewCta: "Abrir o site",
-    qrHint: "Aponte a câmera do celular",
   },
   zh: {
     headline: "寻找工作",
@@ -186,6 +176,5 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     previewTitle: "来看看 A1 网页版 🐈‍⬛",
     previewText: "职位与人才，直接在浏览器里",
     previewCta: "打开网站",
-    qrHint: "用手机相机扫一扫",
   },
 };
