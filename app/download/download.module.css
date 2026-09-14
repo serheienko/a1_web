@@ -1466,6 +1466,241 @@
   }
 }
 
+
+/* ---------- сезонный слой ---------- */
+
+/*
+ * Aleksandr, 14.09.2026: «зимой снег, летом светлячки — переключается
+ * само по дате». Месяц определяется на стороне посетителя (см.
+ * ./ambience.tsx), поэтому человек в другом полушарии тоже получает
+ * «свой» сезон по календарю, а не по серверу.
+ *
+ * Частицы одни и те же, меняются только цвет, форма и направление:
+ * зимой падают вниз крупными белыми хлопьями, осенью — золотой пылью,
+ * весной пыльца всплывает вверх. Лето отдельного слоя не имеет: летние
+ * светлячки — это те самые искры, что живут на странице круглый год.
+ */
+.season {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.seasonParticle {
+  position: absolute;
+  top: -8%;
+  border-radius: 999px;
+  animation-name: seasonFall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform, opacity;
+}
+
+/* зима: снег */
+.seasonWinter .seasonParticle {
+  background: #ffffff;
+  box-shadow: 0 0 6px 1px rgba(210, 230, 255, 0.8);
+  opacity: 0.85;
+}
+
+/* осень: золотая пыль, мельче и медленнее */
+.seasonAutumn .seasonParticle {
+  background: rgba(255, 205, 130, 0.95);
+  box-shadow: 0 0 8px 2px rgba(255, 180, 90, 0.5);
+  opacity: 0.75;
+  transform: scale(0.7);
+}
+
+/* весна: пыльца — всплывает снизу вверх */
+.seasonSpring .seasonParticle {
+  top: auto;
+  bottom: -8%;
+  background: rgba(190, 255, 220, 0.9);
+  box-shadow: 0 0 8px 2px rgba(120, 255, 190, 0.45);
+  opacity: 0.7;
+  animation-name: seasonRise;
+}
+
+@keyframes seasonFall {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0);
+  }
+  8% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--sway, 0), 118vh, 0);
+  }
+}
+
+@keyframes seasonRise {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0);
+  }
+  10% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--sway, 0), -118vh, 0);
+  }
+}
+
+.seasonParticle:nth-child(1) {
+  left: 2.2%;
+  width: 5.7px;
+  height: 5.7px;
+  animation-duration: 10.2s;
+  animation-delay: -5.5s;
+  --sway: -29px;
+}
+.seasonParticle:nth-child(2) {
+  left: 12.0%;
+  width: 3.6px;
+  height: 3.6px;
+  animation-duration: 11.5s;
+  animation-delay: -10.6s;
+  --sway: 19px;
+}
+.seasonParticle:nth-child(3) {
+  left: 65.9%;
+  width: 4.8px;
+  height: 4.8px;
+  animation-duration: 10.5s;
+  animation-delay: -7.5s;
+  --sway: -7px;
+}
+.seasonParticle:nth-child(4) {
+  left: 98.6%;
+  width: 6.8px;
+  height: 6.8px;
+  animation-duration: 10.0s;
+  animation-delay: -0.3s;
+  --sway: -8px;
+}
+.seasonParticle:nth-child(5) {
+  left: 20.5%;
+  width: 6.8px;
+  height: 6.8px;
+  animation-duration: 12.6s;
+  animation-delay: -5.1s;
+  --sway: -23px;
+}
+.seasonParticle:nth-child(6) {
+  left: 22.3%;
+  width: 6.8px;
+  height: 6.8px;
+  animation-duration: 15.4s;
+  animation-delay: -7.7s;
+  --sway: 27px;
+}
+.seasonParticle:nth-child(7) {
+  left: 35.8%;
+  width: 7.0px;
+  height: 7.0px;
+  animation-duration: 11.2s;
+  animation-delay: -11.7s;
+  --sway: -38px;
+}
+.seasonParticle:nth-child(8) {
+  left: 73.0%;
+  width: 3.9px;
+  height: 3.9px;
+  animation-duration: 18.6s;
+  animation-delay: -9.1s;
+  --sway: 24px;
+}
+.seasonParticle:nth-child(9) {
+  left: 72.5%;
+  width: 3.9px;
+  height: 3.9px;
+  animation-duration: 11.1s;
+  animation-delay: -9.0s;
+  --sway: -37px;
+}
+.seasonParticle:nth-child(10) {
+  left: 33.9%;
+  width: 5.6px;
+  height: 5.6px;
+  animation-duration: 12.7s;
+  animation-delay: -5.5s;
+  --sway: 27px;
+}
+.seasonParticle:nth-child(11) {
+  left: 95.2%;
+  width: 6.2px;
+  height: 6.2px;
+  animation-duration: 19.7s;
+  animation-delay: -13.9s;
+  --sway: -15px;
+}
+.seasonParticle:nth-child(12) {
+  left: 18.3%;
+  width: 5.7px;
+  height: 5.7px;
+  animation-duration: 15.9s;
+  animation-delay: -7.6s;
+  --sway: -33px;
+}
+.seasonParticle:nth-child(13) {
+  left: 19.9%;
+  width: 5.8px;
+  height: 5.8px;
+  animation-duration: 19.1s;
+  animation-delay: -8.4s;
+  --sway: -32px;
+}
+.seasonParticle:nth-child(14) {
+  left: 40.1%;
+  width: 7.0px;
+  height: 7.0px;
+  animation-duration: 19.0s;
+  animation-delay: -9.1s;
+  --sway: -24px;
+}
+.seasonParticle:nth-child(15) {
+  left: 45.6%;
+  width: 6.2px;
+  height: 6.2px;
+  animation-duration: 17.8s;
+  animation-delay: -6.2s;
+  --sway: 5px;
+}
+.seasonParticle:nth-child(16) {
+  left: 12.6%;
+  width: 3.5px;
+  height: 3.5px;
+  animation-duration: 10.1s;
+  animation-delay: -13.8s;
+  --sway: -24px;
+}
+.seasonParticle:nth-child(17) {
+  left: 33.9%;
+  width: 4.9px;
+  height: 4.9px;
+  animation-duration: 16.8s;
+  animation-delay: -12.0s;
+  --sway: 0px;
+}
+.seasonParticle:nth-child(18) {
+  left: 78.3%;
+  width: 5.5px;
+  height: 5.5px;
+  animation-duration: 12.1s;
+  animation-delay: -5.2s;
+  --sway: 11px;
+}
+
 /* ---------- меню «…»: тема, язык, поділитися ---------- */
 
 /*
@@ -2014,7 +2249,8 @@
   }
 
   .spotlight,
-  .burst {
+  .burst,
+  .season {
     display: none;
   }
 
