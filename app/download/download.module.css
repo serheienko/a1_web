@@ -17,11 +17,40 @@
 
 .page {
   box-sizing: border-box;
+
+  /*
+   * Тёмная тема — значения по умолчанию. Всё, что отличается в светлой,
+   * вынесено сюда переменными: сам переключатель тогда меняет ровно один
+   * набор токенов, а не пересобирает правила (Aleksandr, 14.09.2026:
+   * «добавим светлую тему… темы переключаются плавно через прозрачность»).
+   */
   --ink: #f8f9ff;
   --ink-desc: #e3e5f5;
   --ink-muted: #a7abca;
   --accent: #5972ff;
   --bg: #03051f;
+  --fade-rgb: 3, 5, 31;
+  --panel-bg: #0b0f33;
+  --panel-border: rgba(255, 255, 255, 0.16);
+  --panel-shadow: 0 18px 44px rgba(0, 0, 0, 0.55);
+  --panel-item: #e3e5f5;
+  --panel-item-hover: rgba(255, 255, 255, 0.09);
+  --panel-item-active: rgba(89, 114, 255, 0.22);
+  --chip-bg: rgba(255, 255, 255, 0.07);
+  --chip-border: rgba(255, 255, 255, 0.22);
+  --chip-hover-bg: rgba(255, 255, 255, 0.14);
+  --chip-hover-border: rgba(255, 255, 255, 0.4);
+  --chip-glow: 0 0 18px rgba(60, 110, 255, 0.35);
+  --star: #ffffff;
+  --star-glow: rgba(190, 210, 255, 0.7);
+  --spark: rgba(225, 210, 255, 1);
+  --spark-glow: rgba(160, 110, 255, 0.75);
+  --haze-a: rgba(130, 75, 235, 0.42);
+  --haze-b: rgba(85, 120, 255, 0.34);
+  --haze-c: rgba(170, 95, 255, 0.34);
+  --haze-d: rgba(65, 95, 240, 0.28);
+  --logo-glow: rgba(70, 120, 255, 0.45);
+  --focus-ring: #ffffff;
 
   position: relative;
   isolation: isolate;
@@ -31,8 +60,84 @@
   overflow: hidden;
   background-color: var(--bg);
   color: var(--ink);
+  /* сама смена темы: цвета переезжают за ту же половину секунды, что и
+     кроссфейд картинок ниже — иначе текст «щёлкает» раньше фона */
+  transition:
+    background-color 500ms ease,
+    color 500ms ease;
   font-family: var(--font-display), system-ui, -apple-system, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+
+/*
+ * Светлая тема. Два входа в неё:
+ *   1) явный выбор кнопкой — класс light на <html> (./theme-switch.tsx);
+ *   2) системная настройка, если пользователь ничего не выбирал, то есть
+ *      на <html> нет класса dark.
+ * Набор переменных один и тот же, поэтому вся остальная разметка о теме
+ * ничего не знает.
+ */
+:global(html.light) .page {
+  --ink: #12163a;
+  --ink-desc: #2b3160;
+  --ink-muted: #6a70a0;
+  --accent: #2f4ce0;
+  --bg: #fcfcfc;
+  --fade-rgb: 252, 252, 252;
+  --panel-bg: #ffffff;
+  --panel-border: rgba(20, 25, 70, 0.12);
+  --panel-shadow: 0 18px 44px rgba(30, 20, 90, 0.18);
+  --panel-item: #3a4070;
+  --panel-item-hover: rgba(47, 76, 224, 0.1);
+  --panel-item-active: rgba(47, 76, 224, 0.16);
+  --chip-bg: rgba(47, 76, 224, 0.08);
+  --chip-border: rgba(47, 76, 224, 0.28);
+  --chip-hover-bg: rgba(47, 76, 224, 0.16);
+  --chip-hover-border: rgba(47, 76, 224, 0.5);
+  --chip-glow: 0 0 16px rgba(47, 76, 224, 0.18);
+  --star: rgba(120, 90, 235, 0.75);
+  --star-glow: rgba(150, 120, 255, 0.45);
+  --spark: rgba(135, 95, 245, 0.9);
+  --spark-glow: rgba(150, 110, 255, 0.45);
+  --haze-a: rgba(150, 110, 255, 0.22);
+  --haze-b: rgba(110, 140, 255, 0.18);
+  --haze-c: rgba(175, 125, 255, 0.2);
+  --haze-d: rgba(105, 130, 250, 0.16);
+  --logo-glow: rgba(70, 120, 255, 0.22);
+  --focus-ring: #12163a;
+}
+
+@media (prefers-color-scheme: light) {
+  :global(html:not(.dark)) .page {
+  --ink: #12163a;
+  --ink-desc: #2b3160;
+  --ink-muted: #6a70a0;
+  --accent: #2f4ce0;
+  --bg: #fcfcfc;
+  --fade-rgb: 252, 252, 252;
+  --panel-bg: #ffffff;
+  --panel-border: rgba(20, 25, 70, 0.12);
+  --panel-shadow: 0 18px 44px rgba(30, 20, 90, 0.18);
+  --panel-item: #3a4070;
+  --panel-item-hover: rgba(47, 76, 224, 0.1);
+  --panel-item-active: rgba(47, 76, 224, 0.16);
+  --chip-bg: rgba(47, 76, 224, 0.08);
+  --chip-border: rgba(47, 76, 224, 0.28);
+  --chip-hover-bg: rgba(47, 76, 224, 0.16);
+  --chip-hover-border: rgba(47, 76, 224, 0.5);
+  --chip-glow: 0 0 16px rgba(47, 76, 224, 0.18);
+  --star: rgba(120, 90, 235, 0.75);
+  --star-glow: rgba(150, 120, 255, 0.45);
+  --spark: rgba(135, 95, 245, 0.9);
+  --spark-glow: rgba(150, 110, 255, 0.45);
+  --haze-a: rgba(150, 110, 255, 0.22);
+  --haze-b: rgba(110, 140, 255, 0.18);
+  --haze-c: rgba(175, 125, 255, 0.2);
+  --haze-d: rgba(105, 130, 250, 0.16);
+  --logo-glow: rgba(70, 120, 255, 0.22);
+  --focus-ring: #12163a;
+  }
 }
 
 /*
@@ -76,6 +181,31 @@
   will-change: transform;
 }
 
+/*
+ * Светлая иллюстрация лежит ОТДЕЛЬНЫМ слоем поверх тёмной и просто
+ * проявляется прозрачностью — именно так Александр и просил менять темы.
+ * Обе картинки сняты в одном кадре, поэтому кот при переключении не
+ * дёргается: меняется только освещение сцены.
+ */
+.bgLight {
+  opacity: 0;
+  transition: opacity 500ms ease;
+}
+
+.bgLight::after {
+  background-image: url("/download/hero-light.webp");
+}
+
+:global(html.light) .bgLight {
+  opacity: 1;
+}
+
+@media (prefers-color-scheme: light) {
+  :global(html:not(.dark)) .bgLight {
+    opacity: 1;
+  }
+}
+
 @keyframes breathe {
   from {
     transform: scale(1) translate3d(0, 0, 0);
@@ -93,10 +223,10 @@
   background:
     linear-gradient(
       90deg,
-      rgba(3, 5, 31, 0.95) 0%,
-      rgba(3, 5, 31, 0.88) 26%,
-      rgba(3, 5, 31, 0.45) 46%,
-      rgba(3, 5, 31, 0) 62%
+      rgba(var(--fade-rgb), 0.95) 0%,
+      rgba(var(--fade-rgb), 0.88) 26%,
+      rgba(var(--fade-rgb), 0.45) 46%,
+      rgba(var(--fade-rgb), 0) 62%
     );
 }
 
@@ -144,7 +274,7 @@
   display: block;
   width: clamp(64px, 6vw, 92px);
   height: auto;
-  filter: drop-shadow(0 0 14px rgba(70, 120, 255, 0.45));
+  filter: drop-shadow(0 0 14px var(--logo-glow));
 }
 
 .headerRight {
@@ -184,13 +314,13 @@
 
 .siteLink:hover,
 .siteWrap:hover .siteLink {
-  background: rgba(89, 114, 255, 0.16);
-  border-color: rgba(133, 167, 255, 0.55);
-  box-shadow: 0 0 18px rgba(60, 110, 255, 0.35);
+  background: var(--chip-hover-bg);
+  border-color: var(--chip-hover-border);
+  box-shadow: var(--chip-glow);
 }
 
 .siteLink:focus-visible {
-  outline: 3px solid #ffffff;
+  outline: 3px solid var(--focus-ring);
   outline-offset: 3px;
 }
 
@@ -428,7 +558,7 @@
 }
 
 .btn:focus-visible {
-  outline: 3px solid #ffffff;
+  outline: 3px solid var(--focus-ring);
   outline-offset: 4px;
 }
 
@@ -472,8 +602,8 @@
 .star {
   position: absolute;
   border-radius: 999px;
-  background: #ffffff;
-  box-shadow: 0 0 6px 1px rgba(190, 210, 255, 0.7);
+  background: var(--star);
+  box-shadow: 0 0 6px 1px var(--star-glow);
   animation-name: twinkle;
   animation-timing-function: ease-in-out;
   animation-iteration-count: infinite;
@@ -732,15 +862,15 @@
 
 .haze {
   background:
-    radial-gradient(60% 70% at 30% 80%, rgba(130, 75, 235, 0.42), transparent 70%),
-    radial-gradient(50% 60% at 70% 85%, rgba(85, 120, 255, 0.34), transparent 70%);
+    radial-gradient(60% 70% at 30% 80%, var(--haze-a), transparent 70%),
+    radial-gradient(50% 60% at 70% 85%, var(--haze-b), transparent 70%);
   animation: drift 34s ease-in-out infinite;
 }
 
 .hazeAlt {
   background:
-    radial-gradient(55% 65% at 55% 90%, rgba(170, 95, 255, 0.34), transparent 70%),
-    radial-gradient(45% 55% at 15% 95%, rgba(65, 95, 240, 0.28), transparent 70%);
+    radial-gradient(55% 65% at 55% 90%, var(--haze-c), transparent 70%),
+    radial-gradient(45% 55% at 15% 95%, var(--haze-d), transparent 70%);
   animation: drift 47s ease-in-out infinite reverse;
   animation-delay: -12s;
 }
@@ -768,8 +898,8 @@
   position: absolute;
   bottom: 4%;
   border-radius: 999px;
-  background: rgba(225, 210, 255, 1);
-  box-shadow: 0 0 12px 3px rgba(160, 110, 255, 0.75);
+  background: var(--spark);
+  box-shadow: 0 0 12px 3px var(--spark-glow);
   opacity: 0;
   animation-name: rise;
   animation-timing-function: ease-in-out;
@@ -1062,9 +1192,9 @@
   width: 340px;
   overflow: hidden;
   border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: #0b0f33;
-  box-shadow: 0 22px 56px rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--panel-border);
+  background: var(--panel-bg);
+  box-shadow: var(--panel-shadow);
   text-decoration: none;
   color: var(--ink);
   opacity: 0;
@@ -1127,7 +1257,7 @@
   position: absolute;
   inset: auto 0 0 0;
   height: 42%;
-  background: linear-gradient(180deg, rgba(11, 15, 51, 0) 0%, rgba(11, 15, 51, 0.85) 100%);
+  background: linear-gradient(180deg, rgba(var(--fade-rgb), 0) 0%, rgba(var(--fade-rgb), 0.85) 100%);
 }
 
 .sitePreviewBody {
@@ -1170,6 +1300,104 @@
   box-shadow: 0 0 26px rgba(80, 130, 255, 0.75);
 }
 
+
+/* ---------- переключатель темы ---------- */
+
+/*
+ * Та же пилюля, что у языков, но квадратная. Внутри обе иконки сразу:
+ * видимая меняется прозрачностью, поэтому переключение темы выглядит как
+ * одно общее растворение, а не как подмена картинки.
+ */
+.themeButton {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--chip-border);
+  background: var(--chip-bg);
+  color: var(--ink);
+  cursor: pointer;
+  transition:
+    background 200ms ease,
+    border-color 200ms ease,
+    color 500ms ease;
+}
+
+.themeButton:hover {
+  background: var(--chip-hover-bg);
+  border-color: var(--chip-hover-border);
+}
+
+.themeButton:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+
+.themeIconSun,
+.themeIconMoon {
+  position: absolute;
+  width: 19px;
+  height: 19px;
+  transition:
+    opacity 320ms ease,
+    transform 320ms ease;
+}
+
+/* в тёмной теме кнопка предлагает светлую — показываем солнце */
+.themeIconSun {
+  opacity: 1;
+  transform: rotate(0deg) scale(1);
+}
+
+.themeIconMoon {
+  opacity: 0;
+  transform: rotate(-40deg) scale(0.7);
+}
+
+:global(html.light) .themeIconSun {
+  opacity: 0;
+  transform: rotate(40deg) scale(0.7);
+}
+
+:global(html.light) .themeIconMoon {
+  opacity: 1;
+  transform: rotate(0deg) scale(1);
+}
+
+@media (prefers-color-scheme: light) {
+  :global(html:not(.dark)) .themeIconSun {
+    opacity: 0;
+    transform: rotate(40deg) scale(0.7);
+  }
+
+  :global(html:not(.dark)) .themeIconMoon {
+    opacity: 1;
+    transform: rotate(0deg) scale(1);
+  }
+}
+
+/*
+ * Текстовые блоки красятся своими токенами, поэтому каждому нужен
+ * собственный переход — иначе при смене темы они меняли бы цвет
+ * мгновенно, пока фон ещё растворяется.
+ */
+.headline,
+.accent,
+.subtitle,
+.note,
+.siteLink,
+.langButton,
+.langItem {
+  transition-property: color, background, border-color, box-shadow;
+  transition-duration: 500ms;
+  transition-timing-function: ease;
+}
+
 /* ---------- переключатель языков ---------- */
 
 .langWrap {
@@ -1182,8 +1410,8 @@
   gap: 7px;
   padding: 8px 14px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--chip-border);
+  background: var(--chip-bg);
   color: var(--ink);
   font: inherit;
   font-size: 14px;
@@ -1196,12 +1424,12 @@
 }
 
 .langButton:hover {
-  background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.4);
+  background: var(--chip-hover-bg);
+  border-color: var(--chip-hover-border);
 }
 
 .langButton:focus-visible {
-  outline: 3px solid #ffffff;
+  outline: 3px solid var(--focus-ring);
   outline-offset: 3px;
 }
 
@@ -1264,11 +1492,11 @@
   max-height: min(60vh, 420px);
   overflow-y: auto;
   border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  /* тёмная подложка без прозрачности: под меню может оказаться и кот,
-     и звёздное небо — полупрозрачная панель на них нечитаема */
-  background: #0b0f33;
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55);
+  border: 1px solid var(--panel-border);
+  /* подложка без прозрачности: под меню может оказаться и кот, и небо —
+     полупрозрачная панель на них нечитаема */
+  background: var(--panel-bg);
+  box-shadow: var(--panel-shadow);
   /* появление/исчезновение — те же 150 мс, что зашиты в хук */
   opacity: 0;
   transform: scale(0.95);
@@ -1290,7 +1518,7 @@
   border: 0;
   border-radius: 10px;
   background: transparent;
-  color: var(--ink-desc);
+  color: var(--panel-item);
   font: inherit;
   font-size: 14px;
   font-weight: 500;
@@ -1299,12 +1527,12 @@
 }
 
 .langItem:hover {
-  background: rgba(255, 255, 255, 0.09);
+  background: var(--panel-item-hover);
   color: var(--ink);
 }
 
 .langItemActive {
-  background: rgba(89, 114, 255, 0.22);
+  background: var(--panel-item-active);
   color: var(--ink);
   font-weight: 700;
 }
@@ -1388,17 +1616,33 @@
     background-size: 100% auto;
   }
 
+  /*
+   * На телефоне кадр масштабируется по ширине и прижат низом, поэтому
+   * НАД ним остаётся незакрашенная полоса. У каждого слоя она должна
+   * быть закрашена цветом его собственной сцены — иначе сквозь пустоту
+   * светлого слоя просвечивает тёмная картинка под ним (поймано на
+   * скриншоте светлой темы: верх экрана оставался ночным).
+   */
+  .bg::after {
+    background-color: #03051f;
+  }
+
+  .bgLight::after {
+    background-image: url("/download/hero-portrait-light.webp");
+    background-color: #fcfcfc;
+  }
+
   /* затемнение только сверху — под текст и кнопки; кот внизу остаётся чистым */
   .bgFade {
     background: linear-gradient(
       180deg,
-      rgba(3, 5, 31, 0.92) 0%,
-      rgba(3, 5, 31, 0.78) 24%,
-      rgba(3, 5, 31, 0.3) 40%,
-      rgba(3, 5, 31, 0) 55%,
-      rgba(3, 5, 31, 0) 74%,
-      rgba(3, 5, 31, 0.55) 88%,
-      rgba(3, 5, 31, 0.85) 100%
+      rgba(var(--fade-rgb), 0.92) 0%,
+      rgba(var(--fade-rgb), 0.78) 24%,
+      rgba(var(--fade-rgb), 0.3) 40%,
+      rgba(var(--fade-rgb), 0) 55%,
+      rgba(var(--fade-rgb), 0) 74%,
+      rgba(var(--fade-rgb), 0.55) 88%,
+      rgba(var(--fade-rgb), 0.85) 100%
     );
   }
 
@@ -1595,6 +1839,13 @@
   .bg::after,
   .starfield {
     transform: none;
+    transition: none;
+  }
+
+  .bgLight,
+  .themeIconSun,
+  .themeIconMoon,
+  .page {
     transition: none;
   }
 

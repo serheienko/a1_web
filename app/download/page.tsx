@@ -6,10 +6,11 @@
 //
 // Три вещи, которые здесь сделаны намеренно:
 //
-// 1. Страница не пользуется ни глобальной темой сайта, ни его
-//    типографикой — она всегда тёмная и всегда на Montserrat. Поэтому
-//    стили лежат в собственном CSS-модуле (download.module.css), а не в
-//    Tailwind-утилитах, завязанных на dark:/globals.css.
+// 1. Страница не пользуется типографикой сайта — она всегда на
+//    Montserrat, и стили лежат в собственном CSS-модуле
+//    (download.module.css), а не в Tailwind-утилитах globals.css.
+//    Тему, наоборот, разделяет с сайтом: класс light/dark на <html> и
+//    ключ localStorage("theme") здесь те же самые, см. ./theme-switch.tsx.
 //
 // 2. Навигация сайта и три плавающие кнопки (чаты, «+», «наверх») на
 //    этом маршруте скрыты — см. pathname-гварды в components/site-nav.tsx,
@@ -26,6 +27,7 @@ import { Montserrat } from "next/font/google";
 import { LOCALES } from "@/components/t";
 import { DOWNLOAD_COPY, DOWNLOAD_LINKS } from "./copy";
 import { LangSwitch } from "./lang-switch";
+import { ThemeSwitch } from "./theme-switch";
 import { SitePreview } from "./site-preview";
 import { Ambience } from "./ambience";
 import styles from "./download.module.css";
@@ -99,7 +101,10 @@ function AppleIcon() {
 export default function DownloadPage() {
   return (
     <main className={`${montserrat.variable} ${styles.page}`}>
+      {/* два слоя иллюстрации: светлая проявляется поверх тёмной,
+          поэтому смена темы выглядит как растворение, а не как перезагрузка */}
       <div className={styles.bg} aria-hidden="true" />
+      <div className={`${styles.bg} ${styles.bgLight}`} aria-hidden="true" />
       <div className={styles.bgFade} aria-hidden="true" />
       {/* звёзды, падающие звёзды, дымка и искры + параллакс за курсором */}
       <Ambience />
@@ -116,6 +121,7 @@ export default function DownloadPage() {
             {/* ссылка на сайт + мини-превью, раскрывающееся по наведению */}
             <SitePreview />
             <LangSwitch />
+            <ThemeSwitch />
           </div>
         </header>
       </div>
