@@ -5,8 +5,7 @@
       {
         "appIDs": ["4GFH7RQGJQ.com.aone.aoneapp"],
         "components": [
-          { "/": "/jobs/*", "comment": "Сторінка вакансії" },
-          { "/": "/u/*", "comment": "Профіль користувача або компанії" }
+          { "/": "/jobs/*po_*", "comment": "Сторінка вакансії: /jobs/<заголовок>-po_<id>" }
         ]
       }
     ]
