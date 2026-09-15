@@ -157,3 +157,21 @@ export const JOB_LANDINGS: JobLanding[] = [
 export function findJobLanding(slug: string): JobLanding | undefined {
   return JOB_LANDINGS.find((l) => l.slug === slug);
 }
+
+/**
+ * Посадочная по тегу вакансии, если такая есть.
+ *
+ * 2026-09-15: страница вакансии показывает теги обычными плашками, и
+ * тег формата работы («remote», «no-site», «hybrid») никуда не вёл --
+ * хотя ровно под него у нас есть отдельная страница со списком. Теперь
+ * такая плашка становится ссылкой: человеку это «покажи мне все
+ * удалённые», а посадочной -- входящие ссылки с полутора тысяч страниц
+ * вакансий вместо трёх ссылок с главной.
+ *
+ * Сравнение нормализованное: бэкенд хранит теги строчными через дефис,
+ * но руками созданная вакансия может принести «Remote» или «full time».
+ */
+export function findLandingByTag(tag: string): JobLanding | undefined {
+  const normalized = tag.trim().toLowerCase().replace(/[\s_]+/g, "-");
+  return JOB_LANDINGS.find((landing) => landing.tag === normalized);
+}

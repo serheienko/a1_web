@@ -14,6 +14,7 @@ import { CachedAvatar } from "@/components/cached-avatar";
 import { PostImages } from "@/components/post-images";
 import { truncateAtWordBoundary } from "@/lib/format";
 import { buildJobMetaDescription } from "@/lib/seo/job-meta";
+import { findLandingByTag } from "@/lib/seo/job-landings";
 import { RelativeTime, SalaryLabel, LocationLabel } from "@/components/locale-format";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { generateImageBlurDataUrl } from "@/lib/avatar-blur";
@@ -248,11 +249,32 @@ export default async function JobDetailPage({ params }: Props) {
           components/post-card.tsx's feed-card tags exactly. */}
       {post.tags.length > 0 && (
         <div className="mt-6 flex flex-wrap gap-1.5">
-          {post.tags.map((tag) => (
-            <span key={tag} className="rounded-full border border-neutral-200 bg-white px-2.5 py-0.5 text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400">
-              <TagLabel text={tag} />
-            </span>
-          ))}
+          {post.tags.map((tag) => {
+            const pill =
+              "rounded-full border border-neutral-200 bg-white px-2.5 py-0.5 text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400";
+            // 2026-09-15: тег формата работы ведёт на свою посадочную.
+            // Человеку это «покажи все удалённые», а посадочной --
+            // входящие ссылки с полутора тысяч страниц вакансий вместо
+            // трёх ссылок с главной. Остальные теги остаются плашками:
+            // страниц под них нет, и вести им некуда.
+            const landing = findLandingByTag(tag);
+            if (landing) {
+              return (
+                <Link
+                  key={tag}
+                  href={`/jobs/${landing.slug}`}
+                  className={`${pill} transition hover:border-accent/40 hover:text-accent`}
+                >
+                  <TagLabel text={tag} />
+                </Link>
+              );
+            }
+            return (
+              <span key={tag} className={pill}>
+                <TagLabel text={tag} />
+              </span>
+            );
+          })}
         </div>
       )}
 
