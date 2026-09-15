@@ -392,7 +392,7 @@ type StringKey =
   | "offerJob" | "findJob"
   | "titleLabel" | "titlePlaceholderHiring" | "titlePlaceholderSeeking" | "titleTooShort" | "untitledDraft"
   | "descriptionLabel" | "descriptionTipsHiring" | "descriptionTipsSeeking" | "descriptionTooShort"
-  | "locationLabel" | "locationPlaceholder" | "locationEmpty" | "requiredField"
+  | "locationLabel" | "locationPlaceholder" | "locationEmpty" | "requiredField" | "locationRemoteHint"
   | "categoryLabel" | "categoryPlaceholder" | "categoryEmpty"
   | "linkLabel" | "linkPlaceholder" | "linkInvalid"
   | "workType" | "employmentType" | "experience" | "otherTags"
@@ -438,6 +438,13 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   descriptionTooShort: { uk: "Мінімум {n} символів", en: "Minimum length is {n} characters", ru: "Минимум {n} символов", de: "Mindestens {n} Zeichen", es: "Mínimo {n} caracteres", fr: "Minimum {n} caractères", pl: "Minimum {n} znaków", ptBR: "Mínimo de {n} caracteres", zh: "最少{n}个字符" },
   locationLabel: { uk: "Локація", en: "Location", ru: "Локация", de: "Standort", es: "Ubicación", fr: "Lieu", pl: "Lokalizacja", ptBR: "Localização", zh: "地点" },
   locationPlaceholder: { uk: "Пошук міста", en: "Search for a city", ru: "Поиск города", de: "Stadt suchen", es: "Buscar ciudad", fr: "Rechercher une ville", pl: "Szukaj miasta", ptBR: "Buscar cidade", zh: "搜索城市" },
+  // 2026-09-15 (Александр, SEO-разбор). У віддаленої вакансії місто
+  // означає не «де сидіти», а «звідки можна працювати»: саме так це
+  // читає Google -- він для стопроцентно віддаленої питає країни, з
+  // яких дозволено відгукуватись, і дозволяє взяти її з локації
+  // вакансії (див. lib/seo/jsonld.ts). Підказка потрібна, щоб
+  // роботодавець розумів, що саме він тут заявляє.
+  locationRemoteHint: { uk: "Для віддаленої вакансії це країна, з якої можна працювати", en: "For a remote job this is the country applicants may work from", ru: "Для удалённой вакансии это страна, из которой можно работать", de: "Bei Remote-Jobs ist das das Land, aus dem gearbeitet werden darf", es: "Para un empleo remoto, este es el país desde el que se puede trabajar", fr: "Pour un poste à distance, c'est le pays depuis lequel on peut travailler", pl: "W przypadku pracy zdalnej to kraj, z którego można pracować", ptBR: "Para uma vaga remota, este é o país de onde se pode trabalhar", zh: "远程职位中，这是可以在其境内工作的国家/地区" },
   locationEmpty: { uk: "Нічого не знайдено", en: "No matches", ru: "Ничего не найдено", de: "Keine Treffer", es: "Sin resultados", fr: "Aucun résultat", pl: "Brak wyników", ptBR: "Nenhum resultado", zh: "无匹配结果" },
   requiredField: { uk: "Обов'язкове поле", en: "Required field", ru: "Обязательное поле", de: "Pflichtfeld", es: "Campo obligatorio", fr: "Champ requis", pl: "Pole wymagane", ptBR: "Campo obrigatório", zh: "必填字段" },
   categoryLabel: { uk: "Категорія", en: "Category", ru: "Категория", de: "Kategorie", es: "Categoría", fr: "Catégorie", pl: "Kategoria", ptBR: "Categoria", zh: "分类" },
@@ -844,6 +851,10 @@ export function PostEditor({
 
   const tagsForKind = object === "post-job-employing" ? bootstrap.hiringTags : bootstrap.seekingTags;
   const workTypeTags = tagsForKind.filter((tg) => WORK_TYPE_TAGS.has(tg.text));
+  // Значение тега «Remote» в датасете, а не строка "remote" наугад:
+  // подписи приходят с бэкенда, и сверять надо с ними.
+  const remoteTagValue = workTypeTags.find((tg) => tg.text === "Remote")?.value ?? null;
+  const isRemoteSelected = remoteTagValue != null && selectedTags.includes(remoteTagValue);
   const employmentTypeTags = tagsForKind.filter((tg) => EMPLOYMENT_TYPE_TAGS.has(tg.text));
   const experienceTags = tagsForKind.filter((tg) => isExperienceTag(tg.text));
   const otherTags = tagsForKind.filter(
@@ -1731,6 +1742,9 @@ export function PostEditor({
 
           <div className="relative mb-4 flex flex-col gap-1.5">
             <label className={labelClass}>{t("locationLabel", lang)}</label>
+            {isRemoteSelected && (
+              <span className="text-xs text-neutral-500 dark:text-neutral-400">{t("locationRemoteHint", lang)}</span>
+            )}
             {location ? (
               <div className="flex items-center rounded-xl bg-accent/10">
                 <div className="min-w-0 flex-1 truncate px-3.5 py-2.5 text-sm font-medium text-accent">{location.label}</div>

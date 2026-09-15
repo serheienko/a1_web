@@ -135,7 +135,29 @@ export function buildJobPostingJsonLd(post: WebPost): Record<string, unknown> {
 
   const taggedRemote = post.tags.some((tag) => normalizeTag(tag) === "remote");
 
-  if (hasRealPlace && location) {
+  // 2026-09-15 (Александр: «давай сделаем сами»). Удалённая вакансия с
+  // указанным местом -- это НЕ вакансия в этом городе. Google просит для
+  // стопроцентно удалённой ставить признак TELECOMMUTE и перечислять
+  // страны, ИЗ которых можно работать, и прямо разрешает взять для этого
+  // страну из jobLocation: «You must specify a minimum of one country
+  // from which applicants are eligible to work, using
+  // applicantLocationRequirements (preferred), or a default to the
+  // country of a jobLocation».
+  //
+  // Значения «будь-де» в схеме не существует -- минимум одна конкретная
+  // страна, -- поэтому «международная площадка» этим полем не
+  // выражается, и выдумывать список стран мы не будем. Зато у вакансии,
+  // созданной у нас в редакторе, город обязателен и выбирается руками
+  // (components/post-editor.tsx не даёт отправить пост без локации и
+  // намеренно не показывает в поиске страны целиком). То есть страна
+  // здесь -- реальный выбор работодателя, а не догадка.
+  if (hasRealPlace && location && (post.isRemote || taggedRemote)) {
+    jsonLd.jobLocationType = "TELECOMMUTE";
+    jsonLd.applicantLocationRequirements = {
+      "@type": "Country",
+      name: location.country.trim().toUpperCase(),
+    };
+  } else if (hasRealPlace && location) {
     // Пустые строки не отдаём вовсе: «город: ничего» -- это не данные,
     // а шум, и в схеме отсутствующее поле честнее пустого.
     const address: Record<string, unknown> = { "@type": "PostalAddress" };
