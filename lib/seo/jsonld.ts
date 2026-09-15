@@ -238,3 +238,24 @@ export function buildSiteJsonLd(): Record<string, unknown>[] {
     },
   ];
 }
+
+/**
+ * Хлебные крошки для посадочной по формату работы (/jobs/remote и
+ * соседи). 2026-09-15: у этих страниц не было никакой разметки вообще,
+ * хотя видимая дорожка «Вакансії / Віддалена робота» на них есть с
+ * первого дня -- Google просил, чтобы разметка совпадала с тем, что
+ * видит человек, а совпадать было нечему.
+ *
+ * Подпись украинская, как и у вакансии: разметка на страницу одна, а
+ * девять языков живут только в вёрстке (см. components/t.tsx).
+ */
+export function buildLandingBreadcrumbJsonLd(name: string, url: string): Record<string, unknown> {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Вакансії", item: SITE_URL },
+      { "@type": "ListItem", position: 2, name, item: url },
+    ],
+  };
+}

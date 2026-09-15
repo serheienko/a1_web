@@ -18,6 +18,7 @@ import { EmptyState } from "@/components/empty-state";
 import { LOCALES, LOCALE_VISIBILITY_CLASS, type Locale } from "@/components/t";
 import { T } from "@/components/t";
 import type { JobLanding } from "@/lib/seo/job-landings";
+import { buildLandingBreadcrumbJsonLd } from "@/lib/seo/jsonld";
 
 /**
  * Строка с числом на девяти языках. Тот же приём, что у <T/>: рисуем все
@@ -55,6 +56,17 @@ export async function JobLandingPage({ landing, page }: { landing: JobLanding; p
 
   return (
     <main className="mx-auto max-w-3xl px-4 pt-6 sm:pt-16 pb-fab-safe">
+      {/* 2026-09-15: разметка под ту самую дорожку, что ниже. */}
+      {/* eslint-disable-next-line react/no-danger */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(
+            buildLandingBreadcrumbJsonLd(landing.h1.uk, `https://jobs.a1appp.com${basePath}`),
+          ),
+        }}
+      />
+
       {/* Крошка -- и для Google, и как ссылка обратно в общую ленту. */}
       <nav aria-label="breadcrumb" className="mb-4 text-[13px] text-neutral-400 dark:text-neutral-500">
         <a href="/" className="transition hover:text-accent">
