@@ -67,6 +67,8 @@ export function Interactions() {
       event.preventDefault();
       el.classList.add(styles.btnLeaving ?? "");
       setLeaving(true);
+      // ./sound.tsx слушает это событие и гасит музыку вместе с экраном
+      window.dispatchEvent(new CustomEvent("a1:leave"));
       window.setTimeout(() => {
         window.location.href = href;
       }, LEAVE_MS);

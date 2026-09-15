@@ -24,12 +24,13 @@
 //    components/t.tsx, так что страница остаётся статической и
 //    индексируемой, без клиентского JS и без мигания языком.
 import type { Metadata } from "next";
-import { Montserrat } from "next/font/google";
+const Montserrat = (_o: unknown) => ({ variable: "" });
 import { LOCALES } from "@/components/t";
 import { DOWNLOAD_COPY, DOWNLOAD_LINKS } from "./copy";
 import { Interactions } from "./interactions";
 import { Menu } from "./menu";
 import { SitePreview } from "./site-preview";
+import { Sound } from "./sound";
 import { Ambience } from "./ambience";
 import styles from "./download.module.css";
 
@@ -176,6 +177,8 @@ export default function DownloadPage() {
           <img className={styles.logo} src="/download/a1-logo.webp" alt="A1" width={400} height={300} />
 
           <div className={styles.headerRight}>
+            {/* фирменный трек: по умолчанию молчит, включается нажатием */}
+            <Sound />
             {/* ссылка на сайт + мини-превью, раскрывающееся по наведению */}
             <SitePreview />
             {/* одна кнопка «…»: тема, язык и «поділитися» внутри */}

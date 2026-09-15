@@ -68,6 +68,13 @@ export type DownloadCopy = {
   /** Пункт «поділитися» и подтверждение после копирования ссылки. */
   shareLabel: string;
   shareCopied: string;
+  /**
+   * Подписи кнопки со звуком (./sound.tsx). Видимого текста у неё нет —
+   * это title и aria-label, поэтому они описывают действие, а не
+   * состояние: «увімкнути звук» на выключенном, «вимкнути» на играющем.
+   */
+  soundOn: string;
+  soundOff: string;
 };
 
 export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
@@ -90,6 +97,8 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     themeAuto: "Авто",
     shareLabel: "Поділитися",
     shareCopied: "Посилання скопійовано",
+    soundOn: "Увімкнути звук",
+    soundOff: "Вимкнути звук",
   },
   en: {
     headline: "Find jobs",
@@ -110,6 +119,8 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     themeAuto: "Auto",
     shareLabel: "Share",
     shareCopied: "Link copied",
+    soundOn: "Turn on sound",
+    soundOff: "Turn off sound",
   },
   ru: {
     headline: "Находите работу",
@@ -130,6 +141,8 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     themeAuto: "Авто",
     shareLabel: "Поделиться",
     shareCopied: "Ссылка скопирована",
+    soundOn: "Включить звук",
+    soundOff: "Выключить звук",
   },
   de: {
     headline: "Finden Sie Jobs",
@@ -150,6 +163,8 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     themeAuto: "Auto",
     shareLabel: "Teilen",
     shareCopied: "Link kopiert",
+    soundOn: "Ton einschalten",
+    soundOff: "Ton ausschalten",
   },
   es: {
     headline: "Encuentre trabajo",
@@ -170,6 +185,8 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     themeAuto: "Auto",
     shareLabel: "Compartir",
     shareCopied: "Enlace copiado",
+    soundOn: "Activar sonido",
+    soundOff: "Silenciar",
   },
   fr: {
     headline: "Trouvez un emploi",
@@ -190,6 +207,8 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     themeAuto: "Auto",
     shareLabel: "Partager",
     shareCopied: "Lien copié",
+    soundOn: "Activer le son",
+    soundOff: "Couper le son",
   },
   pl: {
     headline: "Znajdź pracę",
@@ -210,6 +229,8 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     themeAuto: "Auto",
     shareLabel: "Udostępnij",
     shareCopied: "Link skopiowany",
+    soundOn: "Włącz dźwięk",
+    soundOff: "Wyłącz dźwięk",
   },
   ptBR: {
     headline: "Encontre vagas",
@@ -230,6 +251,8 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     themeAuto: "Auto",
     shareLabel: "Compartilhar",
     shareCopied: "Link copiado",
+    soundOn: "Ativar som",
+    soundOff: "Desativar som",
   },
   zh: {
     headline: "寻找工作",
@@ -250,5 +273,7 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     themeAuto: "自动",
     shareLabel: "分享",
     shareCopied: "链接已复制",
+    soundOn: "开启声音",
+    soundOff: "关闭声音",
   },
 };
