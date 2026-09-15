@@ -79,6 +79,10 @@ export function Menu() {
   const [isGeoUa, setIsGeoUa] = useState(false);
   const [canShare, setCanShare] = useState(false);
   const [copied, setCopied] = useState(false);
+  // волна по трём точкам на телефоне: на десктопе её запускает :hover,
+  // а тапу соответствует вот этот класс (Aleksandr, 15.09.2026)
+  const [pulsing, setPulsing] = useState(false);
+  const pulseTimer = useRef<number | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -116,6 +120,18 @@ export function Menu() {
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [open]);
+
+  // класс живёт 900 мс: 620 мс сама волна плюс 180 мс задержки третьей
+  // точки. Снять раньше — и третья точка замрёт на полпути.
+  useEffect(() => () => {
+    if (pulseTimer.current) window.clearTimeout(pulseTimer.current);
+  }, []);
+
+  function pulse() {
+    if (pulseTimer.current) window.clearTimeout(pulseTimer.current);
+    setPulsing(true);
+    pulseTimer.current = window.setTimeout(() => setPulsing(false), 900);
+  }
 
   function selectTheme(next: Theme) {
     setTheme(next);
@@ -176,7 +192,14 @@ export function Menu() {
     >
       <button
         type="button"
-        className={open ? `${styles.menuButton} ${styles.menuButtonOpen}` : styles.menuButton}
+        className={[styles.menuButton, open ? styles.menuButtonOpen : "", pulsing ? styles.menuButtonPulse : ""]
+          .filter(Boolean)
+          .join(" ")}
+        onPointerDown={(event) => {
+          // мышь уже получила волну от :hover — повторять на нажатии
+          // значило бы дёрнуть точки посреди уже идущей анимации
+          if (event.pointerType !== "mouse") pulse();
+        }}
         onClick={() => {
           // см. lib/use-hover-panel.ts: на телефоне первый тап синтезирует
           // и mouseenter, и click — без этой проверки меню открылось бы

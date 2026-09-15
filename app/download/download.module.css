@@ -1591,6 +1591,25 @@
   }
 }
 
+/*
+ * На телефоне наведения не бывает, и волна не играла вовсе
+ * (Aleksandr, 15.09.2026: «в моб версии при тапе на ⋯ должна срабатывать
+ * анимация»). Тот же самый кадр запускает сам тап: ./menu.tsx вешает
+ * этот класс на 900 мс — чуть дольше, чем длится волна вместе с
+ * задержкой третьей точки, — и снимает его.
+ */
+.menuButtonPulse .menuDot {
+  animation: dotWave 620ms ease-in-out 1;
+}
+
+.menuButtonPulse .menuDot:nth-child(2) {
+  animation-delay: 90ms;
+}
+
+.menuButtonPulse .menuDot:nth-child(3) {
+  animation-delay: 180ms;
+}
+
 /* «мост» между кнопкой и панелью: без него курсор проваливается в
    ничей зазор и меню моргает (см. lib/use-hover-panel.ts) */
 .menuPanelOuter {
@@ -1733,7 +1752,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .menuWrap:hover .menuDot {
+  .menuWrap:hover .menuDot,
+  .menuButtonPulse .menuDot {
     animation: none;
   }
 
