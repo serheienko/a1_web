@@ -190,3 +190,51 @@ export function buildJobBreadcrumbJsonLd(post: WebPost, jobsLabel: string): Reco
     ],
   };
 }
+
+/**
+ * Organization + WebSite для главной (2026-09-15, SEO-разбор с Александром).
+ *
+ * До этого у сайта не было ни одного описания самого себя: на каждой
+ * вакансии лежал JobPosting, но кто такой «A1 Jobs» — нигде. Это та
+ * разметка, из которой Google строит панель организации справа от
+ * выдачи и связывает домен с приложениями в сторах (через sameAs).
+ *
+ * Логотип — растровый (webp 400×300), а не brand/a1-logo-blue.svg:
+ * SVG в требованиях Google к logo до сих пор не значится.
+ *
+ * SearchAction (строка поиска в сниппете) намеренно НЕ добавляется:
+ * Google отключил sitelinks searchbox, а у нас вдобавок все страницы
+ * с ?q= закрыты от индексации — обещать роботу поиск, результаты
+ * которого мы сами запретили индексировать, смысла нет.
+ */
+export function buildSiteJsonLd(): Record<string, unknown>[] {
+  const organizationId = `${SITE_URL}/#organization`;
+
+  return [
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "@id": organizationId,
+      name: "A1 Jobs",
+      alternateName: "A1",
+      url: SITE_URL,
+      logo: `${SITE_URL}/download/a1-logo.webp`,
+      description:
+        "Майданчик пошуку роботи: вакансії від компаній та приватних осіб, профілі фахівців і чат із роботодавцем.",
+      sameAs: [
+        "https://a1appp.com",
+        "https://play.google.com/store/apps/details?id=com.aone.aoneapp",
+        "https://apps.apple.com/ua/app/a1-job-search-jobs-hiring/id6443859764",
+      ],
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "@id": `${SITE_URL}/#website`,
+      name: "A1 Jobs",
+      url: SITE_URL,
+      inLanguage: "uk",
+      publisher: { "@id": organizationId },
+    },
+  ];
+}

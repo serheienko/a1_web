@@ -24,6 +24,7 @@ import { Filters } from "@/components/filters";
 import { T } from "@/components/t";
 import Link from "next/link";
 import { JOB_LANDINGS } from "@/lib/seo/job-landings";
+import { buildSiteJsonLd } from "@/lib/seo/jsonld";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -81,6 +82,15 @@ export default async function HomePage({ searchParams }: Props) {
 
   return (
     <main className="mx-auto max-w-3xl px-4 pt-4 sm:pt-16 pb-fab-safe">
+      {/* 2026-09-15: Organization + WebSite. Описание сайта самого себя,
+          которого до сих пор не было ни на одной странице. Только на
+          главной -- это разметка про весь сайт, а не про страницу, и
+          дублировать её на каждой вакансии не нужно. */}
+      {buildSiteJsonLd().map((jsonLd) => (
+        // eslint-disable-next-line react/no-danger
+        <script key={String(jsonLd["@id"])} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      ))}
+
       {/* Aleksandr, 2026-08-27: hide this heading block on mobile and
           pull the feed up — the tab bar in the nav already says which
           feed you're on, so on a small screen this was just dead space
