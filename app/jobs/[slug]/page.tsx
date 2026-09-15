@@ -13,6 +13,7 @@ import { buildJobPostingJsonLd, buildJobBreadcrumbJsonLd, isJobPostingExpired } 
 import { CachedAvatar } from "@/components/cached-avatar";
 import { PostImages } from "@/components/post-images";
 import { truncateAtWordBoundary } from "@/lib/format";
+import { buildJobMetaDescription } from "@/lib/seo/job-meta";
 import { RelativeTime, SalaryLabel, LocationLabel } from "@/components/locale-format";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { generateImageBlurDataUrl } from "@/lib/avatar-blur";
@@ -46,7 +47,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const canonicalSlug = slugify(post.title, post.id);
   const canonicalUrl = `${SITE_URL}/jobs/${canonicalSlug}`;
-  const description = post.contentText.replace(/\s+/g, " ").trim().slice(0, 155);
+  // 2026-09-15: своё описание для выдачи вместо первых 155 символов
+  // чужого текста -- см. lib/seo/job-meta.ts.
+  const description = buildJobMetaDescription(post);
   const title = truncateAtWordBoundary(`${post.title} — ${post.author.name} | A1 Jobs`, 60);
   const expired = isJobPostingExpired(post);
 
