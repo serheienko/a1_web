@@ -11,6 +11,9 @@ const SITE_URL = "https://jobs.a1appp.com";
 
 const VALID_THROUGH_DAYS = 60;
 
+/** Код страны-заглушки, который бэкенд ставит вакансии без места. */
+const WORLDWIDE_COUNTRY = "WW";
+
 /**
  * `published + 60 days` — PLAN.md §3.4's policy pending an answer to
  * OPEN QUESTIONS #7 ("is there any concept of a vacancy closing?").
@@ -113,19 +116,38 @@ export function buildJobPostingJsonLd(post: WebPost): Record<string, unknown> {
     directApply: false,
   };
 
-  if (post.location) {
-    jsonLd.jobLocation = {
-      "@type": "Place",
-      address: {
-        "@type": "PostalAddress",
-        addressLocality: post.location.city,
-        addressRegion: post.location.region,
-        addressCountry: post.location.country,
-      },
-    };
-  }
+  // 2026-09-15. Бэкенд на вакансию без указанного места кладёт НЕ пустоту,
+  // а объект-заглушку: city "", adm_level_1 "", country "WW", displayName
+  // "Worldwide" (см. mapLocation в lib/a1/mappers.ts -- это сентинел с
+  // _id === 0). До этой правки он уезжал в разметку как есть, то есть мы
+  // сообщали Google, что вакансия находится в стране с кодом «WW» и в
+  // городе с пустым названием. Такой страны не существует: addressCountry
+  // ждёт код по ISO 3166. Проверено в валидаторе расширенных результатов
+  // -- ровно отсюда и берутся его замечания про addressLocality,
+  // addressRegion и streetAddress.
+  //
+  // Настоящим местом считаем: есть город ИЛИ есть страна, и она не «WW».
+  const location = post.location;
+  const hasRealPlace =
+    !!location &&
+    (location.city.trim() !== "" ||
+      (location.country.trim() !== "" && location.country.trim().toUpperCase() !== WORLDWIDE_COUNTRY));
 
-  if (post.isRemote) {
+  const taggedRemote = post.tags.some((tag) => normalizeTag(tag) === "remote");
+
+  if (hasRealPlace && location) {
+    // Пустые строки не отдаём вовсе: «город: ничего» -- это не данные,
+    // а шум, и в схеме отсутствующее поле честнее пустого.
+    const address: Record<string, unknown> = { "@type": "PostalAddress" };
+    if (location.city.trim()) address.addressLocality = location.city.trim();
+    if (location.region.trim()) address.addressRegion = location.region.trim();
+    if (location.country.trim()) address.addressCountry = location.country.trim();
+    jsonLd.jobLocation = { "@type": "Place", address };
+  } else if (post.isRemote || taggedRemote) {
+    // Места нет, но вакансия помечена удалённой -- это правда, и
+    // TELECOMMUTE для Google полезнее выдуманной страны: у него есть
+    // отдельный фильтр «віддалена робота», в который вакансия без этого
+    // признака просто не попадает.
     jsonLd.jobLocationType = "TELECOMMUTE";
     // Google requires >=1 Country in applicantLocationRequirements whenever
     // jobLocationType is TELECOMMUTE. NULL_LOCATION_MEANS_REMOTE (see
@@ -136,6 +158,18 @@ export function buildJobPostingJsonLd(post: WebPost): Record<string, unknown> {
     // warn this recommended field is missing, which is honest. Revisit
     // once OPEN QUESTIONS "Is location === null the same as remote?" has a
     // real answer.
+  } else if (location) {
+    // Ни города, ни признака удалённой -- офисная вакансия, у которой
+    // место просто не заполнено. Полностью убрать jobLocation нельзя:
+    // для неудалённой вакансии это обязательное поле, без него Google
+    // перестанет считать её вакансией вовсе. Поэтому оставляем страну
+    // как есть и живём с замечанием валидатора -- это временно: парсер
+    // с 2026-09-15 присылает настоящий город, и вакансии-заглушки
+    // вымоются сами за 60 дней (срок жизни объявления).
+    jsonLd.jobLocation = {
+      "@type": "Place",
+      address: { "@type": "PostalAddress", addressCountry: location.country },
+    };
   }
 
   if (post.salary) {
