@@ -54,7 +54,7 @@ export async function JobLandingPage({ landing, page }: { landing: JobLanding; p
   const basePath = `/jobs/${landing.slug}`;
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-6 sm:py-16">
+    <main className="mx-auto max-w-3xl px-4 pt-6 sm:pt-16 pb-fab-safe">
       {/* Крошка -- и для Google, и как ссылка обратно в общую ленту. */}
       <nav aria-label="breadcrumb" className="mb-4 text-[13px] text-neutral-400 dark:text-neutral-500">
         <a href="/" className="transition hover:text-accent">

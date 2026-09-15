@@ -101,7 +101,7 @@ export default async function TalentDetailPage({ params }: Props) {
   );
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-10 sm:py-16">
+    <main className="mx-auto max-w-2xl px-4 pt-10 sm:pt-16 pb-fab-safe">
       <div className="flex items-center justify-between gap-3">
         <span className="inline-block rounded-full bg-[#C830FF]/10 px-2.5 py-1 text-xs font-medium text-[#C830FF] dark:bg-[#C830FF]/20">
           <T uk="Фахівець" en="Talent" ru="Специалист" de="Fachkraft" es="Especialista" fr="Spécialiste" pl="Specjalista" ptBR="Especialista" zh="人才" />

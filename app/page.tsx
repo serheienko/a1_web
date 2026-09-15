@@ -80,7 +80,7 @@ export default async function HomePage({ searchParams }: Props) {
   const avatarBlurs = await Promise.all(posts.map((post) => generateAvatarBlurDataUrl(post.author.avatarUrl)));
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-4 sm:py-16">
+    <main className="mx-auto max-w-3xl px-4 pt-4 sm:pt-16 pb-fab-safe">
       {/* Aleksandr, 2026-08-27: hide this heading block on mobile and
           pull the feed up — the tab bar in the nav already says which
           feed you're on, so on a small screen this was just dead space

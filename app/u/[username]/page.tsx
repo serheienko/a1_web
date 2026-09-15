@@ -392,7 +392,7 @@ export default async function ProfilePage({ params }: Props) {
         next to the avatar+gap, while MarqueeName's wrap-instead-of-
         truncate fallback still catches the rare pathologically long one
         instead of clipping it. */}
-    <main className="mx-auto w-full max-w-2xl px-4 py-10 sm:w-[640px] sm:py-16">
+    <main className="mx-auto w-full max-w-2xl px-4 pt-10 sm:w-[640px] sm:pt-16 pb-fab-safe">
       {/* Avatar sized off Instagram's own profile page as reference
           (Aleksandr, 2026-08-26): originally ~96px mobile / 150px
           desktop. Aleksandr, 2026-08-27, after seeing the voice-intro

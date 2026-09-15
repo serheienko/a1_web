@@ -121,7 +121,7 @@ export default async function JobDetailPage({ params }: Props) {
   );
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-10 sm:py-16">
+    <main className="mx-auto max-w-2xl px-4 pt-10 sm:pt-16 pb-fab-safe">
       {jsonLd && (
         // eslint-disable-next-line react/no-danger
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
