@@ -33,9 +33,18 @@ export async function generateSitemaps() {
   return Array.from({ length: chunkCount }, (_, id) => ({ id }));
 }
 
-export default async function sitemap({ id }: { id: number }): Promise<MetadataRoute.Sitemap> {
+export default async function sitemap({ id }: { id: number | string }): Promise<MetadataRoute.Sitemap> {
+  // 2026-09-15: Next отдаёт id из сегмента URL СТРОКОЙ ("0"), а не числом,
+  // хотя тип говорит number. Из-за этого `id === 0` было всегда false, и
+  // всё, что должно ехать только в первом чанке (корень, посадочные,
+  // профили компаний), не попадало в карту сайта вообще. Слайс чанка при
+  // этом работал: "0" * 5000 JS приводит к числу сам. Проверено на живой
+  // /sitemap/0.xml -- 1821 URL и ни одного лишнего.
+  const chunkId = Number(id);
+  const isFirstChunk = chunkId === 0;
+
   const posts = await fetchAllSitemapJobPosts();
-  const start = id * SITEMAP_CHUNK_SIZE;
+  const start = chunkId * SITEMAP_CHUNK_SIZE;
   const chunk = posts.slice(start, start + SITEMAP_CHUNK_SIZE);
 
   const entries: MetadataRoute.Sitemap = [];
@@ -44,7 +53,7 @@ export default async function sitemap({ id }: { id: number }): Promise<MetadataR
   // whole separate sitemap file for one URL. /jobs is a redirect stub as
   // of 2026-08-26 (the feed now lives at the root, see app/page.tsx) so
   // it no longer gets its own sitemap entry.
-  if (id === 0) {
+  if (isFirstChunk) {
     entries.push({ url: SITE_URL });
     // 2026-09-14: посадочные по формату работы (lib/seo/job-landings.ts).
     // Их три, поэтому едут вместе с корнем, а не отдельным чанком.
@@ -78,7 +87,7 @@ export default async function sitemap({ id }: { id: number }): Promise<MetadataR
   //
   // Ездят в chunk 0 вместе с корнем: их сотни, а не десятки тысяч, и
   // размазывать их по чанкам смысла нет.
-  if (id === 0) {
+  if (isFirstChunk) {
     const seen = new Set<string>();
     for (const post of posts) {
       const username = post.author.username;
