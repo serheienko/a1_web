@@ -17,7 +17,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { getCachedAvatarObjectUrl, warmAvatarCache } from "@/lib/avatar-image-cache";
+import { avatarSourceUrl, getCachedAvatarObjectUrl, warmAvatarCache } from "@/lib/avatar-image-cache";
 
 export function CachedAvatar({
   src,
@@ -76,9 +76,15 @@ export function CachedAvatar({
     return <img src={blurDataURL} alt={alt} width={size} height={size} className={className} />;
   }
 
+  // src -- это /api/media/<id>?ref=...: редирект на S3 с оригиналом.
+  // Первым показом просим уменьшенную копию с нашего же маршрута
+  // (lib/avatar-image-cache.ts), иначе первый визит, который и платит
+  // за трафик, качал бы полный размер, а экономия начиналась бы со
+  // второго. Для не-медийных адресов (дефолтные коты лежат прямо в
+  // бакете) avatarSourceUrl вернёт исходный адрес без изменений.
   return (
     <Image
-      src={src}
+      src={avatarSourceUrl(src)}
       alt={alt}
       width={size}
       height={size}

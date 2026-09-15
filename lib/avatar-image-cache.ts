@@ -48,6 +48,27 @@ function toDownloadUrl(proxyUrl: string): string {
   return proxyUrl.replace(/^(\/api\/media\/[^/?]+)(\?|$)/, "$1/download$2");
 }
 
+// 2026-09-15: аватарки приезжали в оригинале -- 400 КБ на главную, а
+// самая тяжёлая 184 КБ ради кружка в 40 пикселей. Маршрут /download
+// умеет отдавать уменьшенную копию по параметру `w`.
+//
+// 256 -- это один размер на весь сайт, а не «по месту»: самый большой
+// аватар в интерфейсе 120 пикселей (components/avatar-menu.tsx), на
+// экране с двойной плотностью это 240. Одна ширина на всех важна
+// принципиально -- кэш ниже ключуется по docId, и если бы разные
+// экраны просили разную ширину, один и тот же человек лежал бы в
+// кэше в нескольких копиях и каждая качалась бы заново.
+const AVATAR_WIDTH_PX = 256;
+
+/** Адрес уменьшенной копии аватарки. Его же ставит первым показом
+ *  components/cached-avatar.tsx -- иначе экономия начиналась бы только
+ *  со второго визита, а платит за трафик как раз первый. */
+export function avatarSourceUrl(proxyUrl: string): string {
+  const download = toDownloadUrl(proxyUrl);
+  if (!download.startsWith("/api/media/")) return proxyUrl;
+  return download + (download.includes("?") ? "&" : "?") + `w=${AVATAR_WIDTH_PX}`;
+}
+
 /** Synchronous, memory-only lookup -- safe to call during render for
  *  the `useState(() => ...)` initializer so an avatar already warmed
  *  this tab never even flashes a placeholder on a re-render. */
@@ -83,7 +104,7 @@ export async function warmAvatarCache(proxyUrl: string): Promise<string | null> 
       return url;
     }
 
-    const res = await fetch(toDownloadUrl(proxyUrl));
+    const res = await fetch(avatarSourceUrl(proxyUrl));
     if (!res.ok) return null;
     const blob = await res.blob();
     // Best-effort persist -- a write failure (private browsing, quota)
