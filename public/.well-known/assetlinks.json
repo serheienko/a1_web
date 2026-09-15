@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.aone.aoneapp",
+      "sha256_cert_fingerprints": [
+        "AF:41:86:D2:ED:B8:C8:0A:A7:96:E0:D3:A6:B6:08:CB:CF:8C:2B:D8:7E:A8:41:AC:8F:DF:3A:60:9F:F7:32:11"
+      ]
+    }
+  }
+]

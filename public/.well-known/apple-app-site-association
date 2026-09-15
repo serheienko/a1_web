@@ -1,0 +1,14 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": ["4GFH7RQGJQ.com.aone.aoneapp"],
+        "components": [
+          { "/": "/jobs/*", "comment": "Сторінка вакансії" },
+          { "/": "/u/*", "comment": "Профіль користувача або компанії" }
+        ]
+      }
+    ]
+  }
+}

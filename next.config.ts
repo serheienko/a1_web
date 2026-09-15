@@ -28,6 +28,21 @@ const nextConfig: NextConfig = {
   // Саму app/jobs/page.tsx оставляем как запасной вариант: если эта
   // секция когда-нибудь уедет, старые ссылки продолжат работать.
   // Точное совпадение, так что /jobs/<вакансия> не задевается.
+  // 2026-09-15. Файл apple-app-site-association лежит БЕЗ расширения --
+  // так требует Apple, -- и Next без расширения не знает, что это JSON, и
+  // отдаёт его как двоичный файл. iOS такой ответ игнорирует, и связь
+  // домена с приложением просто не устанавливается. Поэтому тип задаём
+  // руками. Второй файл, assetlinks.json (это Android), в подсказке не
+  // нуждается: по расширению всё определяется само.
+  async headers() {
+    return [
+      {
+        source: "/.well-known/apple-app-site-association",
+        headers: [{ key: "Content-Type", value: "application/json" }],
+      },
+    ];
+  },
+
   async redirects() {
     return [{ source: "/jobs", destination: "/", permanent: true }];
   },
