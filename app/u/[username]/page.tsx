@@ -19,10 +19,12 @@ export const revalidate = 60;
 
 import type { ReactNode } from "react";
 import { Suspense } from "react";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { CachedAvatar } from "@/components/cached-avatar";
 import { fetchUserByUsername, fetchUserRawByUsername } from "@/lib/a1/users";
+import { buildEmployerTitle, buildEmployerDescription, buildEmployerJsonLd } from "@/lib/seo/profile-meta";
 import { fetchPostsByAuthor } from "@/lib/a1/feed";
 import { PostCard } from "@/components/post-card";
 import { ProfileTabs } from "@/components/profile-tabs";
@@ -71,14 +73,35 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const profile = await fetchUserByUsername(username);
   if (!profile) return {};
 
+  // 2026-09-15: у работодателя заголовок и описание другие -- см.
+  // lib/seo/profile-meta.ts. «Работодатель» здесь = у профиля есть хотя
+  // бы одна живая вакансия; отдельного флага компании в профиле нет.
+  // Оба вызова ниже обёрнуты в cache(), поэтому сама страница ходит за
+  // теми же данными бесплатно.
+  const rawProfile = await fetchUserRawByUsername(username);
+  const authorPosts = rawProfile?.object === "user" ? await fetchPostsByAuthor(rawProfile._id) : [];
+  const openJobs = authorPosts.filter((post) => post.kind === "hiring").length;
+
+  const canonical = `${SITE_URL}${profileHref(profile.username)}`;
+
+  if (openJobs > 0) {
+    const employerDescription = buildEmployerDescription(profile.fullName, openJobs, profile.profileTitle || profile.bio);
+    return {
+      title: buildEmployerTitle(profile.fullName),
+      description: employerDescription,
+      alternates: { canonical },
+      openGraph: { title: profile.fullName, description: employerDescription, type: "profile", url: canonical },
+    };
+  }
+
   const description =
     profile.profileTitle || profile.bio.slice(0, 155) || `Профиль ${profile.fullName} в A1.`;
 
   return {
     title: `${profile.fullName} | A1`,
     description,
-    alternates: { canonical: `${SITE_URL}${profileHref(profile.username)}` },
-    openGraph: { title: profile.fullName, description, type: "profile", url: `${SITE_URL}${profileHref(profile.username)}` },
+    alternates: { canonical },
+    openGraph: { title: profile.fullName, description, type: "profile", url: canonical },
   };
 }
 
@@ -297,6 +320,8 @@ export default async function ProfilePage({ params }: Props) {
   // get an empty post list.
   const rawProfile = await fetchUserRawByUsername(username);
   const authorPosts = rawProfile?.object === "user" ? await fetchPostsByAuthor(rawProfile._id) : [];
+  // Тот же признак работодателя, что и в generateMetadata выше.
+  const openJobs = authorPosts.filter((post) => post.kind === "hiring").length;
 
   // Real per-avatar blur (lib/avatar-blur.ts) instead of the generic
   // shared shimmer — same fix as components/post-card.tsx's feed
@@ -393,6 +418,42 @@ export default async function ProfilePage({ params }: Props) {
         truncate fallback still catches the rare pathologically long one
         instead of clipping it. */}
     <main className="mx-auto w-full max-w-2xl px-4 pt-10 sm:w-[640px] sm:pt-16 pb-fab-safe">
+      {/* 2026-09-15: разметка организации и дорожка обратно в ленту --
+          только у работодателя (есть живая вакансия). У соискателя ни
+          того, ни другого: Organization про человека -- неправда, а
+          вести робота по ссылкам в профили живых людей мы пока не
+          хотим (вся лента «Фахівці» под noindex, вопрос приватности в
+          PLAN.md открыт).
+
+          Логотип в разметку намеренно не кладём: адрес аватарки
+          содержит fileReference, который бэкенд меняет при каждой
+          выдаче, и к моменту, когда Google соберётся её забрать,
+          ссылка будет мёртвой. Лучше без логотипа, чем с битым. */}
+      {openJobs > 0 && (
+        <>
+          {/* eslint-disable-next-line react/no-danger */}
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify(
+                buildEmployerJsonLd({
+                  fullName: profile.fullName,
+                  url: `${SITE_URL}${profileHref(profile.username)}`,
+                  bio: profile.profileTitle || profile.bio,
+                  logoUrl: null,
+                  sameAs: profile.links.map((link) => link.url).filter((url) => /^https?:\/\//.test(url)),
+                }),
+              ),
+            }}
+          />
+          <nav aria-label="breadcrumb" className="mb-4 text-[13px] text-neutral-400 dark:text-neutral-500">
+            <Link href="/" className="transition hover:text-accent">
+              <T uk="Вакансії" en="Jobs" ru="Вакансии" de="Stellen" es="Vacantes" fr="Offres" pl="Oferty" ptBR="Vagas" zh="职位" />
+            </Link>
+            <span aria-hidden="true" className="px-1.5">/</span>
+          </nav>
+        </>
+      )}
       {/* Avatar sized off Instagram's own profile page as reference
           (Aleksandr, 2026-08-26): originally ~96px mobile / 150px
           desktop. Aleksandr, 2026-08-27, after seeing the voice-intro

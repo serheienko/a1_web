@@ -21,6 +21,7 @@
 // query still scans the feed and substring-matches locally. That path is the
 // only remaining reason scanFullFeed exists.
 
+import { cache } from "react";
 import { call } from "./client";
 import { mapPosts } from "./mappers";
 import { PostsSearchOutputSchema } from "./schemas";
@@ -268,12 +269,19 @@ export async function fetchEmptyCategoryValues(
 // feed pages' own calls -- a profile page (viewed by anyone, signed in
 // or not) should only ever show what's actually live, regardless of
 // whose profile it is.
-export async function fetchPostsByAuthor(authorId: string, limit = 12): Promise<WebPost[]> {
+// 2026-09-15: обёрнуто в cache(). Страница профиля теперь просит посты
+// автора дважды за один рендер -- из generateMetadata (чтобы посчитать
+// открытые вакансии для заголовка) и из самой страницы. React схлопывает
+// это в один запрос к бэкенду, как уже сделано у fetchUserRawByUsername.
+export const fetchPostsByAuthor = cache(async function fetchPostsByAuthor(
+  authorId: string,
+  limit = 12,
+): Promise<WebPost[]> {
   const raw = await call<unknown>("posts.search", { author: authorId, limit });
   const parsed = PostsSearchOutputSchema.safeParse(raw);
   if (!parsed.success) return [];
   return mapPosts(parsed.data.items);
-}
+});
 
 /**
  * Next 15 hands RSC pages `searchParams` as a plain
