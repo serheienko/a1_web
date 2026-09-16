@@ -61,7 +61,14 @@ export async function GET() {
     const firstName = profile?.object === "user" ? profile.firstName : "";
     const lastName = profile?.object === "user" ? profile.lastName : "";
     const name = [firstName, lastName].filter(Boolean).join(" ").trim() || username || "";
-    const response = NextResponse.json({ ok: true, username, avatarUrl, name });
+    // 2026-09-16 (комментарии под вакансией): собственный id нужен,
+    // чтобы понять, какая из реакций под комментарием -- моя. Реакция
+    // хранится как { peer: {object:"peer-user", user: <id>}, ... }, и
+    // сопоставить её с собой по имени пользователя нельзя: у реакции
+    // имени нет. Это СВОЙ id и только свой -- чужих этот маршрут не
+    // отдаёт и не может.
+    const userId = profile?.object === "user" ? profile._id : null;
+    const response = NextResponse.json({ ok: true, userId, username, avatarUrl, name });
     if (refreshedSession) setSession(response, refreshedSession);
     return response;
   } catch (err) {

@@ -38,6 +38,10 @@ export type WebComment = {
   /** Комментарий без текста -- одна наліпка или гифка. */
   mediaOnly: boolean;
   createdAt: Date;
+  /** Отредактирован -- под текстом показывается пометка. */
+  editedAt: Date | null;
+  /** Реакции: эмодзи и кто его поставил (id нужен, чтобы понять «моя ли»). */
+  reactions: { emoticon: string; userIds: string[] }[];
 };
 
 // Столько же, сколько чат грузит за раз (app/api/chats/messages).
@@ -87,6 +91,20 @@ export async function fetchPostComments(postId: string): Promise<WebComment[]> {
   return messages.map((msg) => {
     const author = msg.fromId ? authors.get(msg.fromId) : undefined;
     const text = extractMessageText(msg).trim();
+
+    // Реакции приходят по одной на каждого поставившего; для показа их
+    // надо сгруппировать по эмодзи, сохранив, кто именно поставил.
+    const grouped = new Map<string, string[]>();
+    for (const r of msg.reactions) {
+      const emoticon = typeof r.reaction?.emoticon === "string" ? r.reaction.emoticon : "";
+      if (!emoticon) continue;
+      const peer = r.peer;
+      const userId = peer && peer.object === "peer-user" ? peer.user : null;
+      const bucket = grouped.get(emoticon) ?? [];
+      if (userId) bucket.push(userId);
+      grouped.set(emoticon, bucket);
+    }
+
     return {
       id: msg._id,
       authorName: author?.name || "A1",
@@ -96,6 +114,8 @@ export async function fetchPostComments(postId: string): Promise<WebComment[]> {
       text,
       mediaOnly: text === "" && msg.media.length > 0,
       createdAt: new Date(messageDateMs(msg)),
+      editedAt: msg.editedAt ? new Date(msg.editedAt) : null,
+      reactions: [...grouped.entries()].map(([emoticon, userIds]) => ({ emoticon, userIds })),
     };
   });
 }

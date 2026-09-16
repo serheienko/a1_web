@@ -179,6 +179,8 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
           text: value,
           mediaOnly: false,
           createdAt: new Date(),
+          editedAt: null,
+          reactions: [],
         },
       ]);
       setText("");
