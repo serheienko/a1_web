@@ -15,6 +15,8 @@ import { PostImages } from "@/components/post-images";
 import { truncateAtWordBoundary } from "@/lib/format";
 import { buildJobMetaDescription } from "@/lib/seo/job-meta";
 import { findLandingByTag } from "@/lib/seo/job-landings";
+import { fetchPostComments } from "@/lib/a1/comments";
+import { PostComments } from "@/components/post-comments";
 import { RelativeTime, SalaryLabel, LocationLabel } from "@/components/locale-format";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { generateImageBlurDataUrl } from "@/lib/avatar-blur";
@@ -108,10 +110,14 @@ export default async function JobDetailPage({ params }: Props) {
   // сложить два времени вместо того, чтобы взять максимум. Считается
   // здесь, на сервере: ссылки обязаны быть в HTML, иначе весь смысл
   // блока теряется (см. шапку components/related-jobs.tsx).
-  const [authorAvatarBlurDataUrl, postImages, related] = await Promise.all([
+  const [authorAvatarBlurDataUrl, postImages, related, comments] = await Promise.all([
     generateImageBlurDataUrl(post.author.avatarUrl),
     Promise.all(post.images.map(async (img) => ({ ...img, blurDataUrl: await generateImageBlurDataUrl(img.url) }))),
     fetchRelatedJobs(post),
+    // 2026-09-16: комментарии едут в том же Promise.all -- они ни от
+    // чего здесь не зависят, и ждать их отдельно значило бы сложить два
+    // времени вместо того, чтобы взять максимум.
+    fetchPostComments(post.id),
   ]);
 
   // 2026-08-30, live-testing feedback ("Berlin, Germany - нужна
@@ -334,6 +340,8 @@ export default async function JobDetailPage({ params }: Props) {
           </ul>
         </div>
       )}
+
+      <PostComments comments={comments} />
 
       <RelatedJobs
         sameCompany={related.sameCompany}

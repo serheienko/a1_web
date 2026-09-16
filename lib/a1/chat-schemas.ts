@@ -31,14 +31,27 @@
 import { z } from "zod";
 import { decodeMeetingText, decodeMeetingAcceptText } from "./meeting-protocol";
 
+// 2026-09-16: третий вид собеседника -- пост. Комментарии под вакансией
+// в этом бэкенде не отдельная подсистема, а тот же чат: приложение
+// шлёт их через messages.send, меняя только адресата на
+// { object: "peer-post", post: <id> }. Подтверждено по коду приложения
+// (lib/features/comments/data/data_sources/comment_datasource.dart),
+// не угадано: там ровно эти четыре метода -- getMessages, send,
+// editMessage, deleteMessages -- и ровно такой peerTo.
 export const PeerSchema = z.discriminatedUnion("object", [
   z.object({ object: z.literal("peer-user"), user: z.string() }),
   z.object({ object: z.literal("peer-chat"), chat: z.string() }),
+  z.object({ object: z.literal("peer-post"), post: z.string() }),
 ]);
 export type Peer = z.infer<typeof PeerSchema>;
 
 export function peerForChat(chatId: string): Peer {
   return { object: "peer-chat", chat: chatId };
+}
+
+/** Адресат комментариев под постом -- см. комментарий у PeerSchema. */
+export function peerForPost(postId: string): Peer {
+  return { object: "peer-post", post: postId };
 }
 
 // 2026-09-02 (Aleksandr, live bug report: "как открыть с кем то чат? Я
@@ -239,7 +252,17 @@ export type MessagePeerReaction = z.infer<typeof MessagePeerReactionSchema>;
 
 function peerKey(peer: Peer | null): string {
   if (!peer) return "";
-  return peer.object === "peer-user" ? `u:${peer.user}` : `c:${peer.chat}`;
+  // Разбор по всем трём видам, а не «человек или всё остальное»: с
+  // появлением peer-post (комментарии) ветка `else` молча брала бы
+  // несуществующее поле chat.
+  switch (peer.object) {
+    case "peer-user":
+      return `u:${peer.user}`;
+    case "peer-chat":
+      return `c:${peer.chat}`;
+    case "peer-post":
+      return `p:${peer.post}`;
+  }
 }
 
 // Ported 1:1 off reaction_list_normalizer.dart's own
