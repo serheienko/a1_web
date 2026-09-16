@@ -57,8 +57,14 @@ const THEME_INIT_SCRIPT = `
 // автоматически определял [язык] в зависимости от IP, но при этом выбор
 // также оставался" — auto-detect by default, manual pick always
 // override-able); (3) unmapped/unknown countries fall back to the site's
-// own default, Ukrainian — deliberately not English, matching the
-// existing <html lang="uk"> choice below.
+// own default. 2026-09-16 (Aleksandr: «можно ли чтобы сайт понимал IP и
+// сразу показывал соответствующий язык?» — geo-карта уже работала, а вот
+// хвост был неверный): страна вне GEO_DEFAULT больше не получает
+// украинский. Порядок теперь такой: сохранённый выбор → страна по IP →
+// язык браузера → английский. Украинец в Польше видит украинский,
+// американец — английский, и никто из них не упирается в язык, которого
+// не знает. <html lang="uk"> в разметке ниже — лишь стартовое значение
+// до первой отрисовки, скрипт его тут же уточняет.
 //
 // Ukraine carve-out (2026-08-27/28, see middleware.ts, quoted precisely
 // because the scope matters): "это только касается русского языка в гео
@@ -96,7 +102,32 @@ const LANG_INIT_SCRIPT = `
     // even a choice they made before this rule existed.
     if (isGeoUa && stored === "ru") stored = null;
 
+    // Порядок выбора языка (2026-09-16). Сначала то, что человек уже
+    // выбрал сам; потом Украина — у неё правило жёсткое и отдельное;
+    // потом язык браузера — он точнее IP говорит, на чём человек читает
+    // (украинец в Польше получит украинский, а не польский); потом
+    // страна по IP; и только в конце английский.
+    // Aleksandr, 16.09.2026: «язык браузера, иначе английский».
     var locale = stored;
+
+    // Украина: всегда украинский, каким бы ни был браузер. Это то же
+    // решение, что и запрет русского выше, — см. middleware.ts.
+    if (!locale && isGeoUa) locale = "uk";
+
+    if (!locale) {
+      var BY_LANGUAGE = {
+        uk: "uk", en: "en", ru: "ru", de: "de", es: "es",
+        fr: "fr", pl: "pl", pt: "ptBR", zh: "zh"
+      };
+      var prefs = (navigator.languages && navigator.languages.length)
+        ? navigator.languages
+        : [navigator.language || ""];
+      for (var p = 0; p < prefs.length && !locale; p++) {
+        var tag = String(prefs[p] || "").toLowerCase().split("-")[0];
+        if (BY_LANGUAGE[tag]) locale = BY_LANGUAGE[tag];
+      }
+    }
+
     if (!locale) {
       var GEO_DEFAULT = {
         UA: "uk",
@@ -110,9 +141,13 @@ const LANG_INIT_SCRIPT = `
         CN: "zh",
         RU: "ru", BY: "ru", KZ: "ru"
       };
-      locale = GEO_DEFAULT[country] || "uk";
-      if (isGeoUa && locale === "ru") locale = "uk";
+      locale = GEO_DEFAULT[country] || null;
     }
+
+    // Страна не из списка и браузер на чужом языке (Нидерланды, Индия,
+    // Турция...): английский, а не украинский, как было раньше.
+    if (!locale) locale = "en";
+    if (isGeoUa && locale === "ru") locale = "uk";
     if (LOCALES.indexOf(locale) === -1) locale = "uk";
 
     for (var i = 0; i < LOCALES.length; i++) root.classList.remove(CLASS_FOR[LOCALES[i]]);
