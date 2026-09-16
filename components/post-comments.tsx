@@ -469,6 +469,14 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
   // навсегда остаётся под плавающим полем ввода и достать его нечем
   // (2026-09-16, Александр, видео с телефона).
   const [composerHeight, setComposerHeight] = useState(64);
+  // Кнопка отправки должна быть ровно в высоту поля ввода. Подбирать
+  // это число на глаз бесполезно: высота строки зависит от шрифта,
+  // который на телефоне может отрисоваться иначе, чем на компьютере
+  // (2026-09-16, Александр, скриншот с iPhone: кнопка заметно ниже
+  // поля). Поэтому строка ввода измеряется, а кнопка берёт её высоту
+  // плюс рамку пилюли -- по пикселю сверху и снизу.
+  const inputRowRef = useRef<HTMLDivElement | null>(null);
+  const [sendSize, setSendSize] = useState(38);
   const lang = useActiveLocale();
   const [editing, setEditing] = useState<WebComment | null>(null);
   const [replyTo, setReplyTo] = useState<WebComment | null>(null);
@@ -543,6 +551,22 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
       overlay?.removeEventListener("touchmove", onTouchMove);
     };
   }, [open]);
+
+  useEffect(() => {
+    const el = inputRowRef.current;
+    if (!el) return;
+    const measure = () => {
+      const h = Math.round(el.getBoundingClientRect().height);
+      // Ноль -- это «окно сейчас скрыто», а не настоящая высота: в
+      // display:none у элемента нет размеров вовсе.
+      if (h > 10) setSendSize(h + 2);
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [open, signedIn]);
 
   // Измеряем композер, а не подбираем отступ на глаз: он меняется в
   // высоте вместе с цитатой ответа и правки.
@@ -804,6 +828,33 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
       setSending(false);
     }
   }, [text, sending, postId, me, editing, replyTo]);
+
+  // Панель наліпок привязана к кнопке-коту, но её положение снимается
+  // в момент нажатия -- а сразу после нажатия на телефоне закрывается
+  // клавиатура, и композер съезжает вниз на её высоту. Панель при этом
+  // оставалась там, где кот был ДО этого, то есть висела высоко над
+  // полем (Александр, скриншот). Пока панель открыта, положение кота
+  // пере-измеряется: и когда клавиатура уезжает, и когда меняется сам
+  // видимый кусок страницы.
+  const pickerOpen = pickerAnchor !== null;
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const remeasure = () => {
+      const rect = stickerButtonRef.current?.getBoundingClientRect();
+      if (rect) setPickerAnchor(rect);
+    };
+    const settle = setTimeout(remeasure, 350);
+    const vv = window.visualViewport;
+    vv?.addEventListener("resize", remeasure);
+    vv?.addEventListener("scroll", remeasure);
+    window.addEventListener("resize", remeasure);
+    return () => {
+      clearTimeout(settle);
+      vv?.removeEventListener("resize", remeasure);
+      vv?.removeEventListener("scroll", remeasure);
+      window.removeEventListener("resize", remeasure);
+    };
+  }, [pickerOpen]);
 
   // Наліпка и гифка отправляются сразу по нажатию в панели -- отдельной
   // кнопки «отправить» у них нет, ровно как в чатах (см. шапку
@@ -1099,7 +1150,7 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
                       сверху и снизу, и с min-h-[36px] она выходила 38 --
                       на два пикселя выше кнопки отправки, что и было
                       видно на скриншоте. */}
-                  <div className="flex min-h-[34px] items-center gap-1 pl-4 pr-1.5">
+                  <div ref={inputRowRef} className="flex min-h-[34px] items-center gap-1 pl-4 pr-1.5">
                     <textarea
                       id={`comment-input-${postId}`}
                       ref={inputRef}
@@ -1145,8 +1196,9 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
                   onClick={() => void send()}
                   disabled={sending || !text.trim()}
                   aria-label="Send"
-                  className={`${SEND_BUTTON_CLASS} h-[36px] overflow-hidden ${
-                    text.trim() ? "ml-0 w-[36px] opacity-100" : "-ml-2 w-0 opacity-0"
+                  style={{ height: sendSize, width: text.trim() ? sendSize : 0 }}
+                  className={`${SEND_BUTTON_CLASS} overflow-hidden ${
+                    text.trim() ? "ml-0 opacity-100" : "-ml-2 opacity-0"
                   }`}
                 >
                   <SendArrowIcon />
