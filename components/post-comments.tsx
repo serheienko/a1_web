@@ -14,13 +14,25 @@
 // затевалось.
 //
 // Вид -- как в приложении: свои пузыри справа синим, чужие слева серым
-// с аватаркой и именем (Александр, 16 сентября: «делай пузырями, мне
-// нра»).
+// с аватаркой и именем.
+//
+// 2026-09-16, по второму заходу Александра: комментарии НЕ живут в
+// странице. На странице только заголовок со счётчиком и одна строка --
+// последний комментарий рядом с аватаркой, как в свёрнутой панели
+// приложения. Нажатие открывает окно: на телефоне шторка снизу, которую
+// можно стянуть вниз пальцем, на компьютере окно по центру с крестиком.
+// Причина простая и его словами: «может у нас сто будет, двести
+// комментариев, как мы их поместим?» -- страница вакансии не должна
+// расти вместе с обсуждением.
+//
+// Разметка окна при этом присутствует ВСЕГДА, просто скрыта. Иначе
+// комментариев не увидел бы поисковик -- а он и есть причина, по
+// которой их вообще показывают гостю: текст вакансий у нас чужой,
+// спарсенный, и комментарии -- единственное на странице, чего нет у
+// источника.
 //
 // Блок целиком скрыт, когда комментариев нет и гость не вошёл: под
-// почти двумя тысячами вакансий пустой заголовок выглядел бы поломкой.
-// Вошедшему поле ввода показывается всегда, даже под пустой вакансией --
-// иначе первый комментарий физически некому оставить.
+// почти двумя тысячами вакансий пустая строка выглядела бы поломкой.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MediaPickerPanel } from "@/components/chat/media-picker-panel";
@@ -233,6 +245,10 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
   const [menu, setMenu] = useState<{ comment: WebComment; rect: DOMRect } | null>(null);
   const [editing, setEditing] = useState<WebComment | null>(null);
   const [replyTo, setReplyTo] = useState<WebComment | null>(null);
+  const [open, setOpen] = useState(false);
+  // Сдвиг шторки пальцем вниз -- в приложении она так и закрывается.
+  const [dragY, setDragY] = useState(0);
+  const dragStartRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!readDisplayCookie()) return;
@@ -389,7 +405,11 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
           authorName: me?.name || "",
           authorUsername: me?.username ?? null,
           authorAvatarUrl: me?.avatarUrl ?? null,
-          authorId: null,
+          // 2026-09-16 (Александр, скриншот: «моё сообщение слева и
+          // серым»). Было null -- и только что отправленный комментарий
+          // до перезагрузки считался ЧУЖИМ: `mine` проверяет именно
+          // authorId. Свой id мы знаем, он и подставляется.
+          authorId: me?.userId ?? null,
           text: value,
           mediaOnly: false,
           createdAt: new Date(),
@@ -411,6 +431,8 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
   // Ни комментариев, ни вошедшего -- блока нет вовсе.
   if (list.length === 0 && !signedIn) return null;
 
+  const last = list[list.length - 1] ?? null;
+
   return (
     <section className="mt-10">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
@@ -421,125 +443,215 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
         {list.length > 0 && <span className="ml-1.5 tabular-nums">{list.length}</span>}
       </h2>
 
-      {list.length > 0 ? (
-        <ul className="mt-3 flex flex-col gap-2.5">
-          {list.map((comment) => (
-            <Bubble
-              key={comment.id}
-              comment={comment}
-              mine={!!me?.userId && comment.authorId === me.userId}
-              myUserId={me?.userId ?? null}
-              repliedTo={comment.replyToId ? list.find((c) => c.id === comment.replyToId) ?? null : null}
-              onOpenMenu={(c, rect) => setMenu({ comment: c, rect })}
-              onToggleReaction={toggleReaction}
-            />
-          ))}
-        </ul>
-      ) : (
-        <p className="mt-2 text-[14px] text-neutral-400 dark:text-neutral-500">
-          <T
-            uk="Залиште перший коментар!" en="Be the first to comment!" ru="Оставьте первый комментарий!"
-            de="Schreiben Sie den ersten Kommentar!" es="¡Sé el primero en comentar!"
-            fr="Soyez le premier à commenter !" pl="Dodaj pierwszy komentarz!"
-            ptBR="Seja o primeiro a comentar!" zh="来发表第一条评论吧！"
-          />
-        </p>
-      )}
+      {/* Свёрнутая строка. В приложении это ровно она: аватарка, а
+          рядом -- последний комментарий, если он есть. Нажатие
+          открывает окно. Сама страница вакансии при этом не растёт:
+          хоть двести комментариев, хоть ни одного -- высота одна. */}
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="mt-3 flex w-full items-center gap-2 text-left"
+      >
+        <Avatar url={me?.avatarUrl ?? null} seed={me?.username ?? "me"} className="h-9 w-9" />
+        <span className="flex min-h-9 min-w-0 flex-1 items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-1.5 text-[14px] dark:border-neutral-700 dark:bg-neutral-900">
+          {last ? (
+            <>
+              <BubbleIcon />
+              <span className="truncate text-neutral-700 dark:text-neutral-300">
+                {last.mediaOnly ? "Наліпка" : last.text}
+              </span>
+            </>
+          ) : (
+            <span className="truncate text-neutral-400 dark:text-neutral-500">{PLACEHOLDER}</span>
+          )}
+          <ChatCatFieldIcon className="ml-auto h-[18px] w-[18px] shrink-0 text-neutral-400 dark:text-neutral-500" />
+        </span>
+      </button>
 
-      {editing && (
-        <div className="mt-3 flex items-center justify-between gap-2 rounded-lg bg-accent/10 px-3 py-1.5 text-[12px] text-accent">
-          <span className="truncate">
-            <T
-              uk="Редагування" en="Editing" ru="Редактирование" de="Bearbeiten" es="Editando"
-              fr="Modification" pl="Edycja" ptBR="Editando" zh="编辑中"
-            />
-            {": "}
-            {editing.text}
-          </span>
-          <button
-            type="button"
-            onClick={() => {
-              setEditing(null);
-              setText("");
+      {/* Окно. В разметке оно ЕСТЬ всегда, просто скрыто -- иначе
+          комментариев не увидел бы поисковик, ради чего всё и
+          затевалось. На телефоне это шторка снизу, которую можно
+          стянуть вниз; на компьютере -- окно по центру. */}
+      <div
+        hidden={!open}
+        className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+        onClick={() => setOpen(false)}
+      >
+        <div className="absolute inset-0 bg-black/50" />
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{ transform: dragY ? `translateY(${dragY}px)` : undefined }}
+          className="relative flex max-h-[85vh] w-full flex-col rounded-t-2xl bg-white shadow-2xl transition-transform dark:bg-neutral-950 sm:max-h-[80vh] sm:max-w-lg sm:rounded-2xl"
+        >
+          {/* Шапка окна. Полоска сверху -- за неё шторка стягивается
+              вниз пальцем, как в приложении. */}
+          <div
+            className="shrink-0 border-b border-neutral-100 px-4 pb-3 pt-2 dark:border-neutral-800"
+            onTouchStart={(e) => {
+              dragStartRef.current = e.touches[0]?.clientY ?? null;
             }}
-            className="shrink-0 font-medium underline"
+            onTouchMove={(e) => {
+              const start = dragStartRef.current;
+              const y = e.touches[0]?.clientY;
+              if (start == null || y == null) return;
+              setDragY(Math.max(0, y - start));
+            }}
+            onTouchEnd={() => {
+              if (dragY > 80) setOpen(false);
+              setDragY(0);
+              dragStartRef.current = null;
+            }}
           >
-            <T uk="Скасувати" en="Cancel" ru="Отменить" de="Abbrechen" es="Cancelar" fr="Annuler" pl="Anuluj" ptBR="Cancelar" zh="取消" />
-          </button>
-        </div>
-      )}
-
-      {replyTo && (
-        <div className="mt-3">
-          <ReplyComposeBar
-            authorLabel={replyTo.authorName}
-            previewText={replyTo.mediaOnly ? "Наліпка" : replyTo.text}
-            onRemove={() => setReplyTo(null)}
-          />
-        </div>
-      )}
-
-      {signedIn && (
-        <div className="mt-3 flex items-center gap-2">
-          {/* Аватарка ровно в высоту поля -- 36px и там и там
-              (Александр, 16 сентября). Поэтому items-center, а не
-              items-end: при одинаковой высоте выравнивать по низу нечего,
-              а при выросшем в несколько строк поле аватарка должна
-              оставаться посередине, как в приложении. */}
-          <Avatar url={me?.avatarUrl ?? null} seed={me?.username ?? "me"} className="h-9 w-9" />
-          <div className="flex min-h-9 min-w-0 flex-1 items-center gap-1 rounded-full border border-neutral-200 bg-white pl-4 pr-1.5 focus-within:border-accent/50 dark:border-neutral-700 dark:bg-neutral-900">
-            <textarea
-              id={`comment-input-${postId}`}
-              ref={inputRef}
-              rows={1}
-              value={text}
-              onChange={(e) => {
-                setText(e.target.value);
-                const el = e.target;
-                el.style.height = "auto";
-                el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
-              }}
-              onKeyDown={(e) => {
-                // Enter отправляет, Shift+Enter переносит строку -- как в
-                // чате. На телефоне клавиатура шлёт Enter как перенос,
-                // поэтому там работает кнопка справа.
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  void send();
-                }
-              }}
-              placeholder={PLACEHOLDER}
-              className="chat-textarea-no-scrollbar max-h-[120px] min-w-0 flex-1 resize-none self-center bg-transparent py-[7px] text-[14px] leading-[1.45] text-neutral-900 outline-none placeholder:text-neutral-400 dark:text-neutral-50 dark:placeholder:text-neutral-500"
-            />
-            <button
-              ref={stickerButtonRef}
-              type="button"
-              onClick={() => {
-                const rect = stickerButtonRef.current?.getBoundingClientRect();
-                if (rect) setPickerAnchor(rect);
-              }}
-              aria-label="Emoji"
-              className="shrink-0 rounded-full p-1 text-neutral-400 transition hover:text-accent dark:text-neutral-500"
-            >
-              <ChatCatFieldIcon className="h-[18px] w-[18px] animate-chat-wiggle" />
-            </button>
-            {text.trim() && (
+            <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-neutral-200 dark:bg-neutral-700 sm:hidden" />
+            <div className="flex items-center justify-between">
+              <span className="text-[15px] font-semibold text-neutral-900 dark:text-neutral-50">
+                <T
+                  uk="Коментарі" en="Comments" ru="Комментарии" de="Kommentare" es="Comentarios"
+                  fr="Commentaires" pl="Komentarze" ptBR="Comentários" zh="评论"
+                />
+                {list.length > 0 && <span className="ml-1.5 tabular-nums font-normal text-neutral-400">{list.length}</span>}
+              </span>
               <button
                 type="button"
-                onClick={() => void send()}
-                disabled={sending}
-                aria-label="Send"
-                className="shrink-0 rounded-full p-1 text-accent transition disabled:opacity-30"
+                onClick={() => setOpen(false)}
+                aria-label="Close"
+                className="-mr-1 rounded-full p-1.5 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
               >
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M12 19V5" />
-                  <path d="m5 12 7-7 7 7" />
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                  <path d="M6 6l12 12M18 6 6 18" />
                 </svg>
               </button>
+            </div>
+          </div>
+
+          {/* Лента */}
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+            {list.length > 0 ? (
+              <ul className="flex flex-col gap-2.5">
+                {list.map((comment) => (
+                  <Bubble
+                    key={comment.id}
+                    comment={comment}
+                    mine={!!me?.userId && comment.authorId === me.userId}
+                    myUserId={me?.userId ?? null}
+                    repliedTo={comment.replyToId ? list.find((c) => c.id === comment.replyToId) ?? null : null}
+                    onOpenMenu={(c, rect) => setMenu({ comment: c, rect })}
+                    onToggleReaction={toggleReaction}
+                  />
+                ))}
+              </ul>
+            ) : (
+              <p className="py-8 text-center text-[14px] text-neutral-400 dark:text-neutral-500">
+                <T
+                  uk="Залиште перший коментар!" en="Be the first to comment!" ru="Оставьте первый комментарий!"
+                  de="Schreiben Sie den ersten Kommentar!" es="¡Sé el primero en comentar!"
+                  fr="Soyez le premier à commenter !" pl="Dodaj pierwszy komentarz!"
+                  ptBR="Seja o primeiro a comentar!" zh="来发表第一条评论吧！"
+                />
+              </p>
             )}
           </div>
+
+          {/* Ввод */}
+          {signedIn && (
+            <div className="shrink-0 border-t border-neutral-100 px-4 pb-4 pt-3 dark:border-neutral-800">
+              {replyTo && (
+                <div className="mb-2">
+                  <ReplyComposeBar
+                    authorLabel={replyTo.authorName}
+                    previewText={replyTo.mediaOnly ? "Наліпка" : replyTo.text}
+                    onRemove={() => setReplyTo(null)}
+                  />
+                </div>
+              )}
+              {editing && (
+                <div className="mb-2 flex items-center justify-between gap-2 rounded-lg bg-accent/10 px-3 py-1.5 text-[12px] text-accent">
+                  <span className="truncate">
+                    <T
+                      uk="Редагування" en="Editing" ru="Редактирование" de="Bearbeiten" es="Editando"
+                      fr="Modification" pl="Edycja" ptBR="Editando" zh="编辑中"
+                    />
+                    {": "}
+                    {editing.text}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditing(null);
+                      setText("");
+                    }}
+                    className="shrink-0 font-medium underline"
+                  >
+                    <T uk="Скасувати" en="Cancel" ru="Отменить" de="Abbrechen" es="Cancelar" fr="Annuler" pl="Anuluj" ptBR="Cancelar" zh="取消" />
+                  </button>
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <Avatar url={me?.avatarUrl ?? null} seed={me?.username ?? "me"} className="h-9 w-9" />
+                <div className="flex min-h-9 min-w-0 flex-1 items-center gap-1 rounded-full border border-neutral-200 bg-white pl-4 pr-1.5 focus-within:border-accent/50 dark:border-neutral-700 dark:bg-neutral-900">
+                  <textarea
+                    id={`comment-input-${postId}`}
+                    ref={inputRef}
+                    rows={1}
+                    value={text}
+                    onChange={(e) => {
+                      setText(e.target.value);
+                      const el = e.target;
+                      el.style.height = "auto";
+                      el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        void send();
+                      }
+                    }}
+                    placeholder={PLACEHOLDER}
+                    className="chat-textarea-no-scrollbar max-h-[120px] min-w-0 flex-1 resize-none self-center bg-transparent py-[7px] text-[14px] leading-[1.45] text-neutral-900 outline-none placeholder:text-neutral-400 dark:text-neutral-50 dark:placeholder:text-neutral-500"
+                  />
+                  <button
+                    ref={stickerButtonRef}
+                    type="button"
+                    onClick={() => {
+                      const rect = stickerButtonRef.current?.getBoundingClientRect();
+                      if (rect) setPickerAnchor(rect);
+                    }}
+                    aria-label="Emoji"
+                    className="group shrink-0 rounded-full p-1 text-neutral-400 transition hover:text-accent dark:text-neutral-500"
+                  >
+                    <ChatCatFieldIcon className="h-[18px] w-[18px] animate-chat-wiggle" />
+                  </button>
+                  {text.trim() && (
+                    <button
+                      type="button"
+                      onClick={() => void send()}
+                      disabled={sending}
+                      aria-label="Send"
+                      className="shrink-0 rounded-full p-1 text-accent transition disabled:opacity-30"
+                    >
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M12 19V5" />
+                        <path d="m5 12 7-7 7 7" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              </div>
+              {failed && (
+                <p className="mt-1.5 text-[12px] text-red-500">
+                  <T
+                    uk="Не вдалося надіслати. Спробуйте ще раз." en="Could not send. Try again."
+                    ru="Не удалось отправить. Попробуйте ещё раз." de="Senden fehlgeschlagen. Bitte erneut versuchen."
+                    es="No se pudo enviar. Inténtalo de nuevo." fr="Envoi impossible. Réessayez."
+                    pl="Nie udało się wysłać. Spróbuj ponownie." ptBR="Não foi possível enviar. Tente novamente."
+                    zh="发送失败，请重试。"
+                  />
+                </p>
+              )}
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       {menu && (
         <CommentContextMenu
@@ -569,11 +681,6 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
       )}
 
       {pickerAnchor && (
-        // Та же панель, что и в чате -- своя была бы второй такой же.
-        // Пока берём из неё только емодзі: они вставляются в текст и
-        // отправляются обычным комментарием. Наліпки и гифки требуют,
-        // чтобы комментарий умел их ПОКАЗЫВАТЬ, иначе отправленная
-        // наліпка появится словом «Наліпка» -- это следующий шаг.
         <MediaPickerPanel
           anchorRect={pickerAnchor}
           initialTab="emoji"
@@ -585,19 +692,17 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
           onSendMedia={() => setPickerAnchor(null)}
         />
       )}
-
-      {failed && (
-        <p className="mt-1.5 text-[12px] text-red-500">
-          <T
-            uk="Не вдалося надіслати. Спробуйте ще раз." en="Could not send. Try again."
-            ru="Не удалось отправить. Попробуйте ещё раз." de="Senden fehlgeschlagen. Bitte erneut versuchen."
-            es="No se pudo enviar. Inténtalo de nuevo." fr="Envoi impossible. Réessayez."
-            pl="Nie udało się wysłać. Spróbuj ponownie." ptBR="Não foi possível enviar. Tente novamente."
-            zh="发送失败，请重试。"
-          />
-        </p>
-      )}
     </section>
+  );
+}
+
+// Иконка-облачко перед текстом последнего комментария -- ровно как в
+// свёрнутой строке приложения.
+function BubbleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0 text-neutral-400 dark:text-neutral-500">
+      <path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.8-.8L3 21l1.9-4.9A8.4 8.4 0 0 1 12 3.1a8.4 8.4 0 0 1 9 8.4z" />
+    </svg>
   );
 }
 
