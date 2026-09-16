@@ -1103,9 +1103,15 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
                 maskImage: "linear-gradient(to top, #000 55%, transparent 100%)",
                 WebkitMaskImage: "linear-gradient(to top, #000 55%, transparent 100%)",
               }}
-              className="pointer-events-none absolute inset-x-0 bottom-0 h-[104px] bg-gradient-to-t from-white via-white/70 to-transparent backdrop-blur-[10px] dark:from-neutral-950 dark:via-neutral-950/70"
+              // z-0 и z-10 у композера ниже -- не украшение: Safari
+              // рисует элемент с backdrop-filter поверх следующих за
+              // ним соседей, и эта полоса накрывала собой поле ввода
+              // (2026-09-16, Александр: «input field проебался» --
+              // на его скриншоте вместо поля ровно эти 104 пикселя
+              // пустоты). Явный порядок слоёв снимает вопрос.
+              className="pointer-events-none absolute inset-x-0 bottom-0 z-0 h-[104px] bg-gradient-to-t from-white via-white/70 to-transparent backdrop-blur-[10px] dark:from-neutral-950 dark:via-neutral-950/70"
             />
-            <div ref={composerRef} className="absolute inset-x-0 bottom-0 px-4 pb-4">
+            <div ref={composerRef} className="absolute inset-x-0 bottom-0 z-10 px-4 pb-4">
               {/* Ответ и правка живут ВНУТРИ пилюли ввода и
                   разъезжают её вверх -- ровно как в чатах и мини-чатах
                   (components/mini-chat-window.tsx, app/chats/[chatId]/
