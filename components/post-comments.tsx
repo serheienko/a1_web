@@ -385,7 +385,18 @@ function Bubble({
   );
 
   return (
-    <li className="flex max-w-[85%] gap-2">
+    <li
+      className="flex max-w-[85%] gap-2"
+      // 2026-09-16 (Александр, видео): при свайпе уезжать должен ВЕСЬ
+      // ряд, вместе с аватаркой, а не один пузырь -- иначе аватарка
+      // остаётся висеть отдельно от своего же сообщения. В чатах этой
+      // беды нет просто потому, что переписка один на один и аватарки
+      // у сообщения нет вовсе.
+      style={{
+        transform: swipeDx ? `translateX(-${swipeDx}px)` : undefined,
+        transition: swipeDx ? undefined : "transform 200ms ease-out",
+      }}
+    >
       {comment.authorUsername ? (
         <Link href={profileHref(comment.authorUsername)} className="shrink-0 transition-opacity hover:opacity-80">
           <Avatar url={comment.authorAvatarUrl} seed={comment.authorUsername} />
@@ -394,16 +405,9 @@ function Bubble({
         <Avatar url={comment.authorAvatarUrl} seed={comment.id} />
       )}
       <div className="min-w-0">
-      {/* У чужого пузыря строка прижата ВЛЕВО, поэтому растущий блок
-          справа сам по себе ничего не сдвинет -- всю пару двигает
-          transform, ровно как в чатах. */}
-      <div
-        className="flex min-w-0 items-center"
-        style={{
-          transform: swipeDx ? `translateX(-${swipeDx}px)` : undefined,
-          transition: swipeDx ? undefined : "transform 200ms ease-out",
-        }}
-      >
+      {/* Сам сдвиг живёт на всём ряду (см. выше), здесь только пара
+          «пузырь + место под значок ответа». */}
+      <div className="flex min-w-0 items-center">
       <div
         ref={bubbleRef}
         {...handlers}
