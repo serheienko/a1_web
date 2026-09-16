@@ -579,7 +579,9 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
         <span className="flex min-h-9 min-w-0 flex-1 items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-1.5 text-[14px] dark:border-neutral-700 dark:bg-neutral-900">
           {last ? (
             <>
-              <BubbleIcon />
+              <span className="shrink-0 text-[15px] leading-none" aria-hidden="true">
+                💬
+              </span>
               <span className="truncate text-neutral-700 dark:text-neutral-300">
                 {last.mediaOnly ? "Наліпка" : last.text}
               </span>
@@ -868,15 +870,9 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
   );
 }
 
-// Иконка-облачко перед текстом последнего комментария -- ровно как в
-// свёрнутой строке приложения.
-function BubbleIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0 text-neutral-400 dark:text-neutral-500">
-      <path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.8-.8L3 21l1.9-4.9A8.4 8.4 0 0 1 12 3.1a8.4 8.4 0 0 1 9 8.4z" />
-    </svg>
-  );
-}
+// 2026-09-16 (Александр, скриншот свёрнутой строки): вместо серой
+// нарисованной иконки-облачка перед последним комментарием -- эмодзи
+// 💬. Своя иконка была бледной и терялась рядом с цветной аватаркой.
 
 // Плейсхолдер одной строкой, а не через <T/>: это атрибут, а не
 // разметка, и девять спанов в него не положить. Украинский -- язык
