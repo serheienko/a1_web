@@ -341,7 +341,7 @@ export default async function JobDetailPage({ params }: Props) {
         </div>
       )}
 
-      <PostComments comments={comments} />
+      <PostComments comments={comments} postId={post.id} />
 
       <RelatedJobs
         sameCompany={related.sameCompany}
