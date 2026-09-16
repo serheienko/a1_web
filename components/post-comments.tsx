@@ -47,6 +47,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MediaPickerPanel } from "@/components/chat/media-picker-panel";
 import { ChatCatFieldIcon } from "@/components/chat/icons";
+import { SEND_BUTTON_CLASS, SendArrowIcon } from "@/components/chat/send-button";
 import {
   MessageActionsMenu,
   DeleteMessageConfirmDialog,
@@ -554,7 +555,16 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
           ref={windowRef}
           onClick={(e) => e.stopPropagation()}
           style={{ transform: dragY ? `translateY(${dragY}px)` : undefined }}
-          className="relative flex max-h-[85vh] w-full flex-col rounded-t-2xl bg-white shadow-2xl transition-transform dark:bg-neutral-950 sm:max-h-[80vh] sm:max-w-lg sm:rounded-2xl"
+          // 2026-09-16 (Александр, скриншот на тёмной теме: «добавь чуть
+          // светлую тень модалке, чтобы чуть отделить от фона») -- у нас
+          // тёмная тема это чистый чёрный, и чёрная тень на чёрном фоне
+          // не видна в принципе, поэтому окно сливалось со страницей.
+          // Тот же приём, что уже стоит на панели мини-чата: к двум
+          // обычным тёмным слоям добавлен третий, очень слабый БЕЛЫЙ --
+          // на светлом фоне он незаметен, на чёрном даёт ровно то
+          // «чуть-чуть», которое отделяет окно от страницы. Плюс
+          // тонкая рамка -- она же и есть край окна на самом чёрном.
+          className="relative flex max-h-[85vh] w-full flex-col rounded-t-2xl border border-neutral-200 bg-white shadow-[0_20px_25px_-5px_rgba(0,0,0,0.15),0_8px_10px_-6px_rgba(0,0,0,0.15),0_16px_48px_-8px_rgba(255,255,255,0.10)] transition-transform dark:border-neutral-800 dark:bg-neutral-950 sm:max-h-[80vh] sm:max-w-lg sm:rounded-2xl"
         >
           {/* Шапка окна. Полоска сверху -- за неё шторка стягивается
               вниз пальцем, как в приложении. */}
@@ -710,13 +720,11 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
                   onClick={() => void send()}
                   disabled={sending || !text.trim()}
                   aria-label="Send"
-                  className={`group flex h-[36px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#335ef7] text-white transition-all duration-200 ease-out hover:brightness-110 active:scale-95 disabled:hover:brightness-100 dark:bg-[#0c8ce9] ${
+                  className={`${SEND_BUTTON_CLASS} h-[36px] overflow-hidden ${
                     text.trim() ? "ml-0 w-[36px] opacity-100" : "-ml-2 w-0 opacity-0"
                   }`}
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="animate-send-arrow shrink-0">
-                    <path d="M12 19V5M5 12l7-7 7 7" />
-                  </svg>
+                  <SendArrowIcon />
                 </button>
               </div>
               {failed && (

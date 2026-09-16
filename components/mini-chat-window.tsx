@@ -118,6 +118,7 @@ import { ForwardPickerModal, type ForwardRowStatus } from "@/components/chat/for
 import { MediaPickerPanel } from "@/components/chat/media-picker-panel";
 import { TgsSticker } from "@/components/chat/tgs-sticker";
 import { MarqueeName } from "@/components/marquee-name";
+import { SEND_BUTTON_CLASS, SendArrowIcon } from "@/components/chat/send-button";
 import type { MediaDocument } from "@/lib/a1/schemas";
 import { CopyToast, type CopyToastState } from "@/components/chat/copy-toast";
 import { ChatCalculationCard } from "@/components/chat/calculation-card";
@@ -2447,11 +2448,9 @@ export function MiniChatWindow({
                 onClick={sendCalculation}
                 disabled={calcSending || !calcHasContent}
                 aria-label="Send"
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-[#335ef7] text-white transition hover:brightness-110 active:scale-95 disabled:opacity-40 disabled:hover:brightness-100 dark:bg-[#0c8ce9]"
+                className={`${SEND_BUTTON_CLASS} h-8 w-8`}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M12 19V5M5 12l7-7 7 7" />
-                </svg>
+                <SendArrowIcon size={14} />
               </button>
             </div>
           </div>
@@ -2869,8 +2868,8 @@ export function MiniChatWindow({
             // it was never actually edit-specific, just easiest to
             // notice there once the pill briefly grows. Switching both
             // to the same literal px unit fixes it in every state.
-            className={`group flex h-[36px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#335ef7] text-white transition-all duration-200 ease-out hover:brightness-110 active:scale-95 disabled:hover:brightness-100 dark:bg-[#0c8ce9] ${
-              hasSendableContent ? "w-[36px] ml-0 opacity-100" : "w-0 -ml-2 opacity-0"
+            className={`${SEND_BUTTON_CLASS} h-[36px] overflow-hidden ${
+              hasSendableContent ? "ml-0 w-[36px] opacity-100" : "-ml-2 w-0 opacity-0"
             }`}
           >
             {/* 2026-09-16 (Александр): стрелка смотрела вбок, а

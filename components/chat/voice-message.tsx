@@ -27,6 +27,7 @@
 // which is safer than a half-built silent-cancel-on-any-click.
 "use client";
 
+import { SEND_BUTTON_CLASS, SendArrowIcon } from "@/components/chat/send-button";
 import { useEffect, useRef, type RefObject } from "react";
 import { T, type Locale } from "@/components/t";
 import { formatVoiceTimer, VOICE_MAX_SECONDS, type VoiceRecorderPointer } from "./voice-recorder";
@@ -346,13 +347,9 @@ export function VoiceRecordButton({
         type="button"
         onClick={() => recorder.stopAndSend()}
         aria-label="Send voice message"
-        className={`group relative flex shrink-0 items-center justify-center rounded-full bg-[#335ef7] text-white transition hover:brightness-110 active:scale-95 dark:bg-[#0c8ce9] ${
-          compact ? "h-[36px] w-[36px]" : "h-[44px] w-[44px]"
-        }`}
+        className={`${SEND_BUTTON_CLASS} relative ${compact ? "h-[36px] w-[36px]" : "h-[44px] w-[44px]"}`}
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M12 19V5M5 12l7-7 7 7" />
-        </svg>
+        <SendArrowIcon />
       </button>
     );
   }

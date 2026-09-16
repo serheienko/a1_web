@@ -77,6 +77,7 @@ import type { MediaUploadUsage, MediaDocument } from "@/lib/a1/schemas";
 import { MediaPickerPanel } from "@/components/chat/media-picker-panel";
 import { getStickerSets, findStickerSetIdForDocId } from "@/lib/a1/sticker-sets-cache";
 import { TgsSticker } from "@/components/chat/tgs-sticker";
+import { SEND_BUTTON_CLASS, SendArrowIcon } from "@/components/chat/send-button";
 import {
   ChatAttachmentSpinner,
   ChatBackArrow,
@@ -6296,11 +6297,9 @@ export default function ChatWindowPage() {
                   onClick={sendCalculation}
                   disabled={calcSending || !calcHasContent}
                   aria-label="Send"
-                  className="flex h-11 w-11 items-center justify-center rounded-full bg-[#335ef7] text-white transition hover:brightness-110 active:scale-95 disabled:opacity-40 disabled:hover:brightness-100 dark:bg-[#0c8ce9]"
+                  className={`${SEND_BUTTON_CLASS} h-11 w-11`}
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M12 19V5M5 12l7-7 7 7" />
-                  </svg>
+                  <SendArrowIcon />
                 </button>
               </div>
 
@@ -7264,22 +7263,9 @@ export default function ChatWindowPage() {
                 // анимацию на саму стрелку") -- group + hover:brightness
                 // for the button itself, animate-send-arrow (app/
                 // globals.css) nudges the arrow glyph on that same hover.
-                className="group flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full bg-[#335ef7] text-white transition hover:brightness-110 active:scale-95 disabled:opacity-40 disabled:hover:brightness-100 dark:bg-[#0c8ce9]"
+                className={`${SEND_BUTTON_CLASS} h-[44px] w-[44px]`}
               >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                  className="animate-send-arrow"
-                >
-                  <path d="M12 19V5M5 12l7-7 7 7" />
-                </svg>
+                <SendArrowIcon />
               </button>
             ) : (
               <VoiceRecordButton recorder={recorder} disabled={sending} lang={lang} />
