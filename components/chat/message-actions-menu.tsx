@@ -702,6 +702,7 @@ export function ReactionsBar({
   otherInitial,
   flatMedia,
   inline,
+  showCount,
   onToggle,
 }: {
   reactions: MessagePeerReaction[];
@@ -729,6 +730,12 @@ export function ReactionsBar({
   // this row to a line of its own -- same visual result as before,
   // with no JS width measurement needed either way.
   inline?: boolean;
+  // 2026-09-16 (комментарии под вакансией) -- аватарка соседа работает
+  // только в переписке один на один, где реагирующих всего двое. Под
+  // вакансией их сколько угодно и все разные, поэтому там вместо
+  // аватарки показывается число: «сколько людей поставило этот
+  // эмодзи». Сам чип при этом остаётся здешний, а не свой.
+  showCount?: boolean;
   onToggle: (emoticon: string) => void;
 }) {
   if (reactions.length === 0) return null;
@@ -770,7 +777,11 @@ export function ReactionsBar({
             }`}
           >
             <span className="leading-none">{group.emoticon}</span>
-            {otherReacted &&
+            {showCount
+              ? group.reactors.length > 1 && (
+                  <span className="min-w-[14px] text-center text-[13px] font-medium tabular-nums">{group.reactors.length}</span>
+                )
+              : otherReacted &&
               (otherAvatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element -- tiny
                 // 20px reaction avatar, not worth next/image's overhead here.
@@ -857,9 +868,13 @@ export function ReplyComposeBar({
         type="button"
         onClick={onRemove}
         aria-label="Cancel reply"
-        className="shrink-0 rounded-full p-1 text-[#989aa6] transition hover:bg-black/5 dark:text-[#8d8d93] dark:hover:bg-white/10"
+        // 2026-09-16 (Александр: «анимируй крестик закрытия») -- та же
+        // animate-close-spin, что у крестиков остальных окон чата
+        // (photo-viewer, all-pins-modal, reminders-list-modal);
+        // работает от `group` на самой кнопке.
+        className="group shrink-0 rounded-full p-1 text-[#989aa6] transition hover:bg-black/5 dark:text-[#8d8d93] dark:hover:bg-white/10"
       >
-        <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 animate-close-spin" aria-hidden="true">
           <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
         </svg>
       </button>
@@ -915,9 +930,13 @@ export function EditComposeBar({
         type="button"
         onClick={onCancel}
         aria-label="Cancel edit"
-        className="shrink-0 rounded-full p-1 text-[#989aa6] transition hover:bg-black/5 dark:text-[#8d8d93] dark:hover:bg-white/10"
+        // 2026-09-16 (Александр: «анимируй крестик закрытия») -- та же
+        // animate-close-spin, что у крестиков остальных окон чата
+        // (photo-viewer, all-pins-modal, reminders-list-modal);
+        // работает от `group` на самой кнопке.
+        className="group shrink-0 rounded-full p-1 text-[#989aa6] transition hover:bg-black/5 dark:text-[#8d8d93] dark:hover:bg-white/10"
       >
-        <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 animate-close-spin" aria-hidden="true">
           <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
         </svg>
       </button>

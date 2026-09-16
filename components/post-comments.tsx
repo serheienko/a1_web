@@ -51,6 +51,8 @@ import { SEND_BUTTON_CLASS, SendArrowIcon } from "@/components/chat/send-button"
 import {
   MessageActionsMenu,
   DeleteMessageConfirmDialog,
+  ReactionsBar,
+  EditComposeBar,
   ReplyComposeBar,
   MessageReplyQuote,
 } from "@/components/chat/message-actions-menu";
@@ -176,27 +178,26 @@ function Bubble({
     />
   ) : null;
 
-  const reactions = comment.reactions.length > 0 && (
-    <div className={`mt-1 flex flex-wrap gap-1 ${mine ? "justify-end" : ""}`}>
-      {comment.reactions.map((r) => {
-        const isMine = !!myUserId && r.by.some((entry) => entry.userId === myUserId);
-        return (
-          <button
-            key={r.emoticon}
-            type="button"
-            onClick={() => onToggleReaction(comment, r.emoticon)}
-            className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[12px] transition ${
-              isMine
-                ? "border-accent/40 bg-accent/10 text-accent"
-                : "border-neutral-200 bg-white text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400"
-            }`}
-          >
-            <span className="text-[13px] leading-none">{r.emoticon}</span>
-            {r.by.length > 1 && <span className="tabular-nums">{r.by.length}</span>}
-          </button>
-        );
-      })}
-    </div>
+  // Чипы реакций -- ТОТ ЖЕ ReactionsBar, что под сообщением в чатах, а
+  // не своя вёрстка (2026-09-16, Александр: «реакция должна работать
+  // абсолютно идентично, как в чатах и мини-чатах»). Наш список реакций
+  // плоский, поэтому разворачивается обратно в ту форму, которую ждёт
+  // чат: одна запись на каждого поставившего. Вместо аватарки соседа --
+  // число: под вакансией реагирующих сколько угодно и все разные.
+  const reactions = (
+    <ReactionsBar
+      reactions={comment.reactions.flatMap((r) =>
+        r.by.map((entry) => ({
+          peer: { object: "peer-user" as const, user: entry.userId },
+          date: entry.date,
+          reaction: { object: "reaction-emoji" as const, emoticon: r.emoticon },
+        })),
+      )}
+      mine={mine}
+      myUserId={myUserId}
+      showCount
+      onToggle={(emoticon) => onToggleReaction(comment, emoticon)}
+    />
   );
 
   if (mine) {
@@ -298,6 +299,60 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
   const [editing, setEditing] = useState<WebComment | null>(null);
   const [replyTo, setReplyTo] = useState<WebComment | null>(null);
   const [open, setOpen] = useState(false);
+  // 2026-09-16 (Александр: «у нас в чатах и мини-чатах эта штука,
+  // композер, разъезжается наверх анимацией, и когда нажимаешь крестик,
+  // съезжается назад... и, по-моему, даже нету этой полосы сверху») --
+  // тот же приём grid-template-rows 1fr/0fr, что в обоих чатах: цитата
+  // живёт ВНУТРИ той же пилюли, что и поле ввода, и пилюля растёт
+  // вверх, а не появляется отдельной карточкой над разделителем.
+  // Пара «displayed* + *Grown» нужна, чтобы при закрытии успела
+  // проиграться обратная анимация: displayed держит содержимое ещё
+  // 200 мс после того, как сам ответ уже сброшен.
+  const ROW_COLLAPSE_MS = 200;
+  const [displayedReplyTo, setDisplayedReplyTo] = useState<WebComment | null>(null);
+  const [replyRowGrown, setReplyRowGrown] = useState(false);
+  useEffect(() => {
+    if (replyTo) {
+      setDisplayedReplyTo(replyTo);
+      if (!replyRowGrown) {
+        let raf2 = 0;
+        const raf1 = window.requestAnimationFrame(() => {
+          raf2 = window.requestAnimationFrame(() => setReplyRowGrown(true));
+        });
+        return () => {
+          window.cancelAnimationFrame(raf1);
+          if (raf2) window.cancelAnimationFrame(raf2);
+        };
+      }
+      return;
+    }
+    setReplyRowGrown(false);
+    const t = window.setTimeout(() => setDisplayedReplyTo(null), ROW_COLLAPSE_MS);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [replyTo]);
+  const [displayedEditing, setDisplayedEditing] = useState<WebComment | null>(null);
+  const [editRowGrown, setEditRowGrown] = useState(false);
+  useEffect(() => {
+    if (editing) {
+      setDisplayedEditing(editing);
+      if (!editRowGrown) {
+        let raf2 = 0;
+        const raf1 = window.requestAnimationFrame(() => {
+          raf2 = window.requestAnimationFrame(() => setEditRowGrown(true));
+        });
+        return () => {
+          window.cancelAnimationFrame(raf1);
+          if (raf2) window.cancelAnimationFrame(raf2);
+        };
+      }
+      return;
+    }
+    setEditRowGrown(false);
+    const t = window.setTimeout(() => setDisplayedEditing(null), ROW_COLLAPSE_MS);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing]);
   // Сдвиг шторки пальцем вниз -- в приложении она так и закрывается.
   const [dragY, setDragY] = useState(0);
   const dragStartRef = useRef<number | null>(null);
@@ -598,9 +653,9 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
                 type="button"
                 onClick={() => setOpen(false)}
                 aria-label="Close"
-                className="-mr-1 rounded-full p-1.5 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+                className="group -mr-1 rounded-full p-1.5 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
               >
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true" className="animate-close-spin">
                   <path d="M6 6l12 12M18 6 6 18" />
                 </svg>
               </button>
@@ -639,82 +694,85 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
           {/* Ввод */}
           {signedIn && (
             <div className="shrink-0 border-t border-neutral-100 px-4 pb-4 pt-3 dark:border-neutral-800">
-              {replyTo && (
-                <div className="mb-2">
-                  <ReplyComposeBar
-                    authorLabel={replyTo.authorName}
-                    previewText={replyTo.mediaOnly ? "Наліпка" : replyTo.text}
-                    onRemove={() => setReplyTo(null)}
-                  />
-                </div>
-              )}
-              {editing && (
-                <div className="mb-2 flex items-center justify-between gap-2 rounded-lg bg-accent/10 px-3 py-1.5 text-[12px] text-accent">
-                  <span className="truncate">
-                    <T
-                      uk="Редагування" en="Editing" ru="Редактирование" de="Bearbeiten" es="Editando"
-                      fr="Modification" pl="Edycja" ptBR="Editando" zh="编辑中"
-                    />
-                    {": "}
-                    {editing.text}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditing(null);
-                      setText("");
-                    }}
-                    className="shrink-0 font-medium underline"
-                  >
-                    <T uk="Скасувати" en="Cancel" ru="Отменить" de="Abbrechen" es="Cancelar" fr="Annuler" pl="Anuluj" ptBR="Cancelar" zh="取消" />
-                  </button>
-                </div>
-              )}
-              <div className="flex items-center gap-2">
+              {/* Ответ и правка живут ВНУТРИ пилюли ввода и
+                  разъезжают её вверх -- ровно как в чатах и мини-чатах
+                  (components/mini-chat-window.tsx, app/chats/[chatId]/
+                  page.tsx): тот же grid-template-rows 1fr/0fr, те же
+                  ReplyComposeBar/EditComposeBar с inline. Отдельной
+                  карточки над полем и её разделительной полосы больше
+                  нет -- это была моя самодеятельность. */}
+              <div className="flex items-end gap-2">
                 <Avatar url={me?.avatarUrl ?? null} seed={me?.username ?? "me"} className="h-9 w-9" />
-                <div className="flex min-h-9 min-w-0 flex-1 items-center gap-1 rounded-full border border-neutral-200 bg-white pl-4 pr-1.5 focus-within:border-accent/50 dark:border-neutral-700 dark:bg-neutral-900">
-                  <textarea
-                    id={`comment-input-${postId}`}
-                    ref={inputRef}
-                    rows={1}
-                    value={text}
-                    onChange={(e) => {
-                      setText(e.target.value);
-                      const el = e.target;
-                      el.style.height = "auto";
-                      el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        void send();
-                      }
-                    }}
-                    placeholder={PLACEHOLDER}
-                    className="chat-textarea-no-scrollbar max-h-[120px] min-w-0 flex-1 resize-none self-center bg-transparent py-[7px] text-[14px] leading-[1.45] text-neutral-900 outline-none placeholder:text-neutral-400 dark:text-neutral-50 dark:placeholder:text-neutral-500"
-                  />
-                  <button
-                    ref={stickerButtonRef}
-                    type="button"
-                    onClick={() => {
-                      const rect = stickerButtonRef.current?.getBoundingClientRect();
-                      if (rect) setPickerAnchor(rect);
-                    }}
-                    aria-label="Emoji"
-                    className="group shrink-0 rounded-full p-1 text-neutral-400 transition hover:text-accent dark:text-neutral-500"
-                  >
-                    <ChatCatFieldIcon className="h-[18px] w-[18px] animate-chat-wiggle" />
-                  </button>
+                <div className="flex min-w-0 flex-1 flex-col rounded-[18px] border border-neutral-200 bg-white focus-within:border-accent/50 dark:border-neutral-700 dark:bg-neutral-900">
+                  {displayedEditing && (
+                    <div
+                      className={`grid transition-[grid-template-rows] duration-200 ease-out ${
+                        editRowGrown ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                      }`}
+                    >
+                      <div className="overflow-hidden">
+                        <EditComposeBar
+                          inline
+                          previewText={displayedEditing.text}
+                          onCancel={() => {
+                            setEditing(null);
+                            setText("");
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {displayedReplyTo && (
+                    <div
+                      className={`grid transition-[grid-template-rows] duration-200 ease-out ${
+                        replyRowGrown ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                      }`}
+                    >
+                      <div className="overflow-hidden">
+                        <ReplyComposeBar
+                          inline
+                          authorLabel={displayedReplyTo.authorName}
+                          previewText={displayedReplyTo.mediaOnly ? "Наліпка" : displayedReplyTo.text}
+                          onRemove={() => setReplyTo(null)}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex min-h-[36px] items-center gap-1 pl-4 pr-1.5">
+                    <textarea
+                      id={`comment-input-${postId}`}
+                      ref={inputRef}
+                      rows={1}
+                      value={text}
+                      onChange={(e) => {
+                        setText(e.target.value);
+                        const el = e.target;
+                        el.style.height = "auto";
+                        el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          void send();
+                        }
+                      }}
+                      placeholder={PLACEHOLDER}
+                      className="chat-textarea-no-scrollbar max-h-[120px] min-w-0 flex-1 resize-none self-center bg-transparent py-[7px] text-[14px] leading-[1.45] text-neutral-900 outline-none placeholder:text-neutral-400 dark:text-neutral-50 dark:placeholder:text-neutral-500"
+                    />
+                    <button
+                      ref={stickerButtonRef}
+                      type="button"
+                      onClick={() => {
+                        const rect = stickerButtonRef.current?.getBoundingClientRect();
+                        if (rect) setPickerAnchor(rect);
+                      }}
+                      aria-label="Emoji"
+                      className="group shrink-0 self-end rounded-full p-1 text-neutral-400 transition hover:text-accent dark:text-neutral-500"
+                    >
+                      <ChatCatFieldIcon className="h-[18px] w-[18px] animate-chat-wiggle" />
+                    </button>
+                  </div>
                 </div>
-                {/* Кнопка отправки -- один в один из мини-чата
-                    (components/mini-chat-window.tsx): синий КРУГ с
-                    белой стрелкой, а не голая стрелка (2026-09-16,
-                    Александр: «стрелка отправки должна быть с
-                    заполнением такая же, как в мини-чатах и в чатах, с
-                    заливкой такой голубой»). Появляется с первым
-                    символом, схлопываясь в ноль ширины -- та же
-                    механика, тот же размер 36px, чтобы кнопка была
-                    ровно в высоту поля. */}
                 <button
                   type="button"
                   onClick={() => void send()}
