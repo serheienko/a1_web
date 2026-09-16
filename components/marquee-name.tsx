@@ -54,7 +54,24 @@ import { useEffect, useRef, useState } from "react";
 // "mobile" for marquee purposes, at/above it marquee is disabled outright.
 const MOBILE_BREAKPOINT_PX = 640;
 
-export function MarqueeName({ text, className }: { text: string; className?: string }) {
+export function MarqueeName({
+  text,
+  className,
+  // 2026-09-16 (Александр): мини-чат -- виджет ДЕСКТОПНЫЙ и узкий, там
+  // длинное имя не помещается именно на большом экране. Правило «на
+  // десктопе всегда влезает» для него неверно, поэтому оно стало
+  // необязательным, а не выброшенным: на странице профиля, ради которой
+  // компонент писался, всё остаётся как было.
+  allowOnDesktop = false,
+  // Пикселей в секунду. По умолчанию 55 -- как было; мини-чат просит
+  // «очень плавно», поэтому передаёт меньше.
+  speedPxPerSec = 55,
+}: {
+  text: string;
+  className?: string;
+  allowOnDesktop?: boolean;
+  speedPxPerSec?: number;
+}) {
   const containerRef = useRef<HTMLHeadingElement>(null);
   const measureRef = useRef<HTMLSpanElement>(null);
   const [overflowing, setOverflowing] = useState(false);
@@ -67,7 +84,7 @@ export function MarqueeName({ text, className }: { text: string; className?: str
       if (!container || !span) return;
       // Desktop is always wide enough for a name to fit — never even
       // consider marquee mode there, regardless of measured overflow.
-      if (window.innerWidth >= MOBILE_BREAKPOINT_PX) {
+      if (!allowOnDesktop && window.innerWidth >= MOBILE_BREAKPOINT_PX) {
         setOverflowing(false);
         return;
       }
@@ -79,7 +96,7 @@ export function MarqueeName({ text, className }: { text: string; className?: str
         // ~55px/s reads as a calm, easy-to-read pace regardless of name
         // length — a fixed duration would make a long name feel rushed
         // and a barely-overflowing one feel sluggish.
-        setDurationSec(Math.max(4, span.scrollWidth / 55));
+        setDurationSec(Math.max(4, span.scrollWidth / speedPxPerSec));
       }
     }
     measure();
@@ -92,10 +109,10 @@ export function MarqueeName({ text, className }: { text: string; className?: str
       window.removeEventListener("resize", measure);
       ro?.disconnect();
     };
-  }, [text]);
+  }, [text, allowOnDesktop, speedPxPerSec]);
 
   return (
-    <h1 ref={containerRef} className={"relative min-w-0 overflow-hidden sm:overflow-visible " + (className ?? "")}>
+    <h1 ref={containerRef} className={`relative min-w-0 overflow-hidden ${allowOnDesktop ? "" : "sm:overflow-visible"} ` + (className ?? "")}>
       {/* Always-mounted, invisible measuring copy — absolutely positioned
           out of flow so it never affects layout, but its natural
           (unwrapped) width is what decides whether the visible content

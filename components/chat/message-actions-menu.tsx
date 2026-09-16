@@ -45,7 +45,11 @@ const VIEWPORT_MARGIN = 18;
 // end in "😄", a guess -- CONFIRMED off mobile's own
 // lib/features/reactions/components/emoji_reactions_panel.dart, the
 // real static set is "😁" as the 7th emoji, not "😄".
-const REACTION_EMOJIS = ["👍", "👎", "❤️", "🔥", "🥰", "👏", "😁"];
+// 2026-09-16: экспортируется, потому что этот же ряд показывается в
+// меню комментария под вакансией (components/comment-context-menu.tsx).
+// Два списка рядом неизбежно разъехались бы -- у комментариев уже был
+// 😄 вместо 😁.
+export const REACTION_EMOJIS = ["👍", "👎", "❤️", "🔥", "🥰", "👏", "😁"];
 
 type IconProps = { className?: string };
 

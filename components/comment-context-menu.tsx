@@ -12,7 +12,10 @@
 //   чужой + моя вакансия -- добавляются Редагувати и Видалити
 //
 // Что из этого здесь есть и чего нет, и почему:
-//   Копіювати, Редагувати, Видалити, реакции -- есть.
+//   Відповісти, Копіювати, Редагувати, Видалити, реакции -- есть.
+//   Цитата и полоска над полем ввода взяты один в один из чата
+//   (ReplyComposeBar и MessageReplyQuote в
+//   components/chat/message-actions-menu.tsx) -- своих не рисуем.
 //   Відповісти -- нет: ответ хранится ссылкой на сообщение, и его надо
 //     ещё уметь ПОКАЗАТЬ цитатой над текстом, иначе кнопка есть, а
 //     результата не видно.
@@ -28,9 +31,12 @@
 // список одним красным подтверждением.
 
 import { useEffect, useRef, useState } from "react";
+import { REACTION_EMOJIS } from "@/components/chat/message-actions-menu";
 
-// Ровно те семь, что в приложении, и в том же порядке.
-export const QUICK_REACTIONS = ["👍", "👎", "❤️", "🔥", "🥰", "👏", "😄"];
+// Ряд реакций -- ОДИН на весь сайт, из меню сообщения в чате. Свой
+// список здесь уже успел разъехаться с чатовым (😄 вместо 😁), чего и
+// следовало ожидать от двух копий.
+export { REACTION_EMOJIS } from "@/components/chat/message-actions-menu";
 
 type Action = {
   key: string;
@@ -56,6 +62,7 @@ export function CommentContextMenu({
   canDelete,
   myReaction,
   onReact,
+  onReply,
   onCopy,
   onEdit,
   onDelete,
@@ -66,6 +73,7 @@ export function CommentContextMenu({
   canDelete: boolean;
   myReaction: string | null;
   onReact: (emoticon: string) => void;
+  onReply: () => void;
   onCopy: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -99,6 +107,12 @@ export function CommentContextMenu({
         },
       ]
     : [
+        {
+          key: "reply",
+          label: "Відповісти",
+          icon: <Icon d={["M9 14 4 9l5-5", "M4 9h10a6 6 0 0 1 6 6v5"]} />,
+          onPick: onReply,
+        },
         {
           key: "copy",
           label: "Копіювати",
@@ -158,7 +172,7 @@ export function CommentContextMenu({
         onClick={(e) => e.stopPropagation()}
         className="flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-2 py-1.5 shadow-lg dark:border-neutral-700 dark:bg-neutral-900"
       >
-        {QUICK_REACTIONS.map((emoticon) => (
+        {REACTION_EMOJIS.map((emoticon) => (
           <button
             key={emoticon}
             type="button"

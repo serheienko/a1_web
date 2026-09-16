@@ -117,6 +117,7 @@ import { RemindModal } from "@/components/chat/remind-modal";
 import { ForwardPickerModal, type ForwardRowStatus } from "@/components/chat/forward-picker-modal";
 import { MediaPickerPanel } from "@/components/chat/media-picker-panel";
 import { TgsSticker } from "@/components/chat/tgs-sticker";
+import { MarqueeName } from "@/components/marquee-name";
 import type { MediaDocument } from "@/lib/a1/schemas";
 import { CopyToast, type CopyToastState } from "@/components/chat/copy-toast";
 import { ChatCalculationCard } from "@/components/chat/calculation-card";
@@ -1645,7 +1646,19 @@ export function MiniChatWindow({
       className="h-8 w-8 shrink-0 rounded-full object-cover"
     />
   );
-  const nameText = <span className="block truncate text-[16px] font-medium leading-tight">{target.title || "—"}</span>;
+  // 2026-09-16 (Александр): длинное имя в шапке мини-чата обрывалось
+  // многоточием. Бегущая строка -- тот же компонент, что на странице
+  // профиля, ему добавлен разрешающий флаг: правило «на десктопе имя
+  // всегда влезает» верно для страницы и неверно для узкого виджета.
+  // Скорость вдвое ниже обычной -- просили «очень плавно».
+  const nameText = (
+    <MarqueeName
+      text={target.title || "—"}
+      allowOnDesktop
+      speedPxPerSec={28}
+      className="px-2.5 text-[16px] font-medium leading-tight"
+    />
+  );
 
   return createPortal(
     <div
@@ -2788,7 +2801,13 @@ export function MiniChatWindow({
                   }
                 }}
                 placeholder="Message"
-                className="max-h-24 min-h-[20px] flex-1 resize-none bg-transparent text-[15.5px] leading-5 text-[#262a34] outline-none placeholder:text-[#989aa6] dark:text-white dark:placeholder:text-[#8d8d93]"
+                // 2026-09-16 (Александр: «у сообщений есть какой-то
+                // скролл, выглядит как баг»): длинный черновик упирался
+                // в max-h-24 и показывал полосу прокрутки внутри
+                // пилюли. Класс уже есть и уже применён в большом чате
+                // (app/chats/[chatId]/page.tsx) -- полоса прячется,
+                // прокрутка колесом остаётся.
+                className="chat-textarea-no-scrollbar max-h-24 min-h-[20px] flex-1 resize-none bg-transparent text-[15.5px] leading-5 text-[#262a34] outline-none placeholder:text-[#989aa6] dark:text-white dark:placeholder:text-[#8d8d93]"
               />
               <button
                 type="button"
@@ -2844,8 +2863,14 @@ export function MiniChatWindow({
               hasSendableContent ? "w-[36px] ml-0 opacity-100" : "w-0 -ml-2 opacity-0"
             }`}
           >
+            {/* 2026-09-16 (Александр): стрелка смотрела вбок, а
+                анимация под ней (animate-send-arrow) подталкивает её
+                ВВЕРХ -- см. keyframes send-arrow-nudge в globals.css и
+                комментарий там же: «send-arrow points up». То есть
+                глиф просто не совпадал со своей же анимацией. Теперь
+                тот же путь, что у кнопки отправки расчёта выше. */}
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="animate-send-arrow shrink-0">
-              <path d="M4 12h15M13 5l7 7-7 7" />
+              <path d="M12 19V5M5 12l7-7 7 7" />
             </svg>
           </button>
           ) : recorder.state !== "denied" ? (

@@ -30,6 +30,15 @@ const SendCommentInput = z.object({
   postId: z.string().trim().min(1),
   // Тот же потолок, что и у сообщения в чате (app/api/chats/send).
   text: z.string().trim().min(1).max(4000),
+  // Ответ на другой комментарий. Форма replyTo -- ровно та же, что в
+  // чате (app/api/chats/send): номер сообщения плюс автор, на которого
+  // отвечают. Ничего специфичного для комментариев здесь нет.
+  replyTo: z
+    .object({
+      commentId: z.number().int().positive(),
+      userId: z.string().trim().min(1),
+    })
+    .optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -41,10 +50,14 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { data, refreshedSession } = await callAsVisitor<unknown>("messages.send", {
+    const payload: Record<string, unknown> = {
       peerTo: peerForPost(input.postId),
       message: input.text,
-    });
+    };
+    if (input.replyTo) {
+      payload.replyTo = { message: input.replyTo.commentId, object: "peer-user", user: input.replyTo.userId };
+    }
+    const { data, refreshedSession } = await callAsVisitor<unknown>("messages.send", payload);
 
     // Возвращаем разобранное сообщение, чтобы страница могла показать
     // комментарий сразу, не перезагружаясь.

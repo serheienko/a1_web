@@ -40,6 +40,11 @@ export type WebComment = {
   createdAt: Date;
   /** Отредактирован -- под текстом показывается пометка. */
   editedAt: Date | null;
+  /** Ответ: на какой комментарий. Сам текст цитаты бэкенд не присылает
+   *  (см. MessageReplyToSchema в lib/a1/chat-schemas.ts -- там только
+   *  номер), поэтому страница ищет его в уже загруженном списке -- ровно
+   *  так же, как это делает чат. */
+  replyToId: string | null;
   /** Реакции: эмодзи и кто его поставил. `date` нужен, чтобы реакцию
    *  можно было СНЯТЬ: бэкенд удаляет её точным совпадением всей
    *  записи, включая дату, -- «убери мою реакцию с этим эмодзи» там
@@ -118,6 +123,7 @@ export async function fetchPostComments(postId: string): Promise<WebComment[]> {
       mediaOnly: text === "" && msg.media.length > 0,
       createdAt: new Date(messageDateMs(msg)),
       editedAt: msg.editedAt ? new Date(msg.editedAt) : null,
+      replyToId: msg.replyTo?.message ?? null,
       reactions: [...grouped.entries()].map(([emoticon, by]) => ({ emoticon, by })),
     };
   });

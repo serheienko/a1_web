@@ -25,6 +25,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MediaPickerPanel } from "@/components/chat/media-picker-panel";
 import { CommentContextMenu } from "@/components/comment-context-menu";
+import { ChatCatFieldIcon } from "@/components/chat/icons";
+import { ReplyComposeBar, MessageReplyQuote } from "@/components/chat/message-actions-menu";
 import Link from "next/link";
 import { T, LOCALES, LOCALE_VISIBILITY_CLASS } from "@/components/t";
 import { formatRelativeTime } from "@/lib/format";
@@ -77,31 +79,21 @@ function Avatar({ url, seed, className = "h-7 w-7" }: { url: string | null; seed
   );
 }
 
-// Кот из шапки поля ввода -- в приложении это та же иконка, по которой
-// открываются наліпки, гифки и емодзі. Контур, а не заливка: рядом с
-// текстовым полем сплошная фигура перетягивала бы на себя внимание.
-function StickerCatIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4.5 9.5 3.2 4.6a.5.5 0 0 1 .76-.54L7.9 6.6" />
-      <path d="M19.5 9.5l1.3-4.9a.5.5 0 0 0-.76-.54L16.1 6.6" />
-      <path d="M4.5 12.4a7.5 7.5 0 0 1 15 0v2.1a7.5 7.5 0 0 1-15 0z" />
-      <path d="M9.3 12.2h.01M14.7 12.2h.01" />
-      <path d="M10.8 15.6a1.7 1.7 0 0 0 2.4 0" />
-    </svg>
-  );
-}
-
 function Bubble({
   comment,
   mine,
   myUserId,
+  repliedTo,
   onOpenMenu,
   onToggleReaction,
 }: {
   comment: WebComment;
   mine: boolean;
   myUserId: string | null;
+  /** Комментарий, на который отвечают, если он есть в загруженном
+   *  списке. Бэкенд присылает только его номер -- текст ищется здесь,
+   *  ровно как в чате. */
+  repliedTo: WebComment | null;
   onOpenMenu: (comment: WebComment, rect: DOMRect) => void;
   onToggleReaction: (comment: WebComment, emoticon: string) => void;
 }) {
@@ -129,6 +121,14 @@ function Bubble({
       if (holdRef.current) clearTimeout(holdRef.current);
     },
   };
+
+  const quote = repliedTo ? (
+    <MessageReplyQuote
+      authorLabel={repliedTo.authorName}
+      previewText={repliedTo.mediaOnly ? "Наліпка" : repliedTo.text}
+      mine={mine}
+    />
+  ) : null;
 
   const reactions = comment.reactions.length > 0 && (
     <div className={`mt-1 flex flex-wrap gap-1 ${mine ? "justify-end" : ""}`}>
@@ -161,6 +161,7 @@ function Bubble({
           {...handlers}
           className="max-w-[80%] cursor-default select-none rounded-2xl rounded-br-md bg-accent px-3.5 py-2 text-white"
         >
+          {quote}
           <p className="whitespace-pre-line break-words text-[14px] leading-relaxed">{comment.text}</p>
           <Time date={comment.createdAt} className="mt-0.5 block text-right text-[11px] text-white/70" />
         </div>
@@ -192,6 +193,7 @@ function Bubble({
         {...handlers}
         className="min-w-0 max-w-full cursor-default select-none rounded-2xl rounded-bl-md bg-neutral-100 px-3.5 py-2 dark:bg-neutral-800"
       >
+        {quote}
         <span className="block text-[12px] font-medium text-accent">{name}</span>
         {comment.mediaOnly ? (
           <p className="text-[14px] italic text-neutral-400 dark:text-neutral-500">
@@ -230,6 +232,7 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
   const [pickerAnchor, setPickerAnchor] = useState<DOMRect | null>(null);
   const [menu, setMenu] = useState<{ comment: WebComment; rect: DOMRect } | null>(null);
   const [editing, setEditing] = useState<WebComment | null>(null);
+  const [replyTo, setReplyTo] = useState<WebComment | null>(null);
 
   useEffect(() => {
     if (!readDisplayCookie()) return;
@@ -366,7 +369,13 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
       const res = await fetch("/api/comments/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId, text: value }),
+        body: JSON.stringify({
+          postId,
+          text: value,
+          ...(replyTo && Number(replyTo.id) > 0 && replyTo.authorId
+            ? { replyTo: { commentId: Number(replyTo.id), userId: replyTo.authorId } }
+            : {}),
+        }),
       });
       const data = await res.json().catch(() => null);
       if (!data?.ok) throw new Error("send_failed");
@@ -386,16 +395,18 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
           createdAt: new Date(),
           editedAt: null,
           reactions: [],
+          replyToId: replyTo?.id ?? null,
         },
       ]);
       setText("");
+      setReplyTo(null);
       inputRef.current?.focus();
     } catch {
       setFailed(true);
     } finally {
       setSending(false);
     }
-  }, [text, sending, postId, me, editing]);
+  }, [text, sending, postId, me, editing, replyTo]);
 
   // Ни комментариев, ни вошедшего -- блока нет вовсе.
   if (list.length === 0 && !signedIn) return null;
@@ -418,6 +429,7 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
               comment={comment}
               mine={!!me?.userId && comment.authorId === me.userId}
               myUserId={me?.userId ?? null}
+              repliedTo={comment.replyToId ? list.find((c) => c.id === comment.replyToId) ?? null : null}
               onOpenMenu={(c, rect) => setMenu({ comment: c, rect })}
               onToggleReaction={toggleReaction}
             />
@@ -457,6 +469,16 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
         </div>
       )}
 
+      {replyTo && (
+        <div className="mt-3">
+          <ReplyComposeBar
+            authorLabel={replyTo.authorName}
+            previewText={replyTo.mediaOnly ? "Наліпка" : replyTo.text}
+            onRemove={() => setReplyTo(null)}
+          />
+        </div>
+      )}
+
       {signedIn && (
         <div className="mt-3 flex items-center gap-2">
           {/* Аватарка ровно в высоту поля -- 36px и там и там
@@ -487,7 +509,7 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
                 }
               }}
               placeholder={PLACEHOLDER}
-              className="max-h-[120px] min-w-0 flex-1 resize-none self-center bg-transparent py-[7px] text-[14px] leading-[1.45] text-neutral-900 outline-none placeholder:text-neutral-400 dark:text-neutral-50 dark:placeholder:text-neutral-500"
+              className="chat-textarea-no-scrollbar max-h-[120px] min-w-0 flex-1 resize-none self-center bg-transparent py-[7px] text-[14px] leading-[1.45] text-neutral-900 outline-none placeholder:text-neutral-400 dark:text-neutral-50 dark:placeholder:text-neutral-500"
             />
             <button
               ref={stickerButtonRef}
@@ -499,7 +521,7 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
               aria-label="Emoji"
               className="shrink-0 rounded-full p-1 text-neutral-400 transition hover:text-accent dark:text-neutral-500"
             >
-              <StickerCatIcon />
+              <ChatCatFieldIcon className="h-[18px] w-[18px] animate-chat-wiggle" />
             </button>
             {text.trim() && (
               <button
@@ -526,6 +548,11 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
           canDelete={!!me?.userId && menu.comment.authorId === me.userId}
           myReaction={myReactionOn(menu.comment)}
           onReact={(emoticon) => void toggleReaction(menu.comment, emoticon)}
+          onReply={() => {
+            setReplyTo(menu.comment);
+            setMenu(null);
+            inputRef.current?.focus();
+          }}
           onCopy={() => {
             void navigator.clipboard?.writeText(menu.comment.text);
             setMenu(null);
