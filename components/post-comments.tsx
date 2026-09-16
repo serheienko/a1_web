@@ -24,6 +24,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MediaPickerPanel } from "@/components/chat/media-picker-panel";
+import { CommentContextMenu } from "@/components/comment-context-menu";
 import Link from "next/link";
 import { T, LOCALES, LOCALE_VISIBILITY_CLASS } from "@/components/t";
 import { formatRelativeTime } from "@/lib/format";
@@ -43,7 +44,7 @@ function readDisplayCookie(): string | null {
   return raw ? decodeURIComponent(raw) : null;
 }
 
-type Me = { username: string | null; name: string; avatarUrl: string | null };
+type Me = { userId: string | null; username: string | null; name: string; avatarUrl: string | null };
 
 function Time({ date, className }: { date: Date; className: string }) {
   // Тот же приём, что у components/locale-format.tsx: все девять
@@ -91,14 +92,79 @@ function StickerCatIcon() {
   );
 }
 
-function Bubble({ comment, mine }: { comment: WebComment; mine: boolean }) {
+function Bubble({
+  comment,
+  mine,
+  myUserId,
+  onOpenMenu,
+  onToggleReaction,
+}: {
+  comment: WebComment;
+  mine: boolean;
+  myUserId: string | null;
+  onOpenMenu: (comment: WebComment, rect: DOMRect) => void;
+  onToggleReaction: (comment: WebComment, emoticon: string) => void;
+}) {
+  // Долгое нажатие на телефоне и правая кнопка на компьютере -- один и
+  // тот же жест «покажи, что можно сделать». Таймер сбрасывается на
+  // движении пальца, иначе меню открывалось бы посреди прокрутки.
+  const holdRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bubbleRef = useRef<HTMLDivElement | null>(null);
+  const open = () => {
+    const rect = bubbleRef.current?.getBoundingClientRect();
+    if (rect) onOpenMenu(comment, rect);
+  };
+  const handlers = {
+    onContextMenu: (e: React.MouseEvent) => {
+      e.preventDefault();
+      open();
+    },
+    onTouchStart: () => {
+      holdRef.current = setTimeout(open, 450);
+    },
+    onTouchMove: () => {
+      if (holdRef.current) clearTimeout(holdRef.current);
+    },
+    onTouchEnd: () => {
+      if (holdRef.current) clearTimeout(holdRef.current);
+    },
+  };
+
+  const reactions = comment.reactions.length > 0 && (
+    <div className={`mt-1 flex flex-wrap gap-1 ${mine ? "justify-end" : ""}`}>
+      {comment.reactions.map((r) => {
+        const isMine = !!myUserId && r.by.some((entry) => entry.userId === myUserId);
+        return (
+          <button
+            key={r.emoticon}
+            type="button"
+            onClick={() => onToggleReaction(comment, r.emoticon)}
+            className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[12px] transition ${
+              isMine
+                ? "border-accent/40 bg-accent/10 text-accent"
+                : "border-neutral-200 bg-white text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400"
+            }`}
+          >
+            <span className="text-[13px] leading-none">{r.emoticon}</span>
+            {r.by.length > 1 && <span className="tabular-nums">{r.by.length}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+
   if (mine) {
     return (
-      <li className="flex justify-end">
-        <div className="max-w-[80%] rounded-2xl rounded-br-md bg-accent px-3.5 py-2 text-white">
+      <li className="flex flex-col items-end">
+        <div
+          ref={bubbleRef}
+          {...handlers}
+          className="max-w-[80%] cursor-default select-none rounded-2xl rounded-br-md bg-accent px-3.5 py-2 text-white"
+        >
           <p className="whitespace-pre-line break-words text-[14px] leading-relaxed">{comment.text}</p>
           <Time date={comment.createdAt} className="mt-0.5 block text-right text-[11px] text-white/70" />
         </div>
+        {reactions}
       </li>
     );
   }
@@ -112,7 +178,7 @@ function Bubble({ comment, mine }: { comment: WebComment; mine: boolean }) {
   );
 
   return (
-    <li className="flex gap-2">
+    <li className="flex max-w-[85%] gap-2">
       {comment.authorUsername ? (
         <Link href={profileHref(comment.authorUsername)} className="shrink-0 transition-opacity hover:opacity-80">
           <Avatar url={comment.authorAvatarUrl} seed={comment.authorUsername} />
@@ -120,7 +186,12 @@ function Bubble({ comment, mine }: { comment: WebComment; mine: boolean }) {
       ) : (
         <Avatar url={comment.authorAvatarUrl} seed={comment.id} />
       )}
-      <div className="min-w-0 max-w-[80%] rounded-2xl rounded-bl-md bg-neutral-100 px-3.5 py-2 dark:bg-neutral-800">
+      <div className="min-w-0">
+      <div
+        ref={bubbleRef}
+        {...handlers}
+        className="min-w-0 max-w-full cursor-default select-none rounded-2xl rounded-bl-md bg-neutral-100 px-3.5 py-2 dark:bg-neutral-800"
+      >
         <span className="block text-[12px] font-medium text-accent">{name}</span>
         {comment.mediaOnly ? (
           <p className="text-[14px] italic text-neutral-400 dark:text-neutral-500">
@@ -132,9 +203,16 @@ function Bubble({ comment, mine }: { comment: WebComment; mine: boolean }) {
         ) : (
           <p className="whitespace-pre-line break-words text-[14px] leading-relaxed text-neutral-800 dark:text-neutral-200">
             {comment.text}
+            {comment.editedAt && (
+              <span className="ml-1.5 text-[11px] text-neutral-400 dark:text-neutral-500">
+                <T uk="змінено" en="edited" ru="изменено" de="bearbeitet" es="editado" fr="modifié" pl="edytowano" ptBR="editado" zh="已编辑" />
+              </span>
+            )}
           </p>
         )}
         <Time date={comment.createdAt} className="mt-0.5 block text-[11px] text-neutral-400 dark:text-neutral-500" />
+      </div>
+      {reactions}
       </div>
     </li>
   );
@@ -150,6 +228,8 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const stickerButtonRef = useRef<HTMLButtonElement | null>(null);
   const [pickerAnchor, setPickerAnchor] = useState<DOMRect | null>(null);
+  const [menu, setMenu] = useState<{ comment: WebComment; rect: DOMRect } | null>(null);
+  const [editing, setEditing] = useState<WebComment | null>(null);
 
   useEffect(() => {
     if (!readDisplayCookie()) return;
@@ -159,7 +239,7 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (cancelled || !data?.ok) return;
-        setMe({ username: data.username ?? null, name: data.name ?? "", avatarUrl: data.avatarUrl ?? null });
+        setMe({ userId: data.userId ?? null, username: data.username ?? null, name: data.name ?? "", avatarUrl: data.avatarUrl ?? null });
       })
       .catch(() => {
         // Имя не приехало -- поле ввода всё равно показываем: отправка
@@ -170,12 +250,119 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
     };
   }, []);
 
+  const numericId = (comment: WebComment) => {
+    const n = Number(comment.id);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+
+  const myReactionOn = useCallback(
+    (comment: WebComment) =>
+      comment.reactions.find((r) => !!me?.userId && r.by.some((e) => e.userId === me.userId))?.emoticon ?? null,
+    [me],
+  );
+
+  // Реакция переключается: повторное нажатие по той же снимает её.
+  // Снятие требует вернуть бэкенду ту же запись целиком, включая дату,
+  // -- см. app/api/comments/reaction/delete/route.ts.
+  const toggleReaction = useCallback(
+    async (comment: WebComment, emoticon: string) => {
+      const id = numericId(comment);
+      if (!id || !me?.userId) return;
+      const mineEntry = comment.reactions
+        .find((r) => r.emoticon === emoticon)
+        ?.by.find((e) => e.userId === me.userId);
+
+      setMenu(null);
+      // Показываем сразу, не дожидаясь ответа: реакция -- жест, а не
+      // отправка формы, ждать её неприятно. При ошибке возвращаем как
+      // было перезагрузкой состояния из ответа сервера не получится,
+      // поэтому просто откатываем локально.
+      const before = list;
+      setList((prev) =>
+        prev.map((c) => {
+          if (c.id !== comment.id) return c;
+          const rest = c.reactions
+            .map((r) => ({ ...r, by: r.by.filter((e) => e.userId !== me.userId) }))
+            .filter((r) => r.by.length > 0);
+          if (mineEntry) return { ...c, reactions: rest };
+          const existing = rest.find((r) => r.emoticon === emoticon);
+          const stamp = { userId: me.userId!, date: new Date().toISOString() };
+          return {
+            ...c,
+            reactions: existing
+              ? rest.map((r) => (r.emoticon === emoticon ? { ...r, by: [...r.by, stamp] } : r))
+              : [...rest, { emoticon, by: [stamp] }],
+          };
+        }),
+      );
+
+      try {
+        const url = mineEntry ? "/api/comments/reaction/delete" : "/api/comments/reaction/add";
+        const body = mineEntry
+          ? { postId, commentId: id, emoticon, date: mineEntry.date, userId: me.userId }
+          : { postId, commentId: id, emoticon };
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json().catch(() => null);
+        if (!data?.ok) throw new Error("reaction_failed");
+      } catch {
+        setList(before);
+      }
+    },
+    [list, me, postId],
+  );
+
+  const removeComment = useCallback(
+    async (comment: WebComment) => {
+      const id = numericId(comment);
+      setMenu(null);
+      if (!id) return;
+      const before = list;
+      setList((prev) => prev.filter((c) => c.id !== comment.id));
+      try {
+        const res = await fetch("/api/comments/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ postId, commentIds: [id] }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!data?.ok) throw new Error("delete_failed");
+      } catch {
+        setList(before);
+        setFailed(true);
+      }
+    },
+    [list, postId],
+  );
+
   const send = useCallback(async () => {
     const value = text.trim();
     if (!value || sending) return;
     setSending(true);
     setFailed(false);
     try {
+      // Режим правки: тот же ввод, другой маршрут -- как в приложении,
+      // где текст подставляется в то же поле внизу.
+      if (editing) {
+        const id = Number(editing.id);
+        const res = await fetch("/api/comments/edit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ postId, commentId: id, text: value }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!data?.ok) throw new Error("edit_failed");
+        setList((prev) =>
+          prev.map((c) => (c.id === editing.id ? { ...c, text: value, editedAt: new Date() } : c)),
+        );
+        setEditing(null);
+        setText("");
+        setSending(false);
+        return;
+      }
       const res = await fetch("/api/comments/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -208,7 +395,7 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
     } finally {
       setSending(false);
     }
-  }, [text, sending, postId, me]);
+  }, [text, sending, postId, me, editing]);
 
   // Ни комментариев, ни вошедшего -- блока нет вовсе.
   if (list.length === 0 && !signedIn) return null;
@@ -229,7 +416,10 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
             <Bubble
               key={comment.id}
               comment={comment}
-              mine={!!me?.username && comment.authorUsername === me.username}
+              mine={!!me?.userId && comment.authorId === me.userId}
+              myUserId={me?.userId ?? null}
+              onOpenMenu={(c, rect) => setMenu({ comment: c, rect })}
+              onToggleReaction={toggleReaction}
             />
           ))}
         </ul>
@@ -242,6 +432,29 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
             ptBR="Seja o primeiro a comentar!" zh="来发表第一条评论吧！"
           />
         </p>
+      )}
+
+      {editing && (
+        <div className="mt-3 flex items-center justify-between gap-2 rounded-lg bg-accent/10 px-3 py-1.5 text-[12px] text-accent">
+          <span className="truncate">
+            <T
+              uk="Редагування" en="Editing" ru="Редактирование" de="Bearbeiten" es="Editando"
+              fr="Modification" pl="Edycja" ptBR="Editando" zh="编辑中"
+            />
+            {": "}
+            {editing.text}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setEditing(null);
+              setText("");
+            }}
+            className="shrink-0 font-medium underline"
+          >
+            <T uk="Скасувати" en="Cancel" ru="Отменить" de="Abbrechen" es="Cancelar" fr="Annuler" pl="Anuluj" ptBR="Cancelar" zh="取消" />
+          </button>
+        </div>
       )}
 
       {signedIn && (
@@ -304,6 +517,28 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
             )}
           </div>
         </div>
+      )}
+
+      {menu && (
+        <CommentContextMenu
+          anchorRect={menu.rect}
+          canEdit={!!me?.userId && menu.comment.authorId === me.userId}
+          canDelete={!!me?.userId && menu.comment.authorId === me.userId}
+          myReaction={myReactionOn(menu.comment)}
+          onReact={(emoticon) => void toggleReaction(menu.comment, emoticon)}
+          onCopy={() => {
+            void navigator.clipboard?.writeText(menu.comment.text);
+            setMenu(null);
+          }}
+          onEdit={() => {
+            setEditing(menu.comment);
+            setText(menu.comment.text);
+            setMenu(null);
+            inputRef.current?.focus();
+          }}
+          onDelete={() => void removeComment(menu.comment)}
+          onClose={() => setMenu(null)}
+        />
       )}
 
       {pickerAnchor && (

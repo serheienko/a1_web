@@ -40,8 +40,11 @@ export type WebComment = {
   createdAt: Date;
   /** Отредактирован -- под текстом показывается пометка. */
   editedAt: Date | null;
-  /** Реакции: эмодзи и кто его поставил (id нужен, чтобы понять «моя ли»). */
-  reactions: { emoticon: string; userIds: string[] }[];
+  /** Реакции: эмодзи и кто его поставил. `date` нужен, чтобы реакцию
+   *  можно было СНЯТЬ: бэкенд удаляет её точным совпадением всей
+   *  записи, включая дату, -- «убери мою реакцию с этим эмодзи» там
+   *  сделать нечем (см. app/api/chats/reaction/delete/route.ts). */
+  reactions: { emoticon: string; by: { userId: string; date: string }[] }[];
 };
 
 // Столько же, сколько чат грузит за раз (app/api/chats/messages).
@@ -94,14 +97,14 @@ export async function fetchPostComments(postId: string): Promise<WebComment[]> {
 
     // Реакции приходят по одной на каждого поставившего; для показа их
     // надо сгруппировать по эмодзи, сохранив, кто именно поставил.
-    const grouped = new Map<string, string[]>();
+    const grouped = new Map<string, { userId: string; date: string }[]>();
     for (const r of msg.reactions) {
       const emoticon = typeof r.reaction?.emoticon === "string" ? r.reaction.emoticon : "";
       if (!emoticon) continue;
       const peer = r.peer;
       const userId = peer && peer.object === "peer-user" ? peer.user : null;
       const bucket = grouped.get(emoticon) ?? [];
-      if (userId) bucket.push(userId);
+      if (userId) bucket.push({ userId, date: r.date });
       grouped.set(emoticon, bucket);
     }
 
@@ -115,7 +118,7 @@ export async function fetchPostComments(postId: string): Promise<WebComment[]> {
       mediaOnly: text === "" && msg.media.length > 0,
       createdAt: new Date(messageDateMs(msg)),
       editedAt: msg.editedAt ? new Date(msg.editedAt) : null,
-      reactions: [...grouped.entries()].map(([emoticon, userIds]) => ({ emoticon, userIds })),
+      reactions: [...grouped.entries()].map(([emoticon, by]) => ({ emoticon, by })),
     };
   });
 }
