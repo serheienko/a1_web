@@ -62,6 +62,7 @@ import {
   MessageActionsMenu,
   DeleteMessageConfirmDialog,
   ReactionsBar,
+  ReplyIcon,
   EditComposeBar,
   ReplyComposeBar,
   MessageReplyQuote,
@@ -189,6 +190,34 @@ function CommentMedia({ media, mine }: { media: WebComment["media"]; mine: boole
   );
 }
 
+// Пороги свайпа -- те же числа, что в чатах (app/chats/[chatId]/
+// page.tsx): после 56 пикселей жест засчитывается, дальше 72 пузырь не
+// едет.
+const SWIPE_TRIGGER_DX = 56;
+const SWIPE_MAX_DX = 72;
+
+// Значок ответа, который выезжает из-под пузыря: проявляется и
+// подрастает ровно по мере протяжки, как в чатах.
+function SwipeReplySlot({ dx }: { dx: number }) {
+  const progress = Math.min(1, dx / SWIPE_TRIGGER_DX);
+  return (
+    <div
+      aria-hidden="true"
+      className={`pointer-events-none flex shrink-0 items-center justify-center overflow-hidden ${
+        dx > 0 ? "" : "transition-[width] duration-200 ease-out"
+      }`}
+      style={{ width: dx }}
+    >
+      <span
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#335ef7]/10 text-[#335ef7] dark:bg-white/10 dark:text-[#5b8dff]"
+        style={{ opacity: progress, transform: `scale(${0.6 + 0.4 * progress})` }}
+      >
+        <ReplyIcon className="h-4 w-4" />
+      </span>
+    </div>
+  );
+}
+
 function Bubble({
   comment,
   mine,
@@ -197,6 +226,7 @@ function Bubble({
   nameColors,
   onOpenMenu,
   onToggleReaction,
+  onReply,
 }: {
   comment: WebComment;
   mine: boolean;
@@ -209,12 +239,25 @@ function Bubble({
   nameColors: Map<string, string>;
   onOpenMenu: (comment: WebComment, rect: DOMRect) => void;
   onToggleReaction: (comment: WebComment, emoticon: string) => void;
+  /** Свайп влево -- то же действие, что «Відповісти» в меню. */
+  onReply: (comment: WebComment) => void;
 }) {
   // Долгое нажатие на телефоне и правая кнопка на компьютере -- один и
   // тот же жест «покажи, что можно сделать». Таймер сбрасывается на
   // движении пальца, иначе меню открывалось бы посреди прокрутки.
   const holdRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bubbleRef = useRef<HTMLDivElement | null>(null);
+  // Свайп влево -- ответ. 2026-09-16, Александр: «на мобильном добавь
+  // возможность отвечать на сообщения свайпом влево, так же как в
+  // мини-чатах и в обычных чатах». Жест перенесён из app/chats/
+  // [chatId]/page.tsx один в один: те же пороги, та же математика, тот
+  // же значок, который проявляется и подрастает по мере протяжки.
+  // Отличие одно: там состояние жеста лежит НАД списком, потому что
+  // список перерисовывается опросом каждые пару секунд и замыкание в
+  // разметке сбрасывало бы точку старта; здесь у каждого комментария
+  // свой постоянный компонент, и держать это выше незачем.
+  const swipeRef = useRef<{ startX: number; startY: number; active: boolean } | null>(null);
+  const [swipeDx, setSwipeDx] = useState(0);
   const open = () => {
     const rect = bubbleRef.current?.getBoundingClientRect();
     if (rect) onOpenMenu(comment, rect);
@@ -224,15 +267,42 @@ function Bubble({
       e.preventDefault();
       open();
     },
-    onTouchStart: () => {
+    onTouchStart: (e: React.TouchEvent) => {
       holdRef.current = setTimeout(open, 450);
+      if (e.touches.length !== 1) return;
+      const t = e.touches[0]!;
+      swipeRef.current = { startX: t.clientX, startY: t.clientY, active: false };
     },
-    onTouchMove: () => {
+    onTouchMove: (e: React.TouchEvent) => {
       if (holdRef.current) clearTimeout(holdRef.current);
+      const g = swipeRef.current;
+      if (!g || e.touches.length !== 1) return;
+      const t = e.touches[0]!;
+      const dx = t.clientX - g.startX;
+      const dy = t.clientY - g.startY;
+      if (!g.active) {
+        // Жест считается «нашим» только когда горизонтальное намерение
+        // очевидно, и preventDefault не зовётся никогда: иначе он
+        // отбирал бы у страницы её собственную вертикальную прокрутку
+        // и возврат по краевому свайпу на iOS.
+        if (Math.abs(dx) < 8 || Math.abs(dx) < Math.abs(dy)) return;
+        g.active = true;
+      }
+      setSwipeDx(Math.max(0, Math.min(-dx, SWIPE_MAX_DX)));
     },
     onTouchEnd: () => {
       if (holdRef.current) clearTimeout(holdRef.current);
+      const g = swipeRef.current;
+      swipeRef.current = null;
+      if (g?.active && swipeDx >= SWIPE_TRIGGER_DX) onReply(comment);
+      setSwipeDx(0);
     },
+    onTouchCancel: () => {
+      if (holdRef.current) clearTimeout(holdRef.current);
+      swipeRef.current = null;
+      setSwipeDx(0);
+    },
+    style: { touchAction: "pan-y" as const },
   };
 
   const quote = repliedTo ? (
@@ -269,13 +339,14 @@ function Bubble({
   if (mine) {
     return (
       <li className="flex flex-col items-end">
+        <div className="flex max-w-[80%] items-center justify-end">
         <div
           ref={bubbleRef}
           {...handlers}
           // Наліпка и гифка живут БЕЗ пузыря -- как в чатах: у них своя
           // форма и прозрачный фон, синий прямоугольник вокруг кота
           // выглядел бы наклейкой на наклейке.
-          className={`max-w-[80%] cursor-default select-none ${
+          className={`min-w-0 cursor-default select-none ${
             comment.mediaOnly ? "" : "rounded-2xl rounded-br-md bg-accent px-3.5 py-2 text-white"
           }`}
         >
@@ -289,6 +360,11 @@ function Bubble({
           ) : (
             <Time date={comment.createdAt} className="mt-0.5 block text-right text-[11px] text-white/70" />
           )}
+        </div>
+        {/* Место, из которого выезжает значок ответа. Для своего пузыря
+            ничего двигать не надо: строка прижата вправо, и растущая
+            ширина этого блока сама уводит пузырь влево. */}
+        <SwipeReplySlot dx={swipeDx} />
         </div>
         {reactions}
       </li>
@@ -318,6 +394,16 @@ function Bubble({
         <Avatar url={comment.authorAvatarUrl} seed={comment.id} />
       )}
       <div className="min-w-0">
+      {/* У чужого пузыря строка прижата ВЛЕВО, поэтому растущий блок
+          справа сам по себе ничего не сдвинет -- всю пару двигает
+          transform, ровно как в чатах. */}
+      <div
+        className="flex min-w-0 items-center"
+        style={{
+          transform: swipeDx ? `translateX(-${swipeDx}px)` : undefined,
+          transition: swipeDx ? undefined : "transform 200ms ease-out",
+        }}
+      >
       <div
         ref={bubbleRef}
         {...handlers}
@@ -348,6 +434,8 @@ function Bubble({
         {!comment.mediaOnly && (
           <Time date={comment.createdAt} className="mt-0.5 block text-[11px] text-neutral-400 dark:text-neutral-500" />
         )}
+      </div>
+      <SwipeReplySlot dx={swipeDx} />
       </div>
       {reactions}
       </div>
@@ -865,6 +953,11 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
                     repliedTo={comment.replyToId ? list.find((c) => c.id === comment.replyToId) ?? null : null}
                     nameColors={nameColors}
                     onOpenMenu={(c, rect) => setMenu({ comment: c, rect, mine: !!me?.userId && c.authorId === me.userId })}
+                    onReply={(c) => {
+                      setEditing(null);
+                      setReplyTo(c);
+                      window.requestAnimationFrame(() => inputRef.current?.focus());
+                    }}
                     onToggleReaction={toggleReaction}
                   />
                 ))}
@@ -978,9 +1071,12 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
                       // По центру строки, а не по её низу: пока поле в
                       // одну строку, разницы не видно, а стоило тексту
                       // подрасти -- кот уезжал вниз (Александр, скриншот).
-                      className="group shrink-0 self-center rounded-full p-1 text-neutral-400 transition hover:text-accent dark:text-neutral-500"
+                      className="group flex shrink-0 items-center justify-center self-center rounded-full p-1 text-neutral-400 transition hover:text-accent dark:text-neutral-500"
                     >
-                      <ChatCatFieldIcon className="h-[18px] w-[18px] animate-chat-wiggle" />
+                      {/* 20px, как в большом чате: 18 рядом с
+                          текстом в 14 выглядели мелко и будто ниже
+                          строки (Александр, скриншот). */}
+                      <ChatCatFieldIcon className="h-5 w-5 animate-chat-wiggle" />
                     </button>
                   </div>
                 </div>
