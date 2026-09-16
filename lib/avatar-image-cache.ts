@@ -27,6 +27,9 @@
 // straight from disk with zero network involved and no blur at all.
 "use client";
 
+import { avatarSourceUrl } from "@/lib/avatar-source";
+export { avatarSourceUrl };
+
 const CACHE_NAME = "a1-avatar-cache-v1";
 
 // This tab's own hot path -- avoids even the async Cache Storage read
@@ -40,34 +43,12 @@ function extractDocId(proxyUrl: string): string | null {
   return m ? m[1]! : null;
 }
 
-// buildMediaDownloadUrl()'s sibling shape is identical except for the
-// inserted `/download` segment and both routes accept the exact same
-// `ref`/`size` query params -- cheaper than threading a whole
-// MediaDocument through every avatar call site just to rebuild it.
-function toDownloadUrl(proxyUrl: string): string {
-  return proxyUrl.replace(/^(\/api\/media\/[^/?]+)(\?|$)/, "$1/download$2");
-}
-
-// 2026-09-15: аватарки приезжали в оригинале -- 400 КБ на главную, а
-// самая тяжёлая 184 КБ ради кружка в 40 пикселей. Маршрут /download
-// умеет отдавать уменьшенную копию по параметру `w`.
-//
-// 256 -- это один размер на весь сайт, а не «по месту»: самый большой
-// аватар в интерфейсе 120 пикселей (components/avatar-menu.tsx), на
-// экране с двойной плотностью это 240. Одна ширина на всех важна
-// принципиально -- кэш ниже ключуется по docId, и если бы разные
-// экраны просили разную ширину, один и тот же человек лежал бы в
-// кэше в нескольких копиях и каждая качалась бы заново.
-const AVATAR_WIDTH_PX = 256;
-
-/** Адрес уменьшенной копии аватарки. Его же ставит первым показом
- *  components/cached-avatar.tsx -- иначе экономия начиналась бы только
- *  со второго визита, а платит за трафик как раз первый. */
-export function avatarSourceUrl(proxyUrl: string): string {
-  const download = toDownloadUrl(proxyUrl);
-  if (!download.startsWith("/api/media/")) return proxyUrl;
-  return download + (download.includes("?") ? "&" : "?") + `w=${AVATAR_WIDTH_PX}`;
-}
+// 2026-09-16: и построение адреса, и выбор ширины уехали в
+// lib/avatar-source.ts. Причина -- components/related-jobs.tsx:
+// серверный компонент, которому тот же адрес нужен, а этот файл
+// клиентский, и Next считает каждый его экспорт клиентской ссылкой.
+// Тот же приём, которым в 2026-09-03 чинили падение чатов (см. шапку
+// lib/a1/media-proxy.ts).
 
 /** Synchronous, memory-only lookup -- safe to call during render for
  *  the `useState(() => ...)` initializer so an avatar already warmed

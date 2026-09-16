@@ -16,47 +16,46 @@
 
 import Link from "next/link";
 import { T } from "@/components/t";
-import { CachedAvatar } from "@/components/cached-avatar";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
-import { profileHref } from "@/lib/profile-href";
-import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
+import { avatarSourceUrl } from "@/lib/avatar-source";
 import type { WebPost } from "@/types/web-post";
 
-// 2026-09-16 (Александр, скриншот телефона): логотип компании рядом с
-// заголовком «Інші вакансії <компанія>». Он тут не украшение: заголовок
-// набран капсом и серым, и глазом читается как служебная надпись, а
-// кружок сразу говорит «это конкретная компания» -- и даёт вторую
-// ссылку на её страницу, кроме имени автора наверху.
+// 2026-09-16 (Александр). Логотип компании в каждой карточке -- и у
+// «інших вакансій» той же компании, и у «схожих», где компании разные.
+// Изначально логотип поставили в заголовок секции, но в карточках он
+// полезнее: в «схожих» у каждой строки своя компания, и кружок
+// отличает их друг от друга быстрее, чем текст.
 //
-// По весу это НОЛЬ. Аватарка той же компании уже показана в шапке этой
-// же вакансии, а кеш (lib/avatar-image-cache.ts) ключуется по id
-// документа и одной ширине на весь сайт -- значит второй показ берётся
-// из памяти вкладки, без единого запроса. И блюр, о котором просил
-// Александр, там уже встроен: пока байты не пришли, next/image рисует
-// размытую заглушку.
-const LOGO_PX = 20;
+// ОБЫЧНЫЙ <img>, а не CachedAvatar, и это не экономия на спичках:
+//
+// 1. CachedAvatar -- клиентский компонент, который на монтировании сам
+//    лезет за байтами (warmAvatarCache). Блок живёт внизу страницы, его
+//    ещё не видно, а девять запросов уже ушли бы. loading="lazy"
+//    откладывает их до подхода к экрану.
+// 2. Этот файл держится правила «ни строчки клиентского JS» -- весь
+//    смысл блока в том, что ссылки видны роботу прямо в HTML.
+// 3. Блюр требует посчитать заглушку для каждой картинки на сервере, а
+//    это девять лишних загрузок на каждый рендер страницы. Для кружка в
+//    20 пикселей оно того не стоит: вместо блюра под картинкой лежит
+//    нейтральный кружок, и подмены цвета глаз не замечает.
+//
+// Адрес -- через avatarSourceUrl: тот же уменьшенный webp (единицы
+// килобайт), что и у аватарки в шапке, а не оригинал.
+function CompanyLogo({ post }: { post: WebPost }) {
+  const src = post.author.avatarUrl
+    ? avatarSourceUrl(post.author.avatarUrl)
+    : pickDefaultCatAvatar(post.author.username ?? post.author.name ?? post.id);
 
-function CompanyLogo({
-  avatarUrl,
-  blurDataUrl,
-  fallbackKey,
-}: {
-  avatarUrl: string | null;
-  blurDataUrl: string | null;
-  fallbackKey: string;
-}) {
-  const className = "h-5 w-5 shrink-0 rounded-md object-cover";
-  if (!avatarUrl) {
-    // Кот-заглушка, как и везде, где у профиля нет фото (lib/avatars.ts).
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={pickDefaultCatAvatar(fallbackKey)} alt="" width={LOGO_PX} height={LOGO_PX} className={className} />;
-  }
   return (
-    <CachedAvatar
-      src={avatarUrl}
-      blurDataURL={blurDataUrl ?? BLUR_DATA_URL}
-      size={LOGO_PX}
-      className={className}
+    // eslint-disable-next-line @next/next/no-img-element -- см. комментарий выше
+    <img
+      src={src}
+      alt=""
+      width={16}
+      height={16}
+      loading="lazy"
+      decoding="async"
+      className="h-4 w-4 shrink-0 rounded bg-neutral-100 object-cover dark:bg-neutral-800"
     />
   );
 }
@@ -79,8 +78,9 @@ function JobRow({ post }: { post: WebPost }) {
           {post.title}
         </span>
         {meta && (
-          <span className="mt-1 truncate text-[12px] text-neutral-500 dark:text-neutral-400">
-            {meta}
+          <span className="mt-1.5 flex items-center gap-1.5 text-[12px] text-neutral-500 dark:text-neutral-400">
+            <CompanyLogo post={post} />
+            <span className="truncate">{meta}</span>
           </span>
         )}
       </Link>
@@ -120,60 +120,25 @@ export function RelatedJobs({
   sameCompany,
   similar,
   companyName,
-  companyAvatarUrl = null,
-  companyAvatarBlurDataUrl = null,
-  companyUsername = null,
-  companyKey,
 }: {
   sameCompany: WebPost[];
   similar: WebPost[];
   companyName: string;
-  companyAvatarUrl?: string | null;
-  companyAvatarBlurDataUrl?: string | null;
-  companyUsername?: string | null;
-  companyKey: string;
 }) {
   if (sameCompany.length === 0 && similar.length === 0) return null;
-
-  // items-start, а не items-center: у длинного названия заголовок
-  // занимает две строки, и по центру логотип повисает между ними.
-  // Высота строки здесь ровно 20px, как и сам логотип, -- при
-  // выравнивании по верху он садится точно на первую строку. Проверено
-  // на макете с «Центр інновацій та розвитку оборонних технологій МОУ»
-  // при ширине экрана 390px.
-  const logo = (
-    <CompanyLogo
-      avatarUrl={companyAvatarUrl}
-      blurDataUrl={companyAvatarBlurDataUrl}
-      fallbackKey={companyUsername ?? companyName ?? companyKey}
-    />
-  );
 
   return (
     <div className="mt-12 border-t border-neutral-100 pt-2 dark:border-neutral-800">
       <Section
         title={
-          <span className="inline-flex items-start gap-2 align-middle">
-            {companyUsername ? (
-              <Link
-                href={profileHref(companyUsername)}
-                aria-label={companyName}
-                className="shrink-0 transition-opacity hover:opacity-80"
-              >
-                {logo}
-              </Link>
-            ) : (
-              logo
-            )}
-            <span>
-              <T
-                uk="Інші вакансії" en="More jobs at" ru="Другие вакансии"
-                de="Weitere Jobs bei" es="Más vacantes en" fr="Autres offres chez"
-                pl="Więcej ofert w" ptBR="Mais vagas em" zh="更多职位"
-              />{" "}
-              {companyName}
-            </span>
-          </span>
+          <>
+            <T
+              uk="Інші вакансії" en="More jobs at" ru="Другие вакансии"
+              de="Weitere Jobs bei" es="Más vacantes en" fr="Autres offres chez"
+              pl="Więcej ofert w" ptBR="Mais vagas em" zh="更多职位"
+            />{" "}
+            {companyName}
+          </>
         }
         posts={sameCompany}
       />
