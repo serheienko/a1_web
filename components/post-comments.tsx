@@ -461,6 +461,14 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
   const [deleting, setDeleting] = useState(false);
   const [deleteFailed, setDeleteFailed] = useState(false);
   const windowRef = useRef<HTMLDivElement | null>(null);
+  const overlayRef = useRef<HTMLDivElement | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const composerRef = useRef<HTMLDivElement | null>(null);
+  // Высота композера меняется: появилась цитата ответа -- поле выросло.
+  // Лента отступает снизу ровно на неё, иначе последний комментарий
+  // навсегда остаётся под плавающим полем ввода и достать его нечем
+  // (2026-09-16, Александр, видео с телефона).
+  const [composerHeight, setComposerHeight] = useState(64);
   const lang = useActiveLocale();
   const [editing, setEditing] = useState<WebComment | null>(null);
   const [replyTo, setReplyTo] = useState<WebComment | null>(null);
@@ -510,6 +518,44 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
   useEffect(() => () => {
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
   }, []);
+
+  // Пока окно открыто, страница под ним не скроллится. На телефоне без
+  // этого палец по ленте прокручивал САМУ ВАКАНСИЮ за окном, а лента
+  // стояла на месте -- ровно то, что видно на видео. Одного
+  // overflow:hidden на body для Safari мало, поэтому прокрутка вне
+  // ленты ещё и отменяется напрямую; слушатель обязательно
+  // неpassive -- у React-обработчиков preventDefault здесь не
+  // сработал бы.
+  useEffect(() => {
+    if (!open) return;
+    const overlay = overlayRef.current;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onTouchMove = (e: TouchEvent) => {
+      const scroller = listRef.current;
+      const target = e.target as Node | null;
+      if (scroller && target && scroller.contains(target)) return;
+      e.preventDefault();
+    };
+    overlay?.addEventListener("touchmove", onTouchMove, { passive: false });
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      overlay?.removeEventListener("touchmove", onTouchMove);
+    };
+  }, [open]);
+
+  // Измеряем композер, а не подбираем отступ на глаз: он меняется в
+  // высоте вместе с цитатой ответа и правки.
+  useEffect(() => {
+    const el = composerRef.current;
+    if (!el) return;
+    const measure = () => setComposerHeight(el.getBoundingClientRect().height);
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [open, signedIn]);
   // 2026-09-16 (Александр: «у нас в чатах и мини-чатах эта штука,
   // композер, разъезжается наверх анимацией, и когда нажимаешь крестик,
   // съезжается назад... и, по-моему, даже нету этой полосы сверху») --
@@ -872,7 +918,8 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
           display:none элемент из документа не удаляет, поисковик его
           видит, ради чего всё и затевалось. */}
       <div
-        className={`fixed inset-0 z-50 items-end justify-center sm:items-center ${open ? "flex" : "hidden"}`}
+        ref={overlayRef}
+        className={`fixed inset-0 z-50 items-end justify-center overscroll-contain sm:items-center ${open ? "flex" : "hidden"}`}
         onClick={closeWindow}
       >
         <div className={`absolute inset-0 bg-black/50 transition-opacity duration-200 ease-out ${shown ? "opacity-100" : "opacity-0"}`} />
@@ -891,7 +938,7 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
           // на светлом фоне он незаметен, на чёрном даёт ровно то
           // «чуть-чуть», которое отделяет окно от страницы. Плюс
           // тонкая рамка -- она же и есть край окна на самом чёрном.
-          className={`relative flex max-h-[85vh] w-full flex-col rounded-t-2xl border border-neutral-200 bg-white shadow-[0_20px_25px_-5px_rgba(0,0,0,0.15),0_8px_10px_-6px_rgba(0,0,0,0.15),0_16px_48px_-8px_rgba(255,255,255,0.10)] transition-[opacity,transform] dark:border-neutral-800 dark:bg-neutral-950 sm:max-h-[80vh] sm:max-w-lg sm:rounded-2xl ${
+          className={`relative flex max-h-[85dvh] w-full flex-col rounded-t-2xl border border-neutral-200 bg-white shadow-[0_20px_25px_-5px_rgba(0,0,0,0.15),0_8px_10px_-6px_rgba(0,0,0,0.15),0_16px_48px_-8px_rgba(255,255,255,0.10)] transition-[opacity,transform] dark:border-neutral-800 dark:bg-neutral-950 sm:max-h-[80dvh] sm:max-w-lg sm:rounded-2xl ${
             shown
               ? // Приезжает мягко и с торможением в конце -- та же
                 // кривая, что у шторок в приложении.
@@ -950,7 +997,11 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
               поверх»). Поэтому здесь лишний relative-контейнер: он и
               есть система координат для этого «поверх». */}
           <div className="relative flex min-h-0 flex-1 flex-col">
-          <div className={`min-h-0 flex-1 overflow-y-auto px-4 pt-3 ${signedIn ? "pb-24" : "pb-3"}`}>
+          <div
+            ref={listRef}
+            style={{ paddingBottom: signedIn ? composerHeight + 12 : 12 }}
+            className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-3"
+          >
             {list.length > 0 ? (
               <ul className="flex flex-col gap-2.5">
                 {list.map((comment) => (
@@ -999,7 +1050,7 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
               }}
               className="pointer-events-none absolute inset-x-0 bottom-0 h-[104px] bg-gradient-to-t from-white via-white/70 to-transparent backdrop-blur-[10px] dark:from-neutral-950 dark:via-neutral-950/70"
             />
-            <div className="absolute inset-x-0 bottom-0 px-4 pb-4">
+            <div ref={composerRef} className="absolute inset-x-0 bottom-0 px-4 pb-4">
               {/* Ответ и правка живут ВНУТРИ пилюли ввода и
                   разъезжают её вверх -- ровно как в чатах и мини-чатах
                   (components/mini-chat-window.tsx, app/chats/[chatId]/
