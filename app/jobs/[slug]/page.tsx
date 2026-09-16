@@ -339,6 +339,12 @@ export default async function JobDetailPage({ params }: Props) {
         sameCompany={related.sameCompany}
         similar={related.similar}
         companyName={post.author.name}
+        companyAvatarUrl={post.author.avatarUrl}
+        // Тот же блюр, что и у аватарки в шапке -- он уже посчитан выше,
+        // второй раз ходить за картинкой не нужно.
+        companyAvatarBlurDataUrl={authorAvatarBlurDataUrl}
+        companyUsername={post.author.username}
+        companyKey={post.id}
       />
     </main>
   );

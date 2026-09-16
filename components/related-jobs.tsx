@@ -16,7 +16,50 @@
 
 import Link from "next/link";
 import { T } from "@/components/t";
+import { CachedAvatar } from "@/components/cached-avatar";
+import { pickDefaultCatAvatar } from "@/lib/avatars";
+import { profileHref } from "@/lib/profile-href";
+import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import type { WebPost } from "@/types/web-post";
+
+// 2026-09-16 (Александр, скриншот телефона): логотип компании рядом с
+// заголовком «Інші вакансії <компанія>». Он тут не украшение: заголовок
+// набран капсом и серым, и глазом читается как служебная надпись, а
+// кружок сразу говорит «это конкретная компания» -- и даёт вторую
+// ссылку на её страницу, кроме имени автора наверху.
+//
+// По весу это НОЛЬ. Аватарка той же компании уже показана в шапке этой
+// же вакансии, а кеш (lib/avatar-image-cache.ts) ключуется по id
+// документа и одной ширине на весь сайт -- значит второй показ берётся
+// из памяти вкладки, без единого запроса. И блюр, о котором просил
+// Александр, там уже встроен: пока байты не пришли, next/image рисует
+// размытую заглушку.
+const LOGO_PX = 20;
+
+function CompanyLogo({
+  avatarUrl,
+  blurDataUrl,
+  fallbackKey,
+}: {
+  avatarUrl: string | null;
+  blurDataUrl: string | null;
+  fallbackKey: string;
+}) {
+  const className = "h-5 w-5 shrink-0 rounded-md object-cover";
+  if (!avatarUrl) {
+    // Кот-заглушка, как и везде, где у профиля нет фото (lib/avatars.ts).
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={pickDefaultCatAvatar(fallbackKey)} alt="" width={LOGO_PX} height={LOGO_PX} className={className} />;
+  }
+  return (
+    <CachedAvatar
+      src={avatarUrl}
+      blurDataURL={blurDataUrl ?? BLUR_DATA_URL}
+      size={LOGO_PX}
+      className={className}
+    />
+  );
+}
 
 function JobRow({ post }: { post: WebPost }) {
   const meta = [post.author.name, post.location?.display].filter(Boolean).join(" · ");
@@ -77,25 +120,60 @@ export function RelatedJobs({
   sameCompany,
   similar,
   companyName,
+  companyAvatarUrl = null,
+  companyAvatarBlurDataUrl = null,
+  companyUsername = null,
+  companyKey,
 }: {
   sameCompany: WebPost[];
   similar: WebPost[];
   companyName: string;
+  companyAvatarUrl?: string | null;
+  companyAvatarBlurDataUrl?: string | null;
+  companyUsername?: string | null;
+  companyKey: string;
 }) {
   if (sameCompany.length === 0 && similar.length === 0) return null;
+
+  // items-start, а не items-center: у длинного названия заголовок
+  // занимает две строки, и по центру логотип повисает между ними.
+  // Высота строки здесь ровно 20px, как и сам логотип, -- при
+  // выравнивании по верху он садится точно на первую строку. Проверено
+  // на макете с «Центр інновацій та розвитку оборонних технологій МОУ»
+  // при ширине экрана 390px.
+  const logo = (
+    <CompanyLogo
+      avatarUrl={companyAvatarUrl}
+      blurDataUrl={companyAvatarBlurDataUrl}
+      fallbackKey={companyUsername ?? companyName ?? companyKey}
+    />
+  );
 
   return (
     <div className="mt-12 border-t border-neutral-100 pt-2 dark:border-neutral-800">
       <Section
         title={
-          <>
-            <T
-              uk="Інші вакансії" en="More jobs at" ru="Другие вакансии"
-              de="Weitere Jobs bei" es="Más vacantes en" fr="Autres offres chez"
-              pl="Więcej ofert w" ptBR="Mais vagas em" zh="更多职位"
-            />{" "}
-            {companyName}
-          </>
+          <span className="inline-flex items-start gap-2 align-middle">
+            {companyUsername ? (
+              <Link
+                href={profileHref(companyUsername)}
+                aria-label={companyName}
+                className="shrink-0 transition-opacity hover:opacity-80"
+              >
+                {logo}
+              </Link>
+            ) : (
+              logo
+            )}
+            <span>
+              <T
+                uk="Інші вакансії" en="More jobs at" ru="Другие вакансии"
+                de="Weitere Jobs bei" es="Más vacantes en" fr="Autres offres chez"
+                pl="Więcej ofert w" ptBR="Mais vagas em" zh="更多职位"
+              />{" "}
+              {companyName}
+            </span>
+          </span>
         }
         posts={sameCompany}
       />
