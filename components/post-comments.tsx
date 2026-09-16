@@ -580,6 +580,18 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
     return () => ro.disconnect();
   }, [open, signedIn]);
 
+  // Окно открывается на САМОМ СВЕЖЕМ комментарии, а не на самом
+  // старом: лента растёт сверху вниз, и без этого человек открывал
+  // обсуждение и видел разговор годичной давности, а то, ради чего он
+  // открывал, оставалось внизу за кадром. Ровно так же ведёт себя
+  // переписка в чатах.
+  useEffect(() => {
+    if (!open) return;
+    const el = listRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [open]);
+
   // Измеряем композер, а не подбираем отступ на глаз: он меняется в
   // высоте вместе с цитатой ответа и правки.
   useEffect(() => {
@@ -834,6 +846,12 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
       setText("");
       setReplyTo(null);
       inputRef.current?.focus();
+      // Свой только что отправленный комментарий должен быть виден:
+      // он дописывается в конец, а лента могла стоять выше.
+      window.requestAnimationFrame(() => {
+        const el = listRef.current;
+        if (el) el.scrollTop = el.scrollHeight;
+      });
     } catch {
       setFailed(true);
     } finally {
@@ -915,6 +933,10 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
             replyToId: replyToSend?.id ?? null,
           },
         ]);
+        window.requestAnimationFrame(() => {
+          const el = listRef.current;
+          if (el) el.scrollTop = el.scrollHeight;
+        });
       } catch {
         setFailed(true);
       } finally {
