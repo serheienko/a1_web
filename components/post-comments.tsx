@@ -476,7 +476,10 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
   // ввода выше -- и та же причина, по которой это переход, а не
   // keyframes: разметка окна из DOM не исчезает никогда.
   const [shown, setShown] = useState(false);
-  const CLOSE_MS = 240;
+  // Столько же, сколько длится обратный переход карточки ниже (220 мс)
+  // плюс небольшой запас: если снять окно раньше, чем оно доехало, на
+  // телефоне это читается как обрыв.
+  const CLOSE_MS = 260;
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!open) return;
@@ -888,8 +891,14 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
           // на светлом фоне он незаметен, на чёрном даёт ровно то
           // «чуть-чуть», которое отделяет окно от страницы. Плюс
           // тонкая рамка -- она же и есть край окна на самом чёрном.
-          className={`relative flex max-h-[85vh] w-full flex-col rounded-t-2xl border border-neutral-200 bg-white shadow-[0_20px_25px_-5px_rgba(0,0,0,0.15),0_8px_10px_-6px_rgba(0,0,0,0.15),0_16px_48px_-8px_rgba(255,255,255,0.10)] transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] dark:border-neutral-800 dark:bg-neutral-950 sm:max-h-[80vh] sm:max-w-lg sm:rounded-2xl ${
-            shown ? "translate-y-0 scale-100 opacity-100" : "translate-y-full opacity-0 sm:translate-y-3 sm:scale-[0.98]"
+          className={`relative flex max-h-[85vh] w-full flex-col rounded-t-2xl border border-neutral-200 bg-white shadow-[0_20px_25px_-5px_rgba(0,0,0,0.15),0_8px_10px_-6px_rgba(0,0,0,0.15),0_16px_48px_-8px_rgba(255,255,255,0.10)] transition-[opacity,transform] dark:border-neutral-800 dark:bg-neutral-950 sm:max-h-[80vh] sm:max-w-lg sm:rounded-2xl ${
+            shown
+              ? // Приезжает мягко и с торможением в конце -- та же
+                // кривая, что у шторок в приложении.
+                "translate-y-0 scale-100 opacity-100 duration-[300ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
+              : // Уезжает быстрее, чем приезжает: затянутое закрытие
+                // читается как подтормаживание интерфейса.
+                "translate-y-full opacity-0 duration-[220ms] ease-in sm:translate-y-3 sm:scale-[0.98]"
           }`}
         >
           {/* Шапка окна. Полоска сверху -- за неё шторка стягивается
