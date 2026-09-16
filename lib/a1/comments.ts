@@ -95,7 +95,10 @@ export async function fetchPostComments(postId: string): Promise<WebComment[]> {
         if (!profile || profile.object !== "user") continue;
         const photo = profile.photos[0];
         authors.set(profile._id, {
-          name: [profile.firstName, profile.lastName].filter(Boolean).join(" ").trim(),
+          // Пробелы схлопываются: в профилях попадаются имена с
+          // хвостовым пробелом, и склейка давала «Aleksandr  Serheienko»
+          // с двойным пробелом (видно живьём на странице вакансии).
+          name: [profile.firstName, profile.lastName].filter(Boolean).join(" ").replace(/\s+/g, " ").trim(),
           username: profile.username,
           avatarUrl: photo ? buildMediaProxyUrl(photo) : null,
         });

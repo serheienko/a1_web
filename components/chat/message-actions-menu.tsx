@@ -254,6 +254,7 @@ export function MessageActionsMenu({
   onPin,
   pinState,
   rows,
+  hideReactions,
 }: {
   anchorRect: DOMRect;
   mine: boolean;
@@ -333,6 +334,12 @@ export function MessageActionsMenu({
   // комментарии передают свои четыре пункта. Порядок и вид строк при
   // этом остаются здешние -- фильтр, а не своя вёрстка.
   rows?: ActionKey[];
+  // 2026-09-16: под вакансией меню открывает и незалогиненный гость --
+  // ему ряд реакций показывать незачем, поставить он их всё равно не
+  // может (проверено живьём в Chrome: нажатия просто ничего не
+  // делали). В чатах не передаётся: там меню открывает только хозяин
+  // переписки.
+  hideReactions?: boolean;
 }) {
   // 2026-09-05 follow-up (Aleksandr, live screenshot: opened near the
   // bottom of the viewport, the menu ran off the bottom edge entirely
@@ -548,9 +555,10 @@ export function MessageActionsMenu({
               quick-react row's own 7 emoji instead of cramming into
               6. */}
           <div
+            hidden={hideReactions}
             className={`flex w-full flex-col overflow-hidden bg-white/95 shadow-xl backdrop-blur-sm transition-[border-radius] duration-150 dark:bg-neutral-800/95 ${
-              emojiPickerOpen ? "rounded-[26px]" : "rounded-full"
-            }`}
+              hideReactions ? "!hidden" : ""
+            } ${emojiPickerOpen ? "rounded-[26px]" : "rounded-full"}`}
           >
             <div className="flex w-full items-center justify-between px-2 py-1.5">
               {REACTION_EMOJIS.map((emoji) => (

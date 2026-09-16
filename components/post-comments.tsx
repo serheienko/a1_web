@@ -60,6 +60,7 @@ import { ChatCatFieldIcon } from "@/components/chat/icons";
 import { SEND_BUTTON_CLASS, SendArrowIcon } from "@/components/chat/send-button";
 import {
   MessageActionsMenu,
+  type ActionKey as MessageActionKey,
   DeleteMessageConfirmDialog,
   ReactionsBar,
   ReplyIcon,
@@ -507,9 +508,16 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
     const raf1 = window.requestAnimationFrame(() => {
       raf2 = window.requestAnimationFrame(() => setShown(true));
     });
+    // Страховка: в неактивной вкладке requestAnimationFrame не
+    // вызывается вовсе, и окно осталось бы прозрачным насовсем
+    // (поймано живой проверкой в Chrome -- окно было открыто, но
+    // невидимо). Таймер в такой вкладке тоже придержат, но он
+    // отработает сразу, как только на вкладку вернутся.
+    const fallback = window.setTimeout(() => setShown(true), 80);
     return () => {
       window.cancelAnimationFrame(raf1);
       if (raf2) window.cancelAnimationFrame(raf2);
+      window.clearTimeout(fallback);
     };
   }, [open]);
   const closeWindow = useCallback(() => {
@@ -921,6 +929,18 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
 
   const last = list[list.length - 1] ?? null;
 
+  // У наліпки нечего копировать и нечего править; чужое нельзя удалять;
+  // гость не может ни отвечать, ни реагировать -- ему остаётся только
+  // «Скопіювати».
+  const menuRows: MessageActionKey[] = menu
+    ? [
+        ...(me?.userId ? (["reply"] as const) : []),
+        ...(menu.comment.text ? (["copy"] as const) : []),
+        ...(menu.mine && menu.comment.text ? (["edit"] as const) : []),
+        ...(menu.mine ? (["delete"] as const) : []),
+      ]
+    : [];
+
   return (
     <section className="mt-10">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
@@ -1069,6 +1089,7 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
                     nameColors={nameColors}
                     onOpenMenu={(c, rect) => setMenu({ comment: c, rect, mine: !!me?.userId && c.authorId === me.userId })}
                     onReply={(c) => {
+                      if (!me?.userId) return;
                       setEditing(null);
                       setReplyTo(c);
                       window.requestAnimationFrame(() => inputRef.current?.focus());
@@ -1236,20 +1257,22 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
           строк здесь нужны четыре: переслать комментарий, закрепить его
           или поставить напоминание бэкенду нечем, а «вибрати» без
           пакетных действий бессмысленно. Показываются они или нет --
-          решает список rows, вёрстка и поведение остаются меню. */}
-      {menu && (
+          решает список rows, вёрстка и поведение остаются меню.
+
+          2026-09-16, найдено живой проверкой в Chrome: гостю без входа
+          меню показывало «Відповісти» (отвечать некуда -- поля ввода у
+          него нет), «Видалити» (запрос заведомо уходит в отказ) и ряд
+          реакций, который просто ничего не делал. Теперь строки
+          собираются по правам: удалять -- только своё, отвечать --
+          только войдя, копировать -- всем; если не остаётся ни строк,
+          ни реакций, меню не открывается вовсе. */}
+      {menu && menuRows.length > 0 && (
         <MessageActionsMenu
           anchorRect={menu.rect}
           mine={menu.mine}
           lang={lang}
-          // У наліпки нечего копировать и нечего править -- строки
-          // просто не показываются, а не показываются пустышками.
-          rows={[
-            "reply",
-            ...(menu.comment.text ? (["copy"] as const) : []),
-            ...(menu.mine && menu.comment.text ? (["edit"] as const) : []),
-            "delete",
-          ]}
+          rows={menuRows}
+          hideReactions={!me?.userId}
           onClose={() => setMenu(null)}
           myReactionEmoticon={myReactionOn(menu.comment)}
           onReact={(emoticon) => void toggleReaction(menu.comment, emoticon)}
