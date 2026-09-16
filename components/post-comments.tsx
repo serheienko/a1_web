@@ -33,14 +33,29 @@
 //
 // Блок целиком скрыт, когда комментариев нет и гость не вошёл: под
 // почти двумя тысячами вакансий пустая строка выглядела бы поломкой.
+//
+// 2026-09-16, третий заход Александра: «повтори всю механику мини-чатов,
+// ничего не придумывая». Меню по правой кнопке -- больше не своё, а
+// ровно MessageActionsMenu из чатов (components/chat/message-actions-
+// menu.tsx): без затемнения страницы, ряд реакций по ширине карточки,
+// стрелка разворачивает полный список эмодзи, удаление -- той же
+// модалкой DeleteMessageConfirmDialog. Своя копия успела разъехаться с
+// оригиналом по всем трём пунктам, которые он и перечислил; здесь
+// передаётся только список нужных строк (rows) -- переслать комментарий
+// или закрепить его бэкенду нечем.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MediaPickerPanel } from "@/components/chat/media-picker-panel";
-import { CommentContextMenu } from "@/components/comment-context-menu";
 import { ChatCatFieldIcon } from "@/components/chat/icons";
-import { ReplyComposeBar, MessageReplyQuote } from "@/components/chat/message-actions-menu";
+import {
+  MessageActionsMenu,
+  DeleteMessageConfirmDialog,
+  ReplyComposeBar,
+  MessageReplyQuote,
+} from "@/components/chat/message-actions-menu";
 import Link from "next/link";
-import { T, LOCALES, LOCALE_VISIBILITY_CLASS } from "@/components/t";
+import { assignPeerNameColors } from "@/lib/peer-name-color";
+import { T, LOCALES, LOCALE_CLASS, LOCALE_VISIBILITY_CLASS, type Locale } from "@/components/t";
 import { formatRelativeTime } from "@/lib/format";
 import { avatarSourceUrl } from "@/lib/avatar-source";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
@@ -59,6 +74,20 @@ function readDisplayCookie(): string | null {
 }
 
 type Me = { userId: string | null; username: string | null; name: string; avatarUrl: string | null };
+
+// Тот же приём, что у components/mini-chat-window.tsx: страница
+// многоязычная через классы на <html> (см. компонент T), а меню из
+// чатов хочет одну конкретную локаль -- читаем ту, что сейчас активна.
+// Меню открывается только по жесту, к этому моменту класс уже на месте.
+function useActiveLocale(): Locale {
+  const [lang, setLang] = useState<Locale>("uk");
+  useEffect(() => {
+    const root = document.documentElement;
+    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
+    if (active) setLang(active);
+  }, []);
+  return lang;
+}
 
 function Time({ date, className }: { date: Date; className: string }) {
   // Тот же приём, что у components/locale-format.tsx: все девять
@@ -96,6 +125,7 @@ function Bubble({
   mine,
   myUserId,
   repliedTo,
+  nameColors,
   onOpenMenu,
   onToggleReaction,
 }: {
@@ -106,6 +136,8 @@ function Bubble({
    *  списке. Бэкенд присылает только его номер -- текст ищется здесь,
    *  ровно как в чате. */
   repliedTo: WebComment | null;
+  /** Цвет имени по автору -- см. lib/peer-name-color.ts. */
+  nameColors: Map<string, string>;
   onOpenMenu: (comment: WebComment, rect: DOMRect) => void;
   onToggleReaction: (comment: WebComment, emoticon: string) => void;
 }) {
@@ -139,6 +171,7 @@ function Bubble({
       authorLabel={repliedTo.authorName}
       previewText={repliedTo.mediaOnly ? "Наліпка" : repliedTo.text}
       mine={mine}
+      authorColor={nameColors.get(repliedTo.authorId ?? "")}
     />
   ) : null;
 
@@ -182,6 +215,11 @@ function Bubble({
     );
   }
 
+  // 2026-09-16 (Александр, референс из Telegram: «сверху моё имя, снизу
+  // сообщение, на которое я отвечаю, и ещё ниже сам текст») -- имя
+  // ПЕРВОЕ, цитата ПОД ним. Было наоборот, и по картинке было не
+  // понять, чьи это вообще слова: имя читалось как подпись к цитате.
+  const nameColor = nameColors.get(comment.authorId ?? "");
   const name = comment.authorUsername ? (
     <Link href={profileHref(comment.authorUsername)} className="hover:underline">
       {comment.authorName}
@@ -205,8 +243,13 @@ function Bubble({
         {...handlers}
         className="min-w-0 max-w-full cursor-default select-none rounded-2xl rounded-bl-md bg-neutral-100 px-3.5 py-2 dark:bg-neutral-800"
       >
+        <span
+          className="block text-[12px] font-semibold text-accent"
+          style={nameColor ? { color: nameColor } : undefined}
+        >
+          {name}
+        </span>
         {quote}
-        <span className="block text-[12px] font-medium text-accent">{name}</span>
         {comment.mediaOnly ? (
           <p className="text-[14px] italic text-neutral-400 dark:text-neutral-500">
             <T
@@ -242,7 +285,15 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const stickerButtonRef = useRef<HTMLButtonElement | null>(null);
   const [pickerAnchor, setPickerAnchor] = useState<DOMRect | null>(null);
-  const [menu, setMenu] = useState<{ comment: WebComment; rect: DOMRect } | null>(null);
+  const [menu, setMenu] = useState<{ comment: WebComment; rect: DOMRect; mine: boolean } | null>(null);
+  // Удаление -- той же модалкой, что в чатах: сначала подтверждение,
+  // потом запрос. Держим и прямоугольник окна, чтобы карточка встала
+  // над обсуждением, а не по центру всей страницы.
+  const [deleteTarget, setDeleteTarget] = useState<WebComment | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteFailed, setDeleteFailed] = useState(false);
+  const windowRef = useRef<HTMLDivElement | null>(null);
+  const lang = useActiveLocale();
   const [editing, setEditing] = useState<WebComment | null>(null);
   const [replyTo, setReplyTo] = useState<WebComment | null>(null);
   const [open, setOpen] = useState(false);
@@ -268,6 +319,11 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
       cancelled = true;
     };
   }, []);
+
+  // Цвета имён раздаются на всё обсуждение сразу, по порядку
+  // комментариев: пока авторов не больше восьми, двух одинаковых
+  // цветов не будет (см. lib/peer-name-color.ts).
+  const nameColors = useMemo(() => assignPeerNameColors(list.map((c) => c.authorId)), [list]);
 
   const numericId = (comment: WebComment) => {
     const n = Number(comment.id);
@@ -337,10 +393,13 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
   const removeComment = useCallback(
     async (comment: WebComment) => {
       const id = numericId(comment);
-      setMenu(null);
-      if (!id) return;
+      if (!id) {
+        setDeleteTarget(null);
+        return;
+      }
       const before = list;
-      setList((prev) => prev.filter((c) => c.id !== comment.id));
+      setDeleting(true);
+      setDeleteFailed(false);
       try {
         const res = await fetch("/api/comments/delete", {
           method: "POST",
@@ -349,9 +408,13 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
         });
         const data = await res.json().catch(() => null);
         if (!data?.ok) throw new Error("delete_failed");
+        setList((prev) => prev.filter((c) => c.id !== comment.id));
+        setDeleteTarget(null);
       } catch {
         setList(before);
-        setFailed(true);
+        setDeleteFailed(true);
+      } finally {
+        setDeleting(false);
       }
     },
     [list, postId],
@@ -450,7 +513,11 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mt-3 flex w-full items-center gap-2 text-left"
+        // `group` -- ради кота справа: анимация в globals.css висит на
+        // `.group:hover .animate-chat-wiggle`, без группы-предка она
+        // просто никогда не срабатывает (2026-09-16, Александр: «дай
+        // коту при наведении его анимацию»).
+        className="group mt-3 flex w-full items-center gap-2 text-left"
       >
         <Avatar url={me?.avatarUrl ?? null} seed={me?.username ?? "me"} className="h-9 w-9" />
         <span className="flex min-h-9 min-w-0 flex-1 items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-1.5 text-[14px] dark:border-neutral-700 dark:bg-neutral-900">
@@ -464,7 +531,7 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
           ) : (
             <span className="truncate text-neutral-400 dark:text-neutral-500">{PLACEHOLDER}</span>
           )}
-          <ChatCatFieldIcon className="ml-auto h-[18px] w-[18px] shrink-0 text-neutral-400 dark:text-neutral-500" />
+          <ChatCatFieldIcon className="ml-auto h-[18px] w-[18px] shrink-0 animate-chat-wiggle text-neutral-400 dark:text-neutral-500" />
         </span>
       </button>
 
@@ -472,13 +539,19 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
           комментариев не увидел бы поисковик, ради чего всё и
           затевалось. На телефоне это шторка снизу, которую можно
           стянуть вниз; на компьютере -- окно по центру. */}
+      {/* `hidden` как АТРИБУТ здесь не работал: у элемента есть класс
+          `flex`, а он задаёт display и перебивает браузерное правило
+          [hidden]{display:none}. То есть окно не пряталось вовсе.
+          Теперь прячет сам класс. Разметка при этом остаётся в HTML --
+          display:none элемент из документа не удаляет, поисковик его
+          видит, ради чего всё и затевалось. */}
       <div
-        hidden={!open}
-        className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+        className={`fixed inset-0 z-50 items-end justify-center sm:items-center ${open ? "flex" : "hidden"}`}
         onClick={() => setOpen(false)}
       >
         <div className="absolute inset-0 bg-black/50" />
         <div
+          ref={windowRef}
           onClick={(e) => e.stopPropagation()}
           style={{ transform: dragY ? `translateY(${dragY}px)` : undefined }}
           className="relative flex max-h-[85vh] w-full flex-col rounded-t-2xl bg-white shadow-2xl transition-transform dark:bg-neutral-950 sm:max-h-[80vh] sm:max-w-lg sm:rounded-2xl"
@@ -535,7 +608,8 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
                     mine={!!me?.userId && comment.authorId === me.userId}
                     myUserId={me?.userId ?? null}
                     repliedTo={comment.replyToId ? list.find((c) => c.id === comment.replyToId) ?? null : null}
-                    onOpenMenu={(c, rect) => setMenu({ comment: c, rect })}
+                    nameColors={nameColors}
+                    onOpenMenu={(c, rect) => setMenu({ comment: c, rect, mine: !!me?.userId && c.authorId === me.userId })}
                     onToggleReaction={toggleReaction}
                   />
                 ))}
@@ -621,21 +695,29 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
                   >
                     <ChatCatFieldIcon className="h-[18px] w-[18px] animate-chat-wiggle" />
                   </button>
-                  {text.trim() && (
-                    <button
-                      type="button"
-                      onClick={() => void send()}
-                      disabled={sending}
-                      aria-label="Send"
-                      className="shrink-0 rounded-full p-1 text-accent transition disabled:opacity-30"
-                    >
-                      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <path d="M12 19V5" />
-                        <path d="m5 12 7-7 7 7" />
-                      </svg>
-                    </button>
-                  )}
                 </div>
+                {/* Кнопка отправки -- один в один из мини-чата
+                    (components/mini-chat-window.tsx): синий КРУГ с
+                    белой стрелкой, а не голая стрелка (2026-09-16,
+                    Александр: «стрелка отправки должна быть с
+                    заполнением такая же, как в мини-чатах и в чатах, с
+                    заливкой такой голубой»). Появляется с первым
+                    символом, схлопываясь в ноль ширины -- та же
+                    механика, тот же размер 36px, чтобы кнопка была
+                    ровно в высоту поля. */}
+                <button
+                  type="button"
+                  onClick={() => void send()}
+                  disabled={sending || !text.trim()}
+                  aria-label="Send"
+                  className={`group flex h-[36px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#335ef7] text-white transition-all duration-200 ease-out hover:brightness-110 active:scale-95 disabled:hover:brightness-100 dark:bg-[#0c8ce9] ${
+                    text.trim() ? "ml-0 w-[36px] opacity-100" : "-ml-2 w-0 opacity-0"
+                  }`}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="animate-send-arrow shrink-0">
+                    <path d="M12 19V5M5 12l7-7 7 7" />
+                  </svg>
+                </button>
               </div>
               {failed && (
                 <p className="mt-1.5 text-[12px] text-red-500">
@@ -653,30 +735,54 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
         </div>
       </div>
 
+      {/* Меню -- то же самое, что в чатах и мини-чатах. Из восьми его
+          строк здесь нужны четыре: переслать комментарий, закрепить его
+          или поставить напоминание бэкенду нечем, а «вибрати» без
+          пакетных действий бессмысленно. Показываются они или нет --
+          решает список rows, вёрстка и поведение остаются меню. */}
       {menu && (
-        <CommentContextMenu
+        <MessageActionsMenu
           anchorRect={menu.rect}
-          canEdit={!!me?.userId && menu.comment.authorId === me.userId}
-          canDelete={!!me?.userId && menu.comment.authorId === me.userId}
-          myReaction={myReactionOn(menu.comment)}
+          mine={menu.mine}
+          lang={lang}
+          rows={["reply", "copy", "edit", "delete"]}
+          onClose={() => setMenu(null)}
+          myReactionEmoticon={myReactionOn(menu.comment)}
           onReact={(emoticon) => void toggleReaction(menu.comment, emoticon)}
           onReply={() => {
+            setEditing(null);
             setReplyTo(menu.comment);
-            setMenu(null);
-            inputRef.current?.focus();
+            window.requestAnimationFrame(() => inputRef.current?.focus());
           }}
-          onCopy={() => {
-            void navigator.clipboard?.writeText(menu.comment.text);
-            setMenu(null);
+          onCopy={menu.comment.text ? () => void navigator.clipboard?.writeText(menu.comment.text) : undefined}
+          onEdit={
+            menu.mine && menu.comment.text
+              ? () => {
+                  setReplyTo(null);
+                  setEditing(menu.comment);
+                  setText(menu.comment.text);
+                  window.requestAnimationFrame(() => inputRef.current?.focus());
+                }
+              : undefined
+          }
+          onDelete={() => {
+            setDeleteFailed(false);
+            setDeleteTarget(menu.comment);
           }}
-          onEdit={() => {
-            setEditing(menu.comment);
-            setText(menu.comment.text);
-            setMenu(null);
-            inputRef.current?.focus();
-          }}
-          onDelete={() => void removeComment(menu.comment)}
-          onClose={() => setMenu(null)}
+        />
+      )}
+
+      {/* Подтверждение удаления -- та же карточка, что в чатах, и та же
+          привязка к окну обсуждения, что у мини-чата к своей панели:
+          иначе она встаёт по центру всей страницы, далеко от того, что
+          человек только что нажимал. */}
+      {deleteTarget && (
+        <DeleteMessageConfirmDialog
+          deleting={deleting}
+          failed={deleteFailed}
+          anchorRect={windowRef.current?.getBoundingClientRect() ?? null}
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={() => void removeComment(deleteTarget)}
         />
       )}
 

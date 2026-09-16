@@ -54,6 +54,9 @@ import { useEffect, useRef, useState } from "react";
 // "mobile" for marquee purposes, at/above it marquee is disabled outright.
 const MOBILE_BREAKPOINT_PX = 640;
 
+// Десять пикселей плавного гашения с каждого края -- см. fadeEdges ниже.
+const FADE_MASK = "linear-gradient(to right, transparent 0, #000 10px, #000 calc(100% - 10px), transparent 100%)";
+
 export function MarqueeName({
   text,
   className,
@@ -66,11 +69,20 @@ export function MarqueeName({
   // Пикселей в секунду. По умолчанию 55 -- как было; мини-чат просит
   // «очень плавно», поэтому передаёт меньше.
   speedPxPerSec = 55,
+  // 2026-09-16 (Александр, скриншот шапки мини-чата: «по краям просто
+  // аккуратненько показать, типа как там затемнение или что возле
+  // текста, и будет тогда чётко») -- бегущее имя обрывается по краю
+  // ровным вертикальным срезом, и на тёмном фоне это читается как
+  // обрезанная буква, а не как «текст уезжает». Маска гасит по десять
+  // пикселей с каждого края. Включается только вместе с самой бегущей
+  // строкой: у помещающегося имени гасить нечего.
+  fadeEdges = false,
 }: {
   text: string;
   className?: string;
   allowOnDesktop?: boolean;
   speedPxPerSec?: number;
+  fadeEdges?: boolean;
 }) {
   const containerRef = useRef<HTMLHeadingElement>(null);
   const measureRef = useRef<HTMLSpanElement>(null);
@@ -112,7 +124,18 @@ export function MarqueeName({
   }, [text, allowOnDesktop, speedPxPerSec]);
 
   return (
-    <h1 ref={containerRef} className={`relative min-w-0 overflow-hidden ${allowOnDesktop ? "" : "sm:overflow-visible"} ` + (className ?? "")}>
+    <h1
+      ref={containerRef}
+      style={
+        fadeEdges && overflowing
+          ? {
+              maskImage: FADE_MASK,
+              WebkitMaskImage: FADE_MASK,
+            }
+          : undefined
+      }
+      className={`relative min-w-0 overflow-hidden ${allowOnDesktop ? "" : "sm:overflow-visible"} ` + (className ?? "")}
+    >
       {/* Always-mounted, invisible measuring copy — absolutely positioned
           out of flow so it never affects layout, but its natural
           (unwrapped) width is what decides whether the visible content

@@ -45,10 +45,10 @@ const VIEWPORT_MARGIN = 18;
 // end in "😄", a guess -- CONFIRMED off mobile's own
 // lib/features/reactions/components/emoji_reactions_panel.dart, the
 // real static set is "😁" as the 7th emoji, not "😄".
-// 2026-09-16: экспортируется, потому что этот же ряд показывается в
-// меню комментария под вакансией (components/comment-context-menu.tsx).
-// Два списка рядом неизбежно разъехались бы -- у комментариев уже был
-// 😄 вместо 😁.
+// 2026-09-16: экспорт остался с тех пор, когда у комментариев было
+// своё меню со своей копией этого списка (она успела разъехаться:
+// 😄 вместо 😁). Самого меню больше нет -- комментарии открывают ЭТО,
+// -- но экспорт дешёвый и снимает соблазн завести вторую копию.
 export const REACTION_EMOJIS = ["👍", "👎", "❤️", "🔥", "🥰", "👏", "😁"];
 
 type IconProps = { className?: string };
@@ -163,7 +163,9 @@ function SelectIcon({ className }: IconProps) {
   );
 }
 
-type ActionKey = "reply" | "copy" | "edit" | "remind" | "forward" | "pin" | "delete" | "select";
+// 2026-09-16: экспортируется ради `rows` ниже -- меню комментария под
+// вакансией показывает тот же список, но короче (см. там же).
+export type ActionKey = "reply" | "copy" | "edit" | "remind" | "forward" | "pin" | "delete" | "select";
 
 type ActionRow = {
   key: ActionKey;
@@ -251,6 +253,7 @@ export function MessageActionsMenu({
   onRemind,
   onPin,
   pinState,
+  rows,
 }: {
   anchorRect: DOMRect;
   mine: boolean;
@@ -321,6 +324,15 @@ export function MessageActionsMenu({
   // onCopy/onEdit/onForward above: a caller with no batch-selection
   // UI built yet can omit it and the row keeps no-oping.
   onSelect?: () => void;
+  // 2026-09-16 (Александр про комментарии: «повтори всю механику
+  // мини-чатов, ничего не придумывая») -- меню комментария это ЭТО
+  // меню, а не своя копия. Но переслать комментарий, закрепить его или
+  // поставить по нему напоминание бэкенд не умеет, и рисовать четыре
+  // пункта-пустышки под вакансией незачем. Поэтому не новый компонент,
+  // а один необязательный список: чат его не передаёт и получает всё,
+  // комментарии передают свои четыре пункта. Порядок и вид строк при
+  // этом остаются здешние -- фильтр, а не своя вёрстка.
+  rows?: ActionKey[];
 }) {
   // 2026-09-05 follow-up (Aleksandr, live screenshot: opened near the
   // bottom of the viewport, the menu ran off the bottom edge entirely
@@ -624,7 +636,7 @@ export function MessageActionsMenu({
           </div>
 
           <div className="overflow-hidden rounded-2xl bg-white/95 shadow-xl backdrop-blur-sm dark:bg-neutral-800/95">
-            {ACTION_ROWS.filter((r) => r.group === "main" && (r.key !== "edit" || mine)).map((row, i, arr) => {
+            {ACTION_ROWS.filter((r) => r.group === "main" && (r.key !== "edit" || mine) && (!rows || rows.includes(r.key))).map((row, i, arr) => {
               // Pin row only: swap in the dynamic icon/label for
               // whichever of the three states this tapped message is
               // actually in (see this file's own onPin/pinState header
@@ -993,10 +1005,18 @@ export function MessageReplyQuote({
   mine,
   thumbnail,
   onClick,
+  authorColor,
 }: {
   authorLabel: string;
   previewText: ReactNode;
   mine: boolean;
+  // 2026-09-16 (Александр, референс из Telegram: «имена разного цвета...
+  // если я отвечаю на этот, то должен быть соответствующий цвет») --
+  // цвет ИМЕНИ ТОГО, КОГО ЦИТИРУЮТ: в групповом обсуждении по цвету
+  // видно, кому отвечают, ещё до чтения имени. Тем же цветом красится и
+  // полоска слева. Не передан -- всё как было, фирменный синий: в
+  // переписке один на один цвета различать некого.
+  authorColor?: string;
   // 2026-09-05 follow-up (Aleksandr, reference screenshot of the
   // reference app: replying to a message that mixes a photo/document
   // WITH caption text shows that attachment's own thumbnail right
@@ -1027,13 +1047,19 @@ export function MessageReplyQuote({
       type="button"
       onClick={onClick}
       disabled={!onClick}
+      style={!mine && authorColor ? { borderLeftColor: authorColor } : undefined}
       className={`mb-1 flex w-full items-center gap-2 rounded-[6px] border-l-[3px] py-1 pl-2 pr-2 text-left ${
         mine ? "border-white bg-white/15" : "border-[#335ef7] bg-[#335ef7]/10 dark:border-[#0c8ce9] dark:bg-[#0c8ce9]/15"
       } ${onClick ? "cursor-pointer" : "cursor-default"}`}
     >
       {thumbnail}
       <span className="flex min-w-0 flex-1 flex-col items-start">
-        <span className={`truncate text-[13px] font-semibold ${mine ? "text-white" : "text-[#335ef7] dark:text-[#0c8ce9]"}`}>{authorLabel}</span>
+        <span
+          style={!mine && authorColor ? { color: authorColor } : undefined}
+          className={`truncate text-[13px] font-semibold ${mine ? "text-white" : "text-[#335ef7] dark:text-[#0c8ce9]"}`}
+        >
+          {authorLabel}
+        </span>
         <div className={`w-full truncate text-[13px] ${mine ? "text-white/85" : "text-[#262a34] dark:text-white"}`}>{previewText}</div>
       </span>
     </button>

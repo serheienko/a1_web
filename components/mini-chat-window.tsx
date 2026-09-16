@@ -1656,7 +1656,8 @@ export function MiniChatWindow({
       text={target.title || "—"}
       allowOnDesktop
       speedPxPerSec={28}
-      className="px-2.5 text-[16px] font-medium leading-tight"
+      fadeEdges
+      className="text-[16px] font-medium leading-tight"
     />
   );
 
@@ -1718,7 +1719,16 @@ export function MiniChatWindow({
           <ChatBackArrow className="h-3 w-[7px] animate-back-arrow" />
         </button>
 
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-10 text-[#262a34] dark:text-white">
+        {/* 2026-09-16 (Александр, скриншот: «справа от иконки тоже надо
+            дать отступ 10 пикселей, иначе оно как будто бы слипается,
+            текст выходит из самой иконки») -- было px-10 с обеих
+            сторон, то есть ровно 40px, а справа занято 12 (padding
+            шапки) + 32 (аватарка) = 44: бегущее имя заезжало ПОД
+            аватарку. Теперь отступы считаются от того, что реально
+            стоит по краям, плюс те самые 10px воздуха: слева 12+28
+            (кнопка «назад») + 10, справа 12+32 + 10. Сам текст по
+            краям ещё и гаснет -- см. fadeEdges у MarqueeName. */}
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center pl-[50px] pr-[54px] text-[#262a34] dark:text-white">
           {targetProfileHref ? (
             <Link href={targetProfileHref} onClick={onNavigate} className="pointer-events-auto max-w-full truncate">
               {nameText}

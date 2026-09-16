@@ -1716,3 +1716,54 @@ textarea {
 .pb-fab-safe {
   padding-bottom: calc(1.25rem + 56px + 12px + 48px + 16px + env(safe-area-inset-bottom));
 }
+
+/*
+ * Цвета имён в обсуждении (2026-09-16, Александр, референс из Telegram:
+ * «имена разного цвета... нам надо прям какую-то придумать модельку,
+ * чтобы там у 10, или 15 пользователей были разные цвета имён и вот так
+ * оно не дублировалось»).
+ *
+ * Восемь пар: первая строка -- для светлой темы (читается на белом),
+ * .dark -- для тёмной (на чёрном тот же тон, но светлее, иначе тёмно-
+ * красный и тёмно-синий на чёрном сливаются в «грязный тёмный»).
+ * Раздачу номеров делает lib/peer-name-color.ts, здесь только краски.
+ *
+ * Фоллбэк на @media (prefers-color-scheme: dark) -- по той же причине,
+ * что и у --color-accent выше: в режиме «Авто» класса .dark на <html>
+ * нет вовсе, а обычные CSS-переменные Tailwind-вариантом dark: не
+ * переключаются.
+ */
+:root {
+  --peer-name-0: #c8452f;
+  --peer-name-1: #b26a14;
+  --peer-name-2: #7a4fc4;
+  --peer-name-3: #2f8a3e;
+  --peer-name-4: #0f8a91;
+  --peer-name-5: #2f62cf;
+  --peer-name-6: #bc3f78;
+  --peer-name-7: #8a6b2f;
+}
+
+.dark {
+  --peer-name-0: #ff8a7a;
+  --peer-name-1: #f2ab5a;
+  --peer-name-2: #b199f5;
+  --peer-name-3: #62cc78;
+  --peer-name-4: #3cc9d1;
+  --peer-name-5: #6fa8ff;
+  --peer-name-6: #ff87b8;
+  --peer-name-7: #d9b46a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --peer-name-0: #ff8a7a;
+    --peer-name-1: #f2ab5a;
+    --peer-name-2: #b199f5;
+    --peer-name-3: #62cc78;
+    --peer-name-4: #3cc9d1;
+    --peer-name-5: #6fa8ff;
+    --peer-name-6: #ff87b8;
+    --peer-name-7: #d9b46a;
+  }
+}
