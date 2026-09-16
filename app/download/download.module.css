@@ -275,11 +275,95 @@
  * свечение вокруг: в макете он именно светится, а не просто лежит на
  * тёмном фоне.
  */
+.logoWrap {
+  position: relative;
+  display: inline-block;
+  flex: 0 0 auto;
+  line-height: 0;
+  transform-origin: left center;
+}
+
 .logo {
   display: block;
   width: clamp(64px, 6vw, 92px);
   height: auto;
   filter: drop-shadow(0 0 14px var(--logo-glow));
+  transition: filter 280ms ease;
+}
+
+/*
+ * Наведение на логотип (Aleksandr, 16.09.2026): он коротко подпрыгивает
+ * с лёгким качком вбок, свечение вокруг разгорается, и по самим буквам
+ * — не по прямоугольнику картинки — пробегает световой блик. Силуэт
+ * даёт mask с тем же файлом логотипа: маска берёт его альфа-канал, так
+ * что свет виден только там, где нарисованы буквы.
+ *
+ * Подскок стоит на обёртке, а не на .logo: блик лежит отдельным слоем,
+ * и, двигай мы только картинку, он бы от неё отставал.
+ */
+.logoShine {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    115deg,
+    rgba(255, 255, 255, 0) 42%,
+    rgba(255, 255, 255, 0.55) 48%,
+    rgba(255, 255, 255, 0.95) 50%,
+    rgba(255, 255, 255, 0.55) 52%,
+    rgba(255, 255, 255, 0) 58%
+  );
+  background-size: 250% 100%;
+  background-position: 135% 0;
+  -webkit-mask: url("/download/a1-logo.webp") center / contain no-repeat;
+  mask: url("/download/a1-logo.webp") center / contain no-repeat;
+}
+
+@media (hover: hover) {
+  .logoWrap:hover {
+    animation: logoPop 640ms cubic-bezier(0.22, 0.61, 0.36, 1) 1;
+  }
+
+  .logoWrap:hover .logo {
+    filter: drop-shadow(0 0 26px var(--logo-glow)) drop-shadow(0 0 8px var(--logo-glow));
+  }
+
+  .logoWrap:hover .logoShine {
+    animation: logoShine 780ms ease-out 1;
+  }
+}
+
+@keyframes logoPop {
+  0% {
+    transform: scale(1) rotate(0deg);
+  }
+  32% {
+    transform: scale(1.085) rotate(-2.6deg);
+  }
+  62% {
+    transform: scale(0.985) rotate(1.1deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes logoShine {
+  0% {
+    opacity: 0;
+    background-position: 135% 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  82% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    background-position: -65% 0;
+  }
 }
 
 .headerRight {
@@ -2131,6 +2215,11 @@
   .sitePreviewCta,
   .sitePreviewCtaArrow {
     transition: none;
+  }
+
+  .logoWrap:hover,
+  .logoWrap:hover .logoShine {
+    animation: none;
   }
 
   .menuPanel {

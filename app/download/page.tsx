@@ -173,8 +173,17 @@ export default function DownloadPage() {
           {/* Логотип — файл, который прислал Александр 14.09.2026
               (синий градиент с белой обводкой и свечением), а не
               brand-SVG сайта: на тёмном фоне он выглядит лучше. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className={styles.logo} src="/download/a1-logo.webp" alt="A1" width={400} height={300} />
+          {/* Aleksandr, 16.09.2026: «добавь прикольную анимацию при
+              наведении на логотип». Обёртка нужна для блика: он лежит
+              отдельным слоем поверх картинки и обрезан её же силуэтом
+              (mask), поэтому свет идёт ровно по буквам, а не по
+              прямоугольнику. Подскок висит на обёртке, а не на самой
+              картинке — иначе блик уезжал бы от логотипа. */}
+          <span className={styles.logoWrap}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className={styles.logo} src="/download/a1-logo.webp" alt="A1" width={400} height={300} />
+            <span className={styles.logoShine} aria-hidden="true" />
+          </span>
 
           <div className={styles.headerRight}>
             {/* ссылка на сайт + мини-превью, раскрывающееся по наведению */}
