@@ -23,7 +23,14 @@
 // логах. Ни одна вакансия не должна упасть из-за комментариев.
 
 import { call } from "./client";
-import { extractMessages, extractMessageText, messageDateMs, peerForPost } from "./chat-schemas";
+import {
+  extractMessages,
+  extractMessageText,
+  messageDateMs,
+  messageDocumentMedia,
+  peerForPost,
+  type MessageMediaDocument,
+} from "./chat-schemas";
 import { parseUserProfile } from "./schemas";
 import { buildMediaProxyUrl } from "./media-proxy";
 
@@ -37,6 +44,10 @@ export type WebComment = {
   text: string;
   /** Комментарий без текста -- одна наліпка или гифка. */
   mediaOnly: boolean;
+  /** Вложения: наліпки и гифки. Разбираются тем же
+   *  messageDocumentMedia, что и вложения сообщения в чате, и рисуются
+   *  теми же компонентами -- своего разбора у комментариев нет. */
+  media: MessageMediaDocument[];
   createdAt: Date;
   /** Отредактирован -- под текстом показывается пометка. */
   editedAt: Date | null;
@@ -99,6 +110,7 @@ export async function fetchPostComments(postId: string): Promise<WebComment[]> {
   return messages.map((msg) => {
     const author = msg.fromId ? authors.get(msg.fromId) : undefined;
     const text = extractMessageText(msg).trim();
+    const media = messageDocumentMedia(msg);
 
     // Реакции приходят по одной на каждого поставившего; для показа их
     // надо сгруппировать по эмодзи, сохранив, кто именно поставил.
@@ -120,7 +132,8 @@ export async function fetchPostComments(postId: string): Promise<WebComment[]> {
       authorAvatarUrl: author?.avatarUrl ?? null,
       authorId: msg.fromId,
       text,
-      mediaOnly: text === "" && msg.media.length > 0,
+      mediaOnly: text === "" && media.length > 0,
+      media,
       createdAt: new Date(messageDateMs(msg)),
       editedAt: msg.editedAt ? new Date(msg.editedAt) : null,
       replyToId: msg.replyTo?.message ?? null,

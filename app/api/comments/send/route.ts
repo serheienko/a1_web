@@ -29,7 +29,14 @@ import { MessageSchema, peerForPost } from "@/lib/a1/chat-schemas";
 const SendCommentInput = z.object({
   postId: z.string().trim().min(1),
   // Тот же потолок, что и у сообщения в чате (app/api/chats/send).
-  text: z.string().trim().min(1).max(4000),
+  // Пусто -- допустимо, если есть вложение: наліпка и гифка
+  // отправляются вообще без текста.
+  text: z.string().trim().max(4000).optional(),
+  // Наліпки и гифки. Форма ровно та же, что в чате (app/api/chats/send):
+  // от выбранного в панели документа нужна только ссылка на файл, всё
+  // остальное бэкенд знает сам. Потолок в один документ -- панель
+  // отправляет по одному, а не пачкой.
+  media: z.array(z.object({ fileReference: z.string().trim().min(1) })).max(1).optional(),
   // Ответ на другой комментарий. Форма replyTo -- ровно та же, что в
   // чате (app/api/chats/send): номер сообщения плюс автор, на которого
   // отвечают. Ничего специфичного для комментариев здесь нет.
@@ -48,12 +55,24 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ ok: false, message: "bad_input" }, { status: 400 });
   }
+  // Пустой комментарий без вложения отправлять нечего.
+  const text = input.text?.trim() ?? "";
+  const hasMedia = !!input.media && input.media.length > 0;
+  if (!text && !hasMedia) {
+    return NextResponse.json({ ok: false, message: "bad_input" }, { status: 400 });
+  }
 
   try {
     const payload: Record<string, unknown> = {
       peerTo: peerForPost(input.postId),
-      message: input.text,
     };
+    // `message` не отправляется пустой строкой -- ровно как в чате
+    // (app/api/chats/send): у сообщения из одной наліпки текста нет
+    // вовсе, а не «есть, но пустой».
+    if (text) payload.message = text;
+    if (input.media && input.media.length > 0) {
+      payload.media = input.media.map((m) => ({ fileReference: m.fileReference, object: "media-document-input" }));
+    }
     if (input.replyTo) {
       payload.replyTo = { message: input.replyTo.commentId, object: "peer-user", user: input.replyTo.userId };
     }

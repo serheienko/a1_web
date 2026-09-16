@@ -44,8 +44,18 @@
 // передаётся только список нужных строк (rows) -- переслать комментарий
 // или закрепить его бэкенду нечем.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { MediaPickerPanel } from "@/components/chat/media-picker-panel";
+import { TgsSticker } from "@/components/chat/tgs-sticker";
+import {
+  isStickerMediaDocument,
+  isVideoMediaDocument,
+  isImageMediaDocument,
+  messageDocumentMedia,
+} from "@/lib/a1/chat-schemas";
+import { getStableMediaProxyUrl } from "@/lib/a1/stable-media-url";
+import { strippedPreviewDataUrl, decodeStickerPathPreview } from "@/lib/a1/media-proxy";
+import type { MediaDocument } from "@/lib/a1/schemas";
 import { ChatCatFieldIcon } from "@/components/chat/icons";
 import { SEND_BUTTON_CLASS, SendArrowIcon } from "@/components/chat/send-button";
 import {
@@ -123,6 +133,62 @@ function Avatar({ url, seed, className = "h-7 w-7" }: { url: string | null; seed
   );
 }
 
+// Что показывать вместо текста, когда комментарий -- одна наліпка или
+// гифка: в свёрнутой строке, в цитате ответа и в поле ввода.
+function CommentPreview({ comment }: { comment: WebComment }) {
+  if (!comment.mediaOnly) return <>{comment.text}</>;
+  if (comment.media.some(isVideoMediaDocument)) return <>GIF</>;
+  return (
+    <T
+      uk="Наліпка" en="Sticker" ru="Стикер" de="Sticker" es="Sticker"
+      fr="Sticker" pl="Naklejka" ptBR="Figurinha" zh="贴纸"
+    />
+  );
+}
+
+// Наліпки и гифки рисуются ровно теми же средствами, что в чатах:
+// TgsSticker (распаковка tgs + Lottie) для наліпки, зацикленное видео
+// без звука для гифки. Ссылка -- getStableMediaProxyUrl, а не
+// buildMediaProxyUrl: бэкенд выдаёт документу новый fileReference почти
+// на каждый ответ, и меняющийся src заставлял бы браузер грузить
+// картинку заново (см. шапку lib/a1/stable-media-url.ts).
+function CommentMedia({ media, mine }: { media: WebComment["media"]; mine: boolean }) {
+  if (media.length === 0) return null;
+  return (
+    <div className={`flex flex-col gap-1 ${mine ? "items-end" : "items-start"}`}>
+      {media.map((doc) =>
+        isStickerMediaDocument(doc) ? (
+          <TgsSticker
+            key={doc._id}
+            src={getStableMediaProxyUrl(doc)}
+            size={112}
+            previewUrl={strippedPreviewDataUrl(doc)}
+            pathPreview={decodeStickerPathPreview(doc)}
+            fallback={
+              <span className="text-[14px] text-neutral-400 dark:text-neutral-500">
+                <T uk="Наліпка" en="Sticker" ru="Стикер" de="Sticker" es="Sticker" fr="Sticker" pl="Naklejka" ptBR="Figurinha" zh="贴纸" />
+              </span>
+            }
+          />
+        ) : isVideoMediaDocument(doc) ? (
+          <video
+            key={doc._id}
+            src={getStableMediaProxyUrl(doc)}
+            autoPlay
+            muted
+            loop
+            playsInline
+            className="max-h-48 max-w-[220px] rounded-xl bg-black object-cover"
+          />
+        ) : isImageMediaDocument(doc) ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img key={doc._id} src={getStableMediaProxyUrl(doc)} alt="" className="max-h-48 max-w-[220px] rounded-xl object-cover" />
+        ) : null,
+      )}
+    </div>
+  );
+}
+
 function Bubble({
   comment,
   mine,
@@ -172,7 +238,7 @@ function Bubble({
   const quote = repliedTo ? (
     <MessageReplyQuote
       authorLabel={repliedTo.authorName}
-      previewText={repliedTo.mediaOnly ? "Наліпка" : repliedTo.text}
+      previewText={<CommentPreview comment={repliedTo} />}
       mine={mine}
       authorColor={nameColors.get(repliedTo.authorId ?? "")}
     />
@@ -206,11 +272,23 @@ function Bubble({
         <div
           ref={bubbleRef}
           {...handlers}
-          className="max-w-[80%] cursor-default select-none rounded-2xl rounded-br-md bg-accent px-3.5 py-2 text-white"
+          // Наліпка и гифка живут БЕЗ пузыря -- как в чатах: у них своя
+          // форма и прозрачный фон, синий прямоугольник вокруг кота
+          // выглядел бы наклейкой на наклейке.
+          className={`max-w-[80%] cursor-default select-none ${
+            comment.mediaOnly ? "" : "rounded-2xl rounded-br-md bg-accent px-3.5 py-2 text-white"
+          }`}
         >
           {quote}
-          <p className="whitespace-pre-line break-words text-[14px] leading-relaxed">{comment.text}</p>
-          <Time date={comment.createdAt} className="mt-0.5 block text-right text-[11px] text-white/70" />
+          <CommentMedia media={comment.media} mine />
+          {comment.text && (
+            <p className="whitespace-pre-line break-words text-[14px] leading-relaxed">{comment.text}</p>
+          )}
+          {comment.mediaOnly ? (
+            <Time date={comment.createdAt} className="mt-1 ml-auto block w-fit rounded-full bg-black/45 px-2 py-0.5 text-[11px] text-white" />
+          ) : (
+            <Time date={comment.createdAt} className="mt-0.5 block text-right text-[11px] text-white/70" />
+          )}
         </div>
         {reactions}
       </li>
@@ -243,7 +321,9 @@ function Bubble({
       <div
         ref={bubbleRef}
         {...handlers}
-        className="min-w-0 max-w-full cursor-default select-none rounded-2xl rounded-bl-md bg-neutral-100 px-3.5 py-2 dark:bg-neutral-800"
+        className={`min-w-0 max-w-full cursor-default select-none ${
+          comment.mediaOnly ? "" : "rounded-2xl rounded-bl-md bg-neutral-100 px-3.5 py-2 dark:bg-neutral-800"
+        }`}
       >
         <span
           className="block text-[12px] font-semibold text-accent"
@@ -252,13 +332,9 @@ function Bubble({
           {name}
         </span>
         {quote}
+        <CommentMedia media={comment.media} mine={false} />
         {comment.mediaOnly ? (
-          <p className="text-[14px] italic text-neutral-400 dark:text-neutral-500">
-            <T
-              uk="Наліпка" en="Sticker" ru="Стикер" de="Sticker" es="Sticker"
-              fr="Sticker" pl="Naklejka" ptBR="Figurinha" zh="贴纸"
-            />
-          </p>
+          <Time date={comment.createdAt} className="mt-1 block w-fit rounded-full bg-black/45 px-2 py-0.5 text-[11px] text-white" />
         ) : (
           <p className="whitespace-pre-line break-words text-[14px] leading-relaxed text-neutral-800 dark:text-neutral-200">
             {comment.text}
@@ -269,7 +345,9 @@ function Bubble({
             )}
           </p>
         )}
-        <Time date={comment.createdAt} className="mt-0.5 block text-[11px] text-neutral-400 dark:text-neutral-500" />
+        {!comment.mediaOnly && (
+          <Time date={comment.createdAt} className="mt-0.5 block text-[11px] text-neutral-400 dark:text-neutral-500" />
+        )}
       </div>
       {reactions}
       </div>
@@ -299,6 +377,48 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
   const [editing, setEditing] = useState<WebComment | null>(null);
   const [replyTo, setReplyTo] = useState<WebComment | null>(null);
   const [open, setOpen] = useState(false);
+  // Закрытие -- не мгновенное: окно должно успеть уехать. `closing`
+  // держит разметку видимой ещё столько, сколько длится обратная
+  // анимация в app/globals.css (2026-09-16, Александр: «появляется
+  // супер резко, супер резко исчезает, не прикольно»).
+  // `shown` -- это то, что реально анимируется: окно сначала
+  // показывается в исходном (сдвинутом и прозрачном) виде, и лишь
+  // следующим кадром переключается в конечный, поэтому браузеру есть
+  // что проигрывать. Тот же приём в два кадра, что у цитаты в поле
+  // ввода выше -- и та же причина, по которой это переход, а не
+  // keyframes: разметка окна из DOM не исчезает никогда.
+  const [shown, setShown] = useState(false);
+  const CLOSE_MS = 240;
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    let raf2 = 0;
+    const raf1 = window.requestAnimationFrame(() => {
+      raf2 = window.requestAnimationFrame(() => setShown(true));
+    });
+    return () => {
+      window.cancelAnimationFrame(raf1);
+      if (raf2) window.cancelAnimationFrame(raf2);
+    };
+  }, [open]);
+  const closeWindow = useCallback(() => {
+    if (closeTimerRef.current) return;
+    setShown(false);
+    closeTimerRef.current = setTimeout(() => {
+      setOpen(false);
+      closeTimerRef.current = null;
+    }, CLOSE_MS);
+  }, []);
+  const openWindow = useCallback(() => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+    setOpen(true);
+  }, []);
+  useEffect(() => () => {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+  }, []);
   // 2026-09-16 (Александр: «у нас в чатах и мини-чатах эта штука,
   // композер, разъезжается наверх анимацией, и когда нажимаешь крестик,
   // съезжается назад... и, по-моему, даже нету этой полосы сверху») --
@@ -531,6 +651,7 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
           authorId: me?.userId ?? null,
           text: value,
           mediaOnly: false,
+          media: [],
           createdAt: new Date(),
           editedAt: null,
           reactions: [],
@@ -546,6 +667,62 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
       setSending(false);
     }
   }, [text, sending, postId, me, editing, replyTo]);
+
+  // Наліпка и гифка отправляются сразу по нажатию в панели -- отдельной
+  // кнопки «отправить» у них нет, ровно как в чатах (см. шапку
+  // components/chat/media-picker-panel.tsx). От выбранного документа
+  // бэкенду нужна только ссылка на файл.
+  const sendMedia = useCallback(
+    async (doc: MediaDocument) => {
+      if (sending) return;
+      setSending(true);
+      setFailed(false);
+      const replyToSend = replyTo;
+      setReplyTo(null);
+      try {
+        const res = await fetch("/api/comments/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            postId,
+            media: [{ fileReference: doc.fileReference }],
+            ...(replyToSend && Number(replyToSend.id) > 0 && replyToSend.authorId
+              ? { replyTo: { commentId: Number(replyToSend.id), userId: replyToSend.authorId } }
+              : {}),
+          }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!data?.ok) throw new Error("send_failed");
+        // Вложение дописываем из ОТВЕТА бэкенда, а не из выбранного в
+        // панели документа: в ответе уже лежит тот же документ в том
+        // виде, в каком его потом пришлёт и messages.getMessages,
+        // вместе со свежей ссылкой на файл.
+        const media = data.message ? messageDocumentMedia(data.message) : [];
+        setList((prev) => [
+          ...prev,
+          {
+            id: data.message?._id ? String(data.message._id) : `local-${Date.now()}`,
+            authorName: me?.name || "",
+            authorUsername: me?.username ?? null,
+            authorAvatarUrl: me?.avatarUrl ?? null,
+            authorId: me?.userId ?? null,
+            text: "",
+            mediaOnly: media.length > 0,
+            media,
+            createdAt: new Date(),
+            editedAt: null,
+            reactions: [],
+            replyToId: replyToSend?.id ?? null,
+          },
+        ]);
+      } catch {
+        setFailed(true);
+      } finally {
+        setSending(false);
+      }
+    },
+    [sending, postId, me, replyTo],
+  );
 
   // Ни комментариев, ни вошедшего -- блока нет вовсе.
   if (list.length === 0 && !signedIn) return null;
@@ -568,7 +745,7 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
           хоть двести комментариев, хоть ни одного -- высота одна. */}
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={openWindow}
         // `group` -- ради кота справа: анимация в globals.css висит на
         // `.group:hover .animate-chat-wiggle`, без группы-предка она
         // просто никогда не срабатывает (2026-09-16, Александр: «дай
@@ -583,7 +760,7 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
                 💬
               </span>
               <span className="truncate text-neutral-700 dark:text-neutral-300">
-                {last.mediaOnly ? "Наліпка" : last.text}
+                <CommentPreview comment={last} />
               </span>
             </>
           ) : (
@@ -605,13 +782,15 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
           видит, ради чего всё и затевалось. */}
       <div
         className={`fixed inset-0 z-50 items-end justify-center sm:items-center ${open ? "flex" : "hidden"}`}
-        onClick={() => setOpen(false)}
+        onClick={closeWindow}
       >
-        <div className="absolute inset-0 bg-black/50" />
+        <div className={`absolute inset-0 bg-black/50 transition-opacity duration-200 ease-out ${shown ? "opacity-100" : "opacity-0"}`} />
         <div
           ref={windowRef}
           onClick={(e) => e.stopPropagation()}
-          style={{ transform: dragY ? `translateY(${dragY}px)` : undefined }}
+          // Во время перетаскивания пальцем перехода быть не должно:
+          // иначе шторка тянется за пальцем с задержкой.
+          style={dragY ? { transform: `translateY(${dragY}px)`, transition: "none" } : undefined}
           // 2026-09-16 (Александр, скриншот на тёмной теме: «добавь чуть
           // светлую тень модалке, чтобы чуть отделить от фона») -- у нас
           // тёмная тема это чистый чёрный, и чёрная тень на чёрном фоне
@@ -621,7 +800,9 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
           // на светлом фоне он незаметен, на чёрном даёт ровно то
           // «чуть-чуть», которое отделяет окно от страницы. Плюс
           // тонкая рамка -- она же и есть край окна на самом чёрном.
-          className="relative flex max-h-[85vh] w-full flex-col rounded-t-2xl border border-neutral-200 bg-white shadow-[0_20px_25px_-5px_rgba(0,0,0,0.15),0_8px_10px_-6px_rgba(0,0,0,0.15),0_16px_48px_-8px_rgba(255,255,255,0.10)] transition-transform dark:border-neutral-800 dark:bg-neutral-950 sm:max-h-[80vh] sm:max-w-lg sm:rounded-2xl"
+          className={`relative flex max-h-[85vh] w-full flex-col rounded-t-2xl border border-neutral-200 bg-white shadow-[0_20px_25px_-5px_rgba(0,0,0,0.15),0_8px_10px_-6px_rgba(0,0,0,0.15),0_16px_48px_-8px_rgba(255,255,255,0.10)] transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] dark:border-neutral-800 dark:bg-neutral-950 sm:max-h-[80vh] sm:max-w-lg sm:rounded-2xl ${
+            shown ? "translate-y-0 scale-100 opacity-100" : "translate-y-full opacity-0 sm:translate-y-3 sm:scale-[0.98]"
+          }`}
         >
           {/* Шапка окна. Полоска сверху -- за неё шторка стягивается
               вниз пальцем, как в приложении. */}
@@ -637,7 +818,7 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
               setDragY(Math.max(0, y - start));
             }}
             onTouchEnd={() => {
-              if (dragY > 80) setOpen(false);
+              if (dragY > 80) closeWindow();
               setDragY(0);
               dragStartRef.current = null;
             }}
@@ -653,7 +834,7 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
               </span>
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={closeWindow}
                 aria-label="Close"
                 className="group -mr-1 rounded-full p-1.5 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
               >
@@ -664,8 +845,15 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
             </div>
           </div>
 
-          {/* Лента */}
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+          {/* Лента и композер -- один слой: композер НЕ занимает место в
+              колонке, а висит над лентой, и лента уезжает под него
+              (2026-09-16, Александр, референс Telegram: «чтобы сообщение
+              не полностью зажало чёрную историю, а чтобы там была
+              полоска blur-тень, и input field был как будто бы
+              поверх»). Поэтому здесь лишний relative-контейнер: он и
+              есть система координат для этого «поверх». */}
+          <div className="relative flex min-h-0 flex-1 flex-col">
+          <div className={`min-h-0 flex-1 overflow-y-auto px-4 pt-3 ${signedIn ? "pb-24" : "pb-3"}`}>
             {list.length > 0 ? (
               <ul className="flex flex-col gap-2.5">
                 {list.map((comment) => (
@@ -695,7 +883,21 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
 
           {/* Ввод */}
           {signedIn && (
-            <div className="shrink-0 border-t border-neutral-100 px-4 pb-4 pt-3 dark:border-neutral-800">
+            <>
+            {/* Полоса-затухание под лентой: размывает и растворяет
+                последние сообщения под композером вместо жёсткой
+                разделительной черты, которая тут была. Маска гасит и
+                сам блюр, иначе его верхний край читался бы той же
+                чертой, только мутной. */}
+            <div
+              aria-hidden="true"
+              style={{
+                maskImage: "linear-gradient(to top, #000 55%, transparent 100%)",
+                WebkitMaskImage: "linear-gradient(to top, #000 55%, transparent 100%)",
+              }}
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-[104px] bg-gradient-to-t from-white via-white/70 to-transparent backdrop-blur-[10px] dark:from-neutral-950 dark:via-neutral-950/70"
+            />
+            <div className="absolute inset-x-0 bottom-0 px-4 pb-4">
               {/* Ответ и правка живут ВНУТРИ пилюли ввода и
                   разъезжают её вверх -- ровно как в чатах и мини-чатах
                   (components/mini-chat-window.tsx, app/chats/[chatId]/
@@ -705,7 +907,7 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
                   нет -- это была моя самодеятельность. */}
               <div className="flex items-end gap-2">
                 <Avatar url={me?.avatarUrl ?? null} seed={me?.username ?? "me"} className="h-9 w-9" />
-                <div className="flex min-w-0 flex-1 flex-col rounded-[18px] border border-neutral-200 bg-white focus-within:border-accent/50 dark:border-neutral-700 dark:bg-neutral-900">
+                <div className="flex min-w-0 flex-1 flex-col rounded-[18px] border border-neutral-200/80 bg-white/70 backdrop-blur-xl focus-within:border-accent/50 dark:border-white/15 dark:bg-white/[0.06]">
                   {displayedEditing && (
                     <div
                       className={`grid transition-[grid-template-rows] duration-200 ease-out ${
@@ -740,7 +942,11 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
                       </div>
                     </div>
                   )}
-                  <div className="flex min-h-[36px] items-center gap-1 pl-4 pr-1.5">
+                  {/* 34, а не 36: у пилюли есть своя рамка в пиксель
+                      сверху и снизу, и с min-h-[36px] она выходила 38 --
+                      на два пикселя выше кнопки отправки, что и было
+                      видно на скриншоте. */}
+                  <div className="flex min-h-[34px] items-center gap-1 pl-4 pr-1.5">
                     <textarea
                       id={`comment-input-${postId}`}
                       ref={inputRef}
@@ -769,7 +975,10 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
                         if (rect) setPickerAnchor(rect);
                       }}
                       aria-label="Emoji"
-                      className="group shrink-0 self-end rounded-full p-1 text-neutral-400 transition hover:text-accent dark:text-neutral-500"
+                      // По центру строки, а не по её низу: пока поле в
+                      // одну строку, разницы не видно, а стоило тексту
+                      // подрасти -- кот уезжал вниз (Александр, скриншот).
+                      className="group shrink-0 self-center rounded-full p-1 text-neutral-400 transition hover:text-accent dark:text-neutral-500"
                     >
                       <ChatCatFieldIcon className="h-[18px] w-[18px] animate-chat-wiggle" />
                     </button>
@@ -799,7 +1008,9 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
                 </p>
               )}
             </div>
+            </>
           )}
+          </div>
         </div>
       </div>
 
@@ -813,7 +1024,14 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
           anchorRect={menu.rect}
           mine={menu.mine}
           lang={lang}
-          rows={["reply", "copy", "edit", "delete"]}
+          // У наліпки нечего копировать и нечего править -- строки
+          // просто не показываются, а не показываются пустышками.
+          rows={[
+            "reply",
+            ...(menu.comment.text ? (["copy"] as const) : []),
+            ...(menu.mine && menu.comment.text ? (["edit"] as const) : []),
+            "delete",
+          ]}
           onClose={() => setMenu(null)}
           myReactionEmoticon={myReactionOn(menu.comment)}
           onReact={(emoticon) => void toggleReaction(menu.comment, emoticon)}
@@ -863,7 +1081,10 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
             setText((prev) => prev + emoji);
             inputRef.current?.focus();
           }}
-          onSendMedia={() => setPickerAnchor(null)}
+          onSendMedia={(doc) => {
+            setPickerAnchor(null);
+            void sendMedia(doc);
+          }}
         />
       )}
     </section>
