@@ -167,7 +167,9 @@ export function SitePreview() {
                     {DOWNLOAD_COPY[locale].previewCta}
                   </span>
                 ))}
-                <span aria-hidden="true">→</span>
+                <span className={styles.sitePreviewCtaArrow} aria-hidden="true">
+                  →
+                </span>
               </span>
             </span>
           </a>

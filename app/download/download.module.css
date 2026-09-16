@@ -1212,6 +1212,7 @@
 
 .sitePreview {
   display: block;
+  position: relative;
   width: 340px;
   overflow: hidden;
   border-radius: 20px;
@@ -1224,13 +1225,88 @@
   transform: translateY(-6px) scale(0.97);
   transform-origin: top right;
   transition:
-    opacity 150ms ease,
-    transform 150ms ease;
+    opacity 200ms ease,
+    transform 230ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 .sitePreviewVisible {
   opacity: 1;
   transform: translateY(0) scale(1);
+}
+
+/*
+ * Aleksandr, 16.09.2026: «добавь анимации». Карточка не просто
+ * появляется — по ней один раз проходит блик, как по стеклу, а
+ * заголовок, строка под ним и кнопка подтягиваются следом с небольшим
+ * сдвигом друг за другом. Всё считается заново при каждом раскрытии:
+ * класс .sitePreviewVisible снимается на уходе курсора и вешается
+ * снова, а вместе с ним перезапускаются и анимации.
+ */
+.sitePreview::after {
+  content: "";
+  position: absolute;
+  top: -20%;
+  bottom: -20%;
+  left: -60%;
+  width: 45%;
+  opacity: 0;
+  pointer-events: none;
+  transform: skewX(-18deg);
+  background: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.16) 40%,
+    rgba(255, 255, 255, 0.5) 50%,
+    rgba(255, 255, 255, 0.16) 60%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  filter: blur(2px);
+}
+
+.sitePreviewVisible::after {
+  animation: previewShine 900ms ease-out 140ms 1;
+}
+
+@keyframes previewShine {
+  0% {
+    left: -60%;
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    left: 130%;
+    opacity: 0;
+  }
+}
+
+/*
+ * fill-mode backwards, а НЕ both: both оставил бы конечный кадр висеть
+ * поверх обычных правил — и кнопка перестала бы подниматься на
+ * наведении, потому что её transform был бы навсегда занят анимацией.
+ */
+@keyframes previewRise {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.sitePreviewVisible .sitePreviewTitle {
+  animation: previewRise 340ms cubic-bezier(0.22, 0.61, 0.36, 1) 70ms backwards;
+}
+
+.sitePreviewVisible .sitePreviewText {
+  animation: previewRise 340ms cubic-bezier(0.22, 0.61, 0.36, 1) 130ms backwards;
+}
+
+.sitePreviewVisible .sitePreviewCta {
+  animation: previewRise 340ms cubic-bezier(0.22, 0.61, 0.36, 1) 190ms backwards;
 }
 
 .sitePreviewShot {
@@ -1303,7 +1379,19 @@
   line-height: 1.4;
 }
 
+/*
+ * Aleksandr, 16.09.2026: «сделай ховер в модальном окне на кнопку
+ * перейти на сайт». Раньше кнопка реагировала только на наведение на
+ * карточку целиком — то есть светилась всё время, пока открыто окно, и
+ * на саму себя не отзывалась. Теперь два разных состояния: карточка под
+ * курсором — лёгкое свечение, курсор ровно на кнопке — подъём, яркий
+ * ореол, пробегающий блик (тот же, что на больших кнопках установки) и
+ * уезжающая вперёд стрелка.
+ */
 .sitePreviewCta {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -1316,11 +1404,66 @@
   background: linear-gradient(180deg, #3575ff 0%, #1747ff 55%, #1834e8 100%);
   border: 1px solid #85a7ff;
   box-shadow: 0 0 16px rgba(48, 94, 255, 0.5);
-  transition: box-shadow 200ms ease;
+  transition:
+    box-shadow 220ms ease,
+    transform 180ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    filter 200ms ease;
 }
 
 .sitePreview:hover .sitePreviewCta {
-  box-shadow: 0 0 26px rgba(80, 130, 255, 0.75);
+  box-shadow: 0 0 22px rgba(80, 130, 255, 0.62);
+}
+
+/* селектор с .sitePreview впереди намеренно: у правила выше
+   (.sitePreview:hover .sitePreviewCta) вес больше, чем у одиночного
+   .sitePreviewCta:hover, и оно затирало бы ореол кнопки */
+.sitePreview .sitePreviewCta:hover {
+  transform: translateY(-1.5px);
+  filter: brightness(1.08);
+  box-shadow:
+    0 0 30px rgba(96, 142, 255, 0.85),
+    0 8px 20px rgba(6, 14, 70, 0.38);
+}
+
+/* нажатие: кнопка возвращается на место — привычное «продавливание» */
+.sitePreview .sitePreviewCta:active {
+  transform: translateY(0);
+  filter: brightness(0.97);
+  transition-duration: 80ms;
+}
+
+.sitePreviewCta::after {
+  content: "";
+  position: absolute;
+  top: -20%;
+  bottom: -20%;
+  left: 115%;
+  width: 38%;
+  opacity: 0;
+  pointer-events: none;
+  transform: skewX(-18deg);
+  background: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.25) 25%,
+    rgba(255, 255, 255, 0.9) 50%,
+    rgba(255, 255, 255, 0.25) 75%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  filter: blur(1.5px);
+}
+
+.sitePreviewCta:hover::after {
+  animation: laser 700ms ease-out;
+}
+
+.sitePreviewCtaArrow {
+  display: inline-block;
+  transition: transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.sitePreviewCta:hover .sitePreviewCtaArrow {
+  transform: translateX(4px);
 }
 
 
@@ -1974,6 +2117,20 @@
   .soundPlaying .eqBar,
   .soundPulse::before {
     animation: none;
+  }
+
+  .sitePreviewVisible::after,
+  .sitePreviewVisible .sitePreviewTitle,
+  .sitePreviewVisible .sitePreviewText,
+  .sitePreviewVisible .sitePreviewCta,
+  .sitePreviewCta:hover::after {
+    animation: none;
+  }
+
+  .sitePreview,
+  .sitePreviewCta,
+  .sitePreviewCtaArrow {
+    transition: none;
   }
 
   .menuPanel {
