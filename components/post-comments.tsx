@@ -23,6 +23,7 @@
 // иначе первый комментарий физически некому оставить.
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { MediaPickerPanel } from "@/components/chat/media-picker-panel";
 import Link from "next/link";
 import { T, LOCALES, LOCALE_VISIBILITY_CLASS } from "@/components/t";
 import { formatRelativeTime } from "@/lib/format";
@@ -59,19 +60,34 @@ function Time({ date, className }: { date: Date; className: string }) {
   );
 }
 
-function Avatar({ url, seed }: { url: string | null; seed: string }) {
+function Avatar({ url, seed, className = "h-7 w-7" }: { url: string | null; seed: string; className?: string }) {
   const src = url ? avatarSourceUrl(url) : pickDefaultCatAvatar(seed);
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={src}
       alt=""
-      width={28}
-      height={28}
+      width={36}
+      height={36}
       loading="lazy"
       decoding="async"
-      className="h-7 w-7 shrink-0 rounded-full bg-neutral-100 object-cover dark:bg-neutral-800"
+      className={`${className} shrink-0 rounded-full bg-neutral-100 object-cover dark:bg-neutral-800`}
     />
+  );
+}
+
+// Кот из шапки поля ввода -- в приложении это та же иконка, по которой
+// открываются наліпки, гифки и емодзі. Контур, а не заливка: рядом с
+// текстовым полем сплошная фигура перетягивала бы на себя внимание.
+function StickerCatIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4.5 9.5 3.2 4.6a.5.5 0 0 1 .76-.54L7.9 6.6" />
+      <path d="M19.5 9.5l1.3-4.9a.5.5 0 0 0-.76-.54L16.1 6.6" />
+      <path d="M4.5 12.4a7.5 7.5 0 0 1 15 0v2.1a7.5 7.5 0 0 1-15 0z" />
+      <path d="M9.3 12.2h.01M14.7 12.2h.01" />
+      <path d="M10.8 15.6a1.7 1.7 0 0 0 2.4 0" />
+    </svg>
   );
 }
 
@@ -132,6 +148,8 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
   const [sending, setSending] = useState(false);
   const [failed, setFailed] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const stickerButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [pickerAnchor, setPickerAnchor] = useState<DOMRect | null>(null);
 
   useEffect(() => {
     if (!readDisplayCookie()) return;
@@ -227,9 +245,14 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
       )}
 
       {signedIn && (
-        <div className="mt-3 flex items-end gap-2">
-          <Avatar url={me?.avatarUrl ?? null} seed={me?.username ?? "me"} />
-          <div className="flex min-w-0 flex-1 items-end gap-1.5 rounded-2xl border border-neutral-200 bg-white px-3 py-1.5 focus-within:border-accent/50 dark:border-neutral-700 dark:bg-neutral-900">
+        <div className="mt-3 flex items-center gap-2">
+          {/* Аватарка ровно в высоту поля -- 36px и там и там
+              (Александр, 16 сентября). Поэтому items-center, а не
+              items-end: при одинаковой высоте выравнивать по низу нечего,
+              а при выросшем в несколько строк поле аватарка должна
+              оставаться посередине, как в приложении. */}
+          <Avatar url={me?.avatarUrl ?? null} seed={me?.username ?? "me"} className="h-9 w-9" />
+          <div className="flex min-h-9 min-w-0 flex-1 items-center gap-1 rounded-full border border-neutral-200 bg-white pl-4 pr-1.5 focus-within:border-accent/50 dark:border-neutral-700 dark:bg-neutral-900">
             <textarea
               id={`comment-input-${postId}`}
               ref={inputRef}
@@ -237,7 +260,6 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
               value={text}
               onChange={(e) => {
                 setText(e.target.value);
-                // Поле растёт под текст, но не выше пяти строк.
                 const el = e.target;
                 el.style.height = "auto";
                 el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
@@ -252,22 +274,54 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
                 }
               }}
               placeholder={PLACEHOLDER}
-              className="max-h-[120px] min-w-0 flex-1 resize-none bg-transparent py-1 text-[14px] text-neutral-900 outline-none placeholder:text-neutral-400 dark:text-neutral-50 dark:placeholder:text-neutral-500"
+              className="max-h-[120px] min-w-0 flex-1 resize-none self-center bg-transparent py-[7px] text-[14px] leading-[1.45] text-neutral-900 outline-none placeholder:text-neutral-400 dark:text-neutral-50 dark:placeholder:text-neutral-500"
             />
             <button
+              ref={stickerButtonRef}
               type="button"
-              onClick={() => void send()}
-              disabled={!text.trim() || sending}
-              aria-label="Send"
-              className="mb-0.5 shrink-0 rounded-full p-1 text-accent transition disabled:opacity-30"
+              onClick={() => {
+                const rect = stickerButtonRef.current?.getBoundingClientRect();
+                if (rect) setPickerAnchor(rect);
+              }}
+              aria-label="Emoji"
+              className="shrink-0 rounded-full p-1 text-neutral-400 transition hover:text-accent dark:text-neutral-500"
             >
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M12 19V5" />
-                <path d="m5 12 7-7 7 7" />
-              </svg>
+              <StickerCatIcon />
             </button>
+            {text.trim() && (
+              <button
+                type="button"
+                onClick={() => void send()}
+                disabled={sending}
+                aria-label="Send"
+                className="shrink-0 rounded-full p-1 text-accent transition disabled:opacity-30"
+              >
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M12 19V5" />
+                  <path d="m5 12 7-7 7 7" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
+      )}
+
+      {pickerAnchor && (
+        // Та же панель, что и в чате -- своя была бы второй такой же.
+        // Пока берём из неё только емодзі: они вставляются в текст и
+        // отправляются обычным комментарием. Наліпки и гифки требуют,
+        // чтобы комментарий умел их ПОКАЗЫВАТЬ, иначе отправленная
+        // наліпка появится словом «Наліпка» -- это следующий шаг.
+        <MediaPickerPanel
+          anchorRect={pickerAnchor}
+          initialTab="emoji"
+          onClose={() => setPickerAnchor(null)}
+          onPickEmoji={(emoji) => {
+            setText((prev) => prev + emoji);
+            inputRef.current?.focus();
+          }}
+          onSendMedia={() => setPickerAnchor(null)}
+        />
       )}
 
       {failed && (
