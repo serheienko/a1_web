@@ -497,9 +497,15 @@ export function ProfileActionRow({
 
   // Заглушён / заблокирован -- оба признака приходят одной ручкой
   // (app/api/users/relation), потому что «•••» спрашивает их вместе.
-  // null = ещё не знаем: пока так, строки меню показываем в состоянии
-  // «включить», как самом частом, но клик всё равно сначала дождётся
-  // ответа сервера.
+  //
+  // null = ещё не знаем. ВАЖНО (Александр, 17.09.2026: «выключить звук и
+  // заблокировать по-прежнему не работает»): на этом состоянии нельзя
+  // блокировать кнопку. В первой версии стояло disabled={... || muted
+  // === null}, и если ручка состояния почему-то не ответила, обе строки
+  // навсегда оставались неактивными -- визуально живые, на клик не
+  // реагируют. Ровно та болезнь, которую мы и лечили. Теперь null
+  // трактуется как «не заглушён / не заблокирован», клик уходит на
+  // сервер, а ответ сервера и есть правда.
   const [muted, setMuted] = useState<boolean | null>(null);
   const [blocked, setBlocked] = useState<boolean | null>(null);
   const [muteBusy, setMuteBusy] = useState(false);
@@ -891,7 +897,7 @@ export function ProfileActionRow({
                     <button
                       type="button"
                       onClick={toggleMute}
-                      disabled={muteBusy || muted === null}
+                      disabled={muteBusy}
                       className="group flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 transition hover:bg-accent/10 hover:text-accent disabled:opacity-60 dark:text-neutral-300"
                     >
                       <MuteIcon />
@@ -904,7 +910,7 @@ export function ProfileActionRow({
                     <button
                       type="button"
                       onClick={onBlockClick}
-                      disabled={blockBusy || blocked === null}
+                      disabled={blockBusy}
                       className="group flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-red-600 transition hover:bg-red-50 disabled:opacity-60 dark:hover:bg-red-950/30"
                     >
                       <BlockIcon />

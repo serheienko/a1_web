@@ -60,10 +60,16 @@ export async function POST(request: NextRequest) {
   const { userId } = parsed.data;
 
   try {
-    const [blockedCall, usersCall] = await Promise.all([
-      callAsVisitor<unknown>("users.getBlocked", {}),
-      callAsVisitor<unknown>("users.getUsers", { ids: [userId] }),
-    ]);
+    // ПОСЛЕДОВАТЕЛЬНО, не Promise.all. Два callAsVisitor в один момент
+    // времени дерутся за один и тот же одноразовый refresh-токен: если
+    // access-токен успел протухнуть, оба идут его обменивать, бэкенд
+    // принимает только первый, второй получает NoSessionError -- и вся
+    // ручка отвечает 401. Ровно эта гонка описана в lib/auth-fetch.ts
+    // (из-за неё там очередь на клиенте) и ровно она ломала «Вимкнути
+    // звук» и «Заблокувати»: состояние не приходило, и строки меню
+    // оставались неактивными.
+    const blockedCall = await callAsVisitor<unknown>("users.getBlocked", {});
+    const usersCall = await callAsVisitor<unknown>("users.getUsers", { ids: [userId] });
 
     const blockedParsed = BlockedListSchema.safeParse(blockedCall.data);
     const blocked = blockedParsed.success
