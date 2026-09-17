@@ -185,6 +185,7 @@ export default async function TalentDetailPage({ params }: Props) {
         authorName={post.author.name}
         authorAvatarUrl={post.author.avatarUrl}
         authorUnclaimed={post.author.unclaimed}
+        applyQuestions={post.applyQuestions}
         shareUrl={`${SITE_URL}/talents/${canonicalSlug}`}
         shareTitle={post.title}
       />

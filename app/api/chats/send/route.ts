@@ -107,6 +107,27 @@ const SendInput = z
           .max(50),
       })
       .optional(),
+    // 17.09.2026: отклик на вакансию с вопросами. Формат сообщения --
+    // НЕ наш: он снят один-в-один с приложения
+    // (lib/features/posts/backend_utils/apply_utils.dart,
+    // buildApplicationMessageEntities), чтобы одна и та же заявка
+    // читалась одинаково в чате на телефоне и в вебе. Оттуда же и
+    // ссылка на пост: https://a1appp.com/<postId>.
+    application: z
+      .object({
+        postId: z.string().trim().min(1),
+        postTitle: z.string().trim().min(1).max(300),
+        answers: z
+          .array(
+            z.object({
+              question: z.string().trim().min(1).max(1000),
+              answer: z.string().trim().min(1).max(2000),
+            }),
+          )
+          .min(1)
+          .max(20),
+      })
+      .optional(),
     // 2026-09-04 (Aleksandr, after lib/a1/meeting-protocol.ts's own
     // ARCHITECTURE NOTE shipped this whole feature as plain text only,
     // "WebFetch found no entity-meeting equivalent": he found one
@@ -184,7 +205,8 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ ok: false, message: "invalid_input" }, { status: 400 });
   }
-  const { chatId, text, media, contacts, calculation, meet, replyTo, forwardFrom } = parsed.data;
+  const { chatId, text, media, contacts, calculation, application, meet, replyTo, forwardFrom } =
+    parsed.data;
 
   try {
     // `message` and `media` are both optional on MessageInput (only
@@ -218,7 +240,41 @@ export async function POST(request: NextRequest) {
       );
     }
     if (mediaItems.length > 0) payload.media = mediaItems;
-    if (calculation) {
+    if (application) {
+      // Точная копия buildApplicationMessageEntities из приложения:
+      // жирная шапка со ссылкой на пост, линия, затем на каждый вопрос
+      // жирная строка «N. вопрос» и под ней ответ с табом и 👉.
+      // Последний ответ заканчивается одним переводом строки, все
+      // остальные -- двумя; менять эти переводы строк нельзя, иначе
+      // сообщение перестанет совпадать с мобильным.
+      const entities: Record<string, unknown>[] = [
+        {
+          object: "entity-bold",
+          entities: [
+            { object: "entity-text", text: "📩 Application (" },
+            {
+              object: "entity-text-url",
+              text: application.postTitle,
+              url: `https://a1appp.com/${application.postId}`,
+            },
+            { object: "entity-text", text: ")\n" },
+          ],
+        },
+        { object: "entity-hr" },
+      ];
+      application.answers.forEach((entry, index) => {
+        const isLast = index === application.answers.length - 1;
+        entities.push({
+          object: "entity-bold",
+          entities: [{ object: "entity-text", text: `${index + 1}. ${entry.question}\n` }],
+        });
+        entities.push({
+          object: "entity-text",
+          text: `\t👉 ${entry.answer}${isLast ? "\n" : "\n\n"}`,
+        });
+      });
+      payload.entities = entities;
+    } else if (calculation) {
       // A calculation lives in `entities`, not `media` -- and unlike
       // `media` (a separate top-level field from `message`), `entities`
       // is where plain message TEXT itself canonically lives too (a

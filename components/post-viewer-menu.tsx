@@ -62,6 +62,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
+import { ApplyQuestionsModal } from "@/components/apply-questions-modal";
 import type { Contact } from "@/lib/a1/schemas";
 import { LottiePlayer } from "@/components/lottie-player";
 import { InlineAuthForm } from "@/components/inline-auth-form";
@@ -323,6 +324,7 @@ export function PostViewerMenu({
   authorName,
   authorAvatarUrl,
   authorUnclaimed,
+  applyQuestions,
   shareUrl,
   shareTitle,
 }: {
@@ -343,6 +345,10 @@ export function PostViewerMenu({
   // hasn't been updated yet (there are none left, but belt and suspenders)
   // keeps today's behavior.
   authorUnclaimed?: boolean;
+  // 17.09.2026: вопросы к отклику (post.applyQuestions). Если они есть,
+  // кнопка открывает окно с вопросами вместо того, чтобы отправлять
+  // шаблонный текст мимо них -- components/apply-questions-modal.tsx.
+  applyQuestions?: string[];
   shareUrl: string;
   shareTitle: string;
 }) {
@@ -434,6 +440,7 @@ export function PostViewerMenu({
   // 2026-09-09: shown instead of navigating into the chat when the click
   // succeeded but authorUnclaimed is true — see openChat() below.
   const [thanksOpen, setThanksOpen] = useState(false);
+  const [applyOpen, setApplyOpen] = useState(false);
 
   // 2026-09-02 (Aleksandr: "И сюда, на сообщение и °°°" -- same hover-
   // appear effect asked for on components/chats-fab.tsx/components/
@@ -559,6 +566,9 @@ export function PostViewerMenu({
     return null;
   }
   const isAnon = viewerStatus === "anon";
+  // Окно с вопросами к отклику: открывается вместо openChat(), когда у
+  // поста есть вопросы и смотрящий вошёл в аккаунт.
+  const hasApplyQuestions = (applyQuestions?.length ?? 0) > 0;
 
   // 2026-09-02 (Aleksandr: "Сделай функциональной кнопку 'сообщения' из
   // страниц постов") -- same POST /api/chats/open + flash-red-on-
@@ -570,6 +580,12 @@ export function PostViewerMenu({
       return;
     }
     if (openingChat || !authorUserId) return;
+    if (hasApplyQuestions) {
+      // Отклик на вакансию с вопросами -- сначала ответы, отправка уже
+      // внутри окна (оно само зовёт /api/chats/open + /api/chats/send).
+      setApplyOpen(true);
+      return;
+    }
     setOpeningChat(true);
     try {
       const res = await authFetch("/api/chats/open", {
@@ -868,7 +884,7 @@ export function PostViewerMenu({
         type="button"
         onClick={openChat}
         disabled={openingChat}
-        aria-label={chatErrored ? STRINGS.actionFailed[lang] : authorUnclaimed ? STRINGS.apply[lang] : STRINGS.message[lang]}
+        aria-label={chatErrored ? STRINGS.actionFailed[lang] : authorUnclaimed || hasApplyQuestions ? STRINGS.apply[lang] : STRINGS.message[lang]}
         className={
           chatErrored
             ? "group flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-default disabled:opacity-60"
@@ -881,7 +897,7 @@ export function PostViewerMenu({
             многоточием, а не переносилась на вторую строку и не ломала
             высоту всей полосы. */}
         <span className="truncate">
-          {chatErrored ? STRINGS.actionFailed[lang] : authorUnclaimed ? STRINGS.apply[lang] : STRINGS.message[lang]}
+          {chatErrored ? STRINGS.actionFailed[lang] : authorUnclaimed || hasApplyQuestions ? STRINGS.apply[lang] : STRINGS.message[lang]}
         </span>
       </button>
 
@@ -1021,6 +1037,20 @@ export function PostViewerMenu({
         </div>,
         document.body,
       )}
+
+    {applyOpen && authorUserId && applyQuestions && applyQuestions.length > 0 && (
+      <ApplyQuestionsModal
+        postId={postId}
+        postTitle={shareTitle}
+        questions={applyQuestions}
+        authorUserId={authorUserId}
+        onClose={() => setApplyOpen(false)}
+        onSubmitted={() => {
+          setApplyOpen(false);
+          setThanksOpen(true);
+        }}
+      />
+    )}
 
     {thanksOpen &&
       createPortal(

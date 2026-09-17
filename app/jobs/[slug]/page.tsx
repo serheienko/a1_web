@@ -239,6 +239,7 @@ export default async function JobDetailPage({ params }: Props) {
         authorName={post.author.name}
         authorAvatarUrl={post.author.avatarUrl}
         authorUnclaimed={post.author.unclaimed}
+        applyQuestions={post.applyQuestions}
         shareUrl={`https://a1appp.com/postDetails/${post.id}`}
         shareTitle={post.title}
       />
@@ -324,10 +325,10 @@ export default async function JobDetailPage({ params }: Props) {
         </div>
       )}
 
-      {/* Aleksandr, 2026-08-30: "мы не запилили эту штуку с вопросами.
-          Пока для MVP просто показывай их в посте и всё, потом допилим
-          полноценно" -- plain read-only list, no answer inputs / apply
-          flow yet, that's the "допилим полноценно" part for later. */}
+      {/* Список вопросов остаётся на странице -- человек видит, о чём
+          спросят, ещё до нажатия. Отвечать теперь есть где: кнопка
+          «Відгукнутися» открывает окно с этими же вопросами
+          (components/apply-questions-modal.tsx, 17.09.2026). */}
       {post.applyQuestions.length > 0 && (
         <div className="mt-6">
           <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
