@@ -86,7 +86,11 @@ type StringKey =
   | "saveProfile"
   | "unsaveProfile"
   | "mute"
+  | "unmute"
   | "block"
+  | "unblock"
+  | "blockConfirmTitle"
+  | "blockConfirmBody"
   | "actionFailed"
   | "authPromptTitle"
   | "authPromptBody"
@@ -126,13 +130,30 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
     de: "Aus Gespeichertem entfernen", es: "Quitar de guardados", fr: "Retirer des enregistrés",
     pl: "Usuń z zapisanych", ptBR: "Remover dos salvos", zh: "从已保存中移除",
   },
-  // 2026-09-01: UI-only stubs -- there is no mute/block endpoint anywhere
-  // in this app, aone-api-private, or PLAN.md (checked, not assumed).
-  // Rows are real and clickable so the menu doesn't look broken, but
-  // click handlers just close the menu -- see this file's own header
-  // comment.
+  // 17.09.2026: раньше здесь стояли две мёртвые строки -- клик только
+  // закрывал меню, потому что считалось, что в API нет методов. Методы
+  // есть: users.block / users.unblock и account.updateNotifySettings
+  // (см. app/api/users/{block,mute,relation}). Теперь обе работают.
   mute: { uk: "Вимкнути звук", en: "Mute", ru: "Заглушить", de: "Stummschalten", es: "Silenciar", fr: "Mettre en sourdine", pl: "Wycisz", ptBR: "Silenciar", zh: "静音" },
+  unmute: { uk: "Увімкнути звук", en: "Unmute", ru: "Включить звук", de: "Stummschaltung aufheben", es: "Reactivar sonido", fr: "Réactiver le son", pl: "Wyłącz wyciszenie", ptBR: "Reativar som", zh: "取消静音" },
   block: { uk: "Заблокувати", en: "Block", ru: "Заблокировать", de: "Blockieren", es: "Bloquear", fr: "Bloquer", pl: "Zablokuj", ptBR: "Bloquear", zh: "屏蔽" },
+  unblock: { uk: "Розблокувати", en: "Unblock", ru: "Разблокировать", de: "Entsperren", es: "Desbloquear", fr: "Débloquer", pl: "Odblokuj", ptBR: "Desbloquear", zh: "解除屏蔽" },
+  blockConfirmTitle: {
+    uk: "Заблокувати цю людину?", en: "Block this person?", ru: "Заблокировать этого человека?",
+    de: "Diese Person blockieren?", es: "¿Bloquear a esta persona?", fr: "Bloquer cette personne ?",
+    pl: "Zablokować tę osobę?", ptBR: "Bloquear esta pessoa?", zh: "屏蔽此人？",
+  },
+  blockConfirmBody: {
+    uk: "Вона більше не зможе вам писати. Розблокувати можна будь-коли.",
+    en: "They will no longer be able to message you. You can unblock at any time.",
+    ru: "Он больше не сможет вам писать. Разблокировать можно в любой момент.",
+    de: "Diese Person kann Ihnen nicht mehr schreiben. Sie können die Blockierung jederzeit aufheben.",
+    es: "No podrá enviarte mensajes. Puedes desbloquear en cualquier momento.",
+    fr: "Cette personne ne pourra plus vous écrire. Vous pouvez débloquer à tout moment.",
+    pl: "Ta osoba nie będzie mogła Ci pisać. Możesz odblokować w każdej chwili.",
+    ptBR: "Essa pessoa não poderá mais te enviar mensagens. Você pode desbloquear quando quiser.",
+    zh: "对方将无法再给你发消息。你可以随时解除屏蔽。",
+  },
   actionFailed: { uk: "Не вдалося. Спробуйте ще раз", en: "Failed — try again", ru: "Не удалось. Попробуйте ещё раз", de: "Fehlgeschlagen — erneut versuchen", es: "Error — inténtalo de nuevo", fr: "Échec — réessayez", pl: "Nie udało się — spróbuj ponownie", ptBR: "Falhou — tente novamente", zh: "失败，请重试" },
   // 2026-09-02 (Aleksandr: "не уводить на страницу, а показывать попап
   // поверх действия" -- NOT a redirect to /sign-in, a popup right over
@@ -474,6 +495,46 @@ export function ProfileActionRow({
     };
   }, [profileUserId, viewerStatus]);
 
+  // Заглушён / заблокирован -- оба признака приходят одной ручкой
+  // (app/api/users/relation), потому что «•••» спрашивает их вместе.
+  // null = ещё не знаем: пока так, строки меню показываем в состоянии
+  // «включить», как самом частом, но клик всё равно сначала дождётся
+  // ответа сервера.
+  const [muted, setMuted] = useState<boolean | null>(null);
+  const [blocked, setBlocked] = useState<boolean | null>(null);
+  const [muteBusy, setMuteBusy] = useState(false);
+  const [blockBusy, setBlockBusy] = useState(false);
+  const [blockConfirmOpen, setBlockConfirmOpen] = useState(false);
+  // Одно общее «не получилось» на обе строки -- как contactErrored выше.
+  const [menuErrored, setMenuErrored] = useState(false);
+
+  useEffect(() => {
+    if (!profileUserId || viewerStatus !== "other") {
+      setMuted(null);
+      setBlocked(null);
+      return;
+    }
+    let cancelled = false;
+    authFetch("/api/users/relation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: profileUserId }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled || !data?.ok) return;
+        setMuted(Boolean(data.muted));
+        setBlocked(Boolean(data.blocked));
+      })
+      .catch(() => {
+        // Молчим: строки останутся в состоянии «включить», а первый же
+        // клик всё равно уйдёт на сервер и вернёт правду.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [profileUserId, viewerStatus]);
+
   // 2026-09-02: root cause of the old "silently never renders" bug
   // turned out to be exactly what this row's gating already implied --
   // `visible` stayed false forever for anyone not signed in as a
@@ -489,6 +550,78 @@ export function ProfileActionRow({
     return null;
   }
   const isAnon = viewerStatus === "anon";
+
+  function flashMenuError() {
+    setMenuErrored(true);
+    window.setTimeout(() => setMenuErrored(false), 2200);
+  }
+
+  async function toggleMute() {
+    if (isAnon) {
+      setAuthPromptOpen(true);
+      return;
+    }
+    if (muteBusy || !profileUserId) return;
+    const next = !(muted ?? false);
+    setMuteBusy(true);
+    try {
+      const res = await authFetch("/api/users/mute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: profileUserId, mute: next }),
+      });
+      const data = await res.json().catch(() => null);
+      if (data?.ok) {
+        setMuted(next);
+        setMenuOpen(false);
+      } else {
+        flashMenuError();
+      }
+    } catch {
+      flashMenuError();
+    } finally {
+      setMuteBusy(false);
+    }
+  }
+
+  async function applyBlock(next: boolean) {
+    if (!profileUserId) return;
+    setBlockBusy(true);
+    try {
+      const res = await authFetch("/api/users/block", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: profileUserId, block: next }),
+      });
+      const data = await res.json().catch(() => null);
+      if (data?.ok) {
+        setBlocked(next);
+        setBlockConfirmOpen(false);
+        setMenuOpen(false);
+      } else {
+        flashMenuError();
+      }
+    } catch {
+      flashMenuError();
+    } finally {
+      setBlockBusy(false);
+    }
+  }
+
+  function onBlockClick() {
+    if (isAnon) {
+      setAuthPromptOpen(true);
+      return;
+    }
+    if (blockBusy || !profileUserId) return;
+    // Разблокировать -- безобидно, спрашиваем только про блокировку.
+    if (blocked) {
+      void applyBlock(false);
+      return;
+    }
+    setMenuOpen(false);
+    setBlockConfirmOpen(true);
+  }
 
   function flashContactError() {
     setContactErrored(true);
@@ -748,32 +881,41 @@ export function ProfileActionRow({
                   {saveIcon}
                   {saveLabel}
                 </button>
-                {/* Mute/Block — UI-only stubs, see this file's own header
-                    comment on why (no backend endpoint exists for either
-                    today). 2026-09-02 (Aleksandr: "в не залогиненом
-                    состоянии надо убрать вимкнути звук и заблокувати") --
-                    neither makes sense for a signed-out visitor (nothing
-                    of theirs to mute/block yet), so both are hidden for
-                    isAnon; Save still shows and routes through the same
-                    auth popup as the other real actions. */}
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setMenuOpen(false)}
-                    className="group flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 transition hover:bg-accent/10 hover:text-accent dark:text-neutral-300"
-                  >
-                    <MuteIcon />
-                    {STRINGS.mute[lang]}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMenuOpen(false)}
-                    className="group flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-red-600 transition hover:bg-red-50 dark:hover:bg-red-950/30"
-                  >
-                    <BlockIcon />
-                    {STRINGS.block[lang]}
-                  </button>
-                </>
+                {/* 2026-09-02 (Aleksandr: "в не залогиненом состоянии надо
+                    убрать вимкнути звук и заблокувати") -- для гостя обе
+                    строки бессмысленны, поэтому скрыты; Save остаётся и
+                    ведёт в тот же попап входа. 17.09.2026: строки больше
+                    не заглушки, за ними реальные методы API. */}
+                {!isAnon && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={toggleMute}
+                      disabled={muteBusy || muted === null}
+                      className="group flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 transition hover:bg-accent/10 hover:text-accent disabled:opacity-60 dark:text-neutral-300"
+                    >
+                      <MuteIcon />
+                      {menuErrored
+                        ? STRINGS.actionFailed[lang]
+                        : muted
+                          ? STRINGS.unmute[lang]
+                          : STRINGS.mute[lang]}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onBlockClick}
+                      disabled={blockBusy || blocked === null}
+                      className="group flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-red-600 transition hover:bg-red-50 disabled:opacity-60 dark:hover:bg-red-950/30"
+                    >
+                      <BlockIcon />
+                      {menuErrored
+                        ? STRINGS.actionFailed[lang]
+                        : blocked
+                          ? STRINGS.unblock[lang]
+                          : STRINGS.block[lang]}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </>
@@ -781,6 +923,47 @@ export function ProfileActionRow({
       </div>
       )}
     </div>
+
+    {blockConfirmOpen &&
+      createPortal(
+        <div
+          className="animate-backdrop-in fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setBlockConfirmOpen(false)}
+        >
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+            className="animate-modal-in w-full max-w-xs rounded-2xl bg-white p-5 shadow-xl dark:bg-neutral-900"
+          >
+            <p className="text-base font-semibold text-neutral-900 dark:text-neutral-50">
+              {STRINGS.blockConfirmTitle[lang]}
+            </p>
+            <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+              {STRINGS.blockConfirmBody[lang]}
+            </p>
+            <div className="mt-4 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => void applyBlock(true)}
+                disabled={blockBusy}
+                className="w-full rounded-full bg-red-600 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
+              >
+                {STRINGS.block[lang]}
+              </button>
+              <button
+                type="button"
+                onClick={() => setBlockConfirmOpen(false)}
+                disabled={blockBusy}
+                className="w-full rounded-full border border-neutral-300 py-2.5 text-sm font-medium text-neutral-600 transition hover:bg-neutral-100 disabled:opacity-60 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+              >
+                {STRINGS.cancel[lang]}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
 
     {authPromptOpen &&
       createPortal(
