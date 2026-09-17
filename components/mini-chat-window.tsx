@@ -62,6 +62,7 @@ import { useHoverPanel } from "@/lib/use-hover-panel";
 import { buildMediaProxyUrl, buildMediaDownloadUrl, decodeStickerPathPreview, strippedPreviewDataUrl } from "@/lib/a1/media-proxy";
 import { encodeBase64Waveform, SELF_DESTRUCT_VOICE_FLAGS, SELF_DESTRUCT_VOICE_TTL_SECONDS } from "@/lib/a1/chat-schemas";
 import { useVoiceRecorder, type VoiceRecordingResult } from "@/components/chat/voice-recorder";
+import { MessageRichText } from "@/components/chat/message-rich-text";
 import { rememberLocalVoiceWaveform } from "@/lib/voice-local-waveform-cache";
 import { VoiceRecordButton, VoiceRecordingBar, VoiceMicDeniedNotice } from "@/components/chat/voice-message";
 import { VoiceMessageBubble } from "@/components/chat/voice-bubble";
@@ -2225,7 +2226,9 @@ export function MiniChatWindow({
                       <LottiePlayer src={quickInviteCatAnimation(text)!} size={40} />
                     </div>
                   ) : (
-                    <div className="whitespace-pre-wrap break-words">{text}</div>
+                    <div className="whitespace-pre-wrap break-words">
+                      <MessageRichText entities={msg.entities} fallback={text} />
+                    </div>
                   )
                 )}
                 {footer}

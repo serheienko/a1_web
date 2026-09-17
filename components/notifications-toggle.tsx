@@ -66,7 +66,7 @@ function BellIcon() {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="shrink-0 text-neutral-400 dark:text-neutral-500"
+      className="shrink-0 animate-bell-ring"
       aria-hidden="true"
     >
       <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
@@ -119,7 +119,7 @@ export function NotificationsToggle({ lang }: { lang: Locale }) {
   }
 
   return (
-    <div className="px-0.5">
+    <>
       <button
         type="button"
         onClick={toggle}
@@ -152,7 +152,7 @@ export function NotificationsToggle({ lang }: { lang: Locale }) {
       {failed && (
         <p className="px-2.5 pb-1 text-[11px] leading-snug text-red-500">{STRINGS.failed[lang]}</p>
       )}
-    </div>
+    </>
   );
 }
 

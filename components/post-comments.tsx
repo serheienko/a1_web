@@ -1064,7 +1064,13 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
         className={`fixed inset-0 z-50 items-end justify-center overscroll-contain sm:items-center ${open ? "flex" : "hidden"}`}
         {...backdropDismiss(closeWindow)}
       >
-        <div className={`absolute inset-0 bg-black/50 transition-opacity duration-200 ease-out ${shown ? "opacity-100" : "opacity-0"}`} />
+        {/* data-backdrop: клик по затемнению = клик мимо окна, см.
+            lib/use-backdrop-dismiss.ts. Без этой пометки затемняющий
+            слой перехватывал клик на себя и окно не закрывалось. */}
+        <div
+          data-backdrop
+          className={`absolute inset-0 bg-black/50 transition-opacity duration-200 ease-out ${shown ? "opacity-100" : "opacity-0"}`}
+        />
         <div
           ref={windowRef}
           onClick={(e) => e.stopPropagation()}

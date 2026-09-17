@@ -1007,20 +1007,62 @@ export function messageCalculation(msg: ChatMessage): MessageCalculation | null 
   return null;
 }
 
-// Real text lives under `entities` (an array of typed spans -- only
-// `entity-text` carries a `.text` string; other entity types are just
-// passed through by MessageEntitySchema's catchall and ignored here) --
-// NOT a flat `message`/`text`/`content`/`body` field, which is what
-// this function guessed before the shape above was confirmed live.
-// Multiple entity-text entities (if a message ever has more than one)
-// are concatenated in order. Never throws; empty string means "render
+// 2026-09-18 (Александр, скриншот отклика в веб-чате: «Application
+// прилетает в неправильном виде... сверху эмодзи, заголовок и т.д.»).
+// Текст сообщения -- это ДЕРЕВО, а не плоский список. Жирные куски
+// (`entity-bold`), цитаты, спойлеры и цветной текст не несут `.text`
+// сами -- они держат детей в своём `entities`. Сообщение об отклике,
+// которое бэкенд собирает после posts.apply, устроено ровно так:
+// шапка «📩 Application (вакансия)» и каждая строка «1. Вопрос?» лежат
+// внутри entity-bold, а плоским entity-text идут только ответы
+// «👉 ...». Старый разбор читал ТОЛЬКО верхний уровень -- поэтому в
+// вебе от отклика оставались два голых ответа без шапки и вопросов.
+//
+// Полный словарь (openapi, Resource.RichText):
+//   листья с текстом -- entity-text, entity-text-url, entity-url,
+//                       entity-mention, entity-phone, entity-pre;
+//   обёртки с детьми -- entity-bold, entity-blockquote, entity-spoiler,
+//                       entity-muted, entity-text-color;
+//   без содержимого  -- entity-hr (разделительная линия).
+const TEXT_ENTITY_KINDS = new Set([
+  "entity-text",
+  "entity-text-url",
+  "entity-url",
+  "entity-mention",
+  "entity-phone",
+  "entity-pre",
+]);
+
+const WRAPPER_ENTITY_KINDS = new Set([
+  "entity-bold",
+  "entity-blockquote",
+  "entity-spoiler",
+  "entity-muted",
+  "entity-text-color",
+]);
+
+/** Плоский текст одной сущности вместе со всеми вложенными. */
+export function entityPlainText(node: unknown): string {
+  if (!node || typeof node !== "object") return "";
+  const e = node as { object?: unknown; text?: unknown; entities?: unknown };
+  const kind = typeof e.object === "string" ? e.object : "";
+  if (kind === "entity-hr") return "\n";
+  if (WRAPPER_ENTITY_KINDS.has(kind) && Array.isArray(e.entities)) {
+    return e.entities.map(entityPlainText).join("");
+  }
+  if (TEXT_ENTITY_KINDS.has(kind) && typeof e.text === "string") return e.text;
+  return "";
+}
+
+// Real text lives under `entities` (дерево типизированных кусков, см.
+// entityPlainText выше) -- NOT a flat `message`/`text`/`content`/`body`
+// field, which is what this function guessed before the shape above was
+// confirmed live. Все куски склеиваются по порядку, включая вложенные
+// в entity-bold и прочие обёртки. Never throws; empty string means "render
 // the media/attachment area only, no text bubble" once media rendering
 // exists (not in this Phase 1 pass -- see PLAN.md).
 export function extractMessageText(msg: ChatMessage): string {
-  const fromEntities = msg.entities
-    .filter((e) => e.object === "entity-text" && typeof e.text === "string")
-    .map((e) => e.text as string)
-    .join("");
+  const fromEntities = msg.entities.map(entityPlainText).join("");
   if (fromEntities) return fromEntities;
   // Kept as a fallback for any message shape this session hasn't seen a
   // live example of yet -- costs nothing, never fires against the

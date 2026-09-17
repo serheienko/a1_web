@@ -35,6 +35,26 @@ if (typeof window !== "undefined") {
 }
 
 /**
+ * Клик пришёлся в «пустоту» вокруг окна, а не в само окно.
+ *
+ * Обычно пустота -- это сам слой-обёртка (`event.currentTarget`). Но у
+ * части модалок поверх обёртки лежит ОТДЕЛЬНЫЙ затемняющий слой
+ * (`absolute inset-0 bg-black/50`), и тогда клик по затемнению достаётся
+ * ему, а не обёртке. Раньше такие окна по клику мимо не закрывались
+ * вовсе -- Александр, 18.09.2026: «Сделай чтобы любым кликом вне окна
+ * окно закрывалось». Поэтому затемняющий слой помечается атрибутом
+ * `data-backdrop` и считается такой же пустотой.
+ */
+function isOutsideWindow(node: EventTarget | null, overlay: Element): boolean {
+  if (node === overlay) return true;
+  if (!(node instanceof Node)) return false;
+  const element = node instanceof Element ? node : node.parentElement;
+  if (!element) return false;
+  const backdrop = element.closest("[data-backdrop]");
+  return backdrop !== null && overlay.contains(backdrop);
+}
+
+/**
  * Пропсы для div-подложки оверлея.
  *
  * `onClose === undefined` -- закрытие временно запрещено (например идёт
@@ -44,8 +64,9 @@ export function backdropDismiss(onClose: (() => void) | undefined) {
   return {
     onClick: (event: ReactMouseEvent<HTMLElement>) => {
       if (!onClose) return;
-      if (event.target !== event.currentTarget) return;
-      if (gestureStartTarget !== event.currentTarget) return;
+      const overlay = event.currentTarget;
+      if (!isOutsideWindow(event.target, overlay)) return;
+      if (!isOutsideWindow(gestureStartTarget, overlay)) return;
       onClose();
     },
   };

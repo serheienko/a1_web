@@ -61,6 +61,7 @@ import {
 import { ChatPreviewLine } from "@/components/chat/chat-preview-line";
 import { MessageActionsMenu, ReplyComposeBar, EditComposeBar, ForwardComposeBar, MessageReplyQuote, ReplyIcon, RemindIcon, DeleteMessageConfirmDialog, ReactionsBar } from "@/components/chat/message-actions-menu";
 import { PinnedMessageBanner } from "@/components/chat/pinned-message-banner";
+import { MessageRichText } from "@/components/chat/message-rich-text";
 import { AllPinsModal } from "@/components/chat/all-pins-modal";
 // Reminders list (2026-09-06, design-reference screenshots of an
 // iOS-style "Remind me" sheet grouping reminders by date -- see this
@@ -4546,6 +4547,13 @@ export default function ChatWindowPage() {
               // `pendingMessages` state/PendingMessage type comments
               // above for what `failed` means and how it clears.
               const pending = isPendingMessage(msg) ? msg : null;
+              // 2026-09-18 (Александр: «Application прилетает в
+              // неправильном виде... сверху эмодзи, заголовок и тд») --
+              // сырые сущности сообщения для отрисовки разметки
+              // (жирное, ссылки, разделитель). У ещё не отправленного
+              // своего сообщения их нет -- тогда рисуется плоский
+              // текст, как и раньше.
+              const richEntities = isPendingMessage(msg) ? null : msg.entities;
               const popoverOpen = pending !== null && openPendingId === pending.localId;
               // Attachment feature: a pending (not-yet-reconciled) bubble
               // renders its own local upload previews (pendingAttachments,
@@ -5884,7 +5892,7 @@ export default function ChatWindowPage() {
                                   : (e) => setActionsMenu({ message: msg, anchorRect: e.currentTarget.getBoundingClientRect(), mine })
                               }
                             >
-                              {text}
+                              <MessageRichText entities={richEntities} fallback={text} />
                             </div>
                           </>
                         )
