@@ -47,10 +47,9 @@ export const APP_VERSION_CONFIG: AppVersionConfig = {
     minimum: "1.0.0",
     recommended: "1.0.0",
     note: "",
-    // Появится, когда приложение выйдет в App Store: туда нужен
-    // числовой id вида https://apps.apple.com/app/id6740000000.
-    // Пока пусто -- приложение открывает свою страницу само.
-    storeUrl: "",
+    // Числовой id из App Store Connect (карточка приложения
+    // «A1: Job Search, Jobs & Hiring»), взят 2026-09-17.
+    storeUrl: "https://apps.apple.com/app/id6443859764",
   },
   android: {
     minimum: "1.0.0",
