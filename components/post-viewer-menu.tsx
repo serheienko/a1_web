@@ -63,6 +63,7 @@ import { useRouter } from "next/navigation";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
 import { ApplyQuestionsModal } from "@/components/apply-questions-modal";
+import type { WebApplyQuestion } from "@/types/web-post";
 import { ReportModal } from "@/components/report-modal";
 import type { Contact } from "@/lib/a1/schemas";
 import { LottiePlayer } from "@/components/lottie-player";
@@ -359,7 +360,7 @@ export function PostViewerMenu({
   // 17.09.2026: вопросы к отклику (post.applyQuestions). Если они есть,
   // кнопка открывает окно с вопросами вместо того, чтобы отправлять
   // шаблонный текст мимо них -- components/apply-questions-modal.tsx.
-  applyQuestions?: string[];
+  applyQuestions?: WebApplyQuestion[];
   shareUrl: string;
   shareTitle: string;
 }) {
@@ -1074,7 +1075,6 @@ export function PostViewerMenu({
     {applyOpen && authorUserId && applyQuestions && applyQuestions.length > 0 && (
       <ApplyQuestionsModal
         postId={postId}
-        postTitle={shareTitle}
         questions={applyQuestions}
         authorUserId={authorUserId}
         onClose={() => setApplyOpen(false)}

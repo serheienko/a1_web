@@ -1850,13 +1850,29 @@ export default function ChatWindowPage() {
           // until a poll tick actually has the real media ready.
           const expectedMediaCount =
             p.pendingAttachments?.filter((a) => a.status === "ready").length ?? 0;
+          // 17.09.2026 (Александр, видео: «Че то показывает бесконечный
+          // loader, хотя сообщения уже давно пришли на другой девайс»).
+          // Условие про медиа выше решало реальную задачу -- не
+          // подменять свои корректные локальные превью пустым пузырём,
+          // пока сервер не прицепил документы. Но оно не имело срока
+          // годности: если у настоящего сообщения документы так и не
+          // распознались (например мимо-тип, который messageDocumentMedia
+          // не разбирает), пузырь оставался «отправляется» навсегда --
+          // при том что сообщение давно ушло и видно на другом
+          // устройстве. Через 20 секунд перестаём ждать медиа и
+          // засчитываем совпадение по отправителю, тексту и времени:
+          // настоящий провал отправки сюда не попадает, у него свой
+          // признак failed (см. attemptSend).
+          const waitedTooLong = Date.now() - messageDateMs(p) > 20_000;
           const reconciled = fetched.some(
             (m) =>
               resolvedMyUserId !== null &&
               m.fromId === resolvedMyUserId &&
               extractMessageText(m) === extractMessageText(p) &&
               messageDateMs(m) >= messageDateMs(p) - 5000 &&
-              (expectedMediaCount === 0 || messageDocumentMedia(m).length >= expectedMediaCount),
+              (expectedMediaCount === 0 ||
+                waitedTooLong ||
+                messageDocumentMedia(m).length >= expectedMediaCount),
           );
           if (reconciled) {
             // Attachment feature: this bubble's local image previews
@@ -3566,9 +3582,15 @@ export default function ChatWindowPage() {
         ? {
             note: sourceCalc.note,
             currency: sourceCalc.currency.trim(),
+            // Ручка принимает строго целые: quantity >= 1,
+            // unitAmount >= 0 (app/api/chats/send). В уже сохранённом
+            // расчёте может лежать что угодно -- дробное, ноль,
+            // отрицательное. 17.09.2026 (Александр: «Пересылка
+            // рассчетов не работает»): без округления такой расчёт
+            // заворачивался с invalid_input, и форвард молча падал.
             rows: sourceCalc.rows.map((r) => ({
-              quantity: r.quantity,
-              unitAmount: r.unitAmount,
+              quantity: Math.max(1, Math.round(r.quantity)),
+              unitAmount: Math.max(0, Math.round(r.unitAmount)),
               description: r.description ?? null,
             })),
           }
@@ -5290,7 +5312,7 @@ export default function ChatWindowPage() {
                                 durationSeconds={a.durationSeconds ?? 0}
                                 waveform={a.waveform}
                                 uploading={a.status === "uploading"}
-                                footer={isVoiceOnly ? flatFooter : undefined}
+                                footer={isFlatMedia ? flatFooter : undefined}
                               />
                             ) : a.kind === "image" ? (
                               <div key={a.localId} className="relative min-w-[200px] overflow-hidden rounded-xl">
@@ -5336,7 +5358,19 @@ export default function ChatWindowPage() {
                                 <span className="flex min-w-0 flex-1 flex-col gap-1">
                                   <span className="truncate text-[14px] font-medium">{a.fileName}</span>
                                   <span className={`text-[12px] ${mine ? "opacity-80" : "opacity-60"}`}>{formatBytes(a.bytes)}</span>
-                                  {isFileOnly && <span className="mt-0.5">{flatFooter}</span>}
+                                  {/* 17.09.2026 (Александр: «Пересланный
+                                      файл показывается криво. 2 раза
+                                      отображено время и нет имени»):
+                                      раньше условие было isFileOnly.
+                                      Пересланное сообщение теряет
+                                      «плоский» режим (ему нужен пузырь
+                                      под шапку «Переслано від …»), а
+                                      этот футер всё равно рисовался --
+                                      вместе с общим футером пузыря
+                                      получалось два времени. Футер
+                                      внутри карточки нужен ровно тогда,
+                                      когда пузыря нет. */}
+                                  {isFlatMedia && <span className="mt-0.5">{flatFooter}</span>}
                                 </span>
                                 {a.status === "uploading" && (
                                   <div className="absolute inset-0 flex items-center justify-center bg-black/30">
@@ -5372,7 +5406,7 @@ export default function ChatWindowPage() {
                                 peerName={headerTitle}
                                 peerAvatarUrl={headerAvatar}
                                 myAvatarUrl={myAvatarUrl}
-                                footer={isVoiceOnly ? flatFooter : undefined}
+                                footer={isFlatMedia ? flatFooter : undefined}
                               />
                             ) : isImageMediaDocument(doc) ? (
                               isImageOnly ? (
@@ -5656,7 +5690,19 @@ export default function ChatWindowPage() {
                                       {formatBytes(mediaDocumentBytes(doc) as number)}
                                     </span>
                                   )}
-                                  {isFileOnly && <span className="mt-0.5">{flatFooter}</span>}
+                                  {/* 17.09.2026 (Александр: «Пересланный
+                                      файл показывается криво. 2 раза
+                                      отображено время и нет имени»):
+                                      раньше условие было isFileOnly.
+                                      Пересланное сообщение теряет
+                                      «плоский» режим (ему нужен пузырь
+                                      под шапку «Переслано від …»), а
+                                      этот футер всё равно рисовался --
+                                      вместе с общим футером пузыря
+                                      получалось два времени. Футер
+                                      внутри карточки нужен ровно тогда,
+                                      когда пузыря нет. */}
+                                  {isFlatMedia && <span className="mt-0.5">{flatFooter}</span>}
                                 </span>
                               </a>
                             ),
@@ -5717,7 +5763,7 @@ export default function ChatWindowPage() {
                                   contactSummaries[c.userId]?.avatarUrl ?? null,
                                 )
                               }
-                              footer={isContactOnly ? flatFooter : undefined}
+                              footer={isFlatMedia ? flatFooter : undefined}
                             />
                           ))}
                         </div>

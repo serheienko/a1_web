@@ -269,7 +269,9 @@ export default async function TalentDetailPage({ params }: Props) {
           </h2>
           <ul className="mt-2 flex flex-col gap-1 text-neutral-700 dark:text-neutral-300">
             {post.applyQuestions.map((q, i) => (
-              <li key={i}>{q}</li>
+              <li key={q.id}>
+                {i + 1}. {q.text}
+              </li>
             ))}
           </ul>
         </div>

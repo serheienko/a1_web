@@ -9,6 +9,22 @@
 // "мы не запилили эту штуку с вопросами. Пока для MVP просто показывай
 // их в посте и всё, потом допилим полноценно".
 
+/**
+ * Вопрос к отклику (screening question). 17.09.2026: раньше здесь была
+ * просто строка -- для показа хватало, но откликнуться так нельзя:
+ * метод posts.apply принимает ответы, привязанные к `_id` вопроса, а не
+ * к его тексту. Поэтому теперь объект целиком, как его отдаёт бэкенд
+ * (Resource.Post.Apply.Question.Text).
+ */
+export type WebApplyQuestion = {
+  id: string;
+  text: string;
+  /** Без ответа на такой вопрос отклик не отправить. */
+  required: boolean;
+  minLength: number | null;
+  maxLength: number | null;
+};
+
 export type WebPostKind = "hiring" | "seeking";
 
 export type WebPostAuthor = {
@@ -80,5 +96,5 @@ export type WebPost = {
   links: WebPostLink[];
   viewCount: number;
   hasApplyForm: boolean;
-  applyQuestions: string[];
+  applyQuestions: WebApplyQuestion[];
 };

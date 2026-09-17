@@ -17,9 +17,11 @@
 // Все подписи взяты из ARB-файлов приложения (ключи
 // jobPostApplyModal*), чтобы web и телефон говорили одними словами.
 //
-// Само сообщение собирает сервер -- app/api/chats/send/route.ts,
-// ветка `application`: точная копия buildApplicationMessageEntities из
-// lib/features/posts/backend_utils/apply_utils.dart.
+// Отправка идёт методом **posts.apply** (app/api/posts/apply), ответы
+// привязаны к id вопроса. Сообщение «📩 Application (…)» в чате создаёт
+// БЭКЕНД сам -- приложение его не шлёт, оно только рисует оптимистичную
+// копию и переходит в чат. Поэтому и здесь после успеха мы просто
+// открываем чат с автором, а не отправляем второе сообщение.
 //
 // Черновик лежит в localStorage (по одному на вакансию): приложение
 // обещает «ответы сохранятся как черновик», и без этого обещание было
@@ -28,8 +30,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
+import type { WebApplyQuestion } from "@/types/web-post";
 
 const STRINGS = {
   title: {
@@ -113,6 +117,11 @@ const STRINGS = {
     ptBR: "Algo deu errado. Tente novamente",
     zh: "出现错误。请重试",
   },
+  answerHint: {
+    uk: "Ваша відповідь…", en: "Your answer…", ru: "Ваш ответ…", de: "Deine Antwort …",
+    es: "Tu respuesta…", fr: "Ta réponse…", pl: "Twoja odpowiedź…", ptBR: "Sua resposta…",
+    zh: "您的回答…",
+  },
   reviewAria: {
     uk: "Перевірити відповіді", en: "Review answers", ru: "Проверить ответы",
     de: "Antworten prüfen", es: "Revisar respuestas", fr: "Relire les réponses",
@@ -150,42 +159,42 @@ function draftKey(postId: string): string {
   return `a1:apply-draft:${postId}`;
 }
 
-function readDraft(postId: string, count: number): string[] {
-  const empty = Array.from({ length: count }, () => "");
+/** Черновик лежит по id вопроса, а не по порядковому номеру: вопросы в
+ *  посте могут переставить или дописать, и тогда «ответ №2» уехал бы не
+ *  к тому вопросу. */
+function readDraft(postId: string): Record<string, string> {
   try {
     const raw = window.localStorage.getItem(draftKey(postId));
-    if (!raw) return empty;
+    if (!raw) return {};
     const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return empty;
-    return empty.map((fallback, i) => {
-      const value = parsed[i];
-      return typeof value === "string" ? value : fallback;
-    });
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    const out: Record<string, string> = {};
+    for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof value === "string") out[key] = value;
+    }
+    return out;
   } catch {
-    return empty;
+    return {};
   }
 }
 
 export function ApplyQuestionsModal({
   postId,
-  postTitle,
   questions,
   authorUserId,
   onClose,
   onSubmitted,
 }: {
   postId: string;
-  postTitle: string;
-  questions: string[];
+  questions: WebApplyQuestion[];
   authorUserId: string;
   onClose: () => void;
   /** Отклик ушёл -- родитель показывает своё «спасибо». */
   onSubmitted: () => void;
 }) {
   const lang = useActiveLocale();
-  const [answers, setAnswers] = useState<string[]>(() =>
-    Array.from({ length: questions.length }, () => ""),
-  );
+  const router = useRouter();
+  const [answers, setAnswers] = useState<Record<string, string>>({});
   const [step, setStep] = useState(0);
   const [reviewing, setReviewing] = useState(false);
   const [clearOpen, setClearOpen] = useState(false);
@@ -196,14 +205,21 @@ export function ApplyQuestionsModal({
 
   const lastIndex = questions.length - 1;
   const isLastStep = step === lastIndex;
-  const current = answers[step] ?? "";
-  const hasAnything = useMemo(() => answers.some((a) => a.trim().length > 0), [answers]);
-  const allAnswered = useMemo(() => answers.every((a) => a.trim().length > 0), [answers]);
+  const question = questions[step];
+  const current = question ? (answers[question.id] ?? "") : "";
+  const hasAnything = useMemo(
+    () => questions.some((q) => (answers[q.id] ?? "").trim().length > 0),
+    [answers, questions],
+  );
+  /** Обязательные вопросы, оставшиеся без ответа, блокируют отправку. */
+  const requiredSatisfied = useMemo(
+    () => questions.every((q) => !q.required || (answers[q.id] ?? "").trim().length > 0),
+    [answers, questions],
+  );
 
-  // Черновик: читаем один раз при открытии, пишем на каждое изменение.
   useEffect(() => {
-    setAnswers(readDraft(postId, questions.length));
-  }, [postId, questions.length]);
+    setAnswers(readDraft(postId));
+  }, [postId]);
 
   useEffect(() => {
     try {
@@ -253,11 +269,12 @@ export function ApplyQuestionsModal({
   }, [clearOpen, leaveOpen, requestClose]);
 
   function setAnswer(value: string) {
-    setAnswers((prev) => prev.map((a, i) => (i === step ? value : a)));
+    if (!question) return;
+    setAnswers((prev) => ({ ...prev, [question.id]: value }));
   }
 
   function clearAll() {
-    setAnswers(Array.from({ length: questions.length }, () => ""));
+    setAnswers({});
     setStep(0);
     setReviewing(false);
     setClearOpen(false);
@@ -276,43 +293,49 @@ export function ApplyQuestionsModal({
   }
 
   async function submit() {
-    if (sending || !allAnswered) return;
+    if (sending || !requiredSatisfied) return;
     setSending(true);
     setErrored(false);
     try {
-      const opened = await authFetch("/api/chats/open", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: authorUserId }),
-      });
-      const openedData = await opened.json().catch(() => null);
-      if (!openedData?.ok || typeof openedData.chatId !== "string") throw new Error("open_failed");
-
-      const sent = await authFetch("/api/chats/send", {
+      // Приложение отправляет ВСЕ вопросы, подставляя пустую строку
+      // там, где не ответили (applyToPost) -- повторяем.
+      const res = await authFetch("/api/posts/apply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          chatId: openedData.chatId,
-          application: {
-            postId,
-            postTitle,
-            answers: questions.map((question, i) => ({
-              question,
-              answer: (answers[i] ?? "").trim(),
-            })),
-          },
+          postId,
+          answers: questions.map((q) => ({
+            questionId: q.id,
+            text: (answers[q.id] ?? "").trim(),
+          })),
         }),
       });
-      const sentData = await sent.json().catch(() => null);
-      if (!sentData?.ok) throw new Error("send_failed");
+      const data = await res.json().catch(() => null);
+      if (!data?.ok) throw new Error("apply_failed");
 
-      // Отклик ушёл -- черновик больше не нужен.
       try {
         window.localStorage.removeItem(draftKey(postId));
       } catch {
         // не страшно
       }
       onSubmitted();
+
+      // Сообщение с заявкой создаёт бэкенд -- ведём человека в чат, где
+      // оно и появится, ровно как приложение после posts.apply.
+      try {
+        const opened = await authFetch("/api/chats/open", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: authorUserId }),
+        });
+        const openedData = await opened.json().catch(() => null);
+        if (openedData?.ok && typeof openedData.chatId === "string") {
+          router.push(`/chats/${openedData.chatId}`);
+        }
+      } catch {
+        // Чат не открылся -- отклик всё равно ушёл, человек увидит
+        // «спасибо» и найдёт переписку сам.
+      }
     } catch {
       setErrored(true);
     } finally {
@@ -327,7 +350,8 @@ export function ApplyQuestionsModal({
       ? STRINGS.almostDone[lang]
       : STRINGS.title[lang];
 
-  const primaryDisabled = sending || (reviewing ? !allAnswered : current.trim().length === 0);
+  const stepBlocked = Boolean(question?.required) && current.trim().length === 0;
+  const primaryDisabled = sending || (reviewing ? !requiredSatisfied : stepBlocked);
   const primaryLabel = reviewing || isLastStep ? STRINGS.submit[lang] : STRINGS.next[lang];
 
   return createPortal(
@@ -371,8 +395,8 @@ export function ApplyQuestionsModal({
 
           {reviewing ? (
             <ul className="mt-5 flex max-h-[45vh] flex-col gap-3 overflow-y-auto">
-              {questions.map((question, i) => (
-                <li key={i}>
+              {questions.map((q, i) => (
+                <li key={q.id}>
                   <button
                     type="button"
                     onClick={() => {
@@ -382,43 +406,47 @@ export function ApplyQuestionsModal({
                     className="w-full rounded-2xl bg-neutral-100 px-4 py-3 text-left transition hover:bg-neutral-200/70 dark:bg-neutral-800 dark:hover:bg-neutral-700/70"
                   >
                     <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                      {i + 1}. {question}
+                      {i + 1}. {q.text}
                     </p>
                     <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-600 dark:text-neutral-300">
-                      👉 {(answers[i] ?? "").trim()}
+                      👉 {(answers[q.id] ?? "").trim()}
                     </p>
                   </button>
                 </li>
               ))}
             </ul>
           ) : (
-            <>
-              <p className="mt-5 text-center text-base font-semibold text-neutral-900 dark:text-neutral-100">
-                {step + 1}. {questions[step]}
-              </p>
-              <div className="relative mt-4">
-                <textarea
-                  ref={textareaRef}
-                  value={current}
-                  onChange={(e) => setAnswer(e.target.value)}
-                  rows={5}
-                  maxLength={2000}
-                  className="w-full resize-none rounded-2xl bg-neutral-100 p-4 pr-11 text-sm text-neutral-900 outline-none ring-accent/40 transition focus:ring-2 dark:bg-neutral-800 dark:text-neutral-100"
-                />
-                {current.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setAnswer("")}
-                    aria-label={STRINGS.clearAria[lang]}
-                    className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-neutral-300/80 text-neutral-600 transition hover:bg-neutral-400/80 dark:bg-neutral-600 dark:text-neutral-200"
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="h-3 w-3" aria-hidden="true">
-                      <path d="M6 6l12 12M18 6L6 18" />
-                    </svg>
-                  </button>
-                )}
-              </div>
-            </>
+            question && (
+              <>
+                {/* Вопрос слева, как в приложении -- по центру только заголовок листа. */}
+                <p className="mt-5 text-[15px] font-semibold text-neutral-900 dark:text-neutral-100">
+                  {step + 1}. {question.text}
+                </p>
+                <div className="relative mt-3">
+                  <textarea
+                    ref={textareaRef}
+                    value={current}
+                    onChange={(e) => setAnswer(e.target.value)}
+                    rows={5}
+                    maxLength={question.maxLength ?? 2000}
+                    placeholder={STRINGS.answerHint[lang]}
+                    className="w-full resize-none rounded-2xl bg-neutral-100 p-4 pr-11 text-sm text-neutral-900 outline-none ring-accent/40 transition placeholder:text-neutral-400 focus:ring-2 dark:bg-neutral-800 dark:text-neutral-100"
+                  />
+                  {current.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setAnswer("")}
+                      aria-label={STRINGS.clearAria[lang]}
+                      className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-neutral-300/80 text-neutral-600 transition hover:bg-neutral-400/80 dark:bg-neutral-600 dark:text-neutral-200"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="h-3 w-3" aria-hidden="true">
+                        <path d="M6 6l12 12M18 6L6 18" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              </>
+            )
           )}
 
           {errored && (
@@ -441,17 +469,21 @@ export function ApplyQuestionsModal({
           )}
 
           <div className="mt-2 flex items-center gap-3">
-            <button
-              type="button"
-              onClick={goBack}
-              aria-label={STRINGS.backAria[lang]}
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-neutral-600 transition hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden="true">
-                <path d="M15 18l-6-6 6-6" />
-              </svg>
-            </button>
-            {!reviewing && hasAnything && (
+            {/* Кружок «назад» и кружок «проверить ответы» появляются со
+                второго шага -- на первом в приложении их нет. */}
+            {(step > 0 || reviewing) && (
+              <button
+                type="button"
+                onClick={goBack}
+                aria-label={STRINGS.backAria[lang]}
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-neutral-600 transition hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden="true">
+                  <path d="M15 18l-6-6 6-6" />
+                </svg>
+              </button>
+            )}
+            {!reviewing && step > 0 && (
               <button
                 type="button"
                 onClick={() => setReviewing(true)}
@@ -474,9 +506,14 @@ export function ApplyQuestionsModal({
                 setStep((s) => Math.min(s + 1, lastIndex));
               }}
               disabled={primaryDisabled}
-              className="h-12 flex-1 rounded-full bg-accent text-sm font-bold uppercase tracking-wide text-white transition hover:opacity-90 disabled:opacity-40"
+              className="relative h-12 flex-1 rounded-full bg-accent text-sm font-bold uppercase tracking-wide text-white transition hover:opacity-90 disabled:opacity-40"
             >
               {primaryLabel}
+              {!reviewing && (
+                <span className="absolute right-5 top-1/2 -translate-y-1/2 text-xs font-semibold opacity-70">
+                  {step + 1}/{questions.length}
+                </span>
+              )}
             </button>
           </div>
         </div>

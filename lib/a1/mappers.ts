@@ -25,8 +25,7 @@ import type {
   WebPostAuthor,
   WebPostLocation,
   WebPostSalary,
-  WebPostImage,
-} from "@/types/web-post";
+  WebPostImage, WebApplyQuestion } from "@/types/web-post";
 
 /**
  * Every timestamp on this API is unix SECONDS (PLAN.md §0.3 / §5 rule 5).
@@ -37,42 +36,56 @@ function fromUnixSeconds(seconds: number): Date {
 }
 
 /**
- * `post.apply.questions` is typed `z.array(z.unknown())` on the read
- * side (lib/a1/schemas.ts) -- its exact item shape was never confirmed
- * live, only the WRITE side's `{ question, object: "apply-question-
- * input" }` was (PLAN.md §6.31/§6.32). Rather than guess the read shape
- * matches the write shape, this accepts either a bare string OR an
- * object with a string `question` field, and silently drops (logging
- * for the next live triage, PLAN.md §5 rule 6 style) anything else --
- * same "never throws, log and move on" posture as parsePost. MVP only:
- * 2026-08-30, Aleksandr, "Пока для MVP просто показывай их в посте и
- * всё, потом допилим полноценно".
+ * Вопросы к отклику. 17.09.2026, разобрано по живому посту и по коду
+ * приложения:
+ *
+ *   на ЧТЕНИЕ  -- {_id, text, required, minLength, maxLength,
+ *                  object: "apply-question-text"} (Resource.Post.Apply.
+ *                  Question.Text в openapi.json, так же читает апка:
+ *                  applyQuestionsFromPostJson);
+ *   на ЗАПИСЬ  -- {question, object: "apply-question-input"}
+ *                 (PostInputQuestionSchema, подтверждено живым 400 ещё
+ *                 в августе).
+ *
+ * Асимметрия настоящая, не опечатка. До этой правки читалось только
+ * `question`, поэтому список всегда выходил пустым -- и на сайте не
+ * было ни вопросов, ни кнопки «Відгукнутися».
+ *
+ * `_id` нужен не для красоты: posts.apply принимает ответы, привязанные
+ * к id вопроса, а не к его тексту. Вопрос без id для отклика бесполезен
+ * -- такие пропускаем.
  */
-function mapApplyQuestions(apply: Post["apply"]): string[] {
+function mapApplyQuestions(apply: Post["apply"]): WebApplyQuestion[] {
   if (!apply) return [];
-  const out: string[] = [];
+  const out: WebApplyQuestion[] = [];
   for (const raw of apply.questions) {
-    if (typeof raw === "string" && raw.trim()) {
-      out.push(raw.trim());
-    } else if (raw && typeof raw === "object" && typeof (raw as { text?: unknown }).text === "string") {
-      // 17.09.2026, живая проверка на настоящем посте: НА ЧТЕНИЕ поле
-      // называется `text`, а не `question` -- именно так его читает
-      // приложение (applyQuestionsFromPostJson + ApplyQuestionEntry.
-      // fromJson, lib/features/posts/backend_utils/apply_utils.dart).
-      // Запись при этом асимметрична: posts.createPost принимает
-      // `question` (PostInputQuestionSchema, подтверждено живым 400 в
-      // августе) -- поэтому ниже оставлена и она. Пока здесь стояло
-      // только `question`, каждый вопрос уходил в ветку «шейп не
-      // распознан», список всегда был пустым, и на странице вакансии не
-      // было ни вопросов, ни кнопки «Відгукнутися».
-      const text = (raw as { text: string }).text.trim();
-      if (text) out.push(text);
-    } else if (raw && typeof raw === "object" && typeof (raw as { question?: unknown }).question === "string") {
-      const text = (raw as { question: string }).question.trim();
-      if (text) out.push(text);
-    } else {
+    if (!raw || typeof raw !== "object") {
       console.error("[mappers] unrecognized apply.questions item shape", raw);
+      continue;
     }
+    const item = raw as {
+      _id?: unknown;
+      text?: unknown;
+      question?: unknown;
+      required?: unknown;
+      minLength?: unknown;
+      maxLength?: unknown;
+    };
+    const id = typeof item._id === "string" ? item._id : null;
+    const rawText =
+      typeof item.text === "string" ? item.text : typeof item.question === "string" ? item.question : null;
+    const text = rawText?.trim() ?? "";
+    if (!id || !text) {
+      console.error("[mappers] apply question without id or text", raw);
+      continue;
+    }
+    out.push({
+      id,
+      text,
+      required: item.required === true,
+      minLength: typeof item.minLength === "number" ? item.minLength : null,
+      maxLength: typeof item.maxLength === "number" ? item.maxLength : null,
+    });
   }
   return out;
 }
