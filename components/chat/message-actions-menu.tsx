@@ -710,7 +710,7 @@ export function ReactionsBar({
   otherInitial,
   flatMedia,
   inline,
-  showCount,
+  avatarFor,
   onToggle,
 }: {
   reactions: MessagePeerReaction[];
@@ -723,56 +723,74 @@ export function ReactionsBar({
   otherInitial?: string;
   // True for a chromeless/edge-to-edge bubble (photo, sticker, voice-
   // only, ...) which has no padding of its own to inherit -- see
-  // page.tsx's own isFlatMedia flag. Adds this row's own padding in
-  // that case only; a regular padded bubble already surrounds every
-  // child (this one included) with its own px-3/pt-2/pb-2.
+  // page.tsx's own isFlatMedia flag.
   flatMedia?: boolean;
-  // Fix Tracker (2026-09-07, order 102: "Короткие сообщения с
-  // реакциями лучше расширяй в сторону и время ставь в ровень с
-  // реакцией как на референсе телеграма") -- when true, this row skips
-  // its own top margin so a caller can nest it as a flex-wrap ITEM
-  // inside the same row as the time/ticks footer: on a short message
-  // there's room for both on one line (the bubble naturally widens to
-  // fit that combined line, since a bubble's width already tracks its
-  // widest content line), and on a longer one flex-wrap just drops
-  // this row to a line of its own -- same visual result as before,
-  // with no JS width measurement needed either way.
+  // Fix Tracker (2026-09-07, order 102) -- when true, this row skips its
+  // own top margin so a caller can nest it as a flex-wrap ITEM inside
+  // the same row as the time/ticks footer.
   inline?: boolean;
-  // 2026-09-16 (комментарии под вакансией) -- аватарка соседа работает
-  // только в переписке один на один, где реагирующих всего двое. Под
-  // вакансией их сколько угодно и все разные, поэтому там вместо
-  // аватарки показывается число: «сколько людей поставило этот
-  // эмодзи». Сам чип при этом остаётся здешний, а не свой.
-  showCount?: boolean;
+  // 2026-09-17 (Александр, текстовое ТЗ Ниджата на показ реакций):
+  // реакции бывают групповые -- под вакансией реагирующих сколько
+  // угодно и все разные, поэтому лицо ищется по каждому userId, а не
+  // берётся одно на всех. Не передан -- работает прежняя пара
+  // otherAvatarUrl/otherInitial, которой хватает переписке один на
+  // один.
+  avatarFor?: (userId: string) => { url: string | null; initial: string } | null;
   onToggle: (emoticon: string) => void;
 }) {
   if (reactions.length === 0) return null;
   const groups = groupReactionsByEmoji(reactions);
   if (groups.length === 0) return null;
 
+  // ---- Правила показа. ТЗ (Ниджат), слово в слово по пунктам:
+  //   1. Считается ОБЩЕЕ число реакций на сообщении, а не по каждому
+  //      эмодзи отдельно.
+  //   2. Всего 1-3 -- у каждого эмодзи показываются ЛИЦА поставивших.
+  //   3. Всего 4 и больше -- весь ряд переключается в числа, и число
+  //      пишется даже когда оно единица.
+  //   4. Упало обратно с 4 до 3 -- ряд возвращается к лицам.
+  //   5. Порядок: своя реакция первой, дальше по убыванию количества,
+  //      при равенстве -- в порядке первого появления. Никакой
+  //      пересортировки «на каждый чих»: правило одно и то же на
+  //      каждый показ, поэтому чипы не прыгают сами по себе.
+  const total = groups.reduce((sum, g) => sum + g.reactors.length, 0);
+  const numericMode = total >= 4;
+  const iReactedTo = (g: (typeof groups)[number]) =>
+    myUserId !== null && g.reactors.some((p) => p.object === "peer-user" && p.user === myUserId);
+  const ordered = groups
+    .map((group, index) => ({ group, index }))
+    .sort((a, b) => {
+      const aMine = iReactedTo(a.group) ? 1 : 0;
+      const bMine = iReactedTo(b.group) ? 1 : 0;
+      if (aMine !== bMine) return bMine - aMine;
+      if (a.group.reactors.length !== b.group.reactors.length) return b.group.reactors.length - a.group.reactors.length;
+      return a.index - b.index;
+    })
+    .map((entry) => entry.group);
+
+  function faceFor(userId: string) {
+    const resolved = avatarFor?.(userId);
+    if (resolved) return resolved;
+    if (userId === myUserId) return null;
+    return { url: otherAvatarUrl ?? null, initial: otherInitial ?? "?" };
+  }
+
   return (
-    // Fix Tracker (order 87, 2026-09-07, Aleksandr: "сейчас ты сделал
-    // реакции врезанными в сообщение, а я хотел чтобы ты автоматически
-    // увеличивал их высоту (плавной анимацией) и показывал реакции
-    // полностью внутри") -- supersedes orders 82/83's Telegram-style
-    // straddle (half on the bubble, half hanging below it): renders as
-    // a normal flow row instead of an absolutely-positioned overlay, so
-    // it's page.tsx's own bubble div that pushes itself taller to fit
-    // this row like any other content -- no manual height math needed
-    // for "the bubble should expand". animate-reactions-in (globals.css)
-    // gives the row itself a quick pop-in on mount, i.e. exactly when a
-    // message's reactions go from none to some. `flatMedia` supplies
-    // this row's own padding for a chromeless bubble (photo/sticker/
-    // voice-only) that has none of its own to inherit; a regular
-    // padded bubble only needs the top margin below.
+    // Fix Tracker (order 87, 2026-09-07) -- обычная строка в потоке, а
+    // не наложение: пузырь сам становится выше под неё.
+    // animate-reactions-in (globals.css) даёт ряду короткое появление.
     <div
       className={`animate-reactions-in flex flex-wrap gap-1.5 ${flatMedia ? "px-2 pb-2 pt-1.5" : inline ? "" : "mt-1.5"} ${
         mine ? "justify-end" : "justify-start"
       }`}
     >
-      {groups.map((group) => {
-        const iReacted = myUserId !== null && group.reactors.some((p) => p.object === "peer-user" && p.user === myUserId);
-        const otherReacted = group.reactors.some((p) => p.object === "peer-user" && p.user !== myUserId);
+      {ordered.map((group) => {
+        const iReacted = iReactedTo(group);
+        const faces = numericMode
+          ? []
+          : group.reactors
+              .map((p) => (p.object === "peer-user" ? faceFor(p.user) : null))
+              .filter((f): f is { url: string | null; initial: string } => !!f);
         return (
           <button
             key={group.emoticon}
@@ -785,20 +803,24 @@ export function ReactionsBar({
             }`}
           >
             <span className="leading-none">{group.emoticon}</span>
-            {showCount
-              ? group.reactors.length > 1 && (
-                  <span className="min-w-[14px] text-center text-[13px] font-medium tabular-nums">{group.reactors.length}</span>
-                )
-              : otherReacted &&
-              (otherAvatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element -- tiny
-                // 20px reaction avatar, not worth next/image's overhead here.
-                <img src={otherAvatarUrl} alt="" className="h-5 w-5 shrink-0 rounded-full object-cover" />
-              ) : (
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-black/10 text-[11px] font-semibold dark:bg-white/15">
-                  {otherInitial ?? "?"}
-                </span>
-              ))}
+            {numericMode ? (
+              <span className="min-w-[14px] text-center text-[13px] font-medium tabular-nums">{group.reactors.length}</span>
+            ) : (
+              faces.map((face, i) =>
+                face.url ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- tiny
+                  // 20px reaction avatar, not worth next/image's overhead here.
+                  <img key={i} src={face.url} alt="" className="h-5 w-5 shrink-0 rounded-full object-cover" />
+                ) : (
+                  <span
+                    key={i}
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-black/10 text-[11px] font-semibold dark:bg-white/15"
+                  >
+                    {face.initial}
+                  </span>
+                ),
+              )
+            )}
           </button>
         );
       })}

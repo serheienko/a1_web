@@ -41,7 +41,13 @@ export async function POST(request: NextRequest) {
         reaction: { object: "reaction-emoji", emoticon: input.emoticon },
       },
     });
-    const response = NextResponse.json({ ok: data !== false });
+    // Бэкенд у этого метода отвечает просто true/false. false -- это
+    // «не принял», и его надо отдать как отказ, а не как успех: иначе
+    // чип остаётся стоять, а на сервере ничего нет.
+    if (data === false) {
+      return NextResponse.json({ ok: false, message: "rejected" }, { status: 409 });
+    }
+    const response = NextResponse.json({ ok: true });
     if (refreshedSession) setSession(response, refreshedSession);
     return response;
   } catch (err) {

@@ -60,7 +60,13 @@ export type WebComment = {
    *  можно было СНЯТЬ: бэкенд удаляет её точным совпадением всей
    *  записи, включая дату, -- «убери мою реакцию с этим эмодзи» там
    *  сделать нечем (см. app/api/chats/reaction/delete/route.ts). */
-  reactions: { emoticon: string; by: { userId: string; date: string }[] }[];
+  reactions: {
+    emoticon: string;
+    /** Кто поставил. Имя и аватарка нужны прямо здесь: по правилам
+     *  показа (ТЗ Ниджата) при небольшом числе реакций вместо счётчика
+     *  показываются лица поставивших. */
+    by: { userId: string; date: string; name: string; avatarUrl: string | null }[];
+  }[];
 };
 
 // Столько же, сколько чат грузит за раз (app/api/chats/messages).
@@ -84,7 +90,18 @@ export async function fetchPostComments(postId: string): Promise<WebComment[]> {
   // Имени и аватарки внутри сообщения нет -- только идентификатор
   // автора (peerFrom.user). Достаём всех разом одним запросом: тот же
   // users.getUsers, которым уже пользуется lib/a1/admin-applications.ts.
-  const authorIds = [...new Set(messages.map((m) => m.fromId).filter((id): id is string => !!id))];
+  // Берём разом и авторов, и тех, кто поставил реакции: лица
+  // реагировавших показываются в самих чипах.
+  const authorIds = [
+    ...new Set(
+      [
+        ...messages.map((m) => m.fromId),
+        ...messages.flatMap((m) =>
+          m.reactions.map((r) => (r.peer && r.peer.object === "peer-user" ? r.peer.user : null)),
+        ),
+      ].filter((id): id is string => !!id),
+    ),
+  ];
   const authors = new Map<string, { name: string; username: string | null; avatarUrl: string | null }>();
 
   if (authorIds.length > 0) {
@@ -117,14 +134,17 @@ export async function fetchPostComments(postId: string): Promise<WebComment[]> {
 
     // Реакции приходят по одной на каждого поставившего; для показа их
     // надо сгруппировать по эмодзи, сохранив, кто именно поставил.
-    const grouped = new Map<string, { userId: string; date: string }[]>();
+    const grouped = new Map<string, { userId: string; date: string; name: string; avatarUrl: string | null }[]>();
     for (const r of msg.reactions) {
       const emoticon = typeof r.reaction?.emoticon === "string" ? r.reaction.emoticon : "";
       if (!emoticon) continue;
       const peer = r.peer;
       const userId = peer && peer.object === "peer-user" ? peer.user : null;
       const bucket = grouped.get(emoticon) ?? [];
-      if (userId) bucket.push({ userId, date: r.date });
+      if (userId) {
+        const who = authors.get(userId);
+        bucket.push({ userId, date: r.date, name: who?.name ?? "", avatarUrl: who?.avatarUrl ?? null });
+      }
       grouped.set(emoticon, bucket);
     }
 

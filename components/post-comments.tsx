@@ -316,11 +316,21 @@ function Bubble({
   ) : null;
 
   // Чипы реакций -- ТОТ ЖЕ ReactionsBar, что под сообщением в чатах, а
-  // не своя вёрстка (2026-09-16, Александр: «реакция должна работать
-  // абсолютно идентично, как в чатах и мини-чатах»). Наш список реакций
-  // плоский, поэтому разворачивается обратно в ту форму, которую ждёт
-  // чат: одна запись на каждого поставившего. Вместо аватарки соседа --
-  // число: под вакансией реагирующих сколько угодно и все разные.
+  // не своя вёрстка (Александр: «реакция должна работать абсолютно
+  // идентично, как в чатах»). Наш список реакций плоский, поэтому
+  // разворачивается обратно в ту форму, которую ждёт чат: одна запись
+  // на каждого поставившего. Лица ищутся по userId -- под вакансией
+  // реагирующих сколько угодно и все разные; сам выбор «лица или
+  // числа» делает ReactionsBar по общему числу реакций.
+  const faces = new Map<string, { url: string | null; initial: string }>();
+  for (const r of comment.reactions) {
+    for (const entry of r.by) {
+      faces.set(entry.userId, {
+        url: entry.avatarUrl,
+        initial: (entry.name.trim()[0] ?? "?").toUpperCase(),
+      });
+    }
+  }
   const reactions = (
     <ReactionsBar
       reactions={comment.reactions.flatMap((r) =>
@@ -332,7 +342,7 @@ function Bubble({
       )}
       mine={mine}
       myUserId={myUserId}
-      showCount
+      avatarFor={(userId) => faces.get(userId) ?? null}
       onToggle={(emoticon) => onToggleReaction(comment, emoticon)}
     />
   );
@@ -728,7 +738,12 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
             .filter((r) => r.by.length > 0);
           if (mineEntry) return { ...c, reactions: rest };
           const existing = rest.find((r) => r.emoticon === emoticon);
-          const stamp = { userId: me.userId!, date: new Date().toISOString() };
+          const stamp = {
+            userId: me.userId!,
+            date: new Date().toISOString(),
+            name: me.name || "",
+            avatarUrl: me.avatarUrl ?? null,
+          };
           return {
             ...c,
             reactions: existing
@@ -749,9 +764,16 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
           body: JSON.stringify(body),
         });
         const data = await res.json().catch(() => null);
-        if (!data?.ok) throw new Error("reaction_failed");
+        if (!data?.ok) {
+          console.warn("[comments] reaction failed:", res.status, data?.message, data?.detail);
+          throw new Error("reaction_failed");
+        }
       } catch {
+        // Реакция -- жест, и когда он не сработал, человек должен это
+        // видеть: молча откатывать чип обратно (как было раньше)
+        // выглядит как «нажал -- не поставилось», без объяснений.
         setList(before);
+        setFailed(true);
       }
     },
     [list, me, postId],
