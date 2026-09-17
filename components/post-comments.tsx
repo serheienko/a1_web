@@ -590,6 +590,29 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
     return () => ro.disconnect();
   }, [open, signedIn]);
 
+  // Новый комментарий -- вниз. Раньше это делалось одним кадром сразу
+  // после отправки, и кадр успевал отработать ДО того, как React
+  // дорисует новый пузырь: лента доматывалась до старого конца, а
+  // свежее сообщение оставалось под полем ввода (2026-09-17,
+  // Александр, скриншот). Теперь доматывает эффект, который срабатывает
+  // уже ПОСЛЕ отрисовки: на свою отправку -- всегда, на чужой новый
+  // комментарий -- только если человек и так стоял внизу, иначе мы бы
+  // выдёргивали у него ленту из-под пальца.
+  const stickBottomRef = useRef(false);
+  const prevCountRef = useRef(list.length);
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    const grew = list.length > prevCountRef.current;
+    prevCountRef.current = list.length;
+    if (!grew) return;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    if (stickBottomRef.current || nearBottom) {
+      el.scrollTop = el.scrollHeight;
+      stickBottomRef.current = false;
+    }
+  }, [list.length]);
+
   // Окно открывается на САМОМ СВЕЖЕМ комментарии, а не на самом
   // старом: лента растёт сверху вниз, и без этого человек открывал
   // обсуждение и видел разговор годичной давности, а то, ради чего он
@@ -812,6 +835,8 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
   const send = useCallback(async () => {
     const value = text.trim();
     if (!value || sending) return;
+    // Своё сообщение всегда доматываем вниз, где бы лента ни стояла.
+    stickBottomRef.current = true;
     setSending(true);
     setFailed(false);
     try {
@@ -874,12 +899,6 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
       setText("");
       setReplyTo(null);
       inputRef.current?.focus();
-      // Свой только что отправленный комментарий должен быть виден:
-      // он дописывается в конец, а лента могла стоять выше.
-      window.requestAnimationFrame(() => {
-        const el = listRef.current;
-        if (el) el.scrollTop = el.scrollHeight;
-      });
     } catch {
       setFailed(true);
     } finally {
@@ -921,6 +940,7 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
   const sendMedia = useCallback(
     async (doc: MediaDocument) => {
       if (sending) return;
+      stickBottomRef.current = true;
       setSending(true);
       setFailed(false);
       const replyToSend = replyTo;
@@ -961,10 +981,6 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
             replyToId: replyToSend?.id ?? null,
           },
         ]);
-        window.requestAnimationFrame(() => {
-          const el = listRef.current;
-          if (el) el.scrollTop = el.scrollHeight;
-        });
       } catch {
         setFailed(true);
       } finally {
