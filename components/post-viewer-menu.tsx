@@ -63,6 +63,7 @@ import { useRouter } from "next/navigation";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
 import { ApplyQuestionsModal } from "@/components/apply-questions-modal";
+import { ReportModal } from "@/components/report-modal";
 import type { Contact } from "@/lib/a1/schemas";
 import { LottiePlayer } from "@/components/lottie-player";
 import { InlineAuthForm } from "@/components/inline-auth-form";
@@ -104,7 +105,8 @@ type StringKey =
   | "thanksTitle"
   | "thanksBody"
   | "thanksOk"
-  | "applyMessage";
+  | "applyMessage"
+  | "report";
 
 const STRINGS: Record<StringKey, Record<Locale, string>> = {
   message: { uk: "Повідомлення", en: "Message", ru: "Сообщение", de: "Nachricht", es: "Mensaje", fr: "Message", pl: "Wiadomość", ptBR: "Mensagem", zh: "消息" },
@@ -113,6 +115,7 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   // не забрала акк, мы показываем пользователь попап") — shown instead
   // of "message" whenever authorUnclaimed is true (see this file's own
   // openChat()/thanksOpen below for the actual behavior swap).
+  report: { uk: "Поскаржитись", en: "Report", ru: "Пожаловаться", de: "Melden", es: "Denunciar", fr: "Signaler", pl: "Zgłoś", ptBR: "Denunciar", zh: "举报" },
   apply: { uk: "Відгукнутися", en: "Apply", ru: "Откликнуться", de: "Bewerben", es: "Postularme", fr: "Postuler", pl: "Aplikuj", ptBR: "Candidatar-se", zh: "申请" },
   // 2026-09-11 (Aleksandr: "Я сам рандомно откликнусь и хочу посмотреть
   // что отклик пришел") — the actual TEXT of the application message
@@ -306,6 +309,14 @@ function BookmarkFilledIcon() {
   );
 }
 
+function ReportIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+      <path d="M4 21V4h11l-1 3h6l-1.5 4L20 15h-7l-1-3H4" />
+    </svg>
+  );
+}
+
 function SharePostIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 animate-share-lift" aria-hidden="true">
@@ -441,6 +452,7 @@ export function PostViewerMenu({
   // succeeded but authorUnclaimed is true — see openChat() below.
   const [thanksOpen, setThanksOpen] = useState(false);
   const [applyOpen, setApplyOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
 
   // 2026-09-02 (Aleksandr: "И сюда, на сообщение и °°°" -- same hover-
   // appear effect asked for on components/chats-fab.tsx/components/
@@ -985,6 +997,25 @@ export function PostViewerMenu({
                 <SharePostIcon />
                 {STRINGS.sharePost[lang]}
               </button>
+              {/* 17.09.2026: жалоба. В заголовке файла годом раньше
+                  стояло «Поскаржитись deliberately excluded -- це
+                  попозже»; «попозже» наступило, методы в API есть
+                  (posts.report), см. app/api/report/route.ts. */}
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  if (isAnon) {
+                    setAuthPromptOpen(true);
+                    return;
+                  }
+                  setReportOpen(true);
+                }}
+                className="group flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-red-600 transition hover:bg-red-50 dark:hover:bg-red-950/30"
+              >
+                <ReportIcon />
+                {STRINGS.report[lang]}
+              </button>
             </div>
           </>
         )}
@@ -1037,6 +1068,8 @@ export function PostViewerMenu({
         </div>,
         document.body,
       )}
+
+    {reportOpen && <ReportModal kind="post" targetId={postId} onClose={() => setReportOpen(false)} />}
 
     {applyOpen && authorUserId && applyQuestions && applyQuestions.length > 0 && (
       <ApplyQuestionsModal

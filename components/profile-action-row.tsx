@@ -73,6 +73,7 @@ import { authFetch } from "@/lib/auth-fetch";
 import type { Contact } from "@/lib/a1/schemas";
 import { LottiePlayer } from "@/components/lottie-player";
 import { InlineAuthForm } from "@/components/inline-auth-form";
+import { ReportModal } from "@/components/report-modal";
 import { useCloseOnScroll } from "@/lib/use-close-on-scroll";
 import { useHoverPanel } from "@/lib/use-hover-panel";
 
@@ -89,6 +90,7 @@ type StringKey =
   | "unmute"
   | "block"
   | "unblock"
+  | "report"
   | "blockConfirmTitle"
   | "blockConfirmBody"
   | "actionFailed"
@@ -136,6 +138,7 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   // (см. app/api/users/{block,mute,relation}). Теперь обе работают.
   mute: { uk: "Вимкнути звук", en: "Mute", ru: "Заглушить", de: "Stummschalten", es: "Silenciar", fr: "Mettre en sourdine", pl: "Wycisz", ptBR: "Silenciar", zh: "静音" },
   unmute: { uk: "Увімкнути звук", en: "Unmute", ru: "Включить звук", de: "Stummschaltung aufheben", es: "Reactivar sonido", fr: "Réactiver le son", pl: "Wyłącz wyciszenie", ptBR: "Reativar som", zh: "取消静音" },
+  report: { uk: "Поскаржитись", en: "Report", ru: "Пожаловаться", de: "Melden", es: "Denunciar", fr: "Signaler", pl: "Zgłoś", ptBR: "Denunciar", zh: "举报" },
   block: { uk: "Заблокувати", en: "Block", ru: "Заблокировать", de: "Blockieren", es: "Bloquear", fr: "Bloquer", pl: "Zablokuj", ptBR: "Bloquear", zh: "屏蔽" },
   unblock: { uk: "Розблокувати", en: "Unblock", ru: "Разблокировать", de: "Entsperren", es: "Desbloquear", fr: "Débloquer", pl: "Odblokuj", ptBR: "Desbloquear", zh: "解除屏蔽" },
   blockConfirmTitle: {
@@ -292,6 +295,14 @@ function MuteIcon() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 animate-mute-shake" aria-hidden="true">
       <path d="M11 5 6 9H3v6h3l5 4V5z" />
       <path d="M16 9l5 6M21 9l-5 6" />
+    </svg>
+  );
+}
+
+function ReportIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+      <path d="M4 21V4h11l-1 3h6l-1.5 4L20 15h-7l-1-3H4" />
     </svg>
   );
 }
@@ -505,6 +516,7 @@ export function ProfileActionRow({
   const [muteBusy, setMuteBusy] = useState(false);
   const [blockBusy, setBlockBusy] = useState(false);
   const [blockConfirmOpen, setBlockConfirmOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   // Одно общее «не получилось» на обе строки -- как contactErrored выше.
   const [menuErrored, setMenuErrored] = useState(false);
 
@@ -914,6 +926,17 @@ export function ProfileActionRow({
                           ? STRINGS.unblock[lang]
                           : STRINGS.block[lang]}
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        setReportOpen(true);
+                      }}
+                      className="group flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-red-600 transition hover:bg-red-50 dark:hover:bg-red-950/30"
+                    >
+                      <ReportIcon />
+                      {STRINGS.report[lang]}
+                    </button>
                   </>
                 )}
               </div>
@@ -923,6 +946,10 @@ export function ProfileActionRow({
       </div>
       )}
     </div>
+
+    {reportOpen && profileUserId && (
+      <ReportModal kind="user" targetId={profileUserId} onClose={() => setReportOpen(false)} />
+    )}
 
     {blockConfirmOpen &&
       createPortal(
