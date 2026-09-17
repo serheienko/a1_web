@@ -213,20 +213,27 @@ export function AdminPostsPanel({ signedInAs }: { signedInAs: string }) {
 
   async function load(searchText = appliedQuery) {
     setError(false);
-    setPosts(null);
-    setLoadedAccounts(0);
-    setTotalAccounts(null);
-    setOffset(0);
-    setHasMore(true);
+    // 2026-09-17 (Александр: «и вообще ищет очень долго сейчас») -- список
+    // больше НЕ обнуляется до ответа. Причина медленности была не в
+    // сервере: когда компании с таким названием нет, страница сбрасывала
+    // уже загруженные посты и тянула первую страницу ЗАНОВО -- то есть
+    // двадцать логинов и шестьдесят поисков ради того, чтобы вернуть
+    // ровно то, что уже лежало на экране. Теперь в этом случае
+    // остаётся то, что уже загружено, и поиск по словам из текста
+    // вакансии идёт по нему же, мгновенно.
+    const alreadyLoaded = posts;
+    if (!alreadyLoaded) setPosts(null);
     setNoCompanyMatch(false);
     try {
-      let page = await fetchPage(0, searchText);
-      // No company by that name: keep the ordinary listing so searching
-      // by words from a vacancy's own text still works locally.
+      const page = await fetchPage(0, searchText);
       if (searchText && page.matchedAccounts === 0) {
         setNoCompanyMatch(true);
-        page = await fetchPage(0, "");
+        if (alreadyLoaded) return;
       }
+      setLoadedAccounts(0);
+      setTotalAccounts(null);
+      setOffset(0);
+      setHasMore(true);
       const sorted = page.posts.slice().sort((a, b) => b.created - a.created);
       setPosts(sorted);
       setTotalAccounts(page.total);
