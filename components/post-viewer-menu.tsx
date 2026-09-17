@@ -69,6 +69,7 @@ import type { Contact } from "@/lib/a1/schemas";
 import { LottiePlayer } from "@/components/lottie-player";
 import { InlineAuthForm } from "@/components/inline-auth-form";
 import { useCloseOnScroll } from "@/lib/use-close-on-scroll";
+import { useBackdropDismiss } from "@/lib/use-backdrop-dismiss";
 import { useHoverPanel } from "@/lib/use-hover-panel";
 // 2026-09-13: оба пункта «поділитися» ниже раньше были заглушками --
 // теперь открывают общее окно выбора получателя (внутри чатов) с
@@ -447,6 +448,9 @@ export function PostViewerMenu({
   // на мобиле»). Выключено, пока открыта форма входа: мобильная
   // клавиатура сама двигает вьюпорт -- см. lib/use-close-on-scroll.ts.
   useCloseOnScroll(authPromptOpen && !authFormExpanded, () => setAuthPromptOpen(false));
+  // Закрытие по тыку мимо окна -- только если жест и начался, и
+  // закончился на подложке (см. lib/use-backdrop-dismiss.ts).
+  const authBackdrop = useBackdropDismiss(() => setAuthPromptOpen(false));
   const [openingChat, setOpeningChat] = useState(false);
   const [chatErrored, setChatErrored] = useState(false);
   // 2026-09-09: shown instead of navigating into the chat when the click
@@ -1027,7 +1031,7 @@ export function PostViewerMenu({
       createPortal(
         <div
           className="animate-backdrop-in fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4"
-          onClick={() => setAuthPromptOpen(false)}
+          {...authBackdrop}
         >
           <div
             role="alertdialog"

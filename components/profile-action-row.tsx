@@ -74,6 +74,7 @@ import type { Contact } from "@/lib/a1/schemas";
 import { LottiePlayer } from "@/components/lottie-player";
 import { InlineAuthForm } from "@/components/inline-auth-form";
 import { useCloseOnScroll } from "@/lib/use-close-on-scroll";
+import { useBackdropDismiss } from "@/lib/use-backdrop-dismiss";
 import { useHoverPanel } from "@/lib/use-hover-panel";
 
 type StringKey =
@@ -372,6 +373,9 @@ export function ProfileActionRow({
   // на мобиле»). Выключено, пока открыта форма входа: мобильная
   // клавиатура сама двигает вьюпорт -- см. lib/use-close-on-scroll.ts.
   useCloseOnScroll(authPromptOpen && !authFormExpanded, () => setAuthPromptOpen(false));
+  // Закрытие по тыку мимо окна -- только если жест и начался, и
+  // закончился на подложке (см. lib/use-backdrop-dismiss.ts).
+  const authBackdrop = useBackdropDismiss(() => setAuthPromptOpen(false));
 
   // 2026-09-02 (Aleksandr, live screenshots of a real profile: "зроби,
   // щоб іконка чатів у профілях тепер відкривала чат з ними") -- same
@@ -975,7 +979,7 @@ export function ProfileActionRow({
       createPortal(
         <div
           className="animate-backdrop-in fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4"
-          onClick={() => setAuthPromptOpen(false)}
+          {...authBackdrop}
         >
           <div
             role="alertdialog"
