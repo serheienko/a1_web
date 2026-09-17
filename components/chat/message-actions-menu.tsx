@@ -27,6 +27,7 @@ import { createPortal } from "react-dom";
 import { T, type Locale } from "@/components/t";
 import { groupReactionsByEmoji, type MessagePeerReaction } from "@/lib/a1/chat-schemas";
 import { EMOJI_CATEGORIES } from "@/lib/a1/emoji-data";
+import { reactionDisplay } from "@/lib/reaction-display";
 
 // Fix Tracker (2026-09-07, order 92: "Расширь модалку + поле сверху с
 // эмодзи и вставь стрелку внутрь, а не отдельно снаружи") -- was 240,
@@ -753,20 +754,23 @@ export function ReactionsBar({
   //      при равенстве -- в порядке первого появления. Никакой
   //      пересортировки «на каждый чих»: правило одно и то же на
   //      каждый показ, поэтому чипы не прыгают сами по себе.
-  const total = groups.reduce((sum, g) => sum + g.reactors.length, 0);
-  const numericMode = total >= 4;
+  // Сами правила -- в lib/reaction-display.ts: их нельзя проверить
+  // живьём, не собрав четырёх разных людей (бэкенд держит по одной
+  // реакции на человека), поэтому они вынесены в чистую функцию, на
+  // которую есть прогон всех случаев из ТЗ -- scripts/
+  // reaction-display.test.ts.
+  const byEmoji = new Map(groups.map((g) => [g.emoticon, g]));
+  const display = reactionDisplay(
+    groups.map((g) => ({
+      emoticon: g.emoticon,
+      reactorIds: g.reactors.filter((p) => p.object === "peer-user").map((p) => (p as { user: string }).user),
+    })),
+    myUserId,
+  );
+  const numericMode = display.numericMode;
+  const ordered = display.ordered.map((g) => byEmoji.get(g.emoticon)!).filter(Boolean);
   const iReactedTo = (g: (typeof groups)[number]) =>
     myUserId !== null && g.reactors.some((p) => p.object === "peer-user" && p.user === myUserId);
-  const ordered = groups
-    .map((group, index) => ({ group, index }))
-    .sort((a, b) => {
-      const aMine = iReactedTo(a.group) ? 1 : 0;
-      const bMine = iReactedTo(b.group) ? 1 : 0;
-      if (aMine !== bMine) return bMine - aMine;
-      if (a.group.reactors.length !== b.group.reactors.length) return b.group.reactors.length - a.group.reactors.length;
-      return a.index - b.index;
-    })
-    .map((entry) => entry.group);
 
   function faceFor(userId: string) {
     const resolved = avatarFor?.(userId);
