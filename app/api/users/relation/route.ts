@@ -44,7 +44,11 @@ const UsersListSchema = z.array(
   z.object({ _id: z.string(), notifySettings: NotifySettingsSchema.optional() }).passthrough(),
 );
 
-export function isMuted(settings: { silent?: boolean; muteUntil?: number | null } | undefined): boolean {
+// НЕ экспортировать: Next.js разрешает в файле-ручке только свой набор
+// экспортов (GET/POST/runtime/dynamic/...), и любой посторонний ломает
+// сборку целиком -- «"isMuted" is not a valid Route export field».
+// Именно это уронило все деплои после 8f44c00 (17.09.2026).
+function isMuted(settings: { silent?: boolean; muteUntil?: number | null } | undefined): boolean {
   if (!settings) return false;
   if (settings.silent === true) return true;
   const until = settings.muteUntil;
