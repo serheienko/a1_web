@@ -24,6 +24,29 @@ import type { WebPost } from "@/types/web-post";
 export const fetchPostById = cache(async function fetchPostById(id: string): Promise<WebPost | null> {
   const raw = await call<unknown>("posts.get", { ids: [id] });
   const first = Array.isArray(raw) ? raw[0] : undefined;
+  // ВРЕМЕННАЯ ДИАГНОСТИКА (17.09.2026). На сайте у поста с вопросами к
+  // отклику вопросов не видно, хотя в приложении они есть. Надо понять,
+  // приходят ли они вообще сервисному аккаунту, которым сайт читает
+  // посты, и как называются поля. Пишем ТОЛЬКО форму данных -- ключи и
+  // количество, без текста вопросов и без чего-либо про людей. Убрать,
+  // как только причина найдена.
+  if (first && typeof first === "object") {
+    const apply = (first as { apply?: unknown }).apply;
+    const questions = apply && typeof apply === "object" ? (apply as { questions?: unknown }).questions : null;
+    console.log(
+      "[diag apply]",
+      JSON.stringify({
+        post: id,
+        applyPresent: apply !== undefined,
+        applyNull: apply === null,
+        count: Array.isArray(questions) ? questions.length : null,
+        firstItemKeys:
+          Array.isArray(questions) && questions[0] && typeof questions[0] === "object"
+            ? Object.keys(questions[0] as Record<string, unknown>)
+            : null,
+      }),
+    );
+  }
   if (first === undefined) return null;
   const post = parsePost(first);
   if (!post) return null;
