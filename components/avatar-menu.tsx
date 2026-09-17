@@ -76,6 +76,7 @@ import { authFetch } from "@/lib/auth-fetch";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { CachedAvatar } from "@/components/cached-avatar";
 import { GLASS } from "@/lib/glass";
+import { NotificationsToggle, usePushTokenRefresh } from "@/components/notifications-toggle";
 
 type Theme = "light" | "dark" | "auto";
 
@@ -280,6 +281,11 @@ function readDisplayCookie(): string | null {
 }
 
 export function AvatarMenu() {
+  // Продлить подписку на пуши, если человек их когда-то включал. Живёт
+  // здесь, а не в самой строке-переключателе: строка монтируется только
+  // когда панель открыта, а это меню -- на каждой странице сайта.
+  usePushTokenRefresh();
+
   const [lang, setLang] = useState<Locale>("uk");
   const [theme, setTheme] = useState<Theme>("auto");
   const [isGeoUa, setIsGeoUa] = useState(false);
@@ -775,6 +781,13 @@ export function AvatarMenu() {
               <ContactsIcon />
               {STRINGS.contacts[lang]}
             </Link>
+
+            {/* 2026-09-17 (Александр: «мы обсуждали, но не сделали
+                уведомления на десктопе, давай сделаем»). Строка сама
+                прячется, если браузер не умеет веб-пуши или если ключи
+                Firebase ещё не заданы -- см. components/
+                notifications-toggle.tsx. */}
+            <NotificationsToggle lang={lang} />
 
             <div className="my-1 border-t border-neutral-100 dark:border-neutral-800" />
 
