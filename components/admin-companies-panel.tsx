@@ -25,14 +25,13 @@ import { useEffect, useMemo, useState } from "react";
 import { AdminNav, useAdminLocale } from "@/components/admin-nav";
 import type { Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
+import { ClaimLinkButton, ClaimLinkDetails, useClaimLink } from "@/components/admin-claim-link";
 
 type Company = { name: string; email: string };
 
 type StringKey =
   | "title" | "signedInAs" | "totalCount" | "searchPlaceholder" | "warning"
-  | "createLink" | "creating" | "copy" | "copied" | "loadError"
-  | "noMatches" | "narrowSearch" | "linkTitle" | "errAlreadyClaimed"
-  | "errUnknownAccount" | "errUnknown" | "expiresIn";
+  | "loadError" | "noMatches" | "narrowSearch";
 
 const STRINGS: Record<StringKey, Record<Locale, string>> = {
   title: { uk: "Компанії", en: "Companies", ru: "Компании", de: "Unternehmen", es: "Empresas", fr: "Entreprises", pl: "Firmy", ptBR: "Empresas", zh: "公司" },
@@ -50,18 +49,9 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
     ptBR: "O link realmente transfere a conta: quem o concluir define o próprio e-mail e senha e vira o dono. Envie apenas para a própria empresa.",
     zh: "该链接会真正移交账号：完成流程的人将设置自己的邮箱和密码并成为所有者。只发给该公司本人。",
   },
-  createLink: { uk: "Створити посилання", en: "Create link", ru: "Создать ссылку", de: "Link erstellen", es: "Crear enlace", fr: "Créer un lien", pl: "Utwórz link", ptBR: "Criar link", zh: "创建链接" },
-  creating: { uk: "Створюю…", en: "Creating…", ru: "Создаю…", de: "Wird erstellt…", es: "Creando…", fr: "Création…", pl: "Tworzę…", ptBR: "Criando…", zh: "创建中…" },
-  copy: { uk: "Копіювати", en: "Copy", ru: "Копировать", de: "Kopieren", es: "Copiar", fr: "Copier", pl: "Kopiuj", ptBR: "Copiar", zh: "复制" },
-  copied: { uk: "Скопійовано", en: "Copied", ru: "Скопировано", de: "Kopiert", es: "Copiado", fr: "Copié", pl: "Skopiowano", ptBR: "Copiado", zh: "已复制" },
   loadError: { uk: "Не вдалося завантажити список", en: "Couldn't load the list", ru: "Не удалось загрузить список", de: "Liste konnte nicht geladen werden", es: "No se pudo cargar la lista", fr: "Impossible de charger la liste", pl: "Nie udało się wczytać listy", ptBR: "Não foi possível carregar a lista", zh: "无法加载列表" },
   noMatches: { uk: "Нічого не знайдено", en: "Nothing found", ru: "Ничего не найдено", de: "Nichts gefunden", es: "No se encontró nada", fr: "Rien trouvé", pl: "Nic nie znaleziono", ptBR: "Nada encontrado", zh: "未找到任何内容" },
   narrowSearch: { uk: "Показано {shown} з {n} — уточніть пошук", en: "Showing {shown} of {n} — narrow the search", ru: "Показано {shown} из {n} — уточните поиск", de: "{shown} von {n} angezeigt — Suche eingrenzen", es: "Mostrando {shown} de {n} — afina la búsqueda", fr: "{shown} sur {n} affichés — affinez la recherche", pl: "Pokazano {shown} z {n} — zawęź wyszukiwanie", ptBR: "Mostrando {shown} de {n} — refine a busca", zh: "显示 {shown}/{n} — 请细化搜索" },
-  linkTitle: { uk: "Посилання на передачу", en: "Handover link", ru: "Ссылка на передачу", de: "Übergabe-Link", es: "Enlace de traspaso", fr: "Lien de transfert", pl: "Link przekazania", ptBR: "Link de transferência", zh: "移交链接" },
-  errAlreadyClaimed: { uk: "Акаунт уже передано", en: "Account already claimed", ru: "Аккаунт уже передан", de: "Konto bereits übernommen", es: "La cuenta ya fue reclamada", fr: "Compte déjà réclamé", pl: "Konto już przejęte", ptBR: "Conta já reivindicada", zh: "账号已被认领" },
-  errUnknownAccount: { uk: "Такого акаунта немає в списку", en: "No such account on file", ru: "Такого аккаунта нет в списке", de: "Konto nicht in der Liste", es: "Esa cuenta no está en la lista", fr: "Compte absent de la liste", pl: "Brak takiego konta na liście", ptBR: "Conta não está na lista", zh: "列表中没有该账号" },
-  errUnknown: { uk: "Не вдалося створити посилання", en: "Couldn't create the link", ru: "Не удалось создать ссылку", de: "Link konnte nicht erstellt werden", es: "No se pudo crear el enlace", fr: "Impossible de créer le lien", pl: "Nie udało się utworzyć linku", ptBR: "Não foi possível criar o link", zh: "无法创建链接" },
-  expiresIn: { uk: "Дійсне {days} днів", en: "Valid for {days} days", ru: "Действует {days} дней", de: "{days} Tage gültig", es: "Válido {days} días", fr: "Valable {days} jours", pl: "Ważny {days} dni", ptBR: "Válido por {days} dias", zh: "有效期 {days} 天" },
 };
 
 function t(key: StringKey, lang: Locale, vars?: Record<string, string | number>): string {
@@ -72,17 +62,11 @@ function t(key: StringKey, lang: Locale, vars?: Record<string, string | number>)
 
 const VISIBLE_LIMIT = 60;
 
-type LinkState = { url: string; days: number } | null;
-
 export function AdminCompaniesPanel({ signedInAs }: { signedInAs: string }) {
   const lang = useAdminLocale();
   const [companies, setCompanies] = useState<Company[] | null>(null);
   const [error, setError] = useState(false);
   const [query, setQuery] = useState("");
-  const [busyEmail, setBusyEmail] = useState<string | null>(null);
-  const [links, setLinks] = useState<Record<string, LinkState>>({});
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -110,53 +94,6 @@ export function AdminCompaniesPanel({ signedInAs }: { signedInAs: string }) {
     if (!q) return companies;
     return companies.filter((c) => c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q));
   }, [companies, query]);
-
-  async function createLink(email: string) {
-    if (busyEmail) return;
-    setBusyEmail(email);
-    setErrors((prev) => ({ ...prev, [email]: "" }));
-    try {
-      const res = await authFetch("/api/admin/claim-link", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      const data = await res.json().catch(() => null);
-      if (data?.ok && typeof data.url === "string") {
-        const days = Math.max(1, Math.round((Number(data.expiresInSeconds) || 0) / 86400));
-        setLinks((prev) => ({ ...prev, [email]: { url: data.url, days } }));
-        return;
-      }
-      const reason = typeof data?.reason === "string" ? data.reason : "unknown";
-      const message =
-        reason === "already_claimed"
-          ? STRINGS.errAlreadyClaimed[lang]
-          : reason === "unknown_account"
-            ? STRINGS.errUnknownAccount[lang]
-            : STRINGS.errUnknown[lang];
-      // The backend's own words when there are any (admin-only route, see
-      // app/api/admin/claim-link/route.ts's `debug`) — a generic "couldn't
-      // create the link" told nobody anything the first time this failed.
-      const debug = typeof data?.debug === "string" && data.debug ? ` — ${data.debug}` : "";
-      setErrors((prev) => ({ ...prev, [email]: message + debug }));
-    } catch {
-      setErrors((prev) => ({ ...prev, [email]: STRINGS.errUnknown[lang] }));
-    } finally {
-      setBusyEmail(null);
-    }
-  }
-
-  async function copy(email: string, url: string) {
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopiedEmail(email);
-      window.setTimeout(() => setCopiedEmail((cur) => (cur === email ? null : cur)), 2000);
-    } catch {
-      // Clipboard blocked (insecure context, denied permission) — the
-      // link is right there on screen and selectable, so this needs no
-      // error state of its own.
-    }
-  }
 
   const shown = filtered?.slice(0, VISIBLE_LIMIT) ?? null;
 
@@ -207,46 +144,25 @@ export function AdminCompaniesPanel({ signedInAs }: { signedInAs: string }) {
       )}
 
       <div className="flex flex-col gap-2">
-        {shown?.map((company) => {
-          const link = links[company.email] ?? null;
-          const err = errors[company.email];
-          return (
-            <div key={company.email} className="rounded-xl border border-neutral-200 p-3 dark:border-neutral-800">
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <span className="min-w-0 flex-1 truncate text-sm font-medium text-neutral-900 dark:text-neutral-50">{company.name}</span>
-                <button
-                  type="button"
-                  onClick={() => createLink(company.email)}
-                  disabled={busyEmail === company.email}
-                  className="shrink-0 rounded-full border border-neutral-300 px-3 py-1 text-xs font-medium text-neutral-600 transition hover:bg-neutral-100 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
-                >
-                  {busyEmail === company.email ? STRINGS.creating[lang] : STRINGS.createLink[lang]}
-                </button>
-              </div>
-
-              {err ? <p className="text-xs text-red-600 dark:text-red-400">{err}</p> : null}
-
-              {link ? (
-                <div className="rounded-lg bg-neutral-50 p-2.5 dark:bg-neutral-900">
-                  <div className="mb-1 flex items-center justify-between gap-2">
-                    <span className="text-[11px] uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
-                      {STRINGS.linkTitle[lang]} · {t("expiresIn", lang, { days: link.days })}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => copy(company.email, link.url)}
-                      className="shrink-0 rounded-full bg-accent/10 px-2.5 py-0.5 text-[11px] font-medium text-accent transition hover:bg-accent/20"
-                    >
-                      {copiedEmail === company.email ? STRINGS.copied[lang] : STRINGS.copy[lang]}
-                    </button>
-                  </div>
-                  <p className="break-all text-xs text-neutral-700 dark:text-neutral-200">{link.url}</p>
-                </div>
-              ) : null}
-            </div>
-          );
-        })}
+        {shown?.map((company) => (
+          <CompanyRow key={company.email} company={company} lang={lang} />
+        ))}
       </div>
+    </div>
+  );
+}
+
+// Одна строка списка. Отдельным компонентом, потому что состояние
+// ссылки живёт в хуке, а хук нельзя звать в цикле внутри родителя.
+function CompanyRow({ company, lang }: { company: Company; lang: Locale }) {
+  const claim = useClaimLink(company.email, lang);
+  return (
+    <div className="rounded-xl border border-neutral-200 p-3 dark:border-neutral-800">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="min-w-0 flex-1 truncate text-sm font-medium text-neutral-900 dark:text-neutral-50">{company.name}</span>
+        <ClaimLinkButton lang={lang} busy={claim.busy} onClick={() => void claim.createLink()} />
+      </div>
+      <ClaimLinkDetails lang={lang} link={claim.link} error={claim.error} copied={claim.copied} onCopy={() => void claim.copy()} />
     </div>
   );
 }

@@ -26,6 +26,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AdminNav, useAdminLocale } from "@/components/admin-nav";
 import type { Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
+import { ClaimLinkButton, ClaimLinkDetails, useClaimLink } from "@/components/admin-claim-link";
 
 type ApplicationMessage = { id: string; text: string; kind: string; dateMs: number; fromCompany: boolean };
 type Application = {
@@ -43,7 +44,7 @@ type Application = {
 type StringKey =
   | "title" | "signedInAs" | "totalCount" | "loadingMore" | "searchPlaceholder"
   | "empty" | "noMatches" | "loadError" | "unknownApplicant"
-  | "noText" | "fromCompany" | "refresh";
+  | "noText" | "fromCompany" | "refresh" | "groupCount";
 
 const STRINGS: Record<StringKey, Record<Locale, string>> = {
   title: { uk: "Відгуки", en: "Applications", ru: "Отклики", de: "Bewerbungen", es: "Candidaturas", fr: "Candidatures", pl: "Aplikacje", ptBR: "Candidaturas", zh: "申请" },
@@ -57,6 +58,7 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   unknownApplicant: { uk: "Невідомий користувач", en: "Unknown user", ru: "Неизвестный пользователь", de: "Unbekannter Nutzer", es: "Usuario desconocido", fr: "Utilisateur inconnu", pl: "Nieznany użytkownik", ptBR: "Usuário desconhecido", zh: "未知用户" },
   noText: { uk: "(без тексту)", en: "(no text)", ru: "(без текста)", de: "(kein Text)", es: "(sin texto)", fr: "(sans texte)", pl: "(bez tekstu)", ptBR: "(sem texto)", zh: "（无文本）" },
   fromCompany: { uk: "Від компанії", en: "From the company", ru: "От компании", de: "Vom Unternehmen", es: "De la empresa", fr: "De l'entreprise", pl: "Od firmy", ptBR: "Da empresa", zh: "来自公司" },
+  groupCount: { uk: "відгуків: {n}", en: "applications: {n}", ru: "откликов: {n}", de: "Bewerbungen: {n}", es: "candidaturas: {n}", fr: "candidatures : {n}", pl: "aplikacji: {n}", ptBR: "candidaturas: {n}", zh: "申请：{n}" },
   refresh: { uk: "Оновити", en: "Refresh", ru: "Обновить", de: "Aktualisieren", es: "Actualizar", fr: "Actualiser", pl: "Odśwież", ptBR: "Atualizar", zh: "刷新" },
 };
 
@@ -116,11 +118,15 @@ export function AdminApplicationsPanel({ signedInAs }: { signedInAs: string }) {
   // newer run's state.
   const runIdRef = useRef(0);
 
-  // Walks every page of accounts, appending as it goes. Deliberately
-  // sequential: each page is already a burst of parallel logins on the
-  // server side (lib/a1/admin-applications.ts's CONCURRENCY), and firing
-  // several pages at once would just multiply that against the same
-  // backend.
+  // Сколько страниц аккаунтов тянуть одновременно. Было строго по
+  // одной, и обход всех ~525 аккаунтов занимал минуты (2026-09-17,
+  // Александр: «чтобы найти отзывы, он как-то тоже очень дико долго
+  // грузит»). Три -- потому что каждая страница на сервере и так
+  // разворачивается в пачку параллельных входов, и больше значило бы
+  // бить по бэкенду втрое сильнее ради всё той же очереди.
+  const PAGE_CONCURRENCY = 3;
+
+  // Обходит все страницы аккаунтов, дописывая найденное по ходу.
   async function scanAll(refresh = false) {
     const runId = ++runIdRef.current;
     setError(false);
@@ -130,22 +136,40 @@ export function AdminApplicationsPanel({ signedInAs }: { signedInAs: string }) {
     setScanning(true);
     try {
       let acc: Application[] = [];
-      let offset = 0;
-      for (;;) {
-        const page = await fetchPage(offset, refresh);
-        if (runIdRef.current !== runId) return;
-        // Dedupe by company+chat: the server puts the accounts that had
-        // applications last time at the front of the walk (see
-        // lib/a1/admin-applications.ts's knownActive), so an account can move
-        // between pages mid-scan and come back twice.
-        acc = dedupe(acc.concat(page.applications));
-        acc.sort((a, b) => b.lastMessageAtMs - a.lastMessageAtMs);
-        setItems(acc.slice());
-        setTotalAccounts(page.total);
-        setLoadedAccounts(Math.min(offset + ACCOUNT_PAGE_SIZE, page.total));
-        if (!page.hasMore || page.nextOffset === null) break;
-        offset = page.nextOffset;
+      // Первая страница отдельно: из неё узнаём, сколько всего
+      // аккаунтов, и дальше уже знаем все смещения наперёд -- можно не
+      // ждать каждую страницу, чтобы узнать следующую.
+      const first = await fetchPage(0, refresh);
+      if (runIdRef.current !== runId) return;
+      acc = dedupe(first.applications);
+      acc.sort((a, b) => b.lastMessageAtMs - a.lastMessageAtMs);
+      setItems(acc.slice());
+      setTotalAccounts(first.total);
+      setLoadedAccounts(Math.min(ACCOUNT_PAGE_SIZE, first.total));
+
+      const offsets: number[] = [];
+      for (let o = ACCOUNT_PAGE_SIZE; o < first.total; o += ACCOUNT_PAGE_SIZE) offsets.push(o);
+      let done = 1;
+      let next = 0;
+      async function worker() {
+        for (;;) {
+          const i = next++;
+          const offset = offsets[i];
+          if (offset === undefined) return;
+          const page = await fetchPage(offset, refresh);
+          if (runIdRef.current !== runId) return;
+          // Дедупликация по «компания+чат»: сервер ставит аккаунты, у
+          // которых отклики были в прошлый раз, в начало обхода (см.
+          // knownActive в lib/a1/admin-applications.ts), поэтому один и
+          // тот же аккаунт может попасть в две страницы.
+          acc = dedupe(acc.concat(page.applications));
+          acc.sort((a, b) => b.lastMessageAtMs - a.lastMessageAtMs);
+          setItems(acc.slice());
+          done += 1;
+          setLoadedAccounts(Math.min(done * ACCOUNT_PAGE_SIZE, first.total));
+        }
       }
+      await Promise.all(Array.from({ length: Math.min(PAGE_CONCURRENCY, offsets.length) }, worker));
     } catch {
       if (runIdRef.current === runId) setError(true);
     } finally {
@@ -173,6 +197,34 @@ export function AdminApplicationsPanel({ signedInAs }: { signedInAs: string }) {
         a.messages.some((m) => m.text.toLowerCase().includes(q)),
     );
   }, [items, query]);
+
+  // Отклики одной компании -- одной карточкой (2026-09-17, Александр:
+  // «если это отзывы на одну компанию, они должны группироваться в
+  // блок, который нажимаешь, он раскрывается, и ты видишь, что у них
+  // несколько»). Порядок компаний -- по самому свежему отклику, внутри
+  // компании -- тоже сверху свежие.
+  const groups = useMemo(() => {
+    if (!filtered) return null;
+    const byCompany = new Map<string, { companyName: string; companyEmail: string; apps: Application[]; lastMessageAtMs: number }>();
+    for (const app of filtered) {
+      const group = byCompany.get(app.companyEmail);
+      if (group) {
+        group.apps.push(app);
+        group.lastMessageAtMs = Math.max(group.lastMessageAtMs, app.lastMessageAtMs);
+      } else {
+        byCompany.set(app.companyEmail, {
+          companyName: app.companyName,
+          companyEmail: app.companyEmail,
+          apps: [app],
+          lastMessageAtMs: app.lastMessageAtMs,
+        });
+      }
+    }
+    const list = Array.from(byCompany.values());
+    for (const group of list) group.apps.sort((a, b) => b.lastMessageAtMs - a.lastMessageAtMs);
+    list.sort((a, b) => b.lastMessageAtMs - a.lastMessageAtMs);
+    return list;
+  }, [filtered]);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
@@ -229,38 +281,8 @@ export function AdminApplicationsPanel({ signedInAs }: { signedInAs: string }) {
       )}
 
       <div className="flex flex-col gap-2">
-        {filtered?.map((app) => (
-          <div key={app.companyEmail + ":" + app.chatId} className="rounded-xl border border-neutral-200 p-3 dark:border-neutral-800">
-            <div className="mb-1 flex items-start justify-between gap-2">
-              <span className="min-w-0 flex-1 truncate text-sm font-medium text-neutral-900 dark:text-neutral-50">
-                {app.applicantName || STRINGS.unknownApplicant[lang]}
-                {app.applicantUsername ? (
-                  <span className="ml-1.5 text-xs font-normal text-neutral-400 dark:text-neutral-500">@{app.applicantUsername}</span>
-                ) : null}
-              </span>
-              <span className="shrink-0 text-[11px] text-neutral-400 dark:text-neutral-500">{formatWhen(app.lastMessageAtMs)}</span>
-            </div>
-            <div className="mb-2 text-xs text-neutral-400 dark:text-neutral-500">{app.companyName}</div>
-
-            <div className="flex flex-col gap-1.5">
-              {app.messages.map((m) => (
-                <div
-                  key={m.id}
-                  className={
-                    "rounded-lg px-2.5 py-1.5 text-xs " +
-                    (m.fromCompany
-                      ? "bg-accent/5 text-neutral-600 dark:text-neutral-300"
-                      : "bg-neutral-50 text-neutral-700 dark:bg-neutral-900 dark:text-neutral-200")
-                  }
-                >
-                  {m.fromCompany && (
-                    <span className="mr-1.5 text-[10px] uppercase tracking-wide text-accent">{STRINGS.fromCompany[lang]}</span>
-                  )}
-                  <span className="whitespace-pre-wrap break-words">{m.text || STRINGS.noText[lang]}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+        {groups?.map((group) => (
+          <CompanyApplications key={group.companyEmail} group={group} lang={lang} />
         ))}
       </div>
 
@@ -273,6 +295,106 @@ export function AdminApplicationsPanel({ signedInAs }: { signedInAs: string }) {
         </div>
       )}
 
+    </div>
+  );
+}
+
+// Карточка одной компании: стрелка, название, счётчик и кнопка
+// «Створити посилання» -- та же самая, что во вкладке «Компанії»
+// (components/admin-claim-link.tsx), чтобы за ссылкой не ходить в
+// другую вкладку.
+function CompanyApplications({
+  group,
+  lang,
+}: {
+  group: { companyName: string; companyEmail: string; apps: Application[]; lastMessageAtMs: number };
+  lang: Locale;
+}) {
+  // Свёрнуто по умолчанию: в шапке и так видно компанию, сколько
+  // откликов и когда был последний -- этого хватает, чтобы решить,
+  // разворачивать ли.
+  const [open, setOpen] = useState(false);
+  const claim = useClaimLink(group.companyEmail, lang);
+  const latest = group.apps[0];
+
+  return (
+    <div className="rounded-xl border border-neutral-200 dark:border-neutral-800">
+      <div className="flex items-center gap-2 p-3">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            className={`h-4 w-4 shrink-0 text-neutral-400 transition-transform ${open ? "rotate-90" : ""}`}
+          >
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-medium text-neutral-900 dark:text-neutral-50">{group.companyName}</span>
+            <span className="block truncate text-xs text-neutral-400 dark:text-neutral-500">
+              {t("groupCount", lang, { n: group.apps.length })}
+              {latest ? ` · ${latest.applicantName || STRINGS.unknownApplicant[lang]} · ${formatWhen(group.lastMessageAtMs)}` : ""}
+            </span>
+          </span>
+        </button>
+        <ClaimLinkButton lang={lang} busy={claim.busy} onClick={() => void claim.createLink()} />
+      </div>
+
+      <div className="px-3 pb-3 empty:hidden">
+        <ClaimLinkDetails lang={lang} link={claim.link} error={claim.error} copied={claim.copied} onCopy={() => void claim.copy()} />
+      </div>
+
+      {open && (
+        <div className="flex flex-col gap-2 border-t border-neutral-100 p-3 dark:border-neutral-900">
+          {group.apps.map((app) => (
+            <ApplicationCard key={app.chatId} app={app} lang={lang} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ApplicationCard({ app, lang }: { app: Application; lang: Locale }) {
+  return (
+    <div className="rounded-lg border border-neutral-200 p-2.5 dark:border-neutral-800">
+      <div className="mb-1 flex items-start justify-between gap-2">
+        <span className="min-w-0 flex-1 truncate text-sm font-medium text-neutral-900 dark:text-neutral-50">
+          {app.applicantName || STRINGS.unknownApplicant[lang]}
+          {app.applicantUsername ? (
+            <span className="ml-1.5 text-xs font-normal text-neutral-400 dark:text-neutral-500">@{app.applicantUsername}</span>
+          ) : null}
+        </span>
+        <span className="shrink-0 text-[11px] text-neutral-400 dark:text-neutral-500">{formatWhen(app.lastMessageAtMs)}</span>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        {app.messages.map((m) => (
+          <div
+            key={m.id}
+            className={
+              "rounded-lg px-2.5 py-1.5 text-xs " +
+              (m.fromCompany
+                ? "bg-accent/5 text-neutral-600 dark:text-neutral-300"
+                : "bg-neutral-50 text-neutral-700 dark:bg-neutral-900 dark:text-neutral-200")
+            }
+          >
+            {m.fromCompany && (
+              <span className="mr-1.5 text-[10px] uppercase tracking-wide text-accent">{STRINGS.fromCompany[lang]}</span>
+            )}
+            <span className="whitespace-pre-wrap break-words">{m.text || STRINGS.noText[lang]}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

@@ -37,7 +37,13 @@ import {
   type Chat,
 } from "./chat-schemas";
 
-const CONCURRENCY = 10;
+// 2026-09-17 (Александр: «чтобы найти отзывы, он очень дико долго
+// грузит») -- было 10. У аккаунта без единого чата вся работа это два
+// лёгких запроса (вход + chats.getChats), и держать их по десять за
+// раз было осторожностью на вырост: у соседнего агрегата постов
+// (lib/a1/admin-post-aggregate.ts) с более тяжёлым аккаунтом стоит 25.
+// Двадцать -- вдвое быстрее и всё ещё вдвое мягче к бэкенду, чем там.
+const CONCURRENCY = 20;
 // 2026-09-11 (Aleksandr: "надо делать максимально эффективно по косту и
 // ресурсам"). One full pass is ~500 logins against our own backend, so the
 // cheap win is to not repeat it: 10 minutes instead of the posts aggregate's
