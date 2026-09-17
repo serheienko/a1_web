@@ -1613,6 +1613,12 @@ export function ProfileEditor({
       favoriteMovies: favoriteMovies.filter((m) => m.title.trim() !== "").map((m) => ({ title: m.title.trim() })),
       favoriteGames: favoriteGames.filter((g) => g.title.trim() !== "").map((g) => ({ title: g.title.trim() })),
       workStylePreferences,
+      // 17.09.2026: две плашки «Показувати в профілі» (телефон и дата
+      // рождения) наконец доезжают до сервера. До этого они меняли
+      // только локальное состояние, а Save рапортовал успех -- см.
+      // комментарий ниже про историю с `flags`.
+      showPhoneNumber: showPhone,
+      showDob,
     };
     if (occupation) body.occupation = occupation;
     // Schema-required min(1) if present at all (see ProfileInputSchema's
@@ -1640,24 +1646,16 @@ export function ProfileEditor({
     if (trimmedDob !== originalDobRef.current) {
       body.dob = trimmedDob || null;
     }
-    // 2026-08-31, live repro of "не сохраняется профиль" (screenshot:
-    // "Couldn't save. Please try again." the moment either "Show on
-    // profile" pill was touched): account.updateProfile does NOT accept
-    // `flags` at all -- confirmed live against a throwaway test account,
-    // the real backend error is "root has unknown property 'flags'".
-    // That's a full-request rejection, not a per-field one, so touching
-    // either pill used to fail the ENTIRE save (every other section too,
-    // not just phone/dob visibility) with no indication of why beyond
-    // the generic saveFailed copy. The read side (EditableProfileSchema.
-    // flags, canShowPhone/canShowDob) and the two pills stay as they are
-    // -- they still reflect whatever the account's real flags are -- but
-    // this dialog no longer has a confirmed way to WRITE that bitmask,
-    // so it must not try. Clicking a pill still updates local state
-    // (showPhone/showDob) for a coherent-looking dialog, it just isn't
-    // persisted yet; that's a known gap, not a silent data loss, since
-    // nothing here previously worked either (see the SHOW_PHONE_NUMBER/
-    // SHOW_DOB comment near the state declarations: "never round-tripped
-    // through a real save" until this same live test disproved it).
+    // История двух плашек «Показувати в профілі», чтобы не наступить
+    // снова. 31.08.2026: их пытались сохранять как битовую маску
+    // `flags` -- account.updateProfile такого поля не знает вовсе
+    // («root has unknown property 'flags'»), и это отказ всего запроса,
+    // то есть касание плашки роняло сохранение ВСЕГО профиля. Тогда
+    // запись убрали совсем, и плашки остались красивыми, но мёртвыми.
+    // 17.09.2026: правильная запись нашлась -- у метода есть свои
+    // плоские булевы `showPhoneNumber` и `showDob` (см.
+    // ProfileInputSchema), они и уходят в body выше. Битовую маску
+    // по-прежнему НЕ отправляем.
 
     try {
       const res = await authFetch("/api/account/profile-editor/update", {

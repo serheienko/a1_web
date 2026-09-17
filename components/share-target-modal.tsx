@@ -118,6 +118,8 @@ export function ShareTargetModal({
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [failed, setFailed] = useState(false);
+  // Ушла ссылка вместо карточки контакта -- см. sendToChat ниже.
+  const [sentAsLink, setSentAsLink] = useState(false);
   const [copied, setCopied] = useState(false);
   // Отдельно от `failed`: та надпись говорит про отправку в чат, а
   // здесь речь про ссылку -- смешивать их значит врать человеку о
@@ -233,7 +235,8 @@ export function ShareTargetModal({
   }
 
   /** Одна отправка. true -- дошло. */
-  async function sendToChat(chatId: string): Promise<boolean> {
+  /** "sent" -- ушло то, что просили; "link" -- вместо карточки ушла ссылка. */
+  async function sendToChat(chatId: string): Promise<"sent" | "link" | "failed"> {
     async function post(body: Record<string, unknown>) {
       const res = await authFetch("/api/chats/send", {
         method: "POST",
@@ -246,16 +249,16 @@ export function ShareTargetModal({
 
     if (target.kind === "post") {
       try {
-        return await post({ text: `${target.title}\n${target.url}` });
+        return (await post({ text: `${target.title}\n${target.url}` })) ? "sent" : "failed";
       } catch {
-        return false;
+        return "failed";
       }
     }
 
     const { firstName, lastName } = splitName(target.name);
     try {
       if (await post({ contacts: [{ userId: target.userId, phoneNumber: "", firstName, lastName }] })) {
-        return true;
+        return "sent";
       }
     } catch {
       // Отдельный try именно вокруг первой попытки: раньше один общий
@@ -268,10 +271,16 @@ export function ShareTargetModal({
     // обязательное поле, и пустая строка теоретически может не пройти
     // проверку. Терять из-за этого сам шаринг незачем -- то же самое
     // уходит обычным сообщением со ссылкой на профиль.
+    //
+    // 17.09.2026 (Александр: «окно молча подменяет её обычным текстовым
+    // сообщением и показывает "отправлено"»): подмена осталась, ссылка
+    // лучше, чем ничего, но теперь она возвращается отдельным исходом
+    // "link" -- и окно об этом пишет, а не делает вид, что ушла
+    // карточка.
     try {
-      return await post({ text: `${target.name}\n${target.profileUrl}` });
+      return (await post({ text: `${target.name}\n${target.profileUrl}` })) ? "link" : "failed";
     } catch {
-      return false;
+      return "failed";
     }
   }
 
@@ -279,21 +288,27 @@ export function ShareTargetModal({
     if (picked.size === 0 || sending) return;
     setSending(true);
     setFailed(false);
+    setSentAsLink(false);
     let anyFailed = false;
+    let anyLink = false;
     for (const chatId of picked) {
       // Последовательно, а не пачкой: получателей тут единицы, зато
       // сервер не получает веер одновременных отправок.
       // eslint-disable-next-line no-await-in-loop
-      const ok = await sendToChat(chatId);
-      if (!ok) anyFailed = true;
+      const outcome = await sendToChat(chatId);
+      if (outcome === "failed") anyFailed = true;
+      if (outcome === "link") anyLink = true;
     }
+    if (anyLink) setSentAsLink(true);
     setSending(false);
     if (anyFailed) {
       setFailed(true);
       return;
     }
     setSent(true);
-    setTimeout(onClose, 700);
+    // Если вместо карточки ушла ссылка, окно закрывается позже: за 700
+    // мс предупреждение прочитать невозможно.
+    setTimeout(onClose, anyLink ? 2600 : 700);
   }
 
   async function handleExternalShare() {
@@ -389,6 +404,22 @@ export function ShareTargetModal({
               es="No se pudo copiar el enlace" fr="Impossible de copier le lien"
               pl="Nie udało się skopiować linku" ptBR="Não foi possível copiar o link"
               zh="无法复制链接"
+            />
+          </p>
+        )}
+
+        {sentAsLink && !failed && (
+          <p className="px-5 pt-2 text-[13px] text-amber-600 dark:text-amber-400">
+            <T
+              uk="Картку контакту не прийняли — надіслали посилання на профіль."
+              en="The contact card wasn't accepted — a profile link was sent instead."
+              ru="Карточку контакта не приняли — отправили ссылку на профиль."
+              de="Die Kontaktkarte wurde nicht akzeptiert — stattdessen ging ein Profillink raus."
+              es="No se aceptó la tarjeta de contacto: se envió un enlace al perfil."
+              fr="La carte de contact n'a pas été acceptée — un lien vers le profil a été envoyé."
+              pl="Wizytówka kontaktu nie została przyjęta — wysłaliśmy link do profilu."
+              ptBR="O cartão de contato não foi aceito — enviamos um link do perfil."
+              zh="联系人名片未被接受，已改为发送个人主页链接。"
             />
           </p>
         )}

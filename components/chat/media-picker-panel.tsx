@@ -22,6 +22,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { authFetch } from "@/lib/auth-fetch";
 import { EMOJI_CATEGORIES } from "@/lib/a1/emoji-data";
+import { searchEmojis } from "@/lib/a1/emoji-search";
 import { buildMediaProxyUrl, strippedPreviewDataUrl, decodeStickerPathPreview } from "@/lib/a1/media-proxy";
 import { getStableMediaProxyUrl } from "@/lib/a1/stable-media-url";
 import type { MediaDocument } from "@/lib/a1/schemas";
@@ -300,18 +301,18 @@ export function MediaPickerPanel({
   const activeStickers: MediaDocument[] = activeSetId === "recent" ? recent : (activeSet?.documents ?? []);
   const activeStickerHeaderTitle = activeSetId === "recent" ? "Недавние" : displayStickerSetTitle(activeSet?.title ?? "");
 
-  // Emoji search: no per-emoji keyword text (see lib/a1/emoji-data.ts's
-  // own scope-cut comment), so a non-empty query matches by CATEGORY
-  // label instead -- typing "живот" finds "Животные" -- and falls back
-  // to the active category's own emoji when nothing matches, so the
-  // grid is never left empty from a query with no hits.
+  // Поиск по эмодзи. 17.09.2026 (Александр: «ищет не по эмодзи, а по
+  // названиям категорий; на обычный запрос сетка не меняется»): слова
+  // на каждое эмодзи теперь есть -- lib/a1/emoji-keywords.ts, собраны
+  // из имён Юникода, а русские и украинские слова переводятся в них
+  // словарём в lib/a1/emoji-search.ts. Пустой результат больше НЕ
+  // подменяется текущей категорией: панель честно пишет, что ничего не
+  // нашлось (подмена и была той самой жалобой).
+  const emojiSearching = emojiQuery.trim().length > 0;
   const visibleEmojis = useMemo(() => {
-    const q = emojiQuery.trim().toLowerCase();
-    if (!q) return EMOJI_CATEGORIES.find((c) => c.key === emojiCategory)?.emojis ?? [];
-    const matchingCats = EMOJI_CATEGORIES.filter((c) => c.labelRu.toLowerCase().includes(q));
-    if (matchingCats.length === 0) return EMOJI_CATEGORIES.find((c) => c.key === emojiCategory)?.emojis ?? [];
-    return matchingCats.flatMap((c) => c.emojis);
-  }, [emojiQuery, emojiCategory]);
+    if (!emojiSearching) return EMOJI_CATEGORIES.find((c) => c.key === emojiCategory)?.emojis ?? [];
+    return searchEmojis(emojiQuery);
+  }, [emojiSearching, emojiQuery, emojiCategory]);
 
   // Measures nothing from the DOM -- the card's own size is fixed
   // (PANEL_WIDTH/PANEL_HEIGHT, modulo the 92vw cap on a narrow phone),
@@ -568,6 +569,10 @@ export function MediaPickerPanel({
               ))}
             </div>
           ))}
+
+        {tab === "emoji" && emojiSearching && visibleEmojis.length === 0 && (
+          <p className="px-2 py-6 text-center text-[13px] text-[#989aa6]">Ничего не нашлось</p>
+        )}
 
         {tab === "emoji" && (
           <div className="grid grid-cols-8 gap-1">
