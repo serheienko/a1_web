@@ -65,6 +65,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
 import { LOCALES, LOCALE_CLASS, LOCALE_TAG, type Locale } from "@/components/t";
 import { OccupationIcon } from "@/components/occupation-icon";
 import { OCCUPATION_LABELS } from "@/components/occupation-labels";
@@ -1758,7 +1759,7 @@ export function ProfileEditor({
 
   if (loadError || !bootstrap) {
     return (
-      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" {...backdropDismiss(onClose)}>
         <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xs rounded-2xl bg-white p-5 text-center shadow-xl dark:bg-neutral-900">
           <p className="text-sm text-neutral-700 dark:text-neutral-300">{t("loadFailed", lang)}</p>
           <button type="button" onClick={onClose} className="mt-4 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white">
@@ -1770,7 +1771,7 @@ export function ProfileEditor({
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 sm:items-center sm:p-4" onClick={requestClose}>
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 sm:items-center sm:p-4" {...backdropDismiss(requestClose)}>
       <div
         ref={dialogRef}
         role="dialog"
@@ -1788,7 +1789,7 @@ export function ProfileEditor({
         </div>
 
         {confirmCloseOpen && (
-          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4" onClick={() => setConfirmCloseOpen(false)}>
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4" {...backdropDismiss(() => setConfirmCloseOpen(false))}>
             <div role="alertdialog" aria-modal="true" onClick={(e) => e.stopPropagation()} className="w-full max-w-xs rounded-2xl bg-white p-5 shadow-xl dark:bg-neutral-900">
               <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">{t("closeConfirmTitle", lang)}</p>
               <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{t("closeConfirmBody", lang)}</p>

@@ -21,6 +21,7 @@
 // chat -- no separate profile-link vs. chat-icon split, since this
 // popup's only job is "start a chat", per his own spec above.
 import { useEffect, useMemo, useState } from "react";
+import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
 import { useRouter } from "next/navigation";
 import { CachedAvatar } from "@/components/cached-avatar";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
@@ -232,7 +233,7 @@ export function NewChatPickerModal({ lang, onClose }: { lang: Locale; onClose: (
   }
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4" {...backdropDismiss(onClose)}>
       <div
         className="flex max-h-[80vh] w-full max-w-sm flex-col gap-3 rounded-2xl bg-white p-5 shadow-xl dark:bg-neutral-900"
         onClick={(e) => e.stopPropagation()}

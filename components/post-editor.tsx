@@ -150,6 +150,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import type { Category, Tag, Currency } from "@/lib/a1/datasets";
 import { translateTagLabel, translateCategoryLabel } from "@/components/label-translations";
@@ -1529,7 +1530,7 @@ export function PostEditor({
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 sm:items-center sm:p-4" onClick={requestClose}>
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 sm:items-center sm:p-4" {...backdropDismiss(requestClose)}>
       <div
         ref={dialogRef}
         role="dialog"
@@ -1563,7 +1564,7 @@ export function PostEditor({
           // not just another row in the form.
           <div
             className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4"
-            onClick={() => setConfirmCloseOpen(false)}
+            {...backdropDismiss(() => setConfirmCloseOpen(false))}
           >
             <div
               role="alertdialog"
@@ -1627,7 +1628,7 @@ export function PostEditor({
         {confirmDeleteOpen && (
           <div
             className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4"
-            onClick={() => !deleting && setConfirmDeleteOpen(false)}
+            {...backdropDismiss(() => !deleting && setConfirmDeleteOpen(false))}
           >
             <div
               role="alertdialog"

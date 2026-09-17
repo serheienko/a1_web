@@ -42,6 +42,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
 import { authFetch } from "@/lib/auth-fetch";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { CachedAvatar } from "@/components/cached-avatar";
@@ -179,7 +180,7 @@ export function ContactsPickerModal({
   }, [filtered]);
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4" {...backdropDismiss(onClose)}>
       <div
         className="flex h-[min(32rem,80vh)] w-full max-w-sm flex-col rounded-2xl bg-white shadow-xl dark:bg-neutral-900"
         onClick={(e) => e.stopPropagation()}

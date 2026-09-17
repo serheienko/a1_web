@@ -23,6 +23,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
 import type { Locale } from "@/components/t";
 
 // Square viewport shown on screen — the Photos section's own thumbnails
@@ -185,9 +186,9 @@ export function PhotoCropModal({
   return (
     <div
       className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4"
-      onClick={() => {
+      {...backdropDismiss(() => {
         if (!confirming) onCancel();
-      }}
+      })}
     >
       <div className="w-full max-w-xs rounded-2xl bg-white p-5 shadow-xl dark:bg-neutral-900" onClick={(e) => e.stopPropagation()}>
         <div className="mb-3 flex items-center justify-between">

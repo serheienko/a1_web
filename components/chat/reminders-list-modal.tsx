@@ -39,6 +39,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
 import { T, type Locale } from "@/components/t";
 import { ChatPreviewLine } from "@/components/chat/chat-preview-line";
 import { getStableMediaProxyUrl } from "@/lib/a1/stable-media-url";
@@ -307,7 +308,7 @@ export function RemindersListModal({
   const groups = reminders ? groupByDateHour(reminders) : [];
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4" onClick={onClose}>
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4" {...backdropDismiss(onClose)}>
       <div
         onClick={(e) => e.stopPropagation()}
         className="flex max-h-[80vh] w-full max-w-[380px] flex-col rounded-2xl bg-[#2c2c2e]/95 shadow-2xl backdrop-blur-xl"

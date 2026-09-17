@@ -56,6 +56,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
 import { T } from "@/components/t";
 
 // Minimum schedule time is the start of the next minute, same rule as
@@ -310,7 +311,7 @@ export function RemindModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6" onClick={onCancel}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6" {...backdropDismiss(onCancel)}>
       <div
         ref={cardRef}
         onClick={(e) => e.stopPropagation()}

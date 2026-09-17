@@ -45,6 +45,7 @@
 // или закрепить его бэкенду нечем.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
 import { MediaPickerPanel } from "@/components/chat/media-picker-panel";
 import { TgsSticker } from "@/components/chat/tgs-sticker";
 import {
@@ -1061,7 +1062,7 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
       <div
         ref={overlayRef}
         className={`fixed inset-0 z-50 items-end justify-center overscroll-contain sm:items-center ${open ? "flex" : "hidden"}`}
-        onClick={closeWindow}
+        {...backdropDismiss(closeWindow)}
       >
         <div className={`absolute inset-0 bg-black/50 transition-opacity duration-200 ease-out ${shown ? "opacity-100" : "opacity-0"}`} />
         <div

@@ -25,6 +25,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
 import { authFetch } from "@/lib/auth-fetch";
 import { CachedAvatar } from "@/components/cached-avatar";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
@@ -357,7 +358,7 @@ export function ShareTargetModal({
     : "Share elsewhere";
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4" onClick={busy ? undefined : onClose}>
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4" {...backdropDismiss(busy ? undefined : onClose)}>
       <div
         role="dialog"
         aria-modal="true"

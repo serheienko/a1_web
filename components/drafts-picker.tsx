@@ -50,6 +50,7 @@
 "use client";
 
 import { createPortal } from "react-dom";
+import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { useEffect, useState, type MouseEvent, type RefObject } from "react";
 import type { EditablePost } from "@/components/post-editor";
@@ -242,7 +243,7 @@ export function DraftsPicker({
         ВНУТРИ подложки z-30, панель со своим z-[70] оказывалась над страницей
         всё равно на уровне 30 -- и кнопка ⋯ на странице вакансии (z-40) рисовалась
         поверх неё. Та же правка, что в components/chats-flyout.tsx. */}
-    <div className="animate-backdrop-in fixed inset-0 z-30" onClick={onClose} />
+    <div className="animate-backdrop-in fixed inset-0 z-30" {...backdropDismiss(onClose)} />
       <div
         role="dialog"
         aria-modal="true"

@@ -18,6 +18,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
 import { CachedAvatar } from "@/components/cached-avatar";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -7353,7 +7354,7 @@ export default function ChatWindowPage() {
       {discardConfirmOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6"
-          onClick={() => setDiscardConfirmOpen(false)}
+          {...backdropDismiss(() => setDiscardConfirmOpen(false))}
         >
           <div
             onClick={(e) => e.stopPropagation()}

@@ -1,33 +1,51 @@
 // lib/use-backdrop-dismiss.ts
 //
-// Александр, 17.09.2026 (видео с телефона): «Увійти не нажимается» --
-// в попапе «Увійдіть, щоб відгукнутися» тап по синей кнопке не
-// срабатывал, попап просто закрывался.
+// Александр, 17.09.2026 (видео с телефона, потом ещё скриншот с профиля:
+// «Тут тоже. Много где»): в попапе «Увійдіть, щоб продовжити» тап по
+// синей кнопке не срабатывал -- окно просто закрывалось.
 //
-// Причина -- обычная для оверлеев с `onClick` на подложке: браузер
-// считает кликом ту цель, на которой ЗАКОНЧИЛСЯ жест. На телефоне палец
-// почти всегда чуть сдвигается, и связка «нажал на кнопке -- отпустил на
-// подложке» (или наоборот) отдаёт клик подложке. Подложка закрывается,
-// обработчик кнопки не вызывается никогда.
+// Причина -- общая для всех оверлеев, у которых закрытие висит на
+// onClick подложки: браузер отдаёт клик той цели, на которой жест
+// ЗАКОНЧИЛСЯ. На телефоне палец почти всегда чуть сдвигается, и связка
+// «нажал на кнопке -- отпустил на подложке» достаётся подложке. Она
+// закрывается, обработчик кнопки не вызывается вообще.
 //
-// Лечится тем, что закрытие требует ОБА события на самой подложке:
-// и нажатие, и отпускание. Тогда честный тык мимо окна закрывает, а
-// смазанный тап по кнопке -- нет.
+// Лечение: закрывать, только если жест и НАЧАЛСЯ, и закончился на самой
+// подложке. Где начался -- знает один общий слушатель на окне (фаза
+// перехвата, поэтому его не отменить остановкой всплытия внутри окна).
+//
+// Это НЕ хук: его зовут прямо в разметке, в том числе внутри условных
+// блоков `{open && (...)}`, а хук в таком месте нарушил бы порядок
+// хуков. Состояние поэтому одно на модуль -- жест в любой момент
+// времени ровно один.
 "use client";
 
-import { useRef } from "react";
-import type { PointerEvent as ReactPointerEvent, MouseEvent as ReactMouseEvent } from "react";
+import type { MouseEvent as ReactMouseEvent } from "react";
 
-export function useBackdropDismiss(onClose: () => void) {
-  const startedOnBackdrop = useRef(false);
+let gestureStartTarget: EventTarget | null = null;
 
-  return {
-    onPointerDown: (event: ReactPointerEvent<HTMLElement>) => {
-      startedOnBackdrop.current = event.target === event.currentTarget;
+if (typeof window !== "undefined") {
+  window.addEventListener(
+    "pointerdown",
+    (event) => {
+      gestureStartTarget = event.target;
     },
+    true,
+  );
+}
+
+/**
+ * Пропсы для div-подложки оверлея.
+ *
+ * `onClose === undefined` -- закрытие временно запрещено (например идёт
+ * отправка); тогда не делаем ничего.
+ */
+export function backdropDismiss(onClose: (() => void) | undefined) {
+  return {
     onClick: (event: ReactMouseEvent<HTMLElement>) => {
-      if (!startedOnBackdrop.current) return;
+      if (!onClose) return;
       if (event.target !== event.currentTarget) return;
+      if (gestureStartTarget !== event.currentTarget) return;
       onClose();
     },
   };

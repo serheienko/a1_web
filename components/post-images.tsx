@@ -136,6 +136,9 @@ export function PostImages({ images }: { images: GalleryImage[] }) {
     <div
       ref={overlayRef}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+      // Здесь закрытие НЕ через backdropDismiss: этот обработчик
+      // читает координаты клика (зоны «влево/вправо» по краям просмотра
+      // фото), а backdropDismiss зовёт колбэк без события.
       onClick={handleOverlayClick}
     >
       <button

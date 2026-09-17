@@ -31,6 +31,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { PostEditor, type EditablePost } from "@/components/post-editor";
 import { authFetch } from "@/lib/auth-fetch";
@@ -150,7 +151,7 @@ export function MyPostsPanel({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 sm:items-center sm:p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 sm:items-center sm:p-4" {...backdropDismiss(onClose)}>
       <div
         role="dialog"
         aria-modal="true"

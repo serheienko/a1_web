@@ -34,7 +34,7 @@ import { useRouter } from "next/navigation";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
 import type { WebApplyQuestion } from "@/types/web-post";
-import { useBackdropDismiss } from "@/lib/use-backdrop-dismiss";
+import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
 
 const STRINGS = {
   title: {
@@ -252,10 +252,6 @@ export function ApplyQuestionsModal({
     onClose();
   }, [hasAnything, onClose]);
 
-  // Тап по кнопке на телефоне часто заканчивается на подложке -- без
-  // этого лист закрывался бы вместо нажатия (lib/use-backdrop-dismiss).
-  const backdrop = useBackdropDismiss(requestClose);
-
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
@@ -362,7 +358,7 @@ export function ApplyQuestionsModal({
   return createPortal(
     <div
       className="animate-backdrop-in fixed inset-0 z-[80] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4"
-      {...backdrop}
+      {...backdropDismiss(requestClose)}
     >
       <div
         role="dialog"

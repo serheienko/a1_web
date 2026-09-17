@@ -14,7 +14,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
-import { useBackdropDismiss } from "@/lib/use-backdrop-dismiss";
+import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
 
 const STRINGS = {
   title: {
@@ -91,9 +91,6 @@ export function ReportModal({
   onClose: () => void;
 }) {
   const lang = useActiveLocale();
-  // Тап по кнопке на телефоне часто заканчивается на подложке -- без
-  // этого окно закрывалось бы вместо нажатия (lib/use-backdrop-dismiss).
-  const backdrop = useBackdropDismiss(onClose);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [errored, setErrored] = useState(false);
@@ -129,7 +126,7 @@ export function ReportModal({
   return createPortal(
     <div
       className="animate-backdrop-in fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4"
-      {...backdrop}
+      {...backdropDismiss(onClose)}
     >
       <div
         role="dialog"

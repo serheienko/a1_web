@@ -73,6 +73,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useVoiceIntro } from "@/components/voice-intro-context";
 
@@ -194,7 +195,7 @@ export function ProfilePhotoViewer({
       {open && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 pt-[calc(1rem+env(safe-area-inset-top))] backdrop-blur-sm"
-          onClick={close}
+          {...backdropDismiss(close)}
           role="dialog"
           aria-modal="true"
         >

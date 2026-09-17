@@ -46,6 +46,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
 import { useRouter } from "next/navigation";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { formatBytes, formatRelativeTime } from "@/lib/format";
@@ -487,11 +488,11 @@ export function AvatarEditButton({ username, className }: { username: string; cl
       {open && (
         <div
           className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4"
-          onClick={() => {
+          {...backdropDismiss(() => {
             if (uploading) return;
             setOpen(false);
             cancelCrop();
-          }}
+          })}
         >
           <div
             className="w-full max-w-xs rounded-2xl bg-white p-5 shadow-xl dark:bg-neutral-900"

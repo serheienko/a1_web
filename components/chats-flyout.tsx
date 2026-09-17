@@ -25,6 +25,7 @@
 "use client";
 
 import Link from "next/link";
+import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
 import { CachedAvatar } from "@/components/cached-avatar";
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState, type RefObject } from "react";
@@ -518,7 +519,7 @@ export function ChatsFlyout({
   // the page.
   return createPortal(
     <>
-    <div className="animate-backdrop-in fixed inset-0 z-30" onClick={onClose} />
+    <div className="animate-backdrop-in fixed inset-0 z-30" {...backdropDismiss(onClose)} />
     <div
       role="dialog"
       aria-label={STRINGS.title[lang]}

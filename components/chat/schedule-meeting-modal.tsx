@@ -29,6 +29,7 @@
 // is simply left off. Flagged to Aleksandr same as every other scope
 // note this session.
 import { useEffect, useMemo, useRef, useState } from "react";
+import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
 import { T, LOCALE_TAG, type Locale } from "@/components/t";
 import { ChatBackArrow, ChatMeetingAttachIcon } from "./icons";
 import { bucketForHour, bucketEmoji } from "@/lib/a1/meeting-protocol";
@@ -378,7 +379,7 @@ export function ScheduleMeetingModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4" {...backdropDismiss(onClose)}>
       <div
         className="relative flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-white p-5 shadow-xl dark:bg-neutral-900"
         onClick={(e) => e.stopPropagation()}

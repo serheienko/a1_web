@@ -26,6 +26,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
 import { createPortal } from "react-dom";
 import { type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
@@ -329,7 +330,7 @@ export function AccountDangerZone({ lang, initialHidden }: { lang: Locale; initi
 
       {open &&
         createPortal(
-          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4" onClick={close}>
+          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4" {...backdropDismiss(close)}>
             <div
               className="animate-modal-in flex w-full max-w-sm flex-col gap-4 rounded-3xl bg-white p-5 shadow-xl dark:bg-neutral-900"
               onClick={(e) => e.stopPropagation()}

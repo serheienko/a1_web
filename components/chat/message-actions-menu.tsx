@@ -23,6 +23,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
 import { createPortal } from "react-dom";
 import { T, type Locale } from "@/components/t";
 import { groupReactionsByEmoji, type MessagePeerReaction } from "@/lib/a1/chat-schemas";
@@ -1238,7 +1239,7 @@ export function DeleteMessageConfirmDialog({
     // context menu above -- this confirm dialog has no createPortal of
     // its own, so a `fixed` z-50 here could still lose to the
     // mini-chat window's z-[70] floating panel when opened from there.
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 px-6" onClick={onCancel}>
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 px-6" {...backdropDismiss(onCancel)}>
       <div
         ref={cardRef}
         onClick={(e) => e.stopPropagation()}
