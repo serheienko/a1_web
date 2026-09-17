@@ -438,6 +438,25 @@ export function MessageActionsMenu({
 
   if (typeof document === "undefined") return null;
 
+  // 17.09.2026 (Александр: «На голосовые и файлы "скопировать" убери»).
+  // Раньше строка рисовалась всегда, а обработчика у неё могло не быть
+  // -- для голосового, файла, стикера, карточки контакта и расчёта
+  // «Скопіювати» и «Переслати» просто закрывали меню. Теперь строка без
+  // обработчика не показывается вовсе: пункт меню, который ничего не
+  // делает, хуже отсутствующего.
+  //
+  // reply, delete и reaction-строки обязательны и всегда на месте --
+  // их обработчики не опциональны.
+  function rowIsAvailable(key: ActionKey): boolean {
+    if (key === "copy") return Boolean(onCopy);
+    if (key === "forward") return Boolean(onForward);
+    if (key === "edit") return Boolean(onEdit);
+    if (key === "remind") return Boolean(onRemind);
+    if (key === "pin") return Boolean(onPin);
+    if (key === "select") return Boolean(onSelect);
+    return true;
+  }
+
   function select(key: ActionKey) {
     // Reaction row + Select (remain visual-only placeholders -- see
     // this file's own header comment). Remind (2026-09-06) and Pin
@@ -645,7 +664,13 @@ export function MessageActionsMenu({
           </div>
 
           <div className="overflow-hidden rounded-2xl bg-white/95 shadow-xl backdrop-blur-sm dark:bg-neutral-800/95">
-            {ACTION_ROWS.filter((r) => r.group === "main" && (r.key !== "edit" || mine) && (!rows || rows.includes(r.key))).map((row, i, arr) => {
+            {ACTION_ROWS.filter(
+              (r) =>
+                r.group === "main" &&
+                (r.key !== "edit" || mine) &&
+                (!rows || rows.includes(r.key)) &&
+                rowIsAvailable(r.key),
+            ).map((row, i, arr) => {
               // Pin row only: swap in the dynamic icon/label for
               // whichever of the three states this tapped message is
               // actually in (see this file's own onPin/pinState header

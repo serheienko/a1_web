@@ -3552,6 +3552,27 @@ export default function ChatWindowPage() {
     const originalAuthorId = (source.forwardFrom?.object === "peer-user" ? source.forwardFrom.user : null) ?? source.fromId;
     const docs = messageDocumentMedia(source);
     const contactsMedia = messageContactMedia(source);
+    // 17.09.2026 (Александр: «Карточки контакта и расчета так же сделай,
+    // чтобы можно было пересылать»). Расчёт живёт не в media, а в
+    // entities, поэтому у сообщения-расчёта не было ни текста, ни медиа
+    // -- и пересылка для него была выключена. Отправляем его тем же
+    // полем `calculation`, которым уходит новый расчёт: ветка в
+    // /api/chats/send собирает из него entities, а forwardFrom ставится
+    // выше и никуда не девается. Валюту длиной не 3 символа не берём --
+    // ручка такую не примет, и форвард упал бы целиком.
+    const sourceCalc = messageCalculation(source);
+    const calculation =
+      sourceCalc && sourceCalc.currency.trim().length === 3
+        ? {
+            note: sourceCalc.note,
+            currency: sourceCalc.currency.trim(),
+            rows: sourceCalc.rows.map((r) => ({
+              quantity: r.quantity,
+              unitAmount: r.unitAmount,
+              description: r.description ?? null,
+            })),
+          }
+        : null;
     const hasMedia = docs.length > 0 || contactsMedia.length > 0;
     // Pending-forward composer caption (Форвард 2.0, Phase 3) --
     // mirrors forward_multi_send.dart's _sendOne(): a typed caption
@@ -3564,7 +3585,7 @@ export default function ChatWindowPage() {
     // empty string, so this only ever engages for a genuinely non-
     // empty override.
     const text = hasMedia && captionOverride ? captionOverride : extractMessageText(source);
-    if (!originalAuthorId || (!text && docs.length === 0 && contactsMedia.length === 0)) {
+    if (!originalAuthorId || (!text && docs.length === 0 && contactsMedia.length === 0 && !calculation)) {
       return false;
     }
     try {
@@ -3579,6 +3600,7 @@ export default function ChatWindowPage() {
             contactsMedia.length > 0
               ? contactsMedia.map((c) => ({ userId: c.userId, phoneNumber: c.phoneNumber, firstName: c.firstName, lastName: c.lastName }))
               : undefined,
+          calculation: calculation ?? undefined,
           // Форвард 2.0, Phase 4 ("спрятать имя отправителя") --
           // omitting forwardFrom entirely sends this as a plain new
           // message with the same content instead of a real forward,
@@ -5154,6 +5176,70 @@ export default function ChatWindowPage() {
                           : `px-3 pt-2 pb-2 ${mine ? "rounded-tr-[6px] bg-[#335ef7] text-white dark:bg-[#009bff]" : "rounded-tl-[6px] bg-white text-[#262a34] dark:bg-[#1a1a1a] dark:text-white"}`
                       } ${pending?.failed ? "opacity-70" : ""}`}
                     >
+                      {/* «Переслано від …» -- шапка форварда. 17.09.2026 (Александр:
+                       «сверху должно писаться forwarded from и имя, UI такой
+                       же как в Телеграме»): раньше она жила внутри ветки
+                       текста, поэтому у пересланного голосового, файла,
+                       стикера, контакта и расчёта никакой шапки не было
+                       вовсе. Теперь она первый ребёнок пузыря и стоит НАД
+                       любым содержимым, как в Телеграме. */}
+                      {!pending && msg.forwardFrom?.object === "peer-user" && (() => {
+                        // 2026-09-05 follow-up (Aleksandr, live
+                        // screenshot: forwarding your OWN message
+                        // -- e.g. inside your own Saved-Messages-
+                        // style self-chat -- showed "Переслано
+                        // від …" with the fallback ellipsis
+                        // instead of a real name) -- this label's
+                        // own contactSummaries lookup only ever
+                        // covers OTHER users (/api/users/summaries
+                        // never returns an entry for yourself, same
+                        // reason resolveReplyPreview/senderLabel
+                        // elsewhere in this file already special-
+                        // case `=== myUserId` before falling back
+                        // to a contactSummaries/headerTitle
+                        // lookup). Same fix here.
+                        const forwardFromUser = msg.forwardFrom.user;
+                        const isForwardFromMe = forwardFromUser === myUserId;
+                        const forwardOwnerName = isForwardFromMe ? YOU_LABEL_FROM_TEXT[lang] : contactSummaries[forwardFromUser]?.fullName || "…";
+                        // 2026-09-06 (Aleksandr, 2 reference
+                        // screenshots -- our own live "Переслано
+                        // від X" one-liner vs. a WhatsApp
+                        // forwarded-message header: "имя пиши
+                        // снизу и ставь аватарку как в Телеге, ее
+                        // еле видно, поэтому должен быть очень
+                        // легкий вес") -- was one line ("Переслано
+                        // від X"); now the label sits on its own
+                        // line, the name moves to a second line
+                        // below it, prefixed by a small avatar.
+                        // "еле видно" (barely visible, i.e. a very
+                        // LIGHT visual weight, not a bold/full-
+                        // opacity avatar like the header's own) is
+                        // why this one is tiny (14px) and
+                        // opacity-70 rather than the header
+                        // avatar's full-weight treatment.
+                        const forwardAvatarUrl = isForwardFromMe
+                          ? myAvatarUrl || pickDefaultCatAvatar(myUserId ?? "me")
+                          : contactSummaries[forwardFromUser]?.avatarUrl || pickDefaultCatAvatar(forwardFromUser);
+                        return (
+                          <div className={`mb-1 flex flex-col gap-0.5 text-[13px] italic ${mine ? "text-white/80" : "text-[#335ef7] dark:text-[#0c8ce9]"}`}>
+                            <span className="font-semibold">
+                              <T
+                                uk="Переслано від" en="Forwarded from" ru="Переслано от" de="Weitergeleitet von"
+                                es="Reenviado de" fr="Transféré de" pl="Przesłano od" ptBR="Encaminhado de" zh="转发自"
+                              />
+                            </span>
+                            <span className="flex min-w-0 items-center gap-1 font-semibold">
+                              <CachedAvatar
+                                src={forwardAvatarUrl}
+                                blurDataURL={BLUR_DATA_URL}
+                                size={14}
+                                className="h-3.5 w-3.5 shrink-0 rounded-full object-cover opacity-70"
+                              />
+                              <span className="truncate">{forwardOwnerName}</span>
+                            </span>
+                          </div>
+                        );
+                      })()}
                       {pendingAttachments.length > 0 && (
                         <div className="mb-1 flex flex-col gap-1.5">
                           {pendingAttachments.map((a) =>
@@ -5708,73 +5794,6 @@ export default function ChatWindowPage() {
                           // too, which is how a reply now actually gets
                           // started on a Photo/Voice Message/document.
                           <>
-                            {/* Forward feature (2026-09-05) -- scoped to
-                                plain-text bubbles for now, same
-                                incremental-rollout precedent this reply
-                                quote right below already set (its own
-                                2026-09-05 header comment: "LEFT-click...
-                                scoped to plain text bubbles only, told
-                                to Aleksandr, not silently decided") --
-                                extending this to every media kind is a
-                                bigger per-kind-footer change, flagged
-                                here rather than attempted half-verified. */}
-                            {!pending && msg.forwardFrom?.object === "peer-user" && (() => {
-                              // 2026-09-05 follow-up (Aleksandr, live
-                              // screenshot: forwarding your OWN message
-                              // -- e.g. inside your own Saved-Messages-
-                              // style self-chat -- showed "Переслано
-                              // від …" with the fallback ellipsis
-                              // instead of a real name) -- this label's
-                              // own contactSummaries lookup only ever
-                              // covers OTHER users (/api/users/summaries
-                              // never returns an entry for yourself, same
-                              // reason resolveReplyPreview/senderLabel
-                              // elsewhere in this file already special-
-                              // case `=== myUserId` before falling back
-                              // to a contactSummaries/headerTitle
-                              // lookup). Same fix here.
-                              const forwardFromUser = msg.forwardFrom.user;
-                              const isForwardFromMe = forwardFromUser === myUserId;
-                              const forwardOwnerName = isForwardFromMe ? YOU_LABEL_FROM_TEXT[lang] : contactSummaries[forwardFromUser]?.fullName || "…";
-                              // 2026-09-06 (Aleksandr, 2 reference
-                              // screenshots -- our own live "Переслано
-                              // від X" one-liner vs. a WhatsApp
-                              // forwarded-message header: "имя пиши
-                              // снизу и ставь аватарку как в Телеге, ее
-                              // еле видно, поэтому должен быть очень
-                              // легкий вес") -- was one line ("Переслано
-                              // від X"); now the label sits on its own
-                              // line, the name moves to a second line
-                              // below it, prefixed by a small avatar.
-                              // "еле видно" (barely visible, i.e. a very
-                              // LIGHT visual weight, not a bold/full-
-                              // opacity avatar like the header's own) is
-                              // why this one is tiny (14px) and
-                              // opacity-70 rather than the header
-                              // avatar's full-weight treatment.
-                              const forwardAvatarUrl = isForwardFromMe
-                                ? myAvatarUrl || pickDefaultCatAvatar(myUserId ?? "me")
-                                : contactSummaries[forwardFromUser]?.avatarUrl || pickDefaultCatAvatar(forwardFromUser);
-                              return (
-                                <div className={`mb-1 flex flex-col gap-0.5 text-[13px] italic ${mine ? "text-white/80" : "text-[#335ef7] dark:text-[#0c8ce9]"}`}>
-                                  <span className="font-semibold">
-                                    <T
-                                      uk="Переслано від" en="Forwarded from" ru="Переслано от" de="Weitergeleitet von"
-                                      es="Reenviado de" fr="Transféré de" pl="Przesłano od" ptBR="Encaminhado de" zh="转发自"
-                                    />
-                                  </span>
-                                  <span className="flex min-w-0 items-center gap-1 font-semibold">
-                                    <CachedAvatar
-                                      src={forwardAvatarUrl}
-                                      blurDataURL={BLUR_DATA_URL}
-                                      size={14}
-                                      className="h-3.5 w-3.5 shrink-0 rounded-full object-cover opacity-70"
-                                    />
-                                    <span className="truncate">{forwardOwnerName}</span>
-                                  </span>
-                                </div>
-                              );
-                            })()}
                             {(() => {
                               const quote = pending
                                 ? resolveReplyPreview(pending.replySnapshot)
@@ -7425,7 +7444,8 @@ export default function ChatWindowPage() {
           onForward={
             extractMessageText(actionsMenu.message) ||
             messageDocumentMedia(actionsMenu.message).length > 0 ||
-            messageContactMedia(actionsMenu.message).length > 0
+            messageContactMedia(actionsMenu.message).length > 0 ||
+            messageCalculation(actionsMenu.message)
               ? () => {
                   setForwardFailed(false);
                   setForwardPickedChatIds(new Set());
