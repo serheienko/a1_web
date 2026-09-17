@@ -590,6 +590,12 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
     const el = listRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
+    // Второй заход: к этому моменту композер уже измерен, отступ снизу
+    // стал настоящим, и лента доезжает до конца с учётом него.
+    const t = window.setTimeout(() => {
+      el.scrollTop = el.scrollHeight;
+    }, 120);
+    return () => window.clearTimeout(t);
   }, [open]);
 
   // Измеряем композер, а не подбираем отступ на глаз: он меняется в
@@ -1096,7 +1102,10 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
           <div className="relative flex min-h-0 flex-1 flex-col">
           <div
             ref={listRef}
-            style={{ paddingBottom: signedIn ? composerHeight + 12 : 12 }}
+            // +28, а не впритык: снизу ещё лежит полоса затухания, и
+            // последнее сообщение, поставленное вплотную к композеру,
+            // краем уходило под неё (Александр, скриншот).
+            style={{ paddingBottom: signedIn ? composerHeight + 28 : 12 }}
             className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-3"
           >
             {list.length > 0 ? (
