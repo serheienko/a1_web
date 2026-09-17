@@ -54,7 +54,20 @@ function mapApplyQuestions(apply: Post["apply"]): string[] {
   for (const raw of apply.questions) {
     if (typeof raw === "string" && raw.trim()) {
       out.push(raw.trim());
-    } else if (raw && typeof raw === "object" && "question" in raw && typeof (raw as { question: unknown }).question === "string") {
+    } else if (raw && typeof raw === "object" && typeof (raw as { text?: unknown }).text === "string") {
+      // 17.09.2026, живая проверка на настоящем посте: НА ЧТЕНИЕ поле
+      // называется `text`, а не `question` -- именно так его читает
+      // приложение (applyQuestionsFromPostJson + ApplyQuestionEntry.
+      // fromJson, lib/features/posts/backend_utils/apply_utils.dart).
+      // Запись при этом асимметрична: posts.createPost принимает
+      // `question` (PostInputQuestionSchema, подтверждено живым 400 в
+      // августе) -- поэтому ниже оставлена и она. Пока здесь стояло
+      // только `question`, каждый вопрос уходил в ветку «шейп не
+      // распознан», список всегда был пустым, и на странице вакансии не
+      // было ни вопросов, ни кнопки «Відгукнутися».
+      const text = (raw as { text: string }).text.trim();
+      if (text) out.push(text);
+    } else if (raw && typeof raw === "object" && typeof (raw as { question?: unknown }).question === "string") {
       const text = (raw as { question: string }).question.trim();
       if (text) out.push(text);
     } else {
