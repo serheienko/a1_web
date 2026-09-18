@@ -22,6 +22,7 @@ import type { MetadataRoute } from "next";
 import { fetchAllSitemapJobPosts, SITEMAP_CHUNK_SIZE } from "@/lib/a1/sitemap-posts";
 import { profileHref } from "@/lib/profile-href";
 import { JOB_LANDINGS } from "@/lib/seo/job-landings";
+import { TECH_LANDINGS } from "@/lib/seo/tech-landings";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -59,6 +60,11 @@ export default async function sitemap({ id }: { id: number | string }): Promise<
     // Их три, поэтому едут вместе с корнем, а не отдельным чанком.
     for (const landing of JOB_LANDINGS) {
       entries.push({ url: `${SITE_URL}/jobs/${landing.slug}` });
+    }
+    // 2026-09-18: посадочные по стеку (lib/seo/tech-landings.ts). Их
+    // шестнадцать -- тоже вместе с корнем, отдельного чанка не стоят.
+    for (const landing of TECH_LANDINGS) {
+      entries.push({ url: `${SITE_URL}/jobs/stack/${landing.slug}` });
     }
   }
 

@@ -11,6 +11,7 @@ import { fetchPostById } from "@/lib/a1/posts";
 import { slugify, parseSlugId } from "@/lib/seo/slug";
 import { buildJobPostingJsonLd, buildJobBreadcrumbJsonLd, isJobPostingExpired } from "@/lib/seo/jsonld";
 import { extractTechTags } from "@/lib/seo/job-tech-tags";
+import { techLandingHref } from "@/lib/seo/tech-landings";
 import { CachedAvatar } from "@/components/cached-avatar";
 import { PostImages } from "@/components/post-images";
 import { truncateAtWordBoundary } from "@/lib/format";
@@ -298,15 +299,27 @@ export default async function JobDetailPage({ params }: Props) {
           <h2 className="text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
             <T uk="Стек" en="Stack" ru="Стек" de="Stack" es="Stack" fr="Stack" pl="Stack" ptBR="Stack" zh="技术栈" />
           </h2>
+          {/* Ярлык -- ссылка, если под эту технологию есть посадочная
+              (lib/seo/tech-landings.ts). Это не украшение: именно такие
+              ссылки со страниц вакансий и дают роботу маршрут по сайту,
+              которого ему сейчас не хватает. */}
           <ul className="mt-2 flex flex-wrap gap-1.5">
-            {techTags.map((tech) => (
-              <li
-                key={tech}
-                className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
-              >
-                {tech}
-              </li>
-            ))}
+            {techTags.map((tech) => {
+              const href = techLandingHref(tech);
+              const pillClass =
+                "inline-block rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300";
+              return (
+                <li key={tech}>
+                  {href ? (
+                    <Link href={href} className={`${pillClass} no-underline transition hover:bg-accent/10 hover:text-accent`}>
+                      {tech}
+                    </Link>
+                  ) : (
+                    <span className={pillClass}>{tech}</span>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </section>
       )}
