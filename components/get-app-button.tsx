@@ -15,6 +15,14 @@
 // собрана из круглых элементов такой высоты (см. историю выравнивания
 // аватара в components/site-nav.tsx), любой другой размер выбивается.
 //
+// Александр, 18.09.2026 (скриншот двух кружков): «Выровняй кнопки по
+// высоте». Оба были h-11 (44px), но обводка рисовалась по-разному:
+// у аватара ring-1 -- это кольцо СНАРУЖИ круга (46px по внешнему
+// краю), а здесь был border -- рамка ВНУТРИ (44px). Отсюда и разница
+// в два пикселя, которая на глаз читается как «кнопка меньше».
+// Теперь обводка тоже ring-1 (+ та же shadow-sm), внешние размеры
+// совпадают ровно.
+//
 // Подпись не видна, но она есть -- <T/> внутри sr-only. Значок без
 // текста должен чем-то представляться читалке с экрана, а девять
 // языков в атрибут title не помещаются: атрибуты <T/> не умеет.
@@ -29,7 +37,7 @@ export function GetAppButton() {
   return (
     <Link
       href="/download"
-      className="group hidden h-11 w-11 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-500 transition hover:border-accent/40 hover:text-accent sm:flex dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400 dark:hover:border-accent/40 dark:hover:text-accent"
+      className="group hidden h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-neutral-500 shadow-sm ring-1 ring-neutral-200 transition hover:text-accent hover:ring-accent/40 sm:flex dark:bg-neutral-900 dark:text-neutral-400 dark:ring-neutral-700 dark:hover:text-accent dark:hover:ring-accent/40"
     >
       <svg
         width="20"
