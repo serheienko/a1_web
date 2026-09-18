@@ -60,16 +60,32 @@ async function index(): Promise<Index> {
 }
 
 /**
- * Вакансии, где упомянута эта технология -- свежие сверху.
+ * Вакансии, где упомянута эта технология.
  *
- * Сортировка по той же дате, что видит человек на карточке и Google в
- * разметке: реальная дата публикации на источнике, если она есть.
+ * Порядок: сначала те, где технология стоит В ЗАГОЛОВКЕ, потом
+ * остальные; внутри каждой группы -- свежие сверху.
+ *
+ * Почему не просто по дате. Python упоминают в требованиях у половины
+ * вакансий, и страница «Python вакансії», открывающаяся вакансией
+ * Embedded Linux Engineer, выглядит нерелевантной -- ровно так её
+ * оценит и человек, и поиск. Заголовок -- единственный честный признак
+ * того, что вакансия ПРО эту технологию, а не просто упоминает её.
+ *
+ * Дата -- та же, что видит человек на карточке и Google в разметке:
+ * реальная дата публикации на источнике, если она есть.
  */
 export async function postsForTech(tech: string): Promise<WebPost[]> {
   const { byTech } = await index();
   const posts = byTech.get(tech) ?? [];
-  return [...posts].sort(
-    (a, b) =>
-      (b.sourcePublishedAt ?? b.publishedAt).getTime() - (a.sourcePublishedAt ?? a.publishedAt).getTime(),
+  const inTitle = new Set(
+    posts.filter((post) => extractTechTags(post.title, "").includes(tech)).map((post) => post.id),
   );
+
+  return [...posts].sort((a, b) => {
+    const byTitle = Number(inTitle.has(b.id)) - Number(inTitle.has(a.id));
+    if (byTitle !== 0) return byTitle;
+    return (
+      (b.sourcePublishedAt ?? b.publishedAt).getTime() - (a.sourcePublishedAt ?? a.publishedAt).getTime()
+    );
+  });
 }
