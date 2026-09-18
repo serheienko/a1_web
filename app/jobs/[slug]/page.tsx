@@ -10,6 +10,7 @@ import type { Metadata } from "next";
 import { fetchPostById } from "@/lib/a1/posts";
 import { slugify, parseSlugId } from "@/lib/seo/slug";
 import { buildJobPostingJsonLd, buildJobBreadcrumbJsonLd, isJobPostingExpired } from "@/lib/seo/jsonld";
+import { extractTechTags } from "@/lib/seo/job-tech-tags";
 import { CachedAvatar } from "@/components/cached-avatar";
 import { PostImages } from "@/components/post-images";
 import { truncateAtWordBoundary } from "@/lib/format";
@@ -90,8 +91,9 @@ export default async function JobDetailPage({ params }: Props) {
     permanentRedirect(`/jobs/${canonicalSlug}`);
   }
 
+  const techTags = extractTechTags(post.title, post.contentText);
   const expired = isJobPostingExpired(post);
-  const jsonLd = expired ? null : buildJobPostingJsonLd(post);
+  const jsonLd = expired ? null : buildJobPostingJsonLd(post, techTags);
   // 2026-09-14: хлебные крошки. Отдаются ВСЕГДА, в том числе у истёкшей
   // вакансии: JobPosting у неё мы снимаем намеренно (её больше нет как
   // вакансии), а дорожка «Вакансії -> ...» остаётся правдой. Подпись
@@ -283,6 +285,30 @@ export default async function JobDetailPage({ params }: Props) {
             );
           })}
         </div>
+      )}
+
+      {/* 2026-09-18. Стек, вытащенный из текста вакансии.
+          Search Console: 118 наших страниц «просканированы, но не
+          проиндексированы» -- Google прочитал копию текста с DOU и решил
+          не брать. Это первая порция СВОЕГО содержимого, которого на
+          источнике нет: человеку видно стек без чтения простыни, а
+          странице достаются свои слова. Логика -- lib/seo/job-tech-tags.ts. */}
+      {techTags.length > 0 && (
+        <section className="mt-6">
+          <h2 className="text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+            <T uk="Стек" en="Stack" ru="Стек" de="Stack" es="Stack" fr="Stack" pl="Stack" ptBR="Stack" zh="技术栈" />
+          </h2>
+          <ul className="mt-2 flex flex-wrap gap-1.5">
+            {techTags.map((tech) => (
+              <li
+                key={tech}
+                className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
+              >
+                {tech}
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       <JobContent text={post.contentText} />

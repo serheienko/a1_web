@@ -80,7 +80,12 @@ export function employmentTypesFor(post: WebPost): string[] {
   return [...seen];
 }
 
-export function buildJobPostingJsonLd(post: WebPost): Record<string, unknown> {
+/**
+ * @param techTags Технологии из текста вакансии (lib/seo/job-tech-tags.ts).
+ *   Уезжают в поле `skills` -- оно у JobPosting предусмотрено и
+ *   необязательно, поэтому пустой список просто не добавляет ничего.
+ */
+export function buildJobPostingJsonLd(post: WebPost, techTags: string[] = []): Record<string, unknown> {
   const jsonLd: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "JobPosting",
@@ -95,6 +100,10 @@ export function buildJobPostingJsonLd(post: WebPost): Record<string, unknown> {
     // older source date would mark freshly imported vacancies as expired.
     datePosted: (post.sourcePublishedAt ?? post.publishedAt).toISOString(),
     validThrough: jobPostingValidThrough(post).toISOString(),
+    // Технологии из текста вакансии. Поле у JobPosting предусмотрено и
+    // необязательно -- пустой список просто не добавляем, чтобы не
+    // отдавать Google пустую строку.
+    ...(techTags.length > 0 ? { skills: techTags.join(", ") } : {}),
     identifier: {
       "@type": "PropertyValue",
       name: "A1",
