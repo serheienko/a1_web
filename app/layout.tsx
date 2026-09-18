@@ -4,8 +4,6 @@ import { Analytics } from "@vercel/analytics/next";
 import Script from "next/script";
 import "./globals.css";
 import { SiteNav } from "@/components/site-nav";
-import { Filters } from "@/components/filters";
-import { GlobalSearchGate } from "@/components/global-search-gate";
 import { CreatePostFab } from "@/components/create-post-fab";
 import { ChatsFab } from "@/components/chats-fab";
 import { ScrollTopFab } from "@/components/scroll-top-fab";
@@ -210,23 +208,6 @@ export default function RootLayout({
         <Script id="theme-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <Script id="lang-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: LANG_INIT_SCRIPT }} />
         <SiteNav />
-        {/* 2026-09-18 (Александр: «поиск с фильтрами наверное надо
-            показывать не только на главной... пусть живет почти везде и
-            просто редиректит потом»). Форма фильтров телепортирует свою
-            десктопную строку в шапку (#nav-search-slot), поэтому здесь
-            она ничего не рисует на месте -- только «оживляет» пустую
-            строку поиска в шапке на всех страницах, кроме ленты и
-            талантов: те подключают форму сами, а сторож их пропускает.
-
-            urlMode="push": отсюда поиск УВОДИТ на ленту (и «Назад»
-            возвращает обратно), а не переписывает адрес текущей
-            страницы. desktopOnly: мобильный блок поиска и фильтров
-            иначе влезал бы сверху в переписку и профиль.
-            skipEmptyCategories: расчёт пустых категорий -- это около
-            тридцати запросов, на каждой странице сайта он не нужен. */}
-        <GlobalSearchGate>
-          <Filters kind="hiring" basePath="/" currentTags={[]} urlMode="push" desktopOnly skipEmptyCategories />
-        </GlobalSearchGate>
         {/* 2026-09-03: cross-page voice-message "now playing" mini-bar --
             mounted globally for the same reason ChatsFab/CreatePostFab
             are (shown/controllable on every route, not just inside the

@@ -34,9 +34,6 @@ export async function Filters({
   currentTags,
   currentLocation,
   currentLocationLabel,
-  urlMode = "replace",
-  desktopOnly = false,
-  skipEmptyCategories = false,
 }: {
   kind: WebPostKind;
   basePath: string;
@@ -45,28 +42,13 @@ export async function Filters({
   currentTags: string[];
   currentLocation?: number;
   currentLocationLabel?: string;
-  /** "push" -- форма уводит на basePath (экземпляр в шапке остальных
-   *  страниц); "replace" -- переписывает адрес своей же страницы. */
-  urlMode?: "replace" | "push";
-  /** Не рисовать мобильный блок поиска и фильтров. */
-  desktopOnly?: boolean;
-  /**
-   * Не считать пустые категории. Этот расчёт -- по одному запросу на
-   * каждую категорию (около тридцати), и на ленте он окупается: там
-   * пустые категории видно приглушёнными. Для экземпляра в шапке,
-   * который рисуется на КАЖДОЙ странице сайта, тридцать запросов на
-   * заход -- непозволительно дорого, а приглушение там мелочь.
-   */
-  skipEmptyCategories?: boolean;
 }) {
   const [categoriesRaw, tags] = await Promise.all([fetchCategories(), fetchTagsForKind(kind)]);
   const categories = withItFirst(categoriesRaw);
-  const emptyCategoryValues = skipEmptyCategories
-    ? []
-    : await fetchEmptyCategoryValues(
-        kind,
-        categories.map((c) => c.value),
-      );
+  const emptyCategoryValues = await fetchEmptyCategoryValues(
+    kind,
+    categories.map((c) => c.value),
+  );
 
   return (
     <FiltersForm
@@ -79,8 +61,6 @@ export async function Filters({
       currentLocation={currentLocation}
       currentLocationLabel={currentLocationLabel}
       emptyCategoryValues={emptyCategoryValues}
-      urlMode={urlMode}
-      desktopOnly={desktopOnly}
     />
   );
 }

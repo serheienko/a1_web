@@ -5,7 +5,6 @@
 // cache() for per-request dedup — same reasoning as lib/a1/posts.ts.
 
 import { cache } from "react";
-import { unstable_cache } from "next/cache";
 import { z } from "zod";
 import { call } from "./client";
 import { decodeHtmlEntities } from "../format";
@@ -25,20 +24,7 @@ const CategoriesOutputSchema = z.object({ items: z.array(CategorySchema).catch([
  * confirmed against the live endpoint 2026-08-26, decoded here so nothing
  * downstream has to know that.
  */
-// 2026-09-18. Раньше здесь был только React cache() -- он склеивает
-// повторные вызовы ВНУТРИ одного запроса страницы, но в сеть ходит всё
-// равно на каждый заход, причём запросом с cache: "no-store"
-// (lib/a1/client.ts). Пока форму фильтров подключали две страницы, это
-// было неважно. Теперь она живёт в общем макете, то есть на КАЖДОЙ
-// странице сайта, и такой запрос делал бы динамическими даже полностью
-// статические страницы -- посадочные по стекам, /download и прочие.
-//
-// unstable_cache складывает ответ в кэш Next на час: списки категорий и
-// тегов -- справочники, они меняются раз в никогда, а страницы остаются
-// статическими, как и были.
-const DATASET_TTL_SECONDS = 3600;
-
-const fetchCategoriesUncached = async function fetchCategoriesUncached(): Promise<Category[]> {
+export const fetchCategories = cache(async function fetchCategories(): Promise<Category[]> {
   const raw = await call<unknown>("dataset.postCategories", {});
   const parsed = CategoriesOutputSchema.safeParse(raw);
   if (!parsed.success) {
@@ -46,13 +32,7 @@ const fetchCategoriesUncached = async function fetchCategoriesUncached(): Promis
     return [];
   }
   return parsed.data.items.map((c) => ({ ...c, text: decodeHtmlEntities(c.text) }));
-};
-
-export const fetchCategories = cache(
-  unstable_cache(fetchCategoriesUncached, ["dataset.postCategories"], {
-    revalidate: DATASET_TTL_SECONDS,
-  }),
-);
+});
 
 const TagSchema = z.object({
   value: z.string(),
@@ -70,16 +50,10 @@ export type Tag = z.infer<typeof TagSchema>;
  */
 const TagsByObjectSchema = z.record(z.string(), z.array(TagSchema)).catch({});
 
-const fetchTagsByObjectUncached = async function fetchTagsByObjectUncached(): Promise<Record<string, Tag[]>> {
+const fetchTagsByObject = cache(async function fetchTagsByObject(): Promise<Record<string, Tag[]>> {
   const raw = await call<unknown>("dataset.postTags", {});
   return TagsByObjectSchema.parse(raw);
-};
-
-const fetchTagsByObject = cache(
-  unstable_cache(fetchTagsByObjectUncached, ["dataset.postTags"], {
-    revalidate: DATASET_TTL_SECONDS,
-  }),
-);
+});
 
 /**
  * Jobs (post-job-employing) has no tag list of its own in the API

@@ -74,8 +74,12 @@ import { useEffect, useRef } from "react";
 import { AvatarMenu } from "@/components/avatar-menu";
 import { AppOpenBanner } from "@/components/app-open-banner";
 import { GetAppButton } from "@/components/get-app-button";
+import { NavSearch } from "@/components/nav-search";
 import { T } from "@/components/t";
 import { GLASS } from "@/lib/glass";
+
+/** Страницы, у которых своя строка поиска -- от формы фильтров. */
+const OWN_SEARCH_PATHS = new Set(["/", "/talents"]);
 
 const NAV_ITEMS = [
   {
@@ -220,7 +224,17 @@ export function SiteNav() {
               tree) and clears it on blur, so the 12rem above stays the
               resting width and this transition is just what makes that
               change read as a widen instead of a jump. */}
-          <div id="nav-search-slot" className="hidden min-w-0 flex-1 transition-[max-width] duration-200 ease-out sm:flex sm:max-w-[12rem]" />
+          <div id="nav-search-slot" className="hidden min-w-0 flex-1 transition-[max-width] duration-200 ease-out sm:flex sm:max-w-[12rem]">
+            {/* 2026-09-18 (Александр: «поиск... пусть живет почти везде
+                и просто редиректит потом»). На ленте и в талантах это
+                место занимает форма фильтров, которая телепортирует
+                сюда свою строку поиска. На всех остальных страницах
+                оно пустовало -- теперь там стоит своя маленькая строка
+                (components/nav-search.tsx), которая по Enter уводит на
+                ленту. Условие именно по этим двум адресам, чтобы две
+                строки никогда не оказались в этом месте разом. */}
+            {!OWN_SEARCH_PATHS.has(pathname) && <NavSearch />}
+          </div>
         </div>
 
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
