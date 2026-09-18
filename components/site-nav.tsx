@@ -73,6 +73,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { AvatarMenu } from "@/components/avatar-menu";
 import { AppOpenBanner } from "@/components/app-open-banner";
+import { GetAppButton } from "@/components/get-app-button";
 import { T } from "@/components/t";
 import { GLASS } from "@/lib/glass";
 
@@ -264,7 +265,11 @@ export function SiteNav() {
           </div>
         </div>
 
-        <div className="flex flex-1 items-center justify-end gap-1">
+        <div className="flex flex-1 items-center justify-end gap-2">
+          {/* 2026-09-18 (Александр: «Сделай где-то кнопку на сайте
+              "A1 app" со ссылкой на апку») -- на телефоне её нет
+              намеренно, там ту же работу делает <AppOpenBanner/> выше. */}
+          <GetAppButton />
           <AvatarMenu />
         </div>
       </div>
