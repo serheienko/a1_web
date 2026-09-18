@@ -24,10 +24,16 @@
 // живёт внутри той же шапки (components/site-nav.tsx) и потому не
 // может не отрисоваться.
 //
-// ЧТО ОН НЕ ДЕЛАЕТ. Кнопки фильтров тут нет: сами фильтры (категории,
-// теги, место) живут на ленте, и человек попадает туда первым же
-// запросом. Мобильной версии тоже нет -- на телефоне шапка узкая, а
-// строка поиска сверху переписки или профиля выглядела бы поломкой.
+// КНОПКА ФИЛЬТРОВ (Александр, 18.09.2026: «кнопка "фильтры" есть
+// только на главной, а надо сделать везде где ты добавил поиск»). Сама
+// панель с категориями, тегами и местом живёт на ленте
+// (components/filters-form.tsx) и тянет с бэкенда справочники --
+// рисовать её на каждой странице сайта дорого, и одна такая попытка
+// уже вышла боком (см. историю в том файле). Поэтому кнопка здесь
+// уводит на ленту с меткой ?filters=1, а панель открывается уже там.
+//
+// Мобильной версии у этого компонента нет -- на телефоне шапка узкая,
+// а строка поиска сверху переписки или профиля выглядела бы поломкой.
 //
 // ЗАПРОС УХОДИТ ПО ENTER, а не на каждую букву: на ленте поиск ищет по
 // мере набора, потому что человек уже в выдаче, а отсюда первая же
@@ -40,6 +46,7 @@ import { useRouter } from "next/navigation";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { SearchIcon } from "@/components/search-icon";
 import { ClearIcon } from "@/components/clear-icon";
+import { FilterIcon } from "@/components/filter-icon";
 import { CachedAvatar } from "@/components/cached-avatar";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
@@ -49,6 +56,12 @@ import type { UserSearchHit } from "@/app/api/users/search/route";
 const PLACEHOLDER: Record<Locale, string> = {
   uk: "Пошук", en: "Search", ru: "Поиск", de: "Suche", es: "Buscar",
   fr: "Recherche", pl: "Szukaj", ptBR: "Buscar", zh: "搜索",
+};
+
+/** Подпись кнопки фильтров -- та же, что на ленте. */
+const FILTERS: Record<Locale, string> = {
+  uk: "Фільтри", en: "Filters", ru: "Фильтры", de: "Filter", es: "Filtros",
+  fr: "Filtres", pl: "Filtry", ptBR: "Filtros", zh: "筛选",
 };
 
 /** Заголовок группы подсказок -- «Користувачі», как на ленте. */
@@ -113,7 +126,8 @@ export function NavSearch() {
   }
 
   return (
-    <div className="relative flex w-full items-center">
+    <div className="flex w-full items-center gap-2">
+      <div className="relative min-w-0 flex-1">
       <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
       <input
         type="text"
@@ -178,6 +192,16 @@ export function NavSearch() {
           </div>
         </div>
       )}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => router.push("/?filters=1")}
+        aria-label={FILTERS[lang]}
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-neutral-300 bg-white text-neutral-500 transition hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50"
+      >
+        <FilterIcon className="h-4 w-4" />
+      </button>
     </div>
   );
 }

@@ -357,6 +357,27 @@ export function FiltersForm({
     navSlot.style.maxWidth = searchBoxWide ? "18.6rem" : "";
   }, [navSlot, searchBoxWide]);
 
+  // Александр, 18.09.2026: «кнопка "фильтры" есть только на главной, а
+  // надо сделать везде где ты добавил поиск». Панель с категориями,
+  // тегами и местом живёт здесь и тянет с бэкенда справочники --
+  // рисовать её на каждой странице сайта дорого. Поэтому кнопка в шапке
+  // остальных страниц (components/nav-search.tsx) не открывает панель на
+  // месте, а уводит сюда с меткой ?filters=1, и панель открывается по
+  // приезде. Метку сразу убираем из адреса: иначе обновление страницы
+  // открывало бы панель заново, а ссылкой с ней человек делиться не
+  // собирался. Читаем из window, а не через useSearchParams: тот хук
+  // требует обёртки в Suspense при статической отрисовке, а эффект --
+  // нет.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("filters") !== "1") return;
+    setFiltersOpen(true);
+    params.delete("filters");
+    const rest = params.toString();
+    router.replace(rest ? `${basePath}?${rest}` : basePath, { scroll: false });
+  }, [basePath, router]);
+
   // <T/> (components/t.tsx) can't help with attribute values or <option>
   // text — CSS can't conditionally show/hide inside those — so this one
   // client component reads the lang-ru class directly, same way
