@@ -306,8 +306,14 @@ export default async function JobDetailPage({ params }: Props) {
           <ul className="mt-2 flex flex-wrap gap-1.5">
             {techTags.map((tech) => {
               const href = techLandingHref(tech);
+              // Александр, 18.09.2026: «Сделай заливку стеков FFFFFF».
+              // Светлая тема -- чистый белый: ярлыки лежат на сером фоне
+              // страницы, и белая заливка отделяет их заметнее, чем
+              // прежний neutral-100, который с фоном почти сливался.
+              // В тёмной теме белое было бы слепящим пятном, там
+              // остаётся neutral-800.
               const pillClass =
-                "inline-block rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300";
+                "inline-block rounded-full bg-white px-2.5 py-1 text-xs font-medium text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300";
               return (
                 <li key={tech}>
                   {href ? (
