@@ -66,6 +66,8 @@ export default async function sitemap({ id }: { id: number | string }): Promise<
     for (const landing of TECH_LANDINGS) {
       entries.push({ url: `${SITE_URL}/jobs/stack/${landing.slug}` });
     }
+    // 2026-09-18: страница сравнения с Djinni и DOU (app/compare).
+    entries.push({ url: `${SITE_URL}/compare` });
   }
 
   for (const post of chunk) {
