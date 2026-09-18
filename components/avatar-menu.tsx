@@ -98,7 +98,7 @@ const LANGUAGE_NAMES: Record<Locale, string> = {
   zh: "简体中文",
 };
 
-type AvatarMenuStringKey = "signIn" | "signOut" | "theme" | "language" | "light" | "dark" | "auto" | "viewProfile" | "contacts" | "myActivity" | "chats";
+type AvatarMenuStringKey = "signIn" | "signOut" | "theme" | "language" | "light" | "dark" | "auto" | "viewProfile" | "contacts" | "myActivity" | "chats" | "blocked";
 
 const STRINGS: Record<AvatarMenuStringKey, Record<Locale, string>> = {
   signIn: {
@@ -152,6 +152,12 @@ const STRINGS: Record<AvatarMenuStringKey, Record<Locale, string>> = {
   contacts: {
     uk: "Контакти", en: "Contacts", ru: "Контакты", de: "Kontakte", es: "Contactos",
     fr: "Contacts", pl: "Kontakty", ptBR: "Contatos", zh: "联系人",
+  },
+  // 2026-09-18: список заблокированных -- единственное место, где
+  // блокировку можно снять.
+  blocked: {
+    uk: "Заблоковані", en: "Blocked", ru: "Заблокированные", de: "Blockiert",
+    es: "Bloqueados", fr: "Bloqués", pl: "Zablokowani", ptBR: "Bloqueados", zh: "已屏蔽",
   },
   theme: {
     uk: "Тема", en: "Theme", ru: "Тема", de: "Design", es: "Tema",
@@ -243,6 +249,17 @@ function MyActivityIcon() {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-share-lift" aria-hidden="true">
       <rect x="4" y="3" width="16" height="18" rx="2" />
       <path d="M8 8h8M8 12h8M8 16h5" />
+    </svg>
+  );
+}
+
+// 2026-09-18, строка «Заблоковані» -- перечёркнутый кружок, тот же
+// 18px/viewBox-24/stroke-2 стиль, что у соседей.
+function BlockedIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-block-shake" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M5.6 5.6l12.8 12.8" />
     </svg>
   );
 }
@@ -780,6 +797,19 @@ export function AvatarMenu() {
             >
               <ContactsIcon />
               {STRINGS.contacts[lang]}
+            </Link>
+
+            {/* 2026-09-18 (Александр: «где будет разблокировка?
+                Сделай где-то, я пока не знаю где лучше»). Здесь, рядом с
+                «Контакти»: это такой же личный список, и искать его
+                человек будет тут же, а не на чужом профиле. */}
+            <Link
+              href="/blocked"
+              onClick={() => setOpen(false)}
+              className="group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-neutral-700 transition hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+            >
+              <BlockedIcon />
+              {STRINGS.blocked[lang]}
             </Link>
 
             {/* 2026-09-17 (Александр: «мы обсуждали, но не сделали
