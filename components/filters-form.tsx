@@ -122,9 +122,15 @@ const FILTERS_FORM_STRINGS: Record<FiltersFormStringKey, Record<Locale, string>>
     uk: "Категорії", en: "Categories", ru: "Категории", de: "Kategorien", es: "Categorías",
     fr: "Catégories", pl: "Kategorie", ptBR: "Categorias", zh: "分类",
   },
+  // Александр, 18.09.2026: «Переименуй "люди" на более широкое
+  // "Пользователи", так будут норм подпадать компании и специалисты».
+  // В этой группе действительно вперемешку профили компаний (Ciklum,
+  // EPAM) и профили людей, а «Люди» над карточкой компании выглядит
+  // ошибкой. Ключ оставлен people -- он про сущность в коде, а не про
+  // надпись; переименовывать его значило бы трогать ещё и вызов.
   people: {
-    uk: "Люди", en: "People", ru: "Люди", de: "Personen", es: "Personas",
-    fr: "Personnes", pl: "Osoby", ptBR: "Pessoas", zh: "用户",
+    uk: "Користувачі", en: "Users", ru: "Пользователи", de: "Nutzer", es: "Usuarios",
+    fr: "Utilisateurs", pl: "Użytkownicy", ptBR: "Usuários", zh: "用户",
   },
   tags: {
     uk: "Теги", en: "Tags", ru: "Теги", de: "Tags", es: "Etiquetas",
