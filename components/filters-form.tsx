@@ -174,6 +174,8 @@ export function FiltersForm({
   currentLocation,
   currentLocationLabel,
   emptyCategoryValues = [],
+  urlMode = "replace",
+  desktopOnly = false,
 }: {
   basePath: string;
   categories: Category[];
@@ -188,6 +190,18 @@ export function FiltersForm({
   // lib/a1/feed.ts's fetchEmptyCategoryValues), one real posts.search per
   // category rather than guessed client-side.
   emptyCategoryValues?: number[];
+  // 2026-09-18 (Александр: «кнопка "фильтры" есть только на главной, а
+  // надо сделать везде где ты добавил поиск», и следом: «ты же сделал,
+  // чтобы при наведении она этот список выпадал, как и везде»).
+  // На своей странице форма переписывает текущий адрес -- человек
+  // никуда не уходит, лента под ним пересобирается. Экземпляр в шапке
+  // остальных страниц (components/nav-filters.tsx) работает иначе: он
+  // УВОДИТ на ленту обычным переходом, и «Назад» возвращает туда,
+  // откуда искали.
+  urlMode?: "replace" | "push";
+  // Только десктопная строка в шапке, без мобильного блока поиска и
+  // фильтров: он влезал бы сверху в переписку, профиль и вакансию.
+  desktopOnly?: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -447,15 +461,34 @@ export function FiltersForm({
     lastPushedQueryRef.current = trimmedQ;
 
     const qs = params.toString();
+    const href = qs ? `${basePath}?${qs}` : basePath;
     startTransition(() => {
-      router.replace(qs ? `${basePath}?${qs}` : basePath, { scroll: false });
+      if (urlMode === "push") {
+        // Уход на ленту -- обычный переход, со скроллом наверх: человек
+        // покидает свою страницу и должен увидеть начало выдачи.
+        router.push(href);
+      } else {
+        router.replace(href, { scroll: false });
+      }
     });
   }
 
   function onQueryChange(value: string) {
     setQuery(value);
+    // В режиме push каждая нажатая буква уводила бы человека с его
+    // страницы и засоряла историю браузера -- там ждём Enter
+    // (onSearchKeyDown) или выбор подсказки/фильтра.
+    if (urlMode === "push") return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => navigate({ q: value }), 350);
+  }
+
+  function onSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setInputFocused(false);
+    navigate({ q: query });
   }
 
   function onCategoryChange(value: string) {
@@ -867,7 +900,7 @@ export function FiltersForm({
           now float directly on the page background like desktop's do;
           mb-8 -> mb-4 to bring the feed up a bit now that this block is
           visually lighter. */}
-      <div className="mb-4 flex flex-col gap-3 sm:hidden">
+      <div className={`mb-4 flex-col gap-3 sm:hidden ${desktopOnly ? "hidden" : "flex"}`}>
         <div className="flex flex-wrap gap-3">
           <div className="relative min-w-0 flex-1">
             <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
@@ -876,6 +909,7 @@ export function FiltersForm({
               value={query}
               onChange={(e) => onQueryChange(e.target.value)}
               onFocus={() => setInputFocused(true)}
+              onKeyDown={onSearchKeyDown}
               onBlur={() => {
                 // Delayed, not immediate — a suggestion button's onClick
                 // needs to still fire after this input blurs to it.
@@ -997,6 +1031,7 @@ export function FiltersForm({
                 value={query}
                 onChange={(e) => onQueryChange(e.target.value)}
                 onFocus={() => setInputFocused(true)}
+              onKeyDown={onSearchKeyDown}
                 onBlur={() => {
                   blurTimeoutRef.current = setTimeout(() => setInputFocused(false), 150);
                 }}
