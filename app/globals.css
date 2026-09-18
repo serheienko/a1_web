@@ -816,6 +816,27 @@ textarea {
   animation: share-lift 0.4s ease-out;
 }
 
+/* Стрелка внутри телефона (кнопка «завантажити застосунок» в шапке,
+   components/get-app-button.tsx) -- ныряет вниз и возвращается, как
+   будто приложение только что уехало в телефон. Обратное движение к
+   share-lift выше: там отдают, здесь забирают себе. */
+@keyframes app-install-arrow {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(2.5px);
+  }
+  70% {
+    transform: translateY(-0.5px);
+  }
+}
+
+.group:hover .animate-app-install-arrow {
+  animation: app-install-arrow 0.4s ease-out;
+}
+
 /* Bookmark/save glyph -- swings from its top edge like a page-corner
    flag catching a breeze, instead of a generic scale/rotate that
    ignores where the shape is actually anchored. */
@@ -1559,6 +1580,7 @@ textarea {
   .dots-trigger-group:hover .animate-dots-bounce circle:nth-child(3),
   .group:hover .animate-person-hop,
   .group:hover .animate-share-lift,
+  .group:hover .animate-app-install-arrow,
   .group:hover .animate-bookmark-swing,
   .group:hover .animate-filter-adjust circle:nth-child(3),
   .group:hover .animate-filter-adjust circle:nth-child(4),
