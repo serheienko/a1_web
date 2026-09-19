@@ -257,7 +257,10 @@ type Step = "email" | "code" | "done";
 // его выдаёт app/api/claim/request, сверив адрес с тем, что компания
 // сама опубликовала. Дальше оба идут одним и тем же вторым шагом,
 // поэтому дублировать форму незачем.
-export type ClaimFormProps = { claimKey: string; claimCode: string } | { postId: string };
+export type ClaimFormProps =
+  | { claimKey: string; claimCode: string }
+  | { postId: string }
+  | { username: string };
 
 export function ClaimForm(props: ClaimFormProps) {
   const lang = useActiveLocale();
@@ -287,11 +290,13 @@ export function ClaimForm(props: ClaimFormProps) {
       const data =
         "postId" in props
           ? await post("/api/claim/request", { postId: props.postId, email: email.trim() })
-          : await post("/api/claim/verify-email", {
-              key: props.claimKey,
-              code: props.claimCode,
-              email: email.trim(),
-            });
+          : "username" in props
+            ? await post("/api/claim/request", { username: props.username, email: email.trim() })
+            : await post("/api/claim/verify-email", {
+                key: props.claimKey,
+                code: props.claimCode,
+                email: email.trim(),
+              });
       if (data.ok && data.otpKey) {
         setOtpKey(data.otpKey);
         setStep("code");

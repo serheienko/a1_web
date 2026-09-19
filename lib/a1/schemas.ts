@@ -596,6 +596,11 @@ export const UserProfileSchema = z.object({
   favoriteMovies: z.array(FavoriteTitleSchema).catch([]),
   favoriteGames: z.array(FavoriteTitleSchema).catch([]),
   workStylePreferences: WorkStylePreferencesSchema.catch(EMPTY_WORK_STYLE_PREFERENCES),
+  // 2026-09-19: то же поле, что у UserPreviewSchema выше, но теперь
+  // нужное и здесь: по нему страница профиля решает, показывать ли блок
+  // «Це ваша компанія?» (components/claim-company-prompt.tsx). Бэкенд
+  // отдаёт его в Resource.User, схема просто не читала.
+  unclaimed: z.boolean().optional(),
   flags: z.number().catch(0),
   // Present on the real object but only read behind their own SHOW_*
   // flag check in user-mappers.ts — never returned to a caller otherwise.

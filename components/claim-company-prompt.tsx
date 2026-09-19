@@ -53,14 +53,19 @@ const TAKE: Record<Locale, string> = {
   zh: "认领主页",
 };
 
-export function ClaimCompanyPrompt({ postId }: { postId: string }) {
+// Со страницы вакансии приходит postId, со страницы компании —
+// username. Разница только в том, по чему сервер будет искать профиль:
+// сам экран и правило одни и те же.
+export type ClaimCompanyPromptProps = { postId: string } | { username: string };
+
+export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
   const lang = useActiveLocale();
   const [open, setOpen] = useState(false);
 
   if (open) {
     return (
       <div className="mt-6">
-        <ClaimForm postId={postId} />
+        {"postId" in props ? <ClaimForm postId={props.postId} /> : <ClaimForm username={props.username} />}
       </div>
     );
   }

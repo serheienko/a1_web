@@ -21,6 +21,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { call, A1ApiError } from "@/lib/a1/client";
 import { fetchPostById } from "@/lib/a1/posts";
+import { fetchPostsByAuthor } from "@/lib/a1/feed";
 import { fetchUserRawByUsername } from "@/lib/a1/users";
 import { findTechnicalAccountByCompanyName } from "@/lib/a1/admin-accounts";
 import { companyDomains, publishedContacts, decideClaim, maskEmail } from "@/lib/a1/company-claim";
@@ -29,10 +30,21 @@ import { reasonFromError } from "@/lib/a1/claim-errors";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const Input = z.object({
-  postId: z.string().trim().min(1),
-  email: z.string().trim().toLowerCase().email(),
-});
+// 2026-09-19 (Александр: «добавь такой же блок в профили компаний»).
+// Вход теперь двойной: со страницы вакансии приходит её id, со страницы
+// компании — юзернейм. Дальше обе ветки сходятся в одно и то же: чей
+// это профиль, какие у компании домены и какие адреса она напечатала в
+// своих объявлениях.
+const Input = z.union([
+  z.object({
+    postId: z.string().trim().min(1),
+    email: z.string().trim().toLowerCase().email(),
+  }),
+  z.object({
+    username: z.string().trim().min(1),
+    email: z.string().trim().toLowerCase().email(),
+  }),
+]);
 
 type ClaimStartResponse = { key: string; code: string; expiresInSeconds: number };
 type ClaimVerifyEmailResponse = { key: string; codeLength: number; expiresAt: number };
@@ -62,33 +74,65 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ ok: false, reason: "invalid_input" }, { status: 400 });
   }
-  const { postId, email } = parsed.data;
+  const { email } = parsed.data;
+  const subject = "postId" in parsed.data ? parsed.data.postId : parsed.data.username;
 
-  if (tooManyAttempts(postId)) {
+  if (tooManyAttempts(subject)) {
     return NextResponse.json({ ok: false, reason: "too_many_attempts" }, { status: 429 });
   }
 
-  const post = await fetchPostById(postId);
-  if (!post) {
-    return NextResponse.json({ ok: false, reason: "not_found" }, { status: 404 });
-  }
-  if (!post.author.unclaimed) {
-    // Профиль уже у компании — забирать нечего, и кнопки на странице
-    // в этот момент тоже быть не должно.
-    return NextResponse.json({ ok: false, reason: "already_claimed" }, { status: 409 });
+  // Что бы ни пришло, нам нужны три вещи: чей это профиль (имя и id для
+  // сверки), его ссылки и тексты его объявлений.
+  let companyName: string;
+  let companyUserId: string | null;
+  let username: string | null;
+  let posts: Awaited<ReturnType<typeof fetchPostsByAuthor>>;
+
+  if ("postId" in parsed.data) {
+    const post = await fetchPostById(parsed.data.postId);
+    if (!post) {
+      return NextResponse.json({ ok: false, reason: "not_found" }, { status: 404 });
+    }
+    if (!post.author.unclaimed) {
+      // Профиль уже у компании — забирать нечего, и кнопки на странице
+      // в этот момент тоже быть не должно.
+      return NextResponse.json({ ok: false, reason: "already_claimed" }, { status: 409 });
+    }
+    companyName = post.author.name;
+    companyUserId = post.author.userId;
+    username = post.author.username;
+    posts = [post];
+  } else {
+    const found = await fetchUserRawByUsername(parsed.data.username);
+    if (!found || found.object !== "user") {
+      return NextResponse.json({ ok: false, reason: "not_found" }, { status: 404 });
+    }
+    if (!found.unclaimed) {
+      return NextResponse.json({ ok: false, reason: "already_claimed" }, { status: 409 });
+    }
+    // Ровно та же склейка, что в lib/a1/user-mappers.ts::mapUserProfile —
+    // по этой строке потом ищется технический аккаунт, и разойтись с
+    // тем, что показано на странице, она не должна.
+    companyName = [found.firstName, found.lastName].filter(Boolean).join(" ").trim();
+    companyUserId = found._id;
+    username = parsed.data.username;
+    // Со страницы компании объявления под рукой нет, а опубликованные в
+    // них адреса — половина правила. Двенадцати последних достаточно:
+    // контакт компания печатает во всех своих вакансиях одинаково.
+    posts = await fetchPostsByAuthor(found._id, 12);
   }
 
   // Ссылки на свои ресурсы есть и в вакансии, и в профиле компании.
   // Профиль тянем только ради них, поэтому его отсутствие — не ошибка.
-  const profile = post.author.username ? await fetchUserRawByUsername(post.author.username) : null;
+  const profile = username ? await fetchUserRawByUsername(username) : null;
   const profileWithLinks = profile && "links" in profile ? profile : null;
 
   const domains = companyDomains({
-    postLinks: post.links,
+    postLinks: posts.flatMap((p) => p.links),
     profileLinks: profileWithLinks?.links ?? [],
     profileCompanies: profileWithLinks?.companies ?? [],
   });
-  const contacts = publishedContacts(post.contentText);
+  const contacts = publishedContacts(posts.map((p) => p.contentText).join("\n"));
   const verdict = decideClaim({ email, domains, contacts });
 
   if (!verdict.allowed) {
@@ -103,9 +147,9 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const account = findTechnicalAccountByCompanyName(post.author.name);
+  const account = findTechnicalAccountByCompanyName(companyName);
   if (!account) {
-    console.warn("[api/claim/request] нет технического аккаунта для компании:", post.author.name);
+    console.warn("[api/claim/request] нет технического аккаунта для компании:", companyName);
     return NextResponse.json({ ok: false, reason: "manual_review" }, { status: 409 });
   }
 
@@ -122,8 +166,8 @@ export async function POST(request: NextRequest) {
     // возможны. Цена ошибки — отданный чужой профиль, поэтому лишний
     // запрос здесь оправдан.
     const me = await call<{ _id?: unknown }>("users.getMe", {}, { accessToken: login.accessToken });
-    if (typeof me._id !== "string" || me._id !== post.author.userId) {
-      console.warn("[api/claim/request] аккаунт не совпал с автором поста:", post.author.name);
+    if (typeof me._id !== "string" || me._id !== companyUserId) {
+      console.warn("[api/claim/request] аккаунт не совпал с профилем компании:", companyName);
       return NextResponse.json({ ok: false, reason: "manual_review" }, { status: 409 });
     }
 

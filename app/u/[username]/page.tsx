@@ -24,6 +24,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { CachedAvatar } from "@/components/cached-avatar";
 import { fetchUserByUsername, fetchUserRawByUsername } from "@/lib/a1/users";
+import { ClaimCompanyPrompt } from "@/components/claim-company-prompt";
 import { buildEmployerTitle, buildEmployerDescription, buildEmployerJsonLd } from "@/lib/seo/profile-meta";
 import { fetchPostsByAuthor } from "@/lib/a1/feed";
 import { PostCard } from "@/components/post-card";
@@ -635,6 +636,14 @@ export default async function ProfilePage({ params }: Props) {
           switch; everything below was already fetched/rendered
           server-side either way, this only decides which half is
           visible. */}
+      {/* 2026-09-19 (Александр: «добавь такой же блок в профили
+          компаний»). Тот же блок, что на странице вакансии, только
+          профиль здесь ищется по юзернейму. Признак снимает бэкенд в
+          момент передачи, поэтому блок исчезает сам. */}
+      {rawProfile?.object === "user" && rawProfile.unclaimed && (
+        <ClaimCompanyPrompt username={username} />
+      )}
+
       <ProfileTabs
         bio={
           <>
