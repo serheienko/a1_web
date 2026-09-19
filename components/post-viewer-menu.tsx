@@ -522,6 +522,23 @@ export function PostViewerMenu({
     };
   }, [authorUsername]);
 
+  // Предохранитель к заглушке ниже (2026-09-19). Заглушка держит место
+  // под строку, пока не пришёл ответ про смотрящего, — и это правильно
+  // ровно до тех пор, пока ответ вообще приходит. Если запрос повиснет
+  // и не завершится ни удачей, ни ошибкой, состояние так и останется
+  // "loading", а на странице навсегда застынет пустая пилюля вместо
+  // кнопки. Поймал это в браузере, где /api/account/whoami не отвечал:
+  // выглядело хуже, чем прежний скачок.
+  //
+  // Через шесть секунд ждать больше нечего: считаем, что ответа не
+  // будет, и возвращаемся к прежнему поведению — строки просто нет.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setViewerStatus((current) => (current === "loading" ? "error" : current));
+    }, 6000);
+    return () => window.clearTimeout(timer);
+  }, [authorUsername]);
+
   useEffect(() => {
     if (!authorUserId || viewerStatus !== "other") {
       setContactStatus("idle");
@@ -597,6 +614,12 @@ export function PostViewerMenu({
     return (
       <>
         <div aria-hidden="true" className="mt-4 h-0" />
+        {/* Заглушка рисует ровно те же контуры, что и настоящие кнопки:
+            белая пилюля и белый кружок с той же рамкой. Формы стоят на
+            месте с первого кадра и никуда не деваются — проявляется
+            только их содержимое, надпись и три точки
+            (2026-09-19, Александр: «плавное появление только текста в
+            кнопке и •••»). */}
         <div aria-hidden="true" className="-mx-4 flex items-center gap-2 px-4 pb-2 pt-3">
           <span className="h-[42px] min-w-0 flex-1 rounded-full border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900" />
           <span className="h-[42px] w-[42px] shrink-0 rounded-full border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900" />
@@ -933,13 +956,18 @@ export function PostViewerMenu({
             : "group flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-accent transition hover:bg-accent/5 disabled:cursor-default disabled:opacity-60 dark:border-neutral-700 dark:bg-neutral-900"
         }
       >
-        <MessageIcon />
-        {/* min-w-0 на кнопке и truncate здесь -- чтобы в прилипшем виде,
-            когда слева появился контекст поста, надпись укорачивалась
-            многоточием, а не переносилась на вторую строку и не ломала
-            высоту всей полосы. */}
-        <span className="truncate">
-          {chatErrored ? STRINGS.actionFailed[lang] : authorUnclaimed || hasApplyQuestions ? STRINGS.apply[lang] : STRINGS.message[lang]}
+        {/* Значок и надпись проявляются вместе, одной обёрткой: сама
+            пилюля уже нарисована заглушкой и не мигает, меняется только
+            её содержимое. */}
+        <span className="animate-viewer-row-in flex min-w-0 items-center gap-2">
+          <MessageIcon />
+          {/* min-w-0 на кнопке и truncate здесь -- чтобы в прилипшем виде,
+              когда слева появился контекст поста, надпись укорачивалась
+              многоточием, а не переносилась на вторую строку и не ломала
+              высоту всей полосы. */}
+          <span className="truncate">
+            {chatErrored ? STRINGS.actionFailed[lang] : authorUnclaimed || hasApplyQuestions ? STRINGS.apply[lang] : STRINGS.message[lang]}
+          </span>
         </span>
       </button>
 
@@ -958,7 +986,9 @@ export function PostViewerMenu({
           aria-expanded={open}
           className="flex h-[42px] w-[42px] items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-500 transition hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50"
         >
-          <DotsIcon />
+          <span className="animate-viewer-row-in flex items-center justify-center">
+            <DotsIcon />
+          </span>
         </button>
 
         {open && (

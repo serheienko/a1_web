@@ -104,14 +104,14 @@ export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
 
   if (open) {
     return (
-      <div className="mt-6">
+      <div className="mt-3.5">
         {"postId" in props ? <ClaimForm postId={props.postId} /> : <ClaimForm username={props.username} />}
       </div>
     );
   }
 
   return (
-    <div className="mt-6 rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+    <div className="mt-3.5 rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
       <div className="flex items-center gap-2 sm:gap-3">
         {/* 2026-09-19 (Александр: «поставим кота слева, появление не резкое,
             через блюр, проиграть один раз, а в конце он садится и спит»).
@@ -193,7 +193,7 @@ export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
           <span
             aria-hidden="true"
             className={
-              "pointer-events-none absolute left-[-14px] top-[2px] whitespace-nowrap rounded-xl border border-neutral-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-ink shadow-sm transition duration-150 sm:left-[-26px] dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 " +
+              "pointer-events-none absolute left-[-14px] top-[-18px] whitespace-nowrap rounded-xl border border-neutral-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-ink shadow-sm transition duration-150 sm:left-[-26px] dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 " +
               (meow ? "scale-100 opacity-100" : "scale-90 opacity-0")
             }
           >
