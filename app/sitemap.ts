@@ -22,6 +22,7 @@ import type { MetadataRoute } from "next";
 import { fetchAllSitemapJobPosts, SITEMAP_CHUNK_SIZE } from "@/lib/a1/sitemap-posts";
 import { profileHref } from "@/lib/profile-href";
 import { JOB_LANDINGS } from "@/lib/seo/job-landings";
+import { FACT_LANDINGS } from "@/lib/seo/fact-landings";
 import { TECH_LANDINGS } from "@/lib/seo/tech-landings";
 
 const SITE_URL = "https://jobs.a1appp.com";
@@ -65,6 +66,11 @@ export default async function sitemap({ id }: { id: number | string }): Promise<
     // шестнадцать -- тоже вместе с корнем, отдельного чанка не стоят.
     for (const landing of TECH_LANDINGS) {
       entries.push({ url: `${SITE_URL}/jobs/stack/${landing.slug}` });
+    }
+    // 2026-09-19: посадочные по признакам из текста вакансии
+    // (lib/seo/fact-landings.ts) -- «без досвіду» и «бронювання».
+    for (const landing of FACT_LANDINGS) {
+      entries.push({ url: `${SITE_URL}/jobs/tag/${landing.slug}` });
     }
     // 2026-09-18: страница сравнения с Djinni и DOU (app/compare).
     entries.push({ url: `${SITE_URL}/compare` });

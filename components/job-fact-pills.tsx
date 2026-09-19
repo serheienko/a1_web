@@ -89,22 +89,25 @@ export function ReservationPill() {
   );
 }
 
-// Как категория «Перша робота» на DOU: человек без опыта вообще.
+// Как категория «Без досвіду» на DOU: человек без опыта вообще.
+// 2026-09-19: название приведено к тому, что стоит на посадочной
+// и на чипе главной (lib/seo/fact-landings.ts) -- «Без досвіду»
+// это ещё и то, как эту работу ищут в поиске.
 // 2026-09-19 (Александр): эта плашка -- ТОЛЬКО на странице вакансии, в
 // общей ленте её не показываем.
 function FirstJobPill() {
   return (
     <span className={PILL}>
       <T
-        uk="Перша робота"
-        en="Entry level"
-        ru="Первая работа"
-        de="Berufseinstieg"
-        es="Primer empleo"
-        fr="Premier emploi"
-        pl="Pierwsza praca"
-        ptBR="Primeiro emprego"
-        zh="新手职位"
+        uk="Без досвіду"
+        en="No experience"
+        ru="Без опыта"
+        de="Ohne Erfahrung"
+        es="Sin experiencia"
+        fr="Sans expérience"
+        pl="Bez doświadczenia"
+        ptBR="Sem experiência"
+        zh="无需经验"
       />
     </span>
   );

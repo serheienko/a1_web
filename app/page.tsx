@@ -24,6 +24,7 @@ import { Filters } from "@/components/filters";
 import { T } from "@/components/t";
 import Link from "next/link";
 import { JOB_LANDINGS } from "@/lib/seo/job-landings";
+import { FACT_LANDINGS } from "@/lib/seo/fact-landings";
 import { buildSiteJsonLd } from "@/lib/seo/jsonld";
 
 const SITE_URL = "https://jobs.a1appp.com";
@@ -120,6 +121,20 @@ export default async function HomePage({ searchParams }: Props) {
             className="rounded-full border border-neutral-200 px-3 py-1.5 text-[13px] font-medium text-neutral-600 transition hover:border-accent/40 hover:bg-accent/5 hover:text-accent dark:border-neutral-800 dark:text-neutral-400"
           >
             <T {...landing.h1} />
+          </Link>
+        ))}
+
+        {/* 2026-09-19 (Александр: «Без досвіду» -- «аудитория новичков
+            огромная»; «бронювання -- в Украине очень актуально»). Те же
+            чипы-ссылки, только ведут на посадочные по признакам, которые
+            мы считаем из текста сами (lib/seo/fact-landings.ts). */}
+        {FACT_LANDINGS.map((landing) => (
+          <Link
+            key={landing.slug}
+            href={`/jobs/tag/${landing.slug}`}
+            className="rounded-full border border-neutral-200 px-3 py-1.5 text-[13px] font-medium text-neutral-600 transition hover:border-accent/40 hover:bg-accent/5 hover:text-accent dark:border-neutral-800 dark:text-neutral-400"
+          >
+            <T {...landing.chip} />
           </Link>
         ))}
       </nav>
