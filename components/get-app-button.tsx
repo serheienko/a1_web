@@ -146,7 +146,7 @@ export function GetAppButton() {
           ref={panelRef}
           className={
             "absolute right-0 top-full z-50 pt-2 " +
-            (rendered ? "w-[300px]" : "pointer-events-none h-0 w-0 overflow-hidden opacity-0")
+            (rendered ? "w-[340px]" : "pointer-events-none h-0 w-0 overflow-hidden opacity-0")
           }
         >
           <Link
@@ -182,10 +182,20 @@ export function GetAppButton() {
                     tabIndex={-1}
                     scrolling="no"
                     loading="lazy"
-                    /* Рамка шириной с телефон и ужата вдвое: /download
-                       на узкой ширине показывает свой вертикальный вид,
-                       а он здесь и нужен -- это витрина приложения. */
-                    className="pointer-events-none h-[800px] w-[390px] origin-top-left scale-[0.77] border-0"
+                    /*
+                     * 2026-09-19, второй заход (Александр: «что-то не
+                     * влезло чуть»). Сначала рамка была шириной с
+                     * телефон (390px) -- и в окошко попадала только
+                     * верхушка страницы, фраза обрывалась на полуслове.
+                     *
+                     * Теперь рамка рисует ШИРОКИЙ вид, 1200x900, и
+                     * ужимается ровно во всю ширину окошка:
+                     * 1200 x 0.2833 = 340px, 900 x 0.2833 = 255px --
+                     * это в точности 340x255, то есть соотношение 4:3 у
+                     * контейнера. Первый экран /download помещается
+                     * целиком, включая обе кнопки магазинов.
+                     */
+                    className="pointer-events-none h-[900px] w-[1200px] origin-top-left scale-[0.2833] border-0"
                     onLoad={(event) => {
                       try {
                         const doc = event.currentTarget.contentDocument;
