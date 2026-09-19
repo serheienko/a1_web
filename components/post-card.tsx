@@ -27,6 +27,8 @@ import { RelativeTime, SalaryLabel, LocationLabel } from "@/components/locale-fo
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { T } from "@/components/t";
 import { TagLabel } from "@/components/tag-label";
+import { extractJobFacts } from "@/lib/a1/job-facts";
+import { ReservationPill } from "@/components/job-fact-pills";
 import { MyPostBadge } from "@/components/my-post-badge";
 import { PostOwnerMenu } from "@/components/post-owner-menu";
 import { profileHref as buildProfileHref } from "@/lib/profile-href";
@@ -442,15 +444,29 @@ export function PostCard({
           </Link>
         )}
 
-        {post.tags.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {post.tags.slice(0, 6).map((tag) => (
-              <span key={tag} className="rounded-full border border-neutral-200 bg-white px-2.5 py-0.5 text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400">
-                <TagLabel text={tag} />
-              </span>
-            ))}
-          </div>
-        )}
+        {(() => {
+          /* 2026-09-19 (Александр: «в общем списке будем показывать
+             только бронювання, потому что это сейчас очень актуально»).
+             Признак считается из текста вакансии тут же, на сервере --
+             lib/a1/job-facts.ts. Ничего не перезаливаем: плашка
+             появляется сразу на всех уже опубликованных вакансиях.
+
+             Только на вакансиях (kind === "hiring"): в ленте
+             специалистов бронирование смысла не имеет. */
+          const reservation =
+            post.kind === "hiring" && extractJobFacts(post.title, post.contentText).reservation;
+          if (!reservation && post.tags.length === 0) return null;
+          return (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {reservation && <ReservationPill />}
+              {post.tags.slice(0, 6).map((tag) => (
+                <span key={tag} className="rounded-full border border-neutral-200 bg-white px-2.5 py-0.5 text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400">
+                  <TagLabel text={tag} />
+                </span>
+              ))}
+            </div>
+          );
+        })()}
       </div>
     </article>
   );

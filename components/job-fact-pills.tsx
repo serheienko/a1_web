@@ -19,7 +19,13 @@ const PILL =
   "rounded-full border border-neutral-200 bg-white px-2.5 py-0.5 text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400";
 
 export function hasAnyFact(facts: JobFacts): boolean {
-  return facts.experienceYears !== null || facts.english !== null || facts.domain !== null;
+  return (
+    facts.experienceYears !== null ||
+    facts.english !== null ||
+    facts.domain !== null ||
+    facts.reservation ||
+    facts.firstJob
+  );
 }
 
 /** «від 2 років» на девяти языках, с правильной единицей для единицы. */
@@ -51,6 +57,59 @@ function englishText(level: string): Record<Locale, string> {
   };
 }
 
+// 2026-09-19 (Александр: «бронювання действительно очень актуально
+// сейчас»). Каска перед словом -- его просьба, чтобы плашку было видно
+// среди остальных. Эмодзи, а не картинка: рисуется самим телефоном,
+// ничего не грузится и высоту строки не ломает.
+//
+// Формулировка «Є бронювання» выбрана намеренно: мы пересказываем
+// обещание компании, а не обещаем от себя. Компании пишут по-разному
+// («бронювання за наявності військово-облікових документів»,
+// «можливість бронювання для критично важливих»), и гарантировать
+// человеку мы ничего не можем.
+//
+// Отдельным экспортируемым компонентом -- потому что ту же плашку
+// показывает карточка в ленте (components/post-card.tsx). Строки должны
+// жить в одном месте, иначе они разъедутся.
+export function ReservationPill() {
+  return (
+    <span className={PILL}>
+      <T
+        uk="🪖 Є бронювання"
+        en="🪖 Military deferment"
+        ru="🪖 Есть бронирование"
+        de="🪖 Freistellung vom Wehrdienst"
+        es="🪖 Aplazamiento militar"
+        fr="🪖 Sursis militaire"
+        pl="🪖 Odroczenie od mobilizacji"
+        ptBR="🪖 Adiamento militar"
+        zh="🪖 兵役缓征"
+      />
+    </span>
+  );
+}
+
+// Как категория «Перша робота» на DOU: человек без опыта вообще.
+// 2026-09-19 (Александр): эта плашка -- ТОЛЬКО на странице вакансии, в
+// общей ленте её не показываем.
+function FirstJobPill() {
+  return (
+    <span className={PILL}>
+      <T
+        uk="Перша робота"
+        en="Entry level"
+        ru="Первая работа"
+        de="Berufseinstieg"
+        es="Primer empleo"
+        fr="Premier emploi"
+        pl="Pierwsza praca"
+        ptBR="Primeiro emprego"
+        zh="新手职位"
+      />
+    </span>
+  );
+}
+
 export function JobFactPills({ facts }: { facts: JobFacts }) {
   const level = facts.english ? englishLabel(facts.english) : "";
   return (
@@ -64,6 +123,10 @@ export function JobFactPills({ facts }: { facts: JobFacts }) {
             </span>
           );
         })()}
+
+      {facts.firstJob && <FirstJobPill />}
+
+      {facts.reservation && <ReservationPill />}
 
       {level !== "" &&
         (() => {

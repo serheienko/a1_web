@@ -33,9 +33,19 @@ export type JobFacts = {
   english: EnglishLevel | null;
   /** Область продукта: FinTech, iGaming, E-commerce... */
   domain: string | null;
+  /** Компания пишет, что бронирует сотрудников (только Украина). */
+  reservation: boolean;
+  /** Подходит человеку без опыта: первая работа. */
+  firstJob: boolean;
 };
 
-const EMPTY: JobFacts = { experienceYears: null, english: null, domain: null };
+const EMPTY: JobFacts = {
+  experienceYears: null,
+  english: null,
+  domain: null,
+  reservation: false,
+  firstJob: false,
+};
 
 // ---------------------------------------------------------------- опыт
 
@@ -190,6 +200,62 @@ function extractDomain(title: string, text: string): string | null {
   return null;
 }
 
+// ---------------------------------------------------------- бронювання
+//
+// 2026-09-19 (Александр: «бронювання — в Украине очень актуально, по нему
+// даже искать можно»). Признак сугубо украинский: в вакансиях других
+// стран слова «бронювання» нет в принципе, поэтому отдельного правила
+// «показывать только в Украине» не нужно -- признак сам не появится.
+//
+// ЗАМЕР 19.09.2026 на 3055 живых вакансиях DOU: корень «брон» есть у 479,
+// из них 477 -- настоящее бронирование сотрудника, и ровно 2 -- продукт
+// компании («бронювання складських слотів», «центр бронювання»
+// туристической сети). Поэтому правило устроено наоборот, чем у отрасли:
+// слово считается признаком ПО УМОЛЧАНИЮ, а отсекается только явный
+// товарный контекст рядом.
+//
+// Почему НЕ берём «відстрочка»: тот же замер показал, что она чаще стоит
+// в требовании к кандидату («розглядаємо кандидатів, які мають законні
+// підстави для відстрочки»), а это противоположный смысл -- компания
+// ничего не обещает, а наоборот ищет уже освобождённого. Один пропуск
+// лучше одного вранья.
+const RESERVATION = /бронюванн\w*|заброньова\w*|бронюємо|бронюють|бронь\b|бронирован\w*/gi;
+
+// Слова, рядом с которыми «бронювання» -- это продукт компании (отели,
+// билеты, столики, складские слоты), а не льгота сотруднику.
+const RESERVATION_PRODUCT = /готел|квитк|турист|подорож|hotel|flight|booking|слот|столик|ресторан|переговорк|авіакв/i;
+
+function extractReservation(text: string): boolean {
+  RESERVATION.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = RESERVATION.exec(text)) !== null) {
+    const around = text.slice(Math.max(0, m.index - 70), m.index + m[0].length + 70);
+    if (!RESERVATION_PRODUCT.test(around)) return true;
+  }
+  return false;
+}
+
+// ------------------------------------------------------- перша робота
+//
+// Как категория «Перша робота» на DOU. Считаем по ЗАГОЛОВКУ, а не по
+// тексту: замер 19.09.2026 показал, что поиск фразы «без досвіду» в теле
+// вакансии ловит прямо противоположные предложения -- «без досвіду взяти
+// не готові». Заголовок врать не умеет.
+const FIRST_JOB_TITLE = /(^|[\s(\[/|,-])(junior|jr\.?|trainee|intern|internship|стажер|стажист|стажуванн\w*|початківц\w*)($|[\s)\]/|,.-])/i;
+
+// Senior/Middle в том же заголовке («Middle/Junior») снимают признак.
+const SENIOR_TITLE = /(^|[\s(\[/|,-])(senior|sr\.?|lead|head|principal|staff|middle|mid|expert|chief|director|architect)($|[\s)\]/|,.-])/i;
+
+function extractFirstJob(title: string, experienceYears: number | null): boolean {
+  if (!FIRST_JOB_TITLE.test(title)) return false;
+  if (SENIOR_TITLE.test(title)) return false;
+  // Заголовок говорит «junior», а текст требует 2+ года -- это не первая
+  // работа. Таких в замере 27 из 141, то есть каждая пятая: без этой
+  // проверки плашка врала бы новичку.
+  if (experienceYears !== null && experienceYears > 1) return false;
+  return true;
+}
+
 /**
  * Разбирает текст вакансии. Заголовок идёт первым куском: в нём область
  * продукта часто названа прямо («Middle PHP developer (iGaming)»).
@@ -197,9 +263,12 @@ function extractDomain(title: string, text: string): string | null {
 export function extractJobFacts(title: string, text: string): JobFacts {
   const body = `${title}\n${text}`;
   if (!body.trim()) return EMPTY;
+  const experienceYears = extractExperience(body);
   return {
-    experienceYears: extractExperience(body),
+    experienceYears,
     english: extractEnglish(body),
     domain: extractDomain(title, text),
+    reservation: extractReservation(body),
+    firstJob: extractFirstJob(title, experienceYears),
   };
 }
