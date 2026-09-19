@@ -12,9 +12,10 @@
 // адресовано, и большая форма на странице вакансии мешала бы им читать.
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useActiveLocale } from "@/components/claim-form";
 import { ClaimForm } from "@/components/claim-form";
+import { LottiePlayer } from "@/components/lottie-player";
 import type { Locale } from "@/components/t";
 
 const ASK: Record<Locale, string> = {
@@ -61,6 +62,11 @@ export type ClaimCompanyPromptProps = { postId: string } | { username: string };
 export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
   const lang = useActiveLocale();
   const [open, setOpen] = useState(false);
+  const [showCat, setShowCat] = useState(false);
+
+  useEffect(() => {
+    setShowCat(!window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  }, []);
 
   if (open) {
     return (
@@ -72,15 +78,34 @@ export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
 
   return (
     <div className="mt-6 rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
-      <p className="text-sm font-semibold text-ink dark:text-neutral-100">{ASK[lang]}</p>
-      <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">{NOTE[lang]}</p>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="mt-3 rounded-full border border-neutral-300 px-4 py-2 text-sm font-semibold text-ink transition hover:border-accent hover:text-accent dark:border-neutral-700 dark:text-neutral-100"
-      >
-        {TAKE[lang]}
-      </button>
+      <div className="flex items-start gap-3 sm:gap-4">
+        {/* 2026-09-19 (Александр: «поставим кота слева, появление не резкое,
+            через блюр, проиграть один раз, а в конце он садится и спит»).
+            Всё это уже умеет components/lottie-player.tsx: он сам
+            проявляет анимацию из blur(14px) за 320 мс, а loop={false}
+            означает «сыграть один раз и замереть на последнем кадре» —
+            то есть кот засыпает и таким остаётся.
+
+            Кот появляется только после гидратации: до неё showCat false.
+            Так решаются сразу две вещи — нет мигания при серверном
+            рендере, и есть куда вставить проверку «уменьшить движение».
+            С ней кота нет вовсе: трёхсекундная анимация человеку,
+            который попросил систему не двигать картинки, ни к чему. */}
+        {showCat && (
+          <LottiePlayer src="/animations/cat-sleeping.json" size={80} loop={false} />
+        )}
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-ink dark:text-neutral-100">{ASK[lang]}</p>
+          <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">{NOTE[lang]}</p>
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="mt-3 rounded-full border border-neutral-300 px-4 py-2 text-sm font-semibold text-ink transition hover:border-accent hover:text-accent dark:border-neutral-700 dark:text-neutral-100"
+          >
+            {TAKE[lang]}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
