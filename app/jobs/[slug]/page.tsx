@@ -143,6 +143,16 @@ export default async function JobDetailPage({ params }: Props) {
       {/* eslint-disable-next-line react/no-danger */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
 
+      {/* 2026-09-19: пока профиль компании никем не забран, показываем
+          ей путь забрать его самой. Признак снимает бэкенд в момент
+          передачи, поэтому блок исчезает без нашего участия.
+
+          Стоит первым на странице (Александр: «перенесём эти блоки
+          наверх, так логичнее»): компания, пришедшая по ссылке на свою
+          же вакансию, видит предложение забрать профиль сразу, а не
+          после того, как долистает до кнопки отклика. */}
+      {post.author.unclaimed && <ClaimCompanyPrompt postId={post.id} atTop />}
+
       {/* Видимая дорожка под ту же разметку. Google просит, чтобы
           BreadcrumbList соответствовал тому, что видит человек, и это
           заодно первая ссылка со страницы вакансии ОБРАТНО в ленту --
@@ -247,11 +257,6 @@ export default async function JobDetailPage({ params }: Props) {
         shareUrl={`https://a1appp.com/postDetails/${post.id}`}
         shareTitle={post.title}
       />
-
-      {/* 2026-09-19: пока профиль компании никем не забран, показываем
-          ей путь забрать его самой. Признак снимает бэкенд в момент
-          передачи, поэтому блок исчезает без нашего участия. */}
-      {post.author.unclaimed && <ClaimCompanyPrompt postId={post.id} />}
 
       <PostImages images={postImages} />
 

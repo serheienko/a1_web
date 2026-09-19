@@ -90,7 +90,14 @@ const TAKE: Record<Locale, string> = {
 // Со страницы вакансии приходит postId, со страницы компании —
 // username. Разница только в том, по чему сервер будет искать профиль:
 // сам экран и правило одни и те же.
-export type ClaimCompanyPromptProps = { postId: string } | { username: string };
+// 2026-09-19 (Александр): блок переехал в самый верх обеих страниц, над
+// «хлебными крошками» — «мне кажется, это будет логичнее». Наверху ему
+// нужен отступ СНИЗУ, а не сверху, иначе он прилипает к заголовку;
+// atTop это и переключает, чтобы обе страницы не повторяли одну и ту же
+// вёрстку у себя.
+export type ClaimCompanyPromptProps = ({ postId: string } | { username: string }) & {
+  atTop?: boolean;
+};
 
 export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
   const lang = useActiveLocale();
@@ -161,16 +168,18 @@ export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
     [],
   );
 
+  const spacing = props.atTop ? "mb-5" : "mt-3.5";
+
   if (open) {
     return (
-      <div className="mt-3.5">
+      <div className={spacing}>
         {"postId" in props ? <ClaimForm postId={props.postId} /> : <ClaimForm username={props.username} />}
       </div>
     );
   }
 
   return (
-    <div className="mt-3.5 rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+    <div className={`${spacing} rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900`}>
       <div className="flex items-center gap-2 sm:gap-3">
         {/* 2026-09-19 (Александр: «поставим кота слева, появление не резкое,
             через блюр, проиграть один раз, а в конце он садится и спит»).
@@ -201,21 +210,30 @@ export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
             причине: любое решение, принятое после первой отрисовки,
             двигает вёрстку. CSS применяется сразу. */}
         <div className="relative h-[68px] w-[68px] shrink-0 -ml-4 motion-reduce:hidden">
+          <LottiePlayer
+            src="/animations/cat-sleeping.json"
+            size={68}
+            loop={false}
+            placeholder={false}
+            className="pointer-events-none"
+            onComplete={() => setAsleep(true)}
+          />
+          {/* Нажимать можно не всего кота, а его правые 56px (left-3).
+              2026-09-19 (Александр, запись с iPhone: «нажимаю на кота —
+              скидывает на страницу назад»). Кот стоит вплотную к левой
+              рамке карточки, а это ~16px от края экрана — ровно та
+              полоса, где iOS ловит системный жест «назад». Палец
+              чуть-чуть ведёт вправо, и Safari уходит на предыдущую
+              страницу вместо клика. Сдвигаем не кота, а его зону
+              нажатия: она начинается в 28px от края экрана, дальше
+              системной полосы. Картинка при этом не сдвинулась ни на
+              пиксель. */}
           <button
             type="button"
             onClick={poke}
             aria-label="Meow"
-            className="block h-[68px] w-[68px] cursor-pointer appearance-none bg-transparent p-0"
-          >
-            <LottiePlayer
-              src="/animations/cat-sleeping.json"
-              size={68}
-              loop={false}
-              placeholder={false}
-              className="pointer-events-none"
-              onComplete={() => setAsleep(true)}
-            />
-          </button>
+            className="absolute inset-y-0 left-3 right-0 cursor-pointer appearance-none bg-transparent p-0"
+          />
 
           {/* Буквы «z» над котом — только после того, как анимация
               доиграла и кот улёгся. Разные задержки и размеры делают

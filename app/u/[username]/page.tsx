@@ -419,6 +419,15 @@ export default async function ProfilePage({ params }: Props) {
         truncate fallback still catches the rare pathologically long one
         instead of clipping it. */}
     <main className="mx-auto w-full max-w-2xl px-4 pt-10 sm:w-[640px] sm:pt-16 pb-fab-safe">
+      {/* 2026-09-19 (Александр: «добавь такой же блок в профили
+          компаний», затем «перенесём эти блоки наверх»). Тот же блок,
+          что на странице вакансии, только профиль здесь ищется по
+          юзернейму, и стоит он первым на странице. Признак снимает
+          бэкенд в момент передачи, поэтому блок исчезает сам. */}
+      {rawProfile?.object === "user" && rawProfile.unclaimed && (
+        <ClaimCompanyPrompt username={username} atTop />
+      )}
+
       {/* 2026-09-15: разметка организации и дорожка обратно в ленту --
           только у работодателя (есть живая вакансия). У соискателя ни
           того, ни другого: Organization про человека -- неправда, а
@@ -636,14 +645,6 @@ export default async function ProfilePage({ params }: Props) {
           switch; everything below was already fetched/rendered
           server-side either way, this only decides which half is
           visible. */}
-      {/* 2026-09-19 (Александр: «добавь такой же блок в профили
-          компаний»). Тот же блок, что на странице вакансии, только
-          профиль здесь ищется по юзернейму. Признак снимает бэкенд в
-          момент передачи, поэтому блок исчезает сам. */}
-      {rawProfile?.object === "user" && rawProfile.unclaimed && (
-        <ClaimCompanyPrompt username={username} />
-      )}
-
       <ProfileTabs
         bio={
           <>
