@@ -131,3 +131,29 @@ export function findTechnicalAccount(email: string): TechnicalAccount | null {
   const target = email.trim().toLowerCase();
   return loadTechnicalAccounts().find((a) => a.email === target) ?? null;
 }
+
+// 2026-09-19 (самостоятельный клейм, lib/a1/company-claim.ts). Со
+// страницы вакансии известно имя компании и её юзернейм, но НЕ почта
+// технического аккаунта — а логинимся мы именно по почте.
+//
+// Связать их по юзернейму нельзя: адрес собирается slugify() (через
+// дефис, транслитерация одна), а юзернейм — slug_username() (через
+// подчёркивание, таблица другая, обрезка до 32 символов). Из "7 Корпус
+// Швидкого Реагування ДШВ" выходят два разных огрызка.
+//
+// Зато у обоих один исходник — НАЗВАНИЕ компании, и оно же лежит в
+// каждой записи технического аккаунта. По нему и ищем.
+//
+// Одинаковых названий быть не должно, но если вдруг есть — возвращаем
+// null, а не первое попавшееся: отдать чужой аккаунт хуже, чем
+// отправить человека на ручную проверку.
+function normalizeCompanyName(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+export function findTechnicalAccountByCompanyName(name: string): TechnicalAccount | null {
+  const target = normalizeCompanyName(name);
+  if (!target) return null;
+  const matches = loadTechnicalAccounts().filter((a) => normalizeCompanyName(a.name) === target);
+  return matches.length === 1 ? (matches[0] ?? null) : null;
+}

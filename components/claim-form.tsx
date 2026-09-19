@@ -36,9 +36,48 @@ type StringKey =
   | "errAlreadyClaimed"
   | "errEmailTaken"
   | "errWrongCode"
+  | "errNeedsOtherProof"
+  | "errManualReview"
+  | "errTooMany"
   | "errUnknown";
 
 const STRINGS: Record<StringKey, Record<Locale, string>> = {
+  // 2026-09-19: три причины отказа, которых не было у ссылочного
+  // сценария — они появляются только когда компания пришла сама, со
+  // страницы вакансии (app/api/claim/request).
+  errNeedsOtherProof: {
+    uk: "Ця адреса не збігається ні з доменом сайту компанії, ні з контактом у самому оголошенні. Спробуйте робочу пошту на домені компанії.",
+    en: "This address matches neither the company website domain nor the contact printed in the vacancy. Try a work address on the company's own domain.",
+    ru: "Этот адрес не совпадает ни с доменом сайта компании, ни с контактом в самом объявлении. Попробуйте рабочую почту на домене компании.",
+    de: "Diese Adresse passt weder zur Domain der Unternehmenswebsite noch zum Kontakt in der Anzeige. Nutzen Sie eine Arbeitsadresse auf der eigenen Domain des Unternehmens.",
+    es: "Esta direccion no coincide ni con el dominio del sitio de la empresa ni con el contacto indicado en la oferta. Prueba un correo de trabajo en el dominio de la empresa.",
+    fr: "Cette adresse ne correspond ni au domaine du site de l'entreprise ni au contact indique dans l'offre. Essayez une adresse professionnelle sur le domaine de l'entreprise.",
+    pl: "Ten adres nie pasuje ani do domeny strony firmy, ani do kontaktu podanego w ogloszeniu. Sprobuj sluzbowego adresu w domenie firmy.",
+    ptBR: "Este endereco nao corresponde nem ao dominio do site da empresa nem ao contato indicado na vaga. Tente um e-mail de trabalho no dominio da empresa.",
+    zh: "\u8be5\u90ae\u7bb1\u65e2\u4e0d\u5c5e\u4e8e\u516c\u53f8\u7f51\u7ad9\u57df\u540d\uff0c\u4e5f\u4e0d\u662f\u804c\u4f4d\u4e2d\u516c\u5e03\u7684\u8054\u7cfb\u65b9\u5f0f\u3002\u8bf7\u4f7f\u7528\u516c\u53f8\u81ea\u6709\u57df\u540d\u7684\u5de5\u4f5c\u90ae\u7bb1\u3002",
+  },
+  errManualReview: {
+    uk: "Не змогли звірити профіль автоматично. Напишіть нам, і ми передамо його вручну.",
+    en: "We could not match this profile automatically. Write to us and we will hand it over by hand.",
+    ru: "Не смогли сверить профиль автоматически. Напишите нам, и мы передадим его вручную.",
+    de: "Wir konnten dieses Profil nicht automatisch zuordnen. Schreiben Sie uns, wir uebergeben es manuell.",
+    es: "No pudimos verificar el perfil automaticamente. Escribenos y lo transferiremos a mano.",
+    fr: "Nous n'avons pas pu verifier ce profil automatiquement. Ecrivez-nous et nous le transfererons manuellement.",
+    pl: "Nie udalo sie zweryfikowac profilu automatycznie. Napisz do nas, przekazemy go recznie.",
+    ptBR: "Nao conseguimos verificar o perfil automaticamente. Escreva para nos e faremos a transferencia manualmente.",
+    zh: "\u6211\u4eec\u65e0\u6cd5\u81ea\u52a8\u6838\u5bf9\u8be5\u4e3b\u9875\u3002\u8bf7\u8054\u7cfb\u6211\u4eec\uff0c\u6211\u4eec\u4f1a\u624b\u52a8\u79fb\u4ea4\u3002",
+  },
+  errTooMany: {
+    uk: "Забагато спроб. Спробуйте за годину.",
+    en: "Too many attempts. Try again in an hour.",
+    ru: "Слишком много попыток. Попробуйте через час.",
+    de: "Zu viele Versuche. Versuchen Sie es in einer Stunde erneut.",
+    es: "Demasiados intentos. Intentalo dentro de una hora.",
+    fr: "Trop de tentatives. Reessayez dans une heure.",
+    pl: "Zbyt wiele prob. Sprobuj za godzine.",
+    ptBR: "Tentativas demais. Tente novamente em uma hora.",
+    zh: "\u5c1d\u8bd5\u6b21\u6570\u8fc7\u591a\uff0c\u8bf7\u4e00\u5c0f\u65f6\u540e\u518d\u8bd5\u3002",
+  },
   title: {
     uk: "Профіль вашої компанії на A1",
     en: "Your company profile on A1",
@@ -193,9 +232,14 @@ const REASON_TO_KEY: Record<string, StringKey> = {
   already_claimed: "errAlreadyClaimed",
   email_taken: "errEmailTaken",
   wrong_code: "errWrongCode",
+  needs_other_proof: "errNeedsOtherProof",
+  manual_review: "errManualReview",
+  too_many_attempts: "errTooMany",
 };
 
-function useActiveLocale(): Locale {
+// 2026-09-19: экспортируется ради components/claim-company-prompt.tsx —
+// вход со страницы вакансии подписан на тот же язык, что и сама форма.
+export function useActiveLocale(): Locale {
   const [lang, setLang] = useState<Locale>("uk");
   useEffect(() => {
     const root = document.documentElement;
@@ -207,7 +251,15 @@ function useActiveLocale(): Locale {
 
 type Step = "email" | "code" | "done";
 
-export function ClaimForm({ claimKey, claimCode }: { claimKey: string; claimCode: string }) {
+// 2026-09-19: та же форма обслуживает два входа. Ссылочный — компания
+// получила от нас /claim/<key>/<code> и сразу имеет право на передачу.
+// Самостоятельный — она пришла со страницы вакансии, и права ещё нет:
+// его выдаёт app/api/claim/request, сверив адрес с тем, что компания
+// сама опубликовала. Дальше оба идут одним и тем же вторым шагом,
+// поэтому дублировать форму незачем.
+export type ClaimFormProps = { claimKey: string; claimCode: string } | { postId: string };
+
+export function ClaimForm(props: ClaimFormProps) {
   const lang = useActiveLocale();
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
@@ -232,7 +284,14 @@ export function ClaimForm({ claimKey, claimCode }: { claimKey: string; claimCode
     setBusy(true);
     setErrorKey(null);
     try {
-      const data = await post("/api/claim/verify-email", { key: claimKey, code: claimCode, email: email.trim() });
+      const data =
+        "postId" in props
+          ? await post("/api/claim/request", { postId: props.postId, email: email.trim() })
+          : await post("/api/claim/verify-email", {
+              key: props.claimKey,
+              code: props.claimCode,
+              email: email.trim(),
+            });
       if (data.ok && data.otpKey) {
         setOtpKey(data.otpKey);
         setStep("code");

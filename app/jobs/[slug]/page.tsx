@@ -26,6 +26,7 @@ import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { T } from "@/components/t";
 import { PostOwnerMenu } from "@/components/post-owner-menu";
 import { PostViewerMenu } from "@/components/post-viewer-menu";
+import { ClaimCompanyPrompt } from "@/components/claim-company-prompt";
 import { profileHref } from "@/lib/profile-href";
 import { TagLabel } from "@/components/tag-label";
 import { LocationMap } from "@/components/location-map";
@@ -246,6 +247,11 @@ export default async function JobDetailPage({ params }: Props) {
         shareUrl={`https://a1appp.com/postDetails/${post.id}`}
         shareTitle={post.title}
       />
+
+      {/* 2026-09-19: пока профиль компании никем не забран, показываем
+          ей путь забрать его самой. Признак снимает бэкенд в момент
+          передачи, поэтому блок исчезает без нашего участия. */}
+      {post.author.unclaimed && <ClaimCompanyPrompt postId={post.id} />}
 
       <PostImages images={postImages} />
 
