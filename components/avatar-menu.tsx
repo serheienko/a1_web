@@ -661,7 +661,16 @@ export function AvatarMenu() {
   const languageOptions = LOCALES.filter((l) => !(isGeoUa && l === "ru"));
 
   return (
-    <div className="relative shrink-0 cursor-pointer" ref={wrapperRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+    // 2026-09-19: ТА ЖЕ правка, что и в ветке выше (строка 575), и здесь
+    // она была пропущена. Веток две -- для гостя и для вошедшего, -- а
+    // чинилась только первая; Александр всё это время смотрел на вторую,
+    // потому что залогинен, и видел ровно тот же перекос. Измерено на
+    // живой странице: кнопка приложения top 16.5, аватар top 13.5 --
+    // выше на 3px, а его обёртка на 6px выше кнопки внутри (55.5 против
+    // 49.5). Причина та же: <button> -- строчный элемент, он стоит на
+    // текстовой базовой линии, и под ним остаётся место под хвосты букв.
+    // flex + items-center убирает эту строку.
+    <div className="relative flex shrink-0 cursor-pointer items-center" ref={wrapperRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
       <button
         type="button"
         // lib/use-hover-panel.ts, 2026-09-04 entry: same "•••"-menu tap

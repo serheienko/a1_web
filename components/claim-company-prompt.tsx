@@ -181,16 +181,24 @@ export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
 
           {/* Облачко живёт всегда, меняется только прозрачность —
               так оно плавно появляется и уходит, а не возникает рывком
-              вместе с узлом. */}
+              вместе с узлом.
+
+              2026-09-19: переехало ВЛЕВО и слегка выходит за карточку
+              (Александр). Слева — потому что справа оно налезало на
+              заголовок. Вынос разный: на телефоне 14px, на большом
+              экране 26px. Это не украшательство: у страницы боковой
+              отступ 16px, и вынос больше него утащил бы облачко за
+              край экрана вместе с горизонтальной прокруткой — на этом
+              репозиторий уже обжигался. */}
           <span
             aria-hidden="true"
             className={
-              "pointer-events-none absolute left-[46px] top-0 whitespace-nowrap rounded-xl border border-neutral-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-ink shadow-sm transition duration-150 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 " +
+              "pointer-events-none absolute left-[-14px] top-[2px] whitespace-nowrap rounded-xl border border-neutral-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-ink shadow-sm transition duration-150 sm:left-[-26px] dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 " +
               (meow ? "scale-100 opacity-100" : "scale-90 opacity-0")
             }
           >
             {meow ?? MEOWS[0]}
-            <span className="absolute -bottom-1 left-2.5 h-2 w-2 rotate-45 border-b border-l border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-800" />
+            <span className="absolute -bottom-1 right-4 h-2 w-2 rotate-45 border-b border-r border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-800" />
           </span>
         </div>
         <div className="min-w-0">
