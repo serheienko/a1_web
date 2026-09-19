@@ -81,18 +81,29 @@ export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
   const lang = useActiveLocale();
   const [open, setOpen] = useState(false);
   const [asleep, setAsleep] = useState(false);
-  const [meow, setMeow] = useState<string | null>(null);
+  const [meow, setMeow] = useState<string>(MEOWS[0] ?? "Meow");
+  const [meowOn, setMeowOn] = useState(false);
   const meowTimer = useRef<number | null>(null);
 
   // Каждый тык — новая фраза, и никогда та же, что висит сейчас:
   // повтор подряд читается как «кнопка не сработала».
+  //
+  // 2026-09-19 (Александр, запись экрана): «нажал один раз, а текст
+  // потом перелистывается на другой». Причина: облачко рисовало
+  // `meow ?? MEOWS[0]`, и по таймеру фраза обнулялась — ровно в момент
+  // затухания подпись успевала смениться на запасную «Meow», то есть на
+  // один клик кот мяукал дважды. Теперь текст и видимость разведены:
+  // фраза остаётся прежней до следующего тыка, гаснет только
+  // прозрачность. Один клик — одна фраза.
   function poke() {
     setMeow((current) => {
-      const choices = MEOWS.filter((phrase) => phrase !== current);
+      const shown = meowOn ? current : null;
+      const choices = MEOWS.filter((phrase) => phrase !== shown);
       return choices[Math.floor(Math.random() * choices.length)] ?? MEOWS[0] ?? "Meow";
     });
+    setMeowOn(true);
     if (meowTimer.current !== null) window.clearTimeout(meowTimer.current);
-    meowTimer.current = window.setTimeout(() => setMeow(null), 1800);
+    meowTimer.current = window.setTimeout(() => setMeowOn(false), 1800);
   }
 
   useEffect(
@@ -194,10 +205,10 @@ export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
             aria-hidden="true"
             className={
               "pointer-events-none absolute left-[-14px] top-[-18px] whitespace-nowrap rounded-xl border border-neutral-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-ink shadow-sm transition duration-150 sm:left-[-26px] dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 " +
-              (meow ? "scale-100 opacity-100" : "scale-90 opacity-0")
+              (meowOn ? "scale-100 opacity-100" : "scale-90 opacity-0")
             }
           >
-            {meow ?? MEOWS[0]}
+            {meow}
             <span className="absolute -bottom-1 right-4 h-2 w-2 rotate-45 border-b border-r border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-800" />
           </span>
         </div>

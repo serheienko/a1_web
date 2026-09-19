@@ -621,6 +621,21 @@ export function PostViewerMenu({
             (2026-09-19, Александр: «плавное появление только текста в
             кнопке и •••»). */}
         <div aria-hidden="true" className="-mx-4 flex items-center gap-2 px-4 pb-2 pt-3">
+          {/* Пустышка на месте блока с контекстом поста. Он живёт слева
+              от кнопки и на широком экране, даже свёрнутый в ноль,
+              занимает 13.5px своих полей плюс 8px промежутка. Без него
+              заглушка была на 22.5px шире настоящей кнопки, и в момент
+              появления надписи кнопка заметно ужималась
+              (2026-09-19, Александр: «ширина заглушки более широкая,
+              при появлении становится уже»). Замерено на живой
+              странице: с этой пустышкой заглушка и кнопка совпадают
+              до пикселя — x 302.5, ширина 646.5. */}
+          <span
+            className={
+              "hidden min-w-0 items-center gap-2 overflow-hidden rounded-xl sm:flex sm:max-w-0" +
+              (authorUsername ? " py-1 pl-1 pr-2" : "")
+            }
+          />
           <span className="h-[42px] min-w-0 flex-1 rounded-full border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900" />
           <span className="h-[42px] w-[42px] shrink-0 rounded-full border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900" />
         </div>
