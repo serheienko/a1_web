@@ -135,23 +135,13 @@ export default async function JobDetailPage({ params }: Props) {
   );
 
   return (
-    <main className="mx-auto max-w-2xl px-4 pt-10 sm:pt-16 pb-fab-safe">
+    <main className="mx-auto max-w-2xl px-4 pt-5 sm:pt-11 pb-fab-safe">
       {jsonLd && (
         // eslint-disable-next-line react/no-danger
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       )}
       {/* eslint-disable-next-line react/no-danger */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
-
-      {/* 2026-09-19: пока профиль компании никем не забран, показываем
-          ей путь забрать его самой. Признак снимает бэкенд в момент
-          передачи, поэтому блок исчезает без нашего участия.
-
-          Стоит первым на странице (Александр: «перенесём эти блоки
-          наверх, так логичнее»): компания, пришедшая по ссылке на свою
-          же вакансию, видит предложение забрать профиль сразу, а не
-          после того, как долистает до кнопки отклика. */}
-      {post.author.unclaimed && <ClaimCompanyPrompt postId={post.id} atTop />}
 
       {/* Видимая дорожка под ту же разметку. Google просит, чтобы
           BreadcrumbList соответствовал тому, что видит человек, и это
@@ -257,6 +247,18 @@ export default async function JobDetailPage({ params }: Props) {
         shareUrl={`https://a1appp.com/postDetails/${post.id}`}
         shareTitle={post.title}
       />
+
+      {/* 2026-09-19: пока профиль компании никем не забран, показываем
+          ей путь забрать его самой. Признак снимает бэкенд в момент
+          передачи, поэтому блок исчезает без нашего участия.
+
+          В тот же день блок пробовали поднять в самый верх страницы и
+          вернули обратно: наверху первое, что видит человек, — служебная
+          карточка вместо названия вакансии, а видимости это почти не
+          добавляло (здесь блок и так виден без прокрутки). Порядок
+          чтения важнее: что это -> кто разместил -> что я могу сделать
+          -> и, кстати, если это ваша компания, заберите её. */}
+      {post.author.unclaimed && <ClaimCompanyPrompt postId={post.id} />}
 
       <PostImages images={postImages} />
 

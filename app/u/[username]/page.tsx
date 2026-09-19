@@ -418,16 +418,7 @@ export default async function ProfilePage({ params }: Props) {
         next to the avatar+gap, while MarqueeName's wrap-instead-of-
         truncate fallback still catches the rare pathologically long one
         instead of clipping it. */}
-    <main className="mx-auto w-full max-w-2xl px-4 pt-10 sm:w-[640px] sm:pt-16 pb-fab-safe">
-      {/* 2026-09-19 (Александр: «добавь такой же блок в профили
-          компаний», затем «перенесём эти блоки наверх»). Тот же блок,
-          что на странице вакансии, только профиль здесь ищется по
-          юзернейму, и стоит он первым на странице. Признак снимает
-          бэкенд в момент передачи, поэтому блок исчезает сам. */}
-      {rawProfile?.object === "user" && rawProfile.unclaimed && (
-        <ClaimCompanyPrompt username={username} atTop />
-      )}
-
+    <main className="mx-auto w-full max-w-2xl px-4 pt-5 sm:w-[640px] sm:pt-11 pb-fab-safe">
       {/* 2026-09-15: разметка организации и дорожка обратно в ленту --
           только у работодателя (есть живая вакансия). У соискателя ни
           того, ни другого: Organization про человека -- неправда, а
@@ -645,6 +636,19 @@ export default async function ProfilePage({ params }: Props) {
           switch; everything below was already fetched/rendered
           server-side either way, this only decides which half is
           visible. */}
+      {/* 2026-09-19 (Александр: «добавь такой же блок в профили
+          компаний»). Тот же блок, что на странице вакансии, только
+          профиль здесь ищется по юзернейму. Признак снимает бэкенд в
+          момент передачи, поэтому блок исчезает сам.
+
+          Пробовали в тот же день поднять его в самый верх страницы и
+          вернули обратно -- см. app/jobs/[slug]/page.tsx: наверху
+          карточка «це ваша компанія?» вытесняла саму компанию, ради
+          видимости, которая у блока и так есть. */}
+      {rawProfile?.object === "user" && rawProfile.unclaimed && (
+        <ClaimCompanyPrompt username={username} />
+      )}
+
       <ProfileTabs
         bio={
           <>

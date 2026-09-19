@@ -90,14 +90,7 @@ const TAKE: Record<Locale, string> = {
 // Со страницы вакансии приходит postId, со страницы компании —
 // username. Разница только в том, по чему сервер будет искать профиль:
 // сам экран и правило одни и те же.
-// 2026-09-19 (Александр): блок переехал в самый верх обеих страниц, над
-// «хлебными крошками» — «мне кажется, это будет логичнее». Наверху ему
-// нужен отступ СНИЗУ, а не сверху, иначе он прилипает к заголовку;
-// atTop это и переключает, чтобы обе страницы не повторяли одну и ту же
-// вёрстку у себя.
-export type ClaimCompanyPromptProps = ({ postId: string } | { username: string }) & {
-  atTop?: boolean;
-};
+export type ClaimCompanyPromptProps = { postId: string } | { username: string };
 
 export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
   const lang = useActiveLocale();
@@ -168,18 +161,16 @@ export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
     [],
   );
 
-  const spacing = props.atTop ? "mb-5" : "mt-3.5";
-
   if (open) {
     return (
-      <div className={spacing}>
+      <div className="mt-3.5">
         {"postId" in props ? <ClaimForm postId={props.postId} /> : <ClaimForm username={props.username} />}
       </div>
     );
   }
 
   return (
-    <div className={`${spacing} rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900`}>
+    <div className="mt-3.5 rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
       <div className="flex items-center gap-2 sm:gap-3">
         {/* 2026-09-19 (Александр: «поставим кота слева, появление не резкое,
             через блюр, проиграть один раз, а в конце он садится и спит»).
