@@ -270,17 +270,22 @@ export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
                   так оно плавно появляется и уходит, а не возникает рывком
                   вместе с узлом.
 
-                  2026-09-19: переехало ВЛЕВО и слегка выходит за карточку
-                  (Александр). Слева — потому что справа оно налезало на
-                  заголовок. Вынос разный: на телефоне 14px, на большом
-                  экране 26px. Это не украшательство: у страницы боковой
-                  отступ 16px, и вынос больше него утащил бы облачко за
-                  край экрана вместе с горизонтальной прокруткой — на этом
-                  репозиторий уже обжигался. */}
+                  Облачко специально торчит за левую рамку карточки на 14px:
+                  справа оно налезало бы на заголовок. Вылет ровно 14px и не
+                  больше — у страницы боковой отступ 16px, и всё, что шире,
+                  утащило бы облачко за край экрана вместе с горизонтальной
+                  прокруткой.
+
+                  2026-09-19 (Александр, скриншот: «текст кота не выходит за
+                  рамку попапа»). Обрезала не карточка, а обёртка плавного
+                  появления: .claim-reveal > * обязана быть overflow:hidden,
+                  иначе анимация высоты не работает. Лечится там же, в
+                  app/globals.css: границу обрезки раздвинули на 16px в
+                  стороны. Двигать само облачко не нужно. */}
               <span
                 aria-hidden="true"
                 className={
-                  "pointer-events-none absolute left-[-14px] top-[-18px] whitespace-nowrap rounded-xl border border-neutral-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-ink shadow-sm transition duration-150 sm:left-[-26px] dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 " +
+                  "pointer-events-none absolute left-[-14px] top-[-18px] whitespace-nowrap rounded-xl border border-neutral-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-ink shadow-sm transition duration-150 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 " +
                   (meowOn ? "scale-100 opacity-100" : "scale-90 opacity-0")
                 }
               >
