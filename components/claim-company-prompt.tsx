@@ -12,7 +12,7 @@
 // адресовано, и большая форма на странице вакансии мешала бы им читать.
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useActiveLocale } from "@/components/claim-form";
 import { ClaimForm } from "@/components/claim-form";
 import { LottiePlayer } from "@/components/lottie-player";
@@ -54,6 +54,12 @@ const NOTE: Record<Locale, string> = {
 };
 
 
+// 2026-09-19 (Александр: «при клике на кота — маленькое облачко
+// „Meow“, штук пять текстов»). Намеренно НЕ переводятся: кошачьи звуки
+// одинаковы на всех девяти языках сайта, а сорок пять переводов слова
+// «мяу» — это ровно та работа, которой лучше не быть.
+const MEOWS = ["Meow", "Mrrr", "Purr…", "Meow?", "Zzz…"];
+
 const TAKE: Record<Locale, string> = {
   uk: "Забрати профіль",
   en: "Take the profile",
@@ -74,11 +80,27 @@ export type ClaimCompanyPromptProps = { postId: string } | { username: string };
 export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
   const lang = useActiveLocale();
   const [open, setOpen] = useState(false);
-  const [showCat, setShowCat] = useState(false);
+  const [asleep, setAsleep] = useState(false);
+  const [meow, setMeow] = useState<string | null>(null);
+  const meowTimer = useRef<number | null>(null);
 
-  useEffect(() => {
-    setShowCat(!window.matchMedia("(prefers-reduced-motion: reduce)").matches);
-  }, []);
+  // Каждый тык — новая фраза, и никогда та же, что висит сейчас:
+  // повтор подряд читается как «кнопка не сработала».
+  function poke() {
+    setMeow((current) => {
+      const choices = MEOWS.filter((phrase) => phrase !== current);
+      return choices[Math.floor(Math.random() * choices.length)] ?? MEOWS[0] ?? "Meow";
+    });
+    if (meowTimer.current !== null) window.clearTimeout(meowTimer.current);
+    meowTimer.current = window.setTimeout(() => setMeow(null), 1800);
+  }
+
+  useEffect(
+    () => () => {
+      if (meowTimer.current !== null) window.clearTimeout(meowTimer.current);
+    },
+    [],
+  );
 
   if (open) {
     return (
@@ -106,17 +128,71 @@ export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
         {/* Кот прижат к левой рамке изнутри: -ml-4 ровно гасит padding
             карточки (p-4 = 16px), поэтому его левый край совпадает с
             линией обводки и наружу он не выходит. По вертикали —
-            середина карточки (items-center у строки выше), как было в
-            первой версии. */}
-        {showCat && (
-          <LottiePlayer
-            src="/animations/cat-sleeping.json"
-            size={96}
-            loop={false}
-            placeholder={false}
-            className="-ml-4"
-          />
-        )}
+            середина карточки (items-center у строки выше).
+
+            2026-09-19 (Александр: «полечить прыжок текста при появлении
+            анимации»). Прыгало потому, что кота раньше не было в
+            разметке до гидратации: он появлялся уже после первой
+            отрисовки и раздвигал текст. Теперь место под него занято
+            всегда — блок ровно 96px с первого кадра, а плеер просто
+            проявляется внутри него.
+
+            Проверку «уменьшить движение» пришлось перенести из
+            JavaScript в CSS (motion-reduce:hidden) ровно по той же
+            причине: любое решение, принятое после первой отрисовки,
+            двигает вёрстку. CSS применяется сразу. */}
+        <div className="relative h-[68px] w-[68px] shrink-0 -ml-4 motion-reduce:hidden">
+          <button
+            type="button"
+            onClick={poke}
+            aria-label="Meow"
+            className="block h-[68px] w-[68px] cursor-pointer appearance-none bg-transparent p-0"
+          >
+            <LottiePlayer
+              src="/animations/cat-sleeping.json"
+              size={68}
+              loop={false}
+              placeholder={false}
+              className="pointer-events-none"
+              onComplete={() => setAsleep(true)}
+            />
+          </button>
+
+          {/* Буквы «z» над котом — только после того, как анимация
+              доиграла и кот улёгся. Разные задержки и размеры делают
+              из трёх одинаковых букв ленивую очередь. */}
+          {asleep && (
+            <span aria-hidden="true" className="pointer-events-none absolute left-[42px] top-[6px]">
+              {[0, 1.2, 2.4].map((delay, i) => (
+                <span
+                  key={delay}
+                  className="animate-cat-snooze absolute font-semibold text-neutral-400 dark:text-neutral-500"
+                  style={{
+                    animationDelay: `${delay}s`,
+                    fontSize: `${9 + i * 2}px`,
+                    left: `${i * 3}px`,
+                  }}
+                >
+                  z
+                </span>
+              ))}
+            </span>
+          )}
+
+          {/* Облачко живёт всегда, меняется только прозрачность —
+              так оно плавно появляется и уходит, а не возникает рывком
+              вместе с узлом. */}
+          <span
+            aria-hidden="true"
+            className={
+              "pointer-events-none absolute left-[46px] top-0 whitespace-nowrap rounded-xl border border-neutral-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-ink shadow-sm transition duration-150 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 " +
+              (meow ? "scale-100 opacity-100" : "scale-90 opacity-0")
+            }
+          >
+            {meow ?? MEOWS[0]}
+            <span className="absolute -bottom-1 left-2.5 h-2 w-2 rotate-45 border-b border-l border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-800" />
+          </span>
+        </div>
         <div className="min-w-0">
           <p className="text-sm font-semibold text-ink dark:text-neutral-100">{ASK[lang]}</p>
           <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">{NOTE[lang]}</p>
