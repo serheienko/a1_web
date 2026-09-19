@@ -60,6 +60,21 @@ const NOTE: Record<Locale, string> = {
 // «мяу» — это ровно та работа, которой лучше не быть.
 const MEOWS = ["Meow", "Mrrr", "Purr…", "Meow?", "Zzz…"];
 
+// 2026-09-19 (Александр): звуки на тык. Порядок фиксированный и идёт по
+// кругу: сначала фирменный сигнал A1, потом три мяуканья, а на пятый
+// тык кот не выдерживает и лает. Файлы лежат в public/sounds, все
+// пережаты в моно 96 kbps (8–27 КБ) — это меньше одной иконки, и
+// грузятся они только после первого касания кота, а не при открытии
+// страницы.
+const CAT_SOUNDS = [
+  "/sounds/a1-original.mp3",
+  "/sounds/meow-1.mp3",
+  "/sounds/meow-2.mp3",
+  "/sounds/meow-3.mp3",
+  "/sounds/bark.mp3",
+] as const;
+const BARK_INDEX = CAT_SOUNDS.length - 1;
+
 const TAKE: Record<Locale, string> = {
   uk: "Забрати профіль",
   en: "Take the profile",
@@ -84,6 +99,8 @@ export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
   const [meow, setMeow] = useState<string>(MEOWS[0] ?? "Meow");
   const [meowOn, setMeowOn] = useState(false);
   const meowTimer = useRef<number | null>(null);
+  const pokeCount = useRef(0);
+  const catAudio = useRef<Map<string, HTMLAudioElement>>(new Map());
 
   // Каждый тык — новая фраза, и никогда та же, что висит сейчас:
   // повтор подряд читается как «кнопка не сработала».
@@ -96,14 +113,45 @@ export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
   // фраза остаётся прежней до следующего тыка, гаснет только
   // прозрачность. Один клик — одна фраза.
   function poke() {
-    setMeow((current) => {
-      const shown = meowOn ? current : null;
-      const choices = MEOWS.filter((phrase) => phrase !== shown);
-      return choices[Math.floor(Math.random() * choices.length)] ?? MEOWS[0] ?? "Meow";
-    });
+    const step = pokeCount.current % CAT_SOUNDS.length;
+    pokeCount.current += 1;
+    playCatSound(step);
+    if (step === BARK_INDEX) {
+      // Лай — и подпись про лай: «Purr…» над гавкающим котом читалась бы
+      // как рассинхрон звука и картинки.
+      setMeow("Woof!");
+    } else {
+      setMeow((current) => {
+        const shown = meowOn ? current : null;
+        const choices = MEOWS.filter((phrase) => phrase !== shown);
+        return choices[Math.floor(Math.random() * choices.length)] ?? MEOWS[0] ?? "Meow";
+      });
+    }
     setMeowOn(true);
     if (meowTimer.current !== null) window.clearTimeout(meowTimer.current);
     meowTimer.current = window.setTimeout(() => setMeowOn(false), 1800);
+  }
+
+  // Звук заводим лениво и по одному объекту на файл: браузер сам держит
+  // их в кэше, повторный тык стартует мгновенно. Любая осечка
+  // (автоплей запрещён, файл не доехал, вкладка без звука) гасится
+  // молча — из-за звука кот не должен ломаться.
+  function playCatSound(step: number) {
+    const src = CAT_SOUNDS[step];
+    if (!src) return;
+    try {
+      let audio = catAudio.current.get(src);
+      if (!audio) {
+        audio = new Audio(src);
+        audio.preload = "auto";
+        audio.volume = 0.45;
+        catAudio.current.set(src, audio);
+      }
+      audio.currentTime = 0;
+      void audio.play().catch(() => {});
+    } catch {
+      // тишина вместо ошибки
+    }
   }
 
   useEffect(
