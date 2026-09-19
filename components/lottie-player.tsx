@@ -46,6 +46,7 @@ export function LottiePlayer({
   className,
   loop = true,
   onComplete,
+  placeholder = true,
 }: {
   src: string;
   /** Pixel size of the square animation viewport. */
@@ -58,6 +59,13 @@ export function LottiePlayer({
   loop?: boolean;
   /** Fires once, when a non-looping animation finishes playing. */
   onComplete?: () => void;
+  /** 2026-09-19 (Александр: «синее пятно блюр можно убрать, я просто
+   *  хотел, чтобы не было пустоты, если подвиснет подгрузка»). Пятно
+   *  осталось значением по умолчанию — там, где анимация занимает
+   *  заметное место в макете, пустая дыра на время загрузки хуже. Но в
+   *  блоке клейма кот маленький и стоит на краю карточки, дыры не
+   *  видно, а синий круг там лишний. */
+  placeholder?: boolean;
 }) {
   const containerRef = useRef<HTMLSpanElement>(null);
   const [loaded, setLoaded] = useState(false);
@@ -123,6 +131,7 @@ export function LottiePlayer({
           instead of nothing, blur-fades out once the real animation is
           ready. animate-pulse (Tailwind's built-in opacity pulse) keeps
           it reading as "loading", not "stuck". */}
+      {placeholder && (
       <span
         aria-hidden="true"
         className="animate-pulse"
@@ -137,6 +146,7 @@ export function LottiePlayer({
           pointerEvents: "none",
         }}
       />
+      )}
       <span
         ref={containerRef}
         style={{

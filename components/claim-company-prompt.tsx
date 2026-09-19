@@ -30,17 +30,29 @@ const ASK: Record<Locale, string> = {
   zh: "这是贵公司吗？",
 };
 
+// 2026-09-19, второй заход по тексту (Александр: «для соискателя это
+// отталкивающий фактор — он поймёт, что за объявлением никто не стоит»).
+// Первая версия честно писала, что вакансии собраны автоматически и
+// профиль ничей. Компании это объясняло хорошо, но читают карточку
+// двое, и второму читателю такое знать незачем.
+//
+// Объяснение не потерялось: ровно тот же смысл стоит на СЛЕДУЮЩЕМ
+// экране (components/claim-form.tsx, строка intro), а его видит только
+// тот, кто нажал кнопку, — то есть сама компания. Здесь осталась
+// выгода вместо признания: соискатель читает её как «у компании есть
+// кабинет», компания — как приглашение.
 const NOTE: Record<Locale, string> = {
-  uk: "Вакансії зібрані автоматично, профіль ще нікому не належить. Підтвердьте робочу пошту — і він стане вашим разом з усіма відгуками.",
-  en: "These vacancies were collected automatically and the profile belongs to nobody yet. Confirm a work email and it becomes yours, applications included.",
-  ru: "Вакансии собраны автоматически, профиль ещё никому не принадлежит. Подтвердите рабочую почту — и он станет вашим вместе со всеми откликами.",
-  de: "Diese Stellen wurden automatisch gesammelt, das Profil gehört noch niemandem. Bestätigen Sie eine Arbeits-E-Mail, und es gehört Ihnen — samt Bewerbungen.",
-  es: "Estas vacantes se recopilaron automáticamente y el perfil aún no tiene dueño. Confirma un correo de trabajo y será tuyo, con las candidaturas incluidas.",
-  fr: "Ces offres ont été collectées automatiquement et le profil n'appartient encore à personne. Confirmez un e-mail professionnel et il devient le vôtre, candidatures comprises.",
-  pl: "Te oferty zebrano automatycznie, profil nie należy jeszcze do nikogo. Potwierdź służbowy e-mail, a stanie się Twój razem ze zgłoszeniami.",
-  ptBR: "Estas vagas foram coletadas automaticamente e o perfil ainda não tem dono. Confirme um e-mail de trabalho e ele será seu, com as candidaturas incluídas.",
-  zh: "这些职位是自动收集的，主页尚无归属。确认工作邮箱后，主页连同所有投递都归贵公司所有。",
+  uk: "Керуйте вакансіями та спілкуйтеся з кандидатами від імені компанії.",
+  en: "Manage your vacancies and talk to candidates as the company.",
+  ru: "Управляйте вакансиями и общайтесь с кандидатами от имени компании.",
+  de: "Verwalten Sie Ihre Stellen und sprechen Sie als Unternehmen mit Kandidaten.",
+  es: "Gestiona tus vacantes y habla con los candidatos en nombre de la empresa.",
+  fr: "Gerez vos offres et echangez avec les candidats au nom de l'entreprise.",
+  pl: "Zarzadzaj ofertami i rozmawiaj z kandydatami w imieniu firmy.",
+  ptBR: "Gerencie suas vagas e fale com os candidatos em nome da empresa.",
+  zh: "\u4ee5\u516c\u53f8\u8eab\u4efd\u7ba1\u7406\u804c\u4f4d\u5e76\u4e0e\u5019\u9009\u4eba\u6c9f\u901a\u3002",
 };
+
 
 const TAKE: Record<Locale, string> = {
   uk: "Забрати профіль",
@@ -78,7 +90,7 @@ export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
 
   return (
     <div className="mt-6 rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
-      <div className="flex items-start gap-3 sm:gap-4">
+      <div className="flex items-start gap-2 sm:gap-3">
         {/* 2026-09-19 (Александр: «поставим кота слева, появление не резкое,
             через блюр, проиграть один раз, а в конце он садится и спит»).
             Всё это уже умеет components/lottie-player.tsx: он сам
@@ -91,8 +103,21 @@ export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
             рендере, и есть куда вставить проверку «уменьшить движение».
             С ней кота нет вовсе: трёхсекундная анимация человеку,
             который попросил систему не двигать картинки, ни к чему. */}
+        {/* Кот намеренно вылезает за левый край карточки: анимация —
+            с появлением, и так она читается как «кот пришёл и улёгся
+            сверху», а не как иконка в рамке. Отрицательный отступ
+            больше, чем padding карточки (16px), поэтому часть кота
+            оказывается снаружи; карточка ничего не обрезает — у неё
+            нет overflow-hidden, только скругление. На телефоне вынос
+            меньше: страница и так прижата к краю экрана. */}
         {showCat && (
-          <LottiePlayer src="/animations/cat-sleeping.json" size={80} loop={false} />
+          <LottiePlayer
+            src="/animations/cat-sleeping.json"
+            size={96}
+            loop={false}
+            placeholder={false}
+            className="-ml-6 -mt-3 sm:-ml-9 sm:-mt-4"
+          />
         )}
         <div className="min-w-0">
           <p className="text-sm font-semibold text-ink dark:text-neutral-100">{ASK[lang]}</p>
