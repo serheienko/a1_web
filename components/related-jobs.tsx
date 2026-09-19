@@ -128,7 +128,11 @@ export function RelatedJobs({
   if (sameCompany.length === 0 && similar.length === 0) return null;
 
   return (
-    <div className="mt-12 border-t border-neutral-100 pt-2 dark:border-neutral-800">
+    // 2026-09-19 (Александр, скриншот с телефона): между полем
+    // «Додати коментар» и блоком похожих вакансий зияла дыра. Подняли
+    // весь блок вместе с разделительной чертой на 20px: mt-12 (48px)
+    // -> mt-7 (28px).
+    <div className="mt-7 border-t border-neutral-100 pt-2 dark:border-neutral-800">
       <Section
         title={
           <>
