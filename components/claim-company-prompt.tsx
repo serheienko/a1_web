@@ -90,7 +90,7 @@ export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
 
   return (
     <div className="mt-6 rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
-      <div className="flex items-start gap-2 sm:gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
         {/* 2026-09-19 (Александр: «поставим кота слева, появление не резкое,
             через блюр, проиграть один раз, а в конце он садится и спит»).
             Всё это уже умеет components/lottie-player.tsx: он сам
@@ -103,20 +103,18 @@ export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
             рендере, и есть куда вставить проверку «уменьшить движение».
             С ней кота нет вовсе: трёхсекундная анимация человеку,
             который попросил систему не двигать картинки, ни к чему. */}
-        {/* Кот намеренно вылезает за левый край карточки: анимация —
-            с появлением, и так она читается как «кот пришёл и улёгся
-            сверху», а не как иконка в рамке. Отрицательный отступ
-            больше, чем padding карточки (16px), поэтому часть кота
-            оказывается снаружи; карточка ничего не обрезает — у неё
-            нет overflow-hidden, только скругление. На телефоне вынос
-            меньше: страница и так прижата к краю экрана. */}
+        {/* Кот прижат к левой рамке изнутри: -ml-4 ровно гасит padding
+            карточки (p-4 = 16px), поэтому его левый край совпадает с
+            линией обводки и наружу он не выходит. По вертикали —
+            середина карточки (items-center у строки выше), как было в
+            первой версии. */}
         {showCat && (
           <LottiePlayer
             src="/animations/cat-sleeping.json"
             size={96}
             loop={false}
             placeholder={false}
-            className="-ml-6 -mt-3 sm:-ml-9 sm:-mt-4"
+            className="-ml-4"
           />
         )}
         <div className="min-w-0">
