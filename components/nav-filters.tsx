@@ -41,6 +41,11 @@ export function NavFilters() {
   const pathname = usePathname();
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
+  // Категории, в которых сейчас нет ни одной вакансии: форма красит их
+  // в половину яркости. На ленте это же значение считает серверный
+  // components/filters.tsx (2026-09-19, Александр: «посмотри, как это
+  // сделано на главной, и примени абсолютно везде»).
+  const [emptyCategoryValues, setEmptyCategoryValues] = useState<number[]>([]);
 
   const skip = OWN_SEARCH_PATHS.has(pathname);
 
@@ -60,12 +65,13 @@ export function NavFilters() {
       done = true;
       slot.removeEventListener("mouseenter", load);
       slot.removeEventListener("focusin", load);
-      fetch("/api/post-editor/bootstrap")
+      fetch("/api/filters/bootstrap")
         .then((res) => res.json())
         .then((data) => {
           if (!data?.ok) return;
           setCategories(data.categories ?? []);
-          setTags(data.hiringTags ?? []);
+          setTags(data.tags ?? []);
+          setEmptyCategoryValues(data.emptyCategoryValues ?? []);
         })
         .catch(() => {
           // Не вышло -- останутся поиск и кнопка фильтров с пустым
@@ -89,6 +95,7 @@ export function NavFilters() {
       categories={categories}
       tags={tags}
       currentTags={[]}
+      emptyCategoryValues={emptyCategoryValues}
       urlMode="push"
       desktopOnly
     />

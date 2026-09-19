@@ -38,6 +38,30 @@ const TagSchema = z.object({
   value: z.string(),
   text: z.string().catch(""),
 });
+/**
+ * «IT» первой категорией в списке.
+ *
+ * Aleksandr, 2026-08-26: «Вынеси IT на самый верх». Сам список приходит
+ * с бэкенда как есть (dataset.postCategories), своего массива-источника
+ * у нас нет -- поэтому не переупорядочиваем всё, а просто поднимаем одну
+ * категорию, оставляя остальной порядок бэкенда нетронутым. Сверяем по
+ * тексту без эмодзи и знаков, чтобы не зависеть от того, как именно API
+ * пришлёт префикс.
+ *
+ * 2026-09-19 (Александр: «категорию IT везде дефолтно показываем с самого
+ * верха... не изобретай велосипед, повторяй её идентично в других
+ * местах»): функция переехала сюда из components/filters.tsx, потому что
+ * теперь её зовут ДВА места -- лента (серверный компонент) и справочник
+ * для фильтров в шапке (app/api/filters/bootstrap). Две копии неизбежно
+ * разъехались бы.
+ */
+export function withItFirst(categories: Category[]): Category[] {
+  const isIt = (text: string) => text.replace(/[^\p{L}]/gu, "").toLowerCase() === "it";
+  const it = categories.find((c) => isIt(c.text));
+  if (!it) return categories;
+  return [it, ...categories.filter((c) => c !== it)];
+}
+
 export type Tag = z.infer<typeof TagSchema>;
 
 /**

@@ -546,6 +546,34 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
     }
     setOpen(true);
   }, []);
+
+  // 2026-09-19 (Александр: «нажимаю на кота в комментариях -- надо,
+  // чтобы сразу открывались и комментарии, и всплывашка с эмодзи, а не
+  // вторым кликом»). Нажатие на кота в свёрнутой строке открывает окно
+  // и СРАЗУ панель наліпок.
+  //
+  // Флаг в ref, а не в state: он нужен ровно один раз и перерисовку
+  // вызывать не должен.
+  const wantPickerRef = useRef(false);
+  const openWindowWithPicker = useCallback(() => {
+    wantPickerRef.current = true;
+    openWindow();
+  }, [openWindow]);
+
+  // Почему с задержкой, а не сразу: панель привязывается к КООРДИНАТАМ
+  // кнопки-кота внутри окна, а окно в этот момент ещё едет снизу
+  // (переход на CLOSE_MS). Снимешь рамку раньше -- панель встанет туда,
+  // где кот был на старте анимации. Ждём конца переезда; дальше
+  // положение всё равно пере-измеряется эффектом pickerOpen ниже.
+  useEffect(() => {
+    if (!open || !shown || !wantPickerRef.current) return;
+    wantPickerRef.current = false;
+    const t = setTimeout(() => {
+      const rect = stickerButtonRef.current?.getBoundingClientRect();
+      if (rect) setPickerAnchor(rect);
+    }, CLOSE_MS);
+    return () => clearTimeout(t);
+  }, [open, shown]);
   useEffect(() => () => {
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
   }, []);
@@ -1022,14 +1050,17 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
           рядом -- последний комментарий, если он есть. Нажатие
           открывает окно. Сама страница вакансии при этом не растёт:
           хоть двести комментариев, хоть ни одного -- высота одна. */}
+      {/* `group` переехал на обёртку: анимация кота в globals.css висит
+          на `.group:hover .animate-chat-wiggle`, без группы-предка она
+          просто никогда не срабатывает (2026-09-16, Александр: «дай
+          коту при наведении его анимацию»). А обёртка нужна потому,
+          что кнопок теперь две -- вся строка и кот поверх неё; кнопку
+          в кнопку вложить нельзя. */}
+      <div className="group relative mt-3">
       <button
         type="button"
         onClick={openWindow}
-        // `group` -- ради кота справа: анимация в globals.css висит на
-        // `.group:hover .animate-chat-wiggle`, без группы-предка она
-        // просто никогда не срабатывает (2026-09-16, Александр: «дай
-        // коту при наведении его анимацию»).
-        className="group mt-3 flex w-full items-center gap-2 text-left"
+        className="flex w-full items-center gap-2 text-left"
       >
         <Avatar url={me?.avatarUrl ?? null} seed={me?.username ?? "me"} className="h-9 w-9" />
         <span className="flex min-h-9 min-w-0 flex-1 items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-1.5 text-[14px] dark:border-neutral-700 dark:bg-neutral-900">
@@ -1048,6 +1079,18 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
           <ChatCatFieldIcon className="ml-auto h-[18px] w-[18px] shrink-0 animate-chat-wiggle text-neutral-400 dark:text-neutral-500" />
         </span>
       </button>
+      {/* Кот. Своей кнопкой поверх правого края строки: сам значок
+          лежит внутри нижней кнопки и перехватить нажатие не может.
+          Ширина 44px -- это минимальная цель для пальца; на неё же
+          приходится и правый отступ строки, так что визуально ничего
+          не сдвинулось. */}
+      <button
+        type="button"
+        onClick={openWindowWithPicker}
+        aria-label="Emoji"
+        className="absolute inset-y-0 right-0 z-10 w-11 cursor-pointer appearance-none rounded-full bg-transparent p-0"
+      />
+      </div>
 
       {/* Окно. В разметке оно ЕСТЬ всегда, просто скрыто -- иначе
           комментариев не увидел бы поисковик, ради чего всё и
