@@ -85,7 +85,19 @@ export function employmentTypesFor(post: WebPost): string[] {
  *   Уезжают в поле `skills` -- оно у JobPosting предусмотрено и
  *   необязательно, поэтому пустой список просто не добавляет ничего.
  */
-export function buildJobPostingJsonLd(post: WebPost, techTags: string[] = []): Record<string, unknown> {
+/**
+ * 2026-09-19: опыт и английский, вытащенные из текста вакансии
+ * (lib/a1/job-facts.ts), едут и в разметку. У JobPosting для этого есть
+ * свои поля: experienceRequirements Google понимает как отдельное
+ * требование, а не как часть простыни описания. Это ровно тот случай,
+ * ради которого извлечение и затевалось: наши собственные данные,
+ * которых на источнике нет.
+ */
+export function buildJobPostingJsonLd(
+  post: WebPost,
+  techTags: string[] = [],
+  facts?: { experienceYears: number | null; english: { cefr: string | null; word: string | null } | null },
+): Record<string, unknown> {
   const jsonLd: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "JobPosting",
@@ -104,6 +116,17 @@ export function buildJobPostingJsonLd(post: WebPost, techTags: string[] = []): R
     // необязательно -- пустой список просто не добавляем, чтобы не
     // отдавать Google пустую строку.
     ...(techTags.length > 0 ? { skills: techTags.join(", ") } : {}),
+    ...(facts?.experienceYears
+      ? {
+          experienceRequirements: {
+            "@type": "OccupationalExperienceRequirements",
+            monthsOfExperience: facts.experienceYears * 12,
+          },
+        }
+      : {}),
+    ...(facts?.english && (facts.english.cefr || facts.english.word)
+      ? { qualifications: `English ${facts.english.cefr ?? facts.english.word}` }
+      : {}),
     identifier: {
       "@type": "PropertyValue",
       name: "A1",

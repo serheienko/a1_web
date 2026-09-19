@@ -95,6 +95,11 @@ export type ClaimCompanyPromptProps = { postId: string } | { username: string };
 export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
   const lang = useActiveLocale();
   const [open, setOpen] = useState(false);
+  // Форма сначала рисуется закрытой и только следующим кадром получает
+  // data-open="true" — иначе браузер применит открытое состояние сразу,
+  // и переходу будет не от чего стартовать. Два кадра, а не один:
+  // одного Safari хватает не всегда.
+  const [formIn, setFormIn] = useState(false);
   const [asleep, setAsleep] = useState(false);
   const [meow, setMeow] = useState<string>(MEOWS[0] ?? "Meow");
   const [meowOn, setMeowOn] = useState(false);
@@ -161,124 +166,149 @@ export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
     [],
   );
 
-  if (open) {
-    return (
-      <div className="mt-3.5">
-        {"postId" in props ? <ClaimForm postId={props.postId} /> : <ClaimForm username={props.username} />}
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (!open) {
+      setFormIn(false);
+      return;
+    }
+    let second = 0;
+    const first = window.requestAnimationFrame(() => {
+      second = window.requestAnimationFrame(() => setFormIn(true));
+    });
+    return () => {
+      window.cancelAnimationFrame(first);
+      if (second) window.cancelAnimationFrame(second);
+    };
+  }, [open]);
 
   return (
-    <div className="mt-3.5 rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
-      <div className="flex items-center gap-2 sm:gap-3">
-        {/* 2026-09-19 (Александр: «поставим кота слева, появление не резкое,
-            через блюр, проиграть один раз, а в конце он садится и спит»).
-            Всё это уже умеет components/lottie-player.tsx: он сам
-            проявляет анимацию из blur(14px) за 320 мс, а loop={false}
-            означает «сыграть один раз и замереть на последнем кадре» —
-            то есть кот засыпает и таким остаётся.
+    <div className="mt-3.5">
+      {/* Карточка-приглашение и форма меняются местами не рывком:
+          одна схлопывается, вторая раскрывается — см. .claim-reveal в
+          app/globals.css. */}
+      <div className="claim-reveal" data-open={open ? "false" : "true"} aria-hidden={open}>
+        <div>
+        <div className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* 2026-09-19 (Александр: «поставим кота слева, появление не резкое,
+                через блюр, проиграть один раз, а в конце он садится и спит»).
+                Всё это уже умеет components/lottie-player.tsx: он сам
+                проявляет анимацию из blur(14px) за 320 мс, а loop={false}
+                означает «сыграть один раз и замереть на последнем кадре» —
+                то есть кот засыпает и таким остаётся.
 
-            Кот появляется только после гидратации: до неё showCat false.
-            Так решаются сразу две вещи — нет мигания при серверном
-            рендере, и есть куда вставить проверку «уменьшить движение».
-            С ней кота нет вовсе: трёхсекундная анимация человеку,
-            который попросил систему не двигать картинки, ни к чему. */}
-        {/* Кот прижат к левой рамке изнутри: -ml-4 ровно гасит padding
-            карточки (p-4 = 16px), поэтому его левый край совпадает с
-            линией обводки и наружу он не выходит. По вертикали —
-            середина карточки (items-center у строки выше).
+                Кот появляется только после гидратации: до неё showCat false.
+                Так решаются сразу две вещи — нет мигания при серверном
+                рендере, и есть куда вставить проверку «уменьшить движение».
+                С ней кота нет вовсе: трёхсекундная анимация человеку,
+                который попросил систему не двигать картинки, ни к чему. */}
+            {/* Кот прижат к левой рамке изнутри: -ml-4 ровно гасит padding
+                карточки (p-4 = 16px), поэтому его левый край совпадает с
+                линией обводки и наружу он не выходит. По вертикали —
+                середина карточки (items-center у строки выше).
 
-            2026-09-19 (Александр: «полечить прыжок текста при появлении
-            анимации»). Прыгало потому, что кота раньше не было в
-            разметке до гидратации: он появлялся уже после первой
-            отрисовки и раздвигал текст. Теперь место под него занято
-            всегда — блок ровно 96px с первого кадра, а плеер просто
-            проявляется внутри него.
+                2026-09-19 (Александр: «полечить прыжок текста при появлении
+                анимации»). Прыгало потому, что кота раньше не было в
+                разметке до гидратации: он появлялся уже после первой
+                отрисовки и раздвигал текст. Теперь место под него занято
+                всегда — блок ровно 96px с первого кадра, а плеер просто
+                проявляется внутри него.
 
-            Проверку «уменьшить движение» пришлось перенести из
-            JavaScript в CSS (motion-reduce:hidden) ровно по той же
-            причине: любое решение, принятое после первой отрисовки,
-            двигает вёрстку. CSS применяется сразу. */}
-        <div className="relative h-[68px] w-[68px] shrink-0 -ml-4 motion-reduce:hidden">
-          <LottiePlayer
-            src="/animations/cat-sleeping.json"
-            size={68}
-            loop={false}
-            placeholder={false}
-            className="pointer-events-none"
-            onComplete={() => setAsleep(true)}
-          />
-          {/* Нажимать можно не всего кота, а его правые 56px (left-3).
-              2026-09-19 (Александр, запись с iPhone: «нажимаю на кота —
-              скидывает на страницу назад»). Кот стоит вплотную к левой
-              рамке карточки, а это ~16px от края экрана — ровно та
-              полоса, где iOS ловит системный жест «назад». Палец
-              чуть-чуть ведёт вправо, и Safari уходит на предыдущую
-              страницу вместо клика. Сдвигаем не кота, а его зону
-              нажатия: она начинается в 28px от края экрана, дальше
-              системной полосы. Картинка при этом не сдвинулась ни на
-              пиксель. */}
-          <button
-            type="button"
-            onClick={poke}
-            aria-label="Meow"
-            className="absolute inset-y-0 left-3 right-0 cursor-pointer appearance-none bg-transparent p-0"
-          />
+                Проверку «уменьшить движение» пришлось перенести из
+                JavaScript в CSS (motion-reduce:hidden) ровно по той же
+                причине: любое решение, принятое после первой отрисовки,
+                двигает вёрстку. CSS применяется сразу. */}
+            <div className="relative h-[68px] w-[68px] shrink-0 -ml-4 motion-reduce:hidden">
+              <LottiePlayer
+                src="/animations/cat-sleeping.json"
+                size={68}
+                loop={false}
+                placeholder={false}
+                className="pointer-events-none"
+                onComplete={() => setAsleep(true)}
+              />
+              {/* Нажимать можно не всего кота, а его правые 56px (left-3).
+                  2026-09-19 (Александр, запись с iPhone: «нажимаю на кота —
+                  скидывает на страницу назад»). Кот стоит вплотную к левой
+                  рамке карточки, а это ~16px от края экрана — ровно та
+                  полоса, где iOS ловит системный жест «назад». Палец
+                  чуть-чуть ведёт вправо, и Safari уходит на предыдущую
+                  страницу вместо клика. Сдвигаем не кота, а его зону
+                  нажатия: она начинается в 28px от края экрана, дальше
+                  системной полосы. Картинка при этом не сдвинулась ни на
+                  пиксель. */}
+              <button
+                type="button"
+                onClick={poke}
+                tabIndex={open ? -1 : undefined}
+                aria-label="Meow"
+                className="absolute inset-y-0 left-3 right-0 cursor-pointer appearance-none bg-transparent p-0"
+              />
 
-          {/* Буквы «z» над котом — только после того, как анимация
-              доиграла и кот улёгся. Разные задержки и размеры делают
-              из трёх одинаковых букв ленивую очередь. */}
-          {asleep && (
-            <span aria-hidden="true" className="pointer-events-none absolute left-[42px] top-[6px]">
-              {[0, 1.2, 2.4].map((delay, i) => (
-                <span
-                  key={delay}
-                  className="animate-cat-snooze absolute font-semibold text-neutral-400 dark:text-neutral-500"
-                  style={{
-                    animationDelay: `${delay}s`,
-                    fontSize: `${9 + i * 2}px`,
-                    left: `${i * 3}px`,
-                  }}
-                >
-                  z
+              {/* Буквы «z» над котом — только после того, как анимация
+                  доиграла и кот улёгся. Разные задержки и размеры делают
+                  из трёх одинаковых букв ленивую очередь. */}
+              {asleep && (
+                <span aria-hidden="true" className="pointer-events-none absolute left-[42px] top-[6px]">
+                  {[0, 1.2, 2.4].map((delay, i) => (
+                    <span
+                      key={delay}
+                      className="animate-cat-snooze absolute font-semibold text-neutral-400 dark:text-neutral-500"
+                      style={{
+                        animationDelay: `${delay}s`,
+                        fontSize: `${9 + i * 2}px`,
+                        left: `${i * 3}px`,
+                      }}
+                    >
+                      z
+                    </span>
+                  ))}
                 </span>
-              ))}
-            </span>
-          )}
+              )}
 
-          {/* Облачко живёт всегда, меняется только прозрачность —
-              так оно плавно появляется и уходит, а не возникает рывком
-              вместе с узлом.
+              {/* Облачко живёт всегда, меняется только прозрачность —
+                  так оно плавно появляется и уходит, а не возникает рывком
+                  вместе с узлом.
 
-              2026-09-19: переехало ВЛЕВО и слегка выходит за карточку
-              (Александр). Слева — потому что справа оно налезало на
-              заголовок. Вынос разный: на телефоне 14px, на большом
-              экране 26px. Это не украшательство: у страницы боковой
-              отступ 16px, и вынос больше него утащил бы облачко за
-              край экрана вместе с горизонтальной прокруткой — на этом
-              репозиторий уже обжигался. */}
-          <span
-            aria-hidden="true"
-            className={
-              "pointer-events-none absolute left-[-14px] top-[-18px] whitespace-nowrap rounded-xl border border-neutral-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-ink shadow-sm transition duration-150 sm:left-[-26px] dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 " +
-              (meowOn ? "scale-100 opacity-100" : "scale-90 opacity-0")
-            }
-          >
-            {meow}
-            <span className="absolute -bottom-1 right-4 h-2 w-2 rotate-45 border-b border-r border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-800" />
-          </span>
+                  2026-09-19: переехало ВЛЕВО и слегка выходит за карточку
+                  (Александр). Слева — потому что справа оно налезало на
+                  заголовок. Вынос разный: на телефоне 14px, на большом
+                  экране 26px. Это не украшательство: у страницы боковой
+                  отступ 16px, и вынос больше него утащил бы облачко за
+                  край экрана вместе с горизонтальной прокруткой — на этом
+                  репозиторий уже обжигался. */}
+              <span
+                aria-hidden="true"
+                className={
+                  "pointer-events-none absolute left-[-14px] top-[-18px] whitespace-nowrap rounded-xl border border-neutral-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-ink shadow-sm transition duration-150 sm:left-[-26px] dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 " +
+                  (meowOn ? "scale-100 opacity-100" : "scale-90 opacity-0")
+                }
+              >
+                {meow}
+                <span className="absolute -bottom-1 right-4 h-2 w-2 rotate-45 border-b border-r border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-800" />
+              </span>
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-ink dark:text-neutral-100">{ASK[lang]}</p>
+              <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">{NOTE[lang]}</p>
+              <button
+                type="button"
+                onClick={() => setOpen(true)}
+                tabIndex={open ? -1 : undefined}
+                className="mt-3 rounded-full border border-neutral-300 px-4 py-2 text-sm font-semibold text-ink transition hover:border-accent hover:text-accent dark:border-neutral-700 dark:text-neutral-100"
+              >
+                {TAKE[lang]}
+              </button>
+            </div>
+          </div>
         </div>
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-ink dark:text-neutral-100">{ASK[lang]}</p>
-          <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">{NOTE[lang]}</p>
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="mt-3 rounded-full border border-neutral-300 px-4 py-2 text-sm font-semibold text-ink transition hover:border-accent hover:text-accent dark:border-neutral-700 dark:text-neutral-100"
-          >
-            {TAKE[lang]}
-          </button>
+        </div>
+      </div>
+
+      <div className="claim-reveal" data-open={formIn ? "true" : "false"}>
+        <div>
+          {open &&
+            ("postId" in props ? <ClaimForm postId={props.postId} /> : <ClaimForm username={props.username} />)}
         </div>
       </div>
     </div>

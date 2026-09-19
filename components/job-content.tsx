@@ -15,6 +15,40 @@
 // страницах, то есть ровно тем шаблонным шумом, от которого мы уходим.
 
 import { parseJobContent } from "@/lib/a1/job-content";
+import { splitLinks } from "@/lib/a1/linkify";
+
+// 2026-09-19 (Александр): «ссылка к самой вакансии не кликабельная,
+// можем ли мы детектить». Адреса внутри текста становятся настоящими
+// ссылками прямо на месте — переносить их в блок «Посилання» нельзя,
+// там они потеряют смысл: «надішліть резюме на forms.gle/…» работает
+// только рядом со своей фразой.
+//
+// Текст приходит с DOU, то есть снаружи. Поэтому разбор идёт кусками, а
+// не через innerHTML: React экранирует каждый кусок сам, чужая разметка
+// в страницу не попадёт. rel="nofollow ugc" — чтобы вес страницы не
+// утекал по чужим ссылкам и чтобы спамные вакансии не становились
+// способом накрутить свой сайт.
+function Linked({ line }: { line: string }) {
+  return (
+    <>
+      {splitLinks(line).map((part, i) =>
+        part.kind === "text" ? (
+          <span key={i}>{part.value}</span>
+        ) : (
+          <a
+            key={i}
+            href={part.href}
+            target="_blank"
+            rel="noopener noreferrer nofollow ugc"
+            className="break-all text-accent hover:underline"
+          >
+            {part.label}
+          </a>
+        ),
+      )}
+    </>
+  );
+}
 
 export function JobContent({ text }: { text: string }) {
   const blocks = parseJobContent(text);
@@ -22,7 +56,11 @@ export function JobContent({ text }: { text: string }) {
   // Пустой текст или текст, из которого ничего не разобралось -- ведём
   // себя как раньше, одним куском. Лучше показать как есть, чем ничего.
   if (blocks.length === 0) {
-    return <div className="mt-6 whitespace-pre-wrap text-neutral-700 dark:text-neutral-300">{text}</div>;
+    return (
+      <div className="mt-6 whitespace-pre-wrap text-neutral-700 dark:text-neutral-300">
+        <Linked line={text} />
+      </div>
+    );
   }
 
   return (
@@ -43,7 +81,9 @@ export function JobContent({ text }: { text: string }) {
           return (
             <ul key={i} className="flex list-disc flex-col gap-1.5 pl-5 marker:text-neutral-300 dark:marker:text-neutral-600">
               {block.items.map((item, j) => (
-                <li key={j}>{item}</li>
+                <li key={j}>
+                  <Linked line={item} />
+                </li>
               ))}
             </ul>
           );
@@ -56,7 +96,7 @@ export function JobContent({ text }: { text: string }) {
               // с DOU ими нередко разбит перечень без маркеров.
               <span key={j}>
                 {j > 0 && <br />}
-                {line}
+                <Linked line={line} />
               </span>
             ))}
           </p>

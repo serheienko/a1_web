@@ -11,6 +11,11 @@ import { fetchPostById } from "@/lib/a1/posts";
 import { slugify, parseSlugId } from "@/lib/seo/slug";
 import { buildJobPostingJsonLd, buildJobBreadcrumbJsonLd, isJobPostingExpired } from "@/lib/seo/jsonld";
 import { extractTechTags } from "@/lib/seo/job-tech-tags";
+// 2026-09-19 (Александр, после скриншота конкурента: «мы можем ключевые
+// вещи выводить в теги наверх?»). Опыт, английский и отрасль, вытащенные
+// из текста вакансии — см. lib/a1/job-facts.ts.
+import { extractJobFacts } from "@/lib/a1/job-facts";
+import { JobFactPills, hasAnyFact } from "@/components/job-fact-pills";
 import { techLandingHref } from "@/lib/seo/tech-landings";
 import { CachedAvatar } from "@/components/cached-avatar";
 import { PostImages } from "@/components/post-images";
@@ -33,6 +38,12 @@ import { LocationMap } from "@/components/location-map";
 import { RelatedJobs } from "@/components/related-jobs";
 import { JobContent } from "@/components/job-content";
 import { fetchRelatedJobs } from "@/lib/a1/related";
+// 2026-09-19 (Александр: «написано instagram.com, я подумал, что это на
+// основную страницу ведёт»). У импортированных вакансий title ссылки —
+// это ХОСТ без пути, и подпись вводила в заблуждение. linkLabel берёт
+// заголовок только если он не повторяет хост, иначе показывает адрес
+// целиком: instagram.com/digitalart.agency.
+import { linkLabel } from "@/lib/a1/linkify";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -94,8 +105,9 @@ export default async function JobDetailPage({ params }: Props) {
   }
 
   const techTags = extractTechTags(post.title, post.contentText);
+  const facts = extractJobFacts(post.title, post.contentText);
   const expired = isJobPostingExpired(post);
-  const jsonLd = expired ? null : buildJobPostingJsonLd(post, techTags);
+  const jsonLd = expired ? null : buildJobPostingJsonLd(post, techTags, facts);
   // 2026-09-14: хлебные крошки. Отдаются ВСЕГДА, в том числе у истёкшей
   // вакансии: JobPosting у неё мы снимаем намеренно (её больше нет как
   // вакансии), а дорожка «Вакансії -> ...» остаётся правдой. Подпись
@@ -270,8 +282,12 @@ export default async function JobDetailPage({ params }: Props) {
           barely showed up against this page's own light-gray background;
           switched to a solid white pill with a hairline border, matching
           components/post-card.tsx's feed-card tags exactly. */}
-      {post.tags.length > 0 && (
+      {(post.tags.length > 0 || hasAnyFact(facts)) && (
         <div className="mt-6 flex flex-wrap gap-1.5">
+          {/* Сначала факты (опыт, английский, отрасль), потом обычные
+              теги: это то, по чему человек решает «моё / не моё» за две
+              секунды, и место им первое. */}
+          <JobFactPills facts={facts} />
           {post.tags.map((tag) => {
             const pill =
               "rounded-full border border-neutral-200 bg-white px-2.5 py-0.5 text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400";
@@ -376,7 +392,7 @@ export default async function JobDetailPage({ params }: Props) {
                 rel="noopener noreferrer nofollow"
                 className="break-all text-accent hover:underline"
               >
-                {link.title || link.url}
+                {linkLabel(link.title, link.url)}
               </a>
             ))}
           </div>
