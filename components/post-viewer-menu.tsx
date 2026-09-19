@@ -576,7 +576,35 @@ export function PostViewerMenu({
     };
   }, [postId, viewerStatus]);
 
-  if (viewerStatus === "loading" || viewerStatus === "self" || viewerStatus === "error") {
+  // 2026-09-19 (Александр: «бесит постоянный скачок кнопки „Відгукнутися“
+  // и трёх точек при перезагрузке»).
+  //
+  // Раньше здесь на все три случая стоял простой `return null`. Пока
+  // ответ про смотрящего не пришёл, строки в разметке не было вовсе —
+  // и всё, что ниже (блок клейма, теги, текст вакансии), стояло на
+  // 78px выше. Ответ приходил через десятые доли секунды, строка
+  // возникала и сдвигала страницу вниз. Это и был скачок.
+  //
+  // Теперь на время ожидания рисуется её пустая копия: те же отступы,
+  // та же высота 42px у обоих элементов, та же рамка. Страница с
+  // первого кадра стоит там, где останется, а настоящая строка просто
+  // занимает готовое место.
+  //
+  // Для "self" и "error" по-прежнему null: там строки не будет и
+  // резервировать под неё пустоту незачем. Свой же пост смотрит автор,
+  // это редкий случай, и сдвиг там не раздражает никого, кроме него.
+  if (viewerStatus === "loading") {
+    return (
+      <>
+        <div aria-hidden="true" className="mt-4 h-0" />
+        <div aria-hidden="true" className="-mx-4 flex items-center gap-2 px-4 pb-2 pt-3">
+          <span className="h-[42px] min-w-0 flex-1 rounded-full border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900" />
+          <span className="h-[42px] w-[42px] shrink-0 rounded-full border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900" />
+        </div>
+      </>
+    );
+  }
+  if (viewerStatus === "self" || viewerStatus === "error") {
     return null;
   }
   const isAnon = viewerStatus === "anon";
