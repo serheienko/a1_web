@@ -437,6 +437,16 @@ export function ProfileActionRow({
     };
   }, [username]);
 
+  // 2026-09-19: тот же предохранитель, что и у строки отклика на
+  // странице вакансии (components/post-viewer-menu.tsx). Если
+  // /api/account/whoami не ответит вовсе, заглушка не должна висеть
+  // бесконечно: через 6 секунд считаем, что ряда кнопок не будет.
+  useEffect(() => {
+    if (viewerStatus !== "loading") return;
+    const t = window.setTimeout(() => setViewerStatus("error"), 6000);
+    return () => window.clearTimeout(t);
+  }, [viewerStatus]);
+
   useEffect(() => {
     if (!profileUserId || viewerStatus !== "other") {
       setContactStatus("idle");
@@ -553,6 +563,24 @@ export function ProfileActionRow({
   // React or hydration, just a permanently-false gate). Aleksandr's
   // call once that was clear: show the row to signed-out visitors too
   // instead of hiding it -- see the effect above and isAnon below.
+  // 2026-09-19 (Александр: «четыре кнопки в профиле тоже резко,
+  // внезапно появляются скачком — сделай как с „Відгукнутися“»).
+  // Заглушка рисует ту же сетку из четырёх пилюль: четыре равные
+  // колонки и gap-2 задают ширину целиком, поэтому кружки стоят ровно
+  // там же, где потом встанут настоящие кнопки, и ничего не прыгает.
+  // Появляется только содержимое — значки, через прозрачность.
+  if (viewerStatus === "loading" && profileUserId) {
+    return (
+      <div aria-hidden="true" className="mt-4 grid grid-cols-4 gap-2">
+        {[0, 1, 2, 3].map((i) => (
+          <span
+            key={i}
+            className="h-11 w-full rounded-full border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900"
+          />
+        ))}
+      </div>
+    );
+  }
   if (viewerStatus === "loading" || viewerStatus === "self" || viewerStatus === "error" || !profileUserId) {
     return null;
   }
@@ -789,7 +817,9 @@ export function ProfileActionRow({
               : "bg-accent text-white hover:bg-accent/90")
         }
       >
-        {contactAdded ? (contactShowRemoveIcon ? <PersonRemoveIcon /> : <CheckIcon />) : <PersonAddIcon />}
+        <span className="animate-viewer-row-in flex items-center justify-center">
+          {contactAdded ? (contactShowRemoveIcon ? <PersonRemoveIcon /> : <CheckIcon />) : <PersonAddIcon />}
+        </span>
       </button>
 
       <button
@@ -799,7 +829,9 @@ export function ProfileActionRow({
         title={STRINGS.shareProfile[lang]}
         className={CELL_BUTTON_CLASS}
       >
-        <ShareIcon />
+        <span className="animate-viewer-row-in flex items-center justify-center">
+          <ShareIcon />
+        </span>
       </button>
 
       <button
@@ -814,7 +846,9 @@ export function ProfileActionRow({
             : CELL_BUTTON_CLASS
         }
       >
-        <MessageIcon />
+        <span className="animate-viewer-row-in flex items-center justify-center">
+          <MessageIcon />
+        </span>
       </button>
 
       {/* 2026-09-02 (Aleksandr: "иконку с ·· можно поменять на ту которая
@@ -833,7 +867,7 @@ export function ProfileActionRow({
           title={saveLabel}
           className={CELL_BUTTON_CLASS}
         >
-          {saveIcon}
+          <span className="animate-viewer-row-in flex items-center justify-center">{saveIcon}</span>
         </button>
       ) : (
       <div className="relative" ref={menuTriggerRef} onMouseEnter={menuMouseEnter} onMouseLeave={menuMouseLeave}>
@@ -850,7 +884,9 @@ export function ProfileActionRow({
           aria-expanded={menuOpen}
           className={CELL_BUTTON_CLASS}
         >
-          <DotsIcon />
+          <span className="animate-viewer-row-in flex items-center justify-center">
+            <DotsIcon />
+          </span>
         </button>
 
         {menuRendered && (
