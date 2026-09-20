@@ -63,6 +63,15 @@ export function TelegramSubscribe({ hasFilters }: { hasFilters: boolean }) {
 
   async function subscribe() {
     setState("loading");
+
+    // 2026-09-20, Александр с телефона: «с ботом ничего не произошло при
+    // нажатии». Причина -- не бот, а браузер: вкладка открывалась ПОСЛЕ
+    // запроса к серверу, а к тому моменту касание уже не считается
+    // пользовательским жестом, и мобильный Safari такое открытие блокирует
+    // молча. Поэтому пустую вкладку открываем СРАЗУ, ещё внутри обработчика
+    // касания, а адрес в неё подставляем, когда он придёт.
+    const opened = window.open("", "_blank");
+
     try {
       const res = await fetch("/api/telegram/subscribe", {
         method: "POST",
@@ -70,15 +79,26 @@ export function TelegramSubscribe({ hasFilters }: { hasFilters: boolean }) {
         body: JSON.stringify({ filter: window.location.search.replace(/^\?/, ""), locale }),
       });
       const data = (await res.json()) as { url?: string };
+
       if (!res.ok || !data.url) {
+        opened?.close();
         setState("error");
         return;
       }
+
       setState("idle");
-      // Новая вкладка, а не переход: человек остаётся на своей выдаче, и после
-      // Telegram ему некуда возвращаться "назад".
-      window.open(data.url, "_blank", "noopener,noreferrer");
+
+      if (opened && !opened.closed) {
+        opened.opener = null; // не даём открытой вкладке доступ к нашей
+        opened.location.replace(data.url);
+      } else {
+        // Вкладку всё-таки не дали открыть -- уходим в Telegram прямо отсюда.
+        // Хуже тем, что человек уходит со своей выдачи, но лучше, чем кнопка,
+        // которая молча ничего не делает.
+        window.location.href = data.url;
+      }
     } catch {
+      opened?.close();
       setState("error");
     }
   }
