@@ -43,6 +43,36 @@ function experienceText(n: number): Record<Locale, string> {
   };
 }
 
+// 20.09.2026 (Александр, вакансия Traffband: «я соискатель с двумя
+// годами, вижу тег "від 3 років" и пролистываю, хотя в тексте
+// "1-3+ роки" -- меня как раз зовут»). Вилку теперь показываем целиком,
+// как написано в вакансии, а не сводим к одному числу.
+//
+// Единицу берём по ВЕРХНЕЙ границе: «1-3 роки», но «1-5 років». Так же
+// склоняют в русском и польском, поэтому мерка одна на три языка.
+function yearUnit(n: number, few: string, many: string): string {
+  const tail = n % 100;
+  if (tail >= 12 && tail <= 14) return many;
+  const last = n % 10;
+  return last >= 2 && last <= 4 ? few : many;
+}
+
+function experienceRangeText(min: number, max: number, plus: boolean): Record<Locale, string> {
+  // Тире -- среднее (–), типографски верное для диапазона.
+  const span = `${min}\u2013${max}${plus ? "+" : ""}`;
+  return {
+    uk: `${span} ${yearUnit(max, "роки", "років")}`,
+    en: `${span} years`,
+    ru: `${span} ${yearUnit(max, "года", "лет")}`,
+    de: `${span} Jahre`,
+    es: `${span} años`,
+    fr: `${span} ans`,
+    pl: `${span} ${yearUnit(max, "lata", "lat")}`,
+    ptBR: `${span} anos`,
+    zh: `${span} 年`,
+  };
+}
+
 function englishText(level: string): Record<Locale, string> {
   return {
     uk: `Англійська ${level}`,
@@ -119,7 +149,11 @@ export function JobFactPills({ facts }: { facts: JobFacts }) {
     <>
       {facts.experienceYears !== null &&
         (() => {
-          const t = experienceText(facts.experienceYears);
+          const max = facts.experienceYearsMax;
+          const t =
+            max !== null
+              ? experienceRangeText(facts.experienceYears, max, facts.experienceYearsPlus)
+              : experienceText(facts.experienceYears);
           return (
             <span className={PILL}>
               <T uk={t.uk} en={t.en} ru={t.ru} de={t.de} es={t.es} fr={t.fr} pl={t.pl} ptBR={t.ptBR} zh={t.zh} />

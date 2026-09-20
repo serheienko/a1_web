@@ -49,13 +49,20 @@ let cached: { at: number; rows: CloudAccount[] } | null = null;
 let loading: Promise<CloudAccount[]> | null = null;
 
 /** Хосты хранилища: основной вычисляется из самого токена
- *  (vercel_blob_rw_<идентификатор хранилища>_<случайное>), запасной --
- *  общий. Так не нужна отдельная переменная с адресом. */
+ *  (vercel_blob_rw_<идентификатор хранилища>_<случайное>), запасные --
+ *  публичный и общий. Так не нужна отдельная переменная с адресом.
+ *
+ *  Хранилище заведено ПРИВАТНЫМ (20.09.2026): читать можно только с
+ *  токеном, поэтому и адрес private, и заголовок с токеном мы шлём в
+ *  обоих запросах ниже. */
 function hostsFor(token: string): string[] {
   const parts = token.split("_");
   const store = parts.length > 3 ? parts[3] : "";
   const hosts: string[] = [];
-  if (store) hosts.push(`https://${store}.public.blob.vercel-storage.com`);
+  if (store) {
+    hosts.push(`https://${store}.private.blob.vercel-storage.com`);
+    hosts.push(`https://${store}.public.blob.vercel-storage.com`);
+  }
   hosts.push("https://blob.vercel-storage.com");
   return hosts;
 }

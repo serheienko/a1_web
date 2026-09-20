@@ -1,0 +1,1339 @@
+{
+ "generated": "2026-09-20",
+ "found": 51480,
+ "total": 43514,
+ "hireable": 9323,
+ "avgRepos": 25.9,
+ "country": {
+  "UA": 19991,
+  "PL": 23519
+ },
+ "languages": [
+  [
+   "JavaScript",
+   10797
+  ],
+  [
+   "Java",
+   8098
+  ],
+  [
+   "Python",
+   8059
+  ],
+  [
+   "C++",
+   4165
+  ],
+  [
+   "C#",
+   3823
+  ],
+  [
+   "PHP",
+   3522
+  ],
+  [
+   "Ruby",
+   1980
+  ],
+  [
+   "TypeScript",
+   1214
+  ],
+  [
+   "Swift",
+   634
+  ],
+  [
+   "Go",
+   438
+  ],
+  [
+   "Kotlin",
+   238
+  ],
+  [
+   "Scala",
+   234
+  ]
+ ],
+ "langByCountry": {
+  "UA": {
+   "JavaScript": 5752,
+   "TypeScript": 687,
+   "Python": 3497,
+   "Java": 3602,
+   "C#": 1606,
+   "PHP": 1755,
+   "Go": 196,
+   "Swift": 315,
+   "Dart": 49,
+   "Ruby": 811,
+   "Rust": 78,
+   "C++": 1477,
+   "Scala": 53,
+   "Elixir": 12,
+   "Kotlin": 101
+  },
+  "PL": {
+   "TypeScript": 526,
+   "JavaScript": 5044,
+   "Python": 4561,
+   "Java": 4495,
+   "C#": 2217,
+   "PHP": 1767,
+   "Go": 242,
+   "Swift": 319,
+   "Dart": 65,
+   "Ruby": 1169,
+   "Rust": 70,
+   "C++": 2688,
+   "Scala": 181,
+   "Elixir": 38,
+   "Kotlin": 137
+  }
+ },
+ "cities": [
+  {
+   "key": "warsaw",
+   "name": "Warsaw",
+   "country": "PL",
+   "lat": 52.23,
+   "lon": 21.01,
+   "n": 6409,
+   "hire": 1497,
+   "langs": [
+    [
+     "JavaScript",
+     1422
+    ],
+    [
+     "Python",
+     1363
+    ],
+    [
+     "Java",
+     1335
+    ],
+    [
+     "C++",
+     623
+    ],
+    [
+     "C#",
+     520
+    ]
+   ]
+  },
+  {
+   "key": "kyiv",
+   "name": "Kyiv",
+   "country": "UA",
+   "lat": 50.45,
+   "lon": 30.52,
+   "n": 6257,
+   "hire": 1306,
+   "langs": [
+    [
+     "JavaScript",
+     1830
+    ],
+    [
+     "Java",
+     1232
+    ],
+    [
+     "Python",
+     1086
+    ],
+    [
+     "C#",
+     520
+    ],
+    [
+     "C++",
+     498
+    ]
+   ]
+  },
+  {
+   "key": "krakow",
+   "name": "Kraków",
+   "country": "PL",
+   "lat": 50.06,
+   "lon": 19.94,
+   "n": 2414,
+   "hire": 577,
+   "langs": [
+    [
+     "JavaScript",
+     524
+    ],
+    [
+     "Java",
+     521
+    ],
+    [
+     "Python",
+     500
+    ],
+    [
+     "C++",
+     262
+    ],
+    [
+     "C#",
+     189
+    ]
+   ]
+  },
+  {
+   "key": "lviv",
+   "name": "Lviv",
+   "country": "UA",
+   "lat": 49.84,
+   "lon": 24.03,
+   "n": 2058,
+   "hire": 344,
+   "langs": [
+    [
+     "JavaScript",
+     537
+    ],
+    [
+     "Python",
+     436
+    ],
+    [
+     "Java",
+     388
+    ],
+    [
+     "C++",
+     181
+    ],
+    [
+     "C#",
+     177
+    ]
+   ]
+  },
+  {
+   "key": "wroclaw",
+   "name": "Wrocław",
+   "country": "PL",
+   "lat": 51.11,
+   "lon": 17.04,
+   "n": 1630,
+   "hire": 415,
+   "langs": [
+    [
+     "Java",
+     342
+    ],
+    [
+     "Python",
+     328
+    ],
+    [
+     "JavaScript",
+     322
+    ],
+    [
+     "C++",
+     194
+    ],
+    [
+     "C#",
+     141
+    ]
+   ]
+  },
+  {
+   "key": "kharkiv",
+   "name": "Kharkiv",
+   "country": "UA",
+   "lat": 49.99,
+   "lon": 36.23,
+   "n": 1105,
+   "hire": 184,
+   "langs": [
+    [
+     "JavaScript",
+     342
+    ],
+    [
+     "Java",
+     210
+    ],
+    [
+     "Python",
+     138
+    ],
+    [
+     "PHP",
+     120
+    ],
+    [
+     "C#",
+     104
+    ]
+   ]
+  },
+  {
+   "key": "poznan",
+   "name": "Poznań",
+   "country": "PL",
+   "lat": 52.41,
+   "lon": 16.93,
+   "n": 995,
+   "hire": 266,
+   "langs": [
+    [
+     "Python",
+     213
+    ],
+    [
+     "JavaScript",
+     198
+    ],
+    [
+     "Java",
+     167
+    ],
+    [
+     "C++",
+     126
+    ],
+    [
+     "C#",
+     97
+    ]
+   ]
+  },
+  {
+   "key": "gdansk",
+   "name": "Gdańsk",
+   "country": "PL",
+   "lat": 54.35,
+   "lon": 18.65,
+   "n": 877,
+   "hire": 208,
+   "langs": [
+    [
+     "JavaScript",
+     171
+    ],
+    [
+     "Java",
+     167
+    ],
+    [
+     "Python",
+     149
+    ],
+    [
+     "C++",
+     120
+    ],
+    [
+     "C#",
+     94
+    ]
+   ]
+  },
+  {
+   "key": "odesa",
+   "name": "Odesa",
+   "country": "UA",
+   "lat": 46.48,
+   "lon": 30.73,
+   "n": 846,
+   "hire": 147,
+   "langs": [
+    [
+     "JavaScript",
+     205
+    ],
+    [
+     "Java",
+     199
+    ],
+    [
+     "Python",
+     126
+    ],
+    [
+     "PHP",
+     93
+    ],
+    [
+     "C++",
+     74
+    ]
+   ]
+  },
+  {
+   "key": "dnipro",
+   "name": "Dnipro",
+   "country": "UA",
+   "lat": 48.46,
+   "lon": 35.04,
+   "n": 544,
+   "hire": 91,
+   "langs": [
+    [
+     "JavaScript",
+     150
+    ],
+    [
+     "Java",
+     112
+    ],
+    [
+     "Python",
+     76
+    ],
+    [
+     "C#",
+     50
+    ],
+    [
+     "PHP",
+     44
+    ]
+   ]
+  },
+  {
+   "key": "katowice",
+   "name": "Katowice",
+   "country": "PL",
+   "lat": 50.26,
+   "lon": 19.02,
+   "n": 479,
+   "hire": 127,
+   "langs": [
+    [
+     "JavaScript",
+     123
+    ],
+    [
+     "Python",
+     83
+    ],
+    [
+     "Java",
+     73
+    ],
+    [
+     "C#",
+     61
+    ],
+    [
+     "C++",
+     55
+    ]
+   ]
+  },
+  {
+   "key": "lodz",
+   "name": "Łódź",
+   "country": "PL",
+   "lat": 51.76,
+   "lon": 19.46,
+   "n": 435,
+   "hire": 90,
+   "langs": [
+    [
+     "Java",
+     95
+    ],
+    [
+     "JavaScript",
+     77
+    ],
+    [
+     "Python",
+     75
+    ],
+    [
+     "C++",
+     55
+    ],
+    [
+     "C#",
+     53
+    ]
+   ]
+  },
+  {
+   "key": "lublin",
+   "name": "Lublin",
+   "country": "PL",
+   "lat": 51.25,
+   "lon": 22.57,
+   "n": 168,
+   "hire": 43,
+   "langs": [
+    [
+     "Java",
+     43
+    ],
+    [
+     "JavaScript",
+     35
+    ],
+    [
+     "Python",
+     27
+    ],
+    [
+     "C++",
+     21
+    ],
+    [
+     "C#",
+     14
+    ]
+   ]
+  },
+  {
+   "key": "szczecin",
+   "name": "Szczecin",
+   "country": "PL",
+   "lat": 53.43,
+   "lon": 14.55,
+   "n": 166,
+   "hire": 45,
+   "langs": [
+    [
+     "JavaScript",
+     38
+    ],
+    [
+     "Python",
+     31
+    ],
+    [
+     "C++",
+     31
+    ],
+    [
+     "C#",
+     20
+    ],
+    [
+     "Java",
+     14
+    ]
+   ]
+  },
+  {
+   "key": "vinnytsia",
+   "name": "Vinnytsia",
+   "country": "UA",
+   "lat": 49.23,
+   "lon": 28.47,
+   "n": 159,
+   "hire": 30,
+   "langs": [
+    [
+     "JavaScript",
+     65
+    ],
+    [
+     "Java",
+     26
+    ],
+    [
+     "Python",
+     25
+    ],
+    [
+     "C++",
+     12
+    ],
+    [
+     "C#",
+     9
+    ]
+   ]
+  },
+  {
+   "key": "gdynia",
+   "name": "Gdynia",
+   "country": "PL",
+   "lat": 54.52,
+   "lon": 18.53,
+   "n": 140,
+   "hire": 37,
+   "langs": [
+    [
+     "JavaScript",
+     33
+    ],
+    [
+     "Java",
+     31
+    ],
+    [
+     "C#",
+     18
+    ],
+    [
+     "PHP",
+     15
+    ],
+    [
+     "Python",
+     14
+    ]
+   ]
+  },
+  {
+   "key": "rzeszow",
+   "name": "Rzeszów",
+   "country": "PL",
+   "lat": 50.04,
+   "lon": 22.0,
+   "n": 136,
+   "hire": 39,
+   "langs": [
+    [
+     "Java",
+     34
+    ],
+    [
+     "JavaScript",
+     32
+    ],
+    [
+     "C#",
+     15
+    ],
+    [
+     "PHP",
+     14
+    ],
+    [
+     "C++",
+     13
+    ]
+   ]
+  },
+  {
+   "key": "ivano-frankivsk",
+   "name": "Ivano-Frankivsk",
+   "country": "UA",
+   "lat": 48.92,
+   "lon": 24.71,
+   "n": 132,
+   "hire": 26,
+   "langs": [
+    [
+     "JavaScript",
+     40
+    ],
+    [
+     "Java",
+     34
+    ],
+    [
+     "Python",
+     16
+    ],
+    [
+     "Ruby",
+     11
+    ],
+    [
+     "PHP",
+     8
+    ]
+   ]
+  },
+  {
+   "key": "bialystok",
+   "name": "Białystok",
+   "country": "PL",
+   "lat": 53.13,
+   "lon": 23.16,
+   "n": 118,
+   "hire": 26,
+   "langs": [
+    [
+     "JavaScript",
+     28
+    ],
+    [
+     "Java",
+     26
+    ],
+    [
+     "Python",
+     17
+    ],
+    [
+     "C#",
+     16
+    ],
+    [
+     "Ruby",
+     9
+    ]
+   ]
+  },
+  {
+   "key": "ternopil",
+   "name": "Ternopil",
+   "country": "UA",
+   "lat": 49.55,
+   "lon": 25.59,
+   "n": 117,
+   "hire": 18,
+   "langs": [
+    [
+     "JavaScript",
+     42
+    ],
+    [
+     "Python",
+     18
+    ],
+    [
+     "PHP",
+     14
+    ],
+    [
+     "C#",
+     10
+    ],
+    [
+     "Java",
+     9
+    ]
+   ]
+  },
+  {
+   "key": "gliwice",
+   "name": "Gliwice",
+   "country": "PL",
+   "lat": 50.29,
+   "lon": 18.67,
+   "n": 111,
+   "hire": 25,
+   "langs": [
+    [
+     "C++",
+     23
+    ],
+    [
+     "JavaScript",
+     21
+    ],
+    [
+     "Python",
+     16
+    ],
+    [
+     "Java",
+     14
+    ],
+    [
+     "C#",
+     14
+    ]
+   ]
+  },
+  {
+   "key": "rivne",
+   "name": "Rivne",
+   "country": "UA",
+   "lat": 50.62,
+   "lon": 26.25,
+   "n": 97,
+   "hire": 14,
+   "langs": [
+    [
+     "JavaScript",
+     23
+    ],
+    [
+     "Python",
+     21
+    ],
+    [
+     "C++",
+     20
+    ],
+    [
+     "PHP",
+     11
+    ],
+    [
+     "C#",
+     10
+    ]
+   ]
+  },
+  {
+   "key": "cherkasy",
+   "name": "Cherkasy",
+   "country": "UA",
+   "lat": 49.44,
+   "lon": 32.06,
+   "n": 97,
+   "hire": 19,
+   "langs": [
+    [
+     "JavaScript",
+     23
+    ],
+    [
+     "Java",
+     20
+    ],
+    [
+     "Ruby",
+     17
+    ],
+    [
+     "PHP",
+     17
+    ],
+    [
+     "Python",
+     8
+    ]
+   ]
+  },
+  {
+   "key": "chernivtsi",
+   "name": "Chernivtsi",
+   "country": "UA",
+   "lat": 48.29,
+   "lon": 25.94,
+   "n": 95,
+   "hire": 13,
+   "langs": [
+    [
+     "JavaScript",
+     33
+    ],
+    [
+     "Java",
+     18
+    ],
+    [
+     "C#",
+     11
+    ],
+    [
+     "PHP",
+     9
+    ],
+    [
+     "Python",
+     8
+    ]
+   ]
+  },
+  {
+   "key": "torun",
+   "name": "Toruń",
+   "country": "PL",
+   "lat": 53.01,
+   "lon": 18.6,
+   "n": 81,
+   "hire": 24,
+   "langs": [
+    [
+     "Java",
+     20
+    ],
+    [
+     "Python",
+     17
+    ],
+    [
+     "JavaScript",
+     12
+    ],
+    [
+     "PHP",
+     10
+    ],
+    [
+     "C++",
+     10
+    ]
+   ]
+  },
+  {
+   "key": "bydgoszcz",
+   "name": "Bydgoszcz",
+   "country": "PL",
+   "lat": 53.12,
+   "lon": 18.01,
+   "n": 79,
+   "hire": 26,
+   "langs": [
+    [
+     "Java",
+     18
+    ],
+    [
+     "Python",
+     15
+    ],
+    [
+     "JavaScript",
+     12
+    ],
+    [
+     "PHP",
+     11
+    ],
+    [
+     "C#",
+     7
+    ]
+   ]
+  },
+  {
+   "key": "zaporizhzhia",
+   "name": "Zaporizhzhia",
+   "country": "UA",
+   "lat": 47.84,
+   "lon": 35.14,
+   "n": 70,
+   "hire": 6,
+   "langs": [
+    [
+     "JavaScript",
+     27
+    ],
+    [
+     "Python",
+     15
+    ],
+    [
+     "C++",
+     9
+    ],
+    [
+     "PHP",
+     9
+    ],
+    [
+     "Java",
+     3
+    ]
+   ]
+  },
+  {
+   "key": "mykolaiv",
+   "name": "Mykolaiv",
+   "country": "UA",
+   "lat": 46.98,
+   "lon": 31.99,
+   "n": 64,
+   "hire": 9,
+   "langs": [
+    [
+     "JavaScript",
+     21
+    ],
+    [
+     "Java",
+     16
+    ],
+    [
+     "Python",
+     8
+    ],
+    [
+     "C++",
+     8
+    ],
+    [
+     "PHP",
+     6
+    ]
+   ]
+  },
+  {
+   "key": "khmelnytskyi",
+   "name": "Khmelnytskyi",
+   "country": "UA",
+   "lat": 49.42,
+   "lon": 26.99,
+   "n": 60,
+   "hire": 12,
+   "langs": [
+    [
+     "PHP",
+     22
+    ],
+    [
+     "JavaScript",
+     15
+    ],
+    [
+     "Java",
+     9
+    ],
+    [
+     "C#",
+     7
+    ],
+    [
+     "C++",
+     2
+    ]
+   ]
+  },
+  {
+   "key": "poltava",
+   "name": "Poltava",
+   "country": "UA",
+   "lat": 49.59,
+   "lon": 34.55,
+   "n": 58,
+   "hire": 12,
+   "langs": [
+    [
+     "JavaScript",
+     22
+    ],
+    [
+     "Python",
+     13
+    ],
+    [
+     "Java",
+     7
+    ],
+    [
+     "C#",
+     5
+    ],
+    [
+     "TypeScript",
+     3
+    ]
+   ]
+  },
+  {
+   "key": "lutsk",
+   "name": "Lutsk",
+   "country": "UA",
+   "lat": 50.75,
+   "lon": 25.34,
+   "n": 58,
+   "hire": 8,
+   "langs": [
+    [
+     "JavaScript",
+     17
+    ],
+    [
+     "PHP",
+     12
+    ],
+    [
+     "Python",
+     12
+    ],
+    [
+     "C#",
+     8
+    ],
+    [
+     "Java",
+     4
+    ]
+   ]
+  },
+  {
+   "key": "sumy",
+   "name": "Sumy",
+   "country": "UA",
+   "lat": 50.91,
+   "lon": 34.8,
+   "n": 53,
+   "hire": 11,
+   "langs": [
+    [
+     "JavaScript",
+     18
+    ],
+    [
+     "Java",
+     10
+    ],
+    [
+     "Python",
+     8
+    ],
+    [
+     "PHP",
+     7
+    ],
+    [
+     "C#",
+     4
+    ]
+   ]
+  },
+  {
+   "key": "kielce",
+   "name": "Kielce",
+   "country": "PL",
+   "lat": 50.87,
+   "lon": 20.63,
+   "n": 51,
+   "hire": 14,
+   "langs": [
+    [
+     "Java",
+     16
+    ],
+    [
+     "JavaScript",
+     10
+    ],
+    [
+     "Python",
+     8
+    ],
+    [
+     "PHP",
+     6
+    ],
+    [
+     "C++",
+     6
+    ]
+   ]
+  },
+  {
+   "key": "uzhhorod",
+   "name": "Uzhhorod",
+   "country": "UA",
+   "lat": 48.62,
+   "lon": 22.29,
+   "n": 45,
+   "hire": 7,
+   "langs": [
+    [
+     "Java",
+     13
+    ],
+    [
+     "JavaScript",
+     11
+    ],
+    [
+     "Ruby",
+     9
+    ],
+    [
+     "Python",
+     4
+    ],
+    [
+     "C#",
+     3
+    ]
+   ]
+  },
+  {
+   "key": "zhytomyr",
+   "name": "Zhytomyr",
+   "country": "UA",
+   "lat": 50.25,
+   "lon": 28.66,
+   "n": 44,
+   "hire": 10,
+   "langs": [
+    [
+     "JavaScript",
+     19
+    ],
+    [
+     "Python",
+     5
+    ],
+    [
+     "PHP",
+     5
+    ],
+    [
+     "C#",
+     4
+    ],
+    [
+     "C++",
+     3
+    ]
+   ]
+  },
+  {
+   "key": "kherson",
+   "name": "Kherson",
+   "country": "UA",
+   "lat": 46.64,
+   "lon": 32.61,
+   "n": 40,
+   "hire": 6,
+   "langs": [
+    [
+     "JavaScript",
+     16
+    ],
+    [
+     "Java",
+     8
+    ],
+    [
+     "Python",
+     5
+    ],
+    [
+     "TypeScript",
+     3
+    ],
+    [
+     "C++",
+     2
+    ]
+   ]
+  },
+  {
+   "key": "kropyvnytskyi",
+   "name": "Kropyvnytskyi",
+   "country": "UA",
+   "lat": 48.51,
+   "lon": 32.26,
+   "n": 40,
+   "hire": 3,
+   "langs": [
+    [
+     "C++",
+     13
+    ],
+    [
+     "Python",
+     11
+    ],
+    [
+     "JavaScript",
+     6
+    ],
+    [
+     "PHP",
+     4
+    ],
+    [
+     "Java",
+     3
+    ]
+   ]
+  },
+  {
+   "key": "olsztyn",
+   "name": "Olsztyn",
+   "country": "PL",
+   "lat": 53.78,
+   "lon": 20.49,
+   "n": 39,
+   "hire": 13,
+   "langs": [
+    [
+     "JavaScript",
+     10
+    ],
+    [
+     "Ruby",
+     6
+    ],
+    [
+     "C#",
+     5
+    ],
+    [
+     "Python",
+     4
+    ],
+    [
+     "PHP",
+     4
+    ]
+   ]
+  },
+  {
+   "key": "chernihiv",
+   "name": "Chernihiv",
+   "country": "UA",
+   "lat": 51.5,
+   "lon": 31.29,
+   "n": 31,
+   "hire": 3,
+   "langs": [
+    [
+     "JavaScript",
+     9
+    ],
+    [
+     "C++",
+     5
+    ],
+    [
+     "Java",
+     4
+    ],
+    [
+     "Python",
+     4
+    ],
+    [
+     "Ruby",
+     3
+    ]
+   ]
+  },
+  {
+   "key": "czestochowa",
+   "name": "Częstochowa",
+   "country": "PL",
+   "lat": 50.81,
+   "lon": 19.12,
+   "n": 29,
+   "hire": 11,
+   "langs": [
+    [
+     "Ruby",
+     6
+    ],
+    [
+     "C++",
+     5
+    ],
+    [
+     "Python",
+     4
+    ],
+    [
+     "Java",
+     4
+    ],
+    [
+     "JavaScript",
+     4
+    ]
+   ]
+  }
+ ]
+}

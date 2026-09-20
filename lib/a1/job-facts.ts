@@ -30,6 +30,10 @@ export type EnglishLevel = {
 export type JobFacts = {
   /** Нижняя граница опыта в годах, как написано в тексте. */
   experienceYears: number | null;
+  /** Верхняя граница, если в тексте стоит вилка («1-3 роки»). */
+  experienceYearsMax: number | null;
+  /** В тексте после вилки стоит «+» («1-3+ роки»). */
+  experienceYearsPlus: boolean;
   english: EnglishLevel | null;
   /** Область продукта: FinTech, iGaming, E-commerce... */
   domain: string | null;
@@ -41,6 +45,8 @@ export type JobFacts = {
 
 const EMPTY: JobFacts = {
   experienceYears: null,
+  experienceYearsMax: null,
+  experienceYearsPlus: false,
   english: null,
   domain: null,
   reservation: false,
@@ -66,15 +72,53 @@ const EXPERIENCE_RULES: RegExp[] = [
   /не\s*менше\s*(\d{1,2})\s*(?:рок(?:и|ів|у)?|рік)/i,
 ];
 
-function extractExperience(text: string): number | null {
+// 20.09.2026 (Александр, вакансия Traffband: «у нас написано "від 3
+// років", а в тексте "1-3+ роки". Я соискатель с двумя годами -- вижу
+// тег, решаю, что не подхожу, и пролистываю»). Вилка опыта читалась
+// правилом «N+ років»: из «1-3+ роки» оно брало тройку и превращало
+// нижнюю границу в верхнюю. Плашка отсекала как раз тех, кого вакансия
+// зовёт.
+//
+// Поэтому вилку разбираем ОТДЕЛЬНО и ПЕРВОЙ, до всех правил на одно
+// число, и показываем её целиком -- «1-3+ роки», ровно как в тексте.
+// Тире берём во всех начертаниях: дефис, минус, среднее и длинное --
+// в вакансиях встречаются все четыре.
+const DASH = "[\\u2010-\\u2015\\u2212-]";
+const YEAR_WORD = "(?:рок(?:и|ів|у)?|рік|год(?:а|у|ів)?|лет|years?|yrs?)";
+const EXP_WORD = "(?:досвід\\w*|досвіду|опыт\\w*|experience|комерційн\\w*|коммерческ\\w*|commercial|роботи|работы)";
+
+const EXPERIENCE_RANGE_RULES: RegExp[] = [
+  // «1-3+ роки» -- плюс сам по себе достаточная примета требования
+  new RegExp(`(\\d{1,2})\\s*${DASH}\\s*(\\d{1,2})\\s*(\\+)\\s*${YEAR_WORD}`, "i"),
+  // «1-3 роки комерційного досвіду» -- нужен контекст рядом
+  new RegExp(`(\\d{1,2})\\s*${DASH}\\s*(\\d{1,2})\\s*()${YEAR_WORD}[^.\\n;]{0,60}?${EXP_WORD}`, "i"),
+  new RegExp(`${EXP_WORD}[^.\\n;]{0,60}?(\\d{1,2})\\s*${DASH}\\s*(\\d{1,2})\\s*(\\+?)\\s*${YEAR_WORD}`, "i"),
+];
+
+export type ExperienceSpan = { min: number; max: number | null; plus: boolean };
+
+function sane(years: number): boolean {
+  // 0 лет -- это не требование, а его отсутствие; больше 15 в
+  // вакансиях не пишут, такое число почти наверняка не про опыт.
+  return Number.isFinite(years) && years >= 1 && years <= 15;
+}
+
+function extractExperience(text: string): ExperienceSpan | null {
+  for (const rule of EXPERIENCE_RANGE_RULES) {
+    const m = rule.exec(text);
+    if (!m?.[1] || !m[2]) continue;
+    const min = Number.parseInt(m[1], 10);
+    const max = Number.parseInt(m[2], 10);
+    // Вилка наоборот («3-1 роки») -- это опечатка, а не требование.
+    if (!sane(min) || !sane(max) || max <= min) continue;
+    return { min, max, plus: m[3] === "+" };
+  }
   for (const rule of EXPERIENCE_RULES) {
     const m = rule.exec(text);
     const raw = m?.[1];
     if (!raw) continue;
     const years = Number.parseInt(raw, 10);
-    // 0 лет -- это не требование, а его отсутствие; больше 15 в
-    // вакансиях не пишут, такое число почти наверняка не про опыт.
-    if (Number.isFinite(years) && years >= 1 && years <= 15) return years;
+    if (sane(years)) return { min: years, max: null, plus: false };
   }
   return null;
 }
@@ -263,9 +307,12 @@ function extractFirstJob(title: string, experienceYears: number | null): boolean
 export function extractJobFacts(title: string, text: string): JobFacts {
   const body = `${title}\n${text}`;
   if (!body.trim()) return EMPTY;
-  const experienceYears = extractExperience(body);
+  const span = extractExperience(body);
+  const experienceYears = span ? span.min : null;
   return {
     experienceYears,
+    experienceYearsMax: span?.max ?? null,
+    experienceYearsPlus: span?.plus ?? false,
     english: extractEnglish(body),
     domain: extractDomain(title, text),
     reservation: extractReservation(body),
