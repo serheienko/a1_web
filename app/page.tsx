@@ -25,9 +25,9 @@ import { T } from "@/components/t";
 import Link from "next/link";
 import { JOB_LANDINGS } from "@/lib/seo/job-landings";
 import { FACT_LANDINGS } from "@/lib/seo/fact-landings";
-import { TECH_LANDINGS } from "@/lib/seo/tech-landings";
+import { TECH_CATALOG } from "@/lib/seo/tech-catalog";
 import { fetchCategories, itCategoryValue } from "@/lib/a1/datasets";
-import { StackChips } from "@/components/stack-chips";
+import { StackPicker } from "@/components/stack-picker";
 import { buildSiteJsonLd } from "@/lib/seo/jsonld";
 
 const SITE_URL = "https://jobs.a1appp.com";
@@ -81,7 +81,7 @@ export default async function HomePage({ searchParams }: Props) {
   const currentCategory = filters.categories?.[0];
   // Слаги для чипов берём из адреса напрямую: parseFeedFilters отдаёт
   // канонические имена ("Go"), а чипы живут по слагам ("golang").
-  const selectedStack = params.getAll("stack").filter((slug) => TECH_LANDINGS.some((item) => item.slug === slug));
+  const selectedStack = params.getAll("stack").filter((slug) => TECH_CATALOG.some((item) => item.slug === slug));
   // Ряд стека появляется только внутри категории IT (Александр, 2026-09-20).
   // fetchCategories обёрнут в React cache(), так что это тот же ответ, который
   // всё равно берёт <Filters> ниже -- лишнего запроса не возникает.
@@ -152,11 +152,11 @@ export default async function HomePage({ searchParams }: Props) {
       {/* 2026-09-20: ряд чипов со стеком, виден только в категории IT. Не
           ссылки, а переключатели --
           почему так и почему отдельным рядом, см. шапку
-          components/stack-chips.tsx. Выдача со стеком закрыта от
+          components/stack-picker.tsx. Выдача со стеком закрыта от
           индексации тем же правилом, что и любая отфильтрованная
           (hasActiveFilters выше), поэтому веса эти кнопки не теряют --
           вес по стеку носят посадочные /jobs/stack/<slug>. */}
-      {showStack ? <StackChips basePath="/" selected={selectedStack} /> : null}
+      {showStack ? <StackPicker basePath="/" selected={selectedStack} variant="row" /> : null}
 
       <Filters
         kind="hiring"

@@ -27,7 +27,7 @@ import { mapPosts } from "./mappers";
 import { PostsSearchOutputSchema } from "./schemas";
 import type { WebPost, WebPostKind } from "@/types/web-post";
 import { extractTechTags } from "@/lib/seo/job-tech-tags";
-import { TECH_LANDINGS } from "@/lib/seo/tech-landings";
+import { techForSlug } from "@/lib/seo/tech-catalog";
 import { fetchStackIndex } from "./stack-index";
 import { fetchPostsByIds } from "./posts";
 
@@ -318,6 +318,32 @@ export async function fetchFeedPage(
   };
 }
 
+/**
+ * Сколько вакансий приходится на каждую технологию -- по тому же указателю,
+ * которым работает сам фильтр (lib/a1/stack-index.ts).
+ *
+ * 2026-09-20. Нужно ради одной вещи: в полном списке из семидесяти девяти
+ * технологий больше половины на нашей базе пустые. Без числа человек жмёт
+ * Appium, получает ноль и решает, что сломан фильтр; с числом он видит ноль
+ * заранее и не жмёт. Ключ -- КАНОНИЧЕСКОЕ имя из словаря; переводом в slug
+ * занимается тот, кто отдаёт это наружу.
+ *
+ * Стек в `filters` не участвует: указатель строится на комбинацию
+ * бэкенд-фильтров (категория, теги, локация), а отбор по стеку идёт поверх
+ * него. Поэтому числа не «пляшут» от того, что уже выбрано.
+ */
+export async function fetchStackCounts(
+  kind: WebPostKind,
+  filters: FeedFilters,
+): Promise<Record<string, number>> {
+  const index = await fetchStackIndex(scanCacheKey(kind, filters), filterParams(kind, filters));
+  const counts: Record<string, number> = {};
+  for (const entry of index) {
+    for (const tech of entry.techs) counts[tech] = (counts[tech] ?? 0) + 1;
+  }
+  return counts;
+}
+
 // Aleksandr, 2026-08-27: "Категории в которых пока пусто показывай 50%
 // прозрачности и не активными" — the category filter list should visibly
 // dim/disable a category that currently has zero live posts, rather than
@@ -417,12 +443,15 @@ export function parseFeedFilters(params: URLSearchParams): FeedFilters {
   const locationParam = params.get("location");
   const locationId = locationParam ? Number(locationParam) : NaN;
   const locationLabel = params.get("locationLabel")?.trim();
-  // ?stack=python&stack=golang -- в адресе живут slug'и (они же адреса
-  // посадочных /jobs/stack/<slug>), а внутрь уезжает каноническое имя из
-  // словаря. Незнакомый slug молча отбрасывается: адрес приходит снаружи.
+  // ?stack=python&stack=golang -- в адресе живут slug'и, а внутрь уезжает
+  // каноническое имя из словаря. Незнакомый slug молча отбрасывается: адрес
+  // приходит снаружи. 2026-09-20: справочник теперь полный
+  // (lib/seo/tech-catalog.ts, все 79 технологий), а не шестнадцать
+  // посадочных -- фильтр знает весь словарь, посадочные по-прежнему свою
+  // короткую выборку.
   const stack = params
     .getAll("stack")
-    .map((slug) => TECH_LANDINGS.find((item) => item.slug === slug)?.tech)
+    .map((slug) => techForSlug(slug))
     .filter((tech): tech is string => Boolean(tech));
 
   return {

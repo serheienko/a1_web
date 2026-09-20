@@ -68,7 +68,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import type { Category, Tag } from "@/lib/a1/datasets";
-import { StackChips } from "@/components/stack-chips";
+import { StackPicker } from "@/components/stack-picker";
 import { TelegramSubscribe } from "@/components/telegram-subscribe";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { FilterIcon } from "@/components/filter-icon";
@@ -458,7 +458,7 @@ export function FiltersForm({
     const location = overrides.location !== undefined ? overrides.location : currentLocation;
     const locationLabel = overrides.locationLabel !== undefined ? overrides.locationLabel : currentLocationLabel;
 
-    // 2026-09-20: стек живёт своим рядом чипов (components/stack-chips.tsx)
+    // 2026-09-20: стек живёт своим блоком (components/stack-picker.tsx)
     // и этой формой не управляется -- но адрес здесь собирается с нуля, и
     // без переноса выбранный стек молча слетал бы от любой буквы в поиске.
     // Читаем из window по той же причине, что и сброс ниже: useSearchParams
@@ -731,7 +731,7 @@ export function FiltersForm({
 
   const stackSectionBody = stackVisible ? (
     <div className="mt-1 mb-1 rounded-md bg-accent/5 px-2 pb-2 pt-2">
-      <StackChips basePath={basePath} selected={currentStack} variant="panel" />
+      <StackPicker basePath={basePath} selected={currentStack} variant="panel" lang={lang} />
     </div>
   ) : null;
 
