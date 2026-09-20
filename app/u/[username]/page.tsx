@@ -628,6 +628,7 @@ export default async function ProfilePage({ params }: Props) {
         }
         shareTitle={profile.fullName}
         avatarUrl={profile.avatarUrl}
+        unclaimed={rawProfile?.object === "user" && rawProfile.unclaimed === true}
       />
 
       {/* Aleksandr, 2026-08-30: "должны быть просто две кнопки...

@@ -315,11 +315,25 @@ export function ProfileActionRow({
   shareUrl,
   shareTitle,
   avatarUrl,
+  unclaimed = false,
 }: {
   username: string;
   profileUserId: string | null;
   shareUrl: string;
   shareTitle: string;
+  // 20.09.2026 (Александр: «скрыть кнопки "написать" в профилях
+  // спарсенных компаний, которые ещё не забрали»). Аккаунт завёл
+  // парсер, компания его ещё не получила -- письмо в такой профиль
+  // никто не прочтёт, и кнопка обещает то, чего не будет.
+  //
+  // Кнопка не прячется поверх сетки, а выпадает из неё вместе со своей
+  // колонкой: grid-cols-4 -> grid-cols-3. Иначе три кнопки растянулись
+  // бы по четырём местам и перестали совпадать по ширине с рядом на
+  // вакансии. Обе строки классов написаны целиком: Tailwind не видит
+  // склеенные имена.
+  //
+  // Признак снимает бэкенд в момент передачи аккаунта, поэтому кнопка
+  // вернётся сама -- доделывать после клейма нечего.
   // 2026-09-02: passed through to /chats/[chatId]'s own ?title=&avatar=
   // query params on openChat() below, so the chat header has a name/
   // avatar to show right away instead of "--" (Aleksandr: "возле
@@ -571,7 +585,7 @@ export function ProfileActionRow({
   // Появляется только содержимое — значки, через прозрачность.
   if (viewerStatus === "loading" && profileUserId) {
     return (
-      <div aria-hidden="true" className="mt-4 grid grid-cols-4 gap-2">
+      <div aria-hidden="true" className={unclaimed ? "mt-4 grid grid-cols-3 gap-2" : "mt-4 grid grid-cols-4 gap-2"}>
         {[0, 1, 2, 3].map((i) => (
           <span
             key={i}
@@ -793,7 +807,7 @@ export function ProfileActionRow({
 
   return (
     <>
-    <div className="mt-4 grid grid-cols-4 gap-2">
+    <div className={unclaimed ? "mt-4 grid grid-cols-3 gap-2" : "mt-4 grid grid-cols-4 gap-2"}>
       {/* Add/remove contact — the same toggle components/add-contact-
           button.tsx used to run as a standalone corner badge, now the
           primary (accent-filled) cell of this row. "Added" state's
@@ -834,22 +848,24 @@ export function ProfileActionRow({
         </span>
       </button>
 
-      <button
-        type="button"
-        onClick={openChat}
-        disabled={openingChat}
-        aria-label={chatErrored ? STRINGS.actionFailed[lang] : STRINGS.message[lang]}
-        title={chatErrored ? STRINGS.actionFailed[lang] : STRINGS.message[lang]}
-        className={
-          chatErrored
-            ? "group flex h-11 w-full items-center justify-center rounded-full bg-red-600 text-white transition hover:bg-red-700 disabled:cursor-default disabled:opacity-60"
-            : CELL_BUTTON_CLASS
-        }
-      >
-        <span className="animate-viewer-row-in flex items-center justify-center">
-          <MessageIcon />
-        </span>
-      </button>
+      {!unclaimed && (
+        <button
+          type="button"
+          onClick={openChat}
+          disabled={openingChat}
+          aria-label={chatErrored ? STRINGS.actionFailed[lang] : STRINGS.message[lang]}
+          title={chatErrored ? STRINGS.actionFailed[lang] : STRINGS.message[lang]}
+          className={
+            chatErrored
+              ? "group flex h-11 w-full items-center justify-center rounded-full bg-red-600 text-white transition hover:bg-red-700 disabled:cursor-default disabled:opacity-60"
+              : CELL_BUTTON_CLASS
+          }
+        >
+          <span className="animate-viewer-row-in flex items-center justify-center">
+            <MessageIcon />
+          </span>
+        </button>
+      )}
 
       {/* 2026-09-02 (Aleksandr: "иконку с ·· можно поменять на ту которая
           сейчас для сохранения профіля" -- with Mute/Block hidden for a
