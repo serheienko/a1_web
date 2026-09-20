@@ -168,12 +168,10 @@ export function Counter({ to, suffix = "", decimals = 0, dur = 1100 }: {
 const KEYFRAMES = `
 @keyframes a1DotIn { from { opacity: 0; transform: scale(.35) } to { opacity: 1; transform: scale(1) } }
 @keyframes a1Ping  { 0% { r: 6; opacity: .6 } 70% { opacity: 0 } 100% { r: 40; opacity: 0 } }
-@keyframes a1Sweep { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
 @keyframes a1Draw  { from { stroke-dashoffset: 1 } to { stroke-dashoffset: 0 } }
-.a1-sweep { animation: a1Sweep 18s linear infinite; transform-box: view-box; transform-origin: 50% 50% }
 .a1-link  { stroke-dasharray: 1; stroke-dashoffset: 1; animation: a1Draw 1.6s ease-out forwards }
 @media (prefers-reduced-motion: reduce) {
-  .a1-sweep, .a1-link { animation: none !important; stroke-dashoffset: 0 }
+  .a1-link { animation: none !important; stroke-dashoffset: 0 }
 }
 .a1-dot { animation: a1DotIn .55s cubic-bezier(.2,.9,.3,1.1) both; transform-box: fill-box; transform-origin: center }
 .a1-dot > .a1-core, .a1-dot > .a1-halo { transition: opacity .18s ease }
@@ -325,18 +323,6 @@ export function ItMap({ data, heads }: {
                     style={{ animationDelay: `${300 + i * 45}ms` }} />
             ))}
 
-            {!calm && (
-              <g className="a1-sweep" opacity={0.32}>
-                <defs>
-                  <linearGradient id="a1Beam" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="#7fb2ff" stopOpacity="0.13" />
-                    <stop offset="100%" stopColor="#7fb2ff" stopOpacity="0" />
-                  </linearGradient>
-                </defs>
-                <path d={`M ${geo.W / 2} ${geo.H / 2} L ${geo.W / 2 + 620} ${geo.H / 2 - 150} A 640 640 0 0 1 ${geo.W / 2 + 620} ${geo.H / 2 + 150} Z`}
-                      fill="url(#a1Beam)" />
-              </g>
-            )}
 
             {order.map((idx, rank) => {
               const ct = cities[idx]!;
