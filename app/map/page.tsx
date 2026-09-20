@@ -152,20 +152,14 @@ export default function MapPage() {
                      zh="人自己勾选了该标记" /></>}
           />
           <Stat
-            value={<Counter to={D.medianRepos} />}
-            label={<T uk="Медіана репозиторіїв" en="Median repositories" ru="Медиана репозиториев"
-                      de="Median der Repositorys" es="Mediana de repositorios"
-                      fr="Médiane des dépôts" pl="Mediana repozytoriów"
-                      ptBR="Mediana de repositórios" zh="仓库数中位数" />}
-            note={<T uk="половина має більше, половина менше — середнє тут брехало б, його задирає хвіст"
-                     en="half have more, half have fewer — an average would mislead, the long tail inflates it"
-                     ru="половина имеет больше, половина меньше — среднее здесь врало бы, его задирает хвост"
-                     de="die Hälfte hat mehr, die Hälfte weniger — ein Mittelwert wäre irreführend, der lange Schwanz verzerrt ihn"
-                     es="la mitad tiene más, la mitad menos — la media engañaría, la cola larga la infla"
-                     fr="la moitié en a plus, la moitié moins — une moyenne induirait en erreur, la longue traîne la gonfle"
-                     pl="połowa ma więcej, połowa mniej — średnia wprowadzałaby w błąd, zawyża ją długi ogon"
-                     ptBR="metade tem mais, metade tem menos — uma média enganaria, a cauda longa a infla"
-                     zh="一半的人更多，一半更少——用平均数会误导，长尾会把它抬高" />}
+            value={<Counter to={D.citiesTotal} />}
+            label={<T uk="Міст на карті" en="Cities on the map" ru="Городов на карте"
+                      de="Städte auf der Karte" es="Ciudades en el mapa"
+                      fr="Villes sur la carte" pl="Miast na mapie"
+                      ptBR="Cidades no mapa" zh="地图上的城市" />}
+            note={<T uk="у двох країнах" en="across two countries" ru="в двух странах"
+                     de="in zwei Ländern" es="en dos países" fr="dans deux pays"
+                     pl="w dwóch krajach" ptBR="em dois países" zh="分布在两个国家" />}
           />
         </div>
       </header>
