@@ -89,7 +89,7 @@ export function TelegramSubscribe({ hasFilters }: { hasFilters: boolean }) {
         type="button"
         onClick={dismiss}
         aria-label={DISMISS_LABEL[locale] ?? DISMISS_LABEL.uk}
-        className="absolute right-1.5 top-1.5 z-10 rounded-full p-1 text-white/70 transition hover:bg-white/20 hover:text-white"
+        className="absolute right-2.5 top-2.5 z-10 rounded-full p-1 text-neutral-300 transition hover:bg-neutral-100 hover:text-neutral-600 dark:text-neutral-600 dark:hover:bg-neutral-800 dark:hover:text-neutral-300"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="h-3.5 w-3.5" aria-hidden="true">
           <path d="M6 6l12 12M18 6L6 18" />
@@ -100,9 +100,9 @@ export function TelegramSubscribe({ hasFilters }: { hasFilters: boolean }) {
         type="button"
         onClick={subscribe}
         disabled={state === "loading"}
-        className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#2AABEE] px-4 py-3.5 text-[15px] font-semibold text-white shadow-sm transition hover:bg-[#229ED9] active:scale-[0.995] disabled:opacity-60"
+        className="flex w-full items-center justify-center gap-2.5 rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-[15px] font-medium text-neutral-900 transition hover:border-[#2AABEE]/50 hover:bg-[#2AABEE]/5 active:scale-[0.995] disabled:opacity-60 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50 dark:hover:bg-[#2AABEE]/10"
       >
-        <TelegramIcon className="h-5 w-5" />
+        <TelegramIcon className="h-6 w-6 shrink-0" />
         {state === "loading" ? (
           <T uk="Готуємо…" en="Preparing…" ru="Готовим…" de="Moment…" es="Preparando…" fr="Un instant…" pl="Chwilka…" ptBR="Preparando…" zh="准备中…" />
         ) : (
@@ -137,10 +137,18 @@ const DISMISS_LABEL: Record<string, string> = {
   fr: "Masquer", pl: "Ukryj", ptBR: "Ocultar", zh: "隐藏",
 };
 
+/** Фирменный круглый значок Telegram: синий круг и белый самолётик. Голый
+ *  самолётик на светлой кнопке не читался как Telegram -- Александр просил
+ *  именно «их круглый логотип». Цвет круга задан явно, а не currentColor:
+ *  логотип не должен перекрашиваться вместе с текстом кнопки. */
 function TelegramIcon({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
-      <path d="M21.9 4.3 18.8 19c-.2 1-.9 1.3-1.7.8l-4.7-3.5-2.3 2.2c-.3.3-.5.5-1 .5l.4-5 9-8.2c.4-.3-.1-.5-.6-.2L6.7 12.3 1.9 10.8c-1-.3-1-1 .2-1.5l18.5-7.2c.9-.3 1.6.2 1.3 2.2z" />
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <circle cx="12" cy="12" r="12" fill="#2AABEE" />
+      <path
+        fill="#fff"
+        d="M17.9 7.2c.2-.8-.3-1.2-.9-1L5.9 10.6c-.8.3-.8.7-.1.9l2.9.9 6.7-4.2c.3-.2.6-.1.4.1l-5.4 4.9-.2 3c.3 0 .5-.1.7-.3l1.4-1.4 2.9 2.2c.5.3.9.1 1-.5l1.7-8z"
+      />
     </svg>
   );
 }
