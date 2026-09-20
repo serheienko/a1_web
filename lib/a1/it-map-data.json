@@ -1,26 +1,27 @@
 {
  "generated": "2026-09-20",
  "found": 51480,
- "total": 45153,
- "hireable": 9532,
- "avgRepos": 25.6,
+ "total": 45600,
+ "hireable": 9579,
+ "avgRepos": 25.5,
  "medianRepos": 16,
  "country": {
-  "UA": 21630,
+  "UA": 22077,
   "PL": 23519
  },
+ "citiesTotal": 43,
  "languages": [
   [
    "JavaScript",
-   10838
+   10953
   ],
   [
    "Java",
-   8323
+   8432
   ],
   [
    "Python",
-   8059
+   8158
   ],
   [
    "C++",
@@ -28,11 +29,11 @@
   ],
   [
    "C#",
-   4198
+   4249
   ],
   [
    "PHP",
-   3933
+   3982
   ],
   [
    "Ruby",
@@ -40,7 +41,7 @@
   ],
   [
    "TypeScript",
-   1214
+   1234
   ],
   [
    "Swift",
@@ -48,7 +49,7 @@
   ],
   [
    "Go",
-   484
+   488
   ],
   [
    "Kotlin",
@@ -61,13 +62,13 @@
  ],
  "langByCountry": {
   "UA": {
-   "JavaScript": 5793,
-   "TypeScript": 687,
-   "Python": 3497,
-   "Java": 3827,
-   "C#": 1981,
-   "PHP": 2166,
-   "Go": 242,
+   "JavaScript": 5908,
+   "TypeScript": 707,
+   "Python": 3596,
+   "Java": 3936,
+   "C#": 2032,
+   "PHP": 2215,
+   "Go": 246,
    "Swift": 388,
    "Dart": 68,
    "Ruby": 959,
@@ -102,28 +103,28 @@
    "country": "UA",
    "lat": 50.45,
    "lon": 30.52,
-   "n": 6633,
-   "hire": 1357,
+   "n": 7080,
+   "hire": 1404,
    "langs": [
     [
      "JavaScript",
-     1871
+     1986
     ],
     [
      "Java",
-     1284
+     1393
     ],
     [
      "Python",
-     1086
+     1185
     ],
     [
      "C#",
-     605
+     656
     ],
     [
      "PHP",
-     579
+     628
     ]
    ]
   },
