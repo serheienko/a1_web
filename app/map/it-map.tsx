@@ -196,6 +196,7 @@ export function ItMap({ data, heads }: {
   const [openRef, openIn] = useInView<HTMLDivElement>(calm);
   const t = (k: keyof typeof STR) => STR[k][loc];
   const cities = data.cities;
+  const [tab, setTab] = useState<"UA" | "PL">("UA");
   const [sel, setSel] = useState(0);
   const [tip, setTip] = useState<number | null>(null);
   // Таблица внизу сортируется по доле открытых к предложениям, и наверху
@@ -524,64 +525,68 @@ export function ItMap({ data, heads }: {
           </h2>
           <p className="mt-2 mb-8 max-w-2xl text-neutral-500 dark:text-neutral-400">{heads.open.note}</p>
         </header>
-        <div ref={openRef} className="grid gap-8 lg:grid-cols-2">
-          {([["UA", "\u{1F1FA}\u{1F1E6}", t("ua")], ["PL", "\u{1F1F5}\u{1F1F1}", t("pl")]] as const).map(([cc, flag, label]) => (
-            <section key={cc}>
-              <h3 className="mb-3 flex items-center gap-2 text-lg font-bold text-neutral-900 dark:text-neutral-50">
-                <span aria-hidden>{flag}</span>
-                {label}
-              </h3>
-              <div className="overflow-x-auto rounded-2xl border border-neutral-200 dark:border-white/10">
-                <table className="w-full min-w-[28rem] border-collapse bg-white text-sm dark:bg-white/[0.04]">
-                  <thead>
-                    <tr className="text-xs uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
-                      <th className="border-b border-neutral-200 px-4 py-3 text-left font-bold dark:border-white/10">{t("city")}</th>
-                      <th className="border-b border-neutral-200 px-4 py-3 text-right font-bold dark:border-white/10">{t("devs")}</th>
-                      <th className="border-b border-neutral-200 px-4 py-3 text-right font-bold dark:border-white/10">{t("open")}</th>
-                      <th className="border-b border-neutral-200 px-4 py-3 text-right font-bold dark:border-white/10">{t("share")}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cities.filter((x) => x.n >= 30 && x.country === cc)
-                      .sort((a, b) => b.hire / b.n - a.hire / a.n)
-                      .map((x) => {
-                        const pct = Math.round((x.hire / x.n) * 100);
-                        return (
-                          <tr key={x.key}
-                              onMouseEnter={() => {
-                                const i = cities.findIndex((y) => y.key === x.key);
-                                if (i >= 0) { setSel(i); setTip(i); }
-                              }}
-                              onMouseLeave={() => setTip(null)}
-                              className={`cursor-default transition-colors ${
-                                c.key === x.key
-                                  ? "bg-neutral-100 dark:bg-white/10"
-                                  : "hover:bg-neutral-50 dark:hover:bg-white/5"
-                              }`}>
-                            <td className="whitespace-nowrap border-b border-neutral-100 px-4 py-2.5 dark:border-white/5">
-                              <span className="mr-2 inline-block size-2 rounded-full align-middle"
-                                    style={{ background: cc === "UA" ? "#2f7fe0" : "#d9551f" }} />
-                              {x.name}
-                            </td>
-                            <td className="border-b border-neutral-100 px-4 py-2.5 text-right tabular-nums dark:border-white/5">{nf(x.n)}</td>
-                            <td className="border-b border-neutral-100 px-4 py-2.5 text-right tabular-nums dark:border-white/5">{nf(x.hire)}</td>
-                            <td className="border-b border-neutral-100 px-4 py-2.5 dark:border-white/5">
-                              <div className="flex items-center justify-end gap-2">
-                                <div className="hidden h-1.5 w-20 overflow-hidden rounded-full bg-white sm:block dark:bg-white/10">
-                                  <div className="h-full rounded-full bg-emerald-500 transition-[width] duration-1000 ease-out"
-                                       style={{ width: openIn ? `${Math.min(pct * 2.2, 100)}%` : "0%" }} />
-                                </div>
-                                <span className="font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{pct}%</span>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                </table>
-              </div>
-            </section>
+        <div ref={openRef} className="mb-4 inline-flex rounded-xl border border-neutral-200 p-1 dark:border-white/10">
+          {([["UA", "\u{1F1FA}\u{1F1E6}", t("ua")], ["PL", "\u{1F1F5}\u{1F1F1}", t("pl")]] as const).map(([k, flag, label]) => (
+            <button key={k} type="button" onClick={() => setTab(k)}
+                    aria-pressed={tab === k}
+                    className={`flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                      tab === k
+                        ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
+                        : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+                    }`}>
+              <span aria-hidden>{flag}</span>
+              {label}
+            </button>
           ))}
+        </div>
+        <div className="overflow-x-auto rounded-2xl border border-neutral-200 dark:border-white/10">
+          <table className="w-full min-w-[32rem] border-collapse bg-white text-sm dark:bg-white/[0.04]">
+            <thead>
+              <tr className="text-xs uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
+                <th className="border-b border-neutral-200 px-4 py-3 text-left font-bold dark:border-white/10">{t("city")}</th>
+                <th className="border-b border-neutral-200 px-4 py-3 text-right font-bold dark:border-white/10">{t("devs")}</th>
+                <th className="border-b border-neutral-200 px-4 py-3 text-right font-bold dark:border-white/10">{t("open")}</th>
+                <th className="border-b border-neutral-200 px-4 py-3 text-right font-bold dark:border-white/10">{t("share")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cities.filter((x) => x.n >= 30 && x.country === tab)
+                .sort((a, b) => b.hire / b.n - a.hire / a.n)
+                .map((x) => {
+                  const pct = Math.round((x.hire / x.n) * 100);
+                  return (
+                    <tr key={x.key}
+                        onMouseEnter={() => {
+                          const i = cities.findIndex((y) => y.key === x.key);
+                          if (i >= 0) { setSel(i); setTip(i); }
+                        }}
+                        onMouseLeave={() => setTip(null)}
+                        className={`cursor-default transition-colors ${
+                          c.key === x.key
+                            ? "bg-neutral-100 dark:bg-white/10"
+                            : "hover:bg-neutral-50 dark:hover:bg-white/5"
+                        }`}>
+                      <td className="whitespace-nowrap border-b border-neutral-100 px-4 py-2.5 dark:border-white/5">
+                        <span className="mr-2 inline-block size-2 rounded-full align-middle"
+                              style={{ background: x.country === "UA" ? "#2f7fe0" : "#d9551f" }} />
+                        {x.name}
+                      </td>
+                      <td className="border-b border-neutral-100 px-4 py-2.5 text-right tabular-nums dark:border-white/5">{nf(x.n)}</td>
+                      <td className="border-b border-neutral-100 px-4 py-2.5 text-right tabular-nums dark:border-white/5">{nf(x.hire)}</td>
+                      <td className="border-b border-neutral-100 px-4 py-2.5 dark:border-white/5">
+                        <div className="flex items-center justify-end gap-2">
+                          <div className="hidden h-1.5 w-20 overflow-hidden rounded-full bg-white sm:block dark:bg-white/10">
+                            <div className="h-full rounded-full bg-emerald-500 transition-[width] duration-1000 ease-out"
+                                 style={{ width: openIn ? `${Math.min(pct * 2.2, 100)}%` : "0%" }} />
+                          </div>
+                          <span className="font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{pct}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

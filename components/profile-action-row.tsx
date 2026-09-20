@@ -339,6 +339,9 @@ export function ProfileActionRow({
   // avatar to show right away instead of "--" (Aleksandr: "возле
   // аватарки нет имени почему-то").
   avatarUrl?: string | null;
+  // 2026-09-20: профиль компании, который ещё никто не забрал себе.
+  // Тогда в ряду три кнопки вместо четырёх — писать в чат некому.
+  unclaimed?: boolean;
 }) {
   const lang = useActiveLocale();
   const [viewerStatus, setViewerStatus] = useState<"loading" | "self" | "other" | "anon" | "error">("loading");
