@@ -68,6 +68,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import type { Category, Tag } from "@/lib/a1/datasets";
+import { StackChips } from "@/components/stack-chips";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { FilterIcon } from "@/components/filter-icon";
 import { ClearIcon } from "@/components/clear-icon";
@@ -170,6 +171,8 @@ export function FiltersForm({
   tags,
   currentQuery,
   currentCategory,
+  stackVisible = false,
+  currentStack = [],
   currentTags,
   currentLocation,
   currentLocationLabel,
@@ -182,6 +185,10 @@ export function FiltersForm({
   tags: Tag[];
   currentQuery?: string;
   currentCategory?: number;
+  /** Показывать ли блок стека -- решает сервер: он знает id категории IT. */
+  stackVisible?: boolean;
+  /** Выбранные слаги стека из адреса. */
+  currentStack?: string[];
   currentTags: string[];
   currentLocation?: number;
   currentLocationLabel?: string;
@@ -695,6 +702,24 @@ export function FiltersForm({
     </div>
   );
 
+  // 2026-09-20 (Александр, посмотрев первую версию живьём: «должен при выборе
+  // категории IT появляться... точно так же и в мелких фильтрах»). Стек -- это
+  // уточнение внутри IT, поэтому блока нет, пока IT не выбрана. Пустая секция
+  // «СТЕК» в панели, которая ничего не делает вне IT, была бы хуже её
+  // отсутствия.
+  //
+  // Видимость и выбранное приходят с сервера (components/filters.tsx), а не
+  // считаются здесь из window: иначе первый отрисованный на сервере вариант и
+  // первый клиентский расходятся, и React ругается на несовпадение.
+  const stackSectionBody = stackVisible ? (
+    <>
+      <div className="my-2 border-t border-neutral-100 dark:border-neutral-800" />
+      <div className="px-1 pb-1">
+        <StackChips basePath={basePath} selected={currentStack} variant="panel" />
+      </div>
+    </>
+  ) : null;
+
   // Category list, shared verbatim between the mobile and desktop
   // popovers — same data, same selection logic either way. 2026-08-28:
   // "этот блок [локация+теги] надо наверх вначало... а потом уже
@@ -1021,6 +1046,7 @@ export function FiltersForm({
                 {locationSectionBody}
                 {tagChipsBody}
                 {categoryListBody}
+                {stackSectionBody}
               </div>
             )}
           </div>
@@ -1136,6 +1162,7 @@ export function FiltersForm({
                   {locationSectionBody}
                   {tagChipsBody}
                   {categoryListBody}
+                  {stackSectionBody}
                 </div>
               )}
             </div>

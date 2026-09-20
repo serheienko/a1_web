@@ -26,6 +26,7 @@ import Link from "next/link";
 import { JOB_LANDINGS } from "@/lib/seo/job-landings";
 import { FACT_LANDINGS } from "@/lib/seo/fact-landings";
 import { TECH_LANDINGS } from "@/lib/seo/tech-landings";
+import { fetchCategories, itCategoryValue } from "@/lib/a1/datasets";
 import { StackChips } from "@/components/stack-chips";
 import { buildSiteJsonLd } from "@/lib/seo/jsonld";
 
@@ -81,6 +82,10 @@ export default async function HomePage({ searchParams }: Props) {
   // Слаги для чипов берём из адреса напрямую: parseFeedFilters отдаёт
   // канонические имена ("Go"), а чипы живут по слагам ("golang").
   const selectedStack = params.getAll("stack").filter((slug) => TECH_LANDINGS.some((item) => item.slug === slug));
+  // Ряд стека появляется только внутри категории IT (Александр, 2026-09-20).
+  // fetchCategories обёрнут в React cache(), так что это тот же ответ, который
+  // всё равно берёт <Filters> ниже -- лишнего запроса не возникает.
+  const showStack = currentCategory != null && currentCategory === itCategoryValue(await fetchCategories());
   // Real per-avatar blur (lib/avatar-blur.ts) instead of the generic
   // shared shimmer — see that file's comment for why this lives here
   // rather than inside PostCard itself.
@@ -144,13 +149,14 @@ export default async function HomePage({ searchParams }: Props) {
         ))}
       </nav>
 
-      {/* 2026-09-20: ряд чипов со стеком. Не ссылки, а переключатели --
+      {/* 2026-09-20: ряд чипов со стеком, виден только в категории IT. Не
+          ссылки, а переключатели --
           почему так и почему отдельным рядом, см. шапку
           components/stack-chips.tsx. Выдача со стеком закрыта от
           индексации тем же правилом, что и любая отфильтрованная
           (hasActiveFilters выше), поэтому веса эти кнопки не теряют --
           вес по стеку носят посадочные /jobs/stack/<slug>. */}
-      <StackChips basePath="/" selected={selectedStack} />
+      {showStack ? <StackChips basePath="/" selected={selectedStack} /> : null}
 
       <Filters
         kind="hiring"
@@ -160,6 +166,7 @@ export default async function HomePage({ searchParams }: Props) {
         currentTags={filters.tags ?? []}
         currentLocation={filters.location}
         currentLocationLabel={filters.locationLabel}
+        currentStack={selectedStack}
       />
 
       {posts.length === 0 ? (

@@ -126,6 +126,7 @@ function filterParams(kind: WebPostKind, filters: FeedFilters): Record<string, u
 // posts; revisit if one filter combination ever approaches 3,000.
 const FULL_SCAN_MAX_PAGES = 30; // 30 * 100 = 3,000 posts scanned, max
 const FULL_SCAN_PAGE_SIZE = 100; // posts.search's documented max per request
+const SCAN_CONCURRENCY = 12; // сколько страниц тянем одновременно (см. scanAllPosts)
 
 /**
  * Walks the whole (already backend-ordered) listing and keeps the posts that
@@ -139,65 +140,113 @@ const FULL_SCAN_PAGE_SIZE = 100; // posts.search's documented max per request
  * складывается с фильтрами, которые бэкенд умеет (категория, теги, локация):
  * они уезжают в filterParams и сужают выдачу ещё до нас.
  */
-async function scanFeed(kind: WebPostKind, filters: FeedFilters, needle: string | null): Promise<WebPost[]> {
-  const matches: WebPost[] = [];
-  const stack = filters.stack ?? [];
-  let cursor: string | null | undefined;
-
-  for (let page = 0; page < FULL_SCAN_MAX_PAGES; page++) {
+async function scanAllPosts(kind: WebPostKind, filters: FeedFilters): Promise<WebPost[]> {
+  const fetchPage = async (offset: number, withCount: boolean) => {
     const raw = await call<unknown>("posts.search", {
       limit: FULL_SCAN_PAGE_SIZE,
+      ...(offset > 0 ? { offset } : {}),
       ...filterParams(kind, filters),
-      ...(cursor ? { next: cursor } : {}),
+      ...(withCount ? { expand: "count" } : {}),
     });
-    const parsed = PostsSearchOutputSchema.parse(raw);
-    for (const post of mapPosts(parsed.items)) {
-      if (needle && !post.title.toLowerCase().includes(needle) && !post.contentText.toLowerCase().includes(needle)) {
-        continue;
-      }
-      if (stack.length > 0) {
-        const tags = extractTechTags(post.title, post.contentText);
-        if (!stack.some((tech) => tags.includes(tech))) continue;
-      }
-      matches.push(post);
-    }
-    if (!parsed.pagination.hasMore || !parsed.pagination.next) break;
-    cursor = parsed.pagination.next;
+    return PostsSearchOutputSchema.parse(raw);
+  };
+
+  // Первая страница идёт отдельно и приносит общее число: без него неизвестно,
+  // сколько страниц вообще запрашивать.
+  const first = await fetchPage(0, true);
+  const total = first.count?.object[KIND_TO_OBJECT[kind]] ?? first.count?.total ?? 0;
+  const pages = Math.min(FULL_SCAN_MAX_PAGES, Math.max(1, Math.ceil(total / FULL_SCAN_PAGE_SIZE)));
+
+  // Остальные -- пачками параллельно. 2026-09-20: раньше это был обход по
+  // курсору, страница за страницей, и на живой базе (~2100 вакансий) он занимал
+  // ОДИННАДЦАТЬ секунд. Человек нажимал чип стека, десять секунд ничего не
+  // происходило, и это читалось как «кнопка не работает» -- ровно так Александр
+  // об этом и сообщил. Курсор заставлял ждать: следующий приходит только с
+  // ответом на предыдущий. Здесь вместо курсора offset -- его же использует
+  // обычная лента выше, -- и страницы становятся независимыми.
+  const byPage: WebPost[][] = [mapPosts(first.items)];
+  for (let from = 1; from < pages; from += SCAN_CONCURRENCY) {
+    const batch = await Promise.all(
+      Array.from({ length: Math.min(SCAN_CONCURRENCY, pages - from) }, (_, i) =>
+        fetchPage((from + i) * FULL_SCAN_PAGE_SIZE, false).then((parsed) => mapPosts(parsed.items)),
+      ),
+    );
+    byPage.push(...batch);
   }
 
-  return matches;
+  // Порядок страниц сохранён, значит и порядок ленты: отфильтрованная выдача
+  // читается так же, как нефильтрованная. Дедупликация -- подстраховка: лента
+  // живая, и пока идут запросы, offset может сдвинуться на новую вакансию.
+  const out: WebPost[] = [];
+  const seen = new Set<string>();
+  for (const page of byPage) {
+    for (const post of page) {
+      if (seen.has(post.id)) continue;
+      seen.add(post.id);
+      out.push(post);
+    }
+  }
+  return out;
 }
 
 // A scan is expensive, and paging through search results would otherwise
 // repeat it per page. One warm serverless instance reuses the same match list
 // for this window instead. Search is a comparatively rare path, so a
 // per-instance (not cross-instance) cache is fine here.
-const SEARCH_CACHE_TTL_MS = 60_000;
+// 2026-09-20: было 60 секунд. Полный обход стоит несколько секунд, и при
+// минутном окне каждую минуту кто-то платил их заново. Пять минут -- цена в
+// свежести, которую фильтр переживёт: новая вакансия появится в
+// отфильтрованной выдаче на несколько минут позже, чем в общей ленте
+// (та по-прежнему обновляется раз в 15 секунд).
+const SEARCH_CACHE_TTL_MS = 5 * 60_000;
 const searchCache = new Map<string, { expiresAt: number; promise: Promise<WebPost[]> }>();
 
-function searchCacheKey(kind: WebPostKind, filters: FeedFilters, needle: string | null): string {
+/**
+ * Ключ намеренно НЕ содержит ни текста поиска, ни стека -- только то, что
+ * уходит в запрос к бэкенду. 2026-09-20: раньше содержал, и каждое
+ * переключение чипа стека означал полный обход заново (три секунды на пустом
+ * месте) -- хотя список вакансий, из которого мы отбираем, ровно тот же.
+ * Теперь обход один на комбинацию бэкенд-фильтров, а текст и стек
+ * отсеиваются поверх него, в памяти.
+ */
+function scanCacheKey(kind: WebPostKind, filters: FeedFilters): string {
   return JSON.stringify([
     kind,
-    needle,
     [...(filters.categories ?? [])].sort(),
     [...(filters.tags ?? [])].sort(),
-    [...(filters.stack ?? [])].sort(),
     filters.location ?? null,
   ]);
 }
 
-async function getScanMatches(kind: WebPostKind, filters: FeedFilters, needle: string | null): Promise<WebPost[]> {
-  const key = searchCacheKey(kind, filters, needle);
+async function getScanPosts(kind: WebPostKind, filters: FeedFilters): Promise<WebPost[]> {
+  const key = scanCacheKey(kind, filters);
   const now = Date.now();
   const cached = searchCache.get(key);
   if (cached && cached.expiresAt > now) return cached.promise;
 
-  const promise = scanFeed(kind, filters, needle);
+  const promise = scanAllPosts(kind, filters);
   searchCache.set(key, { expiresAt: now + SEARCH_CACHE_TTL_MS, promise });
   // A failed scan shouldn't keep serving/retrying the same rejection for
   // the rest of the TTL window -- let the next call try fresh.
   promise.catch(() => searchCache.delete(key));
   return promise;
+}
+
+/** Отбор поверх обойдённого списка: текст и стек -- то, чего бэкенд не умеет. */
+function applyLocalFilters(posts: WebPost[], filters: FeedFilters, needle: string | null): WebPost[] {
+  const stack = filters.stack ?? [];
+  if (!needle && stack.length === 0) return posts;
+
+  return posts.filter((post) => {
+    if (needle && !post.title.toLowerCase().includes(needle) && !post.contentText.toLowerCase().includes(needle)) {
+      return false;
+    }
+    if (stack.length > 0) {
+      const tags = extractTechTags(post.title, post.contentText);
+      if (!stack.some((tech) => tags.includes(tech))) return false;
+    }
+    return true;
+  });
 }
 
 export async function fetchFeedPage(
@@ -239,7 +288,7 @@ export async function fetchFeedPage(
     };
   }
 
-  const matches = await getScanMatches(kind, filters, needle);
+  const matches = applyLocalFilters(await getScanPosts(kind, filters), filters, needle);
   const hasMore = nextOffset < matches.length;
   return {
     posts: matches.slice(offset, nextOffset),

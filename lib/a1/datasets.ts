@@ -55,9 +55,20 @@ const TagSchema = z.object({
  * для фильтров в шапке (app/api/filters/bootstrap). Две копии неизбежно
  * разъехались бы.
  */
+/** «IT» как категория -- по названию, а не по жёстко вписанному id: список
+ *  категорий приходит с бэкенда и его номера нам никто не обещал. */
+export function isItCategory(text: string): boolean {
+  return text.replace(/[^\p{L}]/gu, "").toLowerCase() === "it";
+}
+
+/** id категории IT в этом списке, если она там есть. 2026-09-20: нужен фильтру
+ *  по стеку -- он показывается только внутри IT (решение Александра). */
+export function itCategoryValue(categories: Category[]): number | undefined {
+  return categories.find((c) => isItCategory(c.text))?.value;
+}
+
 export function withItFirst(categories: Category[]): Category[] {
-  const isIt = (text: string) => text.replace(/[^\p{L}]/gu, "").toLowerCase() === "it";
-  const it = categories.find((c) => isIt(c.text));
+  const it = categories.find((c) => isItCategory(c.text));
   if (!it) return categories;
   return [it, ...categories.filter((c) => c !== it)];
 }

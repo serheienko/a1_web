@@ -6,7 +6,7 @@
 // как Гугл") — lives in components/filters-form.tsx, a client component,
 // since router.replace() needs the client-side router.
 
-import { fetchCategories, fetchTagsForKind, withItFirst } from "@/lib/a1/datasets";
+import { fetchCategories, fetchTagsForKind, withItFirst, itCategoryValue } from "@/lib/a1/datasets";
 import type { WebPostKind } from "@/types/web-post";
 import { FiltersForm } from "@/components/filters-form";
 import { fetchEmptyCategoryValues } from "@/lib/a1/feed";
@@ -19,6 +19,7 @@ export async function Filters({
   currentTags,
   currentLocation,
   currentLocationLabel,
+  currentStack = [],
 }: {
   kind: WebPostKind;
   basePath: string;
@@ -27,6 +28,10 @@ export async function Filters({
   currentTags: string[];
   currentLocation?: number;
   currentLocationLabel?: string;
+  /** Выбранные слаги стека из адреса. Блок стека появляется только внутри
+   *  категории IT -- id этой категории знает только сервер (список категорий
+   *  приходит с бэкенда), поэтому решение принимается здесь, а не в форме. */
+  currentStack?: string[];
 }) {
   const [categoriesRaw, tags] = await Promise.all([fetchCategories(), fetchTagsForKind(kind)]);
   const categories = withItFirst(categoriesRaw);
@@ -46,6 +51,8 @@ export async function Filters({
       currentLocation={currentLocation}
       currentLocationLabel={currentLocationLabel}
       emptyCategoryValues={emptyCategoryValues}
+      stackVisible={currentCategory != null && currentCategory === itCategoryValue(categories)}
+      currentStack={currentStack}
     />
   );
 }
