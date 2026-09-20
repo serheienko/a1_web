@@ -42,57 +42,61 @@
 // Александр, 19.09.2026: «при наведении на кнопку скачать на мобилу
 // показывай превью страницы как на странице download». На самой
 // /download при наведении на «Сайт A1» открывается окошко с живой
-// главной (app/download/site-preview.tsx) -- здесь ровно тот же приём,
-// только наоборот: из шапки сайта заглядываем на /download.
+// главной (app/download/site-preview.tsx) -- здесь тот же приём, только
+// наоборот: из шапки сайта заглядываем на /download.
 //
-// Переиспользовано, а не написано заново: раскрытие и закрытие по
-// наведению -- общий хук lib/use-hover-panel.ts (он же у меню аватара и
-// у кнопки фильтров), приёмы с рамкой -- те же три, что расписаны в
-// шапке app/download/site-preview.tsx:
+// 20.09.2026, ЧЕТВЁРТЫЙ ЗАХОД И СМЕНА ПОДХОДА (Александр, скриншот:
+// «окно плохо выглядит, нам не надо показывать кнопки установки, нам
+// надо крупно показать текст и полностью кота»).
 //
-// 1. Рамка грузится не сразу, а через HOVER_INTENT_MS: мышь, просто
-//    проехавшая через кнопку, ничего не тянет.
-// 2. Загрузившись один раз, рамка больше не размонтируется -- панель
-//    «паркуется» в нулевой размер. Запрос к серверу ровно один за
-//    посещение, а не по одному на каждое наведение.
-// 3. Пока рамка грузится (и если браузер откажется её показать) под ней
-//    лежит логотип на тёмной подложке -- пустого окна не будет никогда.
+// Три предыдущих захода тянули сюда живую страницу в <iframe> и ужимали
+// её. Это тупик по устройству: в окошко лезет ВСЁ, что есть наверху
+// страницы -- и кнопки магазинов, и меню, -- а кот обрезается краем
+// кадра. Крупнее буквы тоже не сделать: у /download текучая типографика,
+// после ужатия 36px и 40px дают на экране одинаковые 13.6px (померено).
 //
-// Рамка same-origin, /download отдаётся статикой, поэтому лишней работы
-// серверу это не создаёт. pointer-events внутри выключены: клик по
-// превью ведёт на страницу, а не проваливается внутрь чужого скролла.
+// Поэтому рамки больше нет. Окошко собрано здесь из двух вещей, которые
+// и надо показать: картинка с котом целиком и заголовок страницы своим
+// размером. Что это даёт:
+//
+// 1. Кот виден полностью. Картинка широкая (1672x941), кот сидит в
+//    правой половине, слева пустой космос. Кадр 16:10 с прижатием
+//    вправо срезает часть пустоты -- кот становится крупнее и при этом
+//    целиком в кадре. Тот же приём, что на самой /download
+//    (background-position: right center), только кадр другой.
+// 2. Текст настоящего размера -- 20px, а не ужатые 13.6px. Он лежит под
+//    картинкой, а не поверх неё: поверх он налез бы на кота, ведь
+//    свободна только левая треть кадра.
+// 3. Кнопок магазинов нет вовсе. Окошко -- приглашение зайти, а ставить
+//    приложение человек будет на самой странице.
+// 4. Ничего не грузится и не ждёт: одна картинка вместо целой страницы.
+//    Окошко открывается мгновенно, и обвязка с «загружается/не
+//    загрузилось» больше не нужна.
+//
+// Заголовок берём из того же файла, что и сама страница
+// (app/download/copy.ts) -- иначе тексты разъедутся при первой же
+// правке. Девять языков показываются тем же способом, что и <T/>:
+// девять span-ов подряд, видим один (components/t.tsx).
+//
 // Панель прилипает к кнопке отступом (pt-2), а не зазором: между ними
 // не должно быть «мёртвой» полосы, иначе окно залипает -- ровно та
 // грабля, что описана первым пунктом в шапке lib/use-hover-panel.ts.
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { T } from "@/components/t";
+import { useRef, useState } from "react";
+import { DOWNLOAD_COPY } from "@/app/download/copy";
+import { LOCALES, LOCALE_VISIBILITY_CLASS, T } from "@/components/t";
 import { useHoverPanel } from "@/lib/use-hover-panel";
-
-const HOVER_INTENT_MS = 250;
 
 export function GetAppButton() {
   const [open, setOpen] = useState(false);
-  const [frameMounted, setFrameMounted] = useState(false);
-  const [frameLoaded, setFrameLoaded] = useState(false);
-  const frameArmedRef = useRef(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   const { rendered, visible, handleMouseEnter, handleMouseLeave } = useHoverPanel(open, setOpen, [
     { trigger: wrapRef, panel: panelRef },
   ]);
-
-  useEffect(() => {
-    if (!open || frameArmedRef.current) return;
-    const timer = setTimeout(() => {
-      frameArmedRef.current = true;
-      setFrameMounted(true);
-    }, HOVER_INTENT_MS);
-    return () => clearTimeout(timer);
-  }, [open]);
 
   return (
     <div
@@ -141,97 +145,41 @@ export function GetAppButton() {
       </span>
     </Link>
 
-      {(rendered || frameMounted) && (
-        <div
-          ref={panelRef}
-          className={
-            "absolute right-0 top-full z-50 pt-2 " +
-            (rendered ? "w-[440px]" : "pointer-events-none h-0 w-0 overflow-hidden opacity-0")
-          }
-        >
+      {rendered && (
+        <div ref={panelRef} className="absolute right-0 top-full z-50 w-[440px] pt-2">
           <Link
             href="/download"
             className={
-              "block overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xl transition duration-200 ease-out dark:border-neutral-700 dark:bg-neutral-900 " +
+              "block overflow-hidden rounded-2xl bg-[#03051f] shadow-xl ring-1 ring-black/10 transition duration-200 ease-out dark:ring-white/10 " +
               (visible ? "translate-y-0 opacity-100" : "-translate-y-1 opacity-0")
             }
           >
-            <span className="relative block aspect-[4/3] w-full overflow-hidden bg-neutral-950">
-              {/* Подложка на время загрузки рамки. */}
+            {/* Кот целиком: кадр 16:10, картинка прижата вправо. */}
+            <span className="relative block aspect-[16/10] w-full overflow-hidden">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/download/a1-logo.webp"
+                src="/download/hero.webp"
                 alt=""
-                width={120}
-                height={120}
+                width={1672}
+                height={941}
                 loading="lazy"
-                className="absolute left-1/2 top-1/2 h-14 w-14 -translate-x-1/2 -translate-y-1/2 opacity-70"
+                className="absolute inset-0 h-full w-full object-cover object-right"
               />
-
-              {frameMounted && (
-                <span
-                  className={
-                    "absolute inset-0 block transition-opacity duration-300 " +
-                    (frameLoaded ? "opacity-100" : "opacity-0")
-                  }
-                >
-                  <iframe
-                    src="/download"
-                    title=""
-                    aria-hidden="true"
-                    tabIndex={-1}
-                    scrolling="no"
-                    loading="lazy"
-                    /*
-                     * 2026-09-19, второй заход (Александр: «что-то не
-                     * влезло чуть»). Сначала рамка была шириной с
-                     * телефон (390px) -- и в окошко попадала только
-                     * верхушка страницы, фраза обрывалась на полуслове.
-                     *
-                     * Третий заход (Александр: «тексты можно крупнее
-                     * показать»). Тут есть неочевидное: у /download
-                     * ТЕКУЧАЯ типографика -- чем шире рамка, тем крупнее
-                     * в ней шрифт, поэтому после ужатия в окошко буквы
-                     * получаются одного размера хоть при 900, хоть при
-                     * 1200. Замерено: 36px x 0.3778 и 40px x 0.34 дают
-                     * одни и те же 13.6px на экране. Значит крупнее
-                     * буквы делает только одно -- само окошко пошире.
-                     *
-                     * Отсюда 440px вместо 340px, рамка 900x675 и ужатие
-                     * 0.4889: 900 x 0.4889 = 440, 675 x 0.4889 = 330 --
-                     * снова ровно 4:3 у контейнера. Первый экран
-                     * помещается целиком (кнопки магазинов кончаются на
-                     * 583-й строке из 675 -- померено живьём).
-                     */
-                    className="pointer-events-none h-[675px] w-[900px] origin-top-left scale-[0.4889] border-0"
-                    onLoad={(event) => {
-                      try {
-                        const doc = event.currentTarget.contentDocument;
-                        if (doc?.body && doc.body.childElementCount > 0) setFrameLoaded(true);
-                      } catch {
-                        // чужой origin -- значит это не наша страница
-                      }
-                    }}
-                  />
-                </span>
-              )}
+              {/* Мягкий переход картинки в подпись: без него стык
+                  читается как склейка двух разных карточек. */}
+              <span className="pointer-events-none absolute inset-x-0 bottom-0 block h-16 bg-gradient-to-b from-transparent to-[#03051f]" />
             </span>
 
-            <span className="block px-4 py-3">
-              <span className="block text-[14px] font-semibold text-ink dark:text-neutral-100">
-                <T
-                  uk="Застосунок A1"
-                  en="The A1 app"
-                  ru="Приложение A1"
-                  de="Die A1-App"
-                  es="La app A1"
-                  fr="L'app A1"
-                  pl="Aplikacja A1"
-                  ptBR="O app A1"
-                  zh="A1 应用"
-                />
+            <span className="block px-5 pb-5 pt-1">
+              <span className="block text-[20px] font-semibold leading-[1.2] text-white">
+                {LOCALES.map((locale) => (
+                  <span key={locale} className={LOCALE_VISIBILITY_CLASS[locale]}>
+                    {DOWNLOAD_COPY[locale].headline}{" "}
+                    <span className="text-[#7aa2ff]">{DOWNLOAD_COPY[locale].headlineAccent}</span>
+                  </span>
+                ))}
               </span>
-              <span className="mt-0.5 block text-[13px] text-neutral-500 dark:text-neutral-400">
+              <span className="mt-2 block text-[13px] leading-snug text-white/65">
                 <T
                   uk="Android та iOS — вакансії й чати в кишені"
                   en="Android and iOS — jobs and chats in your pocket"
