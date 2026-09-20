@@ -449,6 +449,17 @@ export function FiltersForm({
     const location = overrides.location !== undefined ? overrides.location : currentLocation;
     const locationLabel = overrides.locationLabel !== undefined ? overrides.locationLabel : currentLocationLabel;
 
+    // 2026-09-20: стек живёт своим рядом чипов (components/stack-chips.tsx)
+    // и этой формой не управляется -- но адрес здесь собирается с нуля, и
+    // без переноса выбранный стек молча слетал бы от любой буквы в поиске.
+    // Читаем из window по той же причине, что и сброс ниже: useSearchParams
+    // потребовал бы <Suspense> вокруг формы на каждой странице.
+    if (typeof window !== "undefined") {
+      for (const slug of new URLSearchParams(window.location.search).getAll("stack")) {
+        params.append("stack", slug);
+      }
+    }
+
     const trimmedQ = q.trim();
     if (trimmedQ) params.set("q", trimmedQ);
     if (category != null) params.set("category", String(category));

@@ -26,6 +26,8 @@ import { call } from "./client";
 import { mapPosts } from "./mappers";
 import { PostsSearchOutputSchema } from "./schemas";
 import type { WebPost, WebPostKind } from "@/types/web-post";
+import { extractTechTags } from "@/lib/seo/job-tech-tags";
+import { TECH_LANDINGS } from "@/lib/seo/tech-landings";
 
 // 2026-09-05 (Aleksandr: "не загружай всю ленту сразу, а показывай
 // только постов 30... подгрузку и пагинацию") -- bumped from the
@@ -69,6 +71,16 @@ export type FeedFilters = {
   // redisplay "Kyiv, Ukraine" instead of just the bare id.
   location?: number;
   locationLabel?: string;
+  // 2026-09-20. Канонические имена технологий из lib/seo/job-tech-tags.ts
+  // ("Python", "Go", ...). У бэкенда признака «стек» нет вообще -- он
+  // вытаскивается из текста вакансии у нас, поэтому отфильтровать по нему
+  // одним запросом нельзя. Отбор идёт локально, по той же дорожке, что и
+  // поиск по тексту (см. scanFeed ниже).
+  //
+  // Несколько значений соединяются через ИЛИ, а не И (решение Александра
+  // 2026-09-20): разработчик думает «я умею Python и Go, покажи и то и то»,
+  // а «оба сразу» на нашей базе почти всегда даёт пустой экран.
+  stack?: string[];
 };
 
 // This app's own cursor: an offset into the listing, not the backend's
@@ -116,12 +128,20 @@ const FULL_SCAN_MAX_PAGES = 30; // 30 * 100 = 3,000 posts scanned, max
 const FULL_SCAN_PAGE_SIZE = 100; // posts.search's documented max per request
 
 /**
- * Walks the whole (already backend-ordered) listing and keeps the posts whose
- * title or body contains `needle`. Order is preserved exactly as the backend
- * returned it, so the result reads the same as the unfiltered feed.
+ * Walks the whole (already backend-ordered) listing and keeps the posts that
+ * match everything the backend itself cannot answer: free text (`needle`) and
+ * stack (`filters.stack`). Order is preserved exactly as the backend returned
+ * it, so the result reads the same as the unfiltered feed.
+ *
+ * 2026-09-20: was scanForQuery, text-only. Стек приехал сюда же, а не завёл
+ * себе второй обход, потому что признак ровно той же природы -- его нет у
+ * бэкенда и он считается из текста. Один обход отвечает на оба вопроса и
+ * складывается с фильтрами, которые бэкенд умеет (категория, теги, локация):
+ * они уезжают в filterParams и сужают выдачу ещё до нас.
  */
-async function scanForQuery(kind: WebPostKind, filters: FeedFilters, needle: string): Promise<WebPost[]> {
+async function scanFeed(kind: WebPostKind, filters: FeedFilters, needle: string | null): Promise<WebPost[]> {
   const matches: WebPost[] = [];
+  const stack = filters.stack ?? [];
   let cursor: string | null | undefined;
 
   for (let page = 0; page < FULL_SCAN_MAX_PAGES; page++) {
@@ -132,9 +152,14 @@ async function scanForQuery(kind: WebPostKind, filters: FeedFilters, needle: str
     });
     const parsed = PostsSearchOutputSchema.parse(raw);
     for (const post of mapPosts(parsed.items)) {
-      if (post.title.toLowerCase().includes(needle) || post.contentText.toLowerCase().includes(needle)) {
-        matches.push(post);
+      if (needle && !post.title.toLowerCase().includes(needle) && !post.contentText.toLowerCase().includes(needle)) {
+        continue;
       }
+      if (stack.length > 0) {
+        const tags = extractTechTags(post.title, post.contentText);
+        if (!stack.some((tech) => tags.includes(tech))) continue;
+      }
+      matches.push(post);
     }
     if (!parsed.pagination.hasMore || !parsed.pagination.next) break;
     cursor = parsed.pagination.next;
@@ -150,23 +175,24 @@ async function scanForQuery(kind: WebPostKind, filters: FeedFilters, needle: str
 const SEARCH_CACHE_TTL_MS = 60_000;
 const searchCache = new Map<string, { expiresAt: number; promise: Promise<WebPost[]> }>();
 
-function searchCacheKey(kind: WebPostKind, filters: FeedFilters, needle: string): string {
+function searchCacheKey(kind: WebPostKind, filters: FeedFilters, needle: string | null): string {
   return JSON.stringify([
     kind,
     needle,
     [...(filters.categories ?? [])].sort(),
     [...(filters.tags ?? [])].sort(),
+    [...(filters.stack ?? [])].sort(),
     filters.location ?? null,
   ]);
 }
 
-async function getSearchMatches(kind: WebPostKind, filters: FeedFilters, needle: string): Promise<WebPost[]> {
+async function getScanMatches(kind: WebPostKind, filters: FeedFilters, needle: string | null): Promise<WebPost[]> {
   const key = searchCacheKey(kind, filters, needle);
   const now = Date.now();
   const cached = searchCache.get(key);
   if (cached && cached.expiresAt > now) return cached.promise;
 
-  const promise = scanForQuery(kind, filters, needle);
+  const promise = scanFeed(kind, filters, needle);
   searchCache.set(key, { expiresAt: now + SEARCH_CACHE_TTL_MS, promise });
   // A failed scan shouldn't keep serving/retrying the same rejection for
   // the rest of the TTL window -- let the next call try fresh.
@@ -181,9 +207,10 @@ export async function fetchFeedPage(
 ): Promise<FeedPage> {
   const offset = cursorToOffset(cursor);
   const nextOffset = offset + FEED_PAGE_SIZE;
-  const needle = filters.q?.trim().toLowerCase();
+  const needle = filters.q?.trim().toLowerCase() || null;
+  const hasStack = (filters.stack?.length ?? 0) > 0;
 
-  if (!needle) {
+  if (!needle && !hasStack) {
     // The common case: one request. The backend ranks the feed (real publish
     // date + round-robin by company), slices the page with `offset`, and
     // `expand=count` rides along so we know how many pages exist.
@@ -212,7 +239,7 @@ export async function fetchFeedPage(
     };
   }
 
-  const matches = await getSearchMatches(kind, filters, needle);
+  const matches = await getScanMatches(kind, filters, needle);
   const hasMore = nextOffset < matches.length;
   return {
     posts: matches.slice(offset, nextOffset),
@@ -321,6 +348,13 @@ export function parseFeedFilters(params: URLSearchParams): FeedFilters {
   const locationParam = params.get("location");
   const locationId = locationParam ? Number(locationParam) : NaN;
   const locationLabel = params.get("locationLabel")?.trim();
+  // ?stack=python&stack=golang -- в адресе живут slug'и (они же адреса
+  // посадочных /jobs/stack/<slug>), а внутрь уезжает каноническое имя из
+  // словаря. Незнакомый slug молча отбрасывается: адрес приходит снаружи.
+  const stack = params
+    .getAll("stack")
+    .map((slug) => TECH_LANDINGS.find((item) => item.slug === slug)?.tech)
+    .filter((tech): tech is string => Boolean(tech));
 
   return {
     q: q || undefined,
@@ -328,6 +362,7 @@ export function parseFeedFilters(params: URLSearchParams): FeedFilters {
     tags: tags.length > 0 ? tags : undefined,
     location: Number.isFinite(locationId) && locationParam ? locationId : undefined,
     locationLabel: locationLabel || undefined,
+    stack: stack.length > 0 ? [...new Set(stack)] : undefined,
   };
 }
 
@@ -336,6 +371,7 @@ export function hasActiveFilters(filters: FeedFilters): boolean {
     filters.q ||
       (filters.categories && filters.categories.length > 0) ||
       (filters.tags && filters.tags.length > 0) ||
+      (filters.stack && filters.stack.length > 0) ||
       filters.location != null,
   );
 }

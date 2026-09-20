@@ -25,6 +25,8 @@ import { T } from "@/components/t";
 import Link from "next/link";
 import { JOB_LANDINGS } from "@/lib/seo/job-landings";
 import { FACT_LANDINGS } from "@/lib/seo/fact-landings";
+import { TECH_LANDINGS } from "@/lib/seo/tech-landings";
+import { StackChips } from "@/components/stack-chips";
 import { buildSiteJsonLd } from "@/lib/seo/jsonld";
 
 const SITE_URL = "https://jobs.a1appp.com";
@@ -76,6 +78,9 @@ export default async function HomePage({ searchParams }: Props) {
   const { posts, hasMore, total } = await fetchFeedPage("hiring", pageToCursor(page), filters);
   const totalPages = Math.max(1, Math.ceil(total / FEED_PAGE_SIZE));
   const currentCategory = filters.categories?.[0];
+  // Слаги для чипов берём из адреса напрямую: parseFeedFilters отдаёт
+  // канонические имена ("Go"), а чипы живут по слагам ("golang").
+  const selectedStack = params.getAll("stack").filter((slug) => TECH_LANDINGS.some((item) => item.slug === slug));
   // Real per-avatar blur (lib/avatar-blur.ts) instead of the generic
   // shared shimmer — see that file's comment for why this lives here
   // rather than inside PostCard itself.
@@ -138,6 +143,14 @@ export default async function HomePage({ searchParams }: Props) {
           </Link>
         ))}
       </nav>
+
+      {/* 2026-09-20: ряд чипов со стеком. Не ссылки, а переключатели --
+          почему так и почему отдельным рядом, см. шапку
+          components/stack-chips.tsx. Выдача со стеком закрыта от
+          индексации тем же правилом, что и любая отфильтрованная
+          (hasActiveFilters выше), поэтому веса эти кнопки не теряют --
+          вес по стеку носят посадочные /jobs/stack/<slug>. */}
+      <StackChips basePath="/" selected={selectedStack} />
 
       <Filters
         kind="hiring"
