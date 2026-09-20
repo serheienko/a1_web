@@ -48,41 +48,49 @@ export type CloudAccount = z.infer<typeof CloudAccountSchema>;
 let cached: { at: number; rows: CloudAccount[] } | null = null;
 let loading: Promise<CloudAccount[]> | null = null;
 
-/** Хосты хранилища: основной вычисляется из самого токена
- *  (vercel_blob_rw_<идентификатор хранилища>_<случайное>), запасные --
- *  публичный и общий. Так не нужна отдельная переменная с адресом.
- *
- *  Хранилище заведено ПРИВАТНЫМ (20.09.2026): читать можно только с
- *  токеном, поэтому и адрес private, и заголовок с токеном мы шлём в
- *  обоих запросах ниже. */
-function hostsFor(token: string): string[] {
+// 20.09.2026, ВТОРОЙ ЗАХОД. Первая версия ходила на
+// blob.vercel-storage.com -- этот адрес больше не отвечает на такие
+// запросы («Cannot get store id from token or header»). Настоящий
+// адрес API, версия и заголовок с номером хранилища взяты из
+// исходников официальной библиотеки @vercel/blob
+// (packages/blob/src/{helpers,api,list}.ts). Парсер пишет в тот же
+// адрес -- accounts_store.py, держим их в согласии.
+const BLOB_API = "https://vercel.com/api/blob";
+const BLOB_API_VERSION = "12";
+
+/** Номер хранилища зашит в сам токен: vercel_blob_rw_<номер>_<случайное>. */
+function storeIdFrom(token: string): string {
   const parts = token.split("_");
-  const store = parts.length > 3 ? parts[3] : "";
-  const hosts: string[] = [];
-  if (store) {
-    hosts.push(`https://${store}.private.blob.vercel-storage.com`);
-    hosts.push(`https://${store}.public.blob.vercel-storage.com`);
-  }
-  hosts.push("https://blob.vercel-storage.com");
-  return hosts;
+  const raw = parts.length > 3 ? (parts[3] ?? "") : "";
+  return raw.startsWith("store_") ? raw.slice("store_".length) : raw;
+}
+
+function apiHeaders(token: string): Record<string, string> {
+  return {
+    authorization: `Bearer ${token}`,
+    "x-api-version": BLOB_API_VERSION,
+    "x-vercel-blob-store-id": storeIdFrom(token),
+  };
 }
 
 async function findBlobUrl(token: string): Promise<string | null> {
-  for (const host of hostsFor(token)) {
-    try {
-      const res = await fetch(`${host}/?prefix=${encodeURIComponent(BLOB_PATHNAME)}&limit=10`, {
-        headers: { authorization: `Bearer ${token}` },
-        cache: "no-store",
-      });
-      if (!res.ok) continue;
-      const data = (await res.json()) as { blobs?: Array<{ pathname?: string; url?: string }> };
-      const hit = (data.blobs ?? []).find((b) => b.pathname === BLOB_PATHNAME) ?? (data.blobs ?? [])[0];
-      if (hit?.url) return hit.url;
-    } catch {
-      // следующий хост
-    }
+  const qs = new URLSearchParams({ prefix: BLOB_PATHNAME, limit: "10" });
+  try {
+    const res = await fetch(`${BLOB_API}?${qs.toString()}`, {
+      headers: apiHeaders(token),
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      blobs?: Array<{ pathname?: string; url?: string; downloadUrl?: string }>;
+    };
+    const list = data.blobs ?? [];
+    const hit = list.find((b) => b.pathname === BLOB_PATHNAME) ?? list[0];
+    // downloadUrl отдаёт файл как вложение -- нам всё равно, читаем байты.
+    return hit?.downloadUrl ?? hit?.url ?? null;
+  } catch {
+    return null;
   }
-  return null;
 }
 
 function decrypt(payload: Buffer, secret: string): string | null {
