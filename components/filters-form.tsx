@@ -171,7 +171,7 @@ export function FiltersForm({
   tags,
   currentQuery,
   currentCategory,
-  stackVisible = false,
+  itCategoryValue,
   currentStack = [],
   currentTags,
   currentLocation,
@@ -185,8 +185,9 @@ export function FiltersForm({
   tags: Tag[];
   currentQuery?: string;
   currentCategory?: number;
-  /** Показывать ли блок стека -- решает сервер: он знает id категории IT. */
-  stackVisible?: boolean;
+  /** id категории IT. Считает сервер (components/filters.tsx): список категорий
+   *  приходит с бэкенда, и его номера нам никто не обещал. */
+  itCategoryValue?: number;
   /** Выбранные слаги стека из адреса. */
   currentStack?: string[];
   currentTags: string[];
@@ -711,13 +712,20 @@ export function FiltersForm({
   // Видимость и выбранное приходят с сервера (components/filters.tsx), а не
   // считаются здесь из window: иначе первый отрисованный на сервере вариант и
   // первый клиентский расходятся, и React ругается на несовпадение.
+  //
+  // ГДЕ ОН СТОИТ. Сначала я вынес его отдельной секцией под список категорий
+  // -- логично по смыслу и бесполезно на деле: категорий тридцать девять, и
+  // блок уезжал за нижний край панели, Александр его просто не нашёл. Потом
+  // поднял секцию выше списка. Итоговое решение его же: «показывай сразу под
+  // категорией IT после выбора, прям влазь в общий список, так более нативно».
+  // Поэтому блок рисуется ВНУТРИ списка, прямо под выбранной строкой IT --
+  // там, куда человек только что нажал и куда он и так смотрит.
+  const stackVisible = currentCategory != null && currentCategory === itCategoryValue;
+
   const stackSectionBody = stackVisible ? (
-    <>
-      <div className="my-2 border-t border-neutral-100 dark:border-neutral-800" />
-      <div className="px-1 pb-1">
-        <StackChips basePath={basePath} selected={currentStack} variant="panel" />
-      </div>
-    </>
+    <div className="mt-1 mb-1 rounded-md bg-accent/5 px-2 pb-2 pt-2">
+      <StackChips basePath={basePath} selected={currentStack} variant="panel" />
+    </div>
   ) : null;
 
   // Category list, shared verbatim between the mobile and desktop
@@ -738,28 +746,34 @@ export function FiltersForm({
 
         if (isSelected) {
           return (
-            <div key={c.value} className="flex items-center rounded-md bg-accent/10 transition">
-              <button
-                type="button"
-                onClick={() => {
-                  onCategoryChange("");
-                  setFiltersOpen(false);
-                }}
-                className="min-w-0 flex-1 truncate px-2 py-1.5 text-left text-sm font-medium text-accent"
-              >
-                {translateCategoryLabel(c.text, lang)}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  onCategoryChange("");
-                  setFiltersOpen(false);
-                }}
-                aria-label={FILTERS_FORM_STRINGS.clear[lang]}
-                className="mr-1 shrink-0 rounded p-1 text-accent transition hover:opacity-70"
-              >
-                <ClearIcon className="h-4 w-4" />
-              </button>
+            <div key={c.value}>
+              <div className="flex items-center rounded-md bg-accent/10 transition">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onCategoryChange("");
+                    setFiltersOpen(false);
+                  }}
+                  className="min-w-0 flex-1 truncate px-2 py-1.5 text-left text-sm font-medium text-accent"
+                >
+                  {translateCategoryLabel(c.text, lang)}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onCategoryChange("");
+                    setFiltersOpen(false);
+                  }}
+                  aria-label={FILTERS_FORM_STRINGS.clear[lang]}
+                  className="mr-1 shrink-0 rounded p-1 text-accent transition hover:opacity-70"
+                >
+                  <ClearIcon className="h-4 w-4" />
+                </button>
+              </div>
+              {/* Уточнение стека -- сразу под выбранной категорией, внутри
+                  списка. Пока выбрана не IT, stackSectionBody равен null и
+                  здесь не появляется ничего. */}
+              {stackSectionBody}
             </div>
           );
         }
@@ -771,7 +785,11 @@ export function FiltersForm({
             disabled={isEmpty}
             onClick={() => {
               onCategoryChange(String(c.value));
-              setFiltersOpen(false);
+              // 2026-09-20: выбор IT панель НЕ закрывает -- под этой строкой
+              // тут же раскрывается стек, и закрыть её значило бы спрятать то,
+              // ради чего человек сюда и шёл. Остальные категории закрывают,
+              // как и раньше: выбирать там больше нечего.
+              if (c.value !== itCategoryValue) setFiltersOpen(false);
             }}
             className={
               "block w-full truncate rounded-md px-2 py-1.5 text-left text-sm transition " +
@@ -1046,7 +1064,6 @@ export function FiltersForm({
                 {locationSectionBody}
                 {tagChipsBody}
                 {categoryListBody}
-                {stackSectionBody}
               </div>
             )}
           </div>
@@ -1162,7 +1179,6 @@ export function FiltersForm({
                   {locationSectionBody}
                   {tagChipsBody}
                   {categoryListBody}
-                  {stackSectionBody}
                 </div>
               )}
             </div>

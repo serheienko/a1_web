@@ -28,6 +28,8 @@ import { PostsSearchOutputSchema } from "./schemas";
 import type { WebPost, WebPostKind } from "@/types/web-post";
 import { extractTechTags } from "@/lib/seo/job-tech-tags";
 import { TECH_LANDINGS } from "@/lib/seo/tech-landings";
+import { fetchStackIndex } from "./stack-index";
+import { fetchPostsByIds } from "./posts";
 
 // 2026-09-05 (Aleksandr: "не загружай всю ленту сразу, а показывай
 // только постов 30... подгрузку и пагинацию") -- bumped from the
@@ -285,6 +287,24 @@ export async function fetchFeedPage(
       next: hasMore ? `${LOCAL_CURSOR_PREFIX}${nextOffset}` : null,
       hasMore,
       total,
+    };
+  }
+
+  // Стек без текстового поиска -- быстрый путь: общий указатель (id +
+  // технологии) вместо чтения всей ленты. Почему так -- в шапке
+  // lib/a1/stack-index.ts. Вместе с поиском по тексту указатель не поможет:
+  // там нужен сам текст, поэтому такая пара по-прежнему идёт обходом ниже.
+  if (hasStack && !needle) {
+    const stack = filters.stack ?? [];
+    const index = await fetchStackIndex(scanCacheKey(kind, filters), filterParams(kind, filters));
+    const matched = index.filter((entry) => stack.some((tech) => entry.techs.includes(tech)));
+    const hasMoreByIndex = nextOffset < matched.length;
+
+    return {
+      posts: await fetchPostsByIds(matched.slice(offset, nextOffset).map((entry) => entry.id)),
+      next: hasMoreByIndex ? `${LOCAL_CURSOR_PREFIX}${nextOffset}` : null,
+      hasMore: hasMoreByIndex,
+      total: matched.length,
     };
   }
 

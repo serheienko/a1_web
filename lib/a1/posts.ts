@@ -29,3 +29,33 @@ export const fetchPostById = cache(async function fetchPostById(id: string): Pro
   if (!post) return null;
   return mapPost(post);
 });
+
+/**
+ * Вакансии по списку id, одним запросом, в том же порядке, в каком id пришли.
+ *
+ * 2026-09-20. Нужен фильтру по стеку: указатель (lib/a1/stack-index.ts) знает
+ * только имена подходящих вакансий, и на страницу их нужно ровно двадцать --
+ * читать ради этого всю ленту незачем.
+ *
+ * Пропавшие (удалённые, снятые с публикации, не прошедшие разбор) молча
+ * выпадают: страница тогда короче двадцати, и это честнее, чем показать
+ * пустую карточку. posts.get и для одной вакансии отдаёт массив -- см.
+ * fetchPostById выше.
+ */
+export async function fetchPostsByIds(ids: string[]): Promise<WebPost[]> {
+  if (ids.length === 0) return [];
+
+  const raw = await call<unknown>("posts.get", { ids });
+  const items = Array.isArray(raw) ? raw : [];
+
+  const byId = new Map<string, WebPost>();
+  for (const item of items) {
+    const parsed = parsePost(item);
+    if (!parsed) continue;
+    const post = mapPost(parsed);
+    if (!post) continue; // publish gate / legacy type -- такая же проверка, как в fetchPostById
+    byId.set(post.id, post);
+  }
+
+  return ids.map((id) => byId.get(id)).filter((post): post is WebPost => post !== undefined);
+}

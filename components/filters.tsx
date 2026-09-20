@@ -51,7 +51,7 @@ export async function Filters({
       currentLocation={currentLocation}
       currentLocationLabel={currentLocationLabel}
       emptyCategoryValues={emptyCategoryValues}
-      stackVisible={currentCategory != null && currentCategory === itCategoryValue(categories)}
+      itCategoryValue={itCategoryValue(categories)}
       currentStack={currentStack}
     />
   );
