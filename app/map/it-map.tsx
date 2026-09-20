@@ -526,18 +526,18 @@ export function ItMap({ data, heads }: {
           ))}
         </div>
         <div className="overflow-x-auto rounded-2xl border border-neutral-200 dark:border-white/10">
-          <table className="w-full min-w-[32rem] border-collapse bg-white text-sm dark:bg-white/[0.04]">
+          <table className="w-full border-collapse bg-white text-sm sm:min-w-[32rem] dark:bg-white/[0.04]">
             <thead>
               <tr className="text-xs uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
                 <th className="border-b border-neutral-200 px-4 py-3 text-left font-bold dark:border-white/10">{t("city")}</th>
                 <th className="border-b border-neutral-200 px-4 py-3 text-right font-bold dark:border-white/10">{t("devs")}</th>
-                <th className="border-b border-neutral-200 px-4 py-3 text-right font-bold dark:border-white/10">{t("open")}</th>
+                <th className="hidden border-b border-neutral-200 px-4 py-3 text-right font-bold sm:table-cell dark:border-white/10">{t("open")}</th>
                 <th className="border-b border-neutral-200 px-4 py-3 text-right font-bold dark:border-white/10">{t("share")}</th>
               </tr>
             </thead>
             <tbody>
               {cities.filter((x) => x.n >= 30 && x.country === tab)
-                .sort((a, b) => b.hire / b.n - a.hire / a.n)
+                .sort((a, b) => b.n - a.n)
                 .map((x) => {
                   const pct = Math.round((x.hire / x.n) * 100);
                   return (
@@ -558,7 +558,7 @@ export function ItMap({ data, heads }: {
                         {x.name}
                       </td>
                       <td className="border-b border-neutral-100 px-4 py-2.5 text-right tabular-nums dark:border-white/5">{nf(x.n)}</td>
-                      <td className="border-b border-neutral-100 px-4 py-2.5 text-right tabular-nums dark:border-white/5">{nf(x.hire)}</td>
+                      <td className="hidden border-b border-neutral-100 px-4 py-2.5 text-right tabular-nums sm:table-cell dark:border-white/5">{nf(x.hire)}</td>
                       <td className="border-b border-neutral-100 px-4 py-2.5 dark:border-white/5">
                         <div className="flex items-center justify-end gap-2">
                           <div className="hidden h-1.5 w-20 overflow-hidden rounded-full bg-white sm:block dark:bg-white/10">
