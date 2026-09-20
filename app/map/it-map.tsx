@@ -511,14 +511,19 @@ export function ItMap({ data, heads }: {
           </h2>
           <p className="mt-2 mb-8 max-w-2xl text-neutral-500 dark:text-neutral-400">{heads.open.note}</p>
         </header>
-        <div ref={openRef} className="mb-4 inline-flex rounded-xl border border-neutral-200 p-1 dark:border-white/10">
+        {/* Aleksandr, 2026-09-20: «сделай, как у нас там на вакансии и
+            фахівці, она таким синим цветом чуть приглушённым» — те же
+            классы, что и у пилюли в шапке сайта (components/site-nav.tsx):
+            круглая подложка, активная кнопка залита accent на 15%. */}
+        <div ref={openRef}
+             className="mb-5 inline-flex h-11 items-center gap-1 rounded-full border border-neutral-200 bg-white p-1 dark:border-white/10 dark:bg-neutral-900">
           {([["UA", "\u{1F1FA}\u{1F1E6}", t("ua")], ["PL", "\u{1F1F5}\u{1F1F1}", t("pl")]] as const).map(([k, flag, label]) => (
             <button key={k} type="button" onClick={() => setTab(k)}
                     aria-pressed={tab === k}
-                    className={`flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                    className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition sm:px-6 ${
                       tab === k
-                        ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
-                        : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+                        ? "bg-accent/15 text-accent"
+                        : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50"
                     }`}>
               <span aria-hidden>{flag}</span>
               {label}
