@@ -152,14 +152,20 @@ export default function MapPage() {
                      zh="人自己勾选了该标记" /></>}
           />
           <Stat
-            value={<Counter to={D.avgRepos} decimals={1} />}
-            label={<T uk="Проєктів на людину" en="Projects per person" ru="Проектов на человека"
-                      de="Projekte pro Person" es="Proyectos por persona" fr="Projets par personne"
-                      pl="Projektów na osobę" ptBR="Projetos por pessoa" zh="人均项目数" />}
-            note={<T uk="у середньому, відкритих" en="public ones, on average"
-                     ru="в среднем, открытых" de="im Schnitt, öffentlich"
-                     es="públicos, en promedio" fr="publics, en moyenne"
-                     pl="publicznych, średnio" ptBR="públicos, em média" zh="公开项目，平均" />}
+            value={<Counter to={D.medianRepos} />}
+            label={<T uk="Медіана репозиторіїв" en="Median repositories" ru="Медиана репозиториев"
+                      de="Median der Repositorys" es="Mediana de repositorios"
+                      fr="Médiane des dépôts" pl="Mediana repozytoriów"
+                      ptBR="Mediana de repositórios" zh="仓库数中位数" />}
+            note={<T uk="половина має більше, половина менше — середнє тут брехало б, його задирає хвіст"
+                     en="half have more, half have fewer — an average would mislead, the long tail inflates it"
+                     ru="половина имеет больше, половина меньше — среднее здесь врало бы, его задирает хвост"
+                     de="die Hälfte hat mehr, die Hälfte weniger — ein Mittelwert wäre irreführend, der lange Schwanz verzerrt ihn"
+                     es="la mitad tiene más, la mitad menos — la media engañaría, la cola larga la infla"
+                     fr="la moitié en a plus, la moitié moins — une moyenne induirait en erreur, la longue traîne la gonfle"
+                     pl="połowa ma więcej, połowa mniej — średnia wprowadzałaby w błąd, zawyża ją długi ogon"
+                     ptBR="metade tem mais, metade tem menos — uma média enganaria, a cauda longa a infla"
+                     zh="一半的人更多，一半更少——用平均数会误导，长尾会把它抬高" />}
           />
         </div>
       </header>

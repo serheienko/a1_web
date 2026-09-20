@@ -1,21 +1,22 @@
 {
  "generated": "2026-09-20",
  "found": 51480,
- "total": 43514,
- "hireable": 9323,
- "avgRepos": 25.9,
+ "total": 45153,
+ "hireable": 9532,
+ "avgRepos": 25.6,
+ "medianRepos": 16,
  "country": {
-  "UA": 19991,
+  "UA": 21630,
   "PL": 23519
  },
  "languages": [
   [
    "JavaScript",
-   10797
+   10838
   ],
   [
    "Java",
-   8098
+   8323
   ],
   [
    "Python",
@@ -23,19 +24,19 @@
   ],
   [
    "C++",
-   4165
+   4404
   ],
   [
    "C#",
-   3823
+   4198
   ],
   [
    "PHP",
-   3522
+   3933
   ],
   [
    "Ruby",
-   1980
+   2128
   ],
   [
    "TypeScript",
@@ -43,38 +44,38 @@
   ],
   [
    "Swift",
-   634
+   707
   ],
   [
    "Go",
-   438
+   484
   ],
   [
    "Kotlin",
-   238
+   270
   ],
   [
    "Scala",
-   234
+   243
   ]
  ],
  "langByCountry": {
   "UA": {
-   "JavaScript": 5752,
+   "JavaScript": 5793,
    "TypeScript": 687,
    "Python": 3497,
-   "Java": 3602,
-   "C#": 1606,
-   "PHP": 1755,
-   "Go": 196,
-   "Swift": 315,
-   "Dart": 49,
-   "Ruby": 811,
-   "Rust": 78,
-   "C++": 1477,
-   "Scala": 53,
-   "Elixir": 12,
-   "Kotlin": 101
+   "Java": 3827,
+   "C#": 1981,
+   "PHP": 2166,
+   "Go": 242,
+   "Swift": 388,
+   "Dart": 68,
+   "Ruby": 959,
+   "Rust": 97,
+   "C++": 1716,
+   "Scala": 62,
+   "Elixir": 14,
+   "Kotlin": 133
   },
   "PL": {
    "TypeScript": 526,
@@ -95,6 +96,37 @@
   }
  },
  "cities": [
+  {
+   "key": "kyiv",
+   "name": "Kyiv",
+   "country": "UA",
+   "lat": 50.45,
+   "lon": 30.52,
+   "n": 6633,
+   "hire": 1357,
+   "langs": [
+    [
+     "JavaScript",
+     1871
+    ],
+    [
+     "Java",
+     1284
+    ],
+    [
+     "Python",
+     1086
+    ],
+    [
+     "C#",
+     605
+    ],
+    [
+     "PHP",
+     579
+    ]
+   ]
+  },
   {
    "key": "warsaw",
    "name": "Warsaw",
@@ -123,37 +155,6 @@
     [
      "C#",
      520
-    ]
-   ]
-  },
-  {
-   "key": "kyiv",
-   "name": "Kyiv",
-   "country": "UA",
-   "lat": 50.45,
-   "lon": 30.52,
-   "n": 6257,
-   "hire": 1306,
-   "langs": [
-    [
-     "JavaScript",
-     1830
-    ],
-    [
-     "Java",
-     1232
-    ],
-    [
-     "Python",
-     1086
-    ],
-    [
-     "C#",
-     520
-    ],
-    [
-     "C++",
-     498
     ]
    ]
   },
@@ -194,8 +195,8 @@
    "country": "UA",
    "lat": 49.84,
    "lon": 24.03,
-   "n": 2058,
-   "hire": 344,
+   "n": 2164,
+   "hire": 356,
    "langs": [
     [
      "JavaScript",
@@ -207,15 +208,15 @@
     ],
     [
      "Java",
-     388
+     403
     ],
     [
      "C++",
-     181
+     201
     ],
     [
      "C#",
-     177
+     195
     ]
    ]
   },
@@ -256,8 +257,8 @@
    "country": "UA",
    "lat": 49.99,
    "lon": 36.23,
-   "n": 1105,
-   "hire": 184,
+   "n": 1203,
+   "hire": 199,
    "langs": [
     [
      "JavaScript",
@@ -265,19 +266,19 @@
     ],
     [
      "Java",
-     210
+     227
+    ],
+    [
+     "PHP",
+     152
     ],
     [
      "Python",
      138
     ],
     [
-     "PHP",
-     120
-    ],
-    [
      "C#",
-     104
+     122
     ]
    ]
   },
@@ -313,6 +314,37 @@
    ]
   },
   {
+   "key": "odesa",
+   "name": "Odesa",
+   "country": "UA",
+   "lat": 46.48,
+   "lon": 30.73,
+   "n": 904,
+   "hire": 157,
+   "langs": [
+    [
+     "Java",
+     209
+    ],
+    [
+     "JavaScript",
+     205
+    ],
+    [
+     "Python",
+     126
+    ],
+    [
+     "PHP",
+     106
+    ],
+    [
+     "C#",
+     84
+    ]
+   ]
+  },
+  {
    "key": "gdansk",
    "name": "Gdańsk",
    "country": "PL",
@@ -344,44 +376,13 @@
    ]
   },
   {
-   "key": "odesa",
-   "name": "Odesa",
-   "country": "UA",
-   "lat": 46.48,
-   "lon": 30.73,
-   "n": 846,
-   "hire": 147,
-   "langs": [
-    [
-     "JavaScript",
-     205
-    ],
-    [
-     "Java",
-     199
-    ],
-    [
-     "Python",
-     126
-    ],
-    [
-     "PHP",
-     93
-    ],
-    [
-     "C++",
-     74
-    ]
-   ]
-  },
-  {
    "key": "dnipro",
    "name": "Dnipro",
    "country": "UA",
    "lat": 48.46,
    "lon": 35.04,
-   "n": 544,
-   "hire": 91,
+   "n": 594,
+   "hire": 96,
    "langs": [
     [
      "JavaScript",
@@ -389,7 +390,7 @@
     ],
     [
      "Java",
-     112
+     120
     ],
     [
      "Python",
@@ -397,11 +398,11 @@
     ],
     [
      "C#",
-     50
+     62
     ],
     [
      "PHP",
-     44
+     56
     ]
    ]
   },
@@ -535,8 +536,8 @@
    "country": "UA",
    "lat": 49.23,
    "lon": 28.47,
-   "n": 159,
-   "hire": 30,
+   "n": 165,
+   "hire": 31,
    "langs": [
     [
      "JavaScript",
@@ -555,8 +556,39 @@
      12
     ],
     [
+     "PHP",
+     10
+    ]
+   ]
+  },
+  {
+   "key": "ivano-frankivsk",
+   "name": "Ivano-Frankivsk",
+   "country": "UA",
+   "lat": 48.92,
+   "lon": 24.71,
+   "n": 148,
+   "hire": 28,
+   "langs": [
+    [
+     "JavaScript",
+     40
+    ],
+    [
+     "Java",
+     38
+    ],
+    [
+     "Python",
+     16
+    ],
+    [
      "C#",
-     9
+     13
+    ],
+    [
+     "Ruby",
+     12
     ]
    ]
   },
@@ -623,33 +655,33 @@
    ]
   },
   {
-   "key": "ivano-frankivsk",
-   "name": "Ivano-Frankivsk",
+   "key": "ternopil",
+   "name": "Ternopil",
    "country": "UA",
-   "lat": 48.92,
-   "lon": 24.71,
-   "n": 132,
-   "hire": 26,
+   "lat": 49.55,
+   "lon": 25.59,
+   "n": 128,
+   "hire": 18,
    "langs": [
     [
      "JavaScript",
-     40
-    ],
-    [
-     "Java",
-     34
+     42
     ],
     [
      "Python",
-     16
-    ],
-    [
-     "Ruby",
-     11
+     18
     ],
     [
      "PHP",
-     8
+     17
+    ],
+    [
+     "C#",
+     14
+    ],
+    [
+     "C++",
+     10
     ]
    ]
   },
@@ -680,37 +712,6 @@
     ],
     [
      "Ruby",
-     9
-    ]
-   ]
-  },
-  {
-   "key": "ternopil",
-   "name": "Ternopil",
-   "country": "UA",
-   "lat": 49.55,
-   "lon": 25.59,
-   "n": 117,
-   "hire": 18,
-   "langs": [
-    [
-     "JavaScript",
-     42
-    ],
-    [
-     "Python",
-     18
-    ],
-    [
-     "PHP",
-     14
-    ],
-    [
-     "C#",
-     10
-    ],
-    [
-     "Java",
      9
     ]
    ]
@@ -752,59 +753,28 @@
    "country": "UA",
    "lat": 50.62,
    "lon": 26.25,
-   "n": 97,
-   "hire": 14,
+   "n": 106,
+   "hire": 15,
    "langs": [
     [
      "JavaScript",
      23
+    ],
+    [
+     "C++",
+     22
     ],
     [
      "Python",
      21
     ],
     [
-     "C++",
-     20
-    ],
-    [
-     "PHP",
-     11
-    ],
-    [
      "C#",
-     10
-    ]
-   ]
-  },
-  {
-   "key": "cherkasy",
-   "name": "Cherkasy",
-   "country": "UA",
-   "lat": 49.44,
-   "lon": 32.06,
-   "n": 97,
-   "hire": 19,
-   "langs": [
-    [
-     "JavaScript",
-     23
-    ],
-    [
-     "Java",
-     20
-    ],
-    [
-     "Ruby",
-     17
+     14
     ],
     [
      "PHP",
-     17
-    ],
-    [
-     "Python",
-     8
+     13
     ]
    ]
   },
@@ -814,7 +784,7 @@
    "country": "UA",
    "lat": 48.29,
    "lon": 25.94,
-   "n": 95,
+   "n": 104,
    "hire": 13,
    "langs": [
     [
@@ -827,11 +797,42 @@
     ],
     [
      "C#",
-     11
+     14
     ],
     [
      "PHP",
-     9
+     12
+    ],
+    [
+     "C++",
+     8
+    ]
+   ]
+  },
+  {
+   "key": "cherkasy",
+   "name": "Cherkasy",
+   "country": "UA",
+   "lat": 49.44,
+   "lon": 32.06,
+   "n": 103,
+   "hire": 20,
+   "langs": [
+    [
+     "JavaScript",
+     23
+    ],
+    [
+     "Java",
+     21
+    ],
+    [
+     "Ruby",
+     19
+    ],
+    [
+     "PHP",
+     18
     ],
     [
      "Python",
@@ -907,8 +908,8 @@
    "country": "UA",
    "lat": 47.84,
    "lon": 35.14,
-   "n": 70,
-   "hire": 6,
+   "n": 76,
+   "hire": 7,
    "langs": [
     [
      "JavaScript",
@@ -919,12 +920,12 @@
      15
     ],
     [
-     "C++",
-     9
+     "PHP",
+     13
     ],
     [
-     "PHP",
-     9
+     "C++",
+     10
     ],
     [
      "Java",
@@ -938,8 +939,8 @@
    "country": "UA",
    "lat": 46.98,
    "lon": 31.99,
-   "n": 64,
-   "hire": 9,
+   "n": 70,
+   "hire": 10,
    "langs": [
     [
      "JavaScript",
@@ -947,19 +948,112 @@
     ],
     [
      "Java",
-     16
+     17
+    ],
+    [
+     "C++",
+     9
     ],
     [
      "Python",
      8
     ],
     [
-     "C++",
-     8
+     "PHP",
+     7
+    ]
+   ]
+  },
+  {
+   "key": "lutsk",
+   "name": "Lutsk",
+   "country": "UA",
+   "lat": 50.75,
+   "lon": 25.34,
+   "n": 64,
+   "hire": 9,
+   "langs": [
+    [
+     "JavaScript",
+     17
     ],
     [
      "PHP",
-     6
+     16
+    ],
+    [
+     "Python",
+     12
+    ],
+    [
+     "C#",
+     9
+    ],
+    [
+     "Java",
+     5
+    ]
+   ]
+  },
+  {
+   "key": "poltava",
+   "name": "Poltava",
+   "country": "UA",
+   "lat": 49.59,
+   "lon": 34.55,
+   "n": 63,
+   "hire": 13,
+   "langs": [
+    [
+     "JavaScript",
+     22
+    ],
+    [
+     "Python",
+     13
+    ],
+    [
+     "Java",
+     7
+    ],
+    [
+     "C#",
+     7
+    ],
+    [
+     "PHP",
+     5
+    ]
+   ]
+  },
+  {
+   "key": "sumy",
+   "name": "Sumy",
+   "country": "UA",
+   "lat": 50.91,
+   "lon": 34.8,
+   "n": 63,
+   "hire": 12,
+   "langs": [
+    [
+     "JavaScript",
+     18
+    ],
+    [
+     "Java",
+     11
+    ],
+    [
+     "PHP",
+     9
+    ],
+    [
+     "Python",
+     8
+    ],
+    [
+     "C#",
+     8
     ]
    ]
   },
@@ -969,12 +1063,12 @@
    "country": "UA",
    "lat": 49.42,
    "lon": 26.99,
-   "n": 60,
+   "n": 61,
    "hire": 12,
    "langs": [
     [
      "PHP",
-     22
+     23
     ],
     [
      "JavaScript",
@@ -995,94 +1089,32 @@
    ]
   },
   {
-   "key": "poltava",
-   "name": "Poltava",
+   "key": "zhytomyr",
+   "name": "Zhytomyr",
    "country": "UA",
-   "lat": 49.59,
-   "lon": 34.55,
-   "n": 58,
-   "hire": 12,
+   "lat": 50.25,
+   "lon": 28.66,
+   "n": 52,
+   "hire": 10,
    "langs": [
     [
      "JavaScript",
-     22
-    ],
-    [
-     "Python",
-     13
-    ],
-    [
-     "Java",
-     7
+     19
     ],
     [
      "C#",
+     7
+    ],
+    [
+     "PHP",
+     6
+    ],
+    [
+     "Python",
      5
     ],
     [
-     "TypeScript",
-     3
-    ]
-   ]
-  },
-  {
-   "key": "lutsk",
-   "name": "Lutsk",
-   "country": "UA",
-   "lat": 50.75,
-   "lon": 25.34,
-   "n": 58,
-   "hire": 8,
-   "langs": [
-    [
-     "JavaScript",
-     17
-    ],
-    [
-     "PHP",
-     12
-    ],
-    [
-     "Python",
-     12
-    ],
-    [
-     "C#",
-     8
-    ],
-    [
-     "Java",
-     4
-    ]
-   ]
-  },
-  {
-   "key": "sumy",
-   "name": "Sumy",
-   "country": "UA",
-   "lat": 50.91,
-   "lon": 34.8,
-   "n": 53,
-   "hire": 11,
-   "langs": [
-    [
-     "JavaScript",
-     18
-    ],
-    [
-     "Java",
-     10
-    ],
-    [
-     "Python",
-     8
-    ],
-    [
-     "PHP",
-     7
-    ],
-    [
-     "C#",
+     "Ruby",
      4
     ]
    ]
@@ -1124,12 +1156,12 @@
    "country": "UA",
    "lat": 48.62,
    "lon": 22.29,
-   "n": 45,
+   "n": 46,
    "hire": 7,
    "langs": [
     [
      "Java",
-     13
+     14
     ],
     [
      "JavaScript",
@@ -1150,79 +1182,17 @@
    ]
   },
   {
-   "key": "zhytomyr",
-   "name": "Zhytomyr",
-   "country": "UA",
-   "lat": 50.25,
-   "lon": 28.66,
-   "n": 44,
-   "hire": 10,
-   "langs": [
-    [
-     "JavaScript",
-     19
-    ],
-    [
-     "Python",
-     5
-    ],
-    [
-     "PHP",
-     5
-    ],
-    [
-     "C#",
-     4
-    ],
-    [
-     "C++",
-     3
-    ]
-   ]
-  },
-  {
-   "key": "kherson",
-   "name": "Kherson",
-   "country": "UA",
-   "lat": 46.64,
-   "lon": 32.61,
-   "n": 40,
-   "hire": 6,
-   "langs": [
-    [
-     "JavaScript",
-     16
-    ],
-    [
-     "Java",
-     8
-    ],
-    [
-     "Python",
-     5
-    ],
-    [
-     "TypeScript",
-     3
-    ],
-    [
-     "C++",
-     2
-    ]
-   ]
-  },
-  {
    "key": "kropyvnytskyi",
    "name": "Kropyvnytskyi",
    "country": "UA",
    "lat": 48.51,
    "lon": 32.26,
-   "n": 40,
+   "n": 44,
    "hire": 3,
    "langs": [
     [
      "C++",
-     13
+     16
     ],
     [
      "Python",
@@ -1238,6 +1208,37 @@
     ],
     [
      "Java",
+     3
+    ]
+   ]
+  },
+  {
+   "key": "kherson",
+   "name": "Kherson",
+   "country": "UA",
+   "lat": 46.64,
+   "lon": 32.61,
+   "n": 43,
+   "hire": 6,
+   "langs": [
+    [
+     "JavaScript",
+     16
+    ],
+    [
+     "Java",
+     10
+    ],
+    [
+     "Python",
+     5
+    ],
+    [
+     "TypeScript",
+     3
+    ],
+    [
+     "C++",
      3
     ]
    ]
@@ -1279,7 +1280,7 @@
    "country": "UA",
    "lat": 51.5,
    "lon": 31.29,
-   "n": 31,
+   "n": 38,
    "hire": 3,
    "langs": [
     [
@@ -1288,19 +1289,19 @@
     ],
     [
      "C++",
-     5
+     7
     ],
     [
      "Java",
-     4
+     6
+    ],
+    [
+     "PHP",
+     5
     ],
     [
      "Python",
      4
-    ],
-    [
-     "Ruby",
-     3
     ]
    ]
   },

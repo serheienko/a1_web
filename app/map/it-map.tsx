@@ -34,7 +34,8 @@ type City = {
 };
 
 export type MapData = {
-  generated: string; found: number; total: number; hireable: number; avgRepos: number;
+  generated: string; found: number; total: number; hireable: number;
+  avgRepos: number; medianRepos: number;
   country: Record<string, number>;
   languages: [string, number][];
   langByCountry: Record<string, Record<string, number>>;
@@ -76,6 +77,8 @@ const STR = {
     pl: "Miasto", ptBR: "Cidade", zh: "城市" },
   share: { uk: "Частка", en: "Share", ru: "Доля", de: "Anteil", es: "Proporción",
     fr: "Part", pl: "Udział", ptBR: "Proporção", zh: "比例" },
+  all: { uk: "Усі", en: "All", ru: "Все", de: "Alle", es: "Todos", fr: "Tous",
+    pl: "Wszystkie", ptBR: "Todos", zh: "全部" },
   open: { uk: "Відкриті", en: "Open", ru: "Открыты", de: "Offen", es: "Abiertos",
     fr: "Ouverts", pl: "Otwarci", ptBR: "Abertos", zh: "接受机会" },
 } as const;
@@ -166,6 +169,10 @@ export function ItMap({ data, heads }: {
   const cities = data.cities;
   const [sel, setSel] = useState(0);
   const [tip, setTip] = useState<number | null>(null);
+  // Таблица внизу сортируется по доле открытых к предложениям, и наверху
+  // оказываются одни польские города (Aleksandr, 2026-09-20: «а где тут
+  // переключатель на Украину?»). Поэтому — фильтр по стране.
+  const [tab, setTab] = useState<"all" | "UA" | "PL">("all");
 
   const geo = useMemo(() => {
     const W = 1000, H = 600, PAD = 62;
@@ -216,8 +223,11 @@ export function ItMap({ data, heads }: {
 
       {/* ---------- карта: тёмная панель-прибор в любой теме ---------- */}
       <div className="grid items-start gap-5 lg:grid-cols-[1fr_20rem]">
+        {/* Панель намеренно БЕЗ overflow-hidden: фон-градиент и так обрезается
+            скруглением, а overflow резал подсказку про город у крайних точек
+            (Aleksandr, 2026-09-20: «не влезло, показывай поверх»). */}
         <div
-          className="relative overflow-hidden rounded-3xl p-3 text-neutral-200 ring-1 ring-white/10"
+          className="rounded-3xl p-3 text-neutral-200 ring-1 ring-white/10"
           style={{
             background:
               "radial-gradient(900px 480px at 18% -10%, rgba(79,155,255,.20), transparent 60%)," +
@@ -230,6 +240,7 @@ export function ItMap({ data, heads }: {
             <span className="text-xs text-neutral-500">{t("areaNote")}</span>
           </div>
 
+          <div className="relative">
           <svg viewBox={`0 0 ${geo.W} ${geo.H}`} className="block h-auto w-full max-w-full"
                role="img" aria-label={`${t("ua")} / ${t("pl")}`}>
             <defs>
@@ -291,16 +302,23 @@ export function ItMap({ data, heads }: {
             })}
           </svg>
 
-          {tip !== null && (
-            <div className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-[130%] rounded-xl bg-white/95 px-3 py-2 text-sm text-neutral-900 shadow-xl backdrop-blur"
-                 style={{
-                   left: `${(geo.x(cities[tip]!.lon) / geo.W) * 100}%`,
-                   top: `${(geo.y(cities[tip]!.lat) / geo.H) * 100}%`,
-                 }}>
-              <b className="block">{cities[tip]!.name}</b>
-              <span className="text-neutral-500">{nf(cities[tip]!.n)} {t("devs")}</span>
-            </div>
-          )}
+          {tip !== null && (() => {
+            // Подсказка лежит поверх картинки и не обрезается. У городов
+            // с краю её сдвигаем внутрь, у верхних — переворачиваем вниз,
+            // иначе она вылезала бы за панель.
+            const lx = (geo.x(cities[tip]!.lon) / geo.W) * 100;
+            const ly = (geo.y(cities[tip]!.lat) / geo.H) * 100;
+            const below = ly < 20;
+            return (
+              <div
+                className={`pointer-events-none absolute z-30 -translate-x-1/2 rounded-xl bg-white px-3 py-2 text-sm whitespace-nowrap text-neutral-900 shadow-2xl ring-1 ring-black/10 ${below ? "translate-y-4" : "-translate-y-[135%]"}`}
+                style={{ left: `${Math.min(86, Math.max(14, lx))}%`, top: `${ly}%` }}>
+                <b className="block">{cities[tip]!.name}</b>
+                <span className="text-neutral-500">{nf(cities[tip]!.n)} {t("devs")}</span>
+              </div>
+            );
+          })()}
+          </div>
         </div>
 
         {/* карточка выбранного города */}
@@ -325,7 +343,7 @@ export function ItMap({ data, heads }: {
                   <span>{l[0]}</span>
                   <span className="tabular-nums text-neutral-500 dark:text-neutral-400">{nf(l[1])}</span>
                 </div>
-                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-neutral-100 dark:bg-white/10">
+                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white dark:bg-white/10">
                   <div className="h-full rounded-full transition-[width] duration-700 ease-out"
                        style={{ width: `${(l[1] / maxLang) * 100}%`,
                                 background: SERIES[i % SERIES.length]! }} />
@@ -361,7 +379,7 @@ export function ItMap({ data, heads }: {
             <div key={l[0]}
                  className="grid grid-cols-[6rem_1fr_6rem] items-center gap-3 sm:grid-cols-[8rem_1fr_7rem] sm:gap-4">
               <div className="truncate text-sm font-semibold">{l[0]}</div>
-              <div className="h-5 overflow-hidden rounded bg-neutral-100 dark:bg-white/10">
+              <div className="h-5 overflow-hidden rounded bg-white dark:bg-white/10">
                 <div className="h-full rounded-r transition-[width] duration-1000 ease-out"
                      style={{
                        width: grown ? `${(l[1] / langMax) * 100}%` : "0%",
@@ -401,7 +419,7 @@ export function ItMap({ data, heads }: {
                 <div className="flex flex-col gap-1">
                   {rows.map(([v, col], j) => (
                     <div key={j} className="grid grid-cols-[1fr_3.5rem] items-center gap-2">
-                      <div className="h-3 overflow-hidden rounded-sm bg-neutral-100 dark:bg-white/10">
+                      <div className="h-3 overflow-hidden rounded-sm bg-white dark:bg-white/10">
                         <div className="h-full rounded-r-sm transition-[width] duration-1000 ease-out"
                              style={{
                                width: grown ? `${(v / cmpMax) * 100}%` : "0%",
@@ -429,6 +447,19 @@ export function ItMap({ data, heads }: {
           </h2>
           <p className="mt-2 mb-8 max-w-2xl text-neutral-500 dark:text-neutral-400">{heads.open.note}</p>
         </header>
+        <div className="mb-4 inline-flex rounded-xl border border-neutral-200 p-1 dark:border-white/10">
+          {([["all", t("all")], ["UA", t("ua")], ["PL", t("pl")]] as const).map(([k, label]) => (
+            <button key={k} type="button" onClick={() => setTab(k)}
+                    aria-pressed={tab === k}
+                    className={`rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                      tab === k
+                        ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
+                        : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+                    }`}>
+              {label}
+            </button>
+          ))}
+        </div>
         <div className="overflow-x-auto rounded-2xl border border-neutral-200 dark:border-white/10">
           <table className="w-full min-w-[32rem] border-collapse bg-white text-sm dark:bg-white/[0.04]">
             <thead>
@@ -440,7 +471,7 @@ export function ItMap({ data, heads }: {
               </tr>
             </thead>
             <tbody>
-              {cities.filter((x) => x.n >= 30)
+              {cities.filter((x) => x.n >= 30 && (tab === "all" || x.country === tab))
                 .sort((a, b) => b.hire / b.n - a.hire / a.n)
                 .slice(0, 12)
                 .map((x) => {
@@ -456,7 +487,7 @@ export function ItMap({ data, heads }: {
                       <td className="border-b border-neutral-100 px-4 py-2.5 text-right tabular-nums dark:border-white/5">{nf(x.hire)}</td>
                       <td className="border-b border-neutral-100 px-4 py-2.5 dark:border-white/5">
                         <div className="flex items-center justify-end gap-2">
-                          <div className="hidden h-1.5 w-20 overflow-hidden rounded-full bg-neutral-100 sm:block dark:bg-white/10">
+                          <div className="hidden h-1.5 w-20 overflow-hidden rounded-full bg-white sm:block dark:bg-white/10">
                             <div className="h-full rounded-full bg-emerald-500 transition-[width] duration-1000 ease-out"
                                  style={{ width: grown ? `${Math.min(pct * 2.2, 100)}%` : "0%" }} />
                           </div>
