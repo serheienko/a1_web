@@ -25,7 +25,7 @@
 // anything read; opening the admin page must not change what the
 // company sees when it finally claims the account).
 import { call, A1ApiError } from "./client";
-import { loadTechnicalAccounts, type TechnicalAccount } from "./admin-accounts";
+import { loadAllTechnicalAccounts, type TechnicalAccount } from "./admin-accounts";
 import { parseUserProfile } from "./schemas";
 import {
   extractChats,
@@ -231,8 +231,8 @@ export type AccountsApplicationsPage = {
 // chat, so the reshuffle is small and the caller's own dedupe (by
 // companyEmail:chatId) covers an account that moved between two pages of the
 // same walk.
-function orderedAccounts(): TechnicalAccount[] {
-  const all = loadTechnicalAccounts();
+async function orderedAccounts(): Promise<TechnicalAccount[]> {
+  const all = await loadAllTechnicalAccounts();
   if (knownActive.size === 0) return all;
   const first: TechnicalAccount[] = [];
   const rest: TechnicalAccount[] = [];
@@ -252,7 +252,7 @@ export async function fetchAccountsApplicationsPage(
   if (!opts.refresh && cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
     return cached.data;
   }
-  const accounts = orderedAccounts();
+  const accounts = await orderedAccounts();
   const page = accounts.slice(offset, offset + limit);
   const results = await mapWithConcurrency(page, CONCURRENCY, fetchAccountApplications);
   const applications = results.flat().sort((a, b) => b.lastMessageAtMs - a.lastMessageAtMs);

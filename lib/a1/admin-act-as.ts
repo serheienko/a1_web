@@ -10,7 +10,7 @@
 // for this one request — never touches the admin's own session cookie.
 
 import { call } from "./client";
-import { findTechnicalAccount } from "./admin-accounts";
+import { findTechnicalAccountAsync } from "./admin-accounts";
 
 export class UnknownAccountError extends Error {
   constructor(email: string) {
@@ -22,7 +22,11 @@ export class UnknownAccountError extends Error {
 type LoginOutput = { accessToken: string };
 
 export async function getAdminActAsToken(email: string): Promise<string> {
-  const account = findTechnicalAccount(email);
+  // 2026-09-20: полный список -- переменная плюс облачные компании
+  // (см. loadAllTechnicalAccounts). Раньше здесь был только статичный
+  // список, и админка не могла действовать от имени компании,
+  // заведённой парсером в облаке.
+  const account = await findTechnicalAccountAsync(email);
   if (!account) throw new UnknownAccountError(email);
   const login = await call<LoginOutput>(
     "auth.email",

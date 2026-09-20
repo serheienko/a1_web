@@ -23,7 +23,7 @@ import { call, A1ApiError } from "@/lib/a1/client";
 import { fetchPostById } from "@/lib/a1/posts";
 import { fetchPostsByAuthor } from "@/lib/a1/feed";
 import { fetchUserRawByUsername } from "@/lib/a1/users";
-import { findTechnicalAccountByCompanyName } from "@/lib/a1/admin-accounts";
+import { findTechnicalAccountByCompanyNameAsync } from "@/lib/a1/admin-accounts";
 import { companyDomains, publishedContacts, decideClaim, maskEmail } from "@/lib/a1/company-claim";
 import { reasonFromError } from "@/lib/a1/claim-errors";
 
@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const account = findTechnicalAccountByCompanyName(companyName);
+  const account = await findTechnicalAccountByCompanyNameAsync(companyName);
   if (!account) {
     console.warn("[api/claim/request] нет технического аккаунта для компании:", companyName);
     return NextResponse.json({ ok: false, reason: "manual_review" }, { status: 409 });

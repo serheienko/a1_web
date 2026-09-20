@@ -14,7 +14,8 @@
 import { NextResponse } from "next/server";
 import { readSession } from "@/lib/a1/session";
 import { isAdminEmail } from "@/lib/admin-access";
-import { describeAccountsEnv, loadTechnicalAccounts } from "@/lib/a1/admin-accounts";
+import { describeAccountsEnv, loadAllTechnicalAccounts } from "@/lib/a1/admin-accounts";
+import { describeCloudAccounts } from "@/lib/a1/cloud-accounts";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,8 +28,14 @@ export async function GET(request: Request) {
   // ?diag=1 -- почему список пуст (см. describeAccountsEnv: только признаки
   // значения, без самих аккаунтов). За админской проверкой выше.
   if (new URL(request.url).searchParams.get("diag") === "1") {
-    return NextResponse.json({ ok: true, diag: describeAccountsEnv() });
+    return NextResponse.json({
+      ok: true,
+      diag: describeAccountsEnv(),
+      // 2026-09-20: и про облачный список тоже -- только счётчик и
+      // «настроено ли», без почт и паролей.
+      cloud: await describeCloudAccounts(),
+    });
   }
-  const companies = loadTechnicalAccounts().map((a) => ({ name: a.name, email: a.email }));
+  const companies = (await loadAllTechnicalAccounts()).map((a) => ({ name: a.name, email: a.email }));
   return NextResponse.json({ ok: true, companies });
 }

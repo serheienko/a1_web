@@ -31,7 +31,7 @@
 import { call, A1ApiError } from "./client";
 import { parsePost, type Post } from "./schemas";
 import { isArchived } from "./post-flags";
-import { loadTechnicalAccounts, type TechnicalAccount } from "./admin-accounts";
+import { loadAllTechnicalAccounts, type TechnicalAccount } from "./admin-accounts";
 
 const CONCURRENCY = 25;
 const CACHE_TTL_MS = 45_000;
@@ -210,7 +210,7 @@ export async function fetchAccountsPostsPage(
   if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
     return cached.data;
   }
-  const allAccounts = loadTechnicalAccounts();
+  const allAccounts = await loadAllTechnicalAccounts();
   const accounts = words.length
     ? allAccounts.filter((account) => accountMatchesQuery(account, words))
     : allAccounts;

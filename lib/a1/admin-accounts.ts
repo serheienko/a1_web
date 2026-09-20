@@ -33,6 +33,8 @@
 
 import { gunzipSync } from "node:zlib";
 
+import { fetchCloudAccounts } from "./cloud-accounts";
+
 import { z } from "zod";
 
 if (typeof window !== "undefined") {
@@ -127,6 +129,33 @@ export function describeAccountsEnv(): Record<string, unknown> {
   return info;
 }
 
+// 2026-09-20 (Александр: «все спарсенные акки должны быть в админке,
+// чтобы я мог передать их компаниям потом»). Полный список = статичная
+// переменная окружения ПЛЮС компании, заведённые парсером уже в облаке
+// (lib/a1/cloud-accounts.ts). Переменная остаётся источником правды для
+// первых 525 компаний, её не трогаем.
+//
+// Почему асинхронно: облачный список лежит в хранилище, за ним надо
+// сходить по сети (с кешем на пять минут внутри). Синхронная
+// loadTechnicalAccounts() выше остаётся для мест, где ходить в сеть
+// нельзя или незачем.
+//
+// Кто кого перебивает: при совпадении почты выигрывает запись из
+// переменной -- её Александр правит руками, и это осознанное действие.
+export async function loadAllTechnicalAccounts(): Promise<TechnicalAccount[]> {
+  const fromEnv = loadTechnicalAccounts();
+  const byEmail = new Map<string, TechnicalAccount>(fromEnv.map((a) => [a.email, a]));
+  for (const account of await fetchCloudAccounts()) {
+    if (!byEmail.has(account.email)) byEmail.set(account.email, account);
+  }
+  return [...byEmail.values()];
+}
+
+export async function findTechnicalAccountAsync(email: string): Promise<TechnicalAccount | null> {
+  const target = email.trim().toLowerCase();
+  return (await loadAllTechnicalAccounts()).find((a) => a.email === target) ?? null;
+}
+
 export function findTechnicalAccount(email: string): TechnicalAccount | null {
   const target = email.trim().toLowerCase();
   return loadTechnicalAccounts().find((a) => a.email === target) ?? null;
@@ -155,5 +184,16 @@ export function findTechnicalAccountByCompanyName(name: string): TechnicalAccoun
   const target = normalizeCompanyName(name);
   if (!target) return null;
   const matches = loadTechnicalAccounts().filter((a) => normalizeCompanyName(a.name) === target);
+  return matches.length === 1 ? (matches[0] ?? null) : null;
+}
+
+/** То же, но по полному списку -- вместе с облачными компаниями. */
+export async function findTechnicalAccountByCompanyNameAsync(
+  name: string,
+): Promise<TechnicalAccount | null> {
+  const target = normalizeCompanyName(name);
+  if (!target) return null;
+  const all = await loadAllTechnicalAccounts();
+  const matches = all.filter((a) => normalizeCompanyName(a.name) === target);
   return matches.length === 1 ? (matches[0] ?? null) : null;
 }
