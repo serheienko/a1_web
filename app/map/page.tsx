@@ -197,15 +197,15 @@ export default function MapPage() {
                 title: <T uk="На чому пишуть" en="What they build with" ru="На чём пишут"
                           de="Womit sie arbeiten" es="Con qué programan" fr="Avec quoi ils codent"
                           pl="W czym piszą" ptBR="Com o que programam" zh="他们用什么语言" />,
-                note: <T uk="Основна мова профілю — та, за якою людину знайшов пошук. Багато хто пише більш ніж однією; тут врахована одна, головна."
-                         en="The profile's main language is the one the search matched. Many write in more than one; only the main one is counted here."
-                         ru="Основной язык профиля — тот, по которому человека нашёл поиск. Многие пишут более чем на одном; здесь учтён один, главный."
-                         de="Die Hauptsprache eines Profils ist die, über die die Suche es gefunden hat. Viele nutzen mehrere; gezählt wird nur die wichtigste."
-                         es="El lenguaje principal del perfil es aquel con el que lo encontró la búsqueda. Muchos usan más de uno; aquí se cuenta solo el principal."
-                         fr="Le langage principal d'un profil est celui par lequel la recherche l'a trouvé. Beaucoup en utilisent plusieurs ; un seul est compté ici."
-                         pl="Główny język profilu to ten, po którym znalazło go wyszukiwanie. Wielu pisze w kilku; tutaj liczy się jeden, główny."
-                         ptBR="A linguagem principal do perfil é aquela pela qual a busca o encontrou. Muitos usam mais de uma; aqui conta apenas a principal."
-                         zh="资料的主要语言是搜索匹配到的那一种。许多人使用多种语言，这里只计入主要的一种。" />,
+                note: <T uk="Основна мова профілю — та, за якою людину знайшов пошук. Багато хто пише більш ніж однією; тут врахована одна, головна. HTML і CSS до рейтингу не входять: GitHub позначає ними цілі репозиторії, тож розмітка витісняла б справжні мови."
+                         en="The profile's main language is the one the search matched. Many write in more than one; only the main one is counted here. HTML and CSS are left out of the ranking: GitHub tags whole repositories with them, so markup would crowd out actual languages."
+                         ru="Основной язык профиля — тот, по которому человека нашёл поиск. Многие пишут более чем на одном; здесь учтён один, главный. HTML и CSS в рейтинг не входят: GitHub помечает ими целые репозитории, и разметка вытесняла бы настоящие языки."
+                         de="Die Hauptsprache eines Profils ist die, über die die Suche es gefunden hat. Viele nutzen mehrere; gezählt wird nur die wichtigste. HTML und CSS fehlen in der Rangliste: GitHub kennzeichnet damit ganze Repositories, sodass Markup echte Sprachen verdrängen würde."
+                         es="El lenguaje principal del perfil es aquel con el que lo encontró la búsqueda. Muchos usan más de uno; aquí se cuenta solo el principal. HTML y CSS quedan fuera del ranking: GitHub etiqueta con ellos repositorios enteros, así que el marcado desplazaría a los lenguajes reales."
+                         fr="Le langage principal d'un profil est celui par lequel la recherche l'a trouvé. Beaucoup en utilisent plusieurs ; un seul est compté ici. HTML et CSS sont exclus du classement : GitHub en étiquette des dépôts entiers, et le balisage évincerait les vrais langages."
+                         pl="Główny język profilu to ten, po którym znalazło go wyszukiwanie. Wielu pisze w kilku; tutaj liczy się jeden, główny. HTML i CSS nie wchodzą do rankingu: GitHub oznacza nimi całe repozytoria, więc znaczniki wypierałyby prawdziwe języki."
+                         ptBR="A linguagem principal do perfil é aquela pela qual a busca o encontrou. Muitos usam mais de uma; aqui conta apenas a principal. HTML e CSS ficam fora do ranking: o GitHub marca repositórios inteiros com eles, então a marcação tomaria o lugar das linguagens reais."
+                         zh="资料的主要语言是搜索匹配到的那一种。许多人使用多种语言，这里只计入主要的一种。HTML 和 CSS 不计入排行：GitHub 会用它们标记整个仓库，标记语言会挤掉真正的编程语言。" />,
               },
               cmp: {
                 title: <T uk="Україна і Польща: різні стеки" en="Ukraine and Poland: different stacks"
