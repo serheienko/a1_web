@@ -26,6 +26,14 @@ export async function GET(request: NextRequest) {
 
   try {
     const page = await fetchFeedPage(kindParam as WebPostKind, cursor, filters);
+
+    // 2026-09-20: ?light=1 -- ответ без размытий аватарок. Их считает sharp,
+    // это самая дорогая часть ответа, а телеграм-боту картинки не нужны: он
+    // шлёт заголовок, компанию и ссылку. Для самого сайта ничего не меняется --
+    // он этот параметр не передаёт.
+    if (request.nextUrl.searchParams.get("light") === "1") {
+      return NextResponse.json(page);
+    }
     // Real per-avatar blur (lib/avatar-blur.ts), same as the initial
     // server-rendered feed — "Load more" posts arrive over this JSON
     // endpoint into components/load-more.tsx (a client component), which

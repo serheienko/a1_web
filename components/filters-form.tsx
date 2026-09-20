@@ -69,6 +69,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import type { Category, Tag } from "@/lib/a1/datasets";
 import { StackChips } from "@/components/stack-chips";
+import { TelegramSubscribe } from "@/components/telegram-subscribe";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { FilterIcon } from "@/components/filter-icon";
 import { ClearIcon } from "@/components/clear-icon";
@@ -722,6 +723,12 @@ export function FiltersForm({
   // там, куда человек только что нажал и куда он и так смотрит.
   const stackVisible = currentCategory != null && currentCategory === itCategoryValue;
 
+  // 2026-09-20. Есть ли вообще что предлагать боту. Подписка на пустой фильтр
+  // -- это «шли мне всё подряд», то есть спам; кнопки в таком случае нет.
+  const hasAnyFilter = Boolean(
+    query.trim() || currentCategory != null || currentTags.length > 0 || currentLocation != null || currentStack.length > 0,
+  );
+
   const stackSectionBody = stackVisible ? (
     <div className="mt-1 mb-1 rounded-md bg-accent/5 px-2 pb-2 pt-2">
       <StackChips basePath={basePath} selected={currentStack} variant="panel" />
@@ -770,9 +777,9 @@ export function FiltersForm({
                   <ClearIcon className="h-4 w-4" />
                 </button>
               </div>
-              {/* Уточнение стека -- сразу под выбранной категорией, внутри
-                  списка. Пока выбрана не IT, stackSectionBody равен null и
-                  здесь не появляется ничего. */}
+              {/* Уточнение стека -- сразу под выбранной категорией. Пока
+                  выбрана не IT, stackSectionBody равен null и здесь не
+                  появляется ничего. */}
               {stackSectionBody}
             </div>
           );
@@ -1060,6 +1067,7 @@ export function FiltersForm({
                   (filtersVisible ? "opacity-100 scale-100" : "pointer-events-none opacity-0 scale-95")
                 }
               >
+                <TelegramSubscribe hasFilters={hasAnyFilter} />
                 {resetAllFiltersBody}
                 {locationSectionBody}
                 {tagChipsBody}
@@ -1175,6 +1183,7 @@ export function FiltersForm({
                     (filtersVisible ? "opacity-100 scale-100" : "pointer-events-none opacity-0 scale-95")
                   }
                 >
+                  <TelegramSubscribe hasFilters={hasAnyFilter} />
                   {resetAllFiltersBody}
                   {locationSectionBody}
                   {tagChipsBody}
