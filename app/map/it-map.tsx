@@ -35,7 +35,7 @@ type City = {
 
 export type MapData = {
   generated: string; found: number; total: number; hireable: number;
-  avgRepos: number; medianRepos: number;
+  avgRepos: number; medianRepos: number; citiesTotal: number;
   country: Record<string, number>;
   languages: [string, number][];
   langByCountry: Record<string, Record<string, number>>;
@@ -116,20 +116,41 @@ function useGrown(calm: boolean): boolean {
   return grown;
 }
 
+// Блок «ожил, когда до него доскроллили». Раньше всё отыгрывало при
+// загрузке страницы, пока читатель был ещё наверху, и к графикам он
+// приходил уже к отыгранной анимации (Aleksandr, 2026-09-20 — он же
+// поймал это на скриншоте с наполовину пустыми полосами).
+// Важно: прятать сам текст нельзя — в нулевом состоянии тут только
+// ширина полос, все числа и подписи читаются сразу.
+function useInView<T extends Element>(calm: boolean) {
+  const ref = useRef<T | null>(null);
+  const [seen, setSeen] = useState(false);
+  useEffect(() => {
+    if (calm) { setSeen(true); return; }
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === "undefined") { setSeen(true); return; }
+    const io = new IntersectionObserver(
+      (entries) => { if (entries.some((e) => e.isIntersecting)) { setSeen(true); io.disconnect(); } },
+      { rootMargin: "0px 0px -12% 0px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [calm]);
+  return [ref, seen] as const;
+}
+
 const nf = (n: number) => n.toLocaleString("uk-UA").replace(/ /g, " ");
 
 /** Число, которое набегает от нуля. Используется в плитках наверху страницы. */
-export function Counter({ to, suffix = "", decimals = 0 }: {
-  to: number; suffix?: string; decimals?: number;
+export function Counter({ to, suffix = "", decimals = 0, dur = 1100 }: {
+  to: number; suffix?: string; decimals?: number; dur?: number;
 }) {
   const calm = useCalm();
   const [v, setV] = useState(to);
-  const started = useRef(false);
+  const [box, seen] = useInView<HTMLSpanElement>(calm);
   useEffect(() => {
-    if (calm || started.current) return;
-    started.current = true;
+    if (calm || !seen) return;
     const t0 = performance.now();
-    const dur = 1100;
     let raf = 0;
     const step = (now: number) => {
       const p = Math.min(1, (now - t0) / dur);
@@ -140,14 +161,20 @@ export function Counter({ to, suffix = "", decimals = 0 }: {
     setV(0);
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
-  }, [to, calm]);
-  return <>{decimals ? v.toFixed(decimals) : nf(Math.round(v))}{suffix}</>;
+  }, [to, calm, seen, dur]);
+  return <span ref={box}>{decimals ? v.toFixed(decimals) : nf(Math.round(v))}{suffix}</span>;
 }
 
 const KEYFRAMES = `
 @keyframes a1DotIn { from { opacity: 0; transform: scale(.35) } to { opacity: 1; transform: scale(1) } }
 @keyframes a1Ping  { 0% { r: 6; opacity: .6 } 70% { opacity: 0 } 100% { r: 40; opacity: 0 } }
 @keyframes a1Sweep { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
+@keyframes a1Draw  { from { stroke-dashoffset: 1 } to { stroke-dashoffset: 0 } }
+.a1-sweep { animation: a1Sweep 18s linear infinite; transform-box: view-box; transform-origin: 50% 50% }
+.a1-link  { stroke-dasharray: 1; stroke-dashoffset: 1; animation: a1Draw 1.6s ease-out forwards }
+@media (prefers-reduced-motion: reduce) {
+  .a1-sweep, .a1-link { animation: none !important; stroke-dashoffset: 0 }
+}
 .a1-dot { animation: a1DotIn .55s cubic-bezier(.2,.9,.3,1.1) both; transform-box: fill-box; transform-origin: center }
 .a1-dot > .a1-core, .a1-dot > .a1-halo { transition: opacity .18s ease }
 .a1-dot:hover > .a1-halo { opacity: .5 }
@@ -164,7 +191,9 @@ export function ItMap({ data, heads }: {
 }) {
   const loc = useLocale();
   const calm = useCalm();
-  const grown = useGrown(calm);
+  const [langsRef, langsIn] = useInView<HTMLDivElement>(calm);
+  const [cmpRef, cmpIn] = useInView<HTMLDivElement>(calm);
+  const [openRef, openIn] = useInView<HTMLDivElement>(calm);
   const t = (k: keyof typeof STR) => STR[k][loc];
   const cities = data.cities;
   const [sel, setSel] = useState(0);
@@ -186,6 +215,30 @@ export function ItMap({ data, heads }: {
       y: (v: number) => PAD + ((la1 - v) / (la1 - la0)) * (H - 2 * PAD),
       r: (n: number) => 5 + Math.sqrt(n / maxN) * 42,
     };
+  }, [cities]);
+
+  // Тонкая сеть между крупнейшими городами: каждый соединён с двумя
+  // ближайшими соседями. Это атмосфера, а не данные — поэтому очень
+  // бледная и рисуется один раз при загрузке.
+  const links = useMemo(() => {
+    const top = [...cities].sort((a, b) => b.n - a.n).slice(0, 12);
+    const seen = new Set<string>();
+    const out: { x1: number; y1: number; x2: number; y2: number }[] = [];
+    top.forEach((a) => {
+      const near = top
+        .filter((b) => b.key !== a.key)
+        .sort((b1, b2) =>
+          (b1.lat - a.lat) ** 2 + (b1.lon - a.lon) ** 2 -
+          ((b2.lat - a.lat) ** 2 + (b2.lon - a.lon) ** 2))
+        .slice(0, 2);
+      near.forEach((b) => {
+        const k = [a.key, b.key].sort().join("|");
+        if (seen.has(k)) return;
+        seen.add(k);
+        out.push({ x1: a.lon, y1: a.lat, x2: b.lon, y2: b.lat });
+      });
+    });
+    return out;
   }, [cities]);
 
   const order = useMemo(
@@ -265,6 +318,26 @@ export function ItMap({ data, heads }: {
                            stroke="rgba(148,163,196,.12)" strokeWidth={1} />;
             })}
 
+            {!calm && links.map((l, i) => (
+              <line key={`lnk${i}`} className="a1-link"
+                    x1={geo.x(l.x1)} y1={geo.y(l.y1)} x2={geo.x(l.x2)} y2={geo.y(l.y2)}
+                    stroke="rgba(120,170,255,.22)" strokeWidth={1} pathLength={1}
+                    style={{ animationDelay: `${300 + i * 45}ms` }} />
+            ))}
+
+            {!calm && (
+              <g className="a1-sweep" opacity={0.32}>
+                <defs>
+                  <linearGradient id="a1Beam" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#7fb2ff" stopOpacity="0.13" />
+                    <stop offset="100%" stopColor="#7fb2ff" stopOpacity="0" />
+                  </linearGradient>
+                </defs>
+                <path d={`M ${geo.W / 2} ${geo.H / 2} L ${geo.W / 2 + 620} ${geo.H / 2 - 150} A 640 640 0 0 1 ${geo.W / 2 + 620} ${geo.H / 2 + 150} Z`}
+                      fill="url(#a1Beam)" />
+              </g>
+            )}
+
             {order.map((idx, rank) => {
               const ct = cities[idx]!;
               const x = geo.x(ct.lon), y = geo.y(ct.lat), r = geo.r(ct.n);
@@ -326,7 +399,9 @@ export function ItMap({ data, heads }: {
           <div className="text-xl font-semibold">{c.name}</div>
           <div className="mt-1 text-4xl font-bold tabular-nums"
                style={{ color: c.country === "UA" ? "#2f7fe0" : "#d9551f" }}>
-            {nf(c.n)}
+            {/* key по городу — счётчик перезапускается и число перетекает
+                в новое, вместо того чтобы прыгнуть. */}
+            <Counter key={c.key} to={c.n} dur={420} />
           </div>
           <div className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
             {t("devs")} · {c.country === "UA" ? t("ua") : t("pl")}
@@ -337,8 +412,11 @@ export function ItMap({ data, heads }: {
             {t("mainLangs")}
           </div>
           <div className="flex flex-col gap-2.5">
+            {/* key по позиции, а не по названию языка: иначе при смене
+                города React пересоздаёт строки и полосы прыгают вместо
+                того, чтобы плавно переехать. */}
             {c.langs.map((l, i) => (
-              <div key={l[0]}>
+              <div key={i}>
                 <div className="flex items-center justify-between text-sm">
                   <span>{l[0]}</span>
                   <span className="tabular-nums text-neutral-500 dark:text-neutral-400">{nf(l[1])}</span>
@@ -374,7 +452,7 @@ export function ItMap({ data, heads }: {
           </h2>
           <p className="mt-2 mb-8 max-w-2xl text-neutral-500 dark:text-neutral-400">{heads.langs.note}</p>
         </header>
-        <div className="flex flex-col gap-3">
+        <div ref={langsRef} className="flex flex-col gap-3">
           {data.languages.slice(0, 10).map((l, i) => (
             <div key={l[0]}
                  className="grid grid-cols-[6rem_1fr_6rem] items-center gap-3 sm:grid-cols-[8rem_1fr_7rem] sm:gap-4">
@@ -382,7 +460,7 @@ export function ItMap({ data, heads }: {
               <div className="h-5 overflow-hidden rounded bg-white dark:bg-white/10">
                 <div className="h-full rounded-r transition-[width] duration-1000 ease-out"
                      style={{
-                       width: grown ? `${(l[1] / langMax) * 100}%` : "0%",
+                       width: langsIn ? `${(l[1] / langMax) * 100}%` : "0%",
                        transitionDelay: calm ? undefined : `${i * 55}ms`,
                        background: SERIES[i % SERIES.length]!,
                      }} />
@@ -406,7 +484,7 @@ export function ItMap({ data, heads }: {
           </h2>
           <p className="mt-2 mb-8 max-w-2xl text-neutral-500 dark:text-neutral-400">{heads.cmp.note}</p>
         </header>
-        <div className="flex flex-col gap-4">
+        <div ref={cmpRef} className="flex flex-col gap-4">
           <div className="text-neutral-600 dark:text-neutral-300"><Legend /></div>
           {cmpKeys.map((k, ki) => {
             const a = ((data.langByCountry.UA?.[k] ?? 0) / uaTot) * 100;
@@ -422,7 +500,7 @@ export function ItMap({ data, heads }: {
                       <div className="h-3 overflow-hidden rounded-sm bg-white dark:bg-white/10">
                         <div className="h-full rounded-r-sm transition-[width] duration-1000 ease-out"
                              style={{
-                               width: grown ? `${(v / cmpMax) * 100}%` : "0%",
+                               width: cmpIn ? `${(v / cmpMax) * 100}%` : "0%",
                                transitionDelay: calm ? undefined : `${ki * 50 + j * 25}ms`,
                                background: col,
                              }} />
@@ -447,7 +525,7 @@ export function ItMap({ data, heads }: {
           </h2>
           <p className="mt-2 mb-8 max-w-2xl text-neutral-500 dark:text-neutral-400">{heads.open.note}</p>
         </header>
-        <div className="mb-4 inline-flex rounded-xl border border-neutral-200 p-1 dark:border-white/10">
+        <div ref={openRef} className="mb-4 inline-flex rounded-xl border border-neutral-200 p-1 dark:border-white/10">
           {([["all", t("all")], ["UA", t("ua")], ["PL", t("pl")]] as const).map(([k, label]) => (
             <button key={k} type="button" onClick={() => setTab(k)}
                     aria-pressed={tab === k}
@@ -477,7 +555,17 @@ export function ItMap({ data, heads }: {
                 .map((x) => {
                   const pct = Math.round((x.hire / x.n) * 100);
                   return (
-                    <tr key={x.key} className="transition-colors hover:bg-neutral-50 dark:hover:bg-white/5">
+                    <tr key={x.key}
+                        onMouseEnter={() => {
+                          const i = cities.findIndex((y) => y.key === x.key);
+                          if (i >= 0) { setSel(i); setTip(i); }
+                        }}
+                        onMouseLeave={() => setTip(null)}
+                        className={`cursor-default transition-colors ${
+                          c.key === x.key
+                            ? "bg-neutral-100 dark:bg-white/10"
+                            : "hover:bg-neutral-50 dark:hover:bg-white/5"
+                        }`}>
                       <td className="border-b border-neutral-100 px-4 py-2.5 dark:border-white/5">
                         <span className="mr-2 inline-block size-2 rounded-full align-middle"
                               style={{ background: x.country === "UA" ? "#2f7fe0" : "#d9551f" }} />
@@ -489,7 +577,7 @@ export function ItMap({ data, heads }: {
                         <div className="flex items-center justify-end gap-2">
                           <div className="hidden h-1.5 w-20 overflow-hidden rounded-full bg-white sm:block dark:bg-white/10">
                             <div className="h-full rounded-full bg-emerald-500 transition-[width] duration-1000 ease-out"
-                                 style={{ width: grown ? `${Math.min(pct * 2.2, 100)}%` : "0%" }} />
+                                 style={{ width: openIn ? `${Math.min(pct * 2.2, 100)}%` : "0%" }} />
                           </div>
                           <span className="font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{pct}%</span>
                         </div>
