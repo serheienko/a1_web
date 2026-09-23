@@ -586,10 +586,15 @@ export function ProfileActionRow({
   // колонки и gap-2 задают ширину целиком, поэтому кружки стоят ровно
   // там же, где потом встанут настоящие кнопки, и ничего не прыгает.
   // Появляется только содержимое — значки, через прозрачность.
+  // 23.09.2026 (Александр, скриншот профиля YozmaTech): заглушка
+  // рисовала четыре кружка и у незабранной компании, где сетка уже
+  // трёхколоночная -- четвёртый переносился на вторую строку и дёргал
+  // вёрстку. Число кружков теперь считается по тому же признаку, что и
+  // число колонок.
   if (viewerStatus === "loading" && profileUserId) {
     return (
       <div aria-hidden="true" className={unclaimed ? "mt-4 grid grid-cols-3 gap-2" : "mt-4 grid grid-cols-4 gap-2"}>
-        {[0, 1, 2, 3].map((i) => (
+        {(unclaimed ? [0, 1, 2] : [0, 1, 2, 3]).map((i) => (
           <span
             key={i}
             className="h-11 w-full rounded-full border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900"
