@@ -136,6 +136,62 @@ export const FACT_LANDINGS: FactLanding[] = [
       zh: "暂无提供兵役缓征的职位。",
     },
   },
+  {
+    // 23.09.2026 (Александр: «просто, чтобы чисто визуально
+    // отражалось, типа тех, кто указал ЗП»). Не фильтр «від $X» и не
+    // повзунок: зарплата есть только у 7,2% вакансий (204 из 2 822,
+    // замер по продакшену), и любой порог прятал бы почти всю доску.
+    // Здесь один признак -- сумма названа или нет.
+    slug: "with-salary",
+    chip: {
+      uk: "💵 З зарплатою", en: "💵 Salary shown", ru: "💵 С зарплатой",
+      de: "💵 Mit Gehalt", es: "💵 Con salario", fr: "💵 Salaire affiché",
+      pl: "💵 Z wynagrodzeniem", ptBR: "💵 Com salário", zh: "💵 标明薪资",
+    },
+    metaTitle: "Вакансії із зазначеною зарплатою | A1 Jobs",
+    metaDescription:
+      "Вакансії, де компанія одразу називає суму. Без здогадок і «обговорюється на співбесіді». Оновлюється щодня.",
+    h1: {
+      uk: "Вакансії із зазначеною зарплатою", en: "Jobs that state the salary",
+      ru: "Вакансии с указанной зарплатой", de: "Stellen mit Gehaltsangabe",
+      es: "Vacantes con salario indicado", fr: "Offres avec salaire indiqué",
+      pl: "Oferty z podanym wynagrodzeniem", ptBR: "Vagas com salário informado",
+      zh: "标明薪资的职位",
+    },
+    countLine: {
+      uk: "{n} вакансій, де компанія назвала суму",
+      en: "{n} open jobs where the company states the pay",
+      ru: "{n} вакансий, где компания назвала сумму",
+      de: "{n} offene Stellen mit genannter Vergütung",
+      es: "{n} vacantes donde la empresa indica el salario",
+      fr: "{n} offres où l'entreprise indique la rémunération",
+      pl: "{n} ofert, w których firma podaje wynagrodzenie",
+      ptBR: "{n} vagas em que a empresa informa o salário",
+      zh: "{n} 个公司标明薪资的职位",
+    },
+    lead: {
+      uk: "Компанії, які не ховають цифру. Сума береться з поля вакансії, а не вгадується з тексту — тому тут не буде «від 100 доларів» там, де йшлося про щось інше.",
+      en: "Companies that do not hide the number. The amount comes from the vacancy's own salary field, never guessed from the text — so no figure here means something it did not mean in the ad.",
+      ru: "Компании, которые не прячут цифру. Сумма берётся из поля вакансии, а не угадывается из текста — поэтому здесь не будет «от 100 долларов» там, где речь шла о другом.",
+      de: "Unternehmen, die die Zahl nicht verstecken. Der Betrag stammt aus dem Gehaltsfeld der Anzeige und wird nie aus dem Text geraten.",
+      es: "Empresas que no esconden la cifra. El importe procede del campo de salario de la oferta, nunca se deduce del texto.",
+      fr: "Des entreprises qui ne cachent pas le chiffre. Le montant provient du champ salaire de l'annonce, jamais deviné dans le texte.",
+      pl: "Firmy, które nie ukrywają kwoty. Wartość pochodzi z pola wynagrodzenia w ofercie, nigdy nie jest zgadywana z treści.",
+      ptBR: "Empresas que não escondem o valor. O montante vem do campo de salário da vaga, nunca é deduzido do texto.",
+      zh: "不隐藏数字的公司。金额取自职位的薪资字段，绝不从描述文本中推测。",
+    },
+    empty: {
+      uk: "Поки немає вакансій із зазначеною зарплатою.",
+      en: "No jobs with a stated salary yet.",
+      ru: "Пока нет вакансий с указанной зарплатой.",
+      de: "Noch keine Stellen mit Gehaltsangabe.",
+      es: "Aún no hay vacantes con salario indicado.",
+      fr: "Pas encore d'offres avec salaire indiqué.",
+      pl: "Nie ma jeszcze ofert z podanym wynagrodzeniem.",
+      ptBR: "Ainda não há vagas com salário informado.",
+      zh: "暂无标明薪资的职位。",
+    },
+  },
 ];
 
 export function findFactLanding(slug: string): FactLanding | undefined {

@@ -26,7 +26,15 @@ import { fetchAllSitemapJobPosts } from "./sitemap-posts";
 import { extractJobFacts } from "@/lib/a1/job-facts";
 
 /** Признаки, по которым есть отдельная посадочная. */
-export type JobFactKey = "no-experience" | "reservation";
+//
+// 23.09.2026 (Александр: «чисто визуально отражалось, типа тех, кто
+// указал ЗП»). with-salary отличается от двух соседей: его не надо
+// вычитывать из текста -- зарплата приходит отдельным полем
+// (post.money -> WebPost.salary, см. lib/a1/mappers.ts). Признак живёт
+// здесь только потому, что отфильтровать по нему на бэкенде всё равно
+// нельзя, а обход вакансий тут уже идёт -- третий признак не стоит ни
+// одного лишнего запроса.
+export type JobFactKey = "no-experience" | "reservation" | "with-salary";
 
 const TTL_MS = 60 * 60 * 1000;
 
@@ -40,12 +48,20 @@ async function build(): Promise<Index> {
   const byFact = new Map<JobFactKey, WebPost[]>([
     ["no-experience", []],
     ["reservation", []],
+    ["with-salary", []],
   ]);
 
   for (const post of posts) {
     const facts = extractJobFacts(post.title, post.contentText);
     if (facts.firstJob) byFact.get("no-experience")?.push(post);
     if (facts.reservation) byFact.get("reservation")?.push(post);
+    // Готовое поле, без разбора текста: либо компания указала сумму,
+    // либо нет. Числа из текста вакансии сюда намеренно НЕ тянем --
+    // замер 23.09.2026 по всем 2 822 живым вакансиям: покрытие выросло
+    // бы с 7,2% до 11,6%, но половина найденного оказалась не
+    // зарплатами («$147.9», «27 Eur», «$100»). Ложная цифра на карточке
+    // хуже, чем её отсутствие.
+    if (post.salary) byFact.get("with-salary")?.push(post);
   }
 
   return { builtAt: Date.now(), byFact };
