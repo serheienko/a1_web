@@ -29,7 +29,7 @@ import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
 import { CachedAvatar } from "@/components/cached-avatar";
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
+import { type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { SearchIcon } from "@/components/search-icon";
@@ -39,6 +39,7 @@ import { chatRouteParamForUser } from "@/lib/a1/chat-schemas";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
 import type { UserSearchHit } from "@/app/api/users/search/route";
+import { useActiveLocale } from "@/lib/use-active-locale";
 
 export type ChatFlyoutOpenTarget = {
   routeParam: string;
@@ -191,16 +192,6 @@ const STRINGS = {
     zh: "你的联系人中还没有人使用 A1",
   },
 };
-
-function useActiveLocale(): Locale {
-  const [lang, setLang] = useState<Locale>("uk");
-  useEffect(() => {
-    const root = document.documentElement;
-    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
-    if (active) setLang(active);
-  }, []);
-  return lang;
-}
 
 function formatTime(ms: number): string {
   if (!ms) return "";

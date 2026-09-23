@@ -13,7 +13,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useActiveLocale } from "@/components/claim-form";
+import { useActiveLocale } from "@/lib/use-active-locale";
 import { ClaimForm } from "@/components/claim-form";
 import { LottiePlayer } from "@/components/lottie-player";
 import type { Locale } from "@/components/t";

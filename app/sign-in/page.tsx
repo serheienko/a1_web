@@ -21,8 +21,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
+import { type Locale } from "@/components/t";
 import { InlineAuthForm } from "@/components/inline-auth-form";
+import { useActiveLocale } from "@/lib/use-active-locale";
 
 // Same "read the active lang-XX class client-side" trick as
 // components/settings-menu.tsx — <T/> only helps for server-rendered
@@ -67,16 +68,6 @@ const STRINGS: Record<SignInStringKey, Record<Locale, string>> = {
     zh: "要使用此功能，请注册或登录。",
   },
 };
-
-function useActiveLocale(): Locale {
-  const [lang, setLang] = useState<Locale>("uk");
-  useEffect(() => {
-    const root = document.documentElement;
-    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
-    if (active) setLang(active);
-  }, []);
-  return lang;
-}
 
 export default function SignInPage() {
   const lang = useActiveLocale();

@@ -51,11 +51,12 @@
 
 import { createPortal } from "react-dom";
 import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
-import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
+import { type Locale } from "@/components/t";
 import { useEffect, useState, type MouseEvent, type RefObject } from "react";
 import type { EditablePost } from "@/components/post-editor";
 import { formatRelativeTime } from "@/lib/format";
 import { authFetch } from "@/lib/auth-fetch";
+import { useActiveLocale } from "@/lib/use-active-locale";
 
 export type DraftPost = EditablePost & { created: number };
 
@@ -94,16 +95,6 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
     ptBR: "Não foi possível excluir", zh: "删除失败",
   },
 };
-
-function useActiveLocale(): Locale {
-  const [lang, setLang] = useState<Locale>("uk");
-  useEffect(() => {
-    const root = document.documentElement;
-    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
-    if (active) setLang(active);
-  }, []);
-  return lang;
-}
 
 // 2026-09-02 (Aleksandr, live screenshot: "сделай иконку черновиков
 // чуть больше и отцентрируй с текстом") -- 16px -> 20px. The glyph

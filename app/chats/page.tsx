@@ -48,7 +48,7 @@ import { CachedAvatar } from "@/components/cached-avatar";
 import Link from "next/link";
 import { profileHref } from "@/lib/profile-href";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
-import { T, LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
+import { T, type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
 import { MessageTicks } from "@/components/chat/icons";
 import { ChatPreviewLine } from "@/components/chat/chat-preview-line";
@@ -58,23 +58,13 @@ import { GLASS } from "@/lib/glass";
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
 import { NewChatPickerModal } from "@/components/new-chat-picker-modal";
 import { IosAddToHomeHint } from "@/components/ios-add-to-home-hint";
+import { useActiveLocale } from "@/lib/use-active-locale";
 
 type LoadState = "loading" | "signed-out" | "error" | "ready";
 
-// Same JS-usable-locale pattern as app/chats/[chatId]/page.tsx's own
-// useActiveLocale (copied from components/profile-action-row.tsx) --
-// needed here because the search placeholder has to reach an <input>'s
-// `placeholder`/`aria-label` attributes as a plain string, not the <T>
-// component's server-rendered-all-locales-at-once markup.
-function useActiveLocale(): Locale {
-  const [lang, setLang] = useState<Locale>("uk");
-  useEffect(() => {
-    const root = document.documentElement;
-    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
-    if (active) setLang(active);
-  }, []);
-  return lang;
-}
+// Строки берутся из JS, а не из <T>, потому что плейсхолдер и
+// aria-label у <input> -- это обычные атрибуты, туда разметку с девятью
+// переводами не положишь. Язык даёт общий хук lib/use-active-locale.ts.
 
 const SEARCH_PLACEHOLDER_STRINGS: Record<Locale, string> = {
   uk: "Пошук", en: "Search", ru: "Поиск", de: "Suche", es: "Buscar",

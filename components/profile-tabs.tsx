@@ -35,13 +35,14 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { LOCALES, LOCALE_CLASS, T, type Locale } from "@/components/t";
+import { T, type Locale } from "@/components/t";
 import { PostCard } from "@/components/post-card";
 import { PostEditor, type EditablePost } from "@/components/post-editor";
 import type { WebPost } from "@/types/web-post";
 import { profileHref } from "@/lib/profile-href";
 import { authFetch } from "@/lib/auth-fetch";
 import { GLASS } from "@/lib/glass";
+import { useActiveLocale } from "@/lib/use-active-locale";
 
 type StringKey = "statusDraft" | "statusScheduled";
 
@@ -60,16 +61,6 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
 };
 
 const STATUS_BADGE_CLASS = "bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400";
-
-function useActiveLocale(): Locale {
-  const [lang, setLang] = useState<Locale>("uk");
-  useEffect(() => {
-    const root = document.documentElement;
-    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
-    if (active) setLang(active);
-  }, []);
-  return lang;
-}
 
 // 2026-09-02 (Aleksandr, screenshot: a draft post's avatar rendering as
 // a flat white circle instead of blurring in): matches app/api/posts/

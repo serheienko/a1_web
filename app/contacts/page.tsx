@@ -63,11 +63,12 @@ import Link from "next/link";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { profileHref } from "@/lib/profile-href";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
-import { T, LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
+import { T, type Locale } from "@/components/t";
 import type { Contact } from "@/lib/a1/schemas";
 import { authFetch } from "@/lib/auth-fetch";
 import { SearchIcon } from "@/components/search-icon";
 import { GLASS } from "@/lib/glass";
+import { useActiveLocale } from "@/lib/use-active-locale";
 
 type LoadState = "loading" | "signed-out" | "error" | "ready";
 
@@ -96,16 +97,6 @@ function contactName(contact: Contact, linkedUser: ContactUserSummary | undefine
   if (name) return name;
   if (contact.phone) return contact.phone;
   return "—";
-}
-
-function useActiveLocale(): Locale {
-  const [lang, setLang] = useState<Locale>("uk");
-  useEffect(() => {
-    const root = document.documentElement;
-    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
-    if (active) setLang(active);
-  }, []);
-  return lang;
 }
 
 const SEARCH_PLACEHOLDER_STRINGS: Record<Locale, string> = {

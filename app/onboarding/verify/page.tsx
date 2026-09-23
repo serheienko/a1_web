@@ -21,10 +21,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
+import { type Locale } from "@/components/t";
 import { LottiePlayer } from "@/components/lottie-player";
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
 import { authFetch } from "@/lib/auth-fetch";
+import { useActiveLocale } from "@/lib/use-active-locale";
 
 type StringKey =
   | "title"
@@ -82,16 +83,6 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
     zh: "出错了,请重试。",
   },
 };
-
-function useActiveLocale(): Locale {
-  const [lang, setLang] = useState<Locale>("uk");
-  useEffect(() => {
-    const root = document.documentElement;
-    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
-    if (active) setLang(active);
-  }, []);
-  return lang;
-}
 
 function readDisplayEmail(): string {
   if (typeof document === "undefined") return "";

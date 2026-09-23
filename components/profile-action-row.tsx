@@ -68,7 +68,7 @@ import { createPortal } from "react-dom";
 // прежнего системного меню.
 import { ShareTargetModal } from "@/components/share-target-modal";
 import { useRouter } from "next/navigation";
-import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
+import { type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
 import type { Contact } from "@/lib/a1/schemas";
 import { LottiePlayer } from "@/components/lottie-player";
@@ -76,6 +76,7 @@ import { InlineAuthForm } from "@/components/inline-auth-form";
 import { useCloseOnScroll } from "@/lib/use-close-on-scroll";
 import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
 import { useHoverPanel } from "@/lib/use-hover-panel";
+import { useActiveLocale } from "@/lib/use-active-locale";
 
 type StringKey =
   | "addContact"
@@ -187,16 +188,6 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
     fr: "Annuler", pl: "Anuluj", ptBR: "Cancelar", zh: "取消",
   },
 };
-
-function useActiveLocale(): Locale {
-  const [lang, setLang] = useState<Locale>("uk");
-  useEffect(() => {
-    const root = document.documentElement;
-    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
-    if (active) setLang(active);
-  }, []);
-  return lang;
-}
 
 type ToggleStatus = "loading" | "idle" | "on" | "busy" | "error";
 

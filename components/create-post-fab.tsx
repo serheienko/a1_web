@@ -40,13 +40,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
+import { type Locale } from "@/components/t";
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
 import { PostEditor } from "@/components/post-editor";
 import { FabAuthPrompt } from "@/components/fab-auth-prompt";
 import { DraftsPicker, type DraftPost } from "@/components/drafts-picker";
 import { useHoverPanel } from "@/lib/use-hover-panel";
 import { authFetch } from "@/lib/auth-fetch";
+import { useActiveLocale } from "@/lib/use-active-locale";
 
 type FabStringKey = "label";
 
@@ -57,16 +58,6 @@ const STRINGS: Record<FabStringKey, Record<Locale, string>> = {
     ptBR: "Criar publicação", zh: "创建帖子",
   },
 };
-
-function useActiveLocale(): Locale {
-  const [lang, setLang] = useState<Locale>("uk");
-  useEffect(() => {
-    const root = document.documentElement;
-    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
-    if (active) setLang(active);
-  }, []);
-  return lang;
-}
 
 function readDisplayCookie(): string | null {
   const match = document.cookie.match(new RegExp(`(?:^|; )${DISPLAY_COOKIE}=([^;]*)`));

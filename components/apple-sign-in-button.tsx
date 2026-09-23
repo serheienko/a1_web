@@ -40,8 +40,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import Script from "next/script";
-import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
+import { type Locale } from "@/components/t";
 import { APPLE_SERVICES_ID, APPLE_REDIRECT_URI } from "@/lib/a1/oauth-public";
+import { useActiveLocale } from "@/lib/use-active-locale";
 
 // Minimal ambient shape for the bits of Apple's JS API this file
 // actually calls — same rationale as google-sign-in-button.tsx's own
@@ -86,16 +87,6 @@ const STRINGS: Record<AppleButtonStringKey, Record<Locale, string>> = {
     zh: "无法通过 Apple 登录，请重试。",
   },
 };
-
-function useActiveLocale(): Locale {
-  const [lang, setLang] = useState<Locale>("uk");
-  useEffect(() => {
-    const root = document.documentElement;
-    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
-    if (active) setLang(active);
-  }, []);
-  return lang;
-}
 
 export function AppleSignInButton() {
   const lang = useActiveLocale();

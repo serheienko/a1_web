@@ -151,12 +151,13 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
-import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
+import { type Locale } from "@/components/t";
 import type { Category, Tag, Currency } from "@/lib/a1/datasets";
 import { translateTagLabel, translateCategoryLabel } from "@/components/label-translations";
 import { LottiePlayer } from "@/components/lottie-player";
 import { formatBytes, formatRelativeTime } from "@/lib/format";
 import { authFetch } from "@/lib/auth-fetch";
+import { useActiveLocale } from "@/lib/use-active-locale";
 
 type PostObject = "post-job-employing" | "post-job-seeking";
 
@@ -544,16 +545,6 @@ function t(key: StringKey, lang: Locale, vars?: Record<string, string | number>)
   let s = STRINGS[key][lang];
   if (vars) for (const [k, v] of Object.entries(vars)) s = s.replace(`{${k}}`, String(v));
   return s;
-}
-
-function useActiveLocale(): Locale {
-  const [lang, setLang] = useState<Locale>("uk");
-  useEffect(() => {
-    const root = document.documentElement;
-    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
-    if (active) setLang(active);
-  }, []);
-  return lang;
 }
 
 const inputClass =

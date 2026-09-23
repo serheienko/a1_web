@@ -18,10 +18,11 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
+import { type Locale } from "@/components/t";
 import { ProfileEditor } from "@/components/profile-editor";
 import { profileHref } from "@/lib/profile-href";
 import { authFetch } from "@/lib/auth-fetch";
+import { useActiveLocale } from "@/lib/use-active-locale";
 
 type StringKey = "editProfile";
 
@@ -32,16 +33,6 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
     pl: "Edytuj profil", ptBR: "Editar perfil", zh: "编辑资料",
   },
 };
-
-function useActiveLocale(): Locale {
-  const [lang, setLang] = useState<Locale>("uk");
-  useEffect(() => {
-    const root = document.documentElement;
-    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
-    if (active) setLang(active);
-  }, []);
-  return lang;
-}
 
 // 2026-09-02 (Aleksandr, screenshot of this exact button: "Сделай
 // анимацию для карандаша при наведении") -- same animate-pencil-write

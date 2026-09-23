@@ -15,7 +15,8 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
+import { type Locale } from "@/components/t";
+import { useActiveLocale } from "@/lib/use-active-locale";
 
 type StringKey =
   | "title"
@@ -239,15 +240,6 @@ const REASON_TO_KEY: Record<string, StringKey> = {
 
 // 2026-09-19: экспортируется ради components/claim-company-prompt.tsx —
 // вход со страницы вакансии подписан на тот же язык, что и сама форма.
-export function useActiveLocale(): Locale {
-  const [lang, setLang] = useState<Locale>("uk");
-  useEffect(() => {
-    const root = document.documentElement;
-    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
-    if (active) setLang(active);
-  }, []);
-  return lang;
-}
 
 type Step = "email" | "code" | "done";
 

@@ -71,13 +71,14 @@ import {
 } from "@/components/chat/message-actions-menu";
 import Link from "next/link";
 import { assignPeerNameColors } from "@/lib/peer-name-color";
-import { T, LOCALES, LOCALE_CLASS, LOCALE_VISIBILITY_CLASS, type Locale } from "@/components/t";
+import { T, LOCALES, LOCALE_VISIBILITY_CLASS, type Locale } from "@/components/t";
 import { formatRelativeTime } from "@/lib/format";
 import { avatarSourceUrl } from "@/lib/avatar-source";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { profileHref } from "@/lib/profile-href";
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
 import type { WebComment } from "@/lib/a1/comments";
+import { useActiveLocale } from "@/lib/use-active-locale";
 
 // Тот же приём чтения куки, что и в components/create-post-fab.tsx,
 // components/chats-fab.tsx и components/avatar-menu.tsx: это НЕ проверка
@@ -95,15 +96,6 @@ type Me = { userId: string | null; username: string | null; name: string; avatar
 // многоязычная через классы на <html> (см. компонент T), а меню из
 // чатов хочет одну конкретную локаль -- читаем ту, что сейчас активна.
 // Меню открывается только по жесту, к этому моменту класс уже на месте.
-function useActiveLocale(): Locale {
-  const [lang, setLang] = useState<Locale>("uk");
-  useEffect(() => {
-    const root = document.documentElement;
-    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
-    if (active) setLang(active);
-  }, []);
-  return lang;
-}
 
 function Time({ date, className }: { date: Date; className: string }) {
   // Тот же приём, что у components/locale-format.tsx: все девять

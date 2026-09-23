@@ -25,9 +25,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
+import { type Locale } from "@/components/t";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
 import { AppleSignInButton } from "@/components/apple-sign-in-button";
+import { useActiveLocale } from "@/lib/use-active-locale";
 
 export type AuthMode = "sign-in" | "sign-up";
 
@@ -122,16 +123,6 @@ export const INLINE_AUTH_STRINGS: Record<InlineAuthStringKey, Record<Locale, str
     fr: "ou", pl: "lub", ptBR: "ou", zh: "或",
   },
 };
-
-function useActiveLocale(): Locale {
-  const [lang, setLang] = useState<Locale>("uk");
-  useEffect(() => {
-    const root = document.documentElement;
-    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
-    if (active) setLang(active);
-  }, []);
-  return lang;
-}
 
 export function InlineAuthForm({
   lang: langProp,

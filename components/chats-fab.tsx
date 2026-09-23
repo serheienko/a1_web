@@ -33,7 +33,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
+import { type Locale } from "@/components/t";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { subscribeAccountMenuOpen, getAccountMenuOpenSnapshot } from "@/lib/account-menu-open";
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
@@ -41,6 +41,7 @@ import { FabAuthPrompt } from "@/components/fab-auth-prompt";
 import { useHoverPanel } from "@/lib/use-hover-panel";
 import { ChatsFlyout, type ChatFlyoutOpenTarget } from "@/components/chats-flyout";
 import { MiniChatWindow } from "@/components/mini-chat-window";
+import { useActiveLocale } from "@/lib/use-active-locale";
 
 type FabStringKey = "label";
 
@@ -50,16 +51,6 @@ const STRINGS: Record<FabStringKey, Record<Locale, string>> = {
     fr: "Discussions", pl: "Czaty", ptBR: "Conversas", zh: "聊天",
   },
 };
-
-function useActiveLocale(): Locale {
-  const [lang, setLang] = useState<Locale>("uk");
-  useEffect(() => {
-    const root = document.documentElement;
-    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
-    if (active) setLang(active);
-  }, []);
-  return lang;
-}
 
 function readDisplayCookie(): string | null {
   const match = document.cookie.match(new RegExp(`(?:^|; )${DISPLAY_COOKIE}=([^;]*)`));

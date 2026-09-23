@@ -52,9 +52,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
+import { type Locale } from "@/components/t";
 import { PostEditor, type EditablePost } from "@/components/post-editor";
 import { authFetch } from "@/lib/auth-fetch";
+import { useActiveLocale } from "@/lib/use-active-locale";
 
 type AdminPost = EditablePost & {
   created: number;
@@ -113,16 +114,6 @@ function t(key: StringKey, lang: Locale, vars?: Record<string, string | number>)
   let s = STRINGS[key][lang];
   if (vars) for (const [k, v] of Object.entries(vars)) s = s.replace(`{${k}}`, String(v));
   return s;
-}
-
-function useActiveLocale(): Locale {
-  const [lang, setLang] = useState<Locale>("uk");
-  useEffect(() => {
-    const root = document.documentElement;
-    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
-    if (active) setLang(active);
-  }, []);
-  return lang;
 }
 
 function statusOf(post: AdminPost, lang: Locale): { label: string; className: string } {

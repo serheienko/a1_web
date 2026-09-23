@@ -60,7 +60,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
+import { type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
 import { ApplyQuestionsModal } from "@/components/apply-questions-modal";
 import type { WebApplyQuestion } from "@/types/web-post";
@@ -85,6 +85,7 @@ import { profileHref } from "@/lib/profile-href";
 import { CachedAvatar } from "@/components/cached-avatar";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
+import { useActiveLocale } from "@/lib/use-active-locale";
 
 type StringKey =
   | "message"
@@ -229,16 +230,6 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
     fr: "OK", pl: "OK", ptBR: "OK", zh: "好的",
   },
 };
-
-function useActiveLocale(): Locale {
-  const [lang, setLang] = useState<Locale>("uk");
-  useEffect(() => {
-    const root = document.documentElement;
-    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
-    if (active) setLang(active);
-  }, []);
-  return lang;
-}
 
 type ToggleStatus = "loading" | "idle" | "on" | "busy" | "error";
 
@@ -792,7 +783,6 @@ export function PostViewerMenu({
     if (!path) return shareUrl;
     return typeof window === "undefined" ? path : `${window.location.origin}${path}`;
   }
-
 
   const contactLabel =
     contactStatus === "error" ? STRINGS.actionFailed[lang] : contactStatus === "on" ? STRINGS.removeContact[lang] : STRINGS.addContact[lang];

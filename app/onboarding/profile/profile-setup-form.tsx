@@ -21,12 +21,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
+import { type Locale } from "@/components/t";
 import { OccupationIcon } from "@/components/occupation-icon";
 import { LottiePlayer } from "@/components/lottie-player";
 import { OCCUPATION_LABELS } from "@/components/occupation-labels";
 import type { Category } from "@/lib/a1/datasets";
 import { authFetch } from "@/lib/auth-fetch";
+import { useActiveLocale } from "@/lib/use-active-locale";
 
 type OccupationValue = "entrepreneur" | "professional" | "freelancer";
 const OCCUPATION_VALUES: OccupationValue[] = ["entrepreneur", "professional", "freelancer"];
@@ -107,15 +108,6 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
 // Same trick as app/sign-in/page.tsx's useActiveLocale — reads the CSS
 // lang-XX class app/layout.tsx's anti-flash script already set, no
 // separate i18n context to wire up for one client form.
-function useActiveLocale(): Locale {
-  const [lang, setLang] = useState<Locale>("uk");
-  useEffect(() => {
-    const root = document.documentElement;
-    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
-    if (active) setLang(active);
-  }, []);
-  return lang;
-}
 
 const inputClass =
   "w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 text-sm text-neutral-900 outline-none transition focus:border-accent/40 focus:ring-2 focus:ring-accent/30 dark:border-neutral-700 dark:bg-black dark:text-neutral-100";

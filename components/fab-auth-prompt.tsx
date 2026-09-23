@@ -39,11 +39,12 @@
 
 import { createPortal } from "react-dom";
 import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
-import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
+import { type Locale } from "@/components/t";
 import { useEffect, useState, type RefObject } from "react";
 import { LottiePlayer } from "@/components/lottie-player";
 import { InlineAuthForm } from "@/components/inline-auth-form";
 import { useCloseOnScroll } from "@/lib/use-close-on-scroll";
+import { useActiveLocale } from "@/lib/use-active-locale";
 
 type FabAuthPromptStringKey = "title" | "body" | "signInCta" | "cancel";
 
@@ -74,16 +75,6 @@ const STRINGS: Record<FabAuthPromptStringKey, Record<Locale, string>> = {
     fr: "Annuler", pl: "Anuluj", ptBR: "Cancelar", zh: "取消",
   },
 };
-
-function useActiveLocale(): Locale {
-  const [lang, setLang] = useState<Locale>("uk");
-  useEffect(() => {
-    const root = document.documentElement;
-    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
-    if (active) setLang(active);
-  }, []);
-  return lang;
-}
 
 // Sits directly above the FAB stack: components/create-post-fab.tsx's
 // button is 56px tall starting at 1.25rem off the bottom, components/

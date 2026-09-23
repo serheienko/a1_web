@@ -25,7 +25,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { profileHref } from "@/lib/profile-href";
-import { T, LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
+import { T, type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
 import { useHoverPanel } from "@/lib/use-hover-panel";
@@ -118,6 +118,7 @@ import { useVoiceRecorder, formatVoiceTimer, type VoiceRecordingResult } from "@
 import { rememberLocalVoiceWaveform } from "@/lib/voice-local-waveform-cache";
 import { VoiceRecordButton, VoiceRecordingBar, VoiceMicDeniedNotice } from "@/components/chat/voice-message";
 import { VoiceMessageBubble, PendingVoiceBubble } from "@/components/chat/voice-bubble";
+import { useActiveLocale } from "@/lib/use-active-locale";
 
 type LoadState = "loading" | "signed-out" | "error" | "ready";
 
@@ -553,15 +554,6 @@ function sameDay(aMs: number, bMs: number): boolean {
 // text server-side and lets CSS pick one, which works for display copy
 // but not for a value that has to leave the browser as a real string
 // (the greeting message text sent below).
-function useActiveLocale(): Locale {
-  const [lang, setLang] = useState<Locale>("uk");
-  useEffect(() => {
-    const root = document.documentElement;
-    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
-    if (active) setLang(active);
-  }, []);
-  return lang;
-}
 
 // 2026-09-02 (Aleksandr, mobile app's empty-state screenshot + Hicat.tgs:
 // "тап на привітання" -- tapping the waving cat below sends this as a

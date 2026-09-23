@@ -29,7 +29,7 @@
 
 import { useEffect, useState } from "react";
 import { T } from "@/components/t";
-import { useActiveLocale } from "@/components/claim-form";
+import { useActiveLocale } from "@/lib/use-active-locale";
 
 type State = "idle" | "loading" | "error";
 

@@ -91,7 +91,7 @@ import {
   type MessagePeerReaction,
   type Peer,
 } from "@/lib/a1/chat-schemas";
-import { T, LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
+import { T, type Locale } from "@/components/t";
 import {
   MessageTicks,
   ChatCatFieldIcon,
@@ -130,6 +130,7 @@ import { DailyUploadsModal } from "@/components/daily-uploads-modal";
 import type { ChatFlyoutOpenTarget } from "@/components/chats-flyout";
 import { LottiePlayer } from "@/components/lottie-player";
 import { MeetingsMenuModal, quickInviteCatAnimation } from "@/components/chat/meetings-menu-modal";
+import { useActiveLocale } from "@/lib/use-active-locale";
 
 const POLL_MS = 3000;
 // Same throttle idea as app/chats/[chatId]/page.tsx's own readStateTick
@@ -143,15 +144,6 @@ const READ_STATE_EVERY = 2;
 // which lang-XX class is active on <html> so the shared components
 // below (DailyUploadsModal, ContactsPickerModal, ChatCalculationCard,
 // CurrencyPickerModal, T) get a real Locale instead of a hardcoded one.
-function useActiveLocale(): Locale {
-  const [lang, setLang] = useState<Locale>("uk");
-  useEffect(() => {
-    const root = document.documentElement;
-    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
-    if (active) setLang(active);
-  }, []);
-  return lang;
-}
 
 const MAX_ATTACHMENT_FILE_BYTES = 20 * 1024 * 1024;
 

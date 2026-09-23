@@ -48,9 +48,10 @@
 import { useEffect, useRef, useState } from "react";
 import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
 import { useRouter } from "next/navigation";
-import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
+import { type Locale } from "@/components/t";
 import { formatBytes, formatRelativeTime } from "@/lib/format";
 import { authFetch } from "@/lib/auth-fetch";
+import { useActiveLocale } from "@/lib/use-active-locale";
 
 const MAX_PHOTO_BYTES = 300 * 1024;
 const MAX_PHOTO_DIMENSION = 1600;
@@ -99,16 +100,6 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
 
 function t(key: StringKey, lang: Locale): string {
   return STRINGS[key][lang];
-}
-
-function useActiveLocale(): Locale {
-  const [lang, setLang] = useState<Locale>("uk");
-  useEffect(() => {
-    const root = document.documentElement;
-    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
-    if (active) setLang(active);
-  }, []);
-  return lang;
 }
 
 function isNotSignedIn(data: unknown): boolean {

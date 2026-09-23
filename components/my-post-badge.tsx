@@ -28,8 +28,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
+import { type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
+import { useActiveLocale } from "@/lib/use-active-locale";
 
 type StringKey = "mine";
 
@@ -40,16 +41,6 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
     ptBR: "Esta é sua publicação", zh: "这是您的帖子",
   },
 };
-
-function useActiveLocale(): Locale {
-  const [lang, setLang] = useState<Locale>("uk");
-  useEffect(() => {
-    const root = document.documentElement;
-    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
-    if (active) setLang(active);
-  }, []);
-  return lang;
-}
 
 let minePostIdsPromise: Promise<Set<string>> | null = null;
 function loadMinePostIds(): Promise<Set<string>> {

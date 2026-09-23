@@ -31,10 +31,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
+import { type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
 import type { WebApplyQuestion } from "@/types/web-post";
 import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
+import { useActiveLocale } from "@/lib/use-active-locale";
 
 const STRINGS = {
   title: {
@@ -145,16 +146,6 @@ const STRINGS = {
 
 /** Зелёный акцент полосы прогресса -- applyQuestionsAccentGreen из приложения. */
 const ACCENT_GREEN = "#23D28C";
-
-function useActiveLocale(): Locale {
-  const [lang, setLang] = useState<Locale>("uk");
-  useEffect(() => {
-    const root = document.documentElement;
-    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
-    if (active) setLang(active);
-  }, []);
-  return lang;
-}
 
 function draftKey(postId: string): string {
   return `a1:apply-draft:${postId}`;

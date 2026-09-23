@@ -66,7 +66,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
-import { LOCALES, LOCALE_CLASS, LOCALE_TAG, type Locale } from "@/components/t";
+import { LOCALE_TAG, type Locale } from "@/components/t";
 import { OccupationIcon } from "@/components/occupation-icon";
 import { OCCUPATION_LABELS } from "@/components/occupation-labels";
 import { WORK_STYLE_PREFERENCE_SECTIONS } from "@/components/work-style-labels";
@@ -93,6 +93,7 @@ import { PhotoCropModal } from "@/components/photo-crop-modal";
 import { canShowPhone, canShowDob } from "@/lib/a1/user-flags";
 import { formatBytes, formatRelativeTime } from "@/lib/format";
 import { authFetch } from "@/lib/auth-fetch";
+import { useActiveLocale } from "@/lib/use-active-locale";
 
 // ---------------------------------------------------------------------------
 // Constants shared with components/post-editor.tsx's own photo handling —
@@ -453,16 +454,6 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
 
 function t(key: StringKey, lang: Locale): string {
   return STRINGS[key][lang];
-}
-
-function useActiveLocale(): Locale {
-  const [lang, setLang] = useState<Locale>("uk");
-  useEffect(() => {
-    const root = document.documentElement;
-    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
-    if (active) setLang(active);
-  }, []);
-  return lang;
 }
 
 // ---------------------------------------------------------------------------

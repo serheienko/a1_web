@@ -32,7 +32,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CachedAvatar } from "@/components/cached-avatar";
 import Link from "next/link";
-import { T, LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
+import { T, type Locale } from "@/components/t";
 import { PostCard } from "@/components/post-card";
 import { profileHref } from "@/lib/profile-href";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
@@ -40,6 +40,7 @@ import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import type { WebPost } from "@/types/web-post";
 import { authFetch } from "@/lib/auth-fetch";
 import { GLASS } from "@/lib/glass";
+import { useActiveLocale } from "@/lib/use-active-locale";
 
 type LoadState = "loading" | "signed-out" | "error" | "ready";
 type Tab = "mine" | "posts" | "users";
@@ -98,16 +99,6 @@ function tabLabel(tab: Tab, lang: Locale): string {
     },
   };
   return STRINGS[tab][lang];
-}
-
-function useActiveLocale(): Locale {
-  const [lang, setLang] = useState<Locale>("uk");
-  useEffect(() => {
-    const root = document.documentElement;
-    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
-    if (active) setLang(active);
-  }, []);
-  return lang;
 }
 
 export default function MyActivityPage() {

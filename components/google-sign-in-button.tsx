@@ -46,8 +46,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import Script from "next/script";
-import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
+import { type Locale } from "@/components/t";
 import { GOOGLE_WEB_CLIENT_ID } from "@/lib/a1/oauth-public";
+import { useActiveLocale } from "@/lib/use-active-locale";
 
 // Minimal ambient shape for the bits of the GIS API this file actually
 // calls — there is no official @types package, and installing an
@@ -94,16 +95,6 @@ const STRINGS: Record<GoogleButtonStringKey, Record<Locale, string>> = {
     zh: "无法通过 Google 登录，请重试。",
   },
 };
-
-function useActiveLocale(): Locale {
-  const [lang, setLang] = useState<Locale>("uk");
-  useEffect(() => {
-    const root = document.documentElement;
-    const active = LOCALES.find((l) => root.classList.contains(LOCALE_CLASS[l]));
-    if (active) setLang(active);
-  }, []);
-  return lang;
-}
 
 export function GoogleSignInButton() {
   const lang = useActiveLocale();
