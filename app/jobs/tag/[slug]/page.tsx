@@ -117,9 +117,11 @@ export default async function Page({ params }: Props) {
         <p className="mt-2 text-neutral-500 dark:text-neutral-400">
           <CountLine template={landing.countLine} n={all.length} />
         </p>
-        <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-neutral-600 dark:text-neutral-400">
-          <T {...landing.lead} />
-        </p>
+        {landing.lead ? (
+          <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-neutral-600 dark:text-neutral-400">
+            <T {...landing.lead} />
+          </p>
+        ) : null}
       </header>
 
       {posts.length === 0 ? (

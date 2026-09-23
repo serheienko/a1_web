@@ -30,7 +30,10 @@ export type FactLanding = {
   metaDescription: string;
   h1: Record<Locale, string>;
   countLine: Record<Locale, string>;
-  lead: Record<Locale, string>;
+  /** Абзац под счётчиком. Есть не у всех: если признак объясняет
+   *  себя заголовком, лишний текст только отодвигает вакансии вниз
+   *  (Александр, 23.09.2026, про with-salary). */
+  lead?: Record<Locale, string>;
   empty: Record<Locale, string>;
 };
 
@@ -168,17 +171,6 @@ export const FACT_LANDINGS: FactLanding[] = [
       pl: "{n} ofert, w których firma podaje wynagrodzenie",
       ptBR: "{n} vagas em que a empresa informa o salário",
       zh: "{n} 个公司标明薪资的职位",
-    },
-    lead: {
-      uk: "Компанії, які не ховають цифру. Сума береться з поля вакансії, а не вгадується з тексту — тому тут не буде «від 100 доларів» там, де йшлося про щось інше.",
-      en: "Companies that do not hide the number. The amount comes from the vacancy's own salary field, never guessed from the text — so no figure here means something it did not mean in the ad.",
-      ru: "Компании, которые не прячут цифру. Сумма берётся из поля вакансии, а не угадывается из текста — поэтому здесь не будет «от 100 долларов» там, где речь шла о другом.",
-      de: "Unternehmen, die die Zahl nicht verstecken. Der Betrag stammt aus dem Gehaltsfeld der Anzeige und wird nie aus dem Text geraten.",
-      es: "Empresas que no esconden la cifra. El importe procede del campo de salario de la oferta, nunca se deduce del texto.",
-      fr: "Des entreprises qui ne cachent pas le chiffre. Le montant provient du champ salaire de l'annonce, jamais deviné dans le texte.",
-      pl: "Firmy, które nie ukrywają kwoty. Wartość pochodzi z pola wynagrodzenia w ofercie, nigdy nie jest zgadywana z treści.",
-      ptBR: "Empresas que não escondem o valor. O montante vem do campo de salário da vaga, nunca é deduzido do texto.",
-      zh: "不隐藏数字的公司。金额取自职位的薪资字段，绝不从描述文本中推测。",
     },
     empty: {
       uk: "Поки немає вакансій із зазначеною зарплатою.",
