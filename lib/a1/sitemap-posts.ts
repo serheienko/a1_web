@@ -33,33 +33,75 @@ export const SITEMAP_CHUNK_SIZE = 45_000;
 // an infinite loop, not because we expect to hit it.
 const MAX_TOTAL_POSTS = SITEMAP_CHUNK_SIZE * 5;
 
-/** Every live (non-expired, non-legacy-type, schema-valid), published Jobs
- *  post — walked to exhaustion via posts.search's cursor. */
-export async function fetchAllSitemapJobPosts(): Promise<WebPost[]> {
-  const posts: WebPost[] = [];
-  let cursor: string | undefined;
+// Сколько страниц тянем одновременно. То же число, что у обхода в
+// lib/a1/feed.ts (SCAN_CONCURRENCY) -- сознательно одно и то же, чтобы
+// два обхода не нагружали бэкенд по-разному.
+const SCAN_CONCURRENCY = 12;
 
-  for (;;) {
+/** Every live (non-expired, non-legacy-type, schema-valid), published Jobs
+ *  post.
+ *
+ *  23.09.2026 (Александр: «нажал на главной „Бронювання“ -- заняло секунд
+ *  14, это пиздец как долго»). Раньше здесь был обход по курсору:
+ *  следующая страница запрашивалась только после ответа на предыдущую.
+ *  На живой базе (~2100 вакансий по 100 штук) это двадцать с лишним
+ *  запросов ОДИН ЗА ДРУГИМ -- отсюда и четырнадцать секунд.
+ *
+ *  Ровно эту же болезнь 20.09.2026 уже вылечили у обхода ленты
+ *  (lib/a1/feed.ts, scanAllPosts) -- там было одиннадцать секунд на клик
+ *  по чипу стека. Лечение повторено буквально, а не придумано заново:
+ *  первый запрос приносит общее число вакансий, дальше страницы берутся
+ *  по offset, а значит независимы друг от друга, и идут пачками
+ *  параллельно.
+ *
+ *  Порядок страниц сохраняется, поэтому порядок выдачи прежний.
+ *  Дедупликация -- подстраховка: лента живая, и пока идут запросы,
+ *  offset может сдвинуться на только что опубликованную вакансию. */
+export async function fetchAllSitemapJobPosts(): Promise<WebPost[]> {
+  const fetchPage = async (offset: number, withCount: boolean) => {
     const raw = await call<unknown>("posts.search", {
       limit: PAGE_SIZE,
       object: "post-job-employing",
-      ...(cursor ? { next: cursor } : {}),
+      ...(offset > 0 ? { offset } : {}),
+      ...(withCount ? { expand: "count" } : {}),
     });
-    const parsed = PostsSearchOutputSchema.parse(raw);
+    return PostsSearchOutputSchema.parse(raw);
+  };
 
-    for (const mapped of mapPosts(parsed.items)) {
+  // Первая страница идёт отдельно и приносит общее число: без него
+  // неизвестно, сколько страниц вообще запрашивать.
+  const first = await fetchPage(0, true);
+  const total =
+    first.count?.object["post-job-employing"] ?? first.count?.total ?? 0;
+  const pages = Math.min(
+    Math.ceil(MAX_TOTAL_POSTS / PAGE_SIZE),
+    Math.max(1, Math.ceil(total / PAGE_SIZE)),
+  );
+
+  const byPage: WebPost[][] = [mapPosts(first.items)];
+  for (let from = 1; from < pages; from += SCAN_CONCURRENCY) {
+    const batch = await Promise.all(
+      Array.from({ length: Math.min(SCAN_CONCURRENCY, pages - from) }, (_, i) =>
+        fetchPage((from + i) * PAGE_SIZE, false).then((parsed) => mapPosts(parsed.items)),
+      ),
+    );
+    byPage.push(...batch);
+  }
+
+  const posts: WebPost[] = [];
+  const seen = new Set<string>();
+  for (const page of byPage) {
+    for (const mapped of page) {
+      if (seen.has(mapped.id)) continue;
+      seen.add(mapped.id);
       if (!isJobPostingExpired(mapped)) posts.push(mapped);
     }
+  }
 
-    if (!parsed.pagination.hasMore || !parsed.pagination.next) break;
-    cursor = parsed.pagination.next;
-
-    if (posts.length >= MAX_TOTAL_POSTS) {
-      console.warn(
-        `[lib/a1/sitemap-posts] hit the ${MAX_TOTAL_POSTS}-post safety cap — sitemap is truncated, not exhaustive`,
-      );
-      break;
-    }
+  if (posts.length >= MAX_TOTAL_POSTS) {
+    console.warn(
+      `[lib/a1/sitemap-posts] hit the ${MAX_TOTAL_POSTS}-post safety cap — sitemap is truncated, not exhaustive`,
+    );
   }
 
   return posts;
