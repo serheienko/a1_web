@@ -31,6 +31,7 @@
 // string, see that route's own header), messages.editMessage apparently
 // requires `message` at the root even when `entities` is also present.
 // Sending both now -- pending a live re-test after this deploys.
+import { addFenceLanguages } from "@/lib/chat-code";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { A1ApiError } from "@/lib/a1/client";
@@ -60,7 +61,8 @@ export async function POST(request: NextRequest) {
       id: messageId,
       flags: EDITED_FLAG,
       peerTo: peerForRouteParam(chatId),
-      message: text,
+      // Разметку (**жирный**, ```код```) сервер разбирает из `message`.
+      message: addFenceLanguages(text),
       entities: [{ object: "entity-text", text }],
     });
     const parsedMessage = MessageSchema.safeParse(data);

@@ -16,6 +16,7 @@
 // personal chat right here (services/chats/methods/
 // _peerToPeerChat.ts + resolvePersonalChat.ts) before the message goes
 // out -- no separate "create the chat first" step needed.
+import { addFenceLanguages } from "@/lib/chat-code";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { A1ApiError } from "@/lib/a1/client";
@@ -256,7 +257,9 @@ export async function POST(request: NextRequest) {
       // than re-guessing.
       if (text) payload.entities = [{ object: "entity-text", text }];
     } else if (text) {
-      payload.message = text;
+      // 2026-09-24: ``` без языка получает язык здесь — сервер сохранит
+      // его, и сайт с приложением покажут одну подпись (Dart, C++…).
+      payload.message = addFenceLanguages(text);
     }
     const { data, refreshedSession } = await callAsVisitor<unknown>("messages.send", payload);
 

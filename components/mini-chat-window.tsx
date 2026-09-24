@@ -62,7 +62,9 @@ import { useHoverPanel } from "@/lib/use-hover-panel";
 import { buildMediaProxyUrl, buildMediaDownloadUrl, decodeStickerPathPreview, strippedPreviewDataUrl } from "@/lib/a1/media-proxy";
 import { encodeBase64Waveform, SELF_DESTRUCT_VOICE_FLAGS, SELF_DESTRUCT_VOICE_TTL_SECONDS } from "@/lib/a1/chat-schemas";
 import { useVoiceRecorder, type VoiceRecordingResult } from "@/components/chat/voice-recorder";
+import { ComposerFormatBar } from "@/components/chat/composer-format-bar";
 import { MessageRichText } from "@/components/chat/message-rich-text";
+import { parseChatMarkdown } from "@/lib/chat-markdown";
 import { rememberLocalVoiceWaveform } from "@/lib/voice-local-waveform-cache";
 import { VoiceRecordButton, VoiceRecordingBar, VoiceMicDeniedNotice } from "@/components/chat/voice-message";
 import { VoiceMessageBubble } from "@/components/chat/voice-bubble";
@@ -2219,7 +2221,7 @@ export function MiniChatWindow({
                     </div>
                   ) : (
                     <div className="whitespace-pre-wrap break-words">
-                      <MessageRichText entities={msg.entities} fallback={text} />
+                      <MessageRichText entities={msg.entities ?? parseChatMarkdown(text)} fallback={text} tone={mine ? "mine" : "theirs"} />
                     </div>
                   )
                 )}
@@ -2793,6 +2795,7 @@ export function MiniChatWindow({
                 );
               })()}
             <div className="flex min-h-[36px] items-center gap-1.5 px-3 py-1.5">
+              <ComposerFormatBar textareaRef={textareaRef} value={draft} onChange={setDraft} />
               <textarea
                 ref={textareaRef}
                 rows={1}

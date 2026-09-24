@@ -61,7 +61,9 @@ import {
 import { ChatPreviewLine } from "@/components/chat/chat-preview-line";
 import { MessageActionsMenu, ReplyComposeBar, EditComposeBar, ForwardComposeBar, MessageReplyQuote, ReplyIcon, RemindIcon, DeleteMessageConfirmDialog, ReactionsBar } from "@/components/chat/message-actions-menu";
 import { PinnedMessageBanner } from "@/components/chat/pinned-message-banner";
+import { ComposerFormatBar } from "@/components/chat/composer-format-bar";
 import { MessageRichText } from "@/components/chat/message-rich-text";
+import { parseChatMarkdown } from "@/lib/chat-markdown";
 import { AllPinsModal } from "@/components/chat/all-pins-modal";
 // Reminders list (2026-09-06, design-reference screenshots of an
 // iOS-style "Remind me" sheet grouping reminders by date -- see this
@@ -4545,7 +4547,10 @@ export default function ChatWindowPage() {
               // (жирное, ссылки, разделитель). У ещё не отправленного
               // своего сообщения их нет -- тогда рисуется плоский
               // текст, как и раньше.
-              const richEntities = isPendingMessage(msg) ? null : msg.entities;
+              // 2026-09-24: своё ещё не отправленное сообщение с разметкой
+              // (**жирный**, ```код```) разбираем сами, чтобы пузырь «в
+              // пути» выглядел так же, как после ответа сервера.
+              const richEntities = isPendingMessage(msg) ? parseChatMarkdown(text) : msg.entities;
               const popoverOpen = pending !== null && openPendingId === pending.localId;
               // Attachment feature: a pending (not-yet-reconciled) bubble
               // renders its own local upload previews (pendingAttachments,
@@ -5884,7 +5889,7 @@ export default function ChatWindowPage() {
                                   : (e) => setActionsMenu({ message: msg, anchorRect: e.currentTarget.getBoundingClientRect(), mine })
                               }
                             >
-                              <MessageRichText entities={richEntities} fallback={text} />
+                              <MessageRichText entities={richEntities} fallback={text} tone={mine ? "mine" : "theirs"} />
                             </div>
                           </>
                         )
@@ -7158,6 +7163,7 @@ export default function ChatWindowPage() {
                   );
                 })()}
               <div className="flex min-h-[44px] items-end gap-2 px-3.5 py-2">
+              <ComposerFormatBar textareaRef={textareaRef} value={draft} onChange={setDraft} />
               <textarea
                 ref={textareaRef}
                 value={draft}

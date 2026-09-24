@@ -15,13 +15,27 @@
 // пересылки, копирования, цитаты ответа) живёт в lib/a1/chat-schemas.ts
 // (entityPlainText) и должен давать тот же текст, что виден глазами.
 import { Fragment, type ReactNode } from "react";
+import { CodeBlock, HiddenLink, InlineCode, Quote, Spoiler, richToneClass, type RichTone } from "@/components/chat/rich-blocks";
 
 type RawEntity = {
   object?: unknown;
   text?: unknown;
   url?: unknown;
+  language?: unknown;
   entities?: unknown;
 };
+
+/** Код-блок: с языком или с переносом строки; иначе это код в строке. */
+function isCodeBlock(e: RawEntity): boolean {
+  if (kindOf(e) !== "entity-pre") return false;
+  const lang = typeof e.language === "string" ? e.language : "";
+  const text = typeof e.text === "string" ? e.text : "";
+  return lang.length > 0 || text.includes("\n");
+}
+
+function isBlock(e: RawEntity | null): boolean {
+  return !!e && (isCodeBlock(e) || kindOf(e) === "entity-blockquote");
+}
 
 function asEntity(node: unknown): RawEntity | null {
   return node && typeof node === "object" ? (node as RawEntity) : null;
@@ -51,18 +65,13 @@ function renderNode(node: unknown, key: string): ReactNode {
     case "entity-bold":
       return <strong className="font-semibold">{children ? renderList(children, key) : text}</strong>;
 
+    // 2026-09-24: цитата, спойлер и код — как в Telegram (см.
+    // components/chat/rich-blocks.tsx).
     case "entity-blockquote":
-      return (
-        <span className="my-1 block border-l-2 border-current/30 pl-2 opacity-90">
-          {children ? renderList(children, key) : text}
-        </span>
-      );
+      return <Quote>{children ? renderList(children, key) : text}</Quote>;
 
-    // Спойлер как интерактив («нажми, чтобы открыть») не делаем -- в
-    // наших сообщениях он не встречается; показываем обычным текстом,
-    // чтобы ничего не пропало.
     case "entity-spoiler":
-      return children ? renderList(children, key) : text;
+      return <Spoiler>{children ? renderList(children, key) : text}</Spoiler>;
 
     case "entity-muted":
       return <span className="opacity-70">{children ? renderList(children, key) : text}</span>;
@@ -73,7 +82,16 @@ function renderNode(node: unknown, key: string): ReactNode {
     case "entity-text-color":
       return children ? renderList(children, key) : text;
 
-    case "entity-text-url":
+    case "entity-text-url": {
+      const href = typeof e.url === "string" && e.url ? e.url : text;
+      if (!href) return text;
+      return (
+        <HiddenLink href={href} label={text}>
+          {text || href}
+        </HiddenLink>
+      );
+    }
+
     case "entity-url": {
       const href = typeof e.url === "string" && e.url ? e.url : text;
       if (!href) return text;
@@ -105,7 +123,11 @@ function renderNode(node: unknown, key: string): ReactNode {
       return <span className="font-medium">{text}</span>;
 
     case "entity-pre":
-      return <code className="rounded bg-black/10 px-1 py-0.5 text-[0.9em] dark:bg-white/10">{text}</code>;
+      return isCodeBlock(e) ? (
+        <CodeBlock code={text} language={typeof e.language === "string" ? e.language : null} />
+      ) : (
+        <InlineCode text={text} />
+      );
 
     case "entity-hr":
       return <span className="my-1.5 block h-px bg-current opacity-25" />;
@@ -129,13 +151,16 @@ function renderNode(node: unknown, key: string): ReactNode {
 export function MessageRichText({
   entities,
   fallback,
+  tone = "theirs",
 }: {
   entities: unknown[] | null | undefined;
   fallback: string;
+  /** Свой (синий) пузырь или чужой — для цветов кода, цитат, спойлеров. */
+  tone?: RichTone;
 }) {
   if (!entities || entities.length === 0) return <>{fallback}</>;
 
-  const rendered = renderList(entities, "e");
+  const rendered = renderList(trimAroundBlocks(entities), "e");
   const hasAnything = entities.some((node) => {
     const e = asEntity(node);
     if (!e) return false;
@@ -143,5 +168,39 @@ export function MessageRichText({
     return kind === "entity-hr" || typeof e.text === "string" || Array.isArray(e.entities);
   });
 
-  return hasAnything ? <>{rendered}</> : <>{fallback}</>;
+  if (!hasAnything) return <>{fallback}</>;
+  return <span className={`block ${richToneClass(tone)}`}>{rendered}</span>;
+}
+
+/**
+ * Код и цитаты — отдельные блоки, поэтому пустые строки вокруг них
+ * (сервер кладёт между абзацами «\n\n») только раздувают пузырь.
+ * Также убираем копии ссылок, которые старые сообщения из приложения
+ * добавляли отдельными entity-url рядом с полным текстом.
+ */
+function trimAroundBlocks(entities: unknown[]): unknown[] {
+  const texts = entities
+    .map(asEntity)
+    .filter((e): e is RawEntity => !!e && kindOf(e) === "entity-text")
+    .map((e) => (typeof e.text === "string" ? e.text : ""))
+    .join("\n");
+  const items = entities.filter((n) => {
+    const e = asEntity(n);
+    if (!e || kindOf(e) !== "entity-url") return true;
+    const t = typeof e.text === "string" ? e.text : "";
+    return !(t && texts.includes(t));
+  });
+  const out: unknown[] = [];
+  items.forEach((node, i) => {
+    const e = asEntity(node);
+    if (!e || kindOf(e) !== "entity-text" || typeof e.text !== "string") {
+      out.push(node);
+      return;
+    }
+    let t = e.text;
+    if (isBlock(asEntity(items[i - 1])) || i === 0) t = t.replace(/^\n+/, "");
+    if (isBlock(asEntity(items[i + 1])) || i === items.length - 1) t = t.replace(/\n+$/, "");
+    if (t) out.push({ ...e, text: t });
+  });
+  return out;
 }

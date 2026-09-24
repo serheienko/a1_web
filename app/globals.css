@@ -1942,3 +1942,82 @@ textarea {
     transition: none;
   }
 }
+
+/*
+ * 2026-09-24 (Александр: форматирование в чатах как в Telegram).
+ * Подсветка кода в блоках (components/chat/rich-blocks.tsx): цвета —
+ * CSS-переменные, которые ставит richToneClass() на обёртке сообщения
+ * (свой синий пузырь / чужой светлый / чужой тёмный), те же, что в
+ * приложении.
+ */
+.chat-code .hljs-keyword,
+.chat-code .hljs-selector-tag,
+.chat-code .hljs-built_in.hljs-keyword { color: var(--hl-kw); }
+.chat-code .hljs-literal,
+.chat-code .hljs-number { color: var(--hl-num); }
+.chat-code .hljs-type,
+.chat-code .hljs-built_in,
+.chat-code .hljs-title.class_,
+.chat-code .hljs-class { color: var(--hl-type); }
+.chat-code .hljs-title,
+.chat-code .hljs-title.function_ { color: var(--hl-fn); }
+.chat-code .hljs-string,
+.chat-code .hljs-regexp,
+.chat-code .hljs-symbol,
+.chat-code .hljs-char.escape_ { color: var(--hl-str); }
+.chat-code .hljs-comment,
+.chat-code .hljs-doctag,
+.chat-code .hljs-quote { color: var(--hl-com); font-style: italic; }
+.chat-code .hljs-attr,
+.chat-code .hljs-attribute,
+.chat-code .hljs-property,
+.chat-code .hljs-variable,
+.chat-code .hljs-params,
+.chat-code .hljs-selector-class,
+.chat-code .hljs-selector-id,
+.chat-code .hljs-name { color: var(--hl-attr); }
+.chat-code .hljs-meta,
+.chat-code .hljs-subst,
+.chat-code .hljs-template-variable { color: var(--hl-meta); }
+
+/*
+ * Спойлер: слова прозрачные, поверх — облачко мелких точек цвета текста,
+ * которое медленно «кипит» (два слоя точек едут в разные стороны).
+ * Клик открывает, точки тают. При «уменьшить движение» точки стоят.
+ */
+.chat-spoiler {
+  color: transparent;
+  cursor: pointer;
+  border-radius: 3px;
+  background-image:
+    radial-gradient(circle, var(--rich-dot, currentColor) 0.75px, transparent 1.15px),
+    radial-gradient(circle, color-mix(in srgb, var(--rich-dot, currentColor) 70%, transparent) 0.6px, transparent 1px);
+  background-size: 4px 4px, 5px 5px;
+  background-position: 0 0, 2px 1px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  animation: chat-spoiler-drift 2.4s linear infinite;
+  transition: color 0.35s ease;
+}
+.chat-spoiler a,
+.chat-spoiler code { color: transparent !important; text-decoration-color: transparent; }
+.chat-spoiler-open {
+  animation: chat-spoiler-reveal 0.35s ease;
+}
+@keyframes chat-spoiler-drift {
+  from { background-position: 0 0, 2px 1px; }
+  to { background-position: 4px -4px, -3px 4px; }
+}
+@keyframes chat-spoiler-reveal {
+  from { opacity: 0.2; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat-spoiler { animation: none; }
+}
+
+/* Панель форматирования над полем ввода чата (composer-format-bar.tsx). */
+@keyframes composer-bar-in {
+  from { opacity: 0; transform: translateY(4px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
