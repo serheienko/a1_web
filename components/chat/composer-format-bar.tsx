@@ -171,6 +171,10 @@ export function ComposerFormatBar({
 
   return createPortal(
     <div
+      // Панель висит в document.body, вне окна мини-чата; эта метка
+      // говорит chats-fab.tsx «клик внутри чата», иначе мини-чат
+      // закрывался на первом же нажатии.
+      data-chat-action-menu=""
       className="fixed z-[900] animate-[composer-bar-in_160ms_ease-out]"
       style={{ left, bottom }}
       // Кнопки не должны отбирать фокус у поля — иначе пропадёт выделение.

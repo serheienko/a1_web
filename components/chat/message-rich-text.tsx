@@ -15,7 +15,7 @@
 // пересылки, копирования, цитаты ответа) живёт в lib/a1/chat-schemas.ts
 // (entityPlainText) и должен давать тот же текст, что виден глазами.
 import { Fragment, type ReactNode } from "react";
-import { CodeBlock, HiddenLink, InlineCode, Quote, Spoiler, richToneClass, type RichTone } from "@/components/chat/rich-blocks";
+import { CodeBlock, HiddenLink, InlineCode, LINK_CLASS, Quote, Spoiler, richToneClass, type RichTone } from "@/components/chat/rich-blocks";
 
 type RawEntity = {
   object?: unknown;
@@ -100,7 +100,7 @@ function renderNode(node: unknown, key: string): ReactNode {
           href={href}
           target="_blank"
           rel="noreferrer noopener"
-          className="underline underline-offset-2"
+          className={LINK_CLASS}
           onClick={(event) => event.stopPropagation()}
         >
           {text || href}
@@ -112,7 +112,7 @@ function renderNode(node: unknown, key: string): ReactNode {
       return (
         <a
           href={`tel:${text.replace(/[^\d+]/g, "")}`}
-          className="underline underline-offset-2"
+          className={LINK_CLASS}
           onClick={(event) => event.stopPropagation()}
         >
           {text}

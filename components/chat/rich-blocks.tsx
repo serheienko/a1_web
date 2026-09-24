@@ -33,9 +33,16 @@ const T = {
  */
 export function richToneClass(tone: RichTone): string {
   return tone === "mine"
-    ? "chat-rich [--rich-accent:#fff] [--rich-block:rgb(0_0_0/0.16)] [--rich-dot:#fff] [--hl-kw:#ffe27a] [--hl-type:#b9f6ff] [--hl-str:#c6ffcf] [--hl-num:#ffc7e4] [--hl-com:rgb(255_255_255/0.7)] [--hl-fn:#fff] [--hl-attr:#ffd9b0] [--hl-meta:#ffe27a]"
-    : "chat-rich [--rich-accent:#335ef7] [--rich-block:rgb(51_94_247/0.07)] [--rich-dot:#262a34] [--hl-kw:#b0198e] [--hl-type:#0b7285] [--hl-str:#1b7f37] [--hl-num:#1f4fc4] [--hl-com:#7a8490] [--hl-fn:#6f42c1] [--hl-attr:#9a4b00] [--hl-meta:#9a6700] dark:[--rich-accent:#4db1ff] dark:[--rich-block:rgb(77_177_255/0.12)] dark:[--rich-dot:#fff] dark:[--hl-kw:#fc5fa3] dark:[--hl-type:#5dd8ff] dark:[--hl-str:#fc8e75] dark:[--hl-num:#d9c97c] dark:[--hl-com:#7f8c98] dark:[--hl-fn:#67d3b8] dark:[--hl-attr:#b281eb] dark:[--hl-meta:#fd8f3f]";
+    ? "chat-rich [--rich-link:#cfe3ff] dark:[--rich-link:#fff] [--rich-accent:#fff] [--rich-block:rgb(0_0_0/0.16)] [--rich-dot:#fff] [--hl-kw:#ffe27a] [--hl-type:#b9f6ff] [--hl-str:#c6ffcf] [--hl-num:#ffc7e4] [--hl-com:rgb(255_255_255/0.7)] [--hl-fn:#fff] [--hl-attr:#ffd9b0] [--hl-meta:#ffe27a]"
+    : "chat-rich [--rich-link:#335ef7] dark:[--rich-link:#4db1ff] [--rich-accent:#335ef7] [--rich-block:rgb(51_94_247/0.07)] [--rich-dot:#262a34] [--hl-kw:#b0198e] [--hl-type:#0b7285] [--hl-str:#1b7f37] [--hl-num:#1f4fc4] [--hl-com:#7a8490] [--hl-fn:#6f42c1] [--hl-attr:#9a4b00] [--hl-meta:#9a6700] dark:[--rich-accent:#4db1ff] dark:[--rich-block:rgb(77_177_255/0.12)] dark:[--rich-dot:#fff] dark:[--hl-kw:#fc5fa3] dark:[--hl-type:#5dd8ff] dark:[--hl-str:#fc8e75] dark:[--hl-num:#d9c97c] dark:[--hl-com:#7f8c98] dark:[--hl-fn:#67d3b8] dark:[--hl-attr:#b281eb] dark:[--hl-meta:#fd8f3f]";
 }
+
+/**
+ * Ссылки как в Telegram (Александр, 24.09): в светлой теме — только
+ * другим цветом, без подчёркивания; в тёмной — с подчёркиванием.
+ */
+export const LINK_CLASS =
+  "text-[var(--rich-link)] no-underline underline-offset-2 hover:underline dark:underline";
 
 function AccentBox({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
@@ -157,7 +164,7 @@ export function HiddenLink({ href, children, label }: { href: string; label: str
         href={href}
         target="_blank"
         rel="noreferrer noopener"
-        className="underline underline-offset-2"
+        className={LINK_CLASS}
         onClick={(e) => {
           e.stopPropagation();
           if (same) return;
@@ -171,6 +178,7 @@ export function HiddenLink({ href, children, label }: { href: string; label: str
         typeof document !== "undefined" &&
         createPortal(
           <div
+            data-chat-action-menu=""
             className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/35 p-4"
             onClick={() => setAsking(false)}
             role="presentation"
