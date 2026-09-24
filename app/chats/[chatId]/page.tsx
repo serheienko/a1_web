@@ -63,7 +63,7 @@ import { MessageActionsMenu, ReplyComposeBar, EditComposeBar, ForwardComposeBar,
 import { PinnedMessageBanner } from "@/components/chat/pinned-message-banner";
 import { ComposerFormatBar } from "@/components/chat/composer-format-bar";
 import { MessageRichText } from "@/components/chat/message-rich-text";
-import { parseChatMarkdown } from "@/lib/chat-markdown";
+import { parseChatMarkdown, sameChatText } from "@/lib/chat-markdown";
 import { AllPinsModal } from "@/components/chat/all-pins-modal";
 // Reminders list (2026-09-06, design-reference screenshots of an
 // iOS-style "Remind me" sheet grouping reminders by date -- see this
@@ -1864,7 +1864,7 @@ export default function ChatWindowPage() {
             (m) =>
               resolvedMyUserId !== null &&
               m.fromId === resolvedMyUserId &&
-              extractMessageText(m) === extractMessageText(p) &&
+              sameChatText(extractMessageText(m), extractMessageText(p)) &&
               messageDateMs(m) >= messageDateMs(p) - 5000 &&
               (expectedMediaCount === 0 ||
                 waitedTooLong ||

@@ -123,3 +123,24 @@ function parseInline(s: string): ChatEntity[] {
   flush();
   return out;
 }
+
+function plainOf(nodes: ChatEntity[]): string {
+  return nodes
+    .map((e) => (e.entities ? plainOf(e.entities) : (e.text ?? "")))
+    .join("");
+}
+
+/**
+ * Тот ли это текст, что вернул сервер для нашего отправленного сообщения.
+ * Сервер хранит разметку сущностями, и его плоский текст — «Хай», а мы
+ * отправляли «> Хай» (или ```dart …```). Сравнение «как есть» не совпадало
+ * никогда, и пузырь навсегда оставался с часиками. Сравниваем плоский
+ * текст без разметки и без пробелов/переводов строк.
+ */
+export function sameChatText(serverPlain: string, sentRaw: string): boolean {
+  if (serverPlain === sentRaw) return true;
+  const squash = (s: string) => s.replace(/\s+/g, "");
+  const parsed = parseChatMarkdown(sentRaw);
+  const sentPlain = parsed ? plainOf(parsed) : sentRaw;
+  return squash(serverPlain) === squash(sentPlain) || squash(serverPlain) === squash(sentRaw);
+}
