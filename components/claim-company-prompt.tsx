@@ -98,7 +98,7 @@ const UK_VOICE_LINES: VoiceLine[] = [
   { text: "Хм, зрозумів, зараз піду...", sound: "/sounds/cat-going.mp3", hold: 2700 },
   { text: "Або не піду...", sound: "/sounds/cat-not-going.mp3", hold: 1800 },
   { text: "Маєш піццу?", sound: "/sounds/cat-pizza.mp3", hold: 2000, icon: "/animations/cat-line-pizza.json" },
-  { text: "А я маю птицу 😈", sound: "/sounds/cat-bird.mp3", hold: 2500, icon: "/animations/cat-line-bird.json" },
+  { text: "А я маю птицу", sound: "/sounds/cat-bird.mp3", hold: 2500, icon: "/animations/cat-line-bird.json" },
   { text: "Зовуть голуб, зі стікерпаку", sound: "/sounds/cat-pigeon.mp3", hold: 2700 },
   { text: "Ха ха ха хааааа", sound: "/sounds/cat-haha-1.mp3", hold: 1900 },
   { text: "Ха ха ха хааааа", sound: "/sounds/cat-haha-2.mp3", hold: 1900 },
