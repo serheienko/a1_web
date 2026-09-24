@@ -1917,6 +1917,21 @@ textarea {
   padding-inline: 16px;
 }
 
+/* 2026-09-24 (Александр: длинную фразу кота — в две строки и чуть выше
+   над котом). Двухстрочное облачко выше верхней рамки карточки, и обрезка
+   анимации его срезала. Даём сверху 40px воздуха (padding) и тут же
+   забираем их отрицательным отступом — вёрстка не сдвигается. Полоса
+   прозрачная и заходит на блок выше, поэтому клики сквозь неё
+   пропускаем, а самой карточке их возвращаем. */
+.claim-reveal--headroom > * {
+  padding-block-start: 40px;
+  margin-block-start: -40px;
+  pointer-events: none;
+}
+.claim-reveal--headroom > * > * {
+  pointer-events: auto;
+}
+
 .claim-reveal[data-open="true"] {
   grid-template-rows: 1fr;
   opacity: 1;

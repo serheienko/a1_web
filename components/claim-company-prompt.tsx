@@ -75,6 +75,23 @@ const CAT_SOUNDS = [
 ] as const;
 const BARK_INDEX = CAT_SOUNDS.length - 1;
 
+// 2026-09-24 (Александр): на украинском сайте после лая кот продолжает
+// говорить — восемь фраз голосом Александра, как в приложении. Только
+// для uk: на остальных языках остаются пять звуков выше. Звук null —
+// фраза без озвучки («Або не піду...» в записи слита с предыдущей).
+// hold — сколько держать облачко: не меньше, чем звучит фраза.
+type VoiceLine = { text: string; sound: string | null; hold: number; icon?: string };
+const UK_VOICE_LINES: VoiceLine[] = [
+  { text: "В тебе шо, підвищена тапальна активність?", sound: "/sounds/cat-tap-activity.mp3", hold: 3200 },
+  { text: "Хм, зрозумів, зараз піду...", sound: "/sounds/cat-going.mp3", hold: 2700 },
+  { text: "Або не піду...", sound: null, hold: 1800 },
+  { text: "Маєш піццу?", sound: "/sounds/cat-pizza.mp3", hold: 2000, icon: "/animations/cat-line-pizza.json" },
+  { text: "А я маю птицу 😈", sound: "/sounds/cat-bird.mp3", hold: 2500, icon: "/animations/cat-line-bird.json" },
+  { text: "Зовуть голуб, зі стікерпаку", sound: "/sounds/cat-pigeon.mp3", hold: 2700 },
+  { text: "Ха ха ха хааааа", sound: "/sounds/cat-haha-1.mp3", hold: 1900 },
+  { text: "Ха ха ха хааааа", sound: "/sounds/cat-haha-2.mp3", hold: 1900 },
+];
+
 const TAKE: Record<Locale, string> = {
   uk: "Забрати профіль",
   en: "Take the profile",
@@ -103,6 +120,7 @@ export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
   const [asleep, setAsleep] = useState(false);
   const [meow, setMeow] = useState<string>(MEOWS[0] ?? "Meow");
   const [meowOn, setMeowOn] = useState(false);
+  const [meowIcon, setMeowIcon] = useState<string | null>(null);
   const meowTimer = useRef<number | null>(null);
   const pokeCount = useRef(0);
   const catAudio = useRef<Map<string, HTMLAudioElement>>(new Map());
@@ -118,14 +136,23 @@ export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
   // фраза остаётся прежней до следующего тыка, гаснет только
   // прозрачность. Один клик — одна фраза.
   function poke() {
-    const step = pokeCount.current % CAT_SOUNDS.length;
-    pokeCount.current += 1;
-    playCatSound(step);
-    if (step === BARK_INDEX) {
+    const cycle = CAT_SOUNDS.length + (lang === "uk" ? UK_VOICE_LINES.length : 0);
+    const step = pokeCount.current % cycle;
+    pokeCount.current = step + 1;
+    let hold = 1800;
+    const voice = step >= CAT_SOUNDS.length ? UK_VOICE_LINES[step - CAT_SOUNDS.length] : undefined;
+    setMeowIcon(voice?.icon ?? null);
+    if (voice) {
+      if (voice.sound) playSrc(voice.sound);
+      setMeow(voice.text);
+      hold = voice.hold;
+    } else if (step === BARK_INDEX) {
+      playCatSound(step);
       // Лай — и подпись про лай: «Purr…» над гавкающим котом читалась бы
       // как рассинхрон звука и картинки.
       setMeow("Woof!");
     } else {
+      playCatSound(step);
       setMeow((current) => {
         const shown = meowOn ? current : null;
         const choices = MEOWS.filter((phrase) => phrase !== shown);
@@ -134,7 +161,7 @@ export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
     }
     setMeowOn(true);
     if (meowTimer.current !== null) window.clearTimeout(meowTimer.current);
-    meowTimer.current = window.setTimeout(() => setMeowOn(false), 1800);
+    meowTimer.current = window.setTimeout(() => setMeowOn(false), hold);
   }
 
   // Звук заводим лениво и по одному объекту на файл: браузер сам держит
@@ -143,7 +170,10 @@ export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
   // молча — из-за звука кот не должен ломаться.
   function playCatSound(step: number) {
     const src = CAT_SOUNDS[step];
-    if (!src) return;
+    if (src) playSrc(src);
+  }
+
+  function playSrc(src: string) {
     try {
       let audio = catAudio.current.get(src);
       if (!audio) {
@@ -186,7 +216,7 @@ export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
       {/* Карточка-приглашение и форма меняются местами не рывком:
           одна схлопывается, вторая раскрывается — см. .claim-reveal в
           app/globals.css. */}
-      <div className="claim-reveal" data-open={open ? "false" : "true"} aria-hidden={open}>
+      <div className="claim-reveal claim-reveal--headroom" data-open={open ? "false" : "true"} aria-hidden={open}>
         <div>
         <div className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
           <div className="flex items-center gap-2 sm:gap-3">
@@ -285,12 +315,19 @@ export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
               <span
                 aria-hidden="true"
                 className={
-                  "pointer-events-none absolute left-[-14px] top-[-18px] whitespace-nowrap rounded-xl border border-neutral-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-ink shadow-sm transition duration-150 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 " +
+                  "pointer-events-none absolute bottom-[calc(100%+2px)] left-[-14px] w-max max-w-[180px] whitespace-normal [text-wrap:balance] leading-[1.3] rounded-xl border border-neutral-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-ink shadow-sm transition duration-150 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 " +
                   (meowOn ? "scale-100 opacity-100" : "scale-90 opacity-0")
                 }
               >
-                {meow}
-                <span className="absolute -bottom-1 right-4 h-2 w-2 rotate-45 border-b border-r border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-800" />
+                <span className="inline-flex items-center gap-1">
+                  {meow}
+                  {meowIcon && meowOn && (
+                    <LottiePlayer key={meowIcon} src={meowIcon} size={16} placeholder={false} />
+                  )}
+                </span>
+                {/* Хвостик на фиксированном месте над головой кота, а не у правого
+                    края: длинные украинские фразы тянут облачко далеко вправо. */}
+                <span className="absolute -bottom-1 left-[34px] h-2 w-2 rotate-45 border-b border-r border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-800" />
               </span>
             </div>
             <div className="min-w-0">
