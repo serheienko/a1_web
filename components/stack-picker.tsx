@@ -291,6 +291,7 @@ export function StackPicker({
                   type="search"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
+                  spellCheck={false}
                   placeholder={STRINGS.search[lang]}
                   aria-label={STRINGS.search[lang]}
                   className="mb-2 w-full rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-[13px] outline-none transition placeholder:text-neutral-400 focus:border-accent/50 dark:border-neutral-800 dark:bg-neutral-900"

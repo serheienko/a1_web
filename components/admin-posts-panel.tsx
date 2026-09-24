@@ -400,6 +400,7 @@ export function AdminPostsPanel({ signedInAs }: { signedInAs: string }) {
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
+        spellCheck={false}
         placeholder={STRINGS.searchPlaceholder[lang]}
         className="mb-2 w-full rounded-xl border border-neutral-200 bg-white px-3.5 py-2.5 text-sm text-neutral-900 outline-none transition focus:border-accent dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-50"
       />

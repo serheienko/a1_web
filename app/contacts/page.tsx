@@ -201,6 +201,7 @@ export default function ContactsPage() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            spellCheck={false}
             placeholder={SEARCH_PLACEHOLDER_STRINGS[lang]}
             aria-label={SEARCH_PLACEHOLDER_STRINGS[lang]}
             className={

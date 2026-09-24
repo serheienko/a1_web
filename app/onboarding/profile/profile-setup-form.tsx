@@ -256,6 +256,7 @@ export function ProfileSetupForm({ categories }: { categories: Category[] }) {
                 }}
                 onChange={(e) => setCategoryQuery(e.target.value)}
                 onBlur={() => setCategoryOpen(false)}
+                spellCheck={false}
                 placeholder={STRINGS.categoryPlaceholder[lang]}
                 className={inputClass + " pr-9"}
                 autoComplete="off"

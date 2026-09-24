@@ -204,7 +204,16 @@ export default function RootLayout({
 }) {
   return (
     <html lang="uk" className={commissioner.variable + " lang-uk"}>
-      <body className="bg-app font-sans text-ink dark:bg-black dark:text-neutral-100">
+      {/* spellCheck on <body> is inherited by every text input, textarea and
+          contenteditable on the site: the browser underlines typos and offers
+          fixes (right-click on desktop, the keyboard on phones), in the page
+          language set on <html lang>. Search, link and picker fields opt out
+          with spellCheck={false}; password/e-mail/number inputs are never
+          checked by browsers anyway. */}
+      <body
+        spellCheck
+        className="bg-app font-sans text-ink dark:bg-black dark:text-neutral-100"
+      >
         <Script id="theme-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <Script id="lang-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: LANG_INIT_SCRIPT }} />
         <SiteNav />

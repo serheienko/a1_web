@@ -1752,6 +1752,7 @@ export function PostEditor({
                     value={locationQuery}
                     onChange={(e) => onLocationQueryChange(e.target.value)}
                     onBlur={() => setLocationTouched(true)}
+                    spellCheck={false}
                     placeholder={t("locationPlaceholder", lang)}
                     className={(locationTouched && !location ? invalidInputClass : inputClass) + " pr-9"}
                     autoComplete="off"
@@ -1807,6 +1808,7 @@ export function PostEditor({
                   setCategoryTouched(true);
                   setTimeout(() => setCategoryOpen(false), 120);
                 }}
+                spellCheck={false}
                 placeholder={t("categoryPlaceholder", lang)}
                 className={(categoryTouched && !category ? invalidInputClass : inputClass) + " pr-9"}
                 autoComplete="off"
@@ -1850,6 +1852,7 @@ export function PostEditor({
               value={linkUrl}
               onChange={(e) => setLinkUrl(e.target.value)}
               onBlur={() => setLinkTouched(true)}
+              spellCheck={false}
               placeholder={t("linkPlaceholder", lang)}
               className={linkTouched && !linkValid ? invalidInputClass : inputClass}
             />
