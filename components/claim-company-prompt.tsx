@@ -80,9 +80,12 @@ const BARK_INDEX = CAT_SOUNDS.length - 1;
 // для uk: на остальных языках остаются пять звуков выше. Звук null —
 // фраза без озвучки («Або не піду...» в записи слита с предыдущей).
 // hold — сколько держать облачко: не меньше, чем звучит фраза.
+// Длинная фраза разбита на две строки вручную (\n): при автопереносе
+// облачко остаётся шириной во весь max-width и справа висит пустота;
+// с явным переносом оно ровно по самой длинной строке.
 type VoiceLine = { text: string; sound: string | null; hold: number; icon?: string };
 const UK_VOICE_LINES: VoiceLine[] = [
-  { text: "В тебе шо, підвищена тапальна активність?", sound: "/sounds/cat-tap-activity.mp3", hold: 3200 },
+  { text: "В тебе шо, підвищена\nтапальна активність?", sound: "/sounds/cat-tap-activity.mp3", hold: 3200 },
   { text: "Хм, зрозумів, зараз піду...", sound: "/sounds/cat-going.mp3", hold: 2700 },
   { text: "Або не піду...", sound: null, hold: 1800 },
   { text: "Маєш піццу?", sound: "/sounds/cat-pizza.mp3", hold: 2000, icon: "/animations/cat-line-pizza.json" },
@@ -315,7 +318,7 @@ export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
               <span
                 aria-hidden="true"
                 className={
-                  "pointer-events-none absolute bottom-[calc(100%+2px)] left-[-14px] w-max max-w-[180px] whitespace-normal [text-wrap:balance] leading-[1.3] rounded-xl border border-neutral-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-ink shadow-sm transition duration-150 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 " +
+                  "pointer-events-none absolute bottom-[calc(100%+2px)] left-[-14px] w-max whitespace-pre-line leading-[1.3] rounded-xl border border-neutral-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-ink shadow-sm transition duration-150 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 " +
                   (meowOn ? "scale-100 opacity-100" : "scale-90 opacity-0")
                 }
               >
