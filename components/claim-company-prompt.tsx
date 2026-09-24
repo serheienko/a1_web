@@ -54,11 +54,21 @@ const NOTE: Record<Locale, string> = {
 };
 
 
-// 2026-09-19 (Александр: «при клике на кота — маленькое облачко
-// „Meow“, штук пять текстов»). Намеренно НЕ переводятся: кошачьи звуки
-// одинаковы на всех девяти языках сайта, а сорок пять переводов слова
-// «мяу» — это ровно та работа, которой лучше не быть.
-const MEOWS = ["Meow", "Mrrr", "Purr…", "Meow?", "Zzz…"];
+// Подписи к пяти звукам, по одной на каждый, в том же порядке, что
+// CAT_SOUNDS ниже (фирменный сигнал, три мяуканья, лай).
+// 2026-09-24 (Александр): переведены на все языки сайта — те же тексты,
+// что у кота в приложении.
+const CAT_LINES: Record<Locale, readonly string[]> = {
+  uk: ["Мрр..", "Мур...", "Няв?", "Хррр", "Гав!"],
+  ru: ["Мрр..", "Мур...", "Мяу?", "Хррр", "Гав!"],
+  en: ["Mrr..", "Purr...", "Meow?", "Zzz", "Woof!"],
+  de: ["Mrr..", "Schnurr...", "Miau?", "Zzz", "Wuff!"],
+  fr: ["Mrr..", "Ronron...", "Miaou ?", "Zzz", "Ouaf !"],
+  es: ["Mrr..", "Rrr...", "¿Miau?", "Zzz", "¡Guau!"],
+  ptBR: ["Mrr..", "Rrr...", "Miau?", "Zzz", "Au au!"],
+  pl: ["Mrr..", "Mruu...", "Miau?", "Chrr", "Hau!"],
+  zh: ["呼噜..", "咕噜...", "喵？", "Zzz", "汪！"],
+};
 
 // 2026-09-19 (Александр): звуки на тык. Порядок фиксированный и идёт по
 // кругу: сначала фирменный сигнал A1, потом три мяуканья, а на пятый
@@ -73,7 +83,6 @@ const CAT_SOUNDS = [
   "/sounds/meow-3.mp3",
   "/sounds/bark.mp3",
 ] as const;
-const BARK_INDEX = CAT_SOUNDS.length - 1;
 
 // 2026-09-24 (Александр): на украинском сайте после лая кот продолжает
 // говорить — восемь фраз голосом Александра, как в приложении. Только
@@ -121,7 +130,7 @@ export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
   // одного Safari хватает не всегда.
   const [formIn, setFormIn] = useState(false);
   const [asleep, setAsleep] = useState(false);
-  const [meow, setMeow] = useState<string>(MEOWS[0] ?? "Meow");
+  const [meow, setMeow] = useState<string>("");
   const [meowOn, setMeowOn] = useState(false);
   const [meowIcon, setMeowIcon] = useState<string | null>(null);
   const meowTimer = useRef<number | null>(null);
@@ -149,18 +158,9 @@ export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
       if (voice.sound) playSrc(voice.sound);
       setMeow(voice.text);
       hold = voice.hold;
-    } else if (step === BARK_INDEX) {
-      playCatSound(step);
-      // Лай — и подпись про лай: «Purr…» над гавкающим котом читалась бы
-      // как рассинхрон звука и картинки.
-      setMeow("Woof!");
     } else {
       playCatSound(step);
-      setMeow((current) => {
-        const shown = meowOn ? current : null;
-        const choices = MEOWS.filter((phrase) => phrase !== shown);
-        return choices[Math.floor(Math.random() * choices.length)] ?? MEOWS[0] ?? "Meow";
-      });
+      setMeow((CAT_LINES[lang] ?? CAT_LINES.en)[step] ?? "Mrr..");
     }
     setMeowOn(true);
     if (meowTimer.current !== null) window.clearTimeout(meowTimer.current);
