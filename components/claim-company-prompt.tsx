@@ -78,7 +78,7 @@ const BARK_INDEX = CAT_SOUNDS.length - 1;
 // 2026-09-24 (Александр): на украинском сайте после лая кот продолжает
 // говорить — восемь фраз голосом Александра, как в приложении. Только
 // для uk: на остальных языках остаются пять звуков выше. Звук null —
-// фраза без озвучки («Або не піду...» в записи слита с предыдущей).
+// фраза без озвучки (сейчас таких нет).
 // hold — сколько держать облачко: не меньше, чем звучит фраза.
 // Длинная фраза разбита на две строки вручную (\n): при автопереносе
 // облачко остаётся шириной во весь max-width и справа висит пустота;
@@ -87,7 +87,7 @@ type VoiceLine = { text: string; sound: string | null; hold: number; icon?: stri
 const UK_VOICE_LINES: VoiceLine[] = [
   { text: "В тебе шо, підвищена\nтапальна активність?", sound: "/sounds/cat-tap-activity.mp3", hold: 3200 },
   { text: "Хм, зрозумів, зараз піду...", sound: "/sounds/cat-going.mp3", hold: 2700 },
-  { text: "Або не піду...", sound: null, hold: 1800 },
+  { text: "Або не піду...", sound: "/sounds/cat-not-going.mp3", hold: 1800 },
   { text: "Маєш піццу?", sound: "/sounds/cat-pizza.mp3", hold: 2000, icon: "/animations/cat-line-pizza.json" },
   { text: "А я маю птицу 😈", sound: "/sounds/cat-bird.mp3", hold: 2500, icon: "/animations/cat-line-bird.json" },
   { text: "Зовуть голуб, зі стікерпаку", sound: "/sounds/cat-pigeon.mp3", hold: 2700 },
