@@ -22,6 +22,7 @@
 // only remaining reason scanFullFeed exists.
 
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { call } from "./client";
 import { mapPosts } from "./mappers";
 import { PostsSearchOutputSchema } from "./schemas";
@@ -356,7 +357,30 @@ export async function fetchStackCounts(
 // apart from "100 total" on its own. A category that errors is treated
 // as non-empty (fails open) rather than getting hidden/disabled by a
 // transient network hiccup.
-export async function fetchEmptyCategoryValues(
+//
+// 25.09.2026 (Александр: «Фахівці на сайте чет долго грузятся»). Замер
+// на живом сайте: свежая отрисовка /talents 2,3-2,6 с против 1,3-1,4 с
+// у ленты вакансий -- при том что на «Фахівцях» ЧЕТЫРЕ карточки против
+// двадцати. Значит дело не в количестве постов, а в постоянной цене
+// страницы. Она здесь: категорий 39, на каждую уходит свой запрос
+// posts.search, а lib/a1/client.ts зовёт бэкенд с `cache: "no-store"` --
+// то есть все 39 запросов выполняются заново на КАЖДУЮ отрисовку
+// КАЖДОЙ страницы, где есть панель фильтров. Отдельный замер ручки
+// /api/filters/bootstrap, которая делает ровно это: 1,6 секунды.
+//
+// Ради чего: подсветить серым категории, в которых нет постов. Из 39
+// пустых сейчас 38 -- живёт фактически один IT. Это не та величина,
+// которая меняется от секунды к секунде, поэтому результат кладём в
+// кэш данных Next на 10 минут (тот же приём, что у lib/avatar-blur.ts:
+// кэшируется ВЫЧИСЛЕННЫЙ ответ, а не только round-trip). Новая
+// категория перестанет быть серой максимум через 10 минут после
+// первого поста в ней -- цена, которую не жалко за 39 запросов,
+// снятых с каждой отрисовки.
+//
+// Правильное решение живёт на бэкенде: один ответ с числом постов по
+// каждой категории вместо 39 вопросов по одному. Пока его нет, это
+// честный обход, а не подпорка вместо него.
+async function computeEmptyCategoryValues(
   kind: WebPostKind,
   categoryValues: number[],
 ): Promise<number[]> {
@@ -378,6 +402,24 @@ export async function fetchEmptyCategoryValues(
   );
   return results.filter((v): v is number => v !== null);
 }
+
+const cachedEmptyCategoryValues = unstable_cache(computeEmptyCategoryValues, ["empty-categories-v1"], {
+  revalidate: 600,
+});
+
+/** Категории, в которых сейчас нет ни одного живого поста. Ответ
+ *  кэшируется на 10 минут -- почему именно так, см. комментарий выше. */
+export const fetchEmptyCategoryValues = cache(async function fetchEmptyCategoryValues(
+  kind: WebPostKind,
+  categoryValues: number[],
+): Promise<number[]> {
+  try {
+    return await cachedEmptyCategoryValues(kind, categoryValues);
+  } catch {
+    // Кэш недоступен -- считаем как раньше, лишь бы страница не упала.
+    return computeEmptyCategoryValues(kind, categoryValues);
+  }
+});
 
 // 2026-08-30 (Aleksandr: "могли... нажать на наши посты и чтобы наши
 // посты отображались такими типа карточками") -- app/u/[username]/
