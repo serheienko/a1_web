@@ -123,30 +123,58 @@ export default async function HomePage({ searchParams }: Props) {
           router.replace, и по ним робот пройти не может (и не должен --
           отфильтрованные выдачи закрыты от индексации).
           Видны и на телефоне, в отличие от заголовка выше. */}
-      <nav aria-label="job formats" className="mb-4 flex flex-wrap gap-2">
-        {JOB_LANDINGS.map((landing) => (
-          <Link
-            key={landing.slug}
-            href={`/jobs/${landing.slug}`}
-            className="rounded-full border border-neutral-200 px-3 py-1.5 text-[13px] font-medium text-neutral-600 transition hover:border-accent/40 hover:bg-accent/5 hover:text-accent dark:border-neutral-800 dark:text-neutral-400"
-          >
-            <T {...landing.h1} />
-          </Link>
-        ))}
+      {/* 25.09.2026 (Александр, скриншот ленты на телефоне: «Помять эти
+          теги в 2 ряда, и чтобы их можно было скроллить и они уходили за
+          экран... при скролле должны двигаться 2 ряда одновременно,
+          одинаково»).
 
-        {/* 2026-09-19 (Александр: «Без досвіду» -- «аудитория новичков
-            огромная»; «бронювання -- в Украине очень актуально»). Те же
-            чипы-ссылки, только ведут на посадочные по признакам, которые
-            мы считаем из текста сами (lib/seo/fact-landings.ts). */}
-        {FACT_LANDINGS.map((landing) => (
-          <Link
-            key={landing.slug}
-            href={`/jobs/tag/${landing.slug}`}
-            className="rounded-full border border-neutral-200 px-3 py-1.5 text-[13px] font-medium text-neutral-600 transition hover:border-accent/40 hover:bg-accent/5 hover:text-accent dark:border-neutral-800 dark:text-neutral-400"
-          >
-            <T {...landing.chip} />
-          </Link>
-        ))}
+          БЫЛО: flex-wrap. Шесть чипов на телефоне переносились в ТРИ
+          ряда и занимали пол-экрана над лентой.
+
+          СТАЛО: на телефоне это одна горизонтальная лента из двух рядов.
+          grid-flow-col по двум строкам -- значит оба ряда лежат в ОДНОМ
+          прокручиваемом контейнере и едут вместе, а не каждый сам по
+          себе (в этом и была просьба). w-max -- лента ровно по
+          содержимому, поэтому чипы честно уходят за правый край, а
+          -mx-4 гасит px-4 у <main>, чтобы лента шла от края до края
+          экрана.
+
+          Раскладка чисто на CSS, без единого замера в браузере -- она
+          верная с ПЕРВОЙ отрисовки и не перескакивает с трёх рядов на
+          два уже после загрузки (Александр: «чтобы грузились сразу
+          нормально, не на 3 ряда»).
+
+          На sm и шире всё как было -- обычный flex-wrap, там чипы и так
+          помещаются в один ряд. */}
+      <nav
+        aria-label="job formats"
+        className="-mx-4 mb-4 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:overflow-visible sm:px-0 [&::-webkit-scrollbar]:hidden"
+      >
+        <div className="grid w-max grid-flow-col grid-rows-2 gap-2 sm:flex sm:w-auto sm:flex-wrap">
+          {JOB_LANDINGS.map((landing) => (
+            <Link
+              key={landing.slug}
+              href={`/jobs/${landing.slug}`}
+              className="whitespace-nowrap rounded-full border border-neutral-200 px-3 py-1.5 text-[13px] font-medium text-neutral-600 transition hover:border-accent/40 hover:bg-accent/5 hover:text-accent dark:border-neutral-800 dark:text-neutral-400"
+            >
+              <T {...landing.h1} />
+            </Link>
+          ))}
+
+          {/* 2026-09-19 (Александр: «Без досвіду» -- «аудитория новичков
+              огромная»; «бронювання -- в Украине очень актуально»). Те же
+              чипы-ссылки, только ведут на посадочные по признакам, которые
+              мы считаем из текста сами (lib/seo/fact-landings.ts). */}
+          {FACT_LANDINGS.map((landing) => (
+            <Link
+              key={landing.slug}
+              href={`/jobs/tag/${landing.slug}`}
+              className="whitespace-nowrap rounded-full border border-neutral-200 px-3 py-1.5 text-[13px] font-medium text-neutral-600 transition hover:border-accent/40 hover:bg-accent/5 hover:text-accent dark:border-neutral-800 dark:text-neutral-400"
+            >
+              <T {...landing.chip} />
+            </Link>
+          ))}
+        </div>
       </nav>
 
       {/* 2026-09-20: ряд чипов со стеком, виден только в категории IT. Не
