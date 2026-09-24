@@ -17,7 +17,7 @@
 // ticks) vs load-bearing on the existing polling transport.
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
 import { CachedAvatar } from "@/components/cached-avatar";
 import Link from "next/link";
@@ -573,12 +573,26 @@ const GREETING_EMOJI = "🐱";
 // retry popover rendered up near/behind the sticky chat header --
 // "Че то не отправляется приветственный кот и 'скасувати' куда-то
 // залезло далеко") -- traced to the popover always opening ABOVE its
-// bubble (see its own `bottom-full` placement below), which only has
-// room when the bubble isn't the first thing in the scroll area (e.g.
-// an auto-sent welcome sticker, the very first message in a brand new
-// chat). Below this many px of viewport space above the bubble, it
-// flips to opening BELOW instead.
-const PENDING_POPOVER_MIN_SPACE_ABOVE = 180;
+// bubble, which only has room when the bubble isn't the first thing in
+// the scroll area (e.g. an auto-sent welcome sticker, the very first
+// message in a brand new chat). Первая правка флипала его ВНИЗ, если
+// над пузырём меньше 180px.
+//
+// 24.09.2026 (Александр, скриншот: длинное сообщение с блоком кода
+// висит «надсилається», «кнопка скасувати заехала в самый низ... я не
+// могу до неё достать») -- у флипа была та же болезнь, только с другой
+// стороны. Он смотрел лишь на ВЕРХ пузыря, а привязка оставалась к
+// самому пузырю. У сообщения выше экрана верх уходит в минус, флип
+// честно выбирает «вниз» -- и попап оказывается под нижним краем
+// пузыря, то есть за композером. Для пузыря выше экрана ни одна
+// привязка к нему не работает в принципе.
+//
+// Поэтому попап больше не привязан к пузырю: он позиционируется от
+// точки нажатия (position: fixed) и после отрисовки зажимается в
+// границы экрана -- см. pendingPopoverPos и его layout-эффект ниже.
+// Ширина нужна здесь, чтобы прикинуть начальное положение до замера.
+const PENDING_POPOVER_WIDTH = 208; // w-52
+const PENDING_POPOVER_MARGIN = 12;
 
 // Photo-viewer header (Aleksandr, photo-viewer spec: "сверху повинно
 // бути ім'я") -- the sender label for a bubble the viewer opened from
@@ -826,10 +840,9 @@ export default function ChatWindowPage() {
   // ever one at a time, closed by tapping elsewhere (see the
   // document-click effect near the retry helpers below).
   const [openPendingId, setOpenPendingId] = useState<string | null>(null);
-  // Whether the currently-open pending popover should grow UP from its
-  // bubble (the usual case) or DOWN (flipped -- see
-  // PENDING_POPOVER_MIN_SPACE_ABOVE's own comment above for why).
-  const [openPendingAbove, setOpenPendingAbove] = useState(true);
+  // Где на экране рисовать попап отмены/повтора. Координаты вьюпорта, не
+  // смещение от пузыря -- см. комментарий у PENDING_POPOVER_WIDTH выше.
+  const [pendingPopoverPos, setPendingPopoverPos] = useState<{ top: number; left: number } | null>(null);
   const pendingPopoverRef = useRef<HTMLDivElement>(null);
 
   // Reply feature (2026-09-05, Aleksandr, live UI reference: "Давай
@@ -2470,6 +2483,44 @@ export default function ChatWindowPage() {
     }
     document.addEventListener("mousedown", handleDocClick);
     return () => document.removeEventListener("mousedown", handleDocClick);
+  }, [openPendingId]);
+
+  // Зажимает попап отмены/повтора в границы экрана сразу после
+  // отрисовки -- единственный момент, когда известна его настоящая
+  // высота (у «Не надіслано» есть вторая кнопка, у «Надсилається…» нет).
+  // См. комментарий у PENDING_POPOVER_WIDTH выше о том, зачем это вообще.
+  useLayoutEffect(() => {
+    if (!openPendingId) return;
+    const el = pendingPopoverRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const m = PENDING_POPOVER_MARGIN;
+    setPendingPopoverPos((prev) => {
+      if (!prev) return prev;
+      let { top, left } = prev;
+      if (top + r.height > window.innerHeight - m) top = window.innerHeight - m - r.height;
+      if (top < m) top = m;
+      if (left + r.width > window.innerWidth - m) left = window.innerWidth - m - r.width;
+      if (left < m) left = m;
+      return top === prev.top && left === prev.left ? prev : { top, left };
+    });
+  }, [openPendingId]);
+
+  // Попап привязан к экрану, а не к пузырю, поэтому при прокрутке он бы
+  // остался висеть на месте, пока сообщение уезжает -- закрываем его.
+  // Capture: списки сообщений скроллятся во вложенном контейнере, до
+  // window событие прокрутки само не всплывает.
+  useEffect(() => {
+    if (!openPendingId) return;
+    function close() {
+      setOpenPendingId(null);
+    }
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
   }, [openPendingId]);
 
   function cancelPending(localId: string) {
@@ -5036,15 +5087,16 @@ export default function ChatWindowPage() {
                       onClick={
                         pending
                           ? (e) => {
-                              // See PENDING_POPOVER_MIN_SPACE_ABOVE's own
-                              // comment above -- open below instead of
-                              // above whenever the bubble is too close to
-                              // the top of the viewport for the popover to
-                              // fit above it (e.g. the first message in a
-                              // brand new chat, like an auto-sent welcome
-                              // sticker).
+                              // Стартовая прикидка: под точкой нажатия,
+                              // правым краем по правому краю пузыря.
+                              // Точное положение доводит layout-эффект,
+                              // который зажимает попап в экран -- см.
+                              // комментарий у PENDING_POPOVER_WIDTH.
                               const rect = e.currentTarget.getBoundingClientRect();
-                              setOpenPendingAbove(rect.top > PENDING_POPOVER_MIN_SPACE_ABOVE);
+                              setPendingPopoverPos({
+                                top: e.clientY + 8,
+                                left: Math.max(PENDING_POPOVER_MARGIN, rect.right - PENDING_POPOVER_WIDTH),
+                              });
                               setOpenPendingId(pending.localId);
                             }
                           : undefined
@@ -5999,12 +6051,13 @@ export default function ChatWindowPage() {
                         online/poll-triggered retryAllFailed already does
                         in the background -- this button just doesn't wait
                         for either of those triggers. */}
-                    {popoverOpen && pending && (
+                    {popoverOpen && pending && pendingPopoverPos && (
                       <div
                         ref={pendingPopoverRef}
-                        className={`absolute right-0 z-10 w-52 rounded-2xl bg-white p-3 shadow-xl dark:bg-neutral-900 ${
-                          openPendingAbove ? "animate-popover-up bottom-full mb-2" : "animate-popover-down top-full mt-2"
-                        }`}
+                        style={{ top: pendingPopoverPos.top, left: pendingPopoverPos.left }}
+                        // z-30: композер снизу сидит на z-20, и попап
+                        // должен перекрывать его, а не прятаться за ним.
+                        className="animate-popover-down fixed z-30 w-52 rounded-2xl bg-white p-3 shadow-xl dark:bg-neutral-900"
                       >
                         <p className="text-center text-[13px] font-medium text-[#262a34] dark:text-white">
                           {pending.failed ? (
