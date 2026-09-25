@@ -21,7 +21,7 @@
 // the first person to finish the flow owns the account.
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AdminNav, useAdminLocale } from "@/components/admin-nav";
 import type { Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
@@ -31,7 +31,8 @@ type Company = { name: string; email: string };
 
 type StringKey =
   | "title" | "signedInAs" | "totalCount" | "searchPlaceholder" | "warning"
-  | "loadError" | "noMatches" | "narrowSearch";
+  | "loadError" | "noMatches" | "narrowSearch"
+  | "logo" | "logoBusy" | "logoDone" | "logoFailed" | "logoTooLarge" | "logoHint";
 
 const STRINGS: Record<StringKey, Record<Locale, string>> = {
   title: { uk: "Компанії", en: "Companies", ru: "Компании", de: "Unternehmen", es: "Empresas", fr: "Entreprises", pl: "Firmy", ptBR: "Empresas", zh: "公司" },
@@ -52,6 +53,12 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   loadError: { uk: "Не вдалося завантажити список", en: "Couldn't load the list", ru: "Не удалось загрузить список", de: "Liste konnte nicht geladen werden", es: "No se pudo cargar la lista", fr: "Impossible de charger la liste", pl: "Nie udało się wczytać listy", ptBR: "Não foi possível carregar a lista", zh: "无法加载列表" },
   noMatches: { uk: "Нічого не знайдено", en: "Nothing found", ru: "Ничего не найдено", de: "Nichts gefunden", es: "No se encontró nada", fr: "Rien trouvé", pl: "Nic nie znaleziono", ptBR: "Nada encontrado", zh: "未找到任何内容" },
   narrowSearch: { uk: "Показано {shown} з {n} — уточніть пошук", en: "Showing {shown} of {n} — narrow the search", ru: "Показано {shown} из {n} — уточните поиск", de: "{shown} von {n} angezeigt — Suche eingrenzen", es: "Mostrando {shown} de {n} — afina la búsqueda", fr: "{shown} sur {n} affichés — affinez la recherche", pl: "Pokazano {shown} z {n} — zawęź wyszukiwanie", ptBR: "Mostrando {shown} de {n} — refine a busca", zh: "显示 {shown}/{n} — 请细化搜索" },
+  logo: { uk: "Логотип", en: "Logo", ru: "Логотип", de: "Logo", es: "Logotipo", fr: "Logo", pl: "Logo", ptBR: "Logotipo", zh: "标识" },
+  logoBusy: { uk: "Завантаження…", en: "Uploading…", ru: "Загрузка…", de: "Wird hochgeladen…", es: "Subiendo…", fr: "Envoi…", pl: "Wysyłanie…", ptBR: "Enviando…", zh: "上传中…" },
+  logoDone: { uk: "Готово", en: "Done", ru: "Готово", de: "Fertig", es: "Listo", fr: "Terminé", pl: "Gotowe", ptBR: "Pronto", zh: "完成" },
+  logoFailed: { uk: "Не вдалося замінити логотип", en: "Couldn't replace the logo", ru: "Не удалось заменить логотип", de: "Logo konnte nicht ersetzt werden", es: "No se pudo reemplazar el logotipo", fr: "Impossible de remplacer le logo", pl: "Nie udało się zmienić logo", ptBR: "Não foi possível trocar o logotipo", zh: "无法替换标识" },
+  logoTooLarge: { uk: "Файл завеликий (до 4 МБ)", en: "File too large (4 MB max)", ru: "Файл слишком большой (до 4 МБ)", de: "Datei zu groß (max. 4 MB)", es: "Archivo demasiado grande (máx. 4 MB)", fr: "Fichier trop volumineux (4 Mo max)", pl: "Plik za duży (maks. 4 MB)", ptBR: "Arquivo muito grande (máx. 4 MB)", zh: "文件过大（最大 4 MB）" },
+  logoHint: { uk: "Квадратна картинка, знак у центрі", en: "A square image, mark centred", ru: "Квадратная картинка, знак по центру", de: "Quadratisches Bild, Zeichen mittig", es: "Imagen cuadrada, con la marca centrada", fr: "Image carrée, marque centrée", pl: "Kwadratowy obraz, znak na środku", ptBR: "Imagem quadrada, marca centralizada", zh: "方形图片，标记居中" },
 };
 
 function t(key: StringKey, lang: Locale, vars?: Record<string, string | number>): string {
@@ -160,9 +167,83 @@ function CompanyRow({ company, lang }: { company: Company; lang: Locale }) {
     <div className="rounded-xl border border-neutral-200 p-3 dark:border-neutral-800">
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="min-w-0 flex-1 truncate text-sm font-medium text-neutral-900 dark:text-neutral-50">{company.name}</span>
+        <CompanyLogoButton email={company.email} lang={lang} />
         <ClaimLinkButton lang={lang} busy={claim.busy} onClick={() => void claim.createLink()} />
       </div>
       <ClaimLinkDetails lang={lang} link={claim.link} error={claim.error} copied={claim.copied} onCopy={() => void claim.copy()} />
+    </div>
+  );
+}
+
+// 25.09.2026 (Александр, профиль /u/whitebit: «Поставьте только быка в
+// центр аватара»). Раньше логотип компании менялся только входом ПОД
+// компанией -- карандаш у аватара в её собственном профиле. Здесь та же
+// замена, но от имени компании действует сервер
+// (app/api/admin/companies/avatar), поэтому пароли не проходят через
+// браузер и не нужны тому, кто правит логотипы.
+//
+// Кадрирования тут намеренно нет, в отличие от кнопки в профиле: там
+// человек заливает случайное фото, здесь -- заранее подготовленный
+// квадратный знак. Подпись под кнопкой прямо это и просит.
+function CompanyLogoButton({ email, lang }: { email: string; lang: Locale }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [state, setState] = useState<"idle" | "busy" | "done">("idle");
+  const [error, setError] = useState<string | null>(null);
+
+  async function send(file: File) {
+    setError(null);
+    if (file.size > 4 * 1024 * 1024) {
+      setError(t("logoTooLarge", lang));
+      return;
+    }
+    setState("busy");
+    try {
+      // base64 из ArrayBuffer кусками: btoa(String.fromCharCode(...all))
+      // на мегабайтном файле переполняет стек аргументов.
+      const buf = new Uint8Array(await file.arrayBuffer());
+      let binary = "";
+      for (let i = 0; i < buf.length; i += 0x8000) binary += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+      const res = await fetch("/api/admin/companies/avatar", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email, mimetype: file.type || "image/png", dataBase64: btoa(binary) }),
+      });
+      const data = await res.json().catch(() => ({ ok: false }));
+      if (!res.ok || !data.ok) {
+        setError(data?.debug ? `${t("logoFailed", lang)}: ${data.debug}` : t("logoFailed", lang));
+        setState("idle");
+        return;
+      }
+      setState("done");
+    } catch {
+      setError(t("logoFailed", lang));
+      setState("idle");
+    }
+  }
+
+  return (
+    <div className="flex flex-col items-end">
+      <button
+        type="button"
+        disabled={state === "busy"}
+        onClick={() => inputRef.current?.click()}
+        title={t("logoHint", lang)}
+        className="shrink-0 rounded-full border border-neutral-300 px-3 py-1.5 text-[13px] font-medium text-neutral-600 transition hover:bg-neutral-100 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+      >
+        {state === "busy" ? t("logoBusy", lang) : state === "done" ? t("logoDone", lang) : t("logo", lang)}
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (file) void send(file);
+        }}
+      />
+      {error && <span className="mt-1 max-w-[220px] text-right text-[11px] text-red-600 dark:text-red-400">{error}</span>}
     </div>
   );
 }
