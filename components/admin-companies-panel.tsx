@@ -190,6 +190,53 @@ function CompanyLogoButton({ email, lang }: { email: string; lang: Locale }) {
   const [state, setState] = useState<"idle" | "busy" | "done">("idle");
   const [error, setError] = useState<string | null>(null);
 
+  // 25.09.2026. Картинка перерисовывается через холст перед отправкой, и
+  // причин две.
+  //
+  // Первая: бэкенд принимает не всё. На живом прогоне upload.confirm
+  // ответил «Unknown media document file type» -- по этой ошибке не
+  // понять, что именно ему не понравилось, а холст всегда отдаёт
+  // обычный truecolor PNG, то есть самый скучный из возможных входов.
+  // (Проверено в том же прогоне: PNG и JPEG с холста проходят.)
+  //
+  // Вторая: заодно приводим размер к 512 по длинной стороне -- аватар
+  // нигде не показывается крупнее, а лишние мегабайты гонять незачем.
+  //
+  // Результат проверяется по пикселям. Если холст отдал пустую
+  // картинку, отправляется исходный файл как есть: пустой кружок
+  // вместо логотипа -- худший исход, он уже случался (тогда дело было
+  // в битых входных данных, а не в самом холсте, но проверка дешёвая
+  // и оставлена).
+  async function normalise(file: File): Promise<{ bytes: Uint8Array; mimetype: string }> {
+    const original = { bytes: new Uint8Array(await file.arrayBuffer()), mimetype: file.type || "image/png" };
+    try {
+      const bitmap = await createImageBitmap(file);
+      const side = Math.min(512, Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round((bitmap.width / Math.max(bitmap.width, bitmap.height)) * side);
+      canvas.height = Math.round((bitmap.height / Math.max(bitmap.width, bitmap.height)) * side);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return original;
+      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      // Холст действительно что-то нарисовал? Полностью прозрачный
+      // результат -- это и есть та самая тихая поломка.
+      const probe = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      let painted = false;
+      for (let i = 3; i < probe.length; i += 4 * 97 /* редкая выборка, не весь массив */) {
+        if (probe[i] !== 0) {
+          painted = true;
+          break;
+        }
+      }
+      if (!painted) return original;
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+      if (!blob) return original;
+      return { bytes: new Uint8Array(await blob.arrayBuffer()), mimetype: "image/png" };
+    } catch {
+      return original;
+    }
+  }
+
   async function send(file: File) {
     setError(null);
     if (file.size > 4 * 1024 * 1024) {
@@ -198,15 +245,15 @@ function CompanyLogoButton({ email, lang }: { email: string; lang: Locale }) {
     }
     setState("busy");
     try {
+      const { bytes: buf, mimetype } = await normalise(file);
       // base64 из ArrayBuffer кусками: btoa(String.fromCharCode(...all))
       // на мегабайтном файле переполняет стек аргументов.
-      const buf = new Uint8Array(await file.arrayBuffer());
       let binary = "";
       for (let i = 0; i < buf.length; i += 0x8000) binary += String.fromCharCode(...buf.subarray(i, i + 0x8000));
       const res = await fetch("/api/admin/companies/avatar", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, mimetype: file.type || "image/png", dataBase64: btoa(binary) }),
+        body: JSON.stringify({ email, mimetype, dataBase64: btoa(binary) }),
       });
       const data = await res.json().catch(() => ({ ok: false }));
       if (!res.ok || !data.ok) {
