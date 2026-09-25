@@ -72,10 +72,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, message: "too_large" }, { status: 413 });
   }
 
+  // Какой из четырёх шагов упал -- иначе в ответе только голое
+  // "500: Internal server error" и гадать приходится по коду.
+  let step = "login";
   try {
     const accessToken = await getAdminActAsToken(parsed.data.email);
 
     // 1. Текущие снимки профиля -- чтобы заменить только нулевой.
+    step = "read-profile";
     const profile = await call<{ photos?: { fileReference?: string }[] }>(
       "account.updateProfile",
       {},
@@ -84,6 +88,7 @@ export async function POST(request: NextRequest) {
     const existing = Array.isArray(profile?.photos) ? profile.photos : [];
 
     // 2. Куда заливать.
+    step = "upload-create";
     const target = await call<UploadTarget>(
       "upload.create",
       { mimetype: parsed.data.mimetype, bytes: bytes.byteLength },
@@ -98,6 +103,7 @@ export async function POST(request: NextRequest) {
     const form = new FormData();
     for (const [key, value] of Object.entries(target.fields ?? {})) form.append(key, value);
     form.append("file", new Blob([new Uint8Array(bytes)], { type: parsed.data.mimetype }), "avatar");
+    step = "upload-put";
     const put = await fetch(target.url, { method: "POST", body: form });
     if (!put.ok) {
       console.error("[api/admin/companies/avatar] storage rejected the file:", put.status);
@@ -105,6 +111,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 4. Подтвердить и поставить нулевым снимком.
+    step = "upload-confirm";
     const media = await call<{ fileReference?: string }>(
       "upload.confirm",
       { documentId: target.id },
@@ -121,6 +128,7 @@ export async function POST(request: NextRequest) {
         .filter((ref): ref is string => typeof ref === "string" && ref.length > 0)
         .map((fileReference) => ({ fileReference })),
     ];
+    step = "write-profile";
     await call("account.updateProfile", { photos }, { accessToken });
 
     return NextResponse.json({ ok: true, fileReference: media.fileReference, photos: photos.length });
@@ -141,6 +149,6 @@ export async function POST(request: NextRequest) {
     } else {
       console.error("[api/admin/companies/avatar] unexpected error:", err);
     }
-    return NextResponse.json({ ok: false, message: "failed", debug }, { status: 500 });
+    return NextResponse.json({ ok: false, message: "failed", step, debug }, { status: 500 });
   }
 }
