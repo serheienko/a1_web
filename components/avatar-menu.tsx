@@ -297,6 +297,49 @@ function readDisplayCookie(): string | null {
   return raw ? decodeURIComponent(raw) : null;
 }
 
+// Fix Tracker (2026-09-27, Aleksandr, screen recording: "почему у нас
+// моргают аватарки при перезагрузке страницы?") -- root cause: the
+// button below always draws lib/avatars.ts's deterministic cat first
+// (the only thing known synchronously -- just the signed-in email),
+// then swaps to the real photo/username the moment the /api/account/
+// whoami effect further down resolves, one whole network round-trip
+// later. Both pictures are correct renders -- neither one is wrong --
+// but back to back on EVERY single load they read as the avatar
+// "blinking". Same fix cached-avatar.tsx already applies to the image
+// BYTES ("First time... renders exactly as before... every time after
+// that... no flash"), one level up: which avatarUrl to even ask for.
+// The moment we know who's signed in, we also check this device's own
+// last-seen answer for that email (plain localStorage -- small, and
+// read/written from this one file only, unlike the shared Cache
+// Storage blob cache) and paint it immediately, before whoami has even
+// been asked. First sign-in on a given device still shows the
+// one-time cat-to-photo swap (nothing cached yet to read) -- every
+// reload after that shows the final picture from frame one, and the
+// whoami call underneath still runs every time so the cache stays
+// honest for next time.
+const PROFILE_CACHE_PREFIX = "a1_profile_cache:";
+
+type CachedProfile = { username: string | null; avatarUrl: string | null };
+
+function readCachedProfile(email: string): CachedProfile | null {
+  try {
+    const raw = localStorage.getItem(PROFILE_CACHE_PREFIX + email);
+    if (!raw) return null;
+    return JSON.parse(raw) as CachedProfile;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedProfile(email: string, profile: CachedProfile): void {
+  try {
+    localStorage.setItem(PROFILE_CACHE_PREFIX + email, JSON.stringify(profile));
+  } catch {
+    // Storage can be unavailable (private mode, quota) -- best-effort,
+    // same as every other localStorage use in this file.
+  }
+}
+
 export function AvatarMenu() {
   // Продлить подписку на пуши, если человек их когда-то включал. Живёт
   // здесь, а не в самой строке-переключателе: строка монтируется только
@@ -426,7 +469,13 @@ export function AvatarMenu() {
     if (active) setLang(active);
     setTheme(root.classList.contains("dark") ? "dark" : root.classList.contains("light") ? "light" : "auto");
     setIsGeoUa(root.classList.contains("geo-ua"));
-    setEmail(readDisplayCookie());
+    const cookieEmail = readDisplayCookie();
+    setEmail(cookieEmail);
+    if (cookieEmail) {
+      const cached = readCachedProfile(cookieEmail);
+      if (cached?.avatarUrl) setProfileAvatarUrl(cached.avatarUrl);
+      if (cached?.username) setProfileUsername(cached.username);
+    }
   }, []);
 
   // Resolve a "View profile" target once we know the visitor is signed
@@ -476,6 +525,9 @@ export function AvatarMenu() {
         if (cancelled || !data?.ok) return;
         if (data.username) setProfileUsername(data.username);
         if (data.avatarUrl) setProfileAvatarUrl(data.avatarUrl);
+        if (email && (data.username || data.avatarUrl)) {
+          writeCachedProfile(email, { username: data.username ?? null, avatarUrl: data.avatarUrl ?? null });
+        }
       })
       .catch(() => {
         // Best-effort — the row just stays hidden.
