@@ -17,7 +17,7 @@
 // ticks) vs load-bearing on the existing polling transport.
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
 import { CachedAvatar } from "@/components/cached-avatar";
 import Link from "next/link";
@@ -69,6 +69,7 @@ import { AllPinsModal } from "@/components/chat/all-pins-modal";
 // iOS-style "Remind me" sheet grouping reminders by date -- see this
 // component's own header comment for the full ground-truth trail).
 import { RemindersListModal, remindersCache } from "@/components/chat/reminders-list-modal";
+import { SharedPanel } from "@/components/chat/shared-panel";
 import { RemindModal } from "@/components/chat/remind-modal";
 import { ForwardPickerModal, type ForwardRowStatus } from "@/components/chat/forward-picker-modal";
 import { SelectionTopBar, SelectionBottomBar } from "@/components/chat/selection-bar";
@@ -573,26 +574,12 @@ const GREETING_EMOJI = "🐱";
 // retry popover rendered up near/behind the sticky chat header --
 // "Че то не отправляется приветственный кот и 'скасувати' куда-то
 // залезло далеко") -- traced to the popover always opening ABOVE its
-// bubble, which only has room when the bubble isn't the first thing in
-// the scroll area (e.g. an auto-sent welcome sticker, the very first
-// message in a brand new chat). Первая правка флипала его ВНИЗ, если
-// над пузырём меньше 180px.
-//
-// 24.09.2026 (Александр, скриншот: длинное сообщение с блоком кода
-// висит «надсилається», «кнопка скасувати заехала в самый низ... я не
-// могу до неё достать») -- у флипа была та же болезнь, только с другой
-// стороны. Он смотрел лишь на ВЕРХ пузыря, а привязка оставалась к
-// самому пузырю. У сообщения выше экрана верх уходит в минус, флип
-// честно выбирает «вниз» -- и попап оказывается под нижним краем
-// пузыря, то есть за композером. Для пузыря выше экрана ни одна
-// привязка к нему не работает в принципе.
-//
-// Поэтому попап больше не привязан к пузырю: он позиционируется от
-// точки нажатия (position: fixed) и после отрисовки зажимается в
-// границы экрана -- см. pendingPopoverPos и его layout-эффект ниже.
-// Ширина нужна здесь, чтобы прикинуть начальное положение до замера.
-const PENDING_POPOVER_WIDTH = 208; // w-52
-const PENDING_POPOVER_MARGIN = 12;
+// bubble (see its own `bottom-full` placement below), which only has
+// room when the bubble isn't the first thing in the scroll area (e.g.
+// an auto-sent welcome sticker, the very first message in a brand new
+// chat). Below this many px of viewport space above the bubble, it
+// flips to opening BELOW instead.
+const PENDING_POPOVER_MIN_SPACE_ABOVE = 180;
 
 // Photo-viewer header (Aleksandr, photo-viewer spec: "сверху повинно
 // бути ім'я") -- the sender label for a bubble the viewer opened from
@@ -840,9 +827,10 @@ export default function ChatWindowPage() {
   // ever one at a time, closed by tapping elsewhere (see the
   // document-click effect near the retry helpers below).
   const [openPendingId, setOpenPendingId] = useState<string | null>(null);
-  // Где на экране рисовать попап отмены/повтора. Координаты вьюпорта, не
-  // смещение от пузыря -- см. комментарий у PENDING_POPOVER_WIDTH выше.
-  const [pendingPopoverPos, setPendingPopoverPos] = useState<{ top: number; left: number } | null>(null);
+  // Whether the currently-open pending popover should grow UP from its
+  // bubble (the usual case) or DOWN (flipped -- see
+  // PENDING_POPOVER_MIN_SPACE_ABOVE's own comment above for why).
+  const [openPendingAbove, setOpenPendingAbove] = useState(true);
   const pendingPopoverRef = useRef<HTMLDivElement>(null);
 
   // Reply feature (2026-09-05, Aleksandr, live UI reference: "Давай
@@ -1122,6 +1110,9 @@ export default function ChatWindowPage() {
   // button below opens this; RemindersListModal fetches its own data
   // on mount, nothing to preload here.
   const [remindersListOpen, setRemindersListOpen] = useState(false);
+  // 2026-09-30 «Спільне» -- media/links/files/voice of this chat, loaded in
+  // small pages only after the panel is opened (components/chat/shared-panel.tsx).
+  const [sharedOpen, setSharedOpen] = useState(false);
   // Fix Tracker (2026-09-07, Aleksandr: "если нет напоминаний, то
   // иконка колокольчика не должна показываться, и соответственно
   // этого попапа тоже не должно быть") -- a lightweight count check,
@@ -2483,44 +2474,6 @@ export default function ChatWindowPage() {
     }
     document.addEventListener("mousedown", handleDocClick);
     return () => document.removeEventListener("mousedown", handleDocClick);
-  }, [openPendingId]);
-
-  // Зажимает попап отмены/повтора в границы экрана сразу после
-  // отрисовки -- единственный момент, когда известна его настоящая
-  // высота (у «Не надіслано» есть вторая кнопка, у «Надсилається…» нет).
-  // См. комментарий у PENDING_POPOVER_WIDTH выше о том, зачем это вообще.
-  useLayoutEffect(() => {
-    if (!openPendingId) return;
-    const el = pendingPopoverRef.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    const m = PENDING_POPOVER_MARGIN;
-    setPendingPopoverPos((prev) => {
-      if (!prev) return prev;
-      let { top, left } = prev;
-      if (top + r.height > window.innerHeight - m) top = window.innerHeight - m - r.height;
-      if (top < m) top = m;
-      if (left + r.width > window.innerWidth - m) left = window.innerWidth - m - r.width;
-      if (left < m) left = m;
-      return top === prev.top && left === prev.left ? prev : { top, left };
-    });
-  }, [openPendingId]);
-
-  // Попап привязан к экрану, а не к пузырю, поэтому при прокрутке он бы
-  // остался висеть на месте, пока сообщение уезжает -- закрываем его.
-  // Capture: списки сообщений скроллятся во вложенном контейнере, до
-  // window событие прокрутки само не всплывает.
-  useEffect(() => {
-    if (!openPendingId) return;
-    function close() {
-      setOpenPendingId(null);
-    }
-    window.addEventListener("scroll", close, true);
-    window.addEventListener("resize", close);
-    return () => {
-      window.removeEventListener("scroll", close, true);
-      window.removeEventListener("resize", close);
-    };
   }, [openPendingId]);
 
   function cancelPending(localId: string) {
@@ -4285,7 +4238,20 @@ export default function ChatWindowPage() {
               content matches the pill's BASE height to those exactly
               without capping how tall it can grow. */}
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-4 py-3">
-            {headerProfileHref ? (
+            <button
+            type="button"
+            onClick={() => setSharedOpen(true)}
+            aria-label="Shared"
+            className="ml-auto mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#989aa6] transition hover:bg-black/5 dark:text-[#adafbb] dark:hover:bg-white/10"
+          >
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="16" rx="3" />
+              <circle cx="9" cy="10" r="1.6" />
+              <path d="m21 16-5-5-8 8" />
+            </svg>
+          </button>
+
+          {headerProfileHref ? (
               <Link
                 href={headerProfileHref}
                 className="pointer-events-auto flex min-h-[42px] max-w-[55%] flex-col items-center justify-center truncate rounded-full bg-black/5 px-4 text-center transition hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15"
@@ -4317,7 +4283,7 @@ export default function ChatWindowPage() {
             // viewer.tsx's full-size lightbox, same as the chat-list's
             // own avatar link (app/chats/page.tsx) and the mini-chat
             // window's own header avatar.
-            <Link href={`${headerProfileHref}?photo=1`} aria-label={headerTitle || undefined} className="ml-auto shrink-0">
+            <Link href={`${headerProfileHref}?photo=1`} aria-label={headerTitle || undefined} className="shrink-0">
               {/* 2026-09-05 (Aleksandr: "кешировать вообще всё, если
                   оно хотя бы 1 раз открывалось") -- this header avatar
                   renders on every chat open, one of the highest-
@@ -4342,7 +4308,7 @@ export default function ChatWindowPage() {
               src={headerAvatar}
               blurDataURL={headerAvatarBlur ?? BLUR_DATA_URL}
               size={42}
-              className="ml-auto h-[42px] w-[42px] shrink-0 rounded-full object-cover"
+              className="h-[42px] w-[42px] shrink-0 rounded-full object-cover"
             />
           )}
             </>
@@ -5087,16 +5053,15 @@ export default function ChatWindowPage() {
                       onClick={
                         pending
                           ? (e) => {
-                              // Стартовая прикидка: под точкой нажатия,
-                              // правым краем по правому краю пузыря.
-                              // Точное положение доводит layout-эффект,
-                              // который зажимает попап в экран -- см.
-                              // комментарий у PENDING_POPOVER_WIDTH.
+                              // See PENDING_POPOVER_MIN_SPACE_ABOVE's own
+                              // comment above -- open below instead of
+                              // above whenever the bubble is too close to
+                              // the top of the viewport for the popover to
+                              // fit above it (e.g. the first message in a
+                              // brand new chat, like an auto-sent welcome
+                              // sticker).
                               const rect = e.currentTarget.getBoundingClientRect();
-                              setPendingPopoverPos({
-                                top: e.clientY + 8,
-                                left: Math.max(PENDING_POPOVER_MARGIN, rect.right - PENDING_POPOVER_WIDTH),
-                              });
+                              setOpenPendingAbove(rect.top > PENDING_POPOVER_MIN_SPACE_ABOVE);
                               setOpenPendingId(pending.localId);
                             }
                           : undefined
@@ -6051,13 +6016,12 @@ export default function ChatWindowPage() {
                         online/poll-triggered retryAllFailed already does
                         in the background -- this button just doesn't wait
                         for either of those triggers. */}
-                    {popoverOpen && pending && pendingPopoverPos && (
+                    {popoverOpen && pending && (
                       <div
                         ref={pendingPopoverRef}
-                        style={{ top: pendingPopoverPos.top, left: pendingPopoverPos.left }}
-                        // z-30: композер снизу сидит на z-20, и попап
-                        // должен перекрывать его, а не прятаться за ним.
-                        className="animate-popover-down fixed z-30 w-52 rounded-2xl bg-white p-3 shadow-xl dark:bg-neutral-900"
+                        className={`absolute right-0 z-10 w-52 rounded-2xl bg-white p-3 shadow-xl dark:bg-neutral-900 ${
+                          openPendingAbove ? "animate-popover-up bottom-full mb-2" : "animate-popover-down top-full mt-2"
+                        }`}
                       >
                         <p className="text-center text-[13px] font-medium text-[#262a34] dark:text-white">
                           {pending.failed ? (
@@ -7694,6 +7658,7 @@ export default function ChatWindowPage() {
           onConfirm={() => void handleConfirmClearChat()}
         />
       )}
+      {sharedOpen && <SharedPanel chatId={chatId} lang={lang} onClose={() => setSharedOpen(false)} />}
       {remindersListOpen && (
         <RemindersListModal
           chatId={chatId}
