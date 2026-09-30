@@ -59,13 +59,16 @@ export function SalaryLabel({ salary }: { salary: WebPostSalary }) {
 // флажок симпатично разбавляет». Бэкенд сам ставит флаг только у адреса из
 // одной страны («🇺🇸 United States»); у «Amsterdam, Netherlands» флага нет.
 // Если флага в строке нет, дописываем его спереди по ISO-коду страны
-// (loc.country = "NL"); «WW» (весь мир) и неизвестное без флага.
+// (loc.country = "NL"); «WW» (весь мир) -- 🌏; неизвестное без флага.
 const FLAG_AT_START = /^[\u{1F1E6}-\u{1F1FF}]{2}/u;
 
 function flagFor(display: string, country?: string | null): string {
   if (!country || FLAG_AT_START.test(display)) return "";
   const code = country.trim().toUpperCase();
-  return /^[A-Z]{2}$/.test(code) && code !== "WW" ? flagEmoji(code) + " " : "";
+  // 30.09.2026 (Александр: в ленте «Україна» у удалённых вакансий просто «Worldwide» --
+  // «помечай, добавь эмодзи земного шара»): «весь мир» получает тот же 🌏, что у чипа «Топ 100».
+  if (code === "WW") return "🌏 ";
+  return /^[A-Z]{2}$/.test(code) ? flagEmoji(code) + " " : "";
 }
 
 export function LocationLabel({ display, country }: { display: string; country?: string | null }) {
