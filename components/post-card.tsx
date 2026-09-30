@@ -24,6 +24,7 @@ import { CachedAvatar } from "@/components/cached-avatar";
 import Link from "next/link";
 import type { WebPost } from "@/types/web-post";
 import { RelativeTime, SalaryLabel, LocationLabel } from "@/components/locale-format";
+import { worldwideKind } from "@/lib/seo/worldwide-kind";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { T } from "@/components/t";
 import { TagLabel } from "@/components/tag-label";
@@ -110,7 +111,7 @@ export function PostCard({
   // components/locale-format.tsx's LocationLabel for why only the
   // country word is localized, and only into uk.
   const locationLabel = post.location ? (
-    <LocationLabel display={post.location.display} country={post.location.country} />
+    <LocationLabel display={post.location.display} country={post.location.country} worldwideAs={worldwideKind(post)} />
   ) : post.isRemote ? (
     <T uk="Віддалено" en="Remote" ru="Удалённо" de="Remote" es="Remoto" fr="À distance" pl="Zdalnie" ptBR="Remoto" zh="远程" />
   ) : (

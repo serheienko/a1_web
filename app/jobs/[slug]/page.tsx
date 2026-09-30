@@ -4,6 +4,7 @@ export const revalidate = 60;
 // app/jobs/[slug]/page.tsx — one vacancy per page (PLAN.md Phase 2, §3.1's
 // "money page for SEO"). Slug format: "<kebab-title>-<postId>".
 
+import { worldwideKind } from "@/lib/seo/worldwide-kind";
 import { notFound, permanentRedirect } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -148,7 +149,7 @@ export default async function JobDetailPage({ params }: Props) {
   // 2026-08-30, live-testing feedback ("Berlin, Germany - нужна
   // локализация") -- see components/locale-format.tsx's LocationLabel.
   const locationLabel = post.location ? (
-    <LocationLabel display={post.location.display} country={post.location.country} />
+    <LocationLabel display={post.location.display} country={post.location.country} worldwideAs={worldwideKind(post)} />
   ) : post.isRemote ? (
     <T uk="Віддалено" en="Remote" ru="Удалённо" de="Remote" es="Remoto" fr="À distance" pl="Zdalnie" ptBR="Remoto" zh="远程" />
   ) : (

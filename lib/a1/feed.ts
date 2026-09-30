@@ -274,6 +274,23 @@ function applyLocalFilters(posts: WebPost[], filters: FeedFilters, needle: strin
   });
 }
 
+/**
+ * 30.09.2026 (Александр: «нажимаю Украину, а мне показывает ещё и Польшу»).
+ * Лента «Україна» = украинские вакансии + удалённые. Казак (DOU) кладёт туда
+ * же вакансии украинских компаний с офисом в Варшаве/Вроцлаве/Лиссабоне (~3%
+ * ленты) -- бэкенд считает их «нашими» и отдаёт в режиме «для тебе». Они
+ * остаются в списках своих стран, а здесь отсекаются. Только для режима по
+ * умолчанию: выбранная страна, «Топ 100» и конкретный город фильтруются бэкендом.
+ */
+function inUkraineMode(kind: WebPostKind, filters: FeedFilters): boolean {
+  return kind === "hiring" && !filters.country && !filters.top100 && filters.location == null;
+}
+
+function keepInUkraineFeed(post: WebPost): boolean {
+  const cc = post.location?.country?.trim().toUpperCase();
+  return !cc || cc === "UA" || cc === "WW";
+}
+
 export async function fetchFeedPage(
   kind: WebPostKind,
   cursor?: string | null,
@@ -295,7 +312,7 @@ export async function fetchFeedPage(
       expand: "count",
     });
     const parsed = PostsSearchOutputSchema.parse(raw);
-    const posts = mapPosts(parsed.items);
+    const posts = inUkraineMode(kind, filters) ? mapPosts(parsed.items).filter(keepInUkraineFeed) : mapPosts(parsed.items);
     const hasMore = parsed.pagination.hasMore;
     // count.total spans every post type (the backend counts with `object`
     // cleared), so the per-kind number is the one to use; fall back to what
@@ -331,7 +348,8 @@ export async function fetchFeedPage(
     };
   }
 
-  const matches = applyLocalFilters(await getScanPosts(kind, filters), filters, needle);
+  const scanned = await getScanPosts(kind, filters);
+  const matches = applyLocalFilters(inUkraineMode(kind, filters) ? scanned.filter(keepInUkraineFeed) : scanned, filters, needle);
   const hasMore = nextOffset < matches.length;
   return {
     posts: matches.slice(offset, nextOffset),

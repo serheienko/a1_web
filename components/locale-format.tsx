@@ -16,10 +16,11 @@
 // render every locale's formatted text server-side as a hidden span, and
 // let the `lang-XX:inline` CSS variant (toggled client-side on <html>)
 // decide which one is visible. Zero client JS needed per post.
-import { LOCALES, LOCALE_VISIBILITY_CLASS } from "@/components/t";
+import { LOCALES, LOCALE_VISIBILITY_CLASS, type Locale } from "@/components/t";
 import { formatRelativeTime, formatSalary } from "@/lib/format";
 import { localizeLocationDisplay } from "@/lib/pill-translations";
-import { flagEmoji } from "@/lib/seo/countries";
+import { countryByCode, countryName, flagEmoji } from "@/lib/seo/countries";
+import type { WorldwideKind } from "@/lib/seo/worldwide-kind";
 import type { WebPostSalary } from "@/types/web-post";
 
 export function RelativeTime({ date }: { date: Date }) {
@@ -71,14 +72,37 @@ function flagFor(display: string, country?: string | null): string {
   return /^[A-Z]{2}$/.test(code) ? flagEmoji(code) + " " : "";
 }
 
-export function LocationLabel({ display, country }: { display: string; country?: string | null }) {
+const REMOTE_WORD: Record<Locale, string> = {
+  uk: "Віддалено", en: "Remote", ru: "Удалённо", de: "Remote", es: "Remoto",
+  fr: "À distance", pl: "Zdalnie", ptBR: "Remoto", zh: "远程",
+};
+
+export function LocationLabel({
+  display,
+  country,
+  worldwideAs,
+}: {
+  display: string;
+  country?: string | null;
+  /** Как подписать «весь мир» (lib/seo/worldwide-kind.ts). Только для country "WW". */
+  worldwideAs?: WorldwideKind | null;
+}) {
   const flag = flagFor(display, country);
+  const ua = countryByCode("UA");
   return (
     <>
       {LOCALES.map((locale) => (
         <span key={locale} className={LOCALE_VISIBILITY_CLASS[locale]}>
-          {flag}
-          {localizeLocationDisplay(display, country, locale)}
+          {worldwideAs === "ua" && ua ? (
+            <>🇺🇦 {countryName(ua, locale)}</>
+          ) : worldwideAs === "remote" ? (
+            <>🌏 {REMOTE_WORD[locale]}</>
+          ) : (
+            <>
+              {flag}
+              {localizeLocationDisplay(display, country, locale)}
+            </>
+          )}
         </span>
       ))}
     </>
