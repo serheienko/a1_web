@@ -975,7 +975,11 @@ export function FiltersForm({
           mb-8 -> mb-4 to bring the feed up a bit now that this block is
           visually lighter. */}
       <div className={`mb-4 flex-col gap-3 sm:hidden ${desktopOnly ? "hidden" : "flex"}`}>
-        <div className="flex flex-wrap gap-3">
+        {/* 30.09.2026 (Александр: «не влезла модалка»): the panel is anchored
+            to this whole row, not to the filter button — the button sits left of
+            the country picker, so a panel hanging from its right edge ran off
+            the screen on the left. */}
+        <div className="relative flex flex-wrap gap-3">
           <div className="relative min-w-0 flex-1">
             <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
             <input
@@ -1025,7 +1029,7 @@ export function FiltersForm({
             {suggestionsDropdown}
           </div>
           <div
-            className="relative shrink-0 cursor-pointer"
+            className="shrink-0 cursor-pointer sm:relative"
             ref={filtersRef}
             onMouseEnter={handleFiltersMouseEnter}
             onMouseLeave={handleFiltersMouseLeave}
