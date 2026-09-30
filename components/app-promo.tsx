@@ -20,6 +20,14 @@
 //   • крестик = «больше никогда» (dismissed в localStorage), плавное
 //     затухание 400 мс и только потом размонтирование.
 //
+// Двигать. Окно (видео + карточка с QR) можно перетащить мышью куда
+// угодно (30.09.2026, Александр: «таскать по экрану туда-сюда, но
+// дефолтное место где сейчас»). Храним смещение ОТ дефолтной позиции
+// (а не абсолютные координаты): пока не двигали — стоит ровно там, где
+// стояло, а на другой ширине окна дефолт сам подстраивается. Смещение
+// держим в пределах экрана и помним в localStorage (ошибки глотаем).
+// Короткий клик без движения по-прежнему ведёт на /download.
+//
 // Видео грузится только после монтирования и простоя браузера
 // (requestIdleCallback), preload="none" пока не нужно; без звука, по
 // кругу, playsInline. При prefers-reduced-motion — только постер.
@@ -35,6 +43,9 @@ import { useActiveLocale } from "@/lib/use-active-locale";
 
 const KEY = "a1_app_promo_v1";
 const SEEN = "a1_app_promo_seen";
+const POS_KEY = "a1_app_promo_pos_v1";
+const DRAG_THRESHOLD = 5; // px: меньше — это клик, не перетаскивание
+const EDGE = 8; // px отступ от края экрана при ограничении
 const MAX_VISITS = 2;
 const MIN_WIDTH = 1280;
 const FEED_PATHS = new Set(["/", "/talents"]);
@@ -70,6 +81,28 @@ function write(s: State) {
   }
 }
 
+type Off = { x: number; y: number };
+
+function readOff(): Off {
+  try {
+    const raw = localStorage.getItem(POS_KEY);
+    if (!raw) return { x: 0, y: 0 };
+    const p = JSON.parse(raw) as Partial<Off>;
+    return { x: Number(p.x) || 0, y: Number(p.y) || 0 };
+  } catch {
+    return { x: 0, y: 0 };
+  }
+}
+
+function writeOff(o: Off) {
+  try {
+    if (o.x === 0 && o.y === 0) localStorage.removeItem(POS_KEY);
+    else localStorage.setItem(POS_KEY, JSON.stringify(o));
+  } catch {
+    /* private mode — ignore */
+  }
+}
+
 export function AppPromo() {
   const pathname = usePathname();
   const locale = useActiveLocale();
@@ -79,6 +112,116 @@ export function AppPromo() {
   const [media, setMedia] = useState(false); // можно грузить видео
   const [reduce, setReduce] = useState(false);
   const decided = useRef(false);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const [off, setOff] = useState<Off>({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState(false);
+  const offRef = useRef<Off>({ x: 0, y: 0 });
+  const drag = useRef<{
+    id: number;
+    sx: number;
+    sy: number;
+    ox: number;
+    oy: number;
+    rect: DOMRect;
+    moved: boolean;
+  } | null>(null);
+  const justDragged = useRef(false);
+
+  // Не даём окну уехать за экран: прямоугольник после сдвига обязан
+  // остаться целиком внутри окна браузера (с небольшим отступом).
+  function clampOff(o: Off, rect: DOMRect, curr: Off): Off {
+    const baseLeft = rect.left - curr.x;
+    const baseTop = rect.top - curr.y;
+    const minX = EDGE - baseLeft;
+    const maxX = window.innerWidth - EDGE - rect.width - baseLeft;
+    const minY = EDGE - baseTop;
+    const maxY = window.innerHeight - EDGE - rect.height - baseTop;
+    return {
+      x: Math.round(Math.min(Math.max(o.x, Math.min(minX, 0)), Math.max(maxX, 0))),
+      y: Math.round(Math.min(Math.max(o.y, Math.min(minY, 0)), Math.max(maxY, 0))),
+    };
+  }
+
+  function applyOff(o: Off) {
+    offRef.current = o;
+    setOff(o);
+  }
+
+  useEffect(() => {
+    applyOff(readOff());
+  }, []);
+
+  // После ресайза окна возвращаем плавающее окно в видимую область.
+  useEffect(() => {
+    function onResize() {
+      const el = boxRef.current;
+      if (!el) return;
+      const cur = offRef.current;
+      if (cur.x === 0 && cur.y === 0) return;
+      const next = clampOff(cur, el.getBoundingClientRect(), cur);
+      if (next.x !== cur.x || next.y !== cur.y) {
+        applyOff(next);
+        writeOff(next);
+      }
+    }
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    if ((e.target as HTMLElement).closest("button")) return; // крестик
+    const el = boxRef.current;
+    if (!el) return;
+    drag.current = {
+      id: e.pointerId,
+      sx: e.clientX,
+      sy: e.clientY,
+      ox: offRef.current.x,
+      oy: offRef.current.y,
+      rect: el.getBoundingClientRect(),
+      moved: false,
+    };
+  }
+
+  function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    const d = drag.current;
+    if (!d || d.id !== e.pointerId) return;
+    const dx = e.clientX - d.sx;
+    const dy = e.clientY - d.sy;
+    if (!d.moved) {
+      if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+      d.moved = true;
+      setDragging(true);
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+    }
+    applyOff(clampOff({ x: d.ox + dx, y: d.oy + dy }, d.rect, { x: d.ox, y: d.oy }));
+  }
+
+  function endDrag(e: React.PointerEvent<HTMLDivElement>) {
+    const d = drag.current;
+    if (!d || d.id !== e.pointerId) return;
+    drag.current = null;
+    if (d.moved) {
+      justDragged.current = true;
+      window.setTimeout(() => (justDragged.current = false), 0);
+      setDragging(false);
+      writeOff(offRef.current);
+    }
+  }
+
+  // Клик, которым закончилось перетаскивание, не должен открывать /download.
+  function onClickCapture(e: React.MouseEvent<HTMLDivElement>) {
+    if (justDragged.current) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }
 
   useEffect(() => {
     const mq = window.matchMedia(`(min-width: ${MIN_WIDTH}px)`);
@@ -138,8 +281,18 @@ export function AppPromo() {
 
   return (
     <div
+      ref={boxRef}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
+      onClickCapture={onClickCapture}
       className="pointer-events-none fixed z-30 transition-opacity duration-[400ms] ease-out"
       style={{
+        transform: `translate(${off.x}px, ${off.y}px)`,
+        touchAction: "none",
+        userSelect: "none",
+        cursor: dragging ? "grabbing" : undefined,
         top: 96,
         left: "calc(50% + 384px + 28px)",
         width: "clamp(156px, calc(((100vw - 768px) / 2 - 56px) * 0.82), 230px)",
@@ -149,7 +302,8 @@ export function AppPromo() {
       <Link
         href="/download"
         aria-label={label}
-        className="pointer-events-auto relative block rounded-[34px] bg-neutral-950 p-[7px] shadow-[0_24px_60px_rgba(20,10,80,0.35)] ring-1 ring-white/15 transition-transform duration-300 hover:-translate-y-1"
+        draggable={false}
+        className="pointer-events-auto relative block cursor-grab rounded-[34px] bg-neutral-950 p-[7px] shadow-[0_24px_60px_rgba(20,10,80,0.35)] ring-1 ring-white/15 transition-transform duration-300 hover:-translate-y-1"
       >
         <div className="relative overflow-hidden rounded-[28px] bg-black" style={{ aspectRatio: "9 / 16" }}>
           {media && !reduce ? (
@@ -174,6 +328,7 @@ export function AppPromo() {
               style={MEDIA_FIX}
               src={`/promo/a1-promo-${l}.jpg`}
               alt=""
+              draggable={false}
               loading="lazy"
               decoding="async"
             />
@@ -194,7 +349,8 @@ export function AppPromo() {
         <Link
           href="/download"
           aria-label={label}
-          className="pointer-events-auto mt-2.5 flex items-center gap-3 rounded-[22px] px-3 py-2.5 text-white ring-1 ring-white/20 transition-transform duration-300 hover:-translate-y-0.5"
+          draggable={false}
+          className="pointer-events-auto mt-2.5 cursor-grab flex items-center gap-3 rounded-[22px] px-3 py-2.5 text-white ring-1 ring-white/20 transition-transform duration-300 hover:-translate-y-0.5"
           style={{
             background: "linear-gradient(135deg, rgba(124,58,237,0.95), rgba(59,91,255,0.95))",
             boxShadow: "0 12px 30px rgba(60,40,200,0.35), inset 0 1px 0 rgba(255,255,255,0.25)",
