@@ -7,10 +7,11 @@
 // с locations.search 30.09.2026 -- не выдуманы. Флаг НЕ храним: он
 // однозначно считается из ISO-кода (см. flagEmoji).
 //
-// Названия -- uk / en / ru; остальные семь языков сайта берут английское:
-// список стран в селекторе не то место, где перевод меняет решение.
+// Названия: uk / en / ru -- здесь; de / es / fr / pl / pt-BR / zh -- в
+// country-names.ts (01.10.2026); без записи берётся английское.
 
 import type { Locale } from "@/components/t";
+import { COUNTRY_NAMES } from "@/lib/seo/country-names";
 
 export type Country = { code: string; id: number; en: string; uk: string; ru: string };
 
@@ -50,11 +51,11 @@ export const COUNTRIES: Country[] = [
   { code: "JP", id: 112, en: "Japan", uk: "Японія", ru: "Япония" },
   { code: "KZ", id: 115, en: "Kazakhstan", uk: "Казахстан", ru: "Казахстан" },
   { code: "KE", id: 116, en: "Kenya", uk: "Кенія", ru: "Кения" },
-  { code: "KR", id: 119, en: "Korea (Republic)", uk: "Південна Корея", ru: "Южная Корея" },
+  { code: "KR", id: 119, en: "South Korea", uk: "Південна Корея", ru: "Южная Корея" },
   { code: "LV", id: 123, en: "Latvia", uk: "Латвія", ru: "Латвия" },
   { code: "LT", id: 129, en: "Lithuania", uk: "Литва", ru: "Литва" },
   { code: "MY", id: 135, en: "Malaysia", uk: "Малайзія", ru: "Малайзия" },
-  { code: "MD", id: 146, en: "Moldova (Republic of)", uk: "Молдова", ru: "Молдова" },
+  { code: "MD", id: 146, en: "Moldova", uk: "Молдова", ru: "Молдова" },
   { code: "NP", id: 156, en: "Nepal", uk: "Непал", ru: "Непал" },
   { code: "NL", id: 157, en: "Netherlands", uk: "Нідерланди", ru: "Нидерланды" },
   { code: "NZ", id: 159, en: "New Zealand", uk: "Нова Зеландія", ru: "Новая Зеландия" },
@@ -84,7 +85,7 @@ export const COUNTRIES: Country[] = [
   { code: "US", id: 234, en: "United States", uk: "США", ru: "США" },
   { code: "UY", id: 236, en: "Uruguay", uk: "Уругвай", ru: "Уругвай" },
   { code: "UZ", id: 237, en: "Uzbekistan", uk: "Узбекистан", ru: "Узбекистан" },
-  { code: "VN", id: 240, en: "Viet Nam", uk: "В'єтнам", ru: "Вьетнам" },
+  { code: "VN", id: 240, en: "Vietnam", uk: "В'єтнам", ru: "Вьетнам" },
 ];
 
 /**
@@ -119,7 +120,8 @@ export function flagEmoji(code: string): string {
 export function countryName(country: Country, locale: Locale): string {
   if (locale === "uk") return country.uk;
   if (locale === "ru") return country.ru;
-  return country.en;
+  // 01.10.2026: de / es / fr / pl / pt-BR / zh -- свои названия (country-names.ts).
+  return COUNTRY_NAMES[country.code]?.[locale] ?? country.en;
 }
 
 /** Страна по умолчанию -- Україна (решение 29.09.2026: не по IP, а по аудитории). */

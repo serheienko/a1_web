@@ -25,7 +25,7 @@ export async function linksForCountry(cc: string, opts?: { skip?: string }): Pro
   const groups: SegmentLinkGroup[] = [];
   if (opts?.skip) {
     groups.push({
-      title: { uk: `Усі вакансії: ${countryName(country, "uk")}`, en: `All jobs in ${en}`, ru: `Все вакансии: ${countryName(country, "ru")}`, de: `Alle Jobs: ${en}`, es: `Todas las vacantes: ${en}`, fr: `Toutes les offres : ${en}`, pl: `Wszystkie oferty: ${en}`, ptBR: `Todas as vagas: ${en}`, zh: `${en} 全部职位` },
+      title: { uk: `Усі вакансії: ${countryName(country, "uk")}`, en: `All jobs in ${en}`, ru: `Все вакансии: ${countryName(country, "ru")}`, de: `Alle Jobs: ${countryName(country, "de")}`, es: `Todas las vacantes: ${countryName(country, "es")}`, fr: `Toutes les offres : ${countryName(country, "fr")}`, pl: `Wszystkie oferty: ${countryName(country, "pl")}`, ptBR: `Todas as vagas: ${countryName(country, "ptBR")}`, zh: `${countryName(country, "zh")} 全部职位` },
       links: [{ href: `/jobs/country/${lc}`, label: `${flagEmoji(cc)} ${en}` }],
     });
   }
