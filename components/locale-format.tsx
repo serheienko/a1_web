@@ -19,6 +19,7 @@
 import { LOCALES, LOCALE_VISIBILITY_CLASS } from "@/components/t";
 import { formatRelativeTime, formatSalary } from "@/lib/format";
 import { localizeLocationDisplay } from "@/lib/pill-translations";
+import { flagEmoji } from "@/lib/seo/countries";
 import type { WebPostSalary } from "@/types/web-post";
 
 export function RelativeTime({ date }: { date: Date }) {
@@ -54,11 +55,26 @@ export function SalaryLabel({ salary }: { salary: WebPostSalary }) {
 // string; only the country portion gets swapped per-locale, via
 // lib/pill-translations.ts's localizeLocationDisplay -- see that
 // function's own comment for why city names stay untranslated.
+// 30.09.2026 (Александр): «флажки показывать и там, где адрес с городом --
+// флажок симпатично разбавляет». Бэкенд сам ставит флаг только у адреса из
+// одной страны («🇺🇸 United States»); у «Amsterdam, Netherlands» флага нет.
+// Если флага в строке нет, дописываем его спереди по ISO-коду страны
+// (loc.country = "NL"); «WW» (весь мир) и неизвестное без флага.
+const FLAG_AT_START = /^[\u{1F1E6}-\u{1F1FF}]{2}/u;
+
+function flagFor(display: string, country?: string | null): string {
+  if (!country || FLAG_AT_START.test(display)) return "";
+  const code = country.trim().toUpperCase();
+  return /^[A-Z]{2}$/.test(code) && code !== "WW" ? flagEmoji(code) + " " : "";
+}
+
 export function LocationLabel({ display, country }: { display: string; country?: string | null }) {
+  const flag = flagFor(display, country);
   return (
     <>
       {LOCALES.map((locale) => (
         <span key={locale} className={LOCALE_VISIBILITY_CLASS[locale]}>
+          {flag}
           {localizeLocationDisplay(display, country, locale)}
         </span>
       ))}
