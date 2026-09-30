@@ -74,6 +74,7 @@ import { useEffect, useRef } from "react";
 import { AvatarMenu } from "@/components/avatar-menu";
 import { AppOpenBanner } from "@/components/app-open-banner";
 import { GetAppButton } from "@/components/get-app-button";
+import { NavCountry } from "@/components/nav-country";
 import { NavFilters } from "@/components/nav-filters";
 import { T } from "@/components/t";
 import { GLASS } from "@/lib/glass";
@@ -234,6 +235,11 @@ export function SiteNav() {
               не внутри: в слот попадает только телепортированная
               строка, и он остаётся чистым. */}
           <NavFilters />
+
+          {/* 30.09.2026: селектор страны -- отдельным блоком после слота
+              поиска, чтобы не делить с ним потолок 12rem (см. шапку
+              components/nav-country.tsx). */}
+          <NavCountry />
         </div>
 
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">

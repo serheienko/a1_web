@@ -18,7 +18,8 @@
 // так закрыта от индексации (hasActiveFilters), а ссылкой можно поделиться.
 
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { GLASS } from "@/lib/glass";
 import { useActiveLocale } from "@/lib/use-active-locale";
 import { useHoverPanel } from "@/lib/use-hover-panel";
@@ -42,8 +43,8 @@ const STRINGS = {
  * Собирает адрес с новой страной, сохраняя остальные параметры (поиск,
  * категорию, теги, стек), но сбрасывая страницу -- выдача другая.
  */
-function hrefFor(basePath: string, code: string, current: URLSearchParams | null): string {
-  const params = new URLSearchParams(current ?? undefined);
+function hrefFor(basePath: string, code: string, current: URLSearchParams | null, preserve: boolean): string {
+  const params = new URLSearchParams(preserve ? (current ?? undefined) : undefined);
   params.delete("page");
   params.delete("top100");
   if (code === DEFAULT_COUNTRY_CODE) params.delete("country");
@@ -57,14 +58,19 @@ export function CountryPicker({
   current,
   options,
   compact = false,
+  preserveParams = true,
 }: {
   basePath: string;
   /** ISO-код выбранной страны; undefined = Україна (лента «для тебе»). */
   current?: string;
   /** Страны с вакансиями, уже отсортированные по убыванию количества. */
   options: CountryOption[];
-  /** В шапке (desktop) -- без подписи «Країна», только флаг и название. */
+  /** В шапке (desktop): ниже lg название прячется, остаётся флаг -- иначе
+   *  на узком окне кнопка налезает на вкладки «Вакансії / Фахівці». */
   compact?: boolean;
+  /** false -- на странице вакансии/профиля чужие параметры адреса
+   *  (?page, ?q) в ленту переносить незачем. */
+  preserveParams?: boolean;
 }) {
   const locale = useActiveLocale();
   const [open, setOpen] = useState(false);
@@ -76,7 +82,25 @@ export function CountryPicker({
     [{ trigger: triggerRef, panel: panelRef }],
   );
 
-  const currentCode = countryByCode(current)?.code ?? DEFAULT_COUNTRY_CODE;
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  // 30.09 (Александр: «при выборе страны надо сразу обновлять страницу и
+  // показывать лоадер, иначе выглядит как баг»): выбранная страна
+  // показывается в кнопке СРАЗУ, пока лента на сервере пересобирается, а
+  // на <html> вешается data-country-pending -- globals.css приглушает
+  // ленту и крутит колечко, поэтому пауза читается как загрузка.
+  const [optimistic, setOptimistic] = useState<string | null>(null);
+  useEffect(() => {
+    if (!isPending) setOptimistic(null);
+  }, [isPending]);
+  useEffect(() => {
+    const el = document.documentElement;
+    if (isPending) el.setAttribute("data-country-pending", "");
+    else el.removeAttribute("data-country-pending");
+    return () => el.removeAttribute("data-country-pending");
+  }, [isPending]);
+
+  const currentCode = optimistic ?? countryByCode(current)?.code ?? DEFAULT_COUNTRY_CODE;
   const currentCountry = countryByCode(currentCode);
   const search = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
 
@@ -104,15 +128,28 @@ export function CountryPicker({
         aria-label={STRINGS.label[locale]}
         className={
           "flex h-10 items-center gap-1.5 rounded-full px-3 text-sm font-medium text-neutral-800 transition hover:text-neutral-900 dark:text-neutral-200 dark:hover:text-neutral-50 " +
+          // 30.09: явный ховер (Александр: «сделай ховер при наведении на
+          // кнопку региона») -- кнопка светлеет/темнеет и слегка
+          // приподнимается, как только указатель над ней или над списком.
+          (open ? "bg-black/5 dark:bg-white/10 " : "hover:bg-black/5 dark:hover:bg-white/10 ") +
           (compact ? "h-9 " : "") +
           GLASS
         }
       >
         <span aria-hidden="true" className="text-base leading-none">{flagEmoji(currentCode)}</span>
-        <span className="max-w-[9rem] truncate">{currentCountry ? countryName(currentCountry, locale) : currentCode}</span>
-        <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5 text-neutral-400" aria-hidden="true">
-          <path d="M6 8l4 4 4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
+        <span className={"max-w-[9rem] truncate " + (compact ? "hidden lg:inline" : "")}>
+          {currentCountry ? countryName(currentCountry, locale) : currentCode}
+        </span>
+        {isPending ? (
+          <svg viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5 animate-spin text-accent" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" strokeOpacity="0.25" />
+            <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+          </svg>
+        ) : (
+          <svg viewBox="0 0 20 20" fill="none" className={"h-3.5 w-3.5 text-neutral-400 transition-transform " + (open ? "rotate-180" : "")} aria-hidden="true">
+            <path d="M6 8l4 4 4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
       </button>
 
       {rendered && (
@@ -131,13 +168,22 @@ export function CountryPicker({
             if (!country) return null;
             const selected = row.code === currentCode;
             const isDefault = row.code === DEFAULT_COUNTRY_CODE;
+            const href = hrefFor(basePath, row.code, search, preserveParams);
             return (
               <Link
                 key={row.code}
-                href={hrefFor(basePath, row.code, search)}
+                href={href}
                 role="option"
                 aria-selected={selected}
-                onClick={() => setOpen(false)}
+                onClick={(e) => {
+                  // Обычный клик с модификатором (новая вкладка) не трогаем.
+                  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                  e.preventDefault();
+                  setOpen(false);
+                  if (selected) return;
+                  setOptimistic(row.code);
+                  startTransition(() => router.push(href));
+                }}
                 className={
                   "flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm transition " +
                   (selected

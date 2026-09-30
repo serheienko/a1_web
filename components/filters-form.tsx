@@ -1210,9 +1210,6 @@ export function FiltersForm({
                 </div>
               )}
             </div>
-            {countryOptions && (
-              <CountryPicker basePath={basePath} current={currentCountry} options={countryOptions} compact />
-            )}
           </div>,
           navSlot,
         )}

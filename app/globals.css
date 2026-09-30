@@ -2021,3 +2021,28 @@ textarea {
   from { opacity: 0; transform: translateY(4px) scale(0.97); }
   to { opacity: 1; transform: none; }
 }
+
+/* 30.09.2026: пока после выбора страны пересобирается лента, страницу
+   приглушаем и блокируем клики -- см. components/country-picker.tsx. */
+html[data-country-pending] main {
+  opacity: 0.45;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+html[data-country-pending] body::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  width: 100%;
+  z-index: 9999;
+  background: linear-gradient(90deg, transparent, var(--color-accent, #335ef7), transparent);
+  background-size: 40% 100%;
+  background-repeat: no-repeat;
+  animation: country-pending-bar 1s ease-in-out infinite;
+}
+@keyframes country-pending-bar {
+  from { background-position: -40% 0; }
+  to { background-position: 140% 0; }
+}
