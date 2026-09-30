@@ -18,6 +18,7 @@ import { call } from "./client";
 import { PostsSearchOutputSchema } from "./schemas";
 import { COUNTRIES, DEFAULT_COUNTRY_CODE } from "@/lib/seo/countries";
 import type { CountryOption } from "@/components/country-picker";
+import { peekFreshByCountry } from "@/lib/a1/facts-index";
 
 const TTL_MS = 60 * 60 * 1000;
 const CONCURRENCY = 8;
@@ -65,7 +66,21 @@ async function build(): Promise<CountryOption[]> {
   return first ? [first, ...rest] : rest;
 }
 
+/** Добавляет к списку стран «+N новых за сутки» (см. peekFreshByCountry). */
+function withFresh(options: CountryOption[]): CountryOption[] {
+  const fresh = peekFreshByCountry();
+  if (fresh.size === 0) return options;
+  return options.map((o) => {
+    const n = o.code === DEFAULT_COUNTRY_CODE ? fresh.get("__UA_FEED__") : fresh.get(o.code);
+    return n && n > 0 ? { ...o, fresh: n } : o;
+  });
+}
+
 export async function fetchCountryOptions(): Promise<CountryOption[]> {
+  return withFresh(await fetchCountryOptionsBase());
+}
+
+async function fetchCountryOptionsBase(): Promise<CountryOption[]> {
   const now = Date.now();
   if (cached && now - cached.builtAt < TTL_MS) return cached.options;
   if (building) return building;

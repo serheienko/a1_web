@@ -38,7 +38,12 @@ export type JobFactKey = "no-experience" | "reservation" | "with-salary";
 
 const TTL_MS = 60 * 60 * 1000;
 
-type Index = { builtAt: number; byFact: Map<JobFactKey, WebPost[]> };
+type Index = { builtAt: number; byFact: Map<JobFactKey, WebPost[]>; freshByCountry: Map<string, number> };
+
+/** «Новая» = компания выложила вакансию за последние сутки. Считаем по дате
+ *  ИСТОЧНИКА, а не по дню, когда мы её залили: массовая заливка пачками не
+ *  раздувает число. */
+const FRESH_MS = 24 * 60 * 60 * 1000;
 
 let cached: Index | null = null;
 let building: Promise<Index> | null = null;
@@ -51,7 +56,19 @@ async function build(): Promise<Index> {
     ["with-salary", []],
   ]);
 
+  const freshByCountry = new Map<string, number>();
+  const freshSince = Date.now() - FRESH_MS;
+
   for (const post of posts) {
+    const at = (post.sourcePublishedAt ?? post.publishedAt).getTime();
+    if (at >= freshSince) {
+      const cc = post.location?.country?.trim().toUpperCase() || "";
+      if (cc && cc !== "WW") freshByCountry.set(cc, (freshByCountry.get(cc) ?? 0) + 1);
+      // Лента «Україна» = украинские вакансии + наши (не внешние) + мировые удалённые.
+      if (cc === "UA" || cc === "WW" || !cc || !post.author.external) {
+        freshByCountry.set("__UA_FEED__", (freshByCountry.get("__UA_FEED__") ?? 0) + 1);
+      }
+    }
     const facts = extractJobFacts(post.title, post.contentText);
     if (facts.firstJob) byFact.get("no-experience")?.push(post);
     if (facts.reservation) byFact.get("reservation")?.push(post);
@@ -64,7 +81,7 @@ async function build(): Promise<Index> {
     if (post.salary) byFact.get("with-salary")?.push(post);
   }
 
-  return { builtAt: Date.now(), byFact };
+  return { builtAt: Date.now(), byFact, freshByCountry };
 }
 
 async function index(): Promise<Index> {
@@ -99,4 +116,19 @@ export async function postsForFact(fact: JobFactKey): Promise<WebPost[]> {
       (b.sourcePublishedAt ?? b.publishedAt).getTime() -
       (a.sourcePublishedAt ?? a.publishedAt).getTime(),
   );
+}
+
+/**
+ * Сколько новых вакансий (за сутки, по дате источника) в каждой стране --
+ * для зелёного «+N» в селекторе стран. НЕ ждёт обхода: если индекс ещё не
+ * собран, запускает сборку в фоне и отдаёт пустую карту (следующий показ
+ * страницы уже получит числа). Ключ "__UA_FEED__" -- лента «Україна».
+ */
+export function peekFreshByCountry(): Map<string, number> {
+  if (cached) {
+    if (Date.now() - cached.builtAt >= TTL_MS) void index().catch(() => undefined);
+    return cached.freshByCountry;
+  }
+  void index().catch(() => undefined);
+  return new Map();
 }

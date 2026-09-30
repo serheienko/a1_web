@@ -25,7 +25,8 @@ import { useActiveLocale } from "@/lib/use-active-locale";
 import { useHoverPanel } from "@/lib/use-hover-panel";
 import { countryByCode, countryName, flagEmoji, DEFAULT_COUNTRY_CODE } from "@/lib/seo/countries";
 
-export type CountryOption = { code: string; count: number };
+/** fresh -- сколько вакансий компании выложили за последние сутки (зелёное «+N»). */
+export type CountryOption = { code: string; count: number; fresh?: number };
 
 const STRINGS = {
   label: {
@@ -197,7 +198,14 @@ export function CountryPicker({
                   )}
                 </span>
                 {row.count > 0 && (
-                  <span className="shrink-0 tabular-nums text-xs text-neutral-400">{row.count}</span>
+                  // 30.09.2026 (Александр): маленькое зелёное «+N» над общим числом --
+                  // сколько вакансий появилось за сутки. Нет новых -- ничего не рисуем.
+                  <span className="flex shrink-0 flex-col items-end leading-tight">
+                    {row.fresh ? (
+                      <span className="text-[10px] font-semibold tabular-nums text-emerald-500">+{row.fresh}</span>
+                    ) : null}
+                    <span className="tabular-nums text-xs text-neutral-400">{row.count}</span>
+                  </span>
                 )}
               </Link>
             );
