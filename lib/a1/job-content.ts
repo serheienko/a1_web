@@ -80,6 +80,17 @@ export function splitA1Summary(text: string): { summary: string | null; rest: st
   return { summary, rest: end === -1 ? "" : body.slice(end + 2).trimStart() };
 }
 
+/** Язык текста для атрибута lang: кириллица -- uk, немецкие служебные слова -- de, иначе en.
+ *  Грубо, но для короткого пересказа хватает: атрибут только подсказка поисковику и экранным читалкам. */
+export function guessLang(text: string): "uk" | "de" | "en" {
+  if (/[іїєґ]/i.test(text)) return "uk";
+  if (/[а-яё]/i.test(text)) return "uk";
+  const words = text.toLowerCase().match(/[a-zäöüß]+/g) ?? [];
+  const de = new Set(["und", "der", "die", "das", "im", "in", "für", "mit", "als", "bei", "wir", "ein", "eine", "zu", "von", "arbeitet", "team", "sich", "den", "dem"]);
+  const hits = words.filter((w) => de.has(w) && w !== "team" && w !== "in").length;
+  return hits >= 2 ? "de" : "en";
+}
+
 /** Текст для превью в ленте: пересказ, если он есть, иначе сам текст. */
 export function previewText(text: string): string {
   return splitA1Summary(text).summary ?? text;

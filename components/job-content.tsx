@@ -14,7 +14,7 @@
 // вакансії» тут намеренно нет: он был бы одинаковым на всех 1790
 // страницах, то есть ровно тем шаблонным шумом, от которого мы уходим.
 
-import { A1_SUMMARY_LABEL, parseJobContent, splitA1Summary } from "@/lib/a1/job-content";
+import { A1_SUMMARY_LABEL, guessLang, parseJobContent, splitA1Summary } from "@/lib/a1/job-content";
 import { splitLinks } from "@/lib/a1/linkify";
 
 // 2026-09-19 (Александр): «ссылка к самой вакансии не кликабельная,
@@ -56,7 +56,7 @@ export function JobContent({ text: fullText }: { text: string }) {
   const summaryBlock = summary ? (
     <aside className="mt-6 rounded-2xl border border-accent/20 bg-accent/5 px-4 py-3.5 text-[15px] leading-relaxed text-neutral-800 dark:text-neutral-200">
       <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-accent">{A1_SUMMARY_LABEL}</p>
-      <p>{summary}</p>
+      <p lang={guessLang(summary)}>{summary}</p>
     </aside>
   ) : null;
 
