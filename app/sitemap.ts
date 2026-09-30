@@ -25,6 +25,7 @@ import { JOB_LANDINGS } from "@/lib/seo/job-landings";
 import { FACT_LANDINGS } from "@/lib/seo/fact-landings";
 import { TECH_LANDINGS } from "@/lib/seo/tech-landings";
 import { TOP100_LANDING } from "@/lib/seo/top100-landing";
+import { countrySegments, globalLevelCounts, listCities, segmentCountries } from "@/lib/a1/segment-index";
 import { COUNTRY_LANDING_CODES } from "@/lib/seo/country-landings";
 
 const SITE_URL = "https://jobs.a1appp.com";
@@ -90,6 +91,23 @@ export default async function sitemap({ id }: { id: number | string }): Promise<
     }
     for (const code of COUNTRY_LANDING_CODES) {
       if ((perCountry.get(code) ?? 0) >= 3) entries.push({ url: `${SITE_URL}/jobs/country/${code}` });
+    }
+
+    // 30.09.2026: SEO-сегменты (lib/seo/segments.ts) -- города, уровни,
+    // страна + технология / уровень / удалёнка. В карту попадают только
+    // живые (10+ вакансий), сама страница тоже отдаёт 404 ниже порога.
+    try {
+      for (const city of await listCities()) entries.push({ url: `${SITE_URL}/jobs/city/${city.slug}` });
+      for (const { level } of await globalLevelCounts()) entries.push({ url: `${SITE_URL}/jobs/level/${level}` });
+      for (const cc of await segmentCountries()) {
+        const seg = await countrySegments(cc);
+        for (const s of seg.stacks) entries.push({ url: `${SITE_URL}/jobs/country/${cc}/${s.slug}` });
+        for (const l of seg.levels) entries.push({ url: `${SITE_URL}/jobs/country/${cc}/${l.level}` });
+        if (seg.remote > 0) entries.push({ url: `${SITE_URL}/jobs/country/${cc}/remote` });
+      }
+    } catch (error) {
+      // Сбой сегментов не должен ронять всю карту сайта.
+      console.warn("[sitemap] segments skipped", error);
     }
   }
 

@@ -46,6 +46,9 @@ type Index = {
   /** Удалённые вакансии «отовсюду» (пункт «🌏 Worldwide»), в порядке ленты бэкенда. */
   worldwide: WebPost[];
   worldwideFresh: number;
+  /** Все живые вакансии того же обхода -- на них строятся сегменты SEO
+   *  (lib/a1/segment-index.ts), отдельного обхода они не заводят. */
+  allPosts: WebPost[];
 };
 
 /** «Новая» = компания выложила вакансию за последние сутки. Считаем по дате
@@ -93,7 +96,7 @@ async function build(): Promise<Index> {
     if (post.salary) byFact.get("with-salary")?.push(post);
   }
 
-  return { builtAt: Date.now(), byFact, freshByCountry, worldwide, worldwideFresh };
+  return { builtAt: Date.now(), byFact, freshByCountry, worldwide, worldwideFresh, allPosts: posts };
 }
 
 async function index(): Promise<Index> {
@@ -158,4 +161,9 @@ export function peekWorldwide(): { count: number; fresh: number } | null {
   }
   void index().catch(() => undefined);
   return null;
+}
+
+/** Все живые вакансии (тот же кэш на час, что у остальных индексов). */
+export async function allIndexedPosts(): Promise<WebPost[]> {
+  return (await index()).allPosts;
 }
