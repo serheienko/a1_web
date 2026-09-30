@@ -202,6 +202,8 @@ function mapImages(post: Post): WebPostImage[] {
  * it out (off by default — PLAN.md §0.5). Assumes `post` already passed
  * lib/a1/schemas.ts validation.
  */
+const BANNED_COUNTRIES = new Set(["RU", "BY"]);
+
 export function mapPost(post: Post): WebPost | null {
   if (PUBLISH_ONLY_NATIVE && !isNativePost(post)) {
     return null;
@@ -214,6 +216,14 @@ export function mapPost(post: Post): WebPost | null {
   }
 
   const { location, isRemote } = mapLocation(post);
+
+  // 30.09.2026 (Александр: «Россия, пожизненный бан, не показываем.
+  // Беларусь тоже»). Вакансии с локацией в РФ/РБ не показываем нигде:
+  // ни в ленте, ни в карте сайта, ни по прямой ссылке (страница даст 404).
+  // Удалять сами посты не нужно -- скрываем на выходе.
+  if (location && BANNED_COUNTRIES.has(location.country.trim().toUpperCase())) {
+    return null;
+  }
 
   return {
     id: post._id,
