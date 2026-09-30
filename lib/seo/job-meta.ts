@@ -122,9 +122,10 @@ export function buildExternalJobMetaDescription(post: WebPost): string {
   }
   const parts: string[] = [`${prefix}: ${title}`];
   if (!post.author.isAnonymous && post.author.name.trim()) parts[0] += ` at ${post.author.name.trim()}`;
-  const place = [post.location?.city?.trim(), post.location?.display?.replace(/^\p{Extended_Pictographic}\s*/u, "").trim()]
-    .filter((x, i, a) => x && a.indexOf(x) === i)
-    .join(", ");
+  // display уже вида «Bengaluru, India»; город отдельно добавляем, только если
+  // display пуст (иначе получалось «Bengaluru, Bengaluru, India»).
+  const place =
+    post.location?.display?.replace(/^\p{Extended_Pictographic}\s*/u, "").trim() || post.location?.city?.trim() || "";
   let description = parts[0] + ".";
   if (place && !/^worldwide$/i.test(place)) description += ` ${place}.`;
   const salary = post.salary ? formatSalary(post.salary, "en") : "";
