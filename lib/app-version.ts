@@ -45,7 +45,7 @@ export type AppVersionConfig = {
 export const APP_VERSION_CONFIG: AppVersionConfig = {
   ios: {
     minimum: "1.0.0",
-    recommended: "1.0.0",
+    recommended: "1.0.7",
     note: "",
     // Числовой id из App Store Connect (карточка приложения
     // «A1: Job Search, Jobs & Hiring»), взят 2026-09-17.
