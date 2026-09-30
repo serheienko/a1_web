@@ -6,6 +6,7 @@
 
 import type { WebPost } from "@/types/web-post";
 import { profileHref } from "@/lib/profile-href";
+import { COUNTRIES } from "@/lib/seo/countries";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -211,6 +212,14 @@ export function buildJobPostingJsonLd(
     // отдельный фильтр «віддалена робота», в который вакансия без этого
     // признака просто не попадает.
     jsonLd.jobLocationType = "TELECOMMUTE";
+    // 30.09.2026 (Конкистадор, SEO). Вакансия с тегом «Worldwide» -- это
+    // «открыто откуда угодно»: у неё на месте страны есть настоящее
+    // утверждение, а не догадка. Схеме «весь мир» неизвестен, поэтому
+    // перечисляем страны нашего справочника -- иначе Google не берёт
+    // такую вакансию в фильтр «удалённая работа» вовсе.
+    if (post.tags.some((tag) => normalizeTag(tag) === "worldwide")) {
+      jsonLd.applicantLocationRequirements = COUNTRIES.map((c) => ({ "@type": "Country", name: c.code }));
+    }
     // Google requires >=1 Country in applicantLocationRequirements whenever
     // jobLocationType is TELECOMMUTE. NULL_LOCATION_MEANS_REMOTE (see
     // lib/a1/config.ts) means we reach this branch with zero real country
