@@ -1,6 +1,6 @@
 // lib/seo/top100-landing.ts
 //
-// 30.09.2026 (Конкистадор). Имиджевая посадочная «🌏 Топ 100»: вакансии
+// 30.09.2026 (Конкистадор). Имиджевая посадочная «💯 Топ 100»: вакансии
 // топ-компаний мира, собранные их же фидами (Greenhouse / Lever / Ashby /
 // Workday), все страны сразу. Александр: «можно нажать одну кнопку, и оно
 // будет всё аккумулировано в одном месте». Отклик на таких вакансиях -- на
@@ -19,9 +19,9 @@ export const TOP100_LANDING: JobLanding = {
   metaDescription:
     "Вакансії найкращих технологічних компаній світу в одному місці: Stripe, Spotify, GitLab, Databricks та інші. Оновлюється щодня.",
   h1: {
-    uk: "🌏 Топ-100 компаній світу", en: "🌏 Top 100 companies worldwide", ru: "🌏 Топ-100 компаний мира",
-    de: "🌏 Top 100 Unternehmen weltweit", es: "🌏 Top 100 empresas del mundo", fr: "🌏 Top 100 des entreprises mondiales",
-    pl: "🌏 Top 100 firm na świecie", ptBR: "🌏 Top 100 empresas do mundo", zh: "🌏 全球百强公司",
+    uk: "💯 Топ-100 компаній світу", en: "💯 Top 100 companies worldwide", ru: "💯 Топ-100 компаний мира",
+    de: "💯 Top 100 Unternehmen weltweit", es: "💯 Top 100 empresas del mundo", fr: "💯 Top 100 des entreprises mondiales",
+    pl: "💯 Top 100 firm na świecie", ptBR: "💯 Top 100 empresas do mundo", zh: "💯 全球百强公司",
   },
   countLine: {
     uk: "{n} вакансій від найкращих технологічних компаній світу",

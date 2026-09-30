@@ -66,7 +66,7 @@ function flagFor(display: string, country?: string | null): string {
   if (!country || FLAG_AT_START.test(display)) return "";
   const code = country.trim().toUpperCase();
   // 30.09.2026 (Александр: в ленте «Україна» у удалённых вакансий просто «Worldwide» --
-  // «помечай, добавь эмодзи земного шара»): «весь мир» получает тот же 🌏, что у чипа «Топ 100».
+  // «помечай, добавь эмодзи земного шара»): «весь мир» получает 🌏 (у чипа «Топ 100» теперь 💯).
   if (code === "WW") return "🌏 ";
   return /^[A-Z]{2}$/.test(code) ? flagEmoji(code) + " " : "";
 }

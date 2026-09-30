@@ -1,7 +1,7 @@
 export const runtime = "nodejs";
 export const revalidate = 900;
 
-// app/jobs/top-100/page.tsx -- имиджевая посадочная «🌏 Топ 100»
+// app/jobs/top-100/page.tsx -- имиджевая посадочная «💯 Топ 100»
 // (Конкистадор, 30.09.2026). См. lib/seo/top100-landing.ts.
 
 import type { Metadata } from "next";

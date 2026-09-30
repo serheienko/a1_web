@@ -89,7 +89,7 @@ export type FeedFilters = {
   // поиска (lib/seo/countries.ts); уходит в posts.search как location =
   // id страны плюс external: "include" -- в выдаче по стране вакансии-ссылки
   // топ-компаний идут вперемешку с обычными. top100 -- имиджевый чип
-  // «🌏 Топ 100»: только вакансии-ссылки, страна не важна. Без того и
+  // «💯 Топ 100»: только вакансии-ссылки, страна не важна. Без того и
   // другого лента «для тебе»: украинские + мировые с открытой географией
   // (external: "open"; решение Александра 30.09).
   country?: string;
@@ -521,7 +521,7 @@ export function parseFeedFilters(params: URLSearchParams): FeedFilters {
   // ?country=de -- ISO-код из справочника, чужое молча отбрасывается.
   const countryParam = params.get("country")?.trim();
   const country = countryByCode(countryParam)?.code;
-  // ?top100=1 -- чип «🌏 Топ 100».
+  // ?top100=1 -- чип «💯 Топ 100».
   const top100 = params.get("top100") === "1";
 
   return {
