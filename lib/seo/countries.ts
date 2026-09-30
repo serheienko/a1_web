@@ -87,7 +87,17 @@ export const COUNTRIES: Country[] = [
   { code: "VN", id: 240, en: "Viet Nam", uk: "В'єтнам", ru: "Вьетнам" },
 ];
 
-const BY_CODE = new Map(COUNTRIES.map((c) => [c.code, c]));
+/**
+ * 30.09.2026 (Александр: «Worldwide -- важная категория, как с ней жить»):
+ * «весь мир» -- не страна, а отдельный пункт списка у поиска: удалённые
+ * вакансии, открытые для любой страны. В COUNTRIES его НЕТ намеренно: по
+ * этому списку считаются счётчики и фильтр бэкенда (у WW нет id страны),
+ * отбор таких вакансий живёт отдельно (lib/a1/facts-index.ts, worldwidePosts).
+ */
+export const WORLDWIDE_CODE = "WW";
+export const WORLDWIDE: Country = { code: WORLDWIDE_CODE, id: 0, en: "Worldwide", uk: "Весь світ", ru: "Весь мир" };
+
+const BY_CODE = new Map<string, Country>([...COUNTRIES.map((c): [string, Country] => [c.code, c]), [WORLDWIDE_CODE, WORLDWIDE]]);
 const BY_ID = new Map(COUNTRIES.map((c) => [c.id, c]));
 
 export function countryByCode(code: string | null | undefined): Country | null {
@@ -101,6 +111,7 @@ export function countryById(id: number | null | undefined): Country | null {
 /** 🇺🇦 из "UA": две региональные буквы-индикаторы Unicode. */
 export function flagEmoji(code: string): string {
   const cc = code.toUpperCase();
+  if (cc === WORLDWIDE_CODE) return "🌏";
   if (!/^[A-Z]{2}$/.test(cc)) return "🌍";
   return String.fromCodePoint(...[...cc].map((ch) => 0x1f1e6 + ch.charCodeAt(0) - 65));
 }

@@ -24,6 +24,7 @@
 import type { WebPost } from "@/types/web-post";
 import { fetchAllSitemapJobPosts } from "./sitemap-posts";
 import { extractJobFacts } from "@/lib/a1/job-facts";
+import { worldwideKind } from "@/lib/seo/worldwide-kind";
 
 /** Признаки, по которым есть отдельная посадочная. */
 //
@@ -38,7 +39,14 @@ export type JobFactKey = "no-experience" | "reservation" | "with-salary";
 
 const TTL_MS = 60 * 60 * 1000;
 
-type Index = { builtAt: number; byFact: Map<JobFactKey, WebPost[]>; freshByCountry: Map<string, number> };
+type Index = {
+  builtAt: number;
+  byFact: Map<JobFactKey, WebPost[]>;
+  freshByCountry: Map<string, number>;
+  /** Удалённые вакансии «отовсюду» (пункт «🌏 Worldwide»), в порядке ленты бэкенда. */
+  worldwide: WebPost[];
+  worldwideFresh: number;
+};
 
 /** «Новая» = компания выложила вакансию за последние сутки. Считаем по дате
  *  ИСТОЧНИКА, а не по дню, когда мы её залили: массовая заливка пачками не
@@ -58,12 +66,20 @@ async function build(): Promise<Index> {
 
   const freshByCountry = new Map<string, number>();
   const freshSince = Date.now() - FRESH_MS;
+  const worldwide: WebPost[] = [];
+  let worldwideFresh = 0;
 
   for (const post of posts) {
     const at = (post.sourcePublishedAt ?? post.publishedAt).getTime();
     if (at >= freshSince) {
       const cc = post.location?.country?.trim().toUpperCase() || "";
       if (cc && cc !== "WW") freshByCountry.set(cc, (freshByCountry.get(cc) ?? 0) + 1);
+    }
+    // «Worldwide» = локация «весь мир», кроме украинских вакансий без города
+    // (у них по тексту видно, что это Украина -- lib/seo/worldwide-kind.ts).
+    if (worldwideKind(post) === "world" || worldwideKind(post) === "remote") {
+      worldwide.push(post);
+      if (at >= freshSince) worldwideFresh += 1;
     }
     const facts = extractJobFacts(post.title, post.contentText);
     if (facts.firstJob) byFact.get("no-experience")?.push(post);
@@ -77,7 +93,7 @@ async function build(): Promise<Index> {
     if (post.salary) byFact.get("with-salary")?.push(post);
   }
 
-  return { builtAt: Date.now(), byFact, freshByCountry };
+  return { builtAt: Date.now(), byFact, freshByCountry, worldwide, worldwideFresh };
 }
 
 async function index(): Promise<Index> {
@@ -127,4 +143,19 @@ export function peekFreshByCountry(): Map<string, number> {
   }
   void index().catch(() => undefined);
   return new Map();
+}
+
+/** Вакансии пункта «🌏 Worldwide» (обход всех вакансий, кэш на час, общий с остальными признаками). */
+export async function worldwidePosts(): Promise<WebPost[]> {
+  return (await index()).worldwide;
+}
+
+/** Сколько вакансий в «Worldwide» и сколько новых за сутки -- для списка стран. Не ждёт обхода. */
+export function peekWorldwide(): { count: number; fresh: number } | null {
+  if (cached) {
+    if (Date.now() - cached.builtAt >= TTL_MS) void index().catch(() => undefined);
+    return { count: cached.worldwide.length, fresh: cached.worldwideFresh };
+  }
+  void index().catch(() => undefined);
+  return null;
 }

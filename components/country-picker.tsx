@@ -23,7 +23,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { GLASS } from "@/lib/glass";
 import { useActiveLocale } from "@/lib/use-active-locale";
 import { useHoverPanel } from "@/lib/use-hover-panel";
-import { countryByCode, countryName, flagEmoji, DEFAULT_COUNTRY_CODE } from "@/lib/seo/countries";
+import { countryByCode, countryName, flagEmoji, DEFAULT_COUNTRY_CODE, WORLDWIDE_CODE } from "@/lib/seo/countries";
 
 /** fresh -- сколько вакансий компании выложили за последние сутки (зелёное «+N»). */
 export type CountryOption = { code: string; count: number; fresh?: number };
@@ -37,6 +37,12 @@ const STRINGS = {
     uk: "Україна + віддалено по світу", en: "Ukraine + remote worldwide", ru: "Украина + удалённо по миру",
     de: "Ukraine + weltweit remote", es: "Ucrania + remoto global", fr: "Ukraine + télétravail mondial",
     pl: "Ukraina + zdalnie na świecie", ptBR: "Ucrânia + remoto global", zh: "乌克兰 + 全球远程",
+  },
+  // 30.09.2026: подпись под пунктом «🌏 Worldwide» -- чем он отличается от страны.
+  worldwide: {
+    uk: "Віддалено з будь-якої країни", en: "Remote from any country", ru: "Удалённо из любой страны",
+    de: "Remote aus jedem Land", es: "Remoto desde cualquier país", fr: "À distance, depuis n'importe où",
+    pl: "Zdalnie z dowolnego kraju", ptBR: "Remoto de qualquer país", zh: "可从任何国家远程",
   },
 } as const;
 
@@ -191,9 +197,9 @@ export function CountryPicker({
                 <span aria-hidden="true" className="text-lg leading-none">{flagEmoji(row.code)}</span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium">{countryName(country, locale)}</span>
-                  {isDefault && (
+                  {(isDefault || row.code === WORLDWIDE_CODE) && (
                     <span className="block truncate text-[11px] text-neutral-500 dark:text-neutral-400">
-                      {STRINGS.forYou[locale]}
+                      {isDefault ? STRINGS.forYou[locale] : STRINGS.worldwide[locale]}
                     </span>
                   )}
                 </span>

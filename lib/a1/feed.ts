@@ -32,7 +32,8 @@ import { techForSlug } from "@/lib/seo/tech-catalog";
 import { fetchStackIndex } from "./stack-index";
 import { fetchPostsByIds } from "./posts";
 import { peekUkraineFeedTotal } from "./country-counts";
-import { countryByCode, DEFAULT_COUNTRY_CODE } from "@/lib/seo/countries";
+import { countryByCode, DEFAULT_COUNTRY_CODE, WORLDWIDE_CODE } from "@/lib/seo/countries";
+import { worldwidePosts } from "./facts-index";
 
 // 2026-09-05 (Aleksandr: "не загружай всю ленту сразу, а показывай
 // только постов 30... подгрузку и пагинацию") -- bumped from the
@@ -131,7 +132,10 @@ function filterParams(kind: WebPostKind, filters: FeedFilters): Record<string, u
   // (тогда пропали бы наши же удалённые вакансии без локации), а режим
   // «для тебе». Город из фильтров (filters.location) точнее страны и
   // побеждает, если задан.
-  const country = filters.country && filters.country !== DEFAULT_COUNTRY_CODE ? countryByCode(filters.country) : null;
+  const country =
+    filters.country && filters.country !== DEFAULT_COUNTRY_CODE && filters.country !== WORLDWIDE_CODE
+      ? countryByCode(filters.country)
+      : null;
   const external = filters.top100 ? "only" : country ? "include" : "open";
   // Вакансии соискателей (talents) внешними не бывают -- режим им не нужен.
   const externalParams = kind === "hiring" ? { external } : {};
@@ -292,12 +296,42 @@ function keepInUkraineFeed(post: WebPost): boolean {
   return !cc || cc === "UA" || cc === "WW";
 }
 
+/**
+ * 30.09.2026 (Александр, «Worldwide -- важная категория»): пункт «🌏 Worldwide»
+ * в списке стран -- удалённые вакансии, открытые для любой страны. У бэкенда
+ * нет фильтра «локация = весь мир» (id 0 он игнорирует и отдаёт всё), поэтому
+ * список берётся из общего обхода всех вакансий (lib/a1/facts-index.ts, кэш
+ * на час), а категория, теги, стек и текст отсеиваются поверх него в памяти.
+ */
+async function fetchWorldwidePage(offset: number, filters: FeedFilters): Promise<FeedPage> {
+  const nextOffset = offset + FEED_PAGE_SIZE;
+  const needle = filters.q?.trim().toLowerCase() || null;
+  const categories = filters.categories ?? [];
+  const tags = filters.tags ?? [];
+  const base = (await worldwidePosts()).filter(
+    (post) =>
+      (categories.length === 0 || post.categories.some((c) => categories.includes(c.id))) &&
+      tags.every((tag) => post.tags.includes(tag)) &&
+      // чип «💯 Топ 100» поверх Worldwide -- только вакансии топ-компаний (Конкистадор)
+      (!filters.top100 || post.author.external),
+  );
+  const matches = applyLocalFilters(base, filters, needle);
+  const hasMore = nextOffset < matches.length;
+  return {
+    posts: matches.slice(offset, nextOffset),
+    next: hasMore ? `${LOCAL_CURSOR_PREFIX}${nextOffset}` : null,
+    hasMore,
+    total: matches.length,
+  };
+}
+
 export async function fetchFeedPage(
   kind: WebPostKind,
   cursor?: string | null,
   filters: FeedFilters = {},
 ): Promise<FeedPage> {
   const offset = cursorToOffset(cursor);
+  if (kind === "hiring" && filters.country === WORLDWIDE_CODE) return fetchWorldwidePage(offset, filters);
   const nextOffset = offset + FEED_PAGE_SIZE;
   const needle = filters.q?.trim().toLowerCase() || null;
   const hasStack = (filters.stack?.length ?? 0) > 0;

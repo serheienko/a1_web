@@ -12,7 +12,7 @@
 //
 // Украина сюда не входит: её «страница» -- сама главная (лента «для тебе»).
 
-import { COUNTRIES, countryByCode, countryName, flagEmoji, DEFAULT_COUNTRY_CODE, type Country } from "@/lib/seo/countries";
+import { COUNTRIES, countryByCode, countryName, flagEmoji, DEFAULT_COUNTRY_CODE, WORLDWIDE_CODE, type Country } from "@/lib/seo/countries";
 import type { JobLanding } from "@/lib/seo/job-landings";
 
 export function findCountryLanding(code: string): { country: Country; landing: JobLanding } | null {
@@ -20,6 +20,7 @@ export function findCountryLanding(code: string): { country: Country; landing: J
   if (!country || country.code === DEFAULT_COUNTRY_CODE) return null;
   const en = country.en;
   const flag = flagEmoji(country.code);
+  if (country.code === WORLDWIDE_CODE) return { country, landing: worldwideLanding(flag) };
   return {
     country,
     landing: {
@@ -66,7 +67,56 @@ export function findCountryLanding(code: string): { country: Country; landing: J
   };
 }
 
+/**
+ * /jobs/country/ww -- «Remote IT jobs worldwide». Люди гуглят «remote jobs
+ * worldwide», «work from anywhere developer jobs»: это самый широкий запрос
+ * по удалёнке, и у нас на него отдельная страница, а не россыпь по странам.
+ */
+function worldwideLanding(flag: string): JobLanding {
+  return {
+    slug: "country/ww",
+    tag: "",
+    metaTitle: "Remote IT jobs worldwide — work from anywhere | A1 Jobs",
+    metaDescription:
+      "Remote IT jobs open to candidates from any country: software engineering, data, DevOps, product and design roles. Updated daily.",
+    h1: {
+      uk: `${flag} Віддалена робота по всьому світу`,
+      en: `${flag} Remote jobs worldwide`,
+      ru: `${flag} Удалённая работа по всему миру`,
+      de: `${flag} Remote-Jobs weltweit`,
+      es: `${flag} Empleos remotos en todo el mundo`,
+      fr: `${flag} Emplois en télétravail dans le monde`,
+      pl: `${flag} Praca zdalna na całym świecie`,
+      ptBR: `${flag} Vagas remotas no mundo todo`,
+      zh: `${flag} 全球远程职位`,
+    },
+    countLine: {
+      uk: "{n} віддалених вакансій з будь-якої країни",
+      en: "{n} remote jobs open to any country",
+      ru: "{n} удалённых вакансий из любой страны",
+      de: "{n} Remote-Stellen aus jedem Land",
+      es: "{n} vacantes remotas desde cualquier país",
+      fr: "{n} offres en télétravail depuis n'importe quel pays",
+      pl: "{n} ofert pracy zdalnej z dowolnego kraju",
+      ptBR: "{n} vagas remotas de qualquer país",
+      zh: "{n} 个可从任何国家申请的远程职位",
+    },
+    lead: {
+      uk: "Вакансії, на які можна відгукнутися з будь-якої країни: без прив'язки до офісу чи міста. Оновлюється щодня.",
+      en: "Jobs you can apply to from any country: no office or city required. Updated daily.",
+      ru: "Вакансии, на которые можно откликнуться из любой страны: без привязки к офису или городу. Обновляется ежедневно.",
+      de: "Stellen, auf die du dich aus jedem Land bewerben kannst: ohne Büro oder Stadt. Täglich aktualisiert.",
+      es: "Vacantes a las que puedes postular desde cualquier país: sin oficina ni ciudad. Actualizado a diario.",
+      fr: "Offres auxquelles vous pouvez postuler depuis n'importe quel pays : sans bureau ni ville. Mis à jour chaque jour.",
+      pl: "Oferty, na które możesz aplikować z dowolnego kraju: bez biura i miasta. Aktualizowane codziennie.",
+      ptBR: "Vagas para as quais você pode se candidatar de qualquer país: sem escritório ou cidade. Atualizado diariamente.",
+      zh: "可从任何国家申请的职位，无需固定办公室或城市，每日更新。",
+    },
+  };
+}
+
 /** Страны, для которых есть посадочная (все справочные, кроме Украины). */
-export const COUNTRY_LANDING_CODES: string[] = COUNTRIES.filter((c) => c.code !== DEFAULT_COUNTRY_CODE).map((c) =>
-  c.code.toLowerCase(),
-);
+export const COUNTRY_LANDING_CODES: string[] = [
+  WORLDWIDE_CODE.toLowerCase(),
+  ...COUNTRIES.filter((c) => c.code !== DEFAULT_COUNTRY_CODE).map((c) => c.code.toLowerCase()),
+];

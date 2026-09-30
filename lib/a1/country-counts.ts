@@ -16,9 +16,9 @@
 
 import { call } from "./client";
 import { PostsSearchOutputSchema } from "./schemas";
-import { COUNTRIES, DEFAULT_COUNTRY_CODE } from "@/lib/seo/countries";
+import { COUNTRIES, DEFAULT_COUNTRY_CODE, WORLDWIDE_CODE } from "@/lib/seo/countries";
 import type { CountryOption } from "@/components/country-picker";
-import { peekFreshByCountry } from "@/lib/a1/facts-index";
+import { peekFreshByCountry, peekWorldwide } from "@/lib/a1/facts-index";
 import { mapPosts } from "./mappers";
 
 const TTL_MS = 60 * 60 * 1000;
@@ -134,11 +134,23 @@ async function build(): Promise<CountryOption[]> {
 
 /** Добавляет к списку стран «+N новых за сутки» (см. peekFreshByCountry). */
 function withFresh(options: CountryOption[]): CountryOption[] {
+  // «🌏 Worldwide» -- вторым пунктом, сразу после Украины (Александр: важная
+  // категория). Число даёт общий обход вакансий (facts-index): пока он не
+  // собран, пункта нет, со следующего показа страницы он появится.
+  const ww = peekWorldwide();
+  const withWorld =
+    ww && ww.count > 0
+      ? [
+          ...options.slice(0, 1),
+          { code: WORLDWIDE_CODE, count: ww.count, ...(ww.fresh > 0 ? { fresh: ww.fresh } : {}) },
+          ...options.slice(1),
+        ]
+      : options;
   const fresh = peekFreshByCountry();
-  if (fresh.size === 0) return options;
-  return options.map((o) => {
+  if (fresh.size === 0) return withWorld;
+  return withWorld.map((o) => {
     // У Украины «новые» уже посчитаны вместе с обходом ленты (build()).
-    if (o.code === DEFAULT_COUNTRY_CODE) return o;
+    if (o.code === DEFAULT_COUNTRY_CODE || o.code === WORLDWIDE_CODE) return o;
     const n = fresh.get(o.code);
     return n && n > 0 ? { ...o, fresh: n } : o;
   });
