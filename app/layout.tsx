@@ -6,6 +6,7 @@ import "./globals.css";
 import { SiteNav } from "@/components/site-nav";
 import { CreatePostFab } from "@/components/create-post-fab";
 import { ChatsFab } from "@/components/chats-fab";
+import { AppPromo } from "@/components/app-promo";
 import { ScrollTopFab } from "@/components/scroll-top-fab";
 import { VoiceNowPlayingBar } from "@/components/chat/voice-now-playing-bar";
 
@@ -236,6 +237,8 @@ export default function RootLayout({
             CreatePostFab so it sits directly above it -- see
             components/chats-fab.tsx's own comment for the exact offset
             math and why it hides on /chats itself. */}
+        {/* 30.09.2026: видео-превью приложения справа от ленты (десктоп) — components/app-promo.tsx */}
+        <AppPromo />
         <ChatsFab />
         <ScrollTopFab />
         <CreatePostFab />
