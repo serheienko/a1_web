@@ -14,7 +14,7 @@
 // вакансії» тут намеренно нет: он был бы одинаковым на всех 1790
 // страницах, то есть ровно тем шаблонным шумом, от которого мы уходим.
 
-import { parseJobContent } from "@/lib/a1/job-content";
+import { A1_SUMMARY_LABEL, parseJobContent, splitA1Summary } from "@/lib/a1/job-content";
 import { splitLinks } from "@/lib/a1/linkify";
 
 // 2026-09-19 (Александр): «ссылка к самой вакансии не кликабельная,
@@ -50,20 +50,32 @@ function Linked({ line }: { line: string }) {
   );
 }
 
-export function JobContent({ text }: { text: string }) {
+export function JobContent({ text: fullText }: { text: string }) {
+  const { summary, rest: text } = splitA1Summary(fullText);
   const blocks = parseJobContent(text);
+  const summaryBlock = summary ? (
+    <aside className="mt-6 rounded-2xl border border-accent/20 bg-accent/5 px-4 py-3.5 text-[15px] leading-relaxed text-neutral-800 dark:text-neutral-200">
+      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-accent">{A1_SUMMARY_LABEL}</p>
+      <p>{summary}</p>
+    </aside>
+  ) : null;
 
   // Пустой текст или текст, из которого ничего не разобралось -- ведём
   // себя как раньше, одним куском. Лучше показать как есть, чем ничего.
   if (blocks.length === 0) {
     return (
-      <div className="mt-6 whitespace-pre-wrap text-neutral-700 dark:text-neutral-300">
-        <Linked line={text} />
-      </div>
+      <>
+        {summaryBlock}
+        <div className="mt-6 whitespace-pre-wrap text-neutral-700 dark:text-neutral-300">
+          <Linked line={text} />
+        </div>
+      </>
     );
   }
 
   return (
+    <>
+    {summaryBlock}
     <div className="mt-6 flex flex-col gap-4 text-neutral-700 dark:text-neutral-300">
       {blocks.map((block, i) => {
         if (block.type === "heading") {
@@ -103,5 +115,6 @@ export function JobContent({ text }: { text: string }) {
         );
       })}
     </div>
+    </>
   );
 }

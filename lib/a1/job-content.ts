@@ -63,6 +63,28 @@ function bulletBody(line: string): string | null {
   return line.slice(m[0].length).trim();
 }
 
+// 30.09.2026 (Александр: «A1 Summary» под заголовком вакансии). Конкистадор
+// кладёт в начало текста короткий свой пересказ: первая строка -- ярлык,
+// дальше 2-3 предложения до пустой строки. Это НАШ текст, а не работодателя,
+// поэтому на странице он выделен отдельным блоком, а в описании вакансии
+// (JSON-LD) идёт первым абзацем.
+export const A1_SUMMARY_LABEL = "A1 Summary";
+
+export function splitA1Summary(text: string): { summary: string | null; rest: string } {
+  const head = `${A1_SUMMARY_LABEL}\n`;
+  if (!text.startsWith(head)) return { summary: null, rest: text };
+  const body = text.slice(head.length);
+  const end = body.indexOf("\n\n");
+  const summary = (end === -1 ? body : body.slice(0, end)).trim();
+  if (!summary) return { summary: null, rest: text };
+  return { summary, rest: end === -1 ? "" : body.slice(end + 2).trimStart() };
+}
+
+/** Текст для превью в ленте: пересказ, если он есть, иначе сам текст. */
+export function previewText(text: string): string {
+  return splitA1Summary(text).summary ?? text;
+}
+
 export function parseJobContent(text: string): JobContentBlock[] {
   const blocks: JobContentBlock[] = [];
   let list: string[] | null = null;
@@ -125,7 +147,9 @@ function escapeHtml(value: string): string {
  * отдавали туда плоскую простыню из <p>.
  */
 export function jobContentToHtml(text: string): string {
-  return parseJobContent(text)
+  const { summary, rest } = splitA1Summary(text);
+  const lead = summary ? `<p>${escapeHtml(summary)}</p>` : "";
+  return lead + parseJobContent(rest)
     .map((block) => {
       if (block.type === "heading") return `<h3>${escapeHtml(block.text)}</h3>`;
       if (block.type === "list") {

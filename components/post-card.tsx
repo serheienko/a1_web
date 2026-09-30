@@ -29,6 +29,7 @@ import { T } from "@/components/t";
 import { TagLabel } from "@/components/tag-label";
 import { extractJobFacts } from "@/lib/a1/job-facts";
 import { ReservationPill } from "@/components/job-fact-pills";
+import { previewText } from "@/lib/a1/job-content";
 import { MyPostBadge } from "@/components/my-post-badge";
 import { PostOwnerMenu } from "@/components/post-owner-menu";
 import { profileHref as buildProfileHref } from "@/lib/profile-href";
@@ -437,14 +438,14 @@ export function PostCard({
             onClick={onOpen}
             className="text-left cursor-pointer mt-3 line-clamp-6 text-sm text-ink transition-opacity hover:opacity-80 dark:text-neutral-400"
           >
-            <HighlightMatches text={post.contentText} query={highlightQuery} />
+            <HighlightMatches text={previewText(post.contentText)} query={highlightQuery} />
           </button>
         ) : (
           <Link
             href={href}
             className="mt-3 line-clamp-6 text-sm text-ink transition-opacity hover:opacity-80 dark:text-neutral-400"
           >
-            <HighlightMatches text={post.contentText} query={highlightQuery} />
+            <HighlightMatches text={previewText(post.contentText)} query={highlightQuery} />
           </Link>
         )}
 
