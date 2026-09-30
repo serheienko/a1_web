@@ -366,7 +366,7 @@ export function PostCard({
             <span
               className={
                 // Та же плашка, ветка без "•••" -- см. комментарий выше.
-                "hidden shrink-0 rounded-full px-2.5 py-1 text-xs font-medium sm:inline " +
+                "hidden shrink-0 rounded-full px-2.5 py-1 text-xs font-medium sm:mr-3 sm:inline " +
                 (post.kind === "hiring"
                   ? "bg-accent/10 text-accent dark:bg-accent/20"
                   : "bg-[#C830FF]/10 text-[#C830FF] dark:bg-[#C830FF]/20")
