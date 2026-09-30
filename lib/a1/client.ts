@@ -117,3 +117,26 @@ export async function call<T>(
 
   return unwrap<T>(method, res);
 }
+
+/**
+ * call() с повтором при временных сбоях (5xx, таймаут, обрыв). 30.09.2026:
+ * сразу после деплоя сайт запускает несколько больших обходов (числа по
+ * странам, Worldwide, «новые за сутки»), и бэкенд в этот момент отвечает
+ * 503 «Service temporarily unavailable». Без повтора один такой ответ
+ * обнулял число страны, и пустой список стран кэшировался на час. Только для
+ * фоновых обходов: обычные запросы страниц по-прежнему падают сразу.
+ */
+export async function callWithRetry<T>(method: string, body: unknown = {}, tries = 4): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < tries; attempt++) {
+    try {
+      return await call<T>(method, body);
+    } catch (err) {
+      lastError = err;
+      const retryable = !(err instanceof A1ApiError) || err.httpStatus >= 500 || err.httpStatus === 429;
+      if (!retryable || attempt === tries - 1) break;
+      await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
+    }
+  }
+  throw lastError;
+}

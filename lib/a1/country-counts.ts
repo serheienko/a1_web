@@ -14,7 +14,7 @@
 // Україна считается отдельно и иначе: это не «страна = UA», а лента
 // «для тебе» (external: open), ровно то, что человек увидит, нажав её.
 
-import { call } from "./client";
+import { callWithRetry } from "./client";
 import { PostsSearchOutputSchema } from "./schemas";
 import { COUNTRIES, DEFAULT_COUNTRY_CODE, WORLDWIDE_CODE } from "@/lib/seo/countries";
 import type { CountryOption } from "@/components/country-picker";
@@ -59,7 +59,7 @@ export function peekUkraineFeedTotal(): number | null {
 async function countUkraineFeed(): Promise<{ count: number; fresh: number } | null> {
   try {
     const page = async (offset: number) => {
-      const raw = await call<unknown>("posts.search", {
+      const raw = await callWithRetry<unknown>("posts.search", {
         object: OBJECT,
         external: "open",
         limit: UA_SWEEP_PAGE,
@@ -96,24 +96,29 @@ async function countUkraineFeed(): Promise<{ count: number; fresh: number } | nu
 let cached: { builtAt: number; options: CountryOption[] } | null = null;
 let building: Promise<CountryOption[]> | null = null;
 
+let countFailures = 0;
+
 async function countFor(params: Record<string, unknown>): Promise<number> {
   try {
-    const raw = await call<unknown>("posts.search", { object: OBJECT, limit: 1, expand: "count", ...params });
+    const raw = await callWithRetry<unknown>("posts.search", { object: OBJECT, limit: 1, expand: "count", ...params });
     const parsed = PostsSearchOutputSchema.parse(raw);
     return parsed.count?.object[OBJECT] ?? parsed.count?.total ?? 0;
   } catch (err) {
     console.warn("[country-counts] count failed:", err instanceof Error ? err.message : err);
+    countFailures += 1;
     return 0;
   }
 }
 
 async function build(): Promise<CountryOption[]> {
+  countFailures = 0;
   const out: CountryOption[] = [];
   const others = COUNTRIES.filter((c) => c.code !== DEFAULT_COUNTRY_CODE);
 
   // Точное число -- обходом ленты; если обход упал, берём счёт бэкенда (чуть
   // завышен на чужие офисы, но лучше, чем пусто).
   const swept = await countUkraineFeed();
+  if (!swept) countFailures += 1;
   const forYou = swept?.count ?? (await countFor({ external: "open" }));
   if (swept) uaTotal = swept.count;
   out.push({ code: DEFAULT_COUNTRY_CODE, count: forYou, ...(swept && swept.fresh > 0 ? { fresh: swept.fresh } : {}) });
@@ -167,7 +172,10 @@ async function fetchCountryOptionsBase(): Promise<CountryOption[]> {
 
   building = build()
     .then((options) => {
-      cached = { builtAt: Date.now(), options };
+      // Часть чисел не посчиталась (бэкенд отвечал 503) -- список неполный,
+      // держим его минуту, а не час, и пересчитываем.
+      const RETRY_MS = 60_000;
+      cached = { builtAt: countFailures > 0 ? Date.now() - TTL_MS + RETRY_MS : Date.now(), options };
       return options;
     })
     .finally(() => {

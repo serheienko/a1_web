@@ -12,7 +12,7 @@
 // today's post volume; PLAN.md itself flags revisiting this "only if §5
 // sitemap generation becomes too slow at >20k posts."
 
-import { call } from "./client";
+import { callWithRetry } from "./client";
 import { mapPosts } from "./mappers";
 import { PostsSearchOutputSchema } from "./schemas";
 import { isJobPostingExpired } from "../seo/jsonld";
@@ -59,7 +59,7 @@ const SCAN_CONCURRENCY = 12;
  *  offset может сдвинуться на только что опубликованную вакансию. */
 export async function fetchAllSitemapJobPosts(): Promise<WebPost[]> {
   const fetchPage = async (offset: number, withCount: boolean) => {
-    const raw = await call<unknown>("posts.search", {
+    const raw = await callWithRetry<unknown>("posts.search", {
       limit: PAGE_SIZE,
       object: "post-job-employing",
       // 30.09.2026 (Конкистадор, SEO): по умолчанию бэкенд НЕ отдаёт
