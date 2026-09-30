@@ -22,9 +22,9 @@ import { Pagination } from "@/components/pagination";
 import { EmptyState } from "@/components/empty-state";
 import { Filters } from "@/components/filters";
 import { DEFAULT_COUNTRY_CODE } from "@/lib/seo/countries";
-import { T } from "@/components/t";
+import { T, type Locale } from "@/components/t";
 import Link from "next/link";
-import { Suspense } from "react";
+import { Suspense, type CSSProperties } from "react";
 import { FeedSkeleton } from "@/components/feed-skeleton";
 import { JOB_LANDINGS } from "@/lib/seo/job-landings";
 import { FACT_LANDINGS } from "@/lib/seo/fact-landings";
@@ -205,43 +205,55 @@ export default async function HomePage({ searchParams }: Props) {
           sm:contents на рядах: на планшете и шире они перестают быть
           контейнерами, чипы становятся детьми обёртки и она раскладывает
           их одной строкой с переносом, как было до всей этой правки. */}
-      <div className="flex w-max flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
-        <div className="flex gap-2 sm:contents">
-          {/* 30.09.2026 (Конкистадор): имиджевый чип «🌏 Топ 100» --
-              вакансии топ-компаний мира со всех стран разом. Ведёт на
-              посадочную /jobs/top-100 (lib/seo/top100-landing.ts). */}
-          <Link
-            href={`/jobs/${TOP100_LANDING.slug}`}
-            className="whitespace-nowrap rounded-full border border-neutral-200 px-3 py-1.5 text-[13px] font-medium text-neutral-600 transition hover:border-accent/40 hover:bg-accent/5 hover:text-accent dark:border-neutral-800 dark:text-neutral-400"
-          >
-            <T {...TOP100_LANDING.h1} />
-          </Link>
-          {JOB_LANDINGS.map((landing) => (
-            <Link
-              key={landing.slug}
-              href={`/jobs/${landing.slug}`}
-              className="whitespace-nowrap rounded-full border border-neutral-200 px-3 py-1.5 text-[13px] font-medium text-neutral-600 transition hover:border-accent/40 hover:bg-accent/5 hover:text-accent dark:border-neutral-800 dark:text-neutral-400"
-            >
-              <T {...landing.h1} />
-            </Link>
-          ))}
-        </div>
+      {/* 30.09.2026 (Александр, скриншот: на Британии «Бронювання» нет, второй ряд
+          укоротился и справа образовалась дырка, а в первом чипы уходят за
+          край экрана: «почему бы не заполнить другим тегом»).
 
-        {/* 2026-09-19 (Александр: «Без досвіду» -- «аудитория новичков
-            огромная»; «бронювання -- в Украине очень актуально»). Те же
-            чипы-ссылки, только ведут на посадочные по признакам, которые
-            мы считаем из текста сами (lib/seo/fact-landings.ts). */}
-        <div className="flex gap-2 sm:contents">
-          {FACT_LANDINGS.filter((landing) => inUkraine || landing.slug !== "reservation").map((landing) => (
-            <Link
-              key={landing.slug}
-              href={`/jobs/tag/${landing.slug}`}
-              className="whitespace-nowrap rounded-full border border-neutral-200 px-3 py-1.5 text-[13px] font-medium text-neutral-600 transition hover:border-accent/40 hover:bg-accent/5 hover:text-accent dark:border-neutral-800 dark:text-neutral-400"
-            >
-              <T {...landing.chip} />
-            </Link>
-          ))}
-        </div>
+          Теперь чипы не привязаны к рядам заранее: собираем один список,
+          прикидываем ширину каждого по длине подписи и раскладываем по двум
+          рядам жадно -- следующий чип идёт в тот ряд, который пока короче.
+          Так ряды почти равны при любом наборе чипов (с бронюванням и без).
+          Раскладка считается на сервере, поэтому она верная с первой
+          отрисовки и ничего не прыгает.
+
+          Порядок на планшете и шире сохраняем исходным: там ряды
+          sm:contents, а каждому чипу задан order из CSS-переменной. */}
+      <div className="flex w-max flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
+        {(() => {
+          const chips: { key: string; href: string; label: Record<Locale, string> }[] = [
+            { key: "top100", href: `/jobs/${TOP100_LANDING.slug}`, label: TOP100_LANDING.h1 },
+            ...JOB_LANDINGS.map((l) => ({ key: l.slug, href: `/jobs/${l.slug}`, label: l.h1 })),
+            ...FACT_LANDINGS.filter((l) => inUkraine || l.slug !== "reservation").map((l) => ({
+              key: l.slug,
+              href: `/jobs/tag/${l.slug}`,
+              label: l.chip,
+            })),
+          ];
+          type Placed = { chip: (typeof chips)[number]; idx: number };
+          const rowA: Placed[] = [];
+          const rowB: Placed[] = [];
+          const widths = [0, 0];
+          chips.forEach((chip, idx) => {
+            const w = (chip.label.uk ?? chip.label.en ?? "").length + 4; // +4 -- поля чипа
+            const toB = (widths[1] ?? 0) < (widths[0] ?? 0);
+            (toB ? rowB : rowA).push({ chip, idx });
+            widths[toB ? 1 : 0] = (widths[toB ? 1 : 0] ?? 0) + w;
+          });
+          return [rowA, rowB].map((row, ri) => (
+            <div key={ri} className="flex gap-2 sm:contents">
+              {row.map(({ chip, idx }) => (
+                <Link
+                  key={chip.key}
+                  href={chip.href}
+                  style={{ "--o": idx } as CSSProperties}
+                  className="whitespace-nowrap rounded-full border border-neutral-200 px-3 py-1.5 text-[13px] font-medium text-neutral-600 transition hover:border-accent/40 hover:bg-accent/5 hover:text-accent sm:[order:var(--o)] dark:border-neutral-800 dark:text-neutral-400"
+                >
+                  <T {...chip.label} />
+                </Link>
+              ))}
+            </div>
+          ));
+        })()}
       </div>
       </nav>
 
