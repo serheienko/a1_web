@@ -46,6 +46,7 @@ const SEEN = "a1_app_promo_seen";
 const POS_KEY = "a1_app_promo_pos_v1";
 const DRAG_THRESHOLD = 5; // px: меньше — это клик, не перетаскивание
 const EDGE = 8; // px отступ от края экрана при ограничении
+const TOP_MIN = 88; // px: липкая шапка сайта (≈77px, z-45) выше окна — под неё не заезжаем
 const MAX_VISITS = 2;
 const MIN_WIDTH = 1280;
 const FEED_PATHS = new Set(["/", "/talents"]);
@@ -134,7 +135,7 @@ export function AppPromo() {
     const baseTop = rect.top - curr.y;
     const minX = EDGE - baseLeft;
     const maxX = window.innerWidth - EDGE - rect.width - baseLeft;
-    const minY = EDGE - baseTop;
+    const minY = TOP_MIN - baseTop;
     const maxY = window.innerHeight - EDGE - rect.height - baseTop;
     return {
       x: Math.round(Math.min(Math.max(o.x, Math.min(minX, 0)), Math.max(maxX, 0))),
