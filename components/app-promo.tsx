@@ -39,6 +39,11 @@ const MAX_VISITS = 2;
 const MIN_WIDTH = 1280;
 const FEED_PATHS = new Set(["/", "/talents"]);
 
+// Нижний край кадра в роликах светится тонкой белой полосой (артефакт
+// краёв исходных скриншотов). Увеличиваем картинку на 4% от верхней
+// кромки: лишнее уходит под скругление рамки, полоса обрезается.
+const MEDIA_FIX = { transform: "scale(1.04)", transformOrigin: "50% 0" } as const;
+
 type State = { views: number; dismissed: boolean };
 
 function read(): State {
@@ -144,6 +149,7 @@ export function AppPromo() {
             <video
               key={l}
               className="h-full w-full object-cover"
+              style={MEDIA_FIX}
               autoPlay
               muted
               loop
@@ -158,6 +164,7 @@ export function AppPromo() {
             // eslint-disable-next-line @next/next/no-img-element
             <img
               className="h-full w-full object-cover"
+              style={MEDIA_FIX}
               src={`/promo/a1-promo-${l}.jpg`}
               alt=""
               loading="lazy"
