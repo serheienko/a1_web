@@ -142,6 +142,9 @@ function withFresh(options: CountryOption[]): CountryOption[] {
   // «🌏 Worldwide» -- вторым пунктом, сразу после Украины (Александр: важная
   // категория). Число даёт общий обход вакансий (facts-index): пока он не
   // собран, пункта нет, со следующего показа страницы он появится.
+  // Базовый список ещё считается (пустой) -- ничего не добавляем, иначе в
+  // кэш уйдёт список из одного Worldwide.
+  if (options.length === 0) return options;
   const ww = peekWorldwide();
   const withWorld =
     ww && ww.count > 0
