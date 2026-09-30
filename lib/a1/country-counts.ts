@@ -24,6 +24,12 @@ const CONCURRENCY = 8;
 const FIRST_WAIT_MS = 4000;
 const OBJECT = "post-job-employing";
 
+// 30.09.2026 (Александр): страны, где вакансий совсем мало (до 10), в списке
+// выглядят пустыми -- пока не набралось, не показываем. Набралось -- страна
+// появится сама (счёт пересчитывается раз в час). RU/BY не показываем вовсе.
+const MIN_SHOWN = 10;
+const HIDDEN_CODES = new Set(["RU", "BY"]);
+
 let cached: { builtAt: number; options: CountryOption[] } | null = null;
 let building: Promise<CountryOption[]> | null = null;
 
@@ -50,7 +56,7 @@ async function build(): Promise<CountryOption[]> {
     const counts = await Promise.all(batch.map((c) => countFor({ location: c.id, external: "include" })));
     batch.forEach((c, idx) => {
       const count = counts[idx] ?? 0;
-      if (count > 0) out.push({ code: c.code, count });
+      if (count >= MIN_SHOWN && !HIDDEN_CODES.has(c.code)) out.push({ code: c.code, count });
     });
   }
 
