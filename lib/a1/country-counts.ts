@@ -19,6 +19,7 @@ import { PostsSearchOutputSchema } from "./schemas";
 import { COUNTRIES, DEFAULT_COUNTRY_CODE } from "@/lib/seo/countries";
 import type { CountryOption } from "@/components/country-picker";
 import { peekFreshByCountry } from "@/lib/a1/facts-index";
+import { mapPosts } from "./mappers";
 
 const TTL_MS = 60 * 60 * 1000;
 const CONCURRENCY = 8;
@@ -30,6 +31,67 @@ const OBJECT = "post-job-employing";
 // появится сама (счёт пересчитывается раз в час). RU/BY не показываем вовсе.
 const MIN_SHOWN = 10;
 const HIDDEN_CODES = new Set(["RU", "BY"]);
+
+// 30.09.2026 (Александр: «останутся вакансии с локацией в Украине и
+// удалённые, польские будут только в списке Польши»). Лента «Україна» у
+// бэкенда шире: Казак кладёт туда и украинские компании с офисом в
+// Варшаве/Лиссабоне. Сайт их в этой ленте не показывает (feed.ts,
+// keepInUkraineFeed), значит и число в списке должно быть без них. Точно
+// посчитать можно только пройдя саму ленту (4--5 тысяч постов, ~45
+// запросов по 100), раз в час вместе с остальными числами.
+const UA_SWEEP_PAGE = 100;
+const UA_SWEEP_PARALLEL = 6;
+const UA_SWEEP_MAX_PAGES = 150;
+const FRESH_MS = 24 * 60 * 60 * 1000;
+
+export function keepInUkraineFeedCountry(country: string | null | undefined): boolean {
+  const cc = country?.trim().toUpperCase();
+  return !cc || cc === "UA" || cc === "WW";
+}
+
+let uaTotal: number | null = null;
+
+/** Сколько вакансий в ленте «Україна» после отсечения чужих офисов (если уже посчитано). */
+export function peekUkraineFeedTotal(): number | null {
+  return uaTotal;
+}
+
+async function countUkraineFeed(): Promise<{ count: number; fresh: number } | null> {
+  try {
+    const page = async (offset: number) => {
+      const raw = await call<unknown>("posts.search", {
+        object: OBJECT,
+        external: "open",
+        limit: UA_SWEEP_PAGE,
+        ...(offset > 0 ? { offset } : {}),
+      });
+      return PostsSearchOutputSchema.parse(raw);
+    };
+    const first = await page(0);
+    const all = [...first.items];
+    let hasMore = first.pagination.hasMore;
+    let offset = UA_SWEEP_PAGE;
+    while (hasMore && offset < UA_SWEEP_PAGE * UA_SWEEP_MAX_PAGES) {
+      const offsets = Array.from({ length: UA_SWEEP_PARALLEL }, (_, i) => offset + i * UA_SWEEP_PAGE);
+      const pages = await Promise.all(offsets.map(page));
+      for (const p of pages) all.push(...p.items);
+      hasMore = pages[pages.length - 1]?.pagination.hasMore ?? false;
+      offset += UA_SWEEP_PARALLEL * UA_SWEEP_PAGE;
+    }
+    const since = Date.now() - FRESH_MS;
+    let count = 0;
+    let fresh = 0;
+    for (const post of mapPosts(all)) {
+      if (!keepInUkraineFeedCountry(post.location?.country)) continue;
+      count += 1;
+      if ((post.sourcePublishedAt ?? post.publishedAt).getTime() >= since) fresh += 1;
+    }
+    return { count, fresh };
+  } catch (err) {
+    console.warn("[country-counts] ukraine sweep failed:", err instanceof Error ? err.message : err);
+    return null;
+  }
+}
 
 let cached: { builtAt: number; options: CountryOption[] } | null = null;
 let building: Promise<CountryOption[]> | null = null;
@@ -49,8 +111,12 @@ async function build(): Promise<CountryOption[]> {
   const out: CountryOption[] = [];
   const others = COUNTRIES.filter((c) => c.code !== DEFAULT_COUNTRY_CODE);
 
-  const [forYou] = await Promise.all([countFor({ external: "open" })]);
-  out.push({ code: DEFAULT_COUNTRY_CODE, count: forYou });
+  // Точное число -- обходом ленты; если обход упал, берём счёт бэкенда (чуть
+  // завышен на чужие офисы, но лучше, чем пусто).
+  const swept = await countUkraineFeed();
+  const forYou = swept?.count ?? (await countFor({ external: "open" }));
+  if (swept) uaTotal = swept.count;
+  out.push({ code: DEFAULT_COUNTRY_CODE, count: forYou, ...(swept && swept.fresh > 0 ? { fresh: swept.fresh } : {}) });
 
   for (let i = 0; i < others.length; i += CONCURRENCY) {
     const batch = others.slice(i, i + CONCURRENCY);
@@ -71,7 +137,9 @@ function withFresh(options: CountryOption[]): CountryOption[] {
   const fresh = peekFreshByCountry();
   if (fresh.size === 0) return options;
   return options.map((o) => {
-    const n = o.code === DEFAULT_COUNTRY_CODE ? fresh.get("__UA_FEED__") : fresh.get(o.code);
+    // У Украины «новые» уже посчитаны вместе с обходом ленты (build()).
+    if (o.code === DEFAULT_COUNTRY_CODE) return o;
+    const n = fresh.get(o.code);
     return n && n > 0 ? { ...o, fresh: n } : o;
   });
 }

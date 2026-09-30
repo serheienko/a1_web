@@ -31,6 +31,7 @@ import { extractTechTags } from "@/lib/seo/job-tech-tags";
 import { techForSlug } from "@/lib/seo/tech-catalog";
 import { fetchStackIndex } from "./stack-index";
 import { fetchPostsByIds } from "./posts";
+import { peekUkraineFeedTotal } from "./country-counts";
 import { countryByCode, DEFAULT_COUNTRY_CODE } from "@/lib/seo/countries";
 
 // 2026-09-05 (Aleksandr: "не загружай всю ленту сразу, а показывай
@@ -318,6 +319,7 @@ export async function fetchFeedPage(
     // cleared), so the per-kind number is the one to use; fall back to what
     // this page proves exists if the expand is ever missing.
     const total =
+      (inUkraineMode(kind, filters) ? peekUkraineFeedTotal() : null) ??
       parsed.count?.object[KIND_TO_OBJECT[kind]] ??
       parsed.count?.total ??
       offset + posts.length + (hasMore ? 1 : 0);

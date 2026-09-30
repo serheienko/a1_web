@@ -64,10 +64,6 @@ async function build(): Promise<Index> {
     if (at >= freshSince) {
       const cc = post.location?.country?.trim().toUpperCase() || "";
       if (cc && cc !== "WW") freshByCountry.set(cc, (freshByCountry.get(cc) ?? 0) + 1);
-      // Лента «Україна» = украинские вакансии + наши (не внешние) + мировые удалённые.
-      if (cc === "UA" || cc === "WW" || !cc || !post.author.external) {
-        freshByCountry.set("__UA_FEED__", (freshByCountry.get("__UA_FEED__") ?? 0) + 1);
-      }
     }
     const facts = extractJobFacts(post.title, post.contentText);
     if (facts.firstJob) byFact.get("no-experience")?.push(post);
@@ -122,7 +118,7 @@ export async function postsForFact(fact: JobFactKey): Promise<WebPost[]> {
  * Сколько новых вакансий (за сутки, по дате источника) в каждой стране --
  * для зелёного «+N» в селекторе стран. НЕ ждёт обхода: если индекс ещё не
  * собран, запускает сборку в фоне и отдаёт пустую карту (следующий показ
- * страницы уже получит числа). Ключ "__UA_FEED__" -- лента «Україна».
+ * страницы уже получит числа). Для ленты «Україна» число считает country-counts.
  */
 export function peekFreshByCountry(): Map<string, number> {
   if (cached) {
