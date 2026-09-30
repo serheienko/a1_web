@@ -24,6 +24,8 @@ import { profileHref } from "@/lib/profile-href";
 import { JOB_LANDINGS } from "@/lib/seo/job-landings";
 import { FACT_LANDINGS } from "@/lib/seo/fact-landings";
 import { TECH_LANDINGS } from "@/lib/seo/tech-landings";
+import { TOP100_LANDING } from "@/lib/seo/top100-landing";
+import { COUNTRY_LANDING_CODES } from "@/lib/seo/country-landings";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -74,6 +76,21 @@ export default async function sitemap({ id }: { id: number | string }): Promise<
     }
     // 2026-09-18: страница сравнения с Djinni и DOU (app/compare).
     entries.push({ url: `${SITE_URL}/compare` });
+
+    // 30.09.2026 (Конкистадор, SEO). Посадочная «Топ-100 компаній світу» и
+    // посадочные по странам: /jobs/country/<код>. Страна попадает в карту
+    // сайта, только если в ней есть хотя бы три вакансии -- пустая страница
+    // в индексе хуже, чем её отсутствие (сама страница при нуле вакансий
+    // тоже закрывается noindex, см. app/jobs/country/[code]/page.tsx).
+    entries.push({ url: `${SITE_URL}/jobs/${TOP100_LANDING.slug}` });
+    const perCountry = new Map<string, number>();
+    for (const post of posts) {
+      const cc = post.location?.country?.trim().toLowerCase();
+      if (cc) perCountry.set(cc, (perCountry.get(cc) ?? 0) + 1);
+    }
+    for (const code of COUNTRY_LANDING_CODES) {
+      if ((perCountry.get(code) ?? 0) >= 3) entries.push({ url: `${SITE_URL}/jobs/country/${code}` });
+    }
   }
 
   for (const post of chunk) {

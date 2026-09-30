@@ -20,7 +20,7 @@ import { techLandingHref } from "@/lib/seo/tech-landings";
 import { CachedAvatar } from "@/components/cached-avatar";
 import { PostImages } from "@/components/post-images";
 import { truncateAtWordBoundary } from "@/lib/format";
-import { buildJobMetaDescription } from "@/lib/seo/job-meta";
+import { buildJobMetaDescription, buildExternalJobMetaDescription, isExternalIndexable } from "@/lib/seo/job-meta";
 import { findLandingByTag } from "@/lib/seo/job-landings";
 import { fetchPostComments } from "@/lib/a1/comments";
 import { PostComments } from "@/components/post-comments";
@@ -66,18 +66,24 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const canonicalUrl = `${SITE_URL}/jobs/${canonicalSlug}`;
   // 2026-09-15: своё описание для выдачи вместо первых 155 символов
   // чужого текста -- см. lib/seo/job-meta.ts.
-  const description = buildJobMetaDescription(post);
-  const title = truncateAtWordBoundary(`${post.title} — ${post.author.name} | A1 Jobs`, 60);
+  // 30.09.2026 (Конкистадор, SEO): внешняя вакансия -- английский текст
+  // компании со всего мира, заголовок и описание тоже английские.
+  const description = post.isExternal ? buildExternalJobMetaDescription(post) : buildJobMetaDescription(post);
+  const title = truncateAtWordBoundary(
+    post.isExternal ? `${post.title} at ${post.author.name} | A1 Jobs` : `${post.title} — ${post.author.name} | A1 Jobs`,
+    post.isExternal ? 70 : 60,
+  );
   const expired = isJobPostingExpired(post);
 
   return {
     title,
     description,
     alternates: { canonical: canonicalUrl },
-    // 30.09.2026 (Конкистадор): внешние вакансии сначала закрыты от
-    // индексации -- пачками откроем позже, когда убедимся, что Google не
-    // считает их дублями чужих страниц.
-    robots: expired || post.isExternal ? { index: false, follow: true } : undefined,
+    // 30.09.2026 (Конкистадор, SEO): внешние вакансии индексируются, но
+    // только полноценные -- с настоящим текстом и названием компании
+    // (isExternalIndexable). Тексты у нас пересказаны и снабжены своей
+    // разметкой, поэтому дублями чужих страниц они не считаются.
+    robots: expired || (post.isExternal && !isExternalIndexable(post)) ? { index: false, follow: true } : undefined,
     openGraph: { title: post.title, description, type: "article", url: canonicalUrl },
     // og:image comes from the sibling opengraph-image.tsx file convention
     // (2026-08-28: real post photo when there is one, else a branded
@@ -363,7 +369,13 @@ export default async function JobDetailPage({ params }: Props) {
         </section>
       )}
 
-      <JobContent text={post.contentText} />
+      {post.isExternal ? (
+        <div lang="en">
+          <JobContent text={post.contentText} />
+        </div>
+      ) : (
+        <JobContent text={post.contentText} />
+      )}
 
       {/* 2026-08-31: same decorative OpenStreetMap embed as before, but
           moved below the main text ("после основного текста, а не сверху")

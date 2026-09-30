@@ -23,6 +23,11 @@ export function jobPostingValidThrough(post: WebPost): Date {
 }
 
 export function isJobPostingExpired(post: WebPost): boolean {
+  // 30.09.2026 (Конкистадор). Внешняя вакансия живёт, пока она есть в
+  // фиде компании: ежедневный забег (konk_publish.py) сам удаляет то, что
+  // из фида пропало. Отсчитывать 60 дней от момента импорта для неё
+  // неверно -- открытая вакансия пропала бы из индекса и из sitemap.
+  if (post.isExternal) return false;
   return jobPostingValidThrough(post).getTime() < Date.now();
 }
 
@@ -111,7 +116,9 @@ export function buildJobPostingJsonLd(
     // publishedAt on purpose: it is our listing window, and anchoring it to an
     // older source date would mark freshly imported vacancies as expired.
     datePosted: (post.sourcePublishedAt ?? post.publishedAt).toISOString(),
-    validThrough: jobPostingValidThrough(post).toISOString(),
+    // Внешняя вакансия: срока нет (см. isJobPostingExpired), поле у
+    // JobPosting необязательное -- лучше не отдать, чем отдать выдуманное.
+    ...(post.isExternal ? {} : { validThrough: jobPostingValidThrough(post).toISOString() }),
     // Технологии из текста вакансии. Поле у JobPosting предусмотрено и
     // необязательно -- пустой список просто не добавляем, чтобы не
     // отдавать Google пустую строку.
@@ -142,6 +149,7 @@ export function buildJobPostingJsonLd(
     hiringOrganization: {
       "@type": "Organization",
       name: post.author.name,
+      ...(post.isExternal && post.author.avatarUrl?.startsWith("http") ? { logo: post.author.avatarUrl } : {}),
       ...(post.author.username ? { sameAs: `${SITE_URL}${profileHref(post.author.username)}` } : {}),
     },
     // We don't have a web application flow (PLAN.md §3.3 "directApply" row).

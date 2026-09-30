@@ -1,0 +1,46 @@
+export const runtime = "nodejs";
+export const revalidate = 900;
+
+// app/jobs/country/[code]/page.tsx -- посадочная «IT-вакансии в <стране>»
+// (Конкистадор, 30.09.2026). См. lib/seo/country-landings.ts.
+
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { JobLandingPage } from "@/components/job-landing";
+import { findCountryLanding } from "@/lib/seo/country-landings";
+import { parsePageParam, toURLSearchParams, fetchFeedPage, pageToCursor } from "@/lib/a1/feed";
+
+const SITE_URL = "https://jobs.a1appp.com";
+
+type Props = {
+  params: Promise<{ code: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+};
+
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
+  const found = findCountryLanding((await params).code);
+  if (!found) return {};
+  const { landing, country } = found;
+  const page = parsePageParam(toURLSearchParams(await searchParams));
+  const base = `${SITE_URL}/jobs/${landing.slug}`;
+  const url = page > 1 ? `${base}?page=${page}` : base;
+
+  // Страна без вакансий -- пустая страница, в индексе ей делать нечего.
+  const { total } = await fetchFeedPage("hiring", pageToCursor(1), { country: country.code });
+
+  return {
+    title: landing.metaTitle,
+    description: landing.metaDescription,
+    alternates: { canonical: url },
+    robots: total === 0 ? { index: false, follow: true } : undefined,
+    openGraph: { title: landing.metaTitle, description: landing.metaDescription, url, type: "website" },
+    twitter: { card: "summary_large_image", title: landing.metaTitle, description: landing.metaDescription },
+  };
+}
+
+export default async function Page({ params, searchParams }: Props) {
+  const found = findCountryLanding((await params).code);
+  if (!found) notFound();
+  const page = parsePageParam(toURLSearchParams(await searchParams));
+  return <JobLandingPage landing={found.landing} page={page} filters={{ country: found.country.code }} />;
+}

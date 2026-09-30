@@ -93,3 +93,56 @@ export function buildJobMetaDescription(post: WebPost): string {
   // открывающую/перечисляющую пунктуацию с конца.
   return truncateAtWordBoundary(description, MAX_LENGTH).replace(/[\s:;,\-–—(«"'']+$/u, "");
 }
+
+
+// ---------------------------------------------------------------------
+// 30.09.2026 (Конкистадор, SEO). Внешние вакансии -- английские тексты
+// компаний со всего мира, их ищут по-английски («senior python engineer
+// berlin»). Украинский сниппет на такой странице не совпал бы с запросом,
+// поэтому для них заголовок и описание английские. Как и у обычных --
+// описание собирается из полей (должность, компания, место, вилка), а не
+// из чужого текста: оно всегда разное и соврать не может.
+// ---------------------------------------------------------------------
+
+const EN_FORMAT_PREFIX: Record<string, string> = {
+  remote: "Remote job",
+  "no-site": "On-site job",
+  hybrid: "Hybrid job",
+};
+
+export function buildExternalJobMetaDescription(post: WebPost): string {
+  const title = post.title.replace(/\s+/g, " ").trim();
+  let prefix = post.isRemote ? "Remote job" : "Job";
+  for (const tag of post.tags) {
+    const p = EN_FORMAT_PREFIX[normalizeTag(tag)];
+    if (p) {
+      prefix = p;
+      break;
+    }
+  }
+  const parts: string[] = [`${prefix}: ${title}`];
+  if (!post.author.isAnonymous && post.author.name.trim()) parts[0] += ` at ${post.author.name.trim()}`;
+  const place = [post.location?.city?.trim(), post.location?.display?.replace(/^\p{Extended_Pictographic}\s*/u, "").trim()]
+    .filter((x, i, a) => x && a.indexOf(x) === i)
+    .join(", ");
+  let description = parts[0] + ".";
+  if (place && !/^worldwide$/i.test(place)) description += ` ${place}.`;
+  const salary = post.salary ? formatSalary(post.salary, "en") : "";
+  if (salary) description += ` ${salary}.`;
+  description += " Apply on the company careers page via A1 Jobs.";
+  return truncateAtWordBoundary(description, MAX_LENGTH).replace(/[\s:;,\-–—(«"'']+$/u, "");
+}
+
+/**
+ * Внешняя вакансия попадает в индекс, только если страница чего-то стоит:
+ * есть настоящий текст (не заглушка из двух строк), компания и название.
+ * Пустые и обрезанные не должны разбавлять качество сайта в глазах Google.
+ */
+export function isExternalIndexable(post: WebPost): boolean {
+  return (
+    post.contentText.replace(/\s+/g, " ").trim().length >= 400 &&
+    post.title.trim().length >= 5 &&
+    !post.author.isAnonymous &&
+    post.author.name.trim().length > 0
+  );
+}

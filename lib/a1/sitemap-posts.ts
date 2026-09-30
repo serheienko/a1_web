@@ -62,6 +62,10 @@ export async function fetchAllSitemapJobPosts(): Promise<WebPost[]> {
     const raw = await call<unknown>("posts.search", {
       limit: PAGE_SIZE,
       object: "post-job-employing",
+      // 30.09.2026 (Конкистадор, SEO): по умолчанию бэкенд НЕ отдаёт
+      // внешние вакансии (external: exclude), и в карту сайта они не
+      // попадали бы вовсе -- Google не узнал бы о десятках тысяч страниц.
+      external: "include",
       ...(offset > 0 ? { offset } : {}),
       ...(withCount ? { expand: "count" } : {}),
     });
