@@ -21,6 +21,7 @@ import type { CountryOption } from "@/components/country-picker";
 
 const TTL_MS = 60 * 60 * 1000;
 const CONCURRENCY = 8;
+const FIRST_WAIT_MS = 4000;
 const OBJECT = "post-job-employing";
 
 let cached: { builtAt: number; options: CountryOption[] } | null = null;
@@ -48,13 +49,14 @@ async function build(): Promise<CountryOption[]> {
     const batch = others.slice(i, i + CONCURRENCY);
     const counts = await Promise.all(batch.map((c) => countFor({ location: c.id, external: "include" })));
     batch.forEach((c, idx) => {
-      if (counts[idx] > 0) out.push({ code: c.code, count: counts[idx] });
+      const count = counts[idx] ?? 0;
+      if (count > 0) out.push({ code: c.code, count });
     });
   }
 
   const [first, ...rest] = out;
   rest.sort((a, b) => b.count - a.count);
-  return [first, ...rest];
+  return first ? [first, ...rest] : rest;
 }
 
 export async function fetchCountryOptions(): Promise<CountryOption[]> {
@@ -71,6 +73,13 @@ export async function fetchCountryOptions(): Promise<CountryOption[]> {
       building = null;
     });
 
-  // Пока считается заново, старый список лучше пустого селектора.
-  return cached ? cached.options : building;
+  // Пока считается заново, старый список лучше пустого селектора. А самый
+  // первый пересчёт после деплоя страницу не держит: ждём его не дольше
+  // FIRST_WAIT_MS, иначе отдаём пустой список -- следующий запрос (главная
+  // перестраивается каждые 15 с) уже получит готовые числа.
+  if (cached) return cached.options;
+  return Promise.race([
+    building,
+    new Promise<CountryOption[]>((resolve) => setTimeout(() => resolve([]), FIRST_WAIT_MS)),
+  ]);
 }
