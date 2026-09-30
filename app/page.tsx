@@ -21,8 +21,11 @@ import { PostCard } from "@/components/post-card";
 import { Pagination } from "@/components/pagination";
 import { EmptyState } from "@/components/empty-state";
 import { Filters } from "@/components/filters";
+import { DEFAULT_COUNTRY_CODE } from "@/lib/seo/countries";
 import { T } from "@/components/t";
 import Link from "next/link";
+import { Suspense } from "react";
+import { FeedSkeleton } from "@/components/feed-skeleton";
 import { JOB_LANDINGS } from "@/lib/seo/job-landings";
 import { FACT_LANDINGS } from "@/lib/seo/fact-landings";
 import { TOP100_LANDING } from "@/lib/seo/top100-landing";
@@ -73,12 +76,52 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   };
 }
 
+async function FeedList({
+  params,
+  filters,
+  page,
+  inUkraine,
+}: {
+  params: URLSearchParams;
+  filters: ReturnType<typeof parseFeedFilters>;
+  page: number;
+  inUkraine: boolean;
+}) {
+  const { posts, hasMore, total } = await fetchFeedPage("hiring", pageToCursor(page), filters);
+  const totalPages = Math.max(1, Math.ceil(total / FEED_PAGE_SIZE));
+  // Real per-avatar blur (lib/avatar-blur.ts) instead of the generic
+  // shared shimmer — see that file's comment for why this lives here
+  // rather than inside PostCard itself.
+  const avatarBlurs = await Promise.all(posts.map((post) => generateAvatarBlurDataUrl(post.author.avatarUrl)));
+
+  return posts.length === 0 ? (
+      <EmptyState
+        message={
+          hasActiveFilters(filters) ? (
+            <T uk="Нічого не знайшлося. Спробуйте змінити фільтри." en="Nothing found. Try changing the filters." ru="Ничего не нашлось. Попробуйте изменить фильтры." de="Nichts gefunden. Versuchen Sie, die Filter zu ändern." es="No se encontró nada. Prueba a cambiar los filtros." fr="Aucun résultat. Essayez de modifier les filtres." pl="Nic nie znaleziono. Spróbuj zmienić filtry." ptBR="Nada encontrado. Tente alterar os filtros." zh="未找到结果，请尝试更改筛选条件。" />
+          ) : (
+            <T uk="Поки немає відкритих вакансій." en="There are no open jobs yet." ru="Пока нет открытых вакансий." de="Es gibt noch keine offenen Stellenangebote." es="Todavía no hay vacantes abiertas." fr="Il n'y a pas encore d'offres d'emploi ouvertes." pl="Nie ma jeszcze żadnych otwartych ofert pracy." ptBR="Ainda não há vagas abertas." zh="目前还没有开放的职位。" />
+          )
+        }
+      />
+  ) : (
+      <>
+        <ul className="flex flex-col gap-4">
+          {posts.map((post, i) => (
+            <li key={post.id}>
+              <PostCard post={post} avatarBlurDataUrl={avatarBlurs[i]} highlightQuery={filters.q} showReservation={inUkraine} />
+            </li>
+          ))}
+        </ul>
+        <Pagination basePath="/" params={params} page={page} hasMore={hasMore} totalPages={totalPages} />
+      </>
+  );
+}
+
 export default async function HomePage({ searchParams }: Props) {
   const params = toURLSearchParams(await searchParams);
   const filters = parseFeedFilters(params);
   const page = parsePageParam(params);
-  const { posts, hasMore, total } = await fetchFeedPage("hiring", pageToCursor(page), filters);
-  const totalPages = Math.max(1, Math.ceil(total / FEED_PAGE_SIZE));
   const currentCategory = filters.categories?.[0];
   // Слаги для чипов берём из адреса напрямую: parseFeedFilters отдаёт
   // канонические имена ("Go"), а чипы живут по слагам ("golang").
@@ -87,10 +130,8 @@ export default async function HomePage({ searchParams }: Props) {
   // fetchCategories обёрнут в React cache(), так что это тот же ответ, который
   // всё равно берёт <Filters> ниже -- лишнего запроса не возникает.
   const showStack = currentCategory != null && currentCategory === itCategoryValue(await fetchCategories());
-  // Real per-avatar blur (lib/avatar-blur.ts) instead of the generic
-  // shared shimmer — see that file's comment for why this lives here
-  // rather than inside PostCard itself.
-  const avatarBlurs = await Promise.all(posts.map((post) => generateAvatarBlurDataUrl(post.author.avatarUrl)));
+  // «Бронювання» актуально только для украинцев: вне Украины чип и плашку прячем.
+  const inUkraine = !filters.country || filters.country === DEFAULT_COUNTRY_CODE;
 
   return (
     <main className="mx-auto max-w-3xl px-4 pt-4 sm:pt-16 pb-fab-safe">
@@ -191,7 +232,7 @@ export default async function HomePage({ searchParams }: Props) {
             чипы-ссылки, только ведут на посадочные по признакам, которые
             мы считаем из текста сами (lib/seo/fact-landings.ts). */}
         <div className="flex gap-2 sm:contents">
-          {FACT_LANDINGS.map((landing) => (
+          {FACT_LANDINGS.filter((landing) => inUkraine || landing.slug !== "reservation").map((landing) => (
             <Link
               key={landing.slug}
               href={`/jobs/tag/${landing.slug}`}
@@ -225,28 +266,16 @@ export default async function HomePage({ searchParams }: Props) {
         currentCountry={filters.country}
       />
 
-      {posts.length === 0 ? (
-        <EmptyState
-          message={
-            hasActiveFilters(filters) ? (
-              <T uk="Нічого не знайшлося. Спробуйте змінити фільтри." en="Nothing found. Try changing the filters." ru="Ничего не нашлось. Попробуйте изменить фильтры." de="Nichts gefunden. Versuchen Sie, die Filter zu ändern." es="No se encontró nada. Prueba a cambiar los filtros." fr="Aucun résultat. Essayez de modifier les filtres." pl="Nic nie znaleziono. Spróbuj zmienić filtry." ptBR="Nada encontrado. Tente alterar os filtros." zh="未找到结果，请尝试更改筛选条件。" />
-            ) : (
-              <T uk="Поки немає відкритих вакансій." en="There are no open jobs yet." ru="Пока нет открытых вакансий." de="Es gibt noch keine offenen Stellenangebote." es="Todavía no hay vacantes abiertas." fr="Il n'y a pas encore d'offres d'emploi ouvertes." pl="Nie ma jeszcze żadnych otwartych ofert pracy." ptBR="Ainda não há vagas abertas." zh="目前还没有开放的职位。" />
-            )
-          }
-        />
-      ) : (
-        <>
-          <ul className="flex flex-col gap-4">
-            {posts.map((post, i) => (
-              <li key={post.id}>
-                <PostCard post={post} avatarBlurDataUrl={avatarBlurs[i]} highlightQuery={filters.q} />
-              </li>
-            ))}
-          </ul>
-          <Pagination basePath="/" params={params} page={page} hasMore={hasMore} totalPages={totalPages} />
-        </>
-      )}
+      {/* 30.09.2026 (Александр: «очень долго грузится лента при смене
+          страны, а лоадер сверху не такой, как везде»). Список вакансий
+          вынесен в собственный асинхронный компонент под <Suspense>:
+          шапка, чипы и фильтры отдаются сразу, а вместо карточек --
+          тот же скелетон, что на остальных страницах. key -- адрес
+          выдачи: смена страны/фильтра/страницы пересоздаёт границу и
+          снова показывает скелетон, а не держит старую ленту. */}
+      <Suspense key={params.toString()} fallback={<FeedSkeleton />}>
+        <FeedList params={params} filters={filters} page={page} inUkraine={inUkraine} />
+      </Suspense>
     </main>
   );
 }

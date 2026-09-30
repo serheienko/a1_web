@@ -91,6 +91,7 @@ export function PostCard({
   // plain unfiltered feed) just omits it and titles/descriptions render
   // exactly as before.
   highlightQuery,
+  showReservation = true,
 }: {
   post: WebPost;
   avatarBlurDataUrl?: string | null;
@@ -98,6 +99,8 @@ export function PostCard({
   onOpen?: () => void;
   ownerMenu?: { redirectAfterDeleteTo: string };
   highlightQuery?: string | null;
+  /** «Є бронювання» -- только для украинской ленты (Александр, 30.09.2026). */
+  showReservation?: boolean;
 }) {
   // 2026-08-30, live-testing feedback ("Berlin, Germany - нужна
   // локализация", reported against the profile page but this feed card
@@ -454,7 +457,7 @@ export function PostCard({
              Только на вакансиях (kind === "hiring"): в ленте
              специалистов бронирование смысла не имеет. */
           const reservation =
-            post.kind === "hiring" && extractJobFacts(post.title, post.contentText).reservation;
+            showReservation && post.kind === "hiring" && extractJobFacts(post.title, post.contentText).reservation;
           if (!reservation && post.tags.length === 0) return null;
           return (
             <div className="mt-3 flex flex-wrap gap-1.5">

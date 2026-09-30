@@ -86,18 +86,12 @@ export function CountryPicker({
   const [isPending, startTransition] = useTransition();
   // 30.09 (Александр: «при выборе страны надо сразу обновлять страницу и
   // показывать лоадер, иначе выглядит как баг»): выбранная страна
-  // показывается в кнопке СРАЗУ, пока лента на сервере пересобирается, а
-  // на <html> вешается data-country-pending -- globals.css приглушает
-  // ленту и крутит колечко, поэтому пауза читается как загрузка.
+  // показывается в кнопке СРАЗУ, пока лента на сервере пересобирается.
+  // Сама пауза читается как загрузка через скелетон карточек
+  // (<Suspense> в app/page.tsx), как и на остальных страницах.
   const [optimistic, setOptimistic] = useState<string | null>(null);
   useEffect(() => {
     if (!isPending) setOptimistic(null);
-  }, [isPending]);
-  useEffect(() => {
-    const el = document.documentElement;
-    if (isPending) el.setAttribute("data-country-pending", "");
-    else el.removeAttribute("data-country-pending");
-    return () => el.removeAttribute("data-country-pending");
   }, [isPending]);
 
   const currentCode = optimistic ?? countryByCode(current)?.code ?? DEFAULT_COUNTRY_CODE;
