@@ -82,3 +82,11 @@ const FAVORED = 1 << 4;
 export function isFavorited(flags: number): boolean {
   return (flags & FAVORED) !== 0;
 }
+
+// 30.09.2026: POST_FLAG.EXTERNAL на бэкенде -- вакансия-«ссылка» из
+// Конкистадора: откликаются на сайте компании, у нас только карточка.
+const EXTERNAL = 1 << 10;
+
+export function isExternalPost(flags: number): boolean {
+  return (flags & EXTERNAL) !== 0;
+}

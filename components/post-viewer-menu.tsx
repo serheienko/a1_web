@@ -109,6 +109,7 @@ type StringKey =
   | "thanksBody"
   | "thanksOk"
   | "applyMessage"
+  | "openVacancy"
   | "report";
 
 const STRINGS: Record<StringKey, Record<Locale, string>> = {
@@ -120,6 +121,11 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   // openChat()/thanksOpen below for the actual behavior swap).
   report: { uk: "Поскаржитись", en: "Report", ru: "Пожаловаться", de: "Melden", es: "Denunciar", fr: "Signaler", pl: "Zgłoś", ptBR: "Denunciar", zh: "举报" },
   apply: { uk: "Відгукнутися", en: "Apply", ru: "Откликнуться", de: "Bewerben", es: "Postularme", fr: "Postuler", pl: "Aplikuj", ptBR: "Candidatar-se", zh: "申请" },
+  // 30.09.2026 (Конкистадор, Александр: «ведёт не на сайт компании, а на
+  // вакансию на сайте компании... который 100% попадёт в базу и будет
+  // ответ»). Внешняя вакансия (post.isExternal) -- отклик не у нас, а на
+  // странице вакансии в ATS компании; кнопка -- обычная ссылка туда.
+  openVacancy: { uk: "Відкрити вакансію", en: "Open job", ru: "Открыть вакансию", de: "Stelle öffnen", es: "Abrir vacante", fr: "Voir l'offre", pl: "Otwórz ofertę", ptBR: "Abrir vaga", zh: "查看职位" },
   // 2026-09-11 (Aleksandr: "Я сам рандомно откликнусь и хочу посмотреть
   // что отклик пришел") — the actual TEXT of the application message
   // this button now sends. Until today the unclaimed-company branch of
@@ -241,6 +247,16 @@ function MessageIcon() {
   );
 }
 
+function ExternalIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+      <path d="M14 4h6v6" />
+      <path d="M20 4l-9 9" />
+      <path d="M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5" />
+    </svg>
+  );
+}
+
 function DotsIcon() {
   return (
     <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5 animate-dots-bounce" aria-hidden="true">
@@ -329,6 +345,7 @@ export function PostViewerMenu({
   authorAvatarUrl,
   authorUnclaimed,
   applyQuestions,
+  externalUrl,
   shareUrl,
   shareTitle,
 }: {
@@ -353,6 +370,11 @@ export function PostViewerMenu({
   // кнопка открывает окно с вопросами вместо того, чтобы отправлять
   // шаблонный текст мимо них -- components/apply-questions-modal.tsx.
   applyQuestions?: WebApplyQuestion[];
+  // 30.09.2026: post.externalUrl -- адрес вакансии на сайте компании для
+  // внешних (Конкистадор) вакансий. Если задан, вместо «Відгукнутися»
+  // рисуется ссылка «Відкрити вакансію» в новой вкладке: отклик уходит
+  // прямо в ATS компании, чат и попап «дякуємо» здесь ни при чём.
+  externalUrl?: string | null;
   shareUrl: string;
   shareTitle: string;
 }) {
@@ -950,6 +972,20 @@ export function PostViewerMenu({
         );
       })()}
 
+      {externalUrl ? (
+        <a
+          href={externalUrl}
+          target="_blank"
+          rel="nofollow noopener noreferrer"
+          aria-label={STRINGS.openVacancy[lang]}
+          className="group flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-accent transition hover:bg-accent/5 dark:border-neutral-700 dark:bg-neutral-900"
+        >
+          <span className="animate-viewer-row-in flex min-w-0 items-center gap-2">
+            <ExternalIcon />
+            <span className="truncate">{STRINGS.openVacancy[lang]}</span>
+          </span>
+        </a>
+      ) : (
       <button
         type="button"
         onClick={openChat}
@@ -975,6 +1011,7 @@ export function PostViewerMenu({
           </span>
         </span>
       </button>
+      )}
 
       <div className="dots-trigger-group relative z-40 shrink-0" ref={dotsWrapperRef} onMouseEnter={handleDotsMouseEnter} onMouseLeave={handleDotsMouseLeave}>
         <button

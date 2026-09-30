@@ -107,6 +107,8 @@ export const UserPreviewSchema = z.object({
   // behavior (every post shows "Message") is unchanged until the backend
   // actually starts sending `true`.
   unclaimed: z.boolean().optional(),
+  // 30.09.2026: аккаунт-«витрина» Конкистадора -- отклик на сайте компании
+  external: z.boolean().optional(),
   object: z.literal("user-preview"),
 });
 export type UserPreview = z.infer<typeof UserPreviewSchema>;
@@ -247,6 +249,11 @@ export const PostsSearchInputSchema = z.object({
   drafts: z.boolean().optional(),
   eventFromStart: z.number().optional(),
   eventToStart: z.number().optional(),
+  // 30.09.2026: как бэкенд обходится с вакансиями-«ссылками» (Конкистадор,
+  // POST_FLAG.EXTERNAL): по умолчанию их нет в выдаче; only — только они
+  // («Топ 100»); include — все вперемешку (страна выбрана явно); open —
+  // «для тебе»: обычные + внешние с открытой географией.
+  external: z.enum(["exclude", "only", "include", "open"]).optional(),
 });
 export type PostsSearchInput = z.infer<typeof PostsSearchInputSchema>;
 
@@ -601,6 +608,8 @@ export const UserProfileSchema = z.object({
   // «Це ваша компанія?» (components/claim-company-prompt.tsx). Бэкенд
   // отдаёт его в Resource.User, схема просто не читала.
   unclaimed: z.boolean().optional(),
+  // 30.09.2026: аккаунт-«витрина» Конкистадора -- отклик на сайте компании
+  external: z.boolean().optional(),
   flags: z.number().catch(0),
   // Present on the real object but only read behind their own SHOW_*
   // flag check in user-mappers.ts — never returned to a caller otherwise.

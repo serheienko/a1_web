@@ -25,6 +25,7 @@ import { T } from "@/components/t";
 import Link from "next/link";
 import { JOB_LANDINGS } from "@/lib/seo/job-landings";
 import { FACT_LANDINGS } from "@/lib/seo/fact-landings";
+import { TOP100_LANDING } from "@/lib/seo/top100-landing";
 import { TECH_CATALOG } from "@/lib/seo/tech-catalog";
 import { fetchCategories, itCategoryValue } from "@/lib/a1/datasets";
 import { StackPicker } from "@/components/stack-picker";
@@ -165,6 +166,15 @@ export default async function HomePage({ searchParams }: Props) {
           их одной строкой с переносом, как было до всей этой правки. */}
       <div className="flex w-max flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
         <div className="flex gap-2 sm:contents">
+          {/* 30.09.2026 (Конкистадор): имиджевый чип «🌏 Топ 100» --
+              вакансии топ-компаний мира со всех стран разом. Ведёт на
+              посадочную /jobs/top-100 (lib/seo/top100-landing.ts). */}
+          <Link
+            href={`/jobs/${TOP100_LANDING.slug}`}
+            className="whitespace-nowrap rounded-full border border-neutral-200 px-3 py-1.5 text-[13px] font-medium text-neutral-600 transition hover:border-accent/40 hover:bg-accent/5 hover:text-accent dark:border-neutral-800 dark:text-neutral-400"
+          >
+            <T {...TOP100_LANDING.h1} />
+          </Link>
           {JOB_LANDINGS.map((landing) => (
             <Link
               key={landing.slug}
@@ -212,6 +222,7 @@ export default async function HomePage({ searchParams }: Props) {
         currentLocation={filters.location}
         currentLocationLabel={filters.locationLabel}
         currentStack={selectedStack}
+        currentCountry={filters.country}
       />
 
       {posts.length === 0 ? (

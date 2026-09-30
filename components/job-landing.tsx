@@ -10,7 +10,7 @@
 // свою же noindex-версию одним кликом. Здесь только список и
 // нумерованная пагинация обычными ссылками.
 
-import { fetchFeedPage, pageToCursor, FEED_PAGE_SIZE } from "@/lib/a1/feed";
+import { fetchFeedPage, pageToCursor, FEED_PAGE_SIZE, type FeedFilters } from "@/lib/a1/feed";
 import { generateAvatarBlurDataUrl } from "@/lib/avatar-blur";
 import { PostCard } from "@/components/post-card";
 import { Pagination } from "@/components/pagination";
@@ -45,8 +45,18 @@ function CountLine({ template, n }: { template: Record<Locale, string>; n: numbe
   );
 }
 
-export async function JobLandingPage({ landing, page }: { landing: JobLanding; page: number }) {
-  const { posts, hasMore, total } = await fetchFeedPage("hiring", pageToCursor(page), {
+export async function JobLandingPage({
+  landing,
+  page,
+  filters,
+}: {
+  landing: JobLanding;
+  page: number;
+  /** 30.09.2026: чем отбирать вместо тега -- посадочная «Топ 100»
+   *  (app/jobs/top-100) отбирает не по тегу, а по режиму external. */
+  filters?: FeedFilters;
+}) {
+  const { posts, hasMore, total } = await fetchFeedPage("hiring", pageToCursor(page), filters ?? {
     tags: [landing.tag],
   });
   const totalPages = Math.max(1, Math.ceil(total / FEED_PAGE_SIZE));

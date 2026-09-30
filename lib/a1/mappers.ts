@@ -8,7 +8,7 @@
 
 import { NULL_LOCATION_MEANS_REMOTE, PUBLISH_ONLY_NATIVE, isNativePost } from "./config";
 import { jobContentToHtml } from "./job-content";
-import { authorIsHidden, isArchived, isArchivedOrDraft } from "./post-flags";
+import { authorIsHidden, isArchived, isArchivedOrDraft, isExternalPost } from "./post-flags";
 import { parsePost, type Post } from "./schemas";
 import { slugify } from "../seo/slug";
 // 2026-09-03: pickDisplaySize/buildMediaProxyUrl moved to their own
@@ -94,7 +94,7 @@ function mapAuthor(author: Post["author"], flags: number): WebPostAuthor {
   if (authorIsHidden(flags) || author.object !== "user-preview") {
     // Covers the documented UserHidden variant and any shape our schema
     // couldn't match — PLAN.md §0.3: "must render as Anonymous, never crash."
-    return { userId: null, name: "Anonymous", username: null, avatarUrl: null, isAnonymous: true, unclaimed: false };
+    return { userId: null, name: "Anonymous", username: null, avatarUrl: null, isAnonymous: true, unclaimed: false, external: false };
   }
   // Deliberately NOT `author.photo` — confirmed live twice now (once on
   // 2026-08-26 against a raw response, and again via a screen recording
@@ -118,6 +118,7 @@ function mapAuthor(author: Post["author"], flags: number): WebPostAuthor {
     avatarUrl: avatarDoc ? buildMediaProxyUrl(avatarDoc) : null,
     isAnonymous: false,
     unclaimed: author.unclaimed ?? false,
+    external: author.external ?? false,
   };
 }
 
@@ -234,6 +235,8 @@ export function mapPost(post: Post): WebPost | null {
     salary: mapSalary(post.money),
     images: mapImages(post),
     links: post.links,
+    isExternal: isExternalPost(post.flags),
+    externalUrl: isExternalPost(post.flags) ? (post.links[0]?.url ?? null) : null,
     viewCount: post.viewCount,
     hasApplyForm: post.apply != null,
     applyQuestions: mapApplyQuestions(post.apply),
@@ -278,6 +281,8 @@ export function mapOwnPost(post: Post): WebPost | null {
     salary: mapSalary(post.money),
     images: mapImages(post),
     links: post.links,
+    isExternal: isExternalPost(post.flags),
+    externalUrl: isExternalPost(post.flags) ? (post.links[0]?.url ?? null) : null,
     viewCount: post.viewCount,
     hasApplyForm: post.apply != null,
     applyQuestions: mapApplyQuestions(post.apply),

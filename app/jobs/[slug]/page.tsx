@@ -74,7 +74,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title,
     description,
     alternates: { canonical: canonicalUrl },
-    robots: expired ? { index: false, follow: true } : undefined,
+    // 30.09.2026 (Конкистадор): внешние вакансии сначала закрыты от
+    // индексации -- пачками откроем позже, когда убедимся, что Google не
+    // считает их дублями чужих страниц.
+    robots: expired || post.isExternal ? { index: false, follow: true } : undefined,
     openGraph: { title: post.title, description, type: "article", url: canonicalUrl },
     // og:image comes from the sibling opengraph-image.tsx file convention
     // (2026-08-28: real post photo when there is one, else a branded
@@ -256,6 +259,7 @@ export default async function JobDetailPage({ params }: Props) {
         authorAvatarUrl={post.author.avatarUrl}
         authorUnclaimed={post.author.unclaimed}
         applyQuestions={post.applyQuestions}
+        externalUrl={post.externalUrl}
         shareUrl={`https://a1appp.com/postDetails/${post.id}`}
         shareTitle={post.title}
       />

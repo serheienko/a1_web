@@ -10,6 +10,7 @@ import { fetchCategories, fetchTagsForKind, withItFirst, itCategoryValue } from 
 import type { WebPostKind } from "@/types/web-post";
 import { FiltersForm } from "@/components/filters-form";
 import { fetchEmptyCategoryValues } from "@/lib/a1/feed";
+import { fetchCountryOptions } from "@/lib/a1/country-counts";
 
 export async function Filters({
   kind,
@@ -20,6 +21,7 @@ export async function Filters({
   currentLocation,
   currentLocationLabel,
   currentStack = [],
+  currentCountry,
 }: {
   kind: WebPostKind;
   basePath: string;
@@ -32,8 +34,15 @@ export async function Filters({
    *  категории IT -- id этой категории знает только сервер (список категорий
    *  приходит с бэкенда), поэтому решение принимается здесь, а не в форме. */
   currentStack?: string[];
+  /** 30.09.2026: ISO-код страны из ?country= (селектор у поиска). */
+  currentCountry?: string;
 }) {
-  const [categoriesRaw, tags] = await Promise.all([fetchCategories(), fetchTagsForKind(kind)]);
+  // Селектор страны -- только у вакансий: у фахівців стран-«витрин» нет.
+  const [categoriesRaw, tags, countryOptions] = await Promise.all([
+    fetchCategories(),
+    fetchTagsForKind(kind),
+    kind === "hiring" ? fetchCountryOptions() : Promise.resolve(null),
+  ]);
   const categories = withItFirst(categoriesRaw);
   const emptyCategoryValues = await fetchEmptyCategoryValues(
     kind,
@@ -53,6 +62,8 @@ export async function Filters({
       emptyCategoryValues={emptyCategoryValues}
       itCategoryValue={itCategoryValue(categories)}
       currentStack={currentStack}
+      currentCountry={currentCountry}
+      countryOptions={countryOptions}
     />
   );
 }

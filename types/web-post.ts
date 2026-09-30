@@ -43,6 +43,10 @@ export type WebPostAuthor = {
   // viewer-menu.tsx shows "Apply" + a thank-you popup instead of "Message"
   // while this is true. Always false until the backend field ships.
   unclaimed: boolean;
+  // 30.09.2026: аккаунт-«витрина» Конкистадора (топ-100 мировых компаний):
+  // вакансии такой компании мы только показываем, отклик -- на её сайте
+  // (WebPost.externalUrl). Кнопка «Відкрити вакансію» вместо «Відгукнутися».
+  external: boolean;
 };
 
 export type WebPostLocation = {
@@ -97,4 +101,8 @@ export type WebPost = {
   viewCount: number;
   hasApplyForm: boolean;
   applyQuestions: WebApplyQuestion[];
+  // 30.09.2026: вакансия-«ссылка» (POST_FLAG.EXTERNAL) и куда ведёт кнопка --
+  // первая ссылка поста, парсер кладёт туда страницу вакансии у компании.
+  isExternal: boolean;
+  externalUrl: string | null;
 };

@@ -31,6 +31,7 @@ import { extractTechTags } from "@/lib/seo/job-tech-tags";
 import { techForSlug } from "@/lib/seo/tech-catalog";
 import { fetchStackIndex } from "./stack-index";
 import { fetchPostsByIds } from "./posts";
+import { countryByCode, DEFAULT_COUNTRY_CODE } from "@/lib/seo/countries";
 
 // 2026-09-05 (Aleksandr: "не загружай всю ленту сразу, а показывай
 // только постов 30... подгрузку и пагинацию") -- bumped from the
@@ -84,6 +85,15 @@ export type FeedFilters = {
   // 2026-09-20): разработчик думает «я умею Python и Go, покажи и то и то»,
   // а «оба сразу» на нашей базе почти всегда даёт пустой экран.
   stack?: string[];
+  // 30.09.2026 (Конкистадор). country -- ISO-код страны из селектора у
+  // поиска (lib/seo/countries.ts); уходит в posts.search как location =
+  // id страны плюс external: "include" -- в выдаче по стране вакансии-ссылки
+  // топ-компаний идут вперемешку с обычными. top100 -- имиджевый чип
+  // «🌏 Топ 100»: только вакансии-ссылки, страна не важна. Без того и
+  // другого лента «для тебе»: украинские + мировые с открытой географией
+  // (external: "open"; решение Александра 30.09).
+  country?: string;
+  top100?: boolean;
 };
 
 // This app's own cursor: an offset into the listing, not the backend's
@@ -115,11 +125,21 @@ export function parsePageParam(params: URLSearchParams): number {
 /** The filter half of a posts.search request, shared by both paths below.
  *  `q` is deliberately NOT forwarded — see this file's header. */
 function filterParams(kind: WebPostKind, filters: FeedFilters): Record<string, unknown> {
+  // Страна: явно выбранная в селекторе -- фильтр по стране + внешние
+  // вакансии вперемешку. Украина по умолчанию -- это НЕ фильтр по стране
+  // (тогда пропали бы наши же удалённые вакансии без локации), а режим
+  // «для тебе». Город из фильтров (filters.location) точнее страны и
+  // побеждает, если задан.
+  const country = filters.country && filters.country !== DEFAULT_COUNTRY_CODE ? countryByCode(filters.country) : null;
+  const external = filters.top100 ? "only" : country ? "include" : "open";
+  // Вакансии соискателей (talents) внешними не бывают -- режим им не нужен.
+  const externalParams = kind === "hiring" ? { external } : {};
   return {
     object: KIND_TO_OBJECT[kind],
     ...(filters.categories && filters.categories.length > 0 ? { categories: filters.categories } : {}),
     ...(filters.tags && filters.tags.length > 0 ? { tags: filters.tags } : {}),
-    ...(filters.location != null ? { location: filters.location } : {}),
+    ...(filters.location != null ? { location: filters.location } : country ? { location: country.id } : {}),
+    ...externalParams,
   };
 }
 
@@ -218,6 +238,8 @@ function scanCacheKey(kind: WebPostKind, filters: FeedFilters): string {
     [...(filters.categories ?? [])].sort(),
     [...(filters.tags ?? [])].sort(),
     filters.location ?? null,
+    filters.country ?? null,
+    filters.top100 ?? false,
   ]);
 }
 
@@ -496,6 +518,12 @@ export function parseFeedFilters(params: URLSearchParams): FeedFilters {
     .map((slug) => techForSlug(slug))
     .filter((tech): tech is string => Boolean(tech));
 
+  // ?country=de -- ISO-код из справочника, чужое молча отбрасывается.
+  const countryParam = params.get("country")?.trim();
+  const country = countryByCode(countryParam)?.code;
+  // ?top100=1 -- чип «🌏 Топ 100».
+  const top100 = params.get("top100") === "1";
+
   return {
     q: q || undefined,
     categories: Number.isFinite(categoryId) && categoryParam ? [categoryId] : undefined,
@@ -503,6 +531,8 @@ export function parseFeedFilters(params: URLSearchParams): FeedFilters {
     location: Number.isFinite(locationId) && locationParam ? locationId : undefined,
     locationLabel: locationLabel || undefined,
     stack: stack.length > 0 ? [...new Set(stack)] : undefined,
+    country: country && country !== DEFAULT_COUNTRY_CODE ? country : undefined,
+    top100: top100 || undefined,
   };
 }
 
@@ -512,6 +542,8 @@ export function hasActiveFilters(filters: FeedFilters): boolean {
       (filters.categories && filters.categories.length > 0) ||
       (filters.tags && filters.tags.length > 0) ||
       (filters.stack && filters.stack.length > 0) ||
-      filters.location != null,
+      filters.location != null ||
+      filters.country != null ||
+      filters.top100 === true,
   );
 }

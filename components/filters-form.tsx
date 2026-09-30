@@ -76,6 +76,7 @@ import { ClearIcon } from "@/components/clear-icon";
 import { SearchIcon } from "@/components/search-icon";
 import { translateTagLabel, translateCategoryLabel } from "@/components/label-translations";
 import { useHoverPanel } from "@/lib/use-hover-panel";
+import { CountryPicker, type CountryOption } from "@/components/country-picker";
 import { authFetch } from "@/lib/auth-fetch";
 import { GLASS } from "@/lib/glass";
 import { CachedAvatar } from "@/components/cached-avatar";
@@ -180,6 +181,8 @@ export function FiltersForm({
   emptyCategoryValues = [],
   urlMode = "replace",
   desktopOnly = false,
+  currentCountry,
+  countryOptions = null,
 }: {
   basePath: string;
   categories: Category[];
@@ -211,6 +214,10 @@ export function FiltersForm({
   // Только десктопная строка в шапке, без мобильного блока поиска и
   // фильтров: он влезал бы сверху в переписку, профиль и вакансию.
   desktopOnly?: boolean;
+  /** 30.09.2026: селектор страны у поиска (Конкистадор). null -- не показывать
+   *  (страница фахівців). */
+  currentCountry?: string;
+  countryOptions?: CountryOption[] | null;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -464,9 +471,15 @@ export function FiltersForm({
     // Читаем из window по той же причине, что и сброс ниже: useSearchParams
     // потребовал бы <Suspense> вокруг формы на каждой странице.
     if (typeof window !== "undefined") {
-      for (const slug of new URLSearchParams(window.location.search).getAll("stack")) {
+      const current = new URLSearchParams(window.location.search);
+      for (const slug of current.getAll("stack")) {
         params.append("stack", slug);
       }
+      // 30.09.2026: страна и «Топ 100» -- тоже не этой формы, но живут в
+      // том же адресе и не должны слетать от буквы в поиске.
+      const country = current.get("country");
+      if (country) params.set("country", country);
+      if (current.get("top100") === "1") params.set("top100", "1");
     }
 
     const trimmedQ = q.trim();
@@ -1075,6 +1088,12 @@ export function FiltersForm({
               </div>
             )}
           </div>
+          {/* 30.09.2026 (Конкистадор): страна -- справа от фильтров, как
+              просил Александр: «сужаешь пошук, двигаешь настройки, и правее
+              показываешь Украина с дропдауном». */}
+          {countryOptions && (
+            <CountryPicker basePath={basePath} current={currentCountry} options={countryOptions} />
+          )}
         </div>
       </div>
 
@@ -1191,6 +1210,9 @@ export function FiltersForm({
                 </div>
               )}
             </div>
+            {countryOptions && (
+              <CountryPicker basePath={basePath} current={currentCountry} options={countryOptions} compact />
+            )}
           </div>,
           navSlot,
         )}
