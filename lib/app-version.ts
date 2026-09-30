@@ -53,7 +53,7 @@ export const APP_VERSION_CONFIG: AppVersionConfig = {
   },
   android: {
     minimum: "1.0.0",
-    recommended: "1.0.0",
+    recommended: "1.0.7",
     note: "",
     storeUrl: "https://play.google.com/store/apps/details?id=com.aone.aoneapp",
   },
