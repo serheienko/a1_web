@@ -2033,8 +2033,8 @@ textarea {
 
 .fold-card {
   --fold: 0px;
-  --fold-from: #7c8fff;
-  --fold-to: #3f5cf2;
+  --fold-from: #aab8ff;
+  --fold-to: #ffffff;
   transition:
     --fold 0.55s cubic-bezier(0.34, 1.45, 0.5, 1),
     box-shadow 0.15s ease,
@@ -2042,7 +2042,7 @@ textarea {
 }
 
 .fold-card[data-folded="true"] {
-  --fold: 30px;
+  --fold: 15px;
   clip-path: polygon(
     -24px -24px,
     calc(100% - var(--fold) - 24px) -24px,
@@ -2060,23 +2060,23 @@ textarea {
   height: var(--fold);
   pointer-events: none;
   z-index: 1;
-  background: linear-gradient(225deg, var(--fold-from), var(--fold-to));
+  background: linear-gradient(45deg, var(--fold-from), var(--fold-to));
   /* Triangle: top-left, bottom-right, bottom-left of the flap box, bulged on
    * the fold side. */
   clip-path: polygon(0 0, 100% 100%, 0 100%);
-  filter: drop-shadow(-1px 2px 3px rgba(0, 0, 0, 0.3));
+  filter: drop-shadow(-1px 1px 2px rgba(0, 0, 0, 0.12));
 }
 
 .dark .fold-card,
 :root:not(.light) .fold-card {
-  --fold-from: #3b9bff;
-  --fold-to: #0a5fdb;
+  --fold-from: #3b7fd6;
+  --fold-to: #d6e6ff;
 }
 
 @media (prefers-color-scheme: light) {
   :root:not(.dark) .fold-card {
-    --fold-from: #7c8fff;
-    --fold-to: #3f5cf2;
+    --fold-from: #aab8ff;
+    --fold-to: #ffffff;
   }
 }
 
