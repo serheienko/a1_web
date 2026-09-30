@@ -158,8 +158,10 @@ export function CountryPicker({
           role="listbox"
           className={
             "absolute right-0 top-full z-50 mt-2 max-h-[70vh] w-64 max-w-[calc(100vw-2rem)] origin-top-right overflow-y-auto rounded-2xl p-1.5 transition duration-150 ease-out " +
-            GLASS +
-            " " +
+            // 30.09.2026: под списком лежит текст вакансии, и при 55% прозрачности он
+            // просвечивал сквозь названия стран. Список -- это поверхность для
+            // чтения, а не украшение, поэтому почти непрозрачный фон + размытие.
+            "border border-black/5 bg-white/95 shadow-xl backdrop-blur-xl backdrop-saturate-150 dark:border-white/10 dark:bg-neutral-900/95 " +
             (visible ? "opacity-100 scale-100" : "pointer-events-none opacity-0 scale-95")
           }
         >
