@@ -130,7 +130,7 @@ export function AppPromo() {
       style={{
         top: 96,
         left: "calc(50% + 384px + 28px)",
-        width: "clamp(190px, calc((100vw - 768px) / 2 - 56px), 280px)",
+        width: "clamp(156px, calc(((100vw - 768px) / 2 - 56px) * 0.82), 230px)",
         opacity: visible ? 1 : 0,
       }}
     >
@@ -170,7 +170,7 @@ export function AppPromo() {
           onClick={close}
           aria-label={closeLabel}
           title={closeLabel}
-          className="absolute -right-2 -top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white text-neutral-700 shadow-lg ring-1 ring-black/10 transition hover:bg-neutral-100 active:scale-95"
+          className="absolute -right-2 -top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white text-neutral-700 shadow-lg ring-1 ring-black/10 transition duration-200 ease-out hover:rotate-90 hover:scale-110 hover:bg-neutral-900 hover:text-white hover:shadow-xl active:scale-95"
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
             <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
