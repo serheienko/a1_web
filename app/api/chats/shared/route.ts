@@ -29,9 +29,7 @@ export async function GET(request: NextRequest) {
   const chatId = request.nextUrl.searchParams.get("chat")?.trim();
   const kind = request.nextUrl.searchParams.get("kind")?.trim() ?? "";
   const next = request.nextUrl.searchParams.get("next")?.trim() || undefined;
-  if (!chatId) {
-    return NextResponse.json({ ok: false, message: "missing_chat" }, { status: 400 });
-  }
+  // Без `chat` -- поиск по всем чатам сразу (пилюли под «Пошук» в списке).
   const flag = KIND_FLAG[kind];
   if (!flag) {
     return NextResponse.json({ ok: false, message: "bad_kind" }, { status: 400 });
@@ -39,7 +37,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const { data, refreshedSession } = await callAsVisitor<unknown>("messages.search", {
-      peerTo: peerForRouteParam(chatId),
+      ...(chatId ? { peerTo: peerForRouteParam(chatId) } : {}),
       filterContent: flag,
       limit: PAGE_SIZE,
       ...(next ? { next } : {}),

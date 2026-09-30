@@ -39,14 +39,16 @@ import {
   type MessageMediaDocument,
 } from "@/lib/a1/chat-schemas";
 
-type Kind = "photos" | "links" | "files" | "voices";
+export type SharedKind = "photos" | "links" | "files" | "voices";
+type Kind = SharedKind;
 const KINDS: Kind[] = ["photos", "links", "files", "voices"];
 
+type ItemBase = { key: string; msgId: string; ms: number; chat: string | null };
 type Item =
-  | { kind: "photos"; key: string; msgId: string; doc: MessageMediaDocument; ms: number }
-  | { kind: "files"; key: string; msgId: string; doc: MessageMediaDocument; ms: number }
-  | { kind: "voices"; key: string; msgId: string; doc: MessageMediaDocument; ms: number }
-  | { kind: "links"; key: string; msgId: string; url: string; ms: number };
+  | (ItemBase & { kind: "photos"; doc: MessageMediaDocument })
+  | (ItemBase & { kind: "files"; doc: MessageMediaDocument })
+  | (ItemBase & { kind: "voices"; doc: MessageMediaDocument })
+  | (ItemBase & { kind: "links"; url: string });
 
 type TabState = {
   items: Item[];
@@ -77,10 +79,11 @@ function itemsOf(kind: Kind, msgs: ChatMessage[]): Item[] {
   const out: Item[] = [];
   for (const m of msgs) {
     const ms = messageDateMs(m);
+    const chat = m.peerTo && m.peerTo.object === "peer-chat" ? m.peerTo.chat : null;
     if (kind === "links") {
       const urls: string[] = [];
       collectUrls(m.entities, urls);
-      urls.forEach((url, i) => out.push({ kind, key: `${m._id}:${i}`, msgId: m._id, url, ms }));
+      urls.forEach((url, i) => out.push({ kind, key: `${m._id}:${i}`, msgId: m._id, url, ms, chat }));
       continue;
     }
     for (const doc of messageDocumentMedia(m)) {
@@ -88,9 +91,9 @@ function itemsOf(kind: Kind, msgs: ChatMessage[]): Item[] {
       const image = isImageMediaDocument(doc);
       const video = isVideoMediaDocument(doc);
       const voice = isVoiceMediaDocument(doc);
-      if (kind === "photos" && image && !sticker && !video) out.push({ kind, key: doc._id, msgId: m._id, doc, ms });
-      if (kind === "voices" && voice) out.push({ kind, key: doc._id, msgId: m._id, doc, ms });
-      if (kind === "files" && !image && !video && !voice && !sticker) out.push({ kind, key: doc._id, msgId: m._id, doc, ms });
+      if (kind === "photos" && image && !sticker && !video) out.push({ kind, key: doc._id, msgId: m._id, doc, ms, chat });
+      if (kind === "voices" && voice) out.push({ kind, key: doc._id, msgId: m._id, doc, ms, chat });
+      if (kind === "files" && !image && !video && !voice && !sticker) out.push({ kind, key: doc._id, msgId: m._id, doc, ms, chat });
     }
   }
   return out;
@@ -142,7 +145,7 @@ function EmptyState({ kind }: { kind: Kind }) {
   );
 }
 
-function VoiceRow({ item, playing, onToggle }: { item: Extract<Item, { kind: "voices" }>; playing: boolean; onToggle: () => void }) {
+function VoiceRow({ item, playing, onToggle, where }: { item: Extract<Item, { kind: "voices" }>; playing: boolean; onToggle: () => void; where?: string }) {
   const secs = Math.round(voiceDurationSeconds(item.doc));
   return (
     <button type="button" onClick={onToggle} className="flex w-full items-center gap-3 px-4 py-2 text-left">
@@ -158,15 +161,29 @@ function VoiceRow({ item, playing, onToggle }: { item: Extract<Item, { kind: "vo
           <T uk="Голосове повідомлення" en="Voice message" ru="Голосовое сообщение" de="Sprachnachricht" es="Mensaje de voz" fr="Message vocal" pl="Wiadomość głosowa" ptBR="Mensagem de voz" zh="语音消息" />
         </span>
         <span className="block text-[13px] text-[#989aa6]">
-          {Math.floor(secs / 60)}:{String(secs % 60).padStart(2, "0")} · {new Date(item.ms).toLocaleDateString()}
+          {where ? `${where} · ` : ""}{Math.floor(secs / 60)}:{String(secs % 60).padStart(2, "0")} · {new Date(item.ms).toLocaleDateString()}
         </span>
       </span>
     </button>
   );
 }
 
-export function SharedPanel({ chatId, lang, onClose }: { chatId: string; lang: Locale; onClose: () => void }) {
-  const [tab, setTab] = useState<Kind>("photos");
+export function SharedPanel({
+  chatId,
+  lang,
+  onClose,
+  initialTab = "photos",
+  chatTitles,
+}: {
+  /** Без chatId -- поиск по всем чатам (тогда в строках показывается имя чата). */
+  chatId?: string;
+  lang: Locale;
+  onClose: () => void;
+  initialTab?: Kind;
+  chatTitles?: Record<string, string>;
+}) {
+  const [tab, setTab] = useState<Kind>(initialTab);
+  const where = (it: Item) => (chatId || !it.chat ? "" : (chatTitles?.[it.chat] ?? ""));
   const [tabs, setTabs] = useState<Record<Kind, TabState>>({
     photos: EMPTY, links: EMPTY, files: EMPTY, voices: EMPTY,
   });
@@ -191,7 +208,8 @@ export function SharedPanel({ chatId, lang, onClose }: { chatId: string; lang: L
       let found = 0;
       try {
         for (let page = 0; page < MAX_PAGES_PER_CALL && hasMore; page++) {
-          const qs = new URLSearchParams({ chat: chatId, kind: k });
+          const qs = new URLSearchParams({ kind: k });
+          if (chatId) qs.set("chat", chatId);
           if (next) qs.set("next", next);
           const res = await authFetch(`/api/chats/shared?${qs.toString()}`);
           const data = await res.json().catch(() => null);
@@ -333,7 +351,7 @@ export function SharedPanel({ chatId, lang, onClose }: { chatId: string; lang: L
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[15px] font-semibold text-[#4b63d8]">{it.url}</span>
-                    <span className="block text-[13px] text-[#989aa6]">{new Date(it.ms).toLocaleDateString()}</span>
+                    <span className="block text-[13px] text-[#989aa6]">{where(it) ? `${where(it)} · ` : ""}{new Date(it.ms).toLocaleDateString()}</span>
                   </span>
                 </a>
               ) : null,
@@ -352,6 +370,7 @@ export function SharedPanel({ chatId, lang, onClose }: { chatId: string; lang: L
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[15px] font-semibold text-[#1c1c1e] dark:text-white">{name}</span>
                     <span className="block text-[13px] text-[#989aa6]">
+                      {where(it) ? `${where(it)} · ` : ""}
                       {bytes ? `${formatBytes(bytes)} · ` : ""}
                       {new Date(it.ms).toLocaleDateString()}
                     </span>
@@ -363,7 +382,7 @@ export function SharedPanel({ chatId, lang, onClose }: { chatId: string; lang: L
           {tab === "voices" &&
             cur.items.map((it) =>
               it.kind === "voices" ? (
-                <VoiceRow key={it.key} item={it} playing={playingKey === it.key} onToggle={() => void toggleVoice(it)} />
+                <VoiceRow key={it.key} item={it} playing={playingKey === it.key} onToggle={() => void toggleVoice(it)} where={where(it)} />
               ) : null,
             )}
 
