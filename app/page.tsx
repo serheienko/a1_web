@@ -33,6 +33,7 @@ import { TECH_CATALOG } from "@/lib/seo/tech-catalog";
 import { fetchCategories, itCategoryValue } from "@/lib/a1/datasets";
 import { StackPicker } from "@/components/stack-picker";
 import { buildSiteJsonLd } from "@/lib/seo/jsonld";
+import { withCountry } from "@/lib/seo/landing-country";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -221,11 +222,11 @@ export default async function HomePage({ searchParams }: Props) {
       <div className="flex w-max flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
         {(() => {
           const chips: { key: string; href: string; label: Record<Locale, string> }[] = [
-            { key: "top100", href: `/jobs/${TOP100_LANDING.slug}`, label: TOP100_LANDING.h1 },
-            ...JOB_LANDINGS.map((l) => ({ key: l.slug, href: `/jobs/${l.slug}`, label: l.h1 })),
+            { key: "top100", href: withCountry(`/jobs/${TOP100_LANDING.slug}`, filters.country), label: TOP100_LANDING.h1 },
+            ...JOB_LANDINGS.map((l) => ({ key: l.slug, href: withCountry(`/jobs/${l.slug}`, filters.country), label: l.h1 })),
             ...FACT_LANDINGS.filter((l) => inUkraine || l.slug !== "reservation").map((l) => ({
               key: l.slug,
-              href: `/jobs/tag/${l.slug}`,
+              href: withCountry(`/jobs/tag/${l.slug}`, filters.country),
               label: l.chip,
             })),
           ];

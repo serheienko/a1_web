@@ -24,6 +24,10 @@ import { LOCALES, LOCALE_VISIBILITY_CLASS, T, type Locale } from "@/components/t
 import { buildLandingBreadcrumbJsonLd } from "@/lib/seo/jsonld";
 import { postsForFact } from "@/lib/a1/facts-index";
 import { FACT_LANDINGS, findFactLanding } from "@/lib/seo/fact-landings";
+import { Pagination } from "@/components/pagination";
+import { LandingCountryBadge } from "@/components/landing-country-badge";
+import { landingCountry, withCountry } from "@/lib/seo/landing-country";
+import { parsePageParam, toURLSearchParams, FEED_PAGE_SIZE } from "@/lib/a1/feed";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -31,7 +35,10 @@ const SITE_URL = "https://jobs.a1appp.com";
  *  один адрес, а не хвост из ?page=, который размывает её вес. */
 const LIMIT = 40;
 
-type Props = { params: Promise<{ slug: string }> };
+type Props = {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+};
 
 // generateStaticParams здесь НЕТ по той же причине, что и у посадочных
 // по стеку: каждая такая страница поднимает обход всех вакансий, а
@@ -39,12 +46,15 @@ type Props = { params: Promise<{ slug: string }> };
 // ними не работает. Страницы собираются при первом обращении и живут
 // час; адреса Google всё равно берёт из карты сайта.
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const landing = findFactLanding((await params).slug);
   if (!landing) return {};
   const url = `${SITE_URL}/jobs/tag/${landing.slug}`;
+  const country = landingCountry(await searchParams);
 
   return {
+    // 30.09.2026: вариант со страной -- фильтр, не витрина: не индексируем.
+    ...(country ? { robots: { index: false, follow: true } } : {}),
     title: landing.metaTitle,
     description: landing.metaDescription,
     alternates: { canonical: url },
@@ -81,12 +91,24 @@ function CountLine({ template, n }: { template: Record<Locale, string>; n: numbe
   );
 }
 
-export default async function Page({ params }: Props) {
+export default async function Page({ params, searchParams }: Props) {
   const landing = findFactLanding((await params).slug);
   if (!landing) notFound();
-
-  const all = await postsForFact(landing.slug);
-  const posts = all.slice(0, LIMIT);
+  const sp = await searchParams;
+  // 30.09.2026 (Александр: выбрана страна -- тег должен показывать
+  // вакансии ЭТОЙ страны, а не всего мира). Без страны -- как было:
+  // одна витрина на 40 вакансий без пагинации (вес одного адреса).
+  // Со страной -- обычные страницы по 20 с нумерацией.
+  const country = landingCountry(sp);
+  const page = parsePageParam(toURLSearchParams(sp));
+  const everywhere = await postsForFact(landing.slug);
+  const all = country
+    ? everywhere.filter((post) => post.location?.country?.toUpperCase() === country)
+    : everywhere;
+  const posts = country
+    ? all.slice((page - 1) * FEED_PAGE_SIZE, page * FEED_PAGE_SIZE)
+    : all.slice(0, LIMIT);
+  const totalPages = Math.max(1, Math.ceil(all.length / FEED_PAGE_SIZE));
   const avatarBlurs = await Promise.all(
     posts.map((post) => generateAvatarBlurDataUrl(post.author.avatarUrl)),
   );
@@ -104,7 +126,7 @@ export default async function Page({ params }: Props) {
       />
 
       <nav aria-label="breadcrumb" className="mb-4 text-[13px] text-neutral-400 dark:text-neutral-500">
-        <Link href="/" className="transition hover:text-accent">
+        <Link href={withCountry("/", country)} className="transition hover:text-accent">
           <T uk="Вакансії" en="Jobs" ru="Вакансии" de="Stellen" es="Vacantes" fr="Offres" pl="Oferty" ptBR="Vagas" zh="职位" />
         </Link>
         <span aria-hidden="true" className="px-1.5">/</span>
@@ -122,18 +144,30 @@ export default async function Page({ params }: Props) {
             <T {...landing.lead} />
           </p>
         ) : null}
+        {country ? <LandingCountryBadge country={country} resetHref={`/jobs/tag/${landing.slug}`} /> : null}
       </header>
 
       {posts.length === 0 ? (
         <EmptyState message={<T {...landing.empty} />} />
       ) : (
-        <ul className="flex flex-col gap-4">
-          {posts.map((post, i) => (
-            <li key={post.id}>
-              <PostCard post={post} avatarBlurDataUrl={avatarBlurs[i]} />
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className="flex flex-col gap-4">
+            {posts.map((post, i) => (
+              <li key={post.id}>
+                <PostCard post={post} avatarBlurDataUrl={avatarBlurs[i]} />
+              </li>
+            ))}
+          </ul>
+          {country ? (
+            <Pagination
+              basePath={`/jobs/tag/${landing.slug}`}
+              params={new URLSearchParams({ country: country.toLowerCase() })}
+              page={page}
+              hasMore={page < totalPages}
+              totalPages={totalPages}
+            />
+          ) : null}
+        </>
       )}
 
       {/* Перелинковка: соседняя посадочная под рукой у человека и
@@ -146,7 +180,7 @@ export default async function Page({ params }: Props) {
           {FACT_LANDINGS.filter((item) => item.slug !== landing.slug).map((item) => (
             <li key={item.slug}>
               <Link
-                href={`/jobs/tag/${item.slug}`}
+                href={withCountry(`/jobs/tag/${item.slug}`, country)}
                 className="inline-block rounded-full bg-neutral-100 px-3 py-1.5 text-sm text-neutral-700 no-underline transition hover:bg-accent/10 hover:text-accent dark:bg-neutral-800 dark:text-neutral-300"
               >
                 <T {...item.chip} />

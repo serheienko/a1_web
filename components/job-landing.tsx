@@ -18,6 +18,8 @@ import { EmptyState } from "@/components/empty-state";
 import { LOCALES, LOCALE_VISIBILITY_CLASS, type Locale } from "@/components/t";
 import { T } from "@/components/t";
 import type { JobLanding } from "@/lib/seo/job-landings";
+import { LandingCountryBadge } from "@/components/landing-country-badge";
+import { withCountry } from "@/lib/seo/landing-country";
 import { buildLandingBreadcrumbJsonLd } from "@/lib/seo/jsonld";
 
 /**
@@ -49,15 +51,19 @@ export async function JobLandingPage({
   landing,
   page,
   filters,
+  country,
 }: {
   landing: JobLanding;
   page: number;
+  /** 30.09.2026: выбранная в селекторе страна (?country=xx) -- сужает выдачу. */
+  country?: string;
   /** 30.09.2026: чем отбирать вместо тега -- посадочная «Топ 100»
    *  (app/jobs/top-100) отбирает не по тегу, а по режиму external. */
   filters?: FeedFilters;
 }) {
-  const { posts, hasMore, total } = await fetchFeedPage("hiring", pageToCursor(page), filters ?? {
-    tags: [landing.tag],
+  const { posts, hasMore, total } = await fetchFeedPage("hiring", pageToCursor(page), {
+    ...(filters ?? { tags: [landing.tag] }),
+    ...(country ? { country } : {}),
   });
   const totalPages = Math.max(1, Math.ceil(total / FEED_PAGE_SIZE));
   const avatarBlurs = await Promise.all(posts.map((post) => generateAvatarBlurDataUrl(post.author.avatarUrl)));
@@ -79,7 +85,7 @@ export async function JobLandingPage({
 
       {/* Крошка -- и для Google, и как ссылка обратно в общую ленту. */}
       <nav aria-label="breadcrumb" className="mb-4 text-[13px] text-neutral-400 dark:text-neutral-500">
-        <a href="/" className="transition hover:text-accent">
+        <a href={withCountry("/", country)} className="transition hover:text-accent">
           <T uk="Вакансії" en="Jobs" ru="Вакансии" de="Stellen" es="Vacantes" fr="Offres" pl="Oferty" ptBR="Vagas" zh="职位" />
         </a>
         <span aria-hidden="true" className="px-1.5">/</span>
@@ -98,6 +104,7 @@ export async function JobLandingPage({
         <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-neutral-600 dark:text-neutral-400">
           <T {...landing.lead} />
         </p>
+        {country ? <LandingCountryBadge country={country} resetHref={basePath} /> : null}
       </header>
 
       {posts.length === 0 ? (
@@ -115,7 +122,7 @@ export async function JobLandingPage({
               </li>
             ))}
           </ul>
-          <Pagination basePath={basePath} params={new URLSearchParams()} page={page} hasMore={hasMore} totalPages={totalPages} />
+          <Pagination basePath={basePath} params={new URLSearchParams(country ? { country: country.toLowerCase() } : {})} page={page} hasMore={hasMore} totalPages={totalPages} />
         </>
       )}
     </main>

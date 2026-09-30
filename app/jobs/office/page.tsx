@@ -20,6 +20,7 @@ import { notFound } from "next/navigation";
 import { JobLandingPage } from "@/components/job-landing";
 import { findJobLanding } from "@/lib/seo/job-landings";
 import { parsePageParam, toURLSearchParams } from "@/lib/a1/feed";
+import { landingCountry } from "@/lib/seo/landing-country";
 
 const SITE_URL = "https://jobs.a1appp.com";
 const SLUG = "office";
@@ -29,10 +30,14 @@ type Props = { searchParams: Promise<{ [key: string]: string | string[] | undefi
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const landing = findJobLanding(SLUG);
   if (!landing) return {};
-  const page = parsePageParam(toURLSearchParams(await searchParams));
+  const sp = await searchParams;
+  const page = parsePageParam(toURLSearchParams(sp));
+  const country = landingCountry(sp);
   const url = page > 1 ? `${SITE_URL}/jobs/${SLUG}?page=${page}` : `${SITE_URL}/jobs/${SLUG}`;
 
   return {
+    // Вариант со страной -- фильтр, не витрина: не индексируем.
+    ...(country ? { robots: { index: false, follow: true } } : {}),
     title: landing.metaTitle,
     description: landing.metaDescription,
     // Каждая страница пагинации канонична сама себе: её вакансий нет на
@@ -47,6 +52,8 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 export default async function Page({ searchParams }: Props) {
   const landing = findJobLanding(SLUG);
   if (!landing) notFound();
-  const page = parsePageParam(toURLSearchParams(await searchParams));
-  return <JobLandingPage landing={landing} page={page} />;
+  const sp = await searchParams;
+  const page = parsePageParam(toURLSearchParams(sp));
+  const country = landingCountry(sp);
+  return <JobLandingPage landing={landing} page={page} country={country} />;
 }

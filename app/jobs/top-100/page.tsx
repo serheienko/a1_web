@@ -8,6 +8,7 @@ import type { Metadata } from "next";
 import { JobLandingPage } from "@/components/job-landing";
 import { TOP100_LANDING } from "@/lib/seo/top100-landing";
 import { parsePageParam, toURLSearchParams } from "@/lib/a1/feed";
+import { landingCountry } from "@/lib/seo/landing-country";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -15,10 +16,14 @@ type Props = { searchParams: Promise<{ [key: string]: string | string[] | undefi
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const landing = TOP100_LANDING;
-  const page = parsePageParam(toURLSearchParams(await searchParams));
+  const sp = await searchParams;
+  const page = parsePageParam(toURLSearchParams(sp));
+  const country = landingCountry(sp);
   const url = page > 1 ? `${SITE_URL}/jobs/${landing.slug}?page=${page}` : `${SITE_URL}/jobs/${landing.slug}`;
 
   return {
+    // Вариант со страной -- фильтр, не витрина: не индексируем.
+    ...(country ? { robots: { index: false, follow: true } } : {}),
     title: landing.metaTitle,
     description: landing.metaDescription,
     alternates: { canonical: url },
@@ -28,6 +33,8 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 }
 
 export default async function Page({ searchParams }: Props) {
-  const page = parsePageParam(toURLSearchParams(await searchParams));
-  return <JobLandingPage landing={TOP100_LANDING} page={page} filters={{ top100: true }} />;
+  const sp = await searchParams;
+  const page = parsePageParam(toURLSearchParams(sp));
+  const country = landingCountry(sp);
+  return <JobLandingPage landing={TOP100_LANDING} page={page} country={country} filters={{ top100: true }} />;
 }
