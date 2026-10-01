@@ -25,7 +25,7 @@ import { JOB_LANDINGS } from "@/lib/seo/job-landings";
 import { FACT_LANDINGS } from "@/lib/seo/fact-landings";
 import { TECH_LANDINGS } from "@/lib/seo/tech-landings";
 import { TOP100_LANDING } from "@/lib/seo/top100-landing";
-import { countrySegments, globalLevelCounts, listCities, segmentCountries } from "@/lib/a1/segment-index";
+import { cityTechList, countrySegments, globalLevelCounts, listCities, remoteTechList, segmentCountries } from "@/lib/a1/segment-index";
 import { COUNTRY_LANDING_CODES } from "@/lib/seo/country-landings";
 import { ARTICLES } from "@/lib/blog/articles";
 
@@ -104,7 +104,11 @@ export default async function sitemap({ id }: { id: number | string }): Promise<
     // страна + технология / уровень / удалёнка. В карту попадают только
     // живые (10+ вакансий), сама страница тоже отдаёт 404 ниже порога.
     try {
-      for (const city of await listCities()) entries.push({ url: `${SITE_URL}/jobs/city/${city.slug}` });
+      for (const city of await listCities()) {
+        entries.push({ url: `${SITE_URL}/jobs/city/${city.slug}` });
+        for (const t of await cityTechList(city.slug)) entries.push({ url: `${SITE_URL}/jobs/city/${city.slug}/${t.slug}` });
+      }
+      for (const t of await remoteTechList()) entries.push({ url: `${SITE_URL}/jobs/remote/${t.slug}` });
       for (const { level } of await globalLevelCounts()) entries.push({ url: `${SITE_URL}/jobs/level/${level}` });
       for (const cc of await segmentCountries()) {
         const seg = await countrySegments(cc);

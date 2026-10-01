@@ -8,7 +8,7 @@ import { countryByCode, countryName, flagEmoji } from "@/lib/seo/countries";
 import { TECH_LANDINGS } from "@/lib/seo/tech-landings";
 import { JOB_LEVELS, type JobLevel } from "@/lib/seo/job-level";
 import { cityLabel, levelLabel } from "@/lib/seo/segments";
-import { countrySegments, countriesForTech, globalLevelCounts, listCities } from "@/lib/a1/segment-index";
+import { citiesForTech, cityTechList, countrySegments, countriesForTech, globalLevelCounts, listCities, remoteTechList } from "@/lib/a1/segment-index";
 import type { SegmentLinkGroup } from "@/components/segment-page";
 import { findArticle } from "@/lib/blog/articles";
 
@@ -63,6 +63,13 @@ export async function linksForCity(cc: string, currentSlug: string): Promise<Seg
       links: [{ href: `/jobs/country/${cc.toLowerCase()}`, label: `${flagEmoji(cc)} ${country.en}` }],
     });
   }
+  const techs = await cityTechList(currentSlug);
+  if (techs.length > 0) {
+    groups.push({
+      title: { uk: "За технологією", en: "By technology", ru: "По технологии", de: "Nach Technologie", es: "Por tecnología", fr: "Par technologie", pl: "Wg technologii", ptBR: "Por tecnologia", zh: "按技术" },
+      links: techs.slice(0, 16).map((t) => ({ href: `/jobs/city/${currentSlug}/${t.slug}`, label: techLabel(t.slug) })),
+    });
+  }
   groups.push({
     title: { uk: "Інші міста", en: "Other cities", ru: "Другие города", de: "Weitere Städte", es: "Otras ciudades", fr: "Autres villes", pl: "Inne miasta", ptBR: "Outras cidades", zh: "其他城市" },
     links: others.map((c) => ({ href: `/jobs/city/${c.slug}`, label: cc === "UA" ? cityLabel(c.city, "uk") : c.city })),
@@ -70,8 +77,74 @@ export async function linksForCity(cc: string, currentSlug: string): Promise<Seg
   return groups;
 }
 
-/** Блок для страницы стека: эта технология по странам. */
+/** Блок для страницы стека: удалённо + города (01.10.2026), потом страны. */
 export async function linksForTech(techSlug: string): Promise<SegmentLinkGroup[]> {
+  return [...(await techRemoteAndCities(techSlug)), ...(await linksForTechCountries(techSlug))];
+}
+
+async function techRemoteAndCities(techSlug: string): Promise<SegmentLinkGroup[]> {
+  const groups: SegmentLinkGroup[] = [];
+  const remote = (await remoteTechList()).some((x) => x.slug === techSlug);
+  if (remote) {
+    groups.push({
+      title: { uk: "Формат", en: "Work format", ru: "Формат", de: "Arbeitsform", es: "Modalidad", fr: "Format", pl: "Forma pracy", ptBR: "Formato", zh: "工作方式" },
+      links: [{ href: `/jobs/remote/${techSlug}`, label: `${techLabel(techSlug)} · remote` }],
+    });
+  }
+  const cities = await citiesForTech(techSlug);
+  if (cities.length > 0) {
+    groups.push({
+      title: { uk: "За містами", en: "By city", ru: "По городам", de: "Nach Stadt", es: "Por ciudad", fr: "Par ville", pl: "Wg miast", ptBR: "Por cidade", zh: "按城市" },
+      links: cities.slice(0, 14).map((c) => ({ href: `/jobs/city/${c.slug}/${techSlug}`, label: c.cc === "UA" ? cityLabel(c.city, "uk") : c.city })),
+    });
+  }
+  return groups;
+}
+
+/** Блок для страницы удалённой технологии: другие технологии удалённо и сама технология. */
+export async function linksForRemoteTech(techSlug: string): Promise<SegmentLinkGroup[]> {
+  const others = (await remoteTechList()).filter((x) => x.slug !== techSlug);
+  const groups: SegmentLinkGroup[] = [
+    {
+      title: { uk: "Технологія", en: "Technology", ru: "Технология", de: "Technologie", es: "Tecnología", fr: "Technologie", pl: "Technologia", ptBR: "Tecnologia", zh: "技术" },
+      links: [{ href: `/jobs/stack/${techSlug}`, label: `${techLabel(techSlug)} — all jobs` }],
+    },
+  ];
+  if (others.length > 0) {
+    groups.push({
+      title: { uk: "Віддалено за технологією", en: "Remote by technology", ru: "Удалённо по технологии", de: "Remote nach Technologie", es: "Remoto por tecnología", fr: "Télétravail par technologie", pl: "Zdalnie wg technologii", ptBR: "Remoto por tecnologia", zh: "远程按技术" },
+      links: others.slice(0, 16).map((x) => ({ href: `/jobs/remote/${x.slug}`, label: techLabel(x.slug) })),
+    });
+  }
+  return [...groups, ...articleLinks(["viddalena-robota-na-inozemnu-kompaniyu"])];
+}
+
+/** Блок для страницы «город + технология»: город целиком и соседние технологии города. */
+export async function linksForCityTech(citySlug: string, techSlug: string, cc: string): Promise<SegmentLinkGroup[]> {
+  const city = (await listCities()).find((c) => c.slug === citySlug);
+  const groups: SegmentLinkGroup[] = [];
+  if (city) {
+    groups.push({
+      title: { uk: "Місто", en: "City", ru: "Город", de: "Stadt", es: "Ciudad", fr: "Ville", pl: "Miasto", ptBR: "Cidade", zh: "城市" },
+      links: [{ href: `/jobs/city/${citySlug}`, label: `${flagEmoji(cc)} ${cc === "UA" ? cityLabel(city.city, "uk") : city.city}` }],
+    });
+  }
+  const others = (await cityTechList(citySlug)).filter((x) => x.slug !== techSlug);
+  if (others.length > 0) {
+    groups.push({
+      title: { uk: "Інші технології в місті", en: "Other technologies here", ru: "Другие технологии в городе", de: "Weitere Technologien", es: "Otras tecnologías", fr: "Autres technologies", pl: "Inne technologie", ptBR: "Outras tecnologias", zh: "其他技术" },
+      links: others.slice(0, 14).map((x) => ({ href: `/jobs/city/${citySlug}/${x.slug}`, label: techLabel(x.slug) })),
+    });
+  }
+  groups.push({
+    title: { uk: "Технологія", en: "Technology", ru: "Технология", de: "Technologie", es: "Tecnología", fr: "Technologie", pl: "Technologia", ptBR: "Tecnologia", zh: "技术" },
+    links: [{ href: `/jobs/stack/${techSlug}`, label: `${techLabel(techSlug)} — all jobs` }],
+  });
+  return groups;
+}
+
+/** Блок для страницы стека: эта технология по странам. */
+async function linksForTechCountries(techSlug: string): Promise<SegmentLinkGroup[]> {
   const list = await countriesForTech(techSlug);
   const label = techLabel(techSlug);
   return [
@@ -105,4 +178,16 @@ export function articleLinks(slugs: string[]): SegmentLinkGroup[] {
   if (links.length === 0) return [];
   const title = { uk: "Корисні статті", en: "Useful articles", ru: "Полезные статьи", de: "Nützliche Artikel", es: "Artículos útiles", fr: "Articles utiles", pl: "Przydatne artykuły", ptBR: "Artigos úteis", zh: "实用文章" };
   return [{ title, links }];
+}
+
+/** Блок для /jobs/remote: удалённо по технологиям (01.10.2026). */
+export async function linksForRemoteHub(): Promise<SegmentLinkGroup[]> {
+  const list = await remoteTechList();
+  if (list.length === 0) return [];
+  return [
+    {
+      title: { uk: "Віддалено за технологією", en: "Remote by technology", ru: "Удалённо по технологии", de: "Remote nach Technologie", es: "Remoto por tecnología", fr: "Télétravail par technologie", pl: "Zdalnie wg technologii", ptBR: "Remoto por tecnologia", zh: "远程按技术" },
+      links: list.map((x) => ({ href: `/jobs/remote/${x.slug}`, label: techLabel(x.slug) })),
+    },
+  ];
 }

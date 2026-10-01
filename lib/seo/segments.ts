@@ -321,3 +321,118 @@ export function countryLabelEn(code: string): string {
   const c = countryByCode(code);
   return c ? c.en : code;
 }
+
+// ─────────────────────────── 01.10.2026: город + технология, удалённо + технология ───────────────────────────
+
+export function cityTechH1(city: string, tech: string, country: Country): L {
+  const flag = flagEmoji(country.code);
+  const ua = country.code === "UA";
+  const cu = ua ? cityLabel(city, "uk") : city;
+  const cr = ua ? cityLabel(city, "ru") : city;
+  return {
+    uk: `${flag} ${tech} вакансії: ${cu}`,
+    en: `${flag} ${tech} jobs in ${city}`,
+    ru: `${flag} ${tech} вакансии: ${cr}`,
+    de: `${flag} ${tech}-Jobs in ${city}`,
+    es: `${flag} Empleos de ${tech} en ${city}`,
+    fr: `${flag} Emplois ${tech} à ${city}`,
+    pl: `${flag} Praca ${tech}: ${city}`,
+    ptBR: `${flag} Vagas de ${tech} em ${city}`,
+    zh: `${flag} ${city} ${tech} 职位`,
+  };
+}
+
+export function cityTechCountLine(city: string, tech: string, country: Country): L {
+  const ua = country.code === "UA";
+  return {
+    uk: `{n} відкритих вакансій (${tech}): ${ua ? cityLabel(city, "uk") : city}`,
+    en: `{n} open ${tech} jobs in ${city}`,
+    ru: `{n} открытых вакансий (${tech}): ${ua ? cityLabel(city, "ru") : city}`,
+    de: `{n} offene ${tech}-Stellen in ${city}`,
+    es: `{n} vacantes de ${tech} abiertas en ${city}`,
+    fr: `{n} offres ${tech} ouvertes à ${city}`,
+    pl: `{n} otwartych ofert (${tech}): ${city}`,
+    ptBR: `{n} vagas de ${tech} abertas em ${city}`,
+    zh: `{n} 个开放职位（${tech}）：${city}`,
+  };
+}
+
+export function cityTechLead(city: string, tech: string, country: Country): L {
+  const ua = country.code === "UA";
+  const uk = ua ? cityLabel(city, "uk") : city;
+  const ru = ua ? cityLabel(city, "ru") : city;
+  return {
+    uk: `Вакансії, де потрібен ${tech}, з офісом у місті ${uk}. Збирається з сайтів компаній, оновлюється щодня.`,
+    en: `Roles in ${city} that mention ${tech} in the description — in the office, hybrid and remote. Collected from company career pages and updated daily.`,
+    ru: `Вакансии, где нужен ${tech}, с офисом в городе ${ru}. Собирается с сайтов компаний, обновляется ежедневно.`,
+    de: `Stellen in ${city}, die ${tech} verlangen. Von Karriereseiten gesammelt, täglich aktualisiert.`,
+    es: `Vacantes en ${city} que requieren ${tech}. Recogidas de las páginas de empleo y actualizadas a diario.`,
+    fr: `Offres à ${city} qui demandent ${tech}. Collectées sur les pages carrières et mises à jour chaque jour.`,
+    pl: `Oferty w mieście ${city}, w których wymagany jest ${tech}. Zbierane ze stron karier, aktualizowane codziennie.`,
+    ptBR: `Vagas em ${city} que pedem ${tech}. Coletadas de páginas de carreiras e atualizadas diariamente.`,
+    zh: `${city} 要求 ${tech} 的职位，来自公司招聘页面，每日更新。`,
+  };
+}
+
+export function cityTechMeta(city: string, tech: string, country: Country): { title: string; description: string } {
+  if (country.code === "UA") {
+    const uk = cityLabel(city, "uk");
+    return {
+      title: `${tech} вакансії ${uk} — робота ${tech}-розробника | A1 Jobs`,
+      description: `Відкриті вакансії ${tech} у місті ${uk}: офіс, гібрид і віддалено. Список оновлюється щодня.`,
+    };
+  }
+  return {
+    title: `${tech} jobs in ${city}, ${cn(country, "en")} — ${tech} developer vacancies | A1 Jobs`,
+    description: `Open ${tech} jobs in ${city}, ${cn(country, "en")}: roles that need ${tech} at top tech companies, in the office, hybrid and remote. Updated daily.`,
+  };
+}
+
+export function remoteTechH1(tech: string): L {
+  return {
+    uk: `Віддалена робота: ${tech}`,
+    en: `Remote ${tech} jobs`,
+    ru: `Удалённая работа: ${tech}`,
+    de: `Remote-${tech}-Jobs`,
+    es: `Empleos remotos de ${tech}`,
+    fr: `Emplois ${tech} en télétravail`,
+    pl: `Zdalna praca: ${tech}`,
+    ptBR: `Vagas remotas de ${tech}`,
+    zh: `远程 ${tech} 职位`,
+  };
+}
+
+export function remoteTechCountLine(tech: string): L {
+  return {
+    uk: `{n} відкритих віддалених вакансій (${tech})`,
+    en: `{n} open remote ${tech} jobs`,
+    ru: `{n} открытых удалённых вакансий (${tech})`,
+    de: `{n} offene Remote-Stellen (${tech})`,
+    es: `{n} vacantes remotas abiertas (${tech})`,
+    fr: `{n} offres en télétravail (${tech})`,
+    pl: `{n} otwartych ofert zdalnych (${tech})`,
+    ptBR: `{n} vagas remotas abertas (${tech})`,
+    zh: `{n} 个开放远程职位（${tech}）`,
+  };
+}
+
+export function remoteTechLead(tech: string): L {
+  return {
+    uk: `Віддалені вакансії, де потрібен ${tech}: з українських компаній і від роботодавців, які наймають з будь-якої країни. Оновлюється щодня.`,
+    en: `Remote roles that need ${tech}: from Ukrainian employers and companies hiring from anywhere. Updated daily.`,
+    ru: `Удалённые вакансии, где нужен ${tech}: от украинских компаний и работодателей, нанимающих из любой страны. Обновляется ежедневно.`,
+    de: `Remote-Stellen mit ${tech}: von ukrainischen Arbeitgebern und Firmen, die weltweit einstellen. Täglich aktualisiert.`,
+    es: `Vacantes remotas que requieren ${tech}: de empresas ucranianas y de empleadores que contratan desde cualquier país. Actualizado a diario.`,
+    fr: `Offres en télétravail demandant ${tech} : d'employeurs ukrainiens et d'entreprises qui recrutent partout. Mis à jour chaque jour.`,
+    pl: `Zdalne oferty z ${tech}: od ukraińskich pracodawców i firm zatrudniających z dowolnego kraju. Aktualizowane codziennie.`,
+    ptBR: `Vagas remotas que pedem ${tech}: de empresas ucranianas e de empregadores que contratam de qualquer país. Atualizado diariamente.`,
+    zh: `需要 ${tech} 的远程职位：来自乌克兰雇主和全球招聘的公司，每日更新。`,
+  };
+}
+
+export function remoteTechMeta(tech: string): { title: string; description: string } {
+  return {
+    title: `Віддалена робота ${tech} — remote ${tech} вакансії | A1 Jobs`,
+    description: `Відкриті віддалені вакансії ${tech}: від українських компаній і роботодавців, які наймають з будь-якої країни. Список оновлюється щодня.`,
+  };
+}

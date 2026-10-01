@@ -29,6 +29,10 @@ export type SegIndex = {
   countryRemote: Map<string, WebPost[]>;
   /** Украина + удалённые «отовсюду»: аудитория главной. */
   globalLevel: Map<JobLevel, WebPost[]>;
+  /** ключ: «kyiv/python» (адрес города + адрес технологии). */
+  cityTech: Map<string, WebPost[]>;
+  /** Удалённые вакансии (украинские и «отовсюду») по технологии: ключ «python». */
+  remoteTech: Map<string, WebPost[]>;
 };
 
 let cached: SegIndex | null = null;
@@ -53,6 +57,7 @@ export function buildSegmentIndex(posts: WebPost[]): SegIndex {
   const countryLevel = new Map<string, WebPost[]>();
   const countryRemote = new Map<string, WebPost[]>();
   const globalLevel = new Map<JobLevel, WebPost[]>();
+  const remoteTech = new Map<string, WebPost[]>();
 
   for (const post of posts) {
     const cc = post.location?.country?.trim().toUpperCase() || "";
@@ -76,6 +81,17 @@ export function buildSegmentIndex(posts: WebPost[]): SegIndex {
       if (post.tags.includes("remote")) push(countryRemote, lc, post); // тег формата работы; isRemote у вакансий с локацией всегда false
     }
 
+    // Удалённые для аудитории главной: украинские с тегом remote и «отовсюду».
+    {
+      const kind = worldwideKind(post);
+      if ((cc === "UA" && post.tags.includes("remote")) || kind === "world" || kind === "remote") {
+        for (const tech of new Set(extractTechTags(post.title, post.contentText))) {
+          const slug = techSlugByName.get(tech);
+          if (slug) push(remoteTech, slug, post);
+        }
+      }
+    }
+
     // Главная-аудитория: Украина и удалённые «отовсюду».
     if (level) {
       const kind = worldwideKind(post);
@@ -95,7 +111,18 @@ export function buildSegmentIndex(posts: WebPost[]): SegIndex {
     cities.set(slug, { slug, city: b.city, cc: b.cc, posts: b.posts });
   }
 
-  return { source: posts, cities, countryTech, countryLevel, countryRemote, globalLevel };
+  // Город + технология (только для городов, у которых уже есть своя страница).
+  const cityTech = new Map<string, WebPost[]>();
+  for (const seg of cities.values()) {
+    for (const post of seg.posts) {
+      for (const tech of new Set(extractTechTags(post.title, post.contentText))) {
+        const slug = techSlugByName.get(tech);
+        if (slug) push(cityTech, `${seg.slug}/${slug}`, post);
+      }
+    }
+  }
+
+  return { source: posts, cities, countryTech, countryLevel, countryRemote, globalLevel, cityTech, remoteTech };
 }
 
 async function index(): Promise<SegIndex> {
@@ -186,4 +213,44 @@ export async function globalLevelCounts(): Promise<{ level: JobLevel; count: num
   return JOB_LEVELS.map((level) => ({ level, count: idx.globalLevel.get(level)?.length ?? 0 })).filter(
     (l) => l.count >= MIN_SEGMENT_POSTS,
   );
+}
+
+// ───────── 01.10.2026: город + технология, удалённо + технология ─────────
+
+export async function cityTechPosts(citySlug: string, techSlug: string): Promise<WebPost[] | null> {
+  const list = (await index()).cityTech.get(`${citySlug}/${techSlug}`);
+  return enough(list) ? [...list].sort(byDate) : null;
+}
+
+/** Технологии города с 10+ вакансий: ссылки и карта сайта. */
+export async function cityTechList(citySlug: string): Promise<{ slug: string; count: number }[]> {
+  const idx = await index();
+  return TECH_LANDINGS.map((t) => ({ slug: t.slug, count: idx.cityTech.get(`${citySlug}/${t.slug}`)?.length ?? 0 }))
+    .filter((x) => x.count >= MIN_SEGMENT_POSTS)
+    .sort((a, b) => b.count - a.count);
+}
+
+export async function remoteTechPosts(techSlug: string): Promise<WebPost[] | null> {
+  const list = (await index()).remoteTech.get(techSlug);
+  return enough(list) ? [...list].sort(byDate) : null;
+}
+
+export async function remoteTechList(): Promise<{ slug: string; count: number }[]> {
+  const idx = await index();
+  return TECH_LANDINGS.map((t) => ({ slug: t.slug, count: idx.remoteTech.get(t.slug)?.length ?? 0 }))
+    .filter((x) => x.count >= MIN_SEGMENT_POSTS)
+    .sort((a, b) => b.count - a.count);
+}
+
+/** Города, где эта технология набирает 10+ вакансий: блок «по городам» на странице стека. */
+export async function citiesForTech(techSlug: string): Promise<{ slug: string; city: string; cc: string; count: number }[]> {
+  const idx = await index();
+  const out: { slug: string; city: string; cc: string; count: number }[] = [];
+  for (const [key, list] of idx.cityTech) {
+    const [citySlug = "", slug] = key.split("/");
+    if (slug !== techSlug || list.length < MIN_SEGMENT_POSTS) continue;
+    const c = idx.cities.get(citySlug);
+    if (c) out.push({ slug: citySlug, city: c.city, cc: c.cc, count: list.length });
+  }
+  return out.sort((a, b) => b.count - a.count);
 }
