@@ -150,7 +150,18 @@ export function buildJobPostingJsonLd(
     hiringOrganization: {
       "@type": "Organization",
       name: post.author.name,
-      ...(post.isExternal && post.author.avatarUrl?.startsWith("http") ? { logo: post.author.avatarUrl } : {}),
+      // 01.10.2026: аватар приходит ОТНОСИТЕЛЬНЫМ адресом (/api/media/...), а
+      // Google для logo нужен абсолютный и доступный роботу: поэтому здесь
+      // добавляем адрес сайта, а в app/robots.ts /api/media/ открыт для
+      // обхода. Раньше условие startsWith("http") не пропускало ни одного
+      // логотипа -- в выдаче Google Jobs компания шла без картинки.
+      ...(post.isExternal && post.author.avatarUrl
+        ? post.author.avatarUrl.startsWith("http")
+          ? { logo: post.author.avatarUrl }
+          : post.author.avatarUrl.startsWith("/api/media/")
+            ? { logo: `${SITE_URL}${post.author.avatarUrl}` }
+            : {}
+        : {}),
       ...(post.author.username ? { sameAs: `${SITE_URL}${profileHref(post.author.username)}` } : {}),
     },
     // We don't have a web application flow (PLAN.md §3.3 "directApply" row).
@@ -219,6 +230,15 @@ export function buildJobPostingJsonLd(
     // такую вакансию в фильтр «удалённая работа» вовсе.
     if (post.tags.some((tag) => normalizeTag(tag) === "worldwide")) {
       jsonLd.applicantLocationRequirements = COUNTRIES.map((c) => ({ "@type": "Country", name: c.code }));
+    } else {
+      // 01.10.2026 (проверка меток для Google Jobs: ~9% удалённых вакансий
+      // шли с TELECOMMUTE без единой страны -- а это обязательное поле, и
+      // такая вакансия в Google Jobs не попадает вовсе). Сюда доходят
+      // вакансии без места и без тега «Worldwide»: это удалённые вакансии
+      // украинских компаний (Казак/DOU), мировые приходят с тегом или с
+      // городом. Поэтому страна по умолчанию -- Украина: утверждение
+      // узкое и не завышает права кандидата.
+      jsonLd.applicantLocationRequirements = { "@type": "Country", name: "UA" };
     }
     // Google requires >=1 Country in applicantLocationRequirements whenever
     // jobLocationType is TELECOMMUTE. NULL_LOCATION_MEANS_REMOTE (see

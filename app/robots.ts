@@ -31,7 +31,10 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
   return {
     rules: {
       userAgent: "*",
-      allow: "/",
+      // 01.10.2026: /api/media/ открыт для обхода -- там лежат логотипы
+      // компаний из разметки JobPosting (hiringOrganization.logo). Более
+      // длинное правило Allow побеждает общий Disallow: /api/.
+      allow: ["/", "/api/media/"],
       // 2026-09-09: /admin/posts (app/admin/posts/page.tsx) is a private,
       // email-allowlisted internal tool, not a page meant for crawlers —
       // same reasoning as /api/ right above, not the /talents noindex-
