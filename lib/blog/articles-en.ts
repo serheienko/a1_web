@@ -11,10 +11,10 @@
 
 import type { Article, Block } from "./types";
 
-const P = "2026-10-01";
-const CHECKED = "Facts checked on 1 October 2026 against the official pages linked in the text. Immigration rules change often — confirm the current requirements with the official source or a qualified adviser before you apply. This is general information, not legal advice.";
+export const P = "2026-10-01";
+export const CHECKED = "Facts checked on 1 October 2026 against the official pages linked in the text. Immigration rules change often — confirm the current requirements with the official source or a qualified adviser before you apply. This is general information, not legal advice.";
 
-function liveData(cc: string, name: string): Block[] {
+export function liveData(cc: string, name: string): Block[] {
   return [
     { t: "h2", text: `Tech jobs in ${name} right now` },
     { t: "p", text: `The numbers below are calculated from the open vacancies on A1 and refresh with the database.` },
@@ -31,11 +31,11 @@ function liveData(cc: string, name: string): Block[] {
   ];
 }
 
-function guide(a: Omit<Article, "lang" | "published" | "updated" | "kicker"> & { kicker?: string }): Article {
+export function guide(a: Omit<Article, "lang" | "published" | "updated" | "kicker"> & { kicker?: string }): Article {
   return { lang: "en", published: P, updated: P, kicker: a.kicker ?? "Country guide", ...a };
 }
 
-const WORLD_LINKS = (cc: string, name: string, extra: { href: string; label: string }[] = []): Block => ({
+export const WORLD_LINKS = (cc: string, name: string, extra: { href: string; label: string }[] = []): Block => ({
   t: "links",
   title: "Browse jobs",
   links: [
@@ -230,7 +230,7 @@ export const ARTICLES_EN: Article[] = [
       { t: "h2", text: "Ukrainian experts" },
       { t: "p", text: "The Innovation Authority describes an arrangement under which technology companies may bring Ukrainian high-tech experts, with their families, for up to 90 days without a minimum salary requirement, for experts arriving after 10 April 2022. It is a short-term arrangement, not a long-term work visa." },
       { t: "h2", text: "Remote work and practical notes" },
-      { t: "p", text: "Many Israeli companies hire remote engineers abroad through contractor or employer-of-record arrangements, so remote roles may be the more realistic starting point. See [worldwide remote roles](/jobs/country/ww) and [remote roles in Israel](/jobs/country/il/remote). For travel or relocation, check your government's current travel advisory and the official Israeli immigration pages, since conditions can change quickly." },
+      { t: "p", text: "Many Israeli companies hire remote engineers abroad through contractor or employer-of-record arrangements, so remote roles may be the more realistic starting point. See [worldwide remote roles](/jobs/country/ww). For travel or relocation, check your government's current travel advisory and the official Israeli immigration pages, since conditions can change quickly." },
       WORLD_LINKS("il", "Israel", [{ href: "/jobs/city/tel-aviv-yafo", label: "Tel Aviv" }, { href: "/jobs/city/herzliya", label: "Herzliya" }]),
       { t: "note", text: CHECKED },
     ],

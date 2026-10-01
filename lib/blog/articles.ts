@@ -2,8 +2,9 @@
 import type { Article } from "./types";
 import { ARTICLES_UK } from "./articles-uk";
 import { ARTICLES_EN } from "./articles-en";
+import { ARTICLES_EN_2 } from "./articles-en-2";
 
-export const ARTICLES: Article[] = [...ARTICLES_UK, ...ARTICLES_EN];
+export const ARTICLES: Article[] = [...ARTICLES_UK, ...ARTICLES_EN, ...ARTICLES_EN_2];
 
 export function findArticle(slug: string): Article | undefined {
   return ARTICLES.find((a) => a.slug === slug);

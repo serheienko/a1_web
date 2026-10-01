@@ -48,6 +48,11 @@ const COUNTRY_GUIDES: Record<string, string> = {
   CA: "tech-jobs-in-canada",
   PL: "tech-jobs-in-poland",
   IL: "tech-jobs-in-israel",
+  NL: "tech-jobs-in-netherlands",
+  IE: "tech-jobs-in-ireland",
+  ES: "tech-jobs-in-spain",
+  FR: "tech-jobs-in-france",
+  AU: "tech-jobs-in-australia",
 };
 
 export default async function Page({ params, searchParams }: Props) {

@@ -9,6 +9,7 @@ import type { ReactNode } from "react";
 import type { Article, Block, DataBlockId } from "@/lib/blog/types";
 import { relatedArticles } from "@/lib/blog/articles";
 import { countryStats, marketStats, type CountryStats, type MarketStats } from "@/lib/a1/stats-index";
+import { countrySegments } from "@/lib/a1/segment-index";
 import { countryByCode, flagEmoji } from "@/lib/seo/countries";
 import { cityLabel, levelLabel } from "@/lib/seo/segments";
 
@@ -279,6 +280,30 @@ export async function ArticleView({ article }: { article: Article }) {
     const st = await countryStats(cc).catch(() => null);
     if (st) countries.set(cc, st);
   }
+  // Ссылки на сегменты страны (/jobs/country/<cc>/<сегмент>) оставляем только живые:
+  // в сегменте 10+ вакансий. Иначе читатель попадёт на пустую noindex-страницу.
+  const liveSeg = new Map<string, Set<string>>();
+  for (const b of article.blocks) {
+    if (b.t !== "links") continue;
+    for (const l of b.links) {
+      const m = /^\/jobs\/country\/([a-z]{2})\/([^/?#]+)$/.exec(l.href);
+      if (m && m[1] && !liveSeg.has(m[1])) {
+        const seg = await countrySegments(m[1]).catch(() => null);
+        liveSeg.set(m[1], new Set(seg ? [...seg.stacks.map((x) => x.slug), ...seg.levels.map((x) => x.level as string), ...(seg.remote > 0 ? ["remote"] : [])] : []));
+      }
+    }
+  }
+  const blocks: Block[] = article.blocks.map((b) =>
+    b.t === "links"
+      ? {
+          ...b,
+          links: b.links.filter((l) => {
+            const m = /^\/jobs\/country\/([a-z]{2})\/([^/?#]+)$/.exec(l.href);
+            return !m || !m[1] || !m[2] || !!liveSeg.get(m[1])?.has(m[2]);
+          }),
+        }
+      : b,
+  );
   const url = `${SITE_URL}/blog/${article.slug}`;
   const headingIds = new Map<number, string>();
   const headings: { id: string; text: string }[] = [];
@@ -362,7 +387,7 @@ export async function ArticleView({ article }: { article: Article }) {
             </ol>
           </nav>
         ) : null}
-        {article.blocks.map((b, i) => <BlockView key={i} block={b} stats={stats} countries={countries} lang={article.lang} id={b.t === "h2" ? headingIds.get(i) : undefined} />)}
+        {blocks.map((b, i) => <BlockView key={i} block={b} stats={stats} countries={countries} lang={article.lang} id={b.t === "h2" ? headingIds.get(i) : undefined} />)}
         <p className="mt-10 rounded-xl bg-neutral-50 px-4 py-3 text-[13px] leading-relaxed text-neutral-500 dark:bg-neutral-900 dark:text-neutral-400">
           {uk
             ? "Звідки цифри: ми щодня збираємо відкриті вакансії з сайтів компаній і рахуємо їх у власній базі A1 Jobs. Числа в таблицях оновлюються автоматично, без ручних правок."
