@@ -50,15 +50,23 @@ function Linked({ line }: { line: string }) {
   );
 }
 
-export function JobContent({ text: fullText }: { text: string }) {
-  const { summary, rest: text } = splitA1Summary(fullText);
-  const blocks = parseJobContent(text);
-  const summaryBlock = summary ? (
+/** 01.10.2026 (Александр: «summary лучше в конец, перед блоком комментариев»):
+ *  блок «A1 Summary» вынесен отдельно, страница вакансии ставит его перед комментариями. */
+export function JobSummary({ text }: { text: string }) {
+  const { summary } = splitA1Summary(text);
+  if (!summary) return null;
+  return (
     <aside className="mt-6 rounded-2xl border border-accent/20 bg-accent/5 px-4 py-3.5 text-[15px] leading-relaxed text-neutral-800 dark:text-neutral-200">
       <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-accent">{A1_SUMMARY_LABEL}</p>
       <p lang={guessLang(summary)}>{summary}</p>
     </aside>
-  ) : null;
+  );
+}
+
+export function JobContent({ text: fullText, hideSummary = false }: { text: string; hideSummary?: boolean }) {
+  const { rest: text } = splitA1Summary(fullText);
+  const blocks = parseJobContent(text);
+  const summaryBlock = hideSummary ? null : <JobSummary text={fullText} />;
 
   // Пустой текст или текст, из которого ничего не разобралось -- ведём
   // себя как раньше, одним куском. Лучше показать как есть, чем ничего.

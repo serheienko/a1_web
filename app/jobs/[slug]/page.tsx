@@ -37,7 +37,7 @@ import { profileHref } from "@/lib/profile-href";
 import { TagLabel } from "@/components/tag-label";
 import { LocationMap } from "@/components/location-map";
 import { RelatedJobs } from "@/components/related-jobs";
-import { JobContent } from "@/components/job-content";
+import { JobContent, JobSummary } from "@/components/job-content";
 import { fetchRelatedJobs } from "@/lib/a1/related";
 // 2026-09-19 (Александр: «написано instagram.com, я подумал, что это на
 // основную страницу ведёт»). У импортированных вакансий title ссылки —
@@ -372,10 +372,10 @@ export default async function JobDetailPage({ params }: Props) {
 
       {post.isExternal ? (
         <div lang="en">
-          <JobContent text={post.contentText} />
+          <JobContent text={post.contentText} hideSummary />
         </div>
       ) : (
-        <JobContent text={post.contentText} />
+        <JobContent text={post.contentText} hideSummary />
       )}
 
       {/* 2026-08-31: same decorative OpenStreetMap embed as before, but
@@ -434,6 +434,8 @@ export default async function JobDetailPage({ params }: Props) {
           </ul>
         </div>
       )}
+
+      <JobSummary text={post.contentText} />
 
       <PostComments comments={comments} postId={post.id} />
 
