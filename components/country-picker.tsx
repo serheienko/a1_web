@@ -105,11 +105,16 @@ export function CountryPicker({
   const currentCountry = countryByCode(currentCode);
   const search = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
 
-  // Україна всегда первая (это дефолт), дальше -- по количеству вакансий.
+  // 01.10.2026 (Александр: «США обогнала Украину -- поставь сверху... просто
+  // по порядку, от большего к меньшему»): сортируем все пункты, включая
+  // Україна и Worldwide, по числу вакансий. Дефолт при этом остаётся Україна.
   const rows: CountryOption[] = [
-    { code: DEFAULT_COUNTRY_CODE, count: options.find((o) => o.code === DEFAULT_COUNTRY_CODE)?.count ?? 0 },
-    ...options.filter((o) => o.code !== DEFAULT_COUNTRY_CODE && o.count > 0),
-  ];
+    ...(options.some((o) => o.code === DEFAULT_COUNTRY_CODE) ? [] : [{ code: DEFAULT_COUNTRY_CODE, count: 0 }]),
+    ...options.filter((o) => o.count > 0 || o.code === DEFAULT_COUNTRY_CODE),
+  ]
+    .map((row, i) => ({ row, i }))
+    .sort((a, b) => b.row.count - a.row.count || a.i - b.i)
+    .map(({ row }) => row);
 
   return (
     <div
