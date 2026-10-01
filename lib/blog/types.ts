@@ -17,7 +17,13 @@ export type DataBlockId =
   | "uk-tech" // Украина: топ технологий
   | "world-tech" // мир: топ технологий
   | "world-countries" // мир: топ стран
-  | "salary-by-tech"; // зарплаты USD/год по технологиям
+  | "salary-by-tech" // зарплаты USD/год по технологиям
+  | "country-summary" // страна: всего / удалённо / гибрид + медиана USD
+  | "country-salary"
+  | "country-levels"
+  | "country-tech"
+  | "country-cities"
+  | "country-employers";
 
 export type Block =
   | { t: "p"; text: string }
@@ -27,7 +33,7 @@ export type Block =
   | { t: "ol"; items: string[] }
   | { t: "note"; text: string }
   | { t: "links"; title: string; links: { href: string; label: string }[] }
-  | { t: "data"; id: DataBlockId; title?: string; caption?: string };
+  | { t: "data"; id: DataBlockId; title?: string; caption?: string; cc?: string };
 
 export type Article = {
   slug: string;

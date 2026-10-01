@@ -19,6 +19,7 @@ import { extractLevel, JOB_LEVELS, type JobLevel } from "@/lib/seo/job-level";
 import { TECH_CATALOG, slugForTech } from "@/lib/seo/tech-catalog";
 import { techLandingHref } from "@/lib/seo/tech-landings";
 import { worldwideKind } from "@/lib/seo/worldwide-kind";
+import { profileHref } from "@/lib/profile-href";
 
 export const MIN_SALARY_SAMPLE = 15;
 
@@ -176,5 +177,67 @@ export async function marketStats(): Promise<MarketStats> {
   const [noExp, reservation] = await Promise.all([postsForFact("no-experience"), postsForFact("reservation")]);
   const stats = buildMarketStats(posts, { noExperience: noExp.length, reservation: reservation.length });
   cached = { source: posts, stats };
+  return stats;
+}
+
+// ───────── Страна: живые цифры для английских гайдов (/blog/...-<страна>) ─────────
+
+export type CountryStats = {
+  cc: string;
+  total: number;
+  remote: number;
+  hybrid: number;
+  levels: { level: JobLevel; count: number }[];
+  tech: TechCount[];
+  cities: { city: string; count: number }[];
+  employers: { name: string; href: string | null; count: number }[];
+  /** Медиана годовой зарплаты в USD -- только если вилок в долларах хватает. */
+  salaryUsd: { n: number; median: number; p25: number; p75: number } | null;
+};
+
+export function buildCountryStats(posts: WebPost[], cc: string): CountryStats {
+  const code = cc.toUpperCase();
+  const mine = posts.filter((p) => p.location?.country?.trim().toUpperCase() === code);
+  const cities = new Map<string, number>();
+  const employers = new Map<string, { name: string; href: string | null; count: number }>();
+  let remote = 0;
+  let hybrid = 0;
+  const usd: number[] = [];
+  for (const p of mine) {
+    const city = p.location?.city?.trim();
+    if (city) cities.set(city, (cities.get(city) ?? 0) + 1);
+    if (p.tags.includes("remote")) remote++;
+    else if (p.tags.includes("hybrid")) hybrid++;
+    const key = p.author.username ?? p.author.name;
+    const e = employers.get(key);
+    if (e) e.count++;
+    else employers.set(key, { name: p.author.name, href: p.author.username ? profileHref(p.author.username) : null, count: 1 });
+    const v = annualUsd(p);
+    if (v != null) usd.push(v);
+  }
+  usd.sort((a, b) => a - b);
+  return {
+    cc: code,
+    total: mine.length,
+    remote,
+    hybrid,
+    levels: levelCounts(mine),
+    tech: topTech(mine, 20).filter((t) => !SKIP.has(t.tech)),
+    cities: [...cities].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([city, count]) => ({ city, count })),
+    employers: [...employers.values()].sort((a, b) => b.count - a.count).slice(0, 8),
+    salaryUsd: usd.length >= MIN_SALARY_SAMPLE ? { n: usd.length, median: quantile(usd, 0.5), p25: quantile(usd, 0.25), p75: quantile(usd, 0.75) } : null,
+  };
+}
+
+const SKIP = new Set(["Jira", "Excel", "REST", "Git"]);
+
+const countryCache = new Map<string, { source: WebPost[]; stats: CountryStats }>();
+
+export async function countryStats(cc: string): Promise<CountryStats> {
+  const posts = await allIndexedPosts();
+  const hit = countryCache.get(cc);
+  if (hit && hit.source === posts) return hit.stats;
+  const stats = buildCountryStats(posts, cc);
+  countryCache.set(cc, { source: posts, stats });
   return stats;
 }

@@ -40,6 +40,16 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   };
 }
 
+// 01.10.2026: английские гайды блога под страны первого эшелона.
+const COUNTRY_GUIDES: Record<string, string> = {
+  US: "tech-jobs-in-usa",
+  GB: "tech-jobs-in-uk",
+  DE: "tech-jobs-in-germany",
+  CA: "tech-jobs-in-canada",
+  PL: "tech-jobs-in-poland",
+  IL: "tech-jobs-in-israel",
+};
+
 export default async function Page({ params, searchParams }: Props) {
   const found = findCountryLanding((await params).code);
   if (!found) notFound();
@@ -49,7 +59,14 @@ export default async function Page({ params, searchParams }: Props) {
   const groups =
     found.country.code === "WW"
       ? articleLinks(["viddalena-robota-na-inozemnu-kompaniyu", "rynok-it-vakansiy"])
-      : [...(await linksForCountry(found.country.code)), ...articleLinks(["rynok-it-vakansiy", "viddalena-robota-na-inozemnu-kompaniyu"])];
+      : [
+          ...(await linksForCountry(found.country.code)),
+          ...articleLinks(
+            COUNTRY_GUIDES[found.country.code]
+              ? [COUNTRY_GUIDES[found.country.code]!]
+              : ["rynok-it-vakansiy", "viddalena-robota-na-inozemnu-kompaniyu"],
+          ),
+        ];
   return (
     <>
       <JobLandingPage landing={found.landing} page={page} filters={{ country: found.country.code }} />

@@ -8,9 +8,9 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import type { Article, Block, DataBlockId } from "@/lib/blog/types";
 import { relatedArticles } from "@/lib/blog/articles";
-import { marketStats, type MarketStats } from "@/lib/a1/stats-index";
+import { countryStats, marketStats, type CountryStats, type MarketStats } from "@/lib/a1/stats-index";
 import { countryByCode, flagEmoji } from "@/lib/seo/countries";
-import { levelLabel } from "@/lib/seo/segments";
+import { cityLabel, levelLabel } from "@/lib/seo/segments";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -20,6 +20,13 @@ function inline(text: string): ReactNode[] {
     const link = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(part);
     if (link) {
       const [, label, href] = link as unknown as [string, string, string];
+      if (/^https?:\/\//.test(href)) {
+        return (
+          <a key={i} href={href} target="_blank" rel="noopener noreferrer" className="text-accent underline-offset-2 hover:underline">
+            {label}
+          </a>
+        );
+      }
       return (
         <Link key={i} href={href} className="text-accent underline-offset-2 hover:underline">
           {label}
@@ -54,9 +61,65 @@ function Bars({ rows, lang }: { rows: { label: ReactNode; count: number }[]; lan
 
 const SKIP_TECH = new Set(["Jira", "Excel", "REST", "Git"]);
 
-function DataTable({ id, s, lang }: { id: DataBlockId; s: MarketStats; lang: "uk" | "en" }) {
+function DataTable({ id, s, c, lang }: { id: DataBlockId; s: MarketStats; c?: CountryStats; lang: "uk" | "en" }) {
   const uk = lang === "uk";
   switch (id) {
+    case "country-summary":
+      if (!c) return null;
+      return (
+        <Bars
+          lang={lang}
+          rows={[
+            { label: "Open roles", count: c.total },
+            { label: "Remote", count: c.remote },
+            { label: "Hybrid", count: c.hybrid },
+          ]}
+        />
+      );
+    case "country-salary":
+      if (!c?.salaryUsd) return null;
+      return (
+        <p className="my-3 text-[15px] leading-relaxed text-neutral-700 dark:text-neutral-300">
+          Median advertised pay across {fmtN(c.salaryUsd.n, lang)} roles that state a USD salary: <strong>{fmtK(c.salaryUsd.median)}</strong> a year
+          (typical range {fmtK(c.salaryUsd.p25)}–{fmtK(c.salaryUsd.p75)}).
+        </p>
+      );
+    case "country-levels":
+      if (!c) return null;
+      return (
+        <Bars
+          lang={lang}
+          rows={c.levels.map((l) => ({
+            label: <Link href={`/jobs/country/${c.cc.toLowerCase()}/${l.level}`} className="hover:text-accent">{levelLabel(l.level)}</Link>,
+            count: l.count,
+          }))}
+        />
+      );
+    case "country-tech":
+      if (!c) return null;
+      return (
+        <Bars
+          lang={lang}
+          rows={c.tech.slice(0, 12).map((t) => ({
+            label: t.slug && t.href ? <Link href={`/jobs/country/${c.cc.toLowerCase()}/${t.slug}`} className="hover:text-accent">{t.tech}</Link> : t.tech,
+            count: t.count,
+          }))}
+        />
+      );
+    case "country-cities":
+      if (!c) return null;
+      return <Bars lang={lang} rows={c.cities.map((x) => ({ label: x.city, count: x.count }))} />;
+    case "country-employers":
+      if (!c) return null;
+      return (
+        <Bars
+          lang={lang}
+          rows={c.employers.map((e) => ({
+            label: e.href ? <Link href={e.href} className="hover:text-accent">{e.name}</Link> : e.name,
+            count: e.count,
+          }))}
+        />
+      );
     case "summary":
       return (
         <Bars
@@ -91,7 +154,7 @@ function DataTable({ id, s, lang }: { id: DataBlockId; s: MarketStats; lang: "uk
         />
       );
     case "uk-cities":
-      return <Bars lang={lang} rows={s.uaCities.map((c) => ({ label: c.city, count: c.count }))} />;
+      return <Bars lang={lang} rows={s.uaCities.map((c) => ({ label: cityLabel(c.city, "uk"), count: c.count }))} />;
     case "uk-tech":
     case "world-tech": {
       const list = (id === "uk-tech" ? s.uaTech : s.worldTech).filter((t) => !SKIP_TECH.has(t.tech));
@@ -153,7 +216,7 @@ function DataTable({ id, s, lang }: { id: DataBlockId; s: MarketStats; lang: "uk
   }
 }
 
-function BlockView({ block, stats, lang }: { block: Block; stats: MarketStats | null; lang: "uk" | "en" }) {
+function BlockView({ block, stats, countries, lang }: { block: Block; stats: MarketStats | null; countries: Map<string, CountryStats>; lang: "uk" | "en" }) {
   switch (block.t) {
     case "p":
       return <p className="my-4 text-[16px] leading-[1.75] text-neutral-700 dark:text-neutral-300">{inline(block.text)}</p>;
@@ -199,7 +262,7 @@ function BlockView({ block, stats, lang }: { block: Block; stats: MarketStats | 
       return (
         <figure className="my-6">
           {block.title ? <figcaption className="text-sm font-medium text-neutral-800 dark:text-neutral-200">{block.title}</figcaption> : null}
-          <DataTable id={block.id} s={stats} lang={lang} />
+          <DataTable id={block.id} s={stats} c={block.cc ? countries.get(block.cc.toUpperCase()) : undefined} lang={lang} />
           {block.caption ? <p className="text-[13px] text-neutral-400">{block.caption}</p> : null}
         </figure>
       );
@@ -210,6 +273,12 @@ export async function ArticleView({ article }: { article: Article }) {
   const uk = article.lang === "uk";
   const needsData = article.blocks.some((b) => b.t === "data");
   const stats = needsData ? await marketStats().catch(() => null) : null;
+  const ccs = [...new Set(article.blocks.flatMap((b) => (b.t === "data" && b.cc ? [b.cc.toUpperCase()] : [])))];
+  const countries = new Map<string, CountryStats>();
+  for (const cc of ccs) {
+    const st = await countryStats(cc).catch(() => null);
+    if (st) countries.set(cc, st);
+  }
   const url = `${SITE_URL}/blog/${article.slug}`;
   const related = relatedArticles(article);
   const dateLabel = new Date(article.updated).toLocaleDateString(uk ? "uk-UA" : "en-US", { day: "numeric", month: "long", year: "numeric" });
@@ -268,7 +337,7 @@ export async function ArticleView({ article }: { article: Article }) {
             {uk ? "Оновлено" : "Updated"}: <time dateTime={article.updated}>{dateLabel}</time> · A1 Jobs
           </p>
         </header>
-        {article.blocks.map((b, i) => <BlockView key={i} block={b} stats={stats} lang={article.lang} />)}
+        {article.blocks.map((b, i) => <BlockView key={i} block={b} stats={stats} countries={countries} lang={article.lang} />)}
         {article.faq?.length ? (
           <section className="mt-10">
             <h2 className="mb-3 text-2xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">{uk ? "Часті запитання" : "FAQ"}</h2>
