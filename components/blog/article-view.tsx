@@ -216,12 +216,12 @@ function DataTable({ id, s, c, lang }: { id: DataBlockId; s: MarketStats; c?: Co
   }
 }
 
-function BlockView({ block, stats, countries, lang }: { block: Block; stats: MarketStats | null; countries: Map<string, CountryStats>; lang: "uk" | "en" }) {
+function BlockView({ block, stats, countries, lang, id }: { block: Block; stats: MarketStats | null; countries: Map<string, CountryStats>; lang: "uk" | "en"; id?: string }) {
   switch (block.t) {
     case "p":
       return <p className="my-4 text-[16px] leading-[1.75] text-neutral-700 dark:text-neutral-300">{inline(block.text)}</p>;
     case "h2":
-      return <h2 className="mt-10 mb-2 text-2xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">{block.text}</h2>;
+      return <h2 id={id} className="mt-10 mb-2 scroll-mt-20 text-2xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">{block.text}</h2>;
     case "h3":
       return <h3 className="mt-6 mb-1 text-lg font-semibold text-neutral-900 dark:text-neutral-100">{block.text}</h3>;
     case "ul":
@@ -280,6 +280,17 @@ export async function ArticleView({ article }: { article: Article }) {
     if (st) countries.set(cc, st);
   }
   const url = `${SITE_URL}/blog/${article.slug}`;
+  const headingIds = new Map<number, string>();
+  const headings: { id: string; text: string }[] = [];
+  article.blocks.forEach((b, i) => {
+    if (b.t === "h2") {
+      const id = `s${headings.length + 1}`;
+      headingIds.set(i, id);
+      headings.push({ id, text: b.text });
+    }
+  });
+  const words = article.blocks.reduce((n, b) => n + ("text" in b ? b.text.split(/\s+/).length : "items" in b ? b.items.join(" ").split(/\s+/).length : 0), 0);
+  const minutes = Math.max(1, Math.round(words / 200));
   const related = relatedArticles(article);
   const dateLabel = new Date(article.updated).toLocaleDateString(uk ? "uk-UA" : "en-US", { day: "numeric", month: "long", year: "numeric" });
 
@@ -293,6 +304,8 @@ export async function ArticleView({ article }: { article: Article }) {
       datePublished: article.published,
       dateModified: article.updated,
       mainEntityOfPage: url,
+      image: `${url}/opengraph-image`,
+      wordCount: words,
       author: { "@type": "Organization", name: "A1 Jobs", url: SITE_URL },
       publisher: { "@type": "Organization", name: "A1 Jobs", url: SITE_URL },
     },
@@ -334,10 +347,27 @@ export async function ArticleView({ article }: { article: Article }) {
           <div className="text-[12px] font-medium uppercase tracking-wide text-accent">{article.kicker}</div>
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl dark:text-neutral-50">{article.h1}</h1>
           <p className="mt-3 text-[13px] text-neutral-400">
-            {uk ? "Оновлено" : "Updated"}: <time dateTime={article.updated}>{dateLabel}</time> · A1 Jobs
+            {uk ? "Оновлено" : "Updated"}: <time dateTime={article.updated}>{dateLabel}</time> · {minutes} {uk ? "хв читання" : "min read"} · {uk ? "Редакція A1 Jobs" : "A1 Jobs editorial"}
           </p>
         </header>
-        {article.blocks.map((b, i) => <BlockView key={i} block={b} stats={stats} countries={countries} lang={article.lang} />)}
+        {headings.length >= 3 ? (
+          <nav aria-label={uk ? "Зміст" : "Contents"} className="mb-6 rounded-xl bg-neutral-50 px-4 py-3 dark:bg-neutral-900">
+            <div className="text-[11px] font-medium uppercase tracking-wide text-neutral-400">{uk ? "Зміст" : "In this article"}</div>
+            <ol className="mt-2 list-decimal space-y-1 pl-5 text-[14px] text-neutral-700 dark:text-neutral-300">
+              {headings.map((h) => (
+                <li key={h.id}>
+                  <a href={`#${h.id}`} className="hover:text-accent">{h.text}</a>
+                </li>
+              ))}
+            </ol>
+          </nav>
+        ) : null}
+        {article.blocks.map((b, i) => <BlockView key={i} block={b} stats={stats} countries={countries} lang={article.lang} id={b.t === "h2" ? headingIds.get(i) : undefined} />)}
+        <p className="mt-10 rounded-xl bg-neutral-50 px-4 py-3 text-[13px] leading-relaxed text-neutral-500 dark:bg-neutral-900 dark:text-neutral-400">
+          {uk
+            ? "Звідки цифри: ми щодня збираємо відкриті вакансії з сайтів компаній і рахуємо їх у власній базі A1 Jobs. Числа в таблицях оновлюються автоматично, без ручних правок."
+            : "Where the numbers come from: we collect open roles from company career pages every day and count them in our own A1 Jobs database. Figures in the tables refresh automatically, with no manual edits."}
+        </p>
         {article.faq?.length ? (
           <section className="mt-10">
             <h2 className="mb-3 text-2xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">{uk ? "Часті запитання" : "FAQ"}</h2>
