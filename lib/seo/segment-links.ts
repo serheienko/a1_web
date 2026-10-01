@@ -10,6 +10,7 @@ import { JOB_LEVELS, type JobLevel } from "@/lib/seo/job-level";
 import { cityLabel, levelLabel } from "@/lib/seo/segments";
 import { countrySegments, countriesForTech, globalLevelCounts, listCities } from "@/lib/a1/segment-index";
 import type { SegmentLinkGroup } from "@/components/segment-page";
+import { findArticle } from "@/lib/blog/articles";
 
 const techLabel = (slug: string) => TECH_LANDINGS.find((t) => t.slug === slug)?.label ?? slug;
 
@@ -93,4 +94,15 @@ export async function linksForGlobalLevels(current?: JobLevel): Promise<SegmentL
       links: JOB_LEVELS.filter((l) => l !== current && counts.some((c) => c.level === l)).map((l) => ({ href: `/jobs/level/${l}`, label: levelLabel(l) })),
     },
   ];
+}
+
+/** 01.10.2026. Блок «Корисні статті» внизу посадочных: ведёт в блог (/blog). */
+export function articleLinks(slugs: string[]): SegmentLinkGroup[] {
+  const links = slugs
+    .map((slug) => findArticle(slug))
+    .filter((a): a is NonNullable<ReturnType<typeof findArticle>> => !!a)
+    .map((a) => ({ href: `/blog/${a.slug}`, label: a.h1 }));
+  if (links.length === 0) return [];
+  const title = { uk: "Корисні статті", en: "Useful articles", ru: "Полезные статьи", de: "Nützliche Artikel", es: "Artículos útiles", fr: "Articles utiles", pl: "Przydatne artykuły", ptBR: "Artigos úteis", zh: "实用文章" };
+  return [{ title, links }];
 }

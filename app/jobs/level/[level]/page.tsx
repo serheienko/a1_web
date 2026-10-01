@@ -12,7 +12,7 @@ import { SegmentPage } from "@/components/segment-page";
 import { globalLevelPosts } from "@/lib/a1/segment-index";
 import { JOB_LEVELS, type JobLevel } from "@/lib/seo/job-level";
 import { globalLevelCountLine, globalLevelH1, globalLevelLead, globalLevelMeta } from "@/lib/seo/segments";
-import { linksForGlobalLevels } from "@/lib/seo/segment-links";
+import { articleLinks, linksForGlobalLevels } from "@/lib/seo/segment-links";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -49,7 +49,7 @@ export default async function Page({ params }: Props) {
       posts={posts}
       breadcrumbName={globalLevelH1(level).uk}
       path={`/jobs/level/${level}`}
-      groups={await linksForGlobalLevels(level)}
+      groups={[...(await linksForGlobalLevels(level)), ...articleLinks(["persha-robota-v-it-bez-dosvidu", "rynok-it-vakansiy", "zarplaty-v-it-za-tehnologiyamy"])]}
     />
   );
 }

@@ -25,9 +25,17 @@ import { buildLandingBreadcrumbJsonLd } from "@/lib/seo/jsonld";
 import { postsForFact } from "@/lib/a1/facts-index";
 import { FACT_LANDINGS, findFactLanding } from "@/lib/seo/fact-landings";
 import { Pagination } from "@/components/pagination";
+import { SegmentLinks } from "@/components/segment-page";
+import { articleLinks } from "@/lib/seo/segment-links";
 import { LandingCountryBadge } from "@/components/landing-country-badge";
 import { landingCountry, withCountry } from "@/lib/seo/landing-country";
 import { parsePageParam, toURLSearchParams, FEED_PAGE_SIZE } from "@/lib/a1/feed";
+
+const ARTICLES_FOR_TAG: Record<string, string[]> = {
+  "no-experience": ["persha-robota-v-it-bez-dosvidu", "rynok-it-vakansiy"],
+  reservation: ["it-vakansii-z-bronyuvannyam", "rynok-it-vakansiy"],
+  "with-salary": ["zarplaty-v-it-za-tehnologiyamy", "viddalena-robota-na-inozemnu-kompaniyu"],
+};
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -189,6 +197,8 @@ export default async function Page({ params, searchParams }: Props) {
           ))}
         </ul>
       </section>
-    </main>
+          {/* 01.10.2026: ссылки на статьи блога (lib/blog) под тему страницы. */}
+      <SegmentLinks groups={articleLinks(ARTICLES_FOR_TAG[landing.slug] ?? [])} />
+</main>
   );
 }

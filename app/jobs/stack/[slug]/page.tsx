@@ -24,7 +24,7 @@ import { LOCALES, LOCALE_VISIBILITY_CLASS, T, type Locale } from "@/components/t
 import { buildLandingBreadcrumbJsonLd } from "@/lib/seo/jsonld";
 import { postsForTech } from "@/lib/a1/tech-index";
 import { SegmentLinks } from "@/components/segment-page";
-import { linksForGlobalLevels, linksForTech } from "@/lib/seo/segment-links";
+import { linksForGlobalLevels, linksForTech, articleLinks } from "@/lib/seo/segment-links";
 import {
   TECH_LANDINGS,
   findTechLanding,
@@ -166,7 +166,7 @@ export default async function Page({ params }: Props) {
 
       {/* 30.09.2026: эта технология по странам и уровни -- перелинковка на
           новые сегменты (lib/seo/segments.ts). */}
-      <SegmentLinks groups={[...(await linksForTech(landing.slug)), ...(await linksForGlobalLevels())]} />
+      <SegmentLinks groups={[...(await linksForTech(landing.slug)), ...(await linksForGlobalLevels()), ...articleLinks(["zarplaty-v-it-za-tehnologiyamy", "top-tehnologiy-dlya-roboty-v-it", "persha-robota-v-it-bez-dosvidu"])]} />
     </main>
   );
 }

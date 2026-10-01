@@ -18,6 +18,8 @@ export const revalidate = 3600;
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { JobLandingPage } from "@/components/job-landing";
+import { SegmentLinks } from "@/components/segment-page";
+import { articleLinks } from "@/lib/seo/segment-links";
 import { findJobLanding } from "@/lib/seo/job-landings";
 import { parsePageParam, toURLSearchParams } from "@/lib/a1/feed";
 import { landingCountry } from "@/lib/seo/landing-country";
@@ -55,5 +57,14 @@ export default async function Page({ searchParams }: Props) {
   const sp = await searchParams;
   const page = parsePageParam(toURLSearchParams(sp));
   const country = landingCountry(sp);
-  return <JobLandingPage landing={landing} page={page} country={country} />;
+  return (
+    <>
+      <JobLandingPage landing={landing} page={page} country={country} />
+      {country ? null : (
+        <div className="mx-auto max-w-3xl px-4 pb-fab-safe">
+          <SegmentLinks groups={articleLinks(["viddalena-robota-na-inozemnu-kompaniyu", "rynok-it-vakansiy"])} />
+        </div>
+      )}
+    </>
+  );
 }

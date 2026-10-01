@@ -9,7 +9,7 @@ import { notFound } from "next/navigation";
 import { JobLandingPage } from "@/components/job-landing";
 import { findCountryLanding } from "@/lib/seo/country-landings";
 import { SegmentLinks } from "@/components/segment-page";
-import { linksForCountry } from "@/lib/seo/segment-links";
+import { articleLinks, linksForCountry } from "@/lib/seo/segment-links";
 import { parsePageParam, toURLSearchParams, fetchFeedPage, pageToCursor } from "@/lib/a1/feed";
 
 const SITE_URL = "https://jobs.a1appp.com";
@@ -46,7 +46,10 @@ export default async function Page({ params, searchParams }: Props) {
   const page = parsePageParam(toURLSearchParams(await searchParams));
   // 30.09.2026: внизу страницы -- ссылки на сегменты страны (технология,
   // уровень, город); на главную и шапку это не влияет.
-  const groups = found.country.code === "WW" ? [] : await linksForCountry(found.country.code);
+  const groups =
+    found.country.code === "WW"
+      ? articleLinks(["viddalena-robota-na-inozemnu-kompaniyu", "rynok-it-vakansiy"])
+      : [...(await linksForCountry(found.country.code)), ...articleLinks(["rynok-it-vakansiy", "viddalena-robota-na-inozemnu-kompaniyu"])];
   return (
     <>
       <JobLandingPage landing={found.landing} page={page} filters={{ country: found.country.code }} />

@@ -27,6 +27,7 @@ import { TECH_LANDINGS } from "@/lib/seo/tech-landings";
 import { TOP100_LANDING } from "@/lib/seo/top100-landing";
 import { countrySegments, globalLevelCounts, listCities, segmentCountries } from "@/lib/a1/segment-index";
 import { COUNTRY_LANDING_CODES } from "@/lib/seo/country-landings";
+import { ARTICLES } from "@/lib/blog/articles";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -91,6 +92,12 @@ export default async function sitemap({ id }: { id: number | string }): Promise<
     }
     for (const code of COUNTRY_LANDING_CODES) {
       if ((perCountry.get(code) ?? 0) >= 3) entries.push({ url: `${SITE_URL}/jobs/country/${code}` });
+    }
+
+    // 01.10.2026: блог -- список и статьи (lib/blog).
+    entries.push({ url: `${SITE_URL}/blog` });
+    for (const article of ARTICLES) {
+      entries.push({ url: `${SITE_URL}/blog/${article.slug}`, lastModified: new Date(article.updated) });
     }
 
     // 30.09.2026: SEO-сегменты (lib/seo/segments.ts) -- города, уровни,
