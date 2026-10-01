@@ -13,6 +13,7 @@ import { JOB_LANDINGS } from "@/lib/seo/job-landings";
 import { FACT_LANDINGS } from "@/lib/seo/fact-landings";
 import { TOP100_LANDING } from "@/lib/seo/top100-landing";
 import { withCountry } from "@/lib/seo/landing-country";
+import { ScrollActiveChip } from "@/components/scroll-active-chip";
 
 export function LandingBar({
   country,
@@ -41,6 +42,7 @@ export function LandingBar({
         </div>
       ) : null}
       <nav aria-label="job formats" className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
+        <ScrollActiveChip />
         <ul className="flex w-max gap-2 sm:w-auto sm:flex-wrap">
           {chips.map((chip) => (
             <li key={chip.key}>
