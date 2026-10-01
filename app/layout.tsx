@@ -243,6 +243,15 @@ export default function RootLayout({
         <ScrollTopFab />
         <CreatePostFab />
         <Analytics />
+        {/* Umami (self-hosted on Railway): page views without cookies */}
+        <Script
+          id="umami"
+          src="https://umami-production-e14b.up.railway.app/script.js"
+          data-website-id="e76d05a0-d9e0-4e57-8a52-4ee0c93e05db"
+          data-domains="jobs.a1appp.com"
+          strategy="afterInteractive"
+          defer
+        />
       </body>
     </html>
   );
