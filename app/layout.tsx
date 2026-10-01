@@ -171,9 +171,11 @@ export const metadata: Metadata = {
   // copy just the `content` value, not the whole tag) — this renders it
   // as <meta name="google-site-verification">. No code change needed
   // after that; omitted entirely if the env var isn't set.
-  verification: process.env.GOOGLE_SITE_VERIFICATION
-    ? { google: process.env.GOOGLE_SITE_VERIFICATION }
-    : undefined,
+  // Bing Webmaster Tools (1 Oct 2026): ownership via <meta name="msvalidate.01">.
+  verification: {
+    ...(process.env.GOOGLE_SITE_VERIFICATION ? { google: process.env.GOOGLE_SITE_VERIFICATION } : {}),
+    other: { "msvalidate.01": "F9CBD364AC1D6F2C44D52C4B38A8E708" },
+  },
 };
 
 // Aleksandr, 2026-08-27: header should fog/blur under the iPhone status
