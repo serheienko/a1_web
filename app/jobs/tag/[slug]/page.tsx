@@ -29,6 +29,9 @@ import { SegmentLinks } from "@/components/segment-page";
 import { articleLinks } from "@/lib/seo/segment-links";
 import { LandingCountryBadge } from "@/components/landing-country-badge";
 import { landingCountry, withCountry } from "@/lib/seo/landing-country";
+import { LandingBar } from "@/components/landing-bar";
+import { keepInUkraineFeed } from "@/lib/a1/feed";
+import { worldwideKind } from "@/lib/seo/worldwide-kind";
 import { parsePageParam, toURLSearchParams, FEED_PAGE_SIZE } from "@/lib/a1/feed";
 
 const ARTICLES_FOR_TAG: Record<string, string[]> = {
@@ -110,9 +113,15 @@ export default async function Page({ params, searchParams }: Props) {
   const country = landingCountry(sp);
   const page = parsePageParam(toURLSearchParams(sp));
   const everywhere = await postsForFact(landing.slug);
+  // Без страны -- режим «Україна» (как лента): украинские + удалённые «отовсюду»,
+  // а не вакансии всего мира под флагом Украины.
   const all = country
-    ? everywhere.filter((post) => post.location?.country?.toUpperCase() === country)
-    : everywhere;
+    ? everywhere.filter((post) =>
+        country === "WW"
+          ? post.location?.country?.toUpperCase() === "WW" && worldwideKind(post) !== "ua" // как пункт «Worldwide» в ленте
+          : post.location?.country?.toUpperCase() === country,
+      )
+    : everywhere.filter(keepInUkraineFeed);
   const posts = country
     ? all.slice((page - 1) * FEED_PAGE_SIZE, page * FEED_PAGE_SIZE)
     : all.slice(0, LIMIT);
@@ -139,6 +148,8 @@ export default async function Page({ params, searchParams }: Props) {
         </Link>
         <span aria-hidden="true" className="px-1.5">/</span>
       </nav>
+
+      <LandingBar country={country} basePath={`/jobs/tag/${landing.slug}`} currentKey={landing.slug} withPicker={landing.slug !== "reservation"} />
 
       <header className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl dark:text-neutral-50">

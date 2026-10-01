@@ -19,6 +19,7 @@ import { LOCALES, LOCALE_VISIBILITY_CLASS, type Locale } from "@/components/t";
 import { T } from "@/components/t";
 import type { JobLanding } from "@/lib/seo/job-landings";
 import { LandingCountryBadge } from "@/components/landing-country-badge";
+import { LandingBar } from "@/components/landing-bar";
 import { withCountry } from "@/lib/seo/landing-country";
 import { buildLandingBreadcrumbJsonLd } from "@/lib/seo/jsonld";
 
@@ -90,6 +91,8 @@ export async function JobLandingPage({
         </a>
         <span aria-hidden="true" className="px-1.5">/</span>
       </nav>
+
+      <LandingBar country={country} basePath={basePath} currentKey={landing.slug} withPicker={!filters?.top100} />
 
       <header className="mb-8">
         {/* В отличие от главной, заголовок виден и на телефоне: на

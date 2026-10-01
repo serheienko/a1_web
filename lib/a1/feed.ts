@@ -291,7 +291,7 @@ function inUkraineMode(kind: WebPostKind, filters: FeedFilters): boolean {
   return kind === "hiring" && !filters.country && !filters.top100 && filters.location == null;
 }
 
-function keepInUkraineFeed(post: WebPost): boolean {
+export function keepInUkraineFeed(post: WebPost): boolean {
   const cc = post.location?.country?.trim().toUpperCase();
   return !cc || cc === "UA" || cc === "WW";
 }

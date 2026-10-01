@@ -44,6 +44,26 @@ function loadOptions(): Promise<CountryOption[]> {
   return inflight;
 }
 
+/** Посадочные, где страна и тег работают вместе: форматы работы и «фактовые» теги. */
+export function isCountryLanding(pathname: string): boolean {
+  return /^\/jobs\/(remote|office|hybrid)\/?$/.test(pathname) || /^\/jobs\/tag\/(?!reservation\/?$)[^/]+\/?$/.test(pathname);
+}
+
+/** Селектор страны для посадочной на телефоне (в шапке на телефоне его нет). */
+export function LandingCountryPicker({ basePath, current }: { basePath: string; current?: string }) {
+  const [options, setOptions] = useState<CountryOption[] | null>(cache);
+  useEffect(() => {
+    let alive = true;
+    loadOptions().then((o) => {
+      if (alive && o.length > 0) setOptions(o);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return <CountryPicker basePath={basePath} current={current} options={options ?? [{ code: "UA", count: 0 }]} />;
+}
+
 function NavCountryInner() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -63,13 +83,17 @@ function NavCountryInner() {
   // Пока список не пришёл, рисуем кнопку с одной Україною -- шапка не
   // прыгает, когда цифры подъедут.
   const list = options ?? [{ code: "UA", count: 0 }];
+  // 01.10.2026 (Александр: «первый выбор страна, потом тег»): на посадочных тегов
+  // страна меняется, а тег остаётся -- иначе выбор страны выкидывал на главную.
+  // «Топ 100» и «Бронювання» от страны не зависят, у них прежнее поведение.
+  const onLanding = isCountryLanding(pathname);
   return (
     <CountryPicker
-      basePath="/"
+      basePath={onLanding ? pathname : "/"}
       current={searchParams.get("country") ?? undefined}
       options={list}
       compact
-      preserveParams={pathname === "/"}
+      preserveParams={pathname === "/" || onLanding}
     />
   );
 }
