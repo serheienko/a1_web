@@ -25,7 +25,7 @@ import { JOB_LANDINGS } from "@/lib/seo/job-landings";
 import { FACT_LANDINGS } from "@/lib/seo/fact-landings";
 import { TECH_LANDINGS } from "@/lib/seo/tech-landings";
 import { TOP100_LANDING } from "@/lib/seo/top100-landing";
-import { cityTechList, countrySegments, globalLevelCounts, listCities, remoteTechList, segmentCountries } from "@/lib/a1/segment-index";
+import { cityTechList, countrySegments, globalLevelCounts, globalRoleCounts, listCities, remoteTechList, segmentCountries } from "@/lib/a1/segment-index";
 import { COUNTRY_LANDING_CODES } from "@/lib/seo/country-landings";
 import { ARTICLES } from "@/lib/blog/articles";
 
@@ -110,6 +110,7 @@ export default async function sitemap({ id }: { id: number | string }): Promise<
       }
       for (const t of await remoteTechList()) entries.push({ url: `${SITE_URL}/jobs/remote/${t.slug}` });
       for (const { level } of await globalLevelCounts()) entries.push({ url: `${SITE_URL}/jobs/level/${level}` });
+      for (const { role } of await globalRoleCounts()) entries.push({ url: `${SITE_URL}/jobs/role/${role}` });
       for (const cc of await segmentCountries()) {
         const seg = await countrySegments(cc);
         for (const s of seg.stacks) entries.push({ url: `${SITE_URL}/jobs/country/${cc}/${s.slug}` });

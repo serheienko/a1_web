@@ -12,6 +12,7 @@ import type { WebPost } from "@/types/web-post";
 import { allIndexedPosts } from "@/lib/a1/facts-index";
 import { extractTechTags } from "@/lib/seo/job-tech-tags";
 import { extractLevel, JOB_LEVELS, type JobLevel } from "@/lib/seo/job-level";
+import { extractRoles, JOB_ROLES, type JobRole } from "@/lib/seo/job-role";
 import { TECH_LANDINGS } from "@/lib/seo/tech-landings";
 import { MIN_SEGMENT_POSTS, slugifyCity } from "@/lib/seo/segments";
 import { worldwideKind } from "@/lib/seo/worldwide-kind";
@@ -29,6 +30,8 @@ export type SegIndex = {
   countryRemote: Map<string, WebPost[]>;
   /** Украина + удалённые «отовсюду»: аудитория главной. */
   globalLevel: Map<JobLevel, WebPost[]>;
+  /** Профессия (QA, Frontend...) для аудитории главной: Украина + удалённые «отовсюду». */
+  globalRole: Map<JobRole, WebPost[]>;
   /** ключ: «kyiv/python» (адрес города + адрес технологии). */
   cityTech: Map<string, WebPost[]>;
   /** Удалённые вакансии (украинские и «отовсюду») по технологии: ключ «python». */
@@ -57,6 +60,7 @@ export function buildSegmentIndex(posts: WebPost[]): SegIndex {
   const countryLevel = new Map<string, WebPost[]>();
   const countryRemote = new Map<string, WebPost[]>();
   const globalLevel = new Map<JobLevel, WebPost[]>();
+  const globalRole = new Map<JobRole, WebPost[]>();
   const remoteTech = new Map<string, WebPost[]>();
 
   for (const post of posts) {
@@ -97,6 +101,15 @@ export function buildSegmentIndex(posts: WebPost[]): SegIndex {
       const kind = worldwideKind(post);
       if (cc === "UA" || kind === "world" || kind === "remote") push(globalLevel, level, post);
     }
+
+    // Профессия по заголовку: та же аудитория, что у уровня.
+    {
+      const roles = extractRoles(post.title);
+      if (roles.length > 0) {
+        const kind = worldwideKind(post);
+        if (cc === "UA" || kind === "world" || kind === "remote") for (const role of roles) push(globalRole, role, post);
+      }
+    }
   }
 
   const buckets = [...cityBuckets.values()]
@@ -122,7 +135,7 @@ export function buildSegmentIndex(posts: WebPost[]): SegIndex {
     }
   }
 
-  return { source: posts, cities, countryTech, countryLevel, countryRemote, globalLevel, cityTech, remoteTech };
+  return { source: posts, cities, countryTech, countryLevel, countryRemote, globalLevel, globalRole, cityTech, remoteTech };
 }
 
 async function index(): Promise<SegIndex> {
@@ -146,6 +159,16 @@ export async function listCities(): Promise<CitySegment[]> {
 export async function globalLevelPosts(level: JobLevel): Promise<WebPost[] | null> {
   const list = (await index()).globalLevel.get(level);
   return enough(list) ? [...list].sort(byDate) : null;
+}
+
+export async function globalRolePosts(role: JobRole): Promise<WebPost[] | null> {
+  const list = (await index()).globalRole.get(role);
+  return enough(list) ? [...list].sort(byDate) : null;
+}
+
+export async function globalRoleCounts(): Promise<{ role: JobRole; count: number }[]> {
+  const idx = await index();
+  return JOB_ROLES.map((role) => ({ role, count: idx.globalRole.get(role)?.length ?? 0 })).filter((r) => r.count >= MIN_SEGMENT_POSTS);
 }
 
 export async function countryTechPosts(cc: string, techSlug: string): Promise<WebPost[] | null> {

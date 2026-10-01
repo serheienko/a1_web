@@ -8,9 +8,11 @@ import { countryByCode, countryName, flagEmoji } from "@/lib/seo/countries";
 import { TECH_LANDINGS } from "@/lib/seo/tech-landings";
 import { JOB_LEVELS, type JobLevel } from "@/lib/seo/job-level";
 import { cityLabel, levelLabel } from "@/lib/seo/segments";
-import { citiesForTech, cityTechList, countrySegments, countriesForTech, globalLevelCounts, listCities, remoteTechList } from "@/lib/a1/segment-index";
+import { citiesForTech, cityTechList, countrySegments, countriesForTech, globalLevelCounts, globalRoleCounts, listCities, remoteTechList } from "@/lib/a1/segment-index";
 import type { SegmentLinkGroup } from "@/components/segment-page";
 import { findArticle } from "@/lib/blog/articles";
+import { roleInfo, type JobRole } from "@/lib/seo/job-role";
+import { ROLE_LINKS_TITLE } from "@/lib/seo/role-texts";
 
 const techLabel = (slug: string) => TECH_LANDINGS.find((t) => t.slug === slug)?.label ?? slug;
 
@@ -188,6 +190,19 @@ export async function linksForRemoteHub(): Promise<SegmentLinkGroup[]> {
     {
       title: { uk: "Віддалено за технологією", en: "Remote by technology", ru: "Удалённо по технологии", de: "Remote nach Technologie", es: "Remoto por tecnología", fr: "Télétravail par technologie", pl: "Zdalnie wg technologii", ptBR: "Remoto por tecnologia", zh: "远程按技术" },
       links: list.map((x) => ({ href: `/jobs/remote/${x.slug}`, label: techLabel(x.slug) })),
+    },
+  ];
+}
+
+/** 01.10.2026. Блок «за професією»: ссылки между страницами /jobs/role/*. */
+export async function linksForGlobalRoles(current?: JobRole): Promise<SegmentLinkGroup[]> {
+  const counts = await globalRoleCounts();
+  return [
+    {
+      title: ROLE_LINKS_TITLE,
+      links: counts
+        .filter((c) => c.role !== current)
+        .map((c) => ({ href: `/jobs/role/${c.role}`, label: roleInfo(c.role)?.label ?? c.role })),
     },
   ];
 }

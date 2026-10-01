@@ -54,8 +54,12 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   // salary filter — there is no such filter (see components/filters.tsx),
   // and fixes "компаній і людей" -> "компаній і приватних осіб", which
   // reads oddly next to a company name.
-  const title = "Вакансії | A1 Jobs";
-  const description = "Актуальні вакансії від компаній та приватних осіб в A1 🐈‍⬛";
+  // 01.10.2026, по анализу ключевых слов (Google Planner / Bing): заголовок
+  // без слов «IT», «Україна», «віддалено» не отвечал ни на один запрос.
+  // Александр одобрил замену («делаем все три пункта»).
+  const title = "IT вакансії в Україні та віддалено — A1 Jobs";
+  const description =
+    "Актуальні IT-вакансії в Україні та віддалена робота з усього світу: розробка, QA, дизайн, дані, продукт. Відгукуйтесь напряму. Оновлюється щодня.";
 
   return {
     title,

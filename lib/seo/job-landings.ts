@@ -53,9 +53,11 @@ export const JOB_LANDINGS: JobLanding[] = [
   {
     slug: "remote",
     tag: "remote",
-    metaTitle: "Віддалена робота — вакансії | A1 Jobs",
+    // 01.10.2026: добавлено «для українців» и «IT» -- так ищут (Google Planner:
+    // «віддалена робота it»); без них заголовок совпадал с любым сайтом вакансий.
+    metaTitle: "Віддалена робота в IT для українців — remote вакансії | A1 Jobs",
     metaDescription:
-      "Вакансії з віддаленою роботою: розробка, тестування, маркетинг, підтримка. Оновлюється щодня.",
+      "Віддалена робота в IT для українців: remote-вакансії для розробників, QA, дизайнерів, аналітиків і менеджерів. Працюйте з України або з будь-якої країни. Оновлюється щодня.",
     h1: {
       uk: "Віддалена робота", en: "Remote jobs", ru: "Удалённая работа",
       de: "Remote-Jobs", es: "Trabajo remoto", fr: "Emplois à distance",
@@ -73,7 +75,7 @@ export const JOB_LANDINGS: JobLanding[] = [
       zh: "{n} 个远程职位",
     },
     lead: {
-      uk: "Працювати можна звідки завгодно — з дому, з іншого міста або з іншої країни. Список оновлюється щодня.",
+      uk: "Віддалена робота в IT для українців: працювати можна звідки завгодно — з дому, з іншого міста або з іншої країни. Список оновлюється щодня.",
       en: "Work from anywhere — from home, another city or another country. The list is updated daily.",
       ru: "Работать можно откуда угодно — из дома, из другого города или другой страны. Список обновляется ежедневно.",
       de: "Arbeiten von überall — von zu Hause, aus einer anderen Stadt oder einem anderen Land. Täglich aktualisiert.",
