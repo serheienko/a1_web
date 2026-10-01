@@ -73,6 +73,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { AvatarMenu } from "@/components/avatar-menu";
 import { AppOpenBanner } from "@/components/app-open-banner";
+import { GameMapButton } from "@/components/game-map-button";
 import { GetAppButton } from "@/components/get-app-button";
 import { NavCountry } from "@/components/nav-country";
 import { NavFilters } from "@/components/nav-filters";
@@ -288,6 +289,8 @@ export function SiteNav() {
           {/* 2026-09-18 (Александр: «Сделай где-то кнопку на сайте
               "A1 app" со ссылкой на апку») -- на телефоне её нет
               намеренно, там ту же работу делает <AppOpenBanner/> выше. */}
+          {/* 02.10.2026: игровая карта A1 -- круглая кнопка слева от «скачать». */}
+          <GameMapButton />
           <GetAppButton />
           <AvatarMenu />
         </div>
