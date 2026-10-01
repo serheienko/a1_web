@@ -11,7 +11,7 @@ import { relatedArticles } from "@/lib/blog/articles";
 import { countryStats, marketStats, type CountryStats, type MarketStats } from "@/lib/a1/stats-index";
 import { countrySegments } from "@/lib/a1/segment-index";
 import { countryByCode, flagEmoji } from "@/lib/seo/countries";
-import { cityLabel, levelLabel } from "@/lib/seo/segments";
+import { cityLabel, levelLabel, MIN_SEGMENT_POSTS } from "@/lib/seo/segments";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -91,7 +91,7 @@ function DataTable({ id, s, c, lang }: { id: DataBlockId; s: MarketStats; c?: Co
         <Bars
           lang={lang}
           rows={c.levels.map((l) => ({
-            label: <Link href={`/jobs/country/${c.cc.toLowerCase()}/${l.level}`} className="hover:text-accent">{levelLabel(l.level)}</Link>,
+            label: l.count >= MIN_SEGMENT_POSTS ? <Link href={`/jobs/country/${c.cc.toLowerCase()}/${l.level}`} className="hover:text-accent">{levelLabel(l.level)}</Link> : levelLabel(l.level),
             count: l.count,
           }))}
         />
@@ -102,7 +102,7 @@ function DataTable({ id, s, c, lang }: { id: DataBlockId; s: MarketStats; c?: Co
         <Bars
           lang={lang}
           rows={c.tech.slice(0, 12).map((t) => ({
-            label: t.slug && t.href ? <Link href={`/jobs/country/${c.cc.toLowerCase()}/${t.slug}`} className="hover:text-accent">{t.tech}</Link> : t.tech,
+            label: t.slug && t.href && t.count >= MIN_SEGMENT_POSTS ? <Link href={`/jobs/country/${c.cc.toLowerCase()}/${t.slug}`} className="hover:text-accent">{t.tech}</Link> : t.tech,
             count: t.count,
           }))}
         />
