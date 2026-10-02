@@ -43,10 +43,18 @@ const nextConfig: NextConfig = {
       // 02.10.2026 (Александр: «карта вантажиться дуже довго, треба кешувати»).
       // Картинки й геодані карти браузер тримає тиждень і не перепитує сервер
       // на кожному відкритті (було max-age=0 -- ~100 перевірок щоразу).
-      {
-        source: "/game-map/:path*",
+      // 02.10.2026: статичні файли сайту (промо-відео 1.5 МБ, анімації, іконки,
+      // звуки) теж були з max-age=0 -- браузер перепитував їх на кожній сторінці.
+      ...["promo", "animations", "brand", "chat", "download", "occupations", "sounds"].map((dir) => ({
+        source: `/${dir}/:path*`,
         headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=2592000" }],
-      },
+      })),
+      // Лише файли карти, НЕ саму сторінку /game-map і не /game-map/data
+      // (":path*" ловить і порожній шлях -- сторінка застрягла б у кеші).
+      ...["/game-map/v2/:path+", "/game-map/:file(.+\\.webp)"].map((source) => ({
+        source,
+        headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=2592000" }],
+      })),
     ];
   },
 
