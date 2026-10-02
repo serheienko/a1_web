@@ -83,28 +83,28 @@ export function GameMapButton() {
             <span className="block px-5 pb-5 pt-1">
               <span className="block font-serif text-[20px] font-bold leading-[1.2] text-[#4a3518] dark:text-[#efe6cf]">
                 <T
-                  uk="Карта IT-компаній"
-                  en="Map of IT companies"
-                  ru="Карта IT-компаний"
-                  de="Karte der IT-Firmen"
-                  es="Mapa de empresas IT"
-                  fr="Carte des entreprises IT"
-                  pl="Mapa firm IT"
-                  ptBR="Mapa de empresas de TI"
-                  zh="IT 公司地图"
+                  uk="Карта всесвіту A1"
+                  en="A1 Universe map"
+                  ru="Карта вселенной A1"
+                  de="Karte des A1-Universums"
+                  es="Mapa del universo A1"
+                  fr="Carte de l’univers A1"
+                  pl="Mapa uniwersum A1"
+                  ptBR="Mapa do universo A1"
+                  zh="A1 宇宙地图"
                 />
               </span>
               <span className="mt-2 block text-[13px] leading-snug text-[#6b5434] dark:text-white/65">
                 <T
-                  uk="Будиночки компаній з їхніми прапорами й вакансіями — наведіть на будь-який"
-                  en="Company houses with their flags and jobs — hover any of them"
-                  ru="Домики компаний с их флагами и вакансиями — наведите на любой"
-                  de="Firmenhäuser mit Flaggen und Jobs — fahren Sie über eines"
-                  es="Casas de empresas con sus banderas y vacantes: pasa el cursor por cualquiera"
-                  fr="Les maisons des entreprises, leurs drapeaux et leurs offres — survolez-en une"
-                  pl="Domki firm z flagami i ofertami — najedź na dowolny"
-                  ptBR="Casas das empresas com bandeiras e vagas — passe o mouse em qualquer uma"
-                  zh="公司小屋、旗帜与职位——把鼠标移到任意一个上"
+                  uk="Живі будиночки з прапорами й вакансіями — наведіть на будь-який"
+                  en="Living houses with flags and jobs — hover any of them"
+                  ru="Живые домики с флагами и вакансиями — наведите на любой"
+                  de="Lebendige Häuser mit Flaggen und Jobs — fahren Sie über eines"
+                  es="Casas vivas con banderas y vacantes: pasa el cursor por cualquiera"
+                  fr="Des maisons vivantes avec drapeaux et offres — survolez-en une"
+                  pl="Żywe domki z flagami i ofertami — najedź na dowolny"
+                  ptBR="Casas vivas com bandeiras e vagas — passe o mouse em qualquer uma"
+                  zh="有旗帜和职位的小屋——把鼠标移到任意一个上"
                 />
               </span>
             </span>
