@@ -960,6 +960,8 @@ export const GAME_MAP_CSS = `
 .gm2.gm-dark .gm-count{color:#a9b6d8}
 .gm2 .gm-zoom{position:absolute;right:12px;bottom:12px;display:flex;flex-direction:column;gap:8px}
 .gm2 .gm-zoom .gm-btn{width:42px;height:42px;padding:0;font-size:20px;border-radius:13px}
+/* 02.10.2026 (Александр): на телефоні масштаб -- пальцями; кнопки заважали кнопкам сайту */
+@media (hover:none) and (pointer:coarse){.gm2 .gm-zoom{display:none}}
 .gm2 .gm-guide{position:absolute;left:10px;bottom:8px;display:flex;align-items:flex-end;gap:6px;pointer-events:none;transition:opacity .4s}
 .gm2 .gm-guide.off{opacity:0}
 .gm2 .gm-mascot{width:78px;height:auto;filter:drop-shadow(0 4px 6px rgba(0,0,0,.25))}
