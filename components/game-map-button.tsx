@@ -43,7 +43,16 @@ export function GameMapButton() {
           alt=""
           width={44}
           height={44}
-          className="h-full w-full object-cover transition duration-300 ease-out group-hover:scale-125"
+          className="h-full w-full object-cover transition duration-300 ease-out group-hover:scale-125 dark:hidden"
+        />
+        {/* Темна тема сайту -- іконка з вечірньої карти (02.10.2026). */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/game-map/map-icon-v2-dark.webp"
+          alt=""
+          width={44}
+          height={44}
+          className="hidden h-full w-full object-cover transition duration-300 ease-out group-hover:scale-125 dark:block"
         />
         <span className="sr-only">
           <T uk="Карта A1" en="A1 map" ru="Карта A1" de="A1-Karte" es="Mapa de A1" fr="Carte A1" pl="Mapa A1" ptBR="Mapa do A1" zh="A1 地图" />

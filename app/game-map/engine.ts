@@ -31,7 +31,12 @@ export type MapCompany = {
   occupation?: string | null;
   /** світова компанія з зовнішніми вакансіями (за кордоном -- пін, будинок лише зблизька) */
   ext?: boolean;
+  /** країна офісу (ISO-2): вибір країни у списку регіонів */
+  cc?: string;
 };
+
+/** Країна у списку регіонів карти: код, регіон-підкладка, скільки вакансій. */
+export type MapCountry = { cc: string; r: 'ua' | 'eu' | 'us'; n: number };
 
 const LEVELS = [1, 2, 4, 6, 10, 15, 25, 40]; // от скольких вакансий уровень 1..8
 const SIZE = [22, 25, 29, 33, 38, 44, 51, 60]; // ширина здания в единицах карты
@@ -95,6 +100,24 @@ function cityName(key, lang) {
   return lang === 'uk' ? e[0] : lang === 'ru' ? e[1] : lang === 'zh' ? e[2] : key;
 }
 const A2 = { FIN: 'FI', NOR: 'NO', EST: 'EE', NLD: 'NL', BEL: 'BE', LUX: 'LU', FRA: 'FR', ESP: 'ES', PRT: 'PT', GBR: 'GB', IRL: 'IE', ISL: 'IS', CHE: 'CH', CYP: 'CY', MLT: 'MT', MAR: 'MA', DZA: 'DZ', TUN: 'TN', LBY: 'LY', EGY: 'EG', SYR: 'SY', IRQ: 'IQ', KAZ: 'KZ', LBN: 'LB', ISR: 'IL', JOR: 'JO', SAU: 'SA', USA: 'US', CAN: 'CA', MEX: 'MX', CUB: 'CU', BHS: 'BS', GTM: 'GT', HND: 'HN', BLZ: 'BZ', SLV: 'SV', NIC: 'NI', HTI: 'HT', DOM: 'DO', JAM: 'JM', UKR: 'UA', BLR: 'BY', LTU: 'LT', RUS: 'RU', CZE: 'CZ', DEU: 'DE', LVA: 'LV', SWE: 'SE', GEO: 'GE', MKD: 'MK', ALB: 'AL', AZE: 'AZ', SRB: 'RS', TUR: 'TR', ARM: 'AM', DNK: 'DK', ROU: 'RO', HUN: 'HU', SVK: 'SK', POL: 'PL', GRC: 'GR', AUT: 'AT', ITA: 'IT', IRN: 'IR', HRV: 'HR', SVN: 'SI', BGR: 'BG', MNE: 'ME', BIH: 'BA', MDA: 'MD' };
+// 02.10.2026 (Александр): список регіонів -- дропдаун під кнопкою:
+// зверху загальні регіони, нижче всі країни, де в нас є вакансії.
+const REG_H = {
+  uk: ['Регіони', 'Країни', 'Завантажуємо…'], ru: ['Регионы', 'Страны', 'Загружаем…'], en: ['Regions', 'Countries', 'Loading…'],
+  de: ['Regionen', 'Länder', 'Wird geladen…'], es: ['Regiones', 'Países', 'Cargando…'], fr: ['Régions', 'Pays', 'Chargement…'],
+  pl: ['Regiony', 'Kraje', 'Ładowanie…'], ptBR: ['Regiões', 'Países', 'Carregando…'], zh: ['地区', '国家', '加载中…'],
+};
+function flagOf(cc) { return String(cc || '').toUpperCase().replace(/[A-Z]/g, (ch) => String.fromCodePoint(0x1f1a5 + ch.charCodeAt(0))); }
+// Список країн один на сторінку: при перемиканні регіону карта монтується
+// наново, а список уже є.
+let countriesCache = null;
+let countriesLoading = null;
+function loadCountries() {
+  if (countriesCache) return Promise.resolve(countriesCache);
+  countriesLoading ||= fetch('/game-map/data?region=countries').then((r) => (r.ok ? r.json() : [])).catch(() => []).then((l) => { countriesCache = Array.isArray(l) && l.length ? l : null; countriesLoading = null; return countriesCache || []; });
+  return countriesLoading;
+}
+
 const FLAG_COLORS = ['#c0392b', '#2e86c1', '#28a06a', '#d68910', '#8e44ad', '#16a085', '#d35400', '#2c3e9e'];
 
 function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
@@ -142,6 +165,8 @@ export function mountGameMap(root, opts) {
   // (geo-*.json) і свої компанії; перемикач кличе opts.onRegion, обгортка
   // перезавантажує дані й монтує карту наново.
   const region = ['ua', 'eu', 'us'].includes(opts.region) ? opts.region : 'ua';
+  // Країна, на яку дивимось (обрана у списку); null -- весь регіон.
+  let focusCC = opts.country && opts.country !== 'UA' ? String(opts.country).toUpperCase() : null;
   // Стиль будинків регіону: якщо є папка styles/<стиль>, її спрайти
   // підміняють загальні (нові сети домиків під Європу/США без зміни коду).
   const style = opts.style || region;
@@ -155,7 +180,7 @@ export function mountGameMap(root, opts) {
       <div class="gm-left">
         <div class="gm-title"><span class="gm-tt"></span> <span class="gm-count"></span></div>
         <div class="gm-search"><input class="gm-q" type="search" autocomplete="off"><div class="gm-sug" role="listbox"></div></div>
-        <select class="gm-btn gm-reg" aria-label="Region"><option value="ua"></option><option value="eu"></option><option value="us"></option></select>
+        <div class="gm-regw"><button class="gm-btn gm-reg" type="button" aria-haspopup="listbox" aria-expanded="false"><span class="gm-regl"></span><svg class="gm-chev" viewBox="0 0 12 8" width="11" height="7" aria-hidden="true"><path d="M1 1l5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button><div class="gm-regp" role="listbox"></div></div>
       </div>
       <div class="gm-right">
         <button class="gm-btn gm-theme" type="button"></button>
@@ -174,16 +199,49 @@ export function mountGameMap(root, opts) {
   const qIn = root.querySelector('.gm-q');
   const sug = root.querySelector('.gm-sug');
   const fsBtn = root.querySelector('.gm-fs');
+  const regBtn = root.querySelector('.gm-reg');
+  const regP = root.querySelector('.gm-regp');
+  const REG_KEY = { ua: 'rUa', eu: 'rEu', us: 'rUs' };
+  const ccName = (cc) => { try { return (regionNames['cc' + lang] ||= new Intl.DisplayNames([TAG[lang]], { type: 'region' })).of(cc) || cc; } catch { return cc; } };
+  // «☀ День»: на вузькому екрані лишаємо тільки значок.
+  function themeLabel() {
+    const t = theme === 'dark' ? tr('day') : tr('eve'); const i = t.indexOf(' ');
+    themeBtn.innerHTML = `<span class="gm-ti">${esc(t.slice(0, i))}</span><span class="gm-tl">${esc(t.slice(i))}</span>`;
+    themeBtn.setAttribute('aria-label', t.slice(i + 1));
+  }
+  function regLabel() {
+    root.querySelector('.gm-regl').textContent = focusCC ? `${flagOf(focusCC)} ${ccName(focusCC)}` : tr(REG_KEY[region]);
+  }
+  function renderReg() {
+    const h = REG_H[lang] || REG_H.en;
+    const item = (attrs, label, count, on) => `<button type="button" class="gm-ri${on ? ' on' : ''}" role="option" aria-selected="${on}" ${attrs}><span class="gm-rn">${esc(label)}</span>${count != null ? `<span class="gm-rc">${count}</span>` : ''}${on ? '<span class="gm-rk">✓</span>' : ''}</button>`;
+    let html = `<div class="gm-rh">${esc(h[0])}</div>` + ['ua', 'eu', 'us'].map((r) => item(`data-r="${r}"`, tr(REG_KEY[r]), null, r === region && !focusCC)).join('');
+    const list = (countriesCache || []).filter((c) => c.cc !== 'UA');
+    html += `<div class="gm-rh">${esc(h[1])}</div>`;
+    if (!countriesCache) html += `<div class="gm-rl">${esc(h[2])}</div>`;
+    else html += list.map((c) => ({ ...c, name: ccName(c.cc) })).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name)).map((c) => item(`data-cc="${c.cc}" data-r="${c.r}"`, `${flagOf(c.cc)} ${c.name}`, c.n, c.cc === focusCC)).join('');
+    regP.innerHTML = html;
+  }
+  function openReg(open) {
+    regP.classList.toggle('on', open); regBtn.setAttribute('aria-expanded', String(open)); regBtn.classList.toggle('open', open);
+    if (open) { renderReg(); if (!countriesCache) loadCountries().then(() => { if (!destroyed && regP.classList.contains('on')) renderReg(); }); const cur = regP.querySelector('.gm-ri.on'); if (cur) cur.scrollIntoView({ block: 'nearest' }); }
+  }
+  function chooseRegion(r, cc) {
+    openReg(false);
+    if (r !== region) { if (opts.onRegion) opts.onRegion(r, cc || null); return; }
+    focusCC = cc || null; regLabel();
+    if (geo) { if (focusCC) focusCountry(focusCC, true); else showRegion(true); }
+  }
   root.querySelector('.gm-count').textContent = companiesIn.length ? `· ${companiesIn.length}` : '';
   function applyLang() {
     root.querySelector('.gm-tt').textContent = tr('title');
-    { const sel = root.querySelector('.gm-reg'); const o = sel.options; o[0].textContent = tr('rUa'); o[1].textContent = tr('rEu'); o[2].textContent = tr('rUs'); sel.value = region; }
+    regLabel(); if (regP.classList.contains('on')) renderReg();
     qIn.placeholder = tr('find'); qIn.setAttribute('aria-label', tr('find'));
     const zb = root.querySelectorAll('[data-z]'); zb[0].setAttribute('aria-label', tr('zin')); zb[1].setAttribute('aria-label', tr('zout'));
     root.querySelector('.gm-say').textContent = tr('say');
     const lt = root.querySelector('.gm-ltx'); if (lt) lt.textContent = tr('load');
     setFsBtn(root.classList.contains('gm-full'));
-    themeBtn.textContent = theme === 'dark' ? tr('day') : tr('eve');
+    themeLabel();
     for (const g of cityGroups) g.label = cityName(g.name, lang);
     baseCache = null;
     if (popFor) { const c = popFor; popFor = null; showPopup(c); }
@@ -923,7 +981,15 @@ export function mountGameMap(root, opts) {
       view.s = from.s + (target - from.s) * e; view.x = from.x + (tx - from.x) * e; view.y = from.y + (ty - from.y) * e; clamp(); baseCache = null;
       if (k >= 1) { anim = null; pinned = c; hover = c; showPopup(c); } };
   }
-  on(root.querySelector('.gm-reg'), 'change', (e) => { const v = e.target.value; if (v !== region && opts.onRegion) opts.onRegion(v); });
+  on(regBtn, 'click', () => openReg(!regP.classList.contains('on')));
+  on(regP, 'click', (e) => { const b = e.target.closest('.gm-ri'); if (b) chooseRegion(b.dataset.r, b.dataset.cc); });
+  on(document, 'pointerdown', (e) => { if (regP.classList.contains('on') && !e.target.closest('.gm-regw')) openReg(false); });
+  on(regBtn, 'keydown', (e) => { if (e.key === 'ArrowDown') { e.preventDefault(); openReg(true); const f = regP.querySelector('.gm-ri.on') || regP.querySelector('.gm-ri'); if (f) f.focus(); } });
+  on(regP, 'keydown', (e) => {
+    const items = [...regP.querySelectorAll('.gm-ri')]; const i = items.indexOf(document.activeElement);
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); const n = items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]; if (n) n.focus(); }
+    else if (e.key === 'Escape') { openReg(false); regBtn.focus(); }
+  });
   on(qIn, 'input', renderSug);
   on(qIn, 'focus', renderSug);
   on(qIn, 'keydown', (e) => {
@@ -933,11 +999,11 @@ export function mountGameMap(root, opts) {
   });
   on(qIn, 'blur', () => setTimeout(() => sug.classList.remove('on'), 150));
   on(window, 'resize', () => resize());
-  on(document, 'keydown', (e) => { if (e.key === 'Escape' && document.activeElement !== qIn) { if (popFor) { pinned = null; hover = null; showPopup(null); } else if (root.classList.contains('gm-full')) toggleFs(false); } });
+  on(document, 'keydown', (e) => { if (e.key === 'Escape' && regP.classList.contains('on')) { openReg(false); return; } if (e.key === 'Escape' && document.activeElement !== qIn) { if (popFor) { pinned = null; hover = null; showPopup(null); } else if (root.classList.contains('gm-full')) toggleFs(false); } });
 
   async function setTheme(th) {
     theme = th; root.classList.toggle('gm-dark', th === 'dark'); baseCache = null;
-    themeBtn.textContent = th === 'dark' ? tr('day') : tr('eve');
+    themeLabel();
     mascot.src = `${base}/${th}/mascot/mascot-wave.webp`;
     await loadTheme(th);
   }
@@ -967,28 +1033,49 @@ export function mountGameMap(root, opts) {
     await setTheme(theme);
     const ld = root.querySelector('.gm-load'); if (ld) { ld.classList.add('done'); setTimeout(() => ld.remove(), 900); }
     resize();
-    // старт: Украина целиком в кадре
+    if (!(focusCC && focusCountry(focusCC, false))) showRegion(false);
+    startLoop();
+  })();
+  // Плавно переводимо камеру (або одразу, якщо animate=false).
+  function moveView(s, cx, cy, animate) {
+    const ts = Math.max(minS, Math.min(maxS, s)), tx = W / 2 - cx * ts, ty = H / 2 - cy * ts;
+    if (!animate || reduce) { view.s = ts; view.x = tx; view.y = ty; clamp(); baseCache = null; return; }
+    const from = { ...view }, start = performance.now();
+    anim = () => { const k = Math.min(1, (performance.now() - start) / 700); const e = 1 - (1 - k) ** 3;
+      view.s = from.s + (ts - from.s) * e; view.x = from.x + (tx - from.x) * e; view.y = from.y + (ty - from.y) * e; clamp(); baseCache = null; if (k >= 1) anim = null; };
+  }
+  function showRegion(animate) {
     const kyiv = geo.cities['Київ'];
     if (region === 'ua' && kyiv) {
       // Україна цілком у кадрі
       const top = kyiv[1] - 140, bottom = island ? island.cy + island.ry + 25 : kyiv[1] + 680;
-      view.s = Math.max(minS, Math.min(maxS, Math.min(W / 1250, H / (bottom - top))));
-      view.x = W / 2 - (kyiv[0] + 60) * view.s; view.y = H / 2 - ((top + bottom) / 2) * view.s; clamp();
+      moveView(Math.min(W / 1250, H / (bottom - top)), kyiv[0] + 60, (top + bottom) / 2, animate);
     } else {
       // інший регіон: де більше компаній -- туди й дивимось, трохи наблизивши
-      view.s = Math.min(maxS, minS * (region === 'us' ? 1.15 : 1.6));
       let cx = geo.w / 2, cy = geo.h / 2;
       if (cos.length && region !== 'us') { cx = cos.reduce((a, c) => a + c.x, 0) / cos.length; cy = cos.reduce((a, c) => a + c.y, 0) / cos.length; }
-      view.x = W / 2 - cx * view.s; view.y = H / 2 - cy * view.s; clamp();
+      moveView(minS * (region === 'us' ? 1.15 : 1.6), cx, cy, animate);
     }
-    startLoop();
-  })();
+  }
+  // Країна: кадр по всіх її офісах на карті (з полями).
+  function focusCountry(cc, animate) {
+    const own = cos.filter((c) => c.cc === cc);
+    if (!own.length) return false;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const c of own) { x0 = Math.min(x0, c.x); x1 = Math.max(x1, c.x); y0 = Math.min(y0, c.y); y1 = Math.max(y1, c.y); }
+    const pad = 90, s = Math.min(W / (x1 - x0 + pad * 2), H / (y1 - y0 + pad * 2), minS * 9);
+    moveView(s, (x0 + x1) / 2, (y0 + y1) / 2, animate);
+    return true;
+  }
   function startLoop() { cancelAnimationFrame(raf); raf = requestAnimationFrame(function tick(now) { if (destroyed) return; if (anim) anim(); frame(now); raf = requestAnimationFrame(tick); }); }
   const vis = () => { if (document.hidden) cancelAnimationFrame(raf); else if (geo) startLoop(); };
   on(document, 'visibilitychange', vis);
 
   const destroy = () => { destroyed = true; cancelAnimationFrame(raf); cleanup.forEach((f) => f()); if (root.classList.contains('gm-full')) { const fsEl = document.fullscreenElement || document.webkitFullscreenElement; if (fsEl === root && document.exitFullscreen) document.exitFullscreen().catch(() => {}); root.classList.remove('gm-full'); } root.innerHTML = ''; };
   destroy.setLang = (l) => { if (!STR[l] || l === lang) return; lang = l; applyLang(); };
+  // 02.10.2026 (Александр): тема сайту = тема карти, навіть якщо її змінили
+  // вже після відкриття карти.
+  destroy.setTheme = (th) => { th = th === 'dark' ? 'dark' : 'light'; if (th === theme) return; if (geo) setTheme(th); else { theme = th; root.classList.toggle('gm-dark', th === 'dark'); } };
   return destroy;
 }
 
@@ -1054,8 +1141,31 @@ html.gm-noscroll,html.gm-noscroll body{overflow:hidden}
 .gm2 .gm-left{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap}
 .gm2 .gm-right{display:flex;gap:8px}
 .gm2 .gm-search{position:relative}
-.gm2 .gm-reg{height:36px;min-height:36px;padding:0 30px 0 12px;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23a07a40' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center;background-size:11px 7px;font:600 14px system-ui;cursor:pointer}
-@media (max-width:560px){.gm2 .gm-left{flex-wrap:nowrap}.gm2 .gm-q{width:120px}.gm2 .gm-reg{max-width:130px}}
+.gm2 .gm-regw{position:relative;pointer-events:auto}
+.gm2 .gm-reg{height:36px;min-height:36px;display:inline-flex;align-items:center;gap:8px;padding:0 13px 0 14px;font:600 14px system-ui;white-space:nowrap}
+.gm2 .gm-reg .gm-chev{color:#a07a40;transition:transform .2s ease}
+.gm2 .gm-reg.open .gm-chev{transform:rotate(180deg)}
+.gm2.gm-dark .gm-reg .gm-chev{color:#9fb1ff}
+.gm2 .gm-regp{position:absolute;top:44px;left:0;min-width:240px;max-width:min(300px,86vw);max-height:min(420px,60vh);overflow-y:auto;overscroll-behavior:contain;background:#fbf5e6;border:1px solid #c99a52;border-radius:16px;box-shadow:0 14px 34px rgba(40,25,5,.32);padding:6px;display:flex;flex-direction:column;gap:1px;z-index:4;opacity:0;transform:translateY(-6px) scale(.98);transform-origin:top left;visibility:hidden;transition:opacity .16s ease,transform .16s ease,visibility 0s .16s}
+.gm2 .gm-regp.on{opacity:1;transform:none;visibility:visible;transition:opacity .16s ease,transform .16s ease}
+.gm2.gm-dark .gm-regp{background:#16233a;border-color:#7d8fc9;box-shadow:0 14px 34px rgba(0,0,0,.5)}
+.gm2 .gm-rh{font:700 11px system-ui;letter-spacing:.06em;text-transform:uppercase;opacity:.55;padding:9px 10px 4px}
+.gm2 .gm-rh:not(:first-child){margin-top:4px;border-top:1px solid rgba(160,120,60,.25);padding-top:11px}
+.gm2.gm-dark .gm-rh:not(:first-child){border-top-color:rgba(125,143,201,.3)}
+.gm2 .gm-ri{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;color:inherit;text-align:left;padding:8px 10px;border-radius:10px;cursor:pointer;font:500 14px system-ui;flex:none}
+.gm2 .gm-ri:hover,.gm2 .gm-ri:focus-visible{background:rgba(150,110,50,.15);outline:none}
+.gm2.gm-dark .gm-ri:hover,.gm2.gm-dark .gm-ri:focus-visible{background:rgba(140,160,220,.16)}
+.gm2 .gm-ri.on{font-weight:700}
+.gm2 .gm-rn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gm2 .gm-rc{font:600 12px system-ui;opacity:.6;font-variant-numeric:tabular-nums}
+.gm2 .gm-rk{color:#2f7a4d;font-weight:700}
+.gm2.gm-dark .gm-rk{color:#6fd39a}
+.gm2 .gm-rl{padding:8px 10px;font-size:13px;opacity:.6}
+@media (prefers-reduced-motion:reduce){.gm2 .gm-regp,.gm2 .gm-reg .gm-chev{transition:none}}
+.gm2 .gm-theme{white-space:nowrap}
+@media (max-width:560px){.gm2 .gm-regw{position:static}.gm2 .gm-regp{left:0;right:0;min-width:0;max-width:none;top:46px;max-height:min(440px,62vh)}}
+@media (max-width:420px){.gm2 .gm-tl{display:none}.gm2 .gm-search .gm-q{width:110px}.gm2 .gm-reg{padding:0 10px;gap:6px}.gm2 .gm-theme{padding:0 11px}}
+@media (max-width:560px){.gm2 .gm-left{flex-wrap:nowrap}.gm2 .gm-q{width:120px}.gm2 .gm-reg{max-width:150px}.gm2 .gm-regl{overflow:hidden;text-overflow:ellipsis}}
 .gm2 .gm-q{box-sizing:border-box;width:220px;max-width:46vw;height:36px;margin:0;-webkit-appearance:none;appearance:none;border-radius:999px;border:1px solid rgba(160,120,60,.35);background:rgba(251,245,230,.95);padding:0 14px;font:500 14px system-ui;color:#4a3518;box-shadow:0 3px 10px rgba(0,0,0,.18);outline:none}
 .gm2 .gm-q::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none;width:18px;height:18px;margin-left:6px;cursor:pointer;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Ccircle cx='9' cy='9' r='9' fill='%23b8894a'/%3E%3Cpath d='M6 6l6 6M12 6l-6 6' stroke='%23fbf5e6' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E") center/18px no-repeat;opacity:.85}.gm2 .gm-q::-webkit-search-cancel-button:hover{opacity:1}.gm2.gm-dark .gm-q::-webkit-search-cancel-button{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Ccircle cx='9' cy='9' r='9' fill='%236f86b8'/%3E%3Cpath d='M6 6l6 6M12 6l-6 6' stroke='%23121c2c' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E")}
 .gm2 .gm-q:focus{border-color:#c99a52;box-shadow:0 0 0 3px rgba(201,154,82,.3)}

@@ -7,7 +7,7 @@ import { call } from "@/lib/a1/client";
 import { allIndexedPosts } from "@/lib/a1/facts-index";
 import { parseUserProfile } from "@/lib/a1/schemas";
 import { mapUserProfile } from "@/lib/a1/user-mappers";
-import type { MapCompany } from "./engine";
+import type { MapCompany, MapCountry } from "./engine";
 
 // 02.10.2026 (Александр: «додавай усі компанії з України»): без вибірки,
 // але з запасом зверху, щоб сторінка не роздувалась.
@@ -35,6 +35,34 @@ export async function loadCompanies(region: MapRegion = "ua"): Promise<MapCompan
   }
 }
 
+// 02.10.2026 (Александр: «розбий ще по країнах, які в нас є»). Список
+// країн для дропдауну регіонів: лише ті, що видно на одній з підкладок,
+// з кількістю вакансій. Рахується з того самого індексу, без запитів.
+export async function loadCountries(): Promise<MapCountry[]> {
+  try {
+    const posts = await allIndexedPosts();
+    const by = new Map<string, MapCountry>();
+    for (const p of posts) {
+      if (p.kind !== "hiring" || p.author.isAnonymous) continue;
+      const loc = p.location;
+      const cc = loc?.country?.trim().toUpperCase() ?? "";
+      if (!loc?.coordinates || !/^[A-Z]{2}$/.test(cc) || cc === "WW") continue;
+      const [lng, lat] = loc.coordinates;
+      let r: MapRegion | null = cc === "UA" ? "ua" : null;
+      if (!r) for (const k of ["eu", "us"] as const) {
+        const [x0, y0, x1, y1] = REGION_BOX[k];
+        if (lng > x0 && lng < x1 && lat > y0 && lat < y1) { r = k; break; }
+      }
+      if (!r) continue;
+      const c = by.get(cc) ?? by.set(cc, { cc, r, n: 0 }).get(cc)!;
+      c.n += 1;
+    }
+    return [...by.values()].sort((a, b) => b.n - a.n);
+  } catch {
+    return [];
+  }
+}
+
 type Post = Awaited<ReturnType<typeof allIndexedPosts>>[number];
 
 function collectUkraine(posts: Post[]): MapCompany[] {
@@ -54,7 +82,7 @@ function collectUkraine(posts: Post[]): MapCompany[] {
     const key = p.author.userId ?? p.author.name;
     let c = byCompany.get(key);
     if (!c) {
-      c = { id: key, name: p.author.name, username: p.author.username, avatar: p.author.avatarUrl, n: 0, city, lng, lat, jobs: [], userId: p.author.userId };
+      c = { id: key, name: p.author.name, username: p.author.username, avatar: p.author.avatarUrl, n: 0, city, lng, lat, jobs: [], userId: p.author.userId, cc: "UA" };
       byCompany.set(key, c);
     } else if (c.city === "Remote" && !remote) {
       c.city = city; c.lng = lng; c.lat = lat;
@@ -86,7 +114,7 @@ function collectAbroad(posts: Post[], region: Exclude<MapRegion, "ua">): MapComp
     if (!c) {
       c = {
         id: key, name: p.author.name, username: p.author.username, avatar: p.author.avatarUrl, n: 0,
-        city: loc.city || loc.display, lng, lat, jobs: [], userId: p.author.userId, ext: !!p.author.external,
+        city: loc.city || loc.display, lng, lat, jobs: [], userId: p.author.userId, ext: !!p.author.external, cc: country,
       };
       byOffice.set(key, c);
     }

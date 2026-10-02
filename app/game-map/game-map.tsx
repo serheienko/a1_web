@@ -17,9 +17,18 @@ import { useActiveLocale } from "@/lib/use-active-locale";
 import { GAME_MAP_CSS, mountGameMap, type MapCompany } from "./engine";
 import { MapLoader } from "./map-loader";
 
-type MapHandle = (() => void) & { setLang?: (lang: string) => void };
+type MapHandle = (() => void) & { setLang?: (lang: string) => void; setTheme?: (theme: string) => void };
 type Region = "ua" | "eu" | "us";
 const KEY = "a1-map-region";
+
+// Тема сайту: клас .dark/.light на <html> (вибір людини), інакше -- тема
+// системи (як @custom-variant dark у globals.css).
+function siteDark(): boolean {
+  const c = document.documentElement.classList;
+  if (c.contains("dark")) return true;
+  if (c.contains("light")) return false;
+  return !!window.matchMedia?.("(prefers-color-scheme: dark)").matches;
+}
 
 function defaultRegion(): Region {
   try {
@@ -46,6 +55,28 @@ export function GameMap() {
   const handle = useRef<MapHandle | null>(null);
   const [region, setRegion] = useState<Region | null>(null);
   const [data, setData] = useState<{ region: Region; companies: MapCompany[] } | null>(null);
+  // Країна, обрана у списку регіонів (камера одразу на неї після монтування).
+  const countryRef = useRef<string | null>(null);
+  const [dark, setDark] = useState(false);
+
+  // 02.10.2026 (Александр): темна тема сайту -- темна карта, і одразу, коли
+  // тему перемкнули.
+  useEffect(() => {
+    const sync = () => {
+      const d = siteDark();
+      setDark(d);
+      handle.current?.setTheme?.(d ? "dark" : "light");
+    };
+    sync();
+    const mo = new MutationObserver(sync);
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    const mq = window.matchMedia?.("(prefers-color-scheme: dark)");
+    mq?.addEventListener?.("change", sync);
+    return () => {
+      mo.disconnect();
+      mq?.removeEventListener?.("change", sync);
+    };
+  }, []);
   const lang = useActiveLocale();
   const langRef = useRef(lang);
   langRef.current = lang;
@@ -72,13 +103,14 @@ export function GameMap() {
   useEffect(() => {
     const el = ref.current;
     if (!el || !data) return;
-    const dark = document.documentElement.classList.contains("dark");
     const h = mountGameMap(el, {
       companies: data.companies,
-      theme: dark ? "dark" : "light",
+      theme: siteDark() ? "dark" : "light",
       lang: langRef.current,
       region: data.region,
-      onRegion: (next: Region) => {
+      country: countryRef.current,
+      onRegion: (next: Region, cc?: string | null) => {
+        countryRef.current = cc ?? null;
         try {
           localStorage.setItem(KEY, next);
         } catch {
@@ -104,7 +136,7 @@ export function GameMap() {
       <div className="relative">
         <div ref={ref} className="gm2" />
         {!data && (
-          <div className="gm2 gm-ov">
+          <div className={"gm2 gm-ov" + (dark ? " gm-dark" : "")}>
             <MapLoader />
           </div>
         )}

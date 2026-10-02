@@ -5,7 +5,7 @@
 // Ответ сжимаем сами (gzip): сайт отдаётся без сжатия, а JSON на сотни
 // компаний весит ~400 КБ -- сжатый ~в 5 раз меньше.
 import { gzipSync } from "node:zlib";
-import { loadCompanies, type MapRegion } from "../load-companies";
+import { loadCompanies, loadCountries, type MapRegion } from "../load-companies";
 
 export const dynamic = "force-dynamic";
 
@@ -35,8 +35,30 @@ function refresh(region: MapRegion): Promise<Entry> {
   return p;
 }
 
+// Список країн для дропдауну регіонів (?region=countries).
+let countries: Entry | null = null;
+let countriesPending: Promise<Entry> | null = null;
+function refreshCountries(): Promise<Entry> {
+  countriesPending ||= loadCountries()
+    .then((list) => {
+      if (!list.length && countries) return countries;
+      const json = JSON.stringify(list);
+      countries = { at: Date.now(), json, gz: gzipSync(json) };
+      return countries;
+    })
+    .finally(() => {
+      countriesPending = null;
+    });
+  return countriesPending;
+}
+
 export async function GET(req: Request) {
   const q = new URL(req.url).searchParams.get("region");
+  if (q === "countries") {
+    const entry = countries ?? (await refreshCountries());
+    if (Date.now() - entry.at > TTL) void refreshCountries().catch(() => {});
+    return reply(req, entry);
+  }
   const region: MapRegion = q === "eu" || q === "us" ? q : "ua";
   let entry: Entry;
   // Перший запит прогріває й інші регіони у фоні: перемикач далі миттєвий.
@@ -48,6 +70,10 @@ export async function GET(req: Request) {
   } else {
     entry = await refresh(region);
   }
+  return reply(req, entry);
+}
+
+function reply(req: Request, entry: Entry): Response {
   const headers: Record<string, string> = {
     "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "public, max-age=300",
