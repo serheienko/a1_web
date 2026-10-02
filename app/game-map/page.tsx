@@ -108,9 +108,9 @@ async function enrich(list: MapCompany[]): Promise<MapCompany[]> {
 export default async function GameMapPage() {
   const companies = await loadCompanies();
   return (
-    <main className="mx-auto max-w-6xl px-3 py-3 sm:px-4">
+    <main className="relative w-full">
       <GameMap companies={companies} />
-      <p className="mt-2 px-1 text-xs text-neutral-500 dark:text-neutral-400">
+      <p className="pointer-events-none absolute bottom-3 left-3 right-24 hidden text-[11px] leading-snug text-[#4a3518]/80 sm:block dark:text-[#e9dfc4]/70">
         Розмір будинку — за кількістю співробітників і відкритих вакансій. Наведіть або натисніть на будинок, щоб побачити компанію.
       </p>
     </main>

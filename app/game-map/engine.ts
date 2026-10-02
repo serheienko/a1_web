@@ -148,9 +148,28 @@ export function mountGameMap(root, opts) {
     if (logoImgs[c.id] !== undefined) return logoImgs[c.id];
     logoImgs[c.id] = null;
     const i = new Image(); i.decoding = 'async';
-    i.onload = () => { logoImgs[c.id] = i; c.color = dominantColor(i) || c.color; for (const k in flagCache) if (k.startsWith(c.id + '|')) delete flagCache[k]; };
+    i.onload = () => { logoImgs[c.id] = i; c.color = logoBgColor(i) || dominantColor(i) || c.color; c.logoBg = !!logoBgColor(i); for (const k in flagCache) if (k.startsWith(c.id + '|')) delete flagCache[k]; };
     i.src = c.avatar;
     return null;
+  }
+  // Колір фону логотипа: найчастіший колір по краях картинки.
+  const bgMemo = new WeakMap();
+  function logoBgColor(img) {
+    if (bgMemo.has(img)) return bgMemo.get(img);
+    let res = null;
+    try {
+      const n = 32, cv2 = document.createElement('canvas'); cv2.width = cv2.height = n; const x = cv2.getContext('2d');
+      x.drawImage(img, 0, 0, n, n); const d = x.getImageData(0, 0, n, n).data;
+      const bins = {}; let total = 0;
+      for (let i = 1; i < n - 1; i++) for (const [px, py] of [[i, 1], [i, n - 2], [1, i], [n - 2, i]]) {
+        const o = (py * n + px) * 4; total++; if (d[o + 3] < 200) continue;
+        const key = (d[o] >> 4) + ',' + (d[o + 1] >> 4) + ',' + (d[o + 2] >> 4);
+        const b = bins[key] || (bins[key] = [0, 0, 0, 0]); b[0] += d[o]; b[1] += d[o + 1]; b[2] += d[o + 2]; b[3]++;
+      }
+      let best = null; for (const k in bins) if (!best || bins[k][3] > best[3]) best = bins[k];
+      if (best && best[3] >= total * 0.45) res = `rgb(${Math.round(best[0] / best[3])},${Math.round(best[1] / best[3])},${Math.round(best[2] / best[3])})`;
+    } catch { res = null; }
+    bgMemo.set(img, res); return res;
   }
   function dominantColor(img) {
     try {
@@ -173,12 +192,14 @@ export function mountGameMap(root, opts) {
     const w = src.width, h = src.height, cv2 = document.createElement('canvas'); cv2.width = w; cv2.height = h;
     const x = cv2.getContext('2d');
     // ткань флага в цвет компании, тени и обводка остаются (multiply)
-    x.drawImage(src, 0, 0); x.globalCompositeOperation = 'multiply'; x.fillStyle = c.color; x.fillRect(0, 0, w, h);
+    // ткань — рівно в колір фону логотипа, складки й обводка зі спрайта (multiply по сірому)
+    x.drawImage(src, 0, 0); x.globalCompositeOperation = 'source-atop'; x.fillStyle = c.color; x.fillRect(0, 0, w, h);
+    x.globalCompositeOperation = 'multiply'; x.filter = 'grayscale(1) brightness(1.12)'; x.drawImage(src, 0, 0); x.filter = 'none';
     x.globalCompositeOperation = 'destination-in'; x.drawImage(src, 0, 0); x.globalCompositeOperation = 'source-over';
     const logo = logoImgs[c.id];
     if (logo && h > 20) {
       const r = Math.min(w, h) * 0.3, cx = w * 0.52, cy = h * 0.46;
-      x.save(); x.beginPath(); x.arc(cx, cy, r + 2.5, 0, 7); x.fillStyle = 'rgba(255,255,255,.95)'; x.fill();
+      x.save(); x.beginPath(); if (!c.logoBg) { x.arc(cx, cy, r + 2.5, 0, 7); x.fillStyle = 'rgba(255,255,255,.95)'; x.fill(); }
       x.beginPath(); x.arc(cx, cy, r, 0, 7); x.clip(); x.drawImage(logo, cx - r, cy - r, r * 2, r * 2); x.restore();
     }
     return (flagCache[key] = cv2);
@@ -624,12 +645,13 @@ export function mountGameMap(root, opts) {
 }
 
 export const GAME_MAP_CSS = `
+.gm2.gm-page{border-radius:0;border:0;border-top:1px solid rgba(160,120,60,.25)}
 .gm2{position:relative;height:calc(100dvh - 140px);min-height:480px;overflow:hidden;border-radius:18px;border:1px solid #d8c8a2;background:#2f7f9e;font:15px/1.4 system-ui,-apple-system,sans-serif;color:#2b2114;user-select:none;-webkit-user-select:none}
 .gm2.gm-dark{border-color:#2b3a52;background:#0f2a43;color:#efe6cf}
 .gm2 .gm-cv{display:block;touch-action:none;cursor:grab}
 .gm2 .gm-top{position:absolute;left:12px;right:12px;top:12px;display:flex;justify-content:space-between;align-items:center;gap:8px;pointer-events:none}
 .gm2 .gm-top>*{pointer-events:auto}
-.gm2 .gm-title{background:rgba(251,245,230,.92);border:1px solid rgba(160,120,60,.35);border-radius:999px;padding:7px 14px;font:700 15px Georgia,'Times New Roman',serif;color:#4a3518;box-shadow:0 3px 10px rgba(0,0,0,.18)}
+.gm2 .gm-title{box-sizing:border-box;height:36px;display:flex;align-items:center;gap:4px;line-height:1;background:rgba(251,245,230,.92);border:1px solid rgba(160,120,60,.35);border-radius:999px;padding:7px 14px;font:700 15px Georgia,'Times New Roman',serif;color:#4a3518;box-shadow:0 3px 10px rgba(0,0,0,.18)}
 .gm2 .gm-count{font:600 13px system-ui;color:#8a6a3a}
 .gm2 .gm-btn{border:1px solid rgba(160,120,60,.35);background:rgba(251,245,230,.92);color:#5a4022;border-radius:999px;min-height:38px;min-width:38px;padding:0 14px;font:600 14px system-ui;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.18)}
 .gm2.gm-dark .gm-title,.gm2.gm-dark .gm-btn{background:rgba(18,28,44,.9);border-color:rgba(120,150,210,.35);color:#e9dfc4}
@@ -667,7 +689,8 @@ html.gm-noscroll,html.gm-noscroll body{overflow:hidden}
 .gm2 .gm-left{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap}
 .gm2 .gm-right{display:flex;gap:8px}
 .gm2 .gm-search{position:relative}
-.gm2 .gm-q{width:220px;max-width:46vw;height:38px;border-radius:999px;border:1px solid rgba(160,120,60,.35);background:rgba(251,245,230,.95);padding:0 14px;font:500 14px system-ui;color:#4a3518;box-shadow:0 3px 10px rgba(0,0,0,.18);outline:none}
+.gm2 .gm-q{box-sizing:border-box;width:220px;max-width:46vw;height:36px;margin:0;-webkit-appearance:none;appearance:none;border-radius:999px;border:1px solid rgba(160,120,60,.35);background:rgba(251,245,230,.95);padding:0 14px;font:500 14px system-ui;color:#4a3518;box-shadow:0 3px 10px rgba(0,0,0,.18);outline:none}
+.gm2 .gm-q::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none;width:18px;height:18px;margin-left:6px;cursor:pointer;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Ccircle cx='9' cy='9' r='9' fill='%23b8894a'/%3E%3Cpath d='M6 6l6 6M12 6l-6 6' stroke='%23fbf5e6' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E") center/18px no-repeat;opacity:.85}.gm2 .gm-q::-webkit-search-cancel-button:hover{opacity:1}.gm2.gm-dark .gm-q::-webkit-search-cancel-button{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Ccircle cx='9' cy='9' r='9' fill='%236f86b8'/%3E%3Cpath d='M6 6l6 6M12 6l-6 6' stroke='%23121c2c' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E")}
 .gm2 .gm-q:focus{border-color:#c99a52;box-shadow:0 0 0 3px rgba(201,154,82,.3)}
 .gm2.gm-dark .gm-q{background:rgba(18,28,44,.92);color:#e9dfc4;border-color:rgba(120,150,210,.35)}
 .gm2 .gm-sug{position:absolute;top:44px;left:0;width:300px;max-width:80vw;background:#fbf5e6;border:1px solid #c99a52;border-radius:14px;box-shadow:0 12px 30px rgba(40,25,5,.3);padding:5px;display:none;flex-direction:column;gap:2px;z-index:3}

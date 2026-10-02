@@ -13,13 +13,24 @@ export function GameMap({ companies }: { companies: MapCompany[] }) {
     const el = ref.current;
     if (!el) return;
     const dark = document.documentElement.classList.contains("dark");
-    return mountGameMap(el, { companies, theme: dark ? "dark" : "light" });
+    // Карта займає весь екран під шапкою сайту: висоту рахуємо від її верху.
+    const fit = () => {
+      const top = Math.max(0, el.getBoundingClientRect().top + window.scrollY);
+      el.style.height = `${Math.max(420, window.innerHeight - top)}px`;
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    const unmount = mountGameMap(el, { companies, theme: dark ? "dark" : "light" });
+    return () => {
+      window.removeEventListener("resize", fit);
+      unmount?.();
+    };
   }, [companies]);
 
   return (
     <>
       <style>{GAME_MAP_CSS}</style>
-      <div ref={ref} className="gm2" />
+      <div ref={ref} className="gm2 gm-page" />
     </>
   );
 }
