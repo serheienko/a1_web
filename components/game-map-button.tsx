@@ -83,15 +83,15 @@ export function GameMapButton() {
             <span className="block px-5 pb-5 pt-1">
               <span className="block font-serif text-[20px] font-bold leading-[1.2] text-[#4a3518] dark:text-[#efe6cf]">
                 <T
-                  uk="Карта всесвіту A1"
-                  en="A1 Universe map"
-                  ru="Карта вселенной A1"
-                  de="Karte des A1-Universums"
-                  es="Mapa del universo A1"
-                  fr="Carte de l’univers A1"
-                  pl="Mapa uniwersum A1"
-                  ptBR="Mapa do universo A1"
-                  zh="A1 宇宙地图"
+                  uk="Карта A1"
+                  en="A1 Map"
+                  ru="Карта A1"
+                  de="A1-Karte"
+                  es="Mapa de A1"
+                  fr="Carte A1"
+                  pl="Mapa A1"
+                  ptBR="Mapa do A1"
+                  zh="A1 地图"
                 />
               </span>
               <span className="mt-2 block text-[13px] leading-snug text-[#6b5434] dark:text-white/65">

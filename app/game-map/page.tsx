@@ -10,8 +10,8 @@ import { T } from "@/components/t";
 import { GameMap } from "./game-map";
 
 export const metadata: Metadata = {
-  title: "Карта всесвіту A1 | A1 Jobs",
-  description: "Ігрова карта всесвіту A1.",
+  title: "Карта A1 | A1 Jobs",
+  description: "Ігрова карта A1.",
   robots: { index: false, follow: false },
 };
 
