@@ -136,6 +136,7 @@ export function mountGameMap(root, opts) {
   const ICON_X = '<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15"/></svg>';
   const COMPASS = '<svg class="gm-compass" viewBox="0 0 40 40" width="30" height="30" aria-hidden="true"><circle cx="20" cy="20" r="17" fill="none" stroke="currentColor" stroke-width="2" opacity=".55"/><g class="gm-needle"><path d="M20 6l4 14h-8z" fill="#c0392b"/><path d="M20 34l-4-14h8z" fill="currentColor" opacity=".75"/></g><circle cx="20" cy="20" r="2.2" fill="currentColor"/></svg>';
   let destroyed = false;
+  const coarse = !!(window.matchMedia && window.matchMedia('(hover: none) and (pointer: coarse)').matches);
   const cleanup = [];
 
   root.innerHTML = `
@@ -792,7 +793,10 @@ export function mountGameMap(root, opts) {
     let left = Math.max(8, Math.min(W - pw - 8, sx - pw / 2));
     let y = top - ph - 10, below = false;
     if (y < 8) { y = bot + 10; below = true; }
-    y = Math.max(8, Math.min(H - ph - 8, y));
+    // 02.10.2026 (Александр): на телефоні знизу кнопки сайту (чат, «+») --
+    // картку тримаємо вище, щоб «+» союзника натискався спокійно.
+    const bottomPad = coarse ? 100 : 8;
+    y = Math.max(8, Math.min(H - ph - bottomPad, y));
     pop.style.transform = `translate(${Math.round(left)}px,${Math.round(y)}px)`;
     const ax = Math.max(16, Math.min(pw - 16, sx - left));
     pop.style.setProperty('--ax', `${ax}px`); pop.classList.toggle('below', below);
