@@ -637,20 +637,26 @@ export function mountGameMap(root, opts) {
     const inside = (gr) => out.some((h) => h !== gr && h.list.length > gr.list.length * 3 && gr.hx > h.x0 && gr.hx < h.x1 && gr.hy > h.y0 && gr.hy < h.y1);
     cityGroups = out.filter((gr) => !inside(gr)).map((gr) => ({ name: gr.name, label: cityName(gr.name, lang), n: gr.list.length, x: (gr.x0 + gr.x1) / 2, y: gr.y1 }));
   }
+  // 02.10.2026 (Александр): при сильному наближенні плашка «їхала» від
+  // тексту -- шрифт у кілька десятих пікселя браузер міряє неточно. Тепер
+  // підписи міст малюються в пікселях екрана, як назви компаній.
   function drawCityLabels() {
     const P = theme === 'dark';
+    ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     for (const g of cityGroups) {
       if (!onScreen(g.x, g.y, 60)) continue;
-      const fs = Math.max(11, Math.min(17, 12 + (g.n > 5 ? 3 : 0))) / view.s;
-      const y = g.y + (view.s > minS * 3.2 ? 26 : 12) / view.s;
-      ctx.font = `700 italic ${fs}px Georgia, 'Times New Roman', serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      const fs = g.n > 5 ? 15 : 12;
+      const sx = g.x * view.s + view.x, sy = g.y * view.s + view.y + (view.s > minS * 3.2 ? 26 : 12);
+      ctx.font = `700 italic ${fs}px Georgia, 'Times New Roman', serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       const label = g.n > 1 ? `${g.label} · ${g.n}` : g.label;
-      const tw = ctx.measureText(label).width, pad = 6 / view.s;
+      const tw = ctx.measureText(label).width, padX = 8, h = fs + 9;
       ctx.fillStyle = P ? 'rgba(15,22,36,.72)' : 'rgba(251,245,230,.82)';
-      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(g.x - tw / 2 - pad, y - pad * 0.5, tw + pad * 2, fs + pad, fs) : ctx.rect(g.x - tw / 2 - pad, y - pad * 0.5, tw + pad * 2, fs + pad); ctx.fill();
-      ctx.fillStyle = P ? '#f0e2bd' : '#5a3d16'; ctx.fillText(label, g.x, y);
+      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(sx - tw / 2 - padX, sy - h / 2, tw + padX * 2, h, h / 2) : ctx.rect(sx - tw / 2 - padX, sy - h / 2, tw + padX * 2, h); ctx.fill();
+      ctx.fillStyle = P ? '#f0e2bd' : '#5a3d16'; ctx.fillText(label, sx, sy + 0.5);
     }
+    ctx.restore();
   }
+
   function drawCompany(c, t, far) {
     const act = c === hover || c === pinned;
     if (far && c.l <= 3 && !act && cos.length <= 120) {
@@ -954,8 +960,6 @@ export const GAME_MAP_CSS = `
 .gm2.gm-dark .gm-count{color:#a9b6d8}
 .gm2 .gm-zoom{position:absolute;right:12px;bottom:12px;display:flex;flex-direction:column;gap:8px}
 .gm2 .gm-zoom .gm-btn{width:42px;height:42px;padding:0;font-size:20px;border-radius:13px}
-/* 02.10.2026 (Александр): на телефоні масштаб -- пальцями; кнопки заважали кнопкам сайту */
-@media (hover:none) and (pointer:coarse){.gm2 .gm-zoom{display:none}}
 .gm2 .gm-guide{position:absolute;left:10px;bottom:8px;display:flex;align-items:flex-end;gap:6px;pointer-events:none;transition:opacity .4s}
 .gm2 .gm-guide.off{opacity:0}
 .gm2 .gm-mascot{width:78px;height:auto;filter:drop-shadow(0 4px 6px rgba(0,0,0,.25))}
