@@ -99,7 +99,7 @@ function cityName(key, lang) {
   const e = CITY[key]; if (!e) return key;
   return lang === 'uk' ? e[0] : lang === 'ru' ? e[1] : lang === 'zh' ? e[2] : key;
 }
-const A2 = { FIN: 'FI', NOR: 'NO', EST: 'EE', NLD: 'NL', BEL: 'BE', LUX: 'LU', FRA: 'FR', ESP: 'ES', PRT: 'PT', GBR: 'GB', IRL: 'IE', ISL: 'IS', CHE: 'CH', CYP: 'CY', MLT: 'MT', MAR: 'MA', DZA: 'DZ', TUN: 'TN', LBY: 'LY', EGY: 'EG', SYR: 'SY', IRQ: 'IQ', KAZ: 'KZ', LBN: 'LB', ISR: 'IL', JOR: 'JO', SAU: 'SA', USA: 'US', CAN: 'CA', MEX: 'MX', CUB: 'CU', BHS: 'BS', GTM: 'GT', HND: 'HN', BLZ: 'BZ', SLV: 'SV', NIC: 'NI', HTI: 'HT', DOM: 'DO', JAM: 'JM', UKR: 'UA', BLR: 'BY', LTU: 'LT', RUS: 'RU', CZE: 'CZ', DEU: 'DE', LVA: 'LV', SWE: 'SE', GEO: 'GE', MKD: 'MK', ALB: 'AL', AZE: 'AZ', SRB: 'RS', TUR: 'TR', ARM: 'AM', DNK: 'DK', ROU: 'RO', HUN: 'HU', SVK: 'SK', POL: 'PL', GRC: 'GR', AUT: 'AT', ITA: 'IT', IRN: 'IR', HRV: 'HR', SVN: 'SI', BGR: 'BG', MNE: 'ME', BIH: 'BA', MDA: 'MD' };
+const A2 = { FIN: 'FI', NOR: 'NO', EST: 'EE', NLD: 'NL', BEL: 'BE', LUX: 'LU', FRA: 'FR', ESP: 'ES', PRT: 'PT', GBR: 'GB', IRL: 'IE', ISL: 'IS', CHE: 'CH', CYP: 'CY', MLT: 'MT', MAR: 'MA', DZA: 'DZ', TUN: 'TN', LBY: 'LY', EGY: 'EG', SYR: 'SY', IRQ: 'IQ', KAZ: 'KZ', LBN: 'LB', ISR: 'IL', JOR: 'JO', SAU: 'SA', USA: 'US', CAN: 'CA', MEX: 'MX', CUB: 'CU', BHS: 'BS', GTM: 'GT', HND: 'HN', BLZ: 'BZ', SLV: 'SV', NIC: 'NI', HTI: 'HT', DOM: 'DO', JAM: 'JM', UKR: 'UA', BLR: 'BY', LTU: 'LT', RUS: 'RU', CZE: 'CZ', DEU: 'DE', LVA: 'LV', SWE: 'SE', GEO: 'GE', MKD: 'MK', ALB: 'AL', AZE: 'AZ', SRB: 'RS', TUR: 'TR', ARM: 'AM', DNK: 'DK', ROU: 'RO', HUN: 'HU', SVK: 'SK', POL: 'PL', GRC: 'GR', AUT: 'AT', ITA: 'IT', IRN: 'IR', HRV: 'HR', SVN: 'SI', BGR: 'BG', MNE: 'ME', BIH: 'BA', MDA: 'MD', AND: 'AD', IMN: 'IM', FRO: 'FO', ALD: 'AX' };
 // 02.10.2026 (Александр): список регіонів -- дропдаун під кнопкою:
 // зверху загальні регіони, нижче всі країни, де в нас є вакансії.
 const REG_H = {
@@ -1041,10 +1041,10 @@ export function mountGameMap(root, opts) {
   // Плавно переводимо камеру (або одразу, якщо animate=false).
   function moveView(s, cx, cy, animate) {
     const ts = Math.max(minS, Math.min(maxS, s)), tx = W / 2 - cx * ts, ty = H / 2 - cy * ts;
-    if (!animate || reduce) { view.s = ts; view.x = tx; view.y = ty; clamp(); baseCache = null; return; }
+    if (!animate || reduce) { view.s = ts; view.x = tx; view.y = ty; clamp(); baseCache = null; seenView = viewKey(); return; }
     const from = { ...view }, start = performance.now();
     anim = () => { const k = Math.min(1, (performance.now() - start) / 700); const e = 1 - (1 - k) ** 3;
-      view.s = from.s + (ts - from.s) * e; view.x = from.x + (tx - from.x) * e; view.y = from.y + (ty - from.y) * e; clamp(); baseCache = null; if (k >= 1) anim = null; };
+      view.s = from.s + (ts - from.s) * e; view.x = from.x + (tx - from.x) * e; view.y = from.y + (ty - from.y) * e; clamp(); baseCache = null; if (k >= 1) { anim = null; seenView = viewKey(); } };
   }
   function showRegion(animate) {
     const kyiv = geo.cities['Київ'];
@@ -1069,7 +1069,28 @@ export function mountGameMap(root, opts) {
     moveView(s, (x0 + x1) / 2, (y0 + y1) / 2, animate);
     return true;
   }
-  function startLoop() { cancelAnimationFrame(raf); raf = requestAnimationFrame(function tick(now) { if (destroyed) return; if (anim) anim(); frame(now); raf = requestAnimationFrame(tick); }); }
+  // 02.10.2026 (Александр: «переключення на сусідню країну / зум-аут»).
+  // Кнопка регіону йде за камерою: віддалились -- «Європа · N», підвели
+  // центр карти до сусідньої країни -- «🇵🇱 Польща · N». Камеру не чіпаємо.
+  let seenView = '', seenAt = 0;
+  const viewKey = () => `${Math.round(view.x)}|${Math.round(view.y)}|${view.s.toFixed(4)}`;
+  const ccOfCountry = {};
+  function trackCountry(now) {
+    if (region === 'ua' || anim || now - seenAt < 300) return;
+    seenAt = now;
+    const key = viewKey();
+    if (key === seenView) return; seenView = key;
+    let cc = null;
+    if (view.s >= minS * 1.9) {
+      const cx = (W / 2 - view.x) / view.s, cy = (H / 2 - view.y) / view.s;
+      const co = geo.countries.find((c) => c.r.some((r) => inRing(r, cx, cy)));
+      const a2 = co && A2[co.a3];
+      if (a2) { if (!(a2 in ccOfCountry)) ccOfCountry[a2] = cos.some((c) => c.cc === a2); if (ccOfCountry[a2]) cc = a2; }
+      if (!cc && focusCC) cc = focusCC; // над морем / країною без офісів -- лишаємо як було
+    }
+    if (cc !== focusCC) { focusCC = cc; regLabel(); }
+  }
+  function startLoop() { cancelAnimationFrame(raf); raf = requestAnimationFrame(function tick(now) { if (destroyed) return; if (anim) anim(); frame(now); trackCountry(now); raf = requestAnimationFrame(tick); }); }
   const vis = () => { if (document.hidden) cancelAnimationFrame(raf); else if (geo) startLoop(); };
   on(document, 'visibilitychange', vis);
 
