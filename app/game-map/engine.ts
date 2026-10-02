@@ -410,10 +410,20 @@ export function mountGameMap(root, opts) {
   function buildCityGroups() {
     const g = {};
     for (const c of cos) { const k = c.cityUa || '—'; (g[k] ||= []).push(c); }
-    cityGroups = Object.entries(g).map(([name, list]) => {
+    let groups = Object.entries(g).map(([name, list]) => {
       const xs = list.map((c) => c.x), ys = list.map((c) => c.y);
-      return { name, n: list.length, x: (Math.min(...xs) + Math.max(...xs)) / 2, y: Math.max(...ys) };
-    });
+      return { name, list, x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
+    }).sort((a, b) => b.list.length - a.list.length);
+    // Передмістя (Бровари, Ірпінь…) потрапляють усередину великого кластера міста —
+    // зливаємо їх із ним, щоб посеред Києва не стояла чужа назва.
+    const out = [];
+    for (const gr of groups) {
+      const cx = (gr.x0 + gr.x1) / 2, cy = (gr.y0 + gr.y1) / 2, m = 24;
+      const host = out.find((h) => h.list.length > gr.list.length && cx > h.x0 - m && cx < h.x1 + m && cy > h.y0 - m && cy < h.y1 + m);
+      if (host) { host.list.push(...gr.list); host.x0 = Math.min(host.x0, gr.x0); host.x1 = Math.max(host.x1, gr.x1); host.y0 = Math.min(host.y0, gr.y0); host.y1 = Math.max(host.y1, gr.y1); }
+      else out.push(gr);
+    }
+    cityGroups = out.map((gr) => ({ name: gr.name, n: gr.list.length, x: (gr.x0 + gr.x1) / 2, y: gr.y1 }));
   }
   function drawCityLabels() {
     const P = theme === 'dark';
