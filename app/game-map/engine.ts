@@ -219,8 +219,25 @@ export function mountGameMap(root, opts) {
     if (!c.avatar) return null;
     if (logoImgs[c.id] !== undefined) return logoImgs[c.id];
     logoImgs[c.id] = null;
+    // 02.10.2026: не більше 4 завантажень разом -- кожен логотип іде через
+    // /api/media нашого ж сайту до бекенду; сотні одночасно гальмували сайт.
+    logoQueue.push(c); pumpLogos();
+    return null;
+  }
+  const logoQueue = []; let logoActive = 0;
+  function pumpLogos() {
+    while (logoActive < 4 && logoQueue.length) {
+      const c = logoQueue.pop(); // останні додані -- ті, що зараз на екрані
+      if (!onScreen(c.x, c.y, 200)) { logoImgs[c.id] = undefined; continue; }
+      logoActive++;
+      loadLogo(c);
+    }
+  }
+  function loadLogo(c) {
     const i = new Image(); i.decoding = 'async';
-    i.onload = () => { logoImgs[c.id] = i; c.color = logoBgColor(i) || dominantColor(i) || c.color; c.logoBg = !!logoBgColor(i); for (const k in flagCache) if (k.startsWith(c.id + '|')) delete flagCache[k]; };
+    const done = () => { logoActive--; pumpLogos(); };
+    i.onerror = done;
+    i.onload = () => { done(); logoImgs[c.id] = i; c.color = logoBgColor(i) || dominantColor(i) || c.color; c.logoBg = !!logoBgColor(i); for (const k in flagCache) if (k.startsWith(c.id + '|')) delete flagCache[k]; };
     i.src = c.avatar;
     return null;
   }
@@ -585,7 +602,7 @@ export function mountGameMap(root, opts) {
       ctx.strokeStyle = `rgba(255,214,120,${0.85 * (1 - p)})`; ctx.lineWidth = 2.2 / view.s;
       ctx.beginPath(); ctx.ellipse(c.x, c.y - 1, w * (0.45 + p * 0.35), w * (0.13 + p * 0.1), 0, 0, 7); ctx.stroke();
     }
-    logoOf(c);
+    if (w * view.s >= 20) logoOf(c); // логотипи -- лише для видимих і достатньо великих будинків
     const im = sprite(k); const h = im ? w * im.height / im.width : w;
     const bx = c.x - w / 2, by = c.y + w * 0.04 - h;
     if (im) ctx.drawImage(im, bx, by, w, h);
