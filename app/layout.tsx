@@ -91,6 +91,15 @@ const LANG_INIT_SCRIPT = `
 
     var match = document.cookie.match(/(?:^|; )a1_geo=([^;]*)/);
     var country = match ? decodeURIComponent(match[1]) : "";
+    // 02.10.2026: після переїзду з Vercel на Railway країна за IP більше не
+    // приходить (a1_geo порожній) -- правило «в Україні без російської»
+    // мовчки перестало працювати. Запасний спосіб -- часовий пояс браузера.
+    if (!country) {
+      try {
+        var tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+        if (["Europe/Kiev", "Europe/Kyiv", "Europe/Uzhgorod", "Europe/Zaporozhye", "Europe/Simferopol"].indexOf(tz) !== -1) country = "UA";
+      } catch (e) {}
+    }
     var isGeoUa = country === "UA";
     if (isGeoUa) root.classList.add("geo-ua");
 

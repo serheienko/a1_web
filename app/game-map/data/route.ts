@@ -39,6 +39,8 @@ export async function GET(req: Request) {
   const q = new URL(req.url).searchParams.get("region");
   const region: MapRegion = q === "eu" || q === "us" ? q : "ua";
   let entry: Entry;
+  // Перший запит прогріває й інші регіони у фоні: перемикач далі миттєвий.
+  for (const r of ["ua", "eu", "us"] as MapRegion[]) if (r !== region && !caches.has(r)) void refresh(r).catch(() => {});
   const cache = caches.get(region);
   if (cache) {
     entry = cache;

@@ -661,13 +661,18 @@ export function mountGameMap(root, opts) {
   function drawCityLabels() {
     const P = theme === 'dark';
     ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    for (const g of cityGroups) {
+    // більші міста першими; підпис, що налазить на вже намальований, пропускаємо
+    const placedC = [];
+    for (const g of [...cityGroups].sort((a, b) => b.n - a.n)) {
       if (!onScreen(g.x, g.y, 60)) continue;
       const fs = g.n > 5 ? 15 : 12;
       const sx = g.x * view.s + view.x, sy = g.y * view.s + view.y + (view.s > minS * 3.2 ? 26 : 12);
       ctx.font = `700 italic ${fs}px Georgia, 'Times New Roman', serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       const label = g.n > 1 ? `${g.label} · ${g.n}` : g.label;
       const tw = ctx.measureText(label).width, padX = 8, h = fs + 9;
+      const box = { x: sx - tw / 2 - padX - 4, y: sy - h / 2 - 2, w: tw + padX * 2 + 8, h: h + 4 };
+      if (placedC.some((q) => box.x < q.x + q.w && q.x < box.x + box.w && box.y < q.y + q.h && q.y < box.y + box.h)) continue;
+      placedC.push(box);
       ctx.fillStyle = P ? 'rgba(15,22,36,.72)' : 'rgba(251,245,230,.82)';
       ctx.beginPath(); ctx.roundRect ? ctx.roundRect(sx - tw / 2 - padX, sy - h / 2, tw + padX * 2, h, h / 2) : ctx.rect(sx - tw / 2 - padX, sy - h / 2, tw + padX * 2, h); ctx.fill();
       ctx.fillStyle = P ? '#f0e2bd' : '#5a3d16'; ctx.fillText(label, sx, sy + 0.5);
