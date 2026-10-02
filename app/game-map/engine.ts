@@ -499,7 +499,10 @@ export function mountGameMap(root, opts) {
       if (host) { host.list.push(...gr.list); host.x0 = Math.min(host.x0, gr.x0); host.x1 = Math.max(host.x1, gr.x1); host.y0 = Math.min(host.y0, gr.y0); host.y1 = Math.max(host.y1, gr.y1); }
       else out.push(gr);
     }
-    cityGroups = out.map((gr) => ({ name: gr.name, label: cityName(gr.name, lang), n: gr.list.length, x: (gr.x0 + gr.x1) / 2, y: gr.y1 }));
+    // Підпис маленького міста, що опинився всередині великого кластера
+    // (Чернігів посеред Києва), не малюємо -- компанії лишаються в пошуку.
+    const inside = (gr) => out.some((h) => h !== gr && h.list.length > gr.list.length * 3 && gr.hx > h.x0 && gr.hx < h.x1 && gr.hy > h.y0 && gr.hy < h.y1);
+    cityGroups = out.filter((gr) => !inside(gr)).map((gr) => ({ name: gr.name, label: cityName(gr.name, lang), n: gr.list.length, x: (gr.x0 + gr.x1) / 2, y: gr.y1 }));
   }
   function drawCityLabels() {
     const P = theme === 'dark';
