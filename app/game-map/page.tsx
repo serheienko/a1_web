@@ -4,10 +4,13 @@
 // компаний «специально разных по размеру — крупные, средние, маленькие».
 // Компании берутся из того же часового индекса вакансий, что и посадочные
 // (lib/a1/facts-index.ts): отдельных запросов к бэкенду страница не делает.
-// Размер здания -- по числу живых вакансий (числа сотрудников пока нет).
+// Размер здания -- по числу сотрудников и вакансий (engine.ts sizeLevel).
 // Закрыта от индексации, пока карта не принята.
 import type { Metadata } from "next";
+import { call } from "@/lib/a1/client";
 import { allIndexedPosts } from "@/lib/a1/facts-index";
+import { parseUserProfile } from "@/lib/a1/schemas";
+import { mapUserProfile } from "@/lib/a1/user-mappers";
 import type { MapCompany } from "./engine";
 import { GameMap } from "./game-map";
 
@@ -44,6 +47,7 @@ async function loadCompanies(): Promise<MapCompany[]> {
           lng,
           lat,
           jobs: [],
+          userId: p.author.userId,
         };
         byCompany.set(key, c);
       }
@@ -51,7 +55,7 @@ async function loadCompanies(): Promise<MapCompany[]> {
       if (c.jobs.length < 3) c.jobs.push({ title: p.title, slug: p.slug });
     }
     const all = [...byCompany.values()].sort((a, b) => b.n - a.n);
-    if (all.length <= LIMIT) return all;
+    if (all.length <= LIMIT) return enrich(all);
     // Специально разные: поровну из крупных, средних и маленьких.
     const third = Math.ceil(all.length / 3);
     const groups = [all.slice(0, third), all.slice(third, third * 2), all.slice(third * 2)];
@@ -64,10 +68,41 @@ async function loadCompanies(): Promise<MapCompany[]> {
         if (c) picked.push(c);
       }
     });
-    return picked;
+    return enrich(picked);
   } catch {
     return [];
   }
+}
+
+// 02.10.2026 (Александр: «в карточку при наведении — больше информации,
+// которую компании сами указали: количество сотрудников…»). Один запрос
+// users.getUsers на все компании карты; если он не прошёл, карта просто
+// показывает карточки без этих строк.
+async function enrich(list: MapCompany[]): Promise<MapCompany[]> {
+  const ids = list.map((c) => c.userId).filter((id): id is string => !!id);
+  if (!ids.length) return list;
+  try {
+    const raw = await call<unknown>("users.getUsers", { ids });
+    const byId = new Map<string, MapCompany>();
+    for (const c of list) if (c.userId) byId.set(c.userId, c);
+    for (const item of Array.isArray(raw) ? raw : []) {
+      const parsed = parseUserProfile(item);
+      if (!parsed || parsed.object !== "user") continue;
+      const id = (item as { _id?: string })._id;
+      const c = id ? byId.get(id) : undefined;
+      const prof = mapUserProfile(parsed);
+      if (!c || !prof) continue;
+      const company = prof.companies[0];
+      c.bio = (prof.bio || company?.description || "").trim().slice(0, 240) || null;
+      c.website = prof.links[0]?.url || company?.link?.url || null;
+      c.employees = company?.employeesCount ?? null;
+      c.est = company?.establishedYear ?? null;
+      c.occupation = prof.expertise || null;
+    }
+  } catch {
+    // без подробностей -- не страшно
+  }
+  return list;
 }
 
 export default async function GameMapPage() {
@@ -76,7 +111,7 @@ export default async function GameMapPage() {
     <main className="mx-auto max-w-6xl px-3 py-3 sm:px-4">
       <GameMap companies={companies} />
       <p className="mt-2 px-1 text-xs text-neutral-500 dark:text-neutral-400">
-        Розмір будинку — за кількістю відкритих вакансій. Наведіть або натисніть на будинок, щоб побачити компанію.
+        Розмір будинку — за кількістю співробітників і відкритих вакансій. Наведіть або натисніть на будинок, щоб побачити компанію.
       </p>
     </main>
   );

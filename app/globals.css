@@ -2092,3 +2092,13 @@ textarea {
     transition: none;
   }
 }
+
+/* 02.10.2026: превью игровой карты в выпадашке кнопки карты
+   (components/game-map-button.tsx) медленно «плывёт» -- карта живая. */
+@keyframes gm-preview-drift {
+  0% { transform: scale(1.04) translate(0, 0); }
+  50% { transform: scale(1.12) translate(-2.5%, 1.5%); }
+  100% { transform: scale(1.04) translate(0, 0); }
+}
+.gm-preview-drift { animation: gm-preview-drift 14s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .gm-preview-drift { animation: none; } }

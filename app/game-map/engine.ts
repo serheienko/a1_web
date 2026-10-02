@@ -23,6 +23,12 @@ export type MapCompany = {
   lng: number;
   lat: number;
   jobs: { title: string; slug: string }[];
+  userId?: string | null;
+  bio?: string | null;
+  website?: string | null;
+  employees?: number | null;
+  est?: number | null;
+  occupation?: string | null;
 };
 
 const LEVELS = [1, 2, 4, 6, 10, 15, 25, 40]; // от скольких вакансий уровень 1..8
@@ -46,7 +52,23 @@ const PAL = {
   },
 };
 
+const CITY_UA = { Kyiv: 'Київ', Kiev: 'Київ', Lviv: 'Львів', Odesa: 'Одеса', Odessa: 'Одеса', Kharkiv: 'Харків', Dnipro: 'Дніпро', Zaporizhzhia: 'Запоріжжя', Vinnytsia: 'Вінниця', 'Ivano-Frankivsk': 'Івано-Франківськ', Chernihiv: 'Чернігів', Poltava: 'Полтава', Uzhhorod: 'Ужгород', Chernivtsi: 'Чернівці', Zhytomyr: 'Житомир', Cherkasy: 'Черкаси', Mykolaiv: 'Миколаїв', Kherson: 'Херсон', Sumy: 'Суми', Rivne: 'Рівне', Lutsk: 'Луцьк', Ternopil: 'Тернопіль', Khmelnytskyi: 'Хмельницький', Kropyvnytskyi: 'Кропивницький', Bila_Tserkva: 'Біла Церква', Irpin: 'Ірпінь', Brovary: 'Бровари', Mukachevo: 'Мукачево' };
+function cityUa(c) { if (!c) return ''; const k = String(c).trim(); return CITY_UA[k] || CITY_UA[k.replace(/\s+/g, '_')] || k; }
+function empLabel(n) { const m10 = n % 10, m100 = n % 100; if (m10 === 1 && m100 !== 11) return 'співробітник'; if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return 'співробітники'; return 'співробітників'; }
+const FLAG_COLORS = ['#c0392b', '#2e86c1', '#28a06a', '#d68910', '#8e44ad', '#16a085', '#d35400', '#2c3e9e'];
+
 function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+const EMP_LEVELS = [1, 5, 15, 40, 100, 250, 600, 1500];
+function levelBy(arr, n) { let l = 1; for (let i = 0; i < arr.length; i++) if (n >= arr[i]) l = i + 1; return l; }
+// 02.10.2026 (Александр): размер дома -- и от числа сотрудников, и от
+// числа вакансий. Сотрудники весят больше (это размер компании), вакансии
+// добавляют; если сотрудников компания не указала -- только вакансии.
+function sizeLevel(c) {
+  const lv = levelBy(LEVELS, c.n || 0);
+  if (!c.employees) return lv;
+  const le = levelBy(EMP_LEVELS, c.employees);
+  return Math.max(1, Math.min(8, Math.round(le * 0.65 + lv * 0.35)));
+}
 function level(n) { let l = 1; for (let i = 0; i < LEVELS.length; i++) if (n >= LEVELS[i]) l = i + 1; return l; }
 function plural(n) { const m10 = n % 10, m100 = n % 100; if (m10 === 1 && m100 !== 11) return 'вакансія'; if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return 'вакансії'; return 'вакансій'; }
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
@@ -62,8 +84,14 @@ export function mountGameMap(root, opts) {
   root.innerHTML = `
     <canvas class="gm-cv"></canvas>
     <div class="gm-top">
-      <div class="gm-title">Карта компаній <span class="gm-count"></span></div>
-      <button class="gm-btn gm-theme" type="button"></button>
+      <div class="gm-left">
+        <div class="gm-title">Карта компаній <span class="gm-count"></span></div>
+        <div class="gm-search"><input class="gm-q" type="search" placeholder="Знайти компанію…" autocomplete="off" aria-label="Знайти компанію"><div class="gm-sug" role="listbox"></div></div>
+      </div>
+      <div class="gm-right">
+        <button class="gm-btn gm-theme" type="button"></button>
+        <button class="gm-btn gm-fs" type="button" aria-label="На весь екран" title="На весь екран">⛶</button>
+      </div>
     </div>
     <div class="gm-zoom"><button class="gm-btn" data-z="in" type="button" aria-label="Приблизити">+</button><button class="gm-btn" data-z="out" type="button" aria-label="Віддалити">−</button></div>
     <div class="gm-guide"><img alt="" class="gm-mascot"><div class="gm-say">Наведи на будиночок — покажу, хто там працює</div></div>
@@ -74,6 +102,9 @@ export function mountGameMap(root, opts) {
   const pop = root.querySelector('.gm-pop');
   const themeBtn = root.querySelector('.gm-theme');
   const mascot = root.querySelector('.gm-mascot');
+  const qIn = root.querySelector('.gm-q');
+  const sug = root.querySelector('.gm-sug');
+  const fsBtn = root.querySelector('.gm-fs');
   root.querySelector('.gm-count').textContent = companiesIn.length ? `· ${companiesIn.length}` : '';
 
   let geo = null, man = null;
@@ -85,6 +116,11 @@ export function mountGameMap(root, opts) {
   let cos = [];
   let hover = null, pinned = null;
   let baseCache = null; // { key, canvas }
+  let flagMeta = {};
+  const flagCache = {};
+  const logoImgs = {};
+  const allies = new Set();
+  let allyKnown = false;
   let t0 = performance.now();
 
   // ---------- загрузка ----------
@@ -106,12 +142,68 @@ export function mountGameMap(root, opts) {
     return (shadowCache[key] = c);
   }
 
+  // ---------- флаги компаний: цвет компании + логотип, развеваются ----------
+  function logoOf(c) {
+    if (!c.avatar) return null;
+    if (logoImgs[c.id] !== undefined) return logoImgs[c.id];
+    logoImgs[c.id] = null;
+    const i = new Image(); i.decoding = 'async';
+    i.onload = () => { logoImgs[c.id] = i; c.color = dominantColor(i) || c.color; for (const k in flagCache) if (k.startsWith(c.id + '|')) delete flagCache[k]; };
+    i.src = c.avatar;
+    return null;
+  }
+  function dominantColor(img) {
+    try {
+      const n = 24, cv2 = document.createElement('canvas'); cv2.width = cv2.height = n; const x = cv2.getContext('2d');
+      x.drawImage(img, 0, 0, n, n); const d = x.getImageData(0, 0, n, n).data;
+      let best = null, bs = 0; const bins = {};
+      for (let i = 0; i < d.length; i += 4) {
+        const r = d[i], g = d[i + 1], b = d[i + 2], a = d[i + 3]; if (a < 128) continue;
+        const mx = Math.max(r, g, b), mn = Math.min(r, g, b); const sat = mx - mn; if (sat < 50 || mx < 60) continue;
+        const key = (r >> 5) + ',' + (g >> 5) + ',' + (b >> 5); bins[key] = (bins[key] || 0) + sat;
+        if (bins[key] > bs) { bs = bins[key]; best = [r, g, b]; }
+      }
+      return best ? `rgb(${best[0]},${best[1]},${best[2]})` : null;
+    } catch { return null; }
+  }
+  function flagCanvas(c, entry) {
+    const key = `${c.id}|${theme}|${entry[0]}|${logoImgs[c.id] ? 1 : 0}`;
+    if (flagCache[key]) return flagCache[key];
+    const src = sprite('flags/' + entry[0]); if (!src) return null;
+    const w = src.width, h = src.height, cv2 = document.createElement('canvas'); cv2.width = w; cv2.height = h;
+    const x = cv2.getContext('2d');
+    // ткань флага в цвет компании, тени и обводка остаются (multiply)
+    x.drawImage(src, 0, 0); x.globalCompositeOperation = 'multiply'; x.fillStyle = c.color; x.fillRect(0, 0, w, h);
+    x.globalCompositeOperation = 'destination-in'; x.drawImage(src, 0, 0); x.globalCompositeOperation = 'source-over';
+    const logo = logoImgs[c.id];
+    if (logo && h > 20) {
+      const r = Math.min(w, h) * 0.3, cx = w * 0.52, cy = h * 0.46;
+      x.save(); x.beginPath(); x.arc(cx, cy, r + 2.5, 0, 7); x.fillStyle = 'rgba(255,255,255,.95)'; x.fill();
+      x.beginPath(); x.arc(cx, cy, r, 0, 7); x.clip(); x.drawImage(logo, cx - r, cy - r, r * 2, r * 2); x.restore();
+    }
+    return (flagCache[key] = cv2);
+  }
+  function drawFlags(c, k, bx, by, bw, t) {
+    const fk = k.replace('/level-0', '/'); const meta = flagMeta[`${theme}/${fk}`] || flagMeta[`light/${fk}`]; if (!meta) return;
+    const sc = bw / meta.w;
+    for (const e of meta.f) {
+      const fc = flagCanvas(c, e); if (!fc) continue;
+      const fx = bx + e[1] * sc, fy = by + e[2] * sc, fw = e[3] * sc, fh = e[4] * sc;
+      const slices = 10, amp = reduce ? 0 : fh * 0.09;
+      for (let i = 0; i < slices; i++) {
+        const u0 = i / slices, sw = fc.width / slices;
+        const dy = Math.sin(t * 3.2 - u0 * 5 + c.h % 7) * amp * u0;
+        ctx.drawImage(fc, i * sw, 0, sw + 0.6, fc.height, fx + u0 * fw, fy + dy, fw / slices + 0.3, fh);
+      }
+    }
+  }
+
   // ---------- проекция и компании ----------
   function proj(lng, lat) { return [(lng - geo.lon0) * geo.k * geo.c, (geo.lat1 - lat) * geo.k]; }
   function layout() {
     const list = companiesIn.map((c) => {
-      const l = level(c.n); const [x, y] = proj(c.lng, c.lat); const h = hash(c.id || c.name);
-      return { ...c, l, x, y, hx: x, hy: y, w: SIZE[l - 1], forest: h % 10 < 3, pin: PINS[h % PINS.length], h };
+      const l = sizeLevel(c); const [x, y] = proj(c.lng, c.lat); const h = hash(c.id || c.name);
+      return { ...c, l, x, y, hx: x, hy: y, w: SIZE[l - 1], forest: h % 10 < 3, pin: PINS[h % PINS.length], h, color: FLAG_COLORS[h % FLAG_COLORS.length], cityUa: cityUa(c.city) };
     }).sort((a, b) => b.n - a.n);
     // Разводим соседей по спирали: в Киеве десятки компаний в одной точке.
     const placed = [];
@@ -258,6 +350,7 @@ export function mountGameMap(root, opts) {
       if (onScreen(x, y)) items.push({ y, draw: () => { ctx.save(); if ((p < 1) !== (wk.b[0] > wk.a[0])) { ctx.translate(x, 0); ctx.scale(-1, 1); ctx.translate(-x, 0); } drawSprite(wk.k, x, y, 16); ctx.restore(); } });
     }
     items.sort((a, b) => a.y - b.y).forEach((it) => it.draw());
+    drawCityLabels();
     // птицы
     if (!reduce) {
       if (t - birds.t > 26) { birds.t = t; const y0 = 200 + Math.random() * (geo.h - 400); birds.path = { y0, dir: Math.random() > 0.5 ? 1 : -1 }; }
@@ -292,6 +385,29 @@ export function mountGameMap(root, opts) {
     placePopup();
   }
 
+  let cityGroups = [];
+  function buildCityGroups() {
+    const g = {};
+    for (const c of cos) { const k = c.cityUa || '—'; (g[k] ||= []).push(c); }
+    cityGroups = Object.entries(g).map(([name, list]) => {
+      const xs = list.map((c) => c.x), ys = list.map((c) => c.y);
+      return { name, n: list.length, x: (Math.min(...xs) + Math.max(...xs)) / 2, y: Math.max(...ys) };
+    });
+  }
+  function drawCityLabels() {
+    const P = theme === 'dark';
+    for (const g of cityGroups) {
+      if (!onScreen(g.x, g.y, 60)) continue;
+      const fs = Math.max(11, Math.min(17, 12 + (g.n > 5 ? 3 : 0))) / view.s;
+      const y = g.y + (view.s > minS * 3.2 ? 26 : 12) / view.s;
+      ctx.font = `700 italic ${fs}px Georgia, 'Times New Roman', serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      const label = g.n > 1 ? `${g.name} · ${g.n}` : g.name;
+      const tw = ctx.measureText(label).width, pad = 6 / view.s;
+      ctx.fillStyle = P ? 'rgba(15,22,36,.72)' : 'rgba(251,245,230,.82)';
+      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(g.x - tw / 2 - pad, y - pad * 0.5, tw + pad * 2, fs + pad, fs) : ctx.rect(g.x - tw / 2 - pad, y - pad * 0.5, tw + pad * 2, fs + pad); ctx.fill();
+      ctx.fillStyle = P ? '#f0e2bd' : '#5a3d16'; ctx.fillText(label, g.x, y);
+    }
+  }
   function drawCompany(c, t, far) {
     const act = c === hover || c === pinned;
     if (far && c.l <= 3 && !act) {
@@ -310,7 +426,12 @@ export function mountGameMap(root, opts) {
       ctx.strokeStyle = `rgba(255,214,120,${0.85 * (1 - p)})`; ctx.lineWidth = 2.2 / view.s;
       ctx.beginPath(); ctx.ellipse(c.x, c.y - 1, w * (0.45 + p * 0.35), w * (0.13 + p * 0.1), 0, 0, 7); ctx.stroke();
     }
-    const h = drawSprite(k, c.x, c.y + w * 0.04, w) || w;
+    logoOf(c);
+    const im = sprite(k); const h = im ? w * im.height / im.width : w;
+    const bx = c.x - w / 2, by = c.y + w * 0.04 - h;
+    if (im) ctx.drawImage(im, bx, by, w, h);
+    drawFlags(c, k, bx, by, w, t);
+    if (c.userId && allies.has(c.userId)) { const a = sprite('markers/ally'); if (a) { const aw = Math.max(9, w * 0.32); ctx.drawImage(a, c.x + w * 0.22, by + h * 0.18, aw, aw * a.height / a.width); } }
     c._r = { x: c.x, y: c.y - h / 2, w, h };
     if (act || (view.s > minS * 3.2 && c.l >= 4) || view.s > minS * 5) {
       const fs = 11 / view.s; ctx.font = `700 ${fs}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
@@ -325,10 +446,39 @@ export function mountGameMap(root, opts) {
     const jobs = (c.jobs || []).slice(0, 3).map((j) => `<a href="/jobs/${esc(j.slug)}">${esc(j.title)}</a>`).join('');
     const ava = c.avatar ? `<img src="${esc(c.avatar)}" alt="">` : `<span>${esc((c.name || '?').slice(0, 1))}</span>`;
     const prof = c.username ? `<a class="gm-p" href="/u/${esc(c.username)}">Профіль компанії</a>` : '';
-    return `<div class="gm-ph"><div class="gm-ava">${ava}</div><div class="gm-pt"><b>${esc(c.name)}</b><small>${esc(c.city || '')}</small></div><button class="gm-x" type="button" aria-label="Закрити">×</button></div>
-      <div class="gm-badge">${c.n} ${plural(c.n)}</div>
+    const sub = [c.cityUa, c.est ? `з ${c.est} року` : ''].filter(Boolean).join(' · ');
+    const chips = [
+      `<span class="gm-chip g">💼 ${c.n} ${plural(c.n)}</span>`,
+      c.employees ? `<span class="gm-chip">👥 ${c.employees} ${empLabel(c.employees)}</span>` : '',
+      c.occupation ? `<span class="gm-chip">${esc(c.occupation)}</span>` : '',
+    ].join('');
+    let site = '';
+    if (c.website) { try { const u = new URL(c.website.startsWith('http') ? c.website : 'https://' + c.website); site = `<a class="gm-site" href="${esc(u.href)}" target="_blank" rel="noopener nofollow">🔗 ${esc(u.hostname.replace(/^www\./, ''))}</a>`; } catch { site = ''; } }
+    const bio = c.bio ? `<p class="gm-bio">${esc(c.bio)}</p>` : '';
+    const isAlly = c.userId && allies.has(c.userId);
+    const ally = c.userId ? `<button class="gm-ally${isAlly ? ' on' : ''}" type="button" title="${isAlly ? 'Ваш союзник (у контактах)' : 'Додати в союзники — компанія з’явиться у ваших контактах'}" aria-label="Додати в союзники">${isAlly ? '✓' : '+'}</button>` : '';
+    return `<div class="gm-ph" style="--fc:${esc(c.color)}"><div class="gm-ava">${ava}</div><div class="gm-pt"><b>${esc(c.name)}</b><small>${esc(sub)}</small></div><button class="gm-x" type="button" aria-label="Закрити">×</button></div>
+      <div class="gm-chips">${chips}</div>
+      ${bio}${site}
       ${jobs ? `<div class="gm-jobs">${jobs}</div>` : ''}
-      <div class="gm-acts">${prof}</div>`;
+      <div class="gm-acts">${prof}${ally}</div>`;
+  }
+  async function addAlly(c) {
+    if (!c.userId || allies.has(c.userId)) return;
+    try {
+      const r = await fetch('/api/contacts/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: c.userId }) });
+      if (r.status === 401) { location.href = '/sign-in?next=' + encodeURIComponent(location.pathname); return; }
+      if (!r.ok) throw new Error(String(r.status));
+      allies.add(c.userId); popFor = null; showPopup(c);
+    } catch { const b = pop.querySelector('.gm-ally'); if (b) { b.textContent = '!'; b.title = 'Не вдалося додати, спробуйте ще раз'; } }
+  }
+  async function loadAllies() {
+    try {
+      const r = await fetch('/api/contacts/list'); if (!r.ok) return;
+      const j = await r.json(); const list = j.contacts || j.data || j.items || [];
+      for (const it of list) { const id = it.userId || it.user?.id || it.user?._id || it.user || it.id; if (typeof id === 'string') allies.add(id); }
+      allyKnown = true;
+    } catch { /* гость: союзников нет */ }
   }
   function showPopup(c) {
     if (popFor !== c) { popFor = c; if (c) { pop.innerHTML = popupHtml(c); } }
@@ -396,9 +546,47 @@ export function mountGameMap(root, opts) {
     const z = e.target.closest('[data-z]'); if (z) { flyTo(W / 2, H / 2, view.s * (z.dataset.z === 'in' ? 1.6 : 1 / 1.6)); return; }
     if (e.target.closest('.gm-x')) { pinned = null; hover = null; showPopup(null); return; }
     if (e.target.closest('.gm-theme')) setTheme(theme === 'dark' ? 'light' : 'dark');
+    if (e.target.closest('.gm-ally') && popFor) addAlly(popFor);
+    if (e.target.closest('.gm-fs')) toggleFs();
+    const si = e.target.closest('[data-ci]'); if (si) { pickCompany(cos[Number(si.dataset.ci)]); }
   });
+  // ---------- на весь экран ----------
+  function toggleFs(force) {
+    const on = force ?? !root.classList.contains('gm-full');
+    root.classList.toggle('gm-full', on); document.documentElement.classList.toggle('gm-noscroll', on);
+    fsBtn.textContent = on ? '✕' : '⛶'; fsBtn.title = on ? 'Вийти з повного екрана' : 'На весь екран'; fsBtn.setAttribute('aria-label', fsBtn.title);
+    requestAnimationFrame(() => resize());
+  }
+  cleanup.push(() => document.documentElement.classList.remove('gm-noscroll'));
+  // ---------- поиск компании ----------
+  let sugIdx = -1, sugList = [];
+  function renderSug() {
+    const q = qIn.value.trim().toLowerCase();
+    sugList = q.length < 1 ? [] : cos.map((c, i) => ({ c, i, p: c.name.toLowerCase().indexOf(q) })).filter((o) => o.p >= 0).sort((a, b) => a.p - b.p || b.c.n - a.c.n).slice(0, 8);
+    sugIdx = sugList.length ? 0 : -1;
+    sug.innerHTML = sugList.length ? sugList.map((o, k) => `<button type="button" class="gm-si${k === sugIdx ? ' on' : ''}" data-ci="${o.i}" role="option"><b>${esc(o.c.name)}</b><small>${esc(o.c.cityUa)} · ${o.c.n} ${plural(o.c.n)}</small></button>`).join('')
+      : (q ? '<div class="gm-none">Нічого не знайшли</div>' : '');
+    sug.classList.toggle('on', !!q);
+  }
+  function pickCompany(c) {
+    if (!c) return; qIn.value = c.name; sug.classList.remove('on'); qIn.blur();
+    const target = Math.max(view.s, minS * 4.2);
+    const from = { ...view }, start = performance.now();
+    const tx = W / 2 - c.x * target, ty = H / 2 - (c.y - 20) * target;
+    anim = () => { const k = Math.min(1, (performance.now() - start) / 650); const e = 1 - (1 - k) ** 3;
+      view.s = from.s + (target - from.s) * e; view.x = from.x + (tx - from.x) * e; view.y = from.y + (ty - from.y) * e; clamp(); baseCache = null;
+      if (k >= 1) { anim = null; pinned = c; hover = c; showPopup(c); } };
+  }
+  on(qIn, 'input', renderSug);
+  on(qIn, 'focus', renderSug);
+  on(qIn, 'keydown', (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); if (!sugList.length) return; sugIdx = (sugIdx + (e.key === 'ArrowDown' ? 1 : -1) + sugList.length) % sugList.length; sug.querySelectorAll('.gm-si').forEach((b, k) => b.classList.toggle('on', k === sugIdx)); }
+    else if (e.key === 'Enter') { e.preventDefault(); if (sugIdx >= 0) pickCompany(sugList[sugIdx].c); }
+    else if (e.key === 'Escape') { sug.classList.remove('on'); qIn.blur(); }
+  });
+  on(qIn, 'blur', () => setTimeout(() => sug.classList.remove('on'), 150));
   on(window, 'resize', () => resize());
-  on(document, 'keydown', (e) => { if (e.key === 'Escape') { pinned = null; hover = null; showPopup(null); } });
+  on(document, 'keydown', (e) => { if (e.key === 'Escape' && document.activeElement !== qIn) { if (popFor) { pinned = null; hover = null; showPopup(null); } else if (root.classList.contains('gm-full')) toggleFs(false); } });
 
   async function setTheme(th) {
     theme = th; root.classList.toggle('gm-dark', th === 'dark'); baseCache = null;
@@ -409,9 +597,12 @@ export function mountGameMap(root, opts) {
 
   let raf = 0;
   (async () => {
-    [geo, man] = await Promise.all([fetch(`${base}/geo.json`).then((r) => r.json()), fetch(`${base}/manifest.json`).then((r) => r.json())]);
+    [geo, man, flagMeta] = await Promise.all([fetch(`${base}/geo.json`).then((r) => r.json()), fetch(`${base}/manifest.json`).then((r) => r.json()), fetch(`${base}/flags.json`).then((r) => r.json()).catch(() => ({}))]);
+    for (const k in flagMeta) for (const e of flagMeta[k].f) man['flags/' + e[0]] = [e[3], e[4]];
+    loadAllies();
     if (destroyed) return;
     cos = layout();
+    buildCityGroups();
     const cities = Object.values(geo.cities);
     const cats = ['cat-amber', 'cat-coral', 'cat-honey', 'cat-lilac', 'cat-peach', 'cat-rose', 'cat-sage', 'cat-teal'];
     for (let i = 0; i < 6; i++) { const a = cities[(i * 5) % cities.length], b = cities[(i * 5 + 3) % cities.length]; walkers.push({ k: cats[i], a, b, v: 0.012 + i * 0.002, ph: i * 0.37 }); }
@@ -471,5 +662,33 @@ export const GAME_MAP_CSS = `
 .gm2 .gm-acts{display:flex;gap:8px}
 .gm2 .gm-p{flex:1;text-align:center;text-decoration:none;font:600 13px system-ui;padding:9px 12px;border-radius:10px;background:#a8571f;color:#fff}
 .gm2.gm-dark .gm-p{background:#5b6fc0}
+.gm2.gm-full{position:fixed;inset:0;z-index:80;height:auto;min-height:0;border-radius:0;border:0}
+html.gm-noscroll,html.gm-noscroll body{overflow:hidden}
+.gm2 .gm-left{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap}
+.gm2 .gm-right{display:flex;gap:8px}
+.gm2 .gm-search{position:relative}
+.gm2 .gm-q{width:220px;max-width:46vw;height:38px;border-radius:999px;border:1px solid rgba(160,120,60,.35);background:rgba(251,245,230,.95);padding:0 14px;font:500 14px system-ui;color:#4a3518;box-shadow:0 3px 10px rgba(0,0,0,.18);outline:none}
+.gm2 .gm-q:focus{border-color:#c99a52;box-shadow:0 0 0 3px rgba(201,154,82,.3)}
+.gm2.gm-dark .gm-q{background:rgba(18,28,44,.92);color:#e9dfc4;border-color:rgba(120,150,210,.35)}
+.gm2 .gm-sug{position:absolute;top:44px;left:0;width:300px;max-width:80vw;background:#fbf5e6;border:1px solid #c99a52;border-radius:14px;box-shadow:0 12px 30px rgba(40,25,5,.3);padding:5px;display:none;flex-direction:column;gap:2px;z-index:3}
+.gm2 .gm-sug.on{display:flex}
+.gm2.gm-dark .gm-sug{background:#16233a;border-color:#7d8fc9}
+.gm2 .gm-si{display:flex;flex-direction:column;align-items:flex-start;text-align:left;border:0;background:none;color:inherit;padding:8px 10px;border-radius:10px;cursor:pointer;font:inherit}
+.gm2 .gm-si small{opacity:.65;font-size:12px}
+.gm2 .gm-si.on,.gm2 .gm-si:hover{background:rgba(150,110,50,.15)}
+.gm2 .gm-none{padding:10px;font-size:13px;opacity:.7}
+@media (max-width:560px){.gm2 .gm-title{display:none}.gm2 .gm-q{width:170px}}
+.gm2 .gm-pop{width:330px}
+.gm2 .gm-ph{border-left:4px solid var(--fc,#c99a52);padding-left:8px;margin-left:-4px}
+.gm2 .gm-chips{display:flex;flex-wrap:wrap;gap:5px}
+.gm2 .gm-chip{font:600 12px system-ui;padding:4px 9px;border-radius:999px;background:rgba(150,110,50,.14)}
+.gm2 .gm-chip.g{background:#2f7a4d;color:#fff}
+.gm2.gm-dark .gm-chip{background:rgba(140,160,220,.16)}.gm2.gm-dark .gm-chip.g{background:#2f7a4d}
+.gm2 .gm-bio{margin:0;font-size:13px;line-height:1.45;opacity:.9;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.gm2 .gm-site{font-size:13px;color:#a8571f;text-decoration:none;align-self:flex-start}
+.gm2.gm-dark .gm-site{color:#9fb1ff}
+.gm2 .gm-ally{flex:none;width:40px;border-radius:10px;border:2px solid #a8571f;background:none;color:#a8571f;font:700 20px system-ui;cursor:pointer;line-height:1}
+.gm2 .gm-ally.on{background:#2f7a4d;border-color:#2f7a4d;color:#fff}
+.gm2.gm-dark .gm-ally{border-color:#7d8fc9;color:#c9d3ff}.gm2.gm-dark .gm-ally.on{background:#2f7a4d;border-color:#2f7a4d;color:#fff}
 .gm2 .gm-load{position:absolute;inset:0;display:grid;place-items:center;color:#fff;font:600 16px Georgia,serif;background:inherit}
 `;
