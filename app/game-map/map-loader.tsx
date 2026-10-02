@@ -16,7 +16,7 @@ export function MapLoader() {
           </g>
           <circle cx="20" cy="20" r="2.2" fill="currentColor" />
         </svg>
-        <T uk="Малюємо карту…" en="Drawing the map…" ru="Рисуем карту…" de="Karte wird gezeichnet…" es="Dibujando el mapa…" fr="Dessin de la carte…" pl="Rysujemy mapę…" ptBR="Desenhando o mapa…" zh="正在绘制地图…" />
+        <T uk="Завантажуємо карту…" en="Loading the map…" ru="Загружаем карту…" de="Karte wird geladen…" es="Cargando el mapa…" fr="Chargement de la carte…" pl="Ładujemy mapę…" ptBR="Carregando o mapa…" zh="正在加载地图…" />
       </div>
     </div>
   );

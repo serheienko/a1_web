@@ -40,6 +40,13 @@ const nextConfig: NextConfig = {
         source: "/.well-known/apple-app-site-association",
         headers: [{ key: "Content-Type", value: "application/json" }],
       },
+      // 02.10.2026 (Александр: «карта вантажиться дуже довго, треба кешувати»).
+      // Картинки й геодані карти браузер тримає тиждень і не перепитує сервер
+      // на кожному відкритті (було max-age=0 -- ~100 перевірок щоразу).
+      {
+        source: "/game-map/:path*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=2592000" }],
+      },
     ];
   },
 
