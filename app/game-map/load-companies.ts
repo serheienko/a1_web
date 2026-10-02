@@ -13,16 +13,27 @@ import type { MapCompany } from "./engine";
 // але з запасом зверху, щоб сторінка не роздувалась.
 const LIMIT = 1500;
 
+/** Острів «Віддалено» в Чорному морі (між Одесою й Кримом, південніше). */
+const REMOTE = { lng: 31.0, lat: 43.9 };
+
 export async function loadCompanies(): Promise<MapCompany[]> {
   try {
     const posts = await allIndexedPosts();
     const byCompany = new Map<string, MapCompany>();
     for (const p of posts) {
-      if (p.kind !== "hiring" || p.author.isAnonymous) continue;
+      if (p.kind !== "hiring" || p.author.isAnonymous || p.author.external) continue;
       const loc = p.location;
-      if (!loc?.coordinates || loc.country.trim().toUpperCase() !== "UA") continue;
-      const [lng, lat] = loc.coordinates;
-      if (!(lng > 22 && lng < 40.3 && lat > 44.3 && lat < 52.4)) continue;
+      const country = loc?.country?.trim().toUpperCase() ?? "";
+      // 02.10.2026 (Александр: «чому Traffband не показує?»). Українські
+      // компанії без міста у вакансії (DOU ставить «Worldwide») раніше
+      // випадали. Тепер вони живуть на острові «Віддалено» в Чорному морі.
+      // Якщо в компанії є хоч одна вакансія з містом в Україні -- вона там.
+      let lng = REMOTE.lng, lat = REMOTE.lat, city = "Remote", remote = true;
+      if (loc?.coordinates && country === "UA") {
+        const [x, y] = loc.coordinates;
+        if (x > 22 && x < 40.3 && y > 44.3 && y < 52.4) { lng = x; lat = y; city = loc.city || loc.display; remote = false; }
+      }
+      if (remote && country !== "WW" && country !== "") continue; // інша країна -- не наша карта
       const key = p.author.userId ?? p.author.name;
       let c = byCompany.get(key);
       if (!c) {
@@ -32,13 +43,15 @@ export async function loadCompanies(): Promise<MapCompany[]> {
           username: p.author.username,
           avatar: p.author.avatarUrl,
           n: 0,
-          city: loc.city || loc.display,
+          city,
           lng,
           lat,
           jobs: [],
           userId: p.author.userId,
         };
         byCompany.set(key, c);
+      } else if (c.city === "Remote" && !remote) {
+        c.city = city; c.lng = lng; c.lat = lat;
       }
       c.n += 1;
       if (c.jobs.length < 3) c.jobs.push({ title: p.title, slug: p.slug });

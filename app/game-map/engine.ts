@@ -55,15 +55,15 @@ const PAL = {
 // ---------- мови (02.10.2026, Александр: «зміна локалізації має одразу міняти інтерфейс карти») ----------
 const TAG = { uk: 'uk', en: 'en', ru: 'ru', de: 'de', es: 'es', fr: 'fr', pl: 'pl', ptBR: 'pt-BR', zh: 'zh-CN' };
 const STR = {
-  uk: { allyDone: 'Додано в союзники', allyDoneSub: 'Тепер у ваших контактах', title: 'Карта всесвіту A1', find: 'Знайти на карті…', fsOn: 'На весь екран', fsOff: 'Вийти з повного екрана', zin: 'Приблизити', zout: 'Віддалити', say: 'Наведи на будиночок — покажу, хто там працює', load: 'Малюємо карту…', profile: 'Відкрити профіль', since: 'з {y} року', close: 'Закрити', allyOn: 'Ваш союзник (у контактах)', allyAdd: 'Додати в союзники — з’явиться у ваших контактах', allyErr: 'Не вдалося додати, спробуйте ще раз', none: 'Нічого не знайшли', day: '☀ День', eve: '☾ Вечір', vac: { one: 'вакансія', few: 'вакансії', many: 'вакансій', other: 'вакансії' }, emp: { one: 'співробітник', few: 'співробітники', many: 'співробітників', other: 'співробітника' } },
-  ru: { allyDone: 'Добавлено в союзники', allyDoneSub: 'Теперь в ваших контактах', title: 'Карта вселенной A1', find: 'Найти на карте…', fsOn: 'На весь экран', fsOff: 'Выйти из полноэкранного режима', zin: 'Приблизить', zout: 'Отдалить', say: 'Наведи на домик — покажу, кто там работает', load: 'Рисуем карту…', profile: 'Открыть профиль', since: 'с {y} года', close: 'Закрыть', allyOn: 'Ваш союзник (в контактах)', allyAdd: 'Добавить в союзники — появится в ваших контактах', allyErr: 'Не удалось добавить, попробуйте ещё раз', none: 'Ничего не нашли', day: '☀ День', eve: '☾ Вечер', vac: { one: 'вакансия', few: 'вакансии', many: 'вакансий', other: 'вакансии' }, emp: { one: 'сотрудник', few: 'сотрудника', many: 'сотрудников', other: 'сотрудника' } },
-  en: { allyDone: 'Added to allies', allyDoneSub: 'Now in your contacts', title: 'A1 Universe map', find: 'Search the map…', fsOn: 'Full screen', fsOff: 'Exit full screen', zin: 'Zoom in', zout: 'Zoom out', say: 'Hover over a house — I’ll show you who works there', load: 'Drawing the map…', profile: 'Open profile', since: 'since {y}', close: 'Close', allyOn: 'Your ally (in contacts)', allyAdd: 'Add as an ally — they’ll appear in your contacts', allyErr: 'Couldn’t add, please try again', none: 'Nothing found', day: '☀ Day', eve: '☾ Evening', vac: { one: 'job', other: 'jobs' }, emp: { one: 'employee', other: 'employees' } },
-  de: { allyDone: 'Als Verbündeter hinzugefügt', allyDoneSub: 'Jetzt in deinen Kontakten', title: 'Karte des A1-Universums', find: 'Auf der Karte suchen…', fsOn: 'Vollbild', fsOff: 'Vollbild beenden', zin: 'Vergrößern', zout: 'Verkleinern', say: 'Fahr über ein Haus – ich zeige dir, wer dort arbeitet', load: 'Karte wird gezeichnet…', profile: 'Profil öffnen', since: 'seit {y}', close: 'Schließen', allyOn: 'Dein Verbündeter (in den Kontakten)', allyAdd: 'Als Verbündeten hinzufügen – erscheint in deinen Kontakten', allyErr: 'Hinzufügen fehlgeschlagen, bitte erneut versuchen', none: 'Nichts gefunden', day: '☀ Tag', eve: '☾ Abend', vac: { one: 'Stelle', other: 'Stellen' }, emp: { one: 'Mitarbeiter', other: 'Mitarbeiter' } },
-  es: { allyDone: 'Añadido a aliados', allyDoneSub: 'Ya está en tus contactos', title: 'Mapa del universo A1', find: 'Buscar en el mapa…', fsOn: 'Pantalla completa', fsOff: 'Salir de pantalla completa', zin: 'Acercar', zout: 'Alejar', say: 'Pasa el cursor sobre una casa: te muestro quién trabaja allí', load: 'Dibujando el mapa…', profile: 'Abrir perfil', since: 'desde {y}', close: 'Cerrar', allyOn: 'Tu aliado (en contactos)', allyAdd: 'Añadir como aliado: aparecerá en tus contactos', allyErr: 'No se pudo añadir, inténtalo de nuevo', none: 'No se encontró nada', day: '☀ Día', eve: '☾ Noche', vac: { one: 'vacante', other: 'vacantes' }, emp: { one: 'empleado', other: 'empleados' } },
-  fr: { allyDone: 'Ajouté aux alliés', allyDoneSub: 'Maintenant dans vos contacts', title: 'Carte de l’univers A1', find: 'Chercher sur la carte…', fsOn: 'Plein écran', fsOff: 'Quitter le plein écran', zin: 'Zoom avant', zout: 'Zoom arrière', say: 'Survole une maison — je te montre qui y travaille', load: 'Dessin de la carte…', profile: 'Ouvrir le profil', since: 'depuis {y}', close: 'Fermer', allyOn: 'Votre allié (dans les contacts)', allyAdd: 'Ajouter comme allié — apparaîtra dans vos contacts', allyErr: 'Échec de l’ajout, réessayez', none: 'Aucun résultat', day: '☀ Jour', eve: '☾ Soir', vac: { one: 'offre', other: 'offres' }, emp: { one: 'employé', other: 'employés' } },
-  pl: { allyDone: 'Dodano do sojuszników', allyDoneSub: 'Teraz w Twoich kontaktach', title: 'Mapa uniwersum A1', find: 'Szukaj na mapie…', fsOn: 'Pełny ekran', fsOff: 'Wyjdź z pełnego ekranu', zin: 'Przybliż', zout: 'Oddal', say: 'Najedź na domek — pokażę, kto tam pracuje', load: 'Rysujemy mapę…', profile: 'Otwórz profil', since: 'od {y} r.', close: 'Zamknij', allyOn: 'Twój sojusznik (w kontaktach)', allyAdd: 'Dodaj jako sojusznika — pojawi się w Twoich kontaktach', allyErr: 'Nie udało się dodać, spróbuj ponownie', none: 'Nic nie znaleziono', day: '☀ Dzień', eve: '☾ Wieczór', vac: { one: 'oferta', few: 'oferty', many: 'ofert', other: 'oferty' }, emp: { one: 'pracownik', few: 'pracowników', many: 'pracowników', other: 'pracownika' } },
-  ptBR: { allyDone: 'Adicionado aos aliados', allyDoneSub: 'Agora nos seus contatos', title: 'Mapa do universo A1', find: 'Buscar no mapa…', fsOn: 'Tela cheia', fsOff: 'Sair da tela cheia', zin: 'Aproximar', zout: 'Afastar', say: 'Passe o mouse sobre uma casa — mostro quem trabalha lá', load: 'Desenhando o mapa…', profile: 'Abrir perfil', since: 'desde {y}', close: 'Fechar', allyOn: 'Seu aliado (nos contatos)', allyAdd: 'Adicionar como aliado — aparecerá nos seus contatos', allyErr: 'Não foi possível adicionar, tente novamente', none: 'Nada encontrado', day: '☀ Dia', eve: '☾ Noite', vac: { one: 'vaga', other: 'vagas' }, emp: { one: 'funcionário', other: 'funcionários' } },
-  zh: { allyDone: '已添加为盟友', allyDoneSub: '已在你的联系人中', title: 'A1 宇宙地图', find: '在地图上搜索…', fsOn: '全屏', fsOff: '退出全屏', zin: '放大', zout: '缩小', say: '把鼠标移到房子上——我告诉你谁在那里工作', load: '正在绘制地图…', profile: '打开主页', since: '成立于 {y} 年', close: '关闭', allyOn: '你的盟友（已在联系人中）', allyAdd: '添加为盟友——将出现在你的联系人中', allyErr: '添加失败，请重试', none: '未找到', day: '☀ 白天', eve: '☾ 夜晚', vac: { other: '个职位' }, emp: { other: '名员工' } },
+  uk: { allyOff: 'Прибрати з союзників', allyGone: 'Прибрано з союзників', allyGoneSub: 'Більше не у ваших контактах', allyDone: 'Додано в союзники', allyDoneSub: 'Тепер у ваших контактах', title: 'Карта всесвіту A1', find: 'Знайти на карті…', fsOn: 'На весь екран', fsOff: 'Вийти з повного екрана', zin: 'Приблизити', zout: 'Віддалити', say: 'Наведи на будиночок — покажу, хто там працює', load: 'Малюємо карту…', profile: 'Відкрити профіль', since: 'з {y} року', close: 'Закрити', allyOn: 'Ваш союзник (у контактах)', allyAdd: 'Додати в союзники — з’явиться у ваших контактах', allyErr: 'Не вдалося додати, спробуйте ще раз', none: 'Нічого не знайшли', day: '☀ День', eve: '☾ Вечір', vac: { one: 'вакансія', few: 'вакансії', many: 'вакансій', other: 'вакансії' }, emp: { one: 'співробітник', few: 'співробітники', many: 'співробітників', other: 'співробітника' } },
+  ru: { allyOff: 'Убрать из союзников', allyGone: 'Убрано из союзников', allyGoneSub: 'Больше не в ваших контактах', allyDone: 'Добавлено в союзники', allyDoneSub: 'Теперь в ваших контактах', title: 'Карта вселенной A1', find: 'Найти на карте…', fsOn: 'На весь экран', fsOff: 'Выйти из полноэкранного режима', zin: 'Приблизить', zout: 'Отдалить', say: 'Наведи на домик — покажу, кто там работает', load: 'Рисуем карту…', profile: 'Открыть профиль', since: 'с {y} года', close: 'Закрыть', allyOn: 'Ваш союзник (в контактах)', allyAdd: 'Добавить в союзники — появится в ваших контактах', allyErr: 'Не удалось добавить, попробуйте ещё раз', none: 'Ничего не нашли', day: '☀ День', eve: '☾ Вечер', vac: { one: 'вакансия', few: 'вакансии', many: 'вакансий', other: 'вакансии' }, emp: { one: 'сотрудник', few: 'сотрудника', many: 'сотрудников', other: 'сотрудника' } },
+  en: { allyOff: 'Remove from allies', allyGone: 'Removed from allies', allyGoneSub: 'No longer in your contacts', allyDone: 'Added to allies', allyDoneSub: 'Now in your contacts', title: 'A1 Universe map', find: 'Search the map…', fsOn: 'Full screen', fsOff: 'Exit full screen', zin: 'Zoom in', zout: 'Zoom out', say: 'Hover over a house — I’ll show you who works there', load: 'Drawing the map…', profile: 'Open profile', since: 'since {y}', close: 'Close', allyOn: 'Your ally (in contacts)', allyAdd: 'Add as an ally — they’ll appear in your contacts', allyErr: 'Couldn’t add, please try again', none: 'Nothing found', day: '☀ Day', eve: '☾ Evening', vac: { one: 'job', other: 'jobs' }, emp: { one: 'employee', other: 'employees' } },
+  de: { allyOff: 'Aus Verbündeten entfernen', allyGone: 'Aus Verbündeten entfernt', allyGoneSub: 'Nicht mehr in deinen Kontakten', allyDone: 'Als Verbündeter hinzugefügt', allyDoneSub: 'Jetzt in deinen Kontakten', title: 'Karte des A1-Universums', find: 'Auf der Karte suchen…', fsOn: 'Vollbild', fsOff: 'Vollbild beenden', zin: 'Vergrößern', zout: 'Verkleinern', say: 'Fahr über ein Haus – ich zeige dir, wer dort arbeitet', load: 'Karte wird gezeichnet…', profile: 'Profil öffnen', since: 'seit {y}', close: 'Schließen', allyOn: 'Dein Verbündeter (in den Kontakten)', allyAdd: 'Als Verbündeten hinzufügen – erscheint in deinen Kontakten', allyErr: 'Hinzufügen fehlgeschlagen, bitte erneut versuchen', none: 'Nichts gefunden', day: '☀ Tag', eve: '☾ Abend', vac: { one: 'Stelle', other: 'Stellen' }, emp: { one: 'Mitarbeiter', other: 'Mitarbeiter' } },
+  es: { allyOff: 'Quitar de aliados', allyGone: 'Quitado de aliados', allyGoneSub: 'Ya no está en tus contactos', allyDone: 'Añadido a aliados', allyDoneSub: 'Ya está en tus contactos', title: 'Mapa del universo A1', find: 'Buscar en el mapa…', fsOn: 'Pantalla completa', fsOff: 'Salir de pantalla completa', zin: 'Acercar', zout: 'Alejar', say: 'Pasa el cursor sobre una casa: te muestro quién trabaja allí', load: 'Dibujando el mapa…', profile: 'Abrir perfil', since: 'desde {y}', close: 'Cerrar', allyOn: 'Tu aliado (en contactos)', allyAdd: 'Añadir como aliado: aparecerá en tus contactos', allyErr: 'No se pudo añadir, inténtalo de nuevo', none: 'No se encontró nada', day: '☀ Día', eve: '☾ Noche', vac: { one: 'vacante', other: 'vacantes' }, emp: { one: 'empleado', other: 'empleados' } },
+  fr: { allyOff: 'Retirer des alliés', allyGone: 'Retiré des alliés', allyGoneSub: 'N’est plus dans vos contacts', allyDone: 'Ajouté aux alliés', allyDoneSub: 'Maintenant dans vos contacts', title: 'Carte de l’univers A1', find: 'Chercher sur la carte…', fsOn: 'Plein écran', fsOff: 'Quitter le plein écran', zin: 'Zoom avant', zout: 'Zoom arrière', say: 'Survole une maison — je te montre qui y travaille', load: 'Dessin de la carte…', profile: 'Ouvrir le profil', since: 'depuis {y}', close: 'Fermer', allyOn: 'Votre allié (dans les contacts)', allyAdd: 'Ajouter comme allié — apparaîtra dans vos contacts', allyErr: 'Échec de l’ajout, réessayez', none: 'Aucun résultat', day: '☀ Jour', eve: '☾ Soir', vac: { one: 'offre', other: 'offres' }, emp: { one: 'employé', other: 'employés' } },
+  pl: { allyOff: 'Usuń z sojuszników', allyGone: 'Usunięto z sojuszników', allyGoneSub: 'Nie ma już w Twoich kontaktach', allyDone: 'Dodano do sojuszników', allyDoneSub: 'Teraz w Twoich kontaktach', title: 'Mapa uniwersum A1', find: 'Szukaj na mapie…', fsOn: 'Pełny ekran', fsOff: 'Wyjdź z pełnego ekranu', zin: 'Przybliż', zout: 'Oddal', say: 'Najedź na domek — pokażę, kto tam pracuje', load: 'Rysujemy mapę…', profile: 'Otwórz profil', since: 'od {y} r.', close: 'Zamknij', allyOn: 'Twój sojusznik (w kontaktach)', allyAdd: 'Dodaj jako sojusznika — pojawi się w Twoich kontaktach', allyErr: 'Nie udało się dodać, spróbuj ponownie', none: 'Nic nie znaleziono', day: '☀ Dzień', eve: '☾ Wieczór', vac: { one: 'oferta', few: 'oferty', many: 'ofert', other: 'oferty' }, emp: { one: 'pracownik', few: 'pracowników', many: 'pracowników', other: 'pracownika' } },
+  ptBR: { allyOff: 'Remover dos aliados', allyGone: 'Removido dos aliados', allyGoneSub: 'Não está mais nos seus contatos', allyDone: 'Adicionado aos aliados', allyDoneSub: 'Agora nos seus contatos', title: 'Mapa do universo A1', find: 'Buscar no mapa…', fsOn: 'Tela cheia', fsOff: 'Sair da tela cheia', zin: 'Aproximar', zout: 'Afastar', say: 'Passe o mouse sobre uma casa — mostro quem trabalha lá', load: 'Desenhando o mapa…', profile: 'Abrir perfil', since: 'desde {y}', close: 'Fechar', allyOn: 'Seu aliado (nos contatos)', allyAdd: 'Adicionar como aliado — aparecerá nos seus contatos', allyErr: 'Não foi possível adicionar, tente novamente', none: 'Nada encontrado', day: '☀ Dia', eve: '☾ Noite', vac: { one: 'vaga', other: 'vagas' }, emp: { one: 'funcionário', other: 'funcionários' } },
+  zh: { allyOff: '移除盟友', allyGone: '已移除盟友', allyGoneSub: '已不在你的联系人中', allyDone: '已添加为盟友', allyDoneSub: '已在你的联系人中', title: 'A1 宇宙地图', find: '在地图上搜索…', fsOn: '全屏', fsOff: '退出全屏', zin: '放大', zout: '缩小', say: '把鼠标移到房子上——我告诉你谁在那里工作', load: '正在绘制地图…', profile: '打开主页', since: '成立于 {y} 年', close: '关闭', allyOn: '你的盟友（已在联系人中）', allyAdd: '添加为盟友——将出现在你的联系人中', allyErr: '添加失败，请重试', none: '未找到', day: '☀ 白天', eve: '☾ 夜晚', vac: { other: '个职位' }, emp: { other: '名员工' } },
 };
 // Міста: англійська назва (так приходить з бекенду) → [укр, рос, кит]. Латиниця -- англійською.
 const CITY = {
@@ -86,7 +86,9 @@ function cityKey(raw) {
   const s = String(raw).split(',')[0].replace(/^(м\.|г\.|місто|город)\s*/i, '').trim();
   return CITY_IDX[s.toLowerCase()] || CITY_IDX[s.toLowerCase().replace(/\s+/g, '_')] || s;
 }
+const REMOTE_NAME = { uk: 'Острів «Віддалено»', ru: 'Остров «Удалёнка»', en: 'Remote Island', de: 'Remote-Insel', es: 'Isla Remota', fr: 'Île du Télétravail', pl: 'Wyspa Zdalna', ptBR: 'Ilha Remota', zh: '远程岛' };
 function cityName(key, lang) {
+  if (key === 'Remote') return REMOTE_NAME[lang] || REMOTE_NAME.en;
   const e = CITY[key]; if (!e) return key;
   return lang === 'uk' ? e[0] : lang === 'ru' ? e[1] : lang === 'zh' ? e[2] : key;
 }
@@ -182,12 +184,14 @@ export function mountGameMap(root, opts) {
   const view = { x: 0, y: 0, s: 1 };
   let minS = 0.3, maxS = 4;
   let cos = [];
+  let dens = 1;
+  let island = null;
   let hover = null, pinned = null;
   let baseCache = null; // { key, canvas }
   let flagMeta = {};
   const flagCache = {};
   const logoImgs = {};
-  const allies = new Set();
+  const allies = new Map(); // userId -> id запису контакту (для видалення)
   let allyKnown = false;
   let t0 = performance.now();
 
@@ -292,7 +296,12 @@ export function mountGameMap(root, opts) {
   function layout() {
     // Усі компанії України (02.10.2026): чим їх більше, тим дрібніші будиночки,
     // інакше Київ розповзається на пів області.
-    const dens = Math.max(0.5, Math.min(1, Math.sqrt(80 / Math.max(1, companiesIn.length))));
+    // Розмір будиночків -- від найбільшого міста: Київ (сотні профілів) має
+    // вміститись у ~60 км навколо, а не розповзтись на пів країни. Зате карту
+    // можна наблизити глибше (maxS), і зблизька будинки великі й чіткі.
+    const perCity = {}; for (const c of companiesIn) { const k = cityKey(c.city); perCity[k] = (perCity[k] || 0) + 1; }
+    const biggest = Math.max(1, ...Object.values(perCity));
+    dens = Math.max(0.12, Math.min(1, Math.sqrt(8 / biggest)));
     const list = companiesIn.map((c) => {
       const l = sizeLevel(c); const [x, y] = proj(c.lng, c.lat); const h = hash(c.id || c.name);
       return { ...c, l, x, y, hx: x, hy: y, w: SIZE[l - 1] * dens, forest: h % 10 < 3, pin: PINS[h % PINS.length], h, color: FLAG_COLORS[h % FLAG_COLORS.length], ck: cityKey(c.city) };
@@ -302,7 +311,7 @@ export function mountGameMap(root, opts) {
     const CELL = 40, grid = new Map();
     const cellKey = (x, y) => `${Math.floor(x / CELL)}|${Math.floor(y / CELL)}`;
     const near = (x, y) => { const out = []; const cx = Math.floor(x / CELL), cy = Math.floor(y / CELL); for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) { const a = grid.get(`${cx + i}|${cy + j}`); if (a) out.push(...a); } return out; };
-    const k = Math.sqrt(dens), ovl = 0.95 * (0.55 + 0.45 * dens);
+    const k = Math.sqrt(dens), ovl = 1.1;
     for (const c of list) {
       const r = c.w * 0.5;
       let ang = (c.h % 360) * Math.PI / 180, step = 0;
@@ -313,6 +322,25 @@ export function mountGameMap(root, opts) {
         ang += 2.399963; step++;
       }
       const key = cellKey(c.x, c.y); (grid.get(key) || grid.set(key, []).get(key)).push(c);
+    }
+    // Острів «Віддалено»: розмір -- під кількість будиночків на ньому.
+    const rem = list.filter((c) => c.ck === 'Remote');
+    island = null;
+    if (rem.length) {
+      const xs = rem.map((c) => c.x), ys = rem.map((c) => c.y);
+      const cx = (Math.min(...xs) + Math.max(...xs)) / 2, cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+      const rx = (Math.max(...xs) - Math.min(...xs)) / 2 + 26, ry = (Math.max(...ys) - Math.min(...ys)) / 2 + 22;
+      const pts = []; let sd = 7; const rnd = () => ((sd = (sd * 16807) % 2147483647) / 2147483647);
+      const ph = [rnd() * 6, rnd() * 6, rnd() * 6];
+      for (let i = 0; i < 48; i++) { const a = (i / 48) * Math.PI * 2; const k = 1 + 0.07 * Math.sin(a * 3 + ph[0]) + 0.05 * Math.sin(a * 5 + ph[1]) + 0.03 * Math.sin(a * 9 + ph[2]); pts.push(cx + Math.cos(a) * rx * k, cy + Math.sin(a) * ry * k); }
+      island = { cx, cy, rx, ry, pts };
+    }
+    // Дерева й кущі всередині міста ховаємо -- місто має бути охайним.
+    if (geo && geo.decor) for (const d of geo.decor) {
+      const [dk, dx, dy] = d;
+      if (island && ((dx - island.cx) / (island.rx + 30)) ** 2 + ((dy - island.cy) / (island.ry + 30)) ** 2 < 1) { d.hide = true; continue; }
+      if (dk.startsWith('mountain') || /ship|whale|fish|lighthouse/.test(dk)) continue;
+      d.hide = near(dx, dy).some((p) => (p.x - dx) ** 2 + ((p.y - dy) * 1.25) ** 2 < (p.w * 0.75 + 10) ** 2);
     }
     return list;
   }
@@ -367,6 +395,16 @@ export function mountGameMap(root, opts) {
       else { x.fillStyle = (hash(co.a3) % 2) ? P.land : P.land2; }
       x.fill();
       if (pat) { x.save(); x.globalAlpha = 1; x.fillStyle = pat; x.fill(); x.restore(); }
+    }
+    // острів «Віддалено»
+    if (island) {
+      x.save(); x.beginPath(); pathRing(x, island.pts);
+      x.lineJoin = 'round'; x.strokeStyle = P.shallow; x.lineWidth = 16 * px + 6; x.stroke(); x.lineWidth = 7 * px + 3; x.stroke();
+      const g = x.createLinearGradient(0, island.cy - island.ry, 0, island.cy + island.ry); g.addColorStop(0, P.ua); g.addColorStop(1, P.ua2); x.fillStyle = g; x.fill();
+      if (pat) { x.fillStyle = pat; x.fill(); }
+      x.strokeStyle = theme === 'dark' ? 'rgba(230,200,140,.55)' : 'rgba(240,215,150,.95)'; x.lineWidth = 3.2 * px; x.stroke();
+      x.strokeStyle = P.borderDark; x.lineWidth = 1.2 * px; x.stroke();
+      x.restore();
     }
     // озёра и реки
     x.fillStyle = P.lake; x.beginPath(); for (const r of geo.lakes) pathRing(x, r); x.fill();
@@ -423,7 +461,7 @@ export function mountGameMap(root, opts) {
     // декор (по y, чтобы ближние перекрывали дальние)
     const items = [];
     for (const d of geo.decor) {
-      const [k, x, y, sc] = d; if (!onScreen(x, y)) continue;
+      const [k, x, y, sc] = d; if (d.hide || !onScreen(x, y)) continue;
       const big = k.startsWith('mountain'); const sea = /ship|whale|fish|lighthouse/.test(k);
       const w = (big ? 80 : sea ? 40 : k.startsWith('tree') ? 22 : 18) * sc;
       items.push({ y, draw: () => {
@@ -443,7 +481,7 @@ export function mountGameMap(root, opts) {
     for (const wk of walkers) {
       const p = (t * wk.v + wk.ph) % 2; const k = p < 1 ? p : 2 - p;
       const x = wk.a[0] + (wk.b[0] - wk.a[0]) * k, y = wk.a[1] + (wk.b[1] - wk.a[1]) * k + (reduce ? 0 : -Math.abs(Math.sin(t * 6 + wk.ph)) * 1.5);
-      if (onScreen(x, y)) items.push({ y, draw: () => { ctx.save(); if ((p < 1) !== (wk.b[0] > wk.a[0])) { ctx.translate(x, 0); ctx.scale(-1, 1); ctx.translate(-x, 0); } drawSprite(wk.k, x, y, 16); ctx.restore(); } });
+      if (onScreen(x, y)) items.push({ y, draw: () => { ctx.save(); if ((p < 1) !== (wk.b[0] > wk.a[0])) { ctx.translate(x, 0); ctx.scale(-1, 1); ctx.translate(-x, 0); } drawSprite(wk.k, x, y, 16 * Math.max(0.4, dens)); ctx.restore(); } });
     }
     items.sort((a, b) => a.y - b.y).forEach((it) => it.draw());
     drawCityLabels();
@@ -478,6 +516,7 @@ export function mountGameMap(root, opts) {
       const fg = ctx.createRadialGradient(fx, fy, 0, fx, fy, 260); fg.addColorStop(0, `rgba(${P.fog},${theme === 'dark' ? .2 : .14})`); fg.addColorStop(1, `rgba(${P.fog},0)`);
       ctx.fillStyle = fg; ctx.fillRect(fx - 260, fy - 260, 520, 520);
     }
+    drawLabels();
     placePopup();
   }
 
@@ -543,11 +582,31 @@ export function mountGameMap(root, opts) {
     drawFlags(c, k, bx, by, w, t);
     if (c.userId && allies.has(c.userId)) { const a = sprite('markers/ally'); if (a) { const aw = Math.max(9, w * 0.32); ctx.drawImage(a, c.x + w * 0.22, by + h * 0.18, aw, aw * a.height / a.width); } }
     c._r = { x: c.x, y: c.y - h / 2, w, h };
-    if (act || (view.s > minS * 3.2 && c.l >= 4) || view.s > minS * 5) {
-      const fs = 11 / view.s; ctx.font = `700 ${fs}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-      ctx.lineWidth = 3 / view.s; ctx.strokeStyle = theme === 'dark' ? 'rgba(0,0,0,.75)' : 'rgba(255,250,235,.95)'; ctx.strokeText(c.name, c.x, c.y + 4 / view.s);
-      ctx.fillStyle = theme === 'dark' ? '#f4ead2' : '#3a2a14'; ctx.fillText(c.name, c.x, c.y + 4 / view.s);
+    if (act || w * view.s >= 34) labelQ.push(c);
+  }
+  // Назви -- поверх усіх будинків, у плашці; якщо назва налазить на вже
+  // намальовану, не малюємо її (крупніші й наведена -- першими).
+  let labelQ = [];
+  function drawLabels() {
+    const P = theme === 'dark';
+    const placed = [];
+    labelQ.sort((a, b) => ((b === hover || b === pinned) - (a === hover || a === pinned)) || b.l - a.l || b.n - a.n);
+    ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.font = '700 11.5px system-ui, -apple-system, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (const c of labelQ) {
+      const act = c === hover || c === pinned;
+      const sx = c.x * view.s + view.x, sy = c.y * view.s + view.y + 9;
+      const name = c.name.length > 22 ? c.name.slice(0, 21) + '…' : c.name;
+      const tw = ctx.measureText(name).width, w = tw + 12, h = 18;
+      const r = { x: sx - w / 2, y: sy - h / 2, w, h };
+      if (!act && placed.some((q) => r.x < q.x + q.w + 3 && q.x < r.x + r.w + 3 && r.y < q.y + q.h + 2 && q.y < r.y + r.h + 2)) continue;
+      placed.push(r);
+      ctx.fillStyle = act ? (P ? '#5b6fc0' : '#a8571f') : (P ? 'rgba(15,22,36,.82)' : 'rgba(251,245,230,.9)');
+      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(r.x, r.y, r.w, r.h, 9) : ctx.rect(r.x, r.y, r.w, r.h); ctx.fill();
+      ctx.fillStyle = act ? '#fff' : (P ? '#f4ead2' : '#3a2a14'); ctx.fillText(name, sx, sy + 0.5);
     }
+    ctx.restore();
+    labelQ = [];
   }
 
   // ---------- карточка компании возле здания ----------
@@ -566,29 +625,49 @@ export function mountGameMap(root, opts) {
     if (c.website) { try { const u = new URL(c.website.startsWith('http') ? c.website : 'https://' + c.website); site = `<a class="gm-site" href="${esc(u.href)}" target="_blank" rel="noopener nofollow">🔗 ${esc(u.hostname.replace(/^www\./, ''))}</a>`; } catch { site = ''; } }
     const bio = c.bio ? `<p class="gm-bio">${esc(c.bio)}</p>` : '';
     const isAlly = c.userId && allies.has(c.userId);
-    const ally = c.userId ? `<button class="gm-ally${isAlly ? ' on' : ''}" type="button" title="${esc(isAlly ? tr('allyOn') : tr('allyAdd'))}" aria-label="${esc(tr('allyAdd'))}"><span>${isAlly ? '✓' : '+'}</span></button>` : '';
+    const ally = c.userId ? `<button class="gm-ally${isAlly ? ' on' : ''}" type="button" title="${esc(isAlly ? tr('allyOff') : tr('allyAdd'))}" aria-label="${esc(isAlly ? tr('allyOff') : tr('allyAdd'))}">${isAlly ? '<span class="ok">✓</span><span class="rm">✕</span>' : '<span>+</span>'}</button>` : '';
     return `<div class="gm-ph" style="--fc:${esc(c.color)}"><div class="gm-ava">${ava}</div><div class="gm-pt"><b>${esc(c.name)}</b><small>${esc(sub)}</small></div><button class="gm-x" type="button" aria-label="${esc(tr('close'))}">×</button></div>
       <div class="gm-chips">${chips}</div>
       ${bio}${site}
       ${jobs ? `<div class="gm-jobs">${jobs}</div>` : ''}
       <div class="gm-acts">${prof}${ally}</div>`;
   }
+  let allyBusy = false;
+  // 02.10.2026 (Александр): повторне натискання прибирає з контактів.
+  async function toggleAlly(c) {
+    if (!c.userId || allyBusy) return;
+    allyBusy = true;
+    try { if (allies.has(c.userId)) await removeAlly(c); else await addAlly(c); } finally { allyBusy = false; }
+  }
+  async function removeAlly(c) {
+    try {
+      let cid = allies.get(c.userId);
+      if (!cid) { await loadAllies(); cid = allies.get(c.userId); }
+      if (!cid) throw new Error('no contact id');
+      const r = await fetch('/api/contacts/remove', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contactId: cid }) });
+      if (r.status === 401) { location.href = '/sign-in?next=' + encodeURIComponent(location.pathname); return; }
+      if (!r.ok) throw new Error(String(r.status));
+      allies.delete(c.userId); popFor = null; showPopup(c);
+      toast(tr('allyGone'), tr('allyGoneSub'), c.avatar, true);
+    } catch { const b = pop.querySelector('.gm-ally'); if (b) { b.title = tr('allyErr'); b.classList.add('err'); } }
+  }
   async function addAlly(c) {
-    if (!c.userId || allies.has(c.userId)) return;
     try {
       const r = await fetch('/api/contacts/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: c.userId }) });
       if (r.status === 401) { location.href = '/sign-in?next=' + encodeURIComponent(location.pathname); return; }
       if (!r.ok) throw new Error(String(r.status));
-      allies.add(c.userId); popFor = null; showPopup(c);
+      let cid = ''; try { const j = await r.json(); cid = j?.contact?._id || ''; } catch { /* id дізнаємось зі списку */ }
+      allies.set(c.userId, cid); popFor = null; showPopup(c);
       const b = pop.querySelector('.gm-ally'); if (b) b.classList.add('pop');
       toast(tr('allyDone'), tr('allyDoneSub'), c.avatar);
-    } catch { const b = pop.querySelector('.gm-ally'); if (b) { b.textContent = '!'; b.title = tr('allyErr'); } }
+    } catch { const b = pop.querySelector('.gm-ally'); if (b) { b.title = tr('allyErr'); b.classList.add('err'); } }
   }
   let toastT = 0;
-  function toast(title, sub, img) {
+  function toast(title, sub, img, gone) {
     let el = root.querySelector('.gm-toast');
     if (!el) { el = document.createElement('div'); el.className = 'gm-toast'; el.setAttribute('role', 'status'); root.appendChild(el); }
-    el.innerHTML = `<span class="gm-tk">${img ? `<img src="${esc(img)}" alt="">` : ''}<i>✓</i></span><span class="gm-tt2"><b>${esc(title)}</b><small>${esc(sub)}</small></span>`;
+    el.classList.toggle('gone', !!gone);
+    el.innerHTML = `<span class="gm-tk">${img ? `<img src="${esc(img)}" alt="">` : ''}<i>${gone ? '−' : '✓'}</i></span><span class="gm-tt2"><b>${esc(title)}</b><small>${esc(sub)}</small></span>`;
     el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
     clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), 2800);
   }
@@ -596,7 +675,7 @@ export function mountGameMap(root, opts) {
     try {
       const r = await fetch('/api/contacts/list'); if (!r.ok) return;
       const j = await r.json(); const list = j.contacts || j.data || j.items || [];
-      for (const it of list) { const id = it.userId || it.user?.id || it.user?._id || it.user || it.id; if (typeof id === 'string') allies.add(id); }
+      allies.clear(); for (const it of list) { const id = it.userId || it.user?.id || it.user?._id || it.user; if (typeof id === 'string') allies.set(id, it._id || it.id || ''); }
       allyKnown = true;
     } catch { /* гость: союзников нет */ }
   }
@@ -622,7 +701,7 @@ export function mountGameMap(root, opts) {
   function resize() {
     dpr = Math.min(2, window.devicePixelRatio || 1); W = root.clientWidth; H = root.clientHeight;
     cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + 'px'; cv.style.height = H + 'px';
-    minS = Math.max(W / geo.w, H / geo.h); maxS = minS * 7;
+    minS = Math.max(W / geo.w, H / geo.h); maxS = minS * Math.max(7, 2.4 / dens);
     if (view.s < minS) view.s = minS; clamp(); baseCache = null;
   }
   function clamp() {
@@ -666,7 +745,7 @@ export function mountGameMap(root, opts) {
     const z = e.target.closest('[data-z]'); if (z) { flyTo(W / 2, H / 2, view.s * (z.dataset.z === 'in' ? 1.6 : 1 / 1.6)); return; }
     if (e.target.closest('.gm-x')) { pinned = null; hover = null; showPopup(null); return; }
     if (e.target.closest('.gm-theme')) setTheme(theme === 'dark' ? 'light' : 'dark');
-    if (e.target.closest('.gm-ally') && popFor) addAlly(popFor);
+    if (e.target.closest('.gm-ally') && popFor) toggleAlly(popFor);
     if (e.target.closest('.gm-fs')) toggleFs();
     const si = e.target.closest('[data-ci]'); if (si) { pickCompany(cos[Number(si.dataset.ci)]); }
   });
@@ -699,9 +778,9 @@ export function mountGameMap(root, opts) {
   }
   function pickCompany(c) {
     if (!c) return; qIn.value = c.name; sug.classList.remove('on'); qIn.blur();
-    const target = Math.max(view.s, minS * 4.2);
+    const target = Math.min(maxS, Math.max(view.s, minS * 2.5, 70 / c.w));
     const from = { ...view }, start = performance.now();
-    const tx = W / 2 - c.x * target, ty = H / 2 - (c.y - 20) * target;
+    const tx = W / 2 - c.x * target, ty = H / 2 - c.y * target + 120;
     anim = () => { const k = Math.min(1, (performance.now() - start) / 650); const e = 1 - (1 - k) ** 3;
       view.s = from.s + (target - from.s) * e; view.x = from.x + (tx - from.x) * e; view.y = from.y + (ty - from.y) * e; clamp(); baseCache = null;
       if (k >= 1) { anim = null; pinned = c; hover = c; showPopup(c); } };
@@ -742,8 +821,10 @@ export function mountGameMap(root, opts) {
     resize();
     // старт: Украина целиком в кадре
     const kyiv = geo.cities['Київ'];
-    view.s = Math.max(minS, Math.min(maxS, Math.min(W / 1250, H / 820)));
-    view.x = W / 2 - (kyiv[0] + 60) * view.s; view.y = H / 2 - (kyiv[1] + 210) * view.s; clamp();
+    // Україна цілком (і острів «Віддалено», якщо він є) у кадрі
+    const top = kyiv[1] - 140, bottom = island ? island.cy + island.ry + 25 : kyiv[1] + 680;
+    view.s = Math.max(minS, Math.min(maxS, Math.min(W / 1250, H / (bottom - top))));
+    view.x = W / 2 - (kyiv[0] + 60) * view.s; view.y = H / 2 - ((top + bottom) / 2) * view.s; clamp();
     startLoop();
     loadTheme(theme === 'dark' ? 'light' : 'dark');
   })();
@@ -837,14 +918,22 @@ html.gm-noscroll,html.gm-noscroll body{overflow:hidden}
 .gm2 .gm-bio{margin:0;font-size:13px;line-height:1.45;opacity:.9;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .gm2 .gm-site{font-size:13px;color:#a8571f;text-decoration:none;align-self:flex-start}
 .gm2.gm-dark .gm-site{color:#9fb1ff}
-.gm2 .gm-ally{flex:none;width:40px;border-radius:10px;border:2px solid #a8571f;background:none;color:#a8571f;font:700 20px system-ui;cursor:pointer;line-height:1;display:grid;place-items:center;transition:background-color .2s,color .2s,transform .2s cubic-bezier(.3,1.6,.5,1),box-shadow .2s}
+.gm2 .gm-ally{flex:none;width:40px;border-radius:10px;border:2px solid #a8571f;background:none;color:#a8571f;font:700 20px system-ui;cursor:pointer;line-height:1;display:grid;place-items:center;transition:background-color .2s,color .2s,border-color .2s;-webkit-tap-highlight-color:transparent}
+.gm2 .gm-ally>span{grid-area:1/1}
 .gm2 .gm-ally span{display:block;transition:transform .3s cubic-bezier(.3,1.6,.5,1)}
-.gm2 .gm-ally:not(.on):hover{background:#a8571f;color:#fff;transform:scale(1.07);box-shadow:0 6px 14px rgba(168,87,31,.35)}
+.gm2 .gm-ally:not(.on):hover{background:#a8571f;color:#fff}
 .gm2 .gm-ally:not(.on):hover span{transform:rotate(90deg) scale(1.1)}
-.gm2 .gm-ally:active{transform:scale(.94)}
+.gm2 .gm-ally:active span{transform:scale(.85)}
+.gm2 .gm-ally .rm{opacity:0;transform:rotate(-90deg) scale(.6);transition:opacity .2s,transform .3s cubic-bezier(.3,1.6,.5,1)}
+.gm2 .gm-ally .ok{transition:opacity .2s,transform .3s cubic-bezier(.3,1.6,.5,1)}
+.gm2 .gm-ally.on:hover{background:#b33a2b;border-color:#b33a2b}
+.gm2 .gm-ally.on:hover .ok{opacity:0;transform:rotate(90deg) scale(.6)}
+.gm2 .gm-ally.on:hover .rm{opacity:1;transform:none}
+.gm2 .gm-ally.err{border-color:#b33a2b;color:#b33a2b}
+.gm2 .gm-toast.gone{border-color:#8a6a3a}.gm2 .gm-toast.gone .gm-tk,.gm2 .gm-toast.gone .gm-tk i{background:#8a6a3a}
 .gm2 .gm-ally.pop span{animation:gm-pop .5s cubic-bezier(.3,1.8,.5,1)}
 @keyframes gm-pop{0%{transform:scale(.3) rotate(-45deg)}100%{transform:none}}
-.gm2.gm-dark .gm-ally:not(.on):hover{background:#5b6fc0;border-color:#5b6fc0;color:#fff;box-shadow:0 6px 14px rgba(91,111,192,.35)}
+.gm2.gm-dark .gm-ally:not(.on):hover{background:#5b6fc0;border-color:#5b6fc0;color:#fff}
 .gm2 .gm-toast{position:absolute;left:50%;top:60px;z-index:6;display:flex;align-items:center;gap:11px;padding:10px 18px 10px 10px;border-radius:16px;background:#fbf5e6;border:2px solid #2f7a4d;box-shadow:0 14px 34px rgba(40,25,5,.32);color:#3a2a14;opacity:0;visibility:hidden;transform:translate(-50%,-14px) scale(.96);transition:opacity .25s,transform .35s cubic-bezier(.3,1.5,.5,1),visibility 0s .35s;pointer-events:none;max-width:calc(100% - 24px)}
 .gm2 .gm-toast.on{opacity:1;visibility:visible;transform:translate(-50%,0) scale(1);transition:opacity .25s,transform .35s cubic-bezier(.3,1.5,.5,1)}
 .gm2.gm-dark .gm-toast{background:#16233a;color:#efe6cf}
