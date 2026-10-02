@@ -36,7 +36,11 @@ const MAX_TOTAL_POSTS = SITEMAP_CHUNK_SIZE * 5;
 // Сколько страниц тянем одновременно. То же число, что у обхода в
 // lib/a1/feed.ts (SCAN_CONCURRENCY) -- сознательно одно и то же, чтобы
 // два обхода не нагружали бэкенд по-разному.
-const SCAN_CONCURRENCY = 12;
+// 02.10.2026 (Александр: «сайт став люто довго вантажитись»). 12 сторінок
+// одночасно разом із кількома такими ж обходами після кожного перезапуску
+// забивали бекенд, і звичайні сторінки чекали в черзі по 5-30 с. Тепер
+// обхід один на весь процес (див. fetchAllSitemapJobPosts нижче) і тихіший.
+const SCAN_CONCURRENCY = 4;
 
 /** Every live (non-expired, non-legacy-type, schema-valid), published Jobs
  *  post.
@@ -57,7 +61,7 @@ const SCAN_CONCURRENCY = 12;
  *  Порядок страниц сохраняется, поэтому порядок выдачи прежний.
  *  Дедупликация -- подстраховка: лента живая, и пока идут запросы,
  *  offset может сдвинуться на только что опубликованную вакансию. */
-export async function fetchAllSitemapJobPosts(): Promise<WebPost[]> {
+async function scanAllSitemapJobPosts(): Promise<WebPost[]> {
   const fetchPage = async (offset: number, withCount: boolean) => {
     const raw = await callWithRetry<unknown>("posts.search", {
       limit: PAGE_SIZE,
@@ -109,4 +113,34 @@ export async function fetchAllSitemapJobPosts(): Promise<WebPost[]> {
   }
 
   return posts;
+}
+
+// 02.10.2026: ОДИН спільний обхід на весь процес. Раніше його незалежно
+// запускали карта сайту, стеки (tech-index), признаки (facts-index → SEO,
+// статистика, карта всесвіту) -- кожен свій, одночасно, і після кожного
+// деплою бекенд отримував кілька сотень запитів разом. Тепер: результат
+// живе годину; паралельні виклики чекають той самий обхід; коли година
+// минула -- віддаємо старе одразу й тихо оновлюємо у фоні.
+const SHARED_TTL_MS = 55 * 60 * 1000;
+let shared: { at: number; posts: WebPost[] } | null = null;
+let sharedBuilding: Promise<WebPost[]> | null = null;
+
+function refreshShared(): Promise<WebPost[]> {
+  sharedBuilding ??= scanAllSitemapJobPosts()
+    .then((posts) => {
+      shared = { at: Date.now(), posts };
+      return posts;
+    })
+    .finally(() => {
+      sharedBuilding = null;
+    });
+  return sharedBuilding;
+}
+
+export async function fetchAllSitemapJobPosts(): Promise<WebPost[]> {
+  if (shared) {
+    if (Date.now() - shared.at > SHARED_TTL_MS) void refreshShared().catch(() => {});
+    return shared.posts;
+  }
+  return refreshShared();
 }

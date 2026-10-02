@@ -154,7 +154,7 @@ function filterParams(kind: WebPostKind, filters: FeedFilters): Record<string, u
 // posts; revisit if one filter combination ever approaches 3,000.
 const FULL_SCAN_MAX_PAGES = 30; // 30 * 100 = 3,000 posts scanned, max
 const FULL_SCAN_PAGE_SIZE = 100; // posts.search's documented max per request
-const SCAN_CONCURRENCY = 12; // сколько страниц тянем одновременно (см. scanAllPosts)
+const SCAN_CONCURRENCY = 6; // сколько страниц тянем одновременно (см. scanAllPosts); 02.10.2026: 12 забивало бекенд
 
 /**
  * Walks the whole (already backend-ordered) listing and keeps the posts that

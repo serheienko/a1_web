@@ -22,7 +22,7 @@ import { peekFreshByCountry, peekWorldwide } from "@/lib/a1/facts-index";
 import { mapPosts } from "./mappers";
 
 const TTL_MS = 60 * 60 * 1000;
-const CONCURRENCY = 8;
+const CONCURRENCY = 4; // 02.10.2026: 8 разом з іншими обходами забивало бекенд
 const FIRST_WAIT_MS = 4000;
 const OBJECT = "post-job-employing";
 
@@ -40,7 +40,7 @@ const HIDDEN_CODES = new Set(["RU", "BY"]);
 // посчитать можно только пройдя саму ленту (4--5 тысяч постов, ~45
 // запросов по 100), раз в час вместе с остальными числами.
 const UA_SWEEP_PAGE = 100;
-const UA_SWEEP_PARALLEL = 6;
+const UA_SWEEP_PARALLEL = 4; // 02.10.2026: було 6
 const UA_SWEEP_MAX_PAGES = 150;
 const FRESH_MS = 24 * 60 * 60 * 1000;
 
