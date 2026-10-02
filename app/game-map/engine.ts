@@ -464,6 +464,21 @@ export function mountGameMap(root, opts) {
       x.strokeStyle = P.borderDark; x.lineWidth = 1.2 * px; x.stroke();
       x.restore();
     }
+    // поля (степ і лісостеп): смугасті латки, малюються один раз у кеш основи
+    if (geo.fields) {
+      const tones = theme === 'dark'
+        ? ['rgba(120,140,70,.22)', 'rgba(150,130,70,.2)', 'rgba(90,120,60,.22)', 'rgba(140,120,80,.18)']
+        : ['rgba(232,196,88,.55)', 'rgba(196,206,96,.5)', 'rgba(220,170,84,.45)', 'rgba(176,196,84,.48)'];
+      for (const [fx, fy, fw, fh, fa, ft] of geo.fields) {
+        const sx = fx * view.s + view.x, sy = fy * view.s + view.y;
+        if (sx < -60 || sy < -60 || sx > W + 60 || sy > H + 60) continue;
+        x.save(); x.translate(fx, fy); x.rotate(fa);
+        x.fillStyle = tones[ft % tones.length]; x.fillRect(-fw / 2, -fh / 2, fw, fh);
+        if (view.s > minS * 2) { x.strokeStyle = theme === 'dark' ? 'rgba(0,0,0,.1)' : 'rgba(120,100,40,.16)'; x.lineWidth = 0.35;
+          x.beginPath(); for (let i = -fh / 2 + 1; i < fh / 2; i += 1.2) { x.moveTo(-fw / 2, i); x.lineTo(fw / 2, i); } x.stroke(); }
+        x.restore();
+      }
+    }
     // озёра и реки
     x.fillStyle = P.lake; x.beginPath(); for (const r of geo.lakes) pathRing(x, r); x.fill();
     x.strokeStyle = P.river; x.lineCap = 'round'; x.lineJoin = 'round';
@@ -478,6 +493,22 @@ export function mountGameMap(root, opts) {
     // свечение Украины
     const ua = geo.countries.find((c) => c.ua);
     if (ua) { x.save(); x.beginPath(); for (const r of ua.r) pathRing(x, r); x.shadowColor = theme === 'dark' ? 'rgba(240,200,110,.55)' : 'rgba(255,220,120,.9)'; x.shadowBlur = 14; x.strokeStyle = 'rgba(255,225,140,.35)'; x.lineWidth = 3 * px; x.stroke(); x.restore(); }
+    // нерухома природа (ліси, кущі, стоги, гори) -- теж у кеш основи:
+    // поки карту не рухають, вона не коштує нічого.
+    const decs = [];
+    for (const d of geo.decor) {
+      const [k, dx, dy, sc] = d; if (d.hide || /ship|whale|fish/.test(k)) continue;
+      const sx = dx * view.s + view.x, sy = dy * view.s + view.y;
+      if (sx < -80 || sy < -80 || sx > W + 80 || sy > H + 120) continue;
+      decs.push(d);
+    }
+    decs.sort((a, b) => a[2] - b[2]);
+    for (const [k, dx, dy, sc] of decs) {
+      const im = sprite(k); if (!im) continue;
+      const big = k.startsWith('mountain'); const ds = big ? Math.max(0.6, dens) : Math.max(0.4, dens);
+      const w = (big ? 80 : k.startsWith('lighthouse') ? 40 : k.startsWith('tree') ? 22 : 18) * sc * ds, h = w * im.height / im.width;
+      x.drawImage(im, dx - w / 2, dy - h, w, h);
+    }
     // подписи стран (мелко, когда далеко)
     x.textAlign = 'center'; x.textBaseline = 'middle';
     for (const co of geo.countries) {
@@ -519,7 +550,7 @@ export function mountGameMap(root, opts) {
     // декор (по y, чтобы ближние перекрывали дальние)
     const items = [];
     for (const d of geo.decor) {
-      const [k, x, y, sc] = d; if (d.hide || !onScreen(x, y)) continue;
+      const [k, x, y, sc] = d; if (d.hide || !/ship|whale|fish/.test(k) || !onScreen(x, y)) continue;
       const big = k.startsWith('mountain'); const sea = /ship|whale|fish|lighthouse/.test(k);
       const ds = big ? Math.max(0.6, dens) : Math.max(0.4, dens);
       const w = (big ? 80 : sea ? 40 : k.startsWith('tree') ? 22 : 18) * sc * ds;
