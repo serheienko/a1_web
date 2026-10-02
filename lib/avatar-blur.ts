@@ -41,10 +41,14 @@
 // and just read back for the next 24h, matching the one-day staleness
 // this file already said was fine for the fetch alone.
 import { cache } from "react";
-import { unstable_cache } from "next/cache";
 import sharp from "sharp";
+import { call } from "@/lib/a1/client";
 
-const FETCH_TIMEOUT_MS = 4000;
+// 02.10.2026 (Александр: «сайт став люто довго вантажитись»). Було 4000:
+// розмиття аватарки -- суто косметика, а сторінка чекала на нього до 4 с
+// (заміри: відповіді по ~4.7 с саме з недоотриманими розмиттями). Тепер
+// 1.5 с на все разом, далі сторінка йде без розмиття.
+const FETCH_TIMEOUT_MS = 1500;
 const SITE_URL = "https://jobs.a1appp.com";
 
 // 2026-09-13 (Aleksandr, screen recording: the full-size photo viewer's
@@ -65,17 +69,65 @@ export type AvatarBlurMeta = {
   height: number;
 };
 
+// Пряме посилання на фото: замість петлі «сервер → інтернет → наш же
+// /api/media → бекенд → S3» одразу питаємо бекенд (media.getUrl) і
+// качаємо з S3. На Railway петля через власний домен і давала затримки.
+async function resolveDirectUrl(avatarUrl: string): Promise<string> {
+  const m = avatarUrl.match(/^\/api\/media\/([^/?]+)\?(.*)$/);
+  if (m) {
+    const qs = new URLSearchParams(m[2]);
+    const ref = qs.get("ref");
+    if (ref) {
+      try {
+        const out = await call<{ downloadUrl?: string }>("media.getUrl", {
+          fileId: m[1],
+          fileReference: ref,
+          size: qs.get("size") ?? "size-photo",
+        });
+        if (out?.downloadUrl) return out.downloadUrl;
+      } catch {
+        // впадемо на старий шлях нижче
+      }
+    }
+  }
+  return `${SITE_URL}${avatarUrl}`;
+}
+
+// Пам'ять процесу: кожну аватарку рахуємо один раз (невдачу -- раз на 10 хв),
+// навіть якщо кеш Next на диску після деплою порожній.
+const memo = new Map<string, { at: number; value: AvatarBlurMeta | null }>();
+const MEMO_OK_MS = 24 * 60 * 60 * 1000;
+const MEMO_FAIL_MS = 10 * 60 * 1000;
+
 async function computeAvatarBlurMeta(avatarUrl: string): Promise<AvatarBlurMeta | null> {
+  const hit = memo.get(avatarUrl);
+  if (hit && Date.now() - hit.at < (hit.value ? MEMO_OK_MS : MEMO_FAIL_MS)) return hit.value;
+  if (memo.size > 5000) memo.clear();
+  // Повільний шлях не кидаємо: якщо не встиг за 1.5 с, результат однаково
+  // ляже в пам'ять і наступна сторінка вже отримає розмиття.
+  const slow = computeAvatarBlurMetaSlow(avatarUrl).then((value) => {
+    if (value || !memo.get(avatarUrl)?.value) memo.set(avatarUrl, { at: Date.now(), value });
+    return value;
+  });
+  const value = await Promise.race([
+    slow,
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), FETCH_TIMEOUT_MS)),
+  ]);
+  if (!memo.has(avatarUrl)) memo.set(avatarUrl, { at: Date.now() - MEMO_FAIL_MS + 30_000, value: null });
+  return value;
+}
+
+async function computeAvatarBlurMetaSlow(avatarUrl: string): Promise<AvatarBlurMeta | null> {
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    const timeout = setTimeout(() => controller.abort(), 8000);
     // avatarUrl is a same-origin relative path (e.g. "/api/media/abc?...")
     // — fetch() needs an absolute URL server-side, so it's resolved
     // against the site's own known origin (same constant every SEO
     // metadata call in app/ already hardcodes).
-    const res = await fetch(`${SITE_URL}${avatarUrl}`, {
+    const res = await fetch(await resolveDirectUrl(avatarUrl), {
       signal: controller.signal,
-      next: { revalidate: 86400 },
+      cache: "no-store",
     });
     clearTimeout(timeout);
     if (!res.ok) return null;
@@ -102,9 +154,9 @@ async function computeAvatarBlurMeta(avatarUrl: string): Promise<AvatarBlurMeta 
 // v2: the cached VALUE changed shape (string -> AvatarBlurMeta), so the
 // key has to change with it or a warm v1 entry would be read back as an
 // object it isn't.
-const cachedComputeAvatarBlurMeta = unstable_cache(computeAvatarBlurMeta, ["avatar-blur-v2"], {
-  revalidate: 86400,
-});
+// 02.10.2026: без unstable_cache -- він запам'ятовував і невдалі (null) на
+// добу, а після деплою на Railway все одно порожній. Пам'ять процесу вище.
+const cachedComputeAvatarBlurMeta = computeAvatarBlurMeta;
 
 /** Blur placeholder + the photo's real pixel size. Reach for this when
  *  the caller needs to reserve the photo's exact box (the full-size
