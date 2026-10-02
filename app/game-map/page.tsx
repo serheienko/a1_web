@@ -110,9 +110,6 @@ export default async function GameMapPage() {
   return (
     <main className="relative w-full">
       <GameMap companies={companies} />
-      <p className="pointer-events-none absolute bottom-3 left-3 right-24 hidden text-[11px] leading-snug text-[#4a3518]/80 sm:block dark:text-[#e9dfc4]/70">
-        Розмір будинку — за кількістю співробітників і відкритих вакансій. Наведіть або натисніть на будинок, щоб побачити компанію.
-      </p>
     </main>
   );
 }

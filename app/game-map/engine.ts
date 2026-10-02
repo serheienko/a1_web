@@ -646,6 +646,7 @@ export function mountGameMap(root, opts) {
 
 export const GAME_MAP_CSS = `
 .gm2.gm-page{border-radius:0;border:0;border-top:1px solid rgba(160,120,60,.25)}
+.gm2.gm-page:not(.gm-full) .gm-zoom{bottom:auto;top:50%;transform:translateY(-50%)}
 .gm2{position:relative;height:calc(100dvh - 140px);min-height:480px;overflow:hidden;border-radius:18px;border:1px solid #d8c8a2;background:#2f7f9e;font:15px/1.4 system-ui,-apple-system,sans-serif;color:#2b2114;user-select:none;-webkit-user-select:none}
 .gm2.gm-dark{border-color:#2b3a52;background:#0f2a43;color:#efe6cf}
 .gm2 .gm-cv{display:block;touch-action:none;cursor:grab}
@@ -684,7 +685,7 @@ export const GAME_MAP_CSS = `
 .gm2 .gm-acts{display:flex;gap:8px}
 .gm2 .gm-p{flex:1;text-align:center;text-decoration:none;font:600 13px system-ui;padding:9px 12px;border-radius:10px;background:#a8571f;color:#fff}
 .gm2.gm-dark .gm-p{background:#5b6fc0}
-.gm2.gm-full{position:fixed;inset:0;z-index:80;height:auto;min-height:0;border-radius:0;border:0}
+.gm2.gm-full{position:fixed;inset:0;z-index:80;height:auto!important;min-height:0;border-radius:0;border:0}
 html.gm-noscroll,html.gm-noscroll body{overflow:hidden}
 .gm2 .gm-left{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap}
 .gm2 .gm-right{display:flex;gap:8px}
