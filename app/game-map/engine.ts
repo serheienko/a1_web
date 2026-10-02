@@ -110,6 +110,10 @@ function sizeLevel(c) {
 function level(n) { let l = 1; for (let i = 0; i < LEVELS.length; i++) if (n >= LEVELS[i]) l = i + 1; return l; }
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
+// Версія даних карти: браузер кешує файли карти на тиждень, тож при зміні
+// geo.json число треба збільшити, інакше люди бачитимуть стару.
+const GEO_VERSION = 2;
+
 export function mountGameMap(root, opts) {
   const base = opts.base || '/game-map/v2';
   const companiesIn = opts.companies || [];
@@ -908,7 +912,7 @@ export function mountGameMap(root, opts) {
   applyLang();
   if (opts.theme === 'dark') root.classList.add('gm-dark');
   (async () => {
-    [geo, man, flagMeta] = await Promise.all([fetch(`${base}/geo.json`).then((r) => r.json()), fetch(`${base}/manifest.json`).then((r) => r.json()), fetch(`${base}/flags.json`).then((r) => r.json()).catch(() => ({}))]);
+    [geo, man, flagMeta] = await Promise.all([fetch(`${base}/geo.json?v=${GEO_VERSION}`).then((r) => r.json()), fetch(`${base}/manifest.json`).then((r) => r.json()), fetch(`${base}/flags.json`).then((r) => r.json()).catch(() => ({}))]);
     for (const k in flagMeta) for (const e of flagMeta[k].f) man['flags/' + e[0]] = [e[3], e[4]];
     loadAllies();
     if (destroyed) return;
