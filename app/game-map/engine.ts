@@ -158,6 +158,8 @@ export function mountGameMap(root, opts) {
     try { return (regionNames[lang] ||= new Intl.DisplayNames([TAG[lang]], { type: 'region' })).of(A2[co.a3]) || co.name; } catch { return co.name; }
   }
   const ICON_FS = '<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="c1" d="M3 8V3h5"/><path class="c2" d="M12 3h5v5"/><path class="c3" d="M17 12v5h-5"/><path class="c4" d="M8 17H3v-5"/></svg>';
+  const ICON_SUN = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.6" fill="currentColor" stroke="none"/><path d="M12 2.2v2.4M12 19.4v2.4M2.2 12h2.4M19.4 12h2.4M5.1 5.1l1.7 1.7M17.2 17.2l1.7 1.7M5.1 18.9l1.7-1.7M17.2 6.8l1.7-1.7"/></svg>';
+  const ICON_MOON = '<svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true"><path d="M20.3 14.6A8.6 8.6 0 0 1 9.4 3.7a8.6 8.6 0 1 0 10.9 10.9z" fill="currentColor"/></svg>';
   const ICON_X = '<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15"/></svg>';
   const COMPASS = '<svg class="gm-compass" viewBox="0 0 40 40" width="30" height="30" aria-hidden="true"><circle cx="20" cy="20" r="17" fill="none" stroke="currentColor" stroke-width="2" opacity=".55"/><g class="gm-needle"><path d="M20 6l4 14h-8z" fill="#c0392b"/><path d="M20 34l-4-14h8z" fill="currentColor" opacity=".75"/></g><circle cx="20" cy="20" r="2.2" fill="currentColor"/></svg>';
   let destroyed = false;
@@ -178,7 +180,6 @@ export function mountGameMap(root, opts) {
     <canvas class="gm-cv"></canvas>
     <div class="gm-top">
       <div class="gm-left">
-        <div class="gm-title"><span class="gm-tt"></span> <span class="gm-count"></span></div>
         <div class="gm-search"><input class="gm-q" type="search" autocomplete="off"><div class="gm-sug" role="listbox"></div></div>
         <div class="gm-regw"><button class="gm-btn gm-reg" type="button" aria-haspopup="listbox" aria-expanded="false"><span class="gm-regl"></span><svg class="gm-chev" viewBox="0 0 12 8" width="11" height="7" aria-hidden="true"><path d="M1 1l5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button><div class="gm-regp" role="listbox"></div></div>
       </div>
@@ -203,14 +204,17 @@ export function mountGameMap(root, opts) {
   const regP = root.querySelector('.gm-regp');
   const REG_KEY = { ua: 'rUa', eu: 'rEu', us: 'rUs' };
   const ccName = (cc) => { try { return (regionNames['cc' + lang] ||= new Intl.DisplayNames([TAG[lang]], { type: 'region' })).of(cc) || cc; } catch { return cc; } };
-  // «☀ День»: на вузькому екрані лишаємо тільки значок.
+  // 02.10.2026 (Александр): «День»/«Вечір» -- лише значок у кружечку,
+  // як кнопка повного екрана; назва -- у підказці.
   function themeLabel() {
-    const t = theme === 'dark' ? tr('day') : tr('eve'); const i = t.indexOf(' ');
-    themeBtn.innerHTML = `<span class="gm-ti">${esc(t.slice(0, i))}</span><span class="gm-tl">${esc(t.slice(i))}</span>`;
-    themeBtn.setAttribute('aria-label', t.slice(i + 1));
+    const t = theme === 'dark' ? tr('day') : tr('eve'); const name = t.slice(t.indexOf(' ') + 1);
+    themeBtn.innerHTML = theme === 'dark' ? ICON_SUN : ICON_MOON;
+    themeBtn.setAttribute('aria-label', name); themeBtn.title = name;
   }
   function regLabel() {
-    root.querySelector('.gm-regl').textContent = focusCC ? `${flagOf(focusCC)} ${ccName(focusCC)}` : tr(REG_KEY[region]);
+    // Кількість компаній -- тут же, замість окремої плашки «Карта A1 · N».
+    const n = focusCC ? companiesIn.filter((c) => c.cc === focusCC).length : companiesIn.length;
+    root.querySelector('.gm-regl').innerHTML = esc(focusCC ? `${flagOf(focusCC)} ${ccName(focusCC)}` : tr(REG_KEY[region])) + (n ? `<span class="gm-regn"> · ${n}</span>` : '');
   }
   function renderReg() {
     const h = REG_H[lang] || REG_H.en;
@@ -232,9 +236,7 @@ export function mountGameMap(root, opts) {
     focusCC = cc || null; regLabel();
     if (geo) { if (focusCC) focusCountry(focusCC, true); else showRegion(true); }
   }
-  root.querySelector('.gm-count').textContent = companiesIn.length ? `· ${companiesIn.length}` : '';
   function applyLang() {
-    root.querySelector('.gm-tt').textContent = tr('title');
     regLabel(); if (regP.classList.contains('on')) renderReg();
     qIn.placeholder = tr('find'); qIn.setAttribute('aria-label', tr('find'));
     const zb = root.querySelectorAll('[data-z]'); zb[0].setAttribute('aria-label', tr('zin')); zb[1].setAttribute('aria-label', tr('zout'));
@@ -1127,7 +1129,9 @@ export const GAME_MAP_CSS = `
 .gm2 .gm-btn{transition:transform .18s ease,box-shadow .18s ease,background-color .18s ease,color .18s ease}
 .gm2 .gm-btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(0,0,0,.22)}
 .gm2 .gm-btn:active{transform:translateY(0) scale(.96)}
-.gm2 .gm-fs{display:grid;place-items:center;padding:0;width:38px}
+.gm2 .gm-fs,.gm2 .gm-theme{display:grid;place-items:center;padding:0;width:38px}
+.gm2 .gm-theme svg{transition:transform .35s cubic-bezier(.3,1.6,.5,1)}
+.gm2 .gm-theme:hover svg{transform:rotate(25deg) scale(1.08)}
 .gm2 .gm-fs svg path{transition:transform .28s cubic-bezier(.3,1.7,.5,1)}
 .gm2 .gm-fs:hover .c1{transform:translate(-1.6px,-1.6px)}.gm2 .gm-fs:hover .c2{transform:translate(1.6px,-1.6px)}
 .gm2 .gm-fs:hover .c3{transform:translate(1.6px,1.6px)}.gm2 .gm-fs:hover .c4{transform:translate(-1.6px,1.6px)}
@@ -1162,10 +1166,11 @@ html.gm-noscroll,html.gm-noscroll body{overflow:hidden}
 .gm2.gm-dark .gm-rk{color:#6fd39a}
 .gm2 .gm-rl{padding:8px 10px;font-size:13px;opacity:.6}
 @media (prefers-reduced-motion:reduce){.gm2 .gm-regp,.gm2 .gm-reg .gm-chev{transition:none}}
-.gm2 .gm-theme{white-space:nowrap}
 @media (max-width:560px){.gm2 .gm-regw{position:static}.gm2 .gm-regp{left:0;right:0;min-width:0;max-width:none;top:46px;max-height:min(440px,62vh)}}
-@media (max-width:420px){.gm2 .gm-tl{display:none}.gm2 .gm-search .gm-q{width:110px}.gm2 .gm-reg{padding:0 10px;gap:6px}.gm2 .gm-theme{padding:0 11px}}
-@media (max-width:560px){.gm2 .gm-left{flex-wrap:nowrap}.gm2 .gm-q{width:120px}.gm2 .gm-reg{max-width:150px}.gm2 .gm-regl{overflow:hidden;text-overflow:ellipsis}}
+@media (max-width:560px){.gm2 .gm-left{flex:1;min-width:0}.gm2 .gm-search{flex:1;min-width:64px}.gm2 .gm-search .gm-q{width:100%;max-width:none;padding:0 12px}.gm2 .gm-regw{flex:none}.gm2 .gm-reg{max-width:none;padding:0 10px;gap:6px}}
+@media (max-width:420px){.gm2 .gm-regn{display:none}}
+.gm2 .gm-regn{font-weight:600;opacity:.75}
+@media (max-width:560px){.gm2 .gm-left{flex-wrap:nowrap}.gm2 .gm-q{width:120px}.gm2 .gm-regl{overflow:hidden;text-overflow:ellipsis}}
 .gm2 .gm-q{box-sizing:border-box;width:220px;max-width:46vw;height:36px;margin:0;-webkit-appearance:none;appearance:none;border-radius:999px;border:1px solid rgba(160,120,60,.35);background:rgba(251,245,230,.95);padding:0 14px;font:500 14px system-ui;color:#4a3518;box-shadow:0 3px 10px rgba(0,0,0,.18);outline:none}
 .gm2 .gm-q::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none;width:18px;height:18px;margin-left:6px;cursor:pointer;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Ccircle cx='9' cy='9' r='9' fill='%23b8894a'/%3E%3Cpath d='M6 6l6 6M12 6l-6 6' stroke='%23fbf5e6' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E") center/18px no-repeat;opacity:.85}.gm2 .gm-q::-webkit-search-cancel-button:hover{opacity:1}.gm2.gm-dark .gm-q::-webkit-search-cancel-button{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Ccircle cx='9' cy='9' r='9' fill='%236f86b8'/%3E%3Cpath d='M6 6l6 6M12 6l-6 6' stroke='%23121c2c' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E")}
 .gm2 .gm-q:focus{border-color:#c99a52;box-shadow:0 0 0 3px rgba(201,154,82,.3)}
