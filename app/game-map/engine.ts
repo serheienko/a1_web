@@ -930,7 +930,23 @@ export function mountGameMap(root, opts) {
     else if (drag) { const dx = e.clientX - drag.x, dy = e.clientY - drag.y; moved = Math.max(moved, Math.abs(dx) + Math.abs(dy)); view.x = drag.vx + dx; view.y = drag.vy + dy; clamp(); }
   });
   const up = (e) => { const tap = moved < 6 && pts.size === 1; pts.delete(e.pointerId); if (pts.size < 2) pinch = null; drag = null;
-    if (tap) { const r = cv.getBoundingClientRect(); const c = hit(e.clientX - r.left, e.clientY - r.top); pinned = c; hover = c; showPopup(c); } };
+    if (tap) { const r = cv.getBoundingClientRect(); const c = hit(e.clientX - r.left, e.clientY - r.top); pinned = c; hover = c; showPopup(c); if (!c) tapCountry(e.clientX - r.left, e.clientY - r.top); } };
+  // 02.10.2026 (Александр: «відкотився, клацаю по Польщі -- і нічого»).
+  // Клік по сусідній країні, де є вакансії, -- переходимо до неї (з
+  // України -- на карту Європи, одразу на цю країну).
+  function tapCountry(sx, sy) {
+    if (!geo) return;
+    const x = (sx - view.x) / view.s, y = (sy - view.y) / view.s;
+    const co = geo.countries.find((k) => k.r.some((r) => inRing(r, x, y)));
+    const cc = co && A2[co.a3];
+    if (!cc || cc === focusCC || (region === 'ua' && cc === 'UA')) return;
+    loadCountries().then((list) => {
+      const hit = list.find((k) => k.cc === cc);
+      if (!hit || destroyed) return;
+      if (hit.r === 'ua' && region !== 'ua') chooseRegion('ua', null);
+      else chooseRegion(hit.r, hit.r === 'ua' ? null : cc);
+    });
+  }
   on(cv, 'pointerup', up); on(cv, 'pointercancel', (e) => { pts.delete(e.pointerId); pinch = null; drag = null; });
   // 02.10.2026 (Александр: «при наведенні підколбашує»): курсор, що зайшов
   // на саму картку, її не ховає; ховаємо, лише коли пішов і з картки.
