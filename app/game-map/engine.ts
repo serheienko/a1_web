@@ -732,7 +732,7 @@ export function mountGameMap(root, opts) {
   function resize() {
     dpr = Math.min(2, window.devicePixelRatio || 1); W = root.clientWidth; H = root.clientHeight;
     cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + 'px'; cv.style.height = H + 'px';
-    minS = Math.max(W / geo.w, H / geo.h); maxS = minS * Math.max(7, 2.4 / dens);
+    minS = Math.max(W / geo.w, H / geo.h); maxS = minS * Math.max(7, 2.4 / dens) * 4; // 02.10.2026 (Александр): наближення в 4 рази глибше -- спрайти 512px, зблизька чіткі
     if (view.s < minS) view.s = minS; clamp(); baseCache = null;
   }
   function clamp() {
