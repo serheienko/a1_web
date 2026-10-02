@@ -76,7 +76,9 @@ var cv=cvRef.current as HTMLCanvasElement, ctx=cv.getContext('2d') as CanvasRend
 var MW=1536, MH=1024; // map px
 var img:any={}, loaded=0, total=0;
 function load(k,src){total++;var i=new Image();i.onload=function(){loaded++;if(loaded===total)start()};i.src=src;img[k]=i}
-Object.keys(A).forEach(function(k){load(k,A[k])});
+var HD=(window.innerWidth>=900||(window.devicePixelRatio||1)>=2&&window.innerWidth>=700)&&((navigator as any).deviceMemory===undefined||(navigator as any).deviceMemory>=4);
+Object.keys(A).forEach(function(k){var src=A[k];if(HD&&(k==='day'||k==='night'))src=src.replace('.webp','_hd.webp');load(k,src)});
+ctx.imageSmoothingEnabled=true;(ctx as any).imageSmoothingQuality='high';
 var INDS={it:['IT і софт','#3b82f6'],game:['Ігри','#f97316'],fin:['Фінтех','#22c55e'],ai:['AI','#a855f7'],ecom:['E-commerce','#ec4899'],edu:['Освіта','#14b8a6'],med:['Медицина','#ef4444'],prod:['Продукт','#eab308']};
 var COS=[];
 var names=[['Лісовий Код','it','Kyiv',[-.012,.004],1400],['Дніпровські Ігри','game','Kyiv',[.008,-.006],620],['Золотий Колос Фін','fin','Kyiv',[.014,.012],240],['Нейрон Степ','ai','Kyiv',[-.02,-.012],85],['Карпатський Софт','it','Lviv',[0,0],410],['Бескид Лабс','ai','Lviv',[.012,.01],60],['Гуцул Геймс','game','Lviv',[-.012,.012],24],['Чорне Море Пей','fin','Odesa',[0,0],180],['Маяк Шоп','ecom','Odesa',[.014,-.01],45],['Харків Тех','it','Kharkiv',[0,0],760],['Слобода Мед','med','Kharkiv',[.014,.012],95],['Дніпро Індастрі','prod','Dnipro',[0,0],320],['Хортиця Дата','ai','Zaporizhzhia',[0,0],130],['Поділля Лернінг','edu','Vinnytsia',[0,0],38],['Полтавський Хутір','ecom','Poltava',[0,0],12],['Буковина Дев','it','Chernivtsi',[0,0],7],['Ужгород Блок','fin','Uzhhorod',[0,0],3],['Кримський Бриз','prod','Simferopol',[0,0],56],['Київ Хаб Столиця','it','Kyiv',[.0,.03],2600]];
@@ -85,7 +87,7 @@ var PEOPLE=[['Оля','Frontend',[.51,.455],1],['Тарас','Backend',[.40,.47]
 function level(n){return n<5?1:n<15?2:n<40?3:n<100?4:n<250?5:n<600?6:n<1500?7:8}
 var LBL=['Шалаш','Будиночок','Дім','Садиба','Ратуша','Гільдія','Замок','Цитадель'];
 var night=false,view={x:0,y:0,s:1},sel=null,tab='co',W=0,H=0,dpr=1,minS=1;
-function resize(){dpr=Math.min(2,window.devicePixelRatio||1);W=cv.clientWidth;H=cv.clientHeight;cv.width=W*dpr;cv.height=H*dpr;minS=Math.max(W/MW,H/MH)*1.0;if(view.s<minS)view.s=minS;clamp();draw()}
+function resize(){dpr=Math.min(2,window.devicePixelRatio||1);W=cv.clientWidth;H=cv.clientHeight;cv.width=W*dpr;cv.height=H*dpr;ctx.imageSmoothingEnabled=true;(ctx as any).imageSmoothingQuality='high';minS=Math.max(W/MW,H/MH)*1.0;if(view.s<minS)view.s=minS;clamp();draw()}
 function clamp(){var w=MW*view.s,h=MH*view.s;view.x=w<=W?(W-w)/2:Math.min(0,Math.max(W-w,view.x));view.y=h<=H?(H-h)/2:Math.min(0,Math.max(H-h,view.y))}
 var cache={};
 function tinted(prefix,lvl,color){var key=prefix+lvl+color+night;if(cache[key])return cache[key];
