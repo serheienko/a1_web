@@ -52,9 +52,45 @@ const PAL = {
   },
 };
 
-const CITY_UA = { Kyiv: 'Київ', Kiev: 'Київ', Lviv: 'Львів', Odesa: 'Одеса', Odessa: 'Одеса', Kharkiv: 'Харків', Dnipro: 'Дніпро', Zaporizhzhia: 'Запоріжжя', Vinnytsia: 'Вінниця', 'Ivano-Frankivsk': 'Івано-Франківськ', Chernihiv: 'Чернігів', Poltava: 'Полтава', Uzhhorod: 'Ужгород', Chernivtsi: 'Чернівці', Zhytomyr: 'Житомир', Cherkasy: 'Черкаси', Mykolaiv: 'Миколаїв', Kherson: 'Херсон', Sumy: 'Суми', Rivne: 'Рівне', Lutsk: 'Луцьк', Ternopil: 'Тернопіль', Khmelnytskyi: 'Хмельницький', Kropyvnytskyi: 'Кропивницький', Bila_Tserkva: 'Біла Церква', Irpin: 'Ірпінь', Brovary: 'Бровари', Mukachevo: 'Мукачево' };
-function cityUa(c) { if (!c) return ''; const k = String(c).trim(); return CITY_UA[k] || CITY_UA[k.replace(/\s+/g, '_')] || k; }
-function empLabel(n) { const m10 = n % 10, m100 = n % 100; if (m10 === 1 && m100 !== 11) return 'співробітник'; if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return 'співробітники'; return 'співробітників'; }
+// ---------- мови (02.10.2026, Александр: «зміна локалізації має одразу міняти інтерфейс карти») ----------
+const TAG = { uk: 'uk', en: 'en', ru: 'ru', de: 'de', es: 'es', fr: 'fr', pl: 'pl', ptBR: 'pt-BR', zh: 'zh-CN' };
+const STR = {
+  uk: { allyDone: 'Додано в союзники', allyDoneSub: 'Компанія тепер у ваших контактах', title: 'Карта компаній', find: 'Знайти компанію…', fsOn: 'На весь екран', fsOff: 'Вийти з повного екрана', zin: 'Приблизити', zout: 'Віддалити', say: 'Наведи на будиночок — покажу, хто там працює', load: 'Малюємо карту…', profile: 'Профіль компанії', since: 'з {y} року', close: 'Закрити', allyOn: 'Ваш союзник (у контактах)', allyAdd: 'Додати в союзники — компанія з’явиться у ваших контактах', allyErr: 'Не вдалося додати, спробуйте ще раз', none: 'Нічого не знайшли', day: '☀ День', eve: '☾ Вечір', vac: { one: 'вакансія', few: 'вакансії', many: 'вакансій', other: 'вакансії' }, emp: { one: 'співробітник', few: 'співробітники', many: 'співробітників', other: 'співробітника' } },
+  ru: { allyDone: 'Добавлено в союзники', allyDoneSub: 'Компания теперь в ваших контактах', title: 'Карта компаний', find: 'Найти компанию…', fsOn: 'На весь экран', fsOff: 'Выйти из полноэкранного режима', zin: 'Приблизить', zout: 'Отдалить', say: 'Наведи на домик — покажу, кто там работает', load: 'Рисуем карту…', profile: 'Профиль компании', since: 'с {y} года', close: 'Закрыть', allyOn: 'Ваш союзник (в контактах)', allyAdd: 'Добавить в союзники — компания появится в ваших контактах', allyErr: 'Не удалось добавить, попробуйте ещё раз', none: 'Ничего не нашли', day: '☀ День', eve: '☾ Вечер', vac: { one: 'вакансия', few: 'вакансии', many: 'вакансий', other: 'вакансии' }, emp: { one: 'сотрудник', few: 'сотрудника', many: 'сотрудников', other: 'сотрудника' } },
+  en: { allyDone: 'Added to allies', allyDoneSub: 'The company is now in your contacts', title: 'Company map', find: 'Find a company…', fsOn: 'Full screen', fsOff: 'Exit full screen', zin: 'Zoom in', zout: 'Zoom out', say: 'Hover over a house — I’ll show you who works there', load: 'Drawing the map…', profile: 'Company profile', since: 'since {y}', close: 'Close', allyOn: 'Your ally (in contacts)', allyAdd: 'Add as an ally — the company will appear in your contacts', allyErr: 'Couldn’t add, please try again', none: 'Nothing found', day: '☀ Day', eve: '☾ Evening', vac: { one: 'job', other: 'jobs' }, emp: { one: 'employee', other: 'employees' } },
+  de: { allyDone: 'Als Verbündeter hinzugefügt', allyDoneSub: 'Die Firma ist jetzt in deinen Kontakten', title: 'Firmenkarte', find: 'Firma suchen…', fsOn: 'Vollbild', fsOff: 'Vollbild beenden', zin: 'Vergrößern', zout: 'Verkleinern', say: 'Fahr über ein Haus – ich zeige dir, wer dort arbeitet', load: 'Karte wird gezeichnet…', profile: 'Firmenprofil', since: 'seit {y}', close: 'Schließen', allyOn: 'Dein Verbündeter (in den Kontakten)', allyAdd: 'Als Verbündeten hinzufügen – die Firma erscheint in deinen Kontakten', allyErr: 'Hinzufügen fehlgeschlagen, bitte erneut versuchen', none: 'Nichts gefunden', day: '☀ Tag', eve: '☾ Abend', vac: { one: 'Stelle', other: 'Stellen' }, emp: { one: 'Mitarbeiter', other: 'Mitarbeiter' } },
+  es: { allyDone: 'Añadido a aliados', allyDoneSub: 'La empresa ya está en tus contactos', title: 'Mapa de empresas', find: 'Buscar empresa…', fsOn: 'Pantalla completa', fsOff: 'Salir de pantalla completa', zin: 'Acercar', zout: 'Alejar', say: 'Pasa el cursor sobre una casa: te muestro quién trabaja allí', load: 'Dibujando el mapa…', profile: 'Perfil de la empresa', since: 'desde {y}', close: 'Cerrar', allyOn: 'Tu aliado (en contactos)', allyAdd: 'Añadir como aliado: la empresa aparecerá en tus contactos', allyErr: 'No se pudo añadir, inténtalo de nuevo', none: 'No se encontró nada', day: '☀ Día', eve: '☾ Noche', vac: { one: 'vacante', other: 'vacantes' }, emp: { one: 'empleado', other: 'empleados' } },
+  fr: { allyDone: 'Ajouté aux alliés', allyDoneSub: 'L’entreprise est maintenant dans vos contacts', title: 'Carte des entreprises', find: 'Trouver une entreprise…', fsOn: 'Plein écran', fsOff: 'Quitter le plein écran', zin: 'Zoom avant', zout: 'Zoom arrière', say: 'Survole une maison — je te montre qui y travaille', load: 'Dessin de la carte…', profile: 'Profil de l’entreprise', since: 'depuis {y}', close: 'Fermer', allyOn: 'Votre allié (dans les contacts)', allyAdd: 'Ajouter comme allié — l’entreprise apparaîtra dans vos contacts', allyErr: 'Échec de l’ajout, réessayez', none: 'Aucun résultat', day: '☀ Jour', eve: '☾ Soir', vac: { one: 'offre', other: 'offres' }, emp: { one: 'employé', other: 'employés' } },
+  pl: { allyDone: 'Dodano do sojuszników', allyDoneSub: 'Firma jest teraz w Twoich kontaktach', title: 'Mapa firm', find: 'Znajdź firmę…', fsOn: 'Pełny ekran', fsOff: 'Wyjdź z pełnego ekranu', zin: 'Przybliż', zout: 'Oddal', say: 'Najedź na domek — pokażę, kto tam pracuje', load: 'Rysujemy mapę…', profile: 'Profil firmy', since: 'od {y} r.', close: 'Zamknij', allyOn: 'Twój sojusznik (w kontaktach)', allyAdd: 'Dodaj jako sojusznika — firma pojawi się w Twoich kontaktach', allyErr: 'Nie udało się dodać, spróbuj ponownie', none: 'Nic nie znaleziono', day: '☀ Dzień', eve: '☾ Wieczór', vac: { one: 'oferta', few: 'oferty', many: 'ofert', other: 'oferty' }, emp: { one: 'pracownik', few: 'pracowników', many: 'pracowników', other: 'pracownika' } },
+  ptBR: { allyDone: 'Adicionado aos aliados', allyDoneSub: 'A empresa agora está nos seus contatos', title: 'Mapa de empresas', find: 'Buscar empresa…', fsOn: 'Tela cheia', fsOff: 'Sair da tela cheia', zin: 'Aproximar', zout: 'Afastar', say: 'Passe o mouse sobre uma casa — mostro quem trabalha lá', load: 'Desenhando o mapa…', profile: 'Perfil da empresa', since: 'desde {y}', close: 'Fechar', allyOn: 'Seu aliado (nos contatos)', allyAdd: 'Adicionar como aliado — a empresa aparecerá nos seus contatos', allyErr: 'Não foi possível adicionar, tente novamente', none: 'Nada encontrado', day: '☀ Dia', eve: '☾ Noite', vac: { one: 'vaga', other: 'vagas' }, emp: { one: 'funcionário', other: 'funcionários' } },
+  zh: { allyDone: '已添加为盟友', allyDoneSub: '该公司已在你的联系人中', title: '公司地图', find: '查找公司…', fsOn: '全屏', fsOff: '退出全屏', zin: '放大', zout: '缩小', say: '把鼠标移到房子上——我告诉你谁在那里工作', load: '正在绘制地图…', profile: '公司主页', since: '成立于 {y} 年', close: '关闭', allyOn: '你的盟友（已在联系人中）', allyAdd: '添加为盟友——公司将出现在你的联系人中', allyErr: '添加失败，请重试', none: '未找到', day: '☀ 白天', eve: '☾ 夜晚', vac: { other: '个职位' }, emp: { other: '名员工' } },
+};
+// Міста: англійська назва (так приходить з бекенду) → [укр, рос, кит]. Латиниця -- англійською.
+const CITY = {
+  Kyiv: ['Київ', 'Киев', '基辅'], Lviv: ['Львів', 'Львов', '利沃夫'], Odesa: ['Одеса', 'Одесса', '敖德萨'], Kharkiv: ['Харків', 'Харьков', '哈尔科夫'],
+  Dnipro: ['Дніпро', 'Днепр', '第聂伯'], Zaporizhzhia: ['Запоріжжя', 'Запорожье', '扎波罗热'], Vinnytsia: ['Вінниця', 'Винница', '文尼察'],
+  'Ivano-Frankivsk': ['Івано-Франківськ', 'Ивано-Франковск', '伊万诺-弗兰科夫斯克'], Chernihiv: ['Чернігів', 'Чернигов', '切尔尼戈夫'], Poltava: ['Полтава', 'Полтава', '波尔塔瓦'],
+  Uzhhorod: ['Ужгород', 'Ужгород', '乌日哥罗德'], Chernivtsi: ['Чернівці', 'Черновцы', '切尔诺夫策'], Zhytomyr: ['Житомир', 'Житомир', '日托米尔'], Cherkasy: ['Черкаси', 'Черкассы', '切尔卡瑟'],
+  Mykolaiv: ['Миколаїв', 'Николаев', '尼古拉耶夫'], Kherson: ['Херсон', 'Херсон', '赫尔松'], Sumy: ['Суми', 'Сумы', '苏梅'], Rivne: ['Рівне', 'Ровно', '罗夫诺'],
+  Lutsk: ['Луцьк', 'Луцк', '卢茨克'], Ternopil: ['Тернопіль', 'Тернополь', '捷尔诺波尔'], Khmelnytskyi: ['Хмельницький', 'Хмельницкий', '赫梅利尼茨基'],
+  Kropyvnytskyi: ['Кропивницький', 'Кропивницкий', '克罗佩夫尼茨基'], 'Bila Tserkva': ['Біла Церква', 'Белая Церковь', '白采尔科维'], Irpin: ['Ірпінь', 'Ирпень', '伊尔平'],
+  Brovary: ['Бровари', 'Бровары', '布罗瓦雷'], Mukachevo: ['Мукачево', 'Мукачево', '穆卡切沃'], Bucha: ['Буча', 'Буча', '布恰'], 'Kryvyi Rih': ['Кривий Ріг', 'Кривой Рог', '克里维里赫'],
+  Kremenchuk: ['Кременчук', 'Кременчуг', '克列缅丘格'], Simferopol: ['Сімферополь', 'Симферополь', '辛菲罗波尔'], Mariupol: ['Маріуполь', 'Мариуполь', '马里乌波尔'],
+  Sevastopol: ['Севастополь', 'Севастополь', '塞瓦斯托波尔'], 'Kamianets-Podilskyi': ['Кам’янець-Подільський', 'Каменец-Подольский', '卡缅涅茨-波多利斯基'],
+};
+const CITY_ALIAS = { kiev: 'Kyiv', odessa: 'Odesa', 'bila_tserkva': 'Bila Tserkva', 'dnepr': 'Dnipro', 'kharkov': 'Kharkiv', 'lvov': 'Lviv' };
+const CITY_IDX = (() => { const m = {}; for (const en in CITY) { m[en.toLowerCase()] = en; for (const n of CITY[en]) m[n.toLowerCase()] = en; } for (const a in CITY_ALIAS) m[a] = CITY_ALIAS[a]; return m; })();
+// «Kyiv, Ukraine» / «м. Київ» → ключ Kyiv; невідоме місто лишається як є.
+function cityKey(raw) {
+  if (!raw) return '';
+  const s = String(raw).split(',')[0].replace(/^(м\.|г\.|місто|город)\s*/i, '').trim();
+  return CITY_IDX[s.toLowerCase()] || CITY_IDX[s.toLowerCase().replace(/\s+/g, '_')] || s;
+}
+function cityName(key, lang) {
+  const e = CITY[key]; if (!e) return key;
+  return lang === 'uk' ? e[0] : lang === 'ru' ? e[1] : lang === 'zh' ? e[2] : key;
+}
+const A2 = { UKR: 'UA', BLR: 'BY', LTU: 'LT', RUS: 'RU', CZE: 'CZ', DEU: 'DE', LVA: 'LV', SWE: 'SE', GEO: 'GE', MKD: 'MK', ALB: 'AL', AZE: 'AZ', SRB: 'RS', TUR: 'TR', ARM: 'AM', DNK: 'DK', ROU: 'RO', HUN: 'HU', SVK: 'SK', POL: 'PL', GRC: 'GR', AUT: 'AT', ITA: 'IT', IRN: 'IR', HRV: 'HR', SVN: 'SI', BGR: 'BG', MNE: 'ME', BIH: 'BA', MDA: 'MD' };
 const FLAG_COLORS = ['#c0392b', '#2e86c1', '#28a06a', '#d68910', '#8e44ad', '#16a085', '#d35400', '#2c3e9e'];
 
 function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
@@ -70,7 +106,6 @@ function sizeLevel(c) {
   return Math.max(1, Math.min(8, Math.round(le * 0.65 + lv * 0.35)));
 }
 function level(n) { let l = 1; for (let i = 0; i < LEVELS.length; i++) if (n >= LEVELS[i]) l = i + 1; return l; }
-function plural(n) { const m10 = n % 10, m100 = n % 100; if (m10 === 1 && m100 !== 11) return 'вакансія'; if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return 'вакансії'; return 'вакансій'; }
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
 export function mountGameMap(root, opts) {
@@ -78,6 +113,22 @@ export function mountGameMap(root, opts) {
   const companiesIn = opts.companies || [];
   const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   let theme = opts.theme === 'dark' ? 'dark' : 'light';
+  let lang = STR[opts.lang] ? opts.lang : 'uk';
+  const tr = (k) => (STR[lang][k] ?? STR.en[k]);
+  const plurals = {};
+  function nForm(n, kind) {
+    const forms = tr(kind); let cat = 'other';
+    try { cat = (plurals[lang] ||= new Intl.PluralRules(TAG[lang])).select(n); } catch { /* old browser */ }
+    return `${n}${lang === 'zh' ? ' ' : ' '}${forms[cat] ?? forms.other}`;
+  }
+  const regionNames = {};
+  function countryName(co) {
+    if (lang === 'uk' || !A2[co.a3]) return co.name;
+    try { return (regionNames[lang] ||= new Intl.DisplayNames([TAG[lang]], { type: 'region' })).of(A2[co.a3]) || co.name; } catch { return co.name; }
+  }
+  const ICON_FS = '<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="c1" d="M3 8V3h5"/><path class="c2" d="M12 3h5v5"/><path class="c3" d="M17 12v5h-5"/><path class="c4" d="M8 17H3v-5"/></svg>';
+  const ICON_X = '<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15"/></svg>';
+  const COMPASS = '<svg class="gm-compass" viewBox="0 0 40 40" width="30" height="30" aria-hidden="true"><circle cx="20" cy="20" r="17" fill="none" stroke="currentColor" stroke-width="2" opacity=".55"/><g class="gm-needle"><path d="M20 6l4 14h-8z" fill="#c0392b"/><path d="M20 34l-4-14h8z" fill="currentColor" opacity=".75"/></g><circle cx="20" cy="20" r="2.2" fill="currentColor"/></svg>';
   let destroyed = false;
   const cleanup = [];
 
@@ -85,18 +136,18 @@ export function mountGameMap(root, opts) {
     <canvas class="gm-cv"></canvas>
     <div class="gm-top">
       <div class="gm-left">
-        <div class="gm-title">Карта компаній <span class="gm-count"></span></div>
-        <div class="gm-search"><input class="gm-q" type="search" placeholder="Знайти компанію…" autocomplete="off" aria-label="Знайти компанію"><div class="gm-sug" role="listbox"></div></div>
+        <div class="gm-title"><span class="gm-tt"></span> <span class="gm-count"></span></div>
+        <div class="gm-search"><input class="gm-q" type="search" autocomplete="off"><div class="gm-sug" role="listbox"></div></div>
       </div>
       <div class="gm-right">
         <button class="gm-btn gm-theme" type="button"></button>
-        <button class="gm-btn gm-fs" type="button" aria-label="На весь екран" title="На весь екран">⛶</button>
+        <button class="gm-btn gm-fs" type="button"></button>
       </div>
     </div>
-    <div class="gm-zoom"><button class="gm-btn" data-z="in" type="button" aria-label="Приблизити">+</button><button class="gm-btn" data-z="out" type="button" aria-label="Віддалити">−</button></div>
-    <div class="gm-guide"><img alt="" class="gm-mascot"><div class="gm-say">Наведи на будиночок — покажу, хто там працює</div></div>
+    <div class="gm-zoom"><button class="gm-btn" data-z="in" type="button">+</button><button class="gm-btn" data-z="out" type="button">−</button></div>
+    <div class="gm-guide"><img alt="" class="gm-mascot"><div class="gm-say"></div></div>
     <div class="gm-pop" role="dialog" aria-live="polite"></div>
-    <div class="gm-load">Малюємо карту…</div>`;
+    <div class="gm-load"><div class="gm-lbg"></div><div class="gm-lpill">${COMPASS}<span class="gm-ltx"></span></div></div>`;
   const cv = root.querySelector('.gm-cv');
   const ctx = cv.getContext('2d');
   const pop = root.querySelector('.gm-pop');
@@ -106,6 +157,23 @@ export function mountGameMap(root, opts) {
   const sug = root.querySelector('.gm-sug');
   const fsBtn = root.querySelector('.gm-fs');
   root.querySelector('.gm-count').textContent = companiesIn.length ? `· ${companiesIn.length}` : '';
+  function applyLang() {
+    root.querySelector('.gm-tt').textContent = tr('title');
+    qIn.placeholder = tr('find'); qIn.setAttribute('aria-label', tr('find'));
+    const zb = root.querySelectorAll('[data-z]'); zb[0].setAttribute('aria-label', tr('zin')); zb[1].setAttribute('aria-label', tr('zout'));
+    root.querySelector('.gm-say').textContent = tr('say');
+    const lt = root.querySelector('.gm-ltx'); if (lt) lt.textContent = tr('load');
+    setFsBtn(root.classList.contains('gm-full'));
+    themeBtn.textContent = theme === 'dark' ? tr('day') : tr('eve');
+    for (const g of cityGroups) g.label = cityName(g.name, lang);
+    baseCache = null;
+    if (popFor) { const c = popFor; popFor = null; showPopup(c); }
+    if (sug.classList.contains('on')) renderSug();
+  }
+  function setFsBtn(full) {
+    fsBtn.innerHTML = full ? ICON_X : ICON_FS; fsBtn.classList.toggle('x', full);
+    fsBtn.title = full ? tr('fsOff') : tr('fsOn'); fsBtn.setAttribute('aria-label', fsBtn.title);
+  }
 
   let geo = null, man = null;
   const imgs = { light: {}, dark: {} };
@@ -222,22 +290,29 @@ export function mountGameMap(root, opts) {
   // ---------- проекция и компании ----------
   function proj(lng, lat) { return [(lng - geo.lon0) * geo.k * geo.c, (geo.lat1 - lat) * geo.k]; }
   function layout() {
+    // Усі компанії України (02.10.2026): чим їх більше, тим дрібніші будиночки,
+    // інакше Київ розповзається на пів області.
+    const dens = Math.max(0.5, Math.min(1, Math.sqrt(80 / Math.max(1, companiesIn.length))));
     const list = companiesIn.map((c) => {
       const l = sizeLevel(c); const [x, y] = proj(c.lng, c.lat); const h = hash(c.id || c.name);
-      return { ...c, l, x, y, hx: x, hy: y, w: SIZE[l - 1], forest: h % 10 < 3, pin: PINS[h % PINS.length], h, color: FLAG_COLORS[h % FLAG_COLORS.length], cityUa: cityUa(c.city) };
+      return { ...c, l, x, y, hx: x, hy: y, w: SIZE[l - 1] * dens, forest: h % 10 < 3, pin: PINS[h % PINS.length], h, color: FLAG_COLORS[h % FLAG_COLORS.length], ck: cityKey(c.city) };
     }).sort((a, b) => b.n - a.n);
     // Разводим соседей по спирали: в Киеве десятки компаний в одной точке.
-    const placed = [];
+    // сітка для швидкої перевірки сусідів (сотні компаній в одній точці)
+    const CELL = 40, grid = new Map();
+    const cellKey = (x, y) => `${Math.floor(x / CELL)}|${Math.floor(y / CELL)}`;
+    const near = (x, y) => { const out = []; const cx = Math.floor(x / CELL), cy = Math.floor(y / CELL); for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) { const a = grid.get(`${cx + i}|${cy + j}`); if (a) out.push(...a); } return out; };
+    const k = Math.sqrt(dens), ovl = 0.95 * (0.55 + 0.45 * dens);
     for (const c of list) {
       const r = c.w * 0.5;
       let ang = (c.h % 360) * Math.PI / 180, step = 0;
-      while (step < 400) {
-        const rr = step === 0 ? 0 : 6 + Math.sqrt(step) * 7;
+      while (step < 4000) {
+        const rr = step === 0 ? 0 : (6 + Math.sqrt(step) * 7) * k;
         const x = c.hx + Math.cos(ang) * rr, y = c.hy + Math.sin(ang) * rr * 0.75;
-        if (!placed.some((p) => (p.x - x) ** 2 + ((p.y - y) * 1.25) ** 2 < (p.w * 0.5 + r) ** 2 * 0.95)) { c.x = x; c.y = y; break; }
+        if (!near(x, y).some((p) => (p.x - x) ** 2 + ((p.y - y) * 1.25) ** 2 < (p.w * 0.5 + r) ** 2 * ovl)) { c.x = x; c.y = y; break; }
         ang += 2.399963; step++;
       }
-      placed.push(c);
+      const key = cellKey(c.x, c.y); (grid.get(key) || grid.set(key, []).get(key)).push(c);
     }
     return list;
   }
@@ -265,7 +340,7 @@ export function mountGameMap(root, opts) {
 
   // ---------- основа карты (кэш на текущий вид) ----------
   function renderBase() {
-    const key = `${theme}|${Math.round(view.x)}|${Math.round(view.y)}|${view.s.toFixed(4)}|${W}|${H}|${dpr}`;
+    const key = `${theme}|${lang}|${Math.round(view.x)}|${Math.round(view.y)}|${view.s.toFixed(4)}|${W}|${H}|${dpr}`;
     if (baseCache && baseCache.key === key) return baseCache.canvas;
     const c = baseCache?.canvas || document.createElement('canvas');
     c.width = Math.max(1, W * dpr); c.height = Math.max(1, H * dpr);
@@ -312,7 +387,7 @@ export function mountGameMap(root, opts) {
     for (const co of geo.countries) {
       if (co.ua) continue;
       const fs = Math.max(9, Math.min(15, 13 * Math.sqrt(view.s))) * px;
-      x.font = `600 ${fs}px Georgia, 'Times New Roman', serif`; x.fillStyle = P.label; x.fillText(co.name, co.c[0], co.c[1]);
+      x.font = `600 ${fs}px Georgia, 'Times New Roman', serif`; x.fillStyle = P.label; x.fillText(countryName(co), co.c[0], co.c[1]);
     }
     x.restore();
     baseCache = { key, canvas: c };
@@ -409,21 +484,22 @@ export function mountGameMap(root, opts) {
   let cityGroups = [];
   function buildCityGroups() {
     const g = {};
-    for (const c of cos) { const k = c.cityUa || '—'; (g[k] ||= []).push(c); }
+    for (const c of cos) { const k = c.ck || '—'; (g[k] ||= []).push(c); }
     let groups = Object.entries(g).map(([name, list]) => {
       const xs = list.map((c) => c.x), ys = list.map((c) => c.y);
-      return { name, list, x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
+      const hx = list.reduce((a, c) => a + c.hx, 0) / list.length, hy = list.reduce((a, c) => a + c.hy, 0) / list.length;
+      return { name, list, hx, hy, x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
     }).sort((a, b) => b.list.length - a.list.length);
     // Передмістя (Бровари, Ірпінь…) потрапляють усередину великого кластера міста —
     // зливаємо їх із ним, щоб посеред Києва не стояла чужа назва.
     const out = [];
     for (const gr of groups) {
-      const cx = (gr.x0 + gr.x1) / 2, cy = (gr.y0 + gr.y1) / 2, m = 24;
-      const host = out.find((h) => h.list.length > gr.list.length && cx > h.x0 - m && cx < h.x1 + m && cy > h.y0 - m && cy < h.y1 + m);
+      // зливаємо лише справжні передмістя: справжні координати ближче ~35 км
+      const host = out.find((h) => h.list.length > gr.list.length && Math.hypot(h.hx - gr.hx, h.hy - gr.hy) < 32);
       if (host) { host.list.push(...gr.list); host.x0 = Math.min(host.x0, gr.x0); host.x1 = Math.max(host.x1, gr.x1); host.y0 = Math.min(host.y0, gr.y0); host.y1 = Math.max(host.y1, gr.y1); }
       else out.push(gr);
     }
-    cityGroups = out.map((gr) => ({ name: gr.name, n: gr.list.length, x: (gr.x0 + gr.x1) / 2, y: gr.y1 }));
+    cityGroups = out.map((gr) => ({ name: gr.name, label: cityName(gr.name, lang), n: gr.list.length, x: (gr.x0 + gr.x1) / 2, y: gr.y1 }));
   }
   function drawCityLabels() {
     const P = theme === 'dark';
@@ -432,7 +508,7 @@ export function mountGameMap(root, opts) {
       const fs = Math.max(11, Math.min(17, 12 + (g.n > 5 ? 3 : 0))) / view.s;
       const y = g.y + (view.s > minS * 3.2 ? 26 : 12) / view.s;
       ctx.font = `700 italic ${fs}px Georgia, 'Times New Roman', serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-      const label = g.n > 1 ? `${g.name} · ${g.n}` : g.name;
+      const label = g.n > 1 ? `${g.label} · ${g.n}` : g.label;
       const tw = ctx.measureText(label).width, pad = 6 / view.s;
       ctx.fillStyle = P ? 'rgba(15,22,36,.72)' : 'rgba(251,245,230,.82)';
       ctx.beginPath(); ctx.roundRect ? ctx.roundRect(g.x - tw / 2 - pad, y - pad * 0.5, tw + pad * 2, fs + pad, fs) : ctx.rect(g.x - tw / 2 - pad, y - pad * 0.5, tw + pad * 2, fs + pad); ctx.fill();
@@ -441,7 +517,7 @@ export function mountGameMap(root, opts) {
   }
   function drawCompany(c, t, far) {
     const act = c === hover || c === pinned;
-    if (far && c.l <= 3 && !act) {
+    if (far && c.l <= 3 && !act && cos.length <= 120) {
       // мелкие издалека -- булавки
       const w = 15; const h = drawSprite(c.pin, c.x, c.y, w) || w;
       c._r = { x: c.x, y: c.y - h / 2, w, h };
@@ -476,19 +552,19 @@ export function mountGameMap(root, opts) {
   function popupHtml(c) {
     const jobs = (c.jobs || []).slice(0, 3).map((j) => `<a href="/jobs/${esc(j.slug)}">${esc(j.title)}</a>`).join('');
     const ava = c.avatar ? `<img src="${esc(c.avatar)}" alt="">` : `<span>${esc((c.name || '?').slice(0, 1))}</span>`;
-    const prof = c.username ? `<a class="gm-p" href="/u/${esc(c.username)}">Профіль компанії</a>` : '';
-    const sub = [c.cityUa, c.est ? `з ${c.est} року` : ''].filter(Boolean).join(' · ');
+    const prof = c.username ? `<a class="gm-p" href="/u/${esc(c.username)}">${esc(tr('profile'))}</a>` : '';
+    const sub = [cityName(c.ck, lang), c.est ? tr('since').replace('{y}', c.est) : ''].filter(Boolean).join(' · ');
     const chips = [
-      `<span class="gm-chip g">💼 ${c.n} ${plural(c.n)}</span>`,
-      c.employees ? `<span class="gm-chip">👥 ${c.employees} ${empLabel(c.employees)}</span>` : '',
+      `<span class="gm-chip g">💼 ${nForm(c.n, 'vac')}</span>`,
+      c.employees ? `<span class="gm-chip">👥 ${nForm(c.employees, 'emp')}</span>` : '',
       c.occupation ? `<span class="gm-chip">${esc(c.occupation)}</span>` : '',
     ].join('');
     let site = '';
     if (c.website) { try { const u = new URL(c.website.startsWith('http') ? c.website : 'https://' + c.website); site = `<a class="gm-site" href="${esc(u.href)}" target="_blank" rel="noopener nofollow">🔗 ${esc(u.hostname.replace(/^www\./, ''))}</a>`; } catch { site = ''; } }
     const bio = c.bio ? `<p class="gm-bio">${esc(c.bio)}</p>` : '';
     const isAlly = c.userId && allies.has(c.userId);
-    const ally = c.userId ? `<button class="gm-ally${isAlly ? ' on' : ''}" type="button" title="${isAlly ? 'Ваш союзник (у контактах)' : 'Додати в союзники — компанія з’явиться у ваших контактах'}" aria-label="Додати в союзники">${isAlly ? '✓' : '+'}</button>` : '';
-    return `<div class="gm-ph" style="--fc:${esc(c.color)}"><div class="gm-ava">${ava}</div><div class="gm-pt"><b>${esc(c.name)}</b><small>${esc(sub)}</small></div><button class="gm-x" type="button" aria-label="Закрити">×</button></div>
+    const ally = c.userId ? `<button class="gm-ally${isAlly ? ' on' : ''}" type="button" title="${esc(isAlly ? tr('allyOn') : tr('allyAdd'))}" aria-label="${esc(tr('allyAdd'))}"><span>${isAlly ? '✓' : '+'}</span></button>` : '';
+    return `<div class="gm-ph" style="--fc:${esc(c.color)}"><div class="gm-ava">${ava}</div><div class="gm-pt"><b>${esc(c.name)}</b><small>${esc(sub)}</small></div><button class="gm-x" type="button" aria-label="${esc(tr('close'))}">×</button></div>
       <div class="gm-chips">${chips}</div>
       ${bio}${site}
       ${jobs ? `<div class="gm-jobs">${jobs}</div>` : ''}
@@ -501,7 +577,17 @@ export function mountGameMap(root, opts) {
       if (r.status === 401) { location.href = '/sign-in?next=' + encodeURIComponent(location.pathname); return; }
       if (!r.ok) throw new Error(String(r.status));
       allies.add(c.userId); popFor = null; showPopup(c);
-    } catch { const b = pop.querySelector('.gm-ally'); if (b) { b.textContent = '!'; b.title = 'Не вдалося додати, спробуйте ще раз'; } }
+      const b = pop.querySelector('.gm-ally'); if (b) b.classList.add('pop');
+      toast(tr('allyDone'), tr('allyDoneSub'), c.avatar);
+    } catch { const b = pop.querySelector('.gm-ally'); if (b) { b.textContent = '!'; b.title = tr('allyErr'); } }
+  }
+  let toastT = 0;
+  function toast(title, sub, img) {
+    let el = root.querySelector('.gm-toast');
+    if (!el) { el = document.createElement('div'); el.className = 'gm-toast'; el.setAttribute('role', 'status'); root.appendChild(el); }
+    el.innerHTML = `<span class="gm-tk">${img ? `<img src="${esc(img)}" alt="">` : ''}<i>✓</i></span><span class="gm-tt2"><b>${esc(title)}</b><small>${esc(sub)}</small></span>`;
+    el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
+    clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), 2800);
   }
   async function loadAllies() {
     try {
@@ -584,19 +670,28 @@ export function mountGameMap(root, opts) {
   // ---------- на весь экран ----------
   function toggleFs(force) {
     const on = force ?? !root.classList.contains('gm-full');
+    if (on === root.classList.contains('gm-full')) return;
+    // Режим 2: справжній повний екран (без меню сайту й браузера). Де браузер
+    // не вміє (iPhone) -- карта просто накриває всю сторінку.
     root.classList.toggle('gm-full', on); document.documentElement.classList.toggle('gm-noscroll', on);
-    fsBtn.textContent = on ? '✕' : '⛶'; fsBtn.title = on ? 'Вийти з повного екрана' : 'На весь екран'; fsBtn.setAttribute('aria-label', fsBtn.title);
+    const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+    if (on && !fsEl) { const rq = root.requestFullscreen || root.webkitRequestFullscreen; if (rq) { try { const pr = rq.call(root); if (pr && pr.catch) pr.catch(() => {}); } catch { /* overlay only */ } } }
+    if (!on && fsEl === root) { const ex = document.exitFullscreen || document.webkitExitFullscreen; if (ex) { try { const pr = ex.call(document); if (pr && pr.catch) pr.catch(() => {}); } catch { /* ignore */ } } }
+    setFsBtn(on);
+    root.classList.remove('gm-enter'); void root.offsetWidth; root.classList.add('gm-enter');
     requestAnimationFrame(() => resize());
   }
   cleanup.push(() => document.documentElement.classList.remove('gm-noscroll'));
+  const onFsChange = () => { const fsEl = document.fullscreenElement || document.webkitFullscreenElement; if (!fsEl && root.classList.contains('gm-full')) toggleFs(false); else requestAnimationFrame(() => resize()); };
+  on(document, 'fullscreenchange', onFsChange); on(document, 'webkitfullscreenchange', onFsChange);
   // ---------- поиск компании ----------
   let sugIdx = -1, sugList = [];
   function renderSug() {
     const q = qIn.value.trim().toLowerCase();
     sugList = q.length < 1 ? [] : cos.map((c, i) => ({ c, i, p: c.name.toLowerCase().indexOf(q) })).filter((o) => o.p >= 0).sort((a, b) => a.p - b.p || b.c.n - a.c.n).slice(0, 8);
     sugIdx = sugList.length ? 0 : -1;
-    sug.innerHTML = sugList.length ? sugList.map((o, k) => `<button type="button" class="gm-si${k === sugIdx ? ' on' : ''}" data-ci="${o.i}" role="option"><b>${esc(o.c.name)}</b><small>${esc(o.c.cityUa)} · ${o.c.n} ${plural(o.c.n)}</small></button>`).join('')
-      : (q ? '<div class="gm-none">Нічого не знайшли</div>' : '');
+    sug.innerHTML = sugList.length ? sugList.map((o, k) => `<button type="button" class="gm-si${k === sugIdx ? ' on' : ''}" data-ci="${o.i}" role="option"><b>${esc(o.c.name)}</b><small>${esc(cityName(o.c.ck, lang))} · ${nForm(o.c.n, 'vac')}</small></button>`).join('')
+      : (q ? `<div class="gm-none">${esc(tr('none'))}</div>` : '');
     sug.classList.toggle('on', !!q);
   }
   function pickCompany(c) {
@@ -621,12 +716,14 @@ export function mountGameMap(root, opts) {
 
   async function setTheme(th) {
     theme = th; root.classList.toggle('gm-dark', th === 'dark'); baseCache = null;
-    themeBtn.textContent = th === 'dark' ? '☀ День' : '☾ Вечір';
+    themeBtn.textContent = th === 'dark' ? tr('day') : tr('eve');
     mascot.src = `${base}/${th}/mascot/mascot-wave.webp`;
     await loadTheme(th);
   }
 
   let raf = 0;
+  applyLang();
+  if (opts.theme === 'dark') root.classList.add('gm-dark');
   (async () => {
     [geo, man, flagMeta] = await Promise.all([fetch(`${base}/geo.json`).then((r) => r.json()), fetch(`${base}/manifest.json`).then((r) => r.json()), fetch(`${base}/flags.json`).then((r) => r.json()).catch(() => ({}))]);
     for (const k in flagMeta) for (const e of flagMeta[k].f) man['flags/' + e[0]] = [e[3], e[4]];
@@ -638,7 +735,7 @@ export function mountGameMap(root, opts) {
     const cats = ['cat-amber', 'cat-coral', 'cat-honey', 'cat-lilac', 'cat-peach', 'cat-rose', 'cat-sage', 'cat-teal'];
     for (let i = 0; i < 6; i++) { const a = cities[(i * 5) % cities.length], b = cities[(i * 5 + 3) % cities.length]; walkers.push({ k: cats[i], a, b, v: 0.012 + i * 0.002, ph: i * 0.37 }); }
     await setTheme(theme);
-    root.querySelector('.gm-load').remove();
+    const ld = root.querySelector('.gm-load'); if (ld) { ld.classList.add('done'); setTimeout(() => ld.remove(), 900); }
     resize();
     // старт: Украина целиком в кадре
     const kyiv = geo.cities['Київ'];
@@ -651,12 +748,12 @@ export function mountGameMap(root, opts) {
   const vis = () => { if (document.hidden) cancelAnimationFrame(raf); else if (geo) startLoop(); };
   on(document, 'visibilitychange', vis);
 
-  return () => { destroyed = true; cancelAnimationFrame(raf); cleanup.forEach((f) => f()); root.innerHTML = ''; };
+  const destroy = () => { destroyed = true; cancelAnimationFrame(raf); cleanup.forEach((f) => f()); if (root.classList.contains('gm-full')) { const fsEl = document.fullscreenElement || document.webkitFullscreenElement; if (fsEl === root && document.exitFullscreen) document.exitFullscreen().catch(() => {}); root.classList.remove('gm-full'); } root.innerHTML = ''; };
+  destroy.setLang = (l) => { if (!STR[l] || l === lang) return; lang = l; applyLang(); };
+  return destroy;
 }
 
 export const GAME_MAP_CSS = `
-.gm2.gm-page{border-radius:0;border:0;border-top:1px solid rgba(160,120,60,.25)}
-.gm2.gm-page:not(.gm-full) .gm-zoom{bottom:auto;top:50%;transform:translateY(-50%)}
 .gm2{position:relative;height:calc(100dvh - 140px);min-height:480px;overflow:hidden;border-radius:18px;border:1px solid #d8c8a2;background:#2f7f9e;font:15px/1.4 system-ui,-apple-system,sans-serif;color:#2b2114;user-select:none;-webkit-user-select:none}
 .gm2.gm-dark{border-color:#2b3a52;background:#0f2a43;color:#efe6cf}
 .gm2 .gm-cv{display:block;touch-action:none;cursor:grab}
@@ -695,7 +792,23 @@ export const GAME_MAP_CSS = `
 .gm2 .gm-acts{display:flex;gap:8px}
 .gm2 .gm-p{flex:1;text-align:center;text-decoration:none;font:600 13px system-ui;padding:9px 12px;border-radius:10px;background:#a8571f;color:#fff}
 .gm2.gm-dark .gm-p{background:#5b6fc0}
-.gm2.gm-full{position:fixed;inset:0;z-index:80;height:auto!important;min-height:0;border-radius:0;border:0}
+.gm2.gm-full{position:fixed;inset:0;z-index:2147483000;width:100vw;height:100dvh!important;min-height:0;border-radius:0;border:0}
+.gm2:fullscreen{width:100vw;height:100vh!important}
+.gm2.gm-enter{animation:gm-enter .32s cubic-bezier(.2,.8,.2,1)}
+@keyframes gm-enter{from{opacity:.4;transform:scale(.985)}to{opacity:1;transform:none}}
+.gm2 .gm-btn{transition:transform .18s ease,box-shadow .18s ease,background-color .18s ease,color .18s ease}
+.gm2 .gm-btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(0,0,0,.22)}
+.gm2 .gm-btn:active{transform:translateY(0) scale(.96)}
+.gm2 .gm-fs{display:grid;place-items:center;padding:0;width:38px}
+.gm2 .gm-fs svg path{transition:transform .28s cubic-bezier(.3,1.7,.5,1)}
+.gm2 .gm-fs:hover .c1{transform:translate(-1.6px,-1.6px)}.gm2 .gm-fs:hover .c2{transform:translate(1.6px,-1.6px)}
+.gm2 .gm-fs:hover .c3{transform:translate(1.6px,1.6px)}.gm2 .gm-fs:hover .c4{transform:translate(-1.6px,1.6px)}
+.gm2 .gm-fs.x{width:44px;min-height:44px}
+.gm2 .gm-fs.x svg{transition:transform .35s cubic-bezier(.3,1.5,.5,1)}
+.gm2 .gm-fs.x:hover{background:#a8571f;border-color:#a8571f;color:#fff}
+.gm2.gm-dark .gm-fs.x:hover{background:#5b6fc0;border-color:#5b6fc0;color:#fff}
+.gm2 .gm-fs.x:hover svg{transform:rotate(90deg) scale(1.08)}
+@media (prefers-reduced-motion:reduce){.gm2 .gm-fs svg,.gm2 .gm-fs svg path,.gm2.gm-enter{transition:none;animation:none}}
 html.gm-noscroll,html.gm-noscroll body{overflow:hidden}
 .gm2 .gm-left{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap}
 .gm2 .gm-right{display:flex;gap:8px}
@@ -713,7 +826,7 @@ html.gm-noscroll,html.gm-noscroll body{overflow:hidden}
 .gm2 .gm-none{padding:10px;font-size:13px;opacity:.7}
 @media (max-width:560px){.gm2 .gm-title{display:none}.gm2 .gm-q{width:170px}}
 .gm2 .gm-pop{width:330px}
-.gm2 .gm-ph{border-left:4px solid var(--fc,#c99a52);padding-left:8px;margin-left:-4px}
+
 .gm2 .gm-chips{display:flex;flex-wrap:wrap;gap:5px}
 .gm2 .gm-chip{font:600 12px system-ui;padding:4px 9px;border-radius:999px;background:rgba(150,110,50,.14)}
 .gm2 .gm-chip.g{background:#2f7a4d;color:#fff}
@@ -721,8 +834,39 @@ html.gm-noscroll,html.gm-noscroll body{overflow:hidden}
 .gm2 .gm-bio{margin:0;font-size:13px;line-height:1.45;opacity:.9;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .gm2 .gm-site{font-size:13px;color:#a8571f;text-decoration:none;align-self:flex-start}
 .gm2.gm-dark .gm-site{color:#9fb1ff}
-.gm2 .gm-ally{flex:none;width:40px;border-radius:10px;border:2px solid #a8571f;background:none;color:#a8571f;font:700 20px system-ui;cursor:pointer;line-height:1}
+.gm2 .gm-ally{flex:none;width:40px;border-radius:10px;border:2px solid #a8571f;background:none;color:#a8571f;font:700 20px system-ui;cursor:pointer;line-height:1;display:grid;place-items:center;transition:background-color .2s,color .2s,transform .2s cubic-bezier(.3,1.6,.5,1),box-shadow .2s}
+.gm2 .gm-ally span{display:block;transition:transform .3s cubic-bezier(.3,1.6,.5,1)}
+.gm2 .gm-ally:not(.on):hover{background:#a8571f;color:#fff;transform:scale(1.07);box-shadow:0 6px 14px rgba(168,87,31,.35)}
+.gm2 .gm-ally:not(.on):hover span{transform:rotate(90deg) scale(1.1)}
+.gm2 .gm-ally:active{transform:scale(.94)}
+.gm2 .gm-ally.pop span{animation:gm-pop .5s cubic-bezier(.3,1.8,.5,1)}
+@keyframes gm-pop{0%{transform:scale(.3) rotate(-45deg)}100%{transform:none}}
+.gm2.gm-dark .gm-ally:not(.on):hover{background:#5b6fc0;border-color:#5b6fc0;color:#fff;box-shadow:0 6px 14px rgba(91,111,192,.35)}
+.gm2 .gm-toast{position:absolute;left:50%;top:60px;z-index:6;display:flex;align-items:center;gap:11px;padding:10px 18px 10px 10px;border-radius:16px;background:#fbf5e6;border:2px solid #2f7a4d;box-shadow:0 14px 34px rgba(40,25,5,.32);color:#3a2a14;opacity:0;visibility:hidden;transform:translate(-50%,-14px) scale(.96);transition:opacity .25s,transform .35s cubic-bezier(.3,1.5,.5,1),visibility 0s .35s;pointer-events:none;max-width:calc(100% - 24px)}
+.gm2 .gm-toast.on{opacity:1;visibility:visible;transform:translate(-50%,0) scale(1);transition:opacity .25s,transform .35s cubic-bezier(.3,1.5,.5,1)}
+.gm2.gm-dark .gm-toast{background:#16233a;color:#efe6cf}
+.gm2 .gm-tk{position:relative;width:38px;height:38px;flex:none;border-radius:50%;background:#2f7a4d;display:grid;place-items:center}
+.gm2 .gm-tk img{width:100%;height:100%;border-radius:50%;object-fit:cover}
+.gm2 .gm-tk i{position:absolute;right:-4px;bottom:-4px;width:20px;height:20px;border-radius:50%;background:#2f7a4d;color:#fff;font:700 12px/20px system-ui;text-align:center;font-style:normal;border:2px solid #fbf5e6;animation:gm-pop .5s .1s both cubic-bezier(.3,1.8,.5,1)}
+.gm2 .gm-tk img+i{}
+.gm2 .gm-tt2{display:flex;flex-direction:column;line-height:1.25}
+.gm2 .gm-tt2 b{font:700 15px Georgia,'Times New Roman',serif}
+.gm2 .gm-tt2 small{font-size:12.5px;opacity:.75}
 .gm2 .gm-ally.on{background:#2f7a4d;border-color:#2f7a4d;color:#fff}
 .gm2.gm-dark .gm-ally{border-color:#7d8fc9;color:#c9d3ff}.gm2.gm-dark .gm-ally.on{background:#2f7a4d;border-color:#2f7a4d;color:#fff}
-.gm2 .gm-load{position:absolute;inset:0;display:grid;place-items:center;color:#fff;font:600 16px Georgia,serif;background:inherit}
+.gm2 .gm-load{position:absolute;inset:0;display:grid;place-items:center;overflow:hidden;background:#cfd9a6;transition:opacity .8s ease;z-index:5}
+.gm2 .gm-load.done{opacity:0;pointer-events:none}
+.gm2 .gm-lbg{position:absolute;inset:-40px;background:url(/game-map/map-preview.webp) center/cover;filter:blur(22px) saturate(1.15);transform:scale(1.08);transition:filter .8s ease,transform .8s ease;animation:gm-breathe 3.2s ease-in-out infinite}
+html.dark .gm2 .gm-lbg,.gm2.gm-dark .gm-lbg{background-image:url(/game-map/map-preview-dark.webp)}
+html.dark .gm2 .gm-load,.gm2.gm-dark .gm-load{background:#1c2b3a}
+.gm2 .gm-load.done .gm-lbg{filter:blur(0) saturate(1);transform:scale(1)}
+.gm2 .gm-load::after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 30%,rgba(255,250,230,.28) 50%,transparent 70%);background-size:250% 100%;animation:gm-sheen 2.2s linear infinite}
+.gm2 .gm-lpill{position:relative;z-index:1;display:flex;align-items:center;gap:10px;padding:10px 18px 10px 12px;border-radius:999px;background:rgba(251,245,230,.9);border:1px solid rgba(160,120,60,.4);color:#5a3d16;font:700 italic 16px Georgia,'Times New Roman',serif;box-shadow:0 8px 24px rgba(40,25,5,.25);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);transition:opacity .4s,transform .4s}
+html.dark .gm2 .gm-lpill,.gm2.gm-dark .gm-lpill{background:rgba(18,28,44,.88);border-color:rgba(120,150,210,.4);color:#e9dfc4}
+.gm2 .gm-load.done .gm-lpill{opacity:0;transform:translateY(-6px) scale(.96)}
+.gm2 .gm-needle{transform-origin:20px 20px;animation:gm-needle 2.4s cubic-bezier(.45,0,.2,1) infinite}
+@keyframes gm-needle{0%{transform:rotate(-30deg)}35%{transform:rotate(200deg)}55%{transform:rotate(160deg)}75%{transform:rotate(370deg)}100%{transform:rotate(330deg)}}
+@keyframes gm-sheen{from{background-position:120% 0}to{background-position:-130% 0}}
+@keyframes gm-breathe{0%,100%{transform:scale(1.08)}50%{transform:scale(1.12)}}
+@media (prefers-reduced-motion:reduce){.gm2 .gm-needle,.gm2 .gm-load::after,.gm2 .gm-lbg{animation:none}}
 `;

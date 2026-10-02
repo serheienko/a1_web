@@ -12,6 +12,7 @@ import { allIndexedPosts } from "@/lib/a1/facts-index";
 import { parseUserProfile } from "@/lib/a1/schemas";
 import { mapUserProfile } from "@/lib/a1/user-mappers";
 import type { MapCompany } from "./engine";
+import { T } from "@/components/t";
 import { GameMap } from "./game-map";
 
 export const revalidate = 3600;
@@ -22,7 +23,9 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-const LIMIT = 50;
+// 02.10.2026 (Александр: «додавай усі компанії з України»): без вибірки,
+// але з запасом зверху, щоб сторінка не роздувалась.
+const LIMIT = 1500;
 
 async function loadCompanies(): Promise<MapCompany[]> {
   try {
@@ -54,21 +57,8 @@ async function loadCompanies(): Promise<MapCompany[]> {
       c.n += 1;
       if (c.jobs.length < 3) c.jobs.push({ title: p.title, slug: p.slug });
     }
-    const all = [...byCompany.values()].sort((a, b) => b.n - a.n);
-    if (all.length <= LIMIT) return enrich(all);
-    // Специально разные: поровну из крупных, средних и маленьких.
-    const third = Math.ceil(all.length / 3);
-    const groups = [all.slice(0, third), all.slice(third, third * 2), all.slice(third * 2)];
-    const picked: MapCompany[] = [];
-    groups.forEach((g, i) => {
-      const want = i === 2 ? LIMIT - picked.length : Math.round(LIMIT / 3);
-      const step = g.length / want;
-      for (let k = 0; k < want && k * step < g.length; k++) {
-        const c = g[Math.floor(k * step)];
-        if (c) picked.push(c);
-      }
-    });
-    return enrich(picked);
+    const all = [...byCompany.values()].sort((a, b) => b.n - a.n).slice(0, LIMIT);
+    return enrich(all);
   } catch {
     return [];
   }
@@ -81,8 +71,14 @@ async function loadCompanies(): Promise<MapCompany[]> {
 async function enrich(list: MapCompany[]): Promise<MapCompany[]> {
   const ids = list.map((c) => c.userId).filter((id): id is string => !!id);
   if (!ids.length) return list;
+  // Пачками по 100: для сотен компаний один запит був би завеликим.
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += 100) chunks.push(ids.slice(i, i + 100));
+  const raws = await Promise.all(
+    chunks.map((part) => call<unknown>("users.getUsers", { ids: part }).catch(() => [] as unknown)),
+  );
   try {
-    const raw = await call<unknown>("users.getUsers", { ids });
+    const raw = raws.flatMap((r) => (Array.isArray(r) ? r : []));
     const byId = new Map<string, MapCompany>();
     for (const c of list) if (c.userId) byId.set(c.userId, c);
     for (const item of Array.isArray(raw) ? raw : []) {
@@ -93,7 +89,7 @@ async function enrich(list: MapCompany[]): Promise<MapCompany[]> {
       const prof = mapUserProfile(parsed);
       if (!c || !prof) continue;
       const company = prof.companies[0];
-      c.bio = (prof.bio || company?.description || "").trim().slice(0, 240) || null;
+      c.bio = (prof.bio || company?.description || "").trim().slice(0, 200) || null;
       c.website = prof.links[0]?.url || company?.link?.url || null;
       c.employees = company?.employeesCount ?? null;
       c.est = company?.establishedYear ?? null;
@@ -108,8 +104,21 @@ async function enrich(list: MapCompany[]): Promise<MapCompany[]> {
 export default async function GameMapPage() {
   const companies = await loadCompanies();
   return (
-    <main className="relative w-full">
+    <main className="mx-auto max-w-6xl px-3 py-3 sm:px-4">
       <GameMap companies={companies} />
+      <p className="mt-2 px-1 text-xs text-neutral-500 dark:text-neutral-400">
+        <T
+          uk="Розмір будинку — за кількістю співробітників і відкритих вакансій. Наведіть або натисніть на будинок, щоб побачити компанію."
+          en="House size reflects the number of employees and open jobs. Hover or tap a house to see the company."
+          ru="Размер домика — по количеству сотрудников и открытых вакансий. Наведите или нажмите на домик, чтобы увидеть компанию."
+          de="Die Hausgröße richtet sich nach Mitarbeitern und offenen Stellen. Fahre über ein Haus oder tippe darauf, um die Firma zu sehen."
+          es="El tamaño de la casa depende de los empleados y las vacantes abiertas. Pasa el cursor o toca una casa para ver la empresa."
+          fr="La taille de la maison dépend du nombre d’employés et d’offres ouvertes. Survolez ou touchez une maison pour voir l’entreprise."
+          pl="Wielkość domu zależy od liczby pracowników i otwartych ofert. Najedź lub dotknij domku, aby zobaczyć firmę."
+          ptBR="O tamanho da casa reflete o número de funcionários e vagas abertas. Passe o mouse ou toque numa casa para ver a empresa."
+          zh="房子的大小取决于员工人数和开放职位数量。将鼠标悬停或点击房子即可查看公司。"
+        />
+      </p>
     </main>
   );
 }
