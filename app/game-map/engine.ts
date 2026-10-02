@@ -293,6 +293,15 @@ export function mountGameMap(root, opts) {
 
   // ---------- проекция и компании ----------
   function proj(lng, lat) { return [(lng - geo.lon0) * geo.k * geo.c, (geo.lat1 - lat) * geo.k]; }
+  // Чи точка на суші України (будинки не мають стояти у воді).
+  function inRing(r, x, y) { let inside = false; for (let i = 0, j = r.length - 2; i < r.length; j = i, i += 2) { const xi = r[i], yi = r[i + 1], xj = r[j], yj = r[j + 1]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside; } return inside; }
+  let uaRings = null;
+  function onLand(x, y) {
+    if (!uaRings) { const ua = geo.countries.find((c) => c.ua); uaRings = ua ? ua.r : []; }
+    if (!uaRings.length) return true;
+    let n = 0; for (const r of uaRings) if (inRing(r, x, y)) n++;
+    return n % 2 === 1;
+  }
   function layout() {
     // Усі компанії України (02.10.2026): чим їх більше, тим дрібніші будиночки,
     // інакше Київ розповзається на пів області.
@@ -318,7 +327,7 @@ export function mountGameMap(root, opts) {
       while (step < 4000) {
         const rr = step === 0 ? 0 : (6 + Math.sqrt(step) * 7) * k;
         const x = c.hx + Math.cos(ang) * rr, y = c.hy + Math.sin(ang) * rr * 0.75;
-        if (!near(x, y).some((p) => (p.x - x) ** 2 + ((p.y - y) * 1.25) ** 2 < (p.w * 0.5 + r) ** 2 * ovl)) { c.x = x; c.y = y; break; }
+        if ((c.ck === 'Remote' || step > 3500 || (onLand(x - r * 0.6, y) && onLand(x + r * 0.6, y) && onLand(x, y + 2))) && !near(x, y).some((p) => (p.x - x) ** 2 + ((p.y - y) * 1.25) ** 2 < (p.w * 0.5 + r) ** 2 * ovl)) { c.x = x; c.y = y; break; }
         ang += 2.399963; step++;
       }
       const key = cellKey(c.x, c.y); (grid.get(key) || grid.set(key, []).get(key)).push(c);
@@ -339,8 +348,8 @@ export function mountGameMap(root, opts) {
     if (geo && geo.decor) for (const d of geo.decor) {
       const [dk, dx, dy] = d;
       if (island && ((dx - island.cx) / (island.rx + 30)) ** 2 + ((dy - island.cy) / (island.ry + 30)) ** 2 < 1) { d.hide = true; continue; }
-      if (dk.startsWith('mountain') || /ship|whale|fish|lighthouse/.test(dk)) continue;
-      d.hide = near(dx, dy).some((p) => (p.x - dx) ** 2 + ((p.y - dy) * 1.25) ** 2 < (p.w * 0.75 + 10) ** 2);
+      if (dk.startsWith('mountain') || /ship|whale|fish/.test(dk)) continue;
+      d.hide = near(dx, dy).some((p) => (p.x - dx) ** 2 + ((p.y - dy) * 1.25) ** 2 < (p.w * 0.75 + (dk.startsWith('lighthouse') ? 22 : 10)) ** 2);
     }
     return list;
   }
@@ -463,7 +472,8 @@ export function mountGameMap(root, opts) {
     for (const d of geo.decor) {
       const [k, x, y, sc] = d; if (d.hide || !onScreen(x, y)) continue;
       const big = k.startsWith('mountain'); const sea = /ship|whale|fish|lighthouse/.test(k);
-      const w = (big ? 80 : sea ? 40 : k.startsWith('tree') ? 22 : 18) * sc;
+      const ds = big ? Math.max(0.6, dens) : Math.max(0.4, dens);
+      const w = (big ? 80 : sea ? 40 : k.startsWith('tree') ? 22 : 18) * sc * ds;
       items.push({ y, draw: () => {
         let yy = y, xx = x, a = 1;
         if (!reduce && sea && !k.startsWith('lighthouse')) { yy += Math.sin(t * 1.3 + x) * 1.6; xx += Math.sin(t * 0.07 + y) * 18; }
