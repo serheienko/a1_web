@@ -34,12 +34,31 @@ const SITE_URL = "https://jobs.a1appp.com";
 export const revalidate = 3600;
 
 export async function generateSitemaps() {
-  const posts = await fetchAllSitemapJobPosts();
+  // 2026-10-02: если API при сборке отвечает 500 (auth.email), сборка раньше
+  // падала целиком и сайт не обновлялся. Теперь отдаём один чанк, а настоящая
+  // карта пересоберётся через revalidate.
+  let posts: Awaited<ReturnType<typeof fetchAllSitemapJobPosts>> = [];
+  try {
+    posts = await fetchAllSitemapJobPosts();
+  } catch (e) {
+    console.error("[sitemap] generateSitemaps: API недоступен, один пустой чанк", e);
+  }
   const chunkCount = Math.max(1, Math.ceil(posts.length / SITEMAP_CHUNK_SIZE));
   return Array.from({ length: chunkCount }, (_, id) => ({ id }));
 }
 
 export default async function sitemap({ id }: { id: number | string }): Promise<MetadataRoute.Sitemap> {
+  // 2026-10-02: при недоступном API не валим сборку -- отдаём корень, а полная
+  // карта соберётся при следующем revalidate (раз в час).
+  try {
+    return await buildSitemap({ id });
+  } catch (e) {
+    console.error("[sitemap] API недоступен, отдаём минимальную карту", e);
+    return [{ url: SITE_URL }];
+  }
+}
+
+async function buildSitemap({ id }: { id: number | string }): Promise<MetadataRoute.Sitemap> {
   // 2026-09-15: Next отдаёт id из сегмента URL СТРОКОЙ ("0"), а не числом,
   // хотя тип говорит number. Из-за этого `id === 0` было всегда false, и
   // всё, что должно ехать только в первом чанке (корень, посадочные,
