@@ -18,7 +18,7 @@ import { GAME_MAP_CSS, mountGameMap, type MapCompany } from "./engine";
 import { MapLoader } from "./map-loader";
 
 type MapHandle = (() => void) & { setLang?: (lang: string) => void; setTheme?: (theme: string) => void };
-type Region = "ua" | "eu" | "us";
+type Region = "ua" | "eu" | "us" | "latam";
 const KEY = "a1-map-region";
 
 // Тема сайту: клас .dark/.light на <html> (вибір людини), інакше -- тема
@@ -30,18 +30,24 @@ function siteDark(): boolean {
   return !!window.matchMedia?.("(prefers-color-scheme: dark)").matches;
 }
 
+// Латинська Америка (03.10.2026): часові пояси Мексики, Центральної й
+// Південної Америки, Карибів.
+const LATAM_TZ =
+  /^America\/(Mexico_City|Cancun|Merida|Monterrey|Matamoros|Chihuahua|Ciudad_Juarez|Mazatlan|Hermosillo|Tijuana|Bahia_Banderas|Ojinaga|Guatemala|Belize|El_Salvador|Tegucigalpa|Managua|Costa_Rica|Panama|Havana|Santo_Domingo|Port-au-Prince|Jamaica|Puerto_Rico|Bogota|Caracas|Guayaquil|Lima|La_Paz|Sao_Paulo|Bahia|Fortaleza|Recife|Belem|Manaus|Cuiaba|Campo_Grande|Porto_Velho|Boa_Vista|Rio_Branco|Maceio|Araguaina|Santarem|Noronha|Eirunepe|Asuncion|Montevideo|Argentina\/.+|Buenos_Aires|Cordoba|Santiago|Punta_Arenas|Guyana|Paramaribo|Cayenne)$/;
+
 function defaultRegion(): Region {
   try {
     const q = new URLSearchParams(location.search).get("region");
-    if (q === "ua" || q === "eu" || q === "us") return q;
+    if (q === "ua" || q === "eu" || q === "us" || q === "latam") return q;
     const saved = localStorage.getItem(KEY);
-    if (saved === "ua" || saved === "eu" || saved === "us") return saved;
+    if (saved === "ua" || saved === "eu" || saved === "us" || saved === "latam") return saved;
   } catch {
     /* приватний режим */
   }
   try {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
     if (/^Europe\/(Kiev|Kyiv|Uzhgorod|Zaporozhye|Simferopol)$/.test(tz)) return "ua";
+    if (LATAM_TZ.test(tz)) return "latam";
     if (tz.startsWith("America/") || tz.startsWith("US/") || tz.startsWith("Canada/")) return "us";
     if (tz.startsWith("Europe/") || tz.startsWith("Atlantic/")) return "eu";
   } catch {

@@ -36,7 +36,7 @@ export type MapCompany = {
 };
 
 /** Країна у списку регіонів карти: код, регіон-підкладка, скільки вакансій. */
-export type MapCountry = { cc: string; r: 'ua' | 'eu' | 'us'; n: number };
+export type MapCountry = { cc: string; r: 'ua' | 'eu' | 'us' | 'latam'; n: number };
 
 const LEVELS = [1, 2, 4, 6, 10, 15, 25, 40]; // от скольких вакансий уровень 1..8
 const SIZE = [22, 25, 29, 33, 38, 44, 51, 60]; // ширина здания в единицах карты
@@ -62,15 +62,15 @@ const PAL = {
 // ---------- мови (02.10.2026, Александр: «зміна локалізації має одразу міняти інтерфейс карти») ----------
 const TAG = { uk: 'uk', en: 'en', ru: 'ru', de: 'de', es: 'es', fr: 'fr', pl: 'pl', ptBR: 'pt-BR', zh: 'zh-CN' };
 const STR = {
-  uk: { rUa: '🇺🇦 Україна', rEu: '🇪🇺 Європа', rUs: '🇺🇸 Америка', offMap: 'Не відображено на карті: у профілі не вказана локація', allyOff: 'Прибрати з союзників', allyGone: 'Прибрано з союзників', allyGoneSub: 'Більше не у ваших контактах', allyDone: 'Додано в союзники', allyDoneSub: 'Тепер у ваших контактах', title: 'Карта A1', find: 'Пошук', fsOn: 'На весь екран', fsOff: 'Вийти з повного екрана', zin: 'Приблизити', zout: 'Віддалити', say: 'Наведи на будиночок — покажу, хто там працює', load: 'Завантажуємо карту…', profile: 'Відкрити профіль', since: 'з {y} року', close: 'Закрити', allyOn: 'Ваш союзник (у контактах)', allyAdd: 'Додати в союзники — з’явиться у ваших контактах', allyErr: 'Не вдалося додати, спробуйте ще раз', none: 'Нічого не знайшли', day: '☀ День', eve: '☾ Вечір', vac: { one: 'вакансія', few: 'вакансії', many: 'вакансій', other: 'вакансії' }, emp: { one: 'співробітник', few: 'співробітники', many: 'співробітників', other: 'співробітника' } },
-  ru: { rUa: '🇺🇦 Украина', rEu: '🇪🇺 Европа', rUs: '🇺🇸 Америка', offMap: 'Не отображено на карте: в профиле не указана локация', allyOff: 'Убрать из союзников', allyGone: 'Убрано из союзников', allyGoneSub: 'Больше не в ваших контактах', allyDone: 'Добавлено в союзники', allyDoneSub: 'Теперь в ваших контактах', title: 'Карта A1', find: 'Поиск', fsOn: 'На весь экран', fsOff: 'Выйти из полноэкранного режима', zin: 'Приблизить', zout: 'Отдалить', say: 'Наведи на домик — покажу, кто там работает', load: 'Загружаем карту…', profile: 'Открыть профиль', since: 'с {y} года', close: 'Закрыть', allyOn: 'Ваш союзник (в контактах)', allyAdd: 'Добавить в союзники — появится в ваших контактах', allyErr: 'Не удалось добавить, попробуйте ещё раз', none: 'Ничего не нашли', day: '☀ День', eve: '☾ Вечер', vac: { one: 'вакансия', few: 'вакансии', many: 'вакансий', other: 'вакансии' }, emp: { one: 'сотрудник', few: 'сотрудника', many: 'сотрудников', other: 'сотрудника' } },
-  en: { rUa: '🇺🇦 Ukraine', rEu: '🇪🇺 Europe', rUs: '🇺🇸 America', offMap: 'Not shown on the map: no location in the profile', allyOff: 'Remove from allies', allyGone: 'Removed from allies', allyGoneSub: 'No longer in your contacts', allyDone: 'Added to allies', allyDoneSub: 'Now in your contacts', title: 'A1 Map', find: 'Search', fsOn: 'Full screen', fsOff: 'Exit full screen', zin: 'Zoom in', zout: 'Zoom out', say: 'Hover over a house — I’ll show you who works there', load: 'Loading the map…', profile: 'Open profile', since: 'since {y}', close: 'Close', allyOn: 'Your ally (in contacts)', allyAdd: 'Add as an ally — they’ll appear in your contacts', allyErr: 'Couldn’t add, please try again', none: 'Nothing found', day: '☀ Day', eve: '☾ Evening', vac: { one: 'job', other: 'jobs' }, emp: { one: 'employee', other: 'employees' } },
-  de: { rUa: '🇺🇦 Ukraine', rEu: '🇪🇺 Europa', rUs: '🇺🇸 Amerika', offMap: 'Nicht auf der Karte: kein Standort im Profil', allyOff: 'Aus Verbündeten entfernen', allyGone: 'Aus Verbündeten entfernt', allyGoneSub: 'Nicht mehr in deinen Kontakten', allyDone: 'Als Verbündeter hinzugefügt', allyDoneSub: 'Jetzt in deinen Kontakten', title: 'A1-Karte', find: 'Suche', fsOn: 'Vollbild', fsOff: 'Vollbild beenden', zin: 'Vergrößern', zout: 'Verkleinern', say: 'Fahr über ein Haus – ich zeige dir, wer dort arbeitet', load: 'Karte wird geladen…', profile: 'Profil öffnen', since: 'seit {y}', close: 'Schließen', allyOn: 'Dein Verbündeter (in den Kontakten)', allyAdd: 'Als Verbündeten hinzufügen – erscheint in deinen Kontakten', allyErr: 'Hinzufügen fehlgeschlagen, bitte erneut versuchen', none: 'Nichts gefunden', day: '☀ Tag', eve: '☾ Abend', vac: { one: 'Stelle', other: 'Stellen' }, emp: { one: 'Mitarbeiter', other: 'Mitarbeiter' } },
-  es: { rUa: '🇺🇦 Ucrania', rEu: '🇪🇺 Europa', rUs: '🇺🇸 América', offMap: 'No aparece en el mapa: el perfil no indica ubicación', allyOff: 'Quitar de aliados', allyGone: 'Quitado de aliados', allyGoneSub: 'Ya no está en tus contactos', allyDone: 'Añadido a aliados', allyDoneSub: 'Ya está en tus contactos', title: 'Mapa de A1', find: 'Buscar', fsOn: 'Pantalla completa', fsOff: 'Salir de pantalla completa', zin: 'Acercar', zout: 'Alejar', say: 'Pasa el cursor sobre una casa: te muestro quién trabaja allí', load: 'Cargando el mapa…', profile: 'Abrir perfil', since: 'desde {y}', close: 'Cerrar', allyOn: 'Tu aliado (en contactos)', allyAdd: 'Añadir como aliado: aparecerá en tus contactos', allyErr: 'No se pudo añadir, inténtalo de nuevo', none: 'No se encontró nada', day: '☀ Día', eve: '☾ Noche', vac: { one: 'vacante', other: 'vacantes' }, emp: { one: 'empleado', other: 'empleados' } },
-  fr: { rUa: '🇺🇦 Ukraine', rEu: '🇪🇺 Europe', rUs: '🇺🇸 Amérique', offMap: 'Absent de la carte : aucun lieu dans le profil', allyOff: 'Retirer des alliés', allyGone: 'Retiré des alliés', allyGoneSub: 'N’est plus dans vos contacts', allyDone: 'Ajouté aux alliés', allyDoneSub: 'Maintenant dans vos contacts', title: 'Carte A1', find: 'Rechercher', fsOn: 'Plein écran', fsOff: 'Quitter le plein écran', zin: 'Zoom avant', zout: 'Zoom arrière', say: 'Survole une maison — je te montre qui y travaille', load: 'Chargement de la carte…', profile: 'Ouvrir le profil', since: 'depuis {y}', close: 'Fermer', allyOn: 'Votre allié (dans les contacts)', allyAdd: 'Ajouter comme allié — apparaîtra dans vos contacts', allyErr: 'Échec de l’ajout, réessayez', none: 'Aucun résultat', day: '☀ Jour', eve: '☾ Soir', vac: { one: 'offre', other: 'offres' }, emp: { one: 'employé', other: 'employés' } },
-  pl: { rUa: '🇺🇦 Ukraina', rEu: '🇪🇺 Europa', rUs: '🇺🇸 Ameryka', offMap: 'Brak na mapie: w profilu nie podano lokalizacji', allyOff: 'Usuń z sojuszników', allyGone: 'Usunięto z sojuszników', allyGoneSub: 'Nie ma już w Twoich kontaktach', allyDone: 'Dodano do sojuszników', allyDoneSub: 'Teraz w Twoich kontaktach', title: 'Mapa A1', find: 'Szukaj', fsOn: 'Pełny ekran', fsOff: 'Wyjdź z pełnego ekranu', zin: 'Przybliż', zout: 'Oddal', say: 'Najedź na domek — pokażę, kto tam pracuje', load: 'Ładujemy mapę…', profile: 'Otwórz profil', since: 'od {y} r.', close: 'Zamknij', allyOn: 'Twój sojusznik (w kontaktach)', allyAdd: 'Dodaj jako sojusznika — pojawi się w Twoich kontaktach', allyErr: 'Nie udało się dodać, spróbuj ponownie', none: 'Nic nie znaleziono', day: '☀ Dzień', eve: '☾ Wieczór', vac: { one: 'oferta', few: 'oferty', many: 'ofert', other: 'oferty' }, emp: { one: 'pracownik', few: 'pracowników', many: 'pracowników', other: 'pracownika' } },
-  ptBR: { rUa: '🇺🇦 Ucrânia', rEu: '🇪🇺 Europa', rUs: '🇺🇸 América', offMap: 'Fora do mapa: o perfil não informa a localização', allyOff: 'Remover dos aliados', allyGone: 'Removido dos aliados', allyGoneSub: 'Não está mais nos seus contatos', allyDone: 'Adicionado aos aliados', allyDoneSub: 'Agora nos seus contatos', title: 'Mapa do A1', find: 'Buscar', fsOn: 'Tela cheia', fsOff: 'Sair da tela cheia', zin: 'Aproximar', zout: 'Afastar', say: 'Passe o mouse sobre uma casa — mostro quem trabalha lá', load: 'Carregando o mapa…', profile: 'Abrir perfil', since: 'desde {y}', close: 'Fechar', allyOn: 'Seu aliado (nos contatos)', allyAdd: 'Adicionar como aliado — aparecerá nos seus contatos', allyErr: 'Não foi possível adicionar, tente novamente', none: 'Nada encontrado', day: '☀ Dia', eve: '☾ Noite', vac: { one: 'vaga', other: 'vagas' }, emp: { one: 'funcionário', other: 'funcionários' } },
-  zh: { rUa: '🇺🇦 乌克兰', rEu: '🇪🇺 欧洲', rUs: '🇺🇸 美洲', offMap: '未显示在地图上：资料中未填写所在地', allyOff: '移除盟友', allyGone: '已移除盟友', allyGoneSub: '已不在你的联系人中', allyDone: '已添加为盟友', allyDoneSub: '已在你的联系人中', title: 'A1 地图', find: '搜索', fsOn: '全屏', fsOff: '退出全屏', zin: '放大', zout: '缩小', say: '把鼠标移到房子上——我告诉你谁在那里工作', load: '正在加载地图…', profile: '打开主页', since: '成立于 {y} 年', close: '关闭', allyOn: '你的盟友（已在联系人中）', allyAdd: '添加为盟友——将出现在你的联系人中', allyErr: '添加失败，请重试', none: '未找到', day: '☀ 白天', eve: '☾ 夜晚', vac: { other: '个职位' }, emp: { other: '名员工' } },
+  uk: { rUa: '🇺🇦 Україна', rEu: '🇪🇺 Європа', rUs: '🇺🇸 США і Канада', rLatam: '🌎 Латинська Америка', offMap: 'Не відображено на карті: у профілі не вказана локація', allyOff: 'Прибрати з союзників', allyGone: 'Прибрано з союзників', allyGoneSub: 'Більше не у ваших контактах', allyDone: 'Додано в союзники', allyDoneSub: 'Тепер у ваших контактах', title: 'Карта A1', find: 'Пошук', fsOn: 'На весь екран', fsOff: 'Вийти з повного екрана', zin: 'Приблизити', zout: 'Віддалити', say: 'Наведи на будиночок — покажу, хто там працює', load: 'Завантажуємо карту…', profile: 'Відкрити профіль', since: 'з {y} року', close: 'Закрити', allyOn: 'Ваш союзник (у контактах)', allyAdd: 'Додати в союзники — з’явиться у ваших контактах', allyErr: 'Не вдалося додати, спробуйте ще раз', none: 'Нічого не знайшли', day: '☀ День', eve: '☾ Вечір', vac: { one: 'вакансія', few: 'вакансії', many: 'вакансій', other: 'вакансії' }, emp: { one: 'співробітник', few: 'співробітники', many: 'співробітників', other: 'співробітника' } },
+  ru: { rUa: '🇺🇦 Украина', rEu: '🇪🇺 Европа', rUs: '🇺🇸 США и Канада', rLatam: '🌎 Латинская Америка', offMap: 'Не отображено на карте: в профиле не указана локация', allyOff: 'Убрать из союзников', allyGone: 'Убрано из союзников', allyGoneSub: 'Больше не в ваших контактах', allyDone: 'Добавлено в союзники', allyDoneSub: 'Теперь в ваших контактах', title: 'Карта A1', find: 'Поиск', fsOn: 'На весь экран', fsOff: 'Выйти из полноэкранного режима', zin: 'Приблизить', zout: 'Отдалить', say: 'Наведи на домик — покажу, кто там работает', load: 'Загружаем карту…', profile: 'Открыть профиль', since: 'с {y} года', close: 'Закрыть', allyOn: 'Ваш союзник (в контактах)', allyAdd: 'Добавить в союзники — появится в ваших контактах', allyErr: 'Не удалось добавить, попробуйте ещё раз', none: 'Ничего не нашли', day: '☀ День', eve: '☾ Вечер', vac: { one: 'вакансия', few: 'вакансии', many: 'вакансий', other: 'вакансии' }, emp: { one: 'сотрудник', few: 'сотрудника', many: 'сотрудников', other: 'сотрудника' } },
+  en: { rUa: '🇺🇦 Ukraine', rEu: '🇪🇺 Europe', rUs: '🇺🇸 US & Canada', rLatam: '🌎 Latin America', offMap: 'Not shown on the map: no location in the profile', allyOff: 'Remove from allies', allyGone: 'Removed from allies', allyGoneSub: 'No longer in your contacts', allyDone: 'Added to allies', allyDoneSub: 'Now in your contacts', title: 'A1 Map', find: 'Search', fsOn: 'Full screen', fsOff: 'Exit full screen', zin: 'Zoom in', zout: 'Zoom out', say: 'Hover over a house — I’ll show you who works there', load: 'Loading the map…', profile: 'Open profile', since: 'since {y}', close: 'Close', allyOn: 'Your ally (in contacts)', allyAdd: 'Add as an ally — they’ll appear in your contacts', allyErr: 'Couldn’t add, please try again', none: 'Nothing found', day: '☀ Day', eve: '☾ Evening', vac: { one: 'job', other: 'jobs' }, emp: { one: 'employee', other: 'employees' } },
+  de: { rUa: '🇺🇦 Ukraine', rEu: '🇪🇺 Europa', rUs: '🇺🇸 USA & Kanada', rLatam: '🌎 Lateinamerika', offMap: 'Nicht auf der Karte: kein Standort im Profil', allyOff: 'Aus Verbündeten entfernen', allyGone: 'Aus Verbündeten entfernt', allyGoneSub: 'Nicht mehr in deinen Kontakten', allyDone: 'Als Verbündeter hinzugefügt', allyDoneSub: 'Jetzt in deinen Kontakten', title: 'A1-Karte', find: 'Suche', fsOn: 'Vollbild', fsOff: 'Vollbild beenden', zin: 'Vergrößern', zout: 'Verkleinern', say: 'Fahr über ein Haus – ich zeige dir, wer dort arbeitet', load: 'Karte wird geladen…', profile: 'Profil öffnen', since: 'seit {y}', close: 'Schließen', allyOn: 'Dein Verbündeter (in den Kontakten)', allyAdd: 'Als Verbündeten hinzufügen – erscheint in deinen Kontakten', allyErr: 'Hinzufügen fehlgeschlagen, bitte erneut versuchen', none: 'Nichts gefunden', day: '☀ Tag', eve: '☾ Abend', vac: { one: 'Stelle', other: 'Stellen' }, emp: { one: 'Mitarbeiter', other: 'Mitarbeiter' } },
+  es: { rUa: '🇺🇦 Ucrania', rEu: '🇪🇺 Europa', rUs: '🇺🇸 EE. UU. y Canadá', rLatam: '🌎 América Latina', offMap: 'No aparece en el mapa: el perfil no indica ubicación', allyOff: 'Quitar de aliados', allyGone: 'Quitado de aliados', allyGoneSub: 'Ya no está en tus contactos', allyDone: 'Añadido a aliados', allyDoneSub: 'Ya está en tus contactos', title: 'Mapa de A1', find: 'Buscar', fsOn: 'Pantalla completa', fsOff: 'Salir de pantalla completa', zin: 'Acercar', zout: 'Alejar', say: 'Pasa el cursor sobre una casa: te muestro quién trabaja allí', load: 'Cargando el mapa…', profile: 'Abrir perfil', since: 'desde {y}', close: 'Cerrar', allyOn: 'Tu aliado (en contactos)', allyAdd: 'Añadir como aliado: aparecerá en tus contactos', allyErr: 'No se pudo añadir, inténtalo de nuevo', none: 'No se encontró nada', day: '☀ Día', eve: '☾ Noche', vac: { one: 'vacante', other: 'vacantes' }, emp: { one: 'empleado', other: 'empleados' } },
+  fr: { rUa: '🇺🇦 Ukraine', rEu: '🇪🇺 Europe', rUs: '🇺🇸 États-Unis et Canada', rLatam: '🌎 Amérique latine', offMap: 'Absent de la carte : aucun lieu dans le profil', allyOff: 'Retirer des alliés', allyGone: 'Retiré des alliés', allyGoneSub: 'N’est plus dans vos contacts', allyDone: 'Ajouté aux alliés', allyDoneSub: 'Maintenant dans vos contacts', title: 'Carte A1', find: 'Rechercher', fsOn: 'Plein écran', fsOff: 'Quitter le plein écran', zin: 'Zoom avant', zout: 'Zoom arrière', say: 'Survole une maison — je te montre qui y travaille', load: 'Chargement de la carte…', profile: 'Ouvrir le profil', since: 'depuis {y}', close: 'Fermer', allyOn: 'Votre allié (dans les contacts)', allyAdd: 'Ajouter comme allié — apparaîtra dans vos contacts', allyErr: 'Échec de l’ajout, réessayez', none: 'Aucun résultat', day: '☀ Jour', eve: '☾ Soir', vac: { one: 'offre', other: 'offres' }, emp: { one: 'employé', other: 'employés' } },
+  pl: { rUa: '🇺🇦 Ukraina', rEu: '🇪🇺 Europa', rUs: '🇺🇸 USA i Kanada', rLatam: '🌎 Ameryka Łacińska', offMap: 'Brak na mapie: w profilu nie podano lokalizacji', allyOff: 'Usuń z sojuszników', allyGone: 'Usunięto z sojuszników', allyGoneSub: 'Nie ma już w Twoich kontaktach', allyDone: 'Dodano do sojuszników', allyDoneSub: 'Teraz w Twoich kontaktach', title: 'Mapa A1', find: 'Szukaj', fsOn: 'Pełny ekran', fsOff: 'Wyjdź z pełnego ekranu', zin: 'Przybliż', zout: 'Oddal', say: 'Najedź na domek — pokażę, kto tam pracuje', load: 'Ładujemy mapę…', profile: 'Otwórz profil', since: 'od {y} r.', close: 'Zamknij', allyOn: 'Twój sojusznik (w kontaktach)', allyAdd: 'Dodaj jako sojusznika — pojawi się w Twoich kontaktach', allyErr: 'Nie udało się dodać, spróbuj ponownie', none: 'Nic nie znaleziono', day: '☀ Dzień', eve: '☾ Wieczór', vac: { one: 'oferta', few: 'oferty', many: 'ofert', other: 'oferty' }, emp: { one: 'pracownik', few: 'pracowników', many: 'pracowników', other: 'pracownika' } },
+  ptBR: { rUa: '🇺🇦 Ucrânia', rEu: '🇪🇺 Europa', rUs: '🇺🇸 EUA e Canadá', rLatam: '🌎 América Latina', offMap: 'Fora do mapa: o perfil não informa a localização', allyOff: 'Remover dos aliados', allyGone: 'Removido dos aliados', allyGoneSub: 'Não está mais nos seus contatos', allyDone: 'Adicionado aos aliados', allyDoneSub: 'Agora nos seus contatos', title: 'Mapa do A1', find: 'Buscar', fsOn: 'Tela cheia', fsOff: 'Sair da tela cheia', zin: 'Aproximar', zout: 'Afastar', say: 'Passe o mouse sobre uma casa — mostro quem trabalha lá', load: 'Carregando o mapa…', profile: 'Abrir perfil', since: 'desde {y}', close: 'Fechar', allyOn: 'Seu aliado (nos contatos)', allyAdd: 'Adicionar como aliado — aparecerá nos seus contatos', allyErr: 'Não foi possível adicionar, tente novamente', none: 'Nada encontrado', day: '☀ Dia', eve: '☾ Noite', vac: { one: 'vaga', other: 'vagas' }, emp: { one: 'funcionário', other: 'funcionários' } },
+  zh: { rUa: '🇺🇦 乌克兰', rEu: '🇪🇺 欧洲', rUs: '🇺🇸 美国和加拿大', rLatam: '🌎 拉丁美洲', offMap: '未显示在地图上：资料中未填写所在地', allyOff: '移除盟友', allyGone: '已移除盟友', allyGoneSub: '已不在你的联系人中', allyDone: '已添加为盟友', allyDoneSub: '已在你的联系人中', title: 'A1 地图', find: '搜索', fsOn: '全屏', fsOff: '退出全屏', zin: '放大', zout: '缩小', say: '把鼠标移到房子上——我告诉你谁在那里工作', load: '正在加载地图…', profile: '打开主页', since: '成立于 {y} 年', close: '关闭', allyOn: '你的盟友（已在联系人中）', allyAdd: '添加为盟友——将出现在你的联系人中', allyErr: '添加失败，请重试', none: '未找到', day: '☀ 白天', eve: '☾ 夜晚', vac: { other: '个职位' }, emp: { other: '名员工' } },
 };
 // Міста: англійська назва (так приходить з бекенду) → [укр, рос, кит]. Латиниця -- англійською.
 const CITY = {
@@ -120,6 +120,13 @@ function loadCountries() {
 
 const FLAG_COLORS = ['#c0392b', '#2e86c1', '#28a06a', '#d68910', '#8e44ad', '#16a085', '#d35400', '#2c3e9e'];
 
+// Ширина декору (03.10.2026, регіональні сети): поля й скелі ширші за дерево.
+function decorW(k) {
+  if (/^(vineyard|cornfield|coffee-plantation|red-rock)/.test(k)) return 30;
+  if (/^(tree|cactus|joshua)/.test(k)) return 22;
+  if (k === 'llama' || k === 'water-tower') return 15;
+  return 18;
+}
 function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
 const EMP_LEVELS = [1, 5, 15, 40, 100, 250, 600, 1500];
 function levelBy(arr, n) { let l = 1; for (let i = 0; i < arr.length; i++) if (n >= arr[i]) l = i + 1; return l; }
@@ -137,7 +144,7 @@ function esc(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&am
 
 // Версія даних карти: браузер кешує файли карти на тиждень, тож при зміні
 // geo.json число треба збільшити, інакше люди бачитимуть стару.
-const GEO_VERSION = 3;
+const GEO_VERSION = 4;
 
 export function mountGameMap(root, opts) {
   const base = opts.base || '/game-map/v2';
@@ -166,7 +173,7 @@ export function mountGameMap(root, opts) {
   // 02.10.2026 (Александр: карта для інших країн). Регіон -- окрема підкладка
   // (geo-*.json) і свої компанії; перемикач кличе opts.onRegion, обгортка
   // перезавантажує дані й монтує карту наново.
-  const region = ['ua', 'eu', 'us'].includes(opts.region) ? opts.region : 'ua';
+  const region = ['ua', 'eu', 'us', 'latam'].includes(opts.region) ? opts.region : 'ua';
   // Країна, на яку дивимось (обрана у списку); null -- весь регіон.
   let focusCC = opts.country && opts.country !== 'UA' ? String(opts.country).toUpperCase() : null;
   // Стиль будинків регіону: якщо є папка styles/<стиль>, її спрайти
@@ -202,7 +209,7 @@ export function mountGameMap(root, opts) {
   const fsBtn = root.querySelector('.gm-fs');
   const regBtn = root.querySelector('.gm-reg');
   const regP = root.querySelector('.gm-regp');
-  const REG_KEY = { ua: 'rUa', eu: 'rEu', us: 'rUs' };
+  const REG_KEY = { ua: 'rUa', eu: 'rEu', us: 'rUs', latam: 'rLatam' };
   const ccName = (cc) => { try { return (regionNames['cc' + lang] ||= new Intl.DisplayNames([TAG[lang]], { type: 'region' })).of(cc) || cc; } catch { return cc; } };
   // 02.10.2026 (Александр): «День»/«Вечір» -- лише значок у кружечку,
   // як кнопка повного екрана; назва -- у підказці.
@@ -219,7 +226,7 @@ export function mountGameMap(root, opts) {
   function renderReg() {
     const h = REG_H[lang] || REG_H.en;
     const item = (attrs, label, count, on) => `<button type="button" class="gm-ri${on ? ' on' : ''}" role="option" aria-selected="${on}" ${attrs}><span class="gm-rn">${esc(label)}</span>${count != null ? `<span class="gm-rc">${count}</span>` : ''}${on ? '<span class="gm-rk">✓</span>' : ''}</button>`;
-    let html = `<div class="gm-rh">${esc(h[0])}</div>` + ['ua', 'eu', 'us'].map((r) => item(`data-r="${r}"`, tr(REG_KEY[r]), null, r === region && !focusCC)).join('');
+    let html = `<div class="gm-rh">${esc(h[0])}</div>` + ['ua', 'eu', 'us', 'latam'].map((r) => item(`data-r="${r}"`, tr(REG_KEY[r]), null, r === region && !focusCC)).join('');
     const list = (countriesCache || []).filter((c) => c.cc !== 'UA');
     html += `<div class="gm-rh">${esc(h[1])}</div>`;
     if (!countriesCache) html += `<div class="gm-rl">${esc(h[2])}</div>`;
@@ -266,6 +273,7 @@ export function mountGameMap(root, opts) {
   let hover = null, pinned = null;
   let baseCache = null; // { key, canvas }
   let flagMeta = {};
+  let noForest = false;
   const flagCache = {};
   const logoImgs = {};
   const allies = new Map(); // userId -> id запису контакту (для видалення)
@@ -587,8 +595,8 @@ export function mountGameMap(root, opts) {
     decs.sort((a, b) => a[2] - b[2]);
     for (const [k, dx, dy, sc] of decs) {
       const im = sprite(k); if (!im) continue;
-      const big = k.startsWith('mountain'); const ds = (big ? Math.max(0.6, dens) : Math.max(0.4, dens)) * Math.min(1, geo.k / 100);
-      const w = (big ? 80 : k.startsWith('lighthouse') ? 40 : k.startsWith('tree') ? 22 : 18) * sc * ds, h = w * im.height / im.width;
+      const big = k.startsWith('mountain'); const ds = (big ? Math.max(0.6, dens) : Math.max(0.4, dens)) * Math.min(1, Math.max(geo.k, 60) / 100);
+      const w = (big ? 80 : k.startsWith('lighthouse') ? 40 : decorW(k)) * sc * ds, h = w * im.height / im.width;
       x.drawImage(im, dx - w / 2, dy - h, w, h);
     }
     // подписи стран (мелко, когда далеко)
@@ -634,8 +642,8 @@ export function mountGameMap(root, opts) {
     for (const d of geo.decor) {
       const [k, x, y, sc] = d; if (d.hide || !/ship|whale|fish/.test(k) || !onScreen(x, y)) continue;
       const big = k.startsWith('mountain'); const sea = /ship|whale|fish|lighthouse/.test(k);
-      const ds = (big ? Math.max(0.6, dens) : Math.max(0.4, dens)) * Math.min(1, geo.k / 100);
-      const w = (big ? 80 : sea ? 40 : k.startsWith('tree') ? 22 : 18) * sc * ds;
+      const ds = (big ? Math.max(0.6, dens) : Math.max(0.4, dens)) * Math.min(1, Math.max(geo.k, 60) / 100);
+      const w = (big ? 80 : sea ? 40 : decorW(k)) * sc * ds;
       items.push({ y, draw: () => {
         let yy = y, xx = x, a = 1;
         if (!reduce && sea && !k.startsWith('lighthouse')) { yy += Math.sin(t * 1.3 + x) * 1.6; xx += Math.sin(t * 0.07 + y) * 18; }
@@ -748,7 +756,7 @@ export function mountGameMap(root, opts) {
       c._r = { x: c.x, y: c.y - h / 2, w, h };
       return;
     }
-    const k = (c.forest ? 'forest/' : 'buildings/') + `level-0${c.l}`;
+    const k = (c.forest && !noForest ? 'forest/' : 'buildings/') + `level-0${c.l}`;
     const w = c.w;
     // тень-эллипс под зданием
     ctx.fillStyle = theme === 'dark' ? 'rgba(0,0,0,.35)' : 'rgba(40,50,20,.22)';
@@ -1039,6 +1047,8 @@ export function mountGameMap(root, opts) {
       fetch(`${base}/styles/${style}/flags.json`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
     ]);
     if (styleMan) for (const k in styleMan) { man[k] = styleMan[k]; styleKeys.add(k); }
+    // Регіональний сет без лісових будинків -- усі компанії в будинках регіону.
+    noForest = styleKeys.has('buildings/level-01') && !styleKeys.has('forest/level-01');
     if (styleFlags) { Object.assign(flagMeta, styleFlags); for (const k in styleFlags) for (const e of styleFlags[k].f) styleKeys.add('flags/' + e[0]); }
     for (const k in flagMeta) for (const e of flagMeta[k].f) man['flags/' + e[0]] = [e[3], e[4]];
     loadAllies();
@@ -1072,7 +1082,7 @@ export function mountGameMap(root, opts) {
       // інший регіон: де більше компаній -- туди й дивимось, трохи наблизивши
       let cx = geo.w / 2, cy = geo.h / 2;
       if (cos.length && region !== 'us') { cx = cos.reduce((a, c) => a + c.x, 0) / cos.length; cy = cos.reduce((a, c) => a + c.y, 0) / cos.length; }
-      moveView(minS * (region === 'us' ? 1.15 : 1.6), cx, cy, animate);
+      moveView(minS * (region === 'us' ? 1.15 : region === 'latam' ? 1.2 : 1.6), cx, cy, animate);
     }
   }
   // Країна: кадр по всіх її офісах на карті (з полями).

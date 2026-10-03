@@ -59,10 +59,10 @@ export async function GET(req: Request) {
     if (Date.now() - entry.at > TTL) void refreshCountries().catch(() => {});
     return reply(req, entry);
   }
-  const region: MapRegion = q === "eu" || q === "us" ? q : "ua";
+  const region: MapRegion = q === "eu" || q === "us" || q === "latam" ? q : "ua";
   let entry: Entry;
   // Перший запит прогріває й інші регіони у фоні: перемикач далі миттєвий.
-  for (const r of ["ua", "eu", "us"] as MapRegion[]) if (r !== region && !caches.has(r)) void refresh(r).catch(() => {});
+  for (const r of ["ua", "eu", "us", "latam"] as MapRegion[]) if (r !== region && !caches.has(r)) void refresh(r).catch(() => {});
   const cache = caches.get(region);
   if (cache) {
     entry = cache;
