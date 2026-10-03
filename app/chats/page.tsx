@@ -54,7 +54,7 @@ import { MessageTicks } from "@/components/chat/icons";
 import { ChatPreviewLine } from "@/components/chat/chat-preview-line";
 import { LottiePlayer } from "@/components/lottie-player";
 import { SearchIcon } from "@/components/search-icon";
-import { SharedPanel, type SharedKind } from "@/components/chat/shared-panel";
+import { SharedPanel, SHARED_KINDS, SHARED_LABELS, type SharedKind } from "@/components/chat/shared-panel";
 import { GLASS } from "@/lib/glass";
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
 import { NewChatPickerModal } from "@/components/new-chat-picker-modal";
@@ -476,19 +476,12 @@ export default function ChatsPage() {
           // 2026-09-30: быстрый вход в поиск по типу содержимого во ВСЕХ
           // чатах. Ничего не грузится, пока не нажали пилюлю.
           <div className="mt-2 flex shrink-0 gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
-            {(
-              [
-                ["photos", <T key="p" uk="Медіа" en="Media" ru="Медиа" de="Medien" es="Medios" fr="Médias" pl="Media" ptBR="Mídia" zh="媒体" />],
-                ["links", <T key="l" uk="Посилання" en="Links" ru="Ссылки" de="Links" es="Enlaces" fr="Liens" pl="Linki" ptBR="Links" zh="链接" />],
-                ["files", <T key="f" uk="Файли" en="Files" ru="Файлы" de="Dateien" es="Archivos" fr="Fichiers" pl="Pliki" ptBR="Arquivos" zh="文件" />],
-                ["voices", <T key="v" uk="Голос" en="Voice" ru="Голос" de="Sprache" es="Voz" fr="Voix" pl="Głos" ptBR="Voz" zh="语音" />],
-              ] as [SharedKind, React.ReactNode][]
-            ).map(([k, label]) => (
+            {SHARED_KINDS.map((k) => [k, SHARED_LABELS[k]] as [SharedKind, React.ReactNode]).map(([k, label]) => (
               <button
                 key={k}
                 type="button"
                 onClick={() => setSharedKind(k)}
-                className="shrink-0 rounded-full bg-white px-4 py-1.5 text-[14px] text-[#4b63d8] transition hover:bg-[#e5e5ea] dark:bg-neutral-900 dark:text-[#8da0ff] dark:hover:bg-neutral-800"
+                className="shrink-0 whitespace-nowrap rounded-full bg-white px-4 py-1.5 text-[14px] text-[#989aa6] transition hover:bg-[#e5e5ea] dark:bg-neutral-900 dark:text-[#8d8d93] dark:hover:bg-neutral-800"
               >
                 {label}
               </button>

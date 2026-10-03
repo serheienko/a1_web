@@ -11,12 +11,19 @@
 //     (IntersectionObserver на невидимом «якоре» внизу);
 //   * вкладки, которые не открывали, не грузятся вообще; уже загруженная
 //     вкладка не перезапрашивается при возврате на неё;
+// 03.10.2026 (Александр): вкладки и их названия -- как в приложении, в том же
+//   порядке: Чати, Фото, Посилання, Файли, Розрахунки, Голосові повідомлення,
+//   Нагадування. «Чати» -- возврат к списку чатов (закрывает панель; внутри
+//   одного чата такой вкладки нет). Между вкладками можно листать свайпом.
+//   Расчёты -- тот же серверный поиск (флаг 1<<14); напоминания у бэкенда
+//   отдаются по одному чату, поэтому при поиске по всем чатам их собирают
+//   параллельно по 6 (как в приложении).
 //   * серверный флаг грубее, чем вкладка (документ может быть стикером или
 //     GIF), поэтому лишнее отсеивается здесь, а если после отсева пачка
 //     почти пустая -- берём следующую сразу (не больше 4 подряд).
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { authFetch } from "@/lib/auth-fetch";
 import { T } from "@/components/t";
 import type { Locale } from "@/components/t";
@@ -32,23 +39,42 @@ import {
   mediaDocumentBytes,
   mediaDocumentFileName,
   mediaDocumentThumbnail,
+  extractMessageText,
+  messageCalculation,
   messageDateMs,
   messageDocumentMedia,
   voiceDurationSeconds,
   type ChatMessage,
   type MessageMediaDocument,
+  type ReminderItem,
 } from "@/lib/a1/chat-schemas";
 
-export type SharedKind = "photos" | "links" | "files" | "voices";
+export type SharedKind = "photos" | "links" | "files" | "calculations" | "voices" | "reminders";
 type Kind = SharedKind;
-const KINDS: Kind[] = ["photos", "links", "files", "voices"];
+/** Порядок вкладок -- как в приложении (кроме «Чати», она добавляется отдельно). */
+export const SHARED_KINDS: Kind[] = ["photos", "links", "files", "calculations", "voices", "reminders"];
+const KINDS = SHARED_KINDS;
+type TabKey = Kind | "chats";
+
+/** Названия -- дословно из локализации приложения (app_*.arb). */
+export const SHARED_LABELS: Record<TabKey, React.ReactNode> = {
+  chats: <T uk="Чати" en="Chats" ru="Чаты" de="Chats" es="Chats" fr="Chats" pl="Czaty" ptBR="Chats" zh="聊天" />,
+  photos: <T uk="Фото" en="Photos" ru="Фото" de="Fotos" es="Fotos" fr="Photos" pl="Zdjęcia" ptBR="Fotos" zh="照片" />,
+  links: <T uk="Посилання" en="Links" ru="Ссылки" de="Links" es="Enlaces" fr="Liens" pl="Linki" ptBR="Links" zh="链接" />,
+  files: <T uk="Файли" en="Files" ru="Файлы" de="Dateien" es="Archivos" fr="Fichiers" pl="Pliki" ptBR="Arquivos" zh="文件" />,
+  calculations: <T uk="Розрахунки" en="Calculations" ru="Расчеты" de="Berechnungen" es="Cálculos" fr="Calculs" pl="Obliczenia" ptBR="Cálculos" zh="计算" />,
+  voices: <T uk="Голосові повідомлення" en="Voice Messages" ru="Голосовые сообщения" de="Sprachnachrichten" es="Mensajes de voz" fr="Messages vocaux" pl="Wiadomości głosowe" ptBR="Mensagens de voz" zh="语音消息" />,
+  reminders: <T uk="Нагадування" en="Reminders" ru="Напоминания" de="Erinnerungen" es="Recordatorios" fr="Rappels" pl="Przypomnienia" ptBR="Lembretes" zh="提醒" />,
+};
 
 type ItemBase = { key: string; msgId: string; ms: number; chat: string | null };
 type Item =
   | (ItemBase & { kind: "photos"; doc: MessageMediaDocument })
   | (ItemBase & { kind: "files"; doc: MessageMediaDocument })
   | (ItemBase & { kind: "voices"; doc: MessageMediaDocument })
-  | (ItemBase & { kind: "links"; url: string });
+  | (ItemBase & { kind: "links"; url: string })
+  | (ItemBase & { kind: "calculations"; title: string; total: string })
+  | (ItemBase & { kind: "reminders"; text: string });
 
 type TabState = {
   items: Item[];
@@ -84,6 +110,23 @@ function itemsOf(kind: Kind, msgs: ChatMessage[]): Item[] {
       const urls: string[] = [];
       collectUrls(m.entities, urls);
       urls.forEach((url, i) => out.push({ kind, key: `${m._id}:${i}`, msgId: m._id, url, ms, chat }));
+      continue;
+    }
+    if (kind === "calculations") {
+      const c = messageCalculation(m);
+      if (c) {
+        // unitAmount -- целые копейки/центы (см. MessageCalculationRowSchema)
+        const sum = c.rows.reduce((acc, r) => acc + (r.quantity || 1) * r.unitAmount, 0) / 100;
+        out.push({
+          kind,
+          key: String(m._id),
+          msgId: m._id,
+          ms,
+          chat,
+          title: c.note || c.rows[0]?.description || extractMessageText(m) || "—",
+          total: `${sum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${c.currency}`.trim(),
+        });
+      }
       continue;
     }
     for (const doc of messageDocumentMedia(m)) {
@@ -132,6 +175,8 @@ function EmptyState({ kind }: { kind: Kind }) {
     links: "M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1",
     files: "M7 3h7l5 5v13H7V3Zm7 0v5h5",
     voices: "M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3Zm-7 9a7 7 0 0 0 14 0m-7 7v3",
+    calculations: "M6 3h12a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm1 4h10M8 12h2m4 0h2M8 16h2m4 0h2",
+    reminders: "M12 4a5 5 0 0 0-5 5c0 5-2 6-2 6h14s-2-1-2-6a5 5 0 0 0-5-5Zm-2 14a2 2 0 0 0 4 0",
   };
   return (
     <div className="flex flex-col items-center justify-center gap-3 px-6 py-20 text-[#989aa6] dark:text-[#8d8d93]">
@@ -185,10 +230,12 @@ export function SharedPanel({
   const [tab, setTab] = useState<Kind>(initialTab);
   const where = (it: Item) => (chatId || !it.chat ? "" : (chatTitles?.[it.chat] ?? ""));
   const [tabs, setTabs] = useState<Record<Kind, TabState>>({
-    photos: EMPTY, links: EMPTY, files: EMPTY, voices: EMPTY,
+    photos: EMPTY, links: EMPTY, files: EMPTY, calculations: EMPTY, voices: EMPTY, reminders: EMPTY,
   });
   const tabsRef = useRef(tabs);
   tabsRef.current = tabs;
+  const titlesRef = useRef(chatTitles);
+  titlesRef.current = chatTitles;
   const sentinel = useRef<HTMLDivElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playingKey, setPlayingKey] = useState<string | null>(null);
@@ -202,6 +249,46 @@ export function SharedPanel({
       const st = tabsRef.current[k];
       if (st.loading || !st.hasMore) return;
       patch(k, { loading: true, started: true, failed: false });
+      if (k === "reminders") {
+        // Напоминания у бэкенда -- по одному чату: идём по чатам по 6 параллельно.
+        try {
+          const ids = chatId ? [chatId] : Object.keys(titlesRef.current ?? {});
+          const all: Item[] = [];
+          let idx = 0;
+          let okCount = 0;
+          const worker = async () => {
+            while (idx < ids.length) {
+              const id = ids[idx++]!;
+              try {
+                const res = await authFetch(`/api/chats/reminders/list?chat=${encodeURIComponent(id)}`);
+                const data = await res.json().catch(() => null);
+                if (!data?.ok) continue;
+                okCount++;
+                for (const r of (data.reminders ?? []) as ReminderItem[]) {
+                  const doc = messageDocumentMedia(r.message)[0];
+                  all.push({
+                    kind: "reminders",
+                    key: `${id}:${r.message._id}:${r.scheduleAt}`,
+                    msgId: r.message._id,
+                    ms: r.scheduleAt * 1000,
+                    chat: id,
+                    text: extractMessageText(r.message) || (doc ? mediaDocumentFileName(doc) : "") || "…",
+                  });
+                }
+              } catch {
+                /* один чат не ответил -- остальные покажем */
+              }
+            }
+          };
+          await Promise.all(Array.from({ length: 6 }, worker));
+          if (ids.length > 0 && okCount === 0) throw new Error("fetch_failed");
+          all.sort((a, b) => a.ms - b.ms);
+          patch(k, { items: all, hasMore: false, loading: false });
+        } catch {
+          patch(k, { loading: false, failed: true, hasMore: false });
+        }
+        return;
+      }
       let items = st.items;
       let next = st.next;
       let hasMore: boolean = st.hasMore;
@@ -278,17 +365,37 @@ export function SharedPanel({
     }
   }, [playingKey]);
 
-  const labels: Record<Kind, React.ReactNode> = useMemo(
-    () => ({
-      photos: <T uk="Медіа" en="Media" ru="Медиа" de="Medien" es="Medios" fr="Médias" pl="Media" ptBR="Mídia" zh="媒体" />,
-      links: <T uk="Посилання" en="Links" ru="Ссылки" de="Links" es="Enlaces" fr="Liens" pl="Linki" ptBR="Links" zh="链接" />,
-      files: <T uk="Файли" en="Files" ru="Файлы" de="Dateien" es="Archivos" fr="Fichiers" pl="Pliki" ptBR="Arquivos" zh="文件" />,
-      voices: <T uk="Голос" en="Voice" ru="Голос" de="Sprache" es="Voz" fr="Voix" pl="Głos" ptBR="Voz" zh="语音" />,
-    }),
-    [],
-  );
-
   void lang;
+  // Вкладки как в приложении. «Чати» есть только при поиске по всем чатам.
+  const order: TabKey[] = chatId ? [...KINDS] : ["chats", ...KINDS];
+  const barRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const bar = barRef.current;
+    const el = bar?.querySelector<HTMLElement>('[data-active="true"]');
+    if (bar && el) bar.scrollTo({ left: el.offsetLeft - (bar.clientWidth - el.clientWidth) / 2, behavior: "smooth" });
+  }, [tab]);
+  const go = (k: TabKey) => {
+    if (k === "chats") onClose();
+    else setTab(k);
+  };
+  // Горизонтальный свайп по содержимому: влево -- следующая вкладка, вправо -- предыдущая.
+  const touch = useRef<{ x: number; y: number } | null>(null);
+  const onTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    touch.current = t ? { x: t.clientX, y: t.clientY } : null;
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    const start = touch.current;
+    touch.current = null;
+    const t = e.changedTouches[0];
+    if (!start || !t) return;
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    const i = order.indexOf(tab);
+    const next = order[i + (dx < 0 ? 1 : -1)];
+    if (next) go(next);
+  };
   const showSkeleton = (!cur.started || cur.loading) && cur.items.length === 0;
   const showEmpty = cur.started && !cur.loading && cur.items.length === 0;
 
@@ -299,26 +406,27 @@ export function SharedPanel({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2 px-3 pb-2 pt-3">
-          <div className="flex flex-1 gap-1 overflow-x-auto rounded-full bg-white p-1 dark:bg-[#1c1c1e]">
-            {KINDS.map((k) => (
+          <div ref={barRef} className="relative flex flex-1 gap-1 overflow-x-auto rounded-full bg-white p-1 [scrollbar-width:none] dark:bg-[#1c1c1e]">
+            {order.map((k) => (
               <button
                 key={k}
                 type="button"
-                onClick={() => setTab(k)}
-                className={`shrink-0 rounded-full px-3.5 py-1.5 text-[14px] transition ${
-                  tab === k ? "bg-[#e5e5ea] font-semibold text-[#4b63d8] dark:bg-[#3a3a3c]" : "text-[#555] dark:text-[#ccc]"
+                data-active={tab === k ? "true" : undefined}
+                onClick={() => go(k)}
+                className={`shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-[14px] transition ${
+                  tab === k ? "bg-[#e5e5ea] font-semibold text-[#262a34] dark:bg-[#3a3a3c] dark:text-white" : "text-[#555] dark:text-[#ccc]"
                 }`}
               >
-                {labels[k]}
+                {SHARED_LABELS[k]}
               </button>
             ))}
           </div>
-          <button type="button" onClick={onClose} aria-label="Close" className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#4b63d8] dark:bg-[#1c1c1e]">
+          <button type="button" onClick={onClose} aria-label="Close" className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#262a34] dark:bg-[#1c1c1e] dark:text-white">
             <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto pb-6">
+        <div className="min-h-0 flex-1 overflow-y-auto pb-6" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
           {showSkeleton && <Skeleton kind={tab} />}
           {showEmpty && <EmptyState kind={tab} />}
 
@@ -383,6 +491,39 @@ export function SharedPanel({
             cur.items.map((it) =>
               it.kind === "voices" ? (
                 <VoiceRow key={it.key} item={it} playing={playingKey === it.key} onToggle={() => void toggleVoice(it)} where={where(it)} />
+              ) : null,
+            )}
+
+          {tab === "calculations" &&
+            cur.items.map((it) =>
+              it.kind === "calculations" ? (
+                <div key={it.key} className="flex items-center gap-3 px-4 py-2">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-[#989aa6] dark:bg-[#1c1c1e] dark:text-[#8d8d93]">
+                    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm1 4h10M8 12h2m4 0h2M8 16h2m4 0h2" /></svg>
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[15px] font-semibold text-[#1c1c1e] dark:text-white">{it.title}</span>
+                    <span className="block text-[13px] text-[#989aa6]">{where(it) ? `${where(it)} · ` : ""}{it.total} · {new Date(it.ms).toLocaleDateString()}</span>
+                  </span>
+                </div>
+              ) : null,
+            )}
+
+          {tab === "reminders" &&
+            cur.items.map((it) =>
+              it.kind === "reminders" ? (
+                <div key={it.key} className="flex items-center gap-3 px-4 py-2">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-[#989aa6] dark:bg-[#1c1c1e] dark:text-[#8d8d93]">
+                    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 4a5 5 0 0 0-5 5c0 5-2 6-2 6h14s-2-1-2-6a5 5 0 0 0-5-5Zm-2 14a2 2 0 0 0 4 0" /></svg>
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[15px] font-semibold text-[#1c1c1e] dark:text-white">{it.text}</span>
+                    <span className="block text-[13px] text-[#989aa6]">
+                      {where(it) ? `${where(it)} · ` : ""}
+                      {new Date(it.ms).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  </span>
+                </div>
               ) : null,
             )}
 
