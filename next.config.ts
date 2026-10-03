@@ -55,6 +55,12 @@ const nextConfig: NextConfig = {
         source: "/game/play/:path*",
         headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=2592000" }],
       },
+      // index.html гри НЕ кешуємо надовго: у ньому лежить звʼязка зі сторінкою
+      // (звук, розміри); інакше люди тижнями сидять на старій версії.
+      {
+        source: "/game/play/index.html",
+        headers: [{ key: "Cache-Control", value: "no-cache" }],
+      },
       // Лише файли карти, НЕ саму сторінку /game-map і не /game-map/data
       // (":path*" ловить і порожній шлях -- сторінка застрягла б у кеші).
       ...["/game-map/v2/:path+", "/game-map/:file(.+\\.webp)"].map((source) => ({

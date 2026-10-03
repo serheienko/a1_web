@@ -78,7 +78,7 @@ export function GamePlayer() {
   }
 
   const btn =
-    "flex h-9 w-9 items-center justify-center rounded-full bg-black/55 text-white shadow ring-1 ring-white/20 backdrop-blur transition hover:bg-black/75 active:scale-95";
+    "group flex h-9 w-9 items-center justify-center rounded-full bg-black/55 text-white shadow ring-1 ring-white/20 backdrop-blur transition duration-200 hover:bg-violet-600/80 hover:ring-white/50 hover:shadow-lg active:scale-90";
 
   return (
     <div
@@ -94,7 +94,7 @@ export function GamePlayer() {
           <>
             <iframe
               ref={frameRef}
-              src="/game/play/index.html"
+              src="/game/play/index.html?v=3"
               title="A1 RUN"
               allow="fullscreen; autoplay"
               onLoad={() => sendMute(muted)}
@@ -103,14 +103,14 @@ export function GamePlayer() {
             <div className="absolute right-2 top-2 z-10 flex gap-2">
               <button type="button" onClick={toggleMute} className={btn} aria-pressed={muted}>
                 {muted ? (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="transition-transform duration-200 ease-out group-hover:scale-125 group-hover:-rotate-12">
                     <path d="M11 5 6 9H3v6h3l5 4V5z" />
-                    <path d="m22 9-6 6M16 9l6 6" />
+                    <path d="m22 9-6 6M16 9l6 6" className="origin-center transition-transform duration-200 group-hover:scale-110" />
                   </svg>
                 ) : (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="transition-transform duration-200 ease-out group-hover:scale-125">
                     <path d="M11 5 6 9H3v6h3l5 4V5z" />
-                    <path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" />
+                    <path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" className="group-hover:animate-pulse" />
                   </svg>
                 )}
                 <span className="sr-only">
@@ -124,11 +124,11 @@ export function GamePlayer() {
               {canFs && (
                 <button type="button" onClick={toggleFullscreen} className={btn}>
                   {fs ? (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="transition-transform duration-200 ease-out group-hover:scale-75">
                       <path d="M9 3v4a2 2 0 0 1-2 2H3M21 9h-4a2 2 0 0 1-2-2V3M3 15h4a2 2 0 0 1 2 2v4M15 21v-4a2 2 0 0 1 2-2h4" />
                     </svg>
                   ) : (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="transition-transform duration-200 ease-out group-hover:scale-125">
                       <path d="M3 9V5a2 2 0 0 1 2-2h4M15 3h4a2 2 0 0 1 2 2v4M21 15v4a2 2 0 0 1-2 2h-4M9 21H5a2 2 0 0 1-2-2v-4" />
                     </svg>
                   )}

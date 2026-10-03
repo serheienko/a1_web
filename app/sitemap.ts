@@ -97,6 +97,8 @@ async function buildSitemap({ id }: { id: number | string }): Promise<MetadataRo
     }
     // 2026-09-18: страница сравнения с Djinni и DOU (app/compare).
     entries.push({ url: `${SITE_URL}/compare` });
+    // 03.10.2026: страница игры A1 RUN открыта для поиска.
+    entries.push({ url: `${SITE_URL}/game` });
 
     // 30.09.2026 (Конкистадор, SEO). Посадочная «Топ-100 компаній світу» и
     // посадочные по странам: /jobs/country/<код>. Страна попадает в карту

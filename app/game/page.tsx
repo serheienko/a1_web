@@ -1,7 +1,7 @@
 // app/game/page.tsx -- A1 RUN: браузерна гра про кота Mr Kit (03.10.2026).
 // Гра (Unity WebGL, ~25 МБ) НЕ вантажиться разом зі сторінкою: лише після
 // натискання «Грати» (див. game-player.tsx). Файли гри лежать у
-// public/game/play. Закрита від індексації, поки Олександр не прийняв гру.
+// public/game/play. Відкрита для індексації (03.10.2026).
 import type { Metadata } from "next";
 import { T } from "@/components/t";
 import { GamePlayer } from "./game-player";
@@ -9,7 +9,6 @@ import { GamePlayer } from "./game-player";
 export const metadata: Metadata = {
   title: "A1 RUN | A1 Jobs",
   description: "A1 RUN — міні-гра про кота Mr Kit: біжи дахами, збирай зв’язки й тікай від потопу.",
-  robots: { index: false, follow: false },
 };
 
 export default function GamePage() {
