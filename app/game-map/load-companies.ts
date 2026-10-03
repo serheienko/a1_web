@@ -15,18 +15,28 @@ const LIMIT = 1500;
 /** За кордоном: «офіс» = компанія + місто; мировых офісів може бути тисячі. */
 const LIMIT_ABROAD = 2500;
 
-export type MapRegion = "ua" | "eu" | "us" | "latam";
+export type MapRegion = "ua" | "eu" | "us" | "latam" | "asia" | "oceania" | "mideast";
 
 /** Межі регіонів (довгота/широта), ті самі, що в public/game-map/v2/geo-*.json. */
 const REGION_BOX: Record<Exclude<MapRegion, "ua">, [number, number, number, number]> = {
   eu: [-12.5, 34.0, 45.0, 66.5],
   us: [-128.0, 22.5, -63.0, 52.5],
   latam: [-118.0, -56.0, -33.0, 33.0],
+  asia: [60.0, -11.5, 150.0, 55.0],
+  oceania: [110.0, -48.0, 180.0, -1.0],
+  mideast: [25.0, 12.0, 63.0, 40.0],
 };
 
 // 03.10.2026: Латинська Америка -- за країною, а не лише за рамкою (у рамку
 // інакше потрапили б Маямі й Х'юстон).
 const LATAM = new Set(["MX","GT","BZ","SV","HN","NI","CR","PA","CU","DO","HT","JM","PR","BS","TT","CO","VE","EC","PE","BO","BR","PY","UY","AR","CL","GY","SR","GF"]);
+
+// 03.10.2026: Азія, Океанія, Близький Схід -- теж за країною (рамки Азії
+// й Близького Сходу перекриваються, а Кіпр і Туреччина лишаються в Європі).
+const ASIA = new Set(["IN","PK","BD","LK","NP","BT","MV","MM","TH","LA","KH","VN","MY","SG","ID","PH","BN","TL","CN","HK","MO","TW","JP","KR","KP","MN","KZ","UZ","KG","TJ","TM","AF"]);
+const OCEANIA = new Set(["AU","NZ","PG","FJ","SB","VU","NC","WS","TO","PF"]);
+const MIDEAST = new Set(["IL","PS","JO","LB","SY","IQ","IR","SA","AE","QA","KW","BH","OM","YE","EG"]);
+const BY_COUNTRY: [MapRegion, Set<string>][] = [["latam", LATAM], ["asia", ASIA], ["oceania", OCEANIA], ["mideast", MIDEAST]];
 
 /** Острів «Віддалено» більше не малюємо: компанії без локації лише в пошуку. */
 const REMOTE = { lng: 31.0, lat: 43.9 };
@@ -53,7 +63,8 @@ export async function loadCountries(): Promise<MapCountry[]> {
       const cc = loc?.country?.trim().toUpperCase() ?? "";
       if (!loc?.coordinates || !/^[A-Z]{2}$/.test(cc) || cc === "WW") continue;
       const [lng, lat] = loc.coordinates;
-      let r: MapRegion | null = cc === "UA" ? "ua" : LATAM.has(cc) ? "latam" : null;
+      let r: MapRegion | null = cc === "UA" ? "ua" : null;
+      if (!r) for (const [k, set] of BY_COUNTRY) if (set.has(cc)) { r = k; break; }
       if (!r) for (const k of ["eu", "us"] as const) {
         const [x0, y0, x1, y1] = REGION_BOX[k];
         if (lng > x0 && lng < x1 && lat > y0 && lat < y1) { r = k; break; }
@@ -113,7 +124,8 @@ function collectAbroad(posts: Post[], region: Exclude<MapRegion, "ua">): MapComp
     if (!loc?.coordinates || !country || country === "WW") continue;
     const [lng, lat] = loc.coordinates;
     if (!(lng > x0 && lng < x1 && lat > y0 && lat < y1)) continue;
-    if (region === "latam" && !LATAM.has(country)) continue;
+    const only = BY_COUNTRY.find(([k]) => k === region);
+    if (only && !only[1].has(country)) continue;
     const who = p.author.userId ?? p.author.name;
     const key = `${who}|${Math.round(lng * 10)}|${Math.round(lat * 10)}`;
     let c = byOffice.get(key);

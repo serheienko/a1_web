@@ -19,7 +19,8 @@ import { MapLoader } from "./map-loader";
 import { disposeMapMusic } from "./music";
 
 type MapHandle = (() => void) & { setLang?: (lang: string) => void; setTheme?: (theme: string) => void };
-type Region = "ua" | "eu" | "us" | "latam";
+type Region = "ua" | "eu" | "us" | "latam" | "asia" | "oceania" | "mideast";
+const REGIONS = ["ua", "eu", "us", "latam", "asia", "oceania", "mideast"];
 const KEY = "a1-map-region";
 
 // Тема сайту: клас .dark/.light на <html> (вибір людини), інакше -- тема
@@ -36,12 +37,16 @@ function siteDark(): boolean {
 const LATAM_TZ =
   /^America\/(Mexico_City|Cancun|Merida|Monterrey|Matamoros|Chihuahua|Ciudad_Juarez|Mazatlan|Hermosillo|Tijuana|Bahia_Banderas|Ojinaga|Guatemala|Belize|El_Salvador|Tegucigalpa|Managua|Costa_Rica|Panama|Havana|Santo_Domingo|Port-au-Prince|Jamaica|Puerto_Rico|Bogota|Caracas|Guayaquil|Lima|La_Paz|Sao_Paulo|Bahia|Fortaleza|Recife|Belem|Manaus|Cuiaba|Campo_Grande|Porto_Velho|Boa_Vista|Rio_Branco|Maceio|Araguaina|Santarem|Noronha|Eirunepe|Asuncion|Montevideo|Argentina\/.+|Buenos_Aires|Cordoba|Santiago|Punta_Arenas|Guyana|Paramaribo|Cayenne)$/;
 
+// Близький Схід, Азія й Океанія (03.10.2026): за часовим поясом.
+const MIDEAST_TZ = /^(Asia\/(Jerusalem|Tel_Aviv|Gaza|Hebron|Amman|Beirut|Damascus|Baghdad|Tehran|Riyadh|Kuwait|Bahrain|Qatar|Dubai|Muscat|Aden)|Africa\/Cairo)$/;
+const OCEANIA_TZ = /^(Australia\/.+|Pacific\/(Auckland|Fiji|Port_Moresby|Noumea|Guadalcanal|Efate|Apia|Tongatapu)|Antarctica\/Macquarie)$/;
+
 function defaultRegion(): Region {
   try {
     const q = new URLSearchParams(location.search).get("region");
-    if (q === "ua" || q === "eu" || q === "us" || q === "latam") return q;
+    if (q && REGIONS.includes(q)) return q as Region;
     const saved = localStorage.getItem(KEY);
-    if (saved === "ua" || saved === "eu" || saved === "us" || saved === "latam") return saved;
+    if (saved && REGIONS.includes(saved)) return saved as Region;
   } catch {
     /* приватний режим */
   }
@@ -49,6 +54,9 @@ function defaultRegion(): Region {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
     if (/^Europe\/(Kiev|Kyiv|Uzhgorod|Zaporozhye|Simferopol)$/.test(tz)) return "ua";
     if (LATAM_TZ.test(tz)) return "latam";
+    if (MIDEAST_TZ.test(tz)) return "mideast";
+    if (OCEANIA_TZ.test(tz)) return "oceania";
+    if (tz.startsWith("Asia/") && !/^Asia\/(Nicosia|Famagusta|Tbilisi|Yerevan|Baku|Istanbul|Yekaterinburg|Omsk|Novosibirsk|Krasnoyarsk|Irkutsk|Yakutsk|Vladivostok|Magadan|Kamchatka)$/.test(tz)) return "asia";
     if (tz.startsWith("America/") || tz.startsWith("US/") || tz.startsWith("Canada/")) return "us";
     if (tz.startsWith("Europe/") || tz.startsWith("Atlantic/")) return "eu";
   } catch {

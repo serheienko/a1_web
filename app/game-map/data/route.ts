@@ -12,6 +12,7 @@ export const dynamic = "force-dynamic";
 type Entry = { at: number; json: string; gz: Buffer };
 const TTL = 60 * 60 * 1000;
 // Окремий кеш на кожен регіон (02.10.2026: карта для інших країн).
+const REGIONS: MapRegion[] = ["ua", "eu", "us", "latam", "asia", "oceania", "mideast"];
 const caches = new Map<MapRegion, Entry>();
 const pendings = new Map<MapRegion, Promise<Entry>>();
 
@@ -59,10 +60,10 @@ export async function GET(req: Request) {
     if (Date.now() - entry.at > TTL) void refreshCountries().catch(() => {});
     return reply(req, entry);
   }
-  const region: MapRegion = q === "eu" || q === "us" || q === "latam" ? q : "ua";
+  const region: MapRegion = REGIONS.includes(q as MapRegion) && q !== "ua" ? (q as MapRegion) : "ua";
   let entry: Entry;
   // Перший запит прогріває й інші регіони у фоні: перемикач далі миттєвий.
-  for (const r of ["ua", "eu", "us", "latam"] as MapRegion[]) if (r !== region && !caches.has(r)) void refresh(r).catch(() => {});
+  for (const r of REGIONS) if (r !== region && !caches.has(r)) void refresh(r).catch(() => {});
   const cache = caches.get(region);
   if (cache) {
     entry = cache;
