@@ -74,6 +74,7 @@ import { useEffect, useRef } from "react";
 import { AvatarMenu } from "@/components/avatar-menu";
 import { AppOpenBanner } from "@/components/app-open-banner";
 import { GameMapButton } from "@/components/game-map-button";
+import { GameButton } from "@/components/game-button";
 import { GetAppButton } from "@/components/get-app-button";
 import { NavCountry } from "@/components/nav-country";
 import { NavFilters } from "@/components/nav-filters";
@@ -291,6 +292,8 @@ export function SiteNav() {
               намеренно, там ту же работу делает <AppOpenBanner/> выше. */}
           {/* 02.10.2026: игровая карта A1 -- круглая кнопка слева от «скачать». */}
           <GameMapButton />
+          {/* 03.10.2026: 🎮 игра A1 RUN -- сразу после карты. */}
+          <GameButton />
           <GetAppButton />
           <AvatarMenu />
         </div>

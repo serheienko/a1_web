@@ -13,6 +13,34 @@
       #unity-canvas { width: 100% !important; height: 100% !important; background: #07071a; display: block; }
       #unity-footer { display: none !important; }
     </style>
+    <script>
+      // A1: общая громкость. Все Web Audio контексты игры идут через один
+      // GainNode; страница /game шлёт {a1:"mute", muted} -- громкость 0/1.
+      (function () {
+        var Orig = window.AudioContext || window.webkitAudioContext;
+        if (!Orig) return;
+        var gains = [], muted = false;
+        function apply() { gains.forEach(function (g) { g.gain.value = muted ? 0 : 1; }); }
+        function Patched(opts) {
+          var ctx = opts ? new Orig(opts) : new Orig();
+          try {
+            var real = ctx.destination, g = ctx.createGain();
+            g.connect(real);
+            Object.defineProperty(ctx, "destination", { get: function () { return g; }, configurable: true });
+            gains.push(g); apply();
+          } catch (e) { /* без регулировки звука игра всё равно работает */ }
+          return ctx;
+        }
+        Patched.prototype = Orig.prototype;
+        window.AudioContext = Patched;
+        window.webkitAudioContext = Patched;
+        window.addEventListener("message", function (e) {
+          if (e.origin !== window.location.origin) return;
+          if (e.data && e.data.a1 === "mute") { muted = !!e.data.muted; apply(); }
+        });
+        window.__a1Audio = { gains: gains, isMuted: function () { return muted; } };
+      })();
+    </script>
   </head>
   <body>
     <div id="unity-container" class="unity-desktop">
