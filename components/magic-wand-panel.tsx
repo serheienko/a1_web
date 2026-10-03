@@ -13,7 +13,7 @@
 //  * вокруг палочки кольцо с процентом заполнения.
 // ИИ только раскладывает рассказ по полям, текст не переписывает; ничего
 // не сохраняется, пока человек не нажмёт «Зберегти» в самом редакторе.
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { authFetch } from "@/lib/auth-fetch";
 import type { Locale } from "@/components/t";
 import {
@@ -42,6 +42,29 @@ const FIELD_LABEL: Partial<Record<MagicWandField, MagicWandStr>> = {
   languages: "fieldLanguages",
   location: "fieldLocation",
 };
+
+// Голос: как в приложении, лимит около 10 минут; за минуту до конца --
+// мягкое напоминание. Запись уходит на сервер (его расшифровка не зависит
+// от языка интерфейса: рассказ может быть на любом языке и даже смесью).
+const VOICE_MAX_SECONDS = 600;
+const VOICE_WARN_SECONDS = 540;
+const VOICE_MIMES = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
+const VOICE_TTL_SECONDS = 3600;
+
+function MicIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="9" y="3" width="6" height="12" rx="3" />
+      <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+    </svg>
+  );
+}
+
+function fmtTimer(total: number): string {
+  const m = Math.floor(total / 60);
+  const sec = total % 60;
+  return `${m}:${String(sec).padStart(2, "0")}`;
+}
 
 function WandIcon({ className }: { className?: string }) {
   return (
@@ -152,8 +175,27 @@ export function MagicWandPanel({
   const [hint, setHint] = useState<string | null>(null);
   const [working, setWorking] = useState<Set<MagicWandField>>(new Set());
   const [error, setError] = useState(false);
+  const [micDenied, setMicDenied] = useState(false);
   const [applied, setApplied] = useState(false);
   const textRef = useRef<HTMLTextAreaElement>(null);
+  const [recording, setRecording] = useState(false);
+  const [seconds, setSeconds] = useState(0);
+  const [voiceStage, setVoiceStage] = useState<"upload" | "read" | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const cancelledRef = useRef(false);
+  const secondsRef = useRef(0);
+
+  // Закрыли редактор посреди записи -- микрофон не должен остаться включённым.
+  useEffect(
+    () => () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+    },
+    [],
+  );
 
   const tx = (key: MagicWandStr, vars?: Record<string, string | number>) => magicWandText(lang, key, vars);
   const isWorking = working.size > 0;
@@ -161,9 +203,9 @@ export function MagicWandPanel({
   const total = MAGIC_WAND_CHIPS.length;
   const canApply = data.hasResult && filledCount > 0 && !isWorking;
   const showApply = text.trim() === "" && canApply;
-  const canSend = !isWorking && (text.trim() !== "" || canApply);
+  const canSend = !isWorking && !recording && (text.trim() !== "" || canApply);
 
-  async function send() {
+  function send() {
     const story = text.trim();
     if (isWorking) return;
     if (!story) {
@@ -174,15 +216,31 @@ export function MagicWandPanel({
       }
       return;
     }
+    void run({ text: story });
+  }
+
+  async function run(input: { text?: string; blob?: Blob; mime?: string; seconds?: number }) {
     setError(false);
+    setMicDenied(false);
     setApplied(false);
     const f = focus;
     setWorking(f ? new Set<MagicWandField>([f, ...MAGIC_WAND_CHIPS.filter((c) => data.chips[c]?.status !== "filled")]) : new Set(MAGIC_WAND_CHIPS));
     try {
+      let voiceRef: string | null = null;
+      if (input.blob) {
+        setVoiceStage("upload");
+        voiceRef = await uploadVoice(input.blob, input.mime ?? "audio/webm", input.seconds ?? 0);
+        setVoiceStage("read");
+      }
       const res = await authFetch("/api/account/magic-wand", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ text: story, ...(f ? { focus: f } : {}), lang: lang === "ptBR" ? "pt" : lang }),
+        body: JSON.stringify({
+          ...(input.text ? { text: input.text } : {}),
+          ...(voiceRef ? { voice: { fileReference: voiceRef } } : {}),
+          ...(f ? { focus: f } : {}),
+          lang: lang === "ptBR" ? "pt" : lang,
+        }),
       });
       const body = (await res.json().catch(() => null)) as { ok?: boolean; result?: MagicWandResult } | null;
       if (!res.ok || !body?.ok || !body.result) throw new Error("failed");
@@ -194,7 +252,88 @@ export function MagicWandPanel({
       setError(true);
     } finally {
       setWorking(new Set());
+      setVoiceStage(null);
     }
+  }
+
+  /** Загружает запись как короткоживущий голосовой документ (час) и отдаёт fileReference. */
+  async function uploadVoice(blob: Blob, mime: string, secs: number): Promise<string> {
+    const ext = mime.includes("mp4") ? "m4a" : "webm";
+    const file = new File([blob], `magic-wand.${ext}`, { type: mime });
+    const createRes = await authFetch("/api/upload/create", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ mimetype: file.type || "application/octet-stream", bytes: file.size, ttlSeconds: VOICE_TTL_SECONDS, voiceDuration: Math.max(secs, 1) }),
+    });
+    const created = (await createRes.json().catch(() => null)) as { ok?: boolean; result?: { id: string; url: string; fields?: Record<string, string> } } | null;
+    if (!createRes.ok || !created?.ok || !created.result?.url) throw new Error("create");
+    const { id, url, fields } = created.result;
+    const form = new FormData();
+    for (const [k, v] of Object.entries(fields ?? {})) form.append(k, v);
+    form.append("file", file);
+    const up = await fetch(url, { method: "POST", body: form });
+    if (!up.ok) throw new Error("upload");
+    const confirmRes = await authFetch("/api/upload/confirm", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ documentId: id }),
+    });
+    const confirmed = (await confirmRes.json().catch(() => null)) as { ok?: boolean; media?: { fileReference?: string } } | null;
+    const ref = confirmed?.media?.fileReference;
+    if (!confirmRes.ok || !confirmed?.ok || !ref) throw new Error("confirm");
+    return ref;
+  }
+
+  async function startRecording() {
+    if (isWorking || recording) return;
+    setError(false);
+    if (typeof MediaRecorder === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      setError(true);
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      const mime = VOICE_MIMES.find((m) => MediaRecorder.isTypeSupported(m));
+      const rec = mime ? new MediaRecorder(stream, { mimeType: mime, audioBitsPerSecond: 64000 }) : new MediaRecorder(stream);
+      chunksRef.current = [];
+      cancelledRef.current = false;
+      rec.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      rec.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+        if (cancelledRef.current) return;
+        const type = rec.mimeType || "audio/webm";
+        void run({ blob: new Blob(chunksRef.current, { type }), mime: type, seconds: secondsRef.current });
+      };
+      recorderRef.current = rec;
+      rec.start();
+      secondsRef.current = 0;
+      setSeconds(0);
+      setRecording(true);
+      timerRef.current = setInterval(() => {
+        secondsRef.current += 1;
+        setSeconds(secondsRef.current);
+        if (secondsRef.current >= VOICE_MAX_SECONDS) stopRecording(false);
+      }, 1000);
+    } catch {
+      setMicDenied(true);
+    }
+  }
+
+  function stopRecording(cancel: boolean) {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    cancelledRef.current = cancel;
+    setRecording(false);
+    const rec = recorderRef.current;
+    recorderRef.current = null;
+    if (rec && rec.state !== "inactive") rec.stop();
+    else streamRef.current?.getTracks().forEach((t) => t.stop());
   }
 
   function tapChip(field: MagicWandField) {
@@ -302,7 +441,7 @@ export function MagicWandPanel({
               placeholder={placeholder}
               rows={7}
               maxLength={20000}
-              disabled={isWorking}
+              disabled={isWorking || recording}
               className="min-h-[160px] w-full resize-y rounded-2xl bg-[#f2f2f7] px-3.5 py-3 text-[15px] text-neutral-900 outline-none placeholder:text-neutral-400 disabled:opacity-60 dark:bg-[#313136] dark:text-neutral-50"
             />
 
@@ -312,17 +451,40 @@ export function MagicWandPanel({
                 {tx("failed")}
               </p>
             )}
+            {micDenied && (
+              <p data-testid="magic-wand-mic-denied" className="text-[13px] text-red-600 dark:text-red-400">
+                {tx("micDenied")}
+              </p>
+            )}
 
             <div className="flex items-center justify-between gap-3">
-              <span className="text-[12.5px] text-neutral-500 dark:text-neutral-400">{isWorking ? tx("reading") : ""}</span>
+              {recording ? (
+                <span data-testid="magic-wand-recording" className="flex items-center gap-2 text-[14px] font-medium text-neutral-800 dark:text-neutral-100">
+                  <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-500" />
+                  {fmtTimer(seconds)}
+                  {seconds >= VOICE_WARN_SECONDS && <span className="text-[12.5px] font-normal text-amber-600 dark:text-amber-400">{tx("timeLeft")}</span>}
+                  <button type="button" data-testid="magic-wand-record-cancel" onClick={() => stopRecording(true)} className="ml-2 rounded-full px-3 py-1 text-[13px] text-neutral-500 hover:bg-black/5 dark:hover:bg-white/10">
+                    {tx("cancel")}
+                  </button>
+                </span>
+              ) : isWorking ? (
+                <span className="text-[12.5px] text-neutral-500 dark:text-neutral-400">{voiceStage === "upload" ? tx("transcribing") : voiceStage === "read" ? tx("transcribing") : tx("reading")}</span>
+              ) : text.trim() === "" ? (
+                <button type="button" data-testid="magic-wand-mic" aria-label={tx("voice")} onClick={() => void startRecording()} className="flex items-center gap-1.5 rounded-full border border-neutral-300 px-3.5 py-2 text-[13px] font-medium text-neutral-700 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800">
+                  <MicIcon className="h-4 w-4" />
+                  {tx("voice")}
+                </button>
+              ) : (
+                <span />
+              )}
               <button
                 type="button"
-                data-testid={showApply ? "magic-wand-apply" : "magic-wand-send"}
-                disabled={!canSend}
-                onClick={() => void send()}
+                data-testid={recording ? "magic-wand-record-send" : showApply ? "magic-wand-apply" : "magic-wand-send"}
+                disabled={recording ? false : !canSend}
+                onClick={recording ? () => stopRecording(false) : send}
                 className={`rounded-full px-5 py-2 text-[14px] font-semibold text-white transition disabled:opacity-40 ${showApply ? "bg-[#1fa54a] hover:bg-[#188a3d]" : "bg-[#335ef7] hover:bg-[#2a4fd6]"}`}
               >
-                {showApply ? tx("apply") : tx("send")}
+                {recording ? tx("send") : showApply ? tx("apply") : tx("send")}
               </button>
             </div>
           </div>

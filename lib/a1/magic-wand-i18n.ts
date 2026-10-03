@@ -6,7 +6,7 @@
 // которые в приложении нарисованы иконками.
 import type { GroupLang } from "@/lib/a1/group-chat";
 
-export type MagicWandStr = "fieldName" | "fieldBio" | "fieldIndustry" | "fieldEducation" | "fieldCompanies" | "fieldHobbies" | "fieldSkills" | "fieldLanguages" | "fieldLocation" | "cancel" | "title" | "placeholder" | "addMore" | "levels" | "filled" | "failed" | "filledHint" | "transcribing" | "reading" | "apply" | "send" | "clear";
+export type MagicWandStr = "fieldName" | "fieldBio" | "fieldIndustry" | "fieldEducation" | "fieldCompanies" | "fieldHobbies" | "fieldSkills" | "fieldLanguages" | "fieldLocation" | "cancel" | "title" | "placeholder" | "addMore" | "levels" | "filled" | "failed" | "filledHint" | "transcribing" | "reading" | "apply" | "send" | "clear" | "voice" | "micDenied" | "timeLeft";
 
 const STR: Record<MagicWandStr, Record<GroupLang, string>> = {
   "fieldName": {
@@ -250,6 +250,40 @@ const STR: Record<MagicWandStr, Record<GroupLang, string>> = {
     "pl": "Usuń",
     "ptBR": "Remover",
     "zh": "清除"
+  },
+
+  "voice": {
+    "uk": "Надиктувати",
+    "ru": "Надиктовать",
+    "en": "Dictate",
+    "de": "Diktieren",
+    "es": "Dictar",
+    "fr": "Dicter",
+    "pl": "Podyktuj",
+    "ptBR": "Ditar",
+    "zh": "语音输入"
+  },
+  "micDenied": {
+    "uk": "Немає доступу до мікрофона. Дозвольте його в налаштуваннях браузера.",
+    "ru": "Нет доступа к микрофону. Разрешите его в настройках браузера.",
+    "en": "No microphone access. Allow it in your browser settings.",
+    "de": "Kein Zugriff auf das Mikrofon. Erlaube ihn in den Browsereinstellungen.",
+    "es": "Sin acceso al micrófono. Permítelo en los ajustes del navegador.",
+    "fr": "Pas d’accès au micro. Autorisez-le dans les réglages du navigateur.",
+    "pl": "Brak dostępu do mikrofonu. Zezwól na niego w ustawieniach przeglądarki.",
+    "ptBR": "Sem acesso ao microfone. Permita nas configurações do navegador.",
+    "zh": "无法使用麦克风，请在浏览器设置中允许。"
+  },
+  "timeLeft": {
+    "uk": "Лишилась хвилина",
+    "ru": "Осталась минута",
+    "en": "One minute left",
+    "de": "Noch eine Minute",
+    "es": "Queda un minuto",
+    "fr": "Il reste une minute",
+    "pl": "Została minuta",
+    "ptBR": "Resta um minuto",
+    "zh": "还剩一分钟"
   }
 };
 
