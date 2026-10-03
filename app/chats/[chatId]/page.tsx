@@ -125,6 +125,7 @@ import { useActiveLocale } from "@/lib/use-active-locale";
 import { GroupInfoModal } from "@/components/chat/group-info-modal";
 import { ThreadStrip, ThreadRootCard, TopicsModal } from "@/components/chat/thread-parts";
 import { messageThread, topicTitle, threadText } from "@/lib/a1/group-threads";
+import { LinkPreviewCard, previewUrlFor } from "@/components/chat/link-preview-card";
 import { SendOptionsMenu, DeletedPlaque, CollapsibleBody, SavedAvatar } from "@/components/chat/chat-extras-ui";
 import { extraText, isCollapsedFlags, isDeletedForAll, isLongForCollapse } from "@/lib/a1/chat-extras";
 import { isServiceFlags, localizeGroupNote, membersCountText, groupText, type GroupLang } from "@/lib/a1/group-chat";
@@ -6159,6 +6160,10 @@ export default function ChatWindowPage() {
                                 <MessageRichText entities={richEntities} fallback={text} tone={mine ? "mine" : "theirs"} />
                               </CollapsibleBody>
                             </div>
+                            {!hasMedia && !isDeletedForAll(msg.flags) && (() => {
+                              const pu = previewUrlFor(text);
+                              return pu ? <LinkPreviewCard url={pu} mine={mine} /> : null;
+                            })()}
                           </>
                         )
                       )}
