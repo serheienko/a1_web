@@ -796,6 +796,46 @@ textarea {
   animation: person-hop 0.45s ease-in-out;
 }
 
+/* Иконка «Нова група» (два человечка, app/chats/page.tsx): при наведении
+   оба подпрыгивают по очереди -- сначала передний, через долю секунды
+   задний, как будто компания здоровается. Один раз на наведение. */
+@keyframes group-hop {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  35% {
+    transform: translateY(-2.5px) scale(1.07);
+  }
+  60% {
+    transform: translateY(0.5px) scale(0.97);
+  }
+  80% {
+    transform: translateY(-1px) scale(1.02);
+  }
+}
+
+.animate-group-hop .group-hop-a,
+.animate-group-hop .group-hop-b {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+
+.group:hover .animate-group-hop .group-hop-a {
+  animation: group-hop 0.5s ease-in-out;
+}
+
+.group:hover .animate-group-hop .group-hop-b {
+  animation: group-hop 0.5s ease-in-out 0.12s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .group:hover .animate-group-hop .group-hop-a,
+  .group:hover .animate-group-hop .group-hop-b {
+    animation: none;
+  }
+}
+
 /* Share glyph (components/profile-action-row.tsx's ShareIcon, the iOS
    "square and arrow up" shape) -- the arrow lifts up and settles back,
    like the icon itself is being handed off. */

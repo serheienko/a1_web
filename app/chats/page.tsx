@@ -411,13 +411,17 @@ export default function ChatsPage() {
             type="button"
             onClick={() => setNewGroupOpen(true)}
             aria-label="New group"
-            className="flex h-9 w-9 items-center justify-center rounded-full text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+            className="group flex h-9 w-9 items-center justify-center rounded-full text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
           >
-            <svg viewBox="0 0 24 24" className="h-[22px] w-[22px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <circle cx="9" cy="8" r="3.2" />
-              <path d="M3 19c0-3.2 2.7-5.2 6-5.2s6 2 6 5.2" />
-              <circle cx="17" cy="9" r="2.4" />
-              <path d="M17.5 14.2c2.2.2 3.8 1.8 3.8 4.2" />
+            <svg viewBox="0 0 24 24" className="animate-group-hop h-[22px] w-[22px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <g className="group-hop-a">
+                <circle cx="9" cy="8" r="3.2" />
+                <path d="M3 19c0-3.2 2.7-5.2 6-5.2s6 2 6 5.2" />
+              </g>
+              <g className="group-hop-b">
+                <circle cx="17" cy="9" r="2.4" />
+                <path d="M17.5 14.2c2.2.2 3.8 1.8 3.8 4.2" />
+              </g>
             </svg>
           </button>
           <button
