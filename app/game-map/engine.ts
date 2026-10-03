@@ -1214,7 +1214,9 @@ export const GAME_MAP_CSS = `
 .gm2 .gm-mascot{width:78px;height:auto;filter:drop-shadow(0 4px 6px rgba(0,0,0,.25))}
 .gm2 .gm-say{transition:opacity .3s ease;margin-bottom:46px;max-width:230px;background:rgba(251,245,230,.95);border:1px solid rgba(160,120,60,.35);border-radius:14px 14px 14px 4px;padding:8px 11px;font-size:13px;color:#4a3518;box-shadow:0 3px 10px rgba(0,0,0,.18)}
 .gm2.gm-dark .gm-say{background:rgba(18,28,44,.92);color:#e9dfc4;border-color:rgba(120,150,210,.35)}
-@media (max-width:560px){.gm2 .gm-say{display:none}.gm2 .gm-mascot{width:58px}}
+/* 03.10.2026 (Александр): на телефоні підказка кота не влазить, а кіт без
+   підказки нічого не каже -- ховаємо його цілком. */
+@media (max-width:560px){.gm2 .gm-guide{display:none}}
 .gm2 .gm-pop{position:absolute;left:0;top:0;width:290px;max-width:calc(100% - 16px);background:#fbf5e6;border:2px solid #c99a52;border-radius:16px;padding:12px 13px 13px;box-shadow:0 12px 30px rgba(40,25,5,.35);opacity:0;visibility:hidden;transition:opacity .16s ease,visibility 0s .16s;display:flex;flex-direction:column;gap:9px;will-change:transform}
 .gm2 .gm-pop.on{opacity:1;visibility:visible;transition:opacity .16s ease}
 .gm2 .gm-pop::after{content:"";position:absolute;left:calc(var(--ax,50%) - 8px);bottom:-9px;width:14px;height:14px;background:#fbf5e6;border-right:2px solid #c99a52;border-bottom:2px solid #c99a52;transform:rotate(45deg)}
