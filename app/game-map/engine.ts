@@ -254,7 +254,13 @@ export function mountGameMap(root, opts) {
   function regLabel() {
     // Кількість компаній -- тут же, замість окремої плашки «Карта A1 · N».
     const n = focusCC ? companiesIn.filter((c) => c.cc === focusCC).length : companiesIn.length;
-    root.querySelector('.gm-regl').innerHTML = esc(focusCC ? `${flagOf(focusCC)} ${ccName(focusCC)}` : tr(REG_KEY[region])) + (n ? `<span class="gm-regn"> · ${n}</span>` : '');
+    const full = focusCC ? `${flagOf(focusCC)} ${ccName(focusCC)}` : tr(REG_KEY[region]);
+    // 03.10.2026 (Александр): на телефоні в кнопці лише прапорець, щоб
+    // пошуку було більше місця (назву ховає CSS, вона лишається в підказці).
+    const sp = full.indexOf(' ');
+    const flag = sp > 0 ? full.slice(0, sp) : '', name = sp > 0 ? full.slice(sp + 1) : full;
+    root.querySelector('.gm-regl').innerHTML = (flag ? `<span class="gm-rfl">${esc(flag)}</span> ` : '') + `<span class="gm-rnm">${esc(name)}</span>` + (n ? `<span class="gm-regn"> · ${n}</span>` : '');
+    regBtn.title = name + (n ? ` · ${n}` : ''); regBtn.setAttribute('aria-label', regBtn.title);
   }
   function renderReg() {
     const h = REG_H[lang] || REG_H.en;
@@ -1309,6 +1315,7 @@ html.gm-noscroll,html.gm-noscroll body{overflow:hidden}
 .gm2 .gm-si.on,.gm2 .gm-si:hover{background:rgba(150,110,50,.15)}
 .gm2 .gm-none{padding:10px;font-size:13px;opacity:.7}
 @media (max-width:560px){.gm2 .gm-title{display:none}.gm2 .gm-q{width:170px}}
+@media (max-width:560px){.gm2 .gm-reg{width:38px;height:38px;min-height:38px;padding:0;justify-content:center;gap:0}.gm2 .gm-reg .gm-rnm,.gm2 .gm-reg .gm-regn,.gm2 .gm-reg .gm-chev{display:none}.gm2 .gm-regl{overflow:visible;font-size:18px;line-height:1}.gm2 .gm-search{min-width:0}}
 .gm2 .gm-pop{width:330px}
 
 .gm2 .gm-chips{display:flex;flex-wrap:wrap;gap:5px}
