@@ -143,6 +143,19 @@
         canvas.style.height = "100%";
       }
 
+      // A1 (03.10.2026, Александр: «кот не прыгает при тапе на мобильном»).
+      // Игра прыгает по пробелу/клику мыши, а тап по экрану в WebGL-сборке
+      // до прыжка не доходит. Поэтому касание экрана = нажатие пробела.
+      (function () {
+        var o = { key: " ", code: "Space", keyCode: 32, which: 32, bubbles: true, cancelable: true };
+        var down = false;
+        function press() { if (down) return; down = true; canvas.dispatchEvent(new KeyboardEvent("keydown", o)); }
+        function release() { if (!down) return; down = false; canvas.dispatchEvent(new KeyboardEvent("keyup", o)); }
+        canvas.addEventListener("touchstart", press, { passive: true });
+        canvas.addEventListener("touchend", release, { passive: true });
+        canvas.addEventListener("touchcancel", release, { passive: true });
+      })();
+
       document.querySelector("#unity-loading-bar").style.display = "block";
 
       var script = document.createElement("script");

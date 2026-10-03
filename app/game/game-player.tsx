@@ -94,7 +94,7 @@ export function GamePlayer() {
           <>
             <iframe
               ref={frameRef}
-              src="/game/play/index.html?v=3"
+              src="/game/play/index.html?v=4"
               title="A1 RUN"
               allow="fullscreen; autoplay"
               onLoad={() => sendMute(muted)}
