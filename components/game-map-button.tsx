@@ -60,7 +60,7 @@ export function GameMapButton() {
       </Link>
 
       {rendered && (
-        <div ref={panelRef} className="absolute right-0 top-full z-50 w-[440px] pt-2">
+        <div ref={panelRef} className="absolute right-0 top-full z-50 w-[440px] pt-2 [@media(hover:none)]:hidden">
           <Link
             href="/game-map"
             className={
