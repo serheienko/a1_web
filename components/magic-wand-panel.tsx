@@ -48,7 +48,11 @@ const FIELD_LABEL: Partial<Record<MagicWandField, MagicWandStr>> = {
 // от языка интерфейса: рассказ может быть на любом языке и даже смесью).
 const VOICE_MAX_SECONDS = 600;
 const VOICE_WARN_SECONDS = 540;
-const VOICE_MIMES = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
+// Сначала MP4/AAC (m4a), как в приложении: сервер Magic Wand отдаёт запись
+// на расшифровку под именем voice.m4a, и только настоящий m4a принимается
+// безотказно. WebM остаётся запасным (Firefox) -- он работает, когда сервер
+// называет файл по его типу (см. заметку в отчёте по волне 5).
+const VOICE_MIMES = ["audio/mp4;codecs=mp4a.40.2", "audio/mp4", "audio/webm;codecs=opus", "audio/webm"];
 const VOICE_TTL_SECONDS = 3600;
 
 function MicIcon({ className }: { className?: string }) {
@@ -258,8 +262,11 @@ export function MagicWandPanel({
 
   /** Загружает запись как короткоживущий голосовой документ (час) и отдаёт fileReference. */
   async function uploadVoice(blob: Blob, mime: string, secs: number): Promise<string> {
-    const ext = mime.includes("mp4") ? "m4a" : "webm";
-    const file = new File([blob], `magic-wand.${ext}`, { type: mime });
+    const isMp4 = mime.includes("mp4");
+    const ext = isMp4 ? "m4a" : "webm";
+    // Приложение объявляет m4a как audio/x-m4a -- сервер сверяет это с тем, что увидел в файле.
+    const declared = isMp4 ? "audio/x-m4a" : mime.split(";")[0] || "audio/webm";
+    const file = new File([blob], `magic-wand.${ext}`, { type: declared });
     const createRes = await authFetch("/api/upload/create", {
       method: "POST",
       headers: { "content-type": "application/json" },
