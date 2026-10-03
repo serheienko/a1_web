@@ -14,14 +14,30 @@ import { T } from "@/components/t";
 
 const MUTE_KEY = "a1-game-muted";
 
-type FsEl = HTMLElement & { webkitRequestFullscreen?: () => Promise<void> | void };
-type FsDoc = Document & { webkitFullscreenElement?: Element | null; webkitExitFullscreen?: () => Promise<void> | void };
+// 03.10.2026 (Александр, скрин з iPhone): «іконка фулскрін горизонтальний на
+// моб». iPhone не вміє Fullscreen API для не-відео, тому там «свій» повний
+// екран: обгортка стає fixed на весь екран, а в портреті повертається на 90°,
+// щоб гра була горизонтальна. Android: справжній повний екран + спроба
+// зафіксувати альбомну орієнтацію.
+type OrientationLock = ScreenOrientation & {
+  lock?: (o: string) => Promise<void>;
+};
+
+type FsEl = HTMLElement & {
+  webkitRequestFullscreen?: () => Promise<void> | void;
+};
+type FsDoc = Document & {
+  webkitFullscreenElement?: Element | null;
+  webkitExitFullscreen?: () => Promise<void> | void;
+};
 
 export function GamePlayer() {
   const [started, setStarted] = useState(false);
   const [muted, setMuted] = useState(false);
   const [fs, setFs] = useState(false);
   const [canFs, setCanFs] = useState(false);
+  const [pseudo, setPseudo] = useState(false);
+  const [portrait, setPortrait] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
 
@@ -49,6 +65,26 @@ export function GamePlayer() {
     };
   }, []);
 
+  // «Свій» повний екран: стежимо за орієнтацією, блокуємо прокрутку сторінки, Esc -- вихід.
+  useEffect(() => {
+    if (!pseudo) return;
+    const mq = window.matchMedia("(orientation: portrait)");
+    const onMq = () => setPortrait(mq.matches);
+    onMq();
+    mq.addEventListener("change", onMq);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPseudo(false);
+    };
+    window.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      mq.removeEventListener("change", onMq);
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [pseudo]);
+
   const sendMute = useCallback((m: boolean) => {
     frameRef.current?.contentWindow?.postMessage({ a1: "mute", muted: m }, window.location.origin);
   }, []);
@@ -68,14 +104,27 @@ export function GamePlayer() {
   }
 
   function toggleFullscreen() {
+    if (!canFs) {
+      setPseudo((v) => !v);
+      return;
+    }
     const d = document as FsDoc;
     const el = wrapRef.current as FsEl | null;
     if (d.fullscreenElement || d.webkitFullscreenElement) {
       void (d.exitFullscreen?.() ?? d.webkitExitFullscreen?.());
     } else if (el) {
-      void (el.requestFullscreen?.() ?? el.webkitRequestFullscreen?.());
+      const p = el.requestFullscreen?.() ?? el.webkitRequestFullscreen?.();
+      // Телефон: після входу -- альбомна орієнтація (там, де браузер дозволяє).
+      if (window.matchMedia("(pointer: coarse)").matches) {
+        void Promise.resolve(p)
+          .then(() => (screen.orientation as OrientationLock | undefined)?.lock?.("landscape"))
+          .catch(() => {});
+      }
     }
   }
+
+  const full = fs || pseudo;
+  const rotate = pseudo && portrait;
 
   const btn =
     "group flex h-9 w-9 items-center justify-center rounded-full bg-black/55 text-white shadow ring-1 ring-white/20 backdrop-blur transition duration-200 hover:bg-violet-600/80 hover:ring-white/50 hover:shadow-lg active:scale-90";
@@ -84,12 +133,26 @@ export function GamePlayer() {
     <div
       ref={wrapRef}
       className={
-        fs
-          ? "relative h-full w-full bg-black"
-          : "relative overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-950 dark:border-neutral-800"
+        pseudo
+          ? "fixed left-0 top-0 z-[1000] bg-black"
+          : fs
+            ? "relative h-full w-full bg-black"
+            : "relative overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-950 dark:border-neutral-800"
+      }
+      style={
+        pseudo
+          ? rotate
+            ? {
+                width: "100dvh",
+                height: "100dvw",
+                transformOrigin: "top left",
+                transform: "rotate(90deg) translateY(-100%)",
+              }
+            : { width: "100dvw", height: "100dvh" }
+          : undefined
       }
     >
-      <div className="relative w-full" style={fs ? { height: "100%" } : { aspectRatio: "960 / 600" }}>
+      <div className="relative w-full" style={full ? { height: "100%" } : { aspectRatio: "960 / 600" }}>
         {started ? (
           <>
             <iframe
@@ -103,44 +166,129 @@ export function GamePlayer() {
             <div className="absolute right-2 top-2 z-10 flex gap-2">
               <button type="button" onClick={toggleMute} className={btn} aria-pressed={muted}>
                 {muted ? (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="transition-transform duration-200 ease-out group-hover:scale-125 group-hover:-rotate-12">
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                    className="transition-transform duration-200 ease-out group-hover:scale-125 group-hover:-rotate-12"
+                  >
                     <path d="M11 5 6 9H3v6h3l5 4V5z" />
-                    <path d="m22 9-6 6M16 9l6 6" className="origin-center transition-transform duration-200 group-hover:scale-110" />
+                    <path
+                      d="m22 9-6 6M16 9l6 6"
+                      className="origin-center transition-transform duration-200 group-hover:scale-110"
+                    />
                   </svg>
                 ) : (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="transition-transform duration-200 ease-out group-hover:scale-125">
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                    className="transition-transform duration-200 ease-out group-hover:scale-125"
+                  >
                     <path d="M11 5 6 9H3v6h3l5 4V5z" />
                     <path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" className="group-hover:animate-pulse" />
                   </svg>
                 )}
                 <span className="sr-only">
                   {muted ? (
-                    <T uk="Увімкнути звук" en="Turn sound on" ru="Включить звук" de="Ton an" es="Activar sonido" fr="Activer le son" pl="Włącz dźwięk" ptBR="Ligar o som" zh="开启声音" />
+                    <T
+                      uk="Увімкнути звук"
+                      en="Turn sound on"
+                      ru="Включить звук"
+                      de="Ton an"
+                      es="Activar sonido"
+                      fr="Activer le son"
+                      pl="Włącz dźwięk"
+                      ptBR="Ligar o som"
+                      zh="开启声音"
+                    />
                   ) : (
-                    <T uk="Вимкнути звук" en="Turn sound off" ru="Выключить звук" de="Ton aus" es="Silenciar" fr="Couper le son" pl="Wyłącz dźwięk" ptBR="Desligar o som" zh="关闭声音" />
+                    <T
+                      uk="Вимкнути звук"
+                      en="Turn sound off"
+                      ru="Выключить звук"
+                      de="Ton aus"
+                      es="Silenciar"
+                      fr="Couper le son"
+                      pl="Wyłącz dźwięk"
+                      ptBR="Desligar o som"
+                      zh="关闭声音"
+                    />
                   )}
                 </span>
               </button>
-              {canFs && (
-                <button type="button" onClick={toggleFullscreen} className={btn}>
-                  {fs ? (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="transition-transform duration-200 ease-out group-hover:scale-75">
-                      <path d="M9 3v4a2 2 0 0 1-2 2H3M21 9h-4a2 2 0 0 1-2-2V3M3 15h4a2 2 0 0 1 2 2v4M15 21v-4a2 2 0 0 1 2-2h4" />
-                    </svg>
+              <button type="button" onClick={toggleFullscreen} className={btn}>
+                {full ? (
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                    className="transition-transform duration-200 ease-out group-hover:scale-75"
+                  >
+                    <path d="M9 3v4a2 2 0 0 1-2 2H3M21 9h-4a2 2 0 0 1-2-2V3M3 15h4a2 2 0 0 1 2 2v4M15 21v-4a2 2 0 0 1 2-2h4" />
+                  </svg>
+                ) : (
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                    className="transition-transform duration-200 ease-out group-hover:scale-125"
+                  >
+                    <path d="M3 9V5a2 2 0 0 1 2-2h4M15 3h4a2 2 0 0 1 2 2v4M21 15v4a2 2 0 0 1-2 2h-4M9 21H5a2 2 0 0 1-2-2v-4" />
+                  </svg>
+                )}
+                <span className="sr-only">
+                  {full ? (
+                    <T
+                      uk="Вийти з повного екрана"
+                      en="Exit fullscreen"
+                      ru="Выйти из полного экрана"
+                      de="Vollbild beenden"
+                      es="Salir de pantalla completa"
+                      fr="Quitter le plein écran"
+                      pl="Wyjdź z pełnego ekranu"
+                      ptBR="Sair da tela cheia"
+                      zh="退出全屏"
+                    />
                   ) : (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="transition-transform duration-200 ease-out group-hover:scale-125">
-                      <path d="M3 9V5a2 2 0 0 1 2-2h4M15 3h4a2 2 0 0 1 2 2v4M21 15v4a2 2 0 0 1-2 2h-4M9 21H5a2 2 0 0 1-2-2v-4" />
-                    </svg>
+                    <T
+                      uk="На весь екран"
+                      en="Fullscreen"
+                      ru="На весь экран"
+                      de="Vollbild"
+                      es="Pantalla completa"
+                      fr="Plein écran"
+                      pl="Pełny ekran"
+                      ptBR="Tela cheia"
+                      zh="全屏"
+                    />
                   )}
-                  <span className="sr-only">
-                    {fs ? (
-                      <T uk="Вийти з повного екрана" en="Exit fullscreen" ru="Выйти из полного экрана" de="Vollbild beenden" es="Salir de pantalla completa" fr="Quitter le plein écran" pl="Wyjdź z pełnego ekranu" ptBR="Sair da tela cheia" zh="退出全屏" />
-                    ) : (
-                      <T uk="На весь екран" en="Fullscreen" ru="На весь экран" de="Vollbild" es="Pantalla completa" fr="Plein écran" pl="Pełny ekran" ptBR="Tela cheia" zh="全屏" />
-                    )}
-                  </span>
-                </button>
-              )}
+                </span>
+              </button>
             </div>
           </>
         ) : (
@@ -152,7 +300,17 @@ export function GamePlayer() {
               onClick={() => setStarted(true)}
               className="rounded-xl bg-violet-600 px-8 py-3 text-lg font-semibold text-white shadow-lg transition hover:bg-violet-500 active:scale-95"
             >
-              <T uk="Грати" en="Play" ru="Играть" de="Spielen" es="Jugar" fr="Jouer" pl="Graj" ptBR="Jogar" zh="开始游戏" />
+              <T
+                uk="Грати"
+                en="Play"
+                ru="Играть"
+                de="Spielen"
+                es="Jugar"
+                fr="Jouer"
+                pl="Graj"
+                ptBR="Jogar"
+                zh="开始游戏"
+              />
             </button>
             <div className="text-xs text-neutral-400">
               <T
