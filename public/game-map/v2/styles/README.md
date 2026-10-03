@@ -32,4 +32,4 @@ Claude обріже фон, стисне у webp, розкладе по папц
 ## Азія, Океанія, Близький Схід (03.10.2026)
 
 Додано `asia/`, `oceania/`, `mideast/` (по 8 будинків, природа, `flags.json`, `manifest.json`) і підкладки `geo-asia.json`, `geo-oceania.json`, `geo-mideast.json` (суша, річки, озера, дерева й тварини за біомами, піски пустель у `sand`; дані Natural Earth). Компанії регіону беруться за країною (`load-companies.ts`: ASIA / OCEANIA / MIDEAST).
-Вечірніх спрайтів природи Близького Сходу поки немає для: camel, desert-dune, prickly-pear, sandstone-rock, tree-cypress, tree-olive -- замість них темні версії, зроблені з денних автоматично; коли з'являться справжні, покласти у `mideast/dark/nature/<назва>.webp`.
+Вечірні спрайти природи Близького Сходу (camel, desert-dune, prickly-pear, sandstone-rock, tree-cypress, tree-olive) -- справжні, намальовані (03.10.2026), у `mideast/dark/nature/<назва>.webp`; розміри збігаються з денними (manifest.json).
