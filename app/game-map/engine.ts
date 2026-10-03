@@ -144,7 +144,7 @@ function esc(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&am
 
 // Версія даних карти: браузер кешує файли карти на тиждень, тож при зміні
 // geo.json число треба збільшити, інакше люди бачитимуть стару.
-const GEO_VERSION = 4;
+const GEO_VERSION = 5;
 
 export function mountGameMap(root, opts) {
   const base = opts.base || '/game-map/v2';
@@ -274,6 +274,9 @@ export function mountGameMap(root, opts) {
   let baseCache = null; // { key, canvas }
   let flagMeta = {};
   let noForest = false;
+  // 03.10.2026: у регіональних сетах на рівень може бути кілька будинків
+  // (level-03, level-03-b…): компанія бере один за хешем id, тож вигляд стабільний.
+  let bVar = {};
   const flagCache = {};
   const logoImgs = {};
   const allies = new Map(); // userId -> id запису контакту (для видалення)
@@ -290,7 +293,7 @@ export function mountGameMap(root, opts) {
     await Promise.all(keys.map(async (k) => {
       if (imgs[th][k] || loadingTh[th + k]) return;
       loadingTh[th + k] = 1;
-      const im = await loadImg(styleKeys.has(k) ? `${base}/styles/${style}/${th}/${k}.webp` : `${base}/${th}/${k}.webp`);
+      const im = await loadImg(styleKeys.has(k) ? `${base}/styles/${style}/${th}/${k}.webp?v=${GEO_VERSION}` : `${base}/${th}/${k}.webp`);
       if (im) imgs[th][k] = im;
       delete loadingTh[th + k];
     }));
@@ -756,7 +759,8 @@ export function mountGameMap(root, opts) {
       c._r = { x: c.x, y: c.y - h / 2, w, h };
       return;
     }
-    const k = (c.forest && !noForest ? 'forest/' : 'buildings/') + `level-0${c.l}`;
+    let k = (c.forest && !noForest ? 'forest/' : 'buildings/') + `level-0${c.l}`;
+    if (k.startsWith('buildings/')) { const pool = bVar[c.l]; if (pool && pool.length > 1) k = pool[hash(String(c.id)) % pool.length]; }
     const w = c.w;
     // тень-эллипс под зданием
     ctx.fillStyle = theme === 'dark' ? 'rgba(0,0,0,.35)' : 'rgba(40,50,20,.22)';
@@ -1043,14 +1047,17 @@ export function mountGameMap(root, opts) {
       fetch(`${base}/${region === 'ua' ? 'geo' : 'geo-' + region}.json?v=${GEO_VERSION}`).then((r) => r.json()),
       fetch(`${base}/manifest.json`).then((r) => r.json()),
       fetch(`${base}/flags.json`).then((r) => r.json()).catch(() => ({})),
-      fetch(`${base}/styles/${style}/manifest.json`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
-      fetch(`${base}/styles/${style}/flags.json`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch(`${base}/styles/${style}/manifest.json?v=${GEO_VERSION}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch(`${base}/styles/${style}/flags.json?v=${GEO_VERSION}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
     ]);
     if (styleMan) for (const k in styleMan) { man[k] = styleMan[k]; styleKeys.add(k); }
     // Регіональний сет без лісових будинків -- усі компанії в будинках регіону.
     noForest = styleKeys.has('buildings/level-01') && !styleKeys.has('forest/level-01');
     if (styleFlags) { Object.assign(flagMeta, styleFlags); for (const k in styleFlags) for (const e of styleFlags[k].f) styleKeys.add('flags/' + e[0]); }
     for (const k in flagMeta) for (const e of flagMeta[k].f) man['flags/' + e[0]] = [e[3], e[4]];
+    bVar = {};
+    for (const kk in man) { const m = /^buildings\/level-0(\d)(-[a-z])?$/.exec(kk); if (m) (bVar[m[1]] = bVar[m[1]] || []).push(kk); }
+    for (const l in bVar) bVar[l].sort();
     loadAllies();
     if (destroyed) return;
     cos = layout();
