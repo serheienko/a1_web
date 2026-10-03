@@ -4339,7 +4339,7 @@ export default function ChatWindowPage() {
               content matches the pill's BASE height to those exactly
               without capping how tall it can grow. */}
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-4 py-3">
-<div className="ml-auto mr-2 flex items-center gap-1">
+<div className="pointer-events-auto ml-auto mr-2 flex items-center gap-1">
             {isGroup && !threadOf && (groupInfo?.threads.length ?? 0) > 0 && (
               <button
                 type="button"

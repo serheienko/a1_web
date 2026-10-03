@@ -15,7 +15,7 @@ import { callAsVisitor, NoSessionError } from "@/lib/a1/visitor-call";
 import { setSession, clearSession, readSession } from "@/lib/a1/session";
 import { extractChats } from "@/lib/a1/chat-schemas";
 import { isGroupFlags, CHAT_FLAG_PUBLIC, CHAT_FLAG_THREAD } from "@/lib/a1/group-chat";
-import { threadRootFrom, unreadInChat, type ThreadRoot } from "@/lib/a1/group-threads";
+import { threadRootFrom, unreadInChat, lastMessageId, type ThreadRoot } from "@/lib/a1/group-threads";
 import { parseUserProfile } from "@/lib/a1/schemas";
 import { buildMediaProxyUrl } from "@/lib/a1/mappers";
 
@@ -134,7 +134,7 @@ export async function GET(request: NextRequest) {
         threads.push({
           chatId: c._id,
           messageId: Number(th.message),
-          replies: typeof lm === "number" ? lm : Number((lm as { _id?: unknown } | null)?._id) || 0,
+          replies: lastMessageId(lm),
           unread: unreadInChat(c as unknown as { lastMessage?: unknown; participants?: unknown }, myUid),
         });
       }

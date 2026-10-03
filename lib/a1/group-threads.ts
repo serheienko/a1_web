@@ -175,15 +175,17 @@ export function topicTitle(lang: GroupLang, root: ThreadRoot | null): string {
 /** Непрочитанные в чате: последнее сообщение после моей отметки прочтения. */
 export function unreadInChat(chat: { lastMessage?: unknown; participants?: unknown }, myUserId: string | null): number {
   if (!myUserId) return 0;
-  const lm = chat.lastMessage as unknown;
-  const last =
-    typeof lm === "number"
-      ? lm
-      : lm && typeof lm === "object" && "_id" in lm
-        ? Number((lm as { _id: unknown })._id) || 0
-        : 0;
+  const last = lastMessageId(chat.lastMessage);
   const parts = Array.isArray(chat.participants) ? (chat.participants as Array<Record<string, unknown>>) : [];
   const me = parts.find((p) => p.object === "peer-user" && p.user === myUserId);
   const rea = me && typeof me.reaMaxId === "number" ? me.reaMaxId : 0;
   return last > rea ? last - rea : 0;
+}
+
+/** id последнего сообщения чата: схема отдаёт его строкой, сырой ответ -- числом, а бывает и целым сообщением. */
+export function lastMessageId(lm: unknown): number {
+  if (typeof lm === "number") return lm;
+  if (typeof lm === "string") return Number(lm) || 0;
+  if (lm && typeof lm === "object" && "_id" in lm) return Number((lm as { _id: unknown })._id) || 0;
+  return 0;
 }

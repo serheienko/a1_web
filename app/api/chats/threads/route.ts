@@ -12,7 +12,7 @@ import { callAsVisitor, NoSessionError } from "@/lib/a1/visitor-call";
 import { setSession, clearSession, readSession } from "@/lib/a1/session";
 import { extractChats } from "@/lib/a1/chat-schemas";
 import { CHAT_FLAG_THREAD } from "@/lib/a1/group-chat";
-import { threadRootFrom, unreadInChat, type ThreadRoot } from "@/lib/a1/group-threads";
+import { threadRootFrom, unreadInChat, lastMessageId, type ThreadRoot } from "@/lib/a1/group-threads";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
       const raw = c as unknown as { thread?: { message?: unknown } };
       const messageId = Number(raw.thread?.message);
       const lm = (c as unknown as { lastMessage?: unknown }).lastMessage;
-      const replies = typeof lm === "number" ? lm : Number((lm as { _id?: unknown } | null)?._id) || 0;
+      const replies = lastMessageId(lm);
       return {
         chatId: c._id,
         messageId,
