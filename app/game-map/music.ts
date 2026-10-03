@@ -28,7 +28,7 @@
 
 // Імена файлів у public/game-map/music (без розширення). Додати трек --
 // покласти N.ogg і N.m4a і дописати сюди.
-const TRACKS = ['1', '2', '3', '4', '5'];
+const TRACKS = ['1', '2', '3', '4', '5', '6', '7'];
 const BASE = '/game-map/music/';
 const KEY = 'a1-map-music';
 const VOL = 0.4; // фон: чути, але не заважає
