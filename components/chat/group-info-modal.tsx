@@ -44,6 +44,11 @@ async function postJson(url: string, body: unknown): Promise<{ ok: boolean; stat
   return { ok: !!data?.ok, status: res.status, data };
 }
 
+const SHARED_LABEL: Partial<Record<Locale, string>> = {
+  uk: "Медіа та файли", ru: "Медиа и файлы", en: "Media & files", de: "Medien & Dateien", es: "Multimedia y archivos",
+  fr: "Médias et fichiers", pl: "Media i pliki", ptBR: "Mídia e arquivos", zh: "媒体和文件",
+};
+
 function Pill({ label, onClick, danger, disabled }: { label: string; onClick: () => void; danger?: boolean; disabled?: boolean }) {
   return (
     <button
@@ -106,6 +111,7 @@ export function GroupInfoModal({
   info,
   myUserId,
   onChanged,
+  onOpenShared,
   onClose,
 }: {
   lang: Locale;
@@ -114,6 +120,8 @@ export function GroupInfoModal({
   myUserId: string | null;
   /** Перечитать данные группы после изменения. */
   onChanged: () => void;
+  /** Открыть «Медиа и файлы» этого чата (иконка из шапки теперь живёт в карточке). */
+  onOpenShared?: () => void;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -272,6 +280,7 @@ export function GroupInfoModal({
               <div className="mt-1 flex flex-wrap justify-center gap-2">
                 <Pill label={info.muted ? L("groupUnmute") : L("groupMute")} onClick={() => void toggleMute()} disabled={busy} />
                 <Pill label={info.pinned ? L("chatUnpin") : L("chatPin")} onClick={() => void togglePin()} disabled={busy} />
+                {onOpenShared && <Pill label={SHARED_LABEL[lang] ?? SHARED_LABEL.en!} onClick={onOpenShared} />}
                 {canManage && <Pill label={L("editGroup")} onClick={() => setView("edit")} />}
               </div>
             </div>

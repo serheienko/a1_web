@@ -4305,7 +4305,7 @@ export default function ChatWindowPage() {
         ref={headerRef}
         className="fixed inset-x-0 top-0 z-10 border-b border-black/5 bg-[#f2f2f7]/90 pt-[env(safe-area-inset-top)] backdrop-blur-md dark:border-white/10 dark:bg-black/80 sm:sticky sm:pt-0"
       >
-        <div className="relative mx-auto flex w-full max-w-[470px] items-center px-4 py-3">
+        <div className={`relative mx-auto flex w-full max-w-[470px] items-center px-4 py-3 ${isGroup ? "justify-between" : ""}`}>
           {selectionMode ? (
             <SelectionTopBar
               count={selectedMessageIds.size}
@@ -4339,28 +4339,9 @@ export default function ChatWindowPage() {
               content matches the pill's BASE height to those exactly
               without capping how tall it can grow. */}
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-4 py-3">
+{!isGroup && (
 <div className="pointer-events-auto ml-auto mr-2 flex items-center gap-1">
-            {isGroup && !threadOf && (groupInfo?.threads.length ?? 0) > 0 && (
-              <button
-                type="button"
-                onClick={() => setTopicsOpen(true)}
-                aria-label={threadText(lang as GroupLang, "topics")}
-                data-testid="topics-button"
-                className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#335ef7] transition hover:bg-black/5 dark:text-[#0c8ce9] dark:hover:bg-white/10"
-              >
-                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.3 8.7 8.7 0 0 1-3.6-.8L3 20l1.2-4.6A8.2 8.2 0 0 1 3.5 11.5 8.5 8.5 0 0 1 12 3a8.5 8.5 0 0 1 9 8.5Z" />
-                  <path d="M8 10.5h8" />
-                  <path d="M8 14h5" />
-                </svg>
-                {topicsUnread > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#335ef7] px-1 text-[10px] font-semibold leading-none text-white dark:bg-[#0c8ce9]">
-                    {topicsUnread > 99 ? "99+" : topicsUnread}
-                  </span>
-                )}
-              </button>
-            )}
-                        <button
+            <button
             type="button"
             onClick={() => setSharedOpen(true)}
             aria-label="Shared"
@@ -4373,6 +4354,7 @@ export default function ChatWindowPage() {
             </svg>
           </button>
           </div>
+          )}
 
           {headerProfileHref ? (
               <Link
@@ -4441,12 +4423,28 @@ export default function ChatWindowPage() {
             // surfaces in the app -- same persistent Cache Storage-
             // backed CachedAvatar every other avatar surface on the
             // site now uses.
-            <CachedAvatar
-              src={headerAvatar}
-              blurDataURL={headerAvatarBlur ?? BLUR_DATA_URL}
-              size={42}
-              className="h-[42px] w-[42px] shrink-0 rounded-full object-cover"
-            />
+            isGroup ? (
+              <button
+                type="button"
+                aria-label={headerTitle || undefined}
+                onClick={() => (threadOf ? router.push(`/chats/${threadOf.groupId}?group=1`) : setGroupOpen(true))}
+                className="shrink-0 rounded-full"
+              >
+                <CachedAvatar
+                  src={headerAvatar}
+                  blurDataURL={headerAvatarBlur ?? BLUR_DATA_URL}
+                  size={42}
+                  className="h-[42px] w-[42px] shrink-0 rounded-full object-cover"
+                />
+              </button>
+            ) : (
+              <CachedAvatar
+                src={headerAvatar}
+                blurDataURL={headerAvatarBlur ?? BLUR_DATA_URL}
+                size={42}
+                className="h-[42px] w-[42px] shrink-0 rounded-full object-cover"
+              />
+            )
           )}
             </>
           )}
@@ -6404,6 +6402,33 @@ export default function ChatWindowPage() {
         </div>
       )}
 
+      {state !== "signed-out" && isGroup && !threadOf && (groupInfo?.threads.length ?? 0) > 0 && (
+        // Волна 3: как в приложении -- кнопка «Теми» справа над полем ввода,
+        // над стрелкой «вниз», с иконкой темы и числом непрочитанных.
+        <div className="pointer-events-none fixed inset-x-0 z-10 flex justify-center px-4" style={{ bottom: `${composeBarHeight + 56}px` }}>
+          <div className="mx-auto flex w-full max-w-[470px] justify-end">
+            <button
+              type="button"
+              onClick={() => setTopicsOpen(true)}
+              aria-label={threadText(lang as GroupLang, "topics")}
+              data-testid="topics-button"
+              className="pointer-events-auto relative flex h-9 w-9 items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-[#335ef7] shadow-md backdrop-blur-sm transition hover:bg-neutral-50 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/90 dark:text-[#0c8ce9] dark:hover:bg-[#1c1c1e]"
+            >
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.3 8.7 8.7 0 0 1-3.6-.8L3 20l1.2-4.6A8.2 8.2 0 0 1 3.5 11.5 8.5 8.5 0 0 1 12 3a8.5 8.5 0 0 1 9 8.5Z" />
+                <path d="M8 10.5h8" />
+                <path d="M8 14h5" />
+              </svg>
+              {topicsUnread > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#335ef7] px-1 text-[10px] font-semibold leading-none text-white dark:bg-[#0c8ce9]">
+                  {topicsUnread > 99 ? "99+" : topicsUnread}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
       {state !== "signed-out" && (
         // 2026-09-02, live-testing feedback (video + 2 screenshots): compose
         // bar was drifting down the page instead of staying put -- now
@@ -7725,6 +7750,7 @@ export default function ChatWindowPage() {
           }}
           myUserId={myUserId}
           onChanged={() => setGroupReloadKey((k) => k + 1)}
+          onOpenShared={() => { setGroupOpen(false); setSharedOpen(true); }}
           onClose={() => setGroupOpen(false)}
         />
       )}
