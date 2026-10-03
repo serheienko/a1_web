@@ -9,10 +9,22 @@ import type { Metadata } from "next";
 import { T } from "@/components/t";
 import { GameMap } from "./game-map";
 
+// 03.10.2026 (Александр): у посиланні (Telegram тощо) -- картинка самої
+// карти, а не загальна картка сайту. public/game-map/og.jpg, 1200x630.
+const OG = { url: "/game-map/og.jpg", width: 1200, height: 630, alt: "Карта всесвіту A1" };
+
 export const metadata: Metadata = {
-  title: "Карта A1 | A1 Jobs",
-  description: "Ігрова карта A1.",
+  title: "Карта всесвіту A1 | A1 Jobs",
+  description: "Ігрова карта A1: міста, будиночки й вакансії. Подивіться, хто наймає поруч.",
   robots: { index: false, follow: false },
+  openGraph: {
+    title: "Карта всесвіту A1",
+    description: "Ігрова карта A1: міста, будиночки й вакансії. Подивіться, хто наймає поруч.",
+    url: "/game-map",
+    type: "website",
+    images: [OG],
+  },
+  twitter: { card: "summary_large_image", title: "Карта всесвіту A1", images: [OG.url] },
 };
 
 export default function GameMapPage() {

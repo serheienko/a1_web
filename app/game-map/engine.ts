@@ -201,12 +201,12 @@ export function mountGameMap(root, opts) {
       </div>
       <div class="gm-right">
         <button class="gm-btn gm-music" type="button" aria-pressed="false"><span class="gm-eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span></button>
-        <button class="gm-btn gm-info" type="button" aria-haspopup="dialog" aria-expanded="false">i</button>
+        <button class="gm-btn gm-info" type="button" aria-haspopup="dialog" aria-expanded="false"><span class="gm-ii">i</span></button>
         <button class="gm-btn gm-theme" type="button"></button>
         <button class="gm-btn gm-fs" type="button"></button>
       </div>
     </div>
-    <div class="gm-zoom"><button class="gm-btn" data-z="in" type="button">+</button><button class="gm-btn" data-z="out" type="button">−</button></div>
+    <div class="gm-zoom"><button class="gm-btn" data-z="in" type="button"><span class="gm-zi">+</span></button><button class="gm-btn" data-z="out" type="button"><span class="gm-zi">−</span></button></div>
     <div class="gm-guide"><img alt="" class="gm-mascot"><div class="gm-say"></div></div>
     <div class="gm-pop" role="dialog" aria-live="polite"></div>
     <div class="gm-gl" role="dialog"></div>
@@ -629,7 +629,7 @@ export function mountGameMap(root, opts) {
     // поки карту не рухають, вона не коштує нічого.
     const decs = [];
     for (const d of geo.decor) {
-      const [k, dx, dy, sc] = d; if (d.hide || /ship|whale|fish/.test(k)) continue;
+      const [k, dx, dy, sc] = d; if (d.hide || /ship|whale|fish|llama/.test(k)) continue;
       const sx = dx * view.s + view.x, sy = dy * view.s + view.y;
       if (sx < -80 || sy < -80 || sx > W + 80 || sy > H + 120) continue;
       decs.push(d);
@@ -682,7 +682,7 @@ export function mountGameMap(root, opts) {
     // декор (по y, чтобы ближние перекрывали дальние)
     const items = [];
     for (const d of geo.decor) {
-      const [k, x, y, sc] = d; if (d.hide || !/ship|whale|fish/.test(k) || !onScreen(x, y)) continue;
+      const [k, x, y, sc] = d; if (d.hide || !/ship|whale|fish|llama/.test(k) || !onScreen(x, y)) continue;
       const big = k.startsWith('mountain'); const sea = /ship|whale|fish|lighthouse/.test(k);
       const ds = (big ? Math.max(0.6, dens) : Math.max(0.4, dens)) * Math.min(1, Math.max(geo.k, 60) / 100);
       const w = (big ? 80 : sea ? 40 : decorW(k)) * sc * ds;
@@ -690,6 +690,19 @@ export function mountGameMap(root, opts) {
         let yy = y, xx = x, a = 1;
         if (!reduce && sea && !k.startsWith('lighthouse')) { yy += Math.sin(t * 1.3 + x) * 1.6; xx += Math.sin(t * 0.07 + y) * 18; }
         if (!reduce && k.startsWith('whale')) a = Math.max(0, Math.sin(t * 0.25 + x * 0.01)) ** 0.6;
+        // 03.10.2026 (Александр: «мінімально оживити лам»). Лама поволі
+        // ходить туди-сюди на пів свого зросту, на краях стоїть і «пасеться»
+        // й розвертається; на ходу ледь кивує. Своя фаза в кожної.
+        if (k === 'llama') {
+          if (reduce) { drawSprite(k, xx, yy, w); return; }
+          const ph = (x * 0.37 + y * 0.61) % 6.283, u = Math.sin(t * 0.13 + ph), m = Math.max(-1, Math.min(1, u * 1.7));
+          xx += m * w * 0.45;
+          if (Math.abs(m) < 1) yy -= Math.abs(Math.sin(t * 5 + ph)) * w * 0.035;
+          // спрайт дивиться ліворуч: ідемо праворуч -- віддзеркалюємо
+          const right = Math.cos(t * 0.13 + ph) > 0;
+          if (right) { ctx.save(); ctx.translate(xx, 0); ctx.scale(-1, 1); ctx.translate(-xx, 0); drawSprite(k, xx, yy, w); ctx.restore(); } else drawSprite(k, xx, yy, w);
+          return;
+        }
         if (a > 0.02) drawSprite(k, xx, yy, w, a);
       } });
     }
@@ -1253,6 +1266,17 @@ export const GAME_MAP_CSS = `
 .gm2 .gm-music.on .gm-eq i:nth-child(2){animation-duration:.8s;animation-delay:-.3s}.gm2 .gm-music.on .gm-eq i:nth-child(3){animation-duration:1.3s;animation-delay:-.6s}.gm2 .gm-music.on .gm-eq i:nth-child(4){animation-duration:.95s;animation-delay:-.15s}
 @keyframes gm-eq{0%{height:4px}100%{height:15px}}
 @media (prefers-reduced-motion:reduce){.gm2 .gm-music.on .gm-eq i{animation:none}}
+/* 03.10.2026 (Александр): анімація при наведенні на «+», «−» і «i». */
+.gm2 .gm-zi,.gm2 .gm-ii{display:inline-block;transition:transform .38s cubic-bezier(.3,1.6,.5,1)}
+@media (hover:hover){
+.gm2 .gm-zoom .gm-btn:hover,.gm2 .gm-info:hover{background:#fffaf0;color:#a8571f}
+.gm2.gm-dark .gm-zoom .gm-btn:hover,.gm2.gm-dark .gm-info:hover{background:rgba(30,44,68,.95);color:#9db0f0}
+.gm2 [data-z="in"]:hover .gm-zi{transform:rotate(90deg) scale(1.15)}
+.gm2 [data-z="out"]:hover .gm-zi{transform:scaleX(1.4)}
+.gm2 .gm-info:hover .gm-ii{animation:gm-ii .55s cubic-bezier(.3,1.4,.5,1)}
+}
+@keyframes gm-ii{0%{transform:translateY(0)}35%{transform:translateY(-3px) rotate(-10deg) scale(1.15)}65%{transform:translateY(0) rotate(6deg) scale(1.05)}100%{transform:none}}
+@media (prefers-reduced-motion:reduce){.gm2 .gm-zi,.gm2 .gm-ii{transition:none;animation:none!important}}
 .gm2 .gm-music.on{color:#a8571f}.gm2.gm-dark .gm-music.on{color:#9db0f0}
 .gm2 .gm-info{font:italic 700 18px Georgia,'Times New Roman',serif}
 .gm2 .gm-gl{position:absolute;top:56px;right:12px;width:min(300px,86vw);background:#fbf5e6;border:1px solid #c99a52;border-radius:16px;box-shadow:0 14px 34px rgba(40,25,5,.32);padding:12px 14px 6px;z-index:5;color:#4a3518;font:13px/1.4 system-ui;opacity:0;visibility:hidden;transform:translateY(-6px);transition:opacity .16s ease,transform .16s ease,visibility .16s}
