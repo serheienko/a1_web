@@ -49,6 +49,12 @@ const nextConfig: NextConfig = {
         source: `/${dir}/:path*`,
         headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=2592000" }],
       })),
+      // 03.10.2026: файли гри A1 RUN (Unity WebGL, ~35 МБ) -- браузер тримає тиждень.
+      // Лише /game/play/*, а не сторінку /game.
+      {
+        source: "/game/play/:path*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=2592000" }],
+      },
       // Лише файли карти, НЕ саму сторінку /game-map і не /game-map/data
       // (":path*" ловить і порожній шлях -- сторінка застрягла б у кеші).
       ...["/game-map/v2/:path+", "/game-map/:file(.+\\.webp)"].map((source) => ({
