@@ -13,6 +13,8 @@
 //
 // Без фреймворка: mountGameMap(root, opts) возвращает функцию очистки.
 
+import { getMapMusic } from './music';
+
 export type MapCompany = {
   id: string;
   name: string;
@@ -146,6 +148,13 @@ function esc(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&am
 // geo.json число треба збільшити, інакше люди бачитимуть стару.
 const GEO_VERSION = 5;
 
+// 03.10.2026 (Александр): фонова музика карти, кнопка-еквалайзер (./music.ts).
+const MUSIC_STR = {
+  uk: ['Увімкнути музику', 'Вимкнути музику'], ru: ['Включить музыку', 'Выключить музыку'], en: ['Turn music on', 'Turn music off'],
+  de: ['Musik einschalten', 'Musik ausschalten'], es: ['Activar música', 'Desactivar música'], fr: ['Activer la musique', 'Couper la musique'],
+  pl: ['Włącz muzykę', 'Wyłącz muzykę'], ptBR: ['Ligar a música', 'Desligar a música'], zh: ['打开音乐', '关闭音乐'],
+};
+
 export function mountGameMap(root, opts) {
   const base = opts.base || '/game-map/v2';
   const companiesIn = opts.companies || [];
@@ -191,6 +200,7 @@ export function mountGameMap(root, opts) {
         <div class="gm-regw"><button class="gm-btn gm-reg" type="button" aria-haspopup="listbox" aria-expanded="false"><span class="gm-regl"></span><svg class="gm-chev" viewBox="0 0 12 8" width="11" height="7" aria-hidden="true"><path d="M1 1l5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button><div class="gm-regp" role="listbox"></div></div>
       </div>
       <div class="gm-right">
+        <button class="gm-btn gm-music" type="button" aria-pressed="false"><span class="gm-eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span></button>
         <button class="gm-btn gm-info" type="button" aria-haspopup="dialog" aria-expanded="false">i</button>
         <button class="gm-btn gm-theme" type="button"></button>
         <button class="gm-btn gm-fs" type="button"></button>
@@ -221,6 +231,15 @@ export function mountGameMap(root, opts) {
   const qIn = root.querySelector('.gm-q');
   const sug = root.querySelector('.gm-sug');
   const fsBtn = root.querySelector('.gm-fs');
+  // Музика -- спільний програвач сторінки: переживає перемонтування карти
+  // при зміні регіону. Тут лише кнопка.
+  const music = getMapMusic();
+  const musicBtn = root.querySelector('.gm-music');
+  function musicLabel() {
+    const m = MUSIC_STR[lang] || MUSIC_STR.en; const t = m[music.playing ? 1 : 0];
+    musicBtn.classList.toggle('on', music.playing); musicBtn.setAttribute('aria-pressed', music.playing ? 'true' : 'false');
+    musicBtn.setAttribute('aria-label', t); musicBtn.title = t;
+  }
   const regBtn = root.querySelector('.gm-reg');
   const regP = root.querySelector('.gm-regp');
   const REG_KEY = { ua: 'rUa', eu: 'rEu', us: 'rUs', latam: 'rLatam' };
@@ -264,7 +283,7 @@ export function mountGameMap(root, opts) {
     sayEl.textContent = tr(TIPS[tipI]); renderGl();
     const lt = root.querySelector('.gm-ltx'); if (lt) lt.textContent = tr('load');
     setFsBtn(root.classList.contains('gm-full'));
-    themeLabel();
+    themeLabel(); musicLabel();
     for (const g of cityGroups) g.label = cityName(g.name, lang);
     baseCache = null;
     if (popFor) { const c = popFor; popFor = null; showPopup(c); }
@@ -946,6 +965,13 @@ export function mountGameMap(root, opts) {
   }
   const pts = new Map(); let drag = null, pinch = null, moved = 0;
   const on = (el, ev, fn, o) => { el.addEventListener(ev, fn, o); cleanup.push(() => el.removeEventListener(ev, fn, o)); };
+  cleanup.push(music.subscribe(() => musicLabel()));
+  // Людина лишила музику ввімкненою минулого разу -- вмикаємо від першого
+  // дотику до карти (браузер не дає грати без жесту). pointerdown -- для
+  // миші, pointerup -- для пальця (так рахують жест браузери).
+  const wake = (e) => { if (!e.target.closest('.gm-music')) music.autoResume(); };
+  on(root, 'pointerdown', (e) => { if (e.pointerType === 'mouse') wake(e); }, true);
+  on(root, 'pointerup', (e) => { if (e.pointerType !== 'mouse') wake(e); }, true);
   on(cv, 'pointerdown', (e) => { cv.setPointerCapture(e.pointerId); pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); moved = 0;
     if (pts.size === 1) drag = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y }; else { drag = null; const a = [...pts.values()]; pinch = { d: Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y), s: view.s }; } });
   on(cv, 'pointermove', (e) => {
@@ -980,6 +1006,7 @@ export function mountGameMap(root, opts) {
   on(pop, 'pointerleave', (e) => { if (e.pointerType === 'mouse' && !pinned && e.relatedTarget !== cv) { hover = null; showPopup(null); } });
   on(cv, 'wheel', (e) => { e.preventDefault(); const r = cv.getBoundingClientRect(); zoomAt(e.clientX - r.left, e.clientY - r.top, view.s * Math.exp(-e.deltaY * 0.0016)); }, { passive: false });
   on(root, 'click', (e) => {
+    if (e.target.closest('.gm-music')) { music.toggle(); return; }
     if (e.target.closest('.gm-info')) { openGl(!glP.classList.contains('on')); return; }
     if (glP.classList.contains('on') && !e.target.closest('.gm-gl')) openGl(false);
     const z = e.target.closest('[data-z]'); if (z) { flyTo(W / 2, H / 2, view.s * (z.dataset.z === 'in' ? 1.6 : 1 / 1.6)); return; }
@@ -1209,7 +1236,16 @@ export const GAME_MAP_CSS = `
 .gm2 .gm-btn{transition:transform .18s ease,box-shadow .18s ease,background-color .18s ease,color .18s ease}
 .gm2 .gm-btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(0,0,0,.22)}
 .gm2 .gm-btn:active{transform:translateY(0) scale(.96)}
-.gm2 .gm-fs,.gm2 .gm-theme,.gm2 .gm-info{display:grid;place-items:center;padding:0;width:38px}
+.gm2 .gm-fs,.gm2 .gm-theme,.gm2 .gm-info,.gm2 .gm-music{display:grid;place-items:center;padding:0;width:38px}
+.gm2 .gm-eq{display:flex;align-items:flex-end;gap:2.5px;height:16px}
+.gm2 .gm-eq i{display:block;width:3px;border-radius:2px;background:currentColor;opacity:.55;transition:opacity .2s ease,height .3s ease}
+.gm2 .gm-eq i:nth-child(1){height:6px}.gm2 .gm-eq i:nth-child(2){height:11px}.gm2 .gm-eq i:nth-child(3){height:8px}.gm2 .gm-eq i:nth-child(4){height:13px}
+.gm2 .gm-music:hover .gm-eq i{opacity:.85}
+.gm2 .gm-music.on .gm-eq i{opacity:1;animation:gm-eq 1.1s ease-in-out infinite alternate}
+.gm2 .gm-music.on .gm-eq i:nth-child(2){animation-duration:.8s;animation-delay:-.3s}.gm2 .gm-music.on .gm-eq i:nth-child(3){animation-duration:1.3s;animation-delay:-.6s}.gm2 .gm-music.on .gm-eq i:nth-child(4){animation-duration:.95s;animation-delay:-.15s}
+@keyframes gm-eq{0%{height:4px}100%{height:15px}}
+@media (prefers-reduced-motion:reduce){.gm2 .gm-music.on .gm-eq i{animation:none}}
+.gm2 .gm-music.on{color:#a8571f}.gm2.gm-dark .gm-music.on{color:#9db0f0}
 .gm2 .gm-info{font:italic 700 18px Georgia,'Times New Roman',serif}
 .gm2 .gm-gl{position:absolute;top:56px;right:12px;width:min(300px,86vw);background:#fbf5e6;border:1px solid #c99a52;border-radius:16px;box-shadow:0 14px 34px rgba(40,25,5,.32);padding:12px 14px 6px;z-index:5;color:#4a3518;font:13px/1.4 system-ui;opacity:0;visibility:hidden;transform:translateY(-6px);transition:opacity .16s ease,transform .16s ease,visibility .16s}
 .gm2 .gm-gl.on{opacity:1;visibility:visible;transform:none}

@@ -16,6 +16,7 @@ import { useEffect, useRef, useState } from "react";
 import { useActiveLocale } from "@/lib/use-active-locale";
 import { GAME_MAP_CSS, mountGameMap, type MapCompany } from "./engine";
 import { MapLoader } from "./map-loader";
+import { disposeMapMusic } from "./music";
 
 type MapHandle = (() => void) & { setLang?: (lang: string) => void; setTheme?: (theme: string) => void };
 type Region = "ua" | "eu" | "us" | "latam";
@@ -90,6 +91,10 @@ export function GameMap() {
   useEffect(() => {
     setRegion(defaultRegion());
   }, []);
+
+  // Музика карти живе, поки відкрита сторінка карти (зміна регіону її не
+  // обриває); пішли зі сторінки -- гасимо й запам'ятовуємо місце.
+  useEffect(() => () => disposeMapMusic(), []);
 
   useEffect(() => {
     if (!region) return;
