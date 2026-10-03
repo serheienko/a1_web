@@ -1131,10 +1131,23 @@ export function mountGameMap(root, opts) {
     if (!pts.has(e.pointerId)) { if (e.pointerType === 'mouse' && !pinned) { const c = hit(e.clientX - r.left, e.clientY - r.top); if (c !== hover) { hover = c; showPopup(c); } cv.style.cursor = c ? 'pointer' : 'grab'; } return; }
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); const a = [...pts.values()];
     if (a.length >= 2 && pinch) { const d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); zoomAt((a[0].x + a[1].x) / 2 - r.left, (a[0].y + a[1].y) / 2 - r.top, pinch.s * d / pinch.d); moved = 99; }
-    else if (drag) { const dx = e.clientX - drag.x, dy = e.clientY - drag.y; moved = Math.max(moved, Math.abs(dx) + Math.abs(dy)); view.x = drag.vx + dx; view.y = drag.vy + dy; clamp(); }
+    else if (drag) { const dx = e.clientX - drag.x, dy = e.clientY - drag.y; moved = Math.max(moved, Math.abs(dx) + Math.abs(dy)); view.x = drag.vx + dx; view.y = drag.vy + dy; clamp();
+      // 03.10.2026 (Александр): тягнемо карту -- лапка «стискається»
+      if (moved > 3 && e.pointerType === 'mouse' && cv.style.cursor !== 'grabbing') cv.style.cursor = 'grabbing'; }
   });
+  let tapT = 0;
   const up = (e) => { const tap = moved < 6 && pts.size === 1; pts.delete(e.pointerId); if (pts.size < 2) pinch = null; drag = null;
-    if (tap) { const r = cv.getBoundingClientRect(); const c = hit(e.clientX - r.left, e.clientY - r.top); pinned = c; hover = c; showPopup(c); if (!c) tapCountry(e.clientX - r.left, e.clientY - r.top); } };
+    const r = cv.getBoundingClientRect();
+    if (e.pointerType === 'mouse') { const c = hit(e.clientX - r.left, e.clientY - r.top); cv.style.cursor = c ? 'pointer' : 'grab'; }
+    if (tap) { const c = hit(e.clientX - r.left, e.clientY - r.top); pinned = c; hover = c; showPopup(c);
+      // клік по сусідній країні чекає мить: якщо це подвійний клік (зум),
+      // країну не перемикаємо
+      if (!c) { const sx = e.clientX - r.left, sy = e.clientY - r.top; clearTimeout(tapT); tapT = setTimeout(() => { if (!destroyed) tapCountry(sx, sy); }, e.pointerType === 'mouse' ? 280 : 0); } } };
+  // 03.10.2026 (Александр): подвійний клік (миша, тачпад) -- один крок
+  // наближення до точки під курсором, як кнопка «+».
+  on(cv, 'dblclick', (e) => { e.preventDefault(); clearTimeout(tapT); const r = cv.getBoundingClientRect(); flyTo(e.clientX - r.left, e.clientY - r.top, view.s * 1.6); });
+  on(cv, 'mousedown', (e) => { if (e.detail > 1) e.preventDefault(); });
+  cleanup.push(() => clearTimeout(tapT));
   // 02.10.2026 (Александр: «відкотився, клацаю по Польщі -- і нічого»).
   // Клік по сусідній країні, де є вакансії, -- переходимо до неї (з
   // України -- на карту Європи, одразу на цю країну).
