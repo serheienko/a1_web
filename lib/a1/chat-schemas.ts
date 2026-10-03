@@ -952,6 +952,23 @@ export type MessageMediaContact = z.infer<typeof MessageMediaContactSchema>;
 
 // Same "only the variant we actually send" convention as
 // messageDocumentMedia above.
+// Волна 4B: пост, которым поделились (media-post), -- в сообщении только его id.
+export function messagePostIds(msg: ChatMessage): string[] {
+  const out: string[] = [];
+  for (const item of msg.media) {
+    if (item && typeof item === "object") {
+      const o = item as { object?: unknown; post?: unknown };
+      if (o.object === "media-post" && typeof o.post === "string" && o.post) out.push(o.post);
+    }
+  }
+  return out;
+}
+
+/** Подпись под карточкой поста: текст без ссылки на пост и его id. */
+export function postCaption(text: string): string {
+  return text.replace(/\S*po_[A-Za-z0-9]+\S*/g, "").trim();
+}
+
 export function messageContactMedia(msg: ChatMessage): MessageMediaContact[] {
   const out: MessageMediaContact[] = [];
   for (const item of msg.media) {
@@ -1089,7 +1106,7 @@ export function extractMessageText(msg: ChatMessage): string {
 // actual localized label text is a CLIENT-side concern (this runs in
 // an API route, no locale to render into), same split every other
 // multi-locale string in this app already uses.
-export type MessagePreviewKind = "text" | "voice" | "photo" | "video" | "sticker" | "file" | "contact" | "calc" | "meeting";
+export type MessagePreviewKind = "text" | "voice" | "photo" | "video" | "sticker" | "file" | "contact" | "calc" | "meeting" | "post";
 
 export type MessagePreview = {
   kind: MessagePreviewKind;
@@ -1118,6 +1135,8 @@ export type MessagePreview = {
 export function describeMessagePreview(msg: ChatMessage): MessagePreview {
   const isForwarded = msg.forwardFrom?.object === "peer-user";
   const text = extractMessageText(msg);
+  // Волна 4B: пост, которым поделились, -- в списке «Допис» (+ подпись).
+  if (messagePostIds(msg).length > 0) return { kind: "post", text: postCaption(text), isForwarded };
   // 2026-09-04 follow-up (Aleksandr, live chat-list screenshot: a
   // meeting proposal/accept's raw "A1MEETINGv1::eyJ2Ijox..." marker+
   // base64 text showing as the preview line itself) -- Scheduled

@@ -1092,7 +1092,7 @@ export function PostViewerMenu({
                 type="button"
                 onClick={() => {
                   setOpen(false);
-                  setShareTarget({ kind: "post", title: shareTitle, url: shareUrl });
+                  setShareTarget({ kind: "post", title: shareTitle, url: shareUrl, postId });
                 }}
                 className="group flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 transition hover:bg-accent/10 hover:text-accent dark:text-neutral-300"
               >

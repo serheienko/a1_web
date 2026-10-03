@@ -189,7 +189,11 @@ const EXTRA = {
   "pl": "Wiadomość zapisana w Zapisane",
   "ptBR": "Mensagem salva em Mensagens salvas",
   "zh": "消息已保存到收藏夹"
- }
+ },
+ "sendNow": {"uk": "Надіслати зараз", "ru": "Отправить сейчас", "en": "Send Now", "de": "Jetzt senden", "es": "Enviar ahora", "fr": "Envoyer maintenant", "pl": "Wyślij teraz", "ptBR": "Enviar agora", "zh": "立即发送"},
+ "scheduleSend": {"uk": "Запланувати", "ru": "Запланировать", "en": "Schedule", "de": "Planen", "es": "Programar", "fr": "Programmer", "pl": "Zaplanuj", "ptBR": "Agendar", "zh": "定时发送"},
+ "deleteAction": {"uk": "Видалити", "ru": "Удалить", "en": "Delete", "de": "Löschen", "es": "Eliminar", "fr": "Supprimer", "pl": "Usuń", "ptBR": "Excluir", "zh": "删除"},
+ "cancelAction": {"uk": "Скасувати", "ru": "Отмена", "en": "Cancel", "de": "Abbrechen", "es": "Cancelar", "fr": "Annuler", "pl": "Anuluj", "ptBR": "Cancelar", "zh": "取消"}
 } as const;
 
 export type ExtraKey = keyof typeof EXTRA;

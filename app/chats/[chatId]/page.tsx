@@ -46,6 +46,8 @@ import {
   mediaDocumentThumbnail,
   messageCalculation,
   messageContactMedia,
+  messagePostIds,
+  postCaption,
   messageDateMs,
   messageDocumentMedia,
   messageTickState,
@@ -125,6 +127,9 @@ import { useActiveLocale } from "@/lib/use-active-locale";
 import { GroupInfoModal } from "@/components/chat/group-info-modal";
 import { ThreadStrip, ThreadRootCard, TopicsModal } from "@/components/chat/thread-parts";
 import { messageThread, topicTitle, threadText } from "@/lib/a1/group-threads";
+import { PostCard } from "@/components/chat/post-card";
+import { ScheduleModal, ScheduledListModal } from "@/components/chat/scheduled-ui";
+import type { ScheduledItem } from "@/app/api/chats/scheduled/route";
 import { LinkPreviewCard, previewUrlFor } from "@/components/chat/link-preview-card";
 import { SendOptionsMenu, DeletedPlaque, CollapsibleBody, SavedAvatar } from "@/components/chat/chat-extras-ui";
 import { extraText, isCollapsedFlags, isDeletedForAll, isLongForCollapse } from "@/lib/a1/chat-extras";
@@ -1215,6 +1220,21 @@ export default function ChatWindowPage() {
   const SWIPE_TRIGGER_DX = 56;
   const SWIPE_MAX_DX = 72;
   const [myUserId, setMyUserId] = useState<string | null>(null);
+  // Волна 4B: отложенные -- читаем при открытии и раз в 30 с (время приходит).
+  useEffect(() => {
+    if (!chatId) return;
+    let cancelled = false;
+    const run = () => {
+      if (cancelled || document.hidden) return;
+      void loadScheduledRef.current();
+    };
+    run();
+    const timer = window.setInterval(run, 30000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [chatId]);
   // Волна 4: чат с самим собой по «u_<мой id>» -- это «Збережене».
   useEffect(() => {
     if (myUserId && chatId === `u_${myUserId}`) setIsSavedChat(true);
@@ -1396,6 +1416,34 @@ export default function ChatWindowPage() {
   const [sendMenuRect, setSendMenuRect] = useState<DOMRect | null>(null);
   const sendPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sendLongPressed = useRef(false);
+  // Волна 4B: отложенные сообщения этого чата.
+  const loadScheduledRef = useRef<() => Promise<void>>(async () => undefined);
+  const [scheduledItems, setScheduledItems] = useState<ScheduledItem[]>([]);
+  const [scheduleDraft, setScheduleDraft] = useState<{ text: string; flags: number } | null>(null);
+  const [scheduledListOpen, setScheduledListOpen] = useState(false);
+  const [rescheduleItem, setRescheduleItem] = useState<ScheduledItem | null>(null);
+  const loadScheduled = () =>
+    authFetch(`/api/chats/scheduled?chat=${encodeURIComponent(chatId)}`)
+      .then((r) => r.json())
+      .then((d: { ok?: boolean; items?: ScheduledItem[] } | null) => {
+        if (d && d.ok && Array.isArray(d.items)) setScheduledItems(d.items);
+      })
+      .catch(() => undefined);
+  loadScheduledRef.current = loadScheduled;
+  const scheduledOp = async (op: "delete" | "sendNow", it: ScheduledItem) => {
+    setScheduledItems((cur) => cur.filter((x) => x.id !== it.id));
+    try {
+      await authFetch("/api/chats/scheduled", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ op, chatId, ids: [it.id] }),
+      });
+    } catch {
+      /* ниже перечитаем */
+    }
+    void loadScheduled();
+    if (op === "sendNow") window.setTimeout(() => load(), 800);
+  };
   const inFlight = useRef(false);
   // Attachment feature: pending compose-bar attachments (see
   // PendingAttachment's own comment above) plus the attach-menu open
@@ -3717,7 +3765,8 @@ export default function ChatWindowPage() {
             })),
           }
         : null;
-    const hasMedia = docs.length > 0 || contactsMedia.length > 0;
+    const sourcePosts = messagePostIds(source);
+    const hasMedia = docs.length > 0 || contactsMedia.length > 0 || sourcePosts.length > 0;
     // Pending-forward composer caption (Форвард 2.0, Phase 3) --
     // mirrors forward_multi_send.dart's _sendOne(): a typed caption
     // REPLACES this message's own text/entities in the SAME send call,
@@ -3729,7 +3778,7 @@ export default function ChatWindowPage() {
     // empty string, so this only ever engages for a genuinely non-
     // empty override.
     const text = hasMedia && captionOverride ? captionOverride : extractMessageText(source);
-    if (!originalAuthorId || (!text && docs.length === 0 && contactsMedia.length === 0 && !calculation)) {
+    if (!originalAuthorId || (!text && docs.length === 0 && contactsMedia.length === 0 && sourcePosts.length === 0 && !calculation)) {
       return false;
     }
     try {
@@ -3745,6 +3794,7 @@ export default function ChatWindowPage() {
               ? contactsMedia.map((c) => ({ userId: c.userId, phoneNumber: c.phoneNumber, firstName: c.firstName, lastName: c.lastName }))
               : undefined,
           calculation: calculation ?? undefined,
+          posts: sourcePosts.length > 0 ? sourcePosts : undefined,
           // Форвард 2.0, Phase 4 ("спрятать имя отправителя") --
           // omitting forwardFrom entirely sends this as a plain new
           // message with the same content instead of a real forward,
@@ -3872,7 +3922,7 @@ export default function ChatWindowPage() {
     }
     const lastDocs = messageDocumentMedia(last);
     const lastContacts = messageContactMedia(last);
-    const lastHasMedia = lastDocs.length > 0 || lastContacts.length > 0;
+    const lastHasMedia = lastDocs.length > 0 || lastContacts.length > 0 || messagePostIds(last).length > 0;
     // Форвард 2.0, Phase 4 -- ForwardPreviewMenu's own "Show/Hide
     // Sender's Name" rows toggle this flag on the SAME pendingForward
     // draft (see handleForwardShowSenderName/handleForwardHideSenderName
@@ -6132,6 +6182,7 @@ export default function ChatWindowPage() {
                                 />
                               );
                             })()}
+                            {!pending && messagePostIds(msg).map((pid) => <PostCard key={pid} postId={pid} mine={mine} lang={lang} />)}
                             <div
                               // 2026-09-05 follow-up (Aleksandr: "Отключи
                               // чтобы в веб версии, только веб, не моб -
@@ -6156,9 +6207,13 @@ export default function ChatWindowPage() {
                                   : (e) => setActionsMenu({ message: msg, anchorRect: e.currentTarget.getBoundingClientRect(), mine })
                               }
                             >
-                              <CollapsibleBody collapsed={isCollapsedFlags(msg.flags)} messageId={String(msg._id)} lang={lang as GroupLang}>
-                                <MessageRichText entities={richEntities} fallback={text} tone={mine ? "mine" : "theirs"} />
-                              </CollapsibleBody>
+                              {!pending && messagePostIds(msg).length > 0 ? (
+                                postCaption(text) || null
+                              ) : (
+                                <CollapsibleBody collapsed={isCollapsedFlags(msg.flags)} messageId={String(msg._id)} lang={lang as GroupLang}>
+                                  <MessageRichText entities={richEntities} fallback={text} tone={mine ? "mine" : "theirs"} />
+                                </CollapsibleBody>
+                              )}
                             </div>
                             {!hasMedia && !isDeletedForAll(msg.flags) && (() => {
                               const pu = previewUrlFor(text);
@@ -6498,6 +6553,22 @@ export default function ChatWindowPage() {
           className="fixed inset-x-0 bottom-0 z-20 border-t border-black/5 bg-[#f2f2f7]/90 px-4 py-3 backdrop-blur-md dark:border-white/10 dark:bg-black/80"
           style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
         >
+{scheduledItems.length > 0 && !selectionMode && !calcOpen && (
+  <div className="mx-auto mb-2 flex w-full max-w-[470px] justify-center">
+    <button
+      type="button"
+      data-testid="scheduled-chip"
+      onClick={() => setScheduledListOpen(true)}
+      className="flex items-center gap-1.5 rounded-full bg-black/5 px-3 py-1 text-[13px] font-medium text-[#335ef7] hover:bg-black/10 dark:bg-white/10 dark:text-[#0c8ce9]"
+    >
+      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3 2" />
+      </svg>
+      {extraText(lang as GroupLang, "scheduledMessagesTitle")} · {scheduledItems.length}
+    </button>
+  </div>
+)}
 {selectionMode ? (
   <SelectionBottomBar
     hasSelection={selectedMessageIds.size > 0}
@@ -7696,7 +7767,79 @@ export default function ChatWindowPage() {
           canCollapse={isLongForCollapse(draft)}
           onSilent={() => void send(undefined, undefined, 4)}
           onCollapsed={() => void send(undefined, undefined, 128)}
+          onSchedule={
+            !pendingForward && !editingMessage && draft.trim() && attachments.length === 0 && pendingContacts.length === 0
+              ? () => setScheduleDraft({ text: draft.trim(), flags: 0 })
+              : undefined
+          }
           onClose={() => setSendMenuRect(null)}
+        />
+      )}
+      {scheduleDraft && (
+        <ScheduleModal
+          lang={lang as GroupLang}
+          title={extraText(lang as GroupLang, "scheduleMessage")}
+          submitLabel={extraText(lang as GroupLang, "scheduleSend")}
+          onClose={() => setScheduleDraft(null)}
+          onSubmit={async (at) => {
+            const r = await authFetch("/api/chats/scheduled", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                op: "create",
+                chatId,
+                text: scheduleDraft.text,
+                at,
+                flags: scheduleDraft.flags,
+                replyTo: replyTarget && replyTarget.fromId ? { messageId: replyTarget._id, userId: replyTarget.fromId } : undefined,
+              }),
+            });
+            const d = (await r.json().catch(() => null)) as { ok?: boolean } | null;
+            if (!d?.ok) return false;
+            setDraft("");
+            setReplyTarget(null);
+            void loadScheduled();
+            return true;
+          }}
+        />
+      )}
+      {rescheduleItem && (
+        <ScheduleModal
+          lang={lang as GroupLang}
+          title={extraText(lang as GroupLang, "rescheduleMessage")}
+          submitLabel={extraText(lang as GroupLang, "scheduleSend")}
+          initialAtSec={rescheduleItem.at}
+          onClose={() => setRescheduleItem(null)}
+          onSubmit={async (at) => {
+            const it = rescheduleItem;
+            const r = await authFetch("/api/chats/scheduled", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ op: "create", chatId, text: it.text, at, flags: it.flags }),
+            });
+            const d = (await r.json().catch(() => null)) as { ok?: boolean } | null;
+            if (!d?.ok) return false;
+            await authFetch("/api/chats/scheduled", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ op: "delete", chatId, ids: [it.id] }),
+            }).catch(() => undefined);
+            void loadScheduled();
+            return true;
+          }}
+        />
+      )}
+      {scheduledListOpen && (
+        <ScheduledListModal
+          lang={lang as GroupLang}
+          items={scheduledItems}
+          onSendNow={(it) => void scheduledOp("sendNow", it)}
+          onDelete={(it) => void scheduledOp("delete", it)}
+          onReschedule={(it) => {
+            setScheduledListOpen(false);
+            setRescheduleItem(it);
+          }}
+          onClose={() => setScheduledListOpen(false)}
         />
       )}
       {dailyUploadsOpen && (

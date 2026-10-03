@@ -77,6 +77,9 @@ import { useCloseOnScroll } from "@/lib/use-close-on-scroll";
 import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
 import { useHoverPanel } from "@/lib/use-hover-panel";
 import { useActiveLocale } from "@/lib/use-active-locale";
+import { EditContactModal } from "@/components/edit-contact-modal";
+import { extraText } from "@/lib/a1/chat-extras";
+import type { GroupLang } from "@/lib/a1/group-chat";
 
 type StringKey =
   | "addContact"
@@ -337,6 +340,7 @@ export function ProfileActionRow({
   const lang = useActiveLocale();
   const [viewerStatus, setViewerStatus] = useState<"loading" | "self" | "other" | "anon" | "error">("loading");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [editContactOpen, setEditContactOpen] = useState(false);
   // 2026-09-02 (Aleksandr, live screenshot of the "•••" menu: "сделай
   // чтобы эта модалка тоже появлялась при наведении") -- same hover-
   // intent mechanics as components/avatar-menu.tsx / filters-form.tsx
@@ -946,6 +950,20 @@ export function ProfileActionRow({
                     не заглушки, за ними реальные методы API. */}
                 {!isAnon && (
                   <>
+                    {profileUserId && viewerStatus === "other" && (
+                      <button
+                        type="button"
+                        data-testid="menu-edit-contact"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          setEditContactOpen(true);
+                        }}
+                        className="group flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 transition hover:bg-accent/10 hover:text-accent dark:text-neutral-200"
+                      >
+                        <PersonAddIcon />
+                        {extraText(lang as GroupLang, "editContactTitle")}
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={toggleMute}
@@ -982,6 +1000,15 @@ export function ProfileActionRow({
       )}
     </div>
 
+    {editContactOpen && profileUserId && (
+      <EditContactModal
+        lang={lang as GroupLang}
+        userId={profileUserId}
+        fallbackName={shareTitle}
+        onSaved={() => setContactStatus("on")}
+        onClose={() => setEditContactOpen(false)}
+      />
+    )}
     {blockConfirmOpen &&
       createPortal(
         <div

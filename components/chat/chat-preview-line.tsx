@@ -33,7 +33,7 @@ import { ChatMicGlyph, ChatCalculatorAttachIcon, ChatMeetingAttachIcon, ChatCont
 import { ChatFileTypeIcon, fileKindFromName } from "./file-type-icon";
 import { ForwardIcon } from "./message-actions-menu";
 
-export type MessagePreviewKind = "text" | "voice" | "photo" | "video" | "sticker" | "file" | "contact" | "calc" | "meeting";
+export type MessagePreviewKind = "text" | "voice" | "photo" | "video" | "sticker" | "file" | "contact" | "calc" | "meeting" | "post";
 
 function PreviewLabel({ kind }: { kind: Exclude<MessagePreviewKind, "text" | "file"> }) {
   switch (kind) {
@@ -59,6 +59,8 @@ function PreviewLabel({ kind }: { kind: Exclude<MessagePreviewKind, "text" | "fi
           fr="Calcul" pl="Kalkulacja" ptBR="Cálculo" zh="计算"
         />
       );
+    case "post":
+      return <T uk="Допис" en="Post" ru="Пост" de="Beitrag" es="Publicación" fr="Publication" pl="Post" ptBR="Publicação" zh="帖子" />;
     case "meeting":
       // Same label either way (a proposal or its Accept echo) -- see
       // describeMessagePreview's own comment on why the list row

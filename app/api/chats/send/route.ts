@@ -171,12 +171,14 @@ const SendInput = z
     forwardFrom: z.object({ userId: z.string().trim().min(1) }).optional(),
     // Волна 4: «без звука» (1<<2) и «згорнуте» (1<<7) -- только эти биты.
     flags: z.number().int().min(0).optional(),
+    posts: z.array(z.string().trim().regex(/^po_[A-Za-z0-9]+$/)).max(5).optional(),
   })
   .refine(
     (v) =>
       (v.text && v.text.length > 0) ||
       (v.media && v.media.length > 0) ||
       (v.contacts && v.contacts.length > 0) ||
+      (v.posts && v.posts.length > 0) ||
       v.calculation !== undefined ||
       v.meet !== undefined,
     { message: "empty_message" },
@@ -187,7 +189,7 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ ok: false, message: "invalid_input" }, { status: 400 });
   }
-  const { chatId, text, media, contacts, calculation, meet, replyTo, forwardFrom, flags } = parsed.data;
+  const { chatId, text, media, contacts, calculation, meet, replyTo, forwardFrom, flags, posts } = parsed.data;
 
   try {
     // `message` and `media` are both optional on MessageInput (only
@@ -214,6 +216,9 @@ export async function POST(request: NextRequest) {
     }
     if (contacts && contacts.length > 0) {
       mediaItems.push(...contacts.map((c) => ({ ...c, object: "media-contact" })));
+    }
+    if (posts && posts.length > 0) {
+      mediaItems.push(...posts.map((post) => ({ object: "media-post", post })));
     }
     if (meet) {
       mediaItems.push(

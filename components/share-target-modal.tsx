@@ -59,6 +59,8 @@ export type ShareTarget =
       kind: "post";
       title: string;
       url: string;
+      /** id поста (po_...): с ним в чат уходит карточка, а не только ссылка. */
+      postId?: string;
     };
 
 type LoadState = "loading" | "signed-out" | "error" | "ready";
@@ -250,6 +252,13 @@ export function ShareTargetModal({
 
     if (target.kind === "post") {
       try {
+        // Как в приложении: ссылка остаётся текстом (старые версии покажут
+        // её ссылкой), а новые рисуют карточку по media-post. id в ссылке
+        // нужен, чтобы приложение убрало её из подписи под карточкой.
+        if (target.postId) {
+          const link = `${target.url}${target.url.includes("?") ? "&" : "?"}p=${target.postId}`;
+          return (await post({ text: `${target.title}\n${link}`, posts: [target.postId] })) ? "sent" : "failed";
+        }
         return (await post({ text: `${target.title}\n${target.url}` })) ? "sent" : "failed";
       } catch {
         return "failed";

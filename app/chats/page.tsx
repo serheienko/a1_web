@@ -117,7 +117,7 @@ type ChatListItem = {
   // "text" (the real message text) or "file" (the real filename);
   // every other kind renders a localized label instead, sourced purely
   // from `previewKind`.
-  previewKind: "text" | "voice" | "photo" | "video" | "sticker" | "file" | "contact" | "calc" | "meeting";
+  previewKind: "text" | "voice" | "photo" | "video" | "sticker" | "file" | "contact" | "calc" | "meeting" | "post";
   previewPhotoUrl: string | null;
   // Fix Tracker (order 78) -- small static preview for a "sticker"-kind
   // last message, see chat-preview-line.tsx's own comment.
