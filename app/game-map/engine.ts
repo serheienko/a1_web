@@ -101,7 +101,8 @@ function cityName(key, lang) {
   const e = CITY[key]; if (!e) return key;
   return lang === 'uk' ? e[0] : lang === 'ru' ? e[1] : lang === 'zh' ? e[2] : key;
 }
-const A2 = { FIN: 'FI', NOR: 'NO', EST: 'EE', NLD: 'NL', BEL: 'BE', LUX: 'LU', FRA: 'FR', ESP: 'ES', PRT: 'PT', GBR: 'GB', IRL: 'IE', ISL: 'IS', CHE: 'CH', CYP: 'CY', MLT: 'MT', MAR: 'MA', DZA: 'DZ', TUN: 'TN', LBY: 'LY', EGY: 'EG', SYR: 'SY', IRQ: 'IQ', KAZ: 'KZ', LBN: 'LB', ISR: 'IL', JOR: 'JO', SAU: 'SA', USA: 'US', CAN: 'CA', MEX: 'MX', CUB: 'CU', BHS: 'BS', GTM: 'GT', HND: 'HN', BLZ: 'BZ', SLV: 'SV', NIC: 'NI', HTI: 'HT', DOM: 'DO', JAM: 'JM', UKR: 'UA', BLR: 'BY', LTU: 'LT', RUS: 'RU', CZE: 'CZ', DEU: 'DE', LVA: 'LV', SWE: 'SE', GEO: 'GE', MKD: 'MK', ALB: 'AL', AZE: 'AZ', SRB: 'RS', TUR: 'TR', ARM: 'AM', DNK: 'DK', ROU: 'RO', HUN: 'HU', SVK: 'SK', POL: 'PL', GRC: 'GR', AUT: 'AT', ITA: 'IT', IRN: 'IR', HRV: 'HR', SVN: 'SI', BGR: 'BG', MNE: 'ME', BIH: 'BA', MDA: 'MD', AND: 'AD', IMN: 'IM', FRO: 'FO', ALD: 'AX' };
+// 03.10.2026: + Південна Америка й Кариби (назви країн на карті мовою сайту).
+const A2 = { CHL: 'CL', BOL: 'BO', PER: 'PE', ARG: 'AR', SUR: 'SR', GUY: 'GY', CRI: 'CR', BRA: 'BR', URY: 'UY', ECU: 'EC', COL: 'CO', PRY: 'PY', PAN: 'PA', VEN: 'VE', CUW: 'CW', TTO: 'TT', BRB: 'BB', LCA: 'LC', DMA: 'DM', PRI: 'PR', SGS: 'GS', FLK: 'FK', PSX: 'PS', FIN: 'FI', NOR: 'NO', EST: 'EE', NLD: 'NL', BEL: 'BE', LUX: 'LU', FRA: 'FR', ESP: 'ES', PRT: 'PT', GBR: 'GB', IRL: 'IE', ISL: 'IS', CHE: 'CH', CYP: 'CY', MLT: 'MT', MAR: 'MA', DZA: 'DZ', TUN: 'TN', LBY: 'LY', EGY: 'EG', SYR: 'SY', IRQ: 'IQ', KAZ: 'KZ', LBN: 'LB', ISR: 'IL', JOR: 'JO', SAU: 'SA', USA: 'US', CAN: 'CA', MEX: 'MX', CUB: 'CU', BHS: 'BS', GTM: 'GT', HND: 'HN', BLZ: 'BZ', SLV: 'SV', NIC: 'NI', HTI: 'HT', DOM: 'DO', JAM: 'JM', UKR: 'UA', BLR: 'BY', LTU: 'LT', RUS: 'RU', CZE: 'CZ', DEU: 'DE', LVA: 'LV', SWE: 'SE', GEO: 'GE', MKD: 'MK', ALB: 'AL', AZE: 'AZ', SRB: 'RS', TUR: 'TR', ARM: 'AM', DNK: 'DK', ROU: 'RO', HUN: 'HU', SVK: 'SK', POL: 'PL', GRC: 'GR', AUT: 'AT', ITA: 'IT', IRN: 'IR', HRV: 'HR', SVN: 'SI', BGR: 'BG', MNE: 'ME', BIH: 'BA', MDA: 'MD', AND: 'AD', IMN: 'IM', FRO: 'FO', ALD: 'AX' };
 // 02.10.2026 (Александр): список регіонів -- дропдаун під кнопкою:
 // зверху загальні регіони, нижче всі країни, де в нас є вакансії.
 const REG_H = {
@@ -441,10 +442,10 @@ export function mountGameMap(root, opts) {
     for (const e of meta.f) {
       const fc = flagCanvas(c, e); if (!fc) continue;
       const fx = bx + e[1] * sc, fy = by + e[2] * sc, fw = e[3] * sc, fh = e[4] * sc;
-      const slices = 10, amp = reduce ? 0 : fh * 0.09;
+      const slices = 10, amp = reduce ? 0 : fh * 0.14;
       for (let i = 0; i < slices; i++) {
         const u0 = i / slices, sw = fc.width / slices;
-        const dy = Math.sin(t * 3.2 - u0 * 5 + c.h % 7) * amp * u0;
+        const dy = Math.sin(t * (3 + (c.h % 5) * 0.15) - u0 * 5 + c.h % 7) * amp * u0;
         ctx.drawImage(fc, i * sw, 0, sw + 0.6, fc.height, fx + u0 * fw, fy + dy, fw / slices + 0.3, fh);
       }
     }
@@ -719,6 +720,25 @@ export function mountGameMap(root, opts) {
       if (onScreen(x, y)) items.push({ y, draw: () => { ctx.save(); if ((p < 1) !== (wk.b[0] > wk.a[0])) { ctx.translate(x, 0); ctx.scale(-1, 1); ctx.translate(-x, 0); } drawSprite(wk.k, x, y, 16 * Math.max(0.4, dens)); ctx.restore(); } });
     }
     items.sort((a, b) => a.y - b.y).forEach((it) => it.draw());
+    // 03.10.2026 (Александр): уночі на маяках повільно крутиться промінь.
+    if (theme === 'dark' && !reduce) {
+      for (const d of geo.decor) {
+        const [k, x, y, sc] = d; if (d.hide || !k.startsWith('lighthouse') || !onScreen(x, y, 120)) continue;
+        const im = sprite(k); if (!im) continue;
+        const ds = Math.max(0.4, dens) * Math.min(1, Math.max(geo.k, 60) / 100);
+        const lw = 40 * sc * ds, lh = lw * im.height / im.width, lx = x, ly = y - lh * 0.8, L = lw * 2.6;
+        const a0 = t * 0.6 + x;
+        ctx.save(); ctx.globalCompositeOperation = 'lighter';
+        for (const off of [0, Math.PI]) {
+          const a = a0 + off, g = ctx.createRadialGradient(lx, ly, 0, lx, ly, L);
+          g.addColorStop(0, 'rgba(255,230,160,.55)'); g.addColorStop(1, 'rgba(255,220,140,0)');
+          ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(lx, ly); ctx.arc(lx, ly, L, a - 0.16, a + 0.16); ctx.closePath(); ctx.fill();
+        }
+        const hg = ctx.createRadialGradient(lx, ly, 0, lx, ly, lw * 0.35); hg.addColorStop(0, 'rgba(255,240,190,.9)'); hg.addColorStop(1, 'rgba(255,220,150,0)');
+        ctx.fillStyle = hg; ctx.fillRect(lx - lw * 0.35, ly - lw * 0.35, lw * 0.7, lw * 0.7);
+        ctx.restore();
+      }
+    }
     drawCityLabels();
     // птицы
     if (!reduce) {
@@ -751,8 +771,49 @@ export function mountGameMap(root, opts) {
       const fg = ctx.createRadialGradient(fx, fy, 0, fx, fy, 260); fg.addColorStop(0, `rgba(${P.fog},${theme === 'dark' ? .2 : .14})`); fg.addColorStop(1, `rgba(${P.fog},0)`);
       ctx.fillStyle = fg; ctx.fillRect(fx - 260, fy - 260, 520, 520);
     }
+    drawSeason(t);
     drawLabels();
     placePopup();
+  }
+
+  // 03.10.2026 (Александр): сезони, як на сторінці завантаження. Восени
+  // падає листя, взимку сніг, навесні пилок, улітку -- світлячки ввечері
+  // й легкі іскри вдень. Кілька десятків крапок поверх екрана.
+  const SEASON = (() => { const m = new Date().getMonth(); return m >= 2 && m <= 4 ? 'spring' : m >= 5 && m <= 7 ? 'summer' : m >= 8 && m <= 10 ? 'autumn' : 'winter'; })();
+  const LEAF = ['#d9822b', '#c0582a', '#e0b13a', '#b5652a', '#d4a02f'];
+  let parts = null;
+  function drawSeason(t) {
+    if (reduce) return;
+    if (!parts) {
+      const n = SEASON === 'winter' ? (coarse ? 40 : 70) : coarse ? 12 : 20;
+      parts = Array.from({ length: n }, (_, i) => ({ x: Math.random(), y: Math.random(), v: 0.5 + Math.random(), s: 0.6 + Math.random() * 0.8, ph: Math.random() * 6.28, c: LEAF[i % LEAF.length] }));
+    }
+    const dark = theme === 'dark';
+    ctx.save();
+    for (const p of parts) {
+      let x, y;
+      if (SEASON === 'autumn') {
+        y = ((p.y + t * 0.022 * p.v) % 1.1) - 0.05; x = ((p.x + t * 0.006 * p.v + Math.sin(t * 0.9 * p.v + p.ph) * 0.02) % 1 + 1) % 1;
+        const px = x * W, py = y * H, sz = 6 * p.s, rot = t * 1.4 * p.v + p.ph;
+        ctx.globalAlpha = dark ? 0.55 : 0.8; ctx.fillStyle = p.c;
+        ctx.save(); ctx.translate(px, py); ctx.rotate(rot); ctx.scale(1, 0.45 + 0.4 * Math.abs(Math.sin(rot * 1.7)));
+        ctx.beginPath(); ctx.ellipse(0, 0, sz, sz * 0.55, 0, 0, 7); ctx.fill(); ctx.restore();
+      } else if (SEASON === 'winter') {
+        y = ((p.y + t * 0.03 * p.v) % 1.05) - 0.02; x = ((p.x + Math.sin(t * 0.6 * p.v + p.ph) * 0.015) % 1 + 1) % 1;
+        ctx.globalAlpha = (dark ? 0.6 : 0.85) * (0.5 + p.s * 0.4); ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(x * W, y * H, 1.3 + p.s * 1.4, 0, 7); ctx.fill();
+      } else {
+        // весна -- пилок угору; літо -- світлячки (вечір) або іскри (день)
+        y = 1.05 - ((p.y + t * 0.008 * p.v) % 1.1); x = ((p.x + Math.sin(t * 0.5 * p.v + p.ph) * 0.03) % 1 + 1) % 1;
+        const tw = 0.5 + 0.5 * Math.sin(t * 2.2 * p.v + p.ph);
+        const col = SEASON === 'summer' && dark ? '255,225,120' : SEASON === 'summer' ? '255,250,220' : '255,245,200';
+        const r = (SEASON === 'summer' && dark ? 6 : 4) * p.s;
+        const g = ctx.createRadialGradient(x * W, y * H, 0, x * W, y * H, r);
+        g.addColorStop(0, `rgba(${col},${(dark ? 0.75 : 0.6) * tw})`); g.addColorStop(1, `rgba(${col},0)`);
+        ctx.globalAlpha = 1; ctx.fillStyle = g; ctx.fillRect(x * W - r, y * H - r, r * 2, r * 2);
+      }
+    }
+    ctx.restore();
   }
 
   let cityGroups = [];
@@ -828,6 +889,27 @@ export function mountGameMap(root, opts) {
     const bx = c.x - w / 2, by = c.y + w * 0.04 - h;
     if (im) ctx.drawImage(im, bx, by, w, h);
     drawFlags(c, k, bx, by, w, t);
+    // 03.10.2026 (Александр: оживлення). Лише зблизька, щоб не рахувати
+    // зайвого: дим із труби в частини будинків і тепле світло вікон увечері.
+    if (!reduce && !far && w * view.s >= 26) {
+      const hs = c.h ?? hash(String(c.id));
+      if (theme === 'dark') {
+        const fl = 0.55 + 0.25 * Math.sin(t * (1.3 + (hs % 5) * 0.21) + hs) + 0.12 * Math.sin(t * 7.1 + hs * 3);
+        const gx = c.x, gy = by + h * 0.62, gr = w * 0.42;
+        const g = ctx.createRadialGradient(gx, gy, 0, gx, gy, gr);
+        g.addColorStop(0, `rgba(255,190,100,${0.45 * fl})`); g.addColorStop(1, 'rgba(255,170,80,0)');
+        ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g; ctx.fillRect(gx - gr, gy - gr, gr * 2, gr * 2); ctx.restore();
+      }
+      if (hs % 2 === 0) {
+        const sx0 = bx + w * (0.32 + (hs % 7) * 0.05), sy0 = by + h * 0.08;
+        for (let i = 0; i < 5; i++) {
+          const p = (t * 0.2 + i / 5 + (hs % 11) * 0.09) % 1;
+          const r = w * (0.035 + p * 0.07);
+          ctx.fillStyle = theme === 'dark' ? `rgba(205,210,225,${0.38 * (1 - p)})` : `rgba(206,200,192,${0.7 * (1 - p) * Math.min(1, p * 6)})`;
+          ctx.beginPath(); ctx.arc(sx0 + Math.sin(p * 4 + hs) * w * 0.04 + p * w * 0.1, sy0 - p * w * 0.32, r, 0, 7); ctx.fill();
+        }
+      }
+    }
     if (c.userId && allies.has(c.userId)) { const a = sprite('markers/ally'); if (a) { const aw = w * 0.3; ctx.drawImage(a, c.x + w * 0.22, by + h * 0.18, aw, aw * a.height / a.width); } }
     c._r = { x: c.x, y: c.y - h / 2, w, h };
     if (act || w * view.s >= 34) labelQ.push(c);
@@ -842,6 +924,7 @@ export function mountGameMap(root, opts) {
     ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.font = '700 11.5px system-ui, -apple-system, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     for (const c of labelQ) {
+      if (c === popFor && popCoversLabel) continue;
       const act = c === hover || c === pinned;
       const sx = c.x * view.s + view.x, sy = c.y * view.s + view.y + 9;
       const name = c.name.length > 22 ? c.name.slice(0, 21) + '…' : c.name;
@@ -859,6 +942,7 @@ export function mountGameMap(root, opts) {
 
   // ---------- карточка компании возле здания ----------
   let popFor = null;
+  let popCoversLabel = false;
   function popupHtml(c) {
     const jobs = (c.jobs || []).slice(0, 3).map((j) => `<a href="/jobs/${esc(j.slug)}">${esc(j.title)}</a>`).join('');
     const ava = c.avatar ? `<img src="${esc(c.avatar)}" alt="">` : `<span>${esc((c.name || '?').slice(0, 1))}</span>`;
@@ -939,11 +1023,17 @@ export function mountGameMap(root, opts) {
     const pw = pop.offsetWidth || 280, ph = pop.offsetHeight || 160;
     let left = Math.max(8, Math.min(W - pw - 8, sx - pw / 2));
     let y = top - ph - 10, below = false;
-    if (y < 8) { y = bot + 10; below = true; }
+    // 03.10.2026 (Александр): картка під будинком не закриває його назву --
+    // стаємо нижче плашки з назвою (вона на ~18 px під точкою компанії).
+    const labelBot = c.y * view.s + view.y + 18;
+    if (y < 8) { y = Math.max(bot, labelBot) + 8; below = true; }
     // 02.10.2026 (Александр): на телефоні знизу кнопки сайту (чат, «+») --
     // картку тримаємо вище, щоб «+» союзника натискався спокійно.
     const bottomPad = coarse ? 100 : 8;
     y = Math.max(8, Math.min(H - ph - bottomPad, y));
+    // Якщо місця не вистачило і картка все одно лягла на назву -- назву гасимо
+    // (вона й так є в картці).
+    popCoversLabel = y < labelBot && y + ph > labelBot - 18 && Math.abs(sx - (left + pw / 2)) < pw / 2 + 40;
     pop.style.transform = `translate(${Math.round(left)}px,${Math.round(y)}px)`;
     const ax = Math.max(16, Math.min(pw - 16, sx - left));
     pop.style.setProperty('--ax', `${ax}px`); pop.classList.toggle('below', below);
@@ -985,6 +1075,32 @@ export function mountGameMap(root, opts) {
   const pts = new Map(); let drag = null, pinch = null, moved = 0;
   const on = (el, ev, fn, o) => { el.addEventListener(ev, fn, o); cleanup.push(() => el.removeEventListener(ev, fn, o)); };
   cleanup.push(music.subscribe(() => musicLabel()));
+  // 03.10.2026 (Александр): на невисоких екранах кругла кнопка чатів сайту
+  // (position: fixed, поза картою) закривала «+»/«−». Піднімаємо їх рівно
+  // настільки, наскільки їх щось закриває; якщо нічого -- лишаються на місці.
+  const zoomEl = root.querySelector('.gm-zoom');
+  let zShift = 0, zRaf = 0;
+  function liftZoom() {
+    zRaf = 0;
+    if (!zoomEl || destroyed) return;
+    let need = 0;
+    const full = root.classList.contains('gm-full') || (document.fullscreenElement || document.webkitFullscreenElement) === root;
+    if (!full && getComputedStyle(zoomEl).display !== 'none') {
+      const zr = zoomEl.getBoundingClientRect(), top = zr.top + zShift, bottom = zr.bottom + zShift;
+      for (const e of document.querySelectorAll('body .fixed, body [style*="fixed"]')) {
+        if (root.contains(e) || e.contains(root)) continue;
+        const cs = getComputedStyle(e); if (cs.position !== 'fixed' || cs.visibility === 'hidden' || +cs.opacity < 0.05) continue;
+        const r = e.getBoundingClientRect(); if (!r.width || !r.height) continue;
+        if (r.left < zr.right && r.right > zr.left && r.top < bottom && r.bottom > top) need = Math.max(need, bottom - r.top + 10);
+      }
+    }
+    if (need !== zShift) { zShift = need; zoomEl.style.transform = need ? `translateY(${-need}px)` : ''; }
+  }
+  const queueLift = () => { if (!zRaf) zRaf = requestAnimationFrame(liftZoom); };
+  on(window, 'scroll', queueLift, { passive: true });
+  on(window, 'resize', queueLift);
+  const zTimer = setInterval(queueLift, 1500); cleanup.push(() => { clearInterval(zTimer); cancelAnimationFrame(zRaf); });
+  queueLift();
   // Людина лишила музику ввімкненою минулого разу -- вмикаємо від першого
   // дотику до карти (браузер не дає грати без жесту). pointerdown -- для
   // миші, pointerup -- для пальця (так рахують жест браузери).
@@ -1127,7 +1243,28 @@ export function mountGameMap(root, opts) {
     buildCityGroups();
     const cities = Object.values(geo.cities);
     const cats = ['cat-amber', 'cat-coral', 'cat-honey', 'cat-lilac', 'cat-peach', 'cat-rose', 'cat-sage', 'cat-teal'];
-    for (let i = 0; i < 6; i++) { const a = cities[(i * 5) % cities.length], b = cities[(i * 5 + 3) % cities.length]; walkers.push({ k: cats[i], a, b, v: 0.012 + i * 0.002, ph: i * 0.37 }); }
+    // 03.10.2026 (Александр: «коти не мають ходити по воді»). Пару міст
+    // беремо лише тоді, коли вся пряма між ними -- суша (без морів і озер;
+    // річки перетинати можна, там мости).
+    const dry = (x, y) => {
+      onLand(x, y); // ініціалізує uaRings
+      if (uaRings && uaRings.length) {
+        if (region === 'ua') { let n = 0; for (const r of uaRings) if (inRing(r, x, y)) n++; if (n % 2 !== 1) return false; }
+        else if (!uaRings.some((r) => inRing(r, x, y))) return false;
+      }
+      for (const r of geo.lakes) if (inRing(r, x, y)) return false;
+      return true;
+    };
+    const dryPath = (a, b) => { for (let k = 0; k <= 24; k++) { const u = k / 24; if (!dry(a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u)) return false; } return true; };
+    const used = new Set();
+    for (let tries = 0, i = 0; i < 6 && tries < 400 && cities.length > 1; tries++) {
+      const ai = (tries * 7 + 3) % cities.length, bi = (tries * 13 + 5) % cities.length;
+      if (ai === bi || used.has(ai + ':' + bi)) continue;
+      const a = cities[ai], b = cities[bi], d = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (d < 40 || d > geo.w * 0.45 || !dryPath(a, b)) continue;
+      used.add(ai + ':' + bi); used.add(bi + ':' + ai);
+      walkers.push({ k: cats[i], a, b, v: 0.012 + i * 0.002, ph: i * 0.37 }); i++;
+    }
     await setTheme(theme);
     const ld = root.querySelector('.gm-load'); if (ld) { ld.classList.add('done'); setTimeout(() => ld.remove(), 900); }
     resize();
@@ -1218,7 +1355,7 @@ export const GAME_MAP_CSS = `
 .gm2 .gm-btn{border:1px solid rgba(160,120,60,.35);background:rgba(251,245,230,.92);color:#5a4022;border-radius:999px;min-height:38px;min-width:38px;padding:0 14px;font:600 14px system-ui;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.18)}
 .gm2.gm-dark .gm-title,.gm2.gm-dark .gm-btn{background:rgba(18,28,44,.9);border-color:rgba(120,150,210,.35);color:#e9dfc4}
 .gm2.gm-dark .gm-count{color:#a9b6d8}
-.gm2 .gm-zoom{position:absolute;right:12px;bottom:12px;display:flex;flex-direction:column;gap:8px}
+.gm2 .gm-zoom{position:absolute;right:12px;bottom:12px;display:flex;flex-direction:column;gap:8px;transition:transform .25s ease}
 .gm2 .gm-zoom .gm-btn{width:42px;height:42px;padding:0;font-size:20px;border-radius:13px}
 /* 02.10.2026 (Александр): на телефоні масштаб -- пальцями; кнопки заважали кнопкам сайту */
 @media (hover:none) and (pointer:coarse){.gm2 .gm-zoom{display:none}}
