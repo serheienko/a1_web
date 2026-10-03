@@ -167,7 +167,17 @@ function SelectIcon({ className }: IconProps) {
 
 // 2026-09-16: экспортируется ради `rows` ниже -- меню комментария под
 // вакансией показывает тот же список, но короче (см. там же).
-export type ActionKey = "reply" | "copy" | "edit" | "remind" | "forward" | "pin" | "delete" | "select";
+function DiscussIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.3 8.7 8.7 0 0 1-3.6-.8L3 20l1.2-4.6A8.2 8.2 0 0 1 3.5 11.5 8.5 8.5 0 0 1 12 3a8.5 8.5 0 0 1 9 8.5Z" />
+      <path d="M8 10.5h8" />
+      <path d="M8 14h5" />
+    </svg>
+  );
+}
+
+export type ActionKey = "reply" | "discuss" | "copy" | "edit" | "remind" | "forward" | "pin" | "delete" | "select";
 
 type ActionRow = {
   key: ActionKey;
@@ -183,6 +193,15 @@ const ACTION_ROWS: ActionRow[] = [
     icon: ReplyIcon,
     group: "main",
     label: { uk: "Відповісти", en: "Reply", ru: "Ответить", de: "Antworten", es: "Responder", fr: "Répondre", pl: "Odpowiedz", ptBR: "Responder", zh: "回复" },
+  },
+  {
+    key: "discuss",
+    icon: DiscussIcon,
+    group: "main",
+    label: {
+      uk: "Обговорити окремо", en: "Discuss separately", ru: "Обсудить отдельно", de: "Separat besprechen", es: "Hablar por separado",
+      fr: "Discuter à part", pl: "Omów osobno", ptBR: "Discutir separadamente", zh: "单独讨论",
+    },
   },
   {
     key: "copy",
@@ -254,6 +273,7 @@ export function MessageActionsMenu({
   onSelect,
   onRemind,
   onPin,
+  onDiscuss,
   pinState,
   rows,
   hideReactions,
@@ -313,6 +333,9 @@ export function MessageActionsMenu({
   // (a caller with nothing sensible to do yet can omit it and the row
   // no-ops).
   onPin?: () => void;
+  // Волна 3 (темы, 2026-10-03): «Обговорити окремо» -- только в группе и не
+  // в самой теме; у остальных чатов проп не передаётся и строки нет.
+  onDiscuss?: () => void;
   // Which of the three labels/icons the "Pin" row shows. Omitted (or
   // "pin") is the plain placeholder default already in ACTION_ROWS
   // below; a real caller always passes one explicitly once it knows
@@ -454,6 +477,7 @@ export function MessageActionsMenu({
     if (key === "edit") return Boolean(onEdit);
     if (key === "remind") return Boolean(onRemind);
     if (key === "pin") return Boolean(onPin);
+    if (key === "discuss") return Boolean(onDiscuss);
     if (key === "select") return Boolean(onSelect);
     return true;
   }
@@ -468,6 +492,7 @@ export function MessageActionsMenu({
     if (key === "remind") onRemind?.();
     if (key === "forward") onForward?.();
     if (key === "pin") onPin?.();
+    if (key === "discuss") onDiscuss?.();
     if (key === "delete") onDelete();
     if (key === "select") onSelect?.();
     onClose();

@@ -109,6 +109,7 @@ import {
 } from "@/lib/a1/chat-schemas";
 import { resolveChatDisplay, pickChatAvatar } from "@/lib/a1/chat-mappers";
 import { CHAT_FLAG_THREAD, isGroupFlags, isServiceFlags } from "@/lib/a1/group-chat";
+import { unreadInChat } from "@/lib/a1/group-threads";
 import { parseUserProfile } from "@/lib/a1/schemas";
 import { buildMediaProxyUrl } from "@/lib/a1/mappers";
 import { strippedPreviewDataUrl } from "@/lib/a1/media-proxy";
@@ -271,7 +272,18 @@ export async function GET() {
 
     // Ветки обсуждений (THREAD) в общий список не попадают -- они
     // открываются только из своей группы (как в приложении).
-    const chats = extractChats(data).filter((c) => (c.flags & CHAT_FLAG_THREAD) === 0);
+    const allChats = extractChats(data);
+    const chats = allChats.filter((c) => (c.flags & CHAT_FLAG_THREAD) === 0);
+    // Волна 3: непрочитанные во всех темах группы прибавляются к счётчику
+    // самой группы в списке (как в приложении).
+    const threadUnreadByGroup = new Map<string, number>();
+    for (const c of allChats) {
+      if ((c.flags & CHAT_FLAG_THREAD) === 0) continue;
+      const th = (c as unknown as { thread?: { chat?: unknown } | null }).thread;
+      if (!th || typeof th.chat !== "string") continue;
+      const n = unreadInChat(c as unknown as { lastMessage?: unknown; participants?: unknown }, myUserId);
+      if (n > 0) threadUnreadByGroup.set(th.chat, (threadUnreadByGroup.get(th.chat) ?? 0) + n);
+    }
     // Two best-effort resolution passes, in parallel with each other --
     // see this file's own header comment. `users` merges chats.getChats'
     // own (always-empty-today) side array with whatever users.search
@@ -369,7 +381,7 @@ export async function GET() {
           previewMine,
           previewDateMs: resolvedMessage ? messageDateMs(resolvedMessage) : 0,
           previewTick,
-          unreadCount: chatUnreadCount(chat),
+          unreadCount: chatUnreadCount(chat) + (threadUnreadByGroup.get(chat._id) ?? 0),
           draftText: chatDraftText(chat),
           // Закреплённые чаты (волна 2): chats.setPinned, до 5 штук.
           pinned: typeof (chat as unknown as { pinnedAt?: unknown }).pinnedAt === "string" && !!(chat as unknown as { pinnedAt?: string }).pinnedAt,

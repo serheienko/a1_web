@@ -123,6 +123,8 @@ import { VoiceRecordButton, VoiceRecordingBar, VoiceMicDeniedNotice } from "@/co
 import { VoiceMessageBubble, PendingVoiceBubble } from "@/components/chat/voice-bubble";
 import { useActiveLocale } from "@/lib/use-active-locale";
 import { GroupInfoModal } from "@/components/chat/group-info-modal";
+import { ThreadStrip, ThreadRootCard, TopicsModal } from "@/components/chat/thread-parts";
+import { messageThread, topicTitle, threadText } from "@/lib/a1/group-threads";
 import { isServiceFlags, localizeGroupNote, membersCountText, groupText, type GroupLang } from "@/lib/a1/group-chat";
 import { peerNameColorIndex, peerNameColorVar } from "@/lib/peer-name-color";
 import type { GroupInfoResponse, GroupMember } from "@/app/api/chats/group-info/route";
@@ -810,7 +812,55 @@ export default function ChatWindowPage() {
     return memberById.get(id)?.name || groupText(lang as GroupLang, "groupUnknownUser");
   };
 
-  const headerTitle = groupInfo?.title || headerTitleParam || chatFallback?.title || "";
+  // Волна 3 (темы): чат может быть темой под сообщением группы. Тогда в
+  // шапке -- название темы (первая строка корня), а под ним -- группа.
+  const threadOf = groupInfo?.thread ?? null;
+  const groupTitleText = groupInfo?.title || "";
+  const [topicsOpen, setTopicsOpen] = useState(false);
+  const [threadToast, setThreadToast] = useState<string | null>(null);
+  const threadBriefByMsg = useMemo(() => {
+    const m = new Map<number, { chatId: string; unread: number }>();
+    for (const t of groupInfo?.threads ?? []) m.set(t.messageId, { chatId: t.chatId, unread: t.unread });
+    return m;
+  }, [groupInfo]);
+  const topicsUnread = (groupInfo?.threads ?? []).reduce((acc, t) => acc + t.unread, 0);
+  const personOf = (id: string) => {
+    const x = memberById.get(id);
+    return x ? { name: x.name, photo: x.photo } : null;
+  };
+  const headerTitle = threadOf
+    ? topicTitle(lang as GroupLang, threadOf.root)
+    : groupInfo?.title || headerTitleParam || chatFallback?.title || "";
+  const openTopicChat = (topicChatId: string) => {
+    flushDraftSync();
+    setTopicsOpen(false);
+    router.push(`/chats/${topicChatId}?group=1`);
+  };
+  const discussMessage = async (m: ChatMessage) => {
+    const existing = messageThread(m);
+    if (existing) {
+      openTopicChat(existing.chatId);
+      return;
+    }
+    const messageId = Number(m._id);
+    if (!Number.isFinite(messageId) || messageId <= 0) return;
+    try {
+      const r = await authFetch("/api/chats/thread-create", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ chat: chatId, message: messageId }),
+      });
+      const d = (await r.json().catch(() => null)) as { ok?: boolean; chatId?: string | null } | null;
+      if (r.ok && d?.ok && d.chatId) {
+        openTopicChat(d.chatId);
+        return;
+      }
+    } catch {
+      /* ниже покажем сообщение */
+    }
+    setThreadToast(threadText(lang as GroupLang, "createFailed"));
+    window.setTimeout(() => setThreadToast(null), 3500);
+  };
   const headerAvatar = groupInfo?.photo || headerAvatarParam || chatFallback?.avatarUrl || pickDefaultCatAvatar(chatId);
   const headerAvatarBlur = headerAvatarBlurParam || chatFallback?.avatarBlurDataUrl || null;
   const headerUsername = headerUsernameParam || chatFallback?.username || null;
@@ -4272,7 +4322,7 @@ export default function ChatWindowPage() {
               on its arrow (that button's own `group`/`animate-send-
               arrow` comment). */}
           <Link
-            href="/chats"
+            href={threadOf ? `/chats/${threadOf.groupId}?group=1` : "/chats"}
             aria-label="Back"
             onClick={flushDraftSync}
             className="group flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-[#335ef7] backdrop-blur-sm transition hover:bg-neutral-50 dark:border-[#2b2b2b] dark:bg-[#1c1c1e]/80 dark:text-[#0c8ce9] dark:hover:bg-[#1c1c1e]"
@@ -4289,11 +4339,32 @@ export default function ChatWindowPage() {
               content matches the pill's BASE height to those exactly
               without capping how tall it can grow. */}
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-4 py-3">
-            <button
+<div className="ml-auto mr-2 flex items-center gap-1">
+            {isGroup && !threadOf && (groupInfo?.threads.length ?? 0) > 0 && (
+              <button
+                type="button"
+                onClick={() => setTopicsOpen(true)}
+                aria-label={threadText(lang as GroupLang, "topics")}
+                data-testid="topics-button"
+                className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#335ef7] transition hover:bg-black/5 dark:text-[#0c8ce9] dark:hover:bg-white/10"
+              >
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.3 8.7 8.7 0 0 1-3.6-.8L3 20l1.2-4.6A8.2 8.2 0 0 1 3.5 11.5 8.5 8.5 0 0 1 12 3a8.5 8.5 0 0 1 9 8.5Z" />
+                  <path d="M8 10.5h8" />
+                  <path d="M8 14h5" />
+                </svg>
+                {topicsUnread > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#335ef7] px-1 text-[10px] font-semibold leading-none text-white dark:bg-[#0c8ce9]">
+                    {topicsUnread > 99 ? "99+" : topicsUnread}
+                  </span>
+                )}
+              </button>
+            )}
+                        <button
             type="button"
             onClick={() => setSharedOpen(true)}
             aria-label="Shared"
-            className="ml-auto mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#989aa6] transition hover:bg-black/5 dark:text-[#adafbb] dark:hover:bg-white/10"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#989aa6] transition hover:bg-black/5 dark:text-[#adafbb] dark:hover:bg-white/10"
           >
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="4" width="18" height="16" rx="3" />
@@ -4301,6 +4372,7 @@ export default function ChatWindowPage() {
               <path d="m21 16-5-5-8 8" />
             </svg>
           </button>
+          </div>
 
           {headerProfileHref ? (
               <Link
@@ -4317,13 +4389,19 @@ export default function ChatWindowPage() {
               </Link>
             ) : (
               <div
-                onClick={isGroup ? () => setGroupOpen(true) : undefined}
+                onClick={
+                  threadOf
+                    ? () => router.push(`/chats/${threadOf.groupId}?group=1`)
+                    : isGroup
+                      ? () => setGroupOpen(true)
+                      : undefined
+                }
                 className={`pointer-events-auto flex min-h-[42px] max-w-[55%] flex-col items-center justify-center truncate rounded-full bg-black/5 px-4 text-center dark:bg-white/10 ${isGroup ? "cursor-pointer transition hover:bg-black/10 dark:hover:bg-white/15" : ""}`}
               >
                 <span className="block truncate text-[15px] font-semibold leading-tight">{headerTitle || "—"}</span>
                 {isGroup && groupInfo && !peerTyping && (
                   <span className="block truncate text-[12px] font-medium leading-tight text-[#989aa6] dark:text-[#adafbb]">
-                    {membersCountText(lang as GroupLang, groupInfo.memberCount)}
+                    {threadOf ? groupTitleText : membersCountText(lang as GroupLang, groupInfo.memberCount)}
                   </span>
                 )}
                 {peerTyping && (
@@ -4507,6 +4585,13 @@ export default function ChatWindowPage() {
               zh="无法加载消息。"
             />
           </p>
+        )}
+        {state === "ready" && threadOf && (
+          <ThreadRootCard
+            lang={lang as GroupLang}
+            root={threadOf.root}
+            authorName={threadOf.root?.fromId ? personOf(threadOf.root.fromId)?.name || groupText(lang as GroupLang, "groupUnknownUser") : ""}
+          />
         )}
         {state === "ready" && displayMessages.length === 0 && (
           // 2026-09-02 (Aleksandr, screenshot of the mobile app's own
@@ -6227,6 +6312,24 @@ export default function ChatWindowPage() {
                       </div>
                     )}
                   </div>
+                  {/* Волна 3 (темы): полоска под сообщением, у которого есть тема. */}
+                  {!pending && isGroup && !threadOf && (() => {
+                    const th = messageThread(msg);
+                    if (!th) return null;
+                    const brief = threadBriefByMsg.get(Number(msg._id));
+                    return (
+                      <div className={!mine ? "pl-10" : ""}>
+                        <ThreadStrip
+                          lang={lang as GroupLang}
+                          thread={th}
+                          unread={(brief?.unread ?? 0) > 0}
+                          alignEnd={mine}
+                          personOf={personOf}
+                          onOpen={() => openTopicChat(th.chatId)}
+                        />
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })}
@@ -7591,6 +7694,20 @@ export default function ChatWindowPage() {
           sending={sending}
         />
       )}
+      {topicsOpen && groupInfo && !threadOf && (
+        <TopicsModal
+          lang={lang as GroupLang}
+          groupId={chatId}
+          personOf={personOf}
+          onOpen={openTopicChat}
+          onClose={() => setTopicsOpen(false)}
+        />
+      )}
+      {threadToast && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-24 z-[80] flex justify-center px-4">
+          <div className="rounded-full bg-neutral-900/90 px-4 py-2 text-[13px] text-white shadow-lg">{threadToast}</div>
+        </div>
+      )}
       {groupOpen && groupInfo && (
         <GroupInfoModal
           lang={lang}
@@ -7629,6 +7746,11 @@ export default function ChatWindowPage() {
           mine={actionsMenu.mine}
           lang={lang}
           onClose={() => setActionsMenu(null)}
+          onDiscuss={
+            isGroup && !threadOf && !isServiceFlags(actionsMenu.message.flags) && Number(actionsMenu.message._id) > 0
+              ? () => void discussMessage(actionsMenu.message)
+              : undefined
+          }
           onReply={() => {
             setEditingMessage(null);
             setReplyTarget(actionsMenu.message);

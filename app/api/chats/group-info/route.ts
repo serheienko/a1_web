@@ -14,7 +14,8 @@ import { A1ApiError } from "@/lib/a1/client";
 import { callAsVisitor, NoSessionError } from "@/lib/a1/visitor-call";
 import { setSession, clearSession, readSession } from "@/lib/a1/session";
 import { extractChats } from "@/lib/a1/chat-schemas";
-import { isGroupFlags, CHAT_FLAG_PUBLIC } from "@/lib/a1/group-chat";
+import { isGroupFlags, CHAT_FLAG_PUBLIC, CHAT_FLAG_THREAD } from "@/lib/a1/group-chat";
+import { threadRootFrom, unreadInChat, type ThreadRoot } from "@/lib/a1/group-threads";
 import { parseUserProfile } from "@/lib/a1/schemas";
 import { buildMediaProxyUrl } from "@/lib/a1/mappers";
 
@@ -28,6 +29,12 @@ export type GroupMember = {
   photo: string | null;
   role: "creator" | "admin" | "member";
 };
+
+/** Тема группы в сводке для полосок под сообщениями (волна 3). */
+export type GroupThreadBrief = { chatId: string; messageId: number; replies: number; unread: number };
+
+/** Если чат -- тема: где она висит и что за корневое сообщение. */
+export type ThreadOf = { groupId: string; messageId: number; root: ThreadRoot | null };
 
 export type GroupInfoResponse =
   | { ok: true; isGroup: false }
@@ -45,6 +52,10 @@ export type GroupInfoResponse =
       memberCount: number;
       myRole: "creator" | "admin" | "member" | null;
       members: GroupMember[];
+      /** Чат -- тема под сообщением другой группы (иначе null). */
+      thread: ThreadOf | null;
+      /** Для обычной группы: её темы с числом ответов и непрочитанными. */
+      threads: GroupThreadBrief[];
     };
 
 function roleOf(type: unknown): GroupMember["role"] {
@@ -91,6 +102,43 @@ export async function GET(request: NextRequest) {
       return { id, name: u?.name ?? "", username: u?.username ?? null, photo: u?.photo ?? null, role: roleOf(p.type) };
     });
     const me = members.find((m) => m.id === myUserId);
+    // Волна 3 (темы): либо этот чат сам тема -- тогда отдаём, где она
+    // висит, и корневое сообщение; либо это группа -- тогда сводку по её
+    // темам (число ответов, непрочитанные) для полосок под сообщениями.
+    let thread: ThreadOf | null = null;
+    const threads: GroupThreadBrief[] = [];
+    const myUid = myUserId;
+    if (((chat.flags ?? 0) & CHAT_FLAG_THREAD) !== 0) {
+      const th = (raw.thread ?? null) as { chat?: unknown; message?: unknown } | null;
+      const groupId = th && typeof th.chat === "string" ? th.chat : "";
+      const messageId = th ? Number(th.message) : NaN;
+      if (groupId && Number.isFinite(messageId)) {
+        let root: ThreadRoot | null = null;
+        try {
+          const { data: md } = await callAsVisitor<unknown>("messages.get", [
+            { peerTo: { object: "peer-chat", chat: groupId }, ids: [messageId] },
+          ]);
+          const first = Array.isArray(md) ? (md[0] as { messages?: unknown[] } | undefined) : undefined;
+          root = threadRootFrom(first?.messages?.[0]);
+        } catch (err) {
+          console.error("[api/chats/group-info] root fetch failed:", err);
+        }
+        thread = { groupId, messageId, root };
+      }
+    } else {
+      for (const c of extractChats(data)) {
+        if (((c.flags ?? 0) & CHAT_FLAG_THREAD) === 0) continue;
+        const th = ((c as unknown as { thread?: { chat?: unknown; message?: unknown } | null }).thread ?? null);
+        if (!th || th.chat !== chat._id) continue;
+        const lm = (c as unknown as { lastMessage?: unknown }).lastMessage;
+        threads.push({
+          chatId: c._id,
+          messageId: Number(th.message),
+          replies: typeof lm === "number" ? lm : Number((lm as { _id?: unknown } | null)?._id) || 0,
+          unread: unreadInChat(c as unknown as { lastMessage?: unknown; participants?: unknown }, myUid),
+        });
+      }
+    }
     const body: GroupInfoResponse = {
       ok: true,
       isGroup: true,
@@ -105,6 +153,8 @@ export async function GET(request: NextRequest) {
       memberCount: members.length,
       myRole: me?.role ?? null,
       members,
+      thread,
+      threads,
     };
     const res = NextResponse.json(body);
     if (refreshedSession) setSession(res, refreshedSession);
