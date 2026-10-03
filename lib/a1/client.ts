@@ -49,12 +49,13 @@ async function doFetch(
   method: string,
   body: unknown,
   headers: Record<string, string>,
+  timeoutMs: number = TIMEOUT_MS,
 ): Promise<Response> {
   return fetch(`${env.A1_API_BASE}/v1/${method}`, {
     method: "POST",
     headers: { "content-type": "application/json", ...headers },
     body: JSON.stringify(body ?? {}),
-    signal: AbortSignal.timeout(TIMEOUT_MS),
+    signal: AbortSignal.timeout(timeoutMs),
     cache: "no-store",
   });
 }
@@ -100,19 +101,19 @@ async function unwrap<T>(method: string, res: Response): Promise<T> {
 export async function call<T>(
   method: string,
   body: unknown = {},
-  opts: { skipAuth?: boolean; accessToken?: string } = {},
+  opts: { skipAuth?: boolean; accessToken?: string; timeoutMs?: number } = {},
 ): Promise<T> {
   const headers = opts.skipAuth
     ? {}
     : opts.accessToken
       ? { authorization: `Bearer ${opts.accessToken}` }
       : await authorizer.headers();
-  let res = await doFetch(method, body, headers);
+  let res = await doFetch(method, body, headers, opts.timeoutMs);
 
   if (!opts.skipAuth && !opts.accessToken && res.status === 401) {
     authorizer.invalidate();
     const retryHeaders = await authorizer.headers();
-    res = await doFetch(method, body, retryHeaders);
+    res = await doFetch(method, body, retryHeaders, opts.timeoutMs);
   }
 
   return unwrap<T>(method, res);

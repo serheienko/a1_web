@@ -69,12 +69,13 @@ function refreshOnce(refreshToken: string): Promise<AuthRefreshResponse> {
 export async function callAsVisitor<T>(
   method: string,
   body: unknown = {},
+  opts: { timeoutMs?: number } = {},
 ): Promise<{ data: T; refreshedSession: SessionState | null }> {
   const session = await readSession();
   if (!session) throw new NoSessionError();
 
   try {
-    const data = await call<T>(method, body, { accessToken: session.accessToken });
+    const data = await call<T>(method, body, { accessToken: session.accessToken, timeoutMs: opts.timeoutMs });
     return { data, refreshedSession: null };
   } catch (err) {
     if (!(err instanceof A1ApiError) || err.httpStatus !== 401) throw err;
@@ -119,7 +120,7 @@ export async function callAsVisitor<T>(
       expiresAt: refreshed.expiresAt * 1000,
     };
     try {
-      const data = await call<T>(method, body, { accessToken: nextSession.accessToken });
+      const data = await call<T>(method, body, { accessToken: nextSession.accessToken, timeoutMs: opts.timeoutMs });
       return { data, refreshedSession: nextSession };
     } catch (retryErr) {
       if (retryErr instanceof A1ApiError && retryErr.httpStatus === 401) throw new NoSessionError();

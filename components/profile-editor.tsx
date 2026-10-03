@@ -87,6 +87,10 @@ import { translateHobbyGroup, translateHobbyItem, translateWorkInterest, transla
 import type { Category, WorkStylePreferencesDataset } from "@/lib/a1/datasets";
 import type { EditableProfile, MediaDocument } from "@/lib/a1/schemas";
 import { PhotoCropModal } from "@/components/photo-crop-modal";
+// Волна 5 (2026-10-03): Magic Wand -- панель вверху формы, «применить»
+// раскладывает найденное по полям этого редактора (см. applyMagicWand).
+import { MagicWandPanel } from "@/components/magic-wand-panel";
+import type { MagicWandLocation, MagicWandPatch } from "@/lib/a1/magic-wand";
 // Plain bit math, no dependency chain — safe to import into this client
 // component the same way lib/work-style-keys.ts is (see that file's own
 // header comment for the class of bug this avoids).
@@ -955,6 +959,120 @@ export function ProfileEditor({
     setDirty(true);
   }
 
+  // Волна 5 (2026-10-03): «Застосувати» в Magic Wand. Правила как в
+  // приложении (magic_wand_apply.dart): одиночные значения (имя, о себе,
+  // город) заменяются, списки дополняются -- то, что человек уже вписал,
+  // остаётся, а для той же компании / навыка / языка побеждает рассказ.
+  // Хобби и сферы -- не больше 5, новое впереди. Ничего не сохраняется:
+  // человек проверяет поля и нажимает «Зберегти».
+  function applyMagicWand(patch: MagicWandPatch, loc: MagicWandLocation) {
+    const text = (k: string): string | null => {
+      const v = patch[k];
+      if (typeof v !== "string") return null;
+      const t2 = v.trim();
+      return t2 ? t2 : null;
+    };
+    const objs = (k: string): Record<string, unknown>[] =>
+      Array.isArray(patch[k]) ? (patch[k] as unknown[]).filter((v): v is Record<string, unknown> => !!v && typeof v === "object") : [];
+    const ids = (k: string): number[] => (Array.isArray(patch[k]) ? (patch[k] as unknown[]).filter((v): v is number => typeof v === "number") : []);
+    const mergeIds = (old: Set<number>, fresh: number[], limit: number): Set<number> => {
+      const out: number[] = [];
+      for (const id of [...fresh, ...old]) {
+        if (out.length >= limit) break;
+        if (!out.includes(id)) out.push(id);
+      }
+      return new Set(out);
+    };
+    // Те, что были, остаются; для совпавшего ключа побеждает новое.
+    const mergeBy = <T,>(old: T[], fresh: T[], key: (x: T) => string): T[] => {
+      const freshKeys = new Set(fresh.map(key));
+      return [...old.filter((o) => !freshKeys.has(key(o))), ...fresh];
+    };
+
+    const first = text("firstName");
+    const last = text("lastName");
+    if (first) setFirstName(first);
+    if (last) setLastName(last);
+    const newBio = text("bio");
+    if (newBio) setBio(newBio);
+    const occ = text("occupation");
+    if (occ && (OCCUPATION_VALUES as readonly string[]).includes(occ)) setOccupation(occ as OccupationValue);
+    if (typeof patch.location === "number" && loc) {
+      setLocation({ id: loc._id, label: [loc.displayName, loc.country].filter(Boolean).join(", ") || String(loc.displayName ?? loc._id) });
+    }
+    const dobText = text("dob");
+    if (dobText) setDob(toDateInputValue(dobText));
+    const phone = text("phoneNumber");
+    if (phone) setPhoneNumber(phone);
+
+    const newLinks = objs("links")
+      .map((l) => ({ id: newId(), title: String(l.title ?? "").trim(), url: String(l.url ?? "").trim() }))
+      .filter((l) => l.url);
+    if (newLinks.length) setLinks((prev) => mergeBy(prev, newLinks, (l) => l.url.toLowerCase()));
+
+    const inds = ids("workInterests");
+    if (inds.length) setSelectedWorkInterests((prev) => mergeIds(prev, inds, 5));
+    const hobs = ids("hobbies");
+    if (hobs.length) setSelectedHobbies((prev) => mergeIds(prev, hobs, MAX_HOBBIES));
+
+    const newSkills = objs("skills")
+      .map((x) => ({ id: newId(), value: String(x.value ?? "").trim(), level: typeof x.level === "number" ? x.level : 50 }))
+      .filter((x) => x.value);
+    if (newSkills.length) setSkills((prev) => mergeBy(prev, newSkills, (x) => x.value.toLowerCase()));
+
+    const newLangs = objs("languages")
+      .map((x) => ({ id: newId(), value: String(x.value ?? "").trim(), level: typeof x.level === "number" ? x.level : 2 }))
+      .filter((x) => x.value);
+    if (newLangs.length) setLanguages((prev) => mergeBy(prev, newLangs, (x) => x.value.toUpperCase()).slice(0, MAX_LANGUAGES));
+
+    const cats = bootstrap?.companyCategories ?? [];
+    const newCompanies: EditableCompany[] = objs("companies")
+      .map((c) => {
+        const pos = c.position && typeof c.position === "object" ? (c.position as Record<string, unknown>) : null;
+        const start = toDateInputValue(typeof pos?.start === "string" ? pos.start : null);
+        const end = toDateInputValue(typeof pos?.end === "string" ? pos.end : null);
+        const catId = typeof c.category === "number" ? c.category : null;
+        const link = c.link && typeof c.link === "object" ? (c.link as Record<string, unknown>) : null;
+        return {
+          id: newId(),
+          name: String(c.name ?? "").trim(),
+          description: String(c.description ?? ""),
+          positionTitle: typeof pos?.description === "string" ? pos.description : "",
+          positionStart: start,
+          // Начало есть, конца нет -- человек там работает сейчас.
+          positionEnd: end || (start ? PRESENT_SENTINEL : ""),
+          employeesCount: typeof c.employeesCount === "number" && c.employeesCount > 0 ? String(c.employeesCount) : "",
+          category: catId != null ? (cats.find((x) => x.value === catId) ?? null) : null,
+          turnover: "",
+          est: typeof c.est === "number" ? String(c.est) : "",
+          linkTitle: typeof link?.title === "string" ? link.title : "",
+          linkUrl: typeof link?.url === "string" ? link.url : "",
+        };
+      })
+      .filter((c) => c.name);
+    if (newCompanies.length) setCompanies((prev) => mergeBy(prev, newCompanies, (c) => c.name.trim().toLowerCase()).slice(0, MAX_COMPANIES));
+
+    const newEdu = (Array.isArray(patch.education) ? (patch.education as unknown[]) : [])
+      .filter((v): v is string => typeof v === "string" && v.trim().length > 0)
+      .map((v) => ({ id: newId(), value: v.trim() }));
+    if (newEdu.length) setEducation((prev) => mergeBy(prev, newEdu, (x) => x.value.toLowerCase()));
+
+    const newBooks = objs("favoriteBooks")
+      .map((b) => ({ id: newId(), title: String(b.title ?? "").trim(), author: String(b.author ?? "") }))
+      .filter((b) => b.title);
+    if (newBooks.length) setFavoriteBooks((prev) => mergeBy(prev, newBooks, (b) => b.title.toLowerCase()));
+    const newMovies = objs("favoriteMovies")
+      .map((m) => ({ id: newId(), title: String(m.title ?? "").trim() }))
+      .filter((m) => m.title);
+    if (newMovies.length) setFavoriteMovies((prev) => mergeBy(prev, newMovies, (m) => m.title.toLowerCase()));
+    const newGames = objs("favoriteGames")
+      .map((g) => ({ id: newId(), title: String(g.title ?? "").trim() }))
+      .filter((g) => g.title);
+    if (newGames.length) setFavoriteGames((prev) => mergeBy(prev, newGames, (g) => g.title.toLowerCase()));
+
+    markDirty();
+  }
+
   // -------------------------------------------------------------------
   // Bootstrap
   // -------------------------------------------------------------------
@@ -1804,6 +1922,12 @@ export function ProfileEditor({
         )}
 
         <div className="relative flex-1 overflow-y-auto px-5 py-1" onChange={markDirty}>
+          {/* ---------------- Magic Wand ---------------- */}
+          {/* Поле рассказа не должно помечать форму изменённой (onChange
+              выше всплывает): изменённой её делает только «Застосувати». */}
+          <div className="pb-2 pt-3" onChange={(e) => e.stopPropagation()}>
+            <MagicWandPanel lang={lang} onApply={applyMagicWand} />
+          </div>
           {/* ---------------- Voice intro ---------------- */}
           {/* 2026-08-30, live-testing feedback: "Голосова візитка поставь
               наверх, це крута фіча" — moved to the very first section in
