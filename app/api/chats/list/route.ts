@@ -371,6 +371,9 @@ export async function GET() {
           previewTick,
           unreadCount: chatUnreadCount(chat),
           draftText: chatDraftText(chat),
+          // Закреплённые чаты (волна 2): chats.setPinned, до 5 штук.
+          pinned: typeof (chat as unknown as { pinnedAt?: unknown }).pinnedAt === "string" && !!(chat as unknown as { pinnedAt?: string }).pinnedAt,
+          pinnedAtMs: Date.parse(String((chat as unknown as { pinnedAt?: unknown }).pinnedAt ?? "")) || 0,
         };
       })
       .filter((item) => item.title || item.lastMessageId)
@@ -385,7 +388,7 @@ export async function GET() {
       // wasn't available yet, so sorting by it directly is no longer a
       // guess. A chat with no messages at all (previewDateMs === 0)
       // sorts last, same as it visually reads with no preview line.
-      .sort((a, b) => b.previewDateMs - a.previewDateMs);
+      .sort((a, b) => (a.pinned === b.pinned ? b.previewDateMs - a.previewDateMs : a.pinned ? -1 : 1));
 
     const response = NextResponse.json({ ok: true, chats: items, myUserId });
     if (refreshedSession) setSession(response, refreshedSession);

@@ -442,10 +442,431 @@ const MEMBERS: Record<GroupLang, Record<string, string>> = {
  }
 };
 
-export type GroupUiKey = keyof typeof UI;
+const UI_W2: Record<string, Record<GroupLang, string>> = {
+ "addMembers": {
+  "uk": "Додати учасників",
+  "ru": "Добавить участников",
+  "en": "Add members",
+  "de": "Mitglieder hinzufügen",
+  "es": "Añadir miembros",
+  "fr": "Ajouter des membres",
+  "pl": "Dodaj uczestników",
+  "ptBR": "Adicionar membros",
+  "zh": "添加成员"
+ },
+ "addAction": {
+  "uk": "Додати",
+  "ru": "Добавить",
+  "en": "Add",
+  "de": "Hinzufügen",
+  "es": "Añadir",
+  "fr": "Ajouter",
+  "pl": "Dodaj",
+  "ptBR": "Adicionar",
+  "zh": "添加"
+ },
+ "removeMember": {
+  "uk": "Видалити з групи",
+  "ru": "Удалить из группы",
+  "en": "Remove from group",
+  "de": "Aus Gruppe entfernen",
+  "es": "Eliminar del grupo",
+  "fr": "Retirer du groupe",
+  "pl": "Usuń z grupy",
+  "ptBR": "Remover do grupo",
+  "zh": "移出群组"
+ },
+ "removeMemberConfirm": {
+  "uk": "Видалити {name} з групи?",
+  "ru": "Удалить {name} из группы?",
+  "en": "Remove {name} from the group?",
+  "de": "{name} aus der Gruppe entfernen?",
+  "es": "¿Eliminar a {name} del grupo?",
+  "fr": "Retirer {name} du groupe ?",
+  "pl": "Usunąć {name} z grupy?",
+  "ptBR": "Remover {name} do grupo?",
+  "zh": "将 {name} 移出群组？"
+ },
+ "editGroup": {
+  "uk": "Змінити групу",
+  "ru": "Изменить группу",
+  "en": "Edit group",
+  "de": "Gruppe bearbeiten",
+  "es": "Editar grupo",
+  "fr": "Modifier le groupe",
+  "pl": "Edytuj grupę",
+  "ptBR": "Editar grupo",
+  "zh": "编辑群组"
+ },
+ "groupDescription": {
+  "uk": "Опис",
+  "ru": "Описание",
+  "en": "Description",
+  "de": "Beschreibung",
+  "es": "Descripción",
+  "fr": "Description",
+  "pl": "Opis",
+  "ptBR": "Descrição",
+  "zh": "简介"
+ },
+ "groupType": {
+  "uk": "Тип групи",
+  "ru": "Тип группы",
+  "en": "Group type",
+  "de": "Gruppentyp",
+  "es": "Tipo de grupo",
+  "fr": "Type de groupe",
+  "pl": "Typ grupy",
+  "ptBR": "Tipo de grupo",
+  "zh": "群组类型"
+ },
+ "groupTypePrivate": {
+  "uk": "Приватна",
+  "ru": "Приватная",
+  "en": "Private",
+  "de": "Privat",
+  "es": "Privado",
+  "fr": "Privé",
+  "pl": "Prywatna",
+  "ptBR": "Privado",
+  "zh": "私密"
+ },
+ "groupTypePublic": {
+  "uk": "Публічна",
+  "ru": "Публичная",
+  "en": "Public",
+  "de": "Öffentlich",
+  "es": "Público",
+  "fr": "Public",
+  "pl": "Publiczna",
+  "ptBR": "Público",
+  "zh": "公开"
+ },
+ "groupTypePrivateHint": {
+  "uk": "Приєднатися можуть лише ті, кого запросили учасники.",
+  "ru": "Присоединиться могут только те, кого пригласили участники.",
+  "en": "Only people invited by members can join.",
+  "de": "Nur von Mitgliedern eingeladene Personen können beitreten.",
+  "es": "Solo pueden unirse las personas invitadas por los miembros.",
+  "fr": "Seules les personnes invitées par des membres peuvent rejoindre.",
+  "pl": "Dołączyć mogą tylko osoby zaproszone przez uczestników.",
+  "ptBR": "Só entram pessoas convidadas pelos membros.",
+  "zh": "只有被成员邀请的人才能加入。"
+ },
+ "groupTypePublicHint": {
+  "uk": "Будь-хто з посиланням може знайти групу і приєднатися.",
+  "ru": "Любой со ссылкой может найти группу и присоединиться.",
+  "en": "Anyone with the link can find and join the group.",
+  "de": "Jeder mit dem Link kann die Gruppe finden und beitreten.",
+  "es": "Cualquiera con el enlace puede encontrar el grupo y unirse.",
+  "fr": "Toute personne avec le lien peut trouver le groupe et le rejoindre.",
+  "pl": "Każdy z linkiem może znaleźć grupę i dołączyć.",
+  "ptBR": "Qualquer pessoa com o link pode encontrar o grupo e entrar.",
+  "zh": "任何拥有链接的人都可以找到并加入群组。"
+ },
+ "groupSave": {
+  "uk": "Зберегти",
+  "ru": "Сохранить",
+  "en": "Save",
+  "de": "Speichern",
+  "es": "Guardar",
+  "fr": "Enregistrer",
+  "pl": "Zapisz",
+  "ptBR": "Salvar",
+  "zh": "保存"
+ },
+ "groupSaveFailed": {
+  "uk": "Не вдалося зберегти зміни. Спробуйте ще раз.",
+  "ru": "Не удалось сохранить изменения. Попробуйте ещё раз.",
+  "en": "Could not save the changes. Try again.",
+  "de": "Änderungen konnten nicht gespeichert werden. Versuche es erneut.",
+  "es": "No se pudieron guardar los cambios. Inténtalo de nuevo.",
+  "fr": "Impossible d’enregistrer les modifications. Réessayez.",
+  "pl": "Nie udało się zapisać zmian. Spróbuj ponownie.",
+  "ptBR": "Não foi possível salvar as alterações. Tente novamente.",
+  "zh": "无法保存更改，请重试。"
+ },
+ "groupNoPermission": {
+  "uk": "Для цього потрібні права адміністратора.",
+  "ru": "Для этого нужны права администратора.",
+  "en": "This needs admin rights.",
+  "de": "Dafür sind Admin-Rechte nötig.",
+  "es": "Esto requiere derechos de administrador.",
+  "fr": "Cela nécessite les droits d’administrateur.",
+  "pl": "Wymaga to uprawnień administratora.",
+  "ptBR": "Isso exige direitos de administrador.",
+  "zh": "此操作需要管理员权限。"
+ },
+ "groupChangePhoto": {
+  "uk": "Змінити фото",
+  "ru": "Изменить фото",
+  "en": "Change photo",
+  "de": "Foto ändern",
+  "es": "Cambiar foto",
+  "fr": "Changer la photo",
+  "pl": "Zmień zdjęcie",
+  "ptBR": "Alterar foto",
+  "zh": "更换头像"
+ },
+ "groupRemovePhoto": {
+  "uk": "Прибрати фото",
+  "ru": "Убрать фото",
+  "en": "Remove photo",
+  "de": "Foto entfernen",
+  "es": "Quitar foto",
+  "fr": "Supprimer la photo",
+  "pl": "Usuń zdjęcie",
+  "ptBR": "Remover foto",
+  "zh": "移除头像"
+ },
+ "groupMute": {
+  "uk": "Вимкнути сповіщення",
+  "ru": "Отключить уведомления",
+  "en": "Mute notifications",
+  "de": "Benachrichtigungen stummschalten",
+  "es": "Silenciar notificaciones",
+  "fr": "Couper les notifications",
+  "pl": "Wycisz powiadomienia",
+  "ptBR": "Silenciar notificações",
+  "zh": "关闭通知"
+ },
+ "groupUnmute": {
+  "uk": "Увімкнути сповіщення",
+  "ru": "Включить уведомления",
+  "en": "Unmute notifications",
+  "de": "Benachrichtigungen aktivieren",
+  "es": "Activar notificaciones",
+  "fr": "Réactiver les notifications",
+  "pl": "Włącz powiadomienia",
+  "ptBR": "Ativar notificações",
+  "zh": "开启通知"
+ },
+ "chatPin": {
+  "uk": "Закріпити чат",
+  "ru": "Закрепить чат",
+  "en": "Pin chat",
+  "de": "Chat anheften",
+  "es": "Fijar chat",
+  "fr": "Épingler le chat",
+  "pl": "Przypnij czat",
+  "ptBR": "Fixar conversa",
+  "zh": "置顶聊天"
+ },
+ "chatUnpin": {
+  "uk": "Відкріпити чат",
+  "ru": "Открепить чат",
+  "en": "Unpin chat",
+  "de": "Chat lösen",
+  "es": "Desfijar chat",
+  "fr": "Désépingler le chat",
+  "pl": "Odepnij czat",
+  "ptBR": "Desafixar conversa",
+  "zh": "取消置顶"
+ },
+ "chatPinLimit": {
+  "uk": "Можна закріпити до 5 чатів.",
+  "ru": "Можно закрепить до 5 чатов.",
+  "en": "You can pin up to 5 chats.",
+  "de": "Du kannst bis zu 5 Chats anheften.",
+  "es": "Puedes fijar hasta 5 chats.",
+  "fr": "Vous pouvez épingler jusqu’à 5 chats.",
+  "pl": "Możesz przypiąć do 5 czatów.",
+  "ptBR": "Você pode fixar até 5 conversas.",
+  "zh": "最多可置顶 5 个聊天。"
+ },
+ "inviteLink": {
+  "uk": "Посилання-запрошення",
+  "ru": "Ссылка-приглашение",
+  "en": "Invite link",
+  "de": "Einladungslink",
+  "es": "Enlace de invitación",
+  "fr": "Lien d’invitation",
+  "pl": "Link zapraszający",
+  "ptBR": "Link de convite",
+  "zh": "邀请链接"
+ },
+ "copyLink": {
+  "uk": "Скопіювати",
+  "ru": "Скопировать",
+  "en": "Copy",
+  "de": "Kopieren",
+  "es": "Copiar",
+  "fr": "Copier",
+  "pl": "Kopiuj",
+  "ptBR": "Copiar",
+  "zh": "复制"
+ },
+ "linkCopied": {
+  "uk": "Скопійовано",
+  "ru": "Скопировано",
+  "en": "Copied",
+  "de": "Kopiert",
+  "es": "Copiado",
+  "fr": "Copié",
+  "pl": "Skopiowano",
+  "ptBR": "Copiado",
+  "zh": "已复制"
+ },
+ "revokeLink": {
+  "uk": "Створити нове посилання",
+  "ru": "Создать новую ссылку",
+  "en": "Create a new link",
+  "de": "Neuen Link erstellen",
+  "es": "Crear un enlace nuevo",
+  "fr": "Créer un nouveau lien",
+  "pl": "Utwórz nowy link",
+  "ptBR": "Criar novo link",
+  "zh": "生成新链接"
+ },
+ "revokeLinkHint": {
+  "uk": "Старе посилання перестане працювати.",
+  "ru": "Старая ссылка перестанет работать.",
+  "en": "The old link will stop working.",
+  "de": "Der alte Link funktioniert nicht mehr.",
+  "es": "El enlace anterior dejará de funcionar.",
+  "fr": "L’ancien lien ne fonctionnera plus.",
+  "pl": "Stary link przestanie działać.",
+  "ptBR": "O link antigo deixará de funcionar.",
+  "zh": "旧链接将失效。"
+ },
+ "deleteGroup": {
+  "uk": "Видалити групу",
+  "ru": "Удалить группу",
+  "en": "Delete group",
+  "de": "Gruppe löschen",
+  "es": "Eliminar grupo",
+  "fr": "Supprimer le groupe",
+  "pl": "Usuń grupę",
+  "ptBR": "Excluir grupo",
+  "zh": "删除群组"
+ },
+ "deleteGroupConfirm": {
+  "uk": "Видалити «{title}» для всіх учасників? Усі повідомлення буде втрачено.",
+  "ru": "Удалить «{title}» для всех участников? Все сообщения будут потеряны.",
+  "en": "Delete “{title}” for all members? All messages will be lost.",
+  "de": "„{title}“ für alle Mitglieder löschen? Alle Nachrichten gehen verloren.",
+  "es": "¿Eliminar «{title}» para todos los miembros? Se perderán todos los mensajes.",
+  "fr": "Supprimer « {title} » pour tous les membres ? Tous les messages seront perdus.",
+  "pl": "Usunąć „{title}” dla wszystkich uczestników? Wszystkie wiadomości zostaną utracone.",
+  "ptBR": "Excluir «{title}» para todos os membros? Todas as mensagens serão perdidas.",
+  "zh": "为所有成员删除“{title}”？所有消息将丢失。"
+ },
+ "joinGroup": {
+  "uk": "Приєднатися до групи",
+  "ru": "Присоединиться к группе",
+  "en": "Join group",
+  "de": "Gruppe beitreten",
+  "es": "Unirse al grupo",
+  "fr": "Rejoindre le groupe",
+  "pl": "Dołącz do grupy",
+  "ptBR": "Entrar no grupo",
+  "zh": "加入群组"
+ },
+ "openGroup": {
+  "uk": "Відкрити групу",
+  "ru": "Открыть группу",
+  "en": "Open group",
+  "de": "Gruppe öffnen",
+  "es": "Abrir grupo",
+  "fr": "Ouvrir le groupe",
+  "pl": "Otwórz grupę",
+  "ptBR": "Abrir grupo",
+  "zh": "打开群组"
+ },
+ "groupInviteTitle": {
+  "uk": "Запрошення до групи",
+  "ru": "Приглашение в группу",
+  "en": "Group invitation",
+  "de": "Gruppeneinladung",
+  "es": "Invitación al grupo",
+  "fr": "Invitation au groupe",
+  "pl": "Zaproszenie do grupy",
+  "ptBR": "Convite para o grupo",
+  "zh": "群组邀请"
+ },
+ "groupInviteAlreadyMember": {
+  "uk": "Ви вже в цій групі",
+  "ru": "Вы уже в этой группе",
+  "en": "You are already in this group",
+  "de": "Du bist bereits in dieser Gruppe",
+  "es": "Ya estás en este grupo",
+  "fr": "Vous êtes déjà dans ce groupe",
+  "pl": "Jesteś już w tej grupie",
+  "ptBR": "Você já está neste grupo",
+  "zh": "你已在此群组中"
+ },
+ "groupInviteInvalid": {
+  "uk": "Посилання недійсне або застаріло.",
+  "ru": "Ссылка недействительна или устарела.",
+  "en": "This invite link is invalid or has expired.",
+  "de": "Dieser Einladungslink ist ungültig oder abgelaufen.",
+  "es": "Este enlace de invitación no es válido o ha caducado.",
+  "fr": "Ce lien d’invitation est invalide ou a expiré.",
+  "pl": "Ten link jest nieprawidłowy lub wygasł.",
+  "ptBR": "Este link de convite é inválido ou expirou.",
+  "zh": "此邀请链接无效或已过期。"
+ },
+ "groupInviteHint": {
+  "uk": "Учасники групи побачать, що ви приєдналися.",
+  "ru": "Участники группы увидят, что вы присоединились.",
+  "en": "Anyone in the group can see that you joined.",
+  "de": "Alle in der Gruppe sehen, dass du beigetreten bist.",
+  "es": "Todos en el grupo verán que te uniste.",
+  "fr": "Tout le monde dans le groupe verra que vous avez rejoint.",
+  "pl": "Wszyscy w grupie zobaczą, że dołączyłeś(-aś).",
+  "ptBR": "Todos no grupo verão que você entrou.",
+  "zh": "群组成员会看到你已加入。"
+ },
+ "groupSignInToJoin": {
+  "uk": "Увійдіть, щоб приєднатися",
+  "ru": "Войдите, чтобы присоединиться",
+  "en": "Sign in to join",
+  "de": "Zum Beitreten anmelden",
+  "es": "Inicia sesión para unirte",
+  "fr": "Connectez-vous pour rejoindre",
+  "pl": "Zaloguj się, aby dołączyć",
+  "ptBR": "Entre para participar",
+  "zh": "登录后加入"
+ },
+ "groupDeletedToast": {
+  "uk": "Групу видалено",
+  "ru": "Группа удалена",
+  "en": "Group deleted",
+  "de": "Gruppe gelöscht",
+  "es": "Grupo eliminado",
+  "fr": "Groupe supprimé",
+  "pl": "Grupa usunięta",
+  "ptBR": "Grupo excluído",
+  "zh": "群组已删除"
+ },
+ "groupMore": {
+  "uk": "Ще",
+  "ru": "Ещё",
+  "en": "More",
+  "de": "Mehr",
+  "es": "Más",
+  "fr": "Plus",
+  "pl": "Więcej",
+  "ptBR": "Mais",
+  "zh": "更多"
+ },
+ "groupAbout": {
+  "uk": "Про групу",
+  "ru": "О группе",
+  "en": "About",
+  "de": "Info",
+  "es": "Acerca de",
+  "fr": "À propos",
+  "pl": "O grupie",
+  "ptBR": "Sobre",
+  "zh": "关于"
+ }
+};
+
+export type GroupUiKey = string;
 
 export function groupText(lang: GroupLang, key: GroupUiKey, vars?: Record<string, string | number>): string {
-  const row = UI[key];
+  const row = UI[key] ?? UI_W2[key];
   let s = (row && (row[lang] || row.en)) || "";
   if (vars) for (const k of Object.keys(vars)) s = s.split("{" + k + "}").join(String(vars[k]));
   return s;

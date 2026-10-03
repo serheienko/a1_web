@@ -39,6 +39,9 @@ export type GroupInfoResponse =
       about: string;
       photo: string | null;
       isPublic: boolean;
+      inviteLink: string | null;
+      muted: boolean;
+      pinned: boolean;
       memberCount: number;
       myRole: "creator" | "admin" | "member" | null;
       members: GroupMember[];
@@ -96,6 +99,9 @@ export async function GET(request: NextRequest) {
       about: typeof raw.about === "string" ? raw.about : "",
       photo: typeof raw.photo === "string" ? raw.photo : null,
       isPublic: ((chat.flags ?? 0) & CHAT_FLAG_PUBLIC) !== 0,
+      inviteLink: typeof raw.inviteLink === "string" ? raw.inviteLink : null,
+      muted: ((raw.notifySettings ?? {}) as { silent?: unknown }).silent === true,
+      pinned: typeof raw.pinnedAt === "string" && raw.pinnedAt.length > 0,
       memberCount: members.length,
       myRole: me?.role ?? null,
       members,

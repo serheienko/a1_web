@@ -772,6 +772,7 @@ export default function ChatWindowPage() {
   const [groupInfo, setGroupInfo] = useState<Extract<GroupInfoResponse, { isGroup: true }> | null>(null);
   const [groupOpen, setGroupOpen] = useState(false);
   const groupSeenRef = useRef(false);
+  const [groupReloadKey, setGroupReloadKey] = useState(0);
   useEffect(() => {
     if (chatId.startsWith("u_")) return;
     let cancelled = false;
@@ -797,7 +798,7 @@ export default function ChatWindowPage() {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [chatId, isGroupParam]);
+  }, [chatId, isGroupParam, groupReloadKey]);
   const isGroup = isGroupParam || groupInfo !== null;
   const memberById = useMemo(() => {
     const m = new Map<string, GroupMember>();
@@ -7594,10 +7595,19 @@ export default function ChatWindowPage() {
         <GroupInfoModal
           lang={lang}
           chatId={chatId}
-          title={groupInfo.title}
-          photo={headerAvatar}
-          members={groupInfo.members}
+          info={{
+            title: groupInfo.title,
+            about: groupInfo.about,
+            photo: headerAvatar,
+            isPublic: groupInfo.isPublic,
+            inviteLink: groupInfo.inviteLink,
+            muted: groupInfo.muted,
+            pinned: groupInfo.pinned,
+            myRole: groupInfo.myRole,
+            members: groupInfo.members,
+          }}
           myUserId={myUserId}
+          onChanged={() => setGroupReloadKey((k) => k + 1)}
           onClose={() => setGroupOpen(false)}
         />
       )}

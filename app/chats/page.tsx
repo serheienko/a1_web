@@ -124,6 +124,7 @@ type ChatListItem = {
   previewDateMs: number;
   previewTick: "read" | "delivered" | null;
   unreadCount: number;
+  pinned?: boolean;
   draftText: string;
 };
 
@@ -218,6 +219,26 @@ export default function ChatsPage() {
   const [newChatOpen, setNewChatOpen] = useState(false);
   const [newGroupOpen, setNewGroupOpen] = useState(false);
   const [myUserId, setMyUserId] = useState<string | null>(null);
+  // Закрепить / открепить чат (волна 2, до 5 штук на стороне бэкенда).
+  // Список сразу перестраивается, ответ сервера подтверждает: если
+  // бэкенд отказал (лимит), возвращаем как было.
+  async function togglePin(chat: ChatListItem) {
+    const next = !chat.pinned;
+    const reorder = (list: ChatListItem[]) =>
+      [...list].sort((x, y) => (!!x.pinned === !!y.pinned ? y.previewDateMs - x.previewDateMs : x.pinned ? -1 : 1));
+    setChats((cur) => reorder(cur.map((c) => (c.id === chat.id ? { ...c, pinned: next } : c))));
+    try {
+      const res = await authFetch("/api/chats/set-pinned", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ chat: chat.id, pinned: next }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!data?.ok) throw new Error("pin_failed");
+    } catch {
+      setChats((cur) => reorder(cur.map((c) => (c.id === chat.id ? { ...c, pinned: !next } : c))));
+    }
+  }
   const inFlight = useRef(false);
   // 2026-09-02 (Aleksandr: "Аватары в чатах все равно моргают раз в 5
   // сек") -- root-caused live via Chrome devtools: chat.avatarUrl (built
@@ -614,7 +635,7 @@ export default function ChatsPage() {
                 // no username to link a profile to.
                 <div
                   key={chat.id}
-                  className="relative flex items-center gap-3 rounded-xl px-2 py-2.5 hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
+                  className="group/row relative flex items-center gap-3 rounded-xl px-2 py-2.5 hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
                 >
                   <Link href={chatHref} aria-label={chat.title || undefined} className="absolute inset-0 z-0 rounded-xl" />
                   {/* 2026-09-05 (Aleksandr: "Сделай кеширование аватаров в
@@ -652,6 +673,11 @@ export default function ChatsPage() {
                       )}
                       {chat.previewDateMs > 0 && (
                         <div className="flex shrink-0 items-center gap-1 text-[13px] text-[#989aa6] dark:text-[#8d8d93]">
+                          {chat.pinned && (
+                            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor" aria-hidden="true">
+                              <path d="M14.5 3.5 20.5 9.5l-2 .6-3.3 3.3.4 4.3-1.4 1.4-3.7-3.7-5.1 5.1-1-1 5.1-5.1-3.7-3.7 1.4-1.4 4.3.4 3.3-3.3z" />
+                            </svg>
+                          )}
                           {chat.previewMine && chat.previewTick && (
                             <MessageTicks
                               state={chat.previewTick}
@@ -696,6 +722,19 @@ export default function ChatsPage() {
                       </div>
                     )}
                   </div>
+                  {!chat.id.startsWith("u_") && (
+                    <button
+                      type="button"
+                      aria-label={chat.pinned ? "Unpin" : "Pin"}
+                      title={chat.pinned ? "Unpin" : "Pin"}
+                      onClick={() => void togglePin(chat)}
+                      className="relative z-10 hidden h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#989aa6] opacity-0 transition hover:bg-black/5 group-hover/row:opacity-100 sm:flex dark:hover:bg-white/10"
+                    >
+                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill={chat.pinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M14.5 3.5 20.5 9.5l-2 .6-3.3 3.3.4 4.3-1.4 1.4-3.7-3.7-5.1 5.1-1-1 5.1-5.1-3.7-3.7 1.4-1.4 4.3.4 3.3-3.3z" />
+                      </svg>
+                    </button>
+                  )}
                   {chat.unreadCount > 0 && (
                     <span className="relative z-10 flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[#335ef7] px-1.5 text-[12px] font-medium text-white pointer-events-none dark:bg-[#0c8ce9]">
                       {chat.unreadCount > 99 ? "99+" : chat.unreadCount}
