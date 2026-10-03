@@ -156,6 +156,16 @@ const MUSIC_STR = {
   pl: ['Włącz muzykę', 'Wyłącz muzykę'], ptBR: ['Ligar a música', 'Desligar a música'], zh: ['打开音乐', '关闭音乐'],
 };
 
+// 03.10.2026 (Александр: «дим лише там, де є справжній димар»). Верх
+// димаря в частках ширини/висоти спрайта (заміряно за прозорістю PNG).
+// Ключ -- як у sprite(): регіональний стиль має префікс стилю.
+const CHIMNEY = {
+  'buildings/level-02': [0.772, 0.3], 'forest/level-02': [0.74, 0.25], 'forest/level-03': [0.697, 0.24],
+  'eu/buildings/level-02': [0.828, 0.369], 'eu/buildings/level-02-b': [0.799, 0.064], 'eu/buildings/level-03-b': [0.847, 0.305], 'eu/buildings/level-04': [0.658, 0.166],
+  'latam/buildings/level-02': [0.818, 0.185],
+  'us/buildings/level-02-b': [0.748, 0.067], 'us/buildings/level-03-b': [0.757, 0.125], 'us/buildings/level-05': [0.698, 0.002],
+};
+
 export function mountGameMap(root, opts) {
   const base = opts.base || '/game-map/v2';
   const companiesIn = opts.companies || [];
@@ -719,7 +729,18 @@ export function mountGameMap(root, opts) {
       const x = wk.a[0] + (wk.b[0] - wk.a[0]) * k, y = wk.a[1] + (wk.b[1] - wk.a[1]) * k + (reduce ? 0 : -Math.abs(Math.sin(t * 6 + wk.ph)) * 1.5);
       if (onScreen(x, y)) items.push({ y, draw: () => { ctx.save(); if ((p < 1) !== (wk.b[0] > wk.a[0])) { ctx.translate(x, 0); ctx.scale(-1, 1); ctx.translate(-x, 0); } drawSprite(wk.k, x, y, 16 * Math.max(0.4, dens)); ctx.restore(); } });
     }
+    smokeQ = [];
     items.sort((a, b) => a.y - b.y).forEach((it) => it.draw());
+    for (const [sx0, sy0, w, hs, own] of smokeQ) {
+      // димар закритий будинком спереду -- диму не видно, не малюємо
+      if (cos.some((o) => o !== own && o._r && o.y > own.y && Math.abs(sx0 - o._r.x) < o._r.w * 0.42 && sy0 > o._r.y - o._r.h * 0.42 && sy0 < o._r.y + o._r.h / 2)) continue;
+      for (let i = 0; i < 5; i++) {
+        const p = (t * 0.2 + i / 5 + (hs % 11) * 0.09) % 1;
+        const r = w * (0.045 + p * 0.1);
+        ctx.fillStyle = theme === 'dark' ? `rgba(205,210,225,${0.42 * (1 - p)})` : `rgba(226,222,215,${0.85 * (1 - p) * Math.min(1, p * 6)})`;
+        ctx.beginPath(); ctx.arc(sx0 + Math.sin(p * 4 + hs) * w * 0.04 + p * w * 0.1, sy0 - p * w * 0.38, r, 0, 7); ctx.fill();
+      }
+    }
     // 03.10.2026 (Александр): уночі на маяках повільно крутиться промінь.
     if (theme === 'dark' && !reduce) {
       for (const d of geo.decor) {
@@ -900,15 +921,10 @@ export function mountGameMap(root, opts) {
         g.addColorStop(0, `rgba(255,190,100,${0.45 * fl})`); g.addColorStop(1, 'rgba(255,170,80,0)');
         ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g; ctx.fillRect(gx - gr, gy - gr, gr * 2, gr * 2); ctx.restore();
       }
-      if (hs % 2 === 0) {
-        const sx0 = bx + w * (0.32 + (hs % 7) * 0.05), sy0 = by + h * 0.08;
-        for (let i = 0; i < 5; i++) {
-          const p = (t * 0.2 + i / 5 + (hs % 11) * 0.09) % 1;
-          const r = w * (0.035 + p * 0.07);
-          ctx.fillStyle = theme === 'dark' ? `rgba(205,210,225,${0.38 * (1 - p)})` : `rgba(206,200,192,${0.7 * (1 - p) * Math.min(1, p * 6)})`;
-          ctx.beginPath(); ctx.arc(sx0 + Math.sin(p * 4 + hs) * w * 0.04 + p * w * 0.1, sy0 - p * w * 0.32, r, 0, 7); ctx.fill();
-        }
-      }
+      // Дим -- лише з будинків, де в малюнку справді є димар (CHIMNEY).
+      const chim = CHIMNEY[styleKeys.has(k) ? `${style}/${k}` : k];
+      // малюємо після всіх будинків (smokeQ), щоб сусідній дах не ховав дим
+      if (chim) smokeQ.push([bx + w * chim[0], by + h * chim[1], w, hs, c]);
     }
     if (c.userId && allies.has(c.userId)) { const a = sprite('markers/ally'); if (a) { const aw = w * 0.3; ctx.drawImage(a, c.x + w * 0.22, by + h * 0.18, aw, aw * a.height / a.width); } }
     c._r = { x: c.x, y: c.y - h / 2, w, h };
@@ -942,6 +958,7 @@ export function mountGameMap(root, opts) {
 
   // ---------- карточка компании возле здания ----------
   let popFor = null;
+  let smokeQ = [];
   let popCoversLabel = false;
   function popupHtml(c) {
     const jobs = (c.jobs || []).slice(0, 3).map((j) => `<a href="/jobs/${esc(j.slug)}">${esc(j.title)}</a>`).join('');
