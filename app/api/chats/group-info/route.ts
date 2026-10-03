@@ -15,6 +15,7 @@ import { callAsVisitor, NoSessionError } from "@/lib/a1/visitor-call";
 import { setSession, clearSession, readSession } from "@/lib/a1/session";
 import { extractChats } from "@/lib/a1/chat-schemas";
 import { isGroupFlags, CHAT_FLAG_PUBLIC, CHAT_FLAG_THREAD } from "@/lib/a1/group-chat";
+import { isSavedChatParticipants } from "@/lib/a1/chat-extras";
 import { threadRootFrom, unreadInChat, lastMessageId, type ThreadRoot } from "@/lib/a1/group-threads";
 import { parseUserProfile } from "@/lib/a1/schemas";
 import { buildMediaProxyUrl } from "@/lib/a1/mappers";
@@ -37,7 +38,7 @@ export type GroupThreadBrief = { chatId: string; messageId: number; replies: num
 export type ThreadOf = { groupId: string; messageId: number; root: ThreadRoot | null };
 
 export type GroupInfoResponse =
-  | { ok: true; isGroup: false }
+  | { ok: true; isGroup: false; saved: boolean }
   | {
       ok: true;
       isGroup: true;
@@ -71,7 +72,8 @@ export async function GET(request: NextRequest) {
     const { data, refreshedSession } = await callAsVisitor<unknown>("chats.getChats", {});
     const chat = extractChats(data).find((c) => c._id === chatId);
     if (!chat || !isGroupFlags(chat.flags)) {
-      const res = NextResponse.json({ ok: true, isGroup: false } satisfies GroupInfoResponse);
+      const savedChat = !!chat && isSavedChatParticipants(chat.participants, myUserId);
+      const res = NextResponse.json({ ok: true, isGroup: false, saved: savedChat } satisfies GroupInfoResponse);
       if (refreshedSession) setSession(res, refreshedSession);
       return res;
     }

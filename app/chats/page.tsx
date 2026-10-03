@@ -58,6 +58,8 @@ import { SharedPanel, type SharedKind } from "@/components/chat/shared-panel";
 import { GLASS } from "@/lib/glass";
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
 import { NewChatPickerModal } from "@/components/new-chat-picker-modal";
+import { SavedAvatar } from "@/components/chat/chat-extras-ui";
+import { extraText } from "@/lib/a1/chat-extras";
 import { NewGroupModal } from "@/components/new-group-modal";
 import { groupNotePlainText, type GroupLang } from "@/lib/a1/group-chat";
 import { IosAddToHomeHint } from "@/components/ios-add-to-home-hint";
@@ -94,6 +96,10 @@ type ChatListItem = {
   isPersonal: boolean;
   // Группы в чатах (волна 1, 2026-10-03) -- см. app/api/chats/list/route.ts.
   isGroup?: boolean;
+  // Волна 4: «Збережене», отметка «непрочитано», «сообщение удалено».
+  isSaved?: boolean;
+  unreadMark?: boolean;
+  previewDeleted?: boolean;
   memberCount?: number;
   previewAuthor?: string | null;
   previewService?: Array<{ object?: string; text?: string; userId?: string }> | null;
@@ -237,6 +243,24 @@ export default function ChatsPage() {
       if (!data?.ok) throw new Error("pin_failed");
     } catch {
       setChats((cur) => reorder(cur.map((c) => (c.id === chat.id ? { ...c, pinned: !next } : c))));
+    }
+  }
+  // Волна 4: меню по правому клику / долгому нажатию на строке чата --
+  // «Закрепить» и «Позначити непрочитаним / прочитаним».
+  const [rowMenu, setRowMenu] = useState<{ chat: ChatListItem; x: number; y: number } | null>(null);
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  async function setUnreadMark(chat: ChatListItem, unread: boolean) {
+    setChats((cur) => cur.map((c) => (c.id === chat.id ? { ...c, unreadMark: unread } : c)));
+    try {
+      const res = await authFetch("/api/chats/mark-unread", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ chat: chat.id, unread }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!data?.ok) throw new Error("mark_failed");
+    } catch {
+      setChats((cur) => cur.map((c) => (c.id === chat.id ? { ...c, unreadMark: !unread } : c)));
     }
   }
   const inFlight = useRef(false);
@@ -603,7 +627,9 @@ export default function ChatsPage() {
               // a display hint, the window's own polling loop is the
               // source of truth for anything else.
               const chatHref = `/chats/${chat.id}${chat.isGroup ? "?group=1&" : "?"}title=${encodeURIComponent(chat.title)}&avatar=${encodeURIComponent(chat.avatarUrl)}${chat.avatarBlurDataUrl ? `&avatarBlur=${encodeURIComponent(chat.avatarBlurDataUrl)}` : ""}${chat.username ? `&username=${encodeURIComponent(chat.username)}` : ""}`;
-              const avatarNode = (
+              const avatarNode = chat.isSaved ? (
+                <SavedAvatar size={52} />
+              ) : (
                 <CachedAvatar
                   src={chat.avatarUrl}
                   blurDataURL={chat.avatarBlurDataUrl ?? BLUR_DATA_URL}
@@ -611,7 +637,8 @@ export default function ChatsPage() {
                   className="h-[52px] w-[52px] shrink-0 rounded-full object-cover"
                 />
               );
-              const titleNode = <>{chat.title || "—"}</>;
+              const titleNode = <>{chat.isSaved ? extraText(lang as GroupLang, "savedMessages") : chat.title || "—"}</>;
+              const openMenu = (x: number, y: number) => setRowMenu({ chat, x, y });
               return (
                 // Fix Tracker (2026-09-07, orders 108/109 -- "При
                 // нажатии на имя в чатах: надо делать переход в
@@ -635,9 +662,29 @@ export default function ChatsPage() {
                 // no username to link a profile to.
                 <div
                   key={chat.id}
+                  data-testid="chat-row"
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    openMenu(e.clientX, e.clientY);
+                  }}
+                  onTouchStart={(e) => {
+                    const t = e.touches[0];
+                    if (!t) return;
+                    if (pressTimer.current) clearTimeout(pressTimer.current);
+                    pressTimer.current = setTimeout(() => openMenu(t.clientX, t.clientY), 520);
+                  }}
+                  onTouchEnd={() => pressTimer.current && clearTimeout(pressTimer.current)}
+                  onTouchMove={() => pressTimer.current && clearTimeout(pressTimer.current)}
                   className="group/row relative flex items-center gap-3 rounded-xl px-2 py-2.5 hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
                 >
-                  <Link href={chatHref} aria-label={chat.title || undefined} className="absolute inset-0 z-0 rounded-xl" />
+                  <Link
+                    href={chatHref}
+                    aria-label={chat.title || undefined}
+                    onClick={() => {
+                      if (chat.unreadMark) void setUnreadMark(chat, false);
+                    }}
+                    className="absolute inset-0 z-0 rounded-xl"
+                  />
                   {/* 2026-09-05 (Aleksandr: "Сделай кеширование аватаров в
                       чат-листе, а то они кажд раз подгружаются через блюр, а
                       надо один раз загрузить и чтобы были загруженные уже")
@@ -648,7 +695,7 @@ export default function ChatsPage() {
                       (this list's own pinnedAvatarUrls, right above) wasn't
                       enough on its own -- it only survives within one tab,
                       not a reload or a new one. */}
-                  {chat.username ? (
+                  {chat.username && !chat.isSaved ? (
                     <Link href={`${profileHref(chat.username)}?photo=1`} aria-label={chat.title || undefined} className="relative z-10 shrink-0">
                       {avatarNode}
                     </Link>
@@ -661,7 +708,7 @@ export default function ChatsPage() {
                           "Увелич шрифты имени и текстов сообщений, где то
                           +2") -- name 16px -> 18px, preview/draft text
                           14px -> 16px below. */}
-                      {chat.username ? (
+                      {chat.username && !chat.isSaved ? (
                         <Link
                           href={profileHref(chat.username)}
                           className="pointer-events-auto truncate text-[18px] font-medium text-[#262a34] hover:underline dark:text-white"
@@ -678,7 +725,7 @@ export default function ChatsPage() {
                               <path d="M14.5 3.5 20.5 9.5l-2 .6-3.3 3.3.4 4.3-1.4 1.4-3.7-3.7-5.1 5.1-1-1 5.1-5.1-3.7-3.7 1.4-1.4 4.3.4 3.3-3.3z" />
                             </svg>
                           )}
-                          {chat.previewMine && chat.previewTick && (
+                          {chat.previewMine && chat.previewTick && !chat.isSaved && (
                             <MessageTicks
                               state={chat.previewTick}
                               className={`h-[10px] w-[17px] ${chat.previewTick === "read" ? "text-[#335ef7] dark:text-[#0c8ce9]" : ""}`}
@@ -710,9 +757,11 @@ export default function ChatsPage() {
                         <ChatPreviewLine
                           kind={chat.previewKind}
                           text={
-                            chat.previewService
-                              ? (groupNotePlainText(chat.previewService, lang as GroupLang, myUserId) ?? chat.previewText)
-                              : chat.previewText
+                            chat.previewDeleted
+                              ? extraText(lang as GroupLang, chat.previewMine ? "messageDeletedByYou" : "messageDeleted")
+                              : chat.previewService
+                                ? (groupNotePlainText(chat.previewService, lang as GroupLang, myUserId) ?? chat.previewText)
+                                : chat.previewText
                           }
                           photoUrl={chat.previewPhotoUrl}
                           stickerPreviewUrl={chat.previewStickerPreview}
@@ -735,6 +784,12 @@ export default function ChatsPage() {
                       </svg>
                     </button>
                   )}
+                  {chat.unreadCount === 0 && chat.unreadMark && (
+                    <span
+                      data-testid="unread-mark-dot"
+                      className="relative z-10 h-3 w-3 shrink-0 rounded-full bg-[#335ef7] pointer-events-none dark:bg-[#0c8ce9]"
+                    />
+                  )}
                   {chat.unreadCount > 0 && (
                     <span className="relative z-10 flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[#335ef7] px-1.5 text-[12px] font-medium text-white pointer-events-none dark:bg-[#0c8ce9]">
                       {chat.unreadCount > 99 ? "99+" : chat.unreadCount}
@@ -747,7 +802,70 @@ export default function ChatsPage() {
         )}
       </main>
 
-      {newChatOpen && <NewChatPickerModal lang={lang} onClose={() => setNewChatOpen(false)} />}
+      {rowMenu && (
+        <div
+          className="fixed inset-0 z-[80]"
+          onClick={() => setRowMenu(null)}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            setRowMenu(null);
+          }}
+        >
+          <div
+            data-testid="chat-row-menu"
+            onClick={(e) => e.stopPropagation()}
+            className="absolute w-[240px] overflow-hidden rounded-2xl bg-white/95 shadow-xl backdrop-blur-sm dark:bg-neutral-800/95"
+            style={{ left: Math.min(rowMenu.x, (typeof window !== "undefined" ? window.innerWidth : 1000) - 250), top: Math.min(rowMenu.y, (typeof window !== "undefined" ? window.innerHeight : 800) - 120) }}
+          >
+            {!rowMenu.chat.id.startsWith("u_") && (
+              <button
+                type="button"
+                data-testid="row-menu-pin"
+                onClick={() => {
+                  const c = rowMenu.chat;
+                  setRowMenu(null);
+                  void togglePin(c);
+                }}
+                className="flex w-full items-center px-4 py-3 text-left text-[14px] text-[#262a34] hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+              >
+                {rowMenu.chat.pinned ? "Unpin" : "Pin"}
+              </button>
+            )}
+            {!rowMenu.chat.id.startsWith("u_") && (
+              <button
+                type="button"
+                data-testid="row-menu-unread"
+                onClick={() => {
+                  const c = rowMenu.chat;
+                  setRowMenu(null);
+                  if (c.unreadCount > 0) {
+                    // Настоящие непрочитанные: отмечаем как прочитанные
+                    // (messages.markAsRead до последнего) и снимаем метку.
+                    const last = Number(c.lastMessageId);
+                    setChats((cur) => cur.map((x) => (x.id === c.id ? { ...x, unreadCount: 0 } : x)));
+                    if (Number.isFinite(last) && last > 0) {
+                      void authFetch("/api/chats/mark-read", {
+                        method: "POST",
+                        headers: { "content-type": "application/json" },
+                        body: JSON.stringify({ chat: c.id, lastMessage: last }),
+                      }).catch(() => undefined);
+                    }
+                    if (c.unreadMark) void setUnreadMark(c, false);
+                  } else {
+                    void setUnreadMark(c, !c.unreadMark);
+                  }
+                }}
+                className="flex w-full items-center border-t border-black/5 px-4 py-3 text-left text-[14px] text-[#262a34] hover:bg-black/5 dark:border-white/10 dark:text-white dark:hover:bg-white/10"
+              >
+                {rowMenu.chat.unreadMark || rowMenu.chat.unreadCount > 0
+                  ? extraText(lang as GroupLang, "chatPreviewMarkAsRead")
+                  : extraText(lang as GroupLang, "chatPreviewMarkAsUnread")}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+      {newChatOpen && <NewChatPickerModal lang={lang} myUserId={myUserId} onClose={() => setNewChatOpen(false)} />}
       {newGroupOpen && <NewGroupModal lang={lang} onClose={() => setNewGroupOpen(false)} />}
     </div>
   );

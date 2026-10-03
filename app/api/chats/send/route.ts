@@ -169,6 +169,8 @@ const SendInput = z
     // existing text/media/contacts fields, re-using the original
     // message's own entities/media -- nothing forward-specific there.
     forwardFrom: z.object({ userId: z.string().trim().min(1) }).optional(),
+    // Волна 4: «без звука» (1<<2) и «згорнуте» (1<<7) -- только эти биты.
+    flags: z.number().int().min(0).optional(),
   })
   .refine(
     (v) =>
@@ -185,7 +187,7 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ ok: false, message: "invalid_input" }, { status: 400 });
   }
-  const { chatId, text, media, contacts, calculation, meet, replyTo, forwardFrom } = parsed.data;
+  const { chatId, text, media, contacts, calculation, meet, replyTo, forwardFrom, flags } = parsed.data;
 
   try {
     // `message` and `media` are both optional on MessageInput (only
@@ -198,6 +200,8 @@ export async function POST(request: NextRequest) {
     // message's media[] (untested combination so far, but nothing in
     // the spec suggests it's disallowed).
     const payload: Record<string, unknown> = { peerTo: peerForRouteParam(chatId) };
+    const sendFlags = (flags ?? 0) & 132;
+    if (sendFlags) payload.flags = sendFlags;
     if (replyTo) {
       payload.replyTo = { message: Number(replyTo.messageId), object: "peer-user", user: replyTo.userId };
     }

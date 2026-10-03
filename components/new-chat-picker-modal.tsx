@@ -30,6 +30,8 @@ import { T, type Locale } from "@/components/t";
 import type { Contact } from "@/lib/a1/schemas";
 import { authFetch } from "@/lib/auth-fetch";
 import { SearchIcon } from "@/components/search-icon";
+import { SavedAvatar } from "@/components/chat/chat-extras-ui";
+import { extraText } from "@/lib/a1/chat-extras";
 // 2026-09-13 (Александр, скриншот "Новий чат" с запросом "serheienko" и
 // ответом "Нічого не знайдено": "Еще надо, чтобы кнопка новый чат еще
 // искала контакты по глобалу"). Тот же общий поиск людей, что уже стоит
@@ -105,7 +107,7 @@ function CloseIcon({ className }: { className?: string }) {
   );
 }
 
-export function NewChatPickerModal({ lang, onClose }: { lang: Locale; onClose: () => void }) {
+export function NewChatPickerModal({ lang, onClose, myUserId }: { lang: Locale; onClose: () => void; myUserId?: string | null }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [state, setState] = useState<LoadState>("loading");
@@ -287,6 +289,20 @@ export function NewChatPickerModal({ lang, onClose }: { lang: Locale; onClose: (
           {/* Пустые надписи учитывают и найденных «по глобалу»: раньше
               тут было «Нічого не знайдено» даже тогда, когда человек в
               A1 есть -- просто он не записан в книге контактов. */}
+          {myUserId && !trimmedQuery && (
+            <button
+              type="button"
+              data-testid="picker-saved"
+              onClick={() => {
+                onClose();
+                router.push(`/chats/u_${myUserId}`);
+              }}
+              className="mb-1 flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition hover:bg-black/5 dark:hover:bg-white/10"
+            >
+              <SavedAvatar size={40} />
+              <span className="text-[15px] font-medium text-neutral-900 dark:text-neutral-50">{extraText(lang, "savedMessages")}</span>
+            </button>
+          )}
           {state === "ready" && linkedContacts.length === 0 && otherPeople.length === 0 && !trimmedQuery && (
             <p className="py-6 text-center text-[13px] text-neutral-500 dark:text-neutral-400">{NO_LINKED_CONTACTS_STRINGS[lang]}</p>
           )}

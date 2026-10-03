@@ -110,6 +110,7 @@ import {
 import { resolveChatDisplay, pickChatAvatar } from "@/lib/a1/chat-mappers";
 import { CHAT_FLAG_THREAD, isGroupFlags, isServiceFlags } from "@/lib/a1/group-chat";
 import { unreadInChat } from "@/lib/a1/group-threads";
+import { isDeletedForAll, isSavedChatParticipants } from "@/lib/a1/chat-extras";
 import { parseUserProfile } from "@/lib/a1/schemas";
 import { buildMediaProxyUrl } from "@/lib/a1/mappers";
 import { strippedPreviewDataUrl } from "@/lib/a1/media-proxy";
@@ -340,6 +341,11 @@ export async function GET() {
           // последнего сообщения и сырые сущности служебной строки
           // («X added Y») -- локализует клиент (lib/a1/group-chat.ts).
           isGroup,
+          // Волна 4: «Збережене» (чат с самим собой), серверная отметка
+          // «непрочитано» и «сообщение удалено» в превью.
+          isSaved: !isGroup && isSavedChatParticipants(chat.participants, myUserId),
+          unreadMark: (chat as unknown as { unreadMark?: unknown }).unreadMark === true,
+          previewDeleted: !!resolvedMessage && isDeletedForAll(resolvedMessage.flags),
           memberCount: isGroup ? chat.participants.filter((pp) => pp.object === "peer-user").length : 0,
           previewAuthor: isGroup && resolvedMessage && !isServiceMessage && !previewMine ? previewAuthorName : null,
           previewService: isGroup && resolvedMessage && isServiceMessage

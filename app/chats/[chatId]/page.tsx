@@ -125,6 +125,8 @@ import { useActiveLocale } from "@/lib/use-active-locale";
 import { GroupInfoModal } from "@/components/chat/group-info-modal";
 import { ThreadStrip, ThreadRootCard, TopicsModal } from "@/components/chat/thread-parts";
 import { messageThread, topicTitle, threadText } from "@/lib/a1/group-threads";
+import { SendOptionsMenu, DeletedPlaque, CollapsibleBody, SavedAvatar } from "@/components/chat/chat-extras-ui";
+import { extraText, isCollapsedFlags, isDeletedForAll, isLongForCollapse } from "@/lib/a1/chat-extras";
 import { isServiceFlags, localizeGroupNote, membersCountText, groupText, type GroupLang } from "@/lib/a1/group-chat";
 import { peerNameColorIndex, peerNameColorVar } from "@/lib/peer-name-color";
 import type { GroupInfoResponse, GroupMember } from "@/app/api/chats/group-info/route";
@@ -773,6 +775,8 @@ export default function ChatWindowPage() {
   const isGroupParam = searchParams.get("group") === "1";
   const [groupInfo, setGroupInfo] = useState<Extract<GroupInfoResponse, { isGroup: true }> | null>(null);
   const [groupOpen, setGroupOpen] = useState(false);
+  // Волна 4: «Збережене» -- чат с самим собой (group-info говорит saved).
+  const [isSavedChat, setIsSavedChat] = useState(false);
   const groupSeenRef = useRef(false);
   const [groupReloadKey, setGroupReloadKey] = useState(0);
   useEffect(() => {
@@ -788,6 +792,7 @@ export default function ChatWindowPage() {
             setGroupInfo(d);
           } else {
             setGroupInfo(null);
+            setIsSavedChat(d.saved === true);
           }
         })
         .catch(() => {});
@@ -828,9 +833,11 @@ export default function ChatWindowPage() {
     const x = memberById.get(id);
     return x ? { name: x.name, photo: x.photo } : null;
   };
-  const headerTitle = threadOf
-    ? topicTitle(lang as GroupLang, threadOf.root)
-    : groupInfo?.title || headerTitleParam || chatFallback?.title || "";
+  const headerTitle = isSavedChat
+    ? extraText(lang as GroupLang, "savedMessages")
+    : threadOf
+      ? topicTitle(lang as GroupLang, threadOf.root)
+      : groupInfo?.title || headerTitleParam || chatFallback?.title || "";
   const openTopicChat = (topicChatId: string) => {
     flushDraftSync();
     setTopicsOpen(false);
@@ -864,7 +871,7 @@ export default function ChatWindowPage() {
   const headerAvatar = groupInfo?.photo || headerAvatarParam || chatFallback?.avatarUrl || pickDefaultCatAvatar(chatId);
   const headerAvatarBlur = headerAvatarBlurParam || chatFallback?.avatarBlurDataUrl || null;
   const headerUsername = headerUsernameParam || chatFallback?.username || null;
-  const headerProfileHref = headerUsername ? profileHref(headerUsername) : null;
+  const headerProfileHref = headerUsername && !isSavedChat ? profileHref(headerUsername) : null;
 
   // 2026-09-04 (Aleksandr, live screenshot of the now-playing bar on a
   // self-sent voice clip showing the generic mic glyph: "поставь в
@@ -1207,6 +1214,10 @@ export default function ChatWindowPage() {
   const SWIPE_TRIGGER_DX = 56;
   const SWIPE_MAX_DX = 72;
   const [myUserId, setMyUserId] = useState<string | null>(null);
+  // Волна 4: чат с самим собой по «u_<мой id>» -- это «Збережене».
+  useEffect(() => {
+    if (myUserId && chatId === `u_${myUserId}`) setIsSavedChat(true);
+  }, [myUserId, chatId]);
   // Reminders list (2026-09-06) -- the chat header's own new trigger
   // button below opens this; RemindersListModal fetches its own data
   // on mount, nothing to preload here.
@@ -1380,6 +1391,10 @@ export default function ChatWindowPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId, draft, draftSyncReady]);
   const [sending, setSending] = useState(false);
+  // Волна 4: меню у кнопки отправки (правый клик / долгое нажатие).
+  const [sendMenuRect, setSendMenuRect] = useState<DOMRect | null>(null);
+  const sendPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sendLongPressed = useRef(false);
   const inFlight = useRef(false);
   // Attachment feature: pending compose-bar attachments (see
   // PendingAttachment's own comment above) plus the attach-menu open
@@ -2203,6 +2218,8 @@ export default function ChatWindowPage() {
     // sender's user id) are already sitting on the ChatMessage object
     // this page already has in hand at both call sites.
     replyTo?: { messageId: string; userId: string },
+    // Волна 4: флаги отправки (4 = без звука, 128 = «згорнуто»).
+    sendFlags?: number,
   ) {
     try {
       const res = await authFetch("/api/chats/send", {
@@ -2228,6 +2245,7 @@ export default function ChatWindowPage() {
               : undefined,
           meet,
           replyTo,
+          flags: sendFlags ? sendFlags : undefined,
         }),
       });
       if (res.ok) {
@@ -2532,7 +2550,7 @@ export default function ChatWindowPage() {
         p.replySnapshot && p.replySnapshot.fromId
           ? { messageId: p.replySnapshot._id, userId: p.replySnapshot.fromId }
           : undefined;
-      await attemptSend(p.localId, extractMessageText(p), media, p.pendingContacts, undefined, replyTo);
+      await attemptSend(p.localId, extractMessageText(p), media, p.pendingContacts, undefined, replyTo, p.flags & 132);
     } finally {
       retryingIds.current.delete(p.localId);
     }
@@ -2770,6 +2788,7 @@ export default function ChatWindowPage() {
         owner.replySnapshot && owner.replySnapshot.fromId
           ? { messageId: owner.replySnapshot._id, userId: owner.replySnapshot.fromId }
           : undefined,
+        owner.flags & 132,
       );
     }
   }
@@ -3068,7 +3087,7 @@ export default function ChatWindowPage() {
     }
   }
 
-  async function send(overrideText?: string, meet?: MeetSendPayload) {
+  async function send(overrideText?: string, meet?: MeetSendPayload, sendFlags: number = 0) {
     // Edit feature -- while editingMessage is set, this SAME textarea/
     // Send-button pair this compose bar already has (Enter key + the
     // send-arrow button, see both call sites below) saves the edit
@@ -3147,7 +3166,7 @@ export default function ChatWindowPage() {
     const localId = `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const optimistic: PendingMessage = {
       _id: localId,
-      flags: 0,
+      flags: sendFlags & 132,
       peerFrom: myUserId ? { object: "peer-user", user: myUserId } : null,
       peerTo: null,
       date: new Date().toISOString(),
@@ -3187,6 +3206,7 @@ export default function ChatWindowPage() {
         contactsToSend,
         meet,
         replyToSend && replyToSend.fromId ? { messageId: replyToSend._id, userId: replyToSend.fromId } : undefined,
+        sendFlags & 132,
       );
     }
     setSending(false);
@@ -4437,6 +4457,8 @@ export default function ChatWindowPage() {
                   className="h-[42px] w-[42px] shrink-0 rounded-full object-cover"
                 />
               </button>
+            ) : isSavedChat ? (
+              <SavedAvatar size={42} />
             ) : (
               <CachedAvatar
                 src={headerAvatar}
@@ -4729,6 +4751,32 @@ export default function ChatWindowPage() {
                             )
                           : text}
                       </span>
+                    </div>
+                  </div>
+                );
+              }
+              // Волна 4: сообщение удалено у всех (флаг 1<<8) -- вместо
+              // пузыря плашка «Повідомлення видалено».
+              if (!pending && isDeletedForAll((msg as ChatMessage).flags)) {
+                return (
+                  <div key={msg._id}>
+                    {showDate && (
+                      <div className="my-3 flex justify-center">
+                        <span className="rounded-full bg-black/5 px-3 py-1 text-[13px] font-medium text-[#262a34] backdrop-blur-sm dark:bg-white/10 dark:text-white">
+                          {formatDateLabel(ms)}
+                        </span>
+                      </div>
+                    )}
+                    <div className={`my-1 flex px-4 ${mine ? "justify-end" : isGroup ? "justify-start pl-10" : "justify-start"}`}>
+                      <DeletedPlaque
+                        lang={lang as GroupLang}
+                        mine={mine}
+                        time={formatTime(ms)}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          setActionsMenu({ message: msg as ChatMessage, anchorRect: e.currentTarget.getBoundingClientRect(), mine });
+                        }}
+                      />
                     </div>
                   </div>
                 );
@@ -5031,7 +5079,7 @@ export default function ChatWindowPage() {
                   {pending ? (
                     pending.failed ? <NotSentIcon /> : <SendingSpinner />
                   ) : (
-                    mine && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7.77px] w-3.5" />
+                    mine && !isSavedChat && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7.77px] w-3.5" />
                   )}
                 </span>
               );
@@ -5043,7 +5091,7 @@ export default function ChatWindowPage() {
                     return (
                       <span className="pointer-events-none absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded-full bg-black/45 px-2 py-0.5 text-[11px] text-white backdrop-blur-sm">
                         <span>{lastMsg.editedAt && <EditedLabel />}{formatTime(messageDateMs(lastMsg))}</span>
-                        {mine && <MessageTicks state={messageTickState(lastMsg, peerReadMaxId)} className="h-[7.77px] w-3.5" />}
+                        {mine && !isSavedChat && <MessageTicks state={messageTickState(lastMsg, peerReadMaxId)} className="h-[7.77px] w-3.5" />}
                       </span>
                     );
                   })()
@@ -5059,7 +5107,7 @@ export default function ChatWindowPage() {
                   {pending ? (
                     pending.failed ? <NotSentIcon /> : <SendingSpinner />
                   ) : (
-                    mine && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7.77px] w-3.5" />
+                    mine && !isSavedChat && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7.77px] w-3.5" />
                   )}
                 </div>
               );
@@ -5079,7 +5127,7 @@ export default function ChatWindowPage() {
                   {pending ? (
                     pending.failed ? <NotSentIcon /> : <SendingSpinner />
                   ) : (
-                    mine && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7.77px] w-3.5" />
+                    mine && !isSavedChat && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7.77px] w-3.5" />
                   )}
                 </div>
               );
@@ -5688,7 +5736,7 @@ export default function ChatWindowPage() {
                                   />
                                   <span className="pointer-events-none absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded-full bg-black/45 px-2 py-0.5 text-[11px] text-white backdrop-blur-sm">
                                     <span>{msg.editedAt && <EditedLabel />}{formatTime(ms)}</span>
-                                    {mine && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7.77px] w-3.5" />}
+                                    {mine && !isSavedChat && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7.77px] w-3.5" />}
                                   </span>
                                 </div>
                                 )
@@ -5749,7 +5797,7 @@ export default function ChatWindowPage() {
                                 {isVideoOnly && (
                                   <span className="pointer-events-none absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded-full bg-black/45 px-2 py-0.5 text-[11px] text-white backdrop-blur-sm">
                                     <span>{msg.editedAt && <EditedLabel />}{formatTime(ms)}</span>
-                                    {mine && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7.77px] w-3.5" />}
+                                    {mine && !isSavedChat && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7.77px] w-3.5" />}
                                   </span>
                                 )}
                               </div>
@@ -5832,7 +5880,7 @@ export default function ChatWindowPage() {
                                 {isStickerOnly && (
                                   <span className="pointer-events-none absolute bottom-0.5 right-0.5 flex items-center gap-1 rounded-full bg-black/45 px-2 py-0.5 text-[11px] text-white backdrop-blur-sm">
                                     <span>{msg.editedAt && <EditedLabel />}{formatTime(ms)}</span>
-                                    {mine && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7.77px] w-3.5" />}
+                                    {mine && !isSavedChat && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7.77px] w-3.5" />}
                                   </span>
                                 )}
                               </button>
@@ -6107,7 +6155,9 @@ export default function ChatWindowPage() {
                                   : (e) => setActionsMenu({ message: msg, anchorRect: e.currentTarget.getBoundingClientRect(), mine })
                               }
                             >
-                              <MessageRichText entities={richEntities} fallback={text} tone={mine ? "mine" : "theirs"} />
+                              <CollapsibleBody collapsed={isCollapsedFlags(msg.flags)} messageId={String(msg._id)} lang={lang as GroupLang}>
+                                <MessageRichText entities={richEntities} fallback={text} tone={mine ? "mine" : "theirs"} />
+                              </CollapsibleBody>
                             </div>
                           </>
                         )
@@ -6160,7 +6210,7 @@ export default function ChatWindowPage() {
                               {pending ? (
                                 pending.failed ? <NotSentIcon /> : <SendingSpinner />
                               ) : (
-                                mine && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7.77px] w-3.5" />
+                                mine && !isSavedChat && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7.77px] w-3.5" />
                               )}
                             </span>
                             <ReactionsBar
@@ -6183,7 +6233,7 @@ export default function ChatWindowPage() {
                             {pending ? (
                               pending.failed ? <NotSentIcon /> : <SendingSpinner />
                             ) : (
-                              mine && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7.77px] w-3.5" />
+                              mine && !isSavedChat && <MessageTicks state={messageTickState(msg, peerReadMaxId)} className="h-[7.77px] w-3.5" />
                             )}
                           </div>
                         )
@@ -7569,7 +7619,29 @@ export default function ChatWindowPage() {
             {recorder.state === "idle" && (draft.trim() || attachments.length > 0 || pendingContacts.length > 0 || pendingForward) ? (
               <button
                 type="button"
-                onClick={() => send()}
+                data-testid="send-button"
+                onClick={() => {
+                  if (sendLongPressed.current) {
+                    sendLongPressed.current = false;
+                    return;
+                  }
+                  void send();
+                }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  if (!pendingForward && !editingMessage) setSendMenuRect(e.currentTarget.getBoundingClientRect());
+                }}
+                onTouchStart={(e) => {
+                  const el = e.currentTarget;
+                  sendLongPressed.current = false;
+                  if (sendPressTimer.current) clearTimeout(sendPressTimer.current);
+                  sendPressTimer.current = setTimeout(() => {
+                    sendLongPressed.current = true;
+                    if (!pendingForward && !editingMessage) setSendMenuRect(el.getBoundingClientRect());
+                  }, 450);
+                }}
+                onTouchEnd={() => sendPressTimer.current && clearTimeout(sendPressTimer.current)}
+                onTouchMove={() => sendPressTimer.current && clearTimeout(sendPressTimer.current)}
                 // 2026-09-03 (Aleksandr, live test: "нельзя отправить
                 // файл, пока он не подгрузится, это бесит") -- no longer
                 // blocks on `status === "uploading"`, and no longer
@@ -7611,6 +7683,16 @@ export default function ChatWindowPage() {
             </>
           )}
         </div>
+      )}
+      {sendMenuRect && (
+        <SendOptionsMenu
+          anchorRect={sendMenuRect}
+          lang={lang as GroupLang}
+          canCollapse={isLongForCollapse(draft)}
+          onSilent={() => void send(undefined, undefined, 4)}
+          onCollapsed={() => void send(undefined, undefined, 128)}
+          onClose={() => setSendMenuRect(null)}
+        />
       )}
       {dailyUploadsOpen && (
         <DailyUploadsModal lang={lang} prefetchedUsage={uploadUsage} onClose={() => setDailyUploadsOpen(false)} />
@@ -7772,6 +7854,8 @@ export default function ChatWindowPage() {
           mine={actionsMenu.mine}
           lang={lang}
           onClose={() => setActionsMenu(null)}
+          rows={isDeletedForAll(actionsMenu.message.flags) ? ["reply", "delete"] : undefined}
+          hideReactions={isDeletedForAll(actionsMenu.message.flags)}
           onDiscuss={
             isGroup && !threadOf && !isServiceFlags(actionsMenu.message.flags) && Number(actionsMenu.message._id) > 0
               ? () => void discussMessage(actionsMenu.message)
@@ -7878,7 +7962,7 @@ export default function ChatWindowPage() {
             />
           }
           deleteForEveryoneLabel={
-            <T
+            isSavedChat || (deleteConfirm && isDeletedForAll(messages.find((m) => Number(m._id) === deleteConfirm.messageId)?.flags ?? 0)) ? undefined : <T
               uk={`Видалити для мене та ${headerTitle}`} en={`Delete for me and ${headerTitle}`}
               ru={`Удалить для меня и ${headerTitle}`} de={`Für mich und ${headerTitle} löschen`}
               es={`Eliminar para mí y ${headerTitle}`} fr={`Supprimer pour moi et ${headerTitle}`}
