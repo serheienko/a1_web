@@ -454,11 +454,11 @@ export function SharedPanel({
             cur.items.map((it) =>
               it.kind === "links" ? (
                 <a key={it.key} href={it.url} target="_blank" rel="noreferrer" className="flex items-center gap-3 px-4 py-2">
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-[#4b63d8] dark:bg-[#1c1c1e]">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-[#262a34] dark:bg-[#1c1c1e] dark:text-white">
                     <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" /></svg>
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[15px] font-semibold text-[#4b63d8]">{it.url}</span>
+                    <span className="block truncate text-[15px] font-semibold text-[#262a34] dark:text-white">{it.url}</span>
                     <span className="block text-[13px] text-[#989aa6]">{where(it) ? `${where(it)} · ` : ""}{new Date(it.ms).toLocaleDateString()}</span>
                   </span>
                 </a>
