@@ -15,11 +15,11 @@ const OG = { url: "/game-map/og.jpg", width: 1200, height: 630, alt: "Карта
 
 export const metadata: Metadata = {
   title: "Карта всесвіту A1 | A1 Jobs",
-  description: "Ігрова карта A1: міста, будиночки й вакансії. Подивіться, хто наймає поруч.",
+  description: "Ігрова карта A1. Подивіться, хто наймає поруч.",
   robots: { index: false, follow: false },
   openGraph: {
     title: "Карта всесвіту A1",
-    description: "Ігрова карта A1: міста, будиночки й вакансії. Подивіться, хто наймає поруч.",
+    description: "Ігрова карта A1. Подивіться, хто наймає поруч.",
     url: "/game-map",
     type: "website",
     images: [OG],
