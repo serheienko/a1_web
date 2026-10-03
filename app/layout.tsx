@@ -9,6 +9,7 @@ import { ChatsFab } from "@/components/chats-fab";
 import { AppPromo } from "@/components/app-promo";
 import { ScrollTopFab } from "@/components/scroll-top-fab";
 import { VoiceNowPlayingBar } from "@/components/chat/voice-now-playing-bar";
+import { MetaPixel } from "@/components/meta-pixel";
 
 // Commissioner: the real typeface used in the Figma mockups (confirmed via
 // Inspect on "Feed Preview White", 2026-08-26), not a generic system stack.
@@ -254,6 +255,8 @@ export default function RootLayout({
         <ScrollTopFab />
         <CreatePostFab />
         <Analytics />
+        {/* 03.10.2026: пиксель Meta для рекламы — components/meta-pixel.tsx */}
+        <MetaPixel />
         {/* Umami (self-hosted on Railway): page views without cookies */}
         <Script
           id="umami"

@@ -29,6 +29,7 @@
 
 import { useEffect, useState } from "react";
 import { track } from "@vercel/analytics";
+import { fbqTrack } from "@/lib/meta-pixel";
 import styles from "./download.module.css";
 
 // Столько длится затемнение перед уходом. Меньше 300 мс глаз не
@@ -56,6 +57,9 @@ export function Interactions() {
       } catch {
         // аналитика — вещь необязательная, клик важнее
       }
+
+      // 03.10.2026: пиксель Meta — человек пошёл скачивать приложение
+      if (name === "android" || name === "ios") fbqTrack("Lead", { content_name: name });
 
       // дальше — только про уход в магазин
       const href = el instanceof HTMLAnchorElement ? el.href : "";
