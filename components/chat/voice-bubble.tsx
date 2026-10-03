@@ -96,6 +96,8 @@ import {
   seekVoiceFraction,
   subscribeVoicePlayback,
   toggleVoice,
+  playVoice,
+  subscribeVoiceFinished,
   type VoicePlaybackEntry,
 } from "@/lib/voice-playback-store";
 import { getLocalVoiceWaveform, rememberLocalVoiceWaveform } from "@/lib/voice-local-waveform-cache";
@@ -251,6 +253,7 @@ export function VoiceMessageBubble({
   peerAvatarUrl,
   myAvatarUrl,
   footer,
+  autoplayAfterDocIds,
 }: {
   doc: MessageMediaDocument;
   mine: boolean;
@@ -288,6 +291,10 @@ export function VoiceMessageBubble({
    *  className below) is the ONLY layer, with that row rendered at its
    *  bottom edge same as every other bubble's footer position. */
   footer?: ReactNode;
+  /** Волна 5: после каких голосовых (по docId) этот пузырь включается сам --
+   *  как в приложении: следующее ЧУЖОЕ голосовое после доигравшего, и только
+   *  если его ещё не слушали. */
+  autoplayAfterDocIds?: string[];
 }) {
   const voiceAttr = messageVoiceAttribute(doc);
   const totalSeconds = voiceDurationSeconds(doc);
@@ -483,6 +490,24 @@ export function VoiceMessageBubble({
     markOpened();
     toggleVoice(entry);
   }
+
+  // Автовоспроизведение следующего: пузырь держит свежие значения в ref,
+  // подписка одна и не пересоздаётся на каждый тик.
+  const autoplayRef = useRef<() => void>(() => undefined);
+  autoplayRef.current = () => {
+    if (mine || opened || doc.viewed != null) return;
+    if (playback.entry?.docId === doc._id && playback.playing) return;
+    markOpened();
+    playVoice(entry);
+  };
+  const triggerKey = (autoplayAfterDocIds ?? []).join("|");
+  useEffect(() => {
+    if (!triggerKey) return;
+    const ids = new Set(triggerKey.split("|"));
+    return subscribeVoiceFinished((finishedId) => {
+      if (ids.has(finishedId)) autoplayRef.current();
+    });
+  }, [triggerKey]);
 
   function fractionFromPointer(clientX: number) {
     const el = waveformRef.current;

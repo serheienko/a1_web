@@ -74,6 +74,25 @@ type VoicePlaybackSnapshot = {
 // different set.
 const RATES = [1, 1.5, 2] as const;
 
+// Волна 5: скорость 1x / 1.5x / 2x запоминается между визитами, как в
+// приложении, а когда голосовое доиграло до конца само, пузыри следующего
+// голосового получают об этом сигнал (автовоспроизведение следующего).
+const RATE_KEY = "a1.voiceRate";
+function readSavedRate(): number {
+  try {
+    const v = Number(window.localStorage.getItem(RATE_KEY));
+    return (RATES as readonly number[]).includes(v) ? v : 1;
+  } catch {
+    return 1;
+  }
+}
+const finishedListeners = new Set<(docId: string) => void>();
+/** Подписка на «голосовое доиграло само до конца» (не пауза и не закрытие). */
+export function subscribeVoiceFinished(cb: (docId: string) => void): () => void {
+  finishedListeners.add(cb);
+  return () => finishedListeners.delete(cb);
+}
+
 let audio: HTMLAudioElement | null = null;
 let snapshot: VoicePlaybackSnapshot = { entry: null, playing: false, elapsed: 0, rate: 1, duration: NaN };
 const listeners = new Set<() => void>();
@@ -86,9 +105,16 @@ function setSnapshot(next: Partial<VoicePlaybackSnapshot>) {
 function ensureAudio(): HTMLAudioElement {
   if (audio) return audio;
   const el = new Audio();
+  const saved = readSavedRate();
+  el.playbackRate = saved;
+  snapshot = { ...snapshot, rate: saved };
   el.addEventListener("timeupdate", () => setSnapshot({ elapsed: el.currentTime }));
   el.addEventListener("durationchange", () => setSnapshot({ duration: el.duration }));
-  el.addEventListener("ended", () => setSnapshot({ playing: false, elapsed: 0 }));
+  el.addEventListener("ended", () => {
+    const doneId = snapshot.entry?.docId;
+    setSnapshot({ playing: false, elapsed: 0 });
+    if (doneId) for (const cb of finishedListeners) cb(doneId);
+  });
   // Covers every route an element can stop playing through (a second
   // playVoice() call pausing this one, an OS-level media-key pause,
   // etc.), not just the explicit pauseVoice() below -- so the mini-bar
@@ -145,6 +171,11 @@ export function cycleVoiceRate() {
   const idx = RATES.indexOf(snapshot.rate as (typeof RATES)[number]);
   const next = RATES[(idx + 1) % RATES.length] ?? RATES[0];
   if (audio) audio.playbackRate = next;
+  try {
+    window.localStorage.setItem(RATE_KEY, String(next));
+  } catch {
+    /* без хранилища скорость просто не запомнится */
+  }
   setSnapshot({ rate: next });
 }
 

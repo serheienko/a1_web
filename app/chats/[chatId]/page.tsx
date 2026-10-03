@@ -4181,6 +4181,21 @@ export default function ChatWindowPage() {
     if (accept) acceptedMeetings.set(accept.meetingMsgId, accept);
   }
   const displayMessages = rawDisplayMessages.filter((m) => decodeMeetingAcceptText(extractMessageText(m)) === null);
+  // Волна 5: для автовоспроизведения -- у каждого голосового id предыдущего
+  // голосового в этом чате (в порядке сообщений). Когда то доиграет, это
+  // включится само, если оно чужое и ещё не прослушано.
+  const prevVoiceDocId = new Map<string, string>();
+  {
+    let lastVoice: string | null = null;
+    for (const m of displayMessages) {
+      if (isPendingMessage(m)) continue;
+      for (const d of messageDocumentMedia(m)) {
+        if (!isVoiceMediaDocument(d)) continue;
+        if (lastVoice) prevVoiceDocId.set(d._id, lastVoice);
+        lastVoice = d._id;
+      }
+    }
+  }
 
   // 2026-09-05 (Aleksandr, repeated report even after 6.116/6.142:
   // "Фото по-прежнему не отображаются в комбинированном виде" -- confirmed live: he
@@ -5729,6 +5744,7 @@ export default function ChatWindowPage() {
                                 peerName={headerTitle}
                                 peerAvatarUrl={headerAvatar}
                                 myAvatarUrl={myAvatarUrl}
+                                autoplayAfterDocIds={prevVoiceDocId.has(doc._id) ? [prevVoiceDocId.get(doc._id)!] : undefined}
                                 footer={isFlatMedia ? flatFooter : undefined}
                               />
                             ) : isImageMediaDocument(doc) ? (
