@@ -108,6 +108,7 @@ import {
   type ChatMessage,
 } from "@/lib/a1/chat-schemas";
 import { resolveChatDisplay, pickChatAvatar } from "@/lib/a1/chat-mappers";
+import { CHAT_FLAG_THREAD, isGroupFlags, isServiceFlags } from "@/lib/a1/group-chat";
 import { parseUserProfile } from "@/lib/a1/schemas";
 import { buildMediaProxyUrl } from "@/lib/a1/mappers";
 import { strippedPreviewDataUrl } from "@/lib/a1/media-proxy";
@@ -158,6 +159,45 @@ async function resolveChatUsers(chats: Chat[], myUserId: string | null): Promise
     return out;
   } catch (err) {
     console.error("[api/chats/list] users.getUsers failed (names/avatars stay unresolved):", err);
+    return {};
+  }
+}
+
+// Группы (волна 1, 2026-10-03): в превью последнего сообщения группы
+// нужно имя автора («Олена: привіт»). Автор может не быть собеседником
+// ни в одном личном чате, поэтому имена добираем отдельным батчем
+// users.getUsers -- только для авторов последних сообщений групп.
+async function resolveGroupAuthors(
+  chats: Chat[],
+  lastMessages: Map<string, ChatMessage | null>,
+  myUserId: string | null,
+): Promise<Record<string, ChatUser>> {
+  const ids = new Set<string>();
+  for (const chat of chats) {
+    if (!isGroupFlags(chat.flags)) continue;
+    const lm = chat.lastMessage;
+    const msg: ChatMessage | null = lm && typeof lm === "object" ? lm : typeof lm === "string" ? (lastMessages.get(chat._id) ?? null) : null;
+    if (!msg || isServiceFlags(msg.flags)) continue;
+    if (msg.fromId && msg.fromId !== myUserId) ids.add(msg.fromId);
+  }
+  if (ids.size === 0) return {};
+  try {
+    const { data } = await callAsVisitor<unknown>("users.getUsers", { ids: Array.from(ids) });
+    const out: Record<string, ChatUser> = {};
+    for (const raw of Array.isArray(data) ? data : []) {
+      const profile = parseUserProfile(raw);
+      if (!profile || profile.object !== "user") continue;
+      out[profile._id] = {
+        _id: profile._id,
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+        username: profile.username,
+        photo: profile.photos[0] ? buildMediaProxyUrl(profile.photos[0]) : null,
+      };
+    }
+    return out;
+  } catch (err) {
+    console.error("[api/chats/list] group authors users.getUsers failed:", err);
     return {};
   }
 }
@@ -229,7 +269,9 @@ export async function GET() {
     const myUserId = session?.userId ?? null;
     const { data, refreshedSession } = await callAsVisitor<unknown>("chats.getChats", {});
 
-    const chats = extractChats(data);
+    // Ветки обсуждений (THREAD) в общий список не попадают -- они
+    // открываются только из своей группы (как в приложении).
+    const chats = extractChats(data).filter((c) => (c.flags & CHAT_FLAG_THREAD) === 0);
     // Two best-effort resolution passes, in parallel with each other --
     // see this file's own header comment. `users` merges chats.getChats'
     // own (always-empty-today) side array with whatever users.search
@@ -239,7 +281,8 @@ export async function GET() {
       resolveChatUsers(chats, myUserId),
       resolveLastMessages(chats),
     ]);
-    const users = { ...extractChatUsers(data), ...resolvedUsers };
+    const authorUsers = await resolveGroupAuthors(chats, lastMessages, myUserId);
+    const users = { ...extractChatUsers(data), ...resolvedUsers, ...authorUsers };
     // Needs `users` (a real avatar can only be resolved once the other
     // participant is), so this runs after the pass above rather than
     // inside that same Promise.all -- still one batch of parallel
@@ -268,6 +311,12 @@ export async function GET() {
             ? messageTickState(resolvedMessage, otherParticipantReadMaxId(chat, myUserId))
             : null;
         const preview = resolvedMessage ? describeMessagePreview(resolvedMessage) : { kind: "text" as const, text: "", isForwarded: false };
+        const isGroup = isGroupFlags(chat.flags);
+        const isServiceMessage = !!resolvedMessage && isServiceFlags(resolvedMessage.flags);
+        const authorUser = previewFromId ? users[previewFromId] : undefined;
+        const previewAuthorName = authorUser
+          ? ([authorUser.firstName, authorUser.lastName].filter(Boolean).join(" ").trim() || authorUser.username || null)
+          : null;
         return {
           id: chat._id,
           title: display.title,
@@ -275,6 +324,19 @@ export async function GET() {
           avatarBlurDataUrl: avatarBlurs.get(chat._id) ?? null,
           username: display.otherUsername,
           isPersonal: display.isPersonal,
+          // Группы (волна 1): признак, число участников, имя автора
+          // последнего сообщения и сырые сущности служебной строки
+          // («X added Y») -- локализует клиент (lib/a1/group-chat.ts).
+          isGroup,
+          memberCount: isGroup ? chat.participants.filter((pp) => pp.object === "peer-user").length : 0,
+          previewAuthor: isGroup && resolvedMessage && !isServiceMessage && !previewMine ? previewAuthorName : null,
+          previewService: isGroup && resolvedMessage && isServiceMessage
+            ? (resolvedMessage.entities as unknown as Array<Record<string, unknown>>).map((e) => ({
+                object: e.object,
+                text: e.text,
+                userId: e.userId == null ? undefined : String(e.userId),
+              }))
+            : null,
           lastMessageId: typeof lm === "string" ? lm : (lm?._id ?? null),
           // 2026-09-04 (Aleksandr, reference screenshots: "на все наши
           // entity в сообщениях, должно так отображать в чат листе") --
@@ -325,7 +387,7 @@ export async function GET() {
       // sorts last, same as it visually reads with no preview line.
       .sort((a, b) => b.previewDateMs - a.previewDateMs);
 
-    const response = NextResponse.json({ ok: true, chats: items });
+    const response = NextResponse.json({ ok: true, chats: items, myUserId });
     if (refreshedSession) setSession(response, refreshedSession);
     return response;
   } catch (err) {

@@ -122,6 +122,10 @@ import { rememberLocalVoiceWaveform } from "@/lib/voice-local-waveform-cache";
 import { VoiceRecordButton, VoiceRecordingBar, VoiceMicDeniedNotice } from "@/components/chat/voice-message";
 import { VoiceMessageBubble, PendingVoiceBubble } from "@/components/chat/voice-bubble";
 import { useActiveLocale } from "@/lib/use-active-locale";
+import { GroupInfoModal } from "@/components/chat/group-info-modal";
+import { isServiceFlags, localizeGroupNote, membersCountText, groupText, type GroupLang } from "@/lib/a1/group-chat";
+import { peerNameColorIndex, peerNameColorVar } from "@/lib/peer-name-color";
+import type { GroupInfoResponse, GroupMember } from "@/app/api/chats/group-info/route";
 
 type LoadState = "loading" | "signed-out" | "error" | "ready";
 
@@ -759,8 +763,54 @@ export default function ChatWindowPage() {
     };
   }, [headerTitleParam, chatId]);
 
-  const headerTitle = headerTitleParam || chatFallback?.title || "";
-  const headerAvatar = headerAvatarParam || chatFallback?.avatarUrl || pickDefaultCatAvatar(chatId);
+  // Группы в чатах (волна 1, 2026-10-03). ?group=1 приходит из списка
+  // чатов; в любом случае один раз при открытии спрашиваем
+  // /api/chats/group-info -- он отвечает isGroup:false для личного чата.
+  // Для группы название/фото берём оттуда (они могли поменяться), а
+  // участников используем, чтобы подписывать авторов сообщений.
+  const isGroupParam = searchParams.get("group") === "1";
+  const [groupInfo, setGroupInfo] = useState<Extract<GroupInfoResponse, { isGroup: true }> | null>(null);
+  const [groupOpen, setGroupOpen] = useState(false);
+  const groupSeenRef = useRef(false);
+  useEffect(() => {
+    if (chatId.startsWith("u_")) return;
+    let cancelled = false;
+    const load = () =>
+      authFetch(`/api/chats/group-info?chat=${encodeURIComponent(chatId)}`)
+        .then((r) => r.json())
+        .then((d: GroupInfoResponse | null) => {
+          if (cancelled || !d || !d.ok) return;
+          if (d.isGroup) {
+            groupSeenRef.current = true;
+            setGroupInfo(d);
+          } else {
+            setGroupInfo(null);
+          }
+        })
+        .catch(() => {});
+    load();
+    // Состав группы меняется (добавили/вышли) -- обновляем раз в 20 с.
+    const timer = window.setInterval(() => {
+      if (!document.hidden && (isGroupParam || groupSeenRef.current)) void load();
+    }, 20000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [chatId, isGroupParam]);
+  const isGroup = isGroupParam || groupInfo !== null;
+  const memberById = useMemo(() => {
+    const m = new Map<string, GroupMember>();
+    for (const x of groupInfo?.members ?? []) m.set(x.id, x);
+    return m;
+  }, [groupInfo]);
+  const authorNameOf = (id: string | null): string => {
+    if (!id) return "";
+    return memberById.get(id)?.name || groupText(lang as GroupLang, "groupUnknownUser");
+  };
+
+  const headerTitle = groupInfo?.title || headerTitleParam || chatFallback?.title || "";
+  const headerAvatar = groupInfo?.photo || headerAvatarParam || chatFallback?.avatarUrl || pickDefaultCatAvatar(chatId);
   const headerAvatarBlur = headerAvatarBlurParam || chatFallback?.avatarBlurDataUrl || null;
   const headerUsername = headerUsernameParam || chatFallback?.username || null;
   const headerProfileHref = headerUsername ? profileHref(headerUsername) : null;
@@ -3133,7 +3183,7 @@ export default function ChatWindowPage() {
     const out: ChatViewerImage[] = [];
     for (const msg of messages) {
       const mine = myUserId !== null && msg.fromId === myUserId;
-      const senderLabel = mine ? YOU_LABEL_TEXT[lang] : headerTitle || "—";
+      const senderLabel = mine ? YOU_LABEL_TEXT[lang] : groupInfo ? authorNameOf(msg.fromId) : headerTitle || "—";
       const ms = messageDateMs(msg);
       const numericId = Number(msg._id);
       for (const doc of messageDocumentMedia(msg)) {
@@ -3153,7 +3203,7 @@ export default function ChatWindowPage() {
       }
     }
     return out;
-  }, [messages, myUserId, lang, headerTitle]);
+  }, [messages, myUserId, lang, headerTitle, groupInfo]);
 
   function openViewerForDoc(messageId: string, docId: string) {
     const i = chatViewerImages.findIndex((im) => im.messageId === Number(messageId) && im.docId === docId);
@@ -4091,7 +4141,7 @@ export default function ChatWindowPage() {
 
   function resolveReplyPreview(target: ChatMessage | null | undefined): { authorLabel: string; node: ReactNode; thumbnail: ReactNode } | null {
     if (!target) return null;
-    const authorLabel = target.fromId !== null && target.fromId === myUserId ? YOU_LABEL_TEXT[lang] : headerTitle;
+    const authorLabel = target.fromId !== null && target.fromId === myUserId ? YOU_LABEL_TEXT[lang] : groupInfo ? authorNameOf(target.fromId) : headerTitle;
     const preview = describeMessagePreview(target);
     // 2026-09-05 follow-up (Aleksandr, 4 reference screenshots: "давай
     // расширять дальше на другие типы файлов" -- replying-with-text to
@@ -4265,8 +4315,16 @@ export default function ChatWindowPage() {
                 )}
               </Link>
             ) : (
-              <div className="pointer-events-auto flex min-h-[42px] max-w-[55%] flex-col items-center justify-center truncate rounded-full bg-black/5 px-4 text-center dark:bg-white/10">
+              <div
+                onClick={isGroup ? () => setGroupOpen(true) : undefined}
+                className={`pointer-events-auto flex min-h-[42px] max-w-[55%] flex-col items-center justify-center truncate rounded-full bg-black/5 px-4 text-center dark:bg-white/10 ${isGroup ? "cursor-pointer transition hover:bg-black/10 dark:hover:bg-white/15" : ""}`}
+              >
                 <span className="block truncate text-[15px] font-semibold leading-tight">{headerTitle || "—"}</span>
+                {isGroup && groupInfo && !peerTyping && (
+                  <span className="block truncate text-[12px] font-medium leading-tight text-[#989aa6] dark:text-[#adafbb]">
+                    {membersCountText(lang as GroupLang, groupInfo.memberCount)}
+                  </span>
+                )}
                 {peerTyping && (
                   <span className="flex items-center justify-center gap-1.5 text-[13px] font-medium text-[#335ef7] dark:text-[#0c8ce9]">
                     <T uk="набирає" en="typing" ru="печатает" de="tippt" es="escribiendo" fr="écrit" pl="pisze" ptBR="digitando" zh="正在输入" />
@@ -4558,6 +4616,45 @@ export default function ChatWindowPage() {
               // `pendingMessages` state/PendingMessage type comments
               // above for what `failed` means and how it clears.
               const pending = isPendingMessage(msg) ? msg : null;
+              // Группы (волна 1): служебная строка («X added Y», «X left
+              // the group») -- по флагу 1<<30 у сообщения. Рисуется
+              // по центру серой плашкой на языке пользователя, без
+              // пузыря/реакций/меню.
+              if (!pending && isServiceFlags((msg as ChatMessage).flags)) {
+                const noteParts = localizeGroupNote((msg as ChatMessage).entities, lang as GroupLang, myUserId);
+                return (
+                  <div key={msg._id}>
+                    {showDate && (
+                      <div className="my-3 flex justify-center">
+                        <span className="rounded-full bg-black/5 px-3 py-1 text-[13px] font-medium text-[#262a34] backdrop-blur-sm dark:bg-white/10 dark:text-white">
+                          {formatDateLabel(ms)}
+                        </span>
+                      </div>
+                    )}
+                    <div className="my-1.5 flex justify-center px-4">
+                      <span className="max-w-[88%] rounded-full bg-black/5 px-3 py-1 text-center text-[13px] text-[#262a34] dark:bg-white/10 dark:text-white">
+                        {noteParts
+                          ? noteParts.map((part, k) =>
+                              part.userId ? (
+                                <span key={k} className="font-semibold">
+                                  {part.text}
+                                </span>
+                              ) : (
+                                <span key={k}>{part.text}</span>
+                              ),
+                            )
+                          : text}
+                      </span>
+                    </div>
+                  </div>
+                );
+              }
+              // Первое сообщение подряд от одного автора в группе несёт
+              // его имя (цветом по id) и аватарку слева; следующие -- без.
+              const prevIsSameAuthor =
+                !!prevMsg && !("pending" in prevMsg && prevMsg.pending) && !isServiceFlags((prevMsg as ChatMessage).flags) && prevMsg.fromId === msg.fromId;
+              const showGroupAuthor = isGroup && !mine && !pending && !!msg.fromId && (showDate || !prevIsSameAuthor);
+              const groupAuthor = showGroupAuthor && msg.fromId ? memberById.get(msg.fromId) : undefined;
               // 2026-09-18 (Александр: «Application прилетает в
               // неправильном виде... сверху эмодзи, заголовок и тд») --
               // сырые сущности сообщения для отрисовки разметки
@@ -4989,6 +5086,18 @@ export default function ChatWindowPage() {
                         </div>
                       </div>
                     )}
+                    {isGroup && !mine && !pending && (
+                      <div className="mr-2 w-8 shrink-0 self-start">
+                        {showGroupAuthor && msg.fromId && (
+                          <CachedAvatar
+                            src={groupAuthor?.photo ?? pickDefaultCatAvatar(msg.fromId)}
+                            blurDataURL={BLUR_DATA_URL}
+                            size={32}
+                            className="h-8 w-8 rounded-full object-cover"
+                          />
+                        )}
+                      </div>
+                    )}
                     {selectionMode && !pending && (
                       <div
                         className="absolute inset-0 z-20 cursor-pointer"
@@ -5221,6 +5330,14 @@ export default function ChatWindowPage() {
                           : `px-3 pt-2 pb-2 ${mine ? "rounded-tr-[6px] bg-[#335ef7] text-white dark:bg-[#009bff]" : "rounded-tl-[6px] bg-white text-[#262a34] dark:bg-[#1a1a1a] dark:text-white"}`
                       } ${pending?.failed ? "opacity-70" : ""}`}
                     >
+                      {showGroupAuthor && msg.fromId && !isFlatMedia && (
+                        <div
+                          className="mb-0.5 truncate text-[14px] font-semibold leading-tight"
+                          style={{ color: peerNameColorVar(peerNameColorIndex(msg.fromId)) }}
+                        >
+                          {groupAuthor?.name || groupText(lang as GroupLang, "groupUnknownUser")}
+                        </div>
+                      )}
                       {/* «Переслано від …» -- шапка форварда. 17.09.2026 (Александр:
                        «сверху должно писаться forwarded from и имя, UI такой
                        же как в Телеграме»): раньше она жила внутри ветки
@@ -7471,6 +7588,17 @@ export default function ChatWindowPage() {
             void send();
           }}
           sending={sending}
+        />
+      )}
+      {groupOpen && groupInfo && (
+        <GroupInfoModal
+          lang={lang}
+          chatId={chatId}
+          title={groupInfo.title}
+          photo={headerAvatar}
+          members={groupInfo.members}
+          myUserId={myUserId}
+          onClose={() => setGroupOpen(false)}
         />
       )}
       {viewerIndex !== null && chatViewerImages[viewerIndex] && (

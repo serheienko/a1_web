@@ -58,9 +58,12 @@ export function resolveChatDisplay(
     };
   }
 
+  const rawPhoto = (chat as unknown as { photo?: unknown }).photo;
   return {
     title: chat.title || "",
-    photoUrl: null,
+    // Группа несёт собственное фото (Resource.Chat.photo -- готовая
+    // ссылка); личный чат без собеседника в users -- как раньше, null.
+    photoUrl: typeof rawPhoto === "string" && rawPhoto ? rawPhoto : null,
     isPersonal: isPersonalChat(chat),
     otherUserId: otherId,
     otherUsername: null,

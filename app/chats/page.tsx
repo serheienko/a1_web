@@ -58,6 +58,8 @@ import { SharedPanel, type SharedKind } from "@/components/chat/shared-panel";
 import { GLASS } from "@/lib/glass";
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
 import { NewChatPickerModal } from "@/components/new-chat-picker-modal";
+import { NewGroupModal } from "@/components/new-group-modal";
+import { groupNotePlainText, type GroupLang } from "@/lib/a1/group-chat";
 import { IosAddToHomeHint } from "@/components/ios-add-to-home-hint";
 import { useActiveLocale } from "@/lib/use-active-locale";
 
@@ -90,6 +92,11 @@ type ChatListItem = {
   // otherUsername this rides on.
   username: string | null;
   isPersonal: boolean;
+  // Группы в чатах (волна 1, 2026-10-03) -- см. app/api/chats/list/route.ts.
+  isGroup?: boolean;
+  memberCount?: number;
+  previewAuthor?: string | null;
+  previewService?: Array<{ object?: string; text?: string; userId?: string }> | null;
   lastMessageId: string | null;
   // Added 2026-09-02 alongside lib/a1/chat-schemas.ts's widened
   // ChatSchema -- every field below is null/0/"" whenever the backend's
@@ -209,6 +216,8 @@ export default function ChatsPage() {
   // FABs (which also have to cover signed-out visitors via
   // FabAuthPrompt) neither button here needs its own auth-prompt path.
   const [newChatOpen, setNewChatOpen] = useState(false);
+  const [newGroupOpen, setNewGroupOpen] = useState(false);
+  const [myUserId, setMyUserId] = useState<string | null>(null);
   const inFlight = useRef(false);
   // 2026-09-02 (Aleksandr: "Аватары в чатах все равно моргают раз в 5
   // сек") -- root-caused live via Chrome devtools: chat.avatarUrl (built
@@ -270,6 +279,7 @@ export default function ChatsPage() {
           setState((prev) => (prev === "ready" ? prev : "error"));
           return;
         }
+        if (typeof data.myUserId === "string") setMyUserId(data.myUserId);
         const rawChats: ChatListItem[] = data.chats ?? [];
         const stabilized = rawChats.map((chat) => {
           const pinned = pinnedAvatarUrls.current.get(chat.id);
@@ -350,6 +360,21 @@ export default function ChatsPage() {
               (ChatsFab stays hidden on every /chats route, redundant
               while already looking at the list -- see that file's own
               comment), so it's the only button left in this row. */}
+          <div className="flex items-center gap-1">
+          {/* Группы (волна 1): кнопка «Нова група» рядом с «Новий чат». */}
+          <button
+            type="button"
+            onClick={() => setNewGroupOpen(true)}
+            aria-label="New group"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-[#262a34] transition hover:bg-black/5 dark:text-white dark:hover:bg-white/10"
+          >
+            <svg viewBox="0 0 24 24" className="h-[22px] w-[22px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="9" cy="8" r="3.2" />
+              <path d="M3 19c0-3.2 2.7-5.2 6-5.2s6 2 6 5.2" />
+              <circle cx="17" cy="9" r="2.4" />
+              <path d="M17.5 14.2c2.2.2 3.8 1.8 3.8 4.2" />
+            </svg>
+          </button>
           <button
             type="button"
             onClick={() => setNewChatOpen(true)}
@@ -372,6 +397,7 @@ export default function ChatsPage() {
           >
             <NewChatBubbleIcon className="animate-chat-wiggle" />
           </button>
+          </div>
         </div>
 
         {/* 2026-09-02 (Figma node 24360:8794, see this file's own header
@@ -555,7 +581,7 @@ export default function ChatsPage() {
               // "get one chat" endpoint that doesn't exist yet -- purely
               // a display hint, the window's own polling loop is the
               // source of truth for anything else.
-              const chatHref = `/chats/${chat.id}?title=${encodeURIComponent(chat.title)}&avatar=${encodeURIComponent(chat.avatarUrl)}${chat.avatarBlurDataUrl ? `&avatarBlur=${encodeURIComponent(chat.avatarBlurDataUrl)}` : ""}${chat.username ? `&username=${encodeURIComponent(chat.username)}` : ""}`;
+              const chatHref = `/chats/${chat.id}${chat.isGroup ? "?group=1&" : "?"}title=${encodeURIComponent(chat.title)}&avatar=${encodeURIComponent(chat.avatarUrl)}${chat.avatarBlurDataUrl ? `&avatarBlur=${encodeURIComponent(chat.avatarBlurDataUrl)}` : ""}${chat.username ? `&username=${encodeURIComponent(chat.username)}` : ""}`;
               const avatarNode = (
                 <CachedAvatar
                   src={chat.avatarUrl}
@@ -644,14 +670,30 @@ export default function ChatsPage() {
                         <span className="text-[#989aa6] dark:text-[#8d8d93]">{chat.draftText}</span>
                       </div>
                     ) : (
-                      <ChatPreviewLine
-                        kind={chat.previewKind}
-                        text={chat.previewText}
-                        photoUrl={chat.previewPhotoUrl}
-                        stickerPreviewUrl={chat.previewStickerPreview}
-                        isForwarded={chat.previewForwarded}
-                        className="truncate text-[16px] text-[#989aa6] dark:text-[#8d8d93]"
-                      />
+                      <div className="flex min-w-0 items-center gap-1">
+                        {chat.previewMine && chat.isGroup && !chat.previewService && (
+                          <span className="shrink-0 text-[16px] font-medium text-[#335ef7] dark:text-[#0c8ce9]">
+                            <T uk="Ви:" en="You:" ru="Вы:" de="Du:" es="Tú:" fr="Vous :" pl="Ty:" ptBR="Você:" zh="你：" />
+                          </span>
+                        )}
+                        {!chat.previewMine && chat.previewAuthor && (
+                          <span className="max-w-[40%] shrink-0 truncate text-[16px] font-medium text-[#335ef7] dark:text-[#0c8ce9]">
+                            {chat.previewAuthor}:
+                          </span>
+                        )}
+                        <ChatPreviewLine
+                          kind={chat.previewKind}
+                          text={
+                            chat.previewService
+                              ? (groupNotePlainText(chat.previewService, lang as GroupLang, myUserId) ?? chat.previewText)
+                              : chat.previewText
+                          }
+                          photoUrl={chat.previewPhotoUrl}
+                          stickerPreviewUrl={chat.previewStickerPreview}
+                          isForwarded={chat.previewForwarded}
+                          className="min-w-0 flex-1 truncate text-[16px] text-[#989aa6] dark:text-[#8d8d93]"
+                        />
+                      </div>
                     )}
                   </div>
                   {chat.unreadCount > 0 && (
@@ -667,6 +709,7 @@ export default function ChatsPage() {
       </main>
 
       {newChatOpen && <NewChatPickerModal lang={lang} onClose={() => setNewChatOpen(false)} />}
+      {newGroupOpen && <NewGroupModal lang={lang} onClose={() => setNewGroupOpen(false)} />}
     </div>
   );
 }
