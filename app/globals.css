@@ -837,6 +837,54 @@ textarea {
   animation: app-install-arrow 0.4s ease-out;
 }
 
+/* Геймпад в шапке (components/game-button.tsx): при наведении
+   покачивается, а две кнопки справа «нажимаются». */
+@keyframes game-pad-play {
+  0%,
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+  25% {
+    transform: rotate(-9deg) scale(1.08);
+  }
+  55% {
+    transform: rotate(7deg) scale(1.08);
+  }
+  80% {
+    transform: rotate(-3deg) scale(1.04);
+  }
+}
+
+@keyframes game-pad-press {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  35% {
+    transform: scale(0.6);
+    opacity: 0.55;
+  }
+  65% {
+    transform: scale(1.25);
+    opacity: 1;
+  }
+}
+
+.animate-game-pad,
+.animate-game-pad-press {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.group:hover .animate-game-pad {
+  animation: game-pad-play 0.55s ease-in-out;
+}
+
+.group:hover .animate-game-pad-press {
+  animation: game-pad-press 0.55s ease-in-out;
+}
+
 /* Bookmark/save glyph -- swings from its top edge like a page-corner
    flag catching a breeze, instead of a generic scale/rotate that
    ignores where the shape is actually anchored. */
@@ -1581,6 +1629,8 @@ textarea {
   .group:hover .animate-person-hop,
   .group:hover .animate-share-lift,
   .group:hover .animate-app-install-arrow,
+  .group:hover .animate-game-pad,
+  .group:hover .animate-game-pad-press,
   .group:hover .animate-bookmark-swing,
   .group:hover .animate-filter-adjust circle:nth-child(3),
   .group:hover .animate-filter-adjust circle:nth-child(4),
