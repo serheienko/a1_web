@@ -820,12 +820,17 @@ export function MagicWandPanel({
               <div className="mt-1.5 flex h-9 items-center gap-2">
                 {recording ? (
                   <div data-testid="magic-wand-recording" className="flex w-full min-w-0 items-center gap-1 animate-[mwFade_.24s_ease-out]">
-                    <span ref={dotRef} className={`ml-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-[#ff3b30] ${paused ? "opacity-40" : "animate-pulse"}`} />
-                    <span className={`w-[60px] shrink-0 text-[15px] tabular-nums ${elapsedMs >= VOICE_WARN_SECONDS * 1000 ? "text-[#ff3b30]" : "text-neutral-900 dark:text-neutral-50"}`}>{fmtClock(elapsedMs)}</span>
-                    <span className="flex w-[42px] shrink-0 items-center gap-0.5 text-[13px] font-semibold text-[#989aa6]">
-                      <GlobeIcon className="h-4 w-4" />
-                      {dictLang.toUpperCase()}
-                    </span>
+                    {/* 04.10.2026 (Александр): на телефоне язык -- над красной точкой, чтобы «Скасувати» было просторнее. */}
+                    <div className="flex shrink-0 flex-col-reverse leading-none sm:flex-row sm:items-center sm:gap-1">
+                      <span className="flex items-center gap-1.5">
+                        <span ref={dotRef} className={`ml-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-[#ff3b30] ${paused ? "opacity-40" : "animate-pulse"}`} />
+                        <span className={`w-[60px] shrink-0 text-[15px] tabular-nums ${elapsedMs >= VOICE_WARN_SECONDS * 1000 ? "text-[#ff3b30]" : "text-neutral-900 dark:text-neutral-50"}`}>{fmtClock(elapsedMs)}</span>
+                      </span>
+                      <span className="mb-0.5 flex items-center gap-0.5 text-[11px] font-semibold text-[#989aa6] sm:mb-0 sm:w-[42px] sm:text-[13px]">
+                        <GlobeIcon className="h-3 w-3 sm:h-4 sm:w-4" />
+                        {dictLang.toUpperCase()}
+                      </span>
+                    </div>
                     <button type="button" data-testid="magic-wand-record-cancel" onClick={cancelVoice} className="min-w-0 flex-1 truncate px-0.5 py-1.5 text-center text-[16px] text-[#335ef7] dark:text-[#0c8ce9]">
                       {tx("cancel")}
                     </button>
