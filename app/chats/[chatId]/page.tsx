@@ -4463,7 +4463,7 @@ export default function ChatWindowPage() {
         ref={headerRef}
         className="fixed inset-x-0 top-0 z-10 border-b border-black/5 bg-[#f2f2f7]/90 pt-[env(safe-area-inset-top)] backdrop-blur-md dark:border-white/10 dark:bg-black/80 sm:sticky sm:pt-0"
       >
-        <div className={`relative mx-auto flex w-full max-w-[470px] items-center px-4 py-3 ${isGroup ? "justify-between" : ""}`}>
+        <div className="relative mx-auto flex w-full max-w-[470px] items-center justify-between px-4 py-3">
           {selectionMode ? (
             <SelectionTopBar
               count={selectedMessageIds.size}
@@ -4497,22 +4497,8 @@ export default function ChatWindowPage() {
               content matches the pill's BASE height to those exactly
               without capping how tall it can grow. */}
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-4 py-3">
-{!isGroup && (
-<div className="pointer-events-auto ml-auto mr-2 flex items-center gap-1">
-            <button
-            type="button"
-            onClick={() => setSharedOpen(true)}
-            aria-label="Shared"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#989aa6] transition hover:bg-black/5 dark:text-[#adafbb] dark:hover:bg-white/10"
-          >
-            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="4" width="18" height="16" rx="3" />
-              <circle cx="9" cy="10" r="1.6" />
-              <path d="m21 16-5-5-8 8" />
-            </svg>
-          </button>
-          </div>
-          )}
+{/* 04.10.2026 (Александр): шапка личного чата -- как у группы: имя по
+              центру, аватар справа, без кнопки «медиа» (она съезжала имя вправо). */}
 
           {headerProfileHref ? (
               <Link
