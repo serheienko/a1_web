@@ -221,6 +221,59 @@ export default function ChatsPage() {
   const [sharedKind, setSharedKind] = useState<SharedKind | null>(null);
   const router = useRouter();
   const [query, setQuery] = useState("");
+  // 04.10.2026 (Александр: «как в приложении и Телеграме»): тап по поиску
+  // открывает режим поиска -- строка поиска сверху с крестиком, под ней
+  // результаты, а над клавиатурой -- чипы «Чати / Фото / Посилання /
+  // Файли / Розрахунки / Голосові / Нагадування», выбран «Чати».
+  const [searchMode, setSearchMode] = useState(false);
+  const [searchTab, setSearchTab] = useState<SharedKind | "chats">("chats");
+  const [kbOffset, setKbOffset] = useState(0);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    if (!searchMode) return;
+    const vv = window.visualViewport;
+    const update = () => {
+      if (!vv) return;
+      setKbOffset(Math.max(0, window.innerHeight - vv.height - vv.offsetTop));
+    };
+    update();
+    vv?.addEventListener("resize", update);
+    vv?.addEventListener("scroll", update);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeSearch();
+    };
+    window.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      vv?.removeEventListener("resize", update);
+      vv?.removeEventListener("scroll", update);
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchMode]);
+  // 04.10.2026: тап по строке «Спільного» -- открыть этот чат на этом сообщении.
+  function openSharedMessage(chatId: string | null, msgId: number) {
+    const chat = chats.find((c) => c.id === chatId);
+    if (!chat) return;
+    const q = new URLSearchParams();
+    if (chat.isGroup) q.set("group", "1");
+    q.set("title", chat.title);
+    q.set("avatar", chat.avatarUrl);
+    if (chat.avatarBlurDataUrl) q.set("avatarBlur", chat.avatarBlurDataUrl);
+    if (chat.username) q.set("username", chat.username);
+    q.set("m", String(msgId));
+    setSharedKind(null);
+    setSearchMode(false);
+    router.push(`/chats/${chat.id}?${q.toString()}`);
+  }
+  function closeSearch() {
+    setSearchMode(false);
+    setSearchTab("chats");
+    setQuery("");
+    searchInputRef.current?.blur();
+  }
   // Signed in to even be looking at a chat list, so unlike the global
   // FABs (which also have to cover signed-out visitors via
   // FabAuthPrompt) neither button here needs its own auth-prompt path.
@@ -455,11 +508,21 @@ export default function ChatsPage() {
             comment) -- shown on both the empty and populated states,
             matching the Figma screen for each. */}
         {state === "ready" && (
-          <div className="relative mt-4 shrink-0">
+          <div
+            className={
+              searchMode
+                ? "fixed inset-x-0 top-0 z-[67] bg-[#f2f2f7] pt-[env(safe-area-inset-top)] dark:bg-black"
+                : "relative mt-4 shrink-0"
+            }
+          >
+            <div className={searchMode ? "mx-auto flex w-full max-w-2xl items-center gap-2 px-4 py-2.5" : "relative"}>
+            <div className="relative min-w-0 flex-1">
             <SearchIcon className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#989aa6] dark:text-[#8d8d93]" />
             <input
+              ref={searchInputRef}
               type="text"
               value={query}
+              onFocus={() => setSearchMode(true)}
               onChange={(e) => setQuery(e.target.value)}
               spellCheck={false}
               placeholder={SEARCH_PLACEHOLDER_STRINGS[lang]}
@@ -470,46 +533,93 @@ export default function ChatsPage() {
                 " sm:border-0 sm:bg-white sm:shadow-none sm:backdrop-blur-none sm:backdrop-saturate-100 sm:dark:border-0 sm:dark:bg-neutral-900 sm:dark:shadow-none"
               }
             />
-          </div>
-        )}
-
-
-        {state === "ready" && (
-          // 2026-09-30: быстрый вход в поиск по типу содержимого во ВСЕХ
-          // чатах. Ничего не грузится, пока не нажали пилюлю.
-          <div className="-mx-4 mt-2 flex shrink-0 gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
-            {SHARED_KINDS.map((k) => [k, SHARED_LABELS[k]] as [SharedKind, React.ReactNode]).map(([k, label]) => (
+            </div>
+            {searchMode && (
               <button
-                key={k}
                 type="button"
-                onClick={() => setSharedKind(k)}
-                className="shrink-0 whitespace-nowrap rounded-full bg-white px-4 py-1.5 text-[14px] text-[#989aa6] transition hover:bg-[#e5e5ea] dark:bg-neutral-900 dark:text-[#8d8d93] dark:hover:bg-neutral-800"
+                aria-label="Close search"
+                onClick={closeSearch}
+                className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-white text-[#262a34] shadow-sm dark:bg-neutral-900 dark:text-white"
               >
-                {label}
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
               </button>
-            ))}
+            )}
+            </div>
           </div>
         )}
+
+        {state === "ready" && searchMode && (
+          <>
+            {/* Результаты поиска: «Чати» -- список чатов по запросу, остальные -- содержимое всех чатов этого типа. */}
+            <div className="fixed inset-x-0 bottom-0 top-0 z-[66] flex flex-col bg-[#f2f2f7] pt-[calc(env(safe-area-inset-top)+62px)] dark:bg-black" style={{ paddingBottom: kbOffset + 56 }}>
+              <div className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col">
+                {searchTab === "chats" ? (
+                  <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-4">
+                    {filteredChats.length === 0 ? (
+                      <p className="px-4 py-10 text-center text-[15px] text-[#989aa6]">{SEARCH_PLACEHOLDER_STRINGS[lang]}…</p>
+                    ) : (
+                      filteredChats.map((chat) => {
+                        const href = `/chats/${chat.id}${chat.isGroup ? "?group=1&" : "?"}title=${encodeURIComponent(chat.title)}&avatar=${encodeURIComponent(chat.avatarUrl)}${chat.avatarBlurDataUrl ? `&avatarBlur=${encodeURIComponent(chat.avatarBlurDataUrl)}` : ""}${chat.username ? `&username=${encodeURIComponent(chat.username)}` : ""}`;
+                        return (
+                          <Link key={chat.id} href={href} onClick={() => setSearchMode(false)} className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-black/[0.03] dark:hover:bg-white/[0.04]">
+                            {chat.isSaved ? (
+                              <SavedAvatar size={44} />
+                            ) : (
+                              <CachedAvatar src={chat.avatarUrl} blurDataURL={chat.avatarBlurDataUrl ?? BLUR_DATA_URL} size={44} className="h-11 w-11 shrink-0 rounded-full object-cover" />
+                            )}
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-[16px] font-semibold text-[#262a34] dark:text-white">
+                                {chat.isSaved ? extraText(lang as GroupLang, "savedMessages") : chat.title || "—"}
+                              </span>
+                              <span className="block truncate text-[14px] text-[#989aa6] dark:text-[#8d8d93]">{chat.previewText}</span>
+                            </span>
+                          </Link>
+                        );
+                      })
+                    )}
+                  </div>
+                ) : (
+                  <SharedPanel
+                    embedded
+                    activeTab={searchTab}
+                    onSwipeTab={(k) => setSearchTab(k)}
+                    lang={lang}
+                    initialTab={searchTab}
+                    chatTitles={Object.fromEntries(chats.map((c) => [c.id, c.title]))}
+                    onClose={() => setSearchTab("chats")}
+                    onOpen={openSharedMessage}
+                  />
+                )}
+              </div>
+            </div>
+            {/* Чипы -- прямо над клавиатурой (без клавиатуры -- внизу экрана). */}
+            <div className="fixed inset-x-0 z-[67] border-t border-black/5 bg-[#f2f2f7]/95 backdrop-blur dark:border-white/10 dark:bg-black/90" style={{ bottom: kbOffset }}>
+              <div className="mx-auto flex max-w-2xl gap-1 overflow-x-auto px-3 py-2 [scrollbar-width:none]" onMouseDown={(e) => e.preventDefault()}>
+                {(["chats", ...SHARED_KINDS] as (SharedKind | "chats")[]).map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setSearchTab(k)}
+                    className={`shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-[14px] transition ${
+                      searchTab === k ? "bg-[#e5e5ea] font-semibold text-[#262a34] dark:bg-[#3a3a3c] dark:text-white" : "text-[#555] dark:text-[#ccc]"
+                    }`}
+                  >
+                    {k === "chats" ? SHARED_LABELS.chats : SHARED_LABELS[k]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
+
         {sharedKind && (
           <SharedPanel
             lang={lang}
             initialTab={sharedKind}
             chatTitles={Object.fromEntries(chats.map((c) => [c.id, c.title]))}
             onClose={() => setSharedKind(null)}
-            onOpen={(chatId, msgId) => {
-              // 04.10.2026: тап по строке «Спільного» -- открыть этот чат на этом сообщении.
-              const chat = chats.find((c) => c.id === chatId);
-              if (!chat) return;
-              const q = new URLSearchParams();
-              if (chat.isGroup) q.set("group", "1");
-              q.set("title", chat.title);
-              q.set("avatar", chat.avatarUrl);
-              if (chat.avatarBlurDataUrl) q.set("avatarBlur", chat.avatarBlurDataUrl);
-              if (chat.username) q.set("username", chat.username);
-              q.set("m", String(msgId));
-              setSharedKind(null);
-              router.push(`/chats/${chat.id}?${q.toString()}`);
-            }}
+            onOpen={openSharedMessage}
           />
         )}
 

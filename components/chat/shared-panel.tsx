@@ -295,7 +295,16 @@ export function SharedPanel({
   initialTab = "photos",
   chatTitles,
   onOpen,
+  embedded = false,
+  activeTab,
+  onSwipeTab,
 }: {
+  /** 04.10.2026: без своей шторки и вкладок -- только содержимое (поиск в чатах, как в приложении). */
+  embedded?: boolean;
+  /** Вкладка снаружи (в режиме embedded). */
+  activeTab?: Kind;
+  /** Свайп по содержимому в режиме embedded: сменить вкладку снаружи ("chats" -- вернуться к чатам). */
+  onSwipeTab?: (k: Kind | "chats") => void;
   /** Тап по строке: открыть чат (chat -- id чата строки; в одном чате = chatId) на сообщении msgId. */
   onOpen?: (chat: string | null, msgId: number) => void;
   /** Без chatId -- поиск по всем чатам (тогда в строках показывается имя чата). */
@@ -305,7 +314,10 @@ export function SharedPanel({
   initialTab?: Kind;
   chatTitles?: Record<string, string>;
 }) {
-  const [tab, setTab] = useState<Kind>(initialTab);
+  const [tab, setTab] = useState<Kind>(activeTab ?? initialTab);
+  useEffect(() => {
+    if (activeTab) setTab(activeTab);
+  }, [activeTab]);
   const open = (it: Item) => {
     const id = Number(it.msgId);
     if (!onOpen || !Number.isFinite(id)) return;
@@ -459,7 +471,8 @@ export function SharedPanel({
     if (bar && el) bar.scrollTo({ left: el.offsetLeft - (bar.clientWidth - el.clientWidth) / 2, behavior: "smooth" });
   }, [tab]);
   const go = (k: TabKey) => {
-    if (k === "chats") onClose();
+    if (embedded && onSwipeTab) onSwipeTab(k);
+    else if (k === "chats") onClose();
     else setTab(k);
   };
   // Горизонтальный свайп по содержимому: влево -- следующая вкладка, вправо -- предыдущая.
@@ -483,33 +496,7 @@ export function SharedPanel({
   const showSkeleton = (!cur.started || cur.loading) && cur.items.length === 0;
   const showEmpty = cur.started && !cur.loading && cur.items.length === 0;
 
-  return (
-    <div className="fixed inset-0 z-[60] flex justify-end bg-black/30" onClick={onClose}>
-      <aside
-        className="flex h-full w-full max-w-[420px] flex-col bg-[#f2f2f7] shadow-xl dark:bg-[#000]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center gap-2 px-3 pb-2 pt-3">
-          <div ref={barRef} className="relative flex flex-1 gap-1 overflow-x-auto rounded-full bg-white p-1 [scrollbar-width:none] dark:bg-[#1c1c1e]">
-            {order.map((k) => (
-              <button
-                key={k}
-                type="button"
-                data-active={tab === k ? "true" : undefined}
-                onClick={() => go(k)}
-                className={`shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-[14px] transition ${
-                  tab === k ? "bg-[#e5e5ea] font-semibold text-[#262a34] dark:bg-[#3a3a3c] dark:text-white" : "text-[#555] dark:text-[#ccc]"
-                }`}
-              >
-                {SHARED_LABELS[k]}
-              </button>
-            ))}
-          </div>
-          <button type="button" onClick={onClose} aria-label="Close" className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#262a34] dark:bg-[#1c1c1e] dark:text-white">
-            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
-          </button>
-        </div>
-
+  const body = (
         <div className="min-h-0 flex-1 overflow-y-auto pb-6" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
           {showSkeleton && <Skeleton kind={tab} />}
           {showEmpty && <EmptyState kind={tab} />}
@@ -614,6 +601,37 @@ export function SharedPanel({
           )}
           <div ref={sentinel} className="h-px" />
         </div>
+  );
+  if (embedded) return body;
+
+  return (
+    <div className="fixed inset-0 z-[60] flex justify-end bg-black/30" onClick={onClose}>
+      <aside
+        className="flex h-full w-full max-w-[420px] flex-col bg-[#f2f2f7] shadow-xl dark:bg-[#000]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-2 px-3 pb-2 pt-3">
+          <div ref={barRef} className="relative flex flex-1 gap-1 overflow-x-auto rounded-full bg-white p-1 [scrollbar-width:none] dark:bg-[#1c1c1e]">
+            {order.map((k) => (
+              <button
+                key={k}
+                type="button"
+                data-active={tab === k ? "true" : undefined}
+                onClick={() => go(k)}
+                className={`shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-[14px] transition ${
+                  tab === k ? "bg-[#e5e5ea] font-semibold text-[#262a34] dark:bg-[#3a3a3c] dark:text-white" : "text-[#555] dark:text-[#ccc]"
+                }`}
+              >
+                {SHARED_LABELS[k]}
+              </button>
+            ))}
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close" className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#262a34] dark:bg-[#1c1c1e] dark:text-white">
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
+        </div>
+
+        {body}
       </aside>
     </div>
   );

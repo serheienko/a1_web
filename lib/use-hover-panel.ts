@@ -243,7 +243,7 @@ export function useHoverPanel(open: boolean, setOpen: (open: boolean) => void, r
     const scrollY0 = window.scrollY;
     function onScroll(e: Event) {
       if (isFocusInsideAny() || insidePanel(e.target)) return;
-      if (e.target === document && Math.abs(window.scrollY - scrollY0) < 8) return;
+      if (e.target === document && Math.abs(window.scrollY - scrollY0) < 24) return;
       setOpen(false);
     }
     document.addEventListener("touchstart", onTouchStart, { passive: true, capture: true });

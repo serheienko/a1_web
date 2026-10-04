@@ -59,7 +59,7 @@
 // matched; only the glyph needed to change.
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 // 2026-09-13 (Александр: "В профилях есть тоже кнопка поделиться, на
 // неё тоже надо сделать 2 сценария, шерить внутри приложения и
@@ -74,6 +74,8 @@ import type { Contact } from "@/lib/a1/schemas";
 import { LottiePlayer } from "@/components/lottie-player";
 import { InlineAuthForm } from "@/components/inline-auth-form";
 import { useCloseOnScroll } from "@/lib/use-close-on-scroll";
+
+const MY_USERNAME_KEY = "a1-my-username";
 import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
 import { useHoverPanel } from "@/lib/use-hover-panel";
 import { useActiveLocale } from "@/lib/use-active-locale";
@@ -429,6 +431,19 @@ export function ProfileActionRow({
   // already established, rather than hiding the whole row like before.
   // Own profile still hides this row entirely (components/edit-profile-
   // button.tsx covers that case).
+  // 04.10.2026 (Александр: «открытие нашего профиля показывает ghost
+  // 4-х кнопок, а потом исчезает»). Своё имя пользователя запоминаем в
+  // браузере: свой профиль узнаём сразу, ещё до ответа сервера, и
+  // заглушку из четырёх кнопок не рисуем.
+  useLayoutEffect(() => {
+    try {
+      const me = localStorage.getItem(MY_USERNAME_KEY);
+      if (me && me === username) setViewerStatus("self");
+    } catch {
+      /* приватный режим */
+    }
+  }, [username]);
+
   useEffect(() => {
     let cancelled = false;
     authFetch("/api/account/whoami")
@@ -436,8 +451,18 @@ export function ProfileActionRow({
       .then((data) => {
         if (cancelled) return;
         if (!data?.ok) {
+          try {
+            localStorage.removeItem(MY_USERNAME_KEY);
+          } catch {
+            /* приватный режим */
+          }
           setViewerStatus("anon");
           return;
+        }
+        try {
+          if (data.username) localStorage.setItem(MY_USERNAME_KEY, data.username);
+        } catch {
+          /* приватный режим */
         }
         setViewerStatus(data.username && data.username === username ? "self" : "other");
       })
