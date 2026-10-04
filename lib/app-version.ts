@@ -45,7 +45,7 @@ export type AppVersionConfig = {
 export const APP_VERSION_CONFIG: AppVersionConfig = {
   ios: {
     minimum: "1.0.0",
-    recommended: "1.0.7",
+    recommended: "1.0.8",
     note: "",
     // Числовой id из App Store Connect (карточка приложения
     // «A1: Job Search, Jobs & Hiring»), взят 2026-09-17.
@@ -53,7 +53,7 @@ export const APP_VERSION_CONFIG: AppVersionConfig = {
   },
   android: {
     minimum: "1.0.0",
-    recommended: "1.0.7",
+    recommended: "1.0.8",
     note: "",
     storeUrl: "https://play.google.com/store/apps/details?id=com.aone.aoneapp",
   },
