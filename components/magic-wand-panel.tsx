@@ -64,10 +64,53 @@ function MicIcon({ className }: { className?: string }) {
   );
 }
 
-function fmtTimer(total: number): string {
-  const m = Math.floor(total / 60);
-  const sec = total % 60;
-  return `${m}:${String(sec).padStart(2, "0")}`;
+/** Как в приложении: 0:04,30 (минуты:секунды,сотые). */
+function fmtClock(ms: number): string {
+  const total = Math.floor(ms / 1000);
+  const cs = Math.floor((ms % 1000) / 10);
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")},${String(cs).padStart(2, "0")}`;
+}
+
+// 04.10.2026 (Александр: «элементы управления такие же, как в приложении»).
+// Язык диктовки: как в приложении -- чип с глобусом и кодом, список с
+// флагами; выбор запоминается. По умолчанию -- язык сайта.
+const DICT_LANGS: { code: string; name: string; flag: string; bcp: string }[] = [
+  { code: "uk", name: "Українська", flag: "🇺🇦", bcp: "uk-UA" },
+  { code: "en", name: "English", flag: "🇬🇧", bcp: "en-US" },
+  { code: "ru", name: "Русский", flag: "🌐", bcp: "ru-RU" },
+  { code: "zh", name: "中文", flag: "🇨🇳", bcp: "zh-CN" },
+  { code: "de", name: "Deutsch", flag: "🇩🇪", bcp: "de-DE" },
+  { code: "pl", name: "Polski", flag: "🇵🇱", bcp: "pl-PL" },
+  { code: "es", name: "Español", flag: "🇪🇸", bcp: "es-ES" },
+  { code: "fr", name: "Français", flag: "🇫🇷", bcp: "fr-FR" },
+  { code: "pt", name: "Português", flag: "🇧🇷", bcp: "pt-BR" },
+];
+const DICT_LANG_KEY = "a1-mw-dict-lang";
+
+type SpeechRec = {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onresult: ((e: { resultIndex: number; results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }> }) => void) | null;
+  onend: (() => void) | null;
+  onerror: ((e: { error?: string }) => void) | null;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+};
+function speechCtor(): (new () => SpeechRec) | null {
+  if (typeof window === "undefined") return null;
+  const w = window as unknown as { SpeechRecognition?: new () => SpeechRec; webkitSpeechRecognition?: new () => SpeechRec };
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
+}
+
+function GlobeIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3Z" />
+    </svg>
+  );
 }
 
 function WandIcon({ className }: { className?: string }) {
@@ -183,20 +226,50 @@ export function MagicWandPanel({
   const [applied, setApplied] = useState(false);
   const textRef = useRef<HTMLTextAreaElement>(null);
   const [recording, setRecording] = useState(false);
-  const [seconds, setSeconds] = useState(0);
   const [voiceStage, setVoiceStage] = useState<"upload" | "read" | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const cancelledRef = useRef(false);
-  const secondsRef = useRef(0);
+  // Живая диктовка (распознавание речи браузера): слова появляются в поле
+  // прямо во время рассказа. Где браузер не умеет -- пишем звук, как раньше.
+  const [dictating, setDictating] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const elapsedRef = useRef(0);
+  const pausedRef = useRef(false);
+  const recRef = useRef<SpeechRec | null>(null);
+  const dictOnRef = useRef(false);
+  const dictDoneRef = useRef("");
+  const dictNowRef = useRef("");
+  const atStartRef = useRef("");
+  const [dictLang, setDictLang] = useState<string>(() => {
+    try {
+      const saved = typeof window !== "undefined" ? localStorage.getItem(DICT_LANG_KEY) : null;
+      if (saved && DICT_LANGS.some((l) => l.code === saved)) return saved;
+    } catch {
+      /* приватный режим */
+    }
+    const site = lang === "ptBR" ? "pt" : String(lang);
+    return DICT_LANGS.some((l) => l.code === site) ? site : "en";
+  });
+  const [langOpen, setLangOpen] = useState(false);
+  const [trash, setTrash] = useState<{ x: number; y: number; key: number } | null>(null);
+  const dotRef = useRef<HTMLSpanElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
 
   // Закрыли редактор посреди записи -- микрофон не должен остаться включённым.
   useEffect(
     () => () => {
       if (timerRef.current) clearInterval(timerRef.current);
       streamRef.current?.getTracks().forEach((t) => t.stop());
+      dictOnRef.current = false;
+      try {
+        recRef.current?.abort();
+      } catch {
+        /* уже остановлено */
+      }
     },
     [],
   );
@@ -291,9 +364,120 @@ export function MagicWandPanel({
     return ref;
   }
 
-  async function startRecording() {
+  function chooseDictLang(code: string) {
+    setDictLang(code);
+    setLangOpen(false);
+    try {
+      localStorage.setItem(DICT_LANG_KEY, code);
+    } catch {
+      /* приватный режим */
+    }
+  }
+
+  function startClock() {
+    if (timerRef.current) clearInterval(timerRef.current);
+    elapsedRef.current = 0;
+    setElapsedMs(0);
+    timerRef.current = setInterval(() => {
+      if (pausedRef.current) return;
+      elapsedRef.current += 100;
+      setElapsedMs(elapsedRef.current);
+      if (elapsedRef.current >= VOICE_MAX_SECONDS * 1000) void sendVoice();
+    }, 100);
+  }
+
+  function stopClock() {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }
+
+  /** Текст поля во время диктовки: что было до неё + всё услышанное. */
+  function showDictated() {
+    const heard = [dictDoneRef.current, dictNowRef.current].filter(Boolean).join(" ");
+    const before = atStartRef.current.trim();
+    setText(before && heard ? `${before} ${heard}` : before || heard);
+    const el = textRef.current;
+    if (el) requestAnimationFrame(() => (el.scrollTop = el.scrollHeight));
+  }
+
+  /** Одна сессия распознавания. Браузер сам останавливает её через время -- тогда тихо начинаем новую. */
+  function listen(): boolean {
+    const Ctor = speechCtor();
+    if (!Ctor) return false;
+    try {
+      const rec = new Ctor();
+      rec.lang = DICT_LANGS.find((l) => l.code === dictLang)?.bcp ?? "en-US";
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.onresult = (e) => {
+        let now = "";
+        for (let k = 0; k < e.results.length; k++) now += e.results[k]![0].transcript;
+        dictNowRef.current = now.trim();
+        showDictated();
+      };
+      rec.onerror = (e) => {
+        if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+          dictOnRef.current = false;
+          setMicDenied(true);
+          stopClock();
+          setRecording(false);
+          setDictating(false);
+          setText(atStartRef.current);
+        }
+      };
+      rec.onend = () => {
+        // Сессия закончилась: её слова -- в «готовые».
+        if (dictNowRef.current) {
+          dictDoneRef.current = [dictDoneRef.current, dictNowRef.current].filter(Boolean).join(" ");
+          dictNowRef.current = "";
+        }
+        if (recRef.current === rec) recRef.current = null;
+        if (dictOnRef.current && !pausedRef.current) listen();
+      };
+      recRef.current = rec;
+      rec.start();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function stopListening() {
+    const rec = recRef.current;
+    recRef.current = null;
+    try {
+      rec?.stop();
+    } catch {
+      /* уже остановлено */
+    }
+    if (dictNowRef.current) {
+      dictDoneRef.current = [dictDoneRef.current, dictNowRef.current].filter(Boolean).join(" ");
+      dictNowRef.current = "";
+    }
+  }
+
+  async function startVoice() {
     if (isWorking || recording) return;
     setError(false);
+    setMicDenied(false);
+    setLangOpen(false);
+    atStartRef.current = text;
+    dictDoneRef.current = "";
+    dictNowRef.current = "";
+    pausedRef.current = false;
+    setPaused(false);
+    // Сначала живая диктовка (бесплатно, слова видно сразу), иначе -- запись звука.
+    dictOnRef.current = true;
+    if (listen()) {
+      setDictating(true);
+      setRecording(true);
+      startClock();
+      return;
+    }
+    dictOnRef.current = false;
+    setDictating(false);
     if (typeof MediaRecorder === "undefined" || !navigator.mediaDevices?.getUserMedia) {
       setError(true);
       return;
@@ -313,34 +497,84 @@ export function MagicWandPanel({
         streamRef.current = null;
         if (cancelledRef.current) return;
         const type = rec.mimeType || "audio/webm";
-        void run({ blob: new Blob(chunksRef.current, { type }), mime: type, seconds: secondsRef.current });
+        void run({ blob: new Blob(chunksRef.current, { type }), mime: type, seconds: Math.round(elapsedRef.current / 1000) });
       };
       recorderRef.current = rec;
       rec.start();
-      secondsRef.current = 0;
-      setSeconds(0);
       setRecording(true);
-      timerRef.current = setInterval(() => {
-        secondsRef.current += 1;
-        setSeconds(secondsRef.current);
-        if (secondsRef.current >= VOICE_MAX_SECONDS) stopRecording(false);
-      }, 1000);
+      startClock();
     } catch {
       setMicDenied(true);
     }
   }
 
-  function stopRecording(cancel: boolean) {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
+  function togglePause() {
+    const next = !pausedRef.current;
+    pausedRef.current = next;
+    setPaused(next);
+    if (dictating) {
+      if (next) stopListening();
+      else {
+        // Продолжить после того, что уже в поле (его могли поправить руками).
+        atStartRef.current = text;
+        dictDoneRef.current = "";
+        dictNowRef.current = "";
+        listen();
+      }
+      return;
     }
-    cancelledRef.current = cancel;
+    const rec = recorderRef.current;
+    if (!rec) return;
+    if (next && rec.state === "recording") rec.pause();
+    else if (!next && rec.state === "paused") rec.resume();
+  }
+
+  function cancelVoice() {
+    // Как в чатах приложения: красная точка подпрыгивает и падает в корзинку.
+    const dot = dotRef.current?.getBoundingClientRect();
+    const box = boxRef.current?.getBoundingClientRect();
+    if (dot && box) setTrash({ x: dot.left + dot.width / 2 - box.left, y: dot.top + dot.height / 2 - box.top, key: Date.now() });
+    stopClock();
+    if (dictating) {
+      dictOnRef.current = false;
+      stopListening();
+      setText(atStartRef.current);
+    } else {
+      cancelledRef.current = true;
+      const rec = recorderRef.current;
+      recorderRef.current = null;
+      if (rec && rec.state !== "inactive") rec.stop();
+      else streamRef.current?.getTracks().forEach((t) => t.stop());
+    }
+    setDictating(false);
     setRecording(false);
+    setPaused(false);
+    pausedRef.current = false;
+  }
+
+  async function sendVoice() {
+    stopClock();
+    if (dictating) {
+      dictOnRef.current = false;
+      stopListening();
+      setDictating(false);
+      setRecording(false);
+      setPaused(false);
+      pausedRef.current = false;
+      // Слова уже в поле -- отправляем их как обычный текст.
+      const heard = [dictDoneRef.current, dictNowRef.current].filter(Boolean).join(" ");
+      const before = atStartRef.current.trim();
+      const story = (before && heard ? `${before} ${heard}` : before || heard).trim();
+      if (story) void run({ text: story });
+      return;
+    }
+    cancelledRef.current = false;
+    setRecording(false);
+    setPaused(false);
+    pausedRef.current = false;
     const rec = recorderRef.current;
     recorderRef.current = null;
     if (rec && rec.state !== "inactive") rec.stop();
-    else streamRef.current?.getTracks().forEach((t) => t.stop());
   }
 
   function tapChip(field: MagicWandField) {
@@ -373,7 +607,7 @@ export function MagicWandPanel({
 
   return (
     <div data-testid="magic-wand" className="rounded-2xl">
-      <style>{`@keyframes mwShift{0%{background-position:0% 50%}100%{background-position:200% 50%}}`}</style>
+      <style>{`@keyframes mwShift{0%{background-position:0% 50%}100%{background-position:200% 50%}}@keyframes mwFade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}@keyframes mwPop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}@keyframes mwDotDrop{0%{transform:translateY(0)}35%{transform:translateY(-26px)}75%{transform:translateY(2px) scale(.8)}100%{transform:translateY(4px) scale(0);opacity:0}}@keyframes mwBin{0%{transform:scale(0);opacity:0}25%{transform:scale(1);opacity:1}75%{transform:scale(1) rotate(-8deg);opacity:1}100%{transform:scale(.6);opacity:0}}`}</style>
       {!open ? (
         <button
           type="button"
@@ -440,17 +674,127 @@ export function MagicWandPanel({
               })}
             </div>
 
-            <textarea
-              ref={textRef}
-              data-testid="magic-wand-text"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder={placeholder}
-              rows={7}
-              maxLength={20000}
-              disabled={isWorking || recording}
-              className="min-h-[160px] w-full resize-y rounded-2xl bg-[#f2f2f7] px-3.5 py-3 text-[15px] text-neutral-900 outline-none placeholder:text-neutral-400 disabled:opacity-60 dark:bg-[#313136] dark:text-neutral-50"
-            />
+            {/* Как в приложении: серое поле рассказа, кнопки -- внутри него, внизу. */}
+            <div ref={boxRef} className="relative flex h-[220px] flex-col rounded-[18px] bg-[#f2f2f7] pb-2 pl-3 pr-2 pt-2.5 dark:bg-[#313136]">
+              <textarea
+                ref={textRef}
+                data-testid="magic-wand-text"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder={placeholder}
+                maxLength={20000}
+                readOnly={isWorking || (recording && !(dictating && paused))}
+                className="min-h-0 w-full flex-1 resize-none bg-transparent text-[17px] leading-[1.3] text-neutral-900 outline-none placeholder:text-[#989aa6] dark:text-neutral-50"
+              />
+              <div className="mt-1.5 flex h-9 items-center gap-2">
+                {recording ? (
+                  <div data-testid="magic-wand-recording" className="flex w-full min-w-0 items-center gap-1.5 animate-[mwFade_.24s_ease-out]">
+                    <span ref={dotRef} className={`ml-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-[#ff3b30] ${paused ? "opacity-40" : "animate-pulse"}`} />
+                    <span className={`shrink-0 text-[15px] tabular-nums ${elapsedMs >= VOICE_WARN_SECONDS * 1000 ? "text-[#ff3b30]" : "text-neutral-900 dark:text-neutral-50"}`}>{fmtClock(elapsedMs)}</span>
+                    <span className="flex shrink-0 items-center gap-1 text-[14px] font-semibold text-[#989aa6]">
+                      <GlobeIcon className="h-4 w-4" />
+                      {dictLang.toUpperCase()}
+                    </span>
+                    <button type="button" data-testid="magic-wand-record-cancel" onClick={cancelVoice} className="min-w-0 flex-1 truncate px-1 py-1.5 text-center text-[17px] text-[#335ef7] dark:text-[#0c8ce9]">
+                      {tx("cancel")}
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="magic-wand-pause"
+                      aria-label={paused ? "Resume" : "Pause"}
+                      onClick={togglePause}
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-neutral-900 transition active:scale-90 dark:bg-black dark:text-neutral-50"
+                    >
+                      <span className="relative h-5 w-5">
+                        <svg viewBox="0 0 24 24" className={`absolute inset-0 h-5 w-5 transition duration-200 ${paused ? "rotate-90 scale-50 opacity-0" : "opacity-100"}`} fill="currentColor"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" /></svg>
+                        <svg viewBox="0 0 24 24" className={`absolute inset-0 h-5 w-5 transition duration-200 ${paused ? "opacity-100" : "-rotate-90 scale-50 opacity-0"}`} fill="currentColor"><path d="M8 5.5v13l10.5-6.5z" /></svg>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="magic-wand-record-send"
+                      aria-label={tx("send")}
+                      onClick={() => void sendVoice()}
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#335ef7] text-white transition active:scale-90"
+                    >
+                      <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" /></svg>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex w-full items-center gap-2 animate-[mwFade_.24s_ease-out]">
+                    {isWorking ? (
+                      <span className="flex-1 pl-1 text-[15px] text-[#989aa6]">{voiceStage ? tx("transcribing") : tx("reading")}</span>
+                    ) : (
+                      <>
+                        <span className="flex-1" />
+                        <div className="relative">
+                          <button
+                            type="button"
+                            data-testid="magic-wand-lang"
+                            onClick={() => setLangOpen((v) => !v)}
+                            className="flex h-[34px] items-center gap-1 rounded-full bg-white px-[11px] text-[14px] font-semibold text-[#989aa6] dark:bg-black"
+                          >
+                            <GlobeIcon className="h-4 w-4" />
+                            {dictLang.toUpperCase()}
+                          </button>
+                          {langOpen && (
+                            <>
+                              <div className="fixed inset-0 z-40" onClick={() => setLangOpen(false)} />
+                              <div className="absolute bottom-[42px] right-0 z-50 w-[240px] origin-bottom-right animate-[mwPop_.18s_ease-out] rounded-[22px] bg-white/95 p-2 shadow-xl ring-1 ring-black/5 backdrop-blur dark:bg-[#1c1c1e]/95 dark:ring-white/10">
+                                {DICT_LANGS.map((l) => (
+                                  <button
+                                    key={l.code}
+                                    type="button"
+                                    onClick={() => chooseDictLang(l.code)}
+                                    className="flex min-h-[44px] w-full items-center gap-2.5 rounded-2xl px-2 text-left hover:bg-black/5 dark:hover:bg-white/10"
+                                  >
+                                    <span className="text-[20px] leading-none">{l.flag}</span>
+                                    <span className={`truncate text-[17px] ${l.code === dictLang ? "font-bold text-[#335ef7] dark:text-[#0c8ce9]" : "font-medium text-neutral-900 dark:text-neutral-50"}`}>{l.name}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          data-testid="magic-wand-mic"
+                          aria-label={tx("voice")}
+                          onClick={() => void startVoice()}
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-[#989aa6] transition active:scale-90 dark:bg-black"
+                        >
+                          <MicIcon className="h-[18px] w-[18px]" />
+                        </button>
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      data-testid={showApply ? "magic-wand-apply" : "magic-wand-send"}
+                      aria-label={showApply ? tx("apply") : tx("send")}
+                      disabled={!canSend && !isWorking}
+                      onClick={send}
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#335ef7] text-white transition active:scale-90 ${!canSend && !isWorking ? "opacity-45" : ""}`}
+                    >
+                      {isWorking ? (
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                      ) : showApply ? (
+                        <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>
+                      ) : (
+                        <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" /></svg>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+              {trash && (
+                <span key={trash.key} className="pointer-events-none absolute" style={{ left: trash.x, top: trash.y }}>
+                  <span className="absolute -ml-[5px] -mt-[5px] h-2.5 w-2.5 rounded-full bg-[#ff3b30] animate-[mwDotDrop_.75s_ease-in-out_forwards]" />
+                  <svg viewBox="0 0 24 24" className="absolute -ml-[11px] -mt-[6px] h-[22px] w-[22px] text-[#ff3b30] animate-[mwBin_.95s_ease-in-out_forwards]" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" onAnimationEnd={() => setTrash(null)}>
+                    <path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13M10 11v6M14 11v6" />
+                  </svg>
+                </span>
+              )}
+            </div>
 
             {focus && data.chips[focus]?.note && <p className="text-[12.5px] text-amber-700 dark:text-amber-400">{data.chips[focus]?.note}</p>}
             {error && (
@@ -463,37 +807,6 @@ export function MagicWandPanel({
                 {tx("micDenied")}
               </p>
             )}
-
-            <div className="flex items-center justify-between gap-3">
-              {recording ? (
-                <span data-testid="magic-wand-recording" className="flex items-center gap-2 text-[14px] font-medium text-neutral-800 dark:text-neutral-100">
-                  <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-500" />
-                  {fmtTimer(seconds)}
-                  {seconds >= VOICE_WARN_SECONDS && <span className="text-[12.5px] font-normal text-amber-600 dark:text-amber-400">{tx("timeLeft")}</span>}
-                  <button type="button" data-testid="magic-wand-record-cancel" onClick={() => stopRecording(true)} className="ml-2 rounded-full px-3 py-1 text-[13px] text-neutral-500 hover:bg-black/5 dark:hover:bg-white/10">
-                    {tx("cancel")}
-                  </button>
-                </span>
-              ) : isWorking ? (
-                <span className="text-[12.5px] text-neutral-500 dark:text-neutral-400">{voiceStage === "upload" ? tx("transcribing") : voiceStage === "read" ? tx("transcribing") : tx("reading")}</span>
-              ) : text.trim() === "" ? (
-                <button type="button" data-testid="magic-wand-mic" aria-label={tx("voice")} onClick={() => void startRecording()} className="flex items-center gap-1.5 rounded-full border border-neutral-300 px-3.5 py-2 text-[13px] font-medium text-neutral-700 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800">
-                  <MicIcon className="h-4 w-4" />
-                  {tx("voice")}
-                </button>
-              ) : (
-                <span />
-              )}
-              <button
-                type="button"
-                data-testid={recording ? "magic-wand-record-send" : showApply ? "magic-wand-apply" : "magic-wand-send"}
-                disabled={recording ? false : !canSend}
-                onClick={recording ? () => stopRecording(false) : send}
-                className={`rounded-full px-5 py-2 text-[14px] font-semibold text-white transition disabled:opacity-40 ${showApply ? "bg-[#1fa54a] hover:bg-[#188a3d]" : "bg-[#335ef7] hover:bg-[#2a4fd6]"}`}
-              >
-                {recording ? tx("send") : showApply ? tx("apply") : tx("send")}
-              </button>
-            </div>
           </div>
         </div>
       )}

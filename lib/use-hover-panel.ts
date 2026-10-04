@@ -214,5 +214,48 @@ export function useHoverPanel(open: boolean, setOpen: (open: boolean) => void, r
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  // 04.10.2026 (Александр, видео с меню аватара на телефоне: «начинаешь
+  // скроллить -- она должна скрываться»). На сенсорном экране любое
+  // открытое всплывающее меню закрывается, как только страницу начали
+  // листать пальцем вне него. Прокрутка внутри самого меню (длинный
+  // список) его не закрывает; поле ввода в фокусе (открыта клавиатура)
+  // -- тоже.
+  useEffect(() => {
+    if (!open || typeof window === "undefined") return;
+    if (!window.matchMedia("(hover: none)").matches) return;
+    const insidePanel = (t: EventTarget | null) =>
+      t instanceof Node && refPairs.some(({ panel, trigger }) => panel.current?.contains(t) || trigger.current?.contains(t));
+    let startY: number | null = null;
+    let startX = 0;
+    function onTouchStart(e: TouchEvent) {
+      startY = insidePanel(e.target) ? null : e.touches[0]?.clientY ?? null;
+      startX = e.touches[0]?.clientX ?? 0;
+    }
+    function onTouchMove(e: TouchEvent) {
+      if (startY === null || isFocusInsideAny()) return;
+      const t = e.touches[0];
+      if (!t) return;
+      if (Math.abs(t.clientY - startY) > 8 || Math.abs(t.clientX - startX) > 8) {
+        startY = null;
+        setOpen(false);
+      }
+    }
+    const scrollY0 = window.scrollY;
+    function onScroll(e: Event) {
+      if (isFocusInsideAny() || insidePanel(e.target)) return;
+      if (e.target === document && Math.abs(window.scrollY - scrollY0) < 8) return;
+      setOpen(false);
+    }
+    document.addEventListener("touchstart", onTouchStart, { passive: true, capture: true });
+    document.addEventListener("touchmove", onTouchMove, { passive: true, capture: true });
+    window.addEventListener("scroll", onScroll, { passive: true, capture: true });
+    return () => {
+      document.removeEventListener("touchstart", onTouchStart, { capture: true });
+      document.removeEventListener("touchmove", onTouchMove, { capture: true });
+      window.removeEventListener("scroll", onScroll, { capture: true });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   return { rendered, visible, handleMouseEnter, handleMouseLeave, isRecentHoverOpen };
 }
