@@ -46,6 +46,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { CachedAvatar } from "@/components/cached-avatar";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { profileHref } from "@/lib/profile-href";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { T, type Locale } from "@/components/t";
@@ -218,6 +219,7 @@ export default function ChatsPage() {
   const [state, setState] = useState<LoadState>("loading");
   const [chats, setChats] = useState<ChatListItem[]>([]);
   const [sharedKind, setSharedKind] = useState<SharedKind | null>(null);
+  const router = useRouter();
   const [query, setQuery] = useState("");
   // Signed in to even be looking at a chat list, so unlike the global
   // FABs (which also have to cover signed-out visitors via
@@ -494,6 +496,20 @@ export default function ChatsPage() {
             initialTab={sharedKind}
             chatTitles={Object.fromEntries(chats.map((c) => [c.id, c.title]))}
             onClose={() => setSharedKind(null)}
+            onOpen={(chatId, msgId) => {
+              // 04.10.2026: тап по строке «Спільного» -- открыть этот чат на этом сообщении.
+              const chat = chats.find((c) => c.id === chatId);
+              if (!chat) return;
+              const q = new URLSearchParams();
+              if (chat.isGroup) q.set("group", "1");
+              q.set("title", chat.title);
+              q.set("avatar", chat.avatarUrl);
+              if (chat.avatarBlurDataUrl) q.set("avatarBlur", chat.avatarBlurDataUrl);
+              if (chat.username) q.set("username", chat.username);
+              q.set("m", String(msgId));
+              setSharedKind(null);
+              router.push(`/chats/${chat.id}?${q.toString()}`);
+            }}
           />
         )}
 

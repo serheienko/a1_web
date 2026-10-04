@@ -914,6 +914,26 @@ export default function ChatWindowPage() {
 
   const [state, setState] = useState<LoadState>("loading");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // 04.10.2026 (Александр: тап в «Спільному» должен открыть чат на этом
+  // сообщении). Обычная загрузка -- последние 50; более старая история,
+  // догруженная ради перехода к сообщению, живёт здесь и подмешивается к
+  // каждому опросу, чтобы опрос её не стирал.
+  const messagesRef = useRef<ChatMessage[]>(messages);
+  messagesRef.current = messages;
+  const olderMessagesRef = useRef<ChatMessage[]>([]);
+  // Пока идёт переход к старому сообщению -- не прыгать вниз к последнему.
+  const holdBottomScrollRef = useRef(false);
+  useEffect(() => {
+    olderMessagesRef.current = [];
+  }, [chatId]);
+  const withOlderMessages = useCallback((latest: ChatMessage[]) => {
+    const older = olderMessagesRef.current;
+    if (older.length === 0) return latest;
+    const byId = new Map<string, ChatMessage>();
+    for (const m of older) byId.set(String(m._id), m);
+    for (const m of latest) byId.set(String(m._id), m);
+    return [...byId.values()].sort((a, b) => messageDateMs(a) - messageDateMs(b));
+  }, []);
   useEffect(() => {
     const cached = readCachedMessages(chatId);
     if (cached.messages.length === 0) return;
@@ -1957,7 +1977,7 @@ export default function ChatWindowPage() {
       }
       const fetched: ChatMessage[] = data.messages ?? [];
       const resolvedMyUserId: string | null = data.myUserId ?? null;
-      setMessages(fetched);
+      setMessages(withOlderMessages(fetched));
       setMyUserId(resolvedMyUserId);
       writeCachedMessages(chatId, fetched, resolvedMyUserId);
       // Only while the tab is actually visible -- marking a message
@@ -2164,6 +2184,7 @@ export default function ChatWindowPage() {
   // env(safe-area-inset-bottom) across devices) to match pb-28 against.
   useEffect(() => {
     const el = messagesScrollRef.current;
+    if (holdBottomScrollRef.current) return;
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages.length, pendingMessages.length]);
 
@@ -3618,6 +3639,57 @@ export default function ChatWindowPage() {
       setHighlightedMessageId((cur) => (cur === messageId ? null : cur));
     }, 2200);
   }
+
+  // 04.10.2026: открыть чат на сообщении (тап в «Спільному» или ссылка
+  // `?m=<id>`). Если сообщения нет среди загруженных -- догружаем
+  // историю пачками по 100 (`before`), пока не дойдём до него (не больше
+  // 20 пачек), потом прокручиваем к нему и подсвечиваем.
+  async function jumpToMessage(target: number) {
+    if (!Number.isFinite(target)) return;
+    holdBottomScrollRef.current = true;
+    isPinnedToBottomRef.current = false;
+    try {
+      const ids = () => messagesRef.current.map((m) => Number(m._id)).filter((n) => Number.isFinite(n));
+      let have = ids();
+      let minId = have.length ? Math.min(...have) : Number.POSITIVE_INFINITY;
+      for (let page = 0; page < 20 && !have.includes(target) && minId > target; page++) {
+        const res = await authFetch(`/api/chats/messages?chat=${encodeURIComponent(chatId)}&before=${minId}&limit=100`);
+        const data = await res.json().catch(() => null);
+        const older: ChatMessage[] = data?.ok ? (data.messages ?? []) : [];
+        if (older.length === 0) break;
+        olderMessagesRef.current = [...older, ...olderMessagesRef.current];
+        const next = withOlderMessages(messagesRef.current);
+        messagesRef.current = next;
+        setMessages(next);
+        have = ids();
+        const olderMin = Math.min(...older.map((m) => Number(m._id)).filter((n) => Number.isFinite(n)));
+        if (!(olderMin < minId)) break;
+        minId = olderMin;
+      }
+      // Дать списку дорисоваться, потом прокрутить.
+      for (let i = 0; i < 20 && !document.querySelector(`[data-message-id="${target}"]`); i++) {
+        await new Promise((r) => window.setTimeout(r, 50));
+      }
+      handleJumpToPinnedMessage(target);
+    } finally {
+      window.setTimeout(() => {
+        holdBottomScrollRef.current = false;
+      }, 800);
+    }
+  }
+
+  // `?m=<id>` в адресе (переход из «Спільного» в списке чатов) -- один
+  // раз на чат, как только сообщения загрузились.
+  const jumpParam = searchParams.get("m");
+  const jumpDoneRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!jumpParam || state !== "ready") return;
+    const key = `${chatId}:${jumpParam}`;
+    if (jumpDoneRef.current === key) return;
+    jumpDoneRef.current = key;
+    void jumpToMessage(Number(jumpParam));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jumpParam, state, chatId]);
 
   // Fix Tracker (order 77): the banner's own onTap -- jumps to the
   // currently-shown pin (same handleJumpToPinnedMessage as before),
@@ -8192,7 +8264,17 @@ export default function ChatWindowPage() {
           onConfirm={() => void handleConfirmClearChat()}
         />
       )}
-      {sharedOpen && <SharedPanel chatId={chatId} lang={lang} onClose={() => setSharedOpen(false)} />}
+      {sharedOpen && (
+        <SharedPanel
+          chatId={chatId}
+          lang={lang}
+          onClose={() => setSharedOpen(false)}
+          onOpen={(_chat, msgId) => {
+            setSharedOpen(false);
+            void jumpToMessage(msgId);
+          }}
+        />
+      )}
       {remindersListOpen && (
         <RemindersListModal
           chatId={chatId}

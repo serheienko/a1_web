@@ -18,6 +18,11 @@
 //   Расчёты -- тот же серверный поиск (флаг 1<<14); напоминания у бэкенда
 //   отдаются по одному чату, поэтому при поиске по всем чатам их собирают
 //   параллельно по 6 (как в приложении).
+// 04.10.2026 (Александр: «всё должно быть кликабельное, сразу в чат»):
+//   тап по любой строке (фото, ссылка, файл, расчёт, голосовое,
+//   напоминание) открывает чат на этом сообщении -- `onOpen(chat, msgId)`
+//   у вызывающего. Расчёты показаны подробно, как в приложении: таблица
+//   строк, дата, итог с валютой, заметка.
 //   * серверный флаг грубее, чем вкладка (документ может быть стикером или
 //     GIF), поэтому лишнее отсеивается здесь, а если после отсева пачка
 //     почти пустая -- берём следующую сразу (не больше 4 подряд).
@@ -46,6 +51,7 @@ import {
   voiceDurationSeconds,
   type ChatMessage,
   type MessageMediaDocument,
+  type MessageCalculation,
   type ReminderItem,
 } from "@/lib/a1/chat-schemas";
 
@@ -73,7 +79,7 @@ type Item =
   | (ItemBase & { kind: "files"; doc: MessageMediaDocument })
   | (ItemBase & { kind: "voices"; doc: MessageMediaDocument })
   | (ItemBase & { kind: "links"; url: string })
-  | (ItemBase & { kind: "calculations"; title: string; total: string })
+  | (ItemBase & { kind: "calculations"; calc: MessageCalculation; total: number })
   | (ItemBase & { kind: "reminders"; text: string });
 
 type TabState = {
@@ -116,16 +122,8 @@ function itemsOf(kind: Kind, msgs: ChatMessage[]): Item[] {
       const c = messageCalculation(m);
       if (c) {
         // unitAmount -- целые копейки/центы (см. MessageCalculationRowSchema)
-        const sum = c.rows.reduce((acc, r) => acc + (r.quantity || 1) * r.unitAmount, 0) / 100;
-        out.push({
-          kind,
-          key: String(m._id),
-          msgId: m._id,
-          ms,
-          chat,
-          title: c.note || c.rows[0]?.description || extractMessageText(m) || "—",
-          total: `${sum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${c.currency}`.trim(),
-        });
+        const sum = c.rows.reduce((acc, r) => acc + (r.quantity || 1) * r.unitAmount, 0);
+        out.push({ kind, key: String(m._id), msgId: m._id, ms, chat, calc: c, total: sum });
       }
       continue;
     }
@@ -190,11 +188,88 @@ function EmptyState({ kind }: { kind: Kind }) {
   );
 }
 
-function VoiceRow({ item, playing, onToggle, where }: { item: Extract<Item, { kind: "voices" }>; playing: boolean; onToggle: () => void; where?: string }) {
+function calcAmount(cents: number): string {
+  const v = (Number.isFinite(cents) ? cents : 0) / 100;
+  return v.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+
+/** Расчёт -- как во вкладке «Розрахунки» приложения: таблица, дата, итог, заметка. */
+function CalcEntry({ item, where, onOpen }: { item: Extract<Item, { kind: "calculations" }>; where?: string; onOpen: () => void }) {
+  const { calc } = item;
+  const currency = (calc.currency || "").toUpperCase();
+  const withQty = calc.rows.some((r) => (r.quantity || 1) !== 1);
+  return (
+    <button type="button" onClick={onOpen} className="block w-full border-b border-black/10 px-4 pb-3 pt-2 text-left transition hover:bg-black/[0.03] dark:border-white/10 dark:hover:bg-white/[0.04]">
+      {calc.rows.length > 0 && (
+        <table className="w-full border-collapse text-[15px] text-[#262a34] dark:text-white">
+          <thead>
+            <tr className="text-[#262a34] dark:text-white">
+              <th className="w-5 py-1 text-left font-normal" />
+              <th className="py-1 pr-2 text-left font-semibold">
+                <T uk="Опис" en="Description" ru="Описание" de="Beschreibung" es="Descripción" fr="Description" pl="Opis" ptBR="Descrição" zh="描述" />
+              </th>
+              <th className="py-1 px-1 text-right font-semibold">
+                <T uk="Ціна" en="Cost" ru="Цена" de="Preis" es="Coste" fr="Coût" pl="Koszt" ptBR="Custo" zh="单价" />
+              </th>
+              {withQty && (
+                <>
+                  <th className="py-1 px-1 text-right font-semibold">
+                    <T uk="К-сть" en="Qty" ru="Кол-во" de="Anz." es="Cant." fr="Qté" pl="Ilość" ptBR="Qtd." zh="数量" />
+                  </th>
+                  <th className="py-1 pl-1 text-right font-semibold">
+                    <T uk="Сума" en="Subt" ru="Сумма" de="Summe" es="Subt." fr="S.-tot." pl="Suma" ptBR="Subt." zh="小计" />
+                  </th>
+                </>
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {calc.rows.map((r, i) => {
+              const qty = r.quantity && r.quantity > 0 ? r.quantity : 1;
+              return (
+                <tr key={i}>
+                  <td className="py-1 align-top text-[#262a34] dark:text-white">{i + 1}</td>
+                  <td className="py-1 pr-2 align-top break-words">{r.description || "—"}</td>
+                  <td className="py-1 px-1 text-right align-top tabular-nums">{calcAmount(r.unitAmount)}</td>
+                  {withQty && (
+                    <>
+                      <td className="py-1 px-1 text-right align-top tabular-nums">{qty}</td>
+                      <td className="py-1 pl-1 text-right align-top tabular-nums">{calcAmount(r.unitAmount * qty)}</td>
+                    </>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+      <div className="mt-2 flex items-center justify-between gap-3">
+        <span className="rounded-r-lg bg-[#e5e5ea] px-3 py-1 text-[14px] text-[#262a34] dark:bg-[#2c2c2e] dark:text-white">
+          {new Date(item.ms).toLocaleDateString(undefined, { day: "numeric", month: "short" })}
+        </span>
+        <span className="text-[16px] font-medium tabular-nums text-[#4b63d8] dark:text-[#7d93ff]">
+          {calcAmount(item.total)} {currency}
+        </span>
+      </div>
+      {calc.note && <div className="mt-2 whitespace-pre-wrap break-words text-[15px] text-[#262a34] dark:text-white">{calc.note}</div>}
+      {where && <div className="mt-1.5 truncate text-[13px] text-[#989aa6]">{where}</div>}
+    </button>
+  );
+}
+
+function VoiceRow({ item, playing, onToggle, where, onOpen }: { item: Extract<Item, { kind: "voices" }>; playing: boolean; onToggle: () => void; where?: string; onOpen: () => void }) {
   const secs = Math.round(voiceDurationSeconds(item.doc));
   return (
-    <button type="button" onClick={onToggle} className="flex w-full items-center gap-3 px-4 py-2 text-left">
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#4b63d8] text-white">
+    <div role="button" tabIndex={0} onClick={onOpen} onKeyDown={(e) => e.key === "Enter" && onOpen()} className="flex w-full cursor-pointer items-center gap-3 px-4 py-2 text-left transition hover:bg-black/[0.03] dark:hover:bg-white/[0.04]">
+      <span
+        role="button"
+        aria-label="Play"
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggle();
+        }}
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#4b63d8] text-white"
+      >
         {playing ? (
           <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor"><path d="M7 5h4v14H7zM13 5h4v14h-4z" /></svg>
         ) : (
@@ -209,7 +284,7 @@ function VoiceRow({ item, playing, onToggle, where }: { item: Extract<Item, { ki
           {where ? `${where} · ` : ""}{Math.floor(secs / 60)}:{String(secs % 60).padStart(2, "0")} · {new Date(item.ms).toLocaleDateString()}
         </span>
       </span>
-    </button>
+    </div>
   );
 }
 
@@ -219,7 +294,10 @@ export function SharedPanel({
   onClose,
   initialTab = "photos",
   chatTitles,
+  onOpen,
 }: {
+  /** Тап по строке: открыть чат (chat -- id чата строки; в одном чате = chatId) на сообщении msgId. */
+  onOpen?: (chat: string | null, msgId: number) => void;
   /** Без chatId -- поиск по всем чатам (тогда в строках показывается имя чата). */
   chatId?: string;
   lang: Locale;
@@ -228,6 +306,12 @@ export function SharedPanel({
   chatTitles?: Record<string, string>;
 }) {
   const [tab, setTab] = useState<Kind>(initialTab);
+  const open = (it: Item) => {
+    const id = Number(it.msgId);
+    if (!onOpen || !Number.isFinite(id)) return;
+    audioRef.current?.pause();
+    onOpen(chatId ?? it.chat, id);
+  };
   const where = (it: Item) => (chatId || !it.chat ? "" : (chatTitles?.[it.chat] ?? ""));
   const [tabs, setTabs] = useState<Record<Kind, TabState>>({
     photos: EMPTY, links: EMPTY, files: EMPTY, calculations: EMPTY, voices: EMPTY, reminders: EMPTY,
@@ -434,7 +518,7 @@ export function SharedPanel({
             <div className="grid grid-cols-3 gap-0.5">
               {cur.items.map((it) =>
                 it.kind === "photos" ? (
-                  <a key={it.key} href={getStableMediaProxyUrl(it.doc)} target="_blank" rel="noreferrer" className="relative block aspect-square overflow-hidden bg-[#e4e4ea] dark:bg-[#2c2c2e]">
+                  <button type="button" key={it.key} onClick={() => open(it)} className="relative block aspect-square overflow-hidden bg-[#e4e4ea] dark:bg-[#2c2c2e]">
                     {/* eslint-disable-next-line @next/next/no-img-element -- proxied through /api/media */}
                     <img
                       src={getStableMediaProxyUrl(it.doc)}
@@ -444,7 +528,7 @@ export function SharedPanel({
                       style={{ backgroundImage: `url(${mediaDocumentThumbnail(it.doc) ?? ""})`, backgroundSize: "cover" }}
                       className="h-full w-full object-cover"
                     />
-                  </a>
+                  </button>
                 ) : null,
               )}
             </div>
@@ -453,7 +537,7 @@ export function SharedPanel({
           {tab === "links" &&
             cur.items.map((it) =>
               it.kind === "links" ? (
-                <a key={it.key} href={it.url} target="_blank" rel="noreferrer" className="flex items-center gap-3 px-4 py-2">
+                <button type="button" key={it.key} onClick={() => open(it)} className="flex w-full items-center gap-3 px-4 py-2 text-left transition hover:bg-black/[0.03] dark:hover:bg-white/[0.04]">
                   <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-[#262a34] dark:bg-[#1c1c1e] dark:text-white">
                     <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" /></svg>
                   </span>
@@ -461,7 +545,7 @@ export function SharedPanel({
                     <span className="block truncate text-[15px] font-semibold text-[#262a34] dark:text-white">{it.url}</span>
                     <span className="block text-[13px] text-[#989aa6]">{where(it) ? `${where(it)} · ` : ""}{new Date(it.ms).toLocaleDateString()}</span>
                   </span>
-                </a>
+                </button>
               ) : null,
             )}
 
@@ -471,7 +555,7 @@ export function SharedPanel({
               const name = mediaDocumentFileName(it.doc) || "File";
               const bytes = mediaDocumentBytes(it.doc);
               return (
-                <a key={it.key} href={buildMediaDownloadUrl(it.doc, name)} className="flex items-center gap-3 px-4 py-2">
+                <button type="button" key={it.key} onClick={() => open(it)} className="flex w-full items-center gap-3 px-4 py-2 text-left transition hover:bg-black/[0.03] dark:hover:bg-white/[0.04]">
                   <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white dark:bg-[#3a3a3c]">
                     <ChatFileTypeIcon kind={fileKindFromName(name, it.doc.mimetype)} className="h-7 w-7" />
                   </span>
@@ -483,36 +567,26 @@ export function SharedPanel({
                       {new Date(it.ms).toLocaleDateString()}
                     </span>
                   </span>
-                </a>
+                </button>
               );
             })}
 
           {tab === "voices" &&
             cur.items.map((it) =>
               it.kind === "voices" ? (
-                <VoiceRow key={it.key} item={it} playing={playingKey === it.key} onToggle={() => void toggleVoice(it)} where={where(it)} />
+                <VoiceRow key={it.key} item={it} playing={playingKey === it.key} onToggle={() => void toggleVoice(it)} where={where(it)} onOpen={() => open(it)} />
               ) : null,
             )}
 
           {tab === "calculations" &&
             cur.items.map((it) =>
-              it.kind === "calculations" ? (
-                <div key={it.key} className="flex items-center gap-3 px-4 py-2">
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-[#989aa6] dark:bg-[#1c1c1e] dark:text-[#8d8d93]">
-                    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm1 4h10M8 12h2m4 0h2M8 16h2m4 0h2" /></svg>
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[15px] font-semibold text-[#1c1c1e] dark:text-white">{it.title}</span>
-                    <span className="block text-[13px] text-[#989aa6]">{where(it) ? `${where(it)} · ` : ""}{it.total} · {new Date(it.ms).toLocaleDateString()}</span>
-                  </span>
-                </div>
-              ) : null,
+              it.kind === "calculations" ? <CalcEntry key={it.key} item={it} where={where(it)} onOpen={() => open(it)} /> : null,
             )}
 
           {tab === "reminders" &&
             cur.items.map((it) =>
               it.kind === "reminders" ? (
-                <div key={it.key} className="flex items-center gap-3 px-4 py-2">
+                <button type="button" key={it.key} onClick={() => open(it)} className="flex w-full items-center gap-3 px-4 py-2 text-left transition hover:bg-black/[0.03] dark:hover:bg-white/[0.04]">
                   <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-[#989aa6] dark:bg-[#1c1c1e] dark:text-[#8d8d93]">
                     <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 4a5 5 0 0 0-5 5c0 5-2 6-2 6h14s-2-1-2-6a5 5 0 0 0-5-5Zm-2 14a2 2 0 0 0 4 0" /></svg>
                   </span>
@@ -523,7 +597,7 @@ export function SharedPanel({
                       {new Date(it.ms).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                     </span>
                   </span>
-                </div>
+                </button>
               ) : null,
             )}
 

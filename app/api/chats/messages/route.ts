@@ -48,9 +48,15 @@ export async function GET(request: NextRequest) {
     // so the chat window can tell "my own message" bubbles apart from
     // the other side's without an extra request.
     const session = await readSession();
+    // 04.10.2026: `?before=<id>&limit=<n>` -- история старше сообщения
+    // <id> (как в приложении, before/after по номеру сообщения). Нужна,
+    // чтобы открыть чат на старом сообщении из «Спільного».
+    const beforeRaw = Number(request.nextUrl.searchParams.get("before"));
+    const limitRaw = Number(request.nextUrl.searchParams.get("limit"));
     const { data, refreshedSession } = await callAsVisitor<unknown>("messages.getMessages", {
       peerTo: peerForRouteParam(chatId),
-      limit: 50,
+      limit: Number.isInteger(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 100) : 50,
+      ...(Number.isInteger(beforeRaw) && beforeRaw > 0 ? { before: beforeRaw } : {}),
     });
 
     // 2026-09-02: field shapes below were confirmed live against a real
