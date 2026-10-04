@@ -477,7 +477,7 @@ export default function ChatsPage() {
         {state === "ready" && (
           // 2026-09-30: быстрый вход в поиск по типу содержимого во ВСЕХ
           // чатах. Ничего не грузится, пока не нажали пилюлю.
-          <div className="mt-2 flex shrink-0 gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
+          <div className="-mx-4 mt-2 flex shrink-0 gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
             {SHARED_KINDS.map((k) => [k, SHARED_LABELS[k]] as [SharedKind, React.ReactNode]).map(([k, label]) => (
               <button
                 key={k}
