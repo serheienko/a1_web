@@ -254,6 +254,12 @@ export function MagicWandPanel({
   const [micHelp, setMicHelp] = useState(false);
   // Почему нет живого текста (код ошибки распознавания), если пишем звук вместо диктовки.
   const [speechIssue, setSpeechIssue] = useState<string | null>(null);
+  // 04.10.2026 (Александр: «ничего не показывает при записи... дать понять,
+  // что туда что-то записалось»). Когда живого текста нет, пока пишем --
+  // в поле «волна» громкости голоса; после отправки -- распознанный текст.
+  const [levels, setLevels] = useState<number[]>([]);
+  const meterRef = useRef<{ ctx: AudioContext; raf: number } | null>(null);
+  const [heard, setHeard] = useState<string | null>(null);
   const [applied, setApplied] = useState(false);
   const textRef = useRef<HTMLTextAreaElement>(null);
   const [recording, setRecording] = useState(false);
@@ -296,6 +302,10 @@ export function MagicWandPanel({
       if (timerRef.current) clearInterval(timerRef.current);
       streamRef.current?.getTracks().forEach((t) => t.stop());
       dictOnRef.current = false;
+      if (meterRef.current) {
+        cancelAnimationFrame(meterRef.current.raf);
+        void meterRef.current.ctx.close().catch(() => {});
+      }
       try {
         recRef.current?.abort();
       } catch {
@@ -353,6 +363,7 @@ export function MagicWandPanel({
       const body = (await res.json().catch(() => null)) as { ok?: boolean; result?: MagicWandResult } | null;
       if (!res.ok || !body?.ok || !body.result) throw new Error("failed");
       setData((prev) => adoptMagicWandResult(prev, body.result as MagicWandResult, f));
+      if (input.blob) setHeard((body.result as MagicWandResult).transcript?.trim() || null);
       setText("");
       setHint(null);
       setFocus(null);
@@ -496,6 +507,52 @@ export function MagicWandPanel({
     }
   }
 
+  /** Громкость голоса -> 28 столбиков «волны» (обновляется ~20 раз в секунду). */
+  function startMeter(stream: MediaStream) {
+    stopMeter();
+    try {
+      const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!Ctx) return;
+      const ctx = new Ctx();
+      const src = ctx.createMediaStreamSource(stream);
+      const an = ctx.createAnalyser();
+      an.fftSize = 512;
+      src.connect(an);
+      const buf = new Uint8Array(an.fftSize);
+      let last = 0;
+      const hist: number[] = Array(28).fill(0.06);
+      const tick = (t: number) => {
+        if (!meterRef.current) return;
+        meterRef.current.raf = requestAnimationFrame(tick);
+        if (t - last < 50) return;
+        last = t;
+        if (pausedRef.current) return;
+        an.getByteTimeDomainData(buf);
+        let sum = 0;
+        for (let i = 0; i < buf.length; i++) {
+          const v = (buf[i]! - 128) / 128;
+          sum += v * v;
+        }
+        const rms = Math.sqrt(sum / buf.length);
+        hist.push(Math.min(1, 0.06 + rms * 4));
+        hist.shift();
+        setLevels([...hist]);
+      };
+      meterRef.current = { ctx, raf: requestAnimationFrame(tick) };
+    } catch {
+      /* без волны -- не страшно */
+    }
+  }
+
+  function stopMeter() {
+    const m = meterRef.current;
+    meterRef.current = null;
+    if (!m) return;
+    cancelAnimationFrame(m.raf);
+    void m.ctx.close().catch(() => {});
+    setLevels([]);
+  }
+
   async function startVoice() {
     if (isWorking || recording) return;
     setError(false);
@@ -508,6 +565,7 @@ export function MagicWandPanel({
     setPaused(false);
     // Сначала живая диктовка (бесплатно, слова видно сразу), иначе -- запись звука.
     setSpeechIssue(speechCtor() ? null : "unsupported");
+    setHeard(null);
     dictOnRef.current = true;
     if (listen()) {
       setDictating(true);
@@ -528,6 +586,7 @@ export function MagicWandPanel({
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      startMeter(stream);
       streamRef.current = stream;
       const mime = VOICE_MIMES.find((m) => MediaRecorder.isTypeSupported(m));
       const rec = mime ? new MediaRecorder(stream, { mimeType: mime, audioBitsPerSecond: 64000 }) : new MediaRecorder(stream);
@@ -537,6 +596,7 @@ export function MagicWandPanel({
         if (e.data.size > 0) chunksRef.current.push(e.data);
       };
       rec.onstop = () => {
+        stopMeter();
         stream.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
         if (cancelledRef.current) return;
@@ -586,6 +646,7 @@ export function MagicWandPanel({
       setText(atStartRef.current);
     } else {
       cancelledRef.current = true;
+      stopMeter();
       const rec = recorderRef.current;
       recorderRef.current = null;
       if (rec && rec.state !== "inactive") rec.stop();
@@ -720,7 +781,32 @@ export function MagicWandPanel({
             </div>
 
             {/* Как в приложении: серое поле рассказа, кнопки -- внутри него, внизу. */}
+            {heard && !recording && (
+              <div data-testid="magic-wand-heard" className="relative rounded-2xl bg-[#eef1ff] px-3.5 py-2.5 text-[14px] leading-snug text-[#262a34] dark:bg-[#1b2a4a] dark:text-neutral-100">
+                <span className="mb-0.5 block text-[12px] font-semibold text-[#335ef7] dark:text-[#7d93ff]">
+                  {lang === "uk" ? "Розпізнано з голосу" : lang === "ru" ? "Распознано из голоса" : "From your voice"}
+                </span>
+                <span className="line-clamp-4 whitespace-pre-wrap">{heard}</span>
+                <button type="button" aria-label="Close" onClick={() => setHeard(null)} className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full text-[13px] text-[#989aa6] hover:bg-black/5">
+                  ✕
+                </button>
+              </div>
+            )}
             <div ref={boxRef} className="relative flex h-[220px] flex-col rounded-[18px] bg-[#f2f2f7] pb-2 pl-3 pr-2 pt-2.5 dark:bg-[#313136]">
+              {recording && !dictating && (
+                <div data-testid="magic-wand-wave" className="pointer-events-none absolute inset-x-3 top-3 bottom-14 flex flex-col items-center justify-center gap-3 rounded-2xl bg-[#f2f2f7] dark:bg-[#313136]">
+                  <div className="flex h-16 items-center gap-[3px]">
+                    {(levels.length ? levels : Array(28).fill(0.06)).map((v, i) => (
+                      <span key={i} className={`w-[4px] rounded-full ${paused ? "bg-[#c7c7cc]" : "bg-[#335ef7] dark:bg-[#7d93ff]"}`} style={{ height: `${Math.max(6, v * 64)}px`, transition: "height 80ms linear" }} />
+                    ))}
+                  </div>
+                  <span className="text-[14px] text-[#989aa6]">
+                    {paused
+                      ? lang === "uk" ? "Пауза" : lang === "ru" ? "Пауза" : "Paused"
+                      : lang === "uk" ? "Записую… текст з’явиться після відправки" : lang === "ru" ? "Записываю… текст появится после отправки" : "Recording… the text appears after you send"}
+                  </span>
+                </div>
+              )}
               <textarea
                 ref={textRef}
                 data-testid="magic-wand-text"
@@ -729,18 +815,18 @@ export function MagicWandPanel({
                 placeholder={placeholder}
                 maxLength={20000}
                 readOnly={isWorking || (recording && !(dictating && paused))}
-                className="min-h-0 w-full flex-1 resize-none bg-transparent text-[17px] leading-[1.3] text-neutral-900 outline-none placeholder:text-[#989aa6] dark:text-neutral-50"
+                className={`min-h-0 w-full flex-1 resize-none bg-transparent text-[17px] leading-[1.3] text-neutral-900 outline-none placeholder:text-[#989aa6] dark:text-neutral-50 ${recording && !dictating ? "invisible" : ""}`}
               />
               <div className="mt-1.5 flex h-9 items-center gap-2">
                 {recording ? (
-                  <div data-testid="magic-wand-recording" className="flex w-full min-w-0 items-center gap-1.5 animate-[mwFade_.24s_ease-out]">
+                  <div data-testid="magic-wand-recording" className="flex w-full min-w-0 items-center gap-1 animate-[mwFade_.24s_ease-out]">
                     <span ref={dotRef} className={`ml-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-[#ff3b30] ${paused ? "opacity-40" : "animate-pulse"}`} />
-                    <span className={`w-[66px] shrink-0 text-[15px] tabular-nums ${elapsedMs >= VOICE_WARN_SECONDS * 1000 ? "text-[#ff3b30]" : "text-neutral-900 dark:text-neutral-50"}`}>{fmtClock(elapsedMs)}</span>
-                    <span className="flex w-[46px] shrink-0 items-center gap-1 text-[14px] font-semibold text-[#989aa6]">
+                    <span className={`w-[60px] shrink-0 text-[15px] tabular-nums ${elapsedMs >= VOICE_WARN_SECONDS * 1000 ? "text-[#ff3b30]" : "text-neutral-900 dark:text-neutral-50"}`}>{fmtClock(elapsedMs)}</span>
+                    <span className="flex w-[42px] shrink-0 items-center gap-0.5 text-[13px] font-semibold text-[#989aa6]">
                       <GlobeIcon className="h-4 w-4" />
                       {dictLang.toUpperCase()}
                     </span>
-                    <button type="button" data-testid="magic-wand-record-cancel" onClick={cancelVoice} className="min-w-0 flex-1 truncate px-1 py-1.5 text-center text-[17px] text-[#335ef7] dark:text-[#0c8ce9]">
+                    <button type="button" data-testid="magic-wand-record-cancel" onClick={cancelVoice} className="min-w-0 flex-1 truncate px-0.5 py-1.5 text-center text-[16px] text-[#335ef7] dark:text-[#0c8ce9]">
                       {tx("cancel")}
                     </button>
                     <button
@@ -890,7 +976,7 @@ export function MagicWandPanel({
               </div>,
               document.body,
             )}
-            {recording && !dictating && (
+            {recording && !dictating && speechIssue && (
               <p data-testid="magic-wand-no-live" className="text-[12.5px] text-[#989aa6]">
                 {lang === "uk"
                   ? "Браузер не дав розпізнавати мову на льоту, тому пишемо голос: текст з’явиться після відправки."
