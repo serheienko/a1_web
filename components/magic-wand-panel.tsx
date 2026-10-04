@@ -252,6 +252,8 @@ export function MagicWandPanel({
   const [error, setError] = useState(false);
   const [micDenied, setMicDenied] = useState(false);
   const [micHelp, setMicHelp] = useState(false);
+  // Почему нет живого текста (код ошибки распознавания), если пишем звук вместо диктовки.
+  const [speechIssue, setSpeechIssue] = useState<string | null>(null);
   const [applied, setApplied] = useState(false);
   const textRef = useRef<HTMLTextAreaElement>(null);
   const [recording, setRecording] = useState(false);
@@ -438,7 +440,9 @@ export function MagicWandPanel({
     try {
       const rec = new Ctor();
       rec.lang = DICT_LANGS.find((l) => l.code === dictLang)?.bcp ?? "en-US";
-      rec.continuous = true;
+      // iPhone: в «непрерывном» режиме Safari часто молчит до конца записи --
+      // слушаем короткими сессиями и сразу начинаем следующую (см. onend).
+      rec.continuous = !(/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
       rec.interimResults = true;
       rec.onresult = (e) => {
         let now = "";
@@ -447,7 +451,8 @@ export function MagicWandPanel({
         showDictated();
       };
       rec.onerror = (e) => {
-        if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+        if (e.error && e.error !== "no-speech" && e.error !== "aborted") setSpeechIssue(e.error);
+        if (e.error === "not-allowed" || e.error === "service-not-allowed" || e.error === "audio-capture" || e.error === "language-not-supported") {
           // Распознавание речи запрещено (или выключено в системе) -- пробуем
           // обычную запись звука; не вышло и она -- окно с инструкцией.
           dictOnRef.current = false;
@@ -502,6 +507,7 @@ export function MagicWandPanel({
     pausedRef.current = false;
     setPaused(false);
     // Сначала живая диктовка (бесплатно, слова видно сразу), иначе -- запись звука.
+    setSpeechIssue(speechCtor() ? null : "unsupported");
     dictOnRef.current = true;
     if (listen()) {
       setDictating(true);
@@ -729,8 +735,8 @@ export function MagicWandPanel({
                 {recording ? (
                   <div data-testid="magic-wand-recording" className="flex w-full min-w-0 items-center gap-1.5 animate-[mwFade_.24s_ease-out]">
                     <span ref={dotRef} className={`ml-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-[#ff3b30] ${paused ? "opacity-40" : "animate-pulse"}`} />
-                    <span className={`shrink-0 text-[15px] tabular-nums ${elapsedMs >= VOICE_WARN_SECONDS * 1000 ? "text-[#ff3b30]" : "text-neutral-900 dark:text-neutral-50"}`}>{fmtClock(elapsedMs)}</span>
-                    <span className="flex shrink-0 items-center gap-1 text-[14px] font-semibold text-[#989aa6]">
+                    <span className={`w-[66px] shrink-0 text-[15px] tabular-nums ${elapsedMs >= VOICE_WARN_SECONDS * 1000 ? "text-[#ff3b30]" : "text-neutral-900 dark:text-neutral-50"}`}>{fmtClock(elapsedMs)}</span>
+                    <span className="flex w-[46px] shrink-0 items-center gap-1 text-[14px] font-semibold text-[#989aa6]">
                       <GlobeIcon className="h-4 w-4" />
                       {dictLang.toUpperCase()}
                     </span>
@@ -883,6 +889,16 @@ export function MagicWandPanel({
                 </div>
               </div>,
               document.body,
+            )}
+            {recording && !dictating && (
+              <p data-testid="magic-wand-no-live" className="text-[12.5px] text-[#989aa6]">
+                {lang === "uk"
+                  ? "Браузер не дав розпізнавати мову на льоту, тому пишемо голос: текст з’явиться після відправки."
+                  : lang === "ru"
+                    ? "Браузер не дал распознавать речь на лету, поэтому пишем голос: текст появится после отправки."
+                    : "The browser didn’t allow live speech recognition, so we record your voice: the text appears after you send it."}
+                {speechIssue ? ` (${speechIssue})` : ""}
+              </p>
             )}
             {micDenied && (
               <p data-testid="magic-wand-mic-denied" className="text-[13px] text-red-600 dark:text-red-400">
