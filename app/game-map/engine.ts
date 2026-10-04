@@ -14,6 +14,7 @@
 // Без фреймворка: mountGameMap(root, opts) возвращает функцию очистки.
 
 import { getMapMusic } from './music';
+import CITY_I18N_JSON from './city-names.json';
 
 export type MapCompany = {
   id: string;
@@ -87,6 +88,7 @@ const CITY = {
   Kremenchuk: ['Кременчук', 'Кременчуг', '克列缅丘格'], Simferopol: ['Сімферополь', 'Симферополь', '辛菲罗波尔'], Mariupol: ['Маріуполь', 'Мариуполь', '马里乌波尔'],
   Sevastopol: ['Севастополь', 'Севастополь', '塞瓦斯托波尔'], 'Kamianets-Podilskyi': ['Кам’янець-Подільський', 'Каменец-Подольский', '卡缅涅茨-波多利斯基'],
 };
+const CITY_I18N = CITY_I18N_JSON;
 const CITY_ALIAS = { kiev: 'Kyiv', odessa: 'Odesa', 'bila_tserkva': 'Bila Tserkva', 'dnepr': 'Dnipro', 'kharkov': 'Kharkiv', 'lvov': 'Lviv' };
 const CITY_IDX = (() => { const m = {}; for (const en in CITY) { m[en.toLowerCase()] = en; for (const n of CITY[en]) m[n.toLowerCase()] = en; } for (const a in CITY_ALIAS) m[a] = CITY_ALIAS[a]; return m; })();
 // «Kyiv, Ukraine» / «м. Київ» → ключ Kyiv; невідоме місто лишається як є.
@@ -98,8 +100,11 @@ function cityKey(raw) {
 const REMOTE_NAME = { uk: 'Острів «Віддалено»', ru: 'Остров «Удалёнка»', en: 'Remote Island', de: 'Remote-Insel', es: 'Isla Remota', fr: 'Île du Télétravail', pl: 'Wyspa Zdalna', ptBR: 'Ilha Remota', zh: '远程岛' };
 function cityName(key, lang) {
   if (key === 'Remote') return REMOTE_NAME[lang] || REMOTE_NAME.en;
-  const e = CITY[key]; if (!e) return key;
-  return lang === 'uk' ? e[0] : lang === 'ru' ? e[1] : lang === 'zh' ? e[2] : key;
+  // Українські міста: ручний список вище (де, на відміну від словника, навмисно «Kyiv», а не «Kiew»).
+  const e = CITY[key]; if (e) return lang === 'uk' ? e[0] : lang === 'ru' ? e[1] : lang === 'zh' ? e[2] : key;
+  // 04.10.2026 (Александр: «міста теж мовою сайту»): решта світу -- зі словника city-names.json
+  // (скрипт scripts/gen-city-names.py); міста, яких там ще немає, лишаються англійською.
+  return CITY_I18N[key]?.[lang] || key;
 }
 // 03.10.2026: + Південна Америка й Кариби (назви країн на карті мовою сайту).
 const A2 = { CHL: 'CL', BOL: 'BO', PER: 'PE', ARG: 'AR', SUR: 'SR', GUY: 'GY', CRI: 'CR', BRA: 'BR', URY: 'UY', ECU: 'EC', COL: 'CO', PRY: 'PY', PAN: 'PA', VEN: 'VE', CUW: 'CW', TTO: 'TT', BRB: 'BB', LCA: 'LC', DMA: 'DM', PRI: 'PR', SGS: 'GS', FLK: 'FK', PSX: 'PS', FIN: 'FI', NOR: 'NO', EST: 'EE', NLD: 'NL', BEL: 'BE', LUX: 'LU', FRA: 'FR', ESP: 'ES', PRT: 'PT', GBR: 'GB', IRL: 'IE', ISL: 'IS', CHE: 'CH', CYP: 'CY', MLT: 'MT', MAR: 'MA', DZA: 'DZ', TUN: 'TN', LBY: 'LY', EGY: 'EG', SYR: 'SY', IRQ: 'IQ', KAZ: 'KZ', LBN: 'LB', ISR: 'IL', JOR: 'JO', SAU: 'SA', USA: 'US', CAN: 'CA', MEX: 'MX', CUB: 'CU', BHS: 'BS', GTM: 'GT', HND: 'HN', BLZ: 'BZ', SLV: 'SV', NIC: 'NI', HTI: 'HT', DOM: 'DO', JAM: 'JM', UKR: 'UA', BLR: 'BY', LTU: 'LT', RUS: 'RU', CZE: 'CZ', DEU: 'DE', LVA: 'LV', SWE: 'SE', GEO: 'GE', MKD: 'MK', ALB: 'AL', AZE: 'AZ', SRB: 'RS', TUR: 'TR', ARM: 'AM', DNK: 'DK', ROU: 'RO', HUN: 'HU', SVK: 'SK', POL: 'PL', GRC: 'GR', AUT: 'AT', ITA: 'IT', IRN: 'IR', HRV: 'HR', SVN: 'SI', BGR: 'BG', MNE: 'ME', BIH: 'BA', MDA: 'MD', AND: 'AD', IMN: 'IM', FRO: 'FO', ALD: 'AX', AFG: 'AF', ARE: 'AE', AUS: 'AU', BGD: 'BD', BHR: 'BH', BRN: 'BN', BTN: 'BT', CHN: 'CN', DJI: 'DJ', ERI: 'ER', ETH: 'ET', FJI: 'FJ', GUM: 'GU', HKG: 'HK', IDN: 'ID', IND: 'IN', JPN: 'JP', KGZ: 'KG', KHM: 'KH', KOR: 'KR', KWT: 'KW', LAO: 'LA', LKA: 'LK', MMR: 'MM', MNG: 'MN', MNP: 'MP', MYS: 'MY', NCL: 'NC', NPL: 'NP', NZL: 'NZ', OMN: 'OM', PAK: 'PK', PHL: 'PH', PLW: 'PW', PNG: 'PG', PRK: 'KP', QAT: 'QA', SDN: 'SD', SDS: 'SS', SGP: 'SG', SLB: 'SB', SOM: 'SO', THA: 'TH', TJK: 'TJ', TKM: 'TM', TLS: 'TL', TWN: 'TW', UZB: 'UZ', VNM: 'VN', VUT: 'VU', YEM: 'YE' };
