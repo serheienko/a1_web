@@ -14,6 +14,7 @@
 // ИИ только раскладывает рассказ по полям, текст не переписывает; ничего
 // не сохраняется, пока человек не нажмёт «Зберегти» в самом редакторе.
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { authFetch } from "@/lib/auth-fetch";
 import type { Locale } from "@/components/t";
 import {
@@ -112,6 +113,33 @@ function GlobeIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+
+// 04.10.2026 (Александр: «сделай, чтобы всплывал попап, а то найти это
+// нереально»): нет доступа к микрофону -- окно с понятной инструкцией,
+// а не мелкая красная строка.
+const MIC_HELP: Record<"uk" | "ru" | "en", { title: string; ios: string[]; desktop: string[]; retry: string; close: string }> = {
+  uk: {
+    title: "Потрібен доступ до мікрофона",
+    ios: ["Натисніть «аА» ліворуч в адресному рядку.", "«Параметри вебсайту» → «Мікрофон» → «Дозволити».", "Поверніться сюди й натисніть «Спробувати ще»."],
+    desktop: ["Натисніть значок ліворуч від адреси сайту (замок або налаштування).", "«Мікрофон» → «Дозволити».", "Натисніть «Спробувати ще»."],
+    retry: "Спробувати ще",
+    close: "Закрити",
+  },
+  ru: {
+    title: "Нужен доступ к микрофону",
+    ios: ["Нажмите «аА» слева в адресной строке.", "«Настройки веб-сайта» → «Микрофон» → «Разрешить».", "Вернитесь сюда и нажмите «Повторить»."],
+    desktop: ["Нажмите значок слева от адреса сайта (замок или настройки).", "«Микрофон» → «Разрешить».", "Нажмите «Повторить»."],
+    retry: "Повторить",
+    close: "Закрыть",
+  },
+  en: {
+    title: "Microphone access needed",
+    ios: ["Tap “aA” on the left of the address bar.", "“Website Settings” → “Microphone” → “Allow”.", "Come back and tap “Try again”."],
+    desktop: ["Click the icon left of the site address (lock or settings).", "“Microphone” → “Allow”.", "Click “Try again”."],
+    retry: "Try again",
+    close: "Close",
+  },
+};
 
 function WandIcon({ className }: { className?: string }) {
   return (
@@ -223,6 +251,7 @@ export function MagicWandPanel({
   const [working, setWorking] = useState<Set<MagicWandField>>(new Set());
   const [error, setError] = useState(false);
   const [micDenied, setMicDenied] = useState(false);
+  const [micHelp, setMicHelp] = useState(false);
   const [applied, setApplied] = useState(false);
   const textRef = useRef<HTMLTextAreaElement>(null);
   const [recording, setRecording] = useState(false);
@@ -419,12 +448,16 @@ export function MagicWandPanel({
       };
       rec.onerror = (e) => {
         if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+          // Распознавание речи запрещено (или выключено в системе) -- пробуем
+          // обычную запись звука; не вышло и она -- окно с инструкцией.
           dictOnRef.current = false;
-          setMicDenied(true);
           stopClock();
           setRecording(false);
           setDictating(false);
           setText(atStartRef.current);
+          void startRecorder().then((ok) => {
+            if (!ok) setMicHelp(true);
+          });
         }
       };
       rec.onend = () => {
@@ -478,9 +511,14 @@ export function MagicWandPanel({
     }
     dictOnRef.current = false;
     setDictating(false);
+    if (!(await startRecorder())) setMicHelp(true);
+  }
+
+  /** Запись звука (когда живая диктовка недоступна); false -- нет доступа к микрофону. */
+  async function startRecorder(): Promise<boolean> {
     if (typeof MediaRecorder === "undefined" || !navigator.mediaDevices?.getUserMedia) {
       setError(true);
-      return;
+      return true;
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -503,8 +541,9 @@ export function MagicWandPanel({
       rec.start();
       setRecording(true);
       startClock();
+      return true;
     } catch {
-      setMicDenied(true);
+      return false;
     }
   }
 
@@ -801,6 +840,49 @@ export function MagicWandPanel({
               <p data-testid="magic-wand-error" className="text-[13px] text-red-600 dark:text-red-400">
                 {tx("failed")}
               </p>
+            )}
+            {micHelp && typeof document !== "undefined" && createPortal(
+              <div className="fixed inset-0 z-[200] flex items-end justify-center bg-black/40 p-4 sm:items-center" onClick={() => setMicHelp(false)}>
+                <div role="dialog" aria-modal="true" data-testid="magic-wand-mic-help" onClick={(e) => e.stopPropagation()} className="w-full max-w-[380px] animate-[mwPop_.18s_ease-out] rounded-[24px] bg-white p-5 shadow-2xl dark:bg-[#1c1c1e]">
+                  {(() => {
+                    const h = MIC_HELP[lang === "uk" || lang === "ru" ? lang : "en"];
+                    const ios = typeof navigator !== "undefined" && (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+                    return (
+                      <>
+                        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#ffecec] text-[#ff3b30] dark:bg-[#3a1a1c]">
+                          <MicIcon className="h-6 w-6" />
+                        </div>
+                        <h3 className="text-center text-[18px] font-semibold text-neutral-900 dark:text-neutral-50">{h.title}</h3>
+                        <ol className="mt-3 flex flex-col gap-2 text-[15px] text-neutral-700 dark:text-neutral-200">
+                          {(ios ? h.ios : h.desktop).map((line, i) => (
+                            <li key={i} className="flex gap-2.5">
+                              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#eef1ff] text-[13px] font-semibold text-[#335ef7] dark:bg-[#1b2a4a] dark:text-[#7d93ff]">{i + 1}</span>
+                              <span className="pt-0.5">{line}</span>
+                            </li>
+                          ))}
+                        </ol>
+                        <div className="mt-5 flex gap-2">
+                          <button type="button" onClick={() => setMicHelp(false)} className="flex-1 rounded-full bg-[#f2f2f7] py-3 text-[15px] font-semibold text-neutral-800 dark:bg-[#2c2c2e] dark:text-neutral-100">
+                            {h.close}
+                          </button>
+                          <button
+                            type="button"
+                            data-testid="magic-wand-mic-retry"
+                            onClick={() => {
+                              setMicHelp(false);
+                              void startVoice();
+                            }}
+                            className="flex-1 rounded-full bg-[#335ef7] py-3 text-[15px] font-semibold text-white"
+                          >
+                            {h.retry}
+                          </button>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>,
+              document.body,
             )}
             {micDenied && (
               <p data-testid="magic-wand-mic-denied" className="text-[13px] text-red-600 dark:text-red-400">
