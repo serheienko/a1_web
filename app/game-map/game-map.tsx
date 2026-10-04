@@ -23,6 +23,24 @@ type Region = "ua" | "eu" | "us" | "latam" | "asia" | "oceania" | "mideast";
 const REGIONS = ["ua", "eu", "us", "latam", "asia", "oceania", "mideast"];
 const KEY = "a1-map-region";
 
+// 04.10.2026: карта внутри приложения A1 (WebView) открывается как
+// /game-map?app=1&theme=dark|light&lang=uk[&region=eu]. Тему и язык тогда
+// задаёт приложение, а не сайт.
+type AppParams = { app: boolean; theme: "dark" | "light" | null; lang: string | null };
+function appParams(): AppParams {
+  try {
+    const q = new URLSearchParams(location.search);
+    const t = q.get("theme");
+    return { app: q.get("app") === "1", theme: t === "dark" || t === "light" ? t : null, lang: q.get("lang") };
+  } catch {
+    return { app: false, theme: null, lang: null };
+  }
+}
+function mapDark(): boolean {
+  const p = appParams();
+  return p.app && p.theme ? p.theme === "dark" : siteDark();
+}
+
 // Тема сайту: клас .dark/.light на <html> (вибір людини), інакше -- тема
 // системи (як @custom-variant dark у globals.css).
 function siteDark(): boolean {
@@ -73,12 +91,15 @@ export function GameMap() {
   // Країна, обрана у списку регіонів (камера одразу на неї після монтування).
   const countryRef = useRef<string | null>(null);
   const [dark, setDark] = useState(false);
+  // В приложении и экран загрузки сразу на весь экран, без меню сайта.
+  const [inApp, setInApp] = useState(false);
+  useEffect(() => setInApp(appParams().app), []);
 
   // 02.10.2026 (Александр): темна тема сайту -- темна карта, і одразу, коли
   // тему перемкнули.
   useEffect(() => {
     const sync = () => {
-      const d = siteDark();
+      const d = mapDark();
       setDark(d);
       handle.current?.setTheme?.(d ? "dark" : "light");
     };
@@ -124,8 +145,9 @@ export function GameMap() {
     if (!el || !data) return;
     const h = mountGameMap(el, {
       companies: data.companies,
-      theme: siteDark() ? "dark" : "light",
-      lang: langRef.current,
+      theme: mapDark() ? "dark" : "light",
+      lang: appParams().lang || langRef.current,
+      app: appParams().app,
       region: data.region,
       country: countryRef.current,
       onRegion: (next: Region, cc?: string | null) => {
@@ -146,6 +168,7 @@ export function GameMap() {
   }, [data]);
 
   useEffect(() => {
+    if (appParams().lang) return;
     handle.current?.setLang?.(lang);
   }, [lang]);
 
@@ -155,7 +178,7 @@ export function GameMap() {
       <div className="relative">
         <div ref={ref} className="gm2" />
         {!data && (
-          <div className={"gm2 gm-ov" + (dark ? " gm-dark" : "")}>
+          <div className={"gm2 gm-ov" + (dark ? " gm-dark" : "") + (inApp ? " gm-full" : "")}>
             <MapLoader />
           </div>
         )}

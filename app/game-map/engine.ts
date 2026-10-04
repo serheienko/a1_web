@@ -223,6 +223,7 @@ export function mountGameMap(root, opts) {
         <button class="gm-btn gm-info" type="button" aria-haspopup="dialog" aria-expanded="false"><span class="gm-ii">i</span></button>
         <button class="gm-btn gm-theme" type="button"></button>
         <button class="gm-btn gm-fs" type="button"></button>
+        <button class="gm-btn gm-close" type="button">${ICON_X}</button>
       </div>
     </div>
     <div class="gm-zoom"><button class="gm-btn" data-z="in" type="button"><span class="gm-zi">+</span></button><button class="gm-btn" data-z="out" type="button"><span class="gm-zi">−</span></button></div>
@@ -1198,10 +1199,24 @@ export function mountGameMap(root, opts) {
     if (e.target.closest('.gm-theme')) setTheme(theme === 'dark' ? 'light' : 'dark');
     if (e.target.closest('.gm-ally') && popFor) toggleAlly(popFor);
     if (e.target.closest('.gm-fs')) toggleFs();
+    if (e.target.closest('.gm-close')) closeApp();
     const si = e.target.closest('[data-ci]'); if (si) { pickCompany(byCi(si.dataset.ci)); }
   });
+  // ---------- режим приложения ----------
+  // 04.10.2026 (Александр): карта внутри приложения A1 (WebView). Сразу на
+  // весь экран без меню сайта; тему и язык задаёт приложение, поэтому
+  // кнопок темы и «на весь экран» нет, вместо них -- «закрыть». Кнопку
+  // «союзник» прячем: она требует входа на сайт, а не в приложение.
+  // Профиль и вакансии -- обычные ссылки /u/... и /jobs/...: приложение
+  // перехватывает их и открывает свои экраны.
+  const appMode = !!opts.app;
+  function closeApp() {
+    try { if (window.A1Map && window.A1Map.postMessage) { window.A1Map.postMessage('close'); return; } } catch { /* not in the app */ }
+    history.back();
+  }
   // ---------- на весь экран ----------
   function toggleFs(force) {
+    if (appMode) return;
     const on = force ?? !root.classList.contains('gm-full');
     if (on === root.classList.contains('gm-full')) return;
     // Режим 2: справжній повний екран (без меню сайту й браузера). Де браузер
@@ -1269,6 +1284,11 @@ export function mountGameMap(root, opts) {
   let raf = 0;
   applyLang();
   if (opts.theme === 'dark') root.classList.add('gm-dark');
+  if (appMode) {
+    root.classList.add('gm-full', 'gm-app'); document.documentElement.classList.add('gm-noscroll');
+    const ct = { uk: 'Закрити', ru: 'Закрыть', en: 'Close', de: 'Schließen', es: 'Cerrar', fr: 'Fermer', pl: 'Zamknij', ptBR: 'Fechar', zh: '关闭' };
+    const cb = root.querySelector('.gm-close'); cb.setAttribute('aria-label', ct[lang] || ct.en); cb.title = ct[lang] || ct.en;
+  }
   (async () => {
     let styleMan, styleFlags;
     [geo, man, flagMeta, styleMan, styleFlags] = await Promise.all([
@@ -1443,7 +1463,13 @@ export const GAME_MAP_CSS = `
 .gm2 .gm-btn{transition:transform .18s ease,box-shadow .18s ease,background-color .18s ease,color .18s ease}
 .gm2 .gm-btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(0,0,0,.22)}
 .gm2 .gm-btn:active{transform:translateY(0) scale(.96)}
-.gm2 .gm-fs,.gm2 .gm-theme,.gm2 .gm-info,.gm2 .gm-music{display:grid;place-items:center;padding:0;width:38px}
+.gm2 .gm-fs,.gm2 .gm-theme,.gm2 .gm-info,.gm2 .gm-music,.gm2 .gm-close{display:grid;place-items:center;padding:0;width:38px}
+.gm2 .gm-close{display:none}
+.gm2.gm-app .gm-close{display:grid}
+.gm2.gm-app .gm-theme,.gm2.gm-app .gm-fs,.gm2.gm-app .gm-ally{display:none}
+.gm2.gm-app .gm-top{top:calc(env(safe-area-inset-top,0px) + 8px)}
+.gm2.gm-app .gm-guide{bottom:calc(env(safe-area-inset-bottom,0px) + 8px)}
+.gm2.gm-app .gm-zoom{bottom:calc(env(safe-area-inset-bottom,0px) + 12px)}
 .gm2 .gm-eq{display:flex;align-items:flex-end;gap:2.5px;height:16px}
 .gm2 .gm-eq i{display:block;width:3px;border-radius:2px;background:currentColor;opacity:.55;transition:opacity .2s ease,height .3s ease}
 .gm2 .gm-eq i:nth-child(1){height:6px}.gm2 .gm-eq i:nth-child(2){height:11px}.gm2 .gm-eq i:nth-child(3){height:8px}.gm2 .gm-eq i:nth-child(4){height:13px}
@@ -1566,6 +1592,7 @@ html.gm-noscroll,html.gm-noscroll body{overflow:hidden}
 .gm2 .gm-ally.on{background:#2f7a4d;border-color:#2f7a4d;color:#fff}
 .gm2.gm-dark .gm-ally{border-color:#7d8fc9;color:#c9d3ff}.gm2.gm-dark .gm-ally.on{background:#2f7a4d;border-color:#2f7a4d;color:#fff}
 .gm2.gm-ov{position:absolute;inset:0;height:auto;min-height:0}
+.gm2.gm-ov.gm-full{position:fixed;inset:0;height:100dvh;z-index:2147483001}
 .gm2 .gm-load{position:absolute;inset:0;display:grid;place-items:center;overflow:hidden;background:#cfd9a6;transition:opacity .8s ease;z-index:5}
 .gm2 .gm-load.done{opacity:0;pointer-events:none}
 .gm2 .gm-lbg{position:absolute;inset:-40px;background:url(/game-map/map-preview.webp) center/cover;filter:blur(22px) saturate(1.15);transform:scale(1.08);transition:filter .8s ease,transform .8s ease;animation:gm-breathe 3.2s ease-in-out infinite}
