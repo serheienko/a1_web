@@ -84,6 +84,32 @@ export async function loadCompanies(region: MapRegion = "ua"): Promise<MapCompan
   }
 }
 
+// 07.10.2026 (Александр: «давай делать кластеризацию»). Коли офісів більше за
+// ліміт, ми їх більше НЕ відкидаємо: перші keep лишаються окремими будинками,
+// решта збирається в один пін на місто («+340 компаній»), де враховані всі їхні
+// вакансії й назви (пошук карти знаходить і їх). Так на карті є кожна вакансія,
+// а JSON не роздувається до десятків мегабайт.
+function foldByCity(list: MapCompany[], limit: number): MapCompany[] {
+  if (list.length <= limit) return list;
+  const keep = Math.max(0, limit - 400);
+  const out = list.slice(0, keep);
+  const groups = new Map<string, MapCompany & { names: string[]; cos: number; cluster: true }>();
+  for (const c of list.slice(keep)) {
+    const key = `${c.cc}|${c.city}`;
+    let g = groups.get(key);
+    if (!g) {
+      g = { id: `cl|${key}`, name: c.city, username: null, avatar: null, n: 0, city: c.city, lng: c.lng, lat: c.lat,
+            jobs: [], userId: null, ext: true, cc: c.cc, cluster: true, cos: 0, names: [] } as MapCompany & { names: string[]; cos: number; cluster: true };
+      groups.set(key, g);
+    }
+    g.n += c.n;
+    g.cos += 1;
+    g.names.push(c.name);
+    if (g.jobs.length < 3 && c.jobs[0]) g.jobs.push(c.jobs[0]);
+  }
+  return [...out, ...groups.values()];
+}
+
 // 02.10.2026 (Александр: «розбий ще по країнах, які в нас є»). Список
 // країн для дропдауну регіонів: лише ті, що видно на одній з підкладок,
 // з кількістю вакансій. Рахується з того самого індексу, без запитів.
@@ -142,7 +168,7 @@ function collectUkraine(posts: Post[]): MapCompany[] {
     c.n += 1;
     if (c.jobs.length < 3) c.jobs.push({ title: p.title, slug: p.slug });
   }
-  return [...byCompany.values()].sort((a, b) => b.n - a.n).slice(0, LIMIT);
+  return foldByCity([...byCompany.values()].sort((a, b) => b.n - a.n), LIMIT);
 }
 
 // 02.10.2026 (Александр: карта для інших країн). За кордоном компанія
@@ -177,9 +203,10 @@ function collectAbroad(posts: Post[], region: Exclude<MapRegion, "ua">): MapComp
     c.n += 1;
     if (c.jobs.length < 3) c.jobs.push({ title: p.title, slug: p.slug });
   }
-  return [...byOffice.values()]
-    .sort((a, b) => Number(!!a.ext) - Number(!!b.ext) || b.n - a.n)
-    .slice(0, LIMIT_ABROAD);
+  return foldByCity(
+    [...byOffice.values()].sort((a, b) => Number(!!a.ext) - Number(!!b.ext) || b.n - a.n),
+    LIMIT_ABROAD,
+  );
 }
 
 // 02.10.2026 (Александр: «в карточку при наведении — больше информации,
