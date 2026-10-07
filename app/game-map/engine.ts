@@ -339,7 +339,7 @@ export function mountGameMap(root, opts) {
   const view = { x: 0, y: 0, s: 1 };
   let minS = 0.3, maxS = 4;
   let cos = [];
-  let dens = 1;
+  let dens = 1, densFixed = false;
   let island = null;
   let hover = null, pinned = null;
   let baseCache = null; // { key, canvas }
@@ -518,7 +518,7 @@ export function mountGameMap(root, opts) {
     // можна наблизити глибше (maxS), і зблизька будинки великі й чіткі.
     const perCity = {}; for (const c of companiesIn) { const k = cityKey(c.city); perCity[k] = (perCity[k] || 0) + 1; }
     const biggest = Math.max(1, ...Object.values(perCity));
-    dens = Math.max(0.12, Math.min(1, Math.sqrt(8 / biggest)));
+    if (!densFixed) { dens = Math.max(0.12, Math.min(1, Math.sqrt(8 / biggest))); densFixed = true; }  // розкритий кластер не зменшує всі будинки
     const list = companiesIn.filter((c) => !isOffMap(c)).map((c) => {
       const l = sizeLevel(c); const [x, y] = proj(c.lng, c.lat); const h = hash(c.id || c.name);
       return { ...c, l: c.cluster ? 1 : l, x, y, hx: x, hy: y, w: SIZE[c.cluster ? 0 : l - 1] * dens, forest: h % 10 < 3, pin: PINS[h % PINS.length], h, color: FLAG_COLORS[h % FLAG_COLORS.length], ck: cityKey(c.city) };
@@ -1230,7 +1230,7 @@ export function mountGameMap(root, opts) {
     if (e.pointerType === 'mouse') { const c = hit(e.clientX - r.left, e.clientY - r.top); cv.style.cursor = c ? 'pointer' : 'grab'; }
     if (tap) { const c = hit(e.clientX - r.left, e.clientY - r.top);
       // 07.10.2026: «+N» здалеку -- плавно наближаємо до міста (як кластер у Google Maps), потім список компаній
-      if (c && c.cluster && view.s < minS * 3) focusCluster(c); else { pinned = c; hover = c; showPopup(c); }
+      if (c && c.cluster) expandCluster(c); else { pinned = c; hover = c; showPopup(c); }
       // клік по сусідній країні чекає мить: якщо це подвійний клік (зум),
       // країну не перемикаємо
       if (!c) { const sx = e.clientX - r.left, sy = e.clientY - r.top; clearTimeout(tapT); tapT = setTimeout(() => { if (!destroyed) tapCountry(sx, sy); }, e.pointerType === 'mouse' ? 280 : 0); } } };
@@ -1313,7 +1313,28 @@ export function mountGameMap(root, opts) {
     sug.classList.toggle('on', !!q);
   }
   function byCi(ci) { return String(ci).startsWith('o') ? offMap[Number(String(ci).slice(1))] : cos[Number(ci)]; }
-  // 07.10.2026: кластер -- той самий політ, що й у пошуку, без нових запитів (усе вже в браузері)
+  // 07.10.2026 (Александр: «як зробити, щоб піни відкривались»): натиск на «+N» довантажує
+  // компанії саме цього міста (маленький запит, лише по натиску) і ставить їх будинками на місце піна,
+  // потім карта плавно наближається до міста. Не вийшло завантажити -- як раніше: політ і список.
+  async function expandCluster(c) {
+    if (c._loading) return; c._loading = true;
+    let list = null;
+    try { const r = await fetch(`/game-map/data?region=${encodeURIComponent(region)}&cluster=${encodeURIComponent(c.id)}`); if (r.ok) list = await r.json(); } catch {}
+    c._loading = false;
+    if (destroyed) return;
+    if (!Array.isArray(list) || !list.length) { focusCluster(c); return; }
+    const i = companiesIn.findIndex((x) => x.id === c.id);
+    if (i >= 0) companiesIn.splice(i, 1, ...list);
+    pinned = null; hover = null; showPopup(null);
+    cos = layout(); buildCityGroups(); baseCache = null;
+    const target = Math.min(maxS, Math.max(view.s, minS * 3.4));
+    const from = { ...view }, start = performance.now();
+    const tx = W / 2 - c.hx * target, ty = H / 2 - c.hy * target;
+    anim = () => { const k = Math.min(1, (performance.now() - start) / 650); const e = 1 - (1 - k) ** 3;
+      view.s = from.s + (target - from.s) * e; view.x = from.x + (tx - from.x) * e; view.y = from.y + (ty - from.y) * e; clamp(); baseCache = null;
+      if (k >= 1) anim = null; };
+  }
+  // кластер -- політ і список (запасний шлях, якщо компанії не довантажились)
   function focusCluster(c) {
     pinned = null; hover = null; showPopup(null);
     const target = Math.min(maxS, Math.max(view.s * 1.8, minS * 3.2));

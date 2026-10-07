@@ -5,7 +5,7 @@
 // Ответ сжимаем сами (gzip): сайт отдаётся без сжатия, а JSON на сотни
 // компаний весит ~400 КБ -- сжатый ~в 5 раз меньше.
 import { gzipSync } from "node:zlib";
-import { loadCompanies, loadCountries, type MapRegion } from "../load-companies";
+import { clusterMembers, loadCompanies, loadCountries, type MapRegion } from "../load-companies";
 
 export const dynamic = "force-dynamic";
 
@@ -61,6 +61,13 @@ export async function GET(req: Request) {
     return reply(req, entry);
   }
   const region: MapRegion = REGIONS.includes(q as MapRegion) && q !== "ua" ? (q as MapRegion) : "ua";
+  // 07.10.2026: компанії одного кластера «+N» (місто), коли на нього натиснули на карті
+  const cl = new URL(req.url).searchParams.get("cluster");
+  if (cl) {
+    if (!clusterMembers.has(cl) && !caches.has(region)) await refresh(region).catch(() => null);
+    const json = JSON.stringify(clusterMembers.get(cl) || []);
+    return reply(req, { at: Date.now(), json, gz: gzipSync(json) });
+  }
   let entry: Entry;
   // Перший запит прогріває й інші регіони у фоні: перемикач далі миттєвий.
   for (const r of REGIONS) if (r !== region && !caches.has(r)) void refresh(r).catch(() => {});
