@@ -98,7 +98,35 @@ function t(key: Key, lang: Locale): string {
 }
 
 const SOUND_KEY = "a1.premium.sound";
-const GRADIENT = "linear-gradient(100deg,#0148fc 0%,#5a4dff 55%,#963fff 100%)";
+
+// One shared <audio> for the whole page. Safari only lets sound start
+// INSIDE a click handler (not in an effect a moment later), so whatever
+// opens this window should call startAlphaMusic() in its own onClick, and
+// the sound toggle below plays/pauses synchronously too.
+let music: HTMLAudioElement | null = null;
+function getMusic(): HTMLAudioElement | null {
+  if (typeof window === "undefined") return null;
+  if (!music) {
+    music = new Audio("/premium/eternal.mp3");
+    music.loop = true;
+    music.volume = 0.35;
+    music.preload = "auto";
+  }
+  return music;
+}
+function soundMuted(): boolean {
+  try {
+    return localStorage.getItem(SOUND_KEY) === "off";
+  } catch {
+    return false;
+  }
+}
+export function startAlphaMusic() {
+  if (soundMuted()) return;
+  getMusic()?.play().catch(() => {});
+}
+// Seamless loop for the "flowing" buttons: blue -> violet -> purple -> back.
+const FLOW = "linear-gradient(100deg,#0148fc 0%,#5a4dff 25%,#963fff 50%,#5a4dff 75%,#0148fc 100%)";
 
 export function AlphaPaywall({
   open,
@@ -116,7 +144,6 @@ export function AlphaPaywall({
   const [sound, setSound] = useState(true);
   const [listening, setListening] = useState(false);
   const [country, setCountry] = useState<string | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const pricingRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -149,28 +176,30 @@ export function AlphaPaywall({
     };
   }, [open, onClose]);
 
-  // Music: the app's premium track. Opening the window is a click, so the
-  // browser allows playback; a muted choice is remembered per device.
+  // Music: the app's premium track. Started by the opener's click
+  // (startAlphaMusic); this effect is only the fallback for browsers that
+  // allow it a moment later, and stops/rewinds the track on close.
   useEffect(() => {
-    const a = audioRef.current;
+    const a = getMusic();
     if (!a) return;
-    if (open && sound) {
-      a.volume = 0.35;
-      a.play().catch(() => {});
+    if (open) {
+      if (!soundMuted() && a.paused) a.play().catch(() => {});
     } else {
       a.pause();
+      a.currentTime = 0;
     }
-    if (!open) a.currentTime = 0;
-  }, [open, sound]);
+  }, [open]);
 
   const toggleSound = () => {
-    setSound((s) => {
-      const next = !s;
-      try {
-        localStorage.setItem(SOUND_KEY, next ? "on" : "off");
-      } catch {}
-      return next;
-    });
+    const next = !sound;
+    setSound(next);
+    try {
+      localStorage.setItem(SOUND_KEY, next ? "on" : "off");
+    } catch {}
+    const a = getMusic();
+    if (!a) return;
+    if (next) a.play().catch(() => {});
+    else a.pause();
   };
 
   const onSubmit = (e: FormEvent) => {
@@ -210,7 +239,11 @@ export function AlphaPaywall({
       className="fixed inset-0 z-[200] flex items-end justify-center bg-black/45 backdrop-blur-[6px] sm:items-center sm:p-3"
       {...backdropDismiss(onClose)}
     >
-      <audio ref={audioRef} src="/premium/eternal.mp3" loop preload="auto" />
+      <style>{`
+        @keyframes alphaFlow { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
+        .alpha-flow { background-image: ${FLOW}; background-size: 200% 100%; animation: alphaFlow 4s linear infinite; }
+        @media (prefers-reduced-motion: reduce) { .alpha-flow { animation: none; } }
+      `}</style>
       <div
         role="dialog"
         aria-modal="true"
@@ -218,22 +251,22 @@ export function AlphaPaywall({
         className="relative max-h-[100dvh] w-full overflow-y-auto text-left rounded-t-[28px] bg-white text-[#0b0b14] shadow-[0_30px_80px_rgba(20,30,80,0.35)] sm:max-h-[calc(100dvh-24px)] sm:max-w-[980px] sm:rounded-[32px] dark:bg-[#232330] dark:text-white"
       >
         {/* top-right controls */}
-        <div className="absolute right-3 top-3 z-10 flex gap-1 sm:right-5 sm:top-5">
+        <div className="absolute right-3 top-3 z-30 flex gap-1 sm:right-5 sm:top-5">
           <button
             type="button"
             onClick={toggleSound}
             aria-label={sound ? t("soundOff", lang) : t("soundOn", lang)}
-            className="grid h-10 w-10 place-items-center rounded-full text-[#8e8e93] transition hover:bg-black/5 hover:text-[#3a3a3c] dark:hover:bg-white/10 dark:hover:text-white"
+            className="group grid h-10 w-10 place-items-center rounded-full text-[#8e8e93] transition duration-200 hover:scale-110 hover:bg-black/5 hover:text-[#335ef7] active:scale-95 dark:hover:bg-white/10 dark:hover:text-white"
           >
-            {sound ? <SpeakerIcon /> : <SpeakerOffIcon />}
+            <span className="transition-transform duration-300 group-hover:-rotate-12">{sound ? <SpeakerIcon /> : <SpeakerOffIcon />}</span>
           </button>
           <button
             type="button"
             onClick={onClose}
             aria-label={t("close", lang)}
-            className="grid h-10 w-10 place-items-center rounded-full text-[#8e8e93] transition hover:bg-black/5 hover:text-[#3a3a3c] dark:hover:bg-white/10 dark:hover:text-white"
+            className="group grid h-10 w-10 place-items-center rounded-full text-[#8e8e93] transition duration-200 hover:scale-110 hover:bg-black/5 hover:text-[#3a3a3c] active:scale-95 dark:hover:bg-white/10 dark:hover:text-white"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+            <svg className="transition-transform duration-300 group-hover:rotate-90" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
           </button>
         </div>
 
@@ -250,8 +283,7 @@ export function AlphaPaywall({
 
             <form onSubmit={onSubmit} className="mt-4 sm:mt-5 sm:max-w-[480px]">
               <div
-                className="flex items-center gap-2 rounded-full p-[2px]"
-                style={{ background: GRADIENT }}
+                className="alpha-flow flex items-center gap-2 rounded-full p-[2px]"
               >
                 <div className="flex h-[58px] flex-1 items-center gap-2 rounded-full bg-white pl-5 pr-[5px] dark:bg-[#1a1a24]">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#335ef7" strokeWidth="2.4" strokeLinecap="round" className="shrink-0"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
@@ -275,8 +307,7 @@ export function AlphaPaywall({
                   <button
                     type="submit"
                     aria-label="Alpha Search"
-                    className="grid h-12 w-12 shrink-0 place-items-center rounded-full text-white shadow-[0_6px_16px_rgba(53,117,255,0.4)] transition active:scale-95"
-                    style={{ background: GRADIENT }}
+                    className="alpha-flow grid h-12 w-12 shrink-0 place-items-center rounded-full text-white shadow-[0_6px_16px_rgba(53,117,255,0.4)] transition duration-200 hover:scale-105 hover:shadow-[0_8px_22px_rgba(110,77,255,0.55)] active:scale-95"
                   >
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
                   </button>
@@ -288,8 +319,8 @@ export function AlphaPaywall({
             </form>
           </div>
 
-          <div className="order-1 flex items-center justify-center sm:pointer-events-none sm:absolute sm:right-6 sm:top-0 sm:z-0 sm:order-2">
-            <div className="relative h-[170px] w-[170px] sm:h-[340px] sm:w-[340px]">
+          <div className="order-1 flex items-center justify-center sm:pointer-events-none sm:absolute sm:right-8 md:right-[88px] sm:top-1/2 sm:z-0 sm:order-2 sm:-translate-y-1/2">
+            <div className="relative h-[150px] w-[150px] sm:h-[272px] sm:w-[272px]">
               <video
                 className="h-full w-full object-contain mix-blend-multiply [mask-image:radial-gradient(circle,#000_58%,transparent_71%)] dark:hidden"
                 src="/premium/can-light.mp4"
@@ -346,8 +377,8 @@ export function AlphaPaywall({
               <button
                 type="button"
                 onClick={() => onActivate?.(plan)}
-                className={`flex min-h-[56px] flex-1 items-center justify-center rounded-[18px] px-5 text-[17px] font-bold text-white shadow-[0_10px_24px_rgba(90,80,255,0.35)] transition hover:brightness-110 active:scale-[0.99] sm:text-[18px] ${nudge ? "ring-4 ring-[#6a4dff]/30" : ""}`}
-                style={{ background: GRADIENT }}
+                className={`alpha-flow flex min-h-[56px] flex-1 items-center justify-center rounded-[18px] px-5 text-[17px] font-bold text-white shadow-[0_10px_24px_rgba(90,80,255,0.35)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(110,77,255,0.45)] active:translate-y-0 active:scale-[0.99] sm:text-[18px] ${nudge ? "ring-4 ring-[#6a4dff]/30" : ""}`}
+                
               >
                 {t("cta", lang)}
               </button>

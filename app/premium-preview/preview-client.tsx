@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlphaPaywall } from "@/components/alpha-paywall";
+import { AlphaPaywall, startAlphaMusic } from "@/components/alpha-paywall";
 
 export function PreviewClient() {
   const [open, setOpen] = useState(false);
@@ -18,6 +18,7 @@ export function PreviewClient() {
         type="button"
         onClick={() => {
           setMsg(null);
+          startAlphaMusic();
           setOpen(true);
         }}
         className="rounded-full px-6 py-3 font-bold text-white"
