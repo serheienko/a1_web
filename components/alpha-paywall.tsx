@@ -36,9 +36,9 @@ type Key =
 const S: Record<Key, Partial<Record<Locale, string>> & { en: string }> = {
   tagline: { uk: "Alpha шукає за тебе.", en: "Alpha searches for you.", ru: "Alpha ищет за тебя." },
   sub: {
-    uk: "Відповідаєш на кілька питань — Alpha розуміє, що тобі треба, і показує найточніші збіги. Далі сама надсилає нові, поки діє підписка.",
-    en: "Answer a few questions — Alpha learns what you need and shows the closest matches. Then it keeps sending new ones while you're subscribed.",
-    ru: "Отвечаешь на пару вопросов — Alpha понимает, что тебе нужно, и показывает самые точные совпадения. Дальше сама присылает новые, пока действует подписка.",
+    uk: "Відповідаєш на кілька питань — Alpha розуміє, що тобі треба, і показує найточніші збіги. Далі сама надсилає нові.",
+    en: "Answer a few questions — Alpha learns what you need and shows the closest matches. Then it keeps sending new ones.",
+    ru: "Отвечаешь на пару вопросов — Alpha понимает, что тебе нужно, и показывает самые точные совпадения. Дальше сама присылает новые.",
   },
   placeholder: { uk: "Senior Flutter, remote, Київ", en: "Senior Flutter, remote, Kyiv", ru: "Senior Flutter, remote, Киев" },
   hint: {
@@ -274,10 +274,7 @@ export function AlphaPaywall({
         <div className="relative flex flex-col gap-2 px-5 pt-5 sm:block sm:px-10 sm:pt-7">
           <div className="relative z-10 order-2 sm:order-1">
             <AlphaLogo word={t("searchWord", lang)} />
-            <h2 className="mt-2 text-[32px] font-extrabold leading-[1.02] tracking-[-0.03em] sm:mt-3 sm:text-[42px]">
-              {t("tagline", lang)}
-            </h2>
-            <p className="mt-2 text-[15px] leading-snug text-[#6b6b78] sm:max-w-[560px] sm:text-[17px] dark:text-[#a9a9b8]">
+            <p className="mt-3 text-[15px] leading-snug text-[#5b5b68] sm:mt-4 sm:max-w-[520px] sm:text-[18px] dark:text-[#a9a9b8]">
               {t("sub", lang)}
             </p>
 
@@ -402,7 +399,7 @@ function CanVideo() {
   return (
     <>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={`/premium/can-${theme}.jpg`} alt="" className={fx} />
+      <img src={`/premium/can-${theme}.jpg`} alt="" className={`${fx} transition-opacity duration-300 ${playing ? "opacity-0" : "opacity-100"}`} />
       <video
         key={theme}
         className={`${fx} transition-opacity duration-300 ${playing ? "opacity-100" : "opacity-0"}`}
@@ -431,6 +428,12 @@ function AlphaLogo({ word }: { word: string }) {
       <img src="/premium/alpha-logo.png" alt="Alpha" className="h-[38px] w-auto sm:h-[46px]" />
       <span className="text-[24px] font-semibold leading-none tracking-[-0.02em] text-[#3a3a3c] sm:text-[29px] dark:text-[#d6d6e0]">
         {word}
+      </span>
+      <span
+        className="ml-1 self-center rounded-full px-2.5 py-1 text-xs font-semibold text-[#5a4dff] dark:text-[#c3b6ff]"
+        style={{ background: "linear-gradient(100deg, rgba(1,72,252,0.12), rgba(150,63,255,0.16))" }}
+      >
+        Premium
       </span>
     </div>
   );
