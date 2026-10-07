@@ -71,7 +71,7 @@ function findStack(text: string): string[] {
 
 function findRole(text: string): AlphaPortrait["role"] {
   const t = text.toLowerCase();
-  const seeking = /(роботу|работу|\bjob\b|\bwork\b|працевлаштув|трудоустро|хочу працювати|хочу работать|шукаю позиц|ищу позиц|резюме|cv\b)/i.test(t);
+  const seeking = /((^|\s)я\s+(—\s*)?(розробник|разработчик|програміст|программист|дизайнер|тестувальник|тестировщик|інженер|инженер|devops|qa|pm|аналітик|аналитик|маркетолог|рекрутер)|i'?m an?\s+\w*\s*(developer|engineer|designer)|роботу|работу|\bjob\b|\bwork\b|працевлаштув|трудоустро|хочу працювати|хочу работать|шукаю позиц|ищу позиц|резюме|cv\b)/i.test(t);
   const hiring =
     /(розробника|разработчика|інженера|инженера|дизайнера|тестувальника|тестировщика|спеціаліста|специалиста|людей|кандидат|в команду|в нашу команду|найм|наймаю|наймаем|hire|hiring|потрібен|потрібна|потрібні|нужен|нужна|нужны|шукаємо|ищем)/i.test(
       t,
@@ -84,9 +84,9 @@ function findRole(text: string): AlphaPortrait["role"] {
 
 function findLevel(text: string): AlphaPortrait["level"] {
   if (/(\blead\b|тімлід|тимлид|техлід|техлид|\bлід\b|\bлид\b|team ?lead)/i.test(text)) return "lead";
-  if (/(senior|сеньйор|сеньор|синьор|синиор|сініор)/i.test(text)) return "senior";
-  if (/(middle|мідл|мидл)/i.test(text)) return "middle";
-  if (/(junior|джун|трейні|стажер|trainee|intern|без досвіду|без опыта)/i.test(text)) return "junior";
+  if (/(senior|сеньйор|сеньор|синьор|синиор|сініор|старш\S* рів|старшего уров|досвідчен|опытн)/i.test(text)) return "senior";
+  if (/(middle|мідл|мидл|середн\S* рів|среднего уров|средний уров)/i.test(text)) return "middle";
+  if (/(junior|джун|трейні|стажер|trainee|intern|без досвіду|без опыта|початків|начинающ)/i.test(text)) return "junior";
   return null;
 }
 
@@ -125,7 +125,7 @@ function findDealbreakers(text: string): string[] {
 
 function findWishes(text: string): string[] {
   return text
-    .split(/[.,!?;\n]+/)
+    .split(/[.,!?;\n]+|\s+(?:и|і|та|and)\s+(?=(?:чтобы|щоб|що б|so that)(?:\s|$))/i)
     .map((s) => s.trim())
     .filter((s) => !/^(бажано|желательно|preferably|ideally)\s+\S+$/i.test(s))
     .filter((s) => s.length > 6 && /(люблю|хочу|щоб|чтобы|важлив|важно|бажано|желательно|подобається|нравится|prefer|would like|love|\bлюбл)/i.test(s))

@@ -24,7 +24,7 @@ const S = {
   own: { uk: "Свій варіант…", en: "Your own answer…", ru: "Свой вариант…" },
   send: { uk: "Надіслати", en: "Send", ru: "Отправить" },
   thinking: { uk: "Alpha думає…", en: "Alpha is thinking…", ru: "Alpha думает…" },
-  understood: { uk: "Ось як я тебе зрозуміла", en: "Here's how I understood you", ru: "Вот как я тебя поняла" },
+  understood: { uk: "Уточнимо перед пошуком", en: "Let's check before searching", ru: "Уточним перед поиском" },
   search: { uk: "Шукати", en: "Search", ru: "Искать" },
   restart: { uk: "Почати спочатку", en: "Start over", ru: "Начать сначала" },
   searching: { uk: "Alpha переглядає вакансії…", en: "Alpha is going through the posts…", ru: "Alpha просматривает вакансии…" },
@@ -237,7 +237,7 @@ export function AlphaFlow({
 
   // asking
   return (
-    <div>
+    <div className="sm:max-w-[720px]">
       <div className="mb-2 flex items-center gap-2 text-[12px] font-semibold text-[#6a4dff] dark:text-[#b7a6ff]">
         <span>
           {S.question[l]} {step} {S.of[l]} {total}
@@ -320,7 +320,7 @@ export function AlphaFlow({
       [S.pWish[l], p.wishes.length ? p.wishes.join(" · ") : null],
     ];
     return (
-      <div className="rounded-[20px] border border-[#335ef7]/20 bg-[#335ef7]/[0.04] p-4 dark:border-white/10 dark:bg-white/[0.04]">
+      <div className="rounded-[20px] border border-[#335ef7]/20 bg-[#335ef7]/[0.04] p-4 sm:max-w-[640px] dark:border-white/10 dark:bg-white/[0.04]">
         <div className="text-[17px] font-bold">{S.understood[l]}</div>
         <dl className="mt-2.5 grid grid-cols-[110px_1fr] gap-x-3 gap-y-1.5 text-[14px]">
           {rows

@@ -25,13 +25,13 @@ import {
   tierForCountry,
 } from "@/lib/premium/pricing";
 
-type Plan = "month" | "year";
+type Plan = "month" | "quarter" | "year";
 
 type Key =
   | "tagline" | "sub" | "placeholder" | "hint" | "alsoTitle" | "alsoSub"
   | "wandT" | "wandD" | "mediaT" | "mediaD" | "statusT" | "statusD"
   | "emojiT" | "emojiD" | "pricesFor" | "month" | "year" | "perMonth"
-  | "yearOnce" | "cta" | "ctaSub" | "footer" | "close" | "soundOn"
+  | "yearOnce" | "quarter" | "quarterOnce" | "cta" | "ctaSub" | "footer" | "close" | "soundOn"
   | "soundOff" | "needPremium" | "mic" | "save" | "searchWord" | "signInNeed" | "signIn";
 
 const S: Record<Key, Partial<Record<Locale, string>> & { en: string }> = {
@@ -72,8 +72,10 @@ const S: Record<Key, Partial<Record<Locale, string>> & { en: string }> = {
   pricesFor: { uk: "Ціни для", en: "Prices for", ru: "Цены для" },
   month: { uk: "Місяць", en: "Month", ru: "Месяц" },
   year: { uk: "Рік", en: "Year", ru: "Год" },
+  quarter: { uk: "3 місяці", en: "3 months", ru: "3 месяца" },
+  quarterOnce: { uk: "за 3 місяці", en: "for 3 months", ru: "за 3 месяца" },
   perMonth: { uk: "/ міс.", en: "/ mo", ru: "/ мес." },
-  yearOnce: { uk: "одним платежем за рік", en: "billed once a year", ru: "одним платежом за год" },
+  yearOnce: { uk: "за рік", en: "per year", ru: "за год" },
   save: { uk: "−25%", en: "−25%", ru: "−25%" },
   cta: { uk: "Увімкнути Alpha Search", en: "Turn on Alpha Search", ru: "Включить Alpha Search" },
   ctaSub: { uk: "Разом з усіма можливостями Premium", en: "Together with everything in Premium", ru: "Вместе со всеми возможностями Premium" },
@@ -141,7 +143,7 @@ export function AlphaPaywall({
   onActivate?: (plan: Plan) => void;
 }) {
   const lang = useActiveLocale();
-  const [plan, setPlan] = useState<Plan>("year");
+  const [plan, setPlan] = useState<Plan>("quarter");
   const [query, setQuery] = useState("");
   const [nudge, setNudge] = useState(false);
   const [flowQuery, setFlowQuery] = useState<string | null>(null);
@@ -293,7 +295,7 @@ export function AlphaPaywall({
           <div className="relative z-10 order-2 sm:order-1">
             <AlphaLogo word={t("searchWord", lang)} />
             {flowQuery ? (
-              <div className="mt-4 sm:max-w-[640px]">
+              <div className="mt-4">
                 <AlphaFlow initial={flowQuery} lang={lang} onUnlock={toPricing} />
               </div>
             ) : (
@@ -376,13 +378,22 @@ export function AlphaPaywall({
               {t("pricesFor", lang)}: {countryName}
             </div>
           )}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-[1fr_1fr_1.25fr] sm:items-stretch">
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-[1fr_1fr_1fr_1.35fr] sm:items-stretch sm:gap-3">
             <PlanCard
               active={plan === "month"}
               onClick={() => setPlan("month")}
               title={t("month", lang)}
               price={formatUsd(price.month)}
               per={t("perMonth", lang)}
+            />
+            <PlanCard
+              active={plan === "quarter"}
+              onClick={() => setPlan("quarter")}
+              title={t("quarter", lang)}
+              badge="−17%"
+              price={formatUsd(price.quarterPerMonth)}
+              per={t("perMonth", lang)}
+              note={`${formatUsd(price.quarterTotal)} ${t("quarterOnce", lang)}`}
             />
             <PlanCard
               active={plan === "year"}
@@ -393,11 +404,11 @@ export function AlphaPaywall({
               per={t("perMonth", lang)}
               note={`${formatUsd(price.yearTotal)} ${t("yearOnce", lang)}`}
             />
-            <div className="col-span-2 flex flex-col sm:col-span-1">
+            <div className="flex flex-col">
               <button
                 type="button"
                 onClick={() => onActivate?.(plan)}
-                className={`alpha-flow flex min-h-[56px] flex-1 items-center justify-center rounded-[18px] px-5 text-[17px] font-bold text-white shadow-[0_10px_24px_rgba(90,80,255,0.35)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(110,77,255,0.45)] active:translate-y-0 active:scale-[0.99] sm:text-[18px] ${nudge ? "ring-4 ring-[#6a4dff]/30" : ""}`}
+                className={`alpha-flow flex min-h-[56px] flex-1 items-center justify-center rounded-[18px] px-4 text-[16px] font-bold text-white shadow-[0_10px_24px_rgba(90,80,255,0.35)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(110,77,255,0.45)] active:translate-y-0 active:scale-[0.99] sm:text-[17px] ${nudge ? "ring-4 ring-[#6a4dff]/30" : ""}`}
                 
               >
                 {t("cta", lang)}

@@ -9,15 +9,17 @@ export type PriceTier = "base" | "east" | "west" | "rich";
 
 export type TierPrice = {
   month: number; // USD per month, monthly plan
+  quarterTotal: number; // USD for 3 months (Aleksandr 2026-10-07: 1 / 3 / 12 months)
+  quarterPerMonth: number;
   yearPerMonth: number; // USD per month, yearly plan
   yearTotal: number; // USD charged once for the year
 };
 
 export const TIER_PRICES: Record<PriceTier, TierPrice> = {
-  base: { month: 5.99, yearPerMonth: 4.49, yearTotal: 53.88 },
-  east: { month: 7.99, yearPerMonth: 5.99, yearTotal: 71.88 },
-  west: { month: 9.99, yearPerMonth: 7.49, yearTotal: 89.88 },
-  rich: { month: 12.99, yearPerMonth: 9.74, yearTotal: 116.88 },
+  base: { month: 5.99, quarterTotal: 14.99, quarterPerMonth: 5.0, yearPerMonth: 4.49, yearTotal: 53.88 },
+  east: { month: 7.99, quarterTotal: 19.99, quarterPerMonth: 6.66, yearPerMonth: 5.99, yearTotal: 71.88 },
+  west: { month: 9.99, quarterTotal: 24.99, quarterPerMonth: 8.33, yearPerMonth: 7.49, yearTotal: 89.88 },
+  rich: { month: 12.99, quarterTotal: 32.99, quarterPerMonth: 11.0, yearPerMonth: 9.74, yearTotal: 116.88 },
 };
 
 // ISO-3166 alpha-2 -> tier. Anything not listed falls back to "west".

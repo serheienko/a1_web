@@ -44,7 +44,7 @@ export function PreviewClient() {
         onClose={() => setOpen(false)}
         onActivate={(plan) => {
           setOpen(false);
-          setMsg(`Тест: обрано тариф «${plan === "year" ? "Рік" : "Місяць"}». Оплату підключимо пізніше.`);
+          setMsg(`Тест: обрано тариф «${plan === "year" ? "Рік" : plan === "quarter" ? "3 місяці" : "Місяць"}». Оплату підключимо пізніше.`);
         }}
       />
     </main>

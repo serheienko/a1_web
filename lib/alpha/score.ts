@@ -27,6 +27,7 @@ const DEALBREAKER_RE: Record<string, RegExp> = {
 
 const T = {
   stack: { uk: "стек збігається", en: "stack matches", ru: "стек совпадает" },
+  mentioned: { uk: "згадується", en: "mentions", ru: "упоминается" },
   level: { uk: "рівень", en: "level", ru: "уровень" },
   remote: { uk: "віддалено", en: "remote", ru: "удалённо" },
   salaryOk: { uk: "зарплата від", en: "salary from", ru: "зарплата от" },
@@ -81,8 +82,8 @@ export function scorePosts(posts: WebPost[], portrait: AlphaPortrait, lang: stri
     const inTitle = portrait.stack.some((s) => title.toLowerCase().includes(s.toLowerCase()));
     if (portrait.stack.length) {
       if (hits.length === 0) continue; // nothing in common -- not a match at all
-      score += inTitle ? 20 : 10;
-      reasons.push(`${hits.slice(0, 3).join(", ")} — ${T.stack[l]}`);
+      score += inTitle ? 20 : -6;
+      reasons.push(inTitle ? `${hits.slice(0, 3).join(", ")} — ${T.stack[l]}` : `${T.mentioned[l]} ${hits.slice(0, 2).join(", ")}`);
     }
 
     // Level
