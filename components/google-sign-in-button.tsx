@@ -187,7 +187,13 @@ export function GoogleSignInButton() {
       {/* The real, official Google button — invisible, sized to cover
           the same box as the button above, and the thing that actually
           receives the click. */}
-      <div ref={containerRef} className="absolute inset-0 top-0 h-full w-full overflow-hidden opacity-0" />
+      {/* 07.10.2026 (друг Александра: «нажимаю "Продовжити з Google" —
+          ничего»). With opacity exactly 0 Chrome lets Google's button
+          ignore the click when it sits in the header's sign-in popover
+          (checked: no Google window opens; on /sign-in it still worked).
+          At 1% it is just as invisible to the eye and the click goes
+          through everywhere. */}
+      <div ref={containerRef} className="absolute inset-0 top-0 h-full w-full overflow-hidden opacity-[0.01]" />
       {error && <p className="text-sm text-red-600 dark:text-red-400">{STRINGS.error[lang]}</p>}
     </div>
   );
