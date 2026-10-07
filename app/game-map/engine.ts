@@ -920,7 +920,7 @@ export function mountGameMap(root, opts) {
   function drawCompany(c, t, far) {
     const act = c === hover || c === pinned;
     if (c.cluster) {
-      // 07.10.2026: кластер «+N компаній» -- завжди булавка з підписом, будинку немає
+      // 07.10.2026: кластер «+N» -- завжди булавка з підписом, будинку немає
       const w = act ? 19 : 17; const h = drawSprite(c.pin, c.x, c.y, w) || w;
       c._r = { x: c.x, y: c.y - h / 2, w, h };
       if (act || view.s >= minS * 1.6) labelQ.push(c);
@@ -982,7 +982,7 @@ export function mountGameMap(root, opts) {
       if (c === popFor && popCoversLabel) continue;
       const act = c === hover || c === pinned;
       const sx = c.x * view.s + view.x, sy = c.y * view.s + view.y + 9;
-      const nm = c.cluster ? `+${nForm(c.cos || 0, 'cos')}` : c.name;
+      const nm = c.cluster ? `+${c.cos || 0}` : c.name;  // 07.10.2026: на карті коротко «+N», слово «компаній» -- лише в картці
       const name = nm.length > 22 ? nm.slice(0, 21) + '…' : nm;
       const tw = ctx.measureText(name).width, w = tw + 12, h = 18;
       const r = { x: sx - w / 2, y: sy - h / 2, w, h };
