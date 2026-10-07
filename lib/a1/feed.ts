@@ -33,7 +33,7 @@ import { fetchStackIndex } from "./stack-index";
 import { fetchPostsByIds } from "./posts";
 import { peekUkraineFeedTotal } from "./country-counts";
 import { countryByCode, DEFAULT_COUNTRY_CODE, WORLDWIDE_CODE } from "@/lib/seo/countries";
-import { worldwidePosts } from "./facts-index";
+import { worldwidePosts, allIndexedPosts } from "./facts-index";
 import { locationMatches } from "@/lib/seo/city-search";
 
 // 2026-09-05 (Aleksandr: "не загружай всю ленту сразу, а показывай
@@ -391,15 +391,25 @@ export async function fetchFeedPage(
   }
 
   const scanned = await getScanPosts(kind, filters);
-  // Запрос-город («Vienna») возвращает и зарубежные вакансии этого города, хотя лента
-  // «Україна» их обычно отсекает: человек сам назвал место.
-  const matches = applyLocalFilters(
-    inUkraineMode(kind, filters)
-      ? scanned.filter((post) => keepInUkraineFeed(post) || (needle !== null && locationMatches(post.location, needle)))
-      : scanned,
-    filters,
-    needle,
-  );
+  // Запрос-город («Vienna») возвращает и зарубежные вакансии этого города: лента
+  // «Україна» их не содержит (бэкенд отдаёт её в режиме «для тебе»), поэтому
+  // добираем из общего индекса всех вакансий (кэш на час, обход уже оплачен
+  // страницами стран). Человек сам назвал место -- значит, оно ему нужно.
+  let pool = inUkraineMode(kind, filters) ? scanned.filter(keepInUkraineFeed) : scanned;
+  if (needle && inUkraineMode(kind, filters)) {
+    const seen = new Set(pool.map((p) => p.id));
+    const categories = filters.categories ?? [];
+    const tags = filters.tags ?? [];
+    const extra = (await allIndexedPosts()).filter(
+      (p) =>
+        !seen.has(p.id) &&
+        locationMatches(p.location, needle) &&
+        (categories.length === 0 || p.categories.some((c) => categories.includes(c.id))) &&
+        tags.every((tag) => p.tags.includes(tag)),
+    );
+    if (extra.length > 0) pool = [...pool, ...extra];
+  }
+  const matches = applyLocalFilters(pool, filters, needle);
   const hasMore = nextOffset < matches.length;
   return {
     posts: matches.slice(offset, nextOffset),
