@@ -56,6 +56,22 @@ const THEME_INIT_SCRIPT = `
       document.head.appendChild(st);
     }
   } catch (e) {}
+  // 07.10.2026 (Александр: перед картой в приложении мелькают меню сайта,
+  // плашка «открыть в приложении» и английский текст). Карта внутри
+  // приложения (/game-map?app=1): с первой отрисовки -- только размытая
+  // карта и «Загружаем карту…» на весь экран, тема из приложения.
+  try {
+    var q = new URLSearchParams(location.search);
+    if (location.pathname.indexOf("/game-map") === 0 && q.get("app") === "1") {
+      var r = document.documentElement;
+      r.classList.add("a1-inapp");
+      var th = q.get("theme");
+      if (th === "dark" || th === "light") { r.classList.remove("dark", "light"); r.classList.add(th); }
+      var st2 = document.createElement("style");
+      st2.textContent = "html.a1-inapp body{background:#cfd9a6!important}html.a1-inapp.dark body{background:#1c2b3a!important}html.a1-inapp body>*:not(main){display:none!important}html.a1-inapp main{max-width:none!important;padding:0!important}html.a1-inapp main>p{display:none!important}html.a1-inapp .gm2 .gm-load{position:fixed!important;inset:0!important;z-index:2147483002}";
+      document.head.appendChild(st2);
+    }
+  } catch (e) {}
 })();
 `;
 
@@ -137,6 +153,18 @@ const LANG_INIT_SCRIPT = `
     // Aleksandr, 16.09.2026: «язык браузера, иначе английский».
     var locale = stored;
 
+    // 07.10.2026: карта внутри приложения -- язык задаёт приложение (?lang=),
+    // сразу, а не «Loading the map…», а потом «Загружаем карту…».
+    var inAppLang = null;
+    try {
+      var qq = new URLSearchParams(location.search);
+      if (location.pathname.indexOf("/game-map") === 0 && qq.get("app") === "1") {
+        var al = qq.get("lang");
+        if (al && LOCALES.indexOf(al) !== -1) inAppLang = al;
+      }
+    } catch (e) {}
+    if (inAppLang) locale = inAppLang;
+
     // Украина: всегда украинский, каким бы ни был браузер. Это то же
     // решение, что и запрет русского выше, — см. middleware.ts.
     if (!locale && isGeoUa) locale = "uk";
@@ -174,7 +202,7 @@ const LANG_INIT_SCRIPT = `
     // Страна не из списка и браузер на чужом языке (Нидерланды, Индия,
     // Турция...): английский, а не украинский, как было раньше.
     if (!locale) locale = "en";
-    if (isGeoUa && locale === "ru") locale = "uk";
+    if (isGeoUa && locale === "ru" && !inAppLang) locale = "uk";
     if (LOCALES.indexOf(locale) === -1) locale = "uk";
 
     for (var i = 0; i < LOCALES.length; i++) root.classList.remove(CLASS_FOR[LOCALES[i]]);
