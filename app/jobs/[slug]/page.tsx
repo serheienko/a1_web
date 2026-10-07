@@ -67,6 +67,17 @@ type Props = { params: Promise<{ slug: string }> };
  * висящим тире. Теперь варианты перебираются от полного к короткому, и
  * режется только название вакансии, а не хвост с компанией.
  */
+/** Страна, которой нет в нашем справочнике (GB, например) -- имя из
+ *  Intl. Здесь только сервер, разницы версий CLDR с браузером нет. */
+function countryNameFallback(code: string, lang: "en" | "uk"): string {
+  if (!/^[A-Z]{2}$/.test(code) || code === "WW") return "";
+  try {
+    return new Intl.DisplayNames([lang], { type: "region" }).of(code) ?? "";
+  } catch {
+    return "";
+  }
+}
+
 function buildJobPageTitle(post: WebPost): string {
   const max = post.isExternal ? 70 : 60;
   const sep = post.isExternal ? " at " : " — ";
@@ -76,7 +87,7 @@ function buildJobPageTitle(post: WebPost): string {
   const country = COUNTRIES.find((c) => c.code === countryCode);
   const place =
     loc?.city.trim() ||
-    (country ? (post.isExternal ? country.en : country.uk) : "");
+    (country ? (post.isExternal ? country.en : country.uk) : countryNameFallback(countryCode, post.isExternal ? "en" : "uk"));
   const head = company ? `${sep}${company}` : "";
   const tails = [
     ...(place ? [`${head}, ${place} | A1 Jobs`, `${head}, ${place}`] : []),
