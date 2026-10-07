@@ -237,17 +237,17 @@ export function AlphaPaywall({
         </div>
 
         {/* HERO */}
-        <div className="grid gap-2 px-5 pt-5 sm:grid-cols-[1fr_230px] sm:gap-6 sm:px-10 sm:pt-7">
-          <div className="order-2 sm:order-1">
+        <div className="relative flex flex-col gap-2 px-5 pt-5 sm:block sm:px-10 sm:pt-7">
+          <div className="relative z-10 order-2 sm:order-1">
             <AlphaLogo />
             <h2 className="mt-2 text-[32px] font-extrabold leading-[1.02] tracking-[-0.03em] sm:mt-3 sm:text-[42px]">
               {t("tagline", lang)}
             </h2>
-            <p className="mt-2 text-[15px] leading-snug text-[#6b6b78] sm:text-[17px] dark:text-[#a9a9b8]">
+            <p className="mt-2 text-[15px] leading-snug text-[#6b6b78] sm:max-w-[560px] sm:text-[17px] dark:text-[#a9a9b8]">
               {t("sub", lang)}
             </p>
 
-            <form onSubmit={onSubmit} className="mt-4 sm:mt-5">
+            <form onSubmit={onSubmit} className="mt-4 sm:mt-5 sm:max-w-[480px]">
               <div
                 className="flex items-center gap-2 rounded-full p-[2px]"
                 style={{ background: GRADIENT }}
@@ -287,8 +287,8 @@ export function AlphaPaywall({
             </form>
           </div>
 
-          <div className="order-1 flex items-center justify-center sm:order-2">
-            <div className="relative h-[150px] w-[150px] sm:h-[230px] sm:w-[230px]">
+          <div className="order-1 flex items-center justify-center sm:pointer-events-none sm:absolute sm:right-6 sm:top-0 sm:z-0 sm:order-2">
+            <div className="relative h-[170px] w-[170px] sm:h-[340px] sm:w-[340px]">
               <video
                 className="h-full w-full object-contain mix-blend-multiply [mask-image:radial-gradient(circle,#000_58%,transparent_71%)] dark:hidden"
                 src="/premium/can-light.mp4"
