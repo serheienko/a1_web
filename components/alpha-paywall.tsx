@@ -31,7 +31,7 @@ type Key =
   | "wandT" | "wandD" | "mediaT" | "mediaD" | "statusT" | "statusD"
   | "emojiT" | "emojiD" | "pricesFor" | "month" | "year" | "perMonth"
   | "yearOnce" | "cta" | "ctaSub" | "footer" | "close" | "soundOn"
-  | "soundOff" | "needPremium" | "mic" | "save";
+  | "soundOff" | "needPremium" | "mic" | "save" | "searchWord";
 
 const S: Record<Key, Partial<Record<Locale, string>> & { en: string }> = {
   tagline: { uk: "Пошук, який розуміє тебе.", en: "Search that gets you.", ru: "Поиск, который понимает тебя." },
@@ -40,7 +40,7 @@ const S: Record<Key, Partial<Record<Locale, string>> & { en: string }> = {
     en: "Tell it what you're looking for. Alpha asks what matters and finds the matches.",
     ru: "Расскажи, что ищешь. Alpha уточнит важное и найдёт совпадения.",
   },
-  placeholder: { uk: "Дизайн, remote, гнучкий графік", en: "Design, remote, flexible hours", ru: "Дизайн, remote, гибкий график" },
+  placeholder: { uk: "Senior Flutter, remote, Київ", en: "Senior Flutter, remote, Kyiv", ru: "Senior Flutter, remote, Киев" },
   hint: {
     uk: "Голосом або текстом. Нові збіги — щойно з'являться.",
     en: "By voice or text. New matches as soon as they appear.",
@@ -54,9 +54,9 @@ const S: Record<Key, Partial<Record<Locale, string>> & { en: string }> = {
   },
   wandT: { uk: "Чарівна паличка", en: "Magic wand", ru: "Волшебная палочка" },
   wandD: {
-    uk: "Вакансія з голосу чи тексту — поля заповняться самі.",
-    en: "A job post from your voice or text — fields fill themselves.",
-    ru: "Вакансия из голоса или текста — поля заполнятся сами.",
+    uk: "Розкажи голосом чи текстом — поля заповняться самі.",
+    en: "Say it or type it — the fields fill themselves.",
+    ru: "Расскажи голосом или текстом — поля заполнятся сами.",
   },
   mediaT: { uk: "Медіа без ліміту", en: "No media limits", ru: "Медиа без лимита" },
   mediaD: { uk: "Фото, відео та файли в чатах.", en: "Photos, videos and files in chats.", ru: "Фото, видео и файлы в чатах." },
@@ -77,9 +77,9 @@ const S: Record<Key, Partial<Record<Locale, string>> & { en: string }> = {
   cta: { uk: "Увімкнути Alpha Search", en: "Turn on Alpha Search", ru: "Включить Alpha Search" },
   ctaSub: { uk: "Разом з усіма можливостями Premium", en: "Together with everything in Premium", ru: "Вместе со всеми возможностями Premium" },
   footer: {
-    uk: "Alpha аналізує тексти вакансій. Атмосферу в команді уточнюй на співбесіді.",
-    en: "Alpha reads job post texts. Ask about the team vibe at the interview.",
-    ru: "Alpha анализирует тексты вакансий. Атмосферу в команде уточняй на собеседовании.",
+    uk: "Alpha порівнює вакансії та профілі за їхнім текстом. Решту варто уточнити в розмові.",
+    en: "Alpha matches job posts and profiles by what they say. The rest is best asked in conversation.",
+    ru: "Alpha сравнивает вакансии и профили по их тексту. Остальное стоит уточнить в разговоре.",
   },
   close: { uk: "Закрити", en: "Close", ru: "Закрыть" },
   soundOn: { uk: "Увімкнути звук", en: "Sound on", ru: "Включить звук" },
@@ -89,6 +89,7 @@ const S: Record<Key, Partial<Record<Locale, string>> & { en: string }> = {
     en: "Alpha searches with Premium — pick a plan below.",
     ru: "Alpha ищет с Premium — выбери тариф ниже.",
   },
+  searchWord: { uk: "пошук", en: "Search", ru: "поиск" },
   mic: { uk: "Сказати голосом", en: "Speak", ru: "Сказать голосом" },
 };
 
@@ -97,7 +98,7 @@ function t(key: Key, lang: Locale): string {
 }
 
 const SOUND_KEY = "a1.premium.sound";
-const GRADIENT = "linear-gradient(100deg,#3575ff 0%,#6a4dff 55%,#963fff 100%)";
+const GRADIENT = "linear-gradient(100deg,#0148fc 0%,#5a4dff 55%,#963fff 100%)";
 
 export function AlphaPaywall({
   open,
@@ -239,7 +240,7 @@ export function AlphaPaywall({
         {/* HERO */}
         <div className="relative flex flex-col gap-2 px-5 pt-5 sm:block sm:px-10 sm:pt-7">
           <div className="relative z-10 order-2 sm:order-1">
-            <AlphaLogo />
+            <AlphaLogo word={t("searchWord", lang)} />
             <h2 className="mt-2 text-[32px] font-extrabold leading-[1.02] tracking-[-0.03em] sm:mt-3 sm:text-[42px]">
               {t("tagline", lang)}
             </h2>
@@ -360,17 +361,27 @@ export function AlphaPaywall({
   );
 }
 
-function AlphaLogo() {
+function AlphaLogo({ word }: { word: string }) {
+  // Aleksandr's "Alpha" wordmark (2026-10-07). Dark theme: his glowing
+  // render, black background dropped with screen blending. Light theme:
+  // typeset stand-in in the logo's own blue until the clean light file
+  // arrives.
   return (
-    <div className="flex items-baseline gap-1.5 select-none">
+    <div className="flex items-center gap-2 select-none sm:gap-2.5">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/premium/alpha-glow.png"
+        alt="Alpha"
+        className="-my-3 -ml-2 hidden h-[60px] w-auto sm:h-[72px] dark:block"
+      />
       <span
-        className="bg-clip-text pr-1 text-[36px] font-black italic leading-none tracking-[-0.04em] text-transparent sm:text-[44px]"
-        style={{ backgroundImage: GRADIENT }}
+        className="bg-clip-text pr-1 text-[36px] font-black italic leading-none tracking-[-0.04em] text-transparent sm:text-[44px] dark:hidden"
+        style={{ backgroundImage: "linear-gradient(100deg,#0148fc 0%,#1f5dff 100%)" }}
       >
         Alpha
       </span>
       <span className="text-[24px] font-semibold leading-none tracking-[-0.02em] text-[#3a3a3c] sm:text-[29px] dark:text-[#d6d6e0]">
-        Search
+        {word}
       </span>
     </div>
   );
