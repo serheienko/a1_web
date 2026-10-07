@@ -89,19 +89,20 @@ function buildJobPageTitle(post: WebPost): string {
     loc?.city.trim() ||
     (country ? (post.isExternal ? country.en : country.uk) : countryNameFallback(countryCode, post.isExternal ? "en" : "uk"));
   const head = company ? `${sep}${company}` : "";
-  const tails = [
-    ...(place ? [`${head}, ${place} | A1 Jobs`, `${head}, ${place}`] : []),
-    `${head} | A1 Jobs`,
-    head,
-  ];
-  for (const tail of tails) {
+  // Порядок важен: место -- то, что отличает страницы-близнецы, поэтому
+  // ради него лучше подрезать название, чем выкинуть место целиком.
+  const placed = company ? `${head}, ${place}` : ` — ${place}`;
+  const withPlace = place ? [`${placed} | A1 Jobs`, placed] : [];
+  for (const tail of withPlace) {
     if (post.title.length + tail.length <= max) return post.title + tail;
   }
-  // Название само длинное: режем его, оставляя место хотя бы для компании
-  // (и места, если влезает), но не меньше 25 символов на само название.
-  for (const tail of place ? [`${head}, ${place}`, head] : [head]) {
-    if (max - tail.length >= 25) return truncateAtWordBoundary(post.title, max - tail.length) + tail;
+  if (place && max - placed.length >= 25) {
+    return truncateAtWordBoundary(post.title, max - placed.length) + placed;
   }
+  for (const tail of [`${head} | A1 Jobs`, head]) {
+    if (post.title.length + tail.length <= max) return post.title + tail;
+  }
+  if (max - head.length >= 25) return truncateAtWordBoundary(post.title, max - head.length) + head;
   return truncateAtWordBoundary(post.title, max);
 }
 
