@@ -40,6 +40,22 @@ const THEME_INIT_SCRIPT = `
     if (stored === "dark") root.classList.add("dark");
     else if (stored === "light") root.classList.add("light");
   } catch (e) {}
+  // 07.10.2026 (Александр: свой профиль на мобильном сайте ещё
+  // показывает 4 пустые кнопки, пока страница оживает). Заглушка ряда
+  // кнопок приходит готовой в HTML, а JS, который узнаёт «это мой
+  // профиль», на телефоне запускается заметно позже. Поэтому прячем её
+  // здесь, ещё до первой отрисовки: components/profile-action-row.tsx
+  // помечает заглушку data-actions-for="<ник>", а свой ник браузер
+  // помнит с прошлого входа (a1-my-username).
+  try {
+    var me = localStorage.getItem("a1-my-username");
+    if (me) {
+      var esc = window.CSS && CSS.escape ? CSS.escape(me) : me.replace(/[^a-zA-Z0-9_.-]/g, "");
+      var st = document.createElement("style");
+      st.textContent = '[data-actions-for="' + esc + '"]{display:none!important}';
+      document.head.appendChild(st);
+    }
+  } catch (e) {}
 })();
 `;
 

@@ -613,7 +613,13 @@ export function ProfileActionRow({
   // число колонок.
   if (viewerStatus === "loading" && profileUserId) {
     return (
-      <div aria-hidden="true" className={unclaimed ? "mt-4 grid grid-cols-3 gap-2" : "mt-4 grid grid-cols-4 gap-2"}>
+      <div
+        aria-hidden="true"
+        // 07.10.2026: по этой метке ранний скрипт в app/layout.tsx прячет
+        // заглушку на своём профиле ещё до первой отрисовки.
+        data-actions-for={username}
+        className={unclaimed ? "mt-4 grid grid-cols-3 gap-2" : "mt-4 grid grid-cols-4 gap-2"}
+      >
         {(unclaimed ? [0, 1, 2] : [0, 1, 2, 3]).map((i) => (
           <span
             key={i}
