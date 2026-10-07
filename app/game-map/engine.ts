@@ -1309,9 +1309,12 @@ export function mountGameMap(root, opts) {
   on(document, 'fullscreenchange', onFsChange); on(document, 'webkitfullscreenchange', onFsChange);
   // ---------- поиск компании ----------
   let sugIdx = -1, sugList = [];
+  // 07.10.2026 (Александр: «карта шукає по містах?»): пошук знаходить і компанії міста --
+  // за назвою міста будь-якою мовою (Vienna / Wien / Відень / Вена), словник той самий.
+  function cityHay(ck) { if (!ck) return ''; const e = CITY_I18N[ck] || {}; return [ck, ...Object.values(e), ...(CITY[ck] || [])].join('|').toLowerCase(); }
   function renderSug() {
     const q = qIn.value.trim().toLowerCase();
-    sugList = q.length < 1 ? [] : [...cos.map((c, i) => ({ c, i })), ...offMap.map((c, i) => ({ c, i: 'o' + i }))].map((o) => ({ ...o, p: (o.c.cluster ? (o.c.names || []).join(' | ') : o.c.name).toLowerCase().indexOf(q) })).filter((o) => o.p >= 0).sort((a, b) => a.p - b.p || b.c.n - a.c.n).slice(0, 8);
+    sugList = q.length < 1 ? [] : [...cos.map((c, i) => ({ c, i })), ...offMap.map((c, i) => ({ c, i: 'o' + i }))].map((o) => { const pn = (o.c.cluster ? (o.c.names || []).join(' | ') : o.c.name).toLowerCase().indexOf(q); return { ...o, p: pn >= 0 ? pn : (q.length >= 2 && cityHay(o.c.ck).indexOf(q) >= 0 ? 1000 : -1) }; }).filter((o) => o.p >= 0).sort((a, b) => a.p - b.p || b.c.n - a.c.n).slice(0, 12);
     sugIdx = sugList.length ? 0 : -1;
     sug.innerHTML = sugList.length ? sugList.map((o, k) => `<button type="button" class="gm-si${k === sugIdx ? ' on' : ''}" data-ci="${o.i}" role="option"><b>${esc(o.c.cluster ? ((o.c.names || []).find((x) => x.toLowerCase().includes(q)) || o.c.name) : o.c.name)}</b><small>${o.c.off ? esc(tr('offMap')) : `${esc(cityName(o.c.ck, lang))} · ${nForm(o.c.n, 'vac')}`}</small></button>`).join('')
       : (q ? `<div class="gm-none">${esc(tr('none'))}</div>` : '');
