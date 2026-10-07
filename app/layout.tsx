@@ -56,21 +56,31 @@ const THEME_INIT_SCRIPT = `
       document.head.appendChild(st);
     }
   } catch (e) {}
-  // 07.10.2026 (Александр: перед картой в приложении мелькают меню сайта,
-  // плашка «открыть в приложении» и английский текст). Карта внутри
-  // приложения (/game-map?app=1): с первой отрисовки -- только размытая
-  // карта и «Загружаем карту…» на весь экран, тема из приложения.
+})();
+`;
+
+// 07.10.2026 (Александр: перед картой в приложении мелькают меню сайта,
+// плашка «открыть в приложении» и английский текст). Карта внутри
+// приложения (/game-map?app=1): с первой отрисовки -- только размытая
+// карта и «Загружаем карту…» на весь экран, тема и язык из приложения.
+// Обычный <script> в <head>, а не next/script: тот (beforeInteractive)
+// запускается только когда оживает страница, а экран загрузки карты
+// приходит раньше и успевает показать меню сайта.
+const INAPP_MAP_SCRIPT = `
+(function () {
   try {
     var q = new URLSearchParams(location.search);
-    if (location.pathname.indexOf("/game-map") === 0 && q.get("app") === "1") {
-      var r = document.documentElement;
-      r.classList.add("a1-inapp");
-      var th = q.get("theme");
-      if (th === "dark" || th === "light") { r.classList.remove("dark", "light"); r.classList.add(th); }
-      var st2 = document.createElement("style");
-      st2.textContent = "html.a1-inapp body{background:#cfd9a6!important}html.a1-inapp.dark body{background:#1c2b3a!important}html.a1-inapp body>*:not(main){display:none!important}html.a1-inapp main{max-width:none!important;padding:0!important}html.a1-inapp main>p{display:none!important}html.a1-inapp .gm2 .gm-load{position:fixed!important;inset:0!important;z-index:2147483002}";
-      document.head.appendChild(st2);
-    }
+    if (location.pathname.indexOf("/game-map") !== 0 || q.get("app") !== "1") return;
+    var r = document.documentElement;
+    r.classList.add("a1-inapp");
+    var th = q.get("theme");
+    if (th === "dark" || th === "light") { r.classList.remove("dark", "light"); r.classList.add(th); }
+    var CLS = { uk: "lang-uk", en: "lang-en", ru: "lang-ru", de: "lang-de", es: "lang-es", fr: "lang-fr", pl: "lang-pl", ptBR: "lang-ptbr", zh: "lang-zh" };
+    var l = q.get("lang");
+    if (l && CLS[l]) { for (var k in CLS) r.classList.remove(CLS[k]); r.classList.add(CLS[l]); }
+    var st = document.createElement("style");
+    st.textContent = "html.a1-inapp body{background:#cfd9a6!important}html.a1-inapp.dark body{background:#1c2b3a!important}html.a1-inapp body>*:not(main){display:none!important}html.a1-inapp main{max-width:none!important;padding:0!important}html.a1-inapp main>p{display:none!important}html.a1-inapp .gm2 .gm-load{position:fixed!important;inset:0!important;z-index:2147483002}";
+    document.head.appendChild(st);
   } catch (e) {}
 })();
 `;
@@ -261,6 +271,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="uk" className={commissioner.variable + " lang-uk"}>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: INAPP_MAP_SCRIPT }} />
+      </head>
       {/* spellCheck on <body> is inherited by every text input, textarea and
           contenteditable on the site: the browser underlines typos and offers
           fixes (right-click on desktop, the keyboard on phones), in the page
