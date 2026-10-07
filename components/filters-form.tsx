@@ -646,7 +646,7 @@ export function FiltersForm({
   // desktop search inputs — both anchor it the same way (`relative`
   // wrapper, `absolute ... top-full`).
   const suggestionsDropdown = showSuggestions && (
-    <div className="absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+    <div className="absolute left-0 right-0 top-full z-[44] mt-1 overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
       {/* Люди -- первой группой: если человек набрал чей-то ник, он ищет
           именно человека, а не вакансию со словом из ника. Строка ведёт
           сразу на профиль, а не подставляет текст в фильтр, как строки
