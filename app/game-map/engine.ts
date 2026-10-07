@@ -529,7 +529,12 @@ export function mountGameMap(root, opts) {
     const cellKey = (x, y) => `${Math.floor(x / CELL)}|${Math.floor(y / CELL)}`;
     const near = (x, y) => { const out = []; const cx = Math.floor(x / CELL), cy = Math.floor(y / CELL); for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) { const a = grid.get(`${cx + i}|${cy + j}`); if (a) out.push(...a); } return out; };
     const k = Math.sqrt(dens), ovl = 1.1;
+    // 07.10.2026 (Александр: «куди діваються сусідні будиночки?»): коли розкриваємо кластер, будинки, що вже
+    // стоять на карті, лишаються на своїх місцях -- нові компанії шукають вільне місце навколо них.
+    const prevPos = new Map(cos.map((p) => [p.id, p]));
+    for (const c of list) { const p = prevPos.get(c.id); if (p && !c.cluster) { c.x = p.x; c.y = p.y; c.kept = true; const key = cellKey(c.x, c.y); (grid.get(key) || grid.set(key, []).get(key)).push(c); } }
     for (const c of list) {
+      if (c.kept) continue;
       const r = c.w * 0.5;
       let ang = (c.h % 360) * Math.PI / 180, step = 0;
       while (step < 4000) {
