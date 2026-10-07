@@ -57,6 +57,19 @@ function mobilePages(page: number, totalPages: number): number[] {
   return out;
 }
 
+// 07.10.2026: ряд «швидкого переходу» (сотні, десятки поточної сотні,
+// остання) -- будь-яка сторінка списку за 3 переходи замість ~70.
+export function jumpPages(page: number, totalPages: number): number[] {
+  if (totalPages <= PAGE_BLOCK * 2) return [];
+  const set = new Set<number>([1, totalPages]);
+  const step = totalPages > 3000 ? 1000 : 100;
+  for (let p = step; p < totalPages; p += step) set.add(p);
+  // Десятки всередині поточної сотні: 710, 720, ... 790.
+  const hundred = Math.floor((Math.max(1, page) - 1) / step) * step;
+  for (let p = hundred + PAGE_BLOCK; p < hundred + step && p < totalPages; p += PAGE_BLOCK) set.add(p);
+  return [...set].sort((a, b) => a - b);
+}
+
 function pageHref(basePath: string, params: URLSearchParams, page: number): string {
   const next = new URLSearchParams(params);
   next.delete("page");
@@ -100,6 +113,8 @@ export function Pagination({
     "min-w-7 rounded-lg bg-accent/10 px-1.5 py-1.5 text-center text-sm font-semibold text-accent sm:min-w-9 sm:px-2.5 dark:bg-white/10";
 
   const phonePages = mobilePages(page, Math.max(totalPages, page));
+  const shown = new Set<number>([...pages, ...phonePages]);
+  const jumps = jumpPages(page, totalPages).filter((p) => p !== page && !shown.has(p));
 
   return (
     // 2026-09-11 (Aleksandr, phone screenshots: "на мобильном практически
@@ -173,6 +188,22 @@ export function Pagination({
           </span>
         )}
       </div>
+      {jumps.length > 0 ? (
+        <div
+          className="mt-3 flex flex-wrap items-center justify-center gap-x-1 gap-y-0.5 text-xs text-neutral-400 dark:text-neutral-600"
+          aria-label="Quick page jump"
+        >
+          {jumps.map((p) => (
+            <Link
+              key={p}
+              href={pageHref(basePath, params, p)}
+              className="rounded px-1.5 py-0.5 transition hover:bg-black/[0.05] hover:text-neutral-600 dark:hover:bg-white/[0.06] dark:hover:text-neutral-400"
+            >
+              {p}
+            </Link>
+          ))}
+        </div>
+      ) : null}
     </nav>
   );
 }
