@@ -34,6 +34,7 @@ import { fetchPostsByIds } from "./posts";
 import { peekUkraineFeedTotal } from "./country-counts";
 import { countryByCode, DEFAULT_COUNTRY_CODE, WORLDWIDE_CODE } from "@/lib/seo/countries";
 import { worldwidePosts } from "./facts-index";
+import { locationMatches } from "@/lib/seo/city-search";
 
 // 2026-09-05 (Aleksandr: "не загружай всю ленту сразу, а показывай
 // только постов 30... подгрузку и пагинацию") -- bumped from the
@@ -268,7 +269,12 @@ function applyLocalFilters(posts: WebPost[], filters: FeedFilters, needle: strin
   if (!needle && stack.length === 0) return posts;
 
   return posts.filter((post) => {
-    if (needle && !post.title.toLowerCase().includes(needle) && !post.contentText.toLowerCase().includes(needle)) {
+    if (
+      needle &&
+      !post.title.toLowerCase().includes(needle) &&
+      !post.contentText.toLowerCase().includes(needle) &&
+      !locationMatches(post.location, needle)
+    ) {
       return false;
     }
     if (stack.length > 0) {
@@ -385,7 +391,15 @@ export async function fetchFeedPage(
   }
 
   const scanned = await getScanPosts(kind, filters);
-  const matches = applyLocalFilters(inUkraineMode(kind, filters) ? scanned.filter(keepInUkraineFeed) : scanned, filters, needle);
+  // Запрос-город («Vienna») возвращает и зарубежные вакансии этого города, хотя лента
+  // «Україна» их обычно отсекает: человек сам назвал место.
+  const matches = applyLocalFilters(
+    inUkraineMode(kind, filters)
+      ? scanned.filter((post) => keepInUkraineFeed(post) || (needle !== null && locationMatches(post.location, needle)))
+      : scanned,
+    filters,
+    needle,
+  );
   const hasMore = nextOffset < matches.length;
   return {
     posts: matches.slice(offset, nextOffset),
