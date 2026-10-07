@@ -319,7 +319,7 @@ export function AlphaPaywall({
             </form>
           </div>
 
-          <div className="order-1 flex items-center justify-center sm:pointer-events-none sm:absolute sm:right-8 md:right-[88px] sm:top-1/2 sm:z-0 sm:order-2 sm:-translate-y-1/2">
+          <div className="order-1 flex items-center justify-center sm:pointer-events-none sm:absolute sm:right-8 md:right-[88px] sm:top-1/2 sm:z-0 sm:order-2 sm:-translate-y-1/2 sm:mt-[50px]">
             <div className="relative h-[150px] w-[150px] sm:h-[272px] sm:w-[272px]">
               <video
                 className="h-full w-full object-contain mix-blend-multiply [mask-image:radial-gradient(circle,#000_58%,transparent_71%)] dark:hidden"
@@ -400,17 +400,7 @@ function AlphaLogo({ word }: { word: string }) {
   return (
     <div className="flex items-center gap-2 select-none sm:gap-2.5">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/premium/alpha-glow.png"
-        alt="Alpha"
-        className="-my-3 -ml-2 hidden h-[60px] w-auto sm:h-[72px] dark:block"
-      />
-      <span
-        className="bg-clip-text pr-1 text-[36px] font-black italic leading-none tracking-[-0.04em] text-transparent sm:text-[44px] dark:hidden"
-        style={{ backgroundImage: "linear-gradient(100deg,#0148fc 0%,#1f5dff 100%)" }}
-      >
-        Alpha
-      </span>
+      <img src="/premium/alpha-logo.png" alt="Alpha" className="h-[38px] w-auto sm:h-[46px]" />
       <span className="text-[24px] font-semibold leading-none tracking-[-0.02em] text-[#3a3a3c] sm:text-[29px] dark:text-[#d6d6e0]">
         {word}
       </span>
