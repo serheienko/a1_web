@@ -94,6 +94,7 @@ function foldByCity(list: MapCompany[], limit: number): MapCompany[] {
   const keep = Math.max(0, limit - 400);
   const out = list.slice(0, keep);
   const groups = new Map<string, MapCompany & { names: string[]; cos: number; cluster: true }>();
+  const firstOf = new Map<string, MapCompany>();
   for (const c of list.slice(keep)) {
     const key = `${c.cc}|${c.city}`;
     let g = groups.get(key);
@@ -106,8 +107,11 @@ function foldByCity(list: MapCompany[], limit: number): MapCompany[] {
     g.cos += 1;
     g.names.push(c.name);
     if (g.jobs.length < 3 && c.jobs[0]) g.jobs.push(c.jobs[0]);
+    if (!firstOf.has(key)) firstOf.set(key, c);
   }
-  return [...out, ...groups.values()];
+  // 07.10.2026: «+1» не кластер -- одна компанія в місті показується сама собою, з назвою
+  const rest = [...groups.entries()].map(([k, g]) => (g.cos === 1 ? firstOf.get(k)! : g));
+  return [...out, ...rest];
 }
 
 // 02.10.2026 (Александр: «розбий ще по країнах, які в нас є»). Список

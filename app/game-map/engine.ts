@@ -920,15 +920,17 @@ export function mountGameMap(root, opts) {
   function drawCompany(c, t, far) {
     const act = c === hover || c === pinned;
     if (c.cluster) {
-      // 07.10.2026: кластер «+N» -- завжди булавка з підписом, будинку немає
-      const w = act ? 19 : 17; const h = drawSprite(c.pin, c.x, c.y, w) || w;
+      // 07.10.2026: кластер «+N» -- завжди булавка з підписом, будинку немає.
+      // Як у Google Maps / Mapbox: маркер має сталий розмір на екрані, зум його не роздуває
+      // (булавка в одиницях карти росла разом із зумом і закривала півекрана).
+      const w = Math.min(act ? 19 : 17, (act ? 30 : 26) / view.s); const h = drawSprite(c.pin, c.x, c.y, w) || w;
       c._r = { x: c.x, y: c.y - h / 2, w, h };
       if (act || view.s >= minS * 1.6) labelQ.push(c);
       return;
     }
     if (!act && ((c.ext && view.s < minS * 3) || (far && c.l <= 3 && cos.length <= 120))) {
-      // мелкие издалека -- булавки
-      const w = 15; const h = drawSprite(c.pin, c.x, c.y, w) || w;
+      // мелкие издалека -- булавки; на екрані не більше 24 px, хоч як наближай
+      const w = Math.min(15, 24 / view.s); const h = drawSprite(c.pin, c.x, c.y, w) || w;
       c._r = { x: c.x, y: c.y - h / 2, w, h };
       return;
     }
