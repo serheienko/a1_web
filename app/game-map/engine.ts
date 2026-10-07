@@ -1006,7 +1006,7 @@ export function mountGameMap(root, opts) {
     if (c.cluster) {
       // 07.10.2026: кластер -- скільки компаній і вакансій у місті, кілька назв і вакансій
       const jobsC = (c.jobs || []).slice(0, 3).map((j) => `<a href="/jobs/${esc(j.slug)}">${esc(j.title)}</a>`).join('');
-      const nm = (c.names || []).slice(0, 6).map(esc).join(' · ') + ((c.names || []).length > 6 ? ' …' : '');
+      const nm = (c.names || []).slice(0, 12).map(esc).join(' · ') + ((c.names || []).length > 12 ? ' …' : '');
       return `<div class="gm-ph" style="--fc:${esc(c.color)}"><div class="gm-ava"><span>+</span></div><div class="gm-pt"><b>${esc(nForm(c.cos || 0, 'cos'))}</b><small>${esc(cityName(c.ck, lang))}</small></div><button class="gm-x" type="button" aria-label="${esc(tr('close'))}">×</button></div>
       <div class="gm-chips"><span class="gm-chip g">💼 ${nForm(c.n, 'vac')}</span></div>
       ${nm ? `<p class="gm-bio">${nm}</p>` : ''}
@@ -1228,7 +1228,9 @@ export function mountGameMap(root, opts) {
   const up = (e) => { const tap = moved < 6 && pts.size === 1; pts.delete(e.pointerId); if (pts.size < 2) pinch = null; drag = null;
     const r = cv.getBoundingClientRect();
     if (e.pointerType === 'mouse') { const c = hit(e.clientX - r.left, e.clientY - r.top); cv.style.cursor = c ? 'pointer' : 'grab'; }
-    if (tap) { const c = hit(e.clientX - r.left, e.clientY - r.top); pinned = c; hover = c; showPopup(c);
+    if (tap) { const c = hit(e.clientX - r.left, e.clientY - r.top);
+      // 07.10.2026: «+N» здалеку -- плавно наближаємо до міста (як кластер у Google Maps), потім список компаній
+      if (c && c.cluster && view.s < minS * 3) focusCluster(c); else { pinned = c; hover = c; showPopup(c); }
       // клік по сусідній країні чекає мить: якщо це подвійний клік (зум),
       // країну не перемикаємо
       if (!c) { const sx = e.clientX - r.left, sy = e.clientY - r.top; clearTimeout(tapT); tapT = setTimeout(() => { if (!destroyed) tapCountry(sx, sy); }, e.pointerType === 'mouse' ? 280 : 0); } } };
@@ -1311,6 +1313,16 @@ export function mountGameMap(root, opts) {
     sug.classList.toggle('on', !!q);
   }
   function byCi(ci) { return String(ci).startsWith('o') ? offMap[Number(String(ci).slice(1))] : cos[Number(ci)]; }
+  // 07.10.2026: кластер -- той самий політ, що й у пошуку, без нових запитів (усе вже в браузері)
+  function focusCluster(c) {
+    pinned = null; hover = null; showPopup(null);
+    const target = Math.min(maxS, Math.max(view.s * 1.8, minS * 3.2));
+    const from = { ...view }, start = performance.now();
+    const tx = W / 2 - c.x * target, ty = H / 2 - c.y * target + 120;
+    anim = () => { const k = Math.min(1, (performance.now() - start) / 650); const e = 1 - (1 - k) ** 3;
+      view.s = from.s + (target - from.s) * e; view.x = from.x + (tx - from.x) * e; view.y = from.y + (ty - from.y) * e; clamp(); baseCache = null;
+      if (k >= 1) { anim = null; pinned = c; hover = c; showPopup(c); } };
+  }
   function pickCompany(c) {
     if (!c) return;
     if (c.off) { if (c.username) location.href = profileHref(c); return; } qIn.value = c.name; sug.classList.remove('on'); qIn.blur();
