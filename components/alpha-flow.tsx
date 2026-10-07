@@ -254,7 +254,7 @@ export function AlphaFlow({
       <div ref={chatRef} className="flex max-h-[220px] flex-col gap-2 overflow-y-auto pr-1">
         {msgs.map((m, i) =>
           m.from === "me" ? (
-            <div key={i} className="max-w-[85%] self-end rounded-[16px] rounded-br-[6px] bg-[#335ef7] px-3.5 py-2 text-[15px] text-white">
+            <div key={i} className="max-w-[85%] self-end rounded-[16px] rounded-br-[6px] bg-[#335ef7] px-3.5 dark:bg-[#0c8ce9] py-2 text-[15px] text-white">
               {m.text}
             </div>
           ) : (
@@ -274,7 +274,7 @@ export function AlphaFlow({
                 key={o.value}
                 type="button"
                 onClick={() => answer(o.value, o.label)}
-                className="rounded-full border border-[#335ef7]/30 px-3.5 py-1.5 text-[14px] font-medium text-[#335ef7] transition hover:bg-[#335ef7] hover:text-white dark:border-[#7f8cff]/40 dark:text-[#b4c0ff] dark:hover:bg-[#5a4dff] dark:hover:text-white"
+                className="rounded-full border border-[#335ef7]/30 px-3.5 py-1.5 text-[14px] font-medium text-[#335ef7] transition hover:bg-[#335ef7] hover:text-white dark:border-[#0c8ce9]/40 dark:text-[#b4c0ff] dark:hover:bg-[#5a4dff] dark:hover:text-white"
               >
                 {o.label}
               </button>
@@ -292,9 +292,9 @@ export function AlphaFlow({
                 value={own}
                 onChange={(e) => setOwn(e.target.value)}
                 placeholder={S.own[l]}
-                className="min-w-0 flex-1 rounded-full border border-black/10 bg-transparent px-4 py-2 outline-none focus:border-[#335ef7] dark:border-white/15"
+                className="min-w-0 flex-1 rounded-full border border-black/10 bg-transparent px-4 py-2 outline-none focus:border-[#335ef7] dark:border-white/15 dark:focus:border-[#0c8ce9]"
               />
-              <button type="submit" className="rounded-full bg-[#335ef7] px-4 text-[14px] font-semibold text-white disabled:opacity-40" disabled={!own.trim()}>
+              <button type="submit" className="rounded-full bg-[#335ef7] px-4 dark:bg-[#0c8ce9] text-[14px] font-semibold text-white disabled:opacity-40" disabled={!own.trim()}>
                 {S.send[l]}
               </button>
             </form>

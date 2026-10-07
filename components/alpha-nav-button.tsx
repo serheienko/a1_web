@@ -15,6 +15,7 @@ import { useActiveLocale } from "@/lib/use-active-locale";
 import { useHoverPanel } from "@/lib/use-hover-panel";
 
 const FLOW = "linear-gradient(100deg,#0148fc 0%,#5a4dff 25%,#963fff 50%,#5a4dff 75%,#0148fc 100%)";
+const FLOW_DARK = "linear-gradient(100deg,#0c8ce9 0%,#4f86ff 25%,#9a5cff 50%,#4f86ff 75%,#0c8ce9 100%)";
 
 // 07.10.2026: все 9 языков сайта; обращение на «Ви/Вы» (Александр: «не
 // злоупотреблять "ты" в наших культурах»).
@@ -124,7 +125,7 @@ export function AlphaNavButton() {
       title: t(S.s5),
       body: (
         <span className="flex items-center gap-2 rounded-lg bg-neutral-100 px-2 py-1.5 dark:bg-neutral-800">
-          <span className="grid h-5 w-5 place-items-center rounded-full text-white" style={{ background: FLOW }}>
+          <span className="alpha-nav-flow grid h-5 w-5 place-items-center rounded-full text-white">
             <Spark className="h-3 w-3" />
           </span>
           <span className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-200">{t(S.chat)}</span>
@@ -136,7 +137,7 @@ export function AlphaNavButton() {
 
   return (
     <div ref={wrapRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} className="relative hidden shrink-0 sm:block">
-      <style>{`@keyframes alphaNavFlow{0%{background-position:0% 50%}100%{background-position:200% 50%}}.alpha-nav-flow{background-image:${FLOW};background-size:200% 100%;animation:alphaNavFlow 4s linear infinite}@media (prefers-reduced-motion:reduce){.alpha-nav-flow{animation:none}}`}</style>
+      <style>{`@keyframes alphaNavFlow{0%{background-position:0% 50%}100%{background-position:200% 50%}}.alpha-nav-flow{background-image:${FLOW};background-size:200% 100%;animation:alphaNavFlow 4s linear infinite}.dark .alpha-nav-flow{background-image:${FLOW_DARK}}@media (prefers-reduced-motion:reduce){.alpha-nav-flow{animation:none}}`}</style>
       {/* 07.10.2026 (Александр: «кнопку белую, а вокруг фиолетовую
           окантовку — аккуратнее, но продаёт»): белая пилюля в переливающейся
           рамке, текст и искра — тем же градиентом. При наведении рамка
@@ -147,7 +148,7 @@ export function AlphaNavButton() {
         className="alpha-nav-flow group flex h-9 shrink-0 rounded-full p-[1.5px] shadow-[0_3px_12px_rgba(90,80,255,0.22)] transition hover:-translate-y-px hover:shadow-[0_6px_18px_rgba(110,77,255,0.4)] active:translate-y-0"
       >
         <span className="flex h-full items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-3.5 text-sm font-semibold transition-colors duration-200 group-hover:bg-transparent dark:bg-neutral-900 dark:group-hover:bg-transparent">
-          <Spark className="h-4 w-4 text-[#5a4dff] transition-colors group-hover:text-white dark:text-[#a99bff]" />
+          <Spark className="h-4 w-4 text-[#5a4dff] transition-colors group-hover:text-white dark:text-[#0c8ce9]" />
           <span className="alpha-nav-flow bg-clip-text text-transparent transition-colors group-hover:text-white">{t(S.btn)}</span>
         </span>
       </button>

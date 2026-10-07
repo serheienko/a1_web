@@ -13,6 +13,7 @@
 // Test environment only for now: payments are not connected, so the CTA
 // calls `onActivate` and the parent decides what happens.
 
+import { DICT_LANGS, GlobeIcon, initialDictLang, saveDictLang } from "@/lib/dictation-langs";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
 import { AlphaFlow } from "@/components/alpha-flow";
@@ -145,6 +146,9 @@ export function startAlphaMusic() {
 }
 // Seamless loop for the "flowing" buttons: blue -> violet -> purple -> back.
 const FLOW = "linear-gradient(100deg,#0148fc 0%,#5a4dff 25%,#963fff 50%,#5a4dff 75%,#0148fc 100%)";
+// 07.10.2026 (Александр: «синий в тёмной темноватый — как основа сайта»):
+// в тёмной теме градиент начинается с акцента сайта #0c8ce9, как кнопка «+».
+const FLOW_DARK = "linear-gradient(100deg,#0c8ce9 0%,#4f86ff 25%,#9a5cff 50%,#4f86ff 75%,#0c8ce9 100%)";
 
 export function AlphaPaywall({
   open,
@@ -165,6 +169,11 @@ export function AlphaPaywall({
   const [authNeeded, setAuthNeeded] = useState(false);
   const [sound, setSound] = useState(true);
   const [listening, setListening] = useState(false);
+  // 07.10.2026 (Александр: «показывать выбор языка рядом, как в Magic Wand»):
+  // браузер сам язык речи не определяет -- выбираем его у микрофона.
+  const [dictLang, setDictLang] = useState<string>("en");
+  const [langOpen, setLangOpen] = useState(false);
+  useEffect(() => setDictLang(initialDictLang(String(lang))), [lang]);
   const [country, setCountry] = useState<string | null>(null);
   const pricingRef = useRef<HTMLDivElement | null>(null);
 
@@ -282,7 +291,7 @@ export function AlphaPaywall({
     const Ctor = w.SpeechRecognition ?? w.webkitSpeechRecognition;
     if (!Ctor) return;
     const rec = new Ctor();
-    rec.lang = lang === "uk" ? "uk-UA" : lang === "ru" ? "ru-RU" : "en-US";
+    rec.lang = DICT_LANGS.find((l) => l.code === dictLang)?.bcp ?? "en-US";
     rec.interimResults = true;
     rec.onresult = (ev) => {
       let text = "";
@@ -307,6 +316,7 @@ export function AlphaPaywall({
       <style>{`
         @keyframes alphaFlow { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
         .alpha-flow { background-image: ${FLOW}; background-size: 200% 100%; animation: alphaFlow 4s linear infinite; }
+        .dark .alpha-flow { background-image: ${FLOW_DARK}; }
         @media (prefers-reduced-motion: reduce) { .alpha-flow { animation: none; } }
       `}</style>
       <div
@@ -357,8 +367,8 @@ export function AlphaPaywall({
               <div
                 className="alpha-flow flex items-center gap-2 rounded-full p-[2px]"
               >
-                <div className="flex h-[58px] flex-1 items-center gap-2 rounded-full bg-white pl-5 pr-[5px] dark:bg-[#1a1a24]">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#335ef7" strokeWidth="2.4" strokeLinecap="round" className="shrink-0"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
+                <div className="flex h-[58px] min-w-0 flex-1 items-center gap-1 rounded-full bg-white pl-4 pr-[5px] sm:gap-2 sm:pl-5 dark:bg-[#1a1a24]">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" className="shrink-0 text-[#335ef7] dark:text-[#0c8ce9]"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
                   <input
                     ref={inputRef}
                     value={query}
@@ -370,6 +380,42 @@ export function AlphaPaywall({
                     placeholder={t("placeholder", lang)}
                     className="min-w-0 flex-1 bg-transparent text-[#0b0b14] outline-none placeholder:text-[#8e8e93] dark:text-white"
                   />
+                  <div className="relative shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setLangOpen((v) => !v)}
+                      aria-haspopup="listbox"
+                      aria-expanded={langOpen}
+                      className="flex h-8 items-center gap-1 rounded-full px-1.5 text-[13px] font-semibold sm:px-2 text-[#6b6b78] transition hover:bg-black/5 dark:text-[#a9a9b8] dark:hover:bg-white/10"
+                    >
+                      <GlobeIcon className="hidden h-4 w-4 sm:block" />
+                      {dictLang.toUpperCase()}
+                    </button>
+                    {langOpen && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setLangOpen(false)} />
+                        <div role="listbox" className="absolute right-0 top-[40px] z-50 max-h-[320px] w-[220px] overflow-y-auto rounded-[20px] bg-white/95 p-1.5 shadow-xl ring-1 ring-black/5 backdrop-blur dark:bg-[#1c1c24]/95 dark:ring-white/10">
+                          {DICT_LANGS.map((l) => (
+                            <button
+                              key={l.code}
+                              type="button"
+                              role="option"
+                              aria-selected={l.code === dictLang}
+                              onClick={() => {
+                                setDictLang(l.code);
+                                saveDictLang(l.code);
+                                setLangOpen(false);
+                              }}
+                              className="flex min-h-[40px] w-full items-center gap-2.5 rounded-2xl px-2 text-left hover:bg-black/5 dark:hover:bg-white/10"
+                            >
+                              <span className="text-[18px] leading-none">{l.flag}</span>
+                              <span className={`truncate text-[15px] ${l.code === dictLang ? "font-bold text-[#335ef7] dark:text-[#9fb2ff]" : "font-medium text-[#0b0b14] dark:text-white"}`}>{l.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
                   <button
                     type="button"
                     onClick={startVoice}
@@ -521,7 +567,9 @@ function AlphaLogo({ word }: { word: string }) {
   return (
     <div className="flex items-center gap-2 select-none sm:gap-2.5">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/premium/alpha-logo.png" alt="Alpha" className="h-[38px] w-auto sm:h-[46px]" />
+      <img src="/premium/alpha-logo.png" alt="Alpha" className="h-[38px] w-auto sm:h-[46px] dark:hidden" />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/premium/alpha-logo-dark.png" alt="Alpha" className="hidden h-[38px] w-auto sm:h-[46px] dark:block" />
       <span className="text-[24px] font-semibold leading-none tracking-[-0.02em] text-[#3a3a3c] sm:text-[29px] dark:text-[#d6d6e0]">
         {word}
       </span>
@@ -559,12 +607,12 @@ function PlanCard({
       aria-pressed={active}
       className={`relative flex items-start gap-3 rounded-[18px] border-2 p-3 text-left transition sm:px-4 sm:py-3 ${
         active
-          ? "border-[#335ef7] bg-[#335ef7]/[0.05] dark:border-[#7f8cff] dark:bg-white/[0.04]"
+          ? "border-[#335ef7] bg-[#335ef7]/[0.05] dark:border-[#0c8ce9] dark:bg-white/[0.04]"
           : "border-black/[0.08] hover:border-black/15 dark:border-white/10 dark:hover:border-white/20"
       }`}
     >
-      <span className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 ${active ? "border-[#335ef7] dark:border-[#7f8cff]" : "border-[#c7c7cc] dark:border-white/30"}`}>
-        {active && <span className="h-2.5 w-2.5 rounded-full bg-[#335ef7] dark:bg-[#7f8cff]" />}
+      <span className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 ${active ? "border-[#335ef7] dark:border-[#0c8ce9]" : "border-[#c7c7cc] dark:border-white/30"}`}>
+        {active && <span className="h-2.5 w-2.5 rounded-full bg-[#335ef7] dark:bg-[#0c8ce9]" />}
       </span>
       <span className="min-w-0">
         <span className="flex items-center gap-2 text-[15px] font-semibold">
