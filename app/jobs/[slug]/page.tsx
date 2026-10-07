@@ -21,6 +21,8 @@ import { techLandingHref } from "@/lib/seo/tech-landings";
 import { CachedAvatar } from "@/components/cached-avatar";
 import { PostImages } from "@/components/post-images";
 import { truncateAtWordBoundary } from "@/lib/format";
+import { COUNTRIES } from "@/lib/seo/countries";
+import type { WebPost } from "@/types/web-post";
 import { buildJobMetaDescription, buildExternalJobMetaDescription, isExternalIndexable } from "@/lib/seo/job-meta";
 import { findLandingByTag } from "@/lib/seo/job-landings";
 import { fetchPostComments } from "@/lib/a1/comments";
@@ -50,6 +52,48 @@ const SITE_URL = "https://jobs.a1appp.com";
 
 type Props = { params: Promise<{ slug: string }> };
 
+/**
+ * Заголовок вкладки и выдачи для вакансии.
+ *
+ * 07.10.2026 (Search Console: «Страница является копией»). Одна компания
+ * часто публикует ту же вакансию в нескольких городах -- Axonius,
+ * «Product Security Architect» в Португалии, Великобритании и Израиле;
+ * «Фахівець з кодифікації» во Львове и в Вишневом. Это честно разные
+ * вакансии, но заголовки у страниц были одинаковые, и Google склеивал их
+ * в одну. Теперь в заголовке есть место -- город или страна.
+ *
+ * Заодно ушла старая ошибка: длинный заголовок резался по длине вместе с
+ * компанией, и в выдаче оставалось «Фахівець з кодифікації ... —» с
+ * висящим тире. Теперь варианты перебираются от полного к короткому, и
+ * режется только название вакансии, а не хвост с компанией.
+ */
+function buildJobPageTitle(post: WebPost): string {
+  const max = post.isExternal ? 70 : 60;
+  const sep = post.isExternal ? " at " : " — ";
+  const company = post.author.name.trim();
+  const loc = post.location;
+  const countryCode = loc?.country.trim().toUpperCase() ?? "";
+  const country = COUNTRIES.find((c) => c.code === countryCode);
+  const place =
+    loc?.city.trim() ||
+    (country ? (post.isExternal ? country.en : country.uk) : "");
+  const head = company ? `${sep}${company}` : "";
+  const tails = [
+    ...(place ? [`${head}, ${place} | A1 Jobs`, `${head}, ${place}`] : []),
+    `${head} | A1 Jobs`,
+    head,
+  ];
+  for (const tail of tails) {
+    if (post.title.length + tail.length <= max) return post.title + tail;
+  }
+  // Название само длинное: режем его, оставляя место хотя бы для компании
+  // (и места, если влезает), но не меньше 25 символов на само название.
+  for (const tail of place ? [`${head}, ${place}`, head] : [head]) {
+    if (max - tail.length >= 25) return truncateAtWordBoundary(post.title, max - tail.length) + tail;
+  }
+  return truncateAtWordBoundary(post.title, max);
+}
+
 async function loadJob(slug: string) {
   const id = parseSlugId(slug);
   if (!id) return null;
@@ -70,10 +114,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   // 30.09.2026 (Конкистадор, SEO): внешняя вакансия -- английский текст
   // компании со всего мира, заголовок и описание тоже английские.
   const description = post.isExternal ? buildExternalJobMetaDescription(post) : buildJobMetaDescription(post);
-  const title = truncateAtWordBoundary(
-    post.isExternal ? `${post.title} at ${post.author.name} | A1 Jobs` : `${post.title} — ${post.author.name} | A1 Jobs`,
-    post.isExternal ? 70 : 60,
-  );
+  const title = buildJobPageTitle(post);
   const expired = isJobPostingExpired(post);
 
   return {

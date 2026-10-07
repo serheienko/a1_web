@@ -7,6 +7,7 @@
 import type { WebPost } from "@/types/web-post";
 import { profileHref } from "@/lib/profile-href";
 import { COUNTRIES } from "@/lib/seo/countries";
+import { extractSalaryFromText } from "@/lib/seo/salary-from-text";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -21,6 +22,23 @@ const WORLDWIDE_COUNTRY = "WW";
  */
 export function jobPostingValidThrough(post: WebPost): Date {
   return new Date(post.publishedAt.getTime() + VALID_THROUGH_DAYS * 24 * 60 * 60 * 1000);
+}
+
+/**
+ * 07.10.2026 (Search Console: «Отсутствует поле validThrough» у всех
+ * вакансий в отчёте). У внешней вакансии своего срока нет -- она живёт,
+ * пока есть в фиде компании, и ежедневный забег сам убирает пропавшие.
+ * Поэтому срок -- скользящий: «ещё 30 дней от сегодня». Это правда в той
+ * же мере, в какой правда то, что вакансия сегодня открыта: завтра мы
+ * либо продлим срок, либо снимем вакансию. Округляем до начала дня, чтобы
+ * значение не менялось при каждом показе страницы.
+ */
+const EXTERNAL_VALID_DAYS = 30;
+
+export function externalValidThrough(now: number = Date.now()): Date {
+  const day = new Date(now);
+  day.setUTCHours(0, 0, 0, 0);
+  return new Date(day.getTime() + EXTERNAL_VALID_DAYS * 24 * 60 * 60 * 1000);
 }
 
 export function isJobPostingExpired(post: WebPost): boolean {
@@ -117,9 +135,8 @@ export function buildJobPostingJsonLd(
     // publishedAt on purpose: it is our listing window, and anchoring it to an
     // older source date would mark freshly imported vacancies as expired.
     datePosted: (post.sourcePublishedAt ?? post.publishedAt).toISOString(),
-    // Внешняя вакансия: срока нет (см. isJobPostingExpired), поле у
-    // JobPosting необязательное -- лучше не отдать, чем отдать выдуманное.
-    ...(post.isExternal ? {} : { validThrough: jobPostingValidThrough(post).toISOString() }),
+    // Внешняя вакансия: срок скользящий (см. externalValidThrough).
+    validThrough: (post.isExternal ? externalValidThrough() : jobPostingValidThrough(post)).toISOString(),
     // Технологии из текста вакансии. Поле у JobPosting предусмотрено и
     // необязательно -- пустой список просто не добавляем, чтобы не
     // отдавать Google пустую строку.
@@ -274,6 +291,22 @@ export function buildJobPostingJsonLd(
         unitText: post.salary.period,
       },
     };
+  } else {
+    // 07.10.2026: поля нет, но зарплата написана в самом тексте вакансии
+    // (см. lib/seo/salary-from-text.ts -- там же, почему это не выдумка).
+    const fromText = extractSalaryFromText(post.contentText);
+    if (fromText) {
+      jsonLd.baseSalary = {
+        "@type": "MonetaryAmount",
+        currency: fromText.currency,
+        value: {
+          "@type": "QuantitativeValue",
+          minValue: fromText.min,
+          maxValue: fromText.max,
+          unitText: fromText.unitText,
+        },
+      };
+    }
   }
 
   // 2026-09-14: employmentType больше не пропускается -- см.
