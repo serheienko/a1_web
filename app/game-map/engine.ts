@@ -1014,11 +1014,36 @@ export function mountGameMap(root, opts) {
     allyBusy = true;
     try { if (allies.has(c.userId)) await removeAlly(c); else await addAlly(c); } finally { allyBusy = false; }
   }
+  // 07.10.2026 (Александр: «союзники не работают в приложении»). В
+  // приложении сайт не знает, кто вошёл (вход -- в приложении, а не на
+  // сайте), поэтому контакты добавляет и читает само приложение: карта
+  // просит его через мостик A1Map и ждёт ответ в window.__a1MapReply.
+  let appReqN = 0;
+  const appWaits = new Map();
+  if (appMode) {
+    window.__a1MapReply = (id, ok, data) => {
+      const w = appWaits.get(id); if (!w) return;
+      appWaits.delete(id); if (ok) w.res(data); else w.rej(new Error('app call failed'));
+    };
+  }
+  function appApi(method, body) {
+    return new Promise((res, rej) => {
+      const id = ++appReqN; appWaits.set(id, { res, rej });
+      try { window.A1Map.postMessage(JSON.stringify({ t: 'api', id, method, body })); } catch (e) { appWaits.delete(id); rej(e); return; }
+      setTimeout(() => { if (appWaits.has(id)) { appWaits.delete(id); rej(new Error('timeout')); } }, 15000);
+    });
+  }
   async function removeAlly(c) {
     try {
       let cid = allies.get(c.userId);
       if (!cid) { await loadAllies(); cid = allies.get(c.userId); }
       if (!cid) throw new Error('no contact id');
+      if (appMode) {
+        await appApi('contacts.deleteContacts', { ids: [cid] });
+        allies.delete(c.userId); popFor = null; showPopup(c);
+        toast(tr('allyGone'), tr('allyGoneSub'), c.avatar, true);
+        return;
+      }
       const r = await fetch('/api/contacts/remove', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contactId: cid }) });
       if (r.status === 401) { location.href = '/sign-in?next=' + encodeURIComponent(location.pathname); return; }
       if (!r.ok) throw new Error(String(r.status));
@@ -1028,6 +1053,13 @@ export function mountGameMap(root, opts) {
   }
   async function addAlly(c) {
     try {
+      if (appMode) {
+        const d = await appApi('contacts.addContact', { user: c.userId });
+        allies.set(c.userId, (d && d._id) || ''); popFor = null; showPopup(c);
+        const ab = pop.querySelector('.gm-ally'); if (ab) ab.classList.add('pop');
+        toast(tr('allyDone'), tr('allyDoneSub'), c.avatar);
+        return;
+      }
       const r = await fetch('/api/contacts/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: c.userId }) });
       if (r.status === 401) { location.href = '/sign-in?next=' + encodeURIComponent(location.pathname); return; }
       if (!r.ok) throw new Error(String(r.status));
@@ -1048,8 +1080,14 @@ export function mountGameMap(root, opts) {
   }
   async function loadAllies() {
     try {
-      const r = await fetch('/api/contacts/list'); if (!r.ok) return;
-      const j = await r.json(); const list = j.contacts || j.data || j.items || [];
+      let list;
+      if (appMode) {
+        const d = await appApi('contacts.search', {});
+        list = Array.isArray(d) ? d : (d && (d.items || d.contacts)) || [];
+      } else {
+        const r = await fetch('/api/contacts/list'); if (!r.ok) return;
+        const j = await r.json(); list = j.contacts || j.data || j.items || [];
+      }
       allies.clear(); for (const it of list) { const id = it.userId || it.user?.id || it.user?._id || it.user; if (typeof id === 'string') allies.set(id, it._id || it.id || ''); }
       allyKnown = true;
     } catch { /* гость: союзников нет */ }
@@ -1210,8 +1248,8 @@ export function mountGameMap(root, opts) {
   // ---------- режим приложения ----------
   // 04.10.2026 (Александр): карта внутри приложения A1 (WebView). Сразу на
   // весь экран без меню сайта; тему и язык задаёт приложение, поэтому
-  // кнопок темы и «на весь экран» нет, вместо них -- «закрыть». Кнопку
-  // «союзник» прячем: она требует входа на сайт, а не в приложение.
+  // кнопок темы и «на весь экран» нет, вместо них -- «закрыть». Кнопка
+  // «союзник» работает через приложение (07.10.2026, см. appApi).
   // Профиль и вакансии -- обычные ссылки /u/... и /jobs/...: приложение
   // перехватывает их и открывает свои экраны.
   function closeApp() {
@@ -1470,7 +1508,7 @@ export const GAME_MAP_CSS = `
 .gm2 .gm-fs,.gm2 .gm-theme,.gm2 .gm-info,.gm2 .gm-music,.gm2 .gm-close{display:grid;place-items:center;padding:0;width:38px}
 .gm2 .gm-close{display:none}
 .gm2.gm-app .gm-close{display:grid}
-.gm2.gm-app .gm-theme,.gm2.gm-app .gm-fs,.gm2.gm-app .gm-ally{display:none}
+.gm2.gm-app .gm-theme,.gm2.gm-app .gm-fs{display:none}
 .gm2.gm-app .gm-top{top:calc(env(safe-area-inset-top,0px) + 8px)}
 .gm2.gm-app .gm-guide{bottom:calc(env(safe-area-inset-bottom,0px) + 8px)}
 .gm2.gm-app .gm-zoom{bottom:calc(env(safe-area-inset-bottom,0px) + 12px)}
