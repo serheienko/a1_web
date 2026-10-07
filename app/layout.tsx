@@ -286,7 +286,7 @@ export default function RootLayout({
       >
         <Script id="theme-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <Script id="lang-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: LANG_INIT_SCRIPT }} />
-        <SiteNav />
+        <SiteNav alpha={process.env.PREMIUM_PREVIEW === "1"} />
         {/* 2026-09-03: cross-page voice-message "now playing" mini-bar --
             mounted globally for the same reason ChatsFab/CreatePostFab
             are (shown/controllable on every route, not just inside the

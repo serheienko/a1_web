@@ -92,7 +92,7 @@ export async function JobLandingPage({
         <span aria-hidden="true" className="px-1.5">/</span>
       </nav>
 
-      <LandingBar country={country} basePath={basePath} currentKey={landing.slug} withPicker={!filters?.top100} />
+      <LandingBar country={country} basePath={basePath} currentKey={landing.slug} withPicker={!filters?.top100} worldDefault={!!filters?.top100} />
 
       <header className="mb-8">
         {/* В отличие от главной, заголовок виден и на телефоне: на

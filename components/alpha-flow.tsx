@@ -24,7 +24,7 @@ const S = {
   own: { uk: "Свій варіант…", en: "Your own answer…", ru: "Свой вариант…" },
   send: { uk: "Надіслати", en: "Send", ru: "Отправить" },
   thinking: { uk: "Alpha думає…", en: "Alpha is thinking…", ru: "Alpha думает…" },
-  understood: { uk: "Уточнимо перед пошуком", en: "Let's check before searching", ru: "Уточним перед поиском" },
+  understood: { uk: "Все вірно?", en: "All correct?", ru: "Всё верно?" },
   search: { uk: "Шукати", en: "Search", ru: "Искать" },
   restart: { uk: "Почати спочатку", en: "Start over", ru: "Начать сначала" },
   searching: { uk: "Alpha переглядає вакансії…", en: "Alpha is going through the posts…", ru: "Alpha просматривает вакансии…" },

@@ -342,7 +342,7 @@ export function AlphaPaywall({
               {authNeeded && (
                 <p className="mt-1 pl-1 text-[14px] font-semibold text-[#3a3a3c] dark:text-white">
                   {t("signInNeed", lang)}{" "}
-                  <a href="/sign-in?next=%2Fpremium-preview" className="text-[#335ef7] underline dark:text-[#9fb2ff]">
+                  <a href={`/sign-in?next=${encodeURIComponent(typeof window !== "undefined" ? window.location.pathname + window.location.search : "/")}`} className="text-[#335ef7] underline dark:text-[#9fb2ff]">
                     {t("signIn", lang)}
                   </a>
                 </p>

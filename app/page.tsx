@@ -34,6 +34,7 @@ import { fetchCategories, itCategoryValue } from "@/lib/a1/datasets";
 import { StackPicker } from "@/components/stack-picker";
 import { buildSiteJsonLd } from "@/lib/seo/jsonld";
 import { withCountry } from "@/lib/seo/landing-country";
+import { RowCountryPicker } from "@/components/nav-country";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -223,7 +224,13 @@ export default async function HomePage({ searchParams }: Props) {
 
           Порядок на планшете и шире сохраняем исходным: там ряды
           sm:contents, а каждому чипу задан order из CSS-переменной. */}
-      <div className="flex w-max flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
+      <div className="flex w-max flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+        {/* 07.10.2026: на тестовой копии страна -- первой в ряду (см. RowCountryPicker). */}
+        {process.env.PREMIUM_PREVIEW === "1" ? (
+          <div className="hidden sm:order-[-1] sm:block">
+            <RowCountryPicker basePath="/" current={filters.country} />
+          </div>
+        ) : null}
         {(() => {
           const chips: { key: string; href: string; label: Record<Locale, string> }[] = [
             { key: "top100", href: withCountry(`/jobs/${TOP100_LANDING.slug}`, filters.country), label: TOP100_LANDING.h1 },

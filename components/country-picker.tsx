@@ -50,11 +50,11 @@ const STRINGS = {
  * Собирает адрес с новой страной, сохраняя остальные параметры (поиск,
  * категорию, теги, стек), но сбрасывая страницу -- выдача другая.
  */
-function hrefFor(basePath: string, code: string, current: URLSearchParams | null, preserve: boolean): string {
+function hrefFor(basePath: string, code: string, current: URLSearchParams | null, preserve: boolean, resetCode: string = DEFAULT_COUNTRY_CODE): string {
   const params = new URLSearchParams(preserve ? (current ?? undefined) : undefined);
   params.delete("page");
   params.delete("top100");
-  if (code === DEFAULT_COUNTRY_CODE) params.delete("country");
+  if (code === resetCode) params.delete("country");
   else params.set("country", code.toLowerCase());
   const qs = params.toString();
   return qs ? `${basePath}?${qs}` : basePath;
@@ -66,6 +66,8 @@ export function CountryPicker({
   options,
   compact = false,
   preserveParams = true,
+  inRow = false,
+  worldDefault = false,
 }: {
   basePath: string;
   /** ISO-код выбранной страны; undefined = Україна (лента «для тебе»). */
@@ -78,6 +80,14 @@ export function CountryPicker({
   /** false -- на странице вакансии/профиля чужие параметры адреса
    *  (?page, ?q) в ленту переносить незачем. */
   preserveParams?: boolean;
+  /** 07.10.2026: селектор стоит первым в ряду чипов -- высота как у чипов,
+   *  название видно всегда, список раскрывается вправо. */
+  inRow?: boolean;
+  /** 07.10.2026: «Топ 100» по умолчанию -- весь мир, а не Україна. Первый
+   *  пункт «🌏 Весь світ» сбрасывает страну; Україна как фильтр не
+   *  поддерживается лентой, поэтому её нет; счётчики ленты к топ-100 не
+   *  относятся -- их не показываем. */
+  worldDefault?: boolean;
 }) {
   const locale = useActiveLocale();
   const [open, setOpen] = useState(false);
@@ -101,14 +111,20 @@ export function CountryPicker({
     if (!isPending) setOptimistic(null);
   }, [isPending]);
 
-  const currentCode = optimistic ?? countryByCode(current)?.code ?? DEFAULT_COUNTRY_CODE;
+  const resetCode = worldDefault ? WORLDWIDE_CODE : DEFAULT_COUNTRY_CODE;
+  const currentCode = optimistic ?? countryByCode(current)?.code ?? resetCode;
   const currentCountry = countryByCode(currentCode);
   const search = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
 
   // 01.10.2026 (Александр: «США обогнала Украину -- поставь сверху... просто
   // по порядку, от большего к меньшему»): сортируем все пункты, включая
   // Україна и Worldwide, по числу вакансий. Дефолт при этом остаётся Україна.
-  const rows: CountryOption[] = [
+  const rows: CountryOption[] = worldDefault
+    ? [
+        { code: WORLDWIDE_CODE, count: 0 },
+        ...options.filter((o) => o.count > 0 && o.code !== DEFAULT_COUNTRY_CODE && o.code !== WORLDWIDE_CODE).map((o) => ({ code: o.code, count: 0 })),
+      ]
+    : [
     ...(options.some((o) => o.code === DEFAULT_COUNTRY_CODE) ? [] : [{ code: DEFAULT_COUNTRY_CODE, count: 0 }]),
     ...options.filter((o) => o.count > 0 || o.code === DEFAULT_COUNTRY_CODE),
   ]
@@ -139,11 +155,12 @@ export function CountryPicker({
           // приподнимается, как только указатель над ней или над списком.
           (open ? "bg-black/5 dark:bg-white/10 " : "hover:bg-black/5 dark:hover:bg-white/10 ") +
           (compact ? "h-9 " : "") +
+          (inRow ? "!h-8 " : "") +
           GLASS
         }
       >
         <span aria-hidden="true" className="text-base leading-none">{flagEmoji(currentCode)}</span>
-        <span className={"max-w-[9rem] truncate " + (compact ? "hidden lg:inline" : "")}>
+        <span className={"max-w-[9rem] truncate " + (compact && !inRow ? "hidden lg:inline" : "")}>
           {currentCountry ? countryName(currentCountry, locale) : currentCode}
         </span>
         {isPending ? (
@@ -163,7 +180,8 @@ export function CountryPicker({
           ref={panelRef}
           role="listbox"
           className={
-            "absolute right-0 top-full z-50 mt-2 max-h-[70vh] w-64 max-w-[calc(100vw-2rem)] origin-top-right overflow-y-auto rounded-2xl p-1.5 transition duration-150 ease-out " +
+            (inRow ? "left-0 origin-top-left " : "right-0 origin-top-right ") +
+            "absolute top-full z-50 mt-2 max-h-[70vh] w-64 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-2xl p-1.5 transition duration-150 ease-out " +
             // 30.09.2026: под списком лежит текст вакансии, и при 55% прозрачности он
             // просвечивал сквозь названия стран. Список -- это поверхность для
             // чтения, а не украшение, поэтому почти непрозрачный фон + размытие.
@@ -175,8 +193,8 @@ export function CountryPicker({
             const country = countryByCode(row.code);
             if (!country) return null;
             const selected = row.code === currentCode;
-            const isDefault = row.code === DEFAULT_COUNTRY_CODE;
-            const href = hrefFor(basePath, row.code, search, preserveParams);
+            const isDefault = !worldDefault && row.code === DEFAULT_COUNTRY_CODE;
+            const href = hrefFor(basePath, row.code, search, preserveParams, resetCode);
             return (
               <Link
                 key={row.code}
@@ -202,7 +220,7 @@ export function CountryPicker({
                 <span aria-hidden="true" className="text-lg leading-none">{flagEmoji(row.code)}</span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium">{countryName(country, locale)}</span>
-                  {(isDefault || row.code === WORLDWIDE_CODE) && (
+                  {(isDefault || (row.code === WORLDWIDE_CODE && !worldDefault)) && (
                     <span className="block truncate text-[11px] text-neutral-500 dark:text-neutral-400">
                       {isDefault ? STRINGS.forYou[locale] : STRINGS.worldwide[locale]}
                     </span>

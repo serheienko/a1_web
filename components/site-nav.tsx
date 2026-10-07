@@ -77,6 +77,7 @@ import { GameMapButton } from "@/components/game-map-button";
 import { GameButton } from "@/components/game-button";
 import { GetAppButton } from "@/components/get-app-button";
 import { NavCountry } from "@/components/nav-country";
+import { AlphaNavButton } from "@/components/alpha-nav-button";
 import { NavFilters } from "@/components/nav-filters";
 import { T } from "@/components/t";
 import { GLASS } from "@/lib/glass";
@@ -108,7 +109,7 @@ const NAV_ITEMS = [
   },
 ];
 
-export function SiteNav() {
+export function SiteNav({ alpha = false }: { alpha?: boolean }) {
   const pathname = usePathname();
   const navRef = useRef<HTMLElement>(null);
   // 2026-09-02 (Aleksandr, live screenshot of a chat opened on mobile:
@@ -241,7 +242,9 @@ export function SiteNav() {
           {/* 30.09.2026: селектор страны -- отдельным блоком после слота
               поиска, чтобы не делить с ним потолок 12rem (см. шапку
               components/nav-country.tsx). */}
-          <NavCountry />
+          {/* 07.10.2026: на тестовой копии на этом месте «Try Alpha», а страна
+              уехала первым элементом в ряд чипов (components/geo-chip.tsx). */}
+          {alpha ? <AlphaNavButton /> : <NavCountry />}
         </div>
 
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">

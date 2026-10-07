@@ -8,7 +8,7 @@
 
 import Link from "next/link";
 import { T } from "@/components/t";
-import { LandingCountryPicker } from "@/components/nav-country";
+import { LandingCountryPicker, RowCountryPicker } from "@/components/nav-country";
 import { JOB_LANDINGS } from "@/lib/seo/job-landings";
 import { FACT_LANDINGS } from "@/lib/seo/fact-landings";
 import { TOP100_LANDING } from "@/lib/seo/top100-landing";
@@ -20,6 +20,7 @@ export function LandingBar({
   basePath,
   currentKey,
   withPicker = true,
+  worldDefault = false,
 }: {
   country?: string;
   /** Адрес текущей посадочной: страна меняется, тег остаётся. */
@@ -27,7 +28,10 @@ export function LandingBar({
   /** slug текущей посадочной -- подсвечивается в ряду. */
   currentKey: string;
   withPicker?: boolean;
+  /** 07.10.2026: «Топ 100» -- по умолчанию весь мир. */
+  worldDefault?: boolean;
 }) {
+  const geoInRow = process.env.PREMIUM_PREVIEW === "1";
   const ua = !country || country.toUpperCase() === "UA";
   const chips = [
     { key: TOP100_LANDING.slug, href: withCountry(`/jobs/${TOP100_LANDING.slug}`, country), label: TOP100_LANDING.h1 },
@@ -41,9 +45,14 @@ export function LandingBar({
           <LandingCountryPicker basePath={basePath} current={country} />
         </div>
       ) : null}
-      <nav aria-label="job formats" className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
+      <nav aria-label="job formats" className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:overflow-visible sm:px-0 [&::-webkit-scrollbar]:hidden">
         <ScrollActiveChip />
-        <ul className="flex w-max gap-2 sm:w-auto sm:flex-wrap">
+        <ul className="flex w-max gap-2 sm:w-auto sm:flex-wrap sm:items-center">
+          {geoInRow && (withPicker || worldDefault) ? (
+            <li className="hidden sm:block">
+              <RowCountryPicker basePath={basePath} current={country} worldDefault={worldDefault} />
+            </li>
+          ) : null}
           {chips.map((chip) => (
             <li key={chip.key}>
               <Link

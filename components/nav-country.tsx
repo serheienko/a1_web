@@ -107,3 +107,40 @@ export function NavCountry() {
     </div>
   );
 }
+
+/**
+ * 07.10.2026 (Александр): на тестовой копии страна переезжает из шапки
+ * первым элементом в ряд чипов на всех лентах -- освобождает место под
+ * «Try Alpha». Остаётся «плашкой» (стекло, флаг, стрелка, список), а не
+ * чипом: страна -- состояние, а не переключатель. Только на компьютере;
+ * на телефоне селектор по-прежнему над рядом.
+ */
+export function RowCountryPicker({
+  basePath,
+  current,
+  worldDefault = false,
+}: {
+  basePath: string;
+  current?: string;
+  worldDefault?: boolean;
+}) {
+  const [options, setOptions] = useState<CountryOption[] | null>(cache);
+  useEffect(() => {
+    let alive = true;
+    loadOptions().then((o) => {
+      if (alive && o.length > 0) setOptions(o);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return (
+    <CountryPicker
+      basePath={basePath}
+      current={current}
+      options={options ?? [{ code: "UA", count: 0 }]}
+      inRow
+      worldDefault={worldDefault}
+    />
+  );
+}
