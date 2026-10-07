@@ -3,6 +3,9 @@
 // components/alpha-paywall.tsx
 //
 // A1 Premium -- the "Alpha Search" sales window (Aleksandr, 2026-10-07).
+// 07.10.2026 вечер (Александр): «Premium» в окне переименовываем в Alpha --
+// подписка называется Alpha, плашка у лого «Members», кнопка «Приєднатися
+// до Alpha». Остальные функции (палочка и т.д.) свои названия сохраняют.
 // Built from his GPT mockup, brought in line with the site: Commissioner
 // (the site's own font), the site's blue -> purple gradient instead of the
 // mockup's blue -> cyan, the real spinning-can video (light/dark versions,
@@ -48,11 +51,11 @@ const S: Record<Key, Partial<Record<Locale, string>> & { en: string }> = {
     en: "Start with one sentence — Alpha will ask the rest.",
     ru: "Начните с одного предложения — дальше Alpha спросит сама.",
   },
-  alsoTitle: { uk: "Також у Вашому Premium", en: "Also in your Premium", ru: "Также в Вашем Premium" },
+  alsoTitle: { uk: "Що ще дає Alpha", en: "What else Alpha gives you", ru: "Что ещё даёт Alpha" },
   alsoSub: {
-    uk: "Alpha Search та інші можливості — в одній підписці.",
-    en: "Alpha Search and more — in one subscription.",
-    ru: "Alpha Search и другие возможности — в одной подписке.",
+    uk: "Пошук і все нижче — в одній підписці Alpha.",
+    en: "Search and everything below — in one Alpha membership.",
+    ru: "Поиск и всё ниже — в одной подписке Alpha.",
   },
   wandT: { uk: "Чарівна паличка", en: "Magic wand", ru: "Волшебная палочка" },
   wandD: {
@@ -68,8 +71,8 @@ const S: Record<Key, Partial<Record<Locale, string>> & { en: string }> = {
     en: "Your text runs as a ticker on your profile.",
     ru: "Ваш текст в профиле бежит строкой.",
   },
-  emojiT: { uk: "Преміум-емодзі", en: "Premium emoji", ru: "Премиум-эмодзи" },
-  emojiD: { uk: "Фірмовий значок біля Вашого імені.", en: "A signature badge next to your name.", ru: "Фирменный значок рядом с Вашим именем." },
+  emojiT: { uk: "Значок Alpha", en: "Alpha badge", ru: "Значок Alpha" },
+  emojiD: { uk: "Поруч з Вашим іменем — всі бачать, що Ви в Alpha.", en: "Next to your name — everyone sees you're in Alpha.", ru: "Рядом с Вашим именем — все видят, что Вы в Alpha." },
   pricesFor: { uk: "Ціни для", en: "Prices for", ru: "Цены для" },
   month: { uk: "Місяць", en: "Month", ru: "Месяц" },
   year: { uk: "Рік", en: "Year", ru: "Год" },
@@ -78,8 +81,8 @@ const S: Record<Key, Partial<Record<Locale, string>> & { en: string }> = {
   perMonth: { uk: "/ міс.", en: "/ mo", ru: "/ мес." },
   yearOnce: { uk: "за рік", en: "per year", ru: "за год" },
   save: { uk: "−25%", en: "−25%", ru: "−25%" },
-  cta: { uk: "Увімкнути Alpha Search", en: "Turn on Alpha Search", ru: "Включить Alpha Search" },
-  ctaSub: { uk: "Разом з усіма можливостями Premium", en: "Together with everything in Premium", ru: "Вместе со всеми возможностями Premium" },
+  cta: { uk: "Приєднатися до Alpha", en: "Join Alpha", ru: "Присоединиться к Alpha" },
+  ctaSub: { uk: "Пошук і всі можливості Alpha", en: "Search and everything in Alpha", ru: "Поиск и все возможности Alpha" },
   footer: {
     uk: "Alpha порівнює вакансії та профілі за їхнім текстом. Решту варто уточнити в розмові.",
     en: "Alpha matches job posts and profiles by what they say. The rest is best asked in conversation.",
@@ -102,9 +105,9 @@ const S: Record<Key, Partial<Record<Locale, string>> & { en: string }> = {
     zh: "请先输入您要找的内容。",
   },
   needPremium: {
-    uk: "Alpha шукає з Premium — оберіть тариф нижче.",
-    en: "Alpha searches with Premium — pick a plan below.",
-    ru: "Alpha ищет с Premium — выберите тариф ниже.",
+    uk: "Пошук доступний в Alpha — оберіть тариф нижче.",
+    en: "Search is part of Alpha — pick a plan below.",
+    ru: "Поиск доступен в Alpha — выберите тариф ниже.",
   },
   searchWord: { uk: "пошук", en: "Search", ru: "поиск" },
   signInNeed: { uk: "Увійдіть, щоб Alpha запам'ятала Вас.", en: "Sign in so Alpha can remember you.", ru: "Войдите, чтобы Alpha запомнила Вас." },
@@ -614,7 +617,7 @@ function AlphaLogo({ word }: { word: string }) {
         className="ml-1 self-center rounded-full px-2.5 py-1 text-xs font-semibold text-[#5a4dff] dark:text-[#c3b6ff]"
         style={{ background: "linear-gradient(100deg, rgba(1,72,252,0.12), rgba(150,63,255,0.16))" }}
       >
-        Premium
+        Members
       </span>
     </div>
   );

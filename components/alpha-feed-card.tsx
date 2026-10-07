@@ -73,7 +73,7 @@ export function AlphaFeedCard() {
               className="rounded-full px-2 py-0.5 text-[11px] font-semibold text-[#5a4dff] dark:text-[#c3b6ff]"
               style={{ background: "linear-gradient(100deg, rgba(1,72,252,0.12), rgba(150,63,255,0.16))" }}
             >
-              Premium
+              Members
             </span>
           </span>
           <span className="mt-3 block text-[19px] font-bold leading-tight text-neutral-900 dark:text-neutral-50">{t(S.title)}</span>

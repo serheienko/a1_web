@@ -36,7 +36,7 @@ const S = {
     en: "Nothing fits well enough yet. Try loosening something — or Alpha will send it as soon as it appears.",
     ru: "Пока ничего не подходит достаточно хорошо. Попробуйте ослабить условия — или Alpha пришлёт, как только появится.",
   },
-  more: { uk: "Ще {n} збігів — у Premium", en: "{n} more matches — in Premium", ru: "Ещё {n} совпадений — в Premium" },
+  more: { uk: "Ще {n} збігів — в Alpha", en: "{n} more matches — in Alpha", ru: "Ещё {n} совпадений — в Alpha" },
   unlock: { uk: "Відкрити всі", en: "Unlock all", ru: "Открыть все" },
   failed: { uk: "Щось пішло не так. Спробуйте ще раз.", en: "Something went wrong. Try again.", ru: "Что-то пошло не так. Попробуйте ещё раз." },
   // portrait labels
