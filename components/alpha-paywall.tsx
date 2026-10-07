@@ -32,7 +32,7 @@ type Key =
   | "wandT" | "wandD" | "mediaT" | "mediaD" | "statusT" | "statusD"
   | "emojiT" | "emojiD" | "pricesFor" | "month" | "year" | "perMonth"
   | "yearOnce" | "quarter" | "quarterOnce" | "cta" | "ctaSub" | "footer" | "close" | "soundOn"
-  | "soundOff" | "needPremium" | "mic" | "save" | "searchWord" | "signInNeed" | "signIn";
+  | "soundOff" | "needPremium" | "mic" | "save" | "searchWord" | "signInNeed" | "signIn" | "emptyQuery";
 
 const S: Record<Key, Partial<Record<Locale, string>> & { en: string }> = {
   tagline: { uk: "Alpha шукає за Вас.", en: "Alpha searches for you.", ru: "Alpha ищет за Вас." },
@@ -87,6 +87,19 @@ const S: Record<Key, Partial<Record<Locale, string>> & { en: string }> = {
   close: { uk: "Закрити", en: "Close", ru: "Закрыть" },
   soundOn: { uk: "Увімкнути звук", en: "Sound on", ru: "Включить звук" },
   soundOff: { uk: "Вимкнути звук", en: "Sound off", ru: "Выключить звук" },
+  // 07.10.2026 (Александр): стрелка при пустом поле -- подсказать, что
+  // написать, а не отправлять к тарифам.
+  emptyQuery: {
+    uk: "Спершу напишіть, що шукаєте.",
+    en: "First, type what you're looking for.",
+    ru: "Сначала напишите, что ищете.",
+    de: "Schreiben Sie zuerst, was Sie suchen.",
+    es: "Primero escriba qué busca.",
+    fr: "Écrivez d'abord ce que vous cherchez.",
+    pl: "Najpierw wpisz, czego szukasz.",
+    ptBR: "Primeiro, escreva o que você procura.",
+    zh: "请先输入您要找的内容。",
+  },
   needPremium: {
     uk: "Alpha шукає з Premium — оберіть тариф нижче.",
     en: "Alpha searches with Premium — pick a plan below.",
@@ -146,6 +159,8 @@ export function AlphaPaywall({
   const [plan, setPlan] = useState<Plan>("quarter");
   const [query, setQuery] = useState("");
   const [nudge, setNudge] = useState(false);
+  const [emptyTry, setEmptyTry] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const [flowQuery, setFlowQuery] = useState<string | null>(null);
   const [authNeeded, setAuthNeeded] = useState(false);
   const [sound, setSound] = useState(true);
@@ -239,7 +254,12 @@ export function AlphaPaywall({
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const q = query.trim();
-    if (!q) return toPricing();
+    if (!q) {
+      setNudge(false);
+      setEmptyTry(true);
+      inputRef.current?.focus();
+      return;
+    }
     try {
       const res = await fetch("/api/account/whoami");
       if (!res.ok) return setAuthNeeded(true);
@@ -340,10 +360,12 @@ export function AlphaPaywall({
                 <div className="flex h-[58px] flex-1 items-center gap-2 rounded-full bg-white pl-5 pr-[5px] dark:bg-[#1a1a24]">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#335ef7" strokeWidth="2.4" strokeLinecap="round" className="shrink-0"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
                   <input
+                    ref={inputRef}
                     value={query}
                     onChange={(e) => {
                       setQuery(e.target.value);
                       setNudge(false);
+                      setEmptyTry(false);
                     }}
                     placeholder={t("placeholder", lang)}
                     className="min-w-0 flex-1 bg-transparent text-[#0b0b14] outline-none placeholder:text-[#8e8e93] dark:text-white"
@@ -365,8 +387,8 @@ export function AlphaPaywall({
                   </button>
                 </div>
               </div>
-              <p className={`mt-2.5 pl-1 text-[13px] sm:text-sm ${nudge ? "font-semibold text-[#6a4dff] dark:text-[#b7a6ff]" : "text-[#8e8e93]"}`}>
-                {nudge ? t("needPremium", lang) : t("hint", lang)}
+              <p className={`mt-2.5 pl-1 text-[13px] sm:text-sm ${nudge || emptyTry ? "font-semibold text-[#6a4dff] dark:text-[#b7a6ff]" : "text-[#8e8e93]"}`}>
+                {emptyTry ? t("emptyQuery", lang) : nudge ? t("needPremium", lang) : t("hint", lang)}
               </p>
               {authNeeded && (
                 <p className="mt-1 pl-1 text-[14px] font-semibold text-[#3a3a3c] dark:text-white">

@@ -137,13 +137,19 @@ export function AlphaNavButton() {
   return (
     <div ref={wrapRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} className="relative hidden shrink-0 sm:block">
       <style>{`@keyframes alphaNavFlow{0%{background-position:0% 50%}100%{background-position:200% 50%}}.alpha-nav-flow{background-image:${FLOW};background-size:200% 100%;animation:alphaNavFlow 4s linear infinite}@media (prefers-reduced-motion:reduce){.alpha-nav-flow{animation:none}}`}</style>
+      {/* 07.10.2026 (Александр: «кнопку белую, а вокруг фиолетовую
+          окантовку — аккуратнее, но продаёт»): белая пилюля в переливающейся
+          рамке, текст и искра — тем же градиентом. При наведении рамка
+          «заливает» кнопку целиком — продающий акцент остаётся. */}
       <button
         type="button"
         onClick={openAlpha}
-        className="alpha-nav-flow flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-sm font-semibold text-white shadow-[0_4px_14px_rgba(90,80,255,0.35)] transition hover:-translate-y-px hover:shadow-[0_6px_18px_rgba(110,77,255,0.45)] active:translate-y-0"
+        className="alpha-nav-flow group flex h-9 shrink-0 rounded-full p-[1.5px] shadow-[0_3px_12px_rgba(90,80,255,0.22)] transition hover:-translate-y-px hover:shadow-[0_6px_18px_rgba(110,77,255,0.4)] active:translate-y-0"
       >
-        <Spark className="h-4 w-4" />
-        {t(S.btn)}
+        <span className="flex h-full items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-3.5 text-sm font-semibold transition-colors duration-200 group-hover:bg-transparent dark:bg-neutral-900 dark:group-hover:bg-transparent">
+          <Spark className="h-4 w-4 text-[#5a4dff] transition-colors group-hover:text-white dark:text-[#a99bff]" />
+          <span className="alpha-nav-flow bg-clip-text text-transparent transition-colors group-hover:text-white">{t(S.btn)}</span>
+        </span>
       </button>
 
       {rendered && (
