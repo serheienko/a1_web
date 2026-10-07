@@ -10,6 +10,8 @@
 // свою же noindex-версию одним кликом. Здесь только список и
 // нумерованная пагинация обычными ссылками.
 
+import { Fragment } from "react";
+import { AlphaFeedCard } from "@/components/alpha-feed-card";
 import { fetchFeedPage, pageToCursor, FEED_PAGE_SIZE, type FeedFilters } from "@/lib/a1/feed";
 import { generateAvatarBlurDataUrl } from "@/lib/avatar-blur";
 import { PostCard } from "@/components/post-card";
@@ -120,9 +122,17 @@ export async function JobLandingPage({
         <>
           <ul className="flex flex-col gap-4">
             {posts.map((post, i) => (
-              <li key={post.id}>
+              <Fragment key={post.id}>
+              <li>
                 <PostCard post={post} avatarBlurDataUrl={avatarBlurs[i]} />
               </li>
+              {/* 07.10.2026: карточка Alpha после 3-й вакансии (только тестовая копия, телефон/планшет). */}
+              {i === 2 && process.env.PREMIUM_PREVIEW === "1" ? (
+                <li>
+                  <AlphaFeedCard />
+                </li>
+              ) : null}
+              </Fragment>
             ))}
           </ul>
           <Pagination basePath={basePath} params={new URLSearchParams(country ? { country: country.toLowerCase() } : {})} page={page} hasMore={hasMore} totalPages={totalPages} />

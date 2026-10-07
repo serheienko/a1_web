@@ -14,6 +14,8 @@ export const revalidate = 15; // lowered from 60 — 2026-08-26, founder wants p
 // filter query params) for old links/bookmarks. Talents is unaffected,
 // still at /talents.
 
+import { Fragment } from "react";
+import { AlphaFeedCard } from "@/components/alpha-feed-card";
 import type { Metadata } from "next";
 import { fetchFeedPage, toURLSearchParams, parseFeedFilters, hasActiveFilters, pageToCursor, parsePageParam, FEED_PAGE_SIZE } from "@/lib/a1/feed";
 import { generateAvatarBlurDataUrl } from "@/lib/avatar-blur";
@@ -114,9 +116,17 @@ async function FeedList({
       <>
         <ul className="flex flex-col gap-4">
           {posts.map((post, i) => (
-            <li key={post.id}>
+            <Fragment key={post.id}>
+            <li>
               <PostCard post={post} avatarBlurDataUrl={avatarBlurs[i]} highlightQuery={filters.q} showReservation={inUkraine} />
             </li>
+            {/* 07.10.2026: карточка Alpha после 3-й вакансии (только тестовая копия, телефон/планшет). */}
+            {i === 2 && process.env.PREMIUM_PREVIEW === "1" ? (
+              <li>
+                <AlphaFeedCard />
+              </li>
+            ) : null}
+            </Fragment>
           ))}
         </ul>
         <Pagination basePath="/" params={params} page={page} hasMore={hasMore} totalPages={totalPages} />
