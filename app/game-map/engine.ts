@@ -1167,16 +1167,16 @@ export function mountGameMap(root, opts) {
       const s = from.s + (target - from.s) * e; view.s = s; view.x = px - mx * s; view.y = py - my * s; clamp(); if (k >= 1) anim = null; };
   }
   function hit(px, py) {
+    // 07.10.2026: кластер «+N» має перевагу (навіть над «липким» наведенням) -- маленька булавка серед будинків інакше «не натискається».
+    // Ціль -- булавка разом із підписом «+N» під нею.
+    for (const c of cos) { if (!c.cluster || !c._r) continue;
+      const sx = c.x * view.s + view.x, tipY = c.y * view.s + view.y, ph = c._r.h * view.s;
+      if (Math.abs(px - sx) < 18 && py > tipY - ph - 6 && py < tipY + 20) return c; }
     if (hover && hover._r) {
       const c = hover, sx = c._r.x * view.s + view.x, sy = c._r.y * view.s + view.y;
       const hw = Math.max(16, c._r.w * view.s * 0.55), hh = Math.max(16, c._r.h * view.s * 0.55);
       if (Math.abs(px - sx) < hw && Math.abs(py - sy) < hh) return c;
     }
-    // 07.10.2026: кластер «+N» має перевагу -- маленька булавка серед будинків інакше «не натискається».
-    // Ціль -- булавка разом із підписом «+N» під нею.
-    for (const c of cos) { if (!c.cluster || !c._r) continue;
-      const sx = c.x * view.s + view.x, tipY = c.y * view.s + view.y, ph = c._r.h * view.s;
-      if (Math.abs(px - sx) < 18 && py > tipY - ph - 6 && py < tipY + 20) return c; }
     let best = null, bd = 1e9;
     for (const c of cos) { if (!c._r) continue; const sx = c._r.x * view.s + view.x, sy = c._r.y * view.s + view.y;
       const hw = Math.max(14, c._r.w * view.s * 0.5), hh = Math.max(14, c._r.h * view.s * 0.5);
