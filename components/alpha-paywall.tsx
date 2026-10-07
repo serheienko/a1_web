@@ -206,7 +206,7 @@ export function AlphaPaywall({
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex items-end justify-center bg-black/45 backdrop-blur-[6px] sm:items-center sm:p-6"
+      className="fixed inset-0 z-[200] flex items-end justify-center bg-black/45 backdrop-blur-[6px] sm:items-center sm:p-3"
       {...backdropDismiss(onClose)}
     >
       <audio ref={audioRef} src="/premium/eternal.mp3" loop preload="auto" />
@@ -214,7 +214,7 @@ export function AlphaPaywall({
         role="dialog"
         aria-modal="true"
         aria-label="Alpha Search"
-        className="relative max-h-[100dvh] w-full overflow-y-auto text-left rounded-t-[28px] bg-white text-[#0b0b14] shadow-[0_30px_80px_rgba(20,30,80,0.35)] sm:max-h-[calc(100dvh-48px)] sm:max-w-[980px] sm:rounded-[32px] dark:bg-[#232330] dark:text-white"
+        className="relative max-h-[100dvh] w-full overflow-y-auto text-left rounded-t-[28px] bg-white text-[#0b0b14] shadow-[0_30px_80px_rgba(20,30,80,0.35)] sm:max-h-[calc(100dvh-24px)] sm:max-w-[980px] sm:rounded-[32px] dark:bg-[#232330] dark:text-white"
       >
         {/* top-right controls */}
         <div className="absolute right-3 top-3 z-10 flex gap-1 sm:right-5 sm:top-5">
@@ -237,17 +237,17 @@ export function AlphaPaywall({
         </div>
 
         {/* HERO */}
-        <div className="grid gap-2 px-5 pt-6 sm:grid-cols-[1fr_330px] sm:gap-6 sm:px-12 sm:pt-12">
+        <div className="grid gap-2 px-5 pt-5 sm:grid-cols-[1fr_230px] sm:gap-6 sm:px-10 sm:pt-7">
           <div className="order-2 sm:order-1">
             <AlphaLogo />
-            <h2 className="mt-3 text-[34px] font-extrabold leading-[1.02] tracking-[-0.03em] sm:mt-5 sm:text-[52px]">
+            <h2 className="mt-2 text-[32px] font-extrabold leading-[1.02] tracking-[-0.03em] sm:mt-3 sm:text-[42px]">
               {t("tagline", lang)}
             </h2>
-            <p className="mt-3 text-[15px] leading-snug text-[#6b6b78] sm:text-[17px] dark:text-[#a9a9b8]">
+            <p className="mt-2 text-[15px] leading-snug text-[#6b6b78] sm:text-[17px] dark:text-[#a9a9b8]">
               {t("sub", lang)}
             </p>
 
-            <form onSubmit={onSubmit} className="mt-5 sm:mt-7">
+            <form onSubmit={onSubmit} className="mt-4 sm:mt-5">
               <div
                 className="flex items-center gap-2 rounded-full p-[2px]"
                 style={{ background: GRADIENT }}
@@ -288,15 +288,15 @@ export function AlphaPaywall({
           </div>
 
           <div className="order-1 flex items-center justify-center sm:order-2">
-            <div className="relative h-[190px] w-[190px] sm:h-[330px] sm:w-[330px]">
+            <div className="relative h-[150px] w-[150px] sm:h-[230px] sm:w-[230px]">
               <video
-                className="h-full w-full object-contain dark:hidden"
+                className="h-full w-full object-contain mix-blend-multiply [mask-image:radial-gradient(circle,#000_58%,transparent_71%)] dark:hidden"
                 src="/premium/can-light.mp4"
                 poster="/premium/can-light.jpg"
                 autoPlay muted loop playsInline preload="auto"
               />
               <video
-                className="hidden h-full w-full object-contain dark:block"
+                className="hidden h-full w-full object-contain mix-blend-lighten [mask-image:radial-gradient(circle,#000_58%,transparent_71%)] dark:block"
                 src="/premium/can-dark.mp4"
                 poster="/premium/can-dark.jpg"
                 autoPlay muted loop playsInline preload="auto"
@@ -306,10 +306,10 @@ export function AlphaPaywall({
         </div>
 
         {/* ALSO IN PREMIUM */}
-        <div className="mx-5 mt-7 border-t border-black/[0.07] pt-6 sm:mx-12 sm:mt-9 sm:pt-8 dark:border-white/10">
-          <h3 className="text-[22px] font-bold tracking-[-0.02em] sm:text-[28px]">{t("alsoTitle", lang)}</h3>
+        <div className="mx-5 mt-5 sm:mx-10 sm:mt-5">
+          <h3 className="text-[21px] font-bold tracking-[-0.02em] sm:text-[24px]">{t("alsoTitle", lang)}</h3>
           <p className="mt-1 text-[14px] text-[#6b6b78] sm:text-[15px] dark:text-[#a9a9b8]">{t("alsoSub", lang)}</p>
-          <div className="mt-5 grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
+          <div className="mt-4 grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
             <Feature icon={<WandIcon />} title={t("wandT", lang)} desc={t("wandD", lang)} />
             <Feature icon={<MediaIcon />} title={t("mediaT", lang)} desc={t("mediaD", lang)} />
             <Feature icon={<StatusIcon />} title={t("statusT", lang)} desc={t("statusD", lang)} />
@@ -318,7 +318,7 @@ export function AlphaPaywall({
         </div>
 
         {/* PRICING */}
-        <div ref={pricingRef} className="mx-5 mt-7 border-t border-black/[0.07] pb-6 pt-5 sm:mx-12 sm:mt-8 sm:pb-8 dark:border-white/10">
+        <div ref={pricingRef} className="mx-5 mt-5 border-t border-black/[0.07] pb-5 pt-4 sm:mx-10 sm:mt-5 sm:pb-5 dark:border-white/10">
           {countryName && (
             <div className="mb-2.5 text-[13px] font-medium text-[#8e8e93]">
               {t("pricesFor", lang)}: {countryName}
@@ -345,7 +345,7 @@ export function AlphaPaywall({
               <button
                 type="button"
                 onClick={() => onActivate?.(plan)}
-                className={`flex min-h-[60px] flex-1 items-center justify-center rounded-[18px] px-5 text-[17px] font-bold text-white shadow-[0_10px_24px_rgba(90,80,255,0.35)] transition hover:brightness-110 active:scale-[0.99] sm:text-[18px] ${nudge ? "ring-4 ring-[#6a4dff]/30" : ""}`}
+                className={`flex min-h-[56px] flex-1 items-center justify-center rounded-[18px] px-5 text-[17px] font-bold text-white shadow-[0_10px_24px_rgba(90,80,255,0.35)] transition hover:brightness-110 active:scale-[0.99] sm:text-[18px] ${nudge ? "ring-4 ring-[#6a4dff]/30" : ""}`}
                 style={{ background: GRADIENT }}
               >
                 {t("cta", lang)}
@@ -353,7 +353,7 @@ export function AlphaPaywall({
               <div className="mt-1.5 text-center text-[12px] text-[#8e8e93]">{t("ctaSub", lang)}</div>
             </div>
           </div>
-          <p className="mt-5 text-center text-[11.5px] leading-snug text-[#a0a0aa]">{t("footer", lang)}</p>
+          <p className="mt-3 text-center text-[11.5px] leading-snug text-[#a0a0aa]">{t("footer", lang)}</p>
         </div>
       </div>
     </div>
@@ -364,12 +364,12 @@ function AlphaLogo() {
   return (
     <div className="flex items-baseline gap-1.5 select-none">
       <span
-        className="bg-clip-text pr-1 text-[40px] font-black italic leading-none tracking-[-0.04em] text-transparent sm:text-[52px]"
+        className="bg-clip-text pr-1 text-[36px] font-black italic leading-none tracking-[-0.04em] text-transparent sm:text-[44px]"
         style={{ backgroundImage: GRADIENT }}
       >
         Alpha
       </span>
-      <span className="text-[26px] font-semibold leading-none tracking-[-0.02em] text-[#3a3a3c] sm:text-[34px] dark:text-[#d6d6e0]">
+      <span className="text-[24px] font-semibold leading-none tracking-[-0.02em] text-[#3a3a3c] sm:text-[29px] dark:text-[#d6d6e0]">
         Search
       </span>
     </div>
@@ -398,7 +398,7 @@ function PlanCard({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`relative flex items-start gap-3 rounded-[18px] border-2 p-3.5 text-left transition sm:p-4 ${
+      className={`relative flex items-start gap-3 rounded-[18px] border-2 p-3 text-left transition sm:px-4 sm:py-3 ${
         active
           ? "border-[#335ef7] bg-[#335ef7]/[0.05] dark:border-[#7f8cff] dark:bg-white/[0.04]"
           : "border-black/[0.08] hover:border-black/15 dark:border-white/10 dark:hover:border-white/20"
