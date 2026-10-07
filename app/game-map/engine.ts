@@ -179,6 +179,11 @@ export function mountGameMap(root, opts) {
   const companiesIn = opts.companies || [];
   const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   let theme = opts.theme === 'dark' ? 'dark' : 'light';
+  // Карта внутри приложения A1 (см. «режим приложения» ниже).
+  const appMode = !!opts.app;
+  // В приложении ссылка на профиль несёт id автора: приложение открывает
+  // профиль по id, а не по нику.
+  const profileHref = (c) => `/u/${encodeURIComponent(c.username)}` + (appMode && c.userId ? `?id=${encodeURIComponent(c.userId)}` : '');
   let lang = STR[opts.lang] ? opts.lang : 'uk';
   const tr = (k) => (STR[lang][k] ?? STR.en[k]);
   const plurals = {};
@@ -983,7 +988,7 @@ export function mountGameMap(root, opts) {
   function popupHtml(c) {
     const jobs = (c.jobs || []).slice(0, 3).map((j) => `<a href="/jobs/${esc(j.slug)}">${esc(j.title)}</a>`).join('');
     const ava = c.avatar ? `<img src="${esc(c.avatar)}" alt="">` : `<span>${esc((c.name || '?').slice(0, 1))}</span>`;
-    const prof = c.username ? `<a class="gm-p" href="/u/${esc(c.username)}">${esc(tr('profile'))}</a>` : '';
+    const prof = c.username ? `<a class="gm-p" href="${esc(profileHref(c))}">${esc(tr('profile'))}</a>` : '';
     const sub = [cityName(c.ck, lang), c.est ? tr('since').replace('{y}', c.est) : ''].filter(Boolean).join(' · ');
     const chips = [
       `<span class="gm-chip g">💼 ${nForm(c.n, 'vac')}</span>`,
@@ -1209,7 +1214,6 @@ export function mountGameMap(root, opts) {
   // «союзник» прячем: она требует входа на сайт, а не в приложение.
   // Профиль и вакансии -- обычные ссылки /u/... и /jobs/...: приложение
   // перехватывает их и открывает свои экраны.
-  const appMode = !!opts.app;
   function closeApp() {
     try { if (window.A1Map && window.A1Map.postMessage) { window.A1Map.postMessage('close'); return; } } catch { /* not in the app */ }
     history.back();
@@ -1245,7 +1249,7 @@ export function mountGameMap(root, opts) {
   function byCi(ci) { return String(ci).startsWith('o') ? offMap[Number(String(ci).slice(1))] : cos[Number(ci)]; }
   function pickCompany(c) {
     if (!c) return;
-    if (c.off) { if (c.username) location.href = `/u/${encodeURIComponent(c.username)}`; return; } qIn.value = c.name; sug.classList.remove('on'); qIn.blur();
+    if (c.off) { if (c.username) location.href = profileHref(c); return; } qIn.value = c.name; sug.classList.remove('on'); qIn.blur();
     const target = Math.min(maxS, Math.max(view.s, minS * 2.5, 70 / c.w));
     const from = { ...view }, start = performance.now();
     const tx = W / 2 - c.x * target, ty = H / 2 - c.y * target + 120;
