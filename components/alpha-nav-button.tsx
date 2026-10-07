@@ -10,7 +10,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlphaPaywall, startAlphaMusic } from "@/components/alpha-paywall";
+import { AlphaPaywall, preloadAlpha, startAlphaMusic } from "@/components/alpha-paywall";
 import { useActiveLocale } from "@/lib/use-active-locale";
 import { useHoverPanel } from "@/lib/use-hover-panel";
 
@@ -66,7 +66,12 @@ export function AlphaNavButton() {
   // Шапка -- backdrop-blur, а он делает её «контейнером» для position:fixed:
   // окно Alpha внутри неё обрезалось бы по шапке. Поэтому -- в <body>.
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    setMounted(true);
+    // качаем лого и первый кадр банки заранее, когда страница уже открылась
+    const t = window.setTimeout(preloadAlpha, 1500);
+    return () => window.clearTimeout(t);
+  }, []);
   const wrapRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const { rendered, visible, handleMouseEnter, handleMouseLeave } = useHoverPanel(open, setOpen, [

@@ -559,6 +559,45 @@ function CanVideo() {
   );
 }
 
+// 07.10.2026 (Александр, запись с телефона: во встроенном браузере лого
+// сначала рисовалось половиной, сверху вниз). Причина -- картинка ещё
+// докачивалась (90 КБ PNG по медленной сети). Теперь: WebP ~18 КБ, размер
+// задан заранее (место не прыгает), а показываем её только целиком --
+// плавным проявлением после загрузки. Плюс preloadAlpha() ниже качает лого
+// и первый кадр банки заранее, пока человек ещё на странице.
+function LogoImg({ src, className = "" }: { src: string; className?: string }) {
+  const [ready, setReady] = useState(false);
+  const ref = useRef<HTMLImageElement | null>(null);
+  useEffect(() => {
+    if (ref.current?.complete && ref.current.naturalWidth > 0) setReady(true);
+  }, []);
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      ref={ref}
+      src={src}
+      alt="Alpha"
+      width={405}
+      height={138}
+      decoding="async"
+      onLoad={() => setReady(true)}
+      className={`h-[38px] w-auto transition-opacity duration-300 sm:h-[46px] ${ready ? "opacity-100" : "opacity-0"} ${className}`}
+    />
+  );
+}
+
+let preloaded = false;
+/** Warm the browser cache: both logos + the can's first frame. Cheap (~45 KB). */
+export function preloadAlpha() {
+  if (preloaded || typeof window === "undefined") return;
+  preloaded = true;
+  for (const src of ["/premium/alpha-logo.webp", "/premium/alpha-logo-dark.webp", "/premium/can-light.jpg", "/premium/can-dark.jpg"]) {
+    const img = new Image();
+    img.decoding = "async";
+    img.src = src;
+  }
+}
+
 function AlphaLogo({ word }: { word: string }) {
   // Aleksandr's "Alpha" wordmark (2026-10-07). Dark theme: his glowing
   // render, black background dropped with screen blending. Light theme:
@@ -566,10 +605,8 @@ function AlphaLogo({ word }: { word: string }) {
   // arrives.
   return (
     <div className="flex items-center gap-2 select-none sm:gap-2.5">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/premium/alpha-logo.png" alt="Alpha" className="h-[38px] w-auto sm:h-[46px] dark:hidden" />
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/premium/alpha-logo-dark.png" alt="Alpha" className="hidden h-[38px] w-auto sm:h-[46px] dark:block" />
+      <LogoImg src="/premium/alpha-logo.webp" className="dark:hidden" />
+      <LogoImg src="/premium/alpha-logo-dark.webp" className="hidden dark:block" />
       <span className="text-[24px] font-semibold leading-none tracking-[-0.02em] text-[#3a3a3c] sm:text-[29px] dark:text-[#d6d6e0]">
         {word}
       </span>

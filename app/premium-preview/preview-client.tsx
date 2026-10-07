@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlphaPaywall, startAlphaMusic } from "@/components/alpha-paywall";
+import { AlphaPaywall, preloadAlpha, startAlphaMusic } from "@/components/alpha-paywall";
 
 export function PreviewClient() {
   const [open, setOpen] = useState(false);
@@ -9,6 +9,7 @@ export function PreviewClient() {
   const [premium, setPremium] = useState(false);
   useEffect(() => {
     setPremium(document.cookie.includes("a1_premium_test=1"));
+    preloadAlpha();
   }, []);
   const togglePremium = () => {
     const next = !premium;
