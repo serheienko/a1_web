@@ -34,6 +34,12 @@ if (typeof window !== "undefined") {
 }
 
 const BLOB_PATHNAME = "a1/cloud-accounts.enc";
+// 2026-10-07: компании из gambling_companies.json (162+3 работодателя),
+// заведённые разово скриптом gamble_onboard.py, а не парсером. Отдельный
+// файл в том же хранилище и с тем же ключом: парсер при каждом проходе
+// перезаписывает свой cloud-accounts.enc целиком, и дописанные туда
+// чужие аккаунты пропали бы на следующий же день.
+const EXTRA_PATHNAMES = ["a1/gamble-accounts.enc"];
 const MAGIC = "A1ENC1";
 const TTL_MS = 5 * 60 * 1000;
 
@@ -73,8 +79,8 @@ function apiHeaders(token: string): Record<string, string> {
   };
 }
 
-async function findBlobUrl(token: string): Promise<string | null> {
-  const qs = new URLSearchParams({ prefix: BLOB_PATHNAME, limit: "10" });
+async function findBlobUrl(token: string, pathname: string = BLOB_PATHNAME): Promise<string | null> {
+  const qs = new URLSearchParams({ prefix: pathname, limit: "10" });
   try {
     const res = await fetch(`${BLOB_API}?${qs.toString()}`, {
       headers: apiHeaders(token),
@@ -85,7 +91,7 @@ async function findBlobUrl(token: string): Promise<string | null> {
       blobs?: Array<{ pathname?: string; url?: string; downloadUrl?: string }>;
     };
     const list = data.blobs ?? [];
-    const hit = list.find((b) => b.pathname === BLOB_PATHNAME) ?? list[0];
+    const hit = list.find((b) => b.pathname === pathname) ?? (pathname === BLOB_PATHNAME ? list[0] : undefined);
     // downloadUrl отдаёт файл как вложение -- нам всё равно, читаем байты.
     return hit?.downloadUrl ?? hit?.url ?? null;
   } catch {
@@ -113,12 +119,8 @@ function decrypt(payload: Buffer, secret: string): string | null {
   }
 }
 
-async function load(): Promise<CloudAccount[]> {
-  const token = (process.env.BLOB_READ_WRITE_TOKEN ?? "").trim();
-  const secret = (process.env.A1_ACCOUNTS_SECRET ?? "").trim();
-  if (!token || !secret) return [];
-
-  const url = await findBlobUrl(token);
+async function loadOne(token: string, secret: string, pathname: string): Promise<CloudAccount[]> {
+  const url = await findBlobUrl(token, pathname);
   if (!url) return [];
 
   const res = await fetch(url, {
@@ -132,6 +134,21 @@ async function load(): Promise<CloudAccount[]> {
 
   const parsed = z.array(CloudAccountSchema).safeParse(JSON.parse(json));
   return parsed.success ? parsed.data : [];
+}
+
+async function load(): Promise<CloudAccount[]> {
+  const token = (process.env.BLOB_READ_WRITE_TOKEN ?? "").trim();
+  const secret = (process.env.A1_ACCOUNTS_SECRET ?? "").trim();
+  if (!token || !secret) return [];
+
+  // Каждый файл отдельно: битый или отсутствующий дополнительный файл
+  // не должен прятать основной список парсера.
+  const lists = await Promise.all(
+    [BLOB_PATHNAME, ...EXTRA_PATHNAMES].map((p) => loadOne(token, secret, p).catch(() => [] as CloudAccount[])),
+  );
+  const byEmail = new Map<string, CloudAccount>();
+  for (const rows of lists) for (const row of rows) if (!byEmail.has(row.email)) byEmail.set(row.email, row);
+  return Array.from(byEmail.values());
 }
 
 /** Аккаунты компаний, заведённых парсером в облаке. Пустой список --
