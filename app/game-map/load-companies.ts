@@ -41,6 +41,40 @@ const BY_COUNTRY: [MapRegion, Set<string>][] = [["latam", LATAM], ["asia", ASIA]
 /** Острів «Віддалено» більше не малюємо: компанії без локації лише в пошуку. */
 const REMOTE = { lng: 31.0, lat: 43.9 };
 
+
+// 07.10.2026 (Александр: «чтобы все новые вакансии и компании были и на карте, ничего не пропускаем»).
+// У ~30% мировых вакансий место -- только страна, без города (координаты 0,0): раньше они на карту
+// не попадали вовсе. Теперь такая вакансия стоит в столице своей страны, подпись -- название страны.
+const CAPITAL: Record<string, [number, number]> = {
+  US: [-77.04, 38.9], CA: [-75.7, 45.42], GB: [-0.128, 51.507], MX: [-99.13, 19.43], SG: [103.82, 1.352], BR: [-47.88, -15.79],
+  PL: [21.01, 52.23], DE: [13.405, 52.52], ES: [-3.7, 40.42], FR: [2.352, 48.857], PT: [-9.14, 38.72], RO: [26.1, 44.43],
+  AU: [149.13, -35.28], IN: [77.21, 28.61], HK: [114.17, 22.32], NL: [4.9, 52.37], IE: [-6.26, 53.35], CO: [-74.07, 4.71],
+  IT: [12.5, 41.9], SE: [18.07, 59.33], CZ: [14.44, 50.08], MT: [14.51, 35.9], IL: [34.78, 32.09], SA: [46.68, 24.71],
+  TW: [121.57, 25.03], MY: [101.69, 3.14], CH: [7.45, 46.95], GR: [23.73, 37.98], JP: [139.69, 35.68], CY: [33.38, 35.19],
+  BG: [23.32, 42.7], AR: [-58.38, -34.6], UA: [30.52, 50.45], LT: [25.28, 54.69], VN: [105.85, 21.03], HU: [19.04, 47.5],
+  KR: [126.98, 37.57], FI: [24.94, 60.17], NO: [10.75, 59.91], BE: [4.35, 50.85], CL: [-70.67, -33.45], PH: [120.98, 14.6],
+  AT: [16.37, 48.21], RS: [20.45, 44.79], AE: [54.38, 24.45], CR: [-84.08, 9.93], TR: [32.86, 39.93], EE: [24.75, 59.44],
+  LU: [6.13, 49.61], CN: [116.41, 39.9], MD: [28.86, 47.01], LV: [24.11, 56.95], SN: [-17.47, 14.72], TH: [100.5, 13.76],
+  SV: [-89.22, 13.69], DK: [12.57, 55.68], ZA: [28.19, -25.75], NG: [7.4, 9.08], QA: [51.53, 25.29], NZ: [174.78, -41.29],
+  GT: [-90.51, 14.63], UY: [-56.16, -34.9], PA: [-79.52, 8.98], KZ: [71.45, 51.17], SI: [14.51, 46.06], SK: [17.11, 48.15],
+  HR: [15.98, 45.81], IS: [-21.94, 64.15], LI: [9.52, 47.14], AL: [19.82, 41.33], BA: [18.41, 43.86], ME: [19.26, 42.44],
+  MK: [21.43, 42.0], XK: [21.17, 42.66], GE: [44.79, 41.72], AM: [44.51, 40.18], AZ: [49.87, 40.41], EG: [31.24, 30.04],
+  JO: [35.93, 31.95], PE: [-77.04, -12.05], EC: [-78.47, -0.18], ID: [106.85, -6.21], PK: [73.05, 33.68], BD: [90.41, 23.81],
+  KE: [36.82, -1.29], MA: [-6.84, 34.02], DO: [-69.93, 18.49], PR: [-66.11, 18.47], LK: [79.86, 6.93], BH: [50.59, 26.23],
+  KW: [47.98, 29.38], OM: [58.41, 23.59], LB: [35.5, 33.89], PY: [-57.58, -25.26], BO: [-68.15, -16.5], VE: [-66.9, 10.48],
+  HN: [-87.21, 14.07], NI: [-86.25, 12.13], JM: [-76.79, 18.0], MN: [106.92, 47.89], UZ: [69.24, 41.3], NP: [85.32, 27.72],
+};
+
+/** Точка и подпись вакансии на карте: город, а если в вакансии только страна -- столица и название страны. */
+function placeOf(loc: Post["location"], country: string): { lng: number; lat: number; city: string } | null {
+  const c = loc?.coordinates;
+  if (c && !(c[0] === 0 && c[1] === 0) && loc?.city) return { lng: c[0], lat: c[1], city: loc.city || loc.display };
+  const cap = CAPITAL[country];
+  if (!cap) return null;
+  const name = (loc?.display || country).replace(/^[^\p{L}]+/u, "").trim() || country;
+  return { lng: cap[0], lat: cap[1], city: name };
+}
+
 export async function loadCompanies(region: MapRegion = "ua"): Promise<MapCompany[]> {
   try {
     const posts = await allIndexedPosts();
@@ -61,8 +95,10 @@ export async function loadCountries(): Promise<MapCountry[]> {
       if (p.kind !== "hiring" || p.author.isAnonymous) continue;
       const loc = p.location;
       const cc = loc?.country?.trim().toUpperCase() ?? "";
-      if (!loc?.coordinates || !/^[A-Z]{2}$/.test(cc) || cc === "WW") continue;
-      const [lng, lat] = loc.coordinates;
+      if (!/^[A-Z]{2}$/.test(cc) || cc === "WW") continue;
+      const pl = placeOf(loc, cc);
+      if (!pl) continue;
+      const { lng, lat } = pl;
       let r: MapRegion | null = cc === "UA" ? "ua" : null;
       if (!r) for (const [k, set] of BY_COUNTRY) if (set.has(cc)) { r = k; break; }
       if (!r) for (const k of ["eu", "us"] as const) {
@@ -121,8 +157,10 @@ function collectAbroad(posts: Post[], region: Exclude<MapRegion, "ua">): MapComp
     if (p.kind !== "hiring" || p.author.isAnonymous) continue;
     const loc = p.location;
     const country = loc?.country?.trim().toUpperCase() ?? "";
-    if (!loc?.coordinates || !country || country === "WW") continue;
-    const [lng, lat] = loc.coordinates;
+    if (!country || country === "WW") continue;
+    const pl = placeOf(loc, country);
+    if (!pl) continue;
+    const { lng, lat } = pl;
     if (!(lng > x0 && lng < x1 && lat > y0 && lat < y1)) continue;
     const only = BY_COUNTRY.find(([k]) => k === region);
     if (only && !only[1].has(country)) continue;
@@ -132,7 +170,7 @@ function collectAbroad(posts: Post[], region: Exclude<MapRegion, "ua">): MapComp
     if (!c) {
       c = {
         id: key, name: p.author.name, username: p.author.username, avatar: p.author.avatarUrl, n: 0,
-        city: loc.city || loc.display, lng, lat, jobs: [], userId: p.author.userId, ext: !!p.author.external, cc: country,
+        city: pl.city, lng, lat, jobs: [], userId: p.author.userId, ext: !!p.author.external, cc: country,
       };
       byOffice.set(key, c);
     }
