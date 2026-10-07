@@ -34,17 +34,17 @@ type Key =
   | "soundOff" | "needPremium" | "mic" | "save" | "searchWord";
 
 const S: Record<Key, Partial<Record<Locale, string>> & { en: string }> = {
-  tagline: { uk: "Пошук, який розуміє тебе.", en: "Search that gets you.", ru: "Поиск, который понимает тебя." },
+  tagline: { uk: "Alpha шукає за тебе.", en: "Alpha searches for you.", ru: "Alpha ищет за тебя." },
   sub: {
-    uk: "Розкажи, що шукаєш. Alpha уточнить важливе й знайде збіги.",
-    en: "Tell it what you're looking for. Alpha asks what matters and finds the matches.",
-    ru: "Расскажи, что ищешь. Alpha уточнит важное и найдёт совпадения.",
+    uk: "Відповідаєш на кілька питань — Alpha розуміє, що тобі треба, і показує найточніші збіги. Далі сама надсилає нові, поки діє підписка.",
+    en: "Answer a few questions — Alpha learns what you need and shows the closest matches. Then it keeps sending new ones while you're subscribed.",
+    ru: "Отвечаешь на пару вопросов — Alpha понимает, что тебе нужно, и показывает самые точные совпадения. Дальше сама присылает новые, пока действует подписка.",
   },
   placeholder: { uk: "Senior Flutter, remote, Київ", en: "Senior Flutter, remote, Kyiv", ru: "Senior Flutter, remote, Киев" },
   hint: {
-    uk: "Голосом або текстом. Нові збіги — щойно з'являться.",
-    en: "By voice or text. New matches as soon as they appear.",
-    ru: "Голосом или текстом. Новые совпадения — как только появятся.",
+    uk: "Почни з одного речення — далі Alpha спитає сама.",
+    en: "Start with one sentence — Alpha will ask the rest.",
+    ru: "Начни с одного предложения — дальше Alpha спросит сама.",
   },
   alsoTitle: { uk: "Також у твоєму Premium", en: "Also in your Premium", ru: "Также в твоём Premium" },
   alsoSub: {
@@ -319,26 +319,15 @@ export function AlphaPaywall({
             </form>
           </div>
 
-          <div className="order-1 flex items-center justify-center sm:pointer-events-none sm:absolute sm:right-8 md:right-[88px] sm:top-1/2 sm:z-0 sm:order-2 sm:-translate-y-1/2 sm:mt-[50px]">
+          <div className="order-1 flex items-center justify-center sm:pointer-events-none sm:absolute sm:right-8 md:right-[88px] sm:top-1/2 sm:z-0 sm:order-2 sm:-translate-y-1/2 sm:mt-[70px]">
             <div className="relative h-[150px] w-[150px] sm:h-[272px] sm:w-[272px]">
-              <video
-                className="h-full w-full object-contain mix-blend-multiply [mask-image:radial-gradient(circle,#000_58%,transparent_71%)] dark:hidden"
-                src="/premium/can-light.mp4"
-                poster="/premium/can-light.jpg"
-                autoPlay muted loop playsInline preload="auto"
-              />
-              <video
-                className="hidden h-full w-full object-contain mix-blend-lighten [mask-image:radial-gradient(circle,#000_58%,transparent_71%)] dark:block"
-                src="/premium/can-dark.mp4"
-                poster="/premium/can-dark.jpg"
-                autoPlay muted loop playsInline preload="auto"
-              />
+              <CanVideo />
             </div>
           </div>
         </div>
 
         {/* ALSO IN PREMIUM */}
-        <div className="mx-5 mt-5 sm:mx-10 sm:mt-5">
+        <div className="mx-5 mt-5 sm:mx-10 sm:mt-4">
           <h3 className="text-[21px] font-bold tracking-[-0.02em] sm:text-[24px]">{t("alsoTitle", lang)}</h3>
           <p className="mt-1 text-[14px] text-[#6b6b78] sm:text-[15px] dark:text-[#a9a9b8]">{t("alsoSub", lang)}</p>
           <div className="mt-4 grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
@@ -350,7 +339,7 @@ export function AlphaPaywall({
         </div>
 
         {/* PRICING */}
-        <div ref={pricingRef} className="mx-5 mt-5 border-t border-black/[0.07] pb-5 pt-4 sm:mx-10 sm:mt-5 sm:pb-5 dark:border-white/10">
+        <div ref={pricingRef} className="mx-5 mt-5 border-t border-black/[0.07] pb-5 pt-4 sm:mx-10 sm:mt-4 sm:pb-4 dark:border-white/10">
           {countryName && (
             <div className="mb-2.5 text-[13px] font-medium text-[#8e8e93]">
               {t("pricesFor", lang)}: {countryName}
@@ -389,6 +378,45 @@ export function AlphaPaywall({
         </div>
       </div>
     </div>
+  );
+}
+
+// The spinning can. Fast-opening by design: a tiny first-frame picture
+// (~8 KB) shows instantly, then ONE video for the current theme (WebM ~0.85 MB
+// where supported, MP4 ~1 MB otherwise) fades in over it once it is actually
+// playing -- the window never waits for the video.
+function CanVideo() {
+  const [theme, setTheme] = useState<"light" | "dark" | null>(null);
+  const [playing, setPlaying] = useState(false);
+  useEffect(() => {
+    const root = document.documentElement;
+    const dark =
+      root.classList.contains("dark") ||
+      (!root.classList.contains("light") && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    setTheme(dark ? "dark" : "light");
+  }, []);
+  const fx =
+    "absolute inset-0 h-full w-full object-contain [mask-image:radial-gradient(circle,#000_58%,transparent_71%)] " +
+    (theme === "dark" ? "mix-blend-lighten" : "mix-blend-multiply");
+  if (!theme) return null;
+  return (
+    <>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={`/premium/can-${theme}.jpg`} alt="" className={fx} />
+      <video
+        key={theme}
+        className={`${fx} transition-opacity duration-300 ${playing ? "opacity-100" : "opacity-0"}`}
+        autoPlay
+        muted
+        loop
+        playsInline
+        preload="auto"
+        onPlaying={() => setPlaying(true)}
+      >
+        <source src={`/premium/can-${theme}.webm`} type="video/webm" />
+        <source src={`/premium/can-${theme}.mp4`} type="video/mp4" />
+      </video>
+    </>
   );
 }
 
