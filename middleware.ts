@@ -35,7 +35,30 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+// Test copy of the site (A1 Premium sandbox, 2026-10-07): when
+// PREVIEW_PASSWORD is set on the server, every page asks for a password
+// (browser's own login box, any user name). Unset on the real site, so
+// there this is a no-op.
+function previewAuthFailed(request: NextRequest): boolean {
+  const password = process.env.PREVIEW_PASSWORD;
+  if (!password) return false;
+  const header = request.headers.get("authorization") ?? "";
+  if (!header.startsWith("Basic ")) return true;
+  try {
+    const decoded = atob(header.slice(6));
+    return decoded.slice(decoded.indexOf(":") + 1) !== password;
+  } catch {
+    return true;
+  }
+}
+
 export function middleware(request: NextRequest) {
+  if (previewAuthFailed(request)) {
+    return new NextResponse("A1 test", {
+      status: 401,
+      headers: { "WWW-Authenticate": 'Basic realm="A1 test", charset="UTF-8"' },
+    });
+  }
   const response = NextResponse.next();
   // x-vercel-ip-country is set automatically by Vercel's edge network on
   // every request in production — no extra package/API call needed. Not
