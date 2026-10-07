@@ -3,7 +3,7 @@
 // components/alpha-flow.tsx
 //
 // Alpha search, the working part (test environment, 2026-10-07):
-// first message -> up to 3 clarifying questions ("Питання 2 з 4", answer
+// first message -> clarifying questions without a fixed limit ("Питання 2", answer
 // chips, own answer, skip, "enough, search") -> portrait card -> results
 // with "why it fits"; without Premium 3 results are open, the rest blurred
 // behind the buy button. The brain behind /api/alpha/turn is rule-based for
@@ -18,6 +18,7 @@ const PORTRAIT_KEY = "a1.alpha.portrait";
 
 const S = {
   question: { uk: "Питання", en: "Question", ru: "Вопрос" },
+  understood2: { uk: "розуміє тебе на {n}%", en: "understands you {n}%", ru: "понимает тебя на {n}%" },
   of: { uk: "з", en: "of", ru: "из" },
   skip: { uk: "Пропустити", en: "Skip", ru: "Пропустить" },
   enough: { uk: "Досить, шукай", en: "That's enough, search", ru: "Хватит, ищи" },
@@ -81,7 +82,7 @@ export function AlphaFlow({
   const [question, setQuestion] = useState<AlphaQuestion | null>(null);
   const [asked, setAsked] = useState<AlphaSlot[]>([]);
   const [step, setStep] = useState(1);
-  const [total, setTotal] = useState(1);
+  const [understood, setUnderstood] = useState(0);
   const [busy, setBusy] = useState(true);
   const [phase, setPhase] = useState<Phase>("asking");
   const [own, setOwn] = useState("");
@@ -90,13 +91,13 @@ export function AlphaFlow({
   const chatRef = useRef<HTMLDivElement | null>(null);
   const started = useRef(false);
 
-  async function turn(message: string, answering: AlphaSlot | null, prevPortrait: AlphaPortrait | null, prevAsked: AlphaSlot[]) {
+  async function turn(message: string, answering: AlphaSlot | null, prevPortrait: AlphaPortrait | null, prevAsked: AlphaSlot[], history: Msg[]) {
     setBusy(true);
     try {
       const res = await fetch("/api/alpha/turn", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lang: l, portrait: prevPortrait, message, answering, asked: prevAsked }),
+        body: JSON.stringify({ lang: l, portrait: prevPortrait, message, answering, asked: prevAsked, history }),
       });
       if (!res.ok) throw new Error(String(res.status));
       const data = (await res.json()) as AlphaTurnResponse;
@@ -104,7 +105,7 @@ export function AlphaFlow({
       setPortrait(data.portrait);
       setAsked(nextAsked);
       setStep(data.step);
-      setTotal(data.total);
+      setUnderstood(data.understood);
       if (data.question) {
         setQuestion(data.question);
         setMsgs((m) => [...m, { from: "alpha", text: data.question!.text }]);
@@ -122,7 +123,7 @@ export function AlphaFlow({
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    void turn(initial, null, null, []);
+    void turn(initial, null, null, [], [{ from: "me", text: initial }]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -132,9 +133,10 @@ export function AlphaFlow({
 
   const answer = (value: string, label: string) => {
     if (!question || busy) return;
-    setMsgs((m) => [...m, { from: "me", text: label }]);
+    const history: Msg[] = [...msgs, { from: "me", text: label }];
+    setMsgs(history);
     setOwn("");
-    void turn(value, question.slot, portrait, asked);
+    void turn(value, question.slot, portrait, asked, history);
   };
 
   const search = async (p: AlphaPortrait | null) => {
@@ -166,7 +168,7 @@ export function AlphaFlow({
     setQuestion(null);
     setPhase("asking");
     setMatches([]);
-    void turn(initial, null, null, []);
+    void turn(initial, null, null, [], [{ from: "me", text: initial }]);
   };
 
   // ---------- render ----------
@@ -240,13 +242,14 @@ export function AlphaFlow({
     <div className="sm:max-w-[720px]">
       <div className="mb-2 flex items-center gap-2 text-[12px] font-semibold text-[#6a4dff] dark:text-[#b7a6ff]">
         <span>
-          {S.question[l]} {step} {S.of[l]} {total}
+          {S.question[l]} {step}
         </span>
-        <span className="flex gap-1">
-          {Array.from({ length: total }).map((_, i) => (
-            <span key={i} className={`h-1.5 w-5 rounded-full ${i < step ? "alpha-flow" : "bg-black/10 dark:bg-white/15"}`} />
-          ))}
+        {/* 07.10.2026: вопросов больше не фиксированное число -- вместо «X з Y»
+            показываем, насколько Alpha уже поняла запрос. */}
+        <span className="h-1.5 w-24 overflow-hidden rounded-full bg-black/10 dark:bg-white/15">
+          <span className="alpha-flow block h-full rounded-full transition-[width] duration-500" style={{ width: `${Math.max(8, understood)}%` }} />
         </span>
+        <span className="font-medium opacity-80">{S.understood2[l].replace("{n}", String(understood))}</span>
       </div>
       <div ref={chatRef} className="flex max-h-[220px] flex-col gap-2 overflow-y-auto pr-1">
         {msgs.map((m, i) =>

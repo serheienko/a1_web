@@ -2,7 +2,7 @@
 //
 // Alpha's "brain" for the test environment (2026-10-07). Rule-based stand-in
 // that understands the first free-text message, decides what is still
-// missing and asks at most 3 clarifying questions. Same input/output as the
+// missing and asks clarifying questions until it understands (no fixed limit). Same input/output as the
 // future AI version (Claude via API), so swapping it later touches only
 // this file -- the window and the search stay as they are.
 
@@ -19,7 +19,6 @@ import {
 type L = "uk" | "en" | "ru";
 const pick = (lang: string): L => (lang === "uk" || lang === "ru" ? lang : "en");
 
-const MAX_QUESTIONS = 3;
 
 // ---------- understanding free text ----------
 
@@ -153,6 +152,8 @@ function applyAnswer(p: AlphaPortrait, slot: AlphaSlot, message: string): AlphaP
   const v = message.trim();
   if (v === "__skip") return p;
   switch (slot) {
+    case "more":
+      return merge(p, v);
     case "role":
       if (v === "seeking" || v === "hiring") return { ...p, role: v };
       return merge(p, v);
@@ -181,7 +182,7 @@ function applyAnswer(p: AlphaPortrait, slot: AlphaSlot, message: string): AlphaP
 
 // ---------- questions ----------
 
-const Q: Record<AlphaSlot, (role: AlphaPortrait["role"], l: L) => AlphaQuestion> = {
+const Q: Record<Exclude<AlphaSlot, "more">, (role: AlphaPortrait["role"], l: L) => AlphaQuestion> = {
   role: (_r, l) => ({
     slot: "role",
     text: { uk: "Ти шукаєш роботу чи людей у команду?", en: "Are you looking for a job or for people?", ru: "Ты ищешь работу или людей в команду?" }[l],
@@ -252,8 +253,8 @@ const Q: Record<AlphaSlot, (role: AlphaPortrait["role"], l: L) => AlphaQuestion>
   }),
 };
 
-function missing(p: AlphaPortrait): AlphaSlot[] {
-  const out: AlphaSlot[] = [];
+function missing(p: AlphaPortrait): Exclude<AlphaSlot, "more">[] {
+  const out: Exclude<AlphaSlot, "more">[] = [];
   if (!p.role) out.push("role");
   if (p.stack.length === 0) out.push("stack");
   if (!p.level) out.push("level");
@@ -262,27 +263,69 @@ function missing(p: AlphaPortrait): AlphaSlot[] {
   return out;
 }
 
+/** How complete the portrait is, 0..100 (shown as "Alpha розуміє тебе на N%"). */
+export function understoodPct(p: AlphaPortrait): number {
+  let n = 0;
+  if (p.role) n += 20;
+  if (p.stack.length || p.roleText) n += 30;
+  if (p.level) n += 15;
+  if (p.format) n += 10;
+  if (p.money != null) n += 10;
+  if (p.dealbreakers.length || p.wishes.length) n += 15;
+  return Math.min(100, n);
+}
+
+/** Did the answer actually fill the slot it was answering? */
+function filled(before: AlphaPortrait, after: AlphaPortrait, slot: AlphaSlot, message: string): boolean {
+  const v = message.trim();
+  if (v === "__skip" || v === "any" || v === "none") return true;
+  switch (slot) {
+    case "role":
+      return Boolean(after.role);
+    case "stack":
+      return after.stack.length > before.stack.length || Boolean(after.roleText);
+    case "level":
+      return Boolean(after.level);
+    case "money":
+      return after.money != null;
+    default:
+      return true;
+  }
+}
+
+const REASK: Record<L, string> = {
+  uk: "Не зовсім зрозуміла. ",
+  en: "Didn't quite get that. ",
+  ru: "Не совсем поняла. ",
+};
+
+/** Safety net only -- not a product limit. */
+const SAFETY_CAP = 10;
+
 export function alphaTurn(req: AlphaTurnRequest): AlphaTurnResponse {
   const l = pick(req.lang);
-  let portrait = req.portrait ?? EMPTY_PORTRAIT;
-  portrait = req.answering ? applyAnswer(portrait, req.answering, req.message) : merge(portrait, req.message);
+  const before = req.portrait ?? EMPTY_PORTRAIT;
+  const portrait = req.answering ? applyAnswer(before, req.answering, req.message) : merge(before, req.message);
 
-  const asked = new Set(req.asked);
-  if (req.answering) asked.add(req.answering);
-  // Role is a must; the rest -- at most MAX_QUESTIONS clarifications in total.
-  const clarifications = [...asked].filter((s) => s !== "role").length;
-  const todo = missing(portrait).filter((s) => !asked.has(s));
-  const next = todo.find((s) => s === "role") ?? (clarifications < MAX_QUESTIONS ? todo[0] : undefined);
+  const asked = [...req.asked];
+  if (req.answering) asked.push(req.answering);
+  const step = asked.length + 2;
 
-  // Progress: first message is step 1; total = 1 + what we plan to ask.
-  const plannedAhead = Math.min(todo.filter((s) => s !== "role").length, MAX_QUESTIONS - clarifications) + (todo.includes("role") ? 1 : 0);
-  const step = asked.size + 2;
-  const total = Math.max(step, asked.size + 1 + plannedAhead);
+  // 07.10.2026 (Александр: «не ставь хард лимит... если не поняла, пусть
+  // задаёт дополнительные»): no fixed number of questions. Answer not
+  // understood -> ask the same thing again in other words (once per slot);
+  // otherwise go through everything that's still missing.
+  let question: AlphaQuestion | null = null;
+  if (asked.length < SAFETY_CAP) {
+    const timesAsked = (slot: AlphaSlot) => asked.filter((x) => x === slot).length;
+    if (req.answering && req.answering !== "more" && !filled(before, portrait, req.answering, req.message) && timesAsked(req.answering) < 2) {
+      const q = Q[req.answering](portrait.role, l);
+      question = { ...q, text: REASK[l] + q.text };
+    } else {
+      const next = missing(portrait).find((x) => timesAsked(x) === 0);
+      if (next) question = Q[next](portrait.role, l);
+    }
+  }
 
-  return {
-    portrait,
-    question: next ? Q[next](portrait.role, l) : null,
-    step: Math.min(step, total),
-    total,
-  };
+  return { portrait, question, step, understood: understoodPct(portrait) };
 }

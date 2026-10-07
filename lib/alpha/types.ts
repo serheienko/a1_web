@@ -22,7 +22,11 @@ export type AlphaPortrait = {
   notes: string[];
 };
 
-export type AlphaSlot = "role" | "stack" | "level" | "money" | "dealbreakers";
+/** "more" -- open follow-up that Alpha writes itself from the context
+ *  (AI brain), or a re-ask when an answer wasn't understood. */
+export type AlphaSlot = "role" | "stack" | "level" | "money" | "dealbreakers" | "more";
+
+export type AlphaChatLine = { from: "me" | "alpha"; text: string };
 
 export type AlphaQuestion = {
   slot: AlphaSlot;
@@ -39,13 +43,18 @@ export type AlphaTurnRequest = {
   /** Which question this message answers (null = the very first message). */
   answering: AlphaSlot | null;
   asked: AlphaSlot[];
+  /** The whole conversation so far -- the AI brain asks by context. */
+  history?: AlphaChatLine[];
 };
 
 export type AlphaTurnResponse = {
   portrait: AlphaPortrait;
   question: AlphaQuestion | null; // null = ready to search
-  step: number; // 1-based, for "Питання 2 з 4"
-  total: number;
+  step: number; // 1-based: "Питання 2"
+  /** 07.10.2026 (Александр: «не ставь хард лимит»): no fixed number of
+   *  questions any more -- instead, how well Alpha understands the
+   *  request, 0..100. Search starts when it's enough (or on "Досить, шукай"). */
+  understood: number;
 };
 
 export type AlphaMatch = {
