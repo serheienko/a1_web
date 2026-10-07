@@ -18,7 +18,7 @@ const PORTRAIT_KEY = "a1.alpha.portrait";
 
 const S = {
   question: { uk: "Питання", en: "Question", ru: "Вопрос" },
-  understood2: { uk: "розуміє тебе на {n}%", en: "understands you {n}%", ru: "понимает тебя на {n}%" },
+  understood2: { uk: "розуміє Вас на {n}%", en: "understands you {n}%", ru: "понимает Вас на {n}%" },
   of: { uk: "з", en: "of", ru: "из" },
   skip: { uk: "Пропустити", en: "Skip", ru: "Пропустить" },
   enough: { uk: "Досить, шукай", en: "That's enough, search", ru: "Хватит, ищи" },
@@ -32,13 +32,13 @@ const S = {
   found: { uk: "Найкращі збіги", en: "Best matches", ru: "Лучшие совпадения" },
   scanned: { uk: "переглянуто", en: "checked", ru: "просмотрено" },
   none: {
-    uk: "Поки нічого не підходить достатньо добре. Спробуй послабити умови — або Alpha надішле, щойно з'явиться.",
+    uk: "Поки нічого не підходить достатньо добре. Спробуйте послабити умови — або Alpha надішле, щойно з'явиться.",
     en: "Nothing fits well enough yet. Try loosening something — or Alpha will send it as soon as it appears.",
-    ru: "Пока ничего не подходит достаточно хорошо. Попробуй ослабить условия — или Alpha пришлёт, как только появится.",
+    ru: "Пока ничего не подходит достаточно хорошо. Попробуйте ослабить условия — или Alpha пришлёт, как только появится.",
   },
   more: { uk: "Ще {n} збігів — у Premium", en: "{n} more matches — in Premium", ru: "Ещё {n} совпадений — в Premium" },
   unlock: { uk: "Відкрити всі", en: "Unlock all", ru: "Открыть все" },
-  failed: { uk: "Щось пішло не так. Спробуй ще раз.", en: "Something went wrong. Try again.", ru: "Что-то пошло не так. Попробуй ещё раз." },
+  failed: { uk: "Щось пішло не так. Спробуйте ще раз.", en: "Something went wrong. Try again.", ru: "Что-то пошло не так. Попробуйте ещё раз." },
   // portrait labels
   pRole: { uk: "Шукаю", en: "Looking for", ru: "Ищу" },
   pJob: { uk: "роботу", en: "a job", ru: "работу" },

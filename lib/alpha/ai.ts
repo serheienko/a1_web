@@ -49,6 +49,7 @@ How to ask:
 - One question per turn. Short. No greetings, no "great!", no emojis.
 - Chips: concrete, mutually exclusive answers to your question, in the person's language. Values may equal labels.
 - Neutral tone; it works for both job seekers and companies.
+- Address the person politely in the formal form: "Ви/Вас/Ваш" in Ukrainian, "Вы/Вас/Ваш" in Russian (capitalized), never "ти/ты".
 - Keep everything the person said; update the portrait cumulatively, never drop earlier facts unless corrected.`;
 
 type Raw = { portrait?: Partial<AlphaPortrait>; question?: { text?: unknown; options?: unknown; allowFree?: unknown } | null; understood?: unknown };

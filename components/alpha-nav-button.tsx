@@ -16,29 +16,31 @@ import { useHoverPanel } from "@/lib/use-hover-panel";
 
 const FLOW = "linear-gradient(100deg,#0148fc 0%,#5a4dff 25%,#963fff 50%,#5a4dff 75%,#0148fc 100%)";
 
-type L = "uk" | "en" | "ru";
+// 07.10.2026: все 9 языков сайта; обращение на «Ви/Вы» (Александр: «не
+// злоупотреблять "ты" в наших культурах»).
+type T9 = { uk: string; en: string; ru: string; de: string; es: string; fr: string; pl: string; ptBR: string; zh: string };
 const S = {
-  btn: { uk: "Спробуй Alpha", en: "Try Alpha", ru: "Попробуй Alpha" },
-  head: { uk: "Як працює Alpha", en: "How Alpha works", ru: "Как работает Alpha" },
-  s1: { uk: "Пишеш одне речення", en: "You write one sentence", ru: "Пишешь одно предложение" },
-  s2: { uk: "Alpha уточнює до 3 питань", en: "Alpha asks up to 3 questions", ru: "Alpha уточняет до 3 вопросов" },
-  s3: { uk: "Складає твій портрет", en: "Builds your portrait", ru: "Собирает твой портрет" },
-  s4: { uk: "Показує точні збіги", en: "Shows exact matches", ru: "Показывает точные совпадения" },
-  s5: { uk: "Щодня надсилає нові в чат", en: "Sends new ones to chat daily", ru: "Каждый день присылает новые в чат" },
-  q: { uk: "Senior Flutter, remote", en: "Senior Flutter, remote", ru: "Senior Flutter, remote" },
-  c1: { uk: "Рівень?", en: "Level?", ru: "Уровень?" },
-  c2: { uk: "Формат?", en: "Format?", ru: "Формат?" },
-  c3: { uk: "Гроші?", en: "Salary?", ru: "Деньги?" },
-  p1: { uk: "Senior", en: "Senior", ru: "Senior" },
-  p2: { uk: "Віддалено", en: "Remote", ru: "Удалённо" },
-  p3: { uk: "від $4k", en: "$4k+", ru: "от $4k" },
-  why: { uk: "чому підходить", en: "why it fits", ru: "почему подходит" },
-  chat: { uk: "Альфа підбірка", en: "Alpha picks", ru: "Альфа подборка" },
-  fresh: { uk: "+3 нові збіги", en: "+3 new matches", ru: "+3 новых совпадения" },
-} as const;
+  btn: { uk: "Спробуйте Alpha", en: "Try Alpha", ru: "Попробуйте Alpha", de: "Alpha testen", es: "Probar Alpha", fr: "Essayer Alpha", pl: "Wypróbuj Alpha", ptBR: "Experimentar Alpha", zh: "试用 Alpha" },
+  head: { uk: "Як працює Alpha", en: "How Alpha works", ru: "Как работает Alpha", de: "So funktioniert Alpha", es: "Cómo funciona Alpha", fr: "Comment fonctionne Alpha", pl: "Jak działa Alpha", ptBR: "Como funciona o Alpha", zh: "Alpha 如何运作" },
+  s1: { uk: "Розповідаєте про себе", en: "Tell about yourself", ru: "Рассказываете про себя", de: "Sie erzählen von sich", es: "Cuenta sobre usted", fr: "Vous parlez de vous", pl: "Opowiadasz o sobie", ptBR: "Você fala sobre si", zh: "介绍一下您自己" },
+  s2: { uk: "Alpha ставить запитання", en: "Alpha asks questions", ru: "Alpha задаёт вопросы", de: "Alpha stellt Fragen", es: "Alpha hace preguntas", fr: "Alpha pose des questions", pl: "Alpha zadaje pytania", ptBR: "O Alpha faz perguntas", zh: "Alpha 提出问题" },
+  s3: { uk: "Складає Ваш портрет", en: "Builds your portrait", ru: "Собирает Ваш портрет", de: "Erstellt Ihr Profil", es: "Crea su perfil", fr: "Dresse votre portrait", pl: "Tworzy Twój portret", ptBR: "Monta o seu perfil", zh: "生成您的画像" },
+  s4: { uk: "Показує точні збіги", en: "Shows exact matches", ru: "Показывает точные совпадения", de: "Zeigt genaue Treffer", es: "Muestra coincidencias exactas", fr: "Montre les correspondances exactes", pl: "Pokazuje trafne dopasowania", ptBR: "Mostra resultados exatos", zh: "展示精准匹配" },
+  s5: { uk: "Щодня надсилає нові в чат", en: "Sends new ones to chat daily", ru: "Каждый день присылает новые в чат", de: "Schickt täglich neue in den Chat", es: "Envía nuevas al chat cada día", fr: "Envoie les nouvelles chaque jour dans le chat", pl: "Codziennie wysyła nowe na czat", ptBR: "Envia novos no chat todo dia", zh: "每天在聊天中推送新匹配" },
+  q: { uk: "Senior Flutter, remote", en: "Senior Flutter, remote", ru: "Senior Flutter, remote", de: "Senior Flutter, remote", es: "Senior Flutter, remote", fr: "Senior Flutter, remote", pl: "Senior Flutter, remote", ptBR: "Senior Flutter, remote", zh: "Senior Flutter, remote" },
+  c1: { uk: "Рівень?", en: "Level?", ru: "Уровень?", de: "Level?", es: "¿Nivel?", fr: "Niveau ?", pl: "Poziom?", ptBR: "Nível?", zh: "级别？" },
+  c2: { uk: "Формат?", en: "Format?", ru: "Формат?", de: "Arbeitsform?", es: "¿Formato?", fr: "Format ?", pl: "Tryb?", ptBR: "Formato?", zh: "形式？" },
+  c3: { uk: "Гроші?", en: "Salary?", ru: "Деньги?", de: "Gehalt?", es: "¿Salario?", fr: "Salaire ?", pl: "Pensja?", ptBR: "Salário?", zh: "薪资？" },
+  p1: { uk: "Senior", en: "Senior", ru: "Senior", de: "Senior", es: "Senior", fr: "Senior", pl: "Senior", ptBR: "Senior", zh: "Senior" },
+  p2: { uk: "Віддалено", en: "Remote", ru: "Удалённо", de: "Remote", es: "Remoto", fr: "À distance", pl: "Zdalnie", ptBR: "Remoto", zh: "远程" },
+  p3: { uk: "від $4k", en: "$4k+", ru: "от $4k", de: "ab $4k", es: "desde $4k", fr: "dès 4k $", pl: "od $4k", ptBR: "a partir de $4k", zh: "$4k 起" },
+  why: { uk: "чому підходить", en: "why it fits", ru: "почему подходит", de: "warum es passt", es: "por qué encaja", fr: "pourquoi ça colle", pl: "dlaczego pasuje", ptBR: "por que combina", zh: "匹配原因" },
+  chat: { uk: "Альфа підбірка", en: "Alpha picks", ru: "Альфа подборка", de: "Alpha-Auswahl", es: "Selección Alpha", fr: "Sélection Alpha", pl: "Wybór Alpha", ptBR: "Seleção Alpha", zh: "Alpha 精选" },
+  fresh: { uk: "+3 нові збіги", en: "+3 new matches", ru: "+3 новых совпадения", de: "+3 neue Treffer", es: "+3 nuevas", fr: "+3 nouvelles", pl: "+3 nowe", ptBR: "+3 novos", zh: "+3 新匹配" },
+} satisfies Record<string, T9>;
 
-function pick(locale: string, v: Record<L, string>): string {
-  return locale === "uk" || locale === "ru" ? v[locale] : v.en;
+function pick(locale: string, v: T9): string {
+  return (v as Record<string, string>)[locale] ?? v.en;
 }
 
 function Spark({ className = "" }: { className?: string }) {
@@ -52,9 +54,14 @@ function Spark({ className = "" }: { className?: string }) {
 
 export function AlphaNavButton() {
   const locale = useActiveLocale();
-  const t = (v: Record<L, string>) => pick(locale, v);
+  const t = (v: T9) => pick(locale, v);
   const [open, setOpen] = useState(false);
   const [modal, setModal] = useState(false);
+  const openAlpha = () => {
+    setOpen(false);
+    startAlphaMusic();
+    setModal(true);
+  };
   // Шапка -- backdrop-blur, а он делает её «контейнером» для position:fixed:
   // окно Alpha внутри неё обрезалось бы по шапке. Поэтому -- в <body>.
   const [mounted, setMounted] = useState(false);
@@ -132,11 +139,7 @@ export function AlphaNavButton() {
       <style>{`@keyframes alphaNavFlow{0%{background-position:0% 50%}100%{background-position:200% 50%}}.alpha-nav-flow{background-image:${FLOW};background-size:200% 100%;animation:alphaNavFlow 4s linear infinite}@media (prefers-reduced-motion:reduce){.alpha-nav-flow{animation:none}}`}</style>
       <button
         type="button"
-        onClick={() => {
-          setOpen(false);
-          startAlphaMusic();
-          setModal(true);
-        }}
+        onClick={openAlpha}
         className="alpha-nav-flow flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-sm font-semibold text-white shadow-[0_4px_14px_rgba(90,80,255,0.35)] transition hover:-translate-y-px hover:shadow-[0_6px_18px_rgba(110,77,255,0.45)] active:translate-y-0"
       >
         <Spark className="h-4 w-4" />
@@ -145,9 +148,14 @@ export function AlphaNavButton() {
 
       {rendered && (
         <div ref={panelRef} className="absolute left-0 top-full z-50 w-[360px] pt-2 [@media(hover:none)]:hidden">
+          {/* 07.10.2026 (Александр): клик в любую точку схемы открывает
+              главное окно Alpha с покупкой Premium. */}
           <div
+            role="button"
+            tabIndex={-1}
+            onClick={openAlpha}
             className={
-              "rounded-2xl border border-black/5 bg-white p-4 shadow-xl transition duration-200 ease-out dark:border-white/10 dark:bg-neutral-900 " +
+              "cursor-pointer rounded-2xl border border-black/5 bg-white p-4 shadow-xl transition duration-200 ease-out hover:border-[#5a4dff]/30 hover:shadow-[0_16px_40px_rgba(90,80,255,0.18)] dark:border-white/10 dark:bg-neutral-900 dark:hover:border-[#8a6dff]/40 " +
               (visible ? "translate-y-0 opacity-100" : "-translate-y-1 opacity-0")
             }
           >

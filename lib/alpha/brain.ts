@@ -185,7 +185,7 @@ function applyAnswer(p: AlphaPortrait, slot: AlphaSlot, message: string): AlphaP
 const Q: Record<Exclude<AlphaSlot, "more">, (role: AlphaPortrait["role"], l: L) => AlphaQuestion> = {
   role: (_r, l) => ({
     slot: "role",
-    text: { uk: "Ти шукаєш роботу чи людей у команду?", en: "Are you looking for a job or for people?", ru: "Ты ищешь работу или людей в команду?" }[l],
+    text: { uk: "Ви шукаєте роботу чи людей у команду?", en: "Are you looking for a job or for people?", ru: "Вы ищете работу или людей в команду?" }[l],
     options: [
       { label: { uk: "Роботу", en: "A job", ru: "Работу" }[l], value: "seeking" },
       { label: { uk: "Людей", en: "People", ru: "Людей" }[l], value: "hiring" },
@@ -196,8 +196,8 @@ const Q: Record<Exclude<AlphaSlot, "more">, (role: AlphaPortrait["role"], l: L) 
     slot: "stack",
     text:
       r === "hiring"
-        ? { uk: "Кого шукаєш? Роль або стек.", en: "Who are you looking for? Role or stack.", ru: "Кого ищешь? Роль или стек." }[l]
-        : { uk: "Ким хочеш працювати? Роль або стек.", en: "What do you want to work as? Role or stack.", ru: "Кем хочешь работать? Роль или стек." }[l],
+        ? { uk: "Кого шукаєте? Роль або стек.", en: "Who are you looking for? Role or stack.", ru: "Кого ищете? Роль или стек." }[l]
+        : { uk: "Ким хочете працювати? Роль або стек.", en: "What do you want to work as? Role or stack.", ru: "Кем хотите работать? Роль или стек." }[l],
     options: ["Frontend", "Backend", "Mobile", "QA", "Design", "DevOps"].map((x) => ({ label: x, value: x })),
     allowFree: true,
   }),
@@ -206,7 +206,7 @@ const Q: Record<Exclude<AlphaSlot, "more">, (role: AlphaPortrait["role"], l: L) 
     text:
       r === "hiring"
         ? { uk: "Якого рівня людина потрібна?", en: "What level do you need?", ru: "Какого уровня человек нужен?" }[l]
-        : { uk: "Який у тебе рівень?", en: "What's your level?", ru: "Какой у тебя уровень?" }[l],
+        : { uk: "Який у Вас рівень?", en: "What's your level?", ru: "Какой у Вас уровень?" }[l],
     options: [
       { label: "Junior", value: "junior" },
       { label: "Middle", value: "middle" },
@@ -220,7 +220,7 @@ const Q: Record<Exclude<AlphaSlot, "more">, (role: AlphaPortrait["role"], l: L) 
     text:
       r === "hiring"
         ? { uk: "Який бюджет на місяць?", en: "Monthly budget?", ru: "Какой бюджет в месяц?" }[l]
-        : { uk: "Від якої суми розглядаєш (на місяць)?", en: "Minimum salary you'd consider (per month)?", ru: "От какой суммы рассматриваешь (в месяц)?" }[l],
+        : { uk: "Від якої суми розглядаєте (на місяць)?", en: "Minimum salary you'd consider (per month)?", ru: "От какой суммы рассматриваете (в месяц)?" }[l],
     options: [
       { label: "$1000", value: "1000" },
       { label: "$2000", value: "2000" },
@@ -234,8 +234,8 @@ const Q: Record<Exclude<AlphaSlot, "more">, (role: AlphaPortrait["role"], l: L) 
     slot: "dealbreakers",
     text:
       r === "hiring"
-        ? { uk: "Що для кандидата обов'язково? Напиши будь-що важливе.", en: "What's a must for the candidate? Anything that matters.", ru: "Что для кандидата обязательно? Напиши всё важное." }[l]
-        : { uk: "Що точно не для тебе? Або що важливо — пиши будь-що.", en: "What's a definite no? Or anything that matters to you.", ru: "Что точно не для тебя? Или что важно — пиши что угодно." }[l],
+        ? { uk: "Що для кандидата обов'язково? Напишіть будь-що важливе.", en: "What's a must for the candidate? Anything that matters.", ru: "Что для кандидата обязательно? Напишите всё важное." }[l]
+        : { uk: "Що точно не для Вас? Або що важливо — пишіть будь-що.", en: "What's a definite no? Or anything that matters to you.", ru: "Что точно не для Вас? Или что важно — пишите что угодно." }[l],
     options:
       r === "hiring"
         ? [
@@ -263,7 +263,7 @@ function missing(p: AlphaPortrait): Exclude<AlphaSlot, "more">[] {
   return out;
 }
 
-/** How complete the portrait is, 0..100 (shown as "Alpha розуміє тебе на N%"). */
+/** How complete the portrait is, 0..100 (shown as "Alpha розуміє Вас на N%"). */
 export function understoodPct(p: AlphaPortrait): number {
   let n = 0;
   if (p.role) n += 20;

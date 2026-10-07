@@ -35,19 +35,19 @@ type Key =
   | "soundOff" | "needPremium" | "mic" | "save" | "searchWord" | "signInNeed" | "signIn";
 
 const S: Record<Key, Partial<Record<Locale, string>> & { en: string }> = {
-  tagline: { uk: "Alpha шукає за тебе.", en: "Alpha searches for you.", ru: "Alpha ищет за тебя." },
+  tagline: { uk: "Alpha шукає за Вас.", en: "Alpha searches for you.", ru: "Alpha ищет за Вас." },
   sub: {
-    uk: "Відповідаєш на кілька питань — Alpha розуміє, що тобі треба, і показує найточніші збіги. Далі сама надсилає нові.",
+    uk: "Ви відповідаєте на кілька питань — Alpha розуміє, що Вам потрібно, і показує найточніші збіги. Далі сама надсилає нові.",
     en: "Answer a few questions — Alpha learns what you need and shows the closest matches. Then it keeps sending new ones.",
-    ru: "Отвечаешь на пару вопросов — Alpha понимает, что тебе нужно, и показывает самые точные совпадения. Дальше сама присылает новые.",
+    ru: "Вы отвечаете на пару вопросов — Alpha понимает, что Вам нужно, и показывает самые точные совпадения. Дальше сама присылает новые.",
   },
   placeholder: { uk: "Senior Flutter, remote, Київ", en: "Senior Flutter, remote, Kyiv", ru: "Senior Flutter, remote, Киев" },
   hint: {
-    uk: "Почни з одного речення — далі Alpha спитає сама.",
+    uk: "Почніть з одного речення — далі Alpha спитає сама.",
     en: "Start with one sentence — Alpha will ask the rest.",
-    ru: "Начни с одного предложения — дальше Alpha спросит сама.",
+    ru: "Начните с одного предложения — дальше Alpha спросит сама.",
   },
-  alsoTitle: { uk: "Також у твоєму Premium", en: "Also in your Premium", ru: "Также в твоём Premium" },
+  alsoTitle: { uk: "Також у Вашому Premium", en: "Also in your Premium", ru: "Также в Вашем Premium" },
   alsoSub: {
     uk: "Alpha Search та інші можливості — в одній підписці.",
     en: "Alpha Search and more — in one subscription.",
@@ -55,20 +55,20 @@ const S: Record<Key, Partial<Record<Locale, string>> & { en: string }> = {
   },
   wandT: { uk: "Чарівна паличка", en: "Magic wand", ru: "Волшебная палочка" },
   wandD: {
-    uk: "Розкажи голосом чи текстом — поля заповняться самі.",
+    uk: "Розкажіть голосом чи текстом — поля заповняться самі.",
     en: "Say it or type it — the fields fill themselves.",
-    ru: "Расскажи голосом или текстом — поля заполнятся сами.",
+    ru: "Расскажите голосом или текстом — поля заполнятся сами.",
   },
   mediaT: { uk: "Медіа без ліміту", en: "No media limits", ru: "Медиа без лимита" },
   mediaD: { uk: "Фото, відео та файли в чатах.", en: "Photos, videos and files in chats.", ru: "Фото, видео и файлы в чатах." },
   statusT: { uk: "Власний статус", en: "Your own status", ru: "Свой статус" },
   statusD: {
-    uk: "Твій текст у профілі біжить рядком.",
+    uk: "Ваш текст у профілі біжить рядком.",
     en: "Your text runs as a ticker on your profile.",
-    ru: "Твой текст в профиле бежит строкой.",
+    ru: "Ваш текст в профиле бежит строкой.",
   },
   emojiT: { uk: "Преміум-емодзі", en: "Premium emoji", ru: "Премиум-эмодзи" },
-  emojiD: { uk: "Фірмовий значок біля твого імені.", en: "A signature badge next to your name.", ru: "Фирменный значок рядом с твоим именем." },
+  emojiD: { uk: "Фірмовий значок біля Вашого імені.", en: "A signature badge next to your name.", ru: "Фирменный значок рядом с Вашим именем." },
   pricesFor: { uk: "Ціни для", en: "Prices for", ru: "Цены для" },
   month: { uk: "Місяць", en: "Month", ru: "Месяц" },
   year: { uk: "Рік", en: "Year", ru: "Год" },
@@ -88,12 +88,12 @@ const S: Record<Key, Partial<Record<Locale, string>> & { en: string }> = {
   soundOn: { uk: "Увімкнути звук", en: "Sound on", ru: "Включить звук" },
   soundOff: { uk: "Вимкнути звук", en: "Sound off", ru: "Выключить звук" },
   needPremium: {
-    uk: "Alpha шукає з Premium — обери тариф нижче.",
+    uk: "Alpha шукає з Premium — оберіть тариф нижче.",
     en: "Alpha searches with Premium — pick a plan below.",
-    ru: "Alpha ищет с Premium — выбери тариф ниже.",
+    ru: "Alpha ищет с Premium — выберите тариф ниже.",
   },
   searchWord: { uk: "пошук", en: "Search", ru: "поиск" },
-  signInNeed: { uk: "Увійди, щоб Alpha запам'ятала тебе.", en: "Sign in so Alpha can remember you.", ru: "Войди, чтобы Alpha запомнила тебя." },
+  signInNeed: { uk: "Увійдіть, щоб Alpha запам'ятала Вас.", en: "Sign in so Alpha can remember you.", ru: "Войдите, чтобы Alpha запомнила Вас." },
   signIn: { uk: "Увійти", en: "Sign in", ru: "Войти" },
   mic: { uk: "Сказати голосом", en: "Speak", ru: "Сказать голосом" },
 };
@@ -169,6 +169,28 @@ export function AlphaPaywall({
       return null;
     }
   }, [country, lang]);
+
+  // 07.10.2026 (Александр: «окно появлялось плавно, а не резко»): окно
+  // остаётся в DOM ещё 300 мс после закрытия, чтобы успеть погаснуть, а при
+  // открытии сначала рисуется прозрачным и на следующем кадре проявляется.
+  const [rendered, setRendered] = useState(open);
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    if (open) {
+      setRendered(true);
+      let r2 = 0;
+      const r1 = requestAnimationFrame(() => {
+        r2 = requestAnimationFrame(() => setShown(true));
+      });
+      return () => {
+        cancelAnimationFrame(r1);
+        cancelAnimationFrame(r2);
+      };
+    }
+    setShown(false);
+    const t = window.setTimeout(() => setRendered(false), 300);
+    return () => window.clearTimeout(t);
+  }, [open]);
 
   // Esc closes, page behind does not scroll.
   useEffect(() => {
@@ -252,11 +274,14 @@ export function AlphaPaywall({
     rec.start();
   };
 
-  if (!open) return null;
+  if (!rendered) return null;
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex items-end justify-center bg-black/45 backdrop-blur-[6px] sm:items-center sm:p-3"
+      className={
+        "fixed inset-0 z-[200] flex items-end justify-center bg-black/45 backdrop-blur-[6px] transition-opacity duration-300 ease-out sm:items-center sm:p-3 " +
+        (shown ? "opacity-100" : "opacity-0")
+      }
       {...backdropDismiss(onClose)}
     >
       <style>{`
@@ -268,7 +293,11 @@ export function AlphaPaywall({
         role="dialog"
         aria-modal="true"
         aria-label="Alpha Search"
-        className="relative max-h-[100dvh] w-full overflow-y-auto text-left rounded-t-[28px] bg-white text-[#0b0b14] shadow-[0_30px_80px_rgba(20,30,80,0.35)] sm:max-h-[calc(100dvh-24px)] sm:max-w-[980px] sm:rounded-[32px] dark:bg-[#232330] dark:text-white"
+        className={
+          "relative max-h-[100dvh] w-full overflow-y-auto text-left transition duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none " +
+          (shown ? "translate-y-0 opacity-100 sm:scale-100 " : "translate-y-8 opacity-0 sm:translate-y-3 sm:scale-[0.97] ") +
+          "rounded-t-[28px] bg-white text-[#0b0b14] shadow-[0_30px_80px_rgba(20,30,80,0.35)] sm:max-h-[calc(100dvh-24px)] sm:max-w-[980px] sm:rounded-[32px] dark:bg-[#232330] dark:text-white"
+        }
       >
         {/* top-right controls */}
         <div className="absolute right-3 top-3 z-30 flex gap-1 sm:right-5 sm:top-5">
