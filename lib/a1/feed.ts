@@ -391,7 +391,15 @@ export async function fetchFeedPage(
   }
 
   const scanned = await getScanPosts(kind, filters);
-  const matches = applyLocalFilters(inUkraineMode(kind, filters) ? scanned.filter(keepInUkraineFeed) : scanned, filters, needle);
+  // Запрос-город («Vienna») возвращает и зарубежные вакансии этого города, хотя лента
+  // «Україна» их обычно отсекает: человек сам назвал место.
+  const matches = applyLocalFilters(
+    inUkraineMode(kind, filters)
+      ? scanned.filter((post) => keepInUkraineFeed(post) || (needle !== null && locationMatches(post.location, needle)))
+      : scanned,
+    filters,
+    needle,
+  );
   const hasMore = nextOffset < matches.length;
   return {
     posts: matches.slice(offset, nextOffset),
