@@ -15,6 +15,7 @@
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
+import { AlphaFlow } from "@/components/alpha-flow";
 import { useActiveLocale } from "@/lib/use-active-locale";
 import type { Locale } from "@/components/t";
 import {
@@ -31,7 +32,7 @@ type Key =
   | "wandT" | "wandD" | "mediaT" | "mediaD" | "statusT" | "statusD"
   | "emojiT" | "emojiD" | "pricesFor" | "month" | "year" | "perMonth"
   | "yearOnce" | "cta" | "ctaSub" | "footer" | "close" | "soundOn"
-  | "soundOff" | "needPremium" | "mic" | "save" | "searchWord";
+  | "soundOff" | "needPremium" | "mic" | "save" | "searchWord" | "signInNeed" | "signIn";
 
 const S: Record<Key, Partial<Record<Locale, string>> & { en: string }> = {
   tagline: { uk: "Alpha шукає за тебе.", en: "Alpha searches for you.", ru: "Alpha ищет за тебя." },
@@ -90,6 +91,8 @@ const S: Record<Key, Partial<Record<Locale, string>> & { en: string }> = {
     ru: "Alpha ищет с Premium — выбери тариф ниже.",
   },
   searchWord: { uk: "пошук", en: "Search", ru: "поиск" },
+  signInNeed: { uk: "Увійди, щоб Alpha запам'ятала тебе.", en: "Sign in so Alpha can remember you.", ru: "Войди, чтобы Alpha запомнила тебя." },
+  signIn: { uk: "Увійти", en: "Sign in", ru: "Войти" },
   mic: { uk: "Сказати голосом", en: "Speak", ru: "Сказать голосом" },
 };
 
@@ -141,6 +144,8 @@ export function AlphaPaywall({
   const [plan, setPlan] = useState<Plan>("year");
   const [query, setQuery] = useState("");
   const [nudge, setNudge] = useState(false);
+  const [flowQuery, setFlowQuery] = useState<string | null>(null);
+  const [authNeeded, setAuthNeeded] = useState(false);
   const [sound, setSound] = useState(true);
   const [listening, setListening] = useState(false);
   const [country, setCountry] = useState<string | null>(null);
@@ -202,10 +207,23 @@ export function AlphaPaywall({
     else a.pause();
   };
 
-  const onSubmit = (e: FormEvent) => {
-    e.preventDefault();
+  const toPricing = () => {
     setNudge(true);
     pricingRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
+  const onSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    const q = query.trim();
+    if (!q) return toPricing();
+    try {
+      const res = await fetch("/api/account/whoami");
+      if (!res.ok) return setAuthNeeded(true);
+    } catch {
+      return setAuthNeeded(true);
+    }
+    setAuthNeeded(false);
+    setFlowQuery(q);
   };
 
   const startVoice = () => {
@@ -274,6 +292,12 @@ export function AlphaPaywall({
         <div className="relative flex flex-col gap-2 px-5 pt-5 sm:block sm:px-10 sm:pt-7">
           <div className="relative z-10 order-2 sm:order-1">
             <AlphaLogo word={t("searchWord", lang)} />
+            {flowQuery ? (
+              <div className="mt-4 sm:max-w-[640px]">
+                <AlphaFlow initial={flowQuery} lang={lang} onUnlock={toPricing} />
+              </div>
+            ) : (
+            <>
             <p className="mt-3 text-[15px] leading-snug text-[#5b5b68] sm:mt-4 sm:max-w-[520px] sm:text-[18px] dark:text-[#a9a9b8]">
               {t("sub", lang)}
             </p>
@@ -313,10 +337,20 @@ export function AlphaPaywall({
               <p className={`mt-2.5 pl-1 text-[13px] sm:text-sm ${nudge ? "font-semibold text-[#6a4dff] dark:text-[#b7a6ff]" : "text-[#8e8e93]"}`}>
                 {nudge ? t("needPremium", lang) : t("hint", lang)}
               </p>
+              {authNeeded && (
+                <p className="mt-1 pl-1 text-[14px] font-semibold text-[#3a3a3c] dark:text-white">
+                  {t("signInNeed", lang)}{" "}
+                  <a href="/sign-in?next=%2Fpremium-preview" className="text-[#335ef7] underline dark:text-[#9fb2ff]">
+                    {t("signIn", lang)}
+                  </a>
+                </p>
+              )}
             </form>
+            </>
+            )}
           </div>
 
-          <div className="order-1 flex items-center justify-center sm:pointer-events-none sm:absolute sm:right-8 md:right-[88px] sm:top-1/2 sm:z-0 sm:order-2 sm:-translate-y-1/2 sm:mt-[70px]">
+          <div className={`${flowQuery ? "hidden" : "flex"} order-1 items-center justify-center sm:pointer-events-none sm:absolute sm:right-8 md:right-[88px] sm:top-1/2 sm:z-0 sm:order-2 sm:-translate-y-1/2 sm:mt-[70px]`}>
             <div className="relative h-[150px] w-[150px] sm:h-[272px] sm:w-[272px]">
               <CanVideo />
             </div>
@@ -324,7 +358,7 @@ export function AlphaPaywall({
         </div>
 
         {/* ALSO IN PREMIUM */}
-        <div className="mx-5 mt-5 sm:mx-10 sm:mt-4">
+        <div className={`mx-5 mt-5 sm:mx-10 sm:mt-4 ${flowQuery ? "hidden" : ""}`}>
           <h3 className="text-[21px] font-bold tracking-[-0.02em] sm:text-[24px]">{t("alsoTitle", lang)}</h3>
           <p className="mt-1 text-[14px] text-[#6b6b78] sm:text-[15px] dark:text-[#a9a9b8]">{t("alsoSub", lang)}</p>
           <div className="mt-4 grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">

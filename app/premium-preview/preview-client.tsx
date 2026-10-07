@@ -1,11 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AlphaPaywall, startAlphaMusic } from "@/components/alpha-paywall";
 
 export function PreviewClient() {
   const [open, setOpen] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [premium, setPremium] = useState(false);
+  useEffect(() => {
+    setPremium(document.cookie.includes("a1_premium_test=1"));
+  }, []);
+  const togglePremium = () => {
+    const next = !premium;
+    document.cookie = `a1_premium_test=${next ? "1" : "0"}; path=/; max-age=${60 * 60 * 24 * 30}; samesite=lax`;
+    setPremium(next);
+  };
 
   return (
     <main className="mx-auto flex min-h-[70vh] max-w-xl flex-col items-center justify-center gap-4 px-4 py-16 text-center">
@@ -25,6 +34,9 @@ export function PreviewClient() {
         style={{ background: "linear-gradient(100deg,#3575ff 0%,#6a4dff 55%,#963fff 100%)" }}
       >
         Відкрити Alpha Search
+      </button>
+      <button type="button" onClick={togglePremium} className="text-sm font-medium text-[#335ef7] underline">
+        Тест: Premium {premium ? "увімкнено — вимкнути" : "вимкнено — увімкнути"}
       </button>
       {msg && <p className="text-sm font-medium text-[#6a4dff]">{msg}</p>}
       <AlphaPaywall
