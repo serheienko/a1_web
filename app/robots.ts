@@ -39,7 +39,14 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
       // email-allowlisted internal tool, not a page meant for crawlers —
       // same reasoning as /api/ right above, not the /talents noindex-
       // but-crawlable carve-out this file's own header comment explains.
-      disallow: ["/api/", "/admin/"],
+      //
+      // 07.10.2026 (Александр: «проверь, что можно улучшить по
+      // индексации»). Статистика сканирования в Search Console: 65 %
+      // запросов Googlebot уходило на служебные ответы Next.js
+      // (?_rsc=..., данные для перехода между страницами), а на сами
+      // страницы -- лишь 13 %. При этом 25 тыс. вакансий робот «нашёл,
+      // но не обошёл». Закрываем эти ответы, чтобы обход шёл на страницы.
+      disallow: ["/api/", "/admin/", "/*?_rsc=", "/*&_rsc="],
     },
     sitemap: sitemaps,
   };
