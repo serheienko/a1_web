@@ -19,8 +19,8 @@ import { MapLoader } from "./map-loader";
 import { disposeMapMusic } from "./music";
 
 type MapHandle = (() => void) & { setLang?: (lang: string) => void; setTheme?: (theme: string) => void };
-type Region = "ua" | "eu" | "us" | "latam" | "asia" | "oceania" | "mideast";
-const REGIONS = ["ua", "eu", "us", "latam", "asia", "oceania", "mideast"];
+type Region = "ua" | "eu" | "us" | "latam" | "asia" | "oceania" | "mideast" | "africa";
+const REGIONS = ["ua", "eu", "us", "latam", "asia", "oceania", "mideast", "africa"];
 const KEY = "a1-map-region";
 
 // 04.10.2026: карта внутри приложения A1 (WebView) открывается как
@@ -57,6 +57,7 @@ const LATAM_TZ =
 
 // Близький Схід, Азія й Океанія (03.10.2026): за часовим поясом.
 const MIDEAST_TZ = /^(Asia\/(Jerusalem|Tel_Aviv|Gaza|Hebron|Amman|Beirut|Damascus|Baghdad|Tehran|Riyadh|Kuwait|Bahrain|Qatar|Dubai|Muscat|Aden)|Africa\/Cairo)$/;
+const AFRICA_TZ = /^(Africa\/(?!Ceuta$).+|Indian\/(Antananarivo|Mauritius|Mahe|Comoro))$/;
 const OCEANIA_TZ = /^(Australia\/.+|Pacific\/(Auckland|Fiji|Port_Moresby|Noumea|Guadalcanal|Efate|Apia|Tongatapu)|Antarctica\/Macquarie)$/;
 
 function defaultRegion(): Region {
@@ -72,6 +73,7 @@ function defaultRegion(): Region {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
     if (/^Europe\/(Kiev|Kyiv|Uzhgorod|Zaporozhye|Simferopol)$/.test(tz)) return "ua";
     if (LATAM_TZ.test(tz)) return "latam";
+    if (tz === "Africa/Cairo" || AFRICA_TZ.test(tz)) return "africa";
     if (MIDEAST_TZ.test(tz)) return "mideast";
     if (OCEANIA_TZ.test(tz)) return "oceania";
     if (tz.startsWith("Asia/") && !/^Asia\/(Nicosia|Famagusta|Tbilisi|Yerevan|Baku|Istanbul|Yekaterinburg|Omsk|Novosibirsk|Krasnoyarsk|Irkutsk|Yakutsk|Vladivostok|Magadan|Kamchatka)$/.test(tz)) return "asia";

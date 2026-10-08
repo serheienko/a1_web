@@ -15,7 +15,7 @@ const LIMIT = 1500;
 /** За кордоном: «офіс» = компанія + місто; мировых офісів може бути тисячі. */
 const LIMIT_ABROAD = 2500;
 
-export type MapRegion = "ua" | "eu" | "us" | "latam" | "asia" | "oceania" | "mideast";
+export type MapRegion = "ua" | "eu" | "us" | "latam" | "asia" | "oceania" | "mideast" | "africa";
 
 /** Межі регіонів (довгота/широта), ті самі, що в public/game-map/v2/geo-*.json. */
 const REGION_BOX: Record<Exclude<MapRegion, "ua">, [number, number, number, number]> = {
@@ -25,6 +25,7 @@ const REGION_BOX: Record<Exclude<MapRegion, "ua">, [number, number, number, numb
   asia: [60.0, -11.5, 150.0, 55.0],
   oceania: [110.0, -48.0, 180.0, -1.0],
   mideast: [25.0, 12.0, 63.0, 40.0],
+  africa: [-18.5, -35.2, 52.5, 37.8],
 };
 
 // 03.10.2026: Латинська Америка -- за країною, а не лише за рамкою (у рамку
@@ -35,8 +36,10 @@ const LATAM = new Set(["MX","GT","BZ","SV","HN","NI","CR","PA","CU","DO","HT","J
 // й Близького Сходу перекриваються, а Кіпр і Туреччина лишаються в Європі).
 const ASIA = new Set(["IN","PK","BD","LK","NP","BT","MV","MM","TH","LA","KH","VN","MY","SG","ID","PH","BN","TL","CN","HK","MO","TW","JP","KR","KP","MN","KZ","UZ","KG","TJ","TM","AF"]);
 const OCEANIA = new Set(["AU","NZ","PG","FJ","SB","VU","NC","WS","TO","PF"]);
-const MIDEAST = new Set(["IL","PS","JO","LB","SY","IQ","IR","SA","AE","QA","KW","BH","OM","YE","EG"]);
-const BY_COUNTRY: [MapRegion, Set<string>][] = [["latam", LATAM], ["asia", ASIA], ["oceania", OCEANIA], ["mideast", MIDEAST]];
+const MIDEAST = new Set(["IL","PS","JO","LB","SY","IQ","IR","SA","AE","QA","KW","BH","OM","YE"]);
+// 08.10.2026 (Александр: «Африку полноценно»): Африка -- окрема підкладка; Єгипет тепер тут, а не на Близькому Сході.
+const AFRICA = new Set(["DZ","AO","BJ","BW","BF","BI","CM","CF","TD","CG","CD","DJ","EG","GQ","ER","SZ","ET","GA","GM","GH","GN","GW","CI","KE","LS","LR","LY","MG","MW","ML","MR","MA","MZ","NA","NE","NG","RW","SN","SL","SO","ZA","SS","SD","TZ","TG","TN","UG","ZM","ZW"]);
+const BY_COUNTRY: [MapRegion, Set<string>][] = [["latam", LATAM], ["asia", ASIA], ["oceania", OCEANIA], ["africa", AFRICA], ["mideast", MIDEAST]];
 
 /** Острів «Віддалено» більше не малюємо: компанії без локації лише в пошуку. */
 const REMOTE = { lng: 31.0, lat: 43.9 };
@@ -64,6 +67,19 @@ const CAPITAL: Record<string, [number, number]> = {
   KW: [47.98, 29.38], OM: [58.41, 23.59], LB: [35.5, 33.89], PY: [-57.58, -25.26], BO: [-68.15, -16.5], VE: [-66.9, 10.48],
   HN: [-87.21, 14.07], NI: [-86.25, 12.13], JM: [-76.79, 18.0], MN: [106.92, 47.89], UZ: [69.24, 41.3], NP: [85.32, 27.72],
 };
+
+// 08.10.2026: столиці африканських країн -- для вакансій, де вказана лише країна.
+const AF_CAPITAL: Record<string, [number, number]> = {
+  EG: [31.24, 30.04], KE: [36.82, -1.29], MA: [-6.84, 34.02], ZA: [28.19, -25.75], NG: [7.4, 9.08], SN: [-17.47, 14.72],
+  GH: [-0.19, 5.6], TN: [10.18, 36.8], ET: [38.75, 9.03], TZ: [39.27, -6.8], UG: [32.58, 0.35], RW: [30.06, -1.94],
+  DZ: [3.06, 36.75], ZM: [28.29, -15.42], ZW: [31.05, -17.83], BW: [25.91, -24.65], NA: [17.08, -22.56], CM: [11.52, 3.87],
+  CI: [-4.02, 5.35], AO: [13.23, -8.84], MZ: [32.57, -25.97], LY: [13.19, 32.89], SD: [32.53, 15.5], MG: [47.52, -18.88],
+  ML: [-8.0, 12.64], BF: [-1.52, 12.37], NE: [2.11, 13.51], TD: [15.05, 12.13], CD: [15.31, -4.32], CG: [15.28, -4.27],
+  GA: [9.45, 0.39], GN: [-13.58, 9.64], SL: [-13.23, 8.48], LR: [-10.8, 6.3], TG: [1.22, 6.13], BJ: [2.42, 6.37],
+  MW: [33.78, -13.97], LS: [27.48, -29.31], SZ: [31.13, -26.31], BI: [29.36, -3.38], SO: [45.34, 2.05], SS: [31.58, 4.85],
+  DJ: [43.15, 11.59], ER: [38.93, 15.33], MR: [-15.98, 18.09], GM: [-16.58, 13.45], CF: [18.56, 4.36], GQ: [8.78, 3.75],
+};
+for (const [k, v] of Object.entries(AF_CAPITAL)) CAPITAL[k] ??= v;
 
 /** Точка и подпись вакансии на карте: город, а если в вакансии только страна -- столица и название страны. */
 function placeOf(loc: Post["location"], country: string): { lng: number; lat: number; city: string } | null {
@@ -201,6 +217,7 @@ function collectAbroad(posts: Post[], region: Exclude<MapRegion, "ua">): MapComp
     if (!(lng > x0 && lng < x1 && lat > y0 && lat < y1)) continue;
     const only = BY_COUNTRY.find(([k]) => k === region);
     if (only && !only[1].has(country)) continue;
+    if (!only && AFRICA.has(country)) continue; // Туніс, Марокко й Алжир -- на карті Африки, не Європи
     const who = p.author.userId ?? p.author.name;
     const key = `${who}|${Math.round(lng * 10)}|${Math.round(lat * 10)}`;
     let c = byOffice.get(key);

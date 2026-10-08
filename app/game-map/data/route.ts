@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 type Entry = { at: number; json: string; gz: Buffer };
 const TTL = 60 * 60 * 1000;
 // Окремий кеш на кожен регіон (02.10.2026: карта для інших країн).
-const REGIONS: MapRegion[] = ["ua", "eu", "us", "latam", "asia", "oceania", "mideast"];
+const REGIONS: MapRegion[] = ["ua", "eu", "us", "latam", "asia", "oceania", "mideast", "africa"];
 const caches = new Map<MapRegion, Entry>();
 const pendings = new Map<MapRegion, Promise<Entry>>();
 
