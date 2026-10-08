@@ -277,7 +277,7 @@ function DotMap({ data }: { data: Insights }) {
     return () => { cancelAnimationFrame(raf); io.disconnect(); ro.disconnect(); };
   }, [dark, reduce, counts, max, extra, ccs, labels, runs, cols, rows, data.byCountry]);
 
-  function onMove(e: React.MouseEvent) {
+  function onMove(e: { clientX: number; clientY: number }) {
     const box = wrap.current!;
     const rect = box.getBoundingClientRect();
     const cell = rect.width / cols;
@@ -297,12 +297,23 @@ function DotMap({ data }: { data: Insights }) {
     }
     setTip(code ? { x, y, cc: code } : null);
   }
-  function onClick() {
-    if (tip && counts.get(tip.cc)?.n) window.location.href = `/jobs/country/${tip.cc.toLowerCase()}`;
+  // Палец: первый тап показывает подсказку страны, второй тап по той же стране -- открывает её вакансии.
+  const touchCc = useRef<string | null>(null);
+  function onPointerDown(e: React.PointerEvent) {
+    if (e.pointerType === "mouse") return;
+    const before = tip?.cc ?? null;
+    onMove(e);
+    touchCc.current = before;
+  }
+  function onClick(e: React.MouseEvent) {
+    const touch = (e.nativeEvent as PointerEvent).pointerType && (e.nativeEvent as PointerEvent).pointerType !== "mouse";
+    if (!tip || !counts.get(tip.cc)?.n) return;
+    if (touch && touchCc.current !== tip.cc) return;
+    window.location.href = `/jobs/country/${tip.cc.toLowerCase()}`;
   }
   const t = tip ? counts.get(tip.cc) : null;
   return (
-    <div ref={wrap} className="relative select-none" onMouseMove={onMove} onMouseLeave={() => setTip(null)} onClick={onClick} style={{ cursor: t?.n ? "pointer" : "default" }}>
+    <div ref={wrap} className="relative select-none" onMouseMove={onMove} onPointerDown={onPointerDown} onMouseLeave={() => setTip(null)} onClick={onClick} style={{ cursor: t?.n ? "pointer" : "default" }}>
       <canvas ref={cv} className="block w-full" role="img" aria-label="Map of job counts by country" />
       {tip ? (
         <div className="st-tip" style={{ left: Math.min(tip.x + 14, (wrap.current?.clientWidth ?? 0) - 190), top: tip.y + 14 }}>
