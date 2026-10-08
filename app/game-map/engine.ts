@@ -1152,10 +1152,15 @@ export function mountGameMap(root, opts) {
 
   // ---------- ввод ----------
   function resize() {
+    // 08.10.2026 (Александр, відео з iPhone): клавіатура пошуку стискає карту, а коли вона зникає --
+    // карта лишалась зміщеною. Тепер центр карти запам'ятовується і лишається на місці при будь-якій зміні розміру.
+    const oW = W, oH = H, ocx = oW ? (oW / 2 - view.x) / view.s : 0, ocy = oH ? (oH / 2 - view.y) / view.s : 0;
     dpr = Math.min(2, window.devicePixelRatio || 1); W = root.clientWidth; H = root.clientHeight;
     cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + 'px'; cv.style.height = H + 'px';
     minS = Math.max(W / geo.w, H / geo.h); maxS = minS * Math.max(7, 2.4 / dens) * 4; // 02.10.2026 (Александр): наближення в 4 рази глибше -- спрайти 512px, зблизька чіткі
-    if (view.s < minS) view.s = minS; clamp(); baseCache = null;
+    if (view.s < minS) view.s = minS;
+    if (oW && oH && (oW !== W || oH !== H)) { view.x = W / 2 - ocx * view.s; view.y = H / 2 - ocy * view.s; }
+    clamp(); baseCache = null;
   }
   function clamp() {
     const w = geo.w * view.s, h = geo.h * view.s;
@@ -1359,7 +1364,11 @@ export function mountGameMap(root, opts) {
   }
   function pickCompany(c) {
     if (!c) return;
-    if (c.off) { if (c.username) location.href = profileHref(c); return; } qIn.value = c.name; sug.classList.remove('on'); qIn.blur();
+    if (c.off) { if (c.username) location.href = profileHref(c); return; } qIn.value = c.name; sug.classList.remove('on');
+    // Спершу ховаємо клавіатуру й даємо карті повернутись до повного розміру -- і лише тоді летимо,
+    // інакше «центр» рахується по стислій карті, а після закриття клавіатури карта з'їжджає.
+    const kb = document.activeElement === qIn; qIn.blur();
+    if (kb) { setTimeout(() => { if (!destroyed) { resize(); pickCompany(c); } }, 380); return; }
     const target = Math.min(maxS, Math.max(view.s, minS * 2.5, 70 / c.w));
     const from = { ...view }, start = performance.now();
     const tx = W / 2 - c.x * target, ty = H / 2 - c.y * target + 120;
@@ -1385,6 +1394,12 @@ export function mountGameMap(root, opts) {
   });
   on(qIn, 'blur', () => setTimeout(() => sug.classList.remove('on'), 150));
   on(window, 'resize', () => resize());
+  // Клавіатура на iPhone не викликає resize вікна -- стежимо за самою картою.
+  if (typeof ResizeObserver !== 'undefined') {
+    let roRaf = 0;
+    const ro = new ResizeObserver(() => { if (roRaf) return; roRaf = requestAnimationFrame(() => { roRaf = 0; if (!destroyed && (root.clientWidth !== W || root.clientHeight !== H)) resize(); }); });
+    ro.observe(root); cleanup.push(() => { ro.disconnect(); cancelAnimationFrame(roRaf); });
+  }
   on(document, 'keydown', (e) => { if (e.key === 'Escape' && glP.classList.contains('on')) { openGl(false); return; } });
   on(document, 'keydown', (e) => { if (e.key === 'Escape' && regP.classList.contains('on')) { openReg(false); return; } if (e.key === 'Escape' && document.activeElement !== qIn) { if (popFor) { pinned = null; hover = null; showPopup(null); } else if (root.classList.contains('gm-full')) toggleFs(false); } });
 
