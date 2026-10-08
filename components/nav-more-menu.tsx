@@ -249,25 +249,43 @@ function PreviewApp() {
   );
 }
 
+// Превью «IT новини». Данные пока вшиты (последняя новость), без запроса к серверу:
+// превью должно открываться мгновенно. При выходе новой новости -- поменять здесь.
+const NEWS_PREVIEW_LIT = new Set([6, 19, 41, 58, 77, 95, 108, 122, 139, 163, 176, 190, 207, 224, 239, 251, 271, 288, 312, 330, 347, 375, 402, 421, 431, 466]);
+
 function PreviewNews() {
   return (
     <>
-      <span className="relative block aspect-[16/10] w-full overflow-hidden bg-[radial-gradient(120%_90%_at_20%_0%,#16307a_0%,#0a1240_45%,#03051f_100%)]">
+      <span className="relative block aspect-[16/10] w-full overflow-hidden bg-[radial-gradient(120%_90%_at_20%_0%,#1b3a95_0%,#0a1240_48%,#03051f_100%)]">
         <span className="absolute inset-x-5 top-5 block">
-          <span className="block text-[11px] font-medium uppercase tracking-wide text-[#7aa2ff]">
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-[#7aa2ff]">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#7aa2ff]/60" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-[#7aa2ff]" />
+            </span>
             IT news · <T {...TXT.news.kicker} />
           </span>
-          <span className="mt-2 block text-[22px] font-bold leading-[1.15] text-white">Mistral Large 4</span>
-          <span className="mt-1 block text-[13px] text-white/60">1 000 B → 52 B</span>
+          <span className="mt-2 block text-[30px] font-bold leading-[1.05] text-white">Mistral Large 4</span>
+          <span className="mt-2 flex flex-wrap gap-2 text-[12px] tabular-nums">
+            <span className="rounded-full bg-white/10 px-2.5 py-1 text-white/90">1 000 B → <b className="text-[#7aa2ff]">52 B</b></span>
+            <span className="rounded-full bg-white/10 px-2.5 py-1 text-white/90">$1,36 / 1M tok</span>
+          </span>
         </span>
-        <span className="absolute inset-x-5 bottom-8 grid gap-[3px]" style={{ gridTemplateColumns: "repeat(40, minmax(0, 1fr))" }}>
-          {Array.from({ length: 200 }, (_, i) => (
-            <span
-              key={i}
-              className="block aspect-square rounded-full"
-              style={{ background: (i * 37 + 5) % 200 < 10 ? "#7aa2ff" : "rgba(255,255,255,.16)", boxShadow: (i * 37 + 5) % 200 < 10 ? "0 0 6px 1px rgba(122,162,255,.8)" : "none" }}
-            />
-          ))}
+        <span className="absolute inset-x-5 bottom-9 grid gap-[3px]" style={{ gridTemplateColumns: "repeat(50, minmax(0, 1fr))" }}>
+          {Array.from({ length: 500 }, (_, i) => {
+            const on = NEWS_PREVIEW_LIT.has(i);
+            return (
+              <span
+                key={i}
+                className={"block aspect-square rounded-full " + (on ? "animate-pulse" : "")}
+                style={{
+                  background: on ? "#7aa2ff" : "rgba(255,255,255,.14)",
+                  boxShadow: on ? "0 0 7px 1px rgba(122,162,255,.85)" : "none",
+                  animationDelay: on ? `${(i % 7) * 140}ms` : undefined,
+                }}
+              />
+            );
+          })}
         </span>
         <span className="pointer-events-none absolute inset-x-0 bottom-0 block h-14 bg-gradient-to-b from-transparent to-[#03051f]" />
       </span>
