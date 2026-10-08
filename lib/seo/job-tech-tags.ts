@@ -51,7 +51,9 @@ const TECH: Record<string, string[]> = {
   Symfony: ["symfony"],
   Ruby: ["ruby"],
   Rails: ["rails", "ruby on rails"],
-  Go: ["golang", "go"],
+  // 08.10.2026: «go» без регистра ловил обычное английское «go» («on the go», «Go beyond») --
+  // на /stats Go вышел вторым языком. Теперь только «Go» с заглавной (знак = -- с учётом регистра).
+  Go: ["golang", "=Go"],
   Rust: ["rust"],
   "C#": ["c#", "csharp"],
   ".NET": [".net", "dotnet", "asp.net"],
@@ -99,7 +101,7 @@ const TECH: Record<string, string[]> = {
   Airflow: ["airflow"],
   Tableau: ["tableau"],
   "Power BI": ["power bi", "powerbi"],
-  Excel: ["excel"],
+  Excel: ["=Excel"],
   SEO: ["seo"],
   PPC: ["ppc"],
   "Google Ads": ["google ads", "google adwords"],
@@ -126,9 +128,15 @@ function escapeForRegex(value: string): string {
 const BOUNDARY = "[^a-zа-яіїєґ0-9+#._-]";
 
 function matcherFor(variant: string): RegExp {
+  // «=Go» -- вариант с учётом регистра (обычное слово «go» -- не язык Go).
+  if (variant.startsWith("=")) {
+    const body = escapeForRegex(variant.slice(1));
+    return new RegExp(`(^|${BOUNDARY_CS})${body}($|${BOUNDARY_CS})`, "u");
+  }
   const body = escapeForRegex(variant);
   return new RegExp(`(^|${BOUNDARY})${body}($|${BOUNDARY})`, "iu");
 }
+const BOUNDARY_CS = "[^a-zA-Zа-яА-ЯіІїЇєЄґҐ0-9+#._-]";
 
 // Регулярные выражения собираются один раз на процесс, а не на каждую
 // страницу: словарь статичен, а страниц тысячи.

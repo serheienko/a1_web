@@ -117,6 +117,8 @@ async function buildSitemap({ id }: { id: number | string }): Promise<MetadataRo
 
     // 01.10.2026: блог -- список и статьи (lib/blog).
     entries.push({ url: `${SITE_URL}/blog` });
+    // 08.10.2026: живая статистика вакансий (/stats), цифры меняются каждый день.
+    entries.push({ url: `${SITE_URL}/stats`, lastModified: new Date(), changeFrequency: "daily", priority: 0.7 });
     for (const article of ARTICLES) {
       entries.push({ url: `${SITE_URL}/blog/${article.slug}`, lastModified: new Date(article.updated) });
     }

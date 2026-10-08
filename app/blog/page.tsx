@@ -23,6 +23,7 @@ export default function BlogIndex() {
     <main className="mx-auto max-w-3xl px-4 pt-6 sm:pt-16 pb-fab-safe">
       <h1 className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl dark:text-neutral-50">Блог A1</h1>
       <p className="mt-2 text-neutral-500 dark:text-neutral-400">Про пошук роботи в IT: цифри з живої бази вакансій і практичні поради.</p>
+      <Link href="/stats" className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-accent/10 px-3 py-1 text-[13px] font-medium text-accent hover:bg-accent/15">📊 Статистика IT-вакансій: живі цифри, карта, технології →</Link>
       <ul className="mt-8 flex flex-col gap-5">
         {uk.map((a) => (
           <li key={a.slug}>
