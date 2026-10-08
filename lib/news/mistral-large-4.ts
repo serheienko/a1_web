@@ -30,6 +30,7 @@ export const MISTRAL_UK: NewsArticle = {
     "Ціна в публічному прев’ю — $1,36 за мільйон вхідних і $4,18 за мільйон вихідних токенів; відкриті ваги Mistral обіцяє до кінця місяця.",
     "Усі бенчмарки — власні заяви компанії. У людській оцінці коду Large 4 друга з п’яти, позаду Claude Opus 5.",
   ],
+  thumb: { motif: "dots", big: "52 млрд", small: "активних із 1 трлн параметрів" },
   tags: ["Machine Learning", "Python", "PyTorch"],
   source: SRC,
   blocks: [
@@ -176,6 +177,7 @@ export const MISTRAL_EN: NewsArticle = {
     "Preview pricing is $1.36 per million input tokens and $4.18 per million output tokens; Mistral promises open weights by the end of the month.",
     "Every benchmark here is the company's own claim. On a human coding evaluation Large 4 ranks second of five, behind Claude Opus 5.",
   ],
+  thumb: { motif: "dots", big: "52B", small: "active of 1T parameters" },
   tags: ["Machine Learning", "Python", "PyTorch"],
   source: SRC,
   blocks: [

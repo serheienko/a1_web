@@ -10,6 +10,7 @@ import type { ReactNode } from "react";
 import type { NewsArticle, NewsBlock } from "@/lib/news/types";
 import { altNews, relatedNews } from "@/lib/news/articles";
 import { liveAi } from "@/lib/news/live";
+import { readingMinutes } from "@/lib/news/util";
 import { ExpertsGrid, LiveMarket, PriceCalc, ScoreBars, StatsRow } from "@/components/news/visuals";
 
 const SITE_URL = "https://jobs.a1appp.com";
@@ -42,25 +43,6 @@ function inline(text: string): ReactNode[] {
 
 function plain(text: string): string {
   return text.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1").replace(/\*\*/g, "");
-}
-
-function readingMinutes(a: NewsArticle): number {
-  const words = a.blocks
-    .map((b) => {
-      switch (b.t) {
-        case "p":
-        case "h2":
-        case "note":
-          return b.text;
-        case "ul":
-          return b.items.join(" ");
-        default:
-          return "";
-      }
-    })
-    .join(" ")
-    .split(/\s+/).length;
-  return Math.max(1, Math.round(words / 200));
 }
 
 const T = {
