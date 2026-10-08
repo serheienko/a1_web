@@ -9,6 +9,7 @@ export const revalidate = 3600;
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { SegmentPage } from "@/components/segment-page";
+import { pagedMeta, pageOf } from "@/lib/seo/paged";
 import { globalLevelPosts } from "@/lib/a1/segment-index";
 import { JOB_LEVELS, type JobLevel } from "@/lib/seo/job-level";
 import { globalLevelCountLine, globalLevelH1, globalLevelLead, globalLevelMeta } from "@/lib/seo/segments";
@@ -16,33 +17,35 @@ import { articleLinks, linksForGlobalLevels, linksForGlobalRoles } from "@/lib/s
 
 const SITE_URL = "https://jobs.a1appp.com";
 
-type Props = { params: Promise<{ level: string }> };
+type Props = { params: Promise<{ level: string }>; searchParams: Promise<{ [key: string]: string | string[] | undefined }> };
 
 function parse(level: string): JobLevel | null {
   return (JOB_LEVELS as string[]).includes(level) ? (level as JobLevel) : null;
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const level = parse((await params).level);
   if (!level || !(await globalLevelPosts(level))) return {};
   const meta = globalLevelMeta(level);
   const url = `${SITE_URL}/jobs/level/${level}`;
-  return {
+  return pagedMeta({
     title: meta.title,
     description: meta.description,
     alternates: { canonical: url },
     openGraph: { title: meta.title, description: meta.description, url, type: "website" },
     twitter: { card: "summary_large_image", title: meta.title, description: meta.description },
-  };
+  }, url, pageOf(await searchParams));
 }
 
-export default async function Page({ params }: Props) {
+export default async function Page({ params, searchParams }: Props) {
+  const page = pageOf(await searchParams);
   const level = parse((await params).level);
   if (!level) notFound();
   const posts = await globalLevelPosts(level);
   if (!posts) notFound();
   return (
     <SegmentPage
+      page={page}
       h1={globalLevelH1(level)}
       countLine={globalLevelCountLine(level)}
       lead={globalLevelLead(level)}

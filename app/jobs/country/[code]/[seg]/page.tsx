@@ -8,6 +8,7 @@ export const revalidate = 3600;
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { SegmentPage } from "@/components/segment-page";
+import { pagedMeta, pageOf } from "@/lib/seo/paged";
 import { countryLevelPosts, countryRemotePosts, countryTechPosts } from "@/lib/a1/segment-index";
 import { countryByCode, DEFAULT_COUNTRY_CODE, WORLDWIDE_CODE, type Country } from "@/lib/seo/countries";
 import { JOB_LEVELS, type JobLevel } from "@/lib/seo/job-level";
@@ -25,7 +26,7 @@ import type { WebPost } from "@/types/web-post";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
-type Props = { params: Promise<{ code: string; seg: string }> };
+type Props = { params: Promise<{ code: string; seg: string }>; searchParams: Promise<{ [key: string]: string | string[] | undefined }> };
 
 type Resolved = { country: Country; kind: CountrySegKind; label: string; posts: WebPost[] };
 
@@ -47,28 +48,30 @@ async function resolve(code: string, seg: string): Promise<Resolved | null> {
   return posts ? { country, kind: "stack", label: tech.label, posts } : null;
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { code, seg } = await params;
   const r = await resolve(code, seg);
   if (!r) return {};
   const meta = countrySegMeta(r.kind, r.label, r.country);
   const url = `${SITE_URL}/jobs/country/${code.toLowerCase()}/${seg}`;
-  return {
+  return pagedMeta({
     title: meta.title,
     description: meta.description,
     alternates: { canonical: url },
     openGraph: { title: meta.title, description: meta.description, url, type: "website" },
     twitter: { card: "summary_large_image", title: meta.title, description: meta.description },
-  };
+  }, url, pageOf(await searchParams));
 }
 
-export default async function Page({ params }: Props) {
+export default async function Page({ params, searchParams }: Props) {
+  const page = pageOf(await searchParams);
   const { code, seg } = await params;
   const r = await resolve(code, seg);
   if (!r) notFound();
   const path = `/jobs/country/${code.toLowerCase()}/${seg}`;
   return (
     <SegmentPage
+      page={page}
       h1={countrySegH1(r.kind, r.label, r.country)}
       countLine={countrySegCountLine(r.kind, r.label, r.country)}
       lead={countrySegLead(r.kind, r.label, r.country)}

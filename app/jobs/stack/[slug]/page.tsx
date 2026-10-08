@@ -17,6 +17,8 @@ export const revalidate = 3600;
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Pagination } from "@/components/pagination";
+import { LANDING_PAGE_SIZE, pagedMeta, pageOf } from "@/lib/seo/paged";
 import { PostCard } from "@/components/post-card";
 import { EmptyState } from "@/components/empty-state";
 import { generateAvatarBlurDataUrl } from "@/lib/avatar-blur";
@@ -36,11 +38,10 @@ import {
 
 const SITE_URL = "https://jobs.a1appp.com";
 
-/** Сколько вакансий показываем. Без пагинации намеренно: странице нужен
- *  один адрес, а не хвост из ?page=, который размывает её вес. */
-const LIMIT = 40;
-
-type Props = { params: Promise<{ slug: string }> };
+type Props = {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+};
 
 // generateStaticParams здесь НЕТ намеренно. Каждая такая страница
 // поднимает обход всех вакансий (lib/a1/tech-index.ts), а сборка
@@ -51,19 +52,19 @@ type Props = { params: Promise<{ slug: string }> };
 // первом обращении и живут час; адреса Google всё равно берёт из
 // sitemap.
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const landing = findTechLanding((await params).slug);
   if (!landing) return {};
   const meta = techLandingMeta(landing.label);
   const url = `${SITE_URL}/jobs/stack/${landing.slug}`;
 
-  return {
+  return pagedMeta({
     title: meta.title,
     description: meta.description,
     alternates: { canonical: url },
     openGraph: { title: meta.title, description: meta.description, url, type: "website" },
     twitter: { card: "summary_large_image", title: meta.title, description: meta.description },
-  };
+  }, url, pageOf(await searchParams));
 }
 
 /** Число внутри фразы на девяти языках -- тот же приём, что в
@@ -85,12 +86,16 @@ function CountLine({ template, n }: { template: Record<Locale, string>; n: numbe
   );
 }
 
-export default async function Page({ params }: Props) {
+export default async function Page({ params, searchParams }: Props) {
   const landing = findTechLanding((await params).slug);
   if (!landing) notFound();
 
   const all = await postsForTech(landing.tech);
-  const posts = all.slice(0, LIMIT);
+  // 08.10.2026: страницы по 20 с нумерацией (раньше только первые 40, дальше листать было некуда).
+  const page = pageOf(await searchParams);
+  const posts = all.slice((page - 1) * LANDING_PAGE_SIZE, page * LANDING_PAGE_SIZE);
+  if (page > 1 && posts.length === 0) notFound();
+  const totalPages = Math.max(1, Math.ceil(all.length / LANDING_PAGE_SIZE));
   const avatarBlurs = await Promise.all(posts.map((post) => generateAvatarBlurDataUrl(post.author.avatarUrl)));
 
   return (
@@ -134,13 +139,18 @@ export default async function Page({ params }: Props) {
           }
         />
       ) : (
-        <ul className="flex flex-col gap-4">
-          {posts.map((post, i) => (
-            <li key={post.id}>
-              <PostCard post={post} avatarBlurDataUrl={avatarBlurs[i]} />
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className="flex flex-col gap-4">
+            {posts.map((post, i) => (
+              <li key={post.id}>
+                <PostCard post={post} avatarBlurDataUrl={avatarBlurs[i]} />
+              </li>
+            ))}
+          </ul>
+          {totalPages > 1 ? (
+            <Pagination basePath={`/jobs/stack/${landing.slug}`} params={new URLSearchParams()} page={page} hasMore={page < totalPages} totalPages={totalPages} />
+          ) : null}
+        </>
       )}
 
       {/* Перелинковка между посадочными: и человеку соседний стек под

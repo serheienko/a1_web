@@ -32,7 +32,8 @@ import { landingCountry, withCountry } from "@/lib/seo/landing-country";
 import { LandingBar } from "@/components/landing-bar";
 import { keepInUkraineFeed } from "@/lib/a1/feed";
 import { worldwideKind } from "@/lib/seo/worldwide-kind";
-import { parsePageParam, toURLSearchParams, FEED_PAGE_SIZE } from "@/lib/a1/feed";
+import { parsePageParam, toURLSearchParams } from "@/lib/a1/feed";
+import { LANDING_PAGE_SIZE, pagedMeta } from "@/lib/seo/paged";
 
 const ARTICLES_FOR_TAG: Record<string, string[]> = {
   "no-experience": ["persha-robota-v-it-bez-dosvidu", "rynok-it-vakansiy"],
@@ -41,10 +42,6 @@ const ARTICLES_FOR_TAG: Record<string, string[]> = {
 };
 
 const SITE_URL = "https://jobs.a1appp.com";
-
-/** Сколько вакансий показываем. Без пагинации намеренно: странице нужен
- *  один адрес, а не хвост из ?page=, который размывает её вес. */
-const LIMIT = 40;
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -63,7 +60,8 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const url = `${SITE_URL}/jobs/tag/${landing.slug}`;
   const country = landingCountry(await searchParams);
 
-  return {
+  const page = parsePageParam(toURLSearchParams(await searchParams));
+  return pagedMeta({
     // 30.09.2026: вариант со страной -- фильтр, не витрина: не индексируем.
     ...(country ? { robots: { index: false, follow: true } } : {}),
     title: landing.metaTitle,
@@ -80,7 +78,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
       title: landing.metaTitle,
       description: landing.metaDescription,
     },
-  };
+  }, url, country ? 1 : page);
 }
 
 /** Число внутри фразы на девяти языках -- тот же приём, что у
@@ -122,10 +120,12 @@ export default async function Page({ params, searchParams }: Props) {
           : post.location?.country?.toUpperCase() === country,
       )
     : everywhere.filter(keepInUkraineFeed);
-  const posts = country
-    ? all.slice((page - 1) * FEED_PAGE_SIZE, page * FEED_PAGE_SIZE)
-    : all.slice(0, LIMIT);
-  const totalPages = Math.max(1, Math.ceil(all.length / FEED_PAGE_SIZE));
+  // 08.10.2026 (Александр: «почему на бронюванні так мало компаній? нет разбивки?»): раньше без
+  // страны показывались только первые 40 из 1 120, дальше листать было некуда. Теперь страницы по 20,
+  // с нумерацией; каждая -- свой адрес ?page=N.
+  const posts = all.slice((page - 1) * LANDING_PAGE_SIZE, page * LANDING_PAGE_SIZE);
+  if (page > 1 && posts.length === 0) notFound();
+  const totalPages = Math.max(1, Math.ceil(all.length / LANDING_PAGE_SIZE));
   const avatarBlurs = await Promise.all(
     posts.map((post) => generateAvatarBlurDataUrl(post.author.avatarUrl)),
   );
@@ -177,10 +177,10 @@ export default async function Page({ params, searchParams }: Props) {
               </li>
             ))}
           </ul>
-          {country ? (
+          {totalPages > 1 ? (
             <Pagination
               basePath={`/jobs/tag/${landing.slug}`}
-              params={new URLSearchParams({ country: country.toLowerCase() })}
+              params={country ? new URLSearchParams({ country: country.toLowerCase() }) : new URLSearchParams()}
               page={page}
               hasMore={page < totalPages}
               totalPages={totalPages}

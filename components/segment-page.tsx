@@ -1,9 +1,8 @@
 // components/segment-page.tsx
 //
 // 30.09.2026. Общая начинка SEO-сегментов (город, уровень, страна +
-// технология...): заголовок, число, список из 40 вакансий и блок
-// перелинковки. Список без пагинации намеренно -- странице нужен один
-// адрес, а не хвост из ?page= (так же сделана страница стека).
+// технология...): заголовок, число, список вакансий с нумерацией страниц
+// (по 20, ?page=N, 08.10.2026) и блок перелинковки.
 // Серверный компонент; тексты приходят девятью языками, видимый
 // выбирает CSS (тот же приём, что в components/job-landing.tsx).
 
@@ -13,7 +12,9 @@ import { EmptyState } from "@/components/empty-state";
 import { generateAvatarBlurDataUrl } from "@/lib/avatar-blur";
 import { LOCALES, LOCALE_VISIBILITY_CLASS, T, type Locale } from "@/components/t";
 import { buildLandingBreadcrumbJsonLd } from "@/lib/seo/jsonld";
-import { SEGMENT_LIMIT } from "@/lib/seo/segments";
+import { notFound } from "next/navigation";
+import { Pagination } from "@/components/pagination";
+import { LANDING_PAGE_SIZE } from "@/lib/seo/paged";
 import type { WebPost } from "@/types/web-post";
 
 const SITE_URL = "https://jobs.a1appp.com";
@@ -75,6 +76,7 @@ export async function SegmentPage({
   breadcrumbName,
   path,
   groups,
+  page = 1,
 }: {
   h1: L;
   countLine: L;
@@ -84,8 +86,13 @@ export async function SegmentPage({
   /** Адрес страницы без домена: «/jobs/city/kyiv». */
   path: string;
   groups: SegmentLinkGroup[];
+  /** Номер страницы списка (?page=N), с 1. */
+  page?: number;
 }) {
-  const shown = posts.slice(0, SEGMENT_LIMIT);
+  // 08.10.2026: страницы по 20 с нумерацией (раньше -- только первые 40, дальше листать было некуда).
+  const shown = posts.slice((page - 1) * LANDING_PAGE_SIZE, page * LANDING_PAGE_SIZE);
+  if (page > 1 && shown.length === 0) notFound();
+  const totalPages = Math.max(1, Math.ceil(posts.length / LANDING_PAGE_SIZE));
   const avatarBlurs = await Promise.all(shown.map((post) => generateAvatarBlurDataUrl(post.author.avatarUrl)));
 
   return (
@@ -130,6 +137,10 @@ export async function SegmentPage({
           ))}
         </ul>
       )}
+
+      {totalPages > 1 ? (
+        <Pagination basePath={path} params={new URLSearchParams()} page={page} hasMore={page < totalPages} totalPages={totalPages} />
+      ) : null}
 
       <SegmentLinks groups={groups} />
     </main>
