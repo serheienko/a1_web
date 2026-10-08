@@ -10,7 +10,9 @@
 import { EMPTY_PORTRAIT, type AlphaPortrait, type AlphaTurnRequest, type AlphaTurnResponse } from "./types";
 import { understoodPct } from "./brain";
 
-const MODEL = process.env.ALPHA_MODEL || "claude-sonnet-4-5";
+// 08.10.2026 (Александр согласился): вопросы — быстрый и дешёвый Haiku,
+// финальный подбор (позже) — Sonnet. Модели меняются переменными окружения.
+const MODEL = process.env.ALPHA_QUESTION_MODEL || "claude-haiku-5-5";
 const SAFETY_CAP = 10;
 
 export function aiEnabled(): boolean {

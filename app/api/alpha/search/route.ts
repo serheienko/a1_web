@@ -45,10 +45,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "search_failed" }, { status: 502 });
   }
 
-  const premium = hasPremium(req);
+  const premium = await hasPremium(req);
   const base = kind === "hiring" ? "/jobs/" : "/talents/";
   const matches = scorePosts(posts, portrait, lang).map((m) => ({ ...m, slug: m.slug ? base + m.slug : "" })).map((m, i) =>
-    premium || i < FREE_VISIBLE ? m : { ...m, slug: "", reasons: [], salary: null, locked: true },
+    premium || i < FREE_VISIBLE ? m : { ...m, id: `locked-${i}`, slug: "", reasons: [], salary: null, locked: true },
   );
   return NextResponse.json({ matches, premium, scanned: posts.length });
 }
