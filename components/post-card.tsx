@@ -18,6 +18,7 @@
 // anonymous author (isAnonymous, no username) has no profile page, so
 // falls back to plain, unlinked text/image.
 
+import { AlphaMemberBadge } from "@/components/alpha-member-badge";
 import type { ReactNode } from "react";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { CachedAvatar } from "@/components/cached-avatar";
@@ -386,6 +387,8 @@ export function PostCard({
           ) : (
             <span className="max-w-[10rem] truncate">{post.author.name}</span>
           )}
+          {/* 08.10.2026: значок Alpha у участников подписки. */}
+          <AlphaMemberBadge member={post.author.alpha} name={post.author.name} size={18} className="-ml-2" />
           {/* Aleksandr, 2026-08-29: "надо куда-то добавить значок на
               карточке, типа что это мой пост" -- next to the name, not
               on the avatar, since the avatar is exactly what he was

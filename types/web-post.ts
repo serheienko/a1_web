@@ -47,6 +47,8 @@ export type WebPostAuthor = {
   // вакансии такой компании мы только показываем, отклик -- на её сайте
   // (WebPost.externalUrl). Кнопка «Відкрити вакансію» вместо «Відгукнутися».
   external: boolean;
+  /** 08.10.2026: A1 Alpha member badge (null = not a member). */
+  alpha?: import("@/lib/alpha/member").AlphaMember | null;
 };
 
 export type WebPostLocation = {

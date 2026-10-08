@@ -95,6 +95,8 @@ export type WebProfile = {
   expertise: string | null;
   bio: string;
   profileTitle: string | null;
+  /** 08.10.2026: A1 Alpha member badge (null = not a member). */
+  alpha?: import("@/lib/alpha/member").AlphaMember | null;
   location: WebProfileLocation | null;
   links: WebProfileLink[];
   companies: WebProfileCompany[];

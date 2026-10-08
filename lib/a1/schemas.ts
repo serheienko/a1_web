@@ -589,6 +589,8 @@ export const UserProfileSchema = z.object({
   expertise: z.string().nullable().catch(null),
   bio: z.string().catch(""),
   profileTitle: ProfileTitleSchema,
+  // 08.10.2026: A1 Alpha member badge, see lib/alpha/member.ts.
+  emojiStatus: z.unknown().optional(),
   photos: z.array(MediaDocumentSchema).catch([]),
   voiceIntroduction: MediaDocumentSchema.nullable().catch(null),
   location: WorldLocationSchema.nullable().catch(null),

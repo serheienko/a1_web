@@ -6,6 +6,7 @@
 // the anti-corruption layer. This is where the prior `/v1/users.search`
 // email-leak class of bug becomes structurally impossible.
 
+import { parseAlphaMember } from "@/lib/alpha/member";
 import { NULL_LOCATION_MEANS_REMOTE, PUBLISH_ONLY_NATIVE, isNativePost } from "./config";
 import { jobContentToHtml } from "./job-content";
 import { authorIsHidden, isArchived, isArchivedOrDraft, isExternalPost } from "./post-flags";
@@ -119,6 +120,7 @@ function mapAuthor(author: Post["author"], flags: number): WebPostAuthor {
     isAnonymous: false,
     unclaimed: author.unclaimed ?? false,
     external: author.external ?? false,
+    alpha: parseAlphaMember(author.emojiStatus),
   };
 }
 

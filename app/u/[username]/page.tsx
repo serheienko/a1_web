@@ -17,6 +17,7 @@ export const revalidate = 60;
 // it does not re-implement that check. See user-mappers.ts before adding
 // any other field that might carry PII.
 
+import { AlphaMemberBadge } from "@/components/alpha-member-badge";
 import type { ReactNode } from "react";
 import { Suspense } from "react";
 import Link from "next/link";
@@ -549,7 +550,13 @@ export default async function ProfilePage({ params }: Props) {
               placement. */}
         </div>
         <div className="min-w-0 flex-1">
-          <MarqueeName text={profile.fullName} className="text-xl font-semibold text-neutral-900 sm:text-2xl dark:text-neutral-50" />
+          <div className="flex min-w-0 items-center gap-1.5">
+            <div className="min-w-0">
+              <MarqueeName text={profile.fullName} className="text-xl font-semibold text-neutral-900 sm:text-2xl dark:text-neutral-50" />
+            </div>
+            {/* 08.10.2026: значок Alpha у участников подписки. */}
+            <AlphaMemberBadge member={profile.alpha} name={profile.fullName} size={26} />
+          </div>
           <p className="truncate text-sm text-neutral-500 dark:text-neutral-400">@{profile.username}</p>
         </div>
         {/* EditProfileButton (own profile only) stays pinned to this

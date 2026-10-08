@@ -12,6 +12,7 @@
 // date of birth onto a Google-indexed page." Do not add a code path that
 // reads `raw.phoneNumber` / `raw.email` / `raw.dob` outside this function.
 
+import { parseAlphaMember } from "@/lib/alpha/member";
 import { canShowPhone, canShowEmail, canShowDob, isDeletedUser } from "./user-flags";
 import { buildMediaProxyUrl } from "./mappers";
 import type { UserProfile as RawUserProfile, UserProfileResult } from "./schemas";
@@ -114,6 +115,7 @@ export function mapUserProfile(raw: UserProfileResult): WebProfile | null {
     expertise: raw.expertise,
     bio: raw.bio,
     profileTitle: raw.profileTitle,
+    alpha: parseAlphaMember(raw.emojiStatus),
     location: mapLocation(raw.location),
     links: raw.links.map((l) => ({ title: l.title, url: l.url })),
     companies: mapCompanies(raw.companies),
