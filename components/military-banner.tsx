@@ -13,6 +13,7 @@
 
 import Link from "next/link";
 import { T, type Locale } from "@/components/t";
+import { MilitaryDetails } from "@/components/military-details";
 import { ROLE_LABEL, type MilitaryStats, type RoleKey } from "@/lib/a1/military";
 
 const nf = (n: number) => n.toLocaleString("uk-UA").replace(/\s/g, " ");
@@ -112,8 +113,8 @@ const CSS = `
 .mil-rise{animation:mil-rise .6s ease-out both}
 .mil-spin{animation:mil-spin 6s linear infinite}
 .mil-wave{animation:mil-wave 4s ease-in-out infinite;transform-origin:left center}
-details.mil[open] .mil-closed-only{display:none}
-details.mil:not([open]) .mil-open-only{display:none}
+details.mil[open]:not(.mil-closing) .mil-closed-only{display:none}
+details.mil:not([open]) .mil-open-only,details.mil.mil-closing .mil-open-only{display:none}
 details.mil>summary{list-style:none}
 details.mil>summary::-webkit-details-marker{display:none}
 @media (prefers-reduced-motion:reduce){.mil-grow,.mil-rise,.mil-spin,.mil-wave{animation:none!important}}
@@ -131,8 +132,11 @@ export function MilitaryBanner({ stats, activeRole, open = false }: { stats: Mil
   return (
     <section aria-label="Статистика" className="mb-8">
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <details open={open} className="mil overflow-hidden rounded-2xl border border-[#2a3024] bg-[#101310] text-[#e9ecdf]">
-        <summary className="relative block cursor-pointer select-none overflow-hidden p-5 sm:p-6">
+      <MilitaryDetails
+        open={open}
+        className="mil overflow-hidden rounded-2xl border border-[#2a3024] bg-[#101310] text-[#e9ecdf]"
+        summary={
+          <>
           <div aria-hidden="true" className="absolute inset-x-0 top-0 h-1.5" style={{ background: "linear-gradient(#0057b7 50%,#ffd700 50%)" }} />
           <div aria-hidden="true" className="pointer-events-none absolute -right-8 -top-8 hidden h-40 w-40 sm:block">
             <div className="absolute inset-0 rounded-full border border-[#2a3024]" />
@@ -183,8 +187,9 @@ export function MilitaryBanner({ stats, activeRole, open = false }: { stats: Mil
               <path d="M6 15l6-6 6 6" />
             </svg>
           </div>
-        </summary>
-
+          </>
+        }
+      >
         <div className="border-t border-[#2a3024] p-5 sm:p-6">
           <div className="flex flex-wrap gap-x-9 gap-y-4">
             {[
@@ -308,7 +313,7 @@ export function MilitaryBanner({ stats, activeRole, open = false }: { stats: Mil
             />
           </p>
         </div>
-      </details>
+      </MilitaryDetails>
     </section>
   );
 }
