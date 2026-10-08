@@ -87,7 +87,7 @@ export type NewsArticle = {
   tags: string[];
   source: { name: string; url: string; title: string; accessed: string };
   /** Миниатюра для списка: главная цифра новости + узор. Агент заполняет сам. */
-  thumb: { motif: "dots" | "bars"; big: string; small: string };
+  thumb: { motif: "dots" | "bars" | "spark" | "rings"; hue?: "blue" | "teal" | "violet" | "amber"; big: string; small: string };
   blocks: NewsBlock[];
   faq: { q: string; a: string }[];
   /** slug'и связанных новостей (того же языка). */

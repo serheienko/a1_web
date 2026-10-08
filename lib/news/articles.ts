@@ -15,7 +15,11 @@ export function altNews(article: NewsArticle): NewsArticle | undefined {
 }
 
 export function newsByLang(lang: NewsLang): NewsArticle[] {
-  return NEWS.filter((a) => a.lang === lang).sort((a, b) => b.published.localeCompare(a.published));
+  // Новые сверху: по дате, а при одной дате -- позже добавленная выше.
+  return NEWS.map((a, i) => ({ a, i }))
+    .filter(({ a }) => a.lang === lang)
+    .sort((x, y) => y.a.published.localeCompare(x.a.published) || y.i - x.i)
+    .map(({ a }) => a);
 }
 
 export function relatedNews(article: NewsArticle): NewsArticle[] {

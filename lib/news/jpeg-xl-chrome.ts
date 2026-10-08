@@ -32,7 +32,7 @@ export const JXL_UK: NewsArticle = {
     "Декодер — jxl-rs, написаний на Rust: команда пояснює це безпекою пам’яті, бо декодери зображень — популярна мішень для атак.",
     "Chrome радить пробувати і AVIF, і JPEG XL: другий найкорисніший для фото, без втрат і там, де важливе поступове завантаження.",
   ],
-  thumb: { motif: "bars", big: "30–50%", small: "краще стиснення за JPEG (заява Chrome)" },
+  thumb: { motif: "bars", hue: "teal", big: "30–50%", small: "краще стиснення за JPEG (заява Chrome)" },
   tags: ["JavaScript", "TypeScript", "React"],
   source: SRC,
   blocks: [
@@ -151,7 +151,7 @@ export const JXL_EN: NewsArticle = {
     "The decoder is jxl-rs, written in Rust: the team cites memory safety, since image decoders are a major attack surface.",
     "Chrome suggests trying both AVIF and JPEG XL; the latter helps most for photos, lossless needs and progressive loading.",
   ],
-  thumb: { motif: "bars", big: "30–50%", small: "better compression than JPEG (Chrome's claim)" },
+  thumb: { motif: "bars", hue: "teal", big: "30–50%", small: "better compression than JPEG (Chrome's claim)" },
   tags: ["JavaScript", "TypeScript", "React"],
   source: SRC,
   blocks: [
