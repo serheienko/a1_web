@@ -11,6 +11,7 @@
 // Блок всегда тёмный (как в макете), поэтому не зависит от темы сайта.
 // Цифры считает lib/a1/military.ts из того же кэша на час, что и список.
 
+import Link from "next/link";
 import { T, type Locale } from "@/components/t";
 import { ROLE_LABEL, type MilitaryStats, type RoleKey } from "@/lib/a1/military";
 
@@ -118,7 +119,10 @@ details.mil>summary::-webkit-details-marker{display:none}
 @media (prefers-reduced-motion:reduce){.mil-grow,.mil-rise,.mil-spin,.mil-wave{animation:none!important}}
 `;
 
-export function MilitaryBanner({ stats }: { stats: MilitaryStats }) {
+/** Адрес страницы: карточки направлений ведут сюда же с ?role=... и прокручивают к списку. */
+const BASE = "/jobs/tag/reservation";
+
+export function MilitaryBanner({ stats, activeRole, open = false }: { stats: MilitaryStats; activeRole?: RoleKey; open?: boolean }) {
   const top = stats.roles.slice(0, 3);
   const maxRole = stats.roles[0]?.count ?? 1;
   const maxEmp = stats.employers[0]?.count ?? 1;
@@ -127,7 +131,7 @@ export function MilitaryBanner({ stats }: { stats: MilitaryStats }) {
   return (
     <section aria-label="Статистика" className="mb-8">
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <details className="mil overflow-hidden rounded-2xl border border-[#2a3024] bg-[#101310] text-[#e9ecdf]">
+      <details open={open} className="mil overflow-hidden rounded-2xl border border-[#2a3024] bg-[#101310] text-[#e9ecdf]">
         <summary className="relative block cursor-pointer select-none overflow-hidden p-5 sm:p-6">
           <div aria-hidden="true" className="absolute inset-x-0 top-0 h-1.5" style={{ background: "linear-gradient(#0057b7 50%,#ffd700 50%)" }} />
           <div aria-hidden="true" className="pointer-events-none absolute -right-8 -top-8 hidden h-40 w-40 sm:block">
@@ -204,10 +208,16 @@ export function MilitaryBanner({ stats }: { stats: MilitaryStats }) {
           </h2>
           <ol className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
             {stats.roles.map((r, i) => (
-              <li
-                key={r.key}
-                className="mil-rise flex flex-col gap-2.5 rounded-xl border border-[#2a3024] bg-[#181c15] p-4"
-                style={{ animationDelay: `${0.04 * i}s` }}
+              <li key={r.key} className="mil-rise" style={{ animationDelay: `${0.04 * i}s` }}>
+              <Link
+                href={activeRole === r.key ? BASE : `${BASE}?role=${r.key}#mil-list`}
+                rel="nofollow"
+                scroll
+                aria-current={activeRole === r.key ? "true" : undefined}
+                className={
+                  "group/card flex h-full flex-col gap-2.5 rounded-xl border bg-[#181c15] p-4 no-underline transition hover:-translate-y-0.5 hover:border-[#e8b43c]/70 hover:bg-[#1d2219] " +
+                  (activeRole === r.key ? "border-[#e8b43c]" : "border-[#2a3024]")
+                }
               >
                 <div className="flex items-center justify-between">
                   <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#222819]">
@@ -226,6 +236,14 @@ export function MilitaryBanner({ stats }: { stats: MilitaryStats }) {
                 </div>
                 <Bar value={r.count} max={maxRole} h={7} delay={0.2 + 0.05 * i} />
                 {r.examples.length ? <div className="text-[12px] leading-snug text-[#9aa28c]">{r.examples.join(" · ")}</div> : null}
+                <div className="mt-auto pt-1 text-[12px] font-semibold text-[#e8b43c] opacity-70 transition group-hover/card:opacity-100">
+                  {activeRole === r.key ? (
+                    <T {...tx("Показано · скинути ✕", "Showing · clear ✕", "Показано · сбросить ✕")} />
+                  ) : (
+                    <T {...tx("Показати вакансії →", "Show jobs →", "Показать вакансии →")} />
+                  )}
+                </div>
+              </Link>
               </li>
             ))}
           </ol>

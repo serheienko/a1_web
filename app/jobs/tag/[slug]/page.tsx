@@ -24,7 +24,7 @@ import { LOCALES, LOCALE_VISIBILITY_CLASS, T, type Locale } from "@/components/t
 import { buildLandingBreadcrumbJsonLd } from "@/lib/seo/jsonld";
 import { postsForFact, militaryItems } from "@/lib/a1/facts-index";
 import { MilitaryBanner } from "@/components/military-banner";
-import { buildMilitaryStats } from "@/lib/a1/military";
+import { buildMilitaryStats, roleOf, ROLE_ORDER, ROLE_LABEL, type RoleKey } from "@/lib/a1/military";
 import { FACT_LANDINGS, findFactLanding } from "@/lib/seo/fact-landings";
 import { Pagination } from "@/components/pagination";
 import { SegmentLinks } from "@/components/segment-page";
@@ -65,7 +65,9 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const page = parsePageParam(toURLSearchParams(await searchParams));
   const sp0 = await searchParams;
   // 08.10.2026: «з бронюванням / без» -- тоже фильтр, а не отдельная витрина.
-  const typed = landing.slug === "reservation" && (sp0.type === "with" || sp0.type === "without");
+  const typed =
+    landing.slug === "reservation" &&
+    (sp0.type === "with" || sp0.type === "without" || (typeof sp0.role === "string" && (ROLE_ORDER as string[]).includes(sp0.role)));
   return pagedMeta({
     // 30.09.2026: вариант со страной -- фильтр, не витрина: не индексируем.
     ...(country || typed ? { robots: { index: false, follow: true } } : {}),
@@ -122,6 +124,10 @@ export default async function Page({ params, searchParams }: Props) {
   const milAll = isMil ? await militaryItems() : [];
   const reservedIds = new Set(milAll.filter((i) => i.reservation).map((i) => i.post.id));
   const type = isMil && (sp.type === "with" || sp.type === "without") ? sp.type : undefined;
+  // 08.10.2026 (Александр: «чтобы блоки нажимались -- электроника, менеджеры... и показывало эти списки»):
+  // ?role=<направление> из карточек баннера, считается тем же roleOf(), что и сами цифры.
+  const role: RoleKey | undefined =
+    isMil && typeof sp.role === "string" && (ROLE_ORDER as string[]).includes(sp.role) ? (sp.role as RoleKey) : undefined;
   const everywhere = isMil ? milAll.map((i) => i.post) : await postsForFact(landing.slug);
   // Без страны -- режим «Україна» (как лента): украинские + удалённые «отовсюду»,
   // а не вакансии всего мира под флагом Украины.
@@ -135,8 +141,9 @@ export default async function Page({ params, searchParams }: Props) {
   // 08.10.2026 (Александр: «почему на бронюванні так мало компаній? нет разбивки?»): раньше без
   // страны показывались только первые 40 из 1 120, дальше листать было некуда. Теперь страницы по 20,
   // с нумерацией; каждая -- свой адрес ?page=N.
-  const withCount = isMil ? all.filter((p) => reservedIds.has(p.id)).length : 0;
-  const shown = type === "with" ? all.filter((p) => reservedIds.has(p.id)) : type === "without" ? all.filter((p) => !reservedIds.has(p.id)) : all;
+  const inRole = role ? all.filter((p) => roleOf(p.title) === role) : all;
+  const withCount = isMil ? inRole.filter((p) => reservedIds.has(p.id)).length : 0;
+  const shown = type === "with" ? inRole.filter((p) => reservedIds.has(p.id)) : type === "without" ? inRole.filter((p) => !reservedIds.has(p.id)) : inRole;
   const posts = shown.slice((page - 1) * LANDING_PAGE_SIZE, page * LANDING_PAGE_SIZE);
   if (page > 1 && posts.length === 0) notFound();
   const totalPages = Math.max(1, Math.ceil(shown.length / LANDING_PAGE_SIZE));
@@ -181,21 +188,31 @@ export default async function Page({ params, searchParams }: Props) {
       </header>
 
       {isMil && !country && page === 1 ? (
-        <MilitaryBanner stats={buildMilitaryStats(milAll.filter((i) => keepInUkraineFeed(i.post)))} />
+        <MilitaryBanner stats={buildMilitaryStats(milAll.filter((i) => keepInUkraineFeed(i.post)))} activeRole={role} open={!!role} />
       ) : null}
 
       {isMil ? (
-        <nav aria-label="military filter" className="mb-5 flex flex-wrap gap-2">
+        <nav id="mil-list" aria-label="military filter" className="mb-5 flex scroll-mt-20 flex-wrap items-center gap-2">
+          {role ? (
+            <Link
+              href={`/jobs/tag/${landing.slug}`}
+              rel="nofollow"
+              className="rounded-full border border-[#e8b43c] bg-[#101310] px-3 py-1.5 text-[13px] font-semibold text-[#e8b43c] transition hover:bg-[#1d2219]"
+            >
+              <T uk={ROLE_LABEL[role].uk} en={ROLE_LABEL[role].en} ru={ROLE_LABEL[role].ru} de={ROLE_LABEL[role].en} es={ROLE_LABEL[role].en} fr={ROLE_LABEL[role].en} pl={ROLE_LABEL[role].en} ptBR={ROLE_LABEL[role].en} zh={ROLE_LABEL[role].en} /> ✕
+            </Link>
+          ) : null}
           {(
             [
-              { key: undefined, n: all.length, uk: "Усі", en: "All", ru: "Все" },
+              { key: undefined, n: inRole.length, uk: "Усі", en: "All", ru: "Все" },
               { key: "with", n: withCount, uk: "З бронюванням", en: "With deferment", ru: "С бронированием" },
-              { key: "without", n: all.length - withCount, uk: "Без бронювання", en: "Without deferment", ru: "Без бронирования" },
+              { key: "without", n: inRole.length - withCount, uk: "Без бронювання", en: "Without deferment", ru: "Без бронирования" },
             ] as const
           ).map((f) => {
             const qs = new URLSearchParams();
             if (country) qs.set("country", country.toLowerCase());
             if (f.key) qs.set("type", f.key);
+            if (role) qs.set("role", role);
             const href = `/jobs/tag/${landing.slug}${qs.toString() ? `?${qs.toString()}` : ""}`;
             const active = type === f.key;
             return (
@@ -236,6 +253,7 @@ export default async function Page({ params, searchParams }: Props) {
                 const q = new URLSearchParams();
                 if (country) q.set("country", country.toLowerCase());
                 if (type) q.set("type", type);
+                if (role) q.set("role", role);
                 return q;
               })()}
               page={page}
