@@ -36,14 +36,14 @@ export function NewsThumb({ thumb, className = "" }: { thumb: NewsArticle["thumb
           })}
         </span>
       ) : (
-        <span className="absolute inset-x-[7%] top-[10%] flex h-[42%] items-end gap-[5px]">
+        <span className="absolute inset-x-[7%] top-[8%] flex h-[24%] items-end gap-[5px]">
           {BAR_H.map((h, i) => (
             <span key={i} className="block flex-1 rounded-t-[3px] bg-gradient-to-t from-[#2a78d6] to-[#7aa2ff]" style={{ height: `${h}%` }} />
           ))}
         </span>
       )}
       <span className="absolute inset-x-[7%] bottom-[9%] block">
-        <span className="block text-[clamp(26px,5.2vw,40px)] font-bold leading-none tabular-nums text-white">{thumb.big}</span>
+        <span className="block text-[clamp(22px,4.6vw,38px)] font-bold leading-none tabular-nums text-white">{thumb.big}</span>
         <span className="mt-1 block text-[12px] leading-tight text-white/65">{thumb.small}</span>
       </span>
     </span>

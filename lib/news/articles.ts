@@ -2,8 +2,9 @@
 // Новая новость = новый файл со статьёй uk + en и две строки здесь.
 import type { NewsArticle, NewsLang } from "./types";
 import { MISTRAL_UK, MISTRAL_EN } from "./mistral-large-4";
+import { JXL_UK, JXL_EN } from "./jpeg-xl-chrome";
 
-export const NEWS: NewsArticle[] = [MISTRAL_UK, MISTRAL_EN];
+export const NEWS: NewsArticle[] = [MISTRAL_UK, MISTRAL_EN, JXL_UK, JXL_EN];
 
 export function findNews(slug: string): NewsArticle | undefined {
   return NEWS.find((a) => a.slug === slug);

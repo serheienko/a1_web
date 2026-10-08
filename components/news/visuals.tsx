@@ -232,6 +232,45 @@ export function PriceCalc({
   );
 }
 
+// ───────── 4b. Калькулятор «вага до / після» ─────────
+export function SizeCalc({
+  title, caption, start, max, unit, lowPct, highPct, labels, locale,
+}: { title: string; caption: string; start: number; max: number; unit: string; lowPct: number; highPct: number; labels: { before: string; after: string; slider: string; range: string; disclaimer: string }; locale: string }) {
+  const [mb, setMb] = useState(start);
+  const best = mb * (1 - highPct / 100); // максимум економії
+  const worst = mb * (1 - lowPct / 100); // мінімум економії
+  return (
+    <figure className="not-prose my-8 rounded-2xl bg-gradient-to-br from-[#0e1a52] to-[#03051f] p-4 text-white ring-1 ring-white/10 sm:p-6">
+      <figcaption>
+        <div className="text-lg font-semibold">{title}</div>
+        <div className="mt-1 text-[13px] leading-snug text-white/60">{caption}</div>
+      </figcaption>
+      <label className="mt-5 block">
+        <span className="flex items-baseline justify-between text-[13px] text-white/80">
+          <span>{labels.slider}</span>
+          <b className="text-[15px] tabular-nums text-white">{nf(mb, 1, locale)} {unit}</b>
+        </span>
+        <input type="range" min={0.5} max={max} step={0.5} value={mb} onChange={(e) => setMb(Number(e.target.value))} className="mt-2 w-full accent-[#7aa2ff]" />
+      </label>
+      <div className="mt-6 space-y-4" aria-live="polite">
+        <div>
+          <div className="mb-1 flex justify-between text-[12px] text-white/60"><span>{labels.before}</span><span className="tabular-nums text-white">{nf(mb, 1, locale)} {unit}</span></div>
+          <div className="h-4 overflow-hidden rounded-full bg-white/10"><span className="block h-full w-full rounded-full bg-white/45" /></div>
+        </div>
+        <div>
+          <div className="mb-1 flex justify-between text-[12px] text-white/60"><span>{labels.after}</span><span className="tabular-nums text-white">{nf(best, 1, locale)}–{nf(worst, 1, locale)} {unit}</span></div>
+          <div className="relative h-4 overflow-hidden rounded-full bg-white/10">
+            <span className="absolute inset-y-0 left-0 block rounded-full bg-[#7aa2ff]/40" style={{ width: `${100 - lowPct}%`, transition: "width .25s ease" }} />
+            <span className="absolute inset-y-0 left-0 block rounded-full bg-[#7aa2ff]" style={{ width: `${100 - highPct}%`, transition: "width .25s ease" }} />
+          </div>
+          <div className="mt-1 text-[12px] text-white/50">{labels.range}</div>
+        </div>
+      </div>
+      <p className="mt-4 text-[12px] leading-snug text-white/45">{labels.disclaimer}</p>
+    </figure>
+  );
+}
+
 // ───────── 5. Живые цифры из базы вакансий ─────────
 export type LiveAi = {
   total: number;

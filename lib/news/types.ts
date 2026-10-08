@@ -56,6 +56,17 @@ export type NewsBlock =
       output: number;
       labels: { input: string; output: string; total: string; unit: string; perMillion: string };
     }
+  | {
+      t: "sizes"; // калькулятор «скільки важитиме після»: вага до, діапазон економії з джерела
+      title: string;
+      caption: string;
+      start: number; // стартове значення слайдера
+      max: number;
+      unit: string; // "МБ" / "MB"
+      lowPct: number; // мінімальна економія, % (з джерела)
+      highPct: number; // максимальна економія, % (з джерела)
+      labels: { before: string; after: string; slider: string; range: string; disclaimer: string };
+    }
   | { t: "live"; title: string; caption: string }
   | { t: "links"; title: string; links: { href: string; label: string }[] };
 

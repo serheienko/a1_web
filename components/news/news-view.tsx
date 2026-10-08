@@ -6,12 +6,13 @@
 // Telegram-бота, связанные новости. Один язык на страницу (как в блоге).
 
 import Link from "next/link";
+import { Suspense } from "react";
 import type { ReactNode } from "react";
 import type { NewsArticle, NewsBlock } from "@/lib/news/types";
 import { altNews, relatedNews } from "@/lib/news/articles";
 import { liveAi } from "@/lib/news/live";
 import { readingMinutes } from "@/lib/news/util";
-import { ExpertsGrid, LiveMarket, PriceCalc, ScoreBars, StatsRow } from "@/components/news/visuals";
+import { ExpertsGrid, LiveMarket, PriceCalc, ScoreBars, SizeCalc, StatsRow } from "@/components/news/visuals";
 
 const SITE_URL = "https://jobs.a1appp.com";
 const BOT_URL = "https://t.me/a1jobs_bot";
@@ -100,6 +101,26 @@ const T = {
   },
 } as const;
 
+function LiveSkeleton({ title }: { title: string }) {
+  return (
+    <div className="my-8 rounded-2xl bg-neutral-100 p-5 dark:bg-neutral-900" aria-busy="true">
+      <div className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">{title}</div>
+      <div className="mt-4 grid grid-cols-3 gap-3">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="h-20 animate-pulse rounded-xl bg-neutral-200 dark:bg-neutral-800" />
+        ))}
+      </div>
+      <div className="mt-4 h-3 w-2/3 animate-pulse rounded bg-neutral-200 dark:bg-neutral-800" />
+    </div>
+  );
+}
+
+async function LiveBlock({ title, caption, t }: { title: string; caption: string; t: (typeof T)["uk"] | (typeof T)["en"] }) {
+  const data = await liveAi();
+  if (data.mlWorld + data.mlUa === 0) return null;
+  return <LiveMarket title={title} caption={caption} data={data} locale={t.locale} labels={t.liveLabels} />;
+}
+
 async function BlockView({ block, article }: { block: NewsBlock; article: NewsArticle }) {
   const t = T[article.lang];
   switch (block.t) {
@@ -129,11 +150,15 @@ async function BlockView({ block, article }: { block: NewsBlock; article: NewsAr
       return <ScoreBars {...block} locale={t.locale} />;
     case "price":
       return <PriceCalc {...block} locale={t.locale} />;
-    case "live": {
-      const data = await liveAi();
-      if (data.mlWorld + data.mlUa === 0) return null;
-      return <LiveMarket title={block.title} caption={block.caption} data={data} locale={t.locale} labels={t.liveLabels} />;
-    }
+    case "sizes":
+      return <SizeCalc {...block} locale={t.locale} />;
+    case "live":
+      // Тяжёлый блок (считает по всей базе вакансий): текст страницы уходит сразу, этот блок догружается скелетоном.
+      return (
+        <Suspense fallback={<LiveSkeleton title={block.title} />}>
+          <LiveBlock title={block.title} caption={block.caption} t={t} />
+        </Suspense>
+      );
     case "links":
       return (
         <div className="my-6">
