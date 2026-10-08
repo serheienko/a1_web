@@ -25,6 +25,7 @@ import type { WebPost } from "@/types/web-post";
 import { fetchAllSitemapJobPosts } from "./sitemap-posts";
 import { extractJobFacts } from "@/lib/a1/job-facts";
 import { worldwideKind } from "@/lib/seo/worldwide-kind";
+import { pickMilitary, type MilitaryItem } from "@/lib/a1/military";
 
 /** Признаки, по которым есть отдельная посадочная. */
 //
@@ -49,6 +50,8 @@ type Index = {
   /** Все живые вакансии того же обхода -- на них строятся сегменты SEO
    *  (lib/a1/segment-index.ts), отдельного обхода они не заводят. */
   allPosts: WebPost[];
+  /** Военные вакансии (lib/a1/military.ts): с бронированием и без. 08.10.2026, страница «Військо». */
+  military: MilitaryItem[];
 };
 
 /** «Новая» = компания выложила вакансию за последние сутки. Считаем по дате
@@ -96,7 +99,11 @@ async function build(): Promise<Index> {
     if (post.salary) byFact.get("with-salary")?.push(post);
   }
 
-  return { builtAt: Date.now(), byFact, freshByCountry, worldwide, worldwideFresh, allPosts: posts };
+  // «Військо»: бронирование уже посчитано выше, второй раз текст не разбираем.
+  const reserved = new Set<WebPost>(byFact.get("reservation") ?? []);
+  const military = pickMilitary(posts, (post) => reserved.has(post));
+
+  return { builtAt: Date.now(), byFact, freshByCountry, worldwide, worldwideFresh, allPosts: posts, military };
 }
 
 async function index(): Promise<Index> {
@@ -166,4 +173,13 @@ export function peekWorldwide(): { count: number; fresh: number } | null {
 /** Все живые вакансии (тот же кэш на час, что у остальных индексов). */
 export async function allIndexedPosts(): Promise<WebPost[]> {
   return (await index()).allPosts;
+}
+
+/**
+ * Военные вакансии для страницы «Військо» (/jobs/tag/reservation): все,
+ * что lib/a1/military.ts признал военным, с пометкой про бронирование.
+ * Тот же кэш на час, отдельного обхода нет.
+ */
+export async function militaryItems(): Promise<MilitaryItem[]> {
+  return (await index()).military;
 }

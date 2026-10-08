@@ -22,7 +22,9 @@ import { EmptyState } from "@/components/empty-state";
 import { generateAvatarBlurDataUrl } from "@/lib/avatar-blur";
 import { LOCALES, LOCALE_VISIBILITY_CLASS, T, type Locale } from "@/components/t";
 import { buildLandingBreadcrumbJsonLd } from "@/lib/seo/jsonld";
-import { postsForFact } from "@/lib/a1/facts-index";
+import { postsForFact, militaryItems } from "@/lib/a1/facts-index";
+import { MilitaryBanner } from "@/components/military-banner";
+import { buildMilitaryStats } from "@/lib/a1/military";
 import { FACT_LANDINGS, findFactLanding } from "@/lib/seo/fact-landings";
 import { Pagination } from "@/components/pagination";
 import { SegmentLinks } from "@/components/segment-page";
@@ -61,9 +63,12 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const country = landingCountry(await searchParams);
 
   const page = parsePageParam(toURLSearchParams(await searchParams));
+  const sp0 = await searchParams;
+  // 08.10.2026: «з бронюванням / без» -- тоже фильтр, а не отдельная витрина.
+  const typed = landing.slug === "reservation" && (sp0.type === "with" || sp0.type === "without");
   return pagedMeta({
     // 30.09.2026: вариант со страной -- фильтр, не витрина: не индексируем.
-    ...(country ? { robots: { index: false, follow: true } } : {}),
+    ...(country || typed ? { robots: { index: false, follow: true } } : {}),
     title: landing.metaTitle,
     description: landing.metaDescription,
     alternates: { canonical: url },
@@ -78,7 +83,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
       title: landing.metaTitle,
       description: landing.metaDescription,
     },
-  }, url, country ? 1 : page);
+  }, url, country || typed ? 1 : page);
 }
 
 /** Число внутри фразы на девяти языках -- тот же приём, что у
@@ -110,7 +115,14 @@ export default async function Page({ params, searchParams }: Props) {
   // Со страной -- обычные страницы по 20 с нумерацией.
   const country = landingCountry(sp);
   const page = parsePageParam(toURLSearchParams(sp));
-  const everywhere = await postsForFact(landing.slug);
+  // 08.10.2026 (Александр: тег «Бронювання» -> «Військо»): на этой странице
+  // все военные вакансии, а не только с бронированием; внутри -- фильтр
+  // «з бронюванням / без» (?type=with|without) и баннер-статистика.
+  const isMil = landing.slug === "reservation";
+  const milAll = isMil ? await militaryItems() : [];
+  const reservedIds = new Set(milAll.filter((i) => i.reservation).map((i) => i.post.id));
+  const type = isMil && (sp.type === "with" || sp.type === "without") ? sp.type : undefined;
+  const everywhere = isMil ? milAll.map((i) => i.post) : await postsForFact(landing.slug);
   // Без страны -- режим «Україна» (как лента): украинские + удалённые «отовсюду»,
   // а не вакансии всего мира под флагом Украины.
   const all = country
@@ -123,9 +135,11 @@ export default async function Page({ params, searchParams }: Props) {
   // 08.10.2026 (Александр: «почему на бронюванні так мало компаній? нет разбивки?»): раньше без
   // страны показывались только первые 40 из 1 120, дальше листать было некуда. Теперь страницы по 20,
   // с нумерацией; каждая -- свой адрес ?page=N.
-  const posts = all.slice((page - 1) * LANDING_PAGE_SIZE, page * LANDING_PAGE_SIZE);
+  const withCount = isMil ? all.filter((p) => reservedIds.has(p.id)).length : 0;
+  const shown = type === "with" ? all.filter((p) => reservedIds.has(p.id)) : type === "without" ? all.filter((p) => !reservedIds.has(p.id)) : all;
+  const posts = shown.slice((page - 1) * LANDING_PAGE_SIZE, page * LANDING_PAGE_SIZE);
   if (page > 1 && posts.length === 0) notFound();
-  const totalPages = Math.max(1, Math.ceil(all.length / LANDING_PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(shown.length / LANDING_PAGE_SIZE));
   const avatarBlurs = await Promise.all(
     posts.map((post) => generateAvatarBlurDataUrl(post.author.avatarUrl)),
   );
@@ -166,6 +180,44 @@ export default async function Page({ params, searchParams }: Props) {
         {country ? <LandingCountryBadge country={country} resetHref={`/jobs/tag/${landing.slug}`} /> : null}
       </header>
 
+      {isMil && !country && page === 1 ? (
+        <MilitaryBanner stats={buildMilitaryStats(milAll.filter((i) => keepInUkraineFeed(i.post)))} />
+      ) : null}
+
+      {isMil ? (
+        <nav aria-label="military filter" className="mb-5 flex flex-wrap gap-2">
+          {(
+            [
+              { key: undefined, n: all.length, uk: "Усі", en: "All", ru: "Все" },
+              { key: "with", n: withCount, uk: "З бронюванням", en: "With deferment", ru: "С бронированием" },
+              { key: "without", n: all.length - withCount, uk: "Без бронювання", en: "Without deferment", ru: "Без бронирования" },
+            ] as const
+          ).map((f) => {
+            const qs = new URLSearchParams();
+            if (country) qs.set("country", country.toLowerCase());
+            if (f.key) qs.set("type", f.key);
+            const href = `/jobs/tag/${landing.slug}${qs.toString() ? `?${qs.toString()}` : ""}`;
+            const active = type === f.key;
+            return (
+              <Link
+                key={f.key ?? "all"}
+                href={href}
+                aria-current={active ? "page" : undefined}
+                rel={f.key ? "nofollow" : undefined}
+                className={
+                  "rounded-full border px-3 py-1.5 text-[13px] font-medium transition " +
+                  (active
+                    ? "border-accent/40 bg-accent/10 text-accent"
+                    : "border-neutral-200 text-neutral-600 hover:border-accent/40 hover:bg-accent/5 hover:text-accent dark:border-neutral-800 dark:text-neutral-400")
+                }
+              >
+                <T uk={f.uk} en={f.en} ru={f.ru} de={f.en} es={f.en} fr={f.en} pl={f.en} ptBR={f.en} zh={f.en} /> · {f.n.toLocaleString("uk-UA")}
+              </Link>
+            );
+          })}
+        </nav>
+      ) : null}
+
       {posts.length === 0 ? (
         <EmptyState message={<T {...landing.empty} />} />
       ) : (
@@ -180,7 +232,12 @@ export default async function Page({ params, searchParams }: Props) {
           {totalPages > 1 ? (
             <Pagination
               basePath={`/jobs/tag/${landing.slug}`}
-              params={country ? new URLSearchParams({ country: country.toLowerCase() }) : new URLSearchParams()}
+              params={(() => {
+                const q = new URLSearchParams();
+                if (country) q.set("country", country.toLowerCase());
+                if (type) q.set("type", type);
+                return q;
+              })()}
               page={page}
               hasMore={page < totalPages}
               totalPages={totalPages}
