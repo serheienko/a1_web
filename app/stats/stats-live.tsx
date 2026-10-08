@@ -340,7 +340,7 @@ function Daily({ days }: { days: Insights["daily"] }) {
   const ticks = [0, Math.round(max / 2), max];
   return (
     <div className="relative">
-      <svg viewBox={`0 -16 ${W} ${H + 34}`} className="w-full overflow-visible" role="img" aria-label="New jobs per day">
+      <svg viewBox={`0 -34 ${W} ${H + 52}`} className="w-full overflow-visible" role="img" aria-label="New jobs per day">
         {ticks.map((v) => (
           <g key={v}>
             <line x1={0} x2={W} y1={H - (v / max) * H} y2={H - (v / max) * H} className="st-grid" />
@@ -348,13 +348,16 @@ function Daily({ days }: { days: Insights["daily"] }) {
         ))}
         {days.map((d, i) => {
           const over = d.n > max;
+          // соседние высокие дни: подписи через одну поднимаем выше, чтобы не наезжали друг на друга
+          let run = 0;
+          for (let j = i - 1; j >= 0 && days[j]!.n > max; j--) run++;
           const h = Math.max(d.n ? 2 : 0, (Math.min(d.n, max) / max) * H);
           return (
             <g key={d.d} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}>
               <rect x={i * bw} y={0} width={bw} height={H} fill="transparent" />
               {over ? (
                 <>
-                  <text x={i * bw + bw / 2} y={-6} textAnchor="middle" className="st-axis st-axis-strong">{d.n >= 1000 ? `${(d.n / 1000).toFixed(1)}k` : d.n}</text>
+                  <text x={i * bw + bw / 2} y={run % 2 ? -22 : -6} textAnchor="middle" className="st-axis st-axis-strong">{d.n >= 1000 ? `${(d.n / 1000).toFixed(1)}k` : d.n}</text>
                   <path d={`M${i * bw + pad} ${H - h + 10} l${(bw - pad * 2) / 2} -5 l${(bw - pad * 2) / 2} 5`} className="st-break" />
                 </>
               ) : null}
