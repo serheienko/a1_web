@@ -63,9 +63,9 @@ const TXT = {
     title: L("IT новини", "IT News", "IT новости"),
     sub: L("Головне з техсвіту — з розбором", "Tech news with our take", "Главное из техмира — с разбором"),
     prev: L(
-      "Найцікавіші IT-новини дня: цифри, графіки й що це означає для вакансій",
-      "The day's best IT stories: numbers, charts and what they mean for jobs",
-      "Самые интересные IT-новости дня: цифры, графики и что это значит для вакансий",
+      "Найцікавіші IT-новини дня: цифри, графіки й що це означає для IT-ринку",
+      "The day's best IT stories: numbers, charts and what they mean for the IT market",
+      "Самые интересные IT-новости дня: цифры, графики и что это значит для IT-рынка",
     ),
     kicker: L("Свіже", "Latest", "Свежее"),
   },

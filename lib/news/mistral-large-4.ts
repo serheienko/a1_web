@@ -21,7 +21,7 @@ export const MISTRAL_UK: NewsArticle = {
   title: "Mistral Large 4: трильйон параметрів, але працюють лише 52 мільярди",
   h1: "Mistral Large 4: трильйон параметрів, але працюють лише 52 мільярди",
   description:
-    "Mistral AI випустила Large 4: 1 трлн параметрів, з яких активні 52 млрд, $1,36 за мільйон вхідних токенів і відкриті ваги «до кінця місяця». Що це означає для IT-ринку й вакансій в ML.",
+    "Mistral AI випустила Large 4: 1 трлн параметрів, з яких активні 52 млрд, $1,36 за мільйон вхідних токенів і відкриті ваги «до кінця місяця». Що це означає для IT-ринку.",
   kicker: "Штучний інтелект",
   published: "2026-10-08",
   updated: "2026-10-08",
@@ -167,7 +167,7 @@ export const MISTRAL_EN: NewsArticle = {
   title: "Mistral Large 4: a trillion parameters, only 52 billion at work",
   h1: "Mistral Large 4: a trillion parameters, only 52 billion at work",
   description:
-    "Mistral AI released Large 4: 1 trillion parameters with 52 billion active, $1.36 per million input tokens and open weights promised by the end of the month. What it means for the IT job market.",
+    "Mistral AI released Large 4: 1 trillion parameters with 52 billion active, $1.36 per million input tokens and open weights promised by the end of the month. What it means for the IT market.",
   kicker: "Artificial intelligence",
   published: "2026-10-08",
   updated: "2026-10-08",

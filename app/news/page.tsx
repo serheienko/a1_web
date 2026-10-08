@@ -10,9 +10,9 @@ import { newsByLang } from "@/lib/news/articles";
 const SITE_URL = "https://jobs.a1appp.com";
 
 export const metadata: Metadata = {
-  title: "IT новини: головне зі світу технологій і що це означає для вакансій | A1 Jobs",
+  title: "IT новини: головне зі світу технологій і що це означає для IT-ринку | A1 Jobs",
   description:
-    "Найцікавіші IT-новини дня з нашим розбором: що сталося, які цифри, і що це змінює для айтішників та ринку вакансій. Українською та англійською.",
+    "Найцікавіші IT-новини дня з нашим розбором: що сталося, які цифри, і що це означає для IT-ринку. Українською та англійською.",
   alternates: { canonical: `${SITE_URL}/news` },
   openGraph: { title: "IT новини | A1 Jobs", url: `${SITE_URL}/news`, type: "website", locale: "uk_UA" },
 };
@@ -36,7 +36,7 @@ export default function NewsIndex() {
     <main className="mx-auto max-w-3xl px-4 pt-6 sm:pt-16 pb-fab-safe">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <h1 className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl dark:text-neutral-50">IT новини</h1>
-      <p className="mt-2 text-neutral-500 dark:text-neutral-400">Найцікавіше зі світу технологій — з цифрами, графіками й нашим поглядом: що це означає для айтішників і вакансій.</p>
+      <p className="mt-2 text-neutral-500 dark:text-neutral-400">Найцікавіше зі світу технологій — з цифрами, графіками й нашим поглядом: що це означає для IT-ринку.</p>
       <ul className="mt-8 flex flex-col gap-6">
         {uk.map((a) => (
           <li key={a.slug}>
