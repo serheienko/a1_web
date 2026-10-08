@@ -29,25 +29,49 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
   const sitemaps = Array.from({ length: chunkCount }, (_, id) => `${SITE_URL}/sitemap/${id}.xml`);
 
   return {
-    rules: {
-      userAgent: "*",
-      // 01.10.2026: /api/media/ открыт для обхода -- там лежат логотипы
-      // компаний из разметки JobPosting (hiringOrganization.logo). Более
-      // длинное правило Allow побеждает общий Disallow: /api/.
-      allow: ["/", "/api/media/"],
-      // 2026-09-09: /admin/posts (app/admin/posts/page.tsx) is a private,
-      // email-allowlisted internal tool, not a page meant for crawlers —
-      // same reasoning as /api/ right above, not the /talents noindex-
-      // but-crawlable carve-out this file's own header comment explains.
-      //
-      // 07.10.2026 (Александр: «проверь, что можно улучшить по
-      // индексации»). Статистика сканирования в Search Console: 65 %
-      // запросов Googlebot уходило на служебные ответы Next.js
-      // (?_rsc=..., данные для перехода между страницами), а на сами
-      // страницы -- лишь 13 %. При этом 25 тыс. вакансий робот «нашёл,
-      // но не обошёл». Закрываем эти ответы, чтобы обход шёл на страницы.
-      disallow: ["/api/", "/admin/", "/*?_rsc=", "/*&_rsc="],
-    },
+    rules: [
+      {
+        userAgent: "*",
+        // 01.10.2026: /api/media/ открыт для обхода -- там лежат логотипы
+        // компаний из разметки JobPosting (hiringOrganization.logo). Более
+        // длинное правило Allow побеждает общий Disallow: /api/.
+        allow: ["/", "/api/media/"],
+        // 2026-09-09: /admin/posts (app/admin/posts/page.tsx) is a private,
+        // email-allowlisted internal tool, not a page meant for crawlers —
+        // same reasoning as /api/ right above, not the /talents noindex-
+        // but-crawlable carve-out this file's own header comment explains.
+        //
+        // 07.10.2026 (Александр: «проверь, что можно улучшить по
+        // индексации»). Статистика сканирования в Search Console: 65 %
+        // запросов Googlebot уходило на служебные ответы Next.js
+        // (?_rsc=..., данные для перехода между страницами), а на сами
+        // страницы -- лишь 13 %. При этом 25 тыс. вакансий робот «нашёл,
+        // но не обошёл». Закрываем эти ответы, чтобы обход шёл на страницы.
+        disallow: ["/api/", "/admin/", "/*?_rsc=", "/*&_rsc="],
+      },
+      // 08.10.2026 (Александр: «где-то написать, что у нас нельзя брать»).
+      // Сборщики контента для обучения ИИ и массового копирования закрыты
+      // целиком. Поисковые роботы (Googlebot, Bingbot) остаются в правиле
+      // "*" выше -- от них приходит трафик. Это просьба, а не замок: её
+      // соблюдают добросовестные роботы. Основание для жалоб -- /terms.
+      {
+        userAgent: [
+          "GPTBot",
+          "CCBot",
+          "ClaudeBot",
+          "anthropic-ai",
+          "Google-Extended",
+          "Applebot-Extended",
+          "Bytespider",
+          "meta-externalagent",
+          "cohere-ai",
+          "Omgilibot",
+          "ImagesiftBot",
+          "PetalBot",
+        ],
+        disallow: "/",
+      },
+    ],
     sitemap: sitemaps,
   };
 }

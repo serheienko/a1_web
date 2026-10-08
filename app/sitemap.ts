@@ -121,6 +121,7 @@ async function buildSitemap({ id }: { id: number | string }): Promise<MetadataRo
     // 08.10.2026: «IT новини» -- список и новости (lib/news), у каждой своя дата.
     entries.push({ url: `${SITE_URL}/news`, lastModified: new Date(), changeFrequency: "daily", priority: 0.7 });
     entries.push({ url: `${SITE_URL}/news/en`, lastModified: new Date(), changeFrequency: "daily", priority: 0.6 });
+    entries.push({ url: `${SITE_URL}/terms`, lastModified: new Date("2026-10-08"), changeFrequency: "yearly", priority: 0.2 });
     for (const item of NEWS) {
       entries.push({ url: `${SITE_URL}/news/${item.slug}`, lastModified: new Date(item.updated), changeFrequency: "weekly", priority: 0.6 });
     }
