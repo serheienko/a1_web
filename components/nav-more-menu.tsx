@@ -33,7 +33,7 @@ import { DOWNLOAD_COPY } from "@/app/download/copy";
 import { LOCALES, LOCALE_VISIBILITY_CLASS, T, type Locale } from "@/components/t";
 import { useHoverPanel } from "@/lib/use-hover-panel";
 
-type Id = "app" | "stats" | "game";
+type Id = "app" | "news" | "stats" | "game";
 
 function L(uk: string, en: string, ru: string, rest?: Partial<Record<Locale, string>>): Record<Locale, string> {
   return { uk, en, ru, de: en, es: en, fr: en, pl: en, ptBR: en, zh: en, ...rest };
@@ -58,6 +58,16 @@ const TXT = {
         zh: "Android 与 iOS——口袋里的职位和聊天",
       },
     ),
+  },
+  news: {
+    title: L("IT новини", "IT News", "IT новости"),
+    sub: L("Головне з техсвіту — з розбором", "Tech news with our take", "Главное из техмира — с разбором"),
+    prev: L(
+      "Найцікавіші IT-новини дня: цифри, графіки й що це означає для вакансій",
+      "The day's best IT stories: numbers, charts and what they mean for jobs",
+      "Самые интересные IT-новости дня: цифры, графики и что это значит для вакансий",
+    ),
+    kicker: L("Свіже", "Latest", "Свежее"),
   },
   stats: {
     title: L("A1 Stats", "A1 Stats", "A1 Stats"),
@@ -92,7 +102,7 @@ const TXT = {
   more: L("Ще", "More", "Ещё", { de: "Mehr", es: "Más", fr: "Plus", pl: "Więcej", ptBR: "Mais", zh: "更多" }),
 };
 
-const HREF: Record<Id, string> = { app: "/download", stats: "/stats", game: "/game" };
+const HREF: Record<Id, string> = { app: "/download", news: "/news", stats: "/stats", game: "/game" };
 
 type StatsLite = { total: number; companies: number; countries: number; fresh24h: number; daily: { d: string; n: number }[] };
 
@@ -121,6 +131,18 @@ function AppIcon() {
         <path d="M12 7.5v6" />
         <path d="M9.5 11l2.5 2.5L14.5 11" />
       </g>
+    </svg>
+  );
+}
+
+function NewsIcon() {
+  return (
+    <svg {...svgBase}>
+      <path d="M4 5h12a2 2 0 0 1 2 2v12H6a2 2 0 0 1-2-2V5z" />
+      <path d="M18 9h2v8a2 2 0 0 1-2 2" />
+      <path d="M7.5 9h6" />
+      <path d="M7.5 12.5h6" />
+      <path d="M7.5 16h3.5" />
     </svg>
   );
 }
@@ -221,6 +243,38 @@ function PreviewApp() {
         </span>
         <span className="mt-2 block text-[13px] leading-snug text-white/65">
           <T {...TXT.app.prev} />
+        </span>
+      </span>
+    </>
+  );
+}
+
+function PreviewNews() {
+  return (
+    <>
+      <span className="relative block aspect-[16/10] w-full overflow-hidden bg-[radial-gradient(120%_90%_at_20%_0%,#16307a_0%,#0a1240_45%,#03051f_100%)]">
+        <span className="absolute inset-x-5 top-5 block">
+          <span className="block text-[11px] font-medium uppercase tracking-wide text-[#7aa2ff]">
+            IT news · <T {...TXT.news.kicker} />
+          </span>
+          <span className="mt-2 block text-[22px] font-bold leading-[1.15] text-white">Mistral Large 4</span>
+          <span className="mt-1 block text-[13px] text-white/60">1 000 B → 52 B</span>
+        </span>
+        <span className="absolute inset-x-5 bottom-8 grid gap-[3px]" style={{ gridTemplateColumns: "repeat(40, minmax(0, 1fr))" }}>
+          {Array.from({ length: 200 }, (_, i) => (
+            <span
+              key={i}
+              className="block aspect-square rounded-full"
+              style={{ background: (i * 37 + 5) % 200 < 10 ? "#7aa2ff" : "rgba(255,255,255,.16)", boxShadow: (i * 37 + 5) % 200 < 10 ? "0 0 6px 1px rgba(122,162,255,.8)" : "none" }}
+            />
+          ))}
+        </span>
+        <span className="pointer-events-none absolute inset-x-0 bottom-0 block h-14 bg-gradient-to-b from-transparent to-[#03051f]" />
+      </span>
+      <span className="block px-5 pb-5 pt-1">
+        <span className="block text-[20px] font-semibold leading-[1.2] text-white"><T {...TXT.news.title} /></span>
+        <span className="mt-2 block text-[13px] leading-snug text-white/65">
+          <T {...TXT.news.prev} />
         </span>
       </span>
     </>
@@ -363,6 +417,7 @@ export function NavMoreMenu() {
             }
           >
             <Row id="app" icon={<AppIcon />} onHover={setHovered} onPick={pick} />
+            <Row id="news" icon={<NewsIcon />} onHover={setHovered} onPick={pick} />
             <Row id="stats" icon={<StatsIcon />} onHover={setHovered} onPick={pick} />
             <div className="mx-2 my-1 border-t border-neutral-100 dark:border-neutral-800" />
             <Row id="game" icon={<GameIcon />} onHover={setHovered} onPick={pick} />
@@ -378,7 +433,7 @@ export function NavMoreMenu() {
               }
             >
               <Link key={hovered} href={HREF[hovered]} onClick={pick} className={`animate-nav-preview ${shell("bg-[#03051f]")}`}>
-                {hovered === "app" ? <PreviewApp /> : hovered === "stats" ? <PreviewStats data={stats} /> : <PreviewGame />}
+                {hovered === "app" ? <PreviewApp /> : hovered === "news" ? <PreviewNews /> : hovered === "stats" ? <PreviewStats data={stats} /> : <PreviewGame />}
               </Link>
             </div>
           )}
