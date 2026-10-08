@@ -2192,3 +2192,92 @@ textarea {
 }
 .gm-preview-drift { animation: gm-preview-drift 14s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .gm-preview-drift { animation: none; } }
+
+
+/* Меню «⋯» в шапке (components/nav-more-menu.tsx). Три точки при наведении
+   пробегают волной -- каждая подпрыгивает чуть позже соседней (задержка
+   задана инлайном). */
+@keyframes more-dot-hop {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  35% {
+    transform: translateY(-3.5px) scale(1.15);
+  }
+  70% {
+    transform: translateY(1px) scale(0.95);
+  }
+}
+
+.animate-more-dot {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.group:hover .animate-more-dot {
+  animation: more-dot-hop 0.55s ease-in-out;
+}
+
+/* Столбики-значок «A1 Stats» в строке меню: при наведении «пересчитываются». */
+@keyframes stats-bar-bounce {
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+  40% {
+    transform: scaleY(0.55);
+  }
+  70% {
+    transform: scaleY(1.12);
+  }
+}
+
+.animate-stats-bar {
+  transform-box: fill-box;
+  transform-origin: bottom;
+}
+
+.group:hover .animate-stats-bar {
+  animation: stats-bar-bounce 0.55s ease-in-out;
+}
+
+/* Превью справа налево: плавно подъезжает при смене строки меню. */
+@keyframes nav-preview-in {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-nav-preview {
+  animation: nav-preview-in 0.2s ease-out;
+}
+
+/* Столбики 30 дней в превью «A1 Stats» вырастают снизу вверх. */
+@keyframes nav-stats-col-grow {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+.nav-stats-col {
+  transform-origin: bottom;
+  animation: nav-stats-col-grow 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .group:hover .animate-more-dot,
+  .group:hover .animate-stats-bar,
+  .animate-nav-preview,
+  .nav-stats-col {
+    animation: none;
+  }
+}
