@@ -302,7 +302,8 @@ export async function ShtabBoard() {
     { color: LAMP_COLOR.nodata, n: count((l) => l === "nodata" || l === "planned" || l === "manual"), label: "не подключены или вручную" },
   ];
   // Вердикт дня: одной фразой, «всё ли в порядке сегодня».
-  const konkSteps = ALL_AGENTS.filter((a) => a.kind === "pulse" && a.track === 0 && !a.hidden || a.id === "ua").map((a) => byId.get(a.id)!).filter(Boolean);
+  // Шаги утреннего забега -- ровно те, у кого есть номер в очереди (включая спрятанные в групповом столе).
+  const konkSteps = queued;
   const stepsDone = konkSteps.filter((v) => v.lamp === "done").length;
   const workingStep = konkSteps.find((v) => v.lamp === "work");
   const bad = visible.filter((v) => v.lamp === "error" || v.lamp === "missed");

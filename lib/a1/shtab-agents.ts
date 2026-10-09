@@ -65,7 +65,6 @@ export const ROOMS: RoomDef[] = [
     wide: true,
     agents: [
       { id: "world", name: "Мир · топ-компании", nick: "Мировой", role: "Вакансии IT-компаний мира: ATS-ленты и фиды", slots: DAILY_07, graceMin: KONK_GRACE, order: 1, limit: null, sources: "Ленты вакансий топ-компаний мира (Greenhouse, Lever, Ashby, Workday и др.). Без дневного лимита: публикует все новые.", kind: "pulse", track: 0 },
-      { id: "jobico", name: "Jobico · лента", nick: "Jobico", role: "Лента jobico.io, кнопка ведёт на вакансию", slots: DAILY_07, graceMin: KONK_GRACE, order: 2, limit: null, sources: "Лента jobico.io (с их разрешения, с пересказом). Без дневного лимита.", kind: "pulse", track: 0 },
       { id: "euro", name: "Европа", nick: "Европеец", role: "IT-вакансии Европы из многих источников", slots: DAILY_07, graceMin: KONK_GRACE, order: 3, limit: 1200, sources: "Workable (8 стран в день по кругу), EURES, Германия, Швеция, Болгария, Чехия, Польша и др.", kind: "pulse", track: 0 },
       { id: "us", name: "США", nick: "Американец", role: "IT-вакансии США", slots: DAILY_07, graceMin: KONK_GRACE, order: 4, limit: 400, sources: "Workable США, 317 стартапов YC, 115 работодателей Workday, удалёнка Himalayas и Jobicy.", kind: "pulse", track: 0 },
       { id: "af", name: "Африка", nick: "Африканец", role: "IT-вакансии Африки", slots: DAILY_07, graceMin: KONK_GRACE, order: 5, limit: 300, sources: "Workable из кеша GitHub (24 страны) и ленты 31 африканской компании.", kind: "pulse", track: 0 },
@@ -76,14 +75,15 @@ export const ROOMS: RoomDef[] = [
   {
     id: "ukraine",
     name: "Украина: вакансии и отправка в Google",
-    where: "ATS-ленты в забеге Конкистадора 07:00 UTC · DOU 07:20 и 15:20 UTC",
+    where: "ATS-ленты и Jobico в забеге Конкистадора 07:00 UTC · DOU 07:20 и 15:20 UTC",
     color: "#4aa3ff",
     agents: [
       {
         id: "ukraine", name: "Украина", nick: "Казак", role: "Все IT-вакансии Украины: DOU и ленты украинских компаний", slots: [], graceMin: 0,
-        kind: "group", members: ["kazak", "ua"],
-        note: "Один агент по Украине: сначала DOU (дважды в день), ленты компаний — в общем забеге.",
+        kind: "group", members: ["kazak", "ua", "jobico"],
+        note: "Один агент по Украине: DOU (дважды в день), ленты украинских компаний и Jobico — в общем забеге.",
       },
+      { id: "jobico", name: "Украина · Jobico", nick: "Jobico", part: "Jobico", hidden: true, role: "Лента jobico.io, кнопка ведёт на вакансию", slots: DAILY_07, graceMin: KONK_GRACE, order: 2, limit: null, sources: "Лента jobico.io (с их разрешения, с пересказом). Без дневного лимита, новых мало.", kind: "pulse", track: 0 },
       { id: "kazak", name: "Украина · DOU", nick: "Казак", part: "DOU", role: "Вакансии с DOU", hidden: true, track: 1, slots: [{ h: 7, m: 20 }, { h: 15, m: 20 }], graceMin: 120, kind: "pulse", sources: "Лента DOU, дважды в день.", limit: null },
       { id: "ua", name: "Украина · ATS-ленты", nick: "Казак 2", part: "ATS-ленты", hidden: true, track: 0, role: "IT-вакансии Украины из лент компаний", slots: DAILY_07, graceMin: KONK_GRACE, order: 8, limit: 300, sources: "Ленты украинских компаний, Workable Украина, удалёнка для Украины.", kind: "pulse" },
       { id: "postman", name: "Отправка в Google", nick: "Почтальон", role: "Отправляет адреса вакансий в Google для индекса (квота Google 200 в день)", track: 1, slots: [{ h: 7, m: 20 }, { h: 15, m: 20 }], graceMin: 120, kind: "pulse", limit: 200, note: "Очередь около 23 тысяч адресов." },
