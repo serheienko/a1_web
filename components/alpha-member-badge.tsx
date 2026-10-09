@@ -145,6 +145,16 @@ export function AlphaMemberBadge({
     return () => window.removeEventListener(ALPHA_BADGE_EVENT, on);
   }, [username]);
   useEffect(() => {
+    if (mode !== "hover") return;
+    const onDown = (e: MouseEvent) => {
+      const el = e.target as HTMLElement;
+      if (!el.closest?.("[data-alpha-hover-card]") && !el.closest?.("[data-alpha-badge]")) close();
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
+  useEffect(() => {
     if (!mode) return;
     const r = requestAnimationFrame(() => setShown(true));
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
@@ -158,6 +168,7 @@ export function AlphaMemberBadge({
 
   if (!member) return null;
   const current = emojiId ?? member.emojiId;
+  // (the sticky hover card closes on a click elsewhere -- see the effect above)
   const base = alphaEmojiPath(current);
 
   function close() {
@@ -207,10 +218,18 @@ export function AlphaMemberBadge({
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
+          // 09.10.2026 (Александр: «если сделали ховер, нелогично при нажатии
+          // открывать по центру экрана; клик -- только для телефона»): на
+          // компьютере клик оставляет ту же карточку у банки (и она уже не
+          // закрывается сама); окно по центру -- только на сенсорных экранах.
           if (mode === "hover") {
-            // A click on the hovered can: the full window (prices, Join).
-            setMode("sheet");
-            setByHover(false);
+            sticky.current = true;
+            return;
+          }
+          if (canHover() && !mode) {
+            void open(true).then(() => {
+              sticky.current = true;
+            });
             return;
           }
           if (mode === "panel") {
@@ -437,6 +456,7 @@ function HoverCard({
     <div
       role="dialog"
       aria-label={t(S.member)}
+      data-alpha-hover-card=""
       onMouseEnter={onEnter}
       onMouseLeave={onLeave}
       className={`fixed z-[210] rounded-[24px] border border-black/[0.06] bg-white/95 p-4 text-center shadow-[0_18px_50px_rgba(30,30,90,0.25)] backdrop-blur-xl transition duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] dark:border-white/10 dark:bg-[#1c1c24]/95 ${shown ? "translate-y-0 scale-100 opacity-100" : "-translate-y-1 scale-95 opacity-0"}`}
