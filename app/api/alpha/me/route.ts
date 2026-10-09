@@ -9,11 +9,14 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const none = NextResponse.json({ member: false, portrait: null }, { headers: { "cache-control": "no-store" } });
+  // `enabled`: Alpha exists on this copy of the site (test) -- lets the page
+  // show Alpha features locked for non-members instead of hiding them.
+  const enabled = alphaEnabled();
+  const none = NextResponse.json({ member: false, portrait: null, enabled }, { headers: { "cache-control": "no-store" } });
   if (!alphaEnabled() || !isSignedIn(req)) return none;
   const member = await hasPremium(req);
   if (!member) return none;
   const id = await alphaUserId(req);
   const saved = id ? await loadPortrait(id) : null;
-  return NextResponse.json({ member, portrait: saved?.portrait ?? null }, { headers: { "cache-control": "no-store" } });
+  return NextResponse.json({ member, portrait: saved?.portrait ?? null, enabled }, { headers: { "cache-control": "no-store" } });
 }
