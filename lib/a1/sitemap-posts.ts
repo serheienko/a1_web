@@ -121,16 +121,34 @@ async function scanAllSitemapJobPosts(): Promise<WebPost[]> {
 // деплою бекенд отримував кілька сотень запитів разом. Тепер: результат
 // живе годину; паралельні виклики чекають той самий обхід; коли година
 // минула -- віддаємо старе одразу й тихо оновлюємо у фоні.
-// 09.10.2026: чуть меньше TTL_MS в facts-index.ts (6 ч) -- обход успевает
-// обновиться до того, как индекс попросит свежие данные.
-const SHARED_TTL_MS = 5.5 * 60 * 60 * 1000;
-let shared: { at: number; posts: WebPost[] } | null = null;
+// 09.10.2026 (Александр, счёт Railway вырос в 2,5 раза): полный обход -- раз в
+// СУТКИ, а не раз в час. На 31 тысяче вакансий один проход тянет из базы около
+// ста мегабайт, и это была самая дорогая регулярная вещь на сайте.
+//
+// Чтобы свежие вакансии при этом не ждали сутки, рядом живёт «догон»: раз в
+// полчаса берём только первые TOPUP_PAGES страниц ленты (самые новые) и
+// подмешиваем в начало то, чего ещё нет. Это ~300 вакансий вместо 31 тысячи,
+// то есть примерно сотая часть прежней цены, а лента, поиск и карта сайта
+// видят новое почти сразу.
+const SHARED_TTL_MS = 24 * 60 * 60 * 1000;
+const TOPUP_TTL_MS = 30 * 60 * 1000;
+const TOPUP_PAGES = 3;
+
+let shared: { at: number; toppedAt: number; posts: WebPost[] } | null = null;
 let sharedBuilding: Promise<WebPost[]> | null = null;
+let topping: Promise<void> | null = null;
+let version = 0;
+
+/** Меняется при каждом обновлении списка: по нему производные указатели понимают, что пора пересчитаться. */
+export function sitemapPostsVersion(): number {
+  return version;
+}
 
 function refreshShared(): Promise<WebPost[]> {
   sharedBuilding ??= scanAllSitemapJobPosts()
     .then((posts) => {
-      shared = { at: Date.now(), posts };
+      shared = { at: Date.now(), toppedAt: Date.now(), posts };
+      version += 1;
       return posts;
     })
     .finally(() => {
@@ -139,9 +157,45 @@ function refreshShared(): Promise<WebPost[]> {
   return sharedBuilding;
 }
 
+/** Догон: только самые новые страницы ленты, новое -- в начало списка. */
+async function topUp(): Promise<void> {
+  const base = shared;
+  if (!base) return;
+  const fetchPage = async (offset: number) => {
+    const raw = await callWithRetry<unknown>("posts.search", {
+      limit: PAGE_SIZE,
+      object: "post-job-employing",
+      external: "include",
+      ...(offset > 0 ? { offset } : {}),
+    });
+    return mapPosts(PostsSearchOutputSchema.parse(raw).items);
+  };
+  const pages = await Promise.all(Array.from({ length: TOPUP_PAGES }, (_, i) => fetchPage(i * PAGE_SIZE)));
+  const known = new Set(base.posts.map((p) => p.id));
+  const fresh: WebPost[] = [];
+  for (const page of pages) {
+    for (const post of page) {
+      if (known.has(post.id) || isJobPostingExpired(post)) continue;
+      known.add(post.id);
+      fresh.push(post);
+    }
+  }
+  shared = { at: base.at, toppedAt: Date.now(), posts: fresh.length ? [...fresh, ...base.posts] : base.posts };
+  if (fresh.length) version += 1;
+}
+
 export async function fetchAllSitemapJobPosts(): Promise<WebPost[]> {
   if (shared) {
-    if (Date.now() - shared.at > SHARED_TTL_MS) void refreshShared().catch(() => {});
+    const now = Date.now();
+    if (now - shared.at > SHARED_TTL_MS) {
+      void refreshShared().catch(() => {});
+    } else if (now - shared.toppedAt > TOPUP_TTL_MS) {
+      topping ??= topUp()
+        .catch(() => {})
+        .finally(() => {
+          topping = null;
+        });
+    }
     return shared.posts;
   }
   return refreshShared();

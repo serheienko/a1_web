@@ -22,7 +22,7 @@
 // схлопываются в один обход.
 
 import type { WebPost } from "@/types/web-post";
-import { fetchAllSitemapJobPosts } from "./sitemap-posts";
+import { fetchAllSitemapJobPosts, sitemapPostsVersion } from "./sitemap-posts";
 import { extractJobFacts } from "@/lib/a1/job-facts";
 import { worldwideKind } from "@/lib/seo/worldwide-kind";
 import { pickMilitary, type MilitaryItem } from "@/lib/a1/military";
@@ -38,14 +38,17 @@ import { pickMilitary, type MilitaryItem } from "@/lib/a1/military";
 // одного лишнего запроса.
 export type JobFactKey = "no-experience" | "reservation" | "with-salary";
 
-// 09.10.2026 (Александр, счёт Railway вырос в 2,5 раза). Обход всех вакансий --
-// самая дорогая вещь на сайте: вакансий стало 31 тысяча вместо двух, один проход
-// тянет из базы около 100 МБ, и раньше он повторялся каждый час в каждом процессе.
-// Цифры на посадочных и в блоге не обязаны обновляться ежечасно, поэтому шесть часов.
-const TTL_MS = 6 * 60 * 60 * 1000;
+// 09.10.2026 (Александр, счёт Railway вырос в 2,5 раза). Сам обход вакансий
+// теперь раз в сутки с получасовым догоном свежих (lib/a1/sitemap-posts.ts).
+// Здесь пересчёт дешёвый -- это только разбор уже полученных текстов, без
+// обращений к базе, -- поэтому пересчитываем, как только список изменился
+// (version), и в любом случае не реже раза в сутки.
+const TTL_MS = 24 * 60 * 60 * 1000;
 
 type Index = {
   builtAt: number;
+  /** Версия списка вакансий, на которой построен указатель (см. sitemapPostsVersion). */
+  version: number;
   byFact: Map<JobFactKey, WebPost[]>;
   freshByCountry: Map<string, number>;
   /** Удалённые вакансии «отовсюду» (пункт «🌏 Worldwide»), в порядке ленты бэкенда. */
@@ -107,11 +110,11 @@ async function build(): Promise<Index> {
   const reserved = new Set<WebPost>(byFact.get("reservation") ?? []);
   const military = pickMilitary(posts, (post) => reserved.has(post));
 
-  return { builtAt: Date.now(), byFact, freshByCountry, worldwide, worldwideFresh, allPosts: posts, military };
+  return { builtAt: Date.now(), version: sitemapPostsVersion(), byFact, freshByCountry, worldwide, worldwideFresh, allPosts: posts, military };
 }
 
 async function index(): Promise<Index> {
-  if (cached && Date.now() - cached.builtAt < TTL_MS) return cached;
+  if (cached && cached.version === sitemapPostsVersion() && Date.now() - cached.builtAt < TTL_MS) return cached;
   if (building) return building;
 
   building = build()
@@ -152,7 +155,7 @@ export async function postsForFact(fact: JobFactKey): Promise<WebPost[]> {
  */
 export function peekFreshByCountry(): Map<string, number> {
   if (cached) {
-    if (Date.now() - cached.builtAt >= TTL_MS) void index().catch(() => undefined);
+    if (cached.version !== sitemapPostsVersion() || Date.now() - cached.builtAt >= TTL_MS) void index().catch(() => undefined);
     return cached.freshByCountry;
   }
   void index().catch(() => undefined);
@@ -167,7 +170,7 @@ export async function worldwidePosts(): Promise<WebPost[]> {
 /** Сколько вакансий в «Worldwide» и сколько новых за сутки -- для списка стран. Не ждёт обхода. */
 export function peekWorldwide(): { count: number; fresh: number } | null {
   if (cached) {
-    if (Date.now() - cached.builtAt >= TTL_MS) void index().catch(() => undefined);
+    if (cached.version !== sitemapPostsVersion() || Date.now() - cached.builtAt >= TTL_MS) void index().catch(() => undefined);
     return { count: cached.worldwide.length, fresh: cached.worldwideFresh };
   }
   void index().catch(() => undefined);

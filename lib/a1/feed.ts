@@ -249,6 +249,39 @@ function scanCacheKey(kind: WebPostKind, filters: FeedFilters): string {
   ]);
 }
 
+/**
+ * Пул для поиска из уже готового общего указателя -- БЕЗ единого запроса к базе.
+ *
+ * 09.10.2026 (счёт Railway). Текстовый поиск шёл обходом ленты: до тридцати
+ * страниц по сто вакансий на каждую комбинацию фильтров. Это было нормально на
+ * двух тысячах вакансий и стало дорого на тридцати одной. Хуже того, обход
+ * обрезан на трёх тысячах (FULL_SCAN_MAX_PAGES) -- то есть поиск уже перестал
+ * видеть девять десятых базы и просто молчал об этом.
+ *
+ * Общий указатель (facts-index) и так держит все живые вакансии в памяти: он
+ * нужен посадочным, блогу и карте сайта. Отбор по нему идёт без сети и видит
+ * всю базу. Фильтры, которые раньше делал бэкенд, повторяются здесь же.
+ *
+ * null -- указателя не хватает (город по id, вакансии соискателей): тогда
+ * по-прежнему обход.
+ */
+function poolFromIndex(all: WebPost[], kind: WebPostKind, filters: FeedFilters): WebPost[] | null {
+  if (kind !== "hiring" || filters.location != null) return null;
+  const categories = filters.categories ?? [];
+  const tags = filters.tags ?? [];
+  const country =
+    filters.country && filters.country !== DEFAULT_COUNTRY_CODE && filters.country !== WORLDWIDE_CODE
+      ? filters.country.trim().toUpperCase()
+      : null;
+  return all.filter((post) => {
+    if (categories.length > 0 && !post.categories.some((c) => categories.includes(c.id))) return false;
+    if (!tags.every((tag) => post.tags.includes(tag))) return false;
+    if (filters.top100) return post.author.external === true;
+    if (country) return (post.location?.country ?? "").trim().toUpperCase() === country;
+    return keepInUkraineFeed(post);
+  });
+}
+
 async function getScanPosts(kind: WebPostKind, filters: FeedFilters): Promise<WebPost[]> {
   const key = scanCacheKey(kind, filters);
   const now = Date.now();
@@ -390,24 +423,30 @@ export async function fetchFeedPage(
     };
   }
 
-  const scanned = await getScanPosts(kind, filters);
-  // Запрос-город («Vienna») возвращает и зарубежные вакансии этого города: лента
-  // «Україна» их не содержит (бэкенд отдаёт её в режиме «для тебе»), поэтому
-  // добираем из общего индекса всех вакансий (кэш на час, обход уже оплачен
-  // страницами стран). Человек сам назвал место -- значит, оно ему нужно.
-  let pool = inUkraineMode(kind, filters) ? scanned.filter(keepInUkraineFeed) : scanned;
-  if (needle && inUkraineMode(kind, filters)) {
-    const seen = new Set(pool.map((p) => p.id));
-    const categories = filters.categories ?? [];
-    const tags = filters.tags ?? [];
-    const extra = (await allIndexedPosts()).filter(
-      (p) =>
-        !seen.has(p.id) &&
-        locationMatches(p.location, needle) &&
-        (categories.length === 0 || p.categories.some((c) => categories.includes(c.id))) &&
-        tags.every((tag) => p.tags.includes(tag)),
-    );
-    if (extra.length > 0) pool = [...pool, ...extra];
+  // Сначала пробуем общий указатель: он уже в памяти и видит всю базу.
+  // Обход остаётся запасным путём -- для города по id, вакансий соискателей
+  // и для случая, когда указатель ещё не собран (первые секунды после деплоя).
+  const indexed = await allIndexedPosts().catch(() => null);
+  let pool = indexed ? poolFromIndex(indexed, kind, filters) : null;
+  if (!pool) {
+    const scanned = await getScanPosts(kind, filters);
+    // Запрос-город («Vienna») возвращает и зарубежные вакансии этого города: лента
+    // «Україна» их не содержит (бэкенд отдаёт её в режиме «для тебе»), поэтому
+    // добираем из общего указателя. Человек сам назвал место -- значит, оно ему нужно.
+    pool = inUkraineMode(kind, filters) ? scanned.filter(keepInUkraineFeed) : scanned;
+    if (needle && inUkraineMode(kind, filters) && indexed) {
+      const seen = new Set(pool.map((p) => p.id));
+      const categories = filters.categories ?? [];
+      const tags = filters.tags ?? [];
+      const extra = indexed.filter(
+        (p) =>
+          !seen.has(p.id) &&
+          locationMatches(p.location, needle) &&
+          (categories.length === 0 || p.categories.some((c) => categories.includes(c.id))) &&
+          tags.every((tag) => p.tags.includes(tag)),
+      );
+      if (extra.length > 0) pool = [...pool, ...extra];
+    }
   }
   const matches = applyLocalFilters(pool, filters, needle);
   const hasMore = nextOffset < matches.length;
