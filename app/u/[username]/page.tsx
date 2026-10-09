@@ -1,5 +1,5 @@
 export const runtime = "nodejs";
-export const revalidate = 60;
+export const revalidate = 600; // 09.10.2026: было 60 с, профиль меняется редко
 
 // app/u/[username]/page.tsx — public author profile page.
 //

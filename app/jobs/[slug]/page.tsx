@@ -1,5 +1,9 @@
 export const runtime = "nodejs";
-export const revalidate = 60;
+// 09.10.2026: было 60 с. Таких страниц 31 тысяча, и по ним ходят поисковые
+// роботы (в sitemap 35 тысяч адресов) -- каждое попадание в устаревшую страницу
+// тянуло вакансию и похожие заново. Текст вакансии после публикации не меняется,
+// закрытые снимает уборка парсера, поэтому получаса достаточно.
+export const revalidate = 1800;
 
 // app/jobs/[slug]/page.tsx — one vacancy per page (PLAN.md Phase 2, §3.1's
 // "money page for SEO"). Slug format: "<kebab-title>-<postId>".

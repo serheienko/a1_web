@@ -1,10 +1,10 @@
 export const runtime = "nodejs";
-export const revalidate = 15; // lowered from 60 — 2026-08-26, founder wants post
-// updates to show up fast, not "up to a minute" later. ISR only re-fetches the
-// origin once per window in the background regardless of visitor count, so this
-// is cheap even at 15s. /api/revalidate exists for instant, event-driven
-// invalidation once the backend's webhook (OPEN QUESTIONS #8) is wired up —
-// this is the interim fix that does not depend on Andrew's timeline for that.
+// 09.10.2026 (счёт Railway вырос в 2,5 раза): было 15 с. Пересборка страницы --
+// это запрос к бэкенду, а он читает из базы; на 31 тысяче вакансий трафик из базы
+// стал заметной статьёй счёта. Вакансии приезжают пачкой раз в сутки, минута
+// задержки ничего не меняет, а запросов в четыре раза меньше.
+// /api/revalidate остаётся для мгновенного сброса, когда понадобится.
+export const revalidate = 60;
 
 // app/page.tsx — the Jobs feed (post-job-employing), living at the site
 // root as of 2026-08-26 per Aleksandr: no intermediate landing/chooser
