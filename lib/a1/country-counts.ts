@@ -59,29 +59,23 @@ export function peekUkraineFeedTotal(): number | null {
  * ради одного числа возле флага. На 31 тысяче вакансий это десятки мегабайт из
  * базы за проход и заметная доля счёта за трафик.
  *
- * Лента «Україна» -- это «вакансии с локацией в Украине» плюс «вакансии без
- * места» (у них страна WW, см. keepInUkraineFeedCountry). Оба куска бэкенд умеет
- * посчитать сам:
- *   - с локацией в Украине -- обычный фильтр по стране;
- *   - без места -- это ровно вакансии с тегом Worldwide (его ставят и Конкистадор,
- *     и Казак всем вакансиям без города, он же EXTERNAL_OPEN_TAG у бэкенда).
- * Два лёгких запроса вместо полутора сотен тяжёлых.
+ * Лента «Україна» -- это вся лента «для тебе» МИНУС вакансии с чужой локацией
+ * (украинские компании с офисом в Варшаве и т.п., см. keepInUkraineFeedCountry).
+ * Значит число = «всего в ленте» минус сумма по чужим странам. Все слагаемые --
+ * обычные счётчики бэкенда (limit 1, expand=count), вакансии не тянем вовсе.
+ * Вакансии без места ни в одну страну не попадают и остаются в числе -- так и надо.
  *
- * Пересечение (вакансия и с украинской локацией, и с тегом Worldwide) возможно,
- * но тег ставится только там, где места нет, поэтому на практике его нет. Если
- * когда-нибудь появится, число слегка завысится -- не критично для подписи у флага.
+ * ПЕРВАЯ ПОПЫТКА БЫЛА ПРОЩЕ И НЕВЕРНОЙ: «локация = Украина» плюс «тег Worldwide»
+ * (им помечают вакансии без города). Получилось 3 237 вместо 6 605 -- у вакансий
+ * сервиса DOU этого тега нет, он есть только у того, что публикует Конкистадор.
  */
-const WORLDWIDE_TAG = "Worldwide";
-
-async function countUkraineFeed(): Promise<{ count: number; fresh: number } | null> {
-  const ua = countryByCode(DEFAULT_COUNTRY_CODE);
-  if (!ua) return null;
-  const [withPlace, noPlace] = await Promise.all([
-    countFor({ external: "open", location: ua.id }),
-    countFor({ external: "open", tags: [WORLDWIDE_TAG] }),
-  ]);
-  const count = withPlace + noPlace;
-  if (!count) return null;
+async function countUkraineFeed(openByCountry: Map<string, number>, total: number): Promise<{ count: number; fresh: number } | null> {
+  if (!total) return null;
+  let foreign = 0;
+  for (const [code, n] of openByCountry) {
+    if (code !== DEFAULT_COUNTRY_CODE) foreign += n;
+  }
+  const count = Math.max(0, total - foreign);
   // «Новые за сутки» считает общий обход вакансий (facts-index): он идёт всё
   // равно, и отдельный запрос ради этой цифры не нужен.
   const fresh = (peekFreshByCountry().get(DEFAULT_COUNTRY_CODE) ?? 0) + (peekWorldwide()?.fresh ?? 0);
@@ -110,22 +104,30 @@ async function build(): Promise<CountryOption[]> {
   const out: CountryOption[] = [];
   const others = COUNTRIES.filter((c) => c.code !== DEFAULT_COUNTRY_CODE);
 
-  // Точное число -- обходом ленты; если обход упал, берём счёт бэкенда (чуть
-  // завышен на чужие офисы, но лучше, чем пусто).
-  const swept = await countUkraineFeed();
-  if (!swept) countFailures += 1;
-  const forYou = swept?.count ?? (await countFor({ external: "open" }));
-  if (swept) uaTotal = swept.count;
-  out.push({ code: DEFAULT_COUNTRY_CODE, count: forYou, ...(swept && swept.fresh > 0 ? { fresh: swept.fresh } : {}) });
-
+  // Два счётчика на страну: «include» -- сколько всего вакансий страны (число в
+  // списке), «open» -- сколько из них попадает в ленту «для тебе» (их вычитаем,
+  // чтобы получить число у Украины). Оба -- limit 1, expand=count: лёгкие.
+  const openByCountry = new Map<string, number>();
   for (let i = 0; i < others.length; i += CONCURRENCY) {
     const batch = others.slice(i, i + CONCURRENCY);
-    const counts = await Promise.all(batch.map((c) => countFor({ location: c.id, external: "include" })));
+    const pairs = await Promise.all(
+      batch.map(async (c) => [
+        await countFor({ location: c.id, external: "include" }),
+        await countFor({ location: c.id, external: "open" }),
+      ] as const),
+    );
     batch.forEach((c, idx) => {
-      const count = counts[idx] ?? 0;
-      if (count >= MIN_SHOWN && !HIDDEN_CODES.has(c.code)) out.push({ code: c.code, count });
+      const [all, open] = pairs[idx] ?? [0, 0];
+      openByCountry.set(c.code, open);
+      if (all >= MIN_SHOWN && !HIDDEN_CODES.has(c.code)) out.push({ code: c.code, count: all });
     });
   }
+
+  const total = await countFor({ external: "open" });
+  const ua = await countUkraineFeed(openByCountry, total);
+  if (!ua) countFailures += 1;
+  if (ua) uaTotal = ua.count;
+  out.unshift({ code: DEFAULT_COUNTRY_CODE, count: ua?.count ?? total, ...(ua && ua.fresh > 0 ? { fresh: ua.fresh } : {}) });
 
   const [first, ...rest] = out;
   rest.sort((a, b) => b.count - a.count);
