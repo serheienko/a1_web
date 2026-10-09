@@ -796,6 +796,21 @@ textarea {
   animation: person-hop 0.45s ease-in-out;
 }
 
+/* 09.10.2026 (Александр: «при ховере на гаманці теж має бути анімація»):
+   кошелёк покачивается и подпрыгивает, как иконки соседних пунктов меню. */
+@keyframes wallet-shake {
+  0%, 100% { transform: rotate(0) translateY(0) scale(1); }
+  25% { transform: rotate(-12deg) translateY(-2px) scale(1.08); }
+  50% { transform: rotate(9deg) translateY(-1px) scale(1.06); }
+  75% { transform: rotate(-4deg) translateY(0) scale(1.02); }
+}
+.group:hover .animate-wallet-shake {
+  animation: wallet-shake 0.5s ease-in-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .group:hover .animate-wallet-shake { animation: none; }
+}
+
 /* Иконка «Нова група» (два человечка, app/chats/page.tsx): при наведении
    оба подпрыгивают по очереди -- сначала передний, через долю секунды
    задний, как будто компания здоровается. Один раз на наведение. */
