@@ -121,7 +121,9 @@ async function scanAllSitemapJobPosts(): Promise<WebPost[]> {
 // деплою бекенд отримував кілька сотень запитів разом. Тепер: результат
 // живе годину; паралельні виклики чекають той самий обхід; коли година
 // минула -- віддаємо старе одразу й тихо оновлюємо у фоні.
-const SHARED_TTL_MS = 55 * 60 * 1000;
+// 09.10.2026: чуть меньше TTL_MS в facts-index.ts (6 ч) -- обход успевает
+// обновиться до того, как индекс попросит свежие данные.
+const SHARED_TTL_MS = 5.5 * 60 * 60 * 1000;
 let shared: { at: number; posts: WebPost[] } | null = null;
 let sharedBuilding: Promise<WebPost[]> | null = null;
 

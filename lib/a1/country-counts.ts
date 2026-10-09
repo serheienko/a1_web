@@ -16,10 +16,9 @@
 
 import { callWithRetry } from "./client";
 import { PostsSearchOutputSchema } from "./schemas";
-import { COUNTRIES, DEFAULT_COUNTRY_CODE, WORLDWIDE_CODE } from "@/lib/seo/countries";
+import { COUNTRIES, DEFAULT_COUNTRY_CODE, WORLDWIDE_CODE, countryByCode } from "@/lib/seo/countries";
 import type { CountryOption } from "@/components/country-picker";
 import { peekFreshByCountry, peekWorldwide } from "@/lib/a1/facts-index";
-import { mapPosts } from "./mappers";
 
 const TTL_MS = 60 * 60 * 1000;
 const CONCURRENCY = 4; // 02.10.2026: 8 разом з іншими обходами забивало бекенд
@@ -39,10 +38,6 @@ const HIDDEN_CODES = new Set(["RU", "BY"]);
 // keepInUkraineFeed), значит и число в списке должно быть без них. Точно
 // посчитать можно только пройдя саму ленту (4--5 тысяч постов, ~45
 // запросов по 100), раз в час вместе с остальными числами.
-const UA_SWEEP_PAGE = 100;
-const UA_SWEEP_PARALLEL = 4; // 02.10.2026: було 6
-const UA_SWEEP_MAX_PAGES = 150;
-const FRESH_MS = 24 * 60 * 60 * 1000;
 
 export function keepInUkraineFeedCountry(country: string | null | undefined): boolean {
   const cc = country?.trim().toUpperCase();
@@ -56,41 +51,41 @@ export function peekUkraineFeedTotal(): number | null {
   return uaTotal;
 }
 
+/**
+ * Сколько вакансий в ленте «Україна».
+ *
+ * 09.10.2026 (Александр, счёт Railway вырос в 2,5 раза). Раньше здесь был обход
+ * всей ленты постранично -- до 150 запросов по 100 вакансий КАЖДЫЙ ЧАС, только
+ * ради одного числа возле флага. На 31 тысяче вакансий это десятки мегабайт из
+ * базы за проход и заметная доля счёта за трафик.
+ *
+ * Лента «Україна» -- это «вакансии с локацией в Украине» плюс «вакансии без
+ * места» (у них страна WW, см. keepInUkraineFeedCountry). Оба куска бэкенд умеет
+ * посчитать сам:
+ *   - с локацией в Украине -- обычный фильтр по стране;
+ *   - без места -- это ровно вакансии с тегом Worldwide (его ставят и Конкистадор,
+ *     и Казак всем вакансиям без города, он же EXTERNAL_OPEN_TAG у бэкенда).
+ * Два лёгких запроса вместо полутора сотен тяжёлых.
+ *
+ * Пересечение (вакансия и с украинской локацией, и с тегом Worldwide) возможно,
+ * но тег ставится только там, где места нет, поэтому на практике его нет. Если
+ * когда-нибудь появится, число слегка завысится -- не критично для подписи у флага.
+ */
+const WORLDWIDE_TAG = "Worldwide";
+
 async function countUkraineFeed(): Promise<{ count: number; fresh: number } | null> {
-  try {
-    const page = async (offset: number) => {
-      const raw = await callWithRetry<unknown>("posts.search", {
-        object: OBJECT,
-        external: "open",
-        limit: UA_SWEEP_PAGE,
-        ...(offset > 0 ? { offset } : {}),
-      });
-      return PostsSearchOutputSchema.parse(raw);
-    };
-    const first = await page(0);
-    const all = [...first.items];
-    let hasMore = first.pagination.hasMore;
-    let offset = UA_SWEEP_PAGE;
-    while (hasMore && offset < UA_SWEEP_PAGE * UA_SWEEP_MAX_PAGES) {
-      const offsets = Array.from({ length: UA_SWEEP_PARALLEL }, (_, i) => offset + i * UA_SWEEP_PAGE);
-      const pages = await Promise.all(offsets.map(page));
-      for (const p of pages) all.push(...p.items);
-      hasMore = pages[pages.length - 1]?.pagination.hasMore ?? false;
-      offset += UA_SWEEP_PARALLEL * UA_SWEEP_PAGE;
-    }
-    const since = Date.now() - FRESH_MS;
-    let count = 0;
-    let fresh = 0;
-    for (const post of mapPosts(all)) {
-      if (!keepInUkraineFeedCountry(post.location?.country)) continue;
-      count += 1;
-      if ((post.sourcePublishedAt ?? post.publishedAt).getTime() >= since) fresh += 1;
-    }
-    return { count, fresh };
-  } catch (err) {
-    console.warn("[country-counts] ukraine sweep failed:", err instanceof Error ? err.message : err);
-    return null;
-  }
+  const ua = countryByCode(DEFAULT_COUNTRY_CODE);
+  if (!ua) return null;
+  const [withPlace, noPlace] = await Promise.all([
+    countFor({ external: "open", location: ua.id }),
+    countFor({ external: "open", tags: [WORLDWIDE_TAG] }),
+  ]);
+  const count = withPlace + noPlace;
+  if (!count) return null;
+  // «Новые за сутки» считает общий обход вакансий (facts-index): он идёт всё
+  // равно, и отдельный запрос ради этой цифры не нужен.
+  const fresh = (peekFreshByCountry().get(DEFAULT_COUNTRY_CODE) ?? 0) + (peekWorldwide()?.fresh ?? 0);
+  return { count, fresh };
 }
 
 let cached: { builtAt: number; options: CountryOption[] } | null = null;
