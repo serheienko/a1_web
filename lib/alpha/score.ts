@@ -138,6 +138,8 @@ export function scorePosts(posts: WebPost[], portrait: AlphaPortrait, lang: stri
       slug: p.slug,
       title,
       company: p.author?.name ?? "",
+      // 09.10.2026: the company's avatar for the app's «Для Вас» cards.
+      avatar: p.author?.avatarUrl ?? null,
       salary: salaryLabel(p),
       remote: p.isRemote,
       score: Math.max(40, Math.min(98, score)),

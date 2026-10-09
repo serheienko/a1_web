@@ -67,6 +67,8 @@ export type AlphaMatch = {
   score: number; // 0..100
   reasons: string[];
   locked: boolean;
+  /** The author's (company's) avatar, when it has one. */
+  avatar?: string | null;
 };
 
 export const EMPTY_PORTRAIT: AlphaPortrait = {
