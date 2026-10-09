@@ -37,6 +37,8 @@ const S = {
   ph: { uk: "Напр.: Senior Flutter, віддалено, від $4k", ru: "Напр.: Senior Flutter, удалённо, от $4k", en: "E.g. Senior Flutter, remote, $4k+" },
   send: { uk: "Надіслати", ru: "Отправить", en: "Send" },
   mic: { uk: "Надиктувати", ru: "Надиктовать", en: "Dictate" },
+  stop: { uk: "Зупинити запис", ru: "Остановить запись", en: "Stop recording" },
+  cancel: { uk: "Скасувати", ru: "Отменить", en: "Cancel" },
   close: { uk: "Закрити", ru: "Закрыть", en: "Close" },
 } satisfies Record<string, Record<L, string>>;
 
@@ -58,6 +60,18 @@ export function AlphaAskPanel({ lang, again = false, onClose }: { lang: Locale; 
   const [langOpen, setLangOpen] = useState(false);
   const [listening, setListening] = useState(false);
   const recRef = useRef<SR | null>(null);
+  // 09.10.2026 (Александр: «должна же быть кнопка стоп записи»): во время
+  // записи -- красная точка, время, «Скасувати» и квадратик «стоп», как в
+  // Magic Wand.
+  const [secs, setSecs] = useState(0);
+  const beforeRef = useRef("");
+  const cancelledRef = useRef(false);
+  useEffect(() => {
+    if (!listening) return;
+    setSecs(0);
+    const id = window.setInterval(() => setSecs((v) => v + 1), 1000);
+    return () => window.clearInterval(id);
+  }, [listening]);
   const boxRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -89,11 +103,14 @@ export function AlphaAskPanel({ lang, again = false, onClose }: { lang: Locale; 
     const Ctor = w.SpeechRecognition ?? w.webkitSpeechRecognition;
     if (!Ctor) return;
     const before = text.trim();
+    beforeRef.current = text;
+    cancelledRef.current = false;
     const rec = new Ctor();
     rec.lang = DICT_LANGS.find((d) => d.code === dictLang)?.bcp ?? "en-US";
     rec.interimResults = true;
     rec.continuous = true;
     rec.onresult = (ev) => {
+      if (cancelledRef.current) return;
       let heard = "";
       for (let i = 0; i < ev.results.length; i++) heard += ev.results[i]?.[0]?.transcript ?? "";
       setText(before ? `${before} ${heard}` : heard);
@@ -102,6 +119,12 @@ export function AlphaAskPanel({ lang, again = false, onClose }: { lang: Locale; 
     recRef.current = rec;
     setListening(true);
     rec.start();
+  }
+
+  function cancelVoice() {
+    cancelledRef.current = true;
+    recRef.current?.stop();
+    setText(beforeRef.current);
   }
 
   function send() {
@@ -166,7 +189,18 @@ export function AlphaAskPanel({ lang, again = false, onClose }: { lang: Locale; 
             className="w-full resize-none bg-transparent px-1.5 text-[16px] leading-snug text-neutral-900 outline-none placeholder:text-[#989aa6] dark:text-white"
           />
           <div className="mt-1 flex items-center justify-end gap-2">
-            <div className="relative">
+            {listening && (
+              <div className="flex min-w-0 flex-1 items-center gap-2 pl-1 animate-[askIn_.22s_ease-out]">
+                <span className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-[#ff3b30]" />
+                <span className="w-10 shrink-0 text-[15px] tabular-nums text-neutral-900 dark:text-white">
+                  {Math.floor(secs / 60)}:{String(secs % 60).padStart(2, "0")}
+                </span>
+                <button type="button" onClick={cancelVoice} className="min-w-0 flex-1 truncate text-center text-[15px] text-[#335ef7] transition hover:opacity-75 dark:text-[#7d93ff]">
+                  {S.cancel[l]}
+                </button>
+              </div>
+            )}
+            <div className={`relative transition-all duration-200 ${listening ? "pointer-events-none w-0 scale-75 overflow-hidden opacity-0" : "opacity-100"}`}>
               <button
                 type="button"
                 onClick={() => setLangOpen((v) => !v)}
@@ -197,13 +231,16 @@ export function AlphaAskPanel({ lang, again = false, onClose }: { lang: Locale; 
             </div>
             <button
               type="button"
-              aria-label={S.mic[l]}
+              aria-label={listening ? S.stop[l] : S.mic[l]}
               onClick={toggleVoice}
-              className={`group grid h-9 w-9 place-items-center rounded-full transition duration-200 hover:scale-110 active:scale-90 ${listening ? "animate-pulse bg-[#ff3b30] text-white" : "bg-white text-[#989aa6] hover:text-[#ff3b30] dark:bg-black"}`}
+              className={`group relative grid h-9 w-9 place-items-center rounded-full transition duration-200 hover:scale-110 active:scale-90 ${listening ? "bg-[#ff3b30] text-white shadow-[0_0_0_6px_rgba(255,59,48,0.18)]" : "bg-white text-[#989aa6] hover:text-[#ff3b30] dark:bg-black"}`}
             >
-              <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <svg viewBox="0 0 24 24" className={`absolute h-[18px] w-[18px] transition duration-200 ${listening ? "rotate-90 scale-50 opacity-0" : "opacity-100"}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <rect x="9" y="3" width="6" height="12" rx="3" />
                 <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+              </svg>
+              <svg viewBox="0 0 24 24" className={`absolute h-[14px] w-[14px] transition duration-200 ${listening ? "opacity-100" : "-rotate-90 scale-50 opacity-0"}`} fill="currentColor" aria-hidden="true">
+                <rect x="5" y="5" width="14" height="14" rx="3" />
               </svg>
             </button>
             <button
