@@ -66,7 +66,10 @@ export function AlphaAskPanel({ lang, again = false, onClose }: { lang: Locale; 
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     const onDown = (e: MouseEvent) => {
       const t = e.target as Node;
-      if (boxRef.current && !boxRef.current.contains(t) && !(t as HTMLElement).closest?.("[data-alpha-ask-keep]")) onClose();
+      // 09.10.2026 (Александр: «обычный поиск тоже должен работать»): клик в
+      // само поле поиска панель не закрывает -- его родитель тоже «свой».
+      const area = boxRef.current?.parentElement ?? boxRef.current;
+      if (area && !area.contains(t) && !(t as HTMLElement).closest?.("[data-alpha-ask-keep]")) onClose();
     };
     document.addEventListener("keydown", onKey);
     document.addEventListener("mousedown", onDown);
@@ -149,7 +152,7 @@ export function AlphaAskPanel({ lang, again = false, onClose }: { lang: Locale; 
         <div className="rounded-[18px] bg-[#f2f2f7] p-2.5 dark:bg-[#2a2a33]">
           <textarea
             ref={inputRef}
-            autoFocus
+            autoFocus={again}
             rows={3}
             value={text}
             onChange={(e) => setText(e.target.value)}
