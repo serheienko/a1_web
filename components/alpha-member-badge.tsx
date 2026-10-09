@@ -98,6 +98,7 @@ export function AlphaMemberBadge({
   title,
   size = 18,
   className = "",
+  animate = false,
 }: {
   member: AlphaMember | null | undefined;
   name: string;
@@ -107,6 +108,9 @@ export function AlphaMemberBadge({
   title?: string | null;
   size?: number;
   className?: string;
+  /** 09.10.2026 (Александр): в профиле банка крутится нон-стоп (как в приложении);
+   *  в ленте -- статичный кадр, чтобы десятки анимаций не грузили список. */
+  animate?: boolean;
 }) {
   const locale = useActiveLocale();
   const t = (v: T9) => (v as Record<string, string>)[locale] ?? v.en;
@@ -180,8 +184,12 @@ export function AlphaMemberBadge({
         className={`relative z-10 inline-flex shrink-0 items-center justify-center align-middle transition hover:scale-110 ${className}`}
         style={{ width: size, height: size }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={`${base}.webp`} alt="" width={size} height={size} className="h-full w-full object-contain" />
+        {animate ? (
+          <LottiePlayer key={base} src={`${base}.json`} size={size} placeholder={false} />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={`${base}.webp`} alt="" width={size} height={size} className="h-full w-full object-contain" />
+        )}
       </button>
 
       {mounted &&
@@ -354,7 +362,6 @@ function OwnPanel({
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [selected, setSelected] = useState(emojiId);
-  const [hover, setHover] = useState<number | null>(null);
   const changed = text.trim() !== saved.trim();
 
   async function post(body: { emojiId?: number; title?: string | null }): Promise<boolean> {
@@ -430,7 +437,7 @@ function OwnPanel({
         className={`absolute flex flex-col overflow-hidden rounded-[26px] border border-white px-2.5 pt-4 shadow-2xl backdrop-blur-xl transition duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] dark:border-[#313136] ${card} ${shown ? "scale-100 opacity-100" : "scale-[0.6] opacity-0"}`}
         style={{ left, top, width: W, height, transformOrigin: `${ax - left}px -20px` }}
       >
-        <div className="flex items-center gap-2 px-1.5">
+        <div className="flex items-center px-1.5">
           <div className="relative min-w-0 flex-1">
             <input
               autoFocus
@@ -455,12 +462,17 @@ function OwnPanel({
               </button>
             )}
           </div>
+          {/* 09.10.2026 (Александр: «кнопка справа подвисает, когда удаляешь до
+              прежнего состояния»): прячется целиком -- место под ней вместе
+              с отступом сжимается до нуля, ничего не торчит справа. */}
+          <div className={`shrink-0 overflow-hidden transition-all duration-200 ${changed ? "ml-2 w-10 opacity-100" : "pointer-events-none ml-0 w-0 opacity-0"}`}>
           <button
             type="button"
             aria-label={t(S.save)}
             onClick={() => void saveTitle()}
             disabled={!changed || saving}
-            className={`grid shrink-0 place-items-center rounded-full bg-[#23C280] text-white transition-all duration-200 ${changed ? "h-10 w-10 opacity-100" : "pointer-events-none h-0 w-0 opacity-0"}`}
+            tabIndex={changed ? 0 : -1}
+            className={`grid h-10 w-10 place-items-center rounded-full bg-[#23C280] text-white transition-transform duration-200 ${changed ? "scale-100" : "scale-50"}`}
           >
             {saving ? (
               <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
@@ -468,6 +480,7 @@ function OwnPanel({
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
             )}
           </button>
+          </div>
         </div>
         <div className="flex min-h-[22px] items-center justify-between px-3 pt-1 text-[12px]">
           <span className={error ? "text-red-500" : toast ? "text-[#23C280]" : "text-neutral-400"}>{error ?? toast ?? t(S.until).replace("{d}", date)}</span>
@@ -476,23 +489,17 @@ function OwnPanel({
         <div className="-mx-2.5 mt-1 grid flex-1 grid-cols-5 content-start gap-1 overflow-y-auto px-2.5 pb-3 [mask-image:linear-gradient(180deg,#000_88%,transparent)]">
           {Array.from({ length: 50 }, (_, i) => i + 1).map((id) => {
             const on = id === selected;
-            const live = on || hover === id;
             return (
               <button
                 key={id}
                 type="button"
                 onClick={() => void pick(id)}
-                onMouseEnter={() => setHover(id)}
-                onMouseLeave={() => setHover((h) => (h === id ? null : h))}
                 aria-pressed={on}
                 className={`grid aspect-square place-items-center rounded-[14px] p-1.5 transition ${on ? "bg-black/[0.07] dark:bg-white/[0.14]" : "hover:bg-black/[0.04] dark:hover:bg-white/[0.07]"}`}
               >
-                {live ? (
-                  <LottiePlayer src={`${alphaEmojiPath(id)}.json`} size={52} placeholder={false} />
-                ) : (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={`${alphaEmojiPath(id)}.webp`} alt="" width={52} height={52} className="h-[52px] w-[52px] object-contain" />
-                )}
+                {/* 09.10.2026 (Александр: «надо, чтобы все банки крутились»): как в
+                    приложении -- все 50 нон-стоп. */}
+                <LottiePlayer src={`${alphaEmojiPath(id)}.json`} size={52} placeholder={false} />
               </button>
             );
           })}

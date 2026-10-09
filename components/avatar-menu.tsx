@@ -728,6 +728,7 @@ export function AvatarMenu() {
     // 49.5). Причина та же: <button> -- строчный элемент, он стоит на
     // текстовой базовой линии, и под ним остаётся место под хвосты букв.
     // flex + items-center убирает эту строку.
+    <>
     <div className="relative flex shrink-0 cursor-pointer items-center" ref={wrapperRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
       <button
         type="button"
@@ -997,7 +998,10 @@ export function AvatarMenu() {
         </>
       )}
 
-      {alphaMe.enabled && <AlphaWallet open={walletOpen} lang={lang} onClose={() => setWalletOpen(false)} />}
     </div>
+      {/* Вне обёртки меню: события из порталов всплывают по дереву React,
+          и наведение/нажатие внутри Wallet открывало меню аватара. */}
+      {alphaMe.enabled && <AlphaWallet open={walletOpen} lang={lang} onClose={() => setWalletOpen(false)} />}
+    </>
   );
 }

@@ -47,6 +47,7 @@ export function LottiePlayer({
   loop = true,
   onComplete,
   placeholder = true,
+  still,
 }: {
   src: string;
   /** Pixel size of the square animation viewport. */
@@ -66,6 +67,8 @@ export function LottiePlayer({
    *  блоке клейма кот маленький и стоит на краю карточки, дыры не
    *  видно, а синий круг там лишний. */
   placeholder?: boolean;
+  /** 09.10.2026: show this one frame, no animation (Wallet «Закріпити пост»). */
+  still?: number;
 }) {
   const containerRef = useRef<HTMLSpanElement>(null);
   const [loaded, setLoaded] = useState(false);
@@ -83,10 +86,11 @@ export function LottiePlayer({
         anim = lottie.loadAnimation({
           container: containerRef.current,
           renderer: "svg",
-          loop,
-          autoplay: true,
+          loop: still == null ? loop : false,
+          autoplay: still == null,
           animationData,
         });
+        if (still != null) (anim as unknown as { goToAndStop: (v: number, isFrame: boolean) => void }).goToAndStop(still, true);
         if (!loop && onComplete) {
           (anim as unknown as { addEventListener: (evt: string, cb: () => void) => void }).addEventListener(
             "complete",

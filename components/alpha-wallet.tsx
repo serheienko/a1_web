@@ -51,7 +51,7 @@ export function WalletIcon() {
   );
 }
 
-function Tile({ src, title, selected, disabled, badge, onClick }: { src: string; title: string; selected?: boolean; disabled?: boolean; badge?: string; onClick: () => void }) {
+function Tile({ src, title, selected, disabled, badge, still, onClick }: { src: string; title: string; selected?: boolean; disabled?: boolean; badge?: string; still?: number; onClick: () => void }) {
   return (
     <button
       type="button"
@@ -62,7 +62,7 @@ function Tile({ src, title, selected, disabled, badge, onClick }: { src: string;
       <span
         className={`relative grid h-[120px] w-full place-items-center rounded-[14px] bg-white shadow-[0_4px_18px_rgba(51,94,247,0.2)] transition dark:bg-[#2a2a2e] dark:shadow-none ${selected ? "ring-2 ring-[#335ef7]" : ""} ${disabled ? "" : "group-hover:-translate-y-0.5"}`}
       >
-        <LottiePlayer src={src} size={96} placeholder={false} />
+        <LottiePlayer src={src} size={96} placeholder={false} still={still} />
         {badge && <span className="absolute right-1.5 top-1.5 rounded-full bg-neutral-900/70 px-1.5 py-0.5 text-[10px] font-semibold text-white">{badge}</span>}
       </span>
       <span className="text-center text-[13px] font-semibold leading-tight text-neutral-900 dark:text-white">{title}</span>
@@ -134,7 +134,8 @@ export function AlphaWallet({ open, lang, onClose }: { open: boolean; lang: Loca
                     setPaywall(true);
                   }}
                 />
-                <Tile src="/premium/wallet/pin_post.json" title={tr(lang, W.pin)} disabled badge={tr(lang, W.soonPin)} onClick={() => {}} />
+                {/* 09.10.2026 (Александр): кот закрепа -- статичная картинка, не анимация. */}
+                <Tile src="/premium/wallet/pin_post.json" title={tr(lang, W.pin)} disabled still={150} badge={tr(lang, W.soonPin)} onClick={() => {}} />
               </div>
             </div>
           </div>,
