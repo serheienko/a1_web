@@ -37,7 +37,7 @@ import { PostOwnerMenu } from "@/components/post-owner-menu";
 import { profileHref as buildProfileHref } from "@/lib/profile-href";
 import { HighlightMatches } from "@/components/highlight-match";
 import { FoldableArticle } from "@/components/foldable-article";
-import { postMenuData } from "@/components/post-context-menu";
+import { postMenuData } from "@/lib/post-menu-data";
 
 export function PostCard({
   post,

@@ -19,7 +19,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlphaPaywall } from "@/components/alpha-paywall";
 import { ALPHA_PORTRAIT_EVENT, openAlphaAsk } from "@/components/alpha-ask";
-import { postMenuData } from "@/components/post-context-menu";
+import { postMenuData } from "@/lib/post-menu-data";
 import { looksLikeJobQuery, useAlphaMe } from "@/components/alpha-search";
 import { CachedAvatar } from "@/components/cached-avatar";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
