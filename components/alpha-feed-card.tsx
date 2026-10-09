@@ -12,8 +12,8 @@ import { createPortal } from "react-dom";
 import { AlphaPaywall, preloadAlpha, startAlphaMusic } from "@/components/alpha-paywall";
 import { useActiveLocale } from "@/lib/use-active-locale";
 
-const FLOW = "linear-gradient(100deg,#0148fc 0%,#5a4dff 25%,#963fff 50%,#5a4dff 75%,#0148fc 100%)";
-const FLOW_DARK = "linear-gradient(100deg,#0c8ce9 0%,#4f86ff 25%,#9a5cff 50%,#4f86ff 75%,#0c8ce9 100%)";
+const FLOW = "linear-gradient(100deg,#0148fc 0%,#5a4dff 12.5%,#963fff 25%,#5a4dff 37.5%,#0148fc 50%,#5a4dff 62.5%,#963fff 75%,#5a4dff 87.5%,#0148fc 100%)";
+const FLOW_DARK = "linear-gradient(100deg,#0c8ce9 0%,#4f86ff 12.5%,#9a5cff 25%,#4f86ff 37.5%,#0c8ce9 50%,#4f86ff 62.5%,#9a5cff 75%,#4f86ff 87.5%,#0c8ce9 100%)";
 
 type T9 = { uk: string; en: string; ru: string; de: string; es: string; fr: string; pl: string; ptBR: string; zh: string };
 const S = {
@@ -57,7 +57,7 @@ export function AlphaFeedCard() {
 
   return (
     <div className="lg:hidden">
-      <style>{`@keyframes alphaCardFlow{0%{background-position:0% 50%}100%{background-position:200% 50%}}.alpha-card-flow{background-image:${FLOW};background-size:200% 100%;animation:alphaCardFlow 4s linear infinite}.dark .alpha-card-flow{background-image:${FLOW_DARK}}@media (prefers-reduced-motion:reduce){.alpha-card-flow{animation:none}}`}</style>
+      <style>{`@keyframes alphaCardFlow{0%{background-position:0% 50%}100%{background-position:100% 50%}}.alpha-card-flow{background-image:${FLOW};background-size:200% 100%;animation:alphaCardFlow 4s linear infinite}.dark .alpha-card-flow{background-image:${FLOW_DARK}}@media (prefers-reduced-motion:reduce){.alpha-card-flow{animation:none}}`}</style>
       <button
         type="button"
         onClick={open}

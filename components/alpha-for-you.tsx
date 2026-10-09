@@ -64,7 +64,7 @@ const T = {
   upTo: { uk: "до", ru: "до", en: "up to" },
 } as const;
 
-const FLOW = "linear-gradient(100deg,#0148fc 0%,#5a4dff 25%,#963fff 50%,#5a4dff 75%,#0148fc 100%)";
+const FLOW = "linear-gradient(100deg,#0148fc 0%,#5a4dff 12.5%,#963fff 25%,#5a4dff 37.5%,#0148fc 50%,#5a4dff 62.5%,#963fff 75%,#5a4dff 87.5%,#0148fc 100%)";
 
 /** Fresh again after this; within it the last result shows at once. */
 const FRESH_MS = 5 * 60 * 1000;

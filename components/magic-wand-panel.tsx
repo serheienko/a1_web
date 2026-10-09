@@ -722,14 +722,14 @@ export function MagicWandPanel({
 
   return (
     <div data-testid="magic-wand" className="rounded-2xl">
-      <style>{`@keyframes mwMic{0%,100%{transform:rotate(0)}25%{transform:rotate(-14deg) scale(1.1)}50%{transform:rotate(10deg) scale(1.1)}75%{transform:rotate(-5deg)}}@keyframes mwUp{0%,100%{transform:translateY(0)}45%{transform:translateY(-4px)}70%{transform:translateY(1px)}}@keyframes mwShift{0%{background-position:0% 50%}100%{background-position:200% 50%}}@keyframes mwFade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}@keyframes mwPop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}@keyframes mwDotDrop{0%{transform:translateY(0)}35%{transform:translateY(-26px)}75%{transform:translateY(2px) scale(.8)}100%{transform:translateY(4px) scale(0);opacity:0}}@keyframes mwBin{0%{transform:scale(0);opacity:0}25%{transform:scale(1);opacity:1}75%{transform:scale(1) rotate(-8deg);opacity:1}100%{transform:scale(.6);opacity:0}}`}</style>
+      <style>{`@keyframes mwMic{0%,100%{transform:rotate(0)}25%{transform:rotate(-14deg) scale(1.1)}50%{transform:rotate(10deg) scale(1.1)}75%{transform:rotate(-5deg)}}@keyframes mwUp{0%,100%{transform:translateY(0)}45%{transform:translateY(-4px)}70%{transform:translateY(1px)}}@keyframes mwShift{0%{background-position:0% 50%}100%{background-position:100% 50%}}@keyframes mwFade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}@keyframes mwPop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}@keyframes mwDotDrop{0%{transform:translateY(0)}35%{transform:translateY(-26px)}75%{transform:translateY(2px) scale(.8)}100%{transform:translateY(4px) scale(0);opacity:0}}@keyframes mwBin{0%{transform:scale(0);opacity:0}25%{transform:scale(1);opacity:1}75%{transform:scale(1) rotate(-8deg);opacity:1}100%{transform:scale(.6);opacity:0}}`}</style>
       {!open ? (
         <button
           type="button"
           data-testid="magic-wand-entry"
           onClick={() => (mode?.locked ? mode.onLocked?.() : setOpen(true))}
           className="w-full rounded-2xl p-[1.5px] text-left"
-          style={{ background: "linear-gradient(90deg,#317AFF,#8A59FF,#EF51CE,#FD31BB,#04B8FF,#317AFF)", backgroundSize: "200% 100%", animation: "mwShift 6s linear infinite" }}
+          style={{ background: "linear-gradient(90deg,#317AFF 0%,#8A59FF 10%,#EF51CE 20%,#FD31BB 30%,#04B8FF 40%,#317AFF 50%,#8A59FF 60%,#EF51CE 70%,#FD31BB 80%,#04B8FF 90%,#317AFF 100%)", backgroundSize: "200% 100%", animation: "mwShift 6s linear infinite" }}
         >
           <span className="flex items-center gap-3 rounded-[14.5px] bg-white px-3 py-2.5 dark:bg-neutral-900">
             {data.hasResult ? (
@@ -755,7 +755,7 @@ export function MagicWandPanel({
           </span>
         </button>
       ) : (
-        <div className="rounded-2xl p-[1.5px]" style={{ background: "linear-gradient(90deg,#317AFF,#8A59FF,#EF51CE,#FD31BB,#04B8FF,#317AFF)", backgroundSize: "200% 100%", animation: "mwShift 6s linear infinite" }}>
+        <div className="rounded-2xl p-[1.5px]" style={{ background: "linear-gradient(90deg,#317AFF 0%,#8A59FF 10%,#EF51CE 20%,#FD31BB 30%,#04B8FF 40%,#317AFF 50%,#8A59FF 60%,#EF51CE 70%,#FD31BB 80%,#04B8FF 90%,#317AFF 100%)", backgroundSize: "200% 100%", animation: "mwShift 6s linear infinite" }}>
           <div className="flex flex-col gap-3 rounded-[14.5px] bg-white p-3 dark:bg-neutral-900" data-testid="magic-wand-panel">
             <div className="flex items-center gap-3">
               <ProgressRing value={data.hasResult ? ringValue : 0}>
