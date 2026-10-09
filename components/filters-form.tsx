@@ -639,7 +639,10 @@ export function FiltersForm({
   // Вас» on top of the suggestions for job-like queries.
   const alphaMe = useAlphaMe();
   const [alphaQuery, setAlphaQuery] = useState<string | null>(null);
-  const alphaRow = alphaMe.member && looksLikeJobQuery(query);
+  // 09.10.2026 (вечер, Александр): Alpha не спрашивает, пока человек ищет --
+  // строки «Знайти … з Alpha» в подсказках больше нет. Результат --
+  // люди + вакансии на самой странице (components/alpha-for-you.tsx).
+  const alphaRow = false && alphaMe.member && looksLikeJobQuery(query);
   const showSuggestions =
     inputFocused && needle.length > 0 && (alphaRow || people.length > 0 || categorySuggestions.length > 0 || tagSuggestions.length > 0);
 
@@ -1048,7 +1051,8 @@ export function FiltersForm({
             {suggestionsDropdown}
           </div>
           <div
-            className="shrink-0 cursor-pointer sm:relative"
+            // 09.10.2026: у участника Alpha фильтров нет -- одно поле.
+            className={"shrink-0 cursor-pointer sm:relative" + (alphaMe.member ? " hidden" : "")}
             ref={filtersRef}
             onMouseEnter={handleFiltersMouseEnter}
             onMouseLeave={handleFiltersMouseLeave}
@@ -1175,7 +1179,7 @@ export function FiltersForm({
             </div>
 
             <div
-              className="relative shrink-0 cursor-pointer"
+              className={"relative shrink-0 cursor-pointer" + (alphaMe.member ? " hidden" : "")}
               ref={desktopFiltersRef}
               onMouseEnter={handleFiltersMouseEnter}
               onMouseLeave={handleFiltersMouseLeave}
