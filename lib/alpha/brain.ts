@@ -329,3 +329,33 @@ export function alphaTurn(req: AlphaTurnRequest): AlphaTurnResponse {
 
   return { portrait, question, step, understood: understoodPct(portrait) };
 }
+
+/** 09.10.2026: Alpha remembers the person. A new query on top of the saved
+ *  portrait: what the query says wins, the rest is kept. If the query names
+ *  a different stack (contradicts the portrait), only the role and the hard
+ *  "no"s are kept -- the rest is asked again. */
+export function rebase(saved: AlphaPortrait, message: string): { portrait: AlphaPortrait; changed: boolean } {
+  const fresh = merge(EMPTY_PORTRAIT, message);
+  const contradicts =
+    fresh.stack.length > 0 && !fresh.stack.some((s) => saved.stack.some((x) => x.toLowerCase() === s.toLowerCase()));
+  if (contradicts) {
+    return {
+      changed: true,
+      portrait: { ...fresh, role: fresh.role ?? saved.role, dealbreakers: [...new Set([...saved.dealbreakers, ...fresh.dealbreakers])] },
+    };
+  }
+  return {
+    changed: false,
+    portrait: {
+      role: fresh.role ?? saved.role,
+      stack: [...new Set([...saved.stack, ...fresh.stack])].slice(0, 6),
+      roleText: saved.roleText ?? fresh.roleText,
+      level: fresh.level ?? saved.level,
+      format: fresh.format ?? saved.format,
+      money: fresh.money ?? saved.money,
+      dealbreakers: [...new Set([...saved.dealbreakers, ...fresh.dealbreakers])],
+      wishes: [...new Set([...saved.wishes, ...fresh.wishes])].slice(0, 8),
+      notes: saved.notes.slice(-11),
+    },
+  };
+}

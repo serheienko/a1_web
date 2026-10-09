@@ -28,6 +28,9 @@ const S = {
   understood: { uk: "Все вірно?", en: "All correct?", ru: "Всё верно?" },
   search: { uk: "Шукати", en: "Search", ru: "Искать" },
   restart: { uk: "Почати спочатку", en: "Start over", ru: "Начать сначала" },
+  // 09.10.2026: Alpha remembers the person between searches (site + app).
+  remembered: { uk: "Alpha пам'ятає:", en: "Alpha remembers:", ru: "Alpha помнит:" },
+  edit: { uk: "Змінити", en: "Edit", ru: "Изменить" },
   searching: { uk: "Alpha переглядає вакансії…", en: "Alpha is going through the posts…", ru: "Alpha просматривает вакансии…" },
   found: { uk: "Найкращі збіги", en: "Best matches", ru: "Лучшие совпадения" },
   scanned: { uk: "переглянуто", en: "checked", ru: "просмотрено" },
@@ -90,17 +93,19 @@ export function AlphaFlow({
   const [scanned, setScanned] = useState(0);
   const chatRef = useRef<HTMLDivElement | null>(null);
   const started = useRef(false);
+  const [remembered, setRemembered] = useState(false);
 
-  async function turn(message: string, answering: AlphaSlot | null, prevPortrait: AlphaPortrait | null, prevAsked: AlphaSlot[], history: Msg[]) {
+  async function turn(message: string, answering: AlphaSlot | null, prevPortrait: AlphaPortrait | null, prevAsked: AlphaSlot[], history: Msg[], useSaved = false) {
     setBusy(true);
     try {
       const res = await fetch("/api/alpha/turn", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lang: l, portrait: prevPortrait, message, answering, asked: prevAsked, history }),
+        body: JSON.stringify({ lang: l, portrait: prevPortrait, message, answering, asked: prevAsked, history, useSaved }),
       });
       if (!res.ok) throw new Error(String(res.status));
-      const data = (await res.json()) as AlphaTurnResponse;
+      const data = (await res.json()) as AlphaTurnResponse & { remembered?: boolean };
+      if (useSaved) setRemembered(Boolean(data.remembered));
       const nextAsked = answering ? [...prevAsked, answering] : prevAsked;
       setPortrait(data.portrait);
       setAsked(nextAsked);
@@ -109,6 +114,10 @@ export function AlphaFlow({
       if (data.question) {
         setQuestion(data.question);
         setMsgs((m) => [...m, { from: "alpha", text: data.question!.text }]);
+      } else if (useSaved && data.remembered) {
+        // Everything is known already -- straight to the results.
+        setQuestion(null);
+        void search(data.portrait);
       } else {
         setQuestion(null);
         setPhase("portrait");
@@ -123,7 +132,7 @@ export function AlphaFlow({
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    void turn(initial, null, null, [], [{ from: "me", text: initial }]);
+    void turn(initial, null, null, [], [{ from: "me", text: initial }], true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -162,6 +171,7 @@ export function AlphaFlow({
   };
 
   const restart = () => {
+    setRemembered(false);
     setMsgs([{ from: "me", text: initial }]);
     setPortrait(null);
     setAsked([]);
@@ -209,6 +219,18 @@ export function AlphaFlow({
             {S.scanned[l]}: {scanned}
           </span>
         </div>
+        {remembered && portrait && (
+          <button
+            type="button"
+            onClick={restart}
+            title={S.edit[l]}
+            className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full border border-[#6a4dff]/25 bg-[#6a4dff]/[0.06] px-3 py-1 text-[13px] font-medium text-[#5a4dff] hover:bg-[#6a4dff]/[0.12] dark:border-white/15 dark:text-[#b7a6ff]"
+          >
+            <span className="opacity-70">{S.remembered[l]}</span>
+            <span className="truncate">{portraitLine(portrait, l)}</span>
+            <span aria-hidden>✎</span>
+          </button>
+        )}
         {matches.length === 0 && <p className="mt-3 text-[15px] text-[#6b6b78] dark:text-[#a9a9b8]">{S.none[l]}</p>}
         <div className="mt-3 flex flex-col gap-2.5">
           {open.map((m) => (
@@ -376,4 +398,14 @@ function MatchCard({ m }: { m: AlphaMatch }) {
   ) : (
     body
   );
+}
+
+/** "Flutter · remote · від $4k" -- the short line of what Alpha remembers. */
+function portraitLine(p: AlphaPortrait, l: L): string {
+  const from = { uk: "від", en: "from", ru: "от" }[l];
+  const upTo = { uk: "до", en: "up to", ru: "до" }[l];
+  const money = p.money != null ? `${p.role === "hiring" ? upTo : from} $${p.money >= 1000 ? Math.round(p.money / 100) / 10 + "k" : p.money}` : null;
+  return [p.stack.slice(0, 2).join(", ") || p.roleText, p.level, p.format ? (FORMAT_LABEL[p.format]?.[l] ?? p.format) : null, money]
+    .filter(Boolean)
+    .join(" · ");
 }

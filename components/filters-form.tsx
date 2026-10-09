@@ -83,6 +83,7 @@ import { CachedAvatar } from "@/components/cached-avatar";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import type { UserSearchHit } from "@/app/api/users/search/route";
+import { AlphaForYouRow, AlphaRing, AlphaSearchWindow, looksLikeJobQuery, useAlphaMe } from "@/components/alpha-search";
 
 const MAX_SUGGESTIONS_PER_GROUP = 5;
 
@@ -634,8 +635,13 @@ export function FiltersForm({
     };
   }, [needle, inputFocused]);
 
+  // 09.10.2026: Alpha members -- the Alpha ring on the box and «Alpha для
+  // Вас» on top of the suggestions for job-like queries.
+  const alphaMe = useAlphaMe();
+  const [alphaQuery, setAlphaQuery] = useState<string | null>(null);
+  const alphaRow = alphaMe.member && looksLikeJobQuery(query);
   const showSuggestions =
-    inputFocused && needle.length > 0 && (people.length > 0 || categorySuggestions.length > 0 || tagSuggestions.length > 0);
+    inputFocused && needle.length > 0 && (alphaRow || people.length > 0 || categorySuggestions.length > 0 || tagSuggestions.length > 0);
 
   // Aleksandr, 2026-08-27: "автоподбор слов вот как гугл делает, таким
   // выпадающим списком. Список именно того что у нас уже есть" —
@@ -647,6 +653,17 @@ export function FiltersForm({
   // wrapper, `absolute ... top-full`).
   const suggestionsDropdown = showSuggestions && (
     <div className="absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+      {alphaRow && (
+        <AlphaForYouRow
+          query={query}
+          lang={String(lang)}
+          portrait={alphaMe.portrait}
+          onOpen={(q) => {
+            setInputFocused(false);
+            setAlphaQuery(q);
+          }}
+        />
+      )}
       {/* Люди -- первой группой: если человек набрал чей-то ник, он ищет
           именно человека, а не вакансию со словом из ника. Строка ведёт
           сразу на профиль, а не подставляет текст в фильтр, как строки
@@ -982,23 +999,25 @@ export function FiltersForm({
         <div className="relative flex flex-wrap gap-3">
           <div className="relative min-w-0 flex-1">
             <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => onQueryChange(e.target.value)}
-              onFocus={() => setInputFocused(true)}
-              onKeyDown={onSearchKeyDown}
-              onBlur={() => {
-                // Delayed, not immediate — a suggestion button's onClick
-                // needs to still fire after this input blurs to it.
-                blurTimeoutRef.current = setTimeout(() => setInputFocused(false), 150);
-              }}
-              placeholder={FILTERS_FORM_STRINGS.searchPlaceholderShort[lang]}
-              className={
-                "w-full rounded-full py-2 pl-9 pr-8 text-sm text-neutral-900 outline-none transition focus:border-accent/40 focus:ring-2 focus:ring-accent/30 dark:text-neutral-100 " +
-                GLASS
-              }
-            />
+            <AlphaRing active={alphaMe.member}>
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => onQueryChange(e.target.value)}
+                onFocus={() => setInputFocused(true)}
+                onKeyDown={onSearchKeyDown}
+                onBlur={() => {
+                  // Delayed, not immediate — a suggestion button's onClick
+                  // needs to still fire after this input blurs to it.
+                  blurTimeoutRef.current = setTimeout(() => setInputFocused(false), 150);
+                }}
+                placeholder={FILTERS_FORM_STRINGS.searchPlaceholderShort[lang]}
+                className={
+                  "w-full rounded-full py-2 pl-9 pr-8 text-sm text-neutral-900 outline-none transition focus:border-accent/40 focus:ring-2 focus:ring-accent/30 dark:text-neutral-100 " +
+                  GLASS
+                }
+              />
+            </AlphaRing>
             {isPending ? (
               <svg
                 viewBox="0 0 24 24"
@@ -1111,18 +1130,20 @@ export function FiltersForm({
           <div className="flex w-full items-center gap-2">
             <div className="relative min-w-0 flex-1">
               <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => onQueryChange(e.target.value)}
-                onFocus={() => setInputFocused(true)}
-              onKeyDown={onSearchKeyDown}
-                onBlur={() => {
-                  blurTimeoutRef.current = setTimeout(() => setInputFocused(false), 150);
-                }}
-                placeholder={FILTERS_FORM_STRINGS.searchPlaceholderShort[lang]}
-                className="w-full rounded-full border border-neutral-300 bg-white py-1.5 pl-9 pr-8 text-sm text-neutral-900 outline-none transition focus:border-accent/40 focus:ring-2 focus:ring-accent/30 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
-              />
+              <AlphaRing active={alphaMe.member}>
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(e) => onQueryChange(e.target.value)}
+                  onFocus={() => setInputFocused(true)}
+                onKeyDown={onSearchKeyDown}
+                  onBlur={() => {
+                    blurTimeoutRef.current = setTimeout(() => setInputFocused(false), 150);
+                  }}
+                  placeholder={FILTERS_FORM_STRINGS.searchPlaceholderShort[lang]}
+                  className="w-full rounded-full border border-neutral-300 bg-white py-1.5 pl-9 pr-8 text-sm text-neutral-900 outline-none transition focus:border-accent/40 focus:ring-2 focus:ring-accent/30 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                />
+              </AlphaRing>
               {isPending ? (
                 <svg
                   viewBox="0 0 24 24"
@@ -1217,6 +1238,7 @@ export function FiltersForm({
           </div>,
           navSlot,
         )}
+      {alphaMe.member && <AlphaSearchWindow query={alphaQuery} onClose={() => setAlphaQuery(null)} />}
     </>
   );
 }

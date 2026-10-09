@@ -48,6 +48,20 @@ async function isAlphaMember(token: string): Promise<boolean> {
 export async function hasPremium(req: NextRequest): Promise<boolean> {
   if (!alphaEnabled()) return false;
   if (req.cookies.get(PREMIUM_TEST_COOKIE)?.value === "1") return true;
-  const token = appToken(req);
+  const token = appToken(req) ?? sessionToken(req);
   return token ? isAlphaMember(token) : false;
+}
+
+/** 09.10.2026: a person signed in on the site -- their own A1 token from
+ *  the session cookie (membership is checked on the A1 server, same as
+ *  for the app). */
+function sessionToken(req: NextRequest): string | null {
+  const raw = req.cookies.get(SESSION_COOKIE)?.value;
+  if (!raw) return null;
+  try {
+    const t = (JSON.parse(raw) as { accessToken?: string }).accessToken;
+    return t && t.length > 10 ? t : null;
+  } catch {
+    return null;
+  }
 }

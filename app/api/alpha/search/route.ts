@@ -3,6 +3,7 @@ import { fetchFeedPage, type FeedFilters } from "@/lib/a1/feed";
 import { TECH_CATALOG } from "@/lib/seo/tech-catalog";
 import { scorePosts } from "@/lib/alpha/score";
 import { alphaEnabled, hasPremium, isSignedIn } from "@/lib/alpha/guard";
+import { alphaUserId, cleanPortrait, loadPortrait, savePortrait } from "@/lib/alpha/portrait-store";
 import type { AlphaPortrait } from "@/lib/alpha/types";
 import type { WebPost } from "@/types/web-post";
 
@@ -15,16 +16,23 @@ const CATALOG = new Set(TECH_CATALOG.map((t) => t.tech));
 export async function POST(req: NextRequest) {
   if (!alphaEnabled()) return NextResponse.json({ error: "not_found" }, { status: 404 });
   if (!isSignedIn(req)) return NextResponse.json({ error: "not_signed_in" }, { status: 401 });
-  let portrait: AlphaPortrait;
+  let portrait: AlphaPortrait | null = null;
   let lang = "uk";
+  let remember = true;
   try {
     const body = await req.json();
-    portrait = body.portrait;
+    portrait = body.portrait ? cleanPortrait(body.portrait) : null;
     lang = typeof body.lang === "string" ? body.lang : "uk";
+    remember = body.remember !== false;
   } catch {
     return NextResponse.json({ error: "bad_request" }, { status: 400 });
   }
-  if (!portrait || !Array.isArray(portrait.stack)) return NextResponse.json({ error: "bad_request" }, { status: 400 });
+  // 09.10.2026: Alpha remembers the person. No portrait in the request =
+  // search by the saved one ("Для вас" tab); a new one is saved for next time.
+  const userId = await alphaUserId(req);
+  if (!portrait) portrait = userId ? ((await loadPortrait(userId))?.portrait ?? null) : null;
+  else if (userId && remember && portrait.stack.length) await savePortrait(userId, portrait);
+  if (!portrait || !portrait.stack.length) return NextResponse.json({ error: "no_portrait" }, { status: 404 });
 
   // Job seekers search vacancies; companies search people's posts.
   const kind = portrait.role === "hiring" ? "seeking" : "hiring";
@@ -50,5 +58,5 @@ export async function POST(req: NextRequest) {
   const matches = scorePosts(posts, portrait, lang).map((m) => ({ ...m, slug: m.slug ? base + m.slug : "" })).map((m, i) =>
     premium || i < FREE_VISIBLE ? m : { ...m, id: `locked-${i}`, slug: "", reasons: [], salary: null, locked: true },
   );
-  return NextResponse.json({ matches, premium, scanned: posts.length });
+  return NextResponse.json({ matches, premium, scanned: posts.length, portrait });
 }

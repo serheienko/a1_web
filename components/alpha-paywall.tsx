@@ -157,10 +157,14 @@ export function AlphaPaywall({
   open,
   onClose,
   onActivate,
+  initialQuery,
 }: {
   open: boolean;
   onClose: () => void;
   onActivate?: (plan: Plan) => void;
+  /** 09.10.2026: opened from the search box by an Alpha member -- go
+   *  straight to the Alpha conversation for this query. */
+  initialQuery?: string | null;
 }) {
   const lang = useActiveLocale();
   const [plan, setPlan] = useState<Plan>("quarter");
@@ -169,6 +173,9 @@ export function AlphaPaywall({
   const [emptyTry, setEmptyTry] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [flowQuery, setFlowQuery] = useState<string | null>(null);
+  useEffect(() => {
+    if (open && initialQuery && initialQuery.trim()) setFlowQuery(initialQuery.trim());
+  }, [open, initialQuery]);
   const [authNeeded, setAuthNeeded] = useState(false);
   const [sound, setSound] = useState(true);
   const [listening, setListening] = useState(false);

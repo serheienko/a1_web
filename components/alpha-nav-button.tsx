@@ -13,6 +13,7 @@ import { createPortal } from "react-dom";
 import { AlphaPaywall, preloadAlpha, startAlphaMusic } from "@/components/alpha-paywall";
 import { useActiveLocale } from "@/lib/use-active-locale";
 import { useHoverPanel } from "@/lib/use-hover-panel";
+import { useAlphaMe } from "@/components/alpha-search";
 
 const FLOW = "linear-gradient(100deg,#0148fc 0%,#5a4dff 25%,#963fff 50%,#5a4dff 75%,#0148fc 100%)";
 const FLOW_DARK = "linear-gradient(100deg,#0c8ce9 0%,#4f86ff 25%,#9a5cff 50%,#4f86ff 75%,#0c8ce9 100%)";
@@ -203,4 +204,10 @@ export function AlphaNavButton() {
       {mounted && createPortal(<AlphaPaywall open={modal} onClose={() => setModal(false)} onActivate={() => setModal(false)} />, document.body)}
     </div>
   );
+}
+
+/** 09.10.2026: members already have Alpha inside the search box. */
+export function AlphaNavButtonUnlessMember() {
+  const me = useAlphaMe();
+  return me.member ? null : <AlphaNavButton />;
 }

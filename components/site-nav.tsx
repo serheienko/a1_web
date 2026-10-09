@@ -77,7 +77,7 @@ import { GameMapButton } from "@/components/game-map-button";
 import { GameButton } from "@/components/game-button";
 import { GetAppButton } from "@/components/get-app-button";
 import { NavCountry } from "@/components/nav-country";
-import { AlphaNavButton } from "@/components/alpha-nav-button";
+import { AlphaNavButtonUnlessMember } from "@/components/alpha-nav-button";
 import { NavFilters } from "@/components/nav-filters";
 import { T } from "@/components/t";
 import { GLASS } from "@/lib/glass";
@@ -244,7 +244,9 @@ export function SiteNav({ alpha = false }: { alpha?: boolean }) {
               components/nav-country.tsx). */}
           {/* 07.10.2026: на тестовой копии на этом месте «Try Alpha», а страна
               уехала первым элементом в ряд чипов (components/geo-chip.tsx). */}
-          {alpha ? <AlphaNavButton /> : <NavCountry />}
+          {/* 09.10.2026: участникам Alpha кнопка не нужна -- Alpha уже в самом
+              поиске (кольцо + «Alpha для Вас», components/alpha-search.tsx). */}
+          {alpha ? <AlphaNavButtonUnlessMember /> : <NavCountry />}
         </div>
 
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
