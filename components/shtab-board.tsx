@@ -43,6 +43,7 @@ const CSS = `
 .sh-c span{font-size:13px;color:var(--mut)}
 .sh-now{display:flex;gap:12px;align-items:center;flex-wrap:wrap;border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:12px 16px;font-size:14.5px;line-height:1.4;box-shadow:var(--shadow)}
 .sh-now b{font-weight:800}
+.sh-now .sh-lamp{margin:0}
 .sh-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:20px}
 .sh-room{border:1px solid var(--line);border-radius:18px;background-color:var(--panel);background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:28px 28px;padding:20px;display:flex;flex-direction:column;gap:16px;box-shadow:var(--shadow)}
 .sh-wide{grid-column:span 2}
