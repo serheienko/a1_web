@@ -20,6 +20,7 @@ import {
   type AgentDef,
   type AgentView,
   type Lamp,
+  type Probe,
 } from "@/lib/a1/shtab-agents";
 import { ShtabRefresh } from "@/components/shtab-refresh";
 import { ShtabClock, type ClockRun, type ClockTick } from "@/components/shtab-clock";
@@ -43,6 +44,10 @@ const CSS = `
 .sh-c span{font-size:13px;color:var(--mut)}
 .sh-now{display:flex;gap:12px;align-items:center;flex-wrap:wrap;border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:12px 16px;font-size:14.5px;line-height:1.4;box-shadow:var(--shadow)}
 .sh-now b{font-weight:800}
+.sh-verdict{display:flex;flex-direction:column;gap:4px;border-radius:16px;padding:16px 20px;border:1px solid var(--line);border-left-width:6px;background:var(--panel);box-shadow:var(--shadow)}
+.sh-verdict b{font-size:20px;font-weight:800;line-height:1.25}
+.sh-verdict span{font-size:14.5px;color:var(--soft);line-height:1.45}
+.sh-v-ok{border-left-color:#3ddc84}.sh-v-run{border-left-color:#3ddc84}.sh-v-wait{border-left-color:#6ea8ff}.sh-v-bad{border-left-color:#ff6b5e}
 .sh-now .sh-lamp{margin:0}
 .sh-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:20px}
 .sh-room{border:1px solid var(--line);border-radius:18px;background-color:var(--panel);background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:28px 28px;padding:20px;display:flex;flex-direction:column;gap:16px;box-shadow:var(--shadow)}
@@ -170,15 +175,28 @@ function Desk({ v, color }: { v: AgentView; color: string }) {
   );
 }
 
+async function probe(url: string): Promise<Probe> {
+  const t0 = Date.now();
+  try {
+    const r = await fetch(url, { method: "GET", cache: "no-store", signal: AbortSignal.timeout(6000), headers: { "user-agent": "A1ShtabCheck/1" } });
+    return { ok: r.status < 500, ms: Date.now() - t0, status: r.status };
+  } catch {
+    return { ok: false, ms: Date.now() - t0, status: 0 };
+  }
+}
+
 type TimelineRow = { min: number; title: string; detail: string };
 
 export async function ShtabBoard() {
   const pulses = await loadPulses();
   const now = new Date();
+  const healthDefs = ALL_AGENTS.filter((a) => a.kind === "health" && a.health);
+  const probes = new Map<string, Probe>();
+  await Promise.all(healthDefs.map(async (a) => { probes.set(a.id, await probe(a.health!)); }));
 
   // 1) одиночные агенты
   const byId = new Map<string, AgentView>();
-  ALL_AGENTS.filter((a) => a.kind !== "group").forEach((a) => byId.set(a.id, describeAgent(a, pulses[a.id], now)));
+  ALL_AGENTS.filter((a) => a.kind !== "group").forEach((a) => byId.set(a.id, describeAgent(a, pulses[a.id], now, probes.get(a.id))));
 
   // 2) очередь забега Конкистадора: идут по порядку, кто ещё не начал, стоит за предыдущим
   const queued = ALL_AGENTS.filter((a) => a.order !== undefined)
@@ -246,8 +264,29 @@ export async function ShtabBoard() {
     { color: LAMP_COLOR.done, n: count((l) => l === "done" || l === "work"), label: "в порядке" },
     { color: LAMP_COLOR.wait, n: count((l) => l === "wait"), label: "ждут запуска" },
     { color: LAMP_COLOR.missed, n: count((l) => l === "missed" || l === "error"), label: "нужен взгляд" },
-    { color: LAMP_COLOR.nodata, n: count((l) => l === "nodata" || l === "planned" || l === "manual"), label: "без пульса или вручную" },
+    { color: LAMP_COLOR.nodata, n: count((l) => l === "nodata" || l === "planned" || l === "manual"), label: "не подключены или вручную" },
   ];
+  // Вердикт дня: одной фразой, «всё ли в порядке сегодня».
+  const konkSteps = ALL_AGENTS.filter((a) => a.kind === "pulse" && a.track === 0 && !a.hidden || a.id === "ua").map((a) => byId.get(a.id)!).filter(Boolean);
+  const stepsDone = konkSteps.filter((v) => v.lamp === "done").length;
+  const workingStep = konkSteps.find((v) => v.lamp === "work");
+  const bad = visible.filter((v) => v.lamp === "error" || v.lamp === "missed");
+  const publishedToday = Object.values(pulses).reduce((sum, r) => {
+    if (!r || r.published == null || !r.finishedAt || !sameKyivDay(new Date(r.finishedAt), now)) return sum;
+    return sum + r.published;
+  }, 0);
+  let verdict: { tone: "ok" | "run" | "bad" | "wait"; title: string; text: string };
+  if (bad.length) {
+    verdict = { tone: "bad", title: "Есть что проверить", text: `Проблема у: ${bad.map((v) => v.def.name).join(", ")}. Подробности в карточках ниже.` };
+  } else if (workingStep) {
+    verdict = { tone: "run", title: "Всё идёт по плану: утренний забег в работе", text: `Сейчас «${workingStep.def.name}», готово ${stepsDone} из ${konkSteps.length} шагов. Остальные ждут очереди, это нормально.${publishedToday ? ` Опубликовано сегодня: ${publishedToday}.` : ""}` };
+  } else if (konkSteps.length && stepsDone === konkSteps.length) {
+    verdict = { tone: "ok", title: "Сегодня всё отработало", text: `Все ${konkSteps.length} шагов забега выполнены без ошибок. Опубликовано сегодня: ${publishedToday}.` };
+  } else if (stepsDone > 0) {
+    verdict = { tone: "run", title: "Забег идёт между шагами", text: `Готово ${stepsDone} из ${konkSteps.length}, следующий шаг стартует сам.` };
+  } else {
+    verdict = { tone: "wait", title: "Ждём утреннего запуска", text: "Сегодня ещё никто не стартовал. Забег начинается в 10:00 по Киеву, красной лампочкой штаб загорится, только если запуск не случится." };
+  }
   const stamp = new Intl.DateTimeFormat("ru-RU", { timeZone: "Europe/Kyiv", hour: "2-digit", minute: "2-digit", day: "numeric", month: "long" }).format(now);
 
   return (
@@ -272,6 +311,11 @@ export async function ShtabBoard() {
               </div>
             ))}
           </div>
+        </div>
+
+        <div className={`sh-verdict sh-v-${verdict.tone}`}>
+          <b>{verdict.title}</b>
+          <span>{verdict.text}</span>
         </div>
 
         <div className="sh-now">

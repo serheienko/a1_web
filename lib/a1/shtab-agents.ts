@@ -30,7 +30,9 @@ export type AgentDef = {
   /** Сколько минут после слота агенту дано до «пропустил». */
   graceMin: number;
   /** pulse -- шлёт отметки; none -- пока нет; planned -- ещё не создан; manual -- запускается вручную */
-  kind: "pulse" | "none" | "planned" | "manual" | "group";
+  kind: "pulse" | "none" | "planned" | "manual" | "group" | "health";
+  /** Для kind "health": адрес, который штаб сам проверяет при открытии страницы. */
+  health?: string;
   note?: string;
   /** Номер в очереди внутри комнаты (запуск по порядку). */
   order?: number;
@@ -103,9 +105,9 @@ export const ROOMS: RoomDef[] = [
     color: "#3ddc84",
     wide: true,
     agents: [
-      { id: "site", name: "Сайт", role: "jobs.a1appp.com", slots: [], graceMin: 0, kind: "none" },
+      { id: "site", name: "Сайт", role: "jobs.a1appp.com", slots: [], graceMin: 0, kind: "health", health: "https://jobs.a1appp.com/" },
       { id: "site-premium", name: "Сайт Premium", role: "jobs-web-premium", slots: [], graceMin: 0, kind: "none" },
-      { id: "api", name: "API", role: "api-service и api-gateway", slots: [], graceMin: 0, kind: "none" },
+      { id: "api", name: "API", role: "api-service и api-gateway", slots: [], graceMin: 0, kind: "health", health: "https://api.a1appp.com/health" },
       { id: "chat", name: "Чат", role: "chat-service и chat-web", slots: [], graceMin: 0, kind: "none" },
       { id: "notify", name: "Уведомления", role: "notify-service", slots: [], graceMin: 0, kind: "none" },
       { id: "media", name: "Медиа", role: "media-service", slots: [], graceMin: 0, kind: "none" },
@@ -200,7 +202,9 @@ function summary(rec: { published: number | null; errors: number | null; note: s
   return parts.join(", ");
 }
 
-export function describeAgent(def: AgentDef, rec: PulseRecord | undefined, now: Date): AgentView {
+export type Probe = { ok: boolean; ms: number; status: number };
+
+export function describeAgent(def: AgentDef, rec: PulseRecord | undefined, now: Date, probe?: Probe): AgentView {
   const nextAt = def.slots.length ? nextSlot(def.slots, now) : null;
   const next = nextAt ? fmtWhen(nextAt, now) : def.kind === "manual" ? "вручную" : "";
 
@@ -209,6 +213,12 @@ export function describeAgent(def: AgentDef, rec: PulseRecord | undefined, now: 
   }
   if (def.kind === "manual") {
     return { def, lamp: "manual", label: "Только вручную", last: def.note ?? "", next: "вручную" };
+  }
+  if (def.kind === "health") {
+    if (!probe) return { def, lamp: "nodata", label: "Проверка не прошла", last: "Не удалось выполнить проверку.", next: "" };
+    return probe.ok
+      ? { def, lamp: "done", label: "Отвечает", last: `Проверено сейчас: ответ за ${(probe.ms / 1000).toFixed(1)} с.`, next: "" }
+      : { def, lamp: "error", label: "Не отвечает", last: probe.status ? `Проверено сейчас: код ${probe.status}.` : "Проверено сейчас: нет ответа.", next: "" };
   }
   if (def.kind === "none" || !rec) {
     if (def.kind === "pulse" && !rec) {
