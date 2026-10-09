@@ -265,6 +265,9 @@ function scanCacheKey(kind: WebPostKind, filters: FeedFilters): string {
  * null -- указателя не хватает (город по id, вакансии соискателей): тогда
  * по-прежнему обход.
  */
+/** Тег, которым бэкенд пускает внешнюю вакансию в ленту «для тебе». */
+const EXTERNAL_OPEN_TAG = "Worldwide";
+
 function poolFromIndex(all: WebPost[], kind: WebPostKind, filters: FeedFilters): WebPost[] | null {
   if (kind !== "hiring" || filters.location != null) return null;
   const categories = filters.categories ?? [];
@@ -278,6 +281,10 @@ function poolFromIndex(all: WebPost[], kind: WebPostKind, filters: FeedFilters):
     if (!tags.every((tag) => post.tags.includes(tag))) return false;
     if (filters.top100) return post.author.external === true;
     if (country) return (post.location?.country ?? "").trim().toUpperCase() === country;
+    // Режим «для тебе» у бэкенда: обычные вакансии плюс внешние, помеченные
+    // тегом Worldwide. Повторяем дословно, иначе в поиске всплывало бы то,
+    // чего в самой ленте нет (например, украинские ленты компаний у Казака 2).
+    if (post.author.external === true && !post.tags.includes(EXTERNAL_OPEN_TAG)) return false;
     return keepInUkraineFeed(post);
   });
 }
