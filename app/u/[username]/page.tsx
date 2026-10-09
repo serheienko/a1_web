@@ -555,7 +555,7 @@ export default async function ProfilePage({ params }: Props) {
               <MarqueeName text={profile.fullName} className="text-xl font-semibold text-neutral-900 sm:text-2xl dark:text-neutral-50" />
             </div>
             {/* 08.10.2026: значок Alpha у участников подписки. */}
-            <AlphaMemberBadge member={profile.alpha} name={profile.fullName} size={26} />
+            <AlphaMemberBadge member={profile.alpha} name={profile.fullName} username={profile.username} title={profile.profileTitle ?? null} size={26} />
           </div>
           <p className="truncate text-sm text-neutral-500 dark:text-neutral-400">@{profile.username}</p>
         </div>
