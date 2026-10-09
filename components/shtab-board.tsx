@@ -23,6 +23,9 @@ import {
   type Lamp,
   type Probe,
 } from "@/lib/a1/shtab-agents";
+import { fetchCountryOptions } from "@/lib/a1/country-counts";
+import { COUNTRIES } from "@/lib/seo/countries";
+import { ShtabMap, type MapData } from "@/components/shtab-map";
 import { ShtabRefresh } from "@/components/shtab-refresh";
 import { ShtabClock, type ClockRun, type ClockTick } from "@/components/shtab-clock";
 
@@ -202,7 +205,29 @@ export async function ShtabBoard() {
   const now = new Date();
   const healthDefs = ALL_AGENTS.filter((a) => a.kind === "health" && a.health);
   const probes = new Map<string, Probe>();
-  await Promise.all(healthDefs.map(async (a) => { probes.set(a.id, await probe(a.health!)); }));
+  const [countryOptions] = await Promise.all([
+    fetchCountryOptions().catch(() => []),
+    ...healthDefs.map(async (a) => { probes.set(a.id, await probe(a.health!)); }),
+  ]);
+  // Страны, с которыми не работаем (Александр, 09.10.2026): Россия, Беларусь и полные санкции.
+  const EXCLUDED: Record<string, string> = {
+    RU: "страна-агрессор, не работаем",
+    BY: "не работаем",
+    KP: "полные санкции, не работаем",
+    IR: "полные санкции, не работаем",
+    SY: "полные санкции, не работаем",
+    CU: "полные санкции, не работаем",
+  };
+  const counts: Record<string, number> = {};
+  countryOptions.forEach((o) => { if (o.code !== "WW" && !EXCLUDED[o.code]) counts[o.code] = o.count; });
+  const known = COUNTRIES.map((c) => c.code);
+  const mapData: MapData = {
+    ready: countryOptions.length > 0,
+    counts,
+    thin: known.filter((c) => counts[c] === undefined && !EXCLUDED[c]),
+    excluded: EXCLUDED,
+    known,
+  };
 
   // 1) одиночные агенты
   const byId = new Map<string, AgentView>();
@@ -357,6 +382,7 @@ export async function ShtabBoard() {
               </div>
             </section>
           ))}
+          <ShtabMap data={mapData} />
         </div>
 
         <details className="sh-det">
