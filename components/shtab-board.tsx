@@ -34,37 +34,46 @@ const CSS = `
 :root.dark .sh{${DARK}}
 @media (prefers-color-scheme:dark){:root:not(.light) .sh{${DARK}}}
 .sh *{box-sizing:border-box}
-.sh-wrap{max-width:1240px;margin:0 auto;padding:28px 16px 64px;display:flex;flex-direction:column;gap:22px}
+.sh-wrap{max-width:1240px;margin:0 auto;padding:18px 16px 40px;display:flex;flex-direction:column;gap:14px}
 .sh-eyebrow{font:600 12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--eye)}
-.sh h1{margin:6px 0 6px;font-size:36px;line-height:1.1;font-weight:800}
-.sh-sub{font-size:15px;color:var(--mut);max-width:680px;line-height:1.5}
-.sh-top{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end;justify-content:space-between}
+.sh h1{margin:4px 0 4px;font-size:26px;line-height:1.1;font-weight:800}
+.sh-sub{font-size:13.5px;color:var(--mut);max-width:680px;line-height:1.45}
+.sh-top{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between}
 .sh-counters{display:flex;flex-wrap:wrap;gap:10px}
-.sh-c{display:flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--panel);box-shadow:var(--shadow)}
-.sh-c b{font-size:26px;line-height:1}
-.sh-c span{font-size:13px;color:var(--mut)}
-.sh-now{display:flex;gap:12px;align-items:center;flex-wrap:wrap;border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:12px 16px;font-size:14.5px;line-height:1.4;box-shadow:var(--shadow)}
+.sh-c{display:flex;align-items:center;gap:8px;padding:6px 12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);box-shadow:var(--shadow)}
+.sh-c b{font-size:20px;line-height:1}
+.sh-c span{font-size:12.5px;color:var(--mut)}
+.sh-now{display:flex;gap:10px;align-items:center;flex-wrap:wrap;border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:8px 14px;font-size:13.5px;line-height:1.4;box-shadow:var(--shadow)}
 .sh-now b{font-weight:800}
-.sh-verdict{display:flex;flex-direction:column;gap:4px;border-radius:16px;padding:16px 20px;border:1px solid var(--line);border-left-width:6px;background:var(--panel);box-shadow:var(--shadow)}
-.sh-verdict b{font-size:20px;font-weight:800;line-height:1.25}
-.sh-verdict span{font-size:14.5px;color:var(--soft);line-height:1.45}
+.sh-verdict{display:flex;flex-direction:column;gap:2px;border-radius:14px;padding:12px 16px;border:1px solid var(--line);border-left-width:6px;background:var(--panel);box-shadow:var(--shadow)}
+.sh-verdict b{font-size:17px;font-weight:800;line-height:1.25}
+.sh-verdict span{font-size:13.5px;color:var(--soft);line-height:1.4}
 .sh-v-ok{border-left-color:#3ddc84}.sh-v-run{border-left-color:#3ddc84}.sh-v-wait{border-left-color:#6ea8ff}.sh-v-bad{border-left-color:#ff6b5e}
 .sh-now .sh-lamp{margin:0}
-.sh-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:20px}
-.sh-room{border:1px solid var(--line);border-radius:18px;background-color:var(--panel);background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:28px 28px;padding:20px;display:flex;flex-direction:column;gap:16px;box-shadow:var(--shadow)}
+.sh-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px;align-items:start}
+.sh-room{border:1px solid var(--line);border-radius:16px;background-color:var(--panel);background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:28px 28px;padding:14px;display:flex;flex-direction:column;gap:10px;box-shadow:var(--shadow)}
 .sh-wide{grid-column:span 2}
 @media (max-width:760px){.sh-wide{grid-column:span 1}}
-.sh-room h2{margin:0;font-size:20px;font-weight:800}
+.sh-room h2{margin:0;font-size:16px;font-weight:800}
 .sh-room header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .sh-where{font:400 12px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--dim)}
-.sh-desks{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
-.sh-desk{border:1px solid var(--edge);border-radius:14px;background:var(--bg);padding:14px;display:flex;flex-direction:column;gap:10px}
+.sh-desks{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;align-items:start}
+.sh-desk{border:1px solid var(--edge);border-radius:12px;background:var(--bg);min-width:0}
+.sh-desk>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:12px}
+.sh-desk>summary::-webkit-details-marker{display:none}
+.sh-desk>summary:hover{background:var(--row)}
+.sh-desk>summary::after{content:"";width:6px;height:6px;border-right:2px solid var(--dim);border-bottom:2px solid var(--dim);transform:rotate(45deg);margin:0 2px 3px 2px;flex:none;transition:transform .15s}
+.sh-desk[open]>summary::after{transform:rotate(-135deg);margin-bottom:-3px}
+.sh-sum{min-width:0;flex:1}
+.sh-st{font-size:12px;font-weight:700;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sh-more{padding:2px 12px 12px;display:flex;flex-direction:column;gap:8px}
 .sh-row{display:flex;align-items:center;gap:12px}
-.sh-ava{width:44px;height:44px;border-radius:12px;background:var(--ava);display:flex;align-items:center;justify-content:center;flex:none}
-.sh-name{font-size:16px;font-weight:800;line-height:1.2}
+.sh-ava{width:32px;height:32px;border-radius:9px;background:var(--ava);display:flex;align-items:center;justify-content:center;flex:none}
+.sh-ava svg{width:20px;height:20px}
+.sh-name{font-size:14px;font-weight:800;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sh-nick{font-size:12px;font-weight:400;color:var(--dim)}
 .sh-role{font-size:12.5px;color:var(--mut);line-height:1.35}
-.sh-lamp{width:12px;height:12px;border-radius:50%;flex:none;margin-left:auto}
+.sh-lamp{width:11px;height:11px;border-radius:50%;flex:none;margin-left:auto}
 .sh-pulse{animation:shpl 1.6s ease-in-out infinite}
 .sh-warn{animation:shwp 2s ease-in-out infinite}
 @keyframes shpl{0%,100%{box-shadow:0 0 0 0 #3ddc8466}50%{box-shadow:0 0 0 7px #3ddc8400}}
@@ -139,40 +148,40 @@ function Robot({ color }: { color: string }) {
 
 function Desk({ v, color }: { v: AgentView; color: string }) {
   return (
-    <div className="sh-desk">
-      <div className="sh-row">
+    <details className="sh-desk">
+      <summary>
         <div className="sh-ava">
           <Robot color={color} />
         </div>
-        <div>
-          <div className="sh-name">
-            {v.def.name}
-            {v.def.nick ? <span className="sh-nick"> · {v.def.nick}</span> : null}
-          </div>
-          <div className="sh-role">{v.def.role}</div>
+        <div className="sh-sum">
+          <div className="sh-name">{v.def.name}</div>
+          <div className="sh-st" style={{ color: lampText(v.lamp) }}>{v.label}</div>
         </div>
         <LampDot lamp={v.lamp} />
-      </div>
-      <div className="sh-state">
-        <span style={{ color: lampText(v.lamp) }}>{v.label}</span>
-        {v.next ? <span className="sh-next">дальше: {v.next}</span> : null}
-      </div>
-      {v.parts ? (
-        <div className="sh-parts">
-          {v.parts.map((p) => (
-            <div className="sh-part" key={p.name}>
-              <span className="sh-lamp" style={{ background: LAMP_COLOR[p.lamp] }} aria-hidden="true" />
-              <div>
-                <b>{p.name}</b> <span style={{ color: lampText(p.lamp) }}>· {p.label}</span>
-                <small>{p.last || "—"}</small>
-              </div>
-            </div>
-          ))}
+      </summary>
+      <div className="sh-more">
+        <div className="sh-role">
+          {v.def.nick ? <b>{v.def.nick}. </b> : null}
+          {v.def.role}
         </div>
-      ) : (
-        <div className="sh-last">{v.last || "—"}</div>
-      )}
-    </div>
+        {v.next ? <div className="sh-next">дальше: {v.next}</div> : null}
+        {v.parts ? (
+          <div className="sh-parts">
+            {v.parts.map((p) => (
+              <div className="sh-part" key={p.name}>
+                <span className="sh-lamp" style={{ background: LAMP_COLOR[p.lamp] }} aria-hidden="true" />
+                <div>
+                  <b>{p.name}</b> <span style={{ color: lampText(p.lamp) }}>· {p.label}</span>
+                  <small>{p.last || "—"}</small>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="sh-last">{v.last || "—"}</div>
+        )}
+      </div>
+    </details>
   );
 }
 
@@ -300,7 +309,7 @@ export async function ShtabBoard() {
             <div className="sh-eyebrow">Штаб A1</div>
             <h1>Кто сейчас работает</h1>
             <div className="sh-sub">
-              Агенты сами присылают отметку в начале и в конце запуска. Зелёная лампочка — отработал или работает, синяя — ждёт своей очереди, красная — пропустил запуск или упал. Время киевское. Обновлено {stamp}, страница обновляется сама.
+              Зелёная — работает или отработал, синяя — ждёт очереди, красная — нужен взгляд. Нажми на карточку, чтобы раскрыть. Время киевское, обновлено {stamp}.
             </div>
           </div>
           <div className="sh-counters">
@@ -319,6 +328,7 @@ export async function ShtabBoard() {
           <span>{verdict.text}</span>
         </div>
 
+        {!workingStep || !working.length ? (
         <div className="sh-now">
           <LampDot lamp={working.length ? "work" : "wait"} />
           {working.length ? (
@@ -331,6 +341,7 @@ export async function ShtabBoard() {
             </span>
           )}
         </div>
+        ) : null}
 
         <div className="sh-grid">
           {rooms.map(({ room, views }) => (
