@@ -18,7 +18,16 @@ export type MagicWandField =
   | "hobbies"
   | "books"
   | "movies"
-  | "games";
+  | "games"
+  // 09.10.2026 Magic Post (posts.magicWand): чипы публикации.
+  | "title"
+  | "content"
+  | "category"
+  | "salary"
+  | "workMode"
+  | "workContract"
+  | "experience"
+  | "questions";
 
 /** Чипы панели, в порядке финального макета Александра (30.09.2026). */
 export const MAGIC_WAND_CHIPS: MagicWandField[] = [
@@ -44,6 +53,15 @@ export const MAGIC_WAND_CHIP_COLOR: Partial<Record<MagicWandField, string>> = {
   skills: "#FFC247",
   languages: "#7470FF",
   location: "#FFC547",
+  // Magic Post
+  title: "#148CFF",
+  content: "#EF52D4",
+  category: "#22DC85",
+  salary: "#26E7E7",
+  workMode: "#8564FF",
+  workContract: "#168CF8",
+  experience: "#7470FF",
+  questions: "#FE4BA3",
 };
 
 /** Ключи account.updateProfile, которые заполняет чип. */
@@ -75,6 +93,22 @@ export function patchKeysOf(field: MagicWandField): string[] {
       return ["favoriteMovies"];
     case "games":
       return ["favoriteGames"];
+    case "title":
+      return ["title"];
+    case "content":
+      return ["content"];
+    case "category":
+      return ["categories"];
+    case "salary":
+      return ["salary"];
+    case "workMode":
+      return ["workMode"];
+    case "workContract":
+      return ["workContract"];
+    case "experience":
+      return ["experience"];
+    case "questions":
+      return ["applyQuestions"];
   }
 }
 
@@ -101,11 +135,14 @@ export type MagicWandResult = {
   location: MagicWandLocation;
   fields: MagicWandFieldState[];
   storyLanguage: string | null;
+  /** Magic Post: what the story is (job-seeking / job-employing), if the server worked it out. */
+  kind?: string | null;
 };
 
 const FIELD_NAMES = new Set<string>([
   "name", "bio", "occupation", "companies", "location", "industry", "languages",
   "education", "skills", "hobbies", "books", "movies", "games",
+  "title", "content", "category", "salary", "workMode", "workContract", "experience", "questions",
 ]);
 
 function str(v: unknown): string | null {
@@ -148,6 +185,7 @@ export function parseMagicWandResult(data: unknown): MagicWandResult | null {
         : null,
     fields,
     storyLanguage: str(o.storyLanguage),
+    kind: str(o.kind),
   };
 }
 
@@ -277,7 +315,7 @@ export function adoptMagicWandResult(
 
   // Не чипы: день рождения, телефон и ссылки, сказанные вслух, всё равно
   // попадают в форму. Побеждает последнее упоминание.
-  for (const key of ["dob", "links", "phoneNumber"]) {
+  for (const key of ["dob", "links", "phoneNumber", "link"]) {
     if (result.patch[key] != null) patch[key] = result.patch[key];
   }
   return { chips, patch, location, hasResult: true };
@@ -295,6 +333,6 @@ export function removeMagicWandField(state: MagicWandPanelData, field: MagicWand
   };
 }
 
-export function magicWandFilledCount(state: MagicWandPanelData): number {
-  return MAGIC_WAND_CHIPS.filter((f) => state.chips[f]?.status === "filled").length;
+export function magicWandFilledCount(state: MagicWandPanelData, chips: MagicWandField[] = MAGIC_WAND_CHIPS): number {
+  return chips.filter((f) => state.chips[f]?.status === "filled").length;
 }
