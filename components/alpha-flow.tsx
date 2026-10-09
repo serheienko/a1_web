@@ -280,16 +280,16 @@ export function AlphaFlow({
       <div ref={chatRef} className="flex max-h-[220px] flex-col gap-2 overflow-y-auto pr-1">
         {msgs.map((m, i) =>
           m.from === "me" ? (
-            <div key={i} className="max-w-[85%] self-end rounded-[16px] rounded-br-[6px] bg-[#335ef7] px-3.5 dark:bg-[#0c8ce9] py-2 text-[15px] text-white">
+            <div key={i} className="max-w-[85%] self-end rounded-[18px] rounded-tr-[6px] bg-[#335ef7] px-3.5 py-2 text-[15px] text-white dark:bg-[#009bff]">
               {m.text}
             </div>
           ) : (
-            <div key={i} className="max-w-[85%] self-start rounded-[16px] rounded-bl-[6px] bg-black/[0.05] px-3.5 py-2 text-[15px] dark:bg-white/[0.08]">
+            <div key={i} className="max-w-[85%] self-start rounded-[18px] rounded-tl-[6px] bg-black/[0.05] px-3.5 py-2 text-[15px] dark:bg-white/[0.08]">
               {m.text}
             </div>
           ),
         )}
-        {busy && <div className="self-start rounded-[16px] bg-black/[0.05] px-3.5 py-2 text-[14px] text-[#8e8e93] dark:bg-white/[0.08]">{S.thinking[l]}</div>}
+        {busy && <div className="self-start rounded-[18px] rounded-tl-[6px] bg-black/[0.05] px-3.5 py-2 text-[14px] text-[#8e8e93] dark:bg-white/[0.08]">{S.thinking[l]}</div>}
       </div>
 
       {question && !busy && (

@@ -664,6 +664,20 @@ export function FiltersForm({
   const askFirst = () => {
     if (alphaMe.member && !alphaMe.portrait && !query.trim()) setAlphaAsk((v) => v ?? "first");
   };
+  // 09.10.2026 (Александр: «чтобы этот поп-ап появлялся при ховере»): пока
+  // Alpha человека не знает, наведение на поле сразу открывает её вопросы.
+  // Когда портрет сохранён, наведение ничего не открывает (✎ в «Для Вас» --
+  // рассказать заново).
+  const askHoverTimer = useRef<number | null>(null);
+  const askOnHover = () => {
+    if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+    if (askHoverTimer.current) window.clearTimeout(askHoverTimer.current);
+    askHoverTimer.current = window.setTimeout(askFirst, 150);
+  };
+  const askHoverOut = () => {
+    if (askHoverTimer.current) window.clearTimeout(askHoverTimer.current);
+    askHoverTimer.current = null;
+  };
   const alphaAskPanel = (forWide: boolean) =>
     alphaAsk && wide === forWide ? (
       <AlphaAskPanel lang={lang} again={alphaAsk === "again"} onClose={() => setAlphaAsk(null)} />
@@ -1025,7 +1039,7 @@ export function FiltersForm({
             the country picker, so a panel hanging from its right edge ran off
             the screen on the left. */}
         <div className="relative flex flex-wrap gap-3">
-          <div className="relative min-w-0 flex-1">
+          <div className="relative min-w-0 flex-1" onMouseEnter={askOnHover} onMouseLeave={askHoverOut}>
             <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
             <AlphaRing active={alphaMe.member}>
               <input
@@ -1161,7 +1175,7 @@ export function FiltersForm({
       {navSlot &&
         createPortal(
           <div className="flex w-full items-center gap-2">
-            <div className="relative min-w-0 flex-1">
+            <div className="relative min-w-0 flex-1" onMouseEnter={askOnHover} onMouseLeave={askHoverOut}>
               <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
               <AlphaRing active={alphaMe.member}>
                 <input

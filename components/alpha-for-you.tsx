@@ -275,7 +275,7 @@ function AlphaForYou() {
 
   return (
     <section className="mb-4 mt-3" aria-label={T.forYou[l]}>
-      <style>{`.afy-flow{background-image:${FLOW};background-size:200% 100%}`}</style>
+      <style>{`.afy-flow{background-image:${FLOW};background-size:200% 100%}@keyframes afyPen{0%,100%{transform:rotate(0)}30%{transform:rotate(-18deg) translateY(-1px)}60%{transform:rotate(10deg)}}.afy-pen:hover span{animation:afyPen .5s ease-in-out}`}</style>
       {/* 09.10.2026 (Александр): строки «Розкажіть Alpha про себе» в ленте нет --
           Alpha спрашивает прямо в поле поиска (components/alpha-ask.tsx). */}
       {state?.unknown ? null : (
@@ -297,7 +297,8 @@ function AlphaForYou() {
                       type="button"
                       onClick={() => setOpen(open === g ? null : g)}
                       className={
-                        "rounded-full px-3 py-1.5 text-[14px] font-semibold transition " +
+                        // 09.10.2026 (Александр): видно, что чип нажимается.
+                        "rounded-full px-3 py-1.5 text-[14px] font-semibold transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_6px_16px_rgba(90,80,255,0.35)] hover:brightness-110 active:translate-y-0 active:scale-95 " +
                         (on.length ? "afy-flow text-white" : "border border-[#5a4dff]/30 text-[#5a4dff] dark:text-[#b7a6ff]")
                       }
                     >
@@ -348,9 +349,9 @@ function AlphaForYou() {
                 onClick={() => openAlphaAsk()}
                 title={T.retell[l]}
                 aria-label={T.retell[l]}
-                className="rounded-full border border-[#5a4dff]/30 px-3 py-1.5 text-[14px] text-[#5a4dff] dark:text-[#b7a6ff]"
+                className="afy-pen rounded-full border border-[#5a4dff]/30 px-3 py-1.5 text-[14px] text-[#5a4dff] transition duration-200 hover:-translate-y-0.5 hover:border-[#5a4dff]/60 hover:bg-[#5a4dff]/10 active:scale-95 dark:text-[#b7a6ff]"
               >
-                ✎
+                <span className="inline-block">✎</span>
               </button>
             </div>
           )}
