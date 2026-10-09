@@ -14,6 +14,7 @@ import {
   LAMP_COLOR,
   describeAgent,
   describeGroup,
+  isSoftError,
   kyivMinutes,
   sameKyivDay,
   formatKyivTime,
@@ -240,7 +241,7 @@ export async function ShtabBoard() {
       track,
       fromMin: from,
       toMin: Math.max(to, from),
-      color: rec.status === "error" ? LAMP_COLOR.error : LAMP_COLOR.done,
+      color: rec.status === "error" && !isSoftError(rec) ? LAMP_COLOR.error : LAMP_COLOR.done,
       live: rec.status === "working",
       title: `${def.name}: ${formatKyivTime(st)}–${rec.finishedAt ? formatKyivTime(en) : "идёт"}`,
     });

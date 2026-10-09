@@ -202,6 +202,11 @@ function summary(rec: { published: number | null; errors: number | null; note: s
   return parts.join(", ");
 }
 
+/** Конкистадор выходит с кодом 1, если часть вакансий не прошла (500 от API), хотя забег отработал и опубликовал. Это не поломка. */
+export function isSoftError(rec: PulseRecord): boolean {
+  return rec.status === "error" && (rec.published ?? 0) > 0 && /^код возврата/.test(rec.note || "");
+}
+
 export type Probe = { ok: boolean; ms: number; status: number };
 
 export function describeAgent(def: AgentDef, rec: PulseRecord | undefined, now: Date, probe?: Probe): AgentView {
@@ -248,7 +253,7 @@ export function describeAgent(def: AgentDef, rec: PulseRecord | undefined, now: 
   const slot = def.slots.length ? lastSlot(def.slots, now) : null;
   const sinceSlot = slot && finished.getTime() >= slot.getTime() - 5 * 60_000;
 
-  if (rec.status === "error") {
+  if (rec.status === "error" && !isSoftError(rec)) {
     return { def, lamp: "error", label: "Ошибка в запуске", last: `${fmtWhen(finished, now)}${detail ? ": " + detail : ""}`, next };
   }
   if (!slot || sinceSlot) {
