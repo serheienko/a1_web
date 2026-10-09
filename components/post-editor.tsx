@@ -158,6 +158,12 @@ import { LottiePlayer } from "@/components/lottie-player";
 import { formatBytes, formatRelativeTime } from "@/lib/format";
 import { authFetch } from "@/lib/auth-fetch";
 import { useActiveLocale } from "@/lib/use-active-locale";
+import { createPortal } from "react-dom";
+import { MagicWandPanel } from "@/components/magic-wand-panel";
+import { useAlphaMe } from "@/components/alpha-search";
+import { AlphaPaywall, startAlphaMusic } from "@/components/alpha-paywall";
+import type { MagicWandLocation, MagicWandPatch } from "@/lib/a1/magic-wand";
+import { magicPostChips, magicPostFill, magicPostLabels, magicPostPlaceholder, magicPostText, tagMatches } from "@/lib/a1/magic-post";
 
 type PostObject = "post-job-employing" | "post-job-seeking";
 
@@ -860,6 +866,83 @@ export function PostEditor({
     const list = q ? bootstrap.categories.filter((c) => c.text.toLowerCase().includes(q)) : bootstrap.categories;
     return list.slice(0, 50);
   }, [bootstrap.categories, categoryQuery]);
+
+  // 09.10.2026 Magic Post (как в приложении): рассказ голосом/текстом ->
+  // поля этой формы. Только для Alpha; остальным -- замок и окно Alpha.
+  // Только на тестовой копии сайта (alpha.enabled), на проде не видно.
+  const alpha = useAlphaMe(!adminActingAs);
+  const [alphaPaywall, setAlphaPaywall] = useState(false);
+  const hiring = object === "post-job-employing";
+
+  function applyMagicPost(patch: MagicWandPatch, loc: MagicWandLocation) {
+    const f = magicPostFill(patch, loc);
+    if (f.title) {
+      setTitle(f.title.slice(0, TITLE_MAX));
+      setTitleTouched(true);
+    }
+    if (f.content) {
+      setContent(f.content);
+      setDescriptionTouched(true);
+    }
+    if (f.categoryValue != null) {
+      const c = bootstrap.categories.find((x) => x.value === f.categoryValue);
+      if (c) setCategory(c);
+    }
+    if (f.location) setLocation(f.location);
+    if (f.salary) {
+      const { min, max, currency, annual } = f.salary;
+      if (min === max) {
+        setSalaryMode("fixed");
+        setSalaryAmount(String(min));
+        setSalaryAmountTo("");
+      } else {
+        setSalaryMode("range");
+        setSalaryAmount(String(min));
+        setSalaryAmountTo(String(max));
+      }
+      if (currency) {
+        const known = bootstrap.currencies.find((c) => c.value.toLowerCase() === currency || c.text.toLowerCase() === currency);
+        if (known) setSalaryCurrency(known.value);
+      }
+      setSalaryAnnual(annual);
+    }
+    setSelectedTags((prev) => {
+      let next = [...prev];
+      // Формат / занятость / опыт: одна кнопка из группы -- найденная.
+      for (const want of f.tagTexts ?? []) {
+        const tag = tagsForKind.find((tg) => tagMatches(tg.text, want));
+        if (!tag) continue;
+        const group = want.startsWith("exp:") ? experienceTags : WORK_TYPE_TAGS.has(tag.text) ? workTypeTags : employmentTypeTags;
+        const groupValues = new Set(group.map((g) => g.value));
+        next = [...next.filter((v) => !groupValues.has(v)), tag.value];
+      }
+      // Навыки: своими тегами, до 5, без повторов.
+      const custom = next.filter((v) => !datasetTagValues.has(v));
+      const seen = new Set(next.map((v) => v.toLowerCase()));
+      for (const sk of f.skills ?? []) {
+        if (custom.length >= 5) break;
+        if (seen.has(sk.toLowerCase())) continue;
+        seen.add(sk.toLowerCase());
+        custom.push(sk);
+        next.push(sk);
+      }
+      return next;
+    });
+    if (f.questions && hiring) {
+      setQuestions((prev) => {
+        const out = [...prev];
+        const seen = new Set(out.map((q) => q.trim().toLowerCase()));
+        for (const q of f.questions!) {
+          if (out.length >= 5) break;
+          if (seen.has(q.toLowerCase())) continue;
+          seen.add(q.toLowerCase());
+          out.push(q);
+        }
+        return out;
+      });
+    }
+    if (f.link && !linkUrl.trim()) setLinkUrl(f.link);
+  }
 
   function toggleTag(value: string) {
     setSelectedTags((prev) => (prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]));
@@ -1700,6 +1783,32 @@ export function PostEditor({
               })}
             </div>
           </div>
+
+          {alpha.enabled && !adminActingAs && (
+            <div className="mb-4" data-testid="magic-post">
+              <MagicWandPanel
+                lang={lang}
+                onApply={applyMagicPost}
+                mode={{
+                  chips: magicPostChips(hiring),
+                  endpoint: "/api/posts/magic-wand",
+                  title: "Magic Post",
+                  placeholder: magicPostPlaceholder(lang, hiring),
+                  labels: magicPostLabels(lang),
+                  filledHint: magicPostText(lang, "filledHint"),
+                  extra: () => ({ kind: object === "post-job-employing" ? "job-employing" : "job-seeking" }),
+                  locked: !alpha.member,
+                  onLocked: () => {
+                    startAlphaMusic();
+                    setAlphaPaywall(true);
+                  },
+                }}
+              />
+            </div>
+          )}
+          {alphaPaywall &&
+            typeof document !== "undefined" &&
+            createPortal(<AlphaPaywall open={alphaPaywall} onClose={() => setAlphaPaywall(false)} onActivate={() => setAlphaPaywall(false)} />, document.body)}
 
           <div className="mb-4 flex flex-col gap-1.5">
             <label className={labelClass}>{t("titleLabel", lang)}</label>

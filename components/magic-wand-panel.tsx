@@ -217,14 +217,38 @@ function Chip({
   );
 }
 
+/** 09.10.2026 Magic Post: та же панель 1 в 1, только чипы публикации,
+ *  свой адрес на сервере и своё «что сказать». Без него -- профиль. */
+export type MagicWandMode = {
+  chips: MagicWandField[];
+  endpoint: string;
+  title: string;
+  placeholder: string;
+  labels: Partial<Record<MagicWandField, string>>;
+  /** Добавляется к запросу (например, kind: job-seeking / job-employing). */
+  extra?: () => Record<string, unknown>;
+  /** Ответ сервера целиком (например, понял ли он, кто пишет). */
+  onResult?: (result: MagicWandResult) => void;
+  /** Над чипами (вопрос «Ви шукаєте роботу чи спеціаліста?»). */
+  lead?: React.ReactNode;
+  /** Подпись под заголовком после «✓». */
+  filledHint?: string;
+  /** Нет Alpha: замок, нажатие открывает оплату. */
+  locked?: boolean;
+  onLocked?: () => void;
+};
+
 export function MagicWandPanel({
   lang,
   onApply,
+  mode,
 }: {
   lang: Locale;
   /** Применить найденное к форме редактора (ничего не сохраняет). */
   onApply: (patch: MagicWandPatch, location: MagicWandLocation) => void;
+  mode?: MagicWandMode;
 }) {
+  const CHIPS = mode?.chips ?? MAGIC_WAND_CHIPS;
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<MagicWandPanelData>(EMPTY_MAGIC_WAND_DATA);
   const [focus, setFocus] = useState<MagicWandField | null>(null);
@@ -299,8 +323,8 @@ export function MagicWandPanel({
 
   const tx = (key: MagicWandStr, vars?: Record<string, string | number>) => magicWandText(lang, key, vars);
   const isWorking = working.size > 0;
-  const filledCount = magicWandFilledCount(data);
-  const total = MAGIC_WAND_CHIPS.length;
+  const filledCount = magicWandFilledCount(data, CHIPS);
+  const total = CHIPS.length;
   const canApply = data.hasResult && filledCount > 0 && !isWorking;
   const showApply = text.trim() === "" && canApply;
   const canSend = !isWorking && !recording && (text.trim() !== "" || canApply);
@@ -324,7 +348,7 @@ export function MagicWandPanel({
     setMicDenied(false);
     setApplied(false);
     const f = focus;
-    setWorking(f ? new Set<MagicWandField>([f, ...MAGIC_WAND_CHIPS.filter((c) => data.chips[c]?.status !== "filled")]) : new Set(MAGIC_WAND_CHIPS));
+    setWorking(f ? new Set<MagicWandField>([f, ...CHIPS.filter((c) => data.chips[c]?.status !== "filled")]) : new Set(CHIPS));
     try {
       let voiceRef: string | null = null;
       if (input.blob) {
@@ -332,7 +356,7 @@ export function MagicWandPanel({
         voiceRef = await uploadVoice(input.blob, input.mime ?? "audio/webm", input.seconds ?? 0);
         setVoiceStage("read");
       }
-      const res = await authFetch("/api/account/magic-wand", {
+      const res = await authFetch(mode?.endpoint ?? "/api/account/magic-wand", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -340,11 +364,13 @@ export function MagicWandPanel({
           ...(voiceRef ? { voice: { fileReference: voiceRef } } : {}),
           ...(f ? { focus: f } : {}),
           lang: lang === "ptBR" ? "pt" : lang,
+          ...(mode?.extra?.() ?? {}),
         }),
       });
       const body = (await res.json().catch(() => null)) as { ok?: boolean; result?: MagicWandResult } | null;
       if (!res.ok || !body?.ok || !body.result) throw new Error("failed");
       setData((prev) => adoptMagicWandResult(prev, body.result as MagicWandResult, f));
+      mode?.onResult?.(body.result as MagicWandResult);
       if (input.blob) setHeard((body.result as MagicWandResult).transcript?.trim() || null);
       setText("");
       setHint(null);
@@ -690,7 +716,8 @@ export function MagicWandPanel({
     setApplied(false);
   }
 
-  const placeholder = hint ?? (data.hasResult ? tx("addMore") : tx("placeholder"));
+  const placeholder = hint ?? (data.hasResult ? tx("addMore") : (mode?.placeholder ?? tx("placeholder")));
+  const title = mode?.title ?? tx("title");
   const ringValue = filledCount / total;
 
   return (
@@ -700,7 +727,7 @@ export function MagicWandPanel({
         <button
           type="button"
           data-testid="magic-wand-entry"
-          onClick={() => setOpen(true)}
+          onClick={() => (mode?.locked ? mode.onLocked?.() : setOpen(true))}
           className="w-full rounded-2xl p-[1.5px] text-left"
           style={{ background: "linear-gradient(90deg,#317AFF,#8A59FF,#EF51CE,#FD31BB,#04B8FF,#317AFF)", backgroundSize: "200% 100%", animation: "mwShift 6s linear infinite" }}
         >
@@ -713,10 +740,15 @@ export function MagicWandPanel({
               <WandIcon className="h-6 w-6 shrink-0" />
             )}
             <span className="min-w-0 flex-1">
-              <span className="block text-[15px] font-semibold text-neutral-900 dark:text-neutral-50">{tx("title")}</span>
+              <span className="flex items-center gap-1.5 text-[15px] font-semibold text-neutral-900 dark:text-neutral-50">
+                {title}
+                {mode?.locked && (
+                  <svg data-testid="magic-wand-lock" viewBox="0 0 24 24" className="h-4 w-4 text-[#8A59FF]" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
+                )}
+              </span>
               {data.hasResult && (
                 <span className="block truncate text-[12.5px] text-neutral-500 dark:text-neutral-400">
-                  {applied ? tx("filledHint") : tx("filled", { count: filledCount, total })}
+                  {applied ? (mode?.filledHint ?? tx("filledHint")) : tx("filled", { count: filledCount, total })}
                 </span>
               )}
             </span>
@@ -729,7 +761,7 @@ export function MagicWandPanel({
               <ProgressRing value={data.hasResult ? ringValue : 0}>
                 <WandIcon className="h-[18px] w-[18px]" />
               </ProgressRing>
-              <span className="flex-1 text-[15px] font-semibold text-neutral-900 dark:text-neutral-50">{tx("title")}</span>
+              <span className="flex-1 text-[15px] font-semibold text-neutral-900 dark:text-neutral-50">{title}</span>
               {data.hasResult && (
                 <span data-testid="magic-wand-filled" className="rounded-full bg-[#ddf3e3] px-2.5 py-1 text-[12px] font-medium text-[#007a15] dark:bg-[#11421a] dark:text-[#7be08f]">
                   {tx("filled", { count: filledCount, total })}
@@ -740,15 +772,17 @@ export function MagicWandPanel({
               </button>
             </div>
 
+            {mode?.lead}
             <div className="flex flex-wrap gap-1.5">
-              {MAGIC_WAND_CHIPS.map((f) => {
+              {CHIPS.map((f) => {
                 const key = FIELD_LABEL[f];
+                const own = mode?.labels[f];
                 return (
                   <Chip
                     key={f}
                     testId={`magic-wand-chip-${f}`}
-                    label={key ? tx(key) : f}
-                    suffix={f === "languages" || f === "skills" ? tx("levels") : undefined}
+                    label={own ?? (key ? tx(key) : f)}
+                    suffix={!mode && (f === "languages" || f === "skills") ? tx("levels") : undefined}
                     color={MAGIC_WAND_CHIP_COLOR[f] ?? "#8A59FF"}
                     filled={data.chips[f]?.status === "filled"}
                     focused={focus === f}

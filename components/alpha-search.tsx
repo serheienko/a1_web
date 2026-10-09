@@ -14,7 +14,7 @@ import { createPortal } from "react-dom";
 import { AlphaPaywall } from "@/components/alpha-paywall";
 import type { AlphaPortrait } from "@/lib/alpha/types";
 
-type Me = { member: boolean; portrait: AlphaPortrait | null };
+type Me = { member: boolean; portrait: AlphaPortrait | null; enabled?: boolean };
 let cache: Promise<Me> | null = null;
 const listeners = new Set<(m: Me) => void>();
 

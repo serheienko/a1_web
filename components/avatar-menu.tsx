@@ -77,6 +77,8 @@ import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { CachedAvatar } from "@/components/cached-avatar";
 import { GLASS } from "@/lib/glass";
 import { NotificationsToggle, usePushTokenRefresh } from "@/components/notifications-toggle";
+import { AlphaWallet, WalletIcon } from "@/components/alpha-wallet";
+import { useAlphaMe } from "@/components/alpha-search";
 
 type Theme = "light" | "dark" | "auto";
 
@@ -370,6 +372,10 @@ export function AvatarMenu() {
   const [email, setEmail] = useState<string | null | undefined>(undefined);
   const [signingOut, setSigningOut] = useState(false);
   const [open, setOpen] = useState(false);
+  // 09.10.2026: Wallet вторым пунктом под «Контакти», как в приложении --
+  // только на тестовой копии сайта (Alpha есть только там).
+  const alphaMe = useAlphaMe(Boolean(email));
+  const [walletOpen, setWalletOpen] = useState(false);
   // Aleksandr, 2026-08-30: "у вас (Claude) это сделано для левого меню...
   // наводишь на кнопку, не нажимаешь, оно появляется. Если ушёл не
   // выбрав, исчезает плавно, с opacity. Хочу такое же при наведении на
@@ -875,6 +881,21 @@ export function AvatarMenu() {
               {STRINGS.contacts[lang]}
             </Link>
 
+            {alphaMe.enabled && (
+              <button
+                type="button"
+                data-testid="menu-wallet"
+                onClick={() => {
+                  setOpen(false);
+                  setWalletOpen(true);
+                }}
+                className="group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-neutral-700 transition hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+              >
+                <WalletIcon />
+                {lang === "uk" ? "Гаманець" : lang === "ru" ? "Кошелёк" : "Wallet"}
+              </button>
+            )}
+
             {/* 2026-09-18 (Александр: «где будет разблокировка?
                 Сделай где-то, я пока не знаю где лучше»). Здесь, рядом с
                 «Контакти»: это такой же личный список, и искать его
@@ -976,6 +997,7 @@ export function AvatarMenu() {
         </>
       )}
 
+      {alphaMe.enabled && <AlphaWallet open={walletOpen} lang={lang} onClose={() => setWalletOpen(false)} />}
     </div>
   );
 }
