@@ -177,11 +177,11 @@ async function BlockView({ block, article }: { block: NewsBlock; article: NewsAr
   }
 }
 
-export async function NewsView({ article }: { article: NewsArticle }) {
+export async function NewsView({ article, pool }: { article: NewsArticle; pool?: NewsArticle[] }) {
   const t = T[article.lang];
   const url = `${SITE_URL}/news/${article.slug}`;
-  const alt = altNews(article);
-  const related = relatedNews(article);
+  const alt = altNews(article, pool);
+  const related = relatedNews(article, pool);
   const dateText = new Date(article.published + "T12:00:00Z").toLocaleDateString(t.dateLocale, { day: "numeric", month: "long", year: "numeric" });
 
   const jsonLd = {

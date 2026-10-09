@@ -42,17 +42,17 @@ export function ShtabClock({
   return (
     <svg viewBox="0 0 360 360" width="100%" style={{ maxWidth: 380 }} role="img" aria-label={`Суточные часы, сейчас ${nowLabel} по Киеву`}>
       {RADII.map((r, i) => (
-        <circle key={i} cx={C} cy={C} r={r} fill="none" stroke="#ffffff12" strokeWidth={W} />
+        <circle key={i} cx={C} cy={C} r={r} fill="none" style={{ stroke: "var(--ring)" }} strokeWidth={W} />
       ))}
       {Array.from({ length: 24 }, (_, h) => {
         const [x1, y1] = pt(h * 60, 150);
         const [x2, y2] = pt(h * 60, h % 6 === 0 ? 160 : 155);
-        return <line key={h} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#ffffff55" strokeWidth={h % 6 === 0 ? 2 : 1} />;
+        return <line key={h} x1={x1} y1={y1} x2={x2} y2={y2} style={{ stroke: "var(--tick)" }} strokeWidth={h % 6 === 0 ? 2 : 1} />;
       })}
       {[0, 6, 12, 18].map((h) => {
         const [x, y] = pt(h * 60, 172);
         return (
-          <text key={h} x={x} y={y} fill="#9aa39a" fontSize="11" textAnchor="middle" dominantBaseline="middle" fontFamily="ui-monospace,Menlo,monospace">
+          <text key={h} x={x} y={y} style={{ fill: "var(--dim)" }} fontSize="11" textAnchor="middle" dominantBaseline="middle" fontFamily="ui-monospace,Menlo,monospace">
             {String(h).padStart(2, "0")}
           </text>
         );
@@ -61,7 +61,7 @@ export function ShtabClock({
         const [x1, y1] = pt(t.min, radius(t.track) - W / 2 - 3);
         const [x2, y2] = pt(t.min, radius(t.track) + W / 2 + 3);
         return (
-          <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#e8ebe4" strokeWidth="2.5" strokeLinecap="round">
+          <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} style={{ stroke: "var(--txt)" }} strokeWidth="2.5" strokeLinecap="round">
             <title>{t.title}</title>
           </line>
         );
@@ -71,13 +71,13 @@ export function ShtabClock({
           <title>{r.title}</title>
         </path>
       ))}
-      <line x1={C} y1={C} x2={hx} y2={hy} stroke="#e8b43c" strokeWidth="2.5" strokeLinecap="round" />
-      <circle cx={hx} cy={hy} r="5" fill="#e8b43c" />
-      <circle cx={C} cy={C} r="4" fill="#e8b43c" />
-      <text x={C} y={C - 22} fill="#e8ebe4" fontSize="26" fontWeight="800" textAnchor="middle" fontFamily="ui-monospace,Menlo,monospace">
+      <line x1={C} y1={C} x2={hx} y2={hy} style={{ stroke: "var(--hand)" }} strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx={hx} cy={hy} r="5" style={{ fill: "var(--hand)" }} />
+      <circle cx={C} cy={C} r="4" style={{ fill: "var(--hand)" }} />
+      <text x={C} y={C - 22} style={{ fill: "var(--txt)" }} fontSize="26" fontWeight="800" textAnchor="middle" fontFamily="ui-monospace,Menlo,monospace">
         {nowLabel}
       </text>
-      <text x={C} y={C + 30} fill="#9aa39a" fontSize="11" textAnchor="middle">
+      <text x={C} y={C + 30} style={{ fill: "var(--dim)" }} fontSize="11" textAnchor="middle">
         по Киеву
       </text>
     </svg>

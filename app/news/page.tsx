@@ -1,5 +1,5 @@
 export const runtime = "nodejs";
-export const revalidate = 3600;
+export const revalidate = 300;
 
 // app/news/page.tsx -- «IT новини»: украинский список. Английский -- /news/en
 // (hreflang связывает два списка; у каждой новости есть метка EN на свою версию).
@@ -8,6 +8,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { NewsList } from "@/components/news/news-list";
 import { newsByLang } from "@/lib/news/articles";
+import { allNews } from "@/lib/news/registry";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -22,8 +23,9 @@ export const metadata: Metadata = {
   openGraph: { title: "IT новини | A1 Jobs", url: `${SITE_URL}/news`, type: "website", locale: "uk_UA", alternateLocale: "en_US" },
 };
 
-export default function NewsIndex() {
-  const items = newsByLang("uk");
+export default async function NewsIndex() {
+  const pool = await allNews();
+  const items = newsByLang("uk", pool);
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
@@ -40,7 +42,7 @@ export default function NewsIndex() {
         <Link href="/news/en" hrefLang="en" lang="en" className="mt-2 shrink-0 rounded-full bg-neutral-100 px-3 py-1 text-[12px] font-semibold text-neutral-600 transition hover:bg-accent/10 hover:text-accent dark:bg-neutral-800 dark:text-neutral-300">EN</Link>
       </div>
       <p className="mt-2 text-neutral-500 dark:text-neutral-400">Найцікавіше зі світу технологій: цифри, графіки й наш погляд на те, що це означає для IT-ринку.</p>
-      <NewsList items={items} />
+      <NewsList items={items} pool={pool} />
     </main>
   );
 }

@@ -28,7 +28,7 @@ import { TOP100_LANDING } from "@/lib/seo/top100-landing";
 import { cityTechList, countrySegments, globalLevelCounts, globalRoleCounts, listCities, remoteTechList, segmentCountries } from "@/lib/a1/segment-index";
 import { COUNTRY_LANDING_CODES } from "@/lib/seo/country-landings";
 import { ARTICLES } from "@/lib/blog/articles";
-import { NEWS } from "@/lib/news/articles";
+import { allNews } from "@/lib/news/registry";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -122,7 +122,7 @@ async function buildSitemap({ id }: { id: number | string }): Promise<MetadataRo
     entries.push({ url: `${SITE_URL}/news`, lastModified: new Date(), changeFrequency: "daily", priority: 0.7 });
     entries.push({ url: `${SITE_URL}/news/en`, lastModified: new Date(), changeFrequency: "daily", priority: 0.6 });
     entries.push({ url: `${SITE_URL}/terms`, lastModified: new Date("2026-10-08"), changeFrequency: "yearly", priority: 0.2 });
-    for (const item of NEWS) {
+    for (const item of await allNews()) {
       entries.push({ url: `${SITE_URL}/news/${item.slug}`, lastModified: new Date(item.updated), changeFrequency: "weekly", priority: 0.6 });
     }
     // 08.10.2026: живая статистика вакансий (/stats), цифры меняются каждый день.

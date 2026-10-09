@@ -1,5 +1,5 @@
 export const runtime = "nodejs";
-export const revalidate = 3600;
+export const revalidate = 300;
 
 // app/news/[slug]/page.tsx -- страница новости (один язык, один адрес).
 // hreflang: uk <-> en через поле alt; x-default -- украинская версия.
@@ -8,6 +8,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { NewsView } from "@/components/news/news-view";
 import { altNews, findNews, NEWS } from "@/lib/news/articles";
+import { allNews } from "@/lib/news/registry";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -18,10 +19,11 @@ export function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const article = findNews((await params).slug);
+  const pool = await allNews();
+  const article = findNews((await params).slug, pool);
   if (!article) return {};
   const url = `${SITE_URL}/news/${article.slug}`;
-  const alt = altNews(article);
+  const alt = altNews(article, pool);
   const languages: Record<string, string> = { [article.lang === "uk" ? "uk-UA" : "en"]: url };
   if (alt) {
     languages[alt.lang === "uk" ? "uk-UA" : "en"] = `${SITE_URL}/news/${alt.slug}`;
@@ -49,7 +51,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function Page({ params }: Props) {
-  const article = findNews((await params).slug);
+  const pool = await allNews();
+  const article = findNews((await params).slug, pool);
   if (!article) notFound();
-  return <NewsView article={article} />;
+  return <NewsView article={article} pool={pool} />;
 }

@@ -11,9 +11,9 @@ const L = {
   en: { min: "min read", other: "Читати українською" },
 } as const;
 
-function Meta({ a }: { a: NewsArticle }) {
+function Meta({ a, pool }: { a: NewsArticle; pool: NewsArticle[] }) {
   const t = L[a.lang];
-  const alt = altNews(a);
+  const alt = altNews(a, pool);
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-neutral-500 dark:text-neutral-400">
       <span className="font-medium uppercase tracking-wide text-accent">{a.kicker}</span>
@@ -36,7 +36,8 @@ function Meta({ a }: { a: NewsArticle }) {
   );
 }
 
-export function NewsList({ items }: { items: NewsArticle[] }) {
+export function NewsList({ items, pool }: { items: NewsArticle[]; pool?: NewsArticle[] }) {
+  const all = pool ?? items;
   const [first, ...rest] = items;
   if (!first) return null;
   return (
@@ -51,7 +52,7 @@ export function NewsList({ items }: { items: NewsArticle[] }) {
           </span>
         </Link>
         <div className="border-t border-neutral-100 px-5 py-3 sm:px-6 dark:border-neutral-800">
-          <Meta a={first} />
+          <Meta a={first} pool={all} />
         </div>
       </article>
 
@@ -61,7 +62,7 @@ export function NewsList({ items }: { items: NewsArticle[] }) {
             <NewsThumb thumb={a.thumb} />
           </Link>
           <div className="min-w-0">
-            <Meta a={a} />
+            <Meta a={a} pool={all} />
             <Link href={`/news/${a.slug}`} className="mt-1 block text-lg font-semibold leading-snug text-neutral-900 transition group-hover:text-accent dark:text-neutral-50 sm:text-xl">{a.h1}</Link>
             <p className="mt-1 line-clamp-2 text-[14px] leading-relaxed text-neutral-600 dark:text-neutral-400 sm:text-[15px]">{a.description}</p>
           </div>

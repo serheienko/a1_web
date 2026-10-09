@@ -6,24 +6,26 @@ import { JXL_UK, JXL_EN } from "./jpeg-xl-chrome";
 
 export const NEWS: NewsArticle[] = [MISTRAL_UK, MISTRAL_EN, JXL_UK, JXL_EN];
 
-export function findNews(slug: string): NewsArticle | undefined {
-  return NEWS.find((a) => a.slug === slug);
+// Везде ниже `pool` -- полный список новостей (lib/news/registry.ts: статические + от агента
+// «Редакція A1»). По умолчанию -- только статические.
+export function findNews(slug: string, pool: NewsArticle[] = NEWS): NewsArticle | undefined {
+  return pool.find((a) => a.slug === slug);
 }
 
-export function altNews(article: NewsArticle): NewsArticle | undefined {
-  return findNews(article.alt);
+export function altNews(article: NewsArticle, pool: NewsArticle[] = NEWS): NewsArticle | undefined {
+  return findNews(article.alt, pool);
 }
 
-export function newsByLang(lang: NewsLang): NewsArticle[] {
+export function newsByLang(lang: NewsLang, pool: NewsArticle[] = NEWS): NewsArticle[] {
   // Новые сверху: по дате, а при одной дате -- позже добавленная выше.
-  return NEWS.map((a, i) => ({ a, i }))
+  return pool.map((a, i) => ({ a, i }))
     .filter(({ a }) => a.lang === lang)
     .sort((x, y) => y.a.published.localeCompare(x.a.published) || y.i - x.i)
     .map(({ a }) => a);
 }
 
-export function relatedNews(article: NewsArticle): NewsArticle[] {
-  const manual = article.related.map((s) => findNews(s)).filter((a): a is NewsArticle => !!a);
+export function relatedNews(article: NewsArticle, pool: NewsArticle[] = NEWS): NewsArticle[] {
+  const manual = article.related.map((s) => findNews(s, pool)).filter((a): a is NewsArticle => !!a);
   if (manual.length) return manual;
-  return newsByLang(article.lang).filter((a) => a.slug !== article.slug).slice(0, 3);
+  return newsByLang(article.lang, pool).filter((a) => a.slug !== article.slug).slice(0, 3);
 }

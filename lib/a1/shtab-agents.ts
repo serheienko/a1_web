@@ -30,7 +30,7 @@ export type AgentDef = {
   /** Сколько минут после слота агенту дано до «пропустил». */
   graceMin: number;
   /** pulse -- шлёт отметки; none -- пока нет; planned -- ещё не создан; manual -- запускается вручную */
-  kind: "pulse" | "none" | "planned" | "manual";
+  kind: "pulse" | "none" | "planned" | "manual" | "group";
   note?: string;
   /** Номер в очереди внутри комнаты (запуск по порядку). */
   order?: number;
@@ -38,6 +38,14 @@ export type AgentDef = {
   limit?: number | null;
   /** Откуда берёт вакансии, по-человечески. */
   sources?: string;
+  /** Не рисуется отдельным столом: входит в «группу» (один стол на нескольких исполнителей). */
+  hidden?: boolean;
+  /** Для kind "group": id участников. Лампочка стола -- худшая из лампочек участников. */
+  members?: string[];
+  /** Какая дорожка на суточных часах: 0 -- забег Конкистадора, 1 -- сервис DOU, 2 -- Сборщик Workable. */
+  track?: number;
+  /** Короткая подпись участника внутри группового стола. */
+  part?: string;
 };
 
 export type RoomDef = { id: string; name: string; where: string; color: string; wide?: boolean; agents: AgentDef[] };
@@ -54,24 +62,29 @@ export const ROOMS: RoomDef[] = [
     color: "#e8b43c",
     wide: true,
     agents: [
-      { id: "world", name: "Мир · топ-компании", nick: "Мировой", role: "Вакансии IT-компаний мира: ATS-ленты и фиды", slots: DAILY_07, graceMin: KONK_GRACE, order: 1, limit: null, sources: "Ленты вакансий топ-компаний мира (Greenhouse, Lever, Ashby, Workday и др.). Без дневного лимита: публикует все новые.", kind: "pulse" },
-      { id: "jobico", name: "Jobico · лента", nick: "Jobico", role: "Лента jobico.io, кнопка ведёт на вакансию", slots: DAILY_07, graceMin: KONK_GRACE, order: 2, limit: null, sources: "Лента jobico.io (с их разрешения, с пересказом). Без дневного лимита.", kind: "pulse" },
-      { id: "euro", name: "Европа", nick: "Европеец", role: "IT-вакансии Европы из многих источников", slots: DAILY_07, graceMin: KONK_GRACE, order: 3, limit: 1200, sources: "Workable (8 стран в день по кругу), EURES, Германия, Швеция, Болгария, Чехия, Польша и др.", kind: "pulse" },
-      { id: "us", name: "США", nick: "Американец", role: "IT-вакансии США", slots: DAILY_07, graceMin: KONK_GRACE, order: 4, limit: 400, sources: "Workable США, 317 стартапов YC, 115 работодателей Workday, удалёнка Himalayas и Jobicy.", kind: "pulse" },
-      { id: "af", name: "Африка", nick: "Африканец", role: "IT-вакансии Африки", slots: DAILY_07, graceMin: KONK_GRACE, order: 5, limit: 300, sources: "Workable из кеша GitHub (24 страны) и ленты 31 африканской компании.", kind: "pulse" },
-      { id: "lat", name: "Латинская Америка", nick: "Латам", role: "IT-вакансии Латинской Америки", slots: DAILY_07, graceMin: KONK_GRACE, order: 6, limit: 300, sources: "Workable из кеша GitHub, 17 стран Латинской Америки (без Бразилии и Мексики).", kind: "pulse" },
-      { id: "as", name: "Азия и Залив", nick: "Азиат", role: "IT-вакансии Азии, Залива и Казахстана", slots: DAILY_07, graceMin: KONK_GRACE, order: 7, limit: 300, sources: "Workable из кеша GitHub, 31 страна: Азия, Залив, Казахстан.", kind: "pulse" },
-      { id: "ua", name: "Украина · ATS-ленты", nick: "Казак 2", role: "IT-вакансии Украины из лент компаний", slots: DAILY_07, graceMin: KONK_GRACE, order: 8, limit: 300, sources: "Ленты украинских компаний, Workable Украина, удалёнка для Украины.", kind: "pulse" },
+      { id: "world", name: "Мир · топ-компании", nick: "Мировой", role: "Вакансии IT-компаний мира: ATS-ленты и фиды", slots: DAILY_07, graceMin: KONK_GRACE, order: 1, limit: null, sources: "Ленты вакансий топ-компаний мира (Greenhouse, Lever, Ashby, Workday и др.). Без дневного лимита: публикует все новые.", kind: "pulse", track: 0 },
+      { id: "jobico", name: "Jobico · лента", nick: "Jobico", role: "Лента jobico.io, кнопка ведёт на вакансию", slots: DAILY_07, graceMin: KONK_GRACE, order: 2, limit: null, sources: "Лента jobico.io (с их разрешения, с пересказом). Без дневного лимита.", kind: "pulse", track: 0 },
+      { id: "euro", name: "Европа", nick: "Европеец", role: "IT-вакансии Европы из многих источников", slots: DAILY_07, graceMin: KONK_GRACE, order: 3, limit: 1200, sources: "Workable (8 стран в день по кругу), EURES, Германия, Швеция, Болгария, Чехия, Польша и др.", kind: "pulse", track: 0 },
+      { id: "us", name: "США", nick: "Американец", role: "IT-вакансии США", slots: DAILY_07, graceMin: KONK_GRACE, order: 4, limit: 400, sources: "Workable США, 317 стартапов YC, 115 работодателей Workday, удалёнка Himalayas и Jobicy.", kind: "pulse", track: 0 },
+      { id: "af", name: "Африка", nick: "Африканец", role: "IT-вакансии Африки", slots: DAILY_07, graceMin: KONK_GRACE, order: 5, limit: 300, sources: "Workable из кеша GitHub (24 страны) и ленты 31 африканской компании.", kind: "pulse", track: 0 },
+      { id: "lat", name: "Латинская Америка", nick: "Латам", role: "IT-вакансии Латинской Америки", slots: DAILY_07, graceMin: KONK_GRACE, order: 6, limit: 300, sources: "Workable из кеша GitHub, 17 стран Латинской Америки (без Бразилии и Мексики).", kind: "pulse", track: 0 },
+      { id: "as", name: "Азия и Залив", nick: "Азиат", role: "IT-вакансии Азии, Залива и Казахстана", slots: DAILY_07, graceMin: KONK_GRACE, order: 7, limit: 300, sources: "Workable из кеша GitHub, 31 страна: Азия, Залив, Казахстан.", kind: "pulse", track: 0 },
     ],
   },
   {
-    id: "kazak",
-    name: "Украина: DOU и отправка в Google",
-    where: "Railway · 07:20 и 15:20 UTC",
+    id: "ukraine",
+    name: "Украина: вакансии и отправка в Google",
+    where: "ATS-ленты в забеге Конкистадора 07:00 UTC · DOU 07:20 и 15:20 UTC",
     color: "#4aa3ff",
     agents: [
-      { id: "kazak", name: "Украина · DOU", nick: "Казак", role: "Вакансии с DOU, дважды в день", slots: [{ h: 7, m: 20 }, { h: 15, m: 20 }], graceMin: 120, kind: "none", note: "Пульс идёт в старую таблицу; на новый штаб ещё не подключён." },
-      { id: "postman", name: "Отправка в Google", nick: "Почтальон", role: "Отправляет адреса вакансий в Google для индекса", slots: [], graceMin: 0, kind: "none", note: "Квота Google 200 в день, очередь около 23 тысяч адресов." },
+      {
+        id: "ukraine", name: "Украина", nick: "Казак", role: "Все IT-вакансии Украины: DOU и ленты украинских компаний", slots: [], graceMin: 0,
+        kind: "group", members: ["kazak", "ua"],
+        note: "Один агент по Украине: сначала DOU (дважды в день), ленты компаний — в общем забеге.",
+      },
+      { id: "kazak", name: "Украина · DOU", nick: "Казак", part: "DOU", role: "Вакансии с DOU", hidden: true, track: 1, slots: [{ h: 7, m: 20 }, { h: 15, m: 20 }], graceMin: 120, kind: "pulse", sources: "Лента DOU, дважды в день.", limit: null },
+      { id: "ua", name: "Украина · ATS-ленты", nick: "Казак 2", part: "ATS-ленты", hidden: true, track: 0, role: "IT-вакансии Украины из лент компаний", slots: DAILY_07, graceMin: KONK_GRACE, order: 8, limit: 300, sources: "Ленты украинских компаний, Workable Украина, удалёнка для Украины.", kind: "pulse" },
+      { id: "postman", name: "Отправка в Google", nick: "Почтальон", role: "Отправляет адреса вакансий в Google для индекса (квота Google 200 в день)", track: 1, slots: [{ h: 7, m: 20 }, { h: 15, m: 20 }], graceMin: 120, kind: "pulse", limit: 200, note: "Очередь около 23 тысяч адресов." },
     ],
   },
   {
@@ -80,7 +93,7 @@ export const ROOMS: RoomDef[] = [
     where: "GitHub Actions · 03:23 UTC",
     color: "#b58cff",
     agents: [
-      { id: "harvest", name: "Кеш Workable", nick: "Сборщик", role: "Собирает вакансии Workable и кладёт в кеш", slots: [{ h: 3, m: 23 }], graceMin: 120, kind: "none", note: "Африка, Латам, Азия по очереди; кеш кладёт в репозиторий." },
+      { id: "harvest", name: "Кеш Workable", nick: "Сборщик", role: "Собирает вакансии Workable и кладёт в кеш", slots: [{ h: 3, m: 23 }], graceMin: 120, track: 2, kind: "none", note: "Африка, Латам, Азия по очереди; кеш кладёт в репозиторий." },
     ],
   },
   {
@@ -106,13 +119,16 @@ export const ROOMS: RoomDef[] = [
     color: "#ff8fb8",
     agents: [
       { id: "tgbot", name: "Бот подписок", nick: "Бот-пингер", role: "Telegram: присылает новые вакансии по фильтру", slots: [], graceMin: 0, kind: "none" },
-      { id: "news", name: "Редакция новостей", nick: "Редакція A1", role: "Пишет «IT новини» для сайта", slots: [], graceMin: 0, kind: "planned", note: "Раздел на сайте есть, автора-агента ещё нет." },
+      { id: "news", name: "Редакция новостей", nick: "Редакція A1", role: "Пишет «IT новини» для сайта: 2 новости в день, uk + en", slots: DAILY_07, graceMin: KONK_GRACE, limit: 2, track: 0, kind: "pulse", note: "Работает в начале утреннего забега Конкистадора (10:00 Киев). Первая новость выходит сразу, вторая вечером." },
       { id: "hunter", name: "Сбор разработчиков", nick: "Охотник", role: "База разработчиков: GitHub, LinkedIn, Telegram", slots: [], graceMin: 0, kind: "manual", note: "Пока запускается вручную." },
     ],
   },
 ];
 
-export const KNOWN_AGENT_IDS = new Set(ROOMS.flatMap((r) => r.agents.map((a) => a.id)));
+/** Все агенты (в том числе спрятанные за групповыми столами), у которых есть пульс. */
+export const ALL_AGENTS: AgentDef[] = ROOMS.flatMap((r) => r.agents);
+
+export const KNOWN_AGENT_IDS = new Set(ALL_AGENTS.filter((a) => a.kind !== "group").map((a) => a.id));
 
 export type Lamp = "work" | "done" | "wait" | "error" | "missed" | "nodata" | "planned" | "manual";
 
@@ -124,6 +140,8 @@ export type AgentView = {
   last: string;
   /** Когда следующий запуск. */
   next: string;
+  /** Для группового стола: по строке на участника. */
+  parts?: { name: string; lamp: Lamp; label: string; last: string }[];
 };
 
 const WORKING_STALE_MS = 6 * 3600_000;
@@ -237,6 +255,19 @@ export function describeAgent(def: AgentDef, rec: PulseRecord | undefined, now: 
   return late
     ? { def, lamp: "missed", label: "Пропустил запуск", last: `Ожидали ${fmtWhen(slot, now)}. Последний раз: ${fmtWhen(finished, now)}${detail ? ", " + detail : ""}.`, next }
     : { def, lamp: "wait", label: "Ждёт запуска", last: `Последний раз: ${fmtWhen(finished, now)}${detail ? ", " + detail : ""}.`, next };
+}
+
+const SEVERITY: Record<Lamp, number> = { error: 7, missed: 6, work: 5, wait: 4, done: 3, manual: 2, nodata: 1, planned: 0 };
+
+/** Один стол на нескольких исполнителей (Украина = DOU + ленты компаний). Лампочка -- худшая из участников. */
+export function describeGroup(def: AgentDef, members: AgentView[]): AgentView {
+  const worst = [...members].sort((a, b) => SEVERITY[b.lamp] - SEVERITY[a.lamp])[0];
+  const parts = members.map((m) => ({ name: m.def.part ?? m.def.name, lamp: m.lamp, label: m.label, last: m.last }));
+  if (!worst) return { def, lamp: "nodata", label: "Нет данных", last: def.note ?? "", next: "" };
+  const allDone = members.every((m) => m.lamp === "done");
+  const label = allDone ? "Отработал сегодня" : worst.label;
+  const nexts = members.map((m) => m.next).filter(Boolean);
+  return { def, lamp: allDone ? "done" : worst.lamp, label, last: def.note ?? "", next: nexts[0] ?? "", parts };
 }
 
 export const LAMP_COLOR: Record<Lamp, string> = {
