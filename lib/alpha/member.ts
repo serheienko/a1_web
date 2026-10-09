@@ -21,3 +21,19 @@ export function alphaEmojiPath(id: number): string {
   const safe = Math.min(50, Math.max(1, Math.round(id)));
   return safe <= 25 ? `/premium/emoji/can-${safe}` : `/premium/emoji/fish-${safe - 25}`;
 }
+
+/** Max length of the running line (as in the app: 80). */
+export const ALPHA_TITLE_MAX = 80;
+
+const LINK =
+  /(https?:\/\/|www\.|\b[a-z0-9-]+\.(com|net|org|io|app|ua|ru|me|ly|co|link|site|xyz|info|biz|dev)\b|t\.me\/|@[a-z0-9_]{4,})/i;
+
+/** The running line may not carry links (same rule as the app). */
+export function alphaTitleHasLink(text: string): boolean {
+  return LINK.test(text);
+}
+
+/** 09.10.2026: a changed can is announced so every badge of that person on
+ *  the page switches at once (feed, profile, chat). */
+export const ALPHA_BADGE_EVENT = "a1:alpha-badge";
+export type AlphaBadgeChange = { username: string; emojiId?: number; title?: string | null };
