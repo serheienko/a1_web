@@ -37,6 +37,7 @@ import { StackPicker } from "@/components/stack-picker";
 import { buildSiteJsonLd } from "@/lib/seo/jsonld";
 import { withCountry } from "@/lib/seo/landing-country";
 import { RowCountryPicker } from "@/components/nav-country";
+import { AlphaHomeBlock } from "@/components/alpha-for-you";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -299,6 +300,11 @@ export default async function HomePage({ searchParams }: Props) {
         currentStack={selectedStack}
         currentCountry={filters.country}
       />
+
+      {/* 09.10.2026: Alpha-поиск участника -- «Для Вас» (пустой поиск) или
+          «Люди і компанії» над вакансиями (что-то набрано). Остальным --
+          ничего, см. components/alpha-for-you.tsx. */}
+      <AlphaHomeBlock query={filters.q} />
 
       {/* 30.09.2026 (Александр: «очень долго грузится лента при смене
           страны, а лоадер сверху не такой, как везде»). Список вакансий
