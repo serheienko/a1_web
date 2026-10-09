@@ -13,7 +13,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { LottiePlayer } from "@/components/lottie-player";
-import { AlphaPaywall, startAlphaMusic } from "@/components/alpha-paywall";
+import { AlphaFeatureGrid, AlphaPaywall, CanVideo, PlanCard, alphaText, startAlphaMusic } from "@/components/alpha-paywall";
 import { ContactsPickerModal, type PickedContact } from "@/components/chat/contacts-picker-modal";
 import { TIER_PRICES, formatUsd, guessCountry, tierForCountry } from "@/lib/premium/pricing";
 import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
@@ -43,7 +43,7 @@ function tr(lang: Locale, v: L): string {
 
 export function WalletIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-wallet-shake" aria-hidden="true">
       <path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h14a2 2 0 0 1 2 2v3" />
       <path d="M3 5v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3" />
       <path d="M17 12h4v4h-4a2 2 0 0 1 0-4Z" />
@@ -163,71 +163,71 @@ export function AlphaWallet({ open, lang, onClose }: { open: boolean; lang: Loca
 }
 
 function GiftSheet({ lang, to, onClose }: { lang: Locale; to: PickedContact; onClose: () => void }) {
+  // 09.10.2026 (Александр: «сделать по аналогии с приложением… банку в два раза
+  // меньше, на фоне в цвет видео, со всеми описаниями»): как окно Alpha --
+  // тот же фон #232330 (цвет видео банки), банка-видео поменьше, название,
+  // для кого, тарифы, «Що ще дає Alpha», условия и круглая кнопка подарка.
   const [shown, setShown] = useState(false);
-  const [plan, setPlan] = useState<"m1" | "m3" | "m12">("m12");
+  const [plan, setPlan] = useState<"month" | "quarter" | "year">("year");
   const [soon, setSoon] = useState(false);
   const [country, setCountry] = useState<string | null>(null);
-  const [dark, setDark] = useState(false);
   useEffect(() => {
     setCountry(guessCountry());
-    setDark(document.documentElement.classList.contains("dark"));
     const r = requestAnimationFrame(() => setShown(true));
-    return () => cancelAnimationFrame(r);
-  }, []);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", onKey);
+    return () => {
+      cancelAnimationFrame(r);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
   const price = TIER_PRICES[tierForCountry(country)];
-  const total = plan === "m1" ? price.month : plan === "m3" ? price.quarterTotal : price.yearTotal;
-  const name = [to.summary?.fullName ?? "", ""].join("").trim() || `${to.firstName} ${to.lastName}`.trim();
-  const plans: { id: "m1" | "m3" | "m12"; label: string; sum: number }[] = [
-    { id: "m1", label: tr(lang, W.m1), sum: price.month },
-    { id: "m3", label: tr(lang, W.m3), sum: price.quarterTotal },
-    { id: "m12", label: tr(lang, W.m12), sum: price.yearTotal },
-  ];
+  const total = plan === "month" ? price.month : plan === "quarter" ? price.quarterTotal : price.yearTotal;
+  const name = (to.summary?.fullName || `${to.firstName} ${to.lastName}`).trim();
   return (
-    <div className={`fixed inset-0 z-[215] flex items-end justify-center bg-black/40 p-1.5 transition-opacity duration-200 sm:items-center sm:p-4 ${shown ? "opacity-100" : "opacity-0"}`} {...backdropDismiss(onClose)}>
+    <div className={`fixed inset-0 z-[215] flex items-end justify-center bg-black/50 p-1.5 backdrop-blur-[3px] transition-opacity duration-200 sm:items-center sm:p-4 ${shown ? "opacity-100" : "opacity-0"}`} {...backdropDismiss(onClose)}>
       <div
         role="dialog"
         aria-modal="true"
         aria-label={tr(lang, W.giftTitle)}
-        className={`relative w-full max-w-[420px] overflow-hidden rounded-[35px_35px_50px_50px] bg-[#f4f4f9] pb-6 shadow-2xl transition duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] dark:bg-[#1c1c20] ${shown ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"}`}
+        className={`relative flex max-h-[calc(100dvh-12px)] w-full max-w-[460px] flex-col overflow-hidden rounded-[35px_35px_50px_50px] border border-white bg-white text-[#0b0b14] shadow-[0_30px_80px_rgba(20,30,80,0.35)] transition duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] sm:max-h-[calc(100dvh-32px)] dark:border-[#313136] dark:bg-[#232330] dark:text-white ${shown ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"}`}
       >
         <button
           type="button"
           onClick={onClose}
           aria-label={tr(lang, W.close)}
-          className="absolute right-3 top-3 z-10 grid h-9 w-9 place-items-center rounded-full bg-black/10 text-white transition hover:bg-black/20"
+          className="group absolute right-3.5 top-3.5 z-10 grid h-10 w-10 place-items-center rounded-full text-[#8e8e93] transition duration-200 hover:scale-110 hover:bg-black/5 hover:text-[#3a3a3c] active:scale-95 dark:hover:bg-white/10 dark:hover:text-white"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" className="transition duration-300 group-hover:rotate-90"><path d="M6 6l12 12M18 6L6 18" /></svg>
         </button>
-        <video
-          src={dark ? "/premium/can-dark.mp4" : "/premium/can-light.mp4"}
-          poster={dark ? "/premium/can-dark.jpg" : "/premium/can-light.jpg"}
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="h-[220px] w-full object-cover"
-        />
-        <div className="px-5">
-          <div className="mt-3 text-center text-[22px] font-bold text-neutral-900 dark:text-white">{tr(lang, W.giftTitle)}</div>
-          <div className="mt-1 text-center text-[15px] text-neutral-500 dark:text-neutral-400">{tr(lang, W.giftSub).replace("{n}", name || tr(lang, W.friend))}</div>
-          <div className="mt-5 flex flex-col gap-2">
-            {plans.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => setPlan(p.id)}
-                className={`flex items-center justify-between rounded-2xl border bg-white px-4 py-3 text-left transition dark:bg-[#2a2a2e] ${plan === p.id ? "border-[#5a4dff] ring-1 ring-[#5a4dff]" : "border-transparent"}`}
-              >
-                <span className="text-[15px] font-semibold text-neutral-900 dark:text-white">{p.label}</span>
-                <span className="text-[15px] font-bold text-neutral-900 dark:text-white">{formatUsd(p.sum)}</span>
-              </button>
-            ))}
+        <div className="min-h-0 flex-1 overflow-y-auto pb-28">
+          <div className="flex justify-center pt-6">
+            <div className="relative h-[136px] w-[136px] sm:h-[150px] sm:w-[150px]">
+              <CanVideo />
+            </div>
           </div>
-          {soon && <div className="mt-4 rounded-2xl bg-[#5a4dff]/10 px-4 py-3 text-center text-[14px] font-medium text-[#5a4dff] dark:text-[#b08cff]">{tr(lang, W.soon)}</div>}
+          <div className="px-5">
+            <h2 className="mt-2 text-center text-[28px] font-bold tracking-[-0.02em]">{tr(lang, W.giftTitle)}</h2>
+            <p className="mx-auto mt-1.5 max-w-[340px] text-center text-[15px] font-medium text-[#8e8e93]">{tr(lang, W.giftSub).replace("{n}", name || tr(lang, W.friend))}</p>
+            <div className="mt-5 grid grid-cols-1 gap-2.5">
+              <PlanCard active={plan === "month"} onClick={() => setPlan("month")} title={alphaText("month", lang)} price={formatUsd(price.month)} per={alphaText("perMonth", lang)} />
+              <PlanCard active={plan === "quarter"} onClick={() => setPlan("quarter")} title={alphaText("quarter", lang)} badge="−17%" price={formatUsd(price.quarterPerMonth)} per={alphaText("perMonth", lang)} note={`${formatUsd(price.quarterTotal)} ${alphaText("quarterOnce", lang)}`} />
+              <PlanCard active={plan === "year"} onClick={() => setPlan("year")} title={alphaText("year", lang)} badge={alphaText("save", lang)} price={formatUsd(price.yearPerMonth)} per={alphaText("perMonth", lang)} note={`${formatUsd(price.yearTotal)} ${alphaText("yearOnce", lang)}`} />
+            </div>
+            <h3 className="mt-6 text-[20px] font-bold tracking-[-0.02em]">{alphaText("alsoTitle", lang)}</h3>
+            <p className="mb-3 mt-1 text-[14px] text-[#6b6b78] dark:text-[#a9a9b8]">{alphaText("alsoSub", lang)}</p>
+            <AlphaFeatureGrid lang={lang} />
+            <p className="mt-5 text-center text-[11.5px] leading-snug text-[#a0a0aa]">{alphaText("footer", lang)}</p>
+          </div>
+        </div>
+        {/* Мягкое затухание списка под кнопкой, как в приложении. */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[130px] bg-gradient-to-b from-white/0 via-white/85 to-white dark:from-[#232330]/0 dark:via-[#232330]/85 dark:to-[#232330]" />
+        <div className="absolute inset-x-4 bottom-4">
+          {soon && <div className="mb-2 rounded-2xl bg-[#5a4dff]/10 px-4 py-2.5 text-center text-[13.5px] font-medium text-[#5a4dff] backdrop-blur dark:bg-[#5a4dff]/20 dark:text-[#c9bbff]">{tr(lang, W.soon)}</div>}
           <button
             type="button"
             onClick={() => setSoon(true)}
-            className="mt-5 h-[58px] w-full rounded-[30px] bg-gradient-to-r from-[#0148fc] via-[#5a4dff] to-[#963fff] text-[16px] font-bold uppercase tracking-wide text-white shadow-[0_10px_24px_rgba(90,80,255,0.3)] transition hover:-translate-y-0.5"
+            className="h-[58px] w-full rounded-[30px] bg-gradient-to-r from-[#0148fc] via-[#5a4dff] to-[#963fff] text-[16px] font-bold uppercase tracking-wide text-white shadow-[0_10px_24px_rgba(90,80,255,0.3)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(110,77,255,0.45)] active:scale-[0.99] dark:from-[#0c8ce9] dark:via-[#4f86ff] dark:to-[#9a5cff]"
           >
             {tr(lang, W.giftFor).replace("{p}", formatUsd(total))}
           </button>

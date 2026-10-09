@@ -722,7 +722,7 @@ export function MagicWandPanel({
 
   return (
     <div data-testid="magic-wand" className="rounded-2xl">
-      <style>{`@keyframes mwShift{0%{background-position:0% 50%}100%{background-position:200% 50%}}@keyframes mwFade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}@keyframes mwPop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}@keyframes mwDotDrop{0%{transform:translateY(0)}35%{transform:translateY(-26px)}75%{transform:translateY(2px) scale(.8)}100%{transform:translateY(4px) scale(0);opacity:0}}@keyframes mwBin{0%{transform:scale(0);opacity:0}25%{transform:scale(1);opacity:1}75%{transform:scale(1) rotate(-8deg);opacity:1}100%{transform:scale(.6);opacity:0}}`}</style>
+      <style>{`@keyframes mwMic{0%,100%{transform:rotate(0)}25%{transform:rotate(-14deg) scale(1.1)}50%{transform:rotate(10deg) scale(1.1)}75%{transform:rotate(-5deg)}}@keyframes mwUp{0%,100%{transform:translateY(0)}45%{transform:translateY(-4px)}70%{transform:translateY(1px)}}@keyframes mwShift{0%{background-position:0% 50%}100%{background-position:200% 50%}}@keyframes mwFade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}@keyframes mwPop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}@keyframes mwDotDrop{0%{transform:translateY(0)}35%{transform:translateY(-26px)}75%{transform:translateY(2px) scale(.8)}100%{transform:translateY(4px) scale(0);opacity:0}}@keyframes mwBin{0%{transform:scale(0);opacity:0}25%{transform:scale(1);opacity:1}75%{transform:scale(1) rotate(-8deg);opacity:1}100%{transform:scale(.6);opacity:0}}`}</style>
       {!open ? (
         <button
           type="button"
@@ -767,8 +767,8 @@ export function MagicWandPanel({
                   {tx("filled", { count: filledCount, total })}
                 </span>
               )}
-              <button type="button" aria-label={tx("cancel")} onClick={() => setOpen(false)} className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-500 hover:bg-black/5 dark:hover:bg-white/10">
-                ✕
+              <button type="button" aria-label={tx("cancel")} onClick={() => setOpen(false)} className="group flex h-8 w-8 items-center justify-center rounded-full text-neutral-500 transition duration-200 hover:scale-110 hover:bg-black/5 hover:text-neutral-800 active:scale-90 dark:hover:bg-white/10 dark:hover:text-white">
+                <svg viewBox="0 0 24 24" className="h-4 w-4 transition duration-300 group-hover:rotate-90" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
               </button>
             </div>
 
@@ -884,9 +884,9 @@ export function MagicWandPanel({
                             type="button"
                             data-testid="magic-wand-lang"
                             onClick={() => setLangOpen((v) => !v)}
-                            className="flex h-[34px] items-center gap-1 rounded-full bg-white px-[11px] text-[14px] font-semibold text-[#989aa6] dark:bg-black"
+                            className="group flex h-[34px] items-center gap-1 rounded-full bg-white px-[11px] text-[14px] font-semibold text-[#989aa6] transition duration-200 hover:scale-105 hover:text-[#335ef7] active:scale-95 dark:bg-black dark:hover:text-[#7d93ff]"
                           >
-                            <GlobeIcon className="h-4 w-4" />
+                            <GlobeIcon className="h-4 w-4 transition duration-500 group-hover:rotate-[200deg]" />
                             {dictLang.toUpperCase()}
                           </button>
                           {langOpen && (
@@ -913,9 +913,9 @@ export function MagicWandPanel({
                           data-testid="magic-wand-mic"
                           aria-label={tx("voice")}
                           onClick={() => void startVoice()}
-                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-[#989aa6] transition active:scale-90 dark:bg-black"
+                          className="group flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-[#989aa6] transition duration-200 hover:scale-110 hover:text-[#ff3b30] active:scale-90 dark:bg-black"
                         >
-                          <MicIcon className="h-[18px] w-[18px]" />
+                          <MicIcon className="h-[18px] w-[18px] group-hover:animate-[mwMic_.5s_ease-in-out]" />
                         </button>
                       </>
                     )}
@@ -925,14 +925,14 @@ export function MagicWandPanel({
                       aria-label={showApply ? tx("apply") : tx("send")}
                       disabled={!canSend && !isWorking}
                       onClick={send}
-                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#335ef7] text-white transition active:scale-90 ${!canSend && !isWorking ? "opacity-45" : ""}`}
+                      className={`group flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#335ef7] text-white transition duration-200 active:scale-90 ${!canSend && !isWorking ? "opacity-45" : "hover:scale-110 hover:shadow-[0_6px_16px_rgba(51,94,247,0.45)]"}`}
                     >
                       {isWorking ? (
                         <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
                       ) : showApply ? (
-                        <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>
+                        <svg viewBox="0 0 24 24" className="h-[18px] w-[18px] transition duration-200 group-hover:scale-125" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>
                       ) : (
-                        <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" /></svg>
+                        <svg viewBox="0 0 24 24" className={`h-[18px] w-[18px] ${canSend ? "group-hover:animate-[mwUp_.5s_ease-in-out]" : ""}`} fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" /></svg>
                       )}
                     </button>
                   </div>

@@ -74,10 +74,13 @@ export function AlphaFlow({
   initial,
   lang,
   onUnlock,
+  onDone,
 }: {
   initial: string;
   lang: Locale;
   onUnlock: () => void;
+  /** 09.10.2026: the portrait is saved and the matches are in. */
+  onDone?: () => void;
 }) {
   const l: L = lang === "uk" || lang === "ru" ? lang : "en";
   const [msgs, setMsgs] = useState<Msg[]>([{ from: "me", text: initial }]);
@@ -165,6 +168,7 @@ export function AlphaFlow({
       setMatches(data.matches ?? []);
       setScanned(data.scanned ?? 0);
       setPhase("results");
+      onDone?.();
     } catch {
       setPhase("error");
     }

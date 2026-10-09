@@ -25,6 +25,12 @@ function loadMe(): Promise<Me> {
   return cache;
 }
 
+/** 09.10.2026: after a test purchase -- ask again and tell every block on the page. */
+export function refreshAlphaMe(): void {
+  cache = null;
+  void loadMe().then((m) => listeners.forEach((l) => l(m)));
+}
+
 /** Is the visitor an Alpha member (+ the remembered portrait). */
 export function useAlphaMe(enabled = true): Me {
   const [me, setMe] = useState<Me>({ member: false, portrait: null });

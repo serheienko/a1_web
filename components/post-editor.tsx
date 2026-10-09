@@ -1625,7 +1625,7 @@ export function PostEditor({
                 {t("draftSaved", lang)}
               </span>
             )}
-            <button type="button" onClick={requestClose} aria-label={t("close", lang)} className="text-neutral-400 transition hover:text-neutral-900 dark:hover:text-neutral-50">
+            <button type="button" onClick={requestClose} aria-label={t("close", lang)} className="group grid h-9 w-9 place-items-center rounded-full text-neutral-400 transition duration-200 hover:scale-110 hover:bg-black/5 hover:text-neutral-900 active:scale-90 dark:hover:bg-white/10 dark:hover:text-neutral-50 [&>svg]:transition [&>svg]:duration-300 hover:[&>svg]:rotate-90">
               <CloseIcon />
             </button>
           </div>

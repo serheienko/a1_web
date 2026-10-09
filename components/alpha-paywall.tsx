@@ -20,6 +20,8 @@ import { DICT_LANGS, GlobeIcon, initialDictLang, saveDictLang } from "@/lib/dict
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
 import { AlphaFlow } from "@/components/alpha-flow";
+import { refreshAlphaMe } from "@/components/alpha-search";
+import { showAlphaSuccess } from "@/components/alpha-success";
 import { useActiveLocale } from "@/lib/use-active-locale";
 import type { Locale } from "@/components/t";
 import {
@@ -57,19 +59,21 @@ const S: Record<Key, Partial<Record<Locale, string>> & { en: string }> = {
     en: "Search and everything below — in one Alpha membership.",
     ru: "Поиск и всё ниже — в одной подписке Alpha.",
   },
-  wandT: { uk: "Чарівна паличка", en: "Magic wand", ru: "Волшебная палочка" },
+  // 09.10.2026 (Александр: «какие поля? ничего не понятно»): как в приложении --
+  // «Магічна публікація», и прямо сказано, что она делает.
+  wandT: { uk: "Магічна публікація", en: "Magic Post", ru: "Магическая публикация" },
   wandD: {
-    uk: "Розкажіть голосом чи текстом — поля заповняться самі.",
-    en: "Say it or type it — the fields fill themselves.",
-    ru: "Расскажите голосом или текстом — поля заполнятся сами.",
+    uk: "Розкажіть голосом чи текстом, що хочете опублікувати, — Alpha сама складе вакансію чи резюме: заголовок, опис, зарплату, формат.",
+    en: "Say or type what you want to post — Alpha writes the job or CV post for you: title, description, salary, format.",
+    ru: "Расскажите голосом или текстом, что хотите опубликовать, — Alpha сама составит вакансию или резюме: заголовок, описание, зарплату, формат.",
   },
   mediaT: { uk: "Медіа без ліміту", en: "No media limits", ru: "Медиа без лимита" },
   mediaD: { uk: "Фото, відео та файли в чатах.", en: "Photos, videos and files in chats.", ru: "Фото, видео и файлы в чатах." },
   statusT: { uk: "Власний статус", en: "Your own status", ru: "Свой статус" },
   statusD: {
-    uk: "Ваш текст у профілі біжить рядком.",
-    en: "Your text runs as a ticker on your profile.",
-    ru: "Ваш текст в профиле бежит строкой.",
+    uk: "Біжучий рядок біля Вашого значка: назва компанії, настрій чи думки.",
+    en: "A running line by your badge: company, mood or thoughts.",
+    ru: "Бегущая строка у Вашего значка: название компании, настроение или мысли.",
   },
   emojiT: { uk: "Значок Alpha", en: "Alpha badge", ru: "Значок Alpha" },
   emojiD: { uk: "Поруч з Вашим іменем — всі бачать, що Ви в Alpha.", en: "Next to your name — everyone sees you're in Alpha.", ru: "Рядом с Вашим именем — все видят, что Вы в Alpha." },
@@ -514,7 +518,23 @@ export function AlphaPaywall({
             <div className="flex flex-col">
               <button
                 type="button"
-                onClick={() => onActivate?.(plan)}
+                onClick={() => {
+                  // 09.10.2026 (Александр: «после Join Alpha в тесте тоже должна
+                  // появляться анимация и All set… дубль приложения»). Оплаты
+                  // ещё нет: на тестовой копии сайта покупка тестовая -- метка
+                  // a1_premium_test (её признаёт сервер), Alpha открывается сразу,
+                  // и поверх -- «You are all set!» с котом и денежным дождём.
+                  if (!document.cookie.includes("a1_user=")) {
+                    setAuthNeeded(true);
+                    inputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    return;
+                  }
+                  document.cookie = `a1_premium_test=1; path=/; max-age=${60 * 60 * 24 * 30}; samesite=lax`;
+                  refreshAlphaMe();
+                  showAlphaSuccess();
+                  if (onActivate) onActivate(plan);
+                  else onClose();
+                }}
                 className={`alpha-flow flex min-h-[56px] flex-1 items-center justify-center rounded-[18px] px-4 text-[16px] font-bold text-white shadow-[0_10px_24px_rgba(90,80,255,0.35)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(110,77,255,0.45)] active:translate-y-0 active:scale-[0.99] sm:text-[17px] ${nudge ? "ring-4 ring-[#6a4dff]/30" : ""}`}
                 
               >
@@ -534,7 +554,7 @@ export function AlphaPaywall({
 // (~8 KB) shows instantly, then ONE video for the current theme (WebM ~0.85 MB
 // where supported, MP4 ~1 MB otherwise) fades in over it once it is actually
 // playing -- the window never waits for the video.
-function CanVideo() {
+export function CanVideo() {
   const [theme, setTheme] = useState<"light" | "dark" | null>(null);
   const [playing, setPlaying] = useState(false);
   useEffect(() => {
@@ -598,6 +618,22 @@ function LogoImg({ src, className = "" }: { src: string; className?: string }) {
 
 let preloaded = false;
 /** Warm the browser cache: both logos + the can's first frame. Cheap (~45 KB). */
+/** 09.10.2026: the same texts and blocks for the gift window (alpha-wallet.tsx). */
+export function alphaText(key: Key, lang: Locale): string {
+  return t(key, lang);
+}
+
+export function AlphaFeatureGrid({ lang }: { lang: Locale }) {
+  return (
+    <div className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
+      <Feature icon={<WandIcon />} title={t("wandT", lang)} desc={t("wandD", lang)} />
+      <Feature icon={<MediaIcon />} title={t("mediaT", lang)} desc={t("mediaD", lang)} />
+      <Feature icon={<StatusIcon />} title={t("statusT", lang)} desc={t("statusD", lang)} />
+      <Feature icon={<CanIcon />} title={t("emojiT", lang)} desc={t("emojiD", lang)} />
+    </div>
+  );
+}
+
 export function preloadAlpha() {
   if (preloaded || typeof window === "undefined") return;
   preloaded = true;
@@ -642,7 +678,7 @@ function Feature({ icon, title, desc }: { icon: React.ReactNode; title: string; 
   );
 }
 
-function PlanCard({
+export function PlanCard({
   active, onClick, title, price, per, note, badge,
 }: {
   active: boolean; onClick: () => void; title: string; price: string; per: string; note?: string; badge?: string;

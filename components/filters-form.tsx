@@ -84,6 +84,7 @@ import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import type { UserSearchHit } from "@/app/api/users/search/route";
 import { AlphaForYouRow, AlphaRing, AlphaSearchWindow, looksLikeJobQuery, useAlphaMe } from "@/components/alpha-search";
+import { ALPHA_ASK_EVENT, AlphaAskPanel } from "@/components/alpha-ask";
 
 const MAX_SUGGESTIONS_PER_GROUP = 5;
 
@@ -643,6 +644,30 @@ export function FiltersForm({
   // строки «Знайти … з Alpha» в подсказках больше нет. Результат --
   // люди + вакансии на самой странице (components/alpha-for-you.tsx).
   const alphaRow = false && alphaMe.member && looksLikeJobQuery(query);
+  // 09.10.2026 (Александр): участник нажал на поле, а Alpha его ещё не знает --
+  // вопросы Alpha прямо под полем (components/alpha-ask.tsx). ✎ в «Для Вас»
+  // открывает то же самое («again»).
+  const [alphaAsk, setAlphaAsk] = useState<null | "first" | "again">(null);
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 640px)");
+    const on = () => setWide(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    const ask = () => setAlphaAsk("again");
+    window.addEventListener(ALPHA_ASK_EVENT, ask);
+    return () => {
+      mq.removeEventListener("change", on);
+      window.removeEventListener(ALPHA_ASK_EVENT, ask);
+    };
+  }, []);
+  const askFirst = () => {
+    if (alphaMe.member && !alphaMe.portrait && !query.trim()) setAlphaAsk((v) => v ?? "first");
+  };
+  const alphaAskPanel = (forWide: boolean) =>
+    alphaAsk && wide === forWide ? (
+      <AlphaAskPanel lang={lang} again={alphaAsk === "again"} onClose={() => setAlphaAsk(null)} />
+    ) : null;
   const showSuggestions =
     inputFocused && needle.length > 0 && (alphaRow || people.length > 0 || categorySuggestions.length > 0 || tagSuggestions.length > 0);
 
@@ -1007,14 +1032,17 @@ export function FiltersForm({
                 type="text"
                 value={query}
                 onChange={(e) => onQueryChange(e.target.value)}
-                onFocus={() => setInputFocused(true)}
+                onFocus={() => {
+                  setInputFocused(true);
+                  askFirst();
+                }}
                 onKeyDown={onSearchKeyDown}
                 onBlur={() => {
                   // Delayed, not immediate — a suggestion button's onClick
                   // needs to still fire after this input blurs to it.
                   blurTimeoutRef.current = setTimeout(() => setInputFocused(false), 150);
                 }}
-                placeholder={FILTERS_FORM_STRINGS.searchPlaceholderShort[lang]}
+                placeholder={alphaMe.member ? `Alpha ${FILTERS_FORM_STRINGS.searchPlaceholderShort[lang]}` : FILTERS_FORM_STRINGS.searchPlaceholderShort[lang]}
                 className={
                   "w-full rounded-full py-2 pl-9 pr-8 text-sm text-neutral-900 outline-none transition focus:border-accent/40 focus:ring-2 focus:ring-accent/30 dark:text-neutral-100 " +
                   GLASS
@@ -1049,6 +1077,7 @@ export function FiltersForm({
             )}
 
             {suggestionsDropdown}
+            {alphaAskPanel(false)}
           </div>
           <div
             // 09.10.2026: у участника Alpha фильтров нет -- одно поле.
@@ -1139,12 +1168,15 @@ export function FiltersForm({
                   type="text"
                   value={query}
                   onChange={(e) => onQueryChange(e.target.value)}
-                  onFocus={() => setInputFocused(true)}
+                  onFocus={() => {
+                  setInputFocused(true);
+                  askFirst();
+                }}
                 onKeyDown={onSearchKeyDown}
                   onBlur={() => {
                     blurTimeoutRef.current = setTimeout(() => setInputFocused(false), 150);
                   }}
-                  placeholder={FILTERS_FORM_STRINGS.searchPlaceholderShort[lang]}
+                  placeholder={alphaMe.member ? `Alpha ${FILTERS_FORM_STRINGS.searchPlaceholderShort[lang]}` : FILTERS_FORM_STRINGS.searchPlaceholderShort[lang]}
                   className="w-full rounded-full border border-neutral-300 bg-white py-1.5 pl-9 pr-8 text-sm text-neutral-900 outline-none transition focus:border-accent/40 focus:ring-2 focus:ring-accent/30 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
                 />
               </AlphaRing>
@@ -1176,6 +1208,7 @@ export function FiltersForm({
               )}
 
               {suggestionsDropdown}
+              {alphaAskPanel(true)}
             </div>
 
             <div

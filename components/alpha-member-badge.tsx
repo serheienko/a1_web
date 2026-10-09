@@ -114,7 +114,15 @@ export function AlphaMemberBadge({
 }) {
   const locale = useActiveLocale();
   const t = (v: T9) => (v as Record<string, string>)[locale] ?? v.en;
-  const [mode, setMode] = useState<null | "sheet" | "panel">(null);
+  const [mode, setMode] = useState<null | "sheet" | "panel" | "hover">(null);
+  // 09.10.2026 (Александр: «при наведении на банку открывался этот поп-ап»):
+  // на компьютере наведение открывает своё окно банки, а у чужой -- карточку.
+  // Окно, открытое наведением, закрывается, когда мышь ушла (если в нём
+  // ничего не начали делать -- тогда остаётся до клика мимо или Esc).
+  const [byHover, setByHover] = useState(false);
+  const hoverTimer = useRef<number | null>(null);
+  const leaveTimer = useRef<number | null>(null);
+  const sticky = useRef(false);
   const [shown, setShown] = useState(false);
   const [paywall, setPaywall] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -154,19 +162,41 @@ export function AlphaMemberBadge({
 
   function close() {
     setShown(false);
+    setByHover(false);
+    sticky.current = false;
     window.setTimeout(() => setMode(null), 220);
   }
 
-  async function open() {
+  async function open(hover = false) {
     setAnchor(btn.current?.getBoundingClientRect() ?? null);
+    sticky.current = false;
+    setByHover(hover);
     const me = username ? await myUsername() : null;
     if (me && username && me.toLowerCase() === username.toLowerCase()) {
       if (line === undefined) setLine(await loadTitle(username));
       setMode("panel");
       return;
     }
-    setMode("sheet");
+    setMode(hover ? "hover" : "sheet");
     if (line === undefined && username) void loadTitle(username).then(setLine);
+  }
+
+  const canHover = () => typeof window !== "undefined" && window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+  function hoverIn() {
+    if (leaveTimer.current) window.clearTimeout(leaveTimer.current);
+    leaveTimer.current = null;
+    if (mode || !canHover()) return;
+    if (hoverTimer.current) window.clearTimeout(hoverTimer.current);
+    hoverTimer.current = window.setTimeout(() => void open(true), 220);
+  }
+  function hoverOut() {
+    if (hoverTimer.current) window.clearTimeout(hoverTimer.current);
+    hoverTimer.current = null;
+    if (!byHover || sticky.current) return;
+    if (leaveTimer.current) window.clearTimeout(leaveTimer.current);
+    leaveTimer.current = window.setTimeout(() => {
+      if (!sticky.current) close();
+    }, 350);
   }
 
   return (
@@ -177,10 +207,22 @@ export function AlphaMemberBadge({
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
+          if (mode === "hover") {
+            // A click on the hovered can: the full window (prices, Join).
+            setMode("sheet");
+            setByHover(false);
+            return;
+          }
+          if (mode === "panel") {
+            sticky.current = true;
+            return;
+          }
           void open();
         }}
+        onMouseEnter={hoverIn}
+        onMouseLeave={hoverOut}
         aria-label={t(S.member)}
-        title={t(S.member)}
+        data-alpha-badge=""
         className={`relative z-10 inline-flex shrink-0 items-center justify-center align-middle transition hover:scale-110 ${className}`}
         style={{ width: size, height: size }}
       >
@@ -211,6 +253,27 @@ export function AlphaMemberBadge({
           document.body,
         )}
       {mounted &&
+        mode === "hover" &&
+        anchor &&
+        createPortal(
+          <HoverCard
+            t={t}
+            name={name}
+            base={base}
+            line={line ?? null}
+            anchor={anchor}
+            shown={shown}
+            onEnter={hoverIn}
+            onLeave={hoverOut}
+            onJoin={() => {
+              close();
+              startAlphaMusic();
+              setPaywall(true);
+            }}
+          />,
+          document.body,
+        )}
+      {mounted &&
         mode === "panel" &&
         username &&
         createPortal(
@@ -223,6 +286,12 @@ export function AlphaMemberBadge({
             emojiId={current}
             title={line ?? ""}
             onClose={close}
+            hover={byHover}
+            onEnter={hoverIn}
+            onLeave={hoverOut}
+            onUse={() => {
+              sticky.current = true;
+            }}
             onEmoji={(id) => {
               setEmojiId(id);
               announce({ username, emojiId: id });
@@ -332,6 +401,75 @@ function MemberSheet({
   );
 }
 
+// --- someone else's can, hovered (computer) -----------------------------------
+function HoverCard({
+  t,
+  name,
+  base,
+  line,
+  anchor,
+  shown,
+  onEnter,
+  onLeave,
+  onJoin,
+}: {
+  t: (v: T9) => string;
+  name: string;
+  base: string;
+  line: string | null;
+  anchor: DOMRect;
+  shown: boolean;
+  onEnter: () => void;
+  onLeave: () => void;
+  onJoin: () => void;
+}) {
+  const me = useAlphaMe(true);
+  const [country, setCountry] = useState<string | null>(null);
+  useEffect(() => setCountry(guessCountry()), []);
+  const price = TIER_PRICES[tierForCountry(country)];
+  const text = line?.trim() || t(S.marquee);
+  const run = text.length < 40 ? `${text}  ✦  ${text}  ✦  ${text}` : text;
+  const W = 320;
+  const vw = typeof window !== "undefined" ? window.innerWidth : 1024;
+  const ax = anchor.left + anchor.width / 2;
+  const left = Math.max(10, Math.min(ax - W / 2, vw - W - 10));
+  return (
+    <div
+      role="dialog"
+      aria-label={t(S.member)}
+      onMouseEnter={onEnter}
+      onMouseLeave={onLeave}
+      className={`fixed z-[210] rounded-[24px] border border-black/[0.06] bg-white/95 p-4 text-center shadow-[0_18px_50px_rgba(30,30,90,0.25)] backdrop-blur-xl transition duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] dark:border-white/10 dark:bg-[#1c1c24]/95 ${shown ? "translate-y-0 scale-100 opacity-100" : "-translate-y-1 scale-95 opacity-0"}`}
+      style={{ left, top: anchor.bottom + 10, width: W, transformOrigin: `${ax - left}px 0` }}
+    >
+      <style>{`@keyframes alphaMarq{from{transform:translateX(0)}to{transform:translateX(-50%)}}.alpha-marq{animation:alphaMarq 22s linear infinite}@media (prefers-reduced-motion:reduce){.alpha-marq{animation:none}}`}</style>
+      <div className="mx-auto grid h-[72px] w-[72px] place-items-center">
+        <LottiePlayer src={`${base}.json`} size={72} placeholder={false} />
+      </div>
+      <div className="relative mt-2 h-[38px] overflow-hidden rounded-full border border-black/[0.06] bg-neutral-50 [mask-image:linear-gradient(90deg,transparent,#000_8%,#000_92%,transparent)] dark:border-white/10 dark:bg-white/[0.06]">
+        <div className="alpha-marq flex h-full w-max items-center whitespace-nowrap text-[14px] font-medium text-neutral-800 dark:text-neutral-100">
+          <span className="pr-12">{run}</span>
+          <span className="pr-12" aria-hidden="true">{run}</span>
+        </div>
+      </div>
+      <div className="mt-2.5 text-[14px] font-semibold text-neutral-900 dark:text-white">{t(S.club).replace("{n}", name)}</div>
+      {!me.member && (
+        <>
+          <div className="mt-0.5 text-[12.5px] text-neutral-500 dark:text-neutral-400">{t(S.joinLine)}</div>
+          <button
+            type="button"
+            onClick={onJoin}
+            className="mt-3 h-11 w-full rounded-2xl bg-gradient-to-r from-[#0148fc] via-[#5a4dff] to-[#963fff] text-[15px] font-bold text-white shadow-[0_8px_20px_rgba(90,80,255,0.3)] transition hover:-translate-y-0.5 dark:from-[#0c8ce9] dark:via-[#4f86ff] dark:to-[#9a5cff]"
+          >
+            {t(S.join)} · {formatUsd(price.yearPerMonth)}
+            {t(S.perMonth)}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 // --- my own can: running line + 50 cans/fishes ------------------------------
 function OwnPanel({
   t,
@@ -344,6 +482,10 @@ function OwnPanel({
   onClose,
   onEmoji,
   onTitle,
+  hover = false,
+  onEnter,
+  onLeave,
+  onUse,
 }: {
   t: (v: T9) => string;
   locale: string;
@@ -355,6 +497,12 @@ function OwnPanel({
   onClose: () => void;
   onEmoji: (id: number) => void;
   onTitle: (text: string) => void;
+  /** Opened by hovering the can: no dimming, closes when the mouse leaves. */
+  hover?: boolean;
+  onEnter?: () => void;
+  onLeave?: () => void;
+  /** Something was typed or picked -- the window stays open. */
+  onUse?: () => void;
 }) {
   const [text, setText] = useState(title);
   const [saved, setSaved] = useState(title);
@@ -363,6 +511,15 @@ function OwnPanel({
   const [toast, setToast] = useState<string | null>(null);
   const [selected, setSelected] = useState(emojiId);
   const changed = text.trim() !== saved.trim();
+  useEffect(() => {
+    if (!hover) return;
+    const onDown = (e: MouseEvent) => {
+      const el = e.target as HTMLElement;
+      if (!el.closest?.("[data-alpha-own-panel]") && !el.closest?.("[data-alpha-badge]")) onClose();
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [hover, onClose]);
 
   async function post(body: { emojiId?: number; title?: string | null }): Promise<boolean> {
     try {
@@ -422,7 +579,10 @@ function OwnPanel({
   const card = "bg-white/85 dark:bg-[#1c1c1e]/90";
 
   return (
-    <div className={`fixed inset-0 z-[210] bg-black/30 transition-opacity duration-200 ${shown ? "opacity-100" : "opacity-0"}`} onClick={onClose}>
+    <div
+      className={`fixed inset-0 z-[210] transition-opacity duration-200 ${hover ? "pointer-events-none bg-transparent" : "bg-black/30"} ${shown ? "opacity-100" : "opacity-0"}`}
+      onClick={onClose}
+    >
       {anchor && (
         <>
           <span className={`absolute h-[7px] w-[7px] rounded-full ${card}`} style={{ left: ax - 4, top: anchor.bottom + 1 }} />
@@ -433,8 +593,13 @@ function OwnPanel({
         role="dialog"
         aria-modal="true"
         aria-label={t(S.member)}
+        data-alpha-own-panel=""
         onClick={(e) => e.stopPropagation()}
-        className={`absolute flex flex-col overflow-hidden rounded-[26px] border border-white px-2.5 pt-4 shadow-2xl backdrop-blur-xl transition duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] dark:border-[#313136] ${card} ${shown ? "scale-100 opacity-100" : "scale-[0.6] opacity-0"}`}
+        onMouseEnter={onEnter}
+        onMouseLeave={onLeave}
+        onPointerDown={onUse}
+        onKeyDown={onUse}
+        className={`pointer-events-auto absolute flex flex-col overflow-hidden rounded-[26px] border border-white px-2.5 pt-4 shadow-2xl backdrop-blur-xl transition duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] dark:border-[#313136] ${card} ${shown ? "scale-100 opacity-100" : "scale-[0.6] opacity-0"}`}
         style={{ left, top, width: W, height, transformOrigin: `${ax - left}px -20px` }}
       >
         <div className="flex items-center px-1.5">

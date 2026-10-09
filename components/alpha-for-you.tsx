@@ -18,6 +18,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlphaPaywall } from "@/components/alpha-paywall";
+import { ALPHA_PORTRAIT_EVENT, openAlphaAsk } from "@/components/alpha-ask";
 import { looksLikeJobQuery, useAlphaMe } from "@/components/alpha-search";
 import { CachedAvatar } from "@/components/cached-avatar";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
@@ -192,6 +193,18 @@ function AlphaForYou() {
     [lang],
   );
 
+  // 09.10.2026: Alpha learned the person in the search box -- load again.
+  useEffect(() => {
+    const on = () => {
+      try {
+        sessionStorage.removeItem(CACHE_KEY);
+      } catch {}
+      void load(false);
+    };
+    window.addEventListener(ALPHA_PORTRAIT_EVENT, on);
+    return () => window.removeEventListener(ALPHA_PORTRAIT_EVENT, on);
+  }, [load]);
+
   // Fresh on every visit; the last result at once when it is recent.
   useEffect(() => {
     const c = read<Cache>("session", CACHE_KEY);
@@ -263,9 +276,9 @@ function AlphaForYou() {
   return (
     <section className="mb-4 mt-3" aria-label={T.forYou[l]}>
       <style>{`.afy-flow{background-image:${FLOW};background-size:200% 100%}`}</style>
-      {state?.unknown ? (
-        <TellRow text={T.tell[l]} onClick={() => setAlpha(true)} />
-      ) : (
+      {/* 09.10.2026 (Александр): строки «Розкажіть Alpha про себе» в ленте нет --
+          Alpha спрашивает прямо в поле поиска (components/alpha-ask.tsx). */}
+      {state?.unknown ? null : (
         <>
           <div className="mb-2 flex items-center gap-2">
             <h2 className="text-[17px] font-semibold text-[#335ef7] dark:text-[#9fb2ff]">✦ {T.forYou[l]}</h2>
@@ -332,7 +345,7 @@ function AlphaForYou() {
               })}
               <button
                 type="button"
-                onClick={() => setAlpha(true)}
+                onClick={() => openAlphaAsk()}
                 title={T.retell[l]}
                 aria-label={T.retell[l]}
                 className="rounded-full border border-[#5a4dff]/30 px-3 py-1.5 text-[14px] text-[#5a4dff] dark:text-[#b7a6ff]"
@@ -487,12 +500,7 @@ function AlphaPeople({ query }: { query: string }) {
             <span aria-hidden="true">▾</span>
           </button>
         ))}
-      {unknown && (
-        <div className="mt-2">
-          <TellRow text={T.tell[l]} onClick={() => setAlpha(true)} />
-        </div>
-      )}
-      <AlphaWindow open={alpha} onClose={() => setAlpha(false)} />
+
     </section>
   );
 }
