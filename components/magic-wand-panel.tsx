@@ -723,7 +723,12 @@ export function MagicWandPanel({
   return (
     <div data-testid="magic-wand" className="rounded-2xl">
       <style>{`@keyframes mwMic{0%,100%{transform:rotate(0)}25%{transform:rotate(-14deg) scale(1.1)}50%{transform:rotate(10deg) scale(1.1)}75%{transform:rotate(-5deg)}}@keyframes mwUp{0%,100%{transform:translateY(0)}45%{transform:translateY(-4px)}70%{transform:translateY(1px)}}@keyframes mwShift{0%{background-position:0% 50%}100%{background-position:100% 50%}}@keyframes mwFade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}@keyframes mwPop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}@keyframes mwDotDrop{0%{transform:translateY(0)}35%{transform:translateY(-26px)}75%{transform:translateY(2px) scale(.8)}100%{transform:translateY(4px) scale(0);opacity:0}}@keyframes mwBin{0%{transform:scale(0);opacity:0}25%{transform:scale(1);opacity:1}75%{transform:scale(1) rotate(-8deg);opacity:1}100%{transform:scale(.6);opacity:0}}`}</style>
-      {!open ? (
+      <div
+        className={`grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${open ? "pointer-events-none grid-rows-[0fr] opacity-0" : "grid-rows-[1fr] opacity-100"}`}
+        aria-hidden={open}
+        {...(open ? { inert: true } : {})}
+      >
+        <div className="min-h-0 overflow-hidden">
         <button
           type="button"
           data-testid="magic-wand-entry"
@@ -754,7 +759,17 @@ export function MagicWandPanel({
             </span>
           </span>
         </button>
-      ) : (
+        </div>
+      </div>
+      {/* 09.10.2026 (Александр: «чтобы поле плавно разворачивалось и плавно
+          сворачивалось… у нас всё должно быть плавно»): обе части всегда в
+          разметке, высота меняется через grid-rows 0fr↔1fr. */}
+      <div
+        className={`grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${open ? "grid-rows-[1fr] opacity-100" : "pointer-events-none grid-rows-[0fr] opacity-0"}`}
+        aria-hidden={!open}
+        {...(!open ? { inert: true } : {})}
+      >
+        <div className="min-h-0 overflow-hidden">
         <div className="rounded-2xl p-[1.5px]" style={{ background: "linear-gradient(90deg,#317AFF 0%,#8A59FF 10%,#EF51CE 20%,#FD31BB 30%,#04B8FF 40%,#317AFF 50%,#8A59FF 60%,#EF51CE 70%,#FD31BB 80%,#04B8FF 90%,#317AFF 100%)", backgroundSize: "200% 100%", animation: "mwShift 6s linear infinite" }}>
           <div className="flex flex-col gap-3 rounded-[14.5px] bg-white p-3 dark:bg-neutral-900" data-testid="magic-wand-panel">
             <div className="flex items-center gap-3">
@@ -1014,7 +1029,8 @@ export function MagicWandPanel({
             )}
           </div>
         </div>
-      )}
+        </div>
+      </div>
     </div>
   );
 }
