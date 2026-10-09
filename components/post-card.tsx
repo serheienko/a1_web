@@ -37,6 +37,7 @@ import { PostOwnerMenu } from "@/components/post-owner-menu";
 import { profileHref as buildProfileHref } from "@/lib/profile-href";
 import { HighlightMatches } from "@/components/highlight-match";
 import { FoldableArticle } from "@/components/foldable-article";
+import { postMenuData } from "@/components/post-context-menu";
 
 export function PostCard({
   post,
@@ -199,7 +200,20 @@ export function PostCard({
     // in paint order and so click through to it; the avatar Link and
     // author-name Link are pulled back on top with their own `relative
     // z-10` so they keep going to the profile, not the post.
-    <FoldableArticle postId={post.id} href={href} className="relative flex items-start gap-4 rounded-card bg-card p-4 shadow-sm transition hover:shadow-md dark:border dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700">
+    <FoldableArticle
+      postId={post.id}
+      href={href}
+      menu={postMenuData({
+        id: post.id,
+        href,
+        title: post.title,
+        text: post.contentText,
+        authorId: post.author.userId,
+        authorName: post.author.name,
+        authorUsername: post.author.username,
+        authorAvatar: post.author.avatarUrl,
+      })}
+      className="relative flex items-start gap-4 rounded-card bg-card p-4 shadow-sm transition hover:shadow-md dark:border dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700">
       {/* 2026-08-28: "нажатие на эту область сейчас открывает профиль...
           мне надо, чтобы оно открывало пост. У нас профиль открывает
           только тап по аватару и тап по имени." — Aleksandr circled a

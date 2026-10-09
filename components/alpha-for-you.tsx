@@ -19,6 +19,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlphaPaywall } from "@/components/alpha-paywall";
 import { ALPHA_PORTRAIT_EVENT, openAlphaAsk } from "@/components/alpha-ask";
+import { postMenuData } from "@/components/post-context-menu";
 import { looksLikeJobQuery, useAlphaMe } from "@/components/alpha-search";
 import { CachedAvatar } from "@/components/cached-avatar";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
@@ -393,7 +394,10 @@ function AlphaForYou() {
 
 function MatchRow({ m, isNew, newLabel }: { m: AlphaMatch; isNew: boolean; newLabel: string }) {
   const body = (
-    <div className="flex items-start gap-3 rounded-[16px] border border-black/[0.07] p-3 transition hover:border-[#335ef7]/40 dark:border-white/10">
+    <div
+      {...postMenuData({ id: m.id, href: `/jobs/${m.slug}`, title: m.title, authorName: m.company })}
+      className="flex items-start gap-3 rounded-[16px] border border-black/[0.07] p-3 transition hover:border-[#335ef7]/40 dark:border-white/10"
+    >
       <CachedAvatar
         src={m.avatar ?? pickDefaultCatAvatar(m.company || m.id)}
         blurDataURL={BLUR_DATA_URL}

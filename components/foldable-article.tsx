@@ -37,16 +37,30 @@ function writeIds(ids: string[]) {
   window.dispatchEvent(new Event(EVENT));
 }
 
+/** 09.10.2026: «Позначити» из меню по правому клику -- тот же загнутый уголок. */
+export function toggleFoldedPost(postId: string): boolean {
+  const ids = readIds();
+  const next = ids.includes(postId) ? ids.filter((x) => x !== postId) : [...ids, postId];
+  writeIds(next);
+  return next.includes(postId);
+}
+export function isFoldedPost(postId: string): boolean {
+  return typeof window !== "undefined" && readIds().includes(postId);
+}
+
 export function FoldableArticle({
   postId,
   href,
   className,
   children,
+  menu,
 }: {
   postId: string;
   href: string;
   className?: string;
   children: ReactNode;
+  /** data-* for the right-click post menu (components/post-context-menu.tsx). */
+  menu?: Record<string, string>;
 }) {
   const router = useRouter();
   const [folded, setFolded] = useState(false);
@@ -105,7 +119,7 @@ export function FoldableArticle({
   };
 
   return (
-    <article className={`${className ?? ""} fold-card`} data-folded={folded ? "true" : "false"} onClickCapture={onClickCapture}>
+    <article className={`${className ?? ""} fold-card`} data-folded={folded ? "true" : "false"} onClickCapture={onClickCapture} {...menu}>
       {children}
       <span aria-hidden="true" className="fold-flap" />
     </article>

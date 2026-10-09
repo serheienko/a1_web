@@ -114,9 +114,22 @@ export function VoiceIntroPlayer() {
           type="button"
           onClick={cycleRate}
           aria-label="Скорость воспроизведения"
-          className="shrink-0 rounded-full bg-neutral-100 px-2.5 py-1.5 text-xs font-medium tabular-nums text-ink transition-colors hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700"
+          // 09.10.2026 (Александр: «переключение на полтора, на два икса -- с
+          // прикольной анимацией»): цифра выезжает снизу с пружинкой, кнопка
+          // «щёлкает», а чем быстрее -- тем ярче она подсвечена.
+          className={
+            "relative shrink-0 overflow-hidden rounded-full px-2.5 py-1.5 text-xs font-medium tabular-nums transition-all duration-300 hover:scale-105 active:scale-90 " +
+            (rate >= 2
+              ? "bg-accent text-white shadow-[0_4px_14px_rgba(51,94,247,0.45)]"
+              : rate > 1
+                ? "bg-accent/15 text-accent hover:bg-accent/25"
+                : "bg-neutral-100 text-ink hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700")
+          }
         >
-          {RATE_LABELS[rate] ?? `${rate}×`}
+          <style>{`@keyframes rateIn{0%{transform:translateY(110%) scale(.6);opacity:0}60%{transform:translateY(-12%) scale(1.12);opacity:1}100%{transform:none}}@media (prefers-reduced-motion:reduce){.rate-in{animation:none!important}}`}</style>
+          <span key={rate} className="rate-in inline-block animate-[rateIn_.38s_cubic-bezier(.34,1.56,.64,1)]">
+            {RATE_LABELS[rate] ?? `${rate}×`}
+          </span>
         </button>
       </div>
     </div>

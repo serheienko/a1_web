@@ -1029,7 +1029,7 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
     : [];
 
   return (
-    <section className="mt-10">
+    <section id="comments" className="mt-10 scroll-mt-24">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
         <T
           uk="Коментарі" en="Comments" ru="Комментарии" de="Kommentare" es="Comentarios"
