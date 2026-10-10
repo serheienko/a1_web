@@ -181,8 +181,14 @@ export function buildJobPostingJsonLd(
         : {}),
       ...(post.author.username ? { sameAs: `${SITE_URL}${profileHref(post.author.username)}` } : {}),
     },
-    // We don't have a web application flow (PLAN.md §3.3 "directApply" row).
-    directApply: false,
+    // 10.10.2026. Раньше здесь всегда стояло false -- наследие времён, когда
+    // отклика на сайте не было вовсе. Теперь он есть: у вакансий сценария B
+    // (украинские, кнопка «Відгукнутися») заявка подаётся прямо у нас, без
+    // перехода на чужой сайт -- это ровно то, что Google называет direct
+    // apply. У внешних вакансий сценария C кнопка уводит на сайт источника,
+    // там false и остаётся. Поле рекомендованное, и врать в обе стороны
+    // одинаково плохо: занижать -- значит терять метку в Google Jobs.
+    directApply: !post.isExternal,
   };
 
   // 2026-09-15. Бэкенд на вакансию без указанного места кладёт НЕ пустоту,
@@ -266,7 +272,7 @@ export function buildJobPostingJsonLd(
     // warn this recommended field is missing, which is honest. Revisit
     // once OPEN QUESTIONS "Is location === null the same as remote?" has a
     // real answer.
-  } else if (location) {
+  } else if (location && location.country.trim() && location.country.trim().toUpperCase() !== WORLDWIDE_COUNTRY) {
     // Ни города, ни признака удалённой -- офисная вакансия, у которой
     // место просто не заполнено. Полностью убрать jobLocation нельзя:
     // для неудалённой вакансии это обязательное поле, без него Google
@@ -276,8 +282,22 @@ export function buildJobPostingJsonLd(
     // вымоются сами за 60 дней (срок жизни объявления).
     jsonLd.jobLocation = {
       "@type": "Place",
-      address: { "@type": "PostalAddress", addressCountry: location.country },
+      address: { "@type": "PostalAddress", addressCountry: location.country.trim() },
     };
+  } else if (location) {
+    // 10.10.2026. Сюда доходит вакансия с сентинелом «Worldwide»: ни города,
+    // ни тега remote, страна «WW». Раньше ветка выше отдавала её как
+    // addressCountry: "WW" -- страны с таким кодом не существует, и для
+    // Google это ошибка в обязательном поле, то есть вакансия выпадает из
+    // Google Jobs целиком. Замер 10.10 по 50 случайным страницам: 3 из 50,
+    // то есть порядка 1 900 вакансий на сайте.
+    //
+    // «Worldwide» у бэкенда означает «место не привязано», а не «офис в
+    // стране WW». Честная разметка этого -- удалённая работа: jobLocation
+    // по правилам Google можно не указывать, если есть
+    // applicantLocationRequirements.
+    jsonLd.jobLocationType = "TELECOMMUTE";
+    jsonLd.applicantLocationRequirements = COUNTRIES.map((c) => ({ "@type": "Country", name: c.code }));
   }
 
   if (post.salary) {
