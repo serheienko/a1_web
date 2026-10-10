@@ -21,7 +21,15 @@ type Props = { params: Promise<{ role: string }>; searchParams: Promise<{ [key: 
 
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const info = roleInfo((await params).role);
-  if (!info || !(await globalRolePosts(info.slug))) return {};
+  // 10.10.2026. notFound() ЗДЕСЬ, а не только в самой странице. Причина:
+  // у нас есть app/loading.tsx, поэтому Next отдаёт каркас страницы сразу,
+  // до того как страница сходит за данными. Код ответа уходит клиенту
+  // вместе с этим каркасом -- то есть 200, -- и поздний notFound() его уже
+  // не меняет. Получался мягкий 404: снятая вакансия отвечала «200, всё в
+  // порядке», и для Google страница оставалась живой. generateMetadata
+  // выполняется ДО первой отправки (её результат нужен в <head>), поэтому
+  // отсюда 404 ставится честно.
+  if (!info || !(await globalRolePosts(info.slug))) notFound();
   const meta = roleMeta(info.slug);
   const url = `${SITE_URL}/jobs/role/${info.slug}`;
   return pagedMeta({

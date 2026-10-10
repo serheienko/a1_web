@@ -121,7 +121,15 @@ async function loadJob(slug: string) {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const post = await loadJob(slug);
-  if (!post) return {};
+  // 10.10.2026. notFound() ЗДЕСЬ, а не только в самой странице. Причина:
+  // у нас есть app/loading.tsx, поэтому Next отдаёт каркас страницы сразу,
+  // до того как страница сходит за данными. Код ответа уходит клиенту
+  // вместе с этим каркасом -- то есть 200, -- и поздний notFound() его уже
+  // не меняет. Получался мягкий 404: снятая вакансия отвечала «200, всё в
+  // порядке», и для Google страница оставалась живой. generateMetadata
+  // выполняется ДО первой отправки (её результат нужен в <head>), поэтому
+  // отсюда 404 ставится честно.
+  if (!post) notFound();
 
   const canonicalSlug = slugify(post.title, post.id);
   const canonicalUrl = `${SITE_URL}/jobs/${canonicalSlug}`;
