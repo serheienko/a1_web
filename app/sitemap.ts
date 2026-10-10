@@ -86,8 +86,9 @@ async function buildSitemap({ id }: { id: number | string }): Promise<MetadataRo
     for (const landing of JOB_LANDINGS) {
       entries.push({ url: `${SITE_URL}/jobs/${landing.slug}` });
     }
-    // 2026-09-18: посадочные по стеку (lib/seo/tech-landings.ts). Их
-    // шестнадцать -- тоже вместе с корнем, отдельного чанка не стоят.
+    // 2026-09-18: посадочные по стеку (lib/seo/tech-landings.ts). С
+    // 10.10.2026 их не шестнадцать, а весь словарь технологий -- всё ещё
+    // меньше сотни, так что отдельного чанка по-прежнему не стоят.
     for (const landing of TECH_LANDINGS) {
       entries.push({ url: `${SITE_URL}/jobs/stack/${landing.slug}` });
     }

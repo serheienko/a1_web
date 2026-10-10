@@ -154,8 +154,9 @@ export default async function Page({ params, searchParams }: Props) {
       )}
 
       {/* Перелинковка между посадочными: и человеку соседний стек под
-          рукой, и роботу маршрут по всем шестнадцати страницам с любой
-          из них. */}
+          рукой, и роботу маршрут по всем страницам стека с любой из них.
+          10.10.2026: страниц стало не шестнадцать, а весь словарь, и этот
+          блок -- главный способ, которым робот до новых добирается. */}
       <section className="mt-12 border-t border-neutral-100 pt-6 dark:border-neutral-800">
         <h2 className="text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
           <T uk="Інші стеки" en="Other stacks" ru="Другие стеки" de="Weitere Stacks" es="Otros stacks" fr="Autres stacks" pl="Inne stacki" ptBR="Outras stacks" zh="其他技术栈" />

@@ -17,11 +17,22 @@
 // вглубь. Они лечат обход не меньше, чем приводят людей по запросу
 // «python вакансії».
 //
-// Список короткий намеренно: только то, что реально спрашивают и чего у
-// нас заведомо больше десятка вакансий. Страница с тремя вакансиями
-// Google не нужна, а нам -- тем более.
+// 10.10.2026 (Александр, разбор SEO). Было шестнадцать посадочных на
+// семьдесят девять технологий словаря -- то есть шестьдесят три адреса,
+// по которым люди ищут («rust вакансії», «terraform робота»), мы просто
+// не открывали. Теперь посадочная есть у каждой технологии словаря, а от
+// пустых страниц по-прежнему защищает не короткий список, а порог
+// MIN_SEGMENT_POSTS: меньше десяти вакансий -- страницы нет (404) и в
+// карту сайта она не попадает.
+//
+// ИСКЛЮЧЕНИЯ -- там, где посадочная по стеку спорила бы за тот же запрос
+// с посадочной по профессии (lib/seo/job-role.ts). «SAP», «Salesforce»,
+// «1С», «SEO», «PPC» -- это профессии, а не технологии в резюме, и
+// запрос «вакансії sap» должна забирать одна наша страница, а не две.
+// В фильтре (?stack=) они остаются: см. lib/seo/tech-catalog.ts.
 
 import type { Locale } from "@/components/t";
+import { TECH_CATALOG } from "@/lib/seo/tech-catalog";
 
 export type TechLanding = {
   /** Часть адреса: /jobs/stack/<slug>. */
@@ -32,24 +43,32 @@ export type TechLanding = {
   label: string;
 };
 
-export const TECH_LANDINGS: TechLanding[] = [
-  { slug: "javascript", tech: "JavaScript", label: "JavaScript" },
-  { slug: "typescript", tech: "TypeScript", label: "TypeScript" },
-  { slug: "react", tech: "React", label: "React" },
-  { slug: "nodejs", tech: "Node.js", label: "Node.js" },
-  { slug: "python", tech: "Python", label: "Python" },
-  { slug: "java", tech: "Java", label: "Java" },
-  { slug: "php", tech: "PHP", label: "PHP" },
-  { slug: "dotnet", tech: ".NET", label: ".NET" },
-  { slug: "golang", tech: "Go", label: "Go" },
-  { slug: "flutter", tech: "Flutter", label: "Flutter" },
-  { slug: "swift", tech: "Swift", label: "Swift" },
-  { slug: "kotlin", tech: "Kotlin", label: "Kotlin" },
-  { slug: "aws", tech: "AWS", label: "AWS" },
-  { slug: "kubernetes", tech: "Kubernetes", label: "Kubernetes" },
-  { slug: "sql", tech: "SQL", label: "SQL" },
-  { slug: "figma", tech: "Figma", label: "Figma" },
+/**
+ * Технологии, у которых посадочной НЕТ: по этому запросу работает
+ * страница профессии (lib/seo/job-role.ts), две своих страницы на один
+ * запрос мы не выставляем.
+ */
+const ROLE_OWNED = new Set(["sap", "salesforce", "1c", "seo", "ppc"]);
+
+export const TECH_LANDINGS: TechLanding[] = TECH_CATALOG.filter((item) => !ROLE_OWNED.has(item.slug)).map((item) => ({
+  slug: item.slug,
+  tech: item.tech,
+  label: item.tech,
+}));
+
+/**
+ * Короткий список «популярного» -- он и был всем списком посадочных до
+ * 10.10.2026. Нужен там, где показывать весь словарь нельзя: свёрнутый
+ * ряд чипов в фильтре по стеку (components/stack-picker.tsx).
+ */
+export const POPULAR_TECH_SLUGS: string[] = [
+  "javascript", "typescript", "react", "nodejs", "python", "java", "php", "dotnet",
+  "golang", "flutter", "swift", "kotlin", "aws", "kubernetes", "sql", "figma",
 ];
+
+export const POPULAR_TECH_LANDINGS: TechLanding[] = POPULAR_TECH_SLUGS
+  .map((slug) => TECH_LANDINGS.find((item) => item.slug === slug))
+  .filter((item): item is TechLanding => !!item);
 
 export function findTechLanding(slug: string): TechLanding | undefined {
   return TECH_LANDINGS.find((item) => item.slug === slug);

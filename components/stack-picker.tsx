@@ -33,7 +33,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { TECH_GROUPS, TECH_CATALOG, type TechEntry } from "@/lib/seo/tech-catalog";
-import { TECH_LANDINGS } from "@/lib/seo/tech-landings";
+import { POPULAR_TECH_LANDINGS } from "@/lib/seo/tech-landings";
 import { T, LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 
 const STRINGS = {
@@ -66,7 +66,10 @@ const STRINGS = {
   },
 } satisfies Record<string, Record<Locale, string>>;
 
-const POPULAR_SLUGS = TECH_LANDINGS.map((item) => item.slug);
+// 10.10.2026: раньше это был весь список посадочных, но теперь посадочная
+// есть у каждой технологии словаря, и свёрнутый ряд чипов стал бы
+// словарём целиком. Популярное теперь -- отдельный короткий список.
+const POPULAR_SLUGS = POPULAR_TECH_LANDINGS.map((item) => item.slug);
 
 /** Как технология подписана на чипе -- каноническое имя и есть подпись. */
 function labelFor(entry: TechEntry): string {
@@ -262,7 +265,7 @@ export function StackPicker({
               const entry = TECH_CATALOG.find((item) => item.slug === slug);
               return entry ? chip(entry.slug, labelFor(entry)) : null;
             })}
-            {TECH_LANDINGS.map((item) => chip(item.slug, item.label))}
+            {POPULAR_TECH_LANDINGS.map((item) => chip(item.slug, item.label))}
             <button
               type="button"
               onClick={() => setExpanded((v) => !v)}
