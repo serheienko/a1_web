@@ -164,6 +164,22 @@ function applyAnswer(p: AlphaPortrait, slot: AlphaSlot, message: string): AlphaP
     case "level":
       if (["junior", "middle", "senior", "lead"].includes(v)) return { ...p, level: v as AlphaPortrait["level"] };
       return { ...merge(p, v), level: findLevel(v) ?? p.level };
+    case "location": {
+      // 10.10.2026 (Александр: «в какой стране, в каком городе… или Worldwide»):
+      // страна/город идут в пожелания -- по ним проверяем текст вакансии.
+      if (v === "any" || /^(worldwide|world ?wide|весь світ|весь мир)$/i.test(v)) return p;
+      const next = merge(p, v);
+      return { ...next, wishes: [...new Set([...next.wishes, v.slice(0, 40)])].slice(0, 8) };
+    }
+    case "format": {
+      if (["remote", "office", "hybrid", "any"].includes(v)) return { ...p, format: v as AlphaPortrait["format"] };
+      return { ...merge(p, v), format: findFormat(v) ?? p.format };
+    }
+    case "conditions": {
+      if (v === "none" || v === "any") return p;
+      const next = merge(p, v);
+      return { ...next, wishes: [...new Set([...next.wishes, v.slice(0, 60)])].slice(0, 8) };
+    }
     case "money": {
       if (v === "any") return p;
       const n = Number(v);
@@ -215,6 +231,47 @@ const Q: Record<Exclude<AlphaSlot, "more">, (role: AlphaPortrait["role"], l: L) 
     ],
     allowFree: false,
   }),
+  location: (r, l) => ({
+    slot: "location",
+    text:
+      r === "hiring"
+        ? { uk: "Де має працювати людина — країна чи місто? Або це не важливо.", en: "Where should the person be — country or city? Or it doesn't matter.", ru: "Где должен работать человек — страна или город? Или это не важно." }[l]
+        : { uk: "В якій країні чи місті хочете працювати? Можна — весь світ.", en: "Which country or city do you want to work in? Worldwide is fine too.", ru: "В какой стране или городе хотите работать? Можно — весь мир." }[l],
+    options: [
+      { label: { uk: "Україна", en: "Ukraine", ru: "Украина" }[l], value: { uk: "Україна", en: "Ukraine", ru: "Украина" }[l] },
+      { label: { uk: "Європа", en: "Europe", ru: "Европа" }[l], value: { uk: "Європа", en: "Europe", ru: "Европа" }[l] },
+      { label: { uk: "Польща", en: "Poland", ru: "Польша" }[l], value: { uk: "Польща", en: "Poland", ru: "Польша" }[l] },
+      { label: { uk: "США", en: "USA", ru: "США" }[l], value: "USA" },
+      { label: { uk: "Весь світ / не важливо", en: "Worldwide / doesn't matter", ru: "Весь мир / не важно" }[l], value: "any" },
+    ],
+    allowFree: true,
+  }),
+  format: (_r, l) => ({
+    slot: "format",
+    text: { uk: "Який формат: віддалено, офіс чи гібрид?", en: "Which format: remote, office or hybrid?", ru: "Какой формат: удалённо, офис или гибрид?" }[l],
+    options: [
+      { label: { uk: "Віддалено", en: "Remote", ru: "Удалённо" }[l], value: "remote" },
+      { label: { uk: "Офіс", en: "Office", ru: "Офис" }[l], value: "office" },
+      { label: { uk: "Гібрид", en: "Hybrid", ru: "Гибрид" }[l], value: "hybrid" },
+      { label: { uk: "Не важливо", en: "Doesn't matter", ru: "Не важно" }[l], value: "any" },
+    ],
+    allowFree: false,
+  }),
+  conditions: (r, l) => ({
+    slot: "conditions",
+    text:
+      r === "hiring"
+        ? { uk: "Які умови пропонуєте? Графік, години, розмір команди, вік компанії — пишіть що завгодно.", en: "What conditions do you offer? Schedule, hours, team size, company age — anything.", ru: "Какие условия предлагаете? График, часы, размер команды, возраст компании — пишите что угодно." }[l]
+        : { uk: "Що ще важливо? Зміна, скільки годин, розмір команди, вік компанії — розкажіть докладніше.", en: "What else matters? Shift, hours, team size, company age — tell me more.", ru: "Что ещё важно? Смена, сколько часов, размер команды, возраст компании — расскажите подробнее." }[l],
+    options: [
+      { label: { uk: "Гнучкий графік", en: "Flexible hours", ru: "Гибкий график" }[l], value: { uk: "гнучкий графік", en: "flexible hours", ru: "гибкий график" }[l] },
+      { label: { uk: "Невелика команда", en: "Small team", ru: "Небольшая команда" }[l], value: { uk: "невелика команда", en: "small team", ru: "небольшая команда" }[l] },
+      { label: { uk: "Стартап", en: "Startup", ru: "Стартап" }[l], value: "startup" },
+      { label: { uk: "Компанія 5+ років", en: "Company 5+ years", ru: "Компания 5+ лет" }[l], value: { uk: "компанія 5+ років", en: "established company", ru: "компания 5+ лет" }[l] },
+      { label: { uk: "Все ок", en: "All good", ru: "Всё ок" }[l], value: "none" },
+    ],
+    allowFree: true,
+  }),
   money: (r, l) => ({
     slot: "money",
     text:
@@ -258,8 +315,12 @@ function missing(p: AlphaPortrait): Exclude<AlphaSlot, "more">[] {
   if (!p.role) out.push("role");
   if (p.stack.length === 0) out.push("stack");
   if (!p.level) out.push("level");
+  // 10.10.2026: где, в каком формате и какие условия -- спрашиваем по разу.
+  out.push("location");
+  if (!p.format) out.push("format");
   if (p.money == null) out.push("money");
-  if (p.dealbreakers.length === 0 && p.wishes.length === 0) out.push("dealbreakers");
+  out.push("conditions");
+  if (p.dealbreakers.length === 0) out.push("dealbreakers");
   return out;
 }
 

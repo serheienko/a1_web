@@ -11,6 +11,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { AlphaFlow } from "@/components/alpha-flow";
 import { refreshAlphaMe } from "@/components/alpha-search";
 import { DICT_LANGS, GlobeIcon, initialDictLang, saveDictLang } from "@/lib/dictation-langs";
@@ -74,6 +75,37 @@ export function AlphaAskPanel({ lang, again = false, onClose }: { lang: Locale; 
   }, [listening]);
   const boxRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  // 10.10.2026 (Александр: «на десктопе не могу выбрать язык» -- список
+  // открывался вверх и обрезался панелью): список языков рисуется поверх всего
+  // через портал, вниз от кнопки (вверх -- только если внизу нет места).
+  const langBtnRef = useRef<HTMLButtonElement | null>(null);
+  const [langPos, setLangPos] = useState<{ top: number; left: number; maxH: number } | null>(null);
+  function toggleLang() {
+    if (langOpen) {
+      setLangOpen(false);
+      return;
+    }
+    const r = langBtnRef.current?.getBoundingClientRect();
+    if (r) {
+      const W = 220;
+      const below = window.innerHeight - r.bottom - 12;
+      const above = r.top - 12;
+      const down = below >= 200 || below >= above;
+      const maxH = Math.max(140, Math.min(300, down ? below : above));
+      setLangPos({
+        top: down ? r.bottom + 6 : Math.max(8, r.top - 6 - maxH),
+        left: Math.max(8, Math.min(r.right - W, window.innerWidth - W - 8)),
+        maxH,
+      });
+    }
+    setLangOpen(true);
+  }
+  // 10.10.2026 (Александр: «при диктовке наверх заезжали первые строки, была
+  // видна последняя»): пока идёт запись, поле прокручивается к концу текста.
+  useEffect(() => {
+    const el = inputRef.current;
+    if (el && listening) el.scrollTop = el.scrollHeight;
+  }, [text, listening]);
 
   useEffect(() => setDictLang(initialDictLang(String(lang))), [lang]);
   useEffect(() => {
@@ -147,7 +179,7 @@ export function AlphaAskPanel({ lang, again = false, onClose }: { lang: Locale; 
       <div className="mb-2 flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <div className="bg-gradient-to-r from-[#0148fc] to-[#963fff] bg-clip-text text-[17px] font-bold text-transparent dark:from-[#4f86ff] dark:to-[#b08cff]">
-            ✦ {again ? S.retitle[l] : S.title[l]}
+            ✦ {story ? "Alpha" : again ? S.retitle[l] : S.title[l]}
           </div>
           {!story && <p className="mt-1 text-[13.5px] leading-snug text-[#6b6b78] dark:text-[#a9a9b8]">{S.sub[l]}</p>}
         </div>
@@ -203,31 +235,41 @@ export function AlphaAskPanel({ lang, again = false, onClose }: { lang: Locale; 
             <div className={`relative transition-all duration-200 ${listening ? "pointer-events-none w-0 scale-75 overflow-hidden opacity-0" : "opacity-100"}`}>
               <button
                 type="button"
-                onClick={() => setLangOpen((v) => !v)}
+                ref={langBtnRef}
+                onClick={toggleLang}
                 className="group flex h-9 items-center gap-1 rounded-full bg-white px-3 text-[13px] font-semibold text-[#989aa6] transition duration-200 hover:scale-105 hover:text-[#335ef7] active:scale-95 dark:bg-black dark:hover:text-[#7d93ff]"
               >
                 <GlobeIcon className="h-4 w-4 transition duration-500 group-hover:rotate-[200deg]" />
                 {dictLang.toUpperCase()}
               </button>
-              {langOpen && (
-                <div className="absolute bottom-[44px] right-0 z-50 max-h-[260px] w-[220px] overflow-y-auto rounded-[20px] bg-white/95 p-1.5 shadow-xl ring-1 ring-black/5 backdrop-blur dark:bg-[#1c1c24]/95 dark:ring-white/10">
-                  {DICT_LANGS.map((d) => (
-                    <button
-                      key={d.code}
-                      type="button"
-                      onClick={() => {
-                        setDictLang(d.code);
-                        saveDictLang(d.code);
-                        setLangOpen(false);
-                      }}
-                      className="flex min-h-[40px] w-full items-center gap-2.5 rounded-2xl px-2 text-left hover:bg-black/5 dark:hover:bg-white/10"
+              {langOpen && langPos && typeof document !== "undefined" &&
+                createPortal(
+                  <>
+                    <div data-alpha-ask-keep className="fixed inset-0 z-[300]" onMouseDown={() => setLangOpen(false)} />
+                    <div
+                      data-alpha-ask-keep
+                      className="fixed z-[301] w-[220px] overflow-y-auto rounded-[20px] bg-white p-1.5 shadow-xl ring-1 ring-black/5 dark:bg-[#1c1c24] dark:ring-white/10"
+                      style={{ top: langPos.top, left: langPos.left, maxHeight: langPos.maxH }}
                     >
-                      <span className="text-[18px] leading-none">{d.flag}</span>
-                      <span className={`truncate text-[15px] ${d.code === dictLang ? "font-bold text-[#335ef7] dark:text-[#9fb2ff]" : "font-medium text-neutral-900 dark:text-white"}`}>{d.name}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
+                      {DICT_LANGS.map((d) => (
+                        <button
+                          key={d.code}
+                          type="button"
+                          onClick={() => {
+                            setDictLang(d.code);
+                            saveDictLang(d.code);
+                            setLangOpen(false);
+                          }}
+                          className="flex min-h-[40px] w-full items-center gap-2.5 rounded-2xl px-2 text-left hover:bg-black/5 dark:hover:bg-white/10"
+                        >
+                          <span className="text-[18px] leading-none">{d.flag}</span>
+                          <span className={`truncate text-[15px] ${d.code === dictLang ? "font-bold text-[#335ef7] dark:text-[#9fb2ff]" : "font-medium text-neutral-900 dark:text-white"}`}>{d.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>,
+                  document.body,
+                )}
             </div>
             <button
               type="button"

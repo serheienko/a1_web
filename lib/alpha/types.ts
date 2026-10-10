@@ -24,7 +24,7 @@ export type AlphaPortrait = {
 
 /** "more" -- open follow-up that Alpha writes itself from the context
  *  (AI brain), or a re-ask when an answer wasn't understood. */
-export type AlphaSlot = "role" | "stack" | "level" | "money" | "dealbreakers" | "more";
+export type AlphaSlot = "role" | "stack" | "level" | "location" | "format" | "money" | "conditions" | "dealbreakers" | "more";
 
 export type AlphaChatLine = { from: "me" | "alpha"; text: string };
 
