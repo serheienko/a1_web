@@ -166,6 +166,15 @@ export function AlphaMemberBadge({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
+  // Карточка по ховеру не «едет» за страницей: прокрутка -- закрывает её.
+  useEffect(() => {
+    if (mode !== "hover") return;
+    const onScroll = () => close();
+    window.addEventListener("scroll", onScroll, { passive: true, capture: true });
+    return () => window.removeEventListener("scroll", onScroll, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
+
   if (!member) return null;
   const current = emojiId ?? member.emojiId;
   // (the sticky hover card closes on a click elsewhere -- see the effect above)
@@ -218,24 +227,11 @@ export function AlphaMemberBadge({
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          // 09.10.2026 (Александр: «если сделали ховер, нелогично при нажатии
-          // открывать по центру экрана; клик -- только для телефона»): на
-          // компьютере клик оставляет ту же карточку у банки (и она уже не
-          // закрывается сама); окно по центру -- только на сенсорных экранах.
-          if (mode === "hover") {
-            sticky.current = true;
-            return;
-          }
-          if (canHover() && !mode) {
-            void open(true).then(() => {
-              sticky.current = true;
-            });
-            return;
-          }
-          if (mode === "panel") {
-            sticky.current = true;
-            return;
-          }
+          // 10.10.2026 (Александр: «банка не кликается, только по ховеру --
+          // клик фиксировал попап, а страница ездила дальше»): на компьютере
+          // клик по банке ничего не делает, карточка живёт только по наведению.
+          // Окно по тапу -- только на сенсорных экранах.
+          if (canHover()) return;
           void open();
         }}
         onMouseEnter={hoverIn}
