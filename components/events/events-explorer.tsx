@@ -71,6 +71,17 @@ export function EventsExplorer({ events, tags, lang, today, heading }: { events:
   const [page, setPage] = useState(1);
   const [country, setCountry] = useState<string | null>(null);
   const listTop = useRef<HTMLElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
+  // Выбрали страну на карте -- плавно опускаем страницу к списку событий этой страны (если он ниже видимой части экрана).
+  const pickCountry = (k: string | null) => {
+    setCountry(k);
+    if (!k) return;
+    window.setTimeout(() => {
+      const el = panelRef.current;
+      if (!el) return;
+      if (el.getBoundingClientRect().top > window.innerHeight * 0.5) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+  };
 
   const filtered = useMemo(
     () => events.filter((e) => (region === "all" || regionOf(e) === region) && (!tag || e.tags.includes(tag)) && (!cat || inCat(e.tags, cat))),
@@ -258,10 +269,10 @@ export function EventsExplorer({ events, tags, lang, today, heading }: { events:
           </div>
         </div>
 
-        <EventsMap lang={lang} countries={mapCountries} onlineCount={onlineCount} selected={sel} onSelect={setCountry} />
+        <EventsMap lang={lang} countries={mapCountries} onlineCount={onlineCount} selected={sel} onSelect={pickCountry} />
       </section>
 
-      <section className="mt-6" aria-live="polite">
+      <section ref={panelRef} className="mt-6 scroll-mt-24" aria-live="polite">
           <h2 className="text-[20px] font-bold tracking-tight text-neutral-900 dark:text-neutral-50">
             {sel ? `${t.inCountry}: ${selLabel} · ${panelIsDay && day ? fmtRange(day, day, lang) : monthTitle(month, lang)}` : panelIsDay && day ? `${t.dayEvents}: ${fmtRange(day, day, lang)}` : day ? t.noDay : t.soon}
           </h2>

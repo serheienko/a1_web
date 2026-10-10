@@ -52,6 +52,7 @@ export function EventsMap({
   const [open, setOpen] = useState(false);
   const [heights, setHeights] = useState<{ half: number; full: number } | null>(null);
   const chipsRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
   const chipCount = countries.length + (onlineCount ? 1 : 0);
 
   // Плашки стран занимают много места: показываем первую половину, остальное раскрываем плавно по стрелке.
@@ -71,6 +72,25 @@ export function EventsMap({
 
   // Если события дня целиком за пределами Европы -- сами показываем мир (пока человек не выбрал вид сам).
   const [europeData, setEuropeData] = useState<MapData | null>(cache.europe ?? null);
+  // Пульсация точек: обычная JS-анимация атрибутов (одинаково работает в Safari/Chrome/Firefox; CSS-transform в SVG там плывёт).
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg || view !== "europe") return;
+    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    const dots = Array.from(svg.querySelectorAll<SVGCircleElement>("circle[data-pulse]"));
+    if (!dots.length) return;
+    let raf = 0;
+    const t0 = performance.now();
+    const tick = (now: number) => {
+      const k = (((now - t0) % 1800) / 1800);
+      const r = String(3.5 + 7.5 * k);
+      const o = String(0.6 * (1 - k));
+      for (const d of dots) { d.setAttribute("r", r); d.setAttribute("opacity", o); }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [view, data, countries]);
   useEffect(() => { void loadMap("europe").then(setEuropeData); }, []);
   useEffect(() => {
     if (manual || !europeData || !countries.length) return;
@@ -108,7 +128,7 @@ export function EventsMap({
 
       <div className="relative mt-2 overflow-hidden rounded-xl bg-sky-50/60 dark:bg-neutral-950/60">
         {data ? (
-          <svg viewBox={`0 0 ${data.w} ${data.h}`} className="block h-auto w-full" role="img" aria-label="map">
+          <svg ref={svgRef} viewBox={`0 0 ${data.w} ${data.h}`} className="block h-auto w-full" role="img" aria-label="map">
             {data.c.map((c) => {
               const info = byNe.get(c.n);
               const on = !!info;
@@ -121,7 +141,7 @@ export function EventsMap({
                   onClick={on ? () => onSelect(sel ? null : info.key) : undefined}
                   onMouseEnter={on ? () => setHover(c.n) : undefined}
                   onMouseLeave={on ? () => setHover(null) : undefined}
-                  style={{ transition: "fill 300ms, opacity 300ms", cursor: on ? "pointer" : "default", ...(on ? { fillOpacity: sel || hover === c.n ? 1 : strength } : {}) }}
+                  style={{ transition: "fill 350ms ease, fill-opacity 350ms ease", cursor: on ? "pointer" : "default", ...(on ? { fillOpacity: sel || hover === c.n ? 1 : strength } : {}) }}
                   className={on ? "fill-accent stroke-white dark:stroke-neutral-900" : "fill-neutral-200 stroke-white dark:fill-neutral-800 dark:stroke-neutral-900"}
                   strokeWidth={view === "europe" ? 0.6 : 0.4}
                 >
@@ -136,10 +156,7 @@ export function EventsMap({
                   return (
                     <g key={c.n + "l"} pointerEvents="none">
                       <circle cx={c.x} cy={c.y} r={3.5} className="fill-white" />
-                      <circle cx={c.x} cy={c.y} r={3.5} className="fill-white" opacity={0}>
-                        <animate attributeName="r" values="3.5;11" dur="1.8s" repeatCount="indefinite" />
-                        <animate attributeName="opacity" values="0.6;0" dur="1.8s" repeatCount="indefinite" />
-                      </circle>
+                      <circle data-pulse="1" cx={c.x} cy={c.y} r={3.5} className="fill-white" opacity={0} />
                     </g>
                   );
                 })
