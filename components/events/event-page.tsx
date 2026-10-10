@@ -93,7 +93,10 @@ export async function EventPage({ slug, lang }: { slug: string; lang: EvLang }) 
 
       {past ? <p className="mt-4 rounded-xl bg-neutral-100 px-4 py-2.5 text-[14px] text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">{t.ended}.</p> : null}
 
-      <p className="mt-5 text-[17px] leading-relaxed text-neutral-800 dark:text-neutral-200">{e.summary[lang]}</p>
+      <section className="mt-5 rounded-2xl bg-accent/5 p-4 ring-1 ring-accent/15 dark:bg-accent/10">
+        <h2 className="text-[12px] font-bold uppercase tracking-wide text-accent">A1 Summary</h2>
+        <p className="mt-1.5 text-[17px] leading-relaxed text-neutral-800 dark:text-neutral-200">{e.summary[lang]}</p>
+      </section>
 
       <div className="mt-5 flex flex-wrap gap-3">
         <a href={e.url} target="_blank" rel="noopener nofollow" className="rounded-full bg-accent px-5 py-2.5 text-[15px] font-semibold text-white transition hover:opacity-90">{t.go} ↗</a>

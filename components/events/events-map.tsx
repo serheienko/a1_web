@@ -4,7 +4,7 @@
 // поисковику карта не нужна, а страницы событий от неё не тяжелеют.
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { EvLang } from "@/lib/events/types";
 
 type MapData = { w: number; h: number; c: { n: string; d: string; x: number; y: number }[] };
@@ -31,8 +31,8 @@ const NE_NAME: Record<string, string> = {
 export const neName = (country: string): string => NE_NAME[country] ?? country;
 
 const TXT = {
-  uk: { europe: "Європа", world: "Світ", online: "Онлайн", none: "Подій на карті немає", hint: "Натисніть на країну" },
-  en: { europe: "Europe", world: "World", online: "Online", none: "No events on the map", hint: "Click a country" },
+  uk: { europe: "Європа", world: "Світ", online: "Онлайн", none: "Подій на карті немає", hint: "Натисніть на країну", showAll: "Усі країни", hide: "Згорнути", onlineHint: "Онлайн-події: без країни, дивитись можна звідки завгодно" },
+  en: { europe: "Europe", world: "World", online: "Online", none: "No events on the map", hint: "Click a country", showAll: "All countries", hide: "Collapse", onlineHint: "Online events: no country, watch from anywhere" },
 } as const;
 
 export function EventsMap({
@@ -49,6 +49,25 @@ export function EventsMap({
   const [manual, setManual] = useState(false);
   const [data, setData] = useState<MapData | null>(cache[view] ?? null);
   const [hover, setHover] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const [heights, setHeights] = useState<{ half: number; full: number } | null>(null);
+  const chipsRef = useRef<HTMLDivElement>(null);
+  const chipCount = countries.length + (onlineCount ? 1 : 0);
+
+  // Плашки стран занимают много места: показываем первую половину, остальное раскрываем плавно по стрелке.
+  useLayoutEffect(() => {
+    const el = chipsRef.current;
+    if (!el) return;
+    const measure = () => {
+      const kids = Array.from(el.children) as HTMLElement[];
+      if (kids.length <= 6) return setHeights(null);
+      const half = kids[Math.ceil(kids.length / 2) - 1];
+      setHeights({ half: half ? Math.ceil(half.getBoundingClientRect().bottom - el.getBoundingClientRect().top) : 0, full: el.scrollHeight });
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [countries, onlineCount, lang]);
 
   // Если события дня целиком за пределами Европы -- сами показываем мир (пока человек не выбрал вид сам).
   const [europeData, setEuropeData] = useState<MapData | null>(cache.europe ?? null);
@@ -128,7 +147,21 @@ export function EventsMap({
         )}
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-1.5">
+      <div
+        ref={chipsRef}
+        className="mt-3 flex flex-wrap content-start gap-1.5 overflow-hidden transition-[max-height] duration-500 ease-in-out"
+        style={heights ? { maxHeight: open ? heights.full : heights.half } : undefined}
+      >
+        {onlineCount ? (
+          <button
+            type="button"
+            title={t.onlineHint}
+            onClick={() => onSelect(selected === "__online" ? null : "__online")}
+            className={"rounded-full px-2.5 py-1 text-[12px] font-medium transition " + (selected === "__online" ? "bg-emerald-500 text-white" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300")}
+          >
+            {t.online} <span className="opacity-60">{onlineCount}</span>
+          </button>
+        ) : null}
         {countries.map((c) => (
           <button
             key={c.key}
@@ -141,16 +174,20 @@ export function EventsMap({
             {c.label} <span className="opacity-60">{c.n}</span>
           </button>
         ))}
-        {onlineCount ? (
-          <button
-            type="button"
-            onClick={() => onSelect(selected === "__online" ? null : "__online")}
-            className={"rounded-full px-2.5 py-1 text-[12px] font-medium transition " + (selected === "__online" ? "bg-emerald-500 text-white" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300")}
-          >
-            {t.online} <span className="opacity-60">{onlineCount}</span>
-          </button>
-        ) : null}
       </div>
+      {heights ? (
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          aria-expanded={open}
+          className="mx-auto mt-2 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-medium text-neutral-500 transition hover:bg-neutral-100 hover:text-accent dark:text-neutral-400 dark:hover:bg-neutral-800"
+        >
+          {open ? t.hide : `${t.showAll} (${chipCount})`}
+          <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className={"transition-transform duration-500 ease-in-out " + (open ? "rotate-180" : "")}>
+            <path d="M5 8l5 5 5-5" />
+          </svg>
+        </button>
+      ) : null}
     </div>
   );
 }

@@ -83,6 +83,8 @@ import { CachedAvatar } from "@/components/cached-avatar";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import type { UserSearchHit } from "@/app/api/users/search/route";
+import type { EventSearchHit } from "@/app/api/events/search/route";
+import { dayNum, eventPath, monthShort, placeLabel } from "@/lib/events/util";
 
 const MAX_SUGGESTIONS_PER_GROUP = 5;
 
@@ -98,6 +100,7 @@ type FiltersFormStringKey =
   | "people"
   | "tags"
   | "filters"
+  | "events"
   | "category"
   | "location"
   | "locationPlaceholder"
@@ -134,6 +137,10 @@ const FILTERS_FORM_STRINGS: Record<FiltersFormStringKey, Record<Locale, string>>
   people: {
     uk: "Користувачі", en: "Users", ru: "Пользователи", de: "Nutzer", es: "Usuarios",
     fr: "Utilisateurs", pl: "Użytkownicy", ptBR: "Usuários", zh: "用户",
+  },
+  events: {
+    uk: "Події", en: "Events", ru: "События", de: "Events", es: "Eventos",
+    fr: "Événements", pl: "Wydarzenia", ptBR: "Eventos", zh: "活动",
   },
   tags: {
     uk: "Теги", en: "Tags", ru: "Теги", de: "Tags", es: "Etiquetas",
@@ -228,6 +235,7 @@ export function FiltersForm({
   // запросом -- в отличие от категорий и тегов, которые уже лежат в
   // пропсах, их список зависит от набранного и сидит на бэкенде.
   const [people, setPeople] = useState<UserSearchHit[]>([]);
+  const [eventHits, setEventHits] = useState<EventSearchHit[]>([]);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -634,8 +642,32 @@ export function FiltersForm({
     };
   }, [needle, inputFocused]);
 
+  // События («Події»): тот же приём, что и у людей. Ответ маленький и кэшируется на сервере.
+  useEffect(() => {
+    const q = needle.trim();
+    if (!inputFocused || q.length < 2) {
+      setEventHits([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      fetch(`/api/events/search?q=${encodeURIComponent(q)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (!cancelled && data?.ok) setEventHits(data.events ?? []);
+        })
+        .catch(() => {
+          if (!cancelled) setEventHits([]);
+        });
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [needle, inputFocused]);
+
   const showSuggestions =
-    inputFocused && needle.length > 0 && (people.length > 0 || categorySuggestions.length > 0 || tagSuggestions.length > 0);
+    inputFocused && needle.length > 0 && (people.length > 0 || eventHits.length > 0 || categorySuggestions.length > 0 || tagSuggestions.length > 0);
 
   // Aleksandr, 2026-08-27: "автоподбор слов вот как гугл делает, таким
   // выпадающим списком. Список именно того что у нас уже есть" —
@@ -678,6 +710,36 @@ export function FiltersForm({
               </span>
             </button>
           ))}
+        </div>
+      )}
+      {eventHits.length > 0 && (
+        <div className="border-b border-neutral-100 py-1 last:border-b-0 dark:border-neutral-800">
+          <div className="px-3 py-1 text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+            {FILTERS_FORM_STRINGS.events[lang]}
+          </div>
+          {eventHits.map((ev) => {
+            const evLang = lang === "uk" ? "uk" : "en";
+            return (
+              <button
+                key={ev.slug}
+                type="button"
+                onClick={() => {
+                  setInputFocused(false);
+                  router.push(eventPath(ev.slug, evLang));
+                }}
+                className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              >
+                <span className="flex h-7 w-7 shrink-0 flex-col items-center justify-center rounded-lg bg-accent/10 text-accent">
+                  <span className="text-[8px] font-bold uppercase leading-none">{monthShort(ev.start, evLang)}</span>
+                  <span className="text-[12px] font-bold leading-none">{dayNum(ev.start)}</span>
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm text-neutral-800 dark:text-neutral-200">{ev.name}</span>
+                  <span className="block truncate text-[12px] text-neutral-400 dark:text-neutral-500">{placeLabel(ev, evLang)}</span>
+                </span>
+              </button>
+            );
+          })}
         </div>
       )}
       {categorySuggestions.length > 0 && (
