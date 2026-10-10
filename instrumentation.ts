@@ -10,4 +10,14 @@ export async function register() {
   setTimeout(() => {
     fetch(`http://127.0.0.1:${port}/game-map/data?region=ua`).catch(() => {});
   }, 20_000);
+
+  // 11.10.2026. IndexNow: раз на годину повідомляємо пошуковикам про нові й
+  // змінені вакансії (див. app/api/indexnow/route.ts).
+  const secret = process.env.A1_REVALIDATE_SECRET;
+  if (secret) {
+    const ping = () =>
+      fetch(`http://127.0.0.1:${port}/api/indexnow?mode=new`, { headers: { "x-revalidate-secret": secret } }).catch(() => {});
+    setTimeout(ping, 10 * 60_000);
+    setInterval(ping, 60 * 60_000).unref?.();
+  }
 }
