@@ -1131,7 +1131,15 @@ export function mountGameMap(root, opts) {
     if (c.website) { try { const u = new URL(c.website.startsWith('http') ? c.website : 'https://' + c.website); site = `<a class="gm-site" href="${esc(u.href)}" target="_blank" rel="noopener nofollow">🔗 ${esc(u.hostname.replace(/^www\./, ''))}</a>`; } catch { site = ''; } }
     const bio = c.bio ? `<p class="gm-bio">${esc(c.bio)}</p>` : '';
     const isAlly = c.userId && allies.has(c.userId);
-    if (c.ext) c = { ...c, userId: null };
+    // 10.10.2026 (Александр: «за кордоном немає кнопки додати в союзники --
+    // вмикаємо»). Раніше тут у закордонних компаній (ext -- вакансія
+    // спарсена) userId занулявся, і кнопка зникала. Але акаунт у них
+    // справжній: ми його й створюємо, це сторінка /u/<username>. Тепер
+    // кнопка є скрізь, де акаунт узагалі є. Без акаунта (userId порожній)
+    // кнопки немає, як і було -- це вирішує умова нижче.
+    //
+    // Заодно це знімає неузгодженість: значок союзника на будиночку
+    // малювався і закордонним компаніям, а кнопки в картці не було.
     const ally = c.userId ? `<button class="gm-ally${isAlly ? ' on' : ''}" type="button" title="${esc(isAlly ? tr('allyOff') : tr('allyAdd'))}" aria-label="${esc(isAlly ? tr('allyOff') : tr('allyAdd'))}">${isAlly ? '<span class="ok">✓</span><span class="rm">✕</span>' : '<span>+</span>'}</button>` : '';
     return `<div class="gm-ph" style="--fc:${esc(c.color)}"><div class="gm-ava">${ava}</div><div class="gm-pt"><b>${esc(c.name)}</b><small>${esc(sub)}</small></div><button class="gm-x" type="button" aria-label="${esc(tr('close'))}">×</button></div>
       <div class="gm-chips">${chips}</div>
