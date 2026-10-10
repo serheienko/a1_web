@@ -122,6 +122,7 @@ export const ROOMS: RoomDef[] = [
     agents: [
       { id: "tgbot", name: "Бот подписок", nick: "Бот-пингер", role: "Telegram: присылает новые вакансии по фильтру", slots: [], graceMin: 0, kind: "none" },
       { id: "news", name: "Редакция новостей", nick: "Редакція A1", role: "Пишет «IT новини» для сайта: 2 новости в день, uk + en", slots: DAILY_07, graceMin: KONK_GRACE, limit: 2, track: 0, kind: "pulse", note: "Работает в начале утреннего забега Конкистадора (10:00 Киев). Первая новость выходит сразу, вторая вечером." },
+      { id: "events", name: "Календарь событий", nick: "Події", role: "Собирает IT-конференции и митапы мира (confs.tech, DOU, dev.events), пишет описания и теги, отправляет на сайт, раздел «Події»", slots: DAILY_07, graceMin: KONK_GRACE, track: 0, kind: "pulse", sources: "confs.tech, DOU, dev.events", note: "Идёт сразу после Редакции в утреннем забеге Конкистадора (10:00 Киев), раз в сутки. В итоге «опубликовано» — это новые события за запуск; уже известные берутся с сайта, поэтому запуск стоит копейки." },
       { id: "hunter", name: "Сбор разработчиков", nick: "Охотник", role: "База разработчиков: GitHub, LinkedIn, Telegram", slots: [], graceMin: 0, kind: "manual", note: "Пока запускается вручную." },
     ],
   },

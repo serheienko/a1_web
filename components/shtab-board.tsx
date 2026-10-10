@@ -285,7 +285,7 @@ export async function ShtabBoard() {
   const timeline: TimelineRow[] = [];
   const slotMin = (h: number, m: number): number => kyivMinutes(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), h, m)));
   const seq = (ids: string[]): string => ids.map((id) => ALL_AGENTS.find((a) => a.id === id)?.name ?? id).join(" → ");
-  const konkOrder = ["news", ...queued.map((v) => v.def.id)];
+  const konkOrder = ["news", "events", ...queued.map((v) => v.def.id)];
   timeline.push({ min: slotMin(7, 0), title: "Общий забег Конкистадора", detail: `Идут строго по очереди: ${seq(konkOrder)}. Следующий начинает, когда закончил предыдущий.` });
   timeline.push({ min: slotMin(7, 20), title: "Украина · DOU, затем отправка в Google", detail: "Первый проход сервиса DOU, после него Почтальон отправляет адреса в Google." });
   timeline.push({ min: slotMin(15, 20), title: "Украина · DOU, затем отправка в Google", detail: "Второй проход сервиса DOU." });
