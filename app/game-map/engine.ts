@@ -186,10 +186,10 @@ export function mountGameMap(root, opts) {
   // 10.10.2026 (Александр: «карта дуже глючна, в застосунку підтуплює»).
   // Простий режим: без анімації і 30 кадрів замість 60. Вмикається кнопкою
   // (вибір запам'ятовується) або сам, якщо перші секунди йдуть повільно.
-  const LITE_KEY = 'a1_map_lite';
   const prefersCalm = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  // 10.10.2026: кнопку ⚡ прибрано. Простий режим вмикається сам (і на сайті,
+  // і в застосунку), якщо перші секунди кадрів < 30.
   let liteChosen = false, lite = false;
-  try { const v = localStorage.getItem(LITE_KEY); if (v !== null) { liteChosen = true; lite = v === '1'; } } catch { /* приватний режим */ }
   let reduce = prefersCalm || lite;
   let theme = opts.theme === 'dark' ? 'dark' : 'light';
   // Карта внутри приложения A1 (см. «режим приложения» ниже).
@@ -240,7 +240,6 @@ export function mountGameMap(root, opts) {
         <button class="gm-btn gm-music" type="button" aria-pressed="false"><span class="gm-eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span></button>
         <button class="gm-btn gm-info" type="button" aria-haspopup="dialog" aria-expanded="false"><span class="gm-ii">i</span></button>
         <button class="gm-btn gm-theme" type="button"></button>
-        <button class="gm-btn gm-lite" type="button" aria-pressed="false"><span class="gm-ii">⚡</span></button>
         <button class="gm-btn gm-fs" type="button"></button>
         <button class="gm-btn gm-close" type="button">${ICON_X}</button>
       </div>
@@ -274,16 +273,8 @@ export function mountGameMap(root, opts) {
   const mascot = root.querySelector('.gm-mascot');
   const qIn = root.querySelector('.gm-q');
   const sug = root.querySelector('.gm-sug');
-  const liteBtn = root.querySelector('.gm-lite');
-  function liteLabel() {
-    const t = tr(lite ? 'liteOff' : 'liteOn');
-    liteBtn.title = t; liteBtn.setAttribute('aria-label', t);
-    liteBtn.classList.toggle('on', lite); liteBtn.setAttribute('aria-pressed', lite ? 'true' : 'false');
-  }
-  function setLite(v, remember = true) {
+  function setLite(v) {
     lite = !!v; reduce = prefersCalm || lite;
-    if (remember) { liteChosen = true; try { localStorage.setItem(LITE_KEY, lite ? '1' : '0'); } catch { /* приватний режим */ } }
-    liteLabel();
     parts = null; baseCache = null;
     resize(); // у простому режимі малюємо менше пікселів -- див. dpr у resize()
   }
@@ -347,7 +338,7 @@ export function mountGameMap(root, opts) {
     sayEl.textContent = tr(TIPS[tipI]); renderGl();
     const lt = root.querySelector('.gm-ltx'); if (lt) lt.textContent = tr('load');
     setFsBtn(root.classList.contains('gm-full'));
-    themeLabel(); musicLabel(); liteLabel();
+    themeLabel(); musicLabel();
     for (const g of cityGroups) g.label = cityName(g.name, lang);
     baseCache = null;
     if (popFor) { const c = popFor; popFor = null; showPopup(c); }
@@ -1393,7 +1384,6 @@ export function mountGameMap(root, opts) {
     if (e.target.closest('.gm-x')) { pinned = null; hover = null; showPopup(null); return; }
     if (e.target.closest('.gm-theme')) setTheme(theme === 'dark' ? 'light' : 'dark');
     if (e.target.closest('.gm-ally') && popFor) toggleAlly(popFor);
-    if (e.target.closest('.gm-lite')) { setLite(!lite); return; }
     if (e.target.closest('.gm-fs')) toggleFs();
     if (e.target.closest('.gm-close')) closeApp();
     const si = e.target.closest('[data-ci]'); if (si) { pickCompany(byCi(si.dataset.ci)); }
@@ -1642,7 +1632,7 @@ export function mountGameMap(root, opts) {
     const el = now - fpsFrom;
     if (el < 4000) return;
     autoDone = true;
-    if (fpsN / (el / 1000) < 30) { setLite(true, false); toast(tr('liteAuto'), tr('liteAutoSub')); }
+    if (fpsN / (el / 1000) < 30) { setLite(true); toast(tr('liteAuto'), tr('liteAutoSub')); }
   }
   function startLoop() {
     cancelAnimationFrame(raf);
@@ -1749,10 +1739,7 @@ export const GAME_MAP_CSS = `
 .gm2 .gm-btn{transition:transform .18s ease,box-shadow .18s ease,background-color .18s ease,color .18s ease}
 .gm2 .gm-btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(0,0,0,.22)}
 .gm2 .gm-btn:active{transform:translateY(0) scale(.96)}
-.gm2 .gm-fs,.gm2 .gm-theme,.gm2 .gm-info,.gm2 .gm-music,.gm2 .gm-lite,.gm2 .gm-close{display:grid;place-items:center;padding:0;width:38px}
-.gm2 .gm-lite{opacity:.75}
-.gm2 .gm-lite.on{opacity:1;color:#b3702a}
-.gm2.gm-dark .gm-lite.on{color:#ffd27a}
+.gm2 .gm-fs,.gm2 .gm-theme,.gm2 .gm-info,.gm2 .gm-music,.gm2 .gm-close{display:grid;place-items:center;padding:0;width:38px}
 .gm2 .gm-close{display:none}
 .gm2.gm-app .gm-close{display:grid}
 .gm2.gm-app .gm-theme,.gm2.gm-app .gm-fs{display:none}
