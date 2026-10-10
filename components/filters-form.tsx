@@ -662,7 +662,7 @@ export function FiltersForm({
     };
   }, []);
   const askFirst = () => {
-    if (alphaMe.member && !alphaMe.portrait && !query.trim()) setAlphaAsk((v) => v ?? "first");
+    if (alphaMe.member && alphaMe.loaded && !alphaMe.portrait && !query.trim()) setAlphaAsk((v) => v ?? "first");
   };
   // Начал печатать в обычном поиске -- панель Alpha уходит, работают обычные
   // подсказки (люди, вакансии). Стёр всё -- можно снова навести.

@@ -209,5 +209,6 @@ export function AlphaNavButton() {
 /** 09.10.2026: members already have Alpha inside the search box. */
 export function AlphaNavButtonUnlessMember() {
   const me = useAlphaMe();
-  return me.member ? null : <AlphaNavButton />;
+  // not shown until we know (no flash of «Спробуйте Alpha» for members on reload)
+  return me.member || !me.loaded ? null : <AlphaNavButton />;
 }

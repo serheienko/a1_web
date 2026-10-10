@@ -82,10 +82,18 @@ function AlphaSuccess({ onDone }: { onDone: () => void }) {
           <button
             type="button"
             onClick={close}
-            className="mt-6 h-14 w-full rounded-[28px] border-[1.5px] text-[22px] uppercase tracking-wide transition active:scale-[0.97]"
-            style={{ borderColor: accent, color: text, background: `${accent}1f`, fontFamily: "Impact, 'Arial Narrow Bold', sans-serif" }}
+            className="group mt-6 flex h-14 w-full items-center justify-center gap-2 rounded-[28px] border-[1.5px] bg-[var(--cb)] text-[22px] uppercase tracking-wide transition duration-300 ease-out hover:-translate-y-0.5 hover:scale-[1.03] hover:bg-[var(--cbh)] hover:shadow-[0_8px_24px_var(--cg)] active:translate-y-0 active:scale-[0.97]"
+            style={{
+              borderColor: accent,
+              color: text,
+              fontFamily: "Impact, 'Arial Narrow Bold', sans-serif",
+              ["--cb" as string]: `${accent}1f`,
+              ["--cbh" as string]: `${accent}45`,
+              ["--cg" as string]: `${accent}66`,
+            }}
           >
             {t(S.cont)}
+            <span aria-hidden className="inline-block -translate-x-1 opacity-0 transition duration-300 group-hover:translate-x-0 group-hover:opacity-100">→</span>
           </button>
         </div>
       </div>

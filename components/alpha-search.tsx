@@ -14,7 +14,8 @@ import { createPortal } from "react-dom";
 import { AlphaPaywall } from "@/components/alpha-paywall";
 import type { AlphaPortrait } from "@/lib/alpha/types";
 
-type Me = { member: boolean; portrait: AlphaPortrait | null; enabled?: boolean };
+type Me = { member: boolean; portrait: AlphaPortrait | null; enabled?: boolean; loaded?: boolean };
+const MEMBER_KEY = "a1_alpha_member";
 let cache: Promise<Me> | null = null;
 const listeners = new Set<(m: Me) => void>();
 
@@ -33,17 +34,32 @@ export function refreshAlphaMe(): void {
 
 /** Is the visitor an Alpha member (+ the remembered portrait). */
 export function useAlphaMe(enabled = true): Me {
-  const [me, setMe] = useState<Me>({ member: false, portrait: null });
+  const [me, setMe] = useState<Me>({ member: false, portrait: null, loaded: false });
   useEffect(() => {
     // Only signed-in visitors (the display cookie) -- no extra request for
     // everyone else, the public pages stay as light as they were.
-    if (!enabled || !document.cookie.includes("a1_user=")) return;
+    if (!enabled || !document.cookie.includes("a1_user=")) {
+      setMe({ member: false, portrait: null, loaded: true });
+      return;
+    }
+    // 10.10.2026: on reload we first show what we knew last time, so the
+    // «Спробуйте Alpha» button does not flash for a member while /me loads.
+    try {
+      if (localStorage.getItem(MEMBER_KEY) === "1") setMe({ member: true, portrait: null, loaded: false });
+    } catch {}
+    const apply = (m: Me) => {
+      try {
+        localStorage.setItem(MEMBER_KEY, m.member ? "1" : "0");
+      } catch {}
+      setMe({ ...m, loaded: true });
+    };
     let alive = true;
-    void loadMe().then((m) => alive && setMe(m));
-    listeners.add(setMe);
+    void loadMe().then((m) => alive && apply(m));
+    const onChange = (m: Me) => apply(m);
+    listeners.add(onChange);
     return () => {
       alive = false;
-      listeners.delete(setMe);
+      listeners.delete(onChange);
     };
   }, [enabled]);
   return me;
