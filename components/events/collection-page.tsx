@@ -5,7 +5,8 @@ import Link from "next/link";
 import type { EvLang, EventItem } from "@/lib/events/types";
 import { breadcrumbJsonLd } from "@/lib/events/seo";
 import { SITE_URL, placeChipLabel, collectPlaces, collectTags, eventPath, indexPath, placePath, seriesPath, sortByStart, todayKyiv, topicPath } from "@/lib/events/util";
-import { EventRow } from "./event-row";
+import type { ListEvent } from "./event-row";
+import { PagedList } from "./paged-list";
 
 const TXT = {
   uk: { events: "Події", upcoming: "Найближчі події", archive: "Архів", none: "Найближчих дат поки немає. Ми стежимо за оновленнями й додамо їх одразу, як організатори оголосять нове видання.",
@@ -13,6 +14,8 @@ const TXT = {
   en: { events: "Events", upcoming: "Upcoming events", archive: "Archive", none: "No upcoming dates yet. We watch for updates and add the next edition as soon as the organisers announce it.",
         topics: "Other topics", places: "Other cities and countries", all: "All events", editions: "editions in the catalogue" },
 } as const;
+
+const slim = (e: EventItem): ListEvent => ({ slug: e.slug, name: e.name, start: e.start, end: e.end, city: e.city, country: e.country, online: e.online, tags: e.tags, image: e.image, price: e.price, free: e.free, format: e.format });
 
 export type CollKind = "series" | "topic" | "place";
 
@@ -49,7 +52,7 @@ export function CollectionPage({
       <section className="mt-6">
         <h2 className="text-[20px] font-bold tracking-tight text-neutral-900 dark:text-neutral-50">{t.upcoming}</h2>
         {up.length ? (
-          <ul className="mt-2">{up.map((e) => <EventRow key={e.slug} e={e} lang={lang} />)}</ul>
+          <PagedList events={up.map(slim)} lang={lang} />
         ) : (
           <p className="mt-2 text-neutral-500 dark:text-neutral-400">{t.none}</p>
         )}
@@ -58,7 +61,7 @@ export function CollectionPage({
       {past.length ? (
         <section className="mt-8">
           <h2 className="text-[20px] font-bold tracking-tight text-neutral-900 dark:text-neutral-50">{t.archive}</h2>
-          <ul className="mt-2">{past.slice(0, 20).map((e) => <EventRow key={e.slug} e={e} lang={lang} past showTags={false} />)}</ul>
+          <PagedList events={past.map(slim)} lang={lang} past showTags={false} />
         </section>
       ) : null}
 

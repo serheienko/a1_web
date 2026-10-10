@@ -6,13 +6,14 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { EvLang } from "@/lib/events/types";
 import { countryLabel, eventPath, fmtRange, monthKey, monthTitle, placeLabel, regionOf, utc, type Coll, type Region } from "@/lib/events/util";
 import { DateTile } from "./date-tile";
 import { EventCover } from "./event-cover";
 import { EventRow, type ListEvent } from "./event-row";
 import { EventsMap, type MapCountry } from "./events-map";
+import { Pager } from "./pager";
 
 const TXT = {
   uk: {
@@ -29,7 +30,7 @@ const TXT = {
   },
 } as const;
 
-const PAGE = 80;
+const PAGE = 20;
 const DOT: Record<Region, string> = { ua: "bg-yellow-400", eu: "bg-sky-400", online: "bg-emerald-400", world: "bg-rose-400" };
 
 function addMonths(key: string, d: number): string {
@@ -61,8 +62,9 @@ export function EventsExplorer({ events, tags, lang, today, heading }: { events:
   const [tag, setTag] = useState("");
   const [month, setMonth] = useState(today.slice(0, 7));
   const [day, setDay] = useState<string | null>(null);
-  const [limit, setLimit] = useState(PAGE);
+  const [page, setPage] = useState(1);
   const [country, setCountry] = useState<string | null>(null);
+  const listTop = useRef<HTMLElement>(null);
 
   const filtered = useMemo(
     () => events.filter((e) => (region === "all" || regionOf(e) === region) && (!tag || e.tags.includes(tag))),
@@ -126,16 +128,18 @@ export function EventsExplorer({ events, tags, lang, today, heading }: { events:
   const carousel = upcoming.slice(0, 8);
   const topTags = tags.filter((c) => c.upcoming > 0).slice(0, 16);
 
+  const pages = Math.max(1, Math.ceil(upcoming.length / PAGE));
+  const curPage = Math.min(page, pages);
   const groups = useMemo(() => {
     const g: { key: string; items: ListEvent[] }[] = [];
-    for (const e of upcoming.slice(0, limit)) {
+    for (const e of upcoming.slice((curPage - 1) * PAGE, curPage * PAGE)) {
       const k = monthKey(e.start < today ? today : e.start);
       const last = g[g.length - 1];
       if (last && last.key === k) last.items.push(e);
       else g.push({ key: k, items: [e] });
     }
     return g;
-  }, [upcoming, limit, today]);
+  }, [upcoming, curPage, today]);
 
   const weekdays = useMemo(() => Array.from({ length: 7 }, (_, i) => new Date(Date.UTC(2024, 0, 1 + i, 12)).toLocaleDateString(lang === "uk" ? "uk-UA" : "en-GB", { weekday: "short", timeZone: "UTC" })), [lang]);
 
@@ -148,15 +152,15 @@ export function EventsExplorer({ events, tags, lang, today, heading }: { events:
       {heading}
       <div className="mt-5 flex gap-2 overflow-x-auto pb-1" role="group" aria-label={t.region}>
         {(["all", "ua", "eu", "online", "world"] as const).map((r) => (
-          <button key={r} type="button" onClick={() => { setRegion(r); setLimit(PAGE); }} className={pill(region === r)}>
+          <button key={r} type="button" onClick={() => { setRegion(r); setPage(1); }} className={pill(region === r)}>
             {t[r]} <span className="opacity-60">{counts[r]}</span>
           </button>
         ))}
       </div>
       <div className="mt-2 flex gap-2 overflow-x-auto pb-1" role="group" aria-label={t.topic}>
-        <button type="button" onClick={() => { setTag(""); setLimit(PAGE); }} className={pill(!tag)}>{t.allTopics}</button>
+        <button type="button" onClick={() => { setTag(""); setPage(1); }} className={pill(!tag)}>{t.allTopics}</button>
         {topTags.map((c) => (
-          <button key={c.slug} type="button" onClick={() => { setTag(tag === c.label ? "" : c.label); setLimit(PAGE); }} className={pill(tag === c.label)}>
+          <button key={c.slug} type="button" onClick={() => { setTag(tag === c.label ? "" : c.label); setPage(1); }} className={pill(tag === c.label)}>
             {c.label}
           </button>
         ))}
@@ -249,7 +253,7 @@ export function EventsExplorer({ events, tags, lang, today, heading }: { events:
           )}
       </section>
 
-      <section className="mt-10" aria-label={t.list}>
+      <section ref={listTop} className="mt-10 scroll-mt-24" aria-label={t.list}>
         <h2 className="text-[20px] font-bold tracking-tight text-neutral-900 dark:text-neutral-50">{t.list}</h2>
         {groups.length ? (
           groups.map((g) => (
@@ -265,11 +269,7 @@ export function EventsExplorer({ events, tags, lang, today, heading }: { events:
         ) : (
           <p className="mt-3 text-neutral-500">{t.nothing}</p>
         )}
-        {upcoming.length > limit ? (
-          <button type="button" onClick={() => setLimit(limit + PAGE)} className="mt-6 rounded-full bg-neutral-100 px-5 py-2.5 text-[14px] font-medium text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700">
-            {t.more} ({upcoming.length - limit})
-          </button>
-        ) : null}
+        <Pager page={curPage} pages={pages} onPage={(p) => { setPage(p); listTop.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }} />
       </section>
     </div>
   );

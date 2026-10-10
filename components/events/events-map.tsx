@@ -116,11 +116,8 @@ export function EventsMap({
                   if (!info) return null;
                   return (
                     <g key={c.n + "l"} pointerEvents="none">
-                      <circle cx={c.x} cy={c.y} r={4} className="fill-white" />
-                      <circle cx={c.x} cy={c.y} r={4} className="animate-ping fill-white/70" style={{ transformOrigin: `${c.x}px ${c.y}px`, transformBox: "fill-box" }} />
-                      <text x={c.x} y={c.y + 15} textAnchor="middle" fontSize={11.5} fontWeight={700} className="fill-neutral-900 dark:fill-white" stroke="white" strokeWidth={3} paintOrder="stroke" strokeLinejoin="round" style={{ paintOrder: "stroke" }}>
-                        {info.label} · {info.n}
-                      </text>
+                      <circle cx={c.x} cy={c.y} r={3.5} className="fill-white" />
+                      <circle cx={c.x} cy={c.y} r={3.5} className="animate-ping fill-white/70" style={{ transformOrigin: `${c.x}px ${c.y}px`, transformBox: "fill-box" }} />
                     </g>
                   );
                 })
