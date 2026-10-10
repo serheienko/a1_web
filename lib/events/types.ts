@@ -19,7 +19,7 @@ export type EventItem = {
   name: string;
   /** Официальный сайт события (куда ведёт кнопка «зареєструватись»). */
   url: string;
-  source: "confs.tech" | "dou.ua";
+  source: "confs.tech" | "dou.ua" | "dev.events";
   sourceUrl: string;
   /** YYYY-MM-DD */
   start: string;

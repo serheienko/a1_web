@@ -33,7 +33,7 @@ export function cleanEvent(raw: unknown): EventItem | null {
   const end = str(r.end, 10) || start;
   if (!slug || !SLUG.test(slug) || !series || !SLUG.test(series) || !name || !seriesName || !url || !sourceUrl) return null;
   if (!start || !DATE.test(start) || !end || !DATE.test(end) || end < start) return null;
-  if (r.source !== "confs.tech" && r.source !== "dou.ua") return null;
+  if (r.source !== "confs.tech" && r.source !== "dou.ua" && r.source !== "dev.events") return null;
   const sum = r.summary as { uk?: unknown; en?: unknown } | undefined;
   const uk = str(sum?.uk, 900);
   const en = str(sum?.en, 900);

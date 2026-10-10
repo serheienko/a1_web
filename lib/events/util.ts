@@ -236,3 +236,18 @@ export function hashOf(s: string): number {
   for (let i = 0; i < s.length; i++) x = Math.imul(x ^ s.charCodeAt(i), 16777619);
   return x >>> 0;
 }
+
+
+/** Категории для верхнего фильтра: внутри каждой -- теги-технологии. Тег может входить в несколько категорий. */
+export const EVENT_CATEGORIES: { id: string; uk: string; en: string; tags: string[] }[] = [
+  { id: "ai", uk: "ШІ та дані", en: "AI & Data", tags: ["AI", "Machine Learning", "LLM", "Data", "Data Engineering", "Data Science", "Analytics", "Databases", "PostgreSQL", "MongoDB", "Kafka"] },
+  { id: "web", uk: "Веб", en: "Web", tags: ["JavaScript", "TypeScript", "React", "Angular", "Vue.js", "Node.js", "Next.js", "CSS", "Frontend", "Backend", "Full-stack", "Web", "API", "GraphQL", "PHP", "Laravel", "Ruby", "Django"] },
+  { id: "mobile", uk: "Мобільна розробка", en: "Mobile", tags: ["Mobile", "Android", "iOS", "Flutter", "React Native", "Kotlin", "Swift"] },
+  { id: "cloud", uk: "Хмара та DevOps", en: "Cloud & DevOps", tags: ["DevOps", "SRE", "Cloud", "AWS", "Azure", "Google Cloud", "Kubernetes", "Docker", "Terraform", "Linux", "Networking", "Microservices", "Architecture", "Performance"] },
+  { id: "security", uk: "Безпека", en: "Security", tags: ["Security"] },
+  { id: "lang", uk: "Мови програмування", en: "Languages", tags: ["Python", "Java", "Spring", "Go", "Rust", "C++", "C#", ".NET", "Kotlin", "Swift", "Scala", "Elixir", "Clojure", "Ruby", "PHP", "JavaScript", "TypeScript", "Functional Programming"] },
+  { id: "emerging", uk: "Ігри, Web3, IoT", en: "Games, Web3, IoT", tags: ["Game Dev", "AR/VR", "Blockchain", "Web3", "Fintech", "IoT", "Embedded", "Robotics"] },
+  { id: "product", uk: "Продукт і менеджмент", en: "Product & Management", tags: ["Product", "Project Management", "Agile", "Leadership", "Management", "Startups", "HR"] },
+  { id: "design", uk: "Дизайн і якість", en: "Design & QA", tags: ["UX", "Design", "QA", "Accessibility", "Tech Writing"] },
+  { id: "community", uk: "Спільнота та Open Source", en: "Community & Open Source", tags: ["Open Source", "Community", "Career"] },
+];

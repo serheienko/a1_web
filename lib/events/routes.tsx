@@ -14,11 +14,11 @@ export async function eventMeta(slug: string, lang: EvLang): Promise<Metadata> {
 }
 
 export function indexMeta(lang: EvLang): Metadata {
-  const title = lang === "uk" ? "IT-події: конференції та мітапи в Україні, Європі й онлайн | A1 Jobs" : "Tech events: conferences & meetups in Ukraine, Europe and online | A1 Jobs";
+  const title = lang === "uk" ? "IT-події: конференції та мітапи в Україні, Європі, світі й онлайн | A1 Jobs" : "Tech events: conferences & meetups in Ukraine, Europe, worldwide and online | A1 Jobs";
   const description =
     lang === "uk"
-      ? "Календар IT-конференцій і мітапів: дати, місця, теми й короткий опис кожної події. Україна, Європа та онлайн. Оновлюється щодня."
-      : "A calendar of tech conferences and meetups: dates, places, topics and a short take on each event. Ukraine, Europe and online. Updated daily.";
+      ? "Календар IT-конференцій і мітапів: дати, місця, теми й короткий опис кожної події. Україна, Європа, світ та онлайн. Оновлюється щодня."
+      : "A calendar of tech conferences and meetups: dates, places, topics and a short take on each event. Ukraine, Europe, worldwide and online. Updated daily.";
   return {
     title,
     description,
@@ -78,8 +78,8 @@ export async function topicMeta(slug: string, lang: EvLang): Promise<Metadata> {
   const title = `${topicTitle(label, lang)} | A1 Jobs`;
   const description =
     lang === "uk"
-      ? `Найближчі ${label}-події: дати, міста, вартість і короткий опис. Конференції й мітапи в Україні, Європі та онлайн.`
-      : `Upcoming ${label} events: dates, cities, prices and a short take on each. Conferences and meetups in Ukraine, Europe and online.`;
+      ? `Найближчі ${label}-події: дати, міста, вартість і короткий опис. Конференції й мітапи в Україні, Європі, світі та онлайн.`
+      : `Upcoming ${label} events: dates, cities, prices and a short take on each. Conferences and meetups in Ukraine, Europe, worldwide and online.`;
   const live = events.length >= MIN_COLLECTION;
   return {
     title,

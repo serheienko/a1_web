@@ -9,11 +9,11 @@ import { SITE_URL } from "@/lib/events/util";
 
 const TXT = {
   uk: {
-    h1: "IT-події", lead: "Календар IT-конференцій і мітапів: Україна, Європа та онлайн. Дати, місця, теми й наш короткий опис кожної події.",
+    h1: "IT-події", lead: "Календар IT-конференцій і мітапів: Україна, Європа, світ та онлайн. Дати, місця, теми й наш короткий опис кожної події.",
     other: "EN", otherLabel: "English version",
   },
   en: {
-    h1: "Tech events", lead: "A calendar of tech conferences and meetups: Ukraine, Europe and online. Dates, places, topics and our short take on every event.",
+    h1: "Tech events", lead: "A calendar of tech conferences and meetups: Ukraine, Europe, worldwide and online. Dates, places, topics and our short take on every event.",
     other: "UA", otherLabel: "Українською",
   },
 } as const;

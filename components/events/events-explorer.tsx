@@ -8,7 +8,7 @@
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import type { EvLang } from "@/lib/events/types";
-import { countryLabel, eventPath, fmtRange, monthKey, monthTitle, placeLabel, regionOf, utc, type Coll, type Region } from "@/lib/events/util";
+import { EVENT_CATEGORIES, countryLabel, eventPath, fmtRange, monthKey, monthTitle, placeLabel, regionOf, utc, type Coll, type Region } from "@/lib/events/util";
 import { DateTile } from "./date-tile";
 import { EventCover } from "./event-cover";
 import { EventRow, type ListEvent } from "./event-row";
@@ -18,13 +18,13 @@ import { Pager } from "./pager";
 const TXT = {
   uk: {
     all: "Усі", ua: "Україна", eu: "Європа", online: "Онлайн", world: "Світ",
-    allTopics: "Усі теми", soon: "Найближчі", today: "Сьогодні", noDay: "Цього дня подій немає. Ось найближчі:",
+    allTopics: "Усі теми", allCats: "Усі категорії", category: "Категорія", soon: "Найближчі", today: "Сьогодні", noDay: "Цього дня подій немає. Ось найближчі:",
     dayEvents: "Події дня", inCountry: "Події", more: "Показати ще", nothing: "За цими фільтрами нічого немає. Спробуйте змінити регіон або тему.",
     region: "Регіон", topic: "Тема", list: "Усі найближчі події", free: "Безкоштовно",
   },
   en: {
     all: "All", ua: "Ukraine", eu: "Europe", online: "Online", world: "World",
-    allTopics: "All topics", soon: "Coming up", today: "Today", noDay: "No events on this day. Coming up next:",
+    allTopics: "All topics", allCats: "All categories", category: "Category", soon: "Coming up", today: "Today", noDay: "No events on this day. Coming up next:",
     dayEvents: "Events on this day", inCountry: "Events", more: "Show more", nothing: "Nothing matches these filters. Try another region or topic.",
     region: "Region", topic: "Topic", list: "All upcoming events", free: "Free",
   },
@@ -32,6 +32,11 @@ const TXT = {
 
 const PAGE = 20;
 const DOT: Record<Region, string> = { ua: "bg-yellow-400", eu: "bg-sky-400", online: "bg-emerald-400", world: "bg-rose-400" };
+
+function inCat(eventTags: string[], catId: string): boolean {
+  const c = EVENT_CATEGORIES.find((x) => x.id === catId);
+  return !!c && eventTags.some((t) => c.tags.includes(t));
+}
 
 function addMonths(key: string, d: number): string {
   const [y = 2026, m = 1] = key.split("-").map(Number);
@@ -60,6 +65,7 @@ export function EventsExplorer({ events, tags, lang, today, heading }: { events:
   const t = TXT[lang];
   const [region, setRegion] = useState<"all" | Region>("all");
   const [tag, setTag] = useState("");
+  const [cat, setCat] = useState("");
   const [month, setMonth] = useState(today.slice(0, 7));
   const [day, setDay] = useState<string | null>(null);
   const [page, setPage] = useState(1);
@@ -67,19 +73,19 @@ export function EventsExplorer({ events, tags, lang, today, heading }: { events:
   const listTop = useRef<HTMLElement>(null);
 
   const filtered = useMemo(
-    () => events.filter((e) => (region === "all" || regionOf(e) === region) && (!tag || e.tags.includes(tag))),
-    [events, region, tag],
+    () => events.filter((e) => (region === "all" || regionOf(e) === region) && (!tag || e.tags.includes(tag)) && (!cat || inCat(e.tags, cat))),
+    [events, region, tag, cat],
   );
   const upcoming = useMemo(() => filtered.filter((e) => e.end >= today), [filtered, today]);
   const counts = useMemo(() => {
     const c: Record<"all" | Region, number> = { all: 0, ua: 0, eu: 0, online: 0, world: 0 };
     for (const e of events) {
-      if (e.end < today || (tag && !e.tags.includes(tag))) continue;
+      if (e.end < today || (tag && !e.tags.includes(tag)) || (cat && !inCat(e.tags, cat))) continue;
       c.all++;
       c[regionOf(e)]++;
     }
     return c;
-  }, [events, today, tag]);
+  }, [events, today, tag, cat]);
 
   const cells = useMemo(() => daysOfMonth(month), [month]);
   const byDay = useMemo(() => {
@@ -126,7 +132,16 @@ export function EventsExplorer({ events, tags, lang, today, heading }: { events:
   const panel = sel ? mapEvents.filter(matchCountry) : panelIsDay ? dayList : upcoming.slice(0, 5);
   const selLabel = sel === "__online" ? (lang === "uk" ? "онлайн" : "online") : sel ? countryLabel(sel, lang) : "";
   const carousel = upcoming.slice(0, 8);
-  const topTags = tags.filter((c) => c.upcoming > 0).slice(0, 16);
+  const catCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const e of events) {
+      if (e.end < today || (region !== "all" && regionOf(e) !== region)) continue;
+      for (const c of EVENT_CATEGORIES) if (inCat(e.tags, c.id)) m.set(c.id, (m.get(c.id) ?? 0) + 1);
+    }
+    return m;
+  }, [events, today, region]);
+  const catTags = cat ? new Set(EVENT_CATEGORIES.find((c) => c.id === cat)?.tags ?? []) : null;
+  const topTags = tags.filter((c) => c.upcoming > 0 && (!catTags || catTags.has(c.label))).slice(0, cat ? 30 : 16);
 
   const pages = Math.max(1, Math.ceil(upcoming.length / PAGE));
   const curPage = Math.min(page, pages);
@@ -154,6 +169,14 @@ export function EventsExplorer({ events, tags, lang, today, heading }: { events:
         {(["all", "ua", "eu", "online", "world"] as const).map((r) => (
           <button key={r} type="button" onClick={() => { setRegion(r); setPage(1); }} className={pill(region === r)}>
             {t[r]} <span className="opacity-60">{counts[r]}</span>
+          </button>
+        ))}
+      </div>
+      <div className="mt-2 flex gap-2 overflow-x-auto pb-1" role="group" aria-label={t.category}>
+        <button type="button" onClick={() => { setCat(""); setTag(""); setPage(1); }} className={pill(!cat)}>{t.allCats}</button>
+        {EVENT_CATEGORIES.filter((c) => (catCounts.get(c.id) ?? 0) > 0).map((c) => (
+          <button key={c.id} type="button" onClick={() => { setCat(cat === c.id ? "" : c.id); setTag(""); setPage(1); }} className={pill(cat === c.id)}>
+            {c[lang]} <span className="opacity-60">{catCounts.get(c.id)}</span>
           </button>
         ))}
       </div>
