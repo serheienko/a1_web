@@ -1,6 +1,11 @@
 // components/news/news-thumb.tsx -- миниатюра новости для списка: тёмная карточка
 // с главной цифрой и узором. Чистая разметка, без картинок: грузится мгновенно.
 // Чтобы список не выглядел одинаково, у новости есть узор (motif) и оттенок (hue).
+//
+// 11.10.2026 (Александр: «превьюшка везде одинаковая, скучно»). Агент почти всегда
+// выбирал «bars» + синий, и список был из одинаковых карточек. Теперь узор и цвет
+// выбираются от слага новости (хэш): у каждой новости свой, но стабильный, а uk- и
+// en-версии одной новости выглядят одинаково. Выбор агента остаётся запасным.
 import type { NewsArticle } from "@/lib/news/types";
 
 const DOT_COLS = 24;
@@ -14,10 +19,26 @@ const HUES = {
   teal: { bg: "radial-gradient(120% 100% at 85% 0%,#0f6b6e 0%,#073a45 50%,#021c24 100%)", hi: "#5fe0d0", lo: "#1d9aa6", glow: "95,224,208" },
   violet: { bg: "radial-gradient(120% 100% at 15% 0%,#5b2aa8 0%,#2a1163 50%,#0e0524 100%)", hi: "#c19bff", lo: "#7a46d6", glow: "193,155,255" },
   amber: { bg: "radial-gradient(120% 100% at 85% 0%,#9a5a10 0%,#4d2a08 50%,#1c0e02 100%)", hi: "#ffc15e", lo: "#d98a1c", glow: "255,193,94" },
+  green: { bg: "radial-gradient(120% 100% at 15% 0%,#1d7a3a 0%,#0b3d1e 50%,#031a0c 100%)", hi: "#7bf0a0", lo: "#25a653", glow: "123,240,160" },
+  orange: { bg: "radial-gradient(120% 100% at 85% 0%,#b8420f 0%,#5c1f06 50%,#210a02 100%)", hi: "#ff9a62", lo: "#e0561c", glow: "255,154,98" },
+  rose: { bg: "radial-gradient(120% 100% at 15% 0%,#a3205a 0%,#4f0e2e 50%,#1c0511 100%)", hi: "#ff8fc0", lo: "#d6407f", glow: "255,143,192" },
 } as const;
 
-export function NewsThumb({ thumb, className = "" }: { thumb: NewsArticle["thumb"]; className?: string }) {
-  const h = HUES[thumb.hue ?? "blue"];
+type Hue = keyof typeof HUES;
+const HUE_ORDER: Hue[] = ["blue", "green", "violet", "orange", "teal", "rose", "amber"];
+const MOTIF_ORDER = ["bars", "dots", "spark", "rings"] as const;
+
+function hashOf(s: string): number {
+  let x = 2166136261;
+  for (let i = 0; i < s.length; i++) x = Math.imul(x ^ s.charCodeAt(i), 16777619);
+  return x >>> 0;
+}
+
+export function NewsThumb({ thumb: given, className = "", seed }: { thumb: NewsArticle["thumb"]; className?: string; seed?: string }) {
+  // seed -- слаг новости; «-en» отрезаем, чтобы пара uk/en выглядела одинаково
+  const k = seed ? hashOf(seed.replace(/-en$/, "")) : null;
+  const thumb = k === null ? given : { ...given, hue: HUE_ORDER[k % HUE_ORDER.length], motif: MOTIF_ORDER[(k >>> 8) % MOTIF_ORDER.length] };
+  const h = HUES[(thumb.hue as Hue) ?? "blue"];
   return (
     <span aria-hidden="true" className={"relative block aspect-[16/10] overflow-hidden " + className} style={{ background: h.bg }}>
       {thumb.motif === "dots" ? (

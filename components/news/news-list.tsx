@@ -44,7 +44,7 @@ export function NewsList({ items, pool }: { items: NewsArticle[]; pool?: NewsArt
     <div className="mt-8 flex flex-col gap-6">
       <article className="group overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-neutral-200 transition hover:-translate-y-0.5 hover:shadow-md dark:bg-neutral-900 dark:ring-neutral-800" lang={first.lang}>
         <Link href={`/news/${first.slug}`} className="grid gap-0 sm:grid-cols-[1.1fr_1fr]">
-          <NewsThumb thumb={first.thumb} className="sm:h-full sm:aspect-auto sm:min-h-[220px]" />
+          <NewsThumb thumb={first.thumb} seed={first.slug} className="sm:h-full sm:aspect-auto sm:min-h-[220px]" />
           <span className="flex flex-col justify-center gap-2 p-5 sm:p-6">
             <span className="text-[13px] text-neutral-400">{first.lang === "uk" ? "Свіже" : "Latest"}</span>
             <span className="text-2xl font-bold leading-tight tracking-tight text-neutral-900 transition group-hover:text-accent dark:text-neutral-50">{first.h1}</span>
@@ -58,8 +58,8 @@ export function NewsList({ items, pool }: { items: NewsArticle[]; pool?: NewsArt
 
       {rest.map((a) => (
         <article key={a.slug} lang={a.lang} className="group grid grid-cols-[112px_1fr] gap-4 sm:grid-cols-[200px_1fr] sm:gap-5">
-          <Link href={`/news/${a.slug}`} tabIndex={-1} className="block overflow-hidden rounded-2xl ring-1 ring-neutral-200 transition group-hover:ring-accent/40 dark:ring-neutral-800">
-            <NewsThumb thumb={a.thumb} />
+          <Link href={`/news/${a.slug}`} tabIndex={-1} className="block self-start overflow-hidden rounded-2xl ring-1 ring-neutral-200 transition group-hover:ring-accent/40 dark:ring-neutral-800">
+            <NewsThumb thumb={a.thumb} seed={a.slug} />
           </Link>
           <div className="min-w-0">
             <Meta a={a} pool={all} />

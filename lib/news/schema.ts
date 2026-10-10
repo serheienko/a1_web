@@ -63,7 +63,7 @@ export const articleSchema = z.object({
   }),
   thumb: z.object({
     motif: z.enum(["dots", "bars", "spark", "rings"]),
-    hue: z.enum(["blue", "teal", "violet", "amber"]).optional(),
+    hue: z.enum(["blue", "teal", "violet", "amber", "green", "orange", "rose"]).optional(),
     big: z.string().min(1).max(12),
     small: z.string().min(3).max(90),
   }),
