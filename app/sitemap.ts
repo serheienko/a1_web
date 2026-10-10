@@ -31,6 +31,8 @@ import { cityTechList, countrySegments, globalLevelCounts, globalRoleCounts, lis
 import { COUNTRY_LANDING_CODES } from "@/lib/seo/country-landings";
 import { ARTICLES } from "@/lib/blog/articles";
 import { allNews } from "@/lib/news/registry";
+import { loadEvents } from "@/lib/events/store";
+import { MIN_COLLECTION, collectPlaces, collectTags, todayKyiv } from "@/lib/events/util";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -134,6 +136,41 @@ async function buildSitemap({ id }: { id: number | string }): Promise<MetadataRo
     // 08.10.2026: «IT новини» -- список и новости (lib/news), у каждой своя дата.
     entries.push({ url: `${SITE_URL}/news`, lastModified: new Date(), changeFrequency: "daily", priority: 0.7 });
     entries.push({ url: `${SITE_URL}/news/en`, lastModified: new Date(), changeFrequency: "daily", priority: 0.6 });
+    // 11.10.2026: «Події» -- календарь IT-конференций и митапов (lib/events). В карту идут
+    // события (будущие и за последние 90 дней), страницы серий и подборки с порогом
+    // MIN_COLLECTION; каждая страница есть в двух языках (uk и /events/en/...).
+    try {
+      const evs = await loadEvents();
+      const today = todayKyiv();
+      const cut = new Date(Date.now() - 90 * 86_400_000).toISOString().slice(0, 10);
+      entries.push({ url: `${SITE_URL}/events`, lastModified: new Date(), changeFrequency: "daily", priority: 0.8 });
+      entries.push({ url: `${SITE_URL}/events/en`, lastModified: new Date(), changeFrequency: "daily", priority: 0.7 });
+      const seriesSeen = new Set<string>();
+      for (const e of evs) {
+        if (e.end < cut) continue;
+        const lm = new Date(e.updated);
+        entries.push({ url: `${SITE_URL}/events/${e.slug}`, lastModified: lm, changeFrequency: "weekly", priority: e.end >= today ? 0.7 : 0.4 });
+        entries.push({ url: `${SITE_URL}/events/en/${e.slug}`, lastModified: lm, changeFrequency: "weekly", priority: e.end >= today ? 0.6 : 0.3 });
+      }
+      for (const e of evs) {
+        if (seriesSeen.has(e.series)) continue;
+        seriesSeen.add(e.series);
+        entries.push({ url: `${SITE_URL}/events/series/${e.series}`, changeFrequency: "weekly", priority: 0.6 });
+        entries.push({ url: `${SITE_URL}/events/en/series/${e.series}`, changeFrequency: "weekly", priority: 0.5 });
+      }
+      for (const c of collectTags(evs, today)) {
+        if (c.n < MIN_COLLECTION) continue;
+        entries.push({ url: `${SITE_URL}/events/topic/${c.slug}`, changeFrequency: "weekly", priority: 0.6 });
+        entries.push({ url: `${SITE_URL}/events/en/topic/${c.slug}`, changeFrequency: "weekly", priority: 0.5 });
+      }
+      for (const c of collectPlaces(evs, today)) {
+        if (c.n < MIN_COLLECTION) continue;
+        entries.push({ url: `${SITE_URL}/events/in/${c.slug}`, changeFrequency: "weekly", priority: 0.6 });
+        entries.push({ url: `${SITE_URL}/events/en/in/${c.slug}`, changeFrequency: "weekly", priority: 0.5 });
+      }
+    } catch (e) {
+      console.error("[sitemap] события недоступны, пропускаем", e);
+    }
     entries.push({ url: `${SITE_URL}/terms`, lastModified: new Date("2026-10-08"), changeFrequency: "yearly", priority: 0.2 });
     for (const item of await allNews()) {
       entries.push({ url: `${SITE_URL}/news/${item.slug}`, lastModified: new Date(item.updated), changeFrequency: "weekly", priority: 0.6 });

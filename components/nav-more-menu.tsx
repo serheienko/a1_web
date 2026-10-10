@@ -33,7 +33,7 @@ import { DOWNLOAD_COPY } from "@/app/download/copy";
 import { LOCALES, LOCALE_VISIBILITY_CLASS, T, type Locale } from "@/components/t";
 import { useHoverPanel } from "@/lib/use-hover-panel";
 
-type Id = "app" | "news" | "stats" | "game";
+type Id = "app" | "news" | "events" | "stats" | "game";
 
 function L(uk: string, en: string, ru: string, rest?: Partial<Record<Locale, string>>): Record<Locale, string> {
   return { uk, en, ru, de: en, es: en, fr: en, pl: en, ptBR: en, zh: en, ...rest };
@@ -69,6 +69,16 @@ const TXT = {
     ),
     kicker: L("Свіже", "Latest", "Свежее"),
   },
+  events: {
+    title: L("Події", "Events", "События"),
+    sub: L("Конференції та мітапи", "Conferences and meetups", "Конференции и митапы"),
+    prev: L(
+      "Календар IT-конференцій і мітапів: Україна, Європа та онлайн — з датами, темами й описом",
+      "A calendar of tech conferences and meetups: Ukraine, Europe and online — with dates, topics and a short take",
+      "Календарь IT-конференций и митапов: Украина, Европа и онлайн — с датами, темами и описанием",
+    ),
+    kicker: L("Календар", "Calendar", "Календарь"),
+  },
   stats: {
     title: L("A1 Stats", "A1 Stats", "A1 Stats"),
     sub: L("Живі цифри ринку вакансій", "Live job-market numbers", "Живые цифры рынка вакансий"),
@@ -102,7 +112,7 @@ const TXT = {
   more: L("Ще", "More", "Ещё", { de: "Mehr", es: "Más", fr: "Plus", pl: "Więcej", ptBR: "Mais", zh: "更多" }),
 };
 
-const HREF: Record<Id, string> = { app: "/download", news: "/news", stats: "/stats", game: "/game" };
+const HREF: Record<Id, string> = { app: "/download", news: "/news", events: "/events", stats: "/stats", game: "/game" };
 
 type StatsLite = { total: number; companies: number; countries: number; fresh24h: number; daily: { d: string; n: number }[] };
 
@@ -143,6 +153,20 @@ function NewsIcon() {
       <path d="M7.5 9h6" />
       <path d="M7.5 12.5h6" />
       <path d="M7.5 16h3.5" />
+    </svg>
+  );
+}
+
+function EventsIcon() {
+  return (
+    <svg {...svgBase}>
+      <rect x="3.5" y="5" width="17" height="15" rx="3" />
+      <path d="M3.5 10h17" />
+      <path d="M8 3v4" className="animate-ev-ring" style={{ animationDelay: "0ms" }} />
+      <path d="M16 3v4" className="animate-ev-ring" style={{ animationDelay: "90ms" }} />
+      <circle cx="8.5" cy="14.5" r="1" fill="currentColor" stroke="none" className="animate-ev-dot" style={{ animationDelay: "60ms" }} />
+      <circle cx="12" cy="14.5" r="1" fill="currentColor" stroke="none" className="animate-ev-dot" style={{ animationDelay: "160ms" }} />
+      <circle cx="15.5" cy="14.5" r="1" fill="currentColor" stroke="none" className="animate-ev-dot" style={{ animationDelay: "260ms" }} />
     </svg>
   );
 }
@@ -299,6 +323,49 @@ function PreviewNews() {
   );
 }
 
+// Превью «Події»: узор -- сетка месяца с несколькими «горящими» днями. Без выдуманных событий.
+const EVENTS_PREVIEW_LIT = new Set([3, 8, 12, 17, 18, 24, 29, 33]);
+
+function PreviewEvents() {
+  const days = ["ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ", "НД"];
+  return (
+    <>
+      <span className="relative block aspect-[16/10] w-full overflow-hidden bg-[radial-gradient(120%_90%_at_20%_0%,#5b2aa8_0%,#2a1163_48%,#0e0524_100%)]">
+        <span className="absolute inset-x-5 top-5 block">
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-[#c19bff]">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#c19bff]/60" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-[#c19bff]" />
+            </span>
+            IT events · <T {...TXT.events.kicker} />
+          </span>
+          <span className="mt-2 block text-[30px] font-bold leading-[1.05] text-white">UA · EU · online</span>
+        </span>
+        <span className="absolute inset-x-5 bottom-8 grid grid-cols-7 gap-1.5 text-center text-[10px] text-white/45">
+          {days.map((d) => <span key={d}>{d}</span>)}
+          {Array.from({ length: 35 }, (_, i) => {
+            const on = EVENTS_PREVIEW_LIT.has(i);
+            return (
+              <span
+                key={i}
+                className={"block aspect-square rounded-full " + (on ? "animate-pulse" : "")}
+                style={{ background: on ? "#c19bff" : "rgba(255,255,255,.12)", boxShadow: on ? "0 0 8px 1px rgba(193,155,255,.85)" : "none", animationDelay: on ? `${(i % 5) * 160}ms` : undefined }}
+              />
+            );
+          })}
+        </span>
+        <span className="pointer-events-none absolute inset-x-0 bottom-0 block h-12 bg-gradient-to-b from-transparent to-[#03051f]" />
+      </span>
+      <span className="block px-5 pb-5 pt-1">
+        <span className="block text-[20px] font-semibold leading-[1.2] text-white"><T {...TXT.events.title} /></span>
+        <span className="mt-2 block text-[13px] leading-snug text-white/65">
+          <T {...TXT.events.prev} />
+        </span>
+      </span>
+    </>
+  );
+}
+
 function PreviewGame() {
   return (
     <>
@@ -436,6 +503,7 @@ export function NavMoreMenu() {
           >
             <Row id="app" icon={<AppIcon />} onHover={setHovered} onPick={pick} />
             <Row id="news" icon={<NewsIcon />} onHover={setHovered} onPick={pick} />
+            <Row id="events" icon={<EventsIcon />} onHover={setHovered} onPick={pick} />
             <Row id="stats" icon={<StatsIcon />} onHover={setHovered} onPick={pick} />
             <div className="mx-2 my-1 border-t border-neutral-100 dark:border-neutral-800" />
             <Row id="game" icon={<GameIcon />} onHover={setHovered} onPick={pick} />
@@ -451,7 +519,7 @@ export function NavMoreMenu() {
               }
             >
               <Link key={hovered} href={HREF[hovered]} onClick={pick} className={`animate-nav-preview ${shell("bg-[#03051f]")}`}>
-                {hovered === "app" ? <PreviewApp /> : hovered === "news" ? <PreviewNews /> : hovered === "stats" ? <PreviewStats data={stats} /> : <PreviewGame />}
+                {hovered === "app" ? <PreviewApp /> : hovered === "news" ? <PreviewNews /> : hovered === "events" ? <PreviewEvents /> : hovered === "stats" ? <PreviewStats data={stats} /> : <PreviewGame />}
               </Link>
             </div>
           )}

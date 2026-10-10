@@ -2273,7 +2273,39 @@ textarea {
   animation: nav-stats-col-grow 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
+/* Иконка «Події»: при наведении ушки календаря качаются, точки дат по очереди подпрыгивают. */
+@keyframes ev-ring {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  30% { transform: rotate(-14deg) translateY(-1.2px); }
+  60% { transform: rotate(10deg) translateY(-0.6px); }
+}
+
+@keyframes ev-dot {
+  0%, 100% { transform: scale(1); }
+  45% { transform: scale(2.1); }
+}
+
+.animate-ev-ring,
+.animate-ev-dot {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.animate-ev-ring {
+  transform-origin: 50% 20%;
+}
+
+.group:hover .animate-ev-ring {
+  animation: ev-ring 0.6s ease-in-out;
+}
+
+.group:hover .animate-ev-dot {
+  animation: ev-dot 0.5s ease-in-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .group:hover .animate-ev-ring,
+  .group:hover .animate-ev-dot,
   .group:hover .animate-more-dot,
   .group:hover .animate-stats-bar,
   .animate-nav-preview,
