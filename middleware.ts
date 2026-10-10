@@ -36,13 +36,29 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 export function middleware(request: NextRequest) {
+  // 10.10.2026. ОПЫТ: проверяем, не из-за этого ли middleware сайт отдаёт
+  // код 200 там, где страницы нет. notFound() на любой странице (снятая
+  // вакансия, несуществующий профиль, пустой сегмент) отвечает 200 с телом
+  // «сторінку не знайдено», хотя несуществующий МАРШРУТ отвечает честным
+  // 404. Единственное общее звено -- этот middleware: он на каждый запрос
+  // создаёт свой ответ (NextResponse.next() -- это ответ со статусом 200) и
+  // ставит в него cookie. Если дело в нём, то запрос, на котором мы ответ
+  // НЕ создаём, должен получить 404.
+  //
+  // Поэтому: если cookie уже стоит и страна та же -- не трогаем ответ
+  // вообще. Это и само по себе полезно (меньше Set-Cookie), но главное --
+  // это проверка. Итог опыта дописать сюда и решать, что делать с теми, у
+  // кого cookie нет: у Googlebot её нет никогда.
+  const geo = request.headers.get("x-vercel-ip-country") ?? "";
+  if (request.cookies.get("a1_geo")?.value === geo) return;
+
   const response = NextResponse.next();
   // x-vercel-ip-country is set automatically by Vercel's edge network on
   // every request in production — no extra package/API call needed. Not
   // present in local dev (no geo data there), which just means the geo
   // cookie ends up empty and every behavior below falls back to normal
   // (switch shown, default Ukrainian, nothing forced) — a safe default.
-  const country = request.headers.get("x-vercel-ip-country") ?? "";
+  const country = geo;
   response.cookies.set("a1_geo", country, {
     path: "/",
     maxAge: 60 * 60 * 24, // re-checked daily — travel/VPN shouldn't stick a stale country for long
