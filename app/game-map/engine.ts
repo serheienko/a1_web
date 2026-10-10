@@ -252,6 +252,11 @@ export function mountGameMap(root, opts) {
     <div class="gm-load"><div class="gm-lbg"></div><div class="gm-lpill">${COMPASS}<span class="gm-ltx"></span></div></div>`;
   const cv = root.querySelector('.gm-cv');
   const ctx = cv.getContext('2d');
+  // 10.10.2026 (Александр: «перемикаю регіон у повноекранному -- викидає з
+  // повного екрана»). Зміна регіону перемонтовує карту на ТОМУ САМОМУ вузлі,
+  // і якщо він уже на весь екран -- там і лишаємось. Кнопку поверне applyLang
+  // наприкінці ініціалізації, тут лишається прокрутка сторінки.
+  if (!opts.app && root.classList.contains('gm-full')) document.documentElement.classList.add('gm-noscroll');
   const pop = root.querySelector('.gm-pop');
   const themeBtn = root.querySelector('.gm-theme');
   // 03.10.2026 (Александр): довідник («i» біля перемикача дня/вечора) і
@@ -1658,7 +1663,27 @@ export function mountGameMap(root, opts) {
   }, 11000);
   cleanup.push(() => clearInterval(tipT));
 
-  const destroy = () => { destroyed = true; cancelAnimationFrame(raf); cleanup.forEach((f) => f()); if (root.classList.contains('gm-full')) { const fsEl = document.fullscreenElement || document.webkitFullscreenElement; if (fsEl === root && document.exitFullscreen) document.exitFullscreen().catch(() => {}); root.classList.remove('gm-full'); } root.innerHTML = ''; };
+  const destroy = () => {
+    destroyed = true; cancelAnimationFrame(raf); cleanup.forEach((f) => f());
+    // 10.10.2026. Раніше тут безумовно виходили з повного екрана -- і зміна
+    // регіону (вона перемонтовує карту) викидала людину назад у звичайний
+    // вигляд. Тепер клас лишаємо: вузол той самий, нова карта підхопить стан
+    // і нічого не блимне. Виходимо лише тоді, коли карта НЕ піднялась знову,
+    // тобто людина пішла зі сторінки зовсім.
+    const wasFull = root.classList.contains('gm-full');
+    root.innerHTML = '';
+    if (!wasFull) return;
+    setTimeout(() => {
+      if (root.isConnected && root.childElementCount) return; // карта вже піднялась -- нічого не чіпаємо
+      root.classList.remove('gm-full');
+      document.documentElement.classList.remove('gm-noscroll');
+      const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+      if (fsEl === root) {
+        const ex = document.exitFullscreen || document.webkitExitFullscreen;
+        if (ex) { try { const pr = ex.call(document); if (pr && pr.catch) pr.catch(() => {}); } catch { /* ignore */ } }
+      }
+    }, 500);
+  };
   destroy.setLang = (l) => { if (!STR[l] || l === lang) return; lang = l; applyLang(); };
   // 02.10.2026 (Александр): тема сайту = тема карти, навіть якщо її змінили
   // вже після відкриття карти.
