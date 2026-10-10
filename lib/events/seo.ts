@@ -22,6 +22,7 @@ export function eventJsonLd(e: EventItem, lang: EvLang) {
     ...(e.image ? { image: [e.image] } : {}),
     url,
     inLanguage: lang === "uk" ? "uk-UA" : "en",
+    organizer: { "@type": "Organization", name: e.seriesName || e.name, url: e.url },
     ...(e.free ? { isAccessibleForFree: true, offers: { "@type": "Offer", url: e.url, price: "0", priceCurrency: "USD", availability: "https://schema.org/InStock" } } : {}),
   };
 }

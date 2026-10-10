@@ -14,7 +14,7 @@ export async function eventMeta(slug: string, lang: EvLang): Promise<Metadata> {
 }
 
 export function indexMeta(lang: EvLang): Metadata {
-  const title = lang === "uk" ? "IT-події: конференції та мітапи в Україні, Європі, світі й онлайн | A1 Jobs" : "Tech events: conferences & meetups in Ukraine, Europe, worldwide and online | A1 Jobs";
+  const title = lang === "uk" ? "IT-події світу: конференції та мітапи | A1 Jobs" : "Tech events worldwide: conferences & meetups | A1 Jobs";
   const description =
     lang === "uk"
       ? "Календар IT-конференцій і мітапів: дати, місця, теми й короткий опис кожної події. Україна, Європа, світ та онлайн. Оновлюється щодня."
