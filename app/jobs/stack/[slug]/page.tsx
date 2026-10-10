@@ -25,6 +25,7 @@ import { generateAvatarBlurDataUrl } from "@/lib/avatar-blur";
 import { LOCALES, LOCALE_VISIBILITY_CLASS, T, type Locale } from "@/components/t";
 import { buildLandingBreadcrumbJsonLd } from "@/lib/seo/jsonld";
 import { postsForTech } from "@/lib/a1/tech-index";
+import { MIN_SEGMENT_POSTS } from "@/lib/seo/segments";
 import { SegmentLinks } from "@/components/segment-page";
 import { linksForGlobalLevels, linksForGlobalRoles, linksForTech, articleLinks } from "@/lib/seo/segment-links";
 import {
@@ -91,6 +92,11 @@ export default async function Page({ params, searchParams }: Props) {
   if (!landing) notFound();
 
   const all = await postsForTech(landing.tech);
+  // 10.10.2026. Порог тот же, что у остальных сегментов (lib/seo/segments.ts):
+  // посадочных по стеку стало семьдесят четыре вместо шестнадцати, и у части
+  // из них вакансий единицы. Тонкая страница Google не нужна, а нам дороже:
+  // от таких страниц портится отношение ко всему домену.
+  if (all.length < MIN_SEGMENT_POSTS) notFound();
   // 08.10.2026: страницы по 20 с нумерацией (раньше только первые 40, дальше листать было некуда).
   const page = pageOf(await searchParams);
   const posts = all.slice((page - 1) * LANDING_PAGE_SIZE, page * LANDING_PAGE_SIZE);

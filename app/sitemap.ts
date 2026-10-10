@@ -24,6 +24,8 @@ import { profileHref } from "@/lib/profile-href";
 import { JOB_LANDINGS } from "@/lib/seo/job-landings";
 import { FACT_LANDINGS } from "@/lib/seo/fact-landings";
 import { TECH_LANDINGS } from "@/lib/seo/tech-landings";
+import { techCounts } from "@/lib/a1/tech-index";
+import { MIN_SEGMENT_POSTS } from "@/lib/seo/segments";
 import { TOP100_LANDING } from "@/lib/seo/top100-landing";
 import { cityTechList, countrySegments, globalLevelCounts, globalRoleCounts, listCities, remoteTechList, segmentCountries } from "@/lib/a1/segment-index";
 import { COUNTRY_LANDING_CODES } from "@/lib/seo/country-landings";
@@ -89,7 +91,14 @@ async function buildSitemap({ id }: { id: number | string }): Promise<MetadataRo
     // 2026-09-18: посадочные по стеку (lib/seo/tech-landings.ts). С
     // 10.10.2026 их не шестнадцать, а весь словарь технологий -- всё ещё
     // меньше сотни, так что отдельного чанка по-прежнему не стоят.
+    //
+    // Порог: в карту идут только те, где вакансий не меньше
+    // MIN_SEGMENT_POSTS. Раньше список был короткий и заведомо живой,
+    // теперь в нём есть технологии с единицами вакансий -- такая страница
+    // и сама отвечает 404, и в карте сайта ей делать нечего.
+    const techN = await techCounts();
     for (const landing of TECH_LANDINGS) {
+      if ((techN.get(landing.tech) ?? 0) < MIN_SEGMENT_POSTS) continue;
       entries.push({ url: `${SITE_URL}/jobs/stack/${landing.slug}` });
     }
     // 2026-09-19: посадочные по признакам из текста вакансии
@@ -101,6 +110,9 @@ async function buildSitemap({ id }: { id: number | string }): Promise<MetadataRo
     entries.push({ url: `${SITE_URL}/compare` });
     // 03.10.2026: страница игры A1 RUN открыта для поиска.
     entries.push({ url: `${SITE_URL}/game` });
+    // 10.10.2026: каталог всех витрин (app/jobs/catalog). Для робота это
+    // главный узел: с него ведут ссылки на все посадочные разом.
+    entries.push({ url: `${SITE_URL}/jobs/catalog` });
 
     // 30.09.2026 (Конкистадор, SEO). Посадочная «Топ-100 компаній світу» и
     // посадочные по странам: /jobs/country/<код>. Страна попадает в карту

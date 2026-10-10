@@ -74,6 +74,15 @@ async function index(): Promise<Index> {
  * Дата -- та же, что видит человек на карточке и Google в разметке:
  * реальная дата публикации на источнике, если она есть.
  */
+/** Сколько живых вакансий у каждой технологии. Без сортировки и разбора
+ *  заголовков -- это нужно карте сайта и каталогу витрин, где важно только
+ *  число: 10.10.2026 посадочных по стеку стало семьдесят четыре, и пускать
+ *  в карту сайта те, где вакансий три, нельзя. */
+export async function techCounts(): Promise<Map<string, number>> {
+  const { byTech } = await index();
+  return new Map([...byTech].map(([tech, posts]) => [tech, posts.length] as const));
+}
+
 export async function postsForTech(tech: string): Promise<WebPost[]> {
   const { byTech } = await index();
   const posts = byTech.get(tech) ?? [];

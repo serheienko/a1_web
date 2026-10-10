@@ -64,6 +64,28 @@ export function SegmentLinks({ groups }: { groups: SegmentLinkGroup[] }) {
           </ul>
         </div>
       ))}
+      {/* 10.10.2026. Выход на каталог всех витрин. Этот блок есть на каждой
+          сегментной странице, поэтому одна строка здесь связывает все три
+          тысячи посадочных с их общим указателем -- и для человека, и для
+          робота. */}
+      <div>
+        <Link
+          href="/jobs/catalog"
+          className="text-sm text-neutral-500 no-underline transition hover:text-accent dark:text-neutral-400"
+        >
+          <T
+            uk="Усі добірки вакансій →"
+            en="All job collections →"
+            ru="Все подборки вакансий →"
+            de="Alle Job-Sammlungen →"
+            es="Todas las colecciones →"
+            fr="Toutes les sélections →"
+            pl="Wszystkie zbiory ofert →"
+            ptBR="Todas as coleções →"
+            zh="全部职位合集 →"
+          />
+        </Link>
+      </div>
     </section>
   );
 }

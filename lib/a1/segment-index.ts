@@ -53,6 +53,21 @@ function push<K>(map: Map<K, WebPost[]>, key: K, post: WebPost) {
 export function buildSegmentIndex(posts: WebPost[]): SegIndex {
   const techSlugByName = new Map(TECH_LANDINGS.map((t) => [t.tech, t.slug] as const));
 
+  // 10.10.2026. Разбор стека -- самое дорогое, что тут есть: он прогоняет
+  // словарь из восьмидесяти технологий по ВСЕМУ тексту вакансии, а вакансий
+  // тридцать пять тысяч. Один и тот же пост до правки разбирался до трёх раз
+  // (страна+стек, удалёнка+стек, город+стек). Теперь разбор один на вакансию,
+  // остальные берут готовое.
+  const techMemo = new Map<string, string[]>();
+  const techsOf = (post: WebPost): string[] => {
+    let techs = techMemo.get(post.id);
+    if (!techs) {
+      techs = [...new Set(extractTechTags(post.title, post.contentText))];
+      techMemo.set(post.id, techs);
+    }
+    return techs;
+  };
+
   // Города: ключ «страна|город» → вакансии, потом раздаём адреса с разбором
   // совпадений («Cambridge» есть и в GB, и в US).
   const cityBuckets = new Map<string, { cc: string; city: string; posts: WebPost[] }>();
@@ -77,7 +92,7 @@ export function buildSegmentIndex(posts: WebPost[]): SegIndex {
 
     if (cc && cc !== "WW" && cc !== "UA") {
       const lc = cc.toLowerCase();
-      for (const tech of extractTechTags(post.title, post.contentText)) {
+      for (const tech of techsOf(post)) {
         const slug = techSlugByName.get(tech);
         if (slug) push(countryTech, `${lc}/${slug}`, post);
       }
@@ -89,7 +104,7 @@ export function buildSegmentIndex(posts: WebPost[]): SegIndex {
     {
       const kind = worldwideKind(post);
       if ((cc === "UA" && post.tags.includes("remote")) || kind === "world" || kind === "remote") {
-        for (const tech of new Set(extractTechTags(post.title, post.contentText))) {
+        for (const tech of techsOf(post)) {
           const slug = techSlugByName.get(tech);
           if (slug) push(remoteTech, slug, post);
         }
@@ -128,7 +143,7 @@ export function buildSegmentIndex(posts: WebPost[]): SegIndex {
   const cityTech = new Map<string, WebPost[]>();
   for (const seg of cities.values()) {
     for (const post of seg.posts) {
-      for (const tech of new Set(extractTechTags(post.title, post.contentText))) {
+      for (const tech of techsOf(post)) {
         const slug = techSlugByName.get(tech);
         if (slug) push(cityTech, `${seg.slug}/${slug}`, post);
       }
@@ -136,6 +151,14 @@ export function buildSegmentIndex(posts: WebPost[]): SegIndex {
   }
 
   return { source: posts, cities, countryTech, countryLevel, countryRemote, globalLevel, globalRole, cityTech, remoteTech };
+}
+
+/** Прогрев перед тем, как Railway пустит людей на новую версию: собрать
+ *  указатель заранее. Иначе первый, кто откроет посадочную страницу, ждёт
+ *  сборку по всем вакансиям -- это были те самые 23-28 секунд после каждого
+ *  деплоя (10.10.2026). Вызывается из app/api/ready/route.ts. */
+export async function warmSegmentIndex(): Promise<void> {
+  await index();
 }
 
 async function index(): Promise<SegIndex> {

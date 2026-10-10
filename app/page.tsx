@@ -293,6 +293,29 @@ export default async function HomePage({ searchParams }: Props) {
       <Suspense key={params.toString()} fallback={<FeedSkeleton />}>
         <FeedList params={params} filters={filters} page={page} inUkraine={inUkraine} />
       </Suspense>
+
+      {/* 10.10.2026 (Александр: «где можно увидеть витрины?»). До сих пор с
+          главной не вело НИ ОДНОЙ ссылки на посадочные страницы -- ни для
+          человека, ни для робота. Одна строка внизу ленты ведёт в каталог,
+          а уже оттуда -- во все три тысячи. */}
+      <div className="mt-10 border-t border-neutral-100 pt-6 text-center dark:border-neutral-800">
+        <Link
+          href="/jobs/catalog"
+          className="text-sm text-neutral-500 no-underline transition hover:text-accent dark:text-neutral-400"
+        >
+          <T
+            uk="Каталог вакансій: за професією, стеком, містом і країною →"
+            en="Job catalog: by role, stack, city and country →"
+            ru="Каталог вакансий: по профессии, стеку, городу и стране →"
+            de="Job-Katalog: nach Rolle, Stack, Stadt und Land →"
+            es="Catálogo: por puesto, stack, ciudad y país →"
+            fr="Catalogue : par métier, stack, ville et pays →"
+            pl="Katalog ofert: wg stanowiska, stacku, miasta i kraju →"
+            ptBR="Catálogo: por função, stack, cidade e país →"
+            zh="职位目录：按职位、技术栈、城市和国家 →"
+          />
+        </Link>
+      </div>
     </main>
   );
 }
