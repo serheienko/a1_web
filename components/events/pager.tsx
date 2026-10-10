@@ -21,17 +21,17 @@ export function Pager({ page, pages, onPage }: { page: number; pages: number; on
   const btn = "flex h-9 min-w-9 items-center justify-center rounded-full px-3 text-[14px] font-medium transition ";
   return (
     <nav className="mt-6 flex flex-wrap items-center justify-center gap-1.5" aria-label="pages">
-      <button type="button" disabled={page <= 1} onClick={() => onPage(page - 1)} aria-label="prev" className={btn + "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 disabled:opacity-40 dark:bg-neutral-800 dark:text-neutral-300"}>‹</button>
+      <button type="button" disabled={page <= 1} onClick={() => onPage(page - 1)} aria-label="prev" className={btn + "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:hover:bg-neutral-700 disabled:opacity-40 dark:bg-neutral-800 dark:text-neutral-300"}>‹</button>
       {pageNumbers(pages, page).map((n, i) =>
         n === "…" ? (
           <span key={"g" + i} className="px-1 text-neutral-400">…</span>
         ) : (
-          <button key={n} type="button" onClick={() => onPage(n)} aria-current={n === page ? "page" : undefined} className={btn + (n === page ? "bg-accent text-white" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300")}>
+          <button key={n} type="button" onClick={() => onPage(n)} aria-current={n === page ? "page" : undefined} className={btn + (n === page ? "bg-accent text-white" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:hover:bg-neutral-700 dark:bg-neutral-800 dark:text-neutral-300")}>
             {n}
           </button>
         ),
       )}
-      <button type="button" disabled={page >= pages} onClick={() => onPage(page + 1)} aria-label="next" className={btn + "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 disabled:opacity-40 dark:bg-neutral-800 dark:text-neutral-300"}>›</button>
+      <button type="button" disabled={page >= pages} onClick={() => onPage(page + 1)} aria-label="next" className={btn + "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:hover:bg-neutral-700 disabled:opacity-40 dark:bg-neutral-800 dark:text-neutral-300"}>›</button>
     </nav>
   );
 }

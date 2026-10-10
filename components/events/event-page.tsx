@@ -100,7 +100,7 @@ export async function EventPage({ slug, lang }: { slug: string; lang: EvLang }) 
 
       <div className="mt-5 flex flex-wrap gap-3">
         <a href={e.url} target="_blank" rel="noopener nofollow" className="rounded-full bg-accent px-5 py-2.5 text-[15px] font-semibold text-white transition hover:opacity-90">{t.go} ↗</a>
-        {!past ? <a href={`/api/events/ics/${e.slug}`} className="rounded-full bg-neutral-100 px-5 py-2.5 text-[15px] font-semibold text-neutral-800 transition hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700">{t.ics}</a> : null}
+        {!past ? <a href={`/api/events/ics/${e.slug}`} className="rounded-full bg-neutral-100 px-5 py-2.5 text-[15px] font-semibold text-neutral-800 transition hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-neutral-100 dark:hover:bg-neutral-700">{t.ics}</a> : null}
       </div>
 
       <dl className="mt-6 grid gap-x-6 gap-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-neutral-200 sm:grid-cols-2 dark:bg-neutral-900 dark:ring-neutral-800">
@@ -118,7 +118,7 @@ export async function EventPage({ slug, lang }: { slug: string; lang: EvLang }) 
             <Link key={tg} href={topicPath(tagSlug(tg), lang)} className="rounded-full bg-accent/10 px-3 py-1 text-[13px] font-medium text-accent hover:bg-accent/20">{tg}</Link>
           ))}
           {places.map((pl) => (
-            <Link key={pl.slug} href={placePath(pl.slug, lang)} className="rounded-full bg-neutral-100 px-3 py-1 text-[13px] font-medium text-neutral-600 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300">{pl.label}</Link>
+            <Link key={pl.slug} href={placePath(pl.slug, lang)} className="rounded-full bg-neutral-100 px-3 py-1 text-[13px] font-medium text-neutral-600 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-neutral-300">{pl.label}</Link>
           ))}
         </p>
       ) : null}

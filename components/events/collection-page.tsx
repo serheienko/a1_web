@@ -75,7 +75,7 @@ export function CollectionPage({
         <h2 className="mt-5 text-[16px] font-semibold text-neutral-900 dark:text-neutral-50">{t.places}</h2>
         <p className="mt-2 flex flex-wrap gap-2">
           {places.map((c) => (
-            <Link key={c.slug} href={placePath(c.slug, lang)} className="rounded-full bg-neutral-100 px-3 py-1 text-[13px] font-medium text-neutral-600 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300">{placeChipLabel(c.label, lang)}</Link>
+            <Link key={c.slug} href={placePath(c.slug, lang)} className="rounded-full bg-neutral-100 px-3 py-1 text-[13px] font-medium text-neutral-600 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-neutral-300">{placeChipLabel(c.label, lang)}</Link>
           ))}
         </p>
         <p className="mt-5"><Link href={indexPath(lang)} className="text-[14px] font-semibold text-accent hover:underline">{t.all} →</Link></p>
