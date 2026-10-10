@@ -28,6 +28,7 @@ const S = {
   saved: { uk: "Збережено", en: "Saved", ru: "Сохранено", de: "Gespeichert", es: "Guardado", fr: "Enregistré", pl: "Zapisano", ptBR: "Salvo", zh: "已收藏" },
   mark: { uk: "Позначити", en: "Mark", ru: "Пометить", de: "Markieren", es: "Marcar", fr: "Marquer", pl: "Oznacz", ptBR: "Marcar", zh: "标记" },
   unmark: { uk: "Зняти позначку", en: "Unmark", ru: "Снять пометку", de: "Markierung entfernen", es: "Quitar marca", fr: "Retirer le marquage", pl: "Usuń oznaczenie", ptBR: "Remover marca", zh: "取消标记" },
+  unsaved: { uk: "Прибрано зі збережених", en: "Removed from saved", ru: "Убрано из сохранённых", de: "Aus Gespeichert entfernt", es: "Quitado de guardados", fr: "Retiré des enregistrés", pl: "Usunięto z zapisanych", ptBR: "Removido dos salvos", zh: "已取消收藏" },
   copy: { uk: "Копіювати", en: "Copy", ru: "Копировать", de: "Kopieren", es: "Copiar", fr: "Copier", pl: "Kopiuj", ptBR: "Copiar", zh: "复制" },
   copied: { uk: "Скопійовано", en: "Copied", ru: "Скопировано", de: "Kopiert", es: "Copiado", fr: "Copié", pl: "Skopiowano", ptBR: "Copiado", zh: "已复制" },
   share: { uk: "Поділитися", en: "Share", ru: "Поделиться", de: "Teilen", es: "Compartir", fr: "Partager", pl: "Udostępnij", ptBR: "Compartilhar", zh: "分享" },
@@ -140,16 +141,37 @@ export function PostContextMenuHost() {
     }
   }
 
+  // 10.10.2026 (Александр: «Зберегти пишет, что сохранило, но по факту нет»):
+  // «Збережено» говорим только когда пост реально появился в сохранённых
+  // (тот же список, что в «Моя активність» и в приложении -- общий на
+  // сервере). Повторное нажатие на уже сохранённый -- убирает.
+  async function savedIds(): Promise<string[] | null> {
+    try {
+      const res = await authFetch("/api/favorites/list", { cache: "no-store" });
+      const data = (await res.json().catch(() => null)) as { ok?: boolean; postIds?: string[] } | null;
+      return data?.ok && Array.isArray(data.postIds) ? data.postIds : null;
+    } catch {
+      return null;
+    }
+  }
+
   async function save(p: PostData) {
     if (!signedIn()) return toSignIn();
     try {
-      const res = await authFetch("/api/favorites/add", {
+      const before = await savedIds();
+      const wasOn = !!before?.includes(p.id);
+      const res = await authFetch(wasOn ? "/api/favorites/remove" : "/api/favorites/add", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: p.id }),
       });
       const data = (await res.json().catch(() => null)) as { ok?: boolean } | null;
-      flash(data?.ok ? t(S.saved) : t(S.failed));
+      if (!data?.ok) return flash(t(S.failed));
+      const after = await savedIds();
+      const isOn = !!after?.includes(p.id);
+      if (after && isOn === wasOn) return flash(t(S.failed));
+      flash(isOn ? t(S.saved) : t(S.unsaved));
+      window.dispatchEvent(new Event("a1:favorites"));
     } catch {
       flash(t(S.failed));
     }
