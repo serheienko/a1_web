@@ -71,9 +71,9 @@ const PAL = {
 // ---------- мови (02.10.2026, Александр: «зміна локалізації має одразу міняти інтерфейс карти») ----------
 const TAG = { uk: 'uk', en: 'en', ru: 'ru', de: 'de', es: 'es', fr: 'fr', pl: 'pl', ptBR: 'pt-BR', zh: 'zh-CN' };
 const STR = {
-  uk: { rUa: '🇺🇦 Україна', rEu: '🇪🇺 Європа', rUs: '🇺🇸 США і Канада', rLatam: '🌎 Латинська Америка', rAsia: '🌏 Азія', rOceania: '🦘 Океанія', rMideast: '🕌 Близький Схід', rAfrica: '🌍 Африка', offMap: 'Не відображено на карті: у профілі не вказана локація', allyOff: 'Прибрати з союзників', allyGone: 'Прибрано з союзників', allyGoneSub: 'Більше не у ваших контактах', allyDone: 'Додано в союзники', allyDoneSub: 'Тепер у ваших контактах', title: 'Карта A1', find: 'Пошук', fsOn: 'На весь екран', fsOff: 'Вийти з повного екрана', zin: 'Приблизити', zout: 'Віддалити', say: 'Наведи на будиночок — покажу, хто там працює', load: 'Завантажуємо карту…', profile: 'Відкрити профіль', since: 'з {y} року', close: 'Закрити', allyOn: 'Ваш союзник (у контактах)', allyAdd: 'Додати в союзники — з’явиться у ваших контактах', allyErr: 'Не вдалося додати, спробуйте ще раз', none: 'Нічого не знайшли', day: '☀ День', eve: '☾ Вечір', vac: { one: 'вакансія', few: 'вакансії', many: 'вакансій', other: 'вакансії' }, emp: { one: 'співробітник', few: 'співробітники', many: 'співробітників', other: 'співробітника' }, cos: { one: 'компанія', few: 'компанії', many: 'компаній', other: 'компанії' }, sayHouse: "Розмір будинку залежить від кількості відкритих вакансій і розміру команди, який вказала компанія.", gTitle: "Довідник", gSizeT: "Розмір будинку", gSizeD: "Залежить від відкритих вакансій і розміру команди, який вказала компанія.", gPinsT: "Булавки", gPinsD: "Здалеку багато компаній показано кольоровими булавками. Наблизьте, і з’являться будинки.", gAllyT: "Союзники", gAllyD: "Якщо ви додали компанію чи людину в союзники, на її будинку з’являється значок." },
-  ru: { rUa: '🇺🇦 Украина', rEu: '🇪🇺 Европа', rUs: '🇺🇸 США и Канада', rLatam: '🌎 Латинская Америка', rAsia: '🌏 Азия', rOceania: '🦘 Океания', rMideast: '🕌 Ближний Восток', rAfrica: '🌍 Африка', offMap: 'Не отображено на карте: в профиле не указана локация', allyOff: 'Убрать из союзников', allyGone: 'Убрано из союзников', allyGoneSub: 'Больше не в ваших контактах', allyDone: 'Добавлено в союзники', allyDoneSub: 'Теперь в ваших контактах', title: 'Карта A1', find: 'Поиск', fsOn: 'На весь экран', fsOff: 'Выйти из полноэкранного режима', zin: 'Приблизить', zout: 'Отдалить', say: 'Наведи на домик — покажу, кто там работает', load: 'Загружаем карту…', profile: 'Открыть профиль', since: 'с {y} года', close: 'Закрыть', allyOn: 'Ваш союзник (в контактах)', allyAdd: 'Добавить в союзники — появится в ваших контактах', allyErr: 'Не удалось добавить, попробуйте ещё раз', none: 'Ничего не нашли', day: '☀ День', eve: '☾ Вечер', vac: { one: 'вакансия', few: 'вакансии', many: 'вакансий', other: 'вакансии' }, emp: { one: 'сотрудник', few: 'сотрудника', many: 'сотрудников', other: 'сотрудника' }, cos: { one: 'компания', few: 'компании', many: 'компаний', other: 'компании' }, sayHouse: "Размер дома зависит от числа открытых вакансий и размера команды, который указала компания.", gTitle: "Справочник", gSizeT: "Размер дома", gSizeD: "Зависит от открытых вакансий и размера команды, который указала компания.", gPinsT: "Булавки", gPinsD: "Издалека многие компании показаны цветными булавками. Приблизьте, и появятся дома.", gAllyT: "Союзники", gAllyD: "Если вы добавили компанию или человека в союзники, на их доме появляется значок." },
-  en: { rUa: '🇺🇦 Ukraine', rEu: '🇪🇺 Europe', rUs: '🇺🇸 US & Canada', rLatam: '🌎 Latin America', rAsia: '🌏 Asia', rOceania: '🦘 Oceania', rMideast: '🕌 Middle East', rAfrica: '🌍 Africa', offMap: 'Not shown on the map: no location in the profile', allyOff: 'Remove from allies', allyGone: 'Removed from allies', allyGoneSub: 'No longer in your contacts', allyDone: 'Added to allies', allyDoneSub: 'Now in your contacts', title: 'A1 Map', find: 'Search', fsOn: 'Full screen', fsOff: 'Exit full screen', zin: 'Zoom in', zout: 'Zoom out', say: 'Hover over a house — I’ll show you who works there', load: 'Loading the map…', profile: 'Open profile', since: 'since {y}', close: 'Close', allyOn: 'Your ally (in contacts)', allyAdd: 'Add as an ally — they’ll appear in your contacts', allyErr: 'Couldn’t add, please try again', none: 'Nothing found', day: '☀ Day', eve: '☾ Evening', vac: { one: 'job', other: 'jobs' }, emp: { one: 'employee', other: 'employees' }, cos: { one: 'company', other: 'companies' }, sayHouse: "A house’s size depends on the company’s open jobs and the team size it has stated.", gTitle: "Glossary", gSizeT: "House size", gSizeD: "Depends on the open jobs and the team size the company has stated.", gPinsT: "Pins", gPinsD: "From afar, many companies appear as colored pins. Zoom in to see their houses.", gAllyT: "Allies", gAllyD: "If you add a company or person as an ally, a badge appears on their house." },
+  uk: { liteOn: 'Простий режим — прибрати анімацію', liteOff: 'Повернути анімацію', liteAuto: 'Увімкнули простий режим', liteAutoSub: 'Карта гальмувала — прибрали анімацію', rUa: '🇺🇦 Україна', rEu: '🇪🇺 Європа', rUs: '🇺🇸 США і Канада', rLatam: '🌎 Латинська Америка', rAsia: '🌏 Азія', rOceania: '🦘 Океанія', rMideast: '🕌 Близький Схід', rAfrica: '🌍 Африка', offMap: 'Не відображено на карті: у профілі не вказана локація', allyOff: 'Прибрати з союзників', allyGone: 'Прибрано з союзників', allyGoneSub: 'Більше не у ваших контактах', allyDone: 'Додано в союзники', allyDoneSub: 'Тепер у ваших контактах', title: 'Карта A1', find: 'Пошук', fsOn: 'На весь екран', fsOff: 'Вийти з повного екрана', zin: 'Приблизити', zout: 'Віддалити', say: 'Наведи на будиночок — покажу, хто там працює', load: 'Завантажуємо карту…', profile: 'Відкрити профіль', since: 'з {y} року', close: 'Закрити', allyOn: 'Ваш союзник (у контактах)', allyAdd: 'Додати в союзники — з’явиться у ваших контактах', allyErr: 'Не вдалося додати, спробуйте ще раз', none: 'Нічого не знайшли', day: '☀ День', eve: '☾ Вечір', vac: { one: 'вакансія', few: 'вакансії', many: 'вакансій', other: 'вакансії' }, emp: { one: 'співробітник', few: 'співробітники', many: 'співробітників', other: 'співробітника' }, cos: { one: 'компанія', few: 'компанії', many: 'компаній', other: 'компанії' }, sayHouse: "Розмір будинку залежить від кількості відкритих вакансій і розміру команди, який вказала компанія.", gTitle: "Довідник", gSizeT: "Розмір будинку", gSizeD: "Залежить від відкритих вакансій і розміру команди, який вказала компанія.", gPinsT: "Булавки", gPinsD: "Здалеку багато компаній показано кольоровими булавками. Наблизьте, і з’являться будинки.", gAllyT: "Союзники", gAllyD: "Якщо ви додали компанію чи людину в союзники, на її будинку з’являється значок." },
+  ru: { liteOn: 'Простой режим — убрать анимацию', liteOff: 'Вернуть анимацию', liteAuto: 'Включили простой режим', liteAutoSub: 'Карта тормозила — убрали анимацию', rUa: '🇺🇦 Украина', rEu: '🇪🇺 Европа', rUs: '🇺🇸 США и Канада', rLatam: '🌎 Латинская Америка', rAsia: '🌏 Азия', rOceania: '🦘 Океания', rMideast: '🕌 Ближний Восток', rAfrica: '🌍 Африка', offMap: 'Не отображено на карте: в профиле не указана локация', allyOff: 'Убрать из союзников', allyGone: 'Убрано из союзников', allyGoneSub: 'Больше не в ваших контактах', allyDone: 'Добавлено в союзники', allyDoneSub: 'Теперь в ваших контактах', title: 'Карта A1', find: 'Поиск', fsOn: 'На весь экран', fsOff: 'Выйти из полноэкранного режима', zin: 'Приблизить', zout: 'Отдалить', say: 'Наведи на домик — покажу, кто там работает', load: 'Загружаем карту…', profile: 'Открыть профиль', since: 'с {y} года', close: 'Закрыть', allyOn: 'Ваш союзник (в контактах)', allyAdd: 'Добавить в союзники — появится в ваших контактах', allyErr: 'Не удалось добавить, попробуйте ещё раз', none: 'Ничего не нашли', day: '☀ День', eve: '☾ Вечер', vac: { one: 'вакансия', few: 'вакансии', many: 'вакансий', other: 'вакансии' }, emp: { one: 'сотрудник', few: 'сотрудника', many: 'сотрудников', other: 'сотрудника' }, cos: { one: 'компания', few: 'компании', many: 'компаний', other: 'компании' }, sayHouse: "Размер дома зависит от числа открытых вакансий и размера команды, который указала компания.", gTitle: "Справочник", gSizeT: "Размер дома", gSizeD: "Зависит от открытых вакансий и размера команды, который указала компания.", gPinsT: "Булавки", gPinsD: "Издалека многие компании показаны цветными булавками. Приблизьте, и появятся дома.", gAllyT: "Союзники", gAllyD: "Если вы добавили компанию или человека в союзники, на их доме появляется значок." },
+  en: { liteOn: 'Lite mode — turn animation off', liteOff: 'Turn animation back on', liteAuto: 'Lite mode is on', liteAutoSub: 'The map was lagging, so we dropped the animation', rUa: '🇺🇦 Ukraine', rEu: '🇪🇺 Europe', rUs: '🇺🇸 US & Canada', rLatam: '🌎 Latin America', rAsia: '🌏 Asia', rOceania: '🦘 Oceania', rMideast: '🕌 Middle East', rAfrica: '🌍 Africa', offMap: 'Not shown on the map: no location in the profile', allyOff: 'Remove from allies', allyGone: 'Removed from allies', allyGoneSub: 'No longer in your contacts', allyDone: 'Added to allies', allyDoneSub: 'Now in your contacts', title: 'A1 Map', find: 'Search', fsOn: 'Full screen', fsOff: 'Exit full screen', zin: 'Zoom in', zout: 'Zoom out', say: 'Hover over a house — I’ll show you who works there', load: 'Loading the map…', profile: 'Open profile', since: 'since {y}', close: 'Close', allyOn: 'Your ally (in contacts)', allyAdd: 'Add as an ally — they’ll appear in your contacts', allyErr: 'Couldn’t add, please try again', none: 'Nothing found', day: '☀ Day', eve: '☾ Evening', vac: { one: 'job', other: 'jobs' }, emp: { one: 'employee', other: 'employees' }, cos: { one: 'company', other: 'companies' }, sayHouse: "A house’s size depends on the company’s open jobs and the team size it has stated.", gTitle: "Glossary", gSizeT: "House size", gSizeD: "Depends on the open jobs and the team size the company has stated.", gPinsT: "Pins", gPinsD: "From afar, many companies appear as colored pins. Zoom in to see their houses.", gAllyT: "Allies", gAllyD: "If you add a company or person as an ally, a badge appears on their house." },
   de: { rUa: '🇺🇦 Ukraine', rEu: '🇪🇺 Europa', rUs: '🇺🇸 USA & Kanada', rLatam: '🌎 Lateinamerika', rAsia: '🌏 Asien', rOceania: '🦘 Ozeanien', rMideast: '🕌 Naher Osten', rAfrica: '🌍 Afrika', offMap: 'Nicht auf der Karte: kein Standort im Profil', allyOff: 'Aus Verbündeten entfernen', allyGone: 'Aus Verbündeten entfernt', allyGoneSub: 'Nicht mehr in deinen Kontakten', allyDone: 'Als Verbündeter hinzugefügt', allyDoneSub: 'Jetzt in deinen Kontakten', title: 'A1-Karte', find: 'Suche', fsOn: 'Vollbild', fsOff: 'Vollbild beenden', zin: 'Vergrößern', zout: 'Verkleinern', say: 'Fahr über ein Haus – ich zeige dir, wer dort arbeitet', load: 'Karte wird geladen…', profile: 'Profil öffnen', since: 'seit {y}', close: 'Schließen', allyOn: 'Dein Verbündeter (in den Kontakten)', allyAdd: 'Als Verbündeten hinzufügen – erscheint in deinen Kontakten', allyErr: 'Hinzufügen fehlgeschlagen, bitte erneut versuchen', none: 'Nichts gefunden', day: '☀ Tag', eve: '☾ Abend', vac: { one: 'Stelle', other: 'Stellen' }, emp: { one: 'Mitarbeiter', other: 'Mitarbeiter' }, cos: { one: 'Unternehmen', other: 'Unternehmen' }, sayHouse: "Die Hausgröße hängt von den offenen Stellen und der vom Unternehmen angegebenen Teamgröße ab.", gTitle: "Glossar", gSizeT: "Hausgröße", gSizeD: "Hängt von den offenen Stellen und der vom Unternehmen angegebenen Teamgröße ab.", gPinsT: "Stecknadeln", gPinsD: "Aus der Ferne erscheinen viele Unternehmen als bunte Stecknadeln. Zoome hinein, um die Häuser zu sehen.", gAllyT: "Verbündete", gAllyD: "Fügst du ein Unternehmen oder eine Person als Verbündeten hinzu, erscheint ein Abzeichen auf dem Haus." },
   es: { rUa: '🇺🇦 Ucrania', rEu: '🇪🇺 Europa', rUs: '🇺🇸 EE. UU. y Canadá', rLatam: '🌎 América Latina', rAsia: '🌏 Asia', rOceania: '🦘 Oceanía', rMideast: '🕌 Oriente Medio', rAfrica: '🌍 África', offMap: 'No aparece en el mapa: el perfil no indica ubicación', allyOff: 'Quitar de aliados', allyGone: 'Quitado de aliados', allyGoneSub: 'Ya no está en tus contactos', allyDone: 'Añadido a aliados', allyDoneSub: 'Ya está en tus contactos', title: 'Mapa de A1', find: 'Buscar', fsOn: 'Pantalla completa', fsOff: 'Salir de pantalla completa', zin: 'Acercar', zout: 'Alejar', say: 'Pasa el cursor sobre una casa: te muestro quién trabaja allí', load: 'Cargando el mapa…', profile: 'Abrir perfil', since: 'desde {y}', close: 'Cerrar', allyOn: 'Tu aliado (en contactos)', allyAdd: 'Añadir como aliado: aparecerá en tus contactos', allyErr: 'No se pudo añadir, inténtalo de nuevo', none: 'No se encontró nada', day: '☀ Día', eve: '☾ Noche', vac: { one: 'vacante', other: 'vacantes' }, emp: { one: 'empleado', other: 'empleados' }, cos: { one: 'empresa', other: 'empresas' }, sayHouse: "El tamaño de la casa depende de las vacantes abiertas y del tamaño del equipo que indicó la empresa.", gTitle: "Glosario", gSizeT: "Tamaño de la casa", gSizeD: "Depende de las vacantes abiertas y del tamaño del equipo que indicó la empresa.", gPinsT: "Chinchetas", gPinsD: "De lejos, muchas empresas aparecen como chinchetas de colores. Acerca el mapa para ver sus casas.", gAllyT: "Aliados", gAllyD: "Si añades una empresa o persona como aliado, aparece una insignia en su casa." },
   fr: { rUa: '🇺🇦 Ukraine', rEu: '🇪🇺 Europe', rUs: '🇺🇸 États-Unis et Canada', rLatam: '🌎 Amérique latine', rAsia: '🌏 Asie', rOceania: '🦘 Océanie', rMideast: '🕌 Moyen-Orient', rAfrica: '🌍 Afrique', offMap: 'Absent de la carte : aucun lieu dans le profil', allyOff: 'Retirer des alliés', allyGone: 'Retiré des alliés', allyGoneSub: 'N’est plus dans vos contacts', allyDone: 'Ajouté aux alliés', allyDoneSub: 'Maintenant dans vos contacts', title: 'Carte A1', find: 'Rechercher', fsOn: 'Plein écran', fsOff: 'Quitter le plein écran', zin: 'Zoom avant', zout: 'Zoom arrière', say: 'Survole une maison — je te montre qui y travaille', load: 'Chargement de la carte…', profile: 'Ouvrir le profil', since: 'depuis {y}', close: 'Fermer', allyOn: 'Votre allié (dans les contacts)', allyAdd: 'Ajouter comme allié — apparaîtra dans vos contacts', allyErr: 'Échec de l’ajout, réessayez', none: 'Aucun résultat', day: '☀ Jour', eve: '☾ Soir', vac: { one: 'offre', other: 'offres' }, emp: { one: 'employé', other: 'employés' }, cos: { one: 'entreprise', other: 'entreprises' }, sayHouse: "La taille de la maison dépend des offres ouvertes et de la taille d’équipe indiquée par l’entreprise.", gTitle: "Glossaire", gSizeT: "Taille de la maison", gSizeD: "Dépend des offres ouvertes et de la taille d’équipe indiquée par l’entreprise.", gPinsT: "Épingles", gPinsD: "De loin, de nombreuses entreprises apparaissent comme des épingles colorées. Zoomez pour voir leurs maisons.", gAllyT: "Alliés", gAllyD: "Si vous ajoutez une entreprise ou une personne comme alliée, un badge apparaît sur sa maison." },
@@ -183,7 +183,14 @@ const CHIMNEY = {
 export function mountGameMap(root, opts) {
   const base = opts.base || '/game-map/v2';
   const companiesIn = opts.companies || [];
-  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // 10.10.2026 (Александр: «карта дуже глючна, в застосунку підтуплює»).
+  // Простий режим: без анімації і 30 кадрів замість 60. Вмикається кнопкою
+  // (вибір запам'ятовується) або сам, якщо перші секунди йдуть повільно.
+  const LITE_KEY = 'a1_map_lite';
+  const prefersCalm = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  let liteChosen = false, lite = false;
+  try { const v = localStorage.getItem(LITE_KEY); if (v !== null) { liteChosen = true; lite = v === '1'; } } catch { /* приватний режим */ }
+  let reduce = prefersCalm || lite;
   let theme = opts.theme === 'dark' ? 'dark' : 'light';
   // Карта внутри приложения A1 (см. «режим приложения» ниже).
   const appMode = !!opts.app;
@@ -233,6 +240,7 @@ export function mountGameMap(root, opts) {
         <button class="gm-btn gm-music" type="button" aria-pressed="false"><span class="gm-eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span></button>
         <button class="gm-btn gm-info" type="button" aria-haspopup="dialog" aria-expanded="false"><span class="gm-ii">i</span></button>
         <button class="gm-btn gm-theme" type="button"></button>
+        <button class="gm-btn gm-lite" type="button" aria-pressed="false"><span class="gm-ii">⚡</span></button>
         <button class="gm-btn gm-fs" type="button"></button>
         <button class="gm-btn gm-close" type="button">${ICON_X}</button>
       </div>
@@ -261,6 +269,19 @@ export function mountGameMap(root, opts) {
   const mascot = root.querySelector('.gm-mascot');
   const qIn = root.querySelector('.gm-q');
   const sug = root.querySelector('.gm-sug');
+  const liteBtn = root.querySelector('.gm-lite');
+  function liteLabel() {
+    const t = tr(lite ? 'liteOff' : 'liteOn');
+    liteBtn.title = t; liteBtn.setAttribute('aria-label', t);
+    liteBtn.classList.toggle('on', lite); liteBtn.setAttribute('aria-pressed', lite ? 'true' : 'false');
+  }
+  function setLite(v, remember = true) {
+    lite = !!v; reduce = prefersCalm || lite;
+    if (remember) { liteChosen = true; try { localStorage.setItem(LITE_KEY, lite ? '1' : '0'); } catch { /* приватний режим */ } }
+    liteLabel();
+    parts = null; baseCache = null;
+    resize(); // у простому режимі малюємо менше пікселів -- див. dpr у resize()
+  }
   const fsBtn = root.querySelector('.gm-fs');
   // Музика -- спільний програвач сторінки: переживає перемонтування карти
   // при зміні регіону. Тут лише кнопка.
@@ -321,7 +342,7 @@ export function mountGameMap(root, opts) {
     sayEl.textContent = tr(TIPS[tipI]); renderGl();
     const lt = root.querySelector('.gm-ltx'); if (lt) lt.textContent = tr('load');
     setFsBtn(root.classList.contains('gm-full'));
-    themeLabel(); musicLabel();
+    themeLabel(); musicLabel(); liteLabel();
     for (const g of cityGroups) g.label = cityName(g.name, lang);
     baseCache = null;
     if (popFor) { const c = popFor; popFor = null; showPopup(c); }
@@ -718,6 +739,21 @@ export function mountGameMap(root, opts) {
     return h;
   }
 
+  // 10.10.2026 (Александр: «карта дуже глючна, в застосунку взагалі
+  // підтуплює»). Створення градієнта -- дорога операція, а ми робили їх
+  // десятками на КОЖЕН кадр: вікна кожного будинку ввечері, два промені
+  // й ореол на кожному маяку, світло, три плями туману, віньєтка. Тепер
+  // градієнт робиться один раз і лежить тут. Той, що «рухається», робиться
+  // в нулі координат і лише зсувається (translate) перед заливкою --
+  // градієнт прив'язується до системи координат у мить заливки, тож це
+  // те саме, що створювати його щоразу на новому місці.
+  const gradCache = new Map();
+  function cachedGrad(key, make) {
+    let g = gradCache.get(key);
+    if (!g) { g = make(); gradCache.set(key, g); }
+    return g;
+  }
+
   function onScreen(x, y, m = 120) { const sx = x * view.s + view.x, sy = y * view.s + view.y; return sx > -m && sy > -m && sx < W + m && sy < H + m; }
 
   function frame(now) {
@@ -768,9 +804,39 @@ export function mountGameMap(root, opts) {
     }
     smokeQ = [];
     items.sort((a, b) => a.y - b.y).forEach((it) => it.draw());
+    // 10.10.2026. ГОЛОВНА ПРИЧИНА ГАЛЬМУВАННЯ. Було: для КОЖНОГО димаря
+    // перебір УСІХ компаній регіону (в Європі їх 2876), щоб зрозуміти, чи
+    // не закриває димар будинок спереду. На екрані 300 будинків -- це
+    // 860 тисяч перевірок шістдесят разів на секунду. Тепер видимі будинки
+    // один раз розкладаються по вертикальних колонках, і кожен димар
+    // дивиться лише у свою колонку та сусідні.
+    const CELL = 128;
+    const occ = new Map();
+    let occSpan = 1;
+    if (smokeQ.length) {
+      let maxW = 0;
+      for (const o of cos) {
+        if (!o._r) continue;
+        if (o._r.w > maxW) maxW = o._r.w;
+        const b = Math.floor(o._r.x / CELL);
+        const list = occ.get(b);
+        if (list) list.push(o); else occ.set(b, [o]);
+      }
+      occSpan = Math.max(1, Math.ceil(maxW * 0.42 / CELL));
+    }
     for (const [sx0, sy0, w, hs, own] of smokeQ) {
       // димар закритий будинком спереду -- диму не видно, не малюємо
-      if (cos.some((o) => o !== own && o._r && o.y > own.y && Math.abs(sx0 - o._r.x) < o._r.w * 0.42 && sy0 > o._r.y - o._r.h * 0.42 && sy0 < o._r.y + o._r.h / 2)) continue;
+      let hidden = false;
+      const b0 = Math.floor(sx0 / CELL);
+      for (let b = b0 - occSpan; b <= b0 + occSpan && !hidden; b++) {
+        const list = occ.get(b);
+        if (!list) continue;
+        for (const o of list) {
+          if (o === own || o.y <= own.y) continue;
+          if (Math.abs(sx0 - o._r.x) < o._r.w * 0.42 && sy0 > o._r.y - o._r.h * 0.42 && sy0 < o._r.y + o._r.h / 2) { hidden = true; break; }
+        }
+      }
+      if (hidden) continue;
       for (let i = 0; i < 5; i++) {
         const p = (t * 0.2 + i / 5 + (hs % 11) * 0.09) % 1;
         const r = w * (0.045 + p * 0.1);
@@ -786,14 +852,24 @@ export function mountGameMap(root, opts) {
         const ds = Math.max(0.4, dens) * Math.min(1, Math.max(geo.k, 60) / 100);
         const lw = 40 * sc * ds, lh = lw * im.height / im.width, lx = x, ly = y - lh * 0.8, L = lw * 2.6;
         const a0 = t * 0.6 + x;
-        ctx.save(); ctx.globalCompositeOperation = 'lighter';
+        const Lk = Math.round(L), hk = Math.round(lw * 0.35 * 2) / 2;
+        const beam = cachedGrad(`beam${Lk}`, () => {
+          const q = ctx.createRadialGradient(0, 0, 0, 0, 0, Lk);
+          q.addColorStop(0, 'rgba(255,230,160,.55)'); q.addColorStop(1, 'rgba(255,220,140,0)');
+          return q;
+        });
+        const hg = cachedGrad(`lhalo${hk}`, () => {
+          const q = ctx.createRadialGradient(0, 0, 0, 0, 0, hk);
+          q.addColorStop(0, 'rgba(255,240,190,.9)'); q.addColorStop(1, 'rgba(255,220,150,0)');
+          return q;
+        });
+        ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.translate(lx, ly);
+        ctx.fillStyle = beam;
         for (const off of [0, Math.PI]) {
-          const a = a0 + off, g = ctx.createRadialGradient(lx, ly, 0, lx, ly, L);
-          g.addColorStop(0, 'rgba(255,230,160,.55)'); g.addColorStop(1, 'rgba(255,220,140,0)');
-          ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(lx, ly); ctx.arc(lx, ly, L, a - 0.16, a + 0.16); ctx.closePath(); ctx.fill();
+          const a = a0 + off;
+          ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, Lk, a - 0.16, a + 0.16); ctx.closePath(); ctx.fill();
         }
-        const hg = ctx.createRadialGradient(lx, ly, 0, lx, ly, lw * 0.35); hg.addColorStop(0, 'rgba(255,240,190,.9)'); hg.addColorStop(1, 'rgba(255,220,150,0)');
-        ctx.fillStyle = hg; ctx.fillRect(lx - lw * 0.35, ly - lw * 0.35, lw * 0.7, lw * 0.7);
+        ctx.fillStyle = hg; ctx.fillRect(-hk, -hk, hk * 2, hk * 2);
         ctx.restore();
       }
     }
@@ -818,16 +894,31 @@ export function mountGameMap(root, opts) {
     // свет и туман (поверх экрана)
     const P = PAL[theme];
     const lx = W * (0.25 + 0.5 * (reduce ? 0.3 : (Math.sin(t * 0.03) * 0.5 + 0.5))), ly = -H * 0.2;
-    const lg = ctx.createRadialGradient(lx, ly, 0, lx, ly, Math.max(W, H) * 1.1);
-    lg.addColorStop(0, P.light + (theme === 'dark' ? '.10)' : '.20)')); lg.addColorStop(1, P.light + '0)');
-    ctx.fillStyle = lg; ctx.fillRect(0, 0, W, H);
-    const vg = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.75);
-    vg.addColorStop(0, `rgba(${P.fog},0)`); vg.addColorStop(1, `rgba(${P.fog},${P.fogA})`);
+    // світло рухається -- градієнт робимо в нулі й зсуваємо
+    const LR = Math.round(Math.max(W, H) * 1.1);
+    const lg = cachedGrad(`light${LR}${theme}`, () => {
+      const q = ctx.createRadialGradient(0, 0, 0, 0, 0, LR);
+      q.addColorStop(0, P.light + (theme === 'dark' ? '.10)' : '.20)')); q.addColorStop(1, P.light + '0)');
+      return q;
+    });
+    ctx.save(); ctx.translate(lx, ly); ctx.fillStyle = lg; ctx.fillRect(-lx, -ly, W, H); ctx.restore();
+    // віньєтка не рухається взагалі -- один градієнт на розмір вікна й тему
+    const vg = cachedGrad(`vig${W}x${H}${theme}`, () => {
+      const q = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.75);
+      q.addColorStop(0, `rgba(${P.fog},0)`); q.addColorStop(1, `rgba(${P.fog},${P.fogA})`);
+      return q;
+    });
     ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
-    if (!reduce) for (let i = 0; i < 3; i++) {
-      const fx = W * (0.1 + 0.8 * ((i * 0.37 + t * 0.004 * (i + 1)) % 1)), fy = H * (i === 1 ? 0.92 : 0.08 + i * 0.4);
-      const fg = ctx.createRadialGradient(fx, fy, 0, fx, fy, 260); fg.addColorStop(0, `rgba(${P.fog},${theme === 'dark' ? .2 : .14})`); fg.addColorStop(1, `rgba(${P.fog},0)`);
-      ctx.fillStyle = fg; ctx.fillRect(fx - 260, fy - 260, 520, 520);
+    if (!reduce) {
+      const fg = cachedGrad(`fog${theme}`, () => {
+        const q = ctx.createRadialGradient(0, 0, 0, 0, 0, 260);
+        q.addColorStop(0, `rgba(${P.fog},${theme === 'dark' ? .2 : .14})`); q.addColorStop(1, `rgba(${P.fog},0)`);
+        return q;
+      });
+      for (let i = 0; i < 3; i++) {
+        const fx = W * (0.1 + 0.8 * ((i * 0.37 + t * 0.004 * (i + 1)) % 1)), fy = H * (i === 1 ? 0.92 : 0.08 + i * 0.4);
+        ctx.save(); ctx.translate(fx, fy); ctx.fillStyle = fg; ctx.fillRect(-260, -260, 520, 520); ctx.restore();
+      }
     }
     drawSeason(t);
     drawLabels();
@@ -962,10 +1053,15 @@ export function mountGameMap(root, opts) {
       const hs = c.h ?? hash(String(c.id));
       if (theme === 'dark') {
         const fl = 0.55 + 0.25 * Math.sin(t * (1.3 + (hs % 5) * 0.21) + hs) + 0.12 * Math.sin(t * 7.1 + hs * 3);
-        const gx = c.x, gy = by + h * 0.62, gr = w * 0.42;
-        const g = ctx.createRadialGradient(gx, gy, 0, gx, gy, gr);
-        g.addColorStop(0, `rgba(255,190,100,${0.45 * fl})`); g.addColorStop(1, 'rgba(255,170,80,0)');
-        ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g; ctx.fillRect(gx - gr, gy - gr, gr * 2, gr * 2); ctx.restore();
+        const gx = c.x, gy = by + h * 0.62, gr = Math.round(w * 0.42 * 2) / 2;
+        // градієнт один на розмір будинку; мерехтіння -- через globalAlpha
+        const g = cachedGrad(`win${gr}`, () => {
+          const q = ctx.createRadialGradient(0, 0, 0, 0, 0, gr);
+          q.addColorStop(0, 'rgba(255,190,100,1)'); q.addColorStop(1, 'rgba(255,170,80,0)');
+          return q;
+        });
+        ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.45 * fl;
+        ctx.translate(gx, gy); ctx.fillStyle = g; ctx.fillRect(-gr, -gr, gr * 2, gr * 2); ctx.restore();
       }
       // Дим -- лише з будинків, де в малюнку справді є димар (CHIMNEY).
       const chim = CHIMNEY[styleKeys.has(k) ? `${style}/${k}` : k];
@@ -1155,7 +1251,7 @@ export function mountGameMap(root, opts) {
     // 08.10.2026 (Александр, відео з iPhone): клавіатура пошуку стискає карту, а коли вона зникає --
     // карта лишалась зміщеною. Тепер центр карти запам'ятовується і лишається на місці при будь-якій зміні розміру.
     const oW = W, oH = H, ocx = oW ? (oW / 2 - view.x) / view.s : 0, ocy = oH ? (oH / 2 - view.y) / view.s : 0;
-    dpr = Math.min(2, window.devicePixelRatio || 1); W = root.clientWidth; H = root.clientHeight;
+    dpr = Math.min(lite ? 1.4 : 2, window.devicePixelRatio || 1); W = root.clientWidth; H = root.clientHeight;
     cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + 'px'; cv.style.height = H + 'px';
     minS = Math.max(W / geo.w, H / geo.h); maxS = minS * Math.max(7, 2.4 / dens) * 4; // 02.10.2026 (Александр): наближення в 4 рази глибше -- спрайти 512px, зблизька чіткі
     if (view.s < minS) view.s = minS;
@@ -1284,6 +1380,7 @@ export function mountGameMap(root, opts) {
     if (e.target.closest('.gm-x')) { pinned = null; hover = null; showPopup(null); return; }
     if (e.target.closest('.gm-theme')) setTheme(theme === 'dark' ? 'light' : 'dark');
     if (e.target.closest('.gm-ally') && popFor) toggleAlly(popFor);
+    if (e.target.closest('.gm-lite')) { setLite(!lite); return; }
     if (e.target.closest('.gm-fs')) toggleFs();
     if (e.target.closest('.gm-close')) closeApp();
     const si = e.target.closest('[data-ci]'); if (si) { pickCompany(byCi(si.dataset.ci)); }
@@ -1521,7 +1618,34 @@ export function mountGameMap(root, opts) {
     }
     if (cc !== focusCC) { focusCC = cc; regLabel(); }
   }
-  function startLoop() { cancelAnimationFrame(raf); raf = requestAnimationFrame(function tick(now) { if (destroyed) return; if (anim) anim(); frame(now); trackCountry(now); raf = requestAnimationFrame(tick); }); }
+  // Автовизначення: рахуємо кадри перші чотири секунди. Якщо виходить менше
+  // тридцяти -- пристрій не тягне, вмикаємо простий режим самі й кажемо про це
+  // (але не перебиваємо вибір людини, якщо вона вже тиснула кнопку).
+  let fpsFrom = 0, fpsN = 0, autoDone = false;
+  function autoLite(now) {
+    if (autoDone || lite || liteChosen) return;
+    if (!fpsFrom) { fpsFrom = now; return; }
+    fpsN++;
+    const el = now - fpsFrom;
+    if (el < 4000) return;
+    autoDone = true;
+    if (fpsN / (el / 1000) < 30) { setLite(true, false); toast(tr('liteAuto'), tr('liteAutoSub')); }
+  }
+  function startLoop() {
+    cancelAnimationFrame(raf);
+    let last = 0;
+    raf = requestAnimationFrame(function tick(now) {
+      if (destroyed) return;
+      raf = requestAnimationFrame(tick);
+      // простий режим -- 30 кадрів замість 60, удвічі менше роботи
+      if (lite && now - last < 31) return;
+      last = now;
+      if (anim) anim();
+      frame(now);
+      trackCountry(now);
+      autoLite(now);
+    });
+  }
   const vis = () => { if (document.hidden) cancelAnimationFrame(raf); else if (geo) startLoop(); };
   on(document, 'visibilitychange', vis);
   // Підказки кота чергуються: плавно гаснуть і змінюють текст.
@@ -1592,7 +1716,10 @@ export const GAME_MAP_CSS = `
 .gm2 .gm-btn{transition:transform .18s ease,box-shadow .18s ease,background-color .18s ease,color .18s ease}
 .gm2 .gm-btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(0,0,0,.22)}
 .gm2 .gm-btn:active{transform:translateY(0) scale(.96)}
-.gm2 .gm-fs,.gm2 .gm-theme,.gm2 .gm-info,.gm2 .gm-music,.gm2 .gm-close{display:grid;place-items:center;padding:0;width:38px}
+.gm2 .gm-fs,.gm2 .gm-theme,.gm2 .gm-info,.gm2 .gm-music,.gm2 .gm-lite,.gm2 .gm-close{display:grid;place-items:center;padding:0;width:38px}
+.gm2 .gm-lite{opacity:.75}
+.gm2 .gm-lite.on{opacity:1;color:#b3702a}
+.gm2.gm-dark .gm-lite.on{color:#ffd27a}
 .gm2 .gm-close{display:none}
 .gm2.gm-app .gm-close{display:grid}
 .gm2.gm-app .gm-theme,.gm2.gm-app .gm-fs{display:none}
