@@ -277,7 +277,12 @@ function PreviewApp() {
 // превью должно открываться мгновенно. При выходе новой новости -- поменять здесь.
 const NEWS_PREVIEW_LIT = new Set([6, 19, 41, 58, 77, 95, 108, 122, 139, 163, 176, 190, 207, 224, 239, 251, 271, 288, 312, 330, 347, 375, 402, 421, 431, 466]);
 
-function PreviewNews() {
+type LatestNews = { slug: string; title: string; tags: string[] };
+type LatestPair = { uk: LatestNews | null; en: LatestNews | null };
+
+function PreviewNews({ latest }: { latest: LatestPair | null }) {
+  // Самая свежая новость: ru-интерфейс -- украинский заголовок (русской версии новостей нет), остальные языки -- английский.
+  const pickFor = (locale: Locale): LatestNews | null => (locale === "uk" || locale === "ru" ? latest?.uk ?? latest?.en : latest?.en ?? latest?.uk) ?? null;
   return (
     <>
       <span className="relative block aspect-[16/10] w-full overflow-hidden bg-[radial-gradient(120%_90%_at_20%_0%,#1b3a95_0%,#0a1240_48%,#03051f_100%)]">
@@ -289,11 +294,32 @@ function PreviewNews() {
             </span>
             IT news · <T {...TXT.news.kicker} />
           </span>
-          <span className="mt-2 block text-[30px] font-bold leading-[1.05] text-white">Mistral Large 4</span>
-          <span className="mt-2 flex flex-wrap gap-2 text-[12px] tabular-nums">
-            <span className="rounded-full bg-white/10 px-2.5 py-1 text-white/90">1 000 B → <b className="text-[#7aa2ff]">52 B</b></span>
-            <span className="rounded-full bg-white/10 px-2.5 py-1 text-white/90">$1,36 / 1M tok</span>
-          </span>
+          {latest && (latest.uk || latest.en) ? (
+            LOCALES.map((locale) => {
+              const n = pickFor(locale);
+              if (!n) return null;
+              return (
+                <span key={locale} className={LOCALE_VISIBILITY_CLASS[locale]}>
+                  <span className={"mt-2 block line-clamp-2 font-bold text-white " + (n.title.length > 40 ? "text-[22px] leading-[1.15]" : "text-[28px] leading-[1.05]")}>{n.title}</span>
+                  {n.tags.length ? (
+                    <span className="mt-2 flex flex-wrap gap-2 text-[12px]">
+                      {n.tags.map((t) => (
+                        <span key={t} className="rounded-full bg-white/10 px-2.5 py-1 text-white/90">{t}</span>
+                      ))}
+                    </span>
+                  ) : null}
+                </span>
+              );
+            })
+          ) : (
+            <>
+              <span className="mt-2 block text-[30px] font-bold leading-[1.05] text-white">Mistral Large 4</span>
+              <span className="mt-2 flex flex-wrap gap-2 text-[12px] tabular-nums">
+                <span className="rounded-full bg-white/10 px-2.5 py-1 text-white/90">1 000 B → <b className="text-[#7aa2ff]">52 B</b></span>
+                <span className="rounded-full bg-white/10 px-2.5 py-1 text-white/90">$1,36 / 1M tok</span>
+              </span>
+            </>
+          )}
         </span>
         <span className="absolute inset-x-5 bottom-9 grid gap-[3px]" style={{ gridTemplateColumns: "repeat(50, minmax(0, 1fr))" }}>
           {Array.from({ length: 500 }, (_, i) => {
@@ -431,6 +457,8 @@ export function NavMoreMenu() {
   const [open, setOpen] = useState(false);
   const [hovered, setHovered] = useState<Id | null>(null);
   const [stats, setStats] = useState<StatsLite | null>(null);
+  const [latestNews, setLatestNews] = useState<LatestPair | null>(null);
+  const newsFetched = useRef(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
@@ -444,6 +472,20 @@ export function NavMoreMenu() {
   // Меню закрылось -- превью начинается заново, а не показывает прошлую строку.
   useEffect(() => {
     if (!open) setHovered(null);
+  }, [open]);
+
+  // Превью «IT новини»: самая свежая новость. Запрос один раз, как только меню открылось (к наведению уже готово).
+  useEffect(() => {
+    if (!open || newsFetched.current) return;
+    newsFetched.current = true;
+    fetch("/api/news/latest")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (j && j.ok) setLatestNews({ uk: j.uk ?? null, en: j.en ?? null });
+      })
+      .catch(() => {
+        newsFetched.current = false;
+      });
   }, [open]);
 
   // Цифры для превью Stats: один запрос при первом наведении на эту строку.
@@ -519,7 +561,7 @@ export function NavMoreMenu() {
               }
             >
               <Link key={hovered} href={HREF[hovered]} onClick={pick} className={`animate-nav-preview ${shell("bg-[#03051f]")}`}>
-                {hovered === "app" ? <PreviewApp /> : hovered === "news" ? <PreviewNews /> : hovered === "events" ? <PreviewEvents /> : hovered === "stats" ? <PreviewStats data={stats} /> : <PreviewGame />}
+                {hovered === "app" ? <PreviewApp /> : hovered === "news" ? <PreviewNews latest={latestNews} /> : hovered === "events" ? <PreviewEvents /> : hovered === "stats" ? <PreviewStats data={stats} /> : <PreviewGame />}
               </Link>
             </div>
           )}
