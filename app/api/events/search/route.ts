@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
   for (const e of all) {
     if (e.end < today) continue;
     const name = norm(e.name);
-    const rest = norm([e.seriesName, e.city, e.country, countryLabel(e.country, "uk"), ...e.tags].join(" "));
+    const rest = norm([e.seriesName, e.city, e.country, countryLabel(e.country, "uk")].join(" "));
     if (!words.every((w) => name.includes(w) || rest.includes(w))) continue;
     let score = 0;
     if (name.includes(q)) score += 5;
