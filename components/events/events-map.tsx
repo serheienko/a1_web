@@ -136,7 +136,10 @@ export function EventsMap({
                   return (
                     <g key={c.n + "l"} pointerEvents="none">
                       <circle cx={c.x} cy={c.y} r={3.5} className="fill-white" />
-                      <circle cx={c.x} cy={c.y} r={3.5} className="animate-ping fill-white/70" style={{ transformOrigin: `${c.x}px ${c.y}px`, transformBox: "fill-box" }} />
+                      <circle cx={c.x} cy={c.y} r={3.5} className="fill-white" opacity={0}>
+                        <animate attributeName="r" values="3.5;11" dur="1.8s" repeatCount="indefinite" />
+                        <animate attributeName="opacity" values="0.6;0" dur="1.8s" repeatCount="indefinite" />
+                      </circle>
                     </g>
                   );
                 })
