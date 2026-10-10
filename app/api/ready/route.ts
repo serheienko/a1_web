@@ -14,6 +14,7 @@
 // Стукаємо до себе ж через 127.0.0.1, а не імпортом: кеш карти живе в
 // модулі app/game-map/data/route.ts, і так він гріється саме той.
 import { warmSegmentIndex } from "@/lib/a1/segment-index";
+import { warmTechIndex } from "@/lib/a1/tech-index";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,7 @@ export async function GET() {
     // платить за це 23-28 секунд білого екрана. Гріємо тут же: обхід бази
     // вже зроблено вище, лишається розкласти вакансії по сегментах.
     try {
-      await warmSegmentIndex();
+      await Promise.all([warmSegmentIndex(), warmTechIndex()]);
     } catch {
       // те саме: не тримаємо деплой, покажчик збереться на першому запиті
     }

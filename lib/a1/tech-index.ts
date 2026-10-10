@@ -18,33 +18,39 @@
 // обход на новом инстансе.
 
 import type { WebPost } from "@/types/web-post";
-import { fetchAllSitemapJobPosts } from "./sitemap-posts";
+import { fetchAllSitemapJobPosts, sitemapPostsVersion } from "./sitemap-posts";
+import { techsOfPost } from "@/lib/a1/tech-tags-cache";
 import { extractTechTags } from "@/lib/seo/job-tech-tags";
 
-const TTL_MS = 60 * 60 * 1000;
-
-type Index = { builtAt: number; byTech: Map<string, WebPost[]> };
+// 10.10.2026. Было: пересборка раз в час по часам, вслепую. Раз в час
+// первый, кто открывал страницу стека, ждал, пока разберутся все тридцать
+// пять тысяч вакансий. Стало: пересобираем, только когда список вакансий
+// действительно изменился (version), а сам разбор берём из общего кэша
+// (lib/a1/tech-tags-cache.ts) -- там вакансия разбирается один раз. После
+// «догона» свежих пересборка стоит столько, сколько в нём новых вакансий.
+type Index = { version: number; byTech: Map<string, WebPost[]> };
 
 let cached: Index | null = null;
 let building: Promise<Index> | null = null;
 
 async function build(): Promise<Index> {
   const posts = await fetchAllSitemapJobPosts();
+  const version = sitemapPostsVersion();
   const byTech = new Map<string, WebPost[]>();
 
   for (const post of posts) {
-    for (const tech of extractTechTags(post.title, post.contentText)) {
+    for (const tech of techsOfPost(post)) {
       const list = byTech.get(tech);
       if (list) list.push(post);
       else byTech.set(tech, [post]);
     }
   }
 
-  return { builtAt: Date.now(), byTech };
+  return { version, byTech };
 }
 
 async function index(): Promise<Index> {
-  if (cached && Date.now() - cached.builtAt < TTL_MS) return cached;
+  if (cached && cached.version === sitemapPostsVersion()) return cached;
   if (building) return building;
 
   building = build()
@@ -57,6 +63,12 @@ async function index(): Promise<Index> {
     });
 
   return building;
+}
+
+/** Прогрев перед тем, как Railway пустит людей на новую версию. См.
+ *  app/api/ready/route.ts и ту же функцию у указателя сегментов. */
+export async function warmTechIndex(): Promise<void> {
+  await index();
 }
 
 /**

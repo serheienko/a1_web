@@ -10,7 +10,7 @@
 
 import type { WebPost } from "@/types/web-post";
 import { allIndexedPosts } from "@/lib/a1/facts-index";
-import { extractTechTags } from "@/lib/seo/job-tech-tags";
+import { pruneTechCache, techsOfPost } from "@/lib/a1/tech-tags-cache";
 import { extractLevel, JOB_LEVELS, type JobLevel } from "@/lib/seo/job-level";
 import { extractRoles, JOB_ROLES, type JobRole } from "@/lib/seo/job-role";
 import { TECH_LANDINGS } from "@/lib/seo/tech-landings";
@@ -53,20 +53,12 @@ function push<K>(map: Map<K, WebPost[]>, key: K, post: WebPost) {
 export function buildSegmentIndex(posts: WebPost[]): SegIndex {
   const techSlugByName = new Map(TECH_LANDINGS.map((t) => [t.tech, t.slug] as const));
 
-  // 10.10.2026. Разбор стека -- самое дорогое, что тут есть: он прогоняет
-  // словарь из восьмидесяти технологий по ВСЕМУ тексту вакансии, а вакансий
-  // тридцать пять тысяч. Один и тот же пост до правки разбирался до трёх раз
-  // (страна+стек, удалёнка+стек, город+стек). Теперь разбор один на вакансию,
-  // остальные берут готовое.
-  const techMemo = new Map<string, string[]>();
-  const techsOf = (post: WebPost): string[] => {
-    let techs = techMemo.get(post.id);
-    if (!techs) {
-      techs = [...new Set(extractTechTags(post.title, post.contentText))];
-      techMemo.set(post.id, techs);
-    }
-    return techs;
-  };
+  // 10.10.2026. Разбор стека берётся из общего кэша (lib/a1/tech-tags-cache.ts):
+  // вакансия разбирается один раз за всё время жизни процесса. До правки один
+  // и тот же пост разбирался до трёх раз за сборку (страна+стек, удалёнка+стек,
+  // город+стек), а сама сборка повторялась каждые полчаса -- отсюда и были
+  // 23-28 секунд ожидания у того, кто первым открыл посадочную страницу.
+  pruneTechCache(posts);
 
   // Города: ключ «страна|город» → вакансии, потом раздаём адреса с разбором
   // совпадений («Cambridge» есть и в GB, и в US).
@@ -92,7 +84,7 @@ export function buildSegmentIndex(posts: WebPost[]): SegIndex {
 
     if (cc && cc !== "WW" && cc !== "UA") {
       const lc = cc.toLowerCase();
-      for (const tech of techsOf(post)) {
+      for (const tech of techsOfPost(post)) {
         const slug = techSlugByName.get(tech);
         if (slug) push(countryTech, `${lc}/${slug}`, post);
       }
@@ -104,7 +96,7 @@ export function buildSegmentIndex(posts: WebPost[]): SegIndex {
     {
       const kind = worldwideKind(post);
       if ((cc === "UA" && post.tags.includes("remote")) || kind === "world" || kind === "remote") {
-        for (const tech of techsOf(post)) {
+        for (const tech of techsOfPost(post)) {
           const slug = techSlugByName.get(tech);
           if (slug) push(remoteTech, slug, post);
         }
@@ -143,7 +135,7 @@ export function buildSegmentIndex(posts: WebPost[]): SegIndex {
   const cityTech = new Map<string, WebPost[]>();
   for (const seg of cities.values()) {
     for (const post of seg.posts) {
-      for (const tech of techsOf(post)) {
+      for (const tech of techsOfPost(post)) {
         const slug = techSlugByName.get(tech);
         if (slug) push(cityTech, `${seg.slug}/${slug}`, post);
       }
