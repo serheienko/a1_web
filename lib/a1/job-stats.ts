@@ -81,10 +81,12 @@ function salaryOf(posts: WebPost[], scope: "country" | "world"): JobStats["salar
   return { n: usd.length, median: quantile(usd, 0.5), p25: quantile(usd, 0.25), p75: quantile(usd, 0.75), scope };
 }
 
-function topTech(posts: WebPost[], skipTitle: string, limit: number): JobStatsTech[] {
+function ownTech(post: WebPost): Set<string> {
+  return new Set(extractTechTags(post.title, ""));
+}
+
+function topTech(posts: WebPost[], limit: number): JobStatsTech[] {
   const known = new Set(TECH_CATALOG.map((t) => t.tech));
-  // Технологии из самой вакансии не повторяем: они и так есть на странице.
-  const own = new Set(extractTechTags(skipTitle, ""));
   const counts = new Map<string, number>();
   for (const p of posts) {
     for (const tech of new Set(extractTechTags(p.title, p.contentText))) {
@@ -92,34 +94,114 @@ function topTech(posts: WebPost[], skipTitle: string, limit: number): JobStatsTe
     }
   }
   return [...counts]
-    .filter(([tech]) => known.has(tech) && !SKIP_TECH.has(tech) && !own.has(tech))
+    .filter(([tech]) => known.has(tech) && !SKIP_TECH.has(tech))
     .sort((a, b) => b[1] - a[1])
     .slice(0, limit)
     .map(([tech, count]) => ({ tech, href: techLandingHref(tech), count }));
 }
 
+// ------------------------------------------------------------------ индекс
+//
+// 11.10.2026, тем же вечером (Александр: «мы не охуеем по косту?»). Первый
+// вариант считал честно и дорого: на КАЖДУЮ впервые открытую вакансию он
+// пробегал по всем 37 тысячам живых и для каждой заново распознавал
+// профессию -- это миллионы проверок регулярными выражениями на одну
+// страницу. Запросов к бэкенду при этом не прибавлялось (список и так
+// лежит в памяти), но процессор горел зря.
+//
+// Теперь раскладка делается ОДИН раз на тот же часовой список: профессия
+// у каждой вакансии определяется единожды, а страница берёт готовую пачку.
+// Считанные сводки (вилка, соседние технологии) тоже запоминаются -- они
+// одни на всю пару «профессия + страна», а не на вакансию.
+
+type Index = {
+  source: WebPost[];
+  byRole: Map<JobRole, WebPost[]>;
+  byRoleCc: Map<string, WebPost[]>;
+  byCc: Map<string, WebPost[]>;
+  byCompany: Map<string, WebPost[]>;
+  /** Сводки по ключу «профессия|страна»: считаются при первом показе. */
+  salary: Map<string, JobStats["salary"]>;
+  tech: Map<string, JobStatsTech[]>;
+  fresh: Map<string, number>;
+};
+
+let index: Index | null = null;
+
+function push<K>(map: Map<K, WebPost[]>, key: K, post: WebPost): void {
+  const list = map.get(key);
+  if (list) list.push(post);
+  else map.set(key, [post]);
+}
+
+function indexOf(all: WebPost[]): Index {
+  if (index && index.source === all) return index;
+  const next: Index = {
+    source: all,
+    byRole: new Map(),
+    byRoleCc: new Map(),
+    byCc: new Map(),
+    byCompany: new Map(),
+    salary: new Map(),
+    tech: new Map(),
+    fresh: new Map(),
+  };
+  for (const post of all) {
+    const cc = ccOf(post);
+    if (cc) push(next.byCc, cc, post);
+    if (post.author.userId) push(next.byCompany, post.author.userId, post);
+    for (const role of extractRoles(post.title)) {
+      push(next.byRole, role, post);
+      if (cc) push(next.byRoleCc, `${role}|${cc}`, post);
+    }
+  }
+  index = next;
+  return next;
+}
+
+function freshCount(posts: WebPost[]): number {
+  const edge = Date.now() - WEEK_MS;
+  let n = 0;
+  for (const p of posts) if ((p.sourcePublishedAt ?? p.publishedAt).getTime() > edge) n++;
+  return n;
+}
+
 export function buildJobStats(all: WebPost[], post: WebPost): JobStats | null {
+  const idx = indexOf(all);
   const cc = ccOf(post);
   const roleSlug = extractRoles(post.title)[0] ?? null;
   const info = roleSlug ? roleInfo(roleSlug) : null;
 
-  const inCountry = cc ? all.filter((p) => ccOf(p) === cc) : [];
-  const roleWorldPosts = roleSlug ? all.filter((p) => extractRoles(p.title).includes(roleSlug)) : [];
-  const roleHerePosts = cc ? roleWorldPosts.filter((p) => ccOf(p) === cc) : roleWorldPosts;
+  const roleWorldPosts = roleSlug ? (idx.byRole.get(roleSlug) ?? []) : [];
+  const roleHerePosts = roleSlug && cc ? (idx.byRoleCc.get(`${roleSlug}|${cc}`) ?? []) : roleWorldPosts;
+  const key = `${roleSlug ?? "-"}|${cc ?? "-"}`;
 
-  const now = Date.now();
-  const fresh7d = roleHerePosts.filter(
-    (p) => now - (p.sourcePublishedAt ?? p.publishedAt).getTime() < WEEK_MS,
-  ).length;
+  let fresh7d = idx.fresh.get(key);
+  if (fresh7d === undefined) {
+    fresh7d = freshCount(roleHerePosts);
+    idx.fresh.set(key, fresh7d);
+  }
 
   // Вилка: сначала по стране, иначе по миру -- лишь бы выборка была честной.
-  const salary =
-    (roleHerePosts.length >= MIN_SALARY_SAMPLE ? salaryOf(roleHerePosts, "country") : null) ??
-    salaryOf(roleWorldPosts, "world");
+  let salary = idx.salary.get(key);
+  if (salary === undefined) {
+    salary =
+      (roleHerePosts.length >= MIN_SALARY_SAMPLE ? salaryOf(roleHerePosts, "country") : null) ??
+      salaryOf(roleWorldPosts, "world");
+    idx.salary.set(key, salary);
+  }
 
-  const sameCompany = post.author.userId
-    ? all.filter((p) => p.author.userId === post.author.userId)
-    : [];
+  // Соседние технологии считаются по заголовку и тексту сотен вакансий --
+  // самая дорогая часть, и единственная, ради которой стоит кэш. Из
+  // ключа исключён сам заголовок: вакансии одной профессии в одной стране
+  // дают почти одинаковый список, а разница в одну-две строки того не варта.
+  let tech = idx.tech.get(key);
+  if (tech === undefined) {
+    tech = topTech(roleHerePosts.length >= MIN_ROLE_SAMPLE ? roleHerePosts : roleWorldPosts, 6);
+    idx.tech.set(key, tech);
+  }
+
+  const sameCompany = post.author.userId ? (idx.byCompany.get(post.author.userId) ?? []) : [];
 
   const stats: JobStats = {
     role: info ? { slug: info.slug, label: info.label, uk: info.uk, ru: info.ru, en: info.en } : null,
@@ -127,9 +209,10 @@ export function buildJobStats(all: WebPost[], post: WebPost): JobStats | null {
     roleHere: roleHerePosts.length,
     roleWorld: roleWorldPosts.length,
     fresh7d,
-    countryTotal: inCountry.length,
+    countryTotal: cc ? (idx.byCc.get(cc)?.length ?? 0) : 0,
     salary,
-    tech: topTech(roleHerePosts.length >= MIN_ROLE_SAMPLE ? roleHerePosts : roleWorldPosts, post.title, 6),
+    // Технологии из самой вакансии не повторяем: они и так есть на странице.
+    tech: tech.filter((t) => !ownTech(post).has(t.tech)).slice(0, 5),
     company:
       sameCompany.length > 1
         ? {
@@ -146,8 +229,6 @@ export function buildJobStats(all: WebPost[], post: WebPost): JobStats | null {
 
   return worthShowing ? stats : null;
 }
-
-const cache = new Map<string, { source: WebPost[]; stats: JobStats | null }>();
 
 /**
  * Статистика для страницы вакансии, но НЕ ценой самой страницы.
@@ -173,11 +254,5 @@ export async function jobStatsWithin(post: WebPost, ms = 2500): Promise<JobStats
     return null;
   }
 
-  const hit = cache.get(post.id);
-  if (hit && hit.source === all) return hit.stats;
-  const stats = buildJobStats(all, post);
-  // Память не резиновая: вакансий десятки тысяч, держим последние.
-  if (cache.size > 3000) cache.clear();
-  cache.set(post.id, { source: all, stats });
-  return stats;
+  return buildJobStats(all, post);
 }
