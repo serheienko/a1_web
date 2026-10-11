@@ -552,6 +552,21 @@ export function PostComments({
     setOpen(true);
   }, []);
 
+  // 10.10.2026 (Александр: «Коментар в меню по правому клику должен сразу
+  // открывать окно комментариев этого поста»): ссылка вида /jobs/x#comments
+  // открывает окно сама, как только страница готова.
+  useEffect(() => {
+    if (window.location.hash !== "#comments") return;
+    const id = window.setTimeout(() => {
+      openWindow();
+      try {
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      } catch {}
+    }, 250);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // 2026-09-19 (Александр: «нажимаю на кота в комментариях -- надо,
   // чтобы сразу открывались и комментарии, и всплывашка с эмодзи, а не
   // вторым кликом»). Нажатие на кота в свёрнутой строке открывает окно
@@ -1042,7 +1057,7 @@ export function PostComments({
     : [];
 
   return (
-    <section className="mt-10">
+    <section id="comments" className="mt-10 scroll-mt-24">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
         <T
           uk="Коментарі" en="Comments" ru="Комментарии" de="Kommentare" es="Comentarios"

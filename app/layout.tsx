@@ -6,6 +6,7 @@ import "./globals.css";
 import { SiteNav } from "@/components/site-nav";
 import { CreatePostFab } from "@/components/create-post-fab";
 import { ChatsFab } from "@/components/chats-fab";
+import { PostContextMenuHost } from "@/components/post-context-menu";
 import { AppPromo } from "@/components/app-promo";
 import { ScrollTopFab } from "@/components/scroll-top-fab";
 import { VoiceNowPlayingBar } from "@/components/chat/voice-now-playing-bar";
@@ -309,6 +310,8 @@ export default function RootLayout({
         {/* 30.09.2026: видео-превью приложения справа от ленты (десктоп) — components/app-promo.tsx */}
         <AppPromo />
         <ChatsFab />
+        {/* 09.10.2026: меню по правому клику на постах -- components/post-context-menu.tsx */}
+        <PostContextMenuHost />
         <ScrollTopFab />
         <CreatePostFab />
         <Analytics />
