@@ -78,13 +78,13 @@ export function StatsRow({ items, locale }: { items: StatItem[]; locale: string 
       {items.map((s, i) => (
         <div
           key={i}
-          className="rounded-2xl bg-gradient-to-b from-[#0e1a52] to-[#03051f] px-4 py-4 text-white shadow-sm ring-1 ring-white/10"
+          className="rounded-2xl bg-gradient-to-b from-[var(--nv-from,#0e1a52)] to-[var(--nv-to,#03051f)] px-4 py-4 text-white shadow-sm ring-1 ring-white/10"
           style={{ transition: "opacity .5s ease, transform .5s ease", transitionDelay: `${i * 80}ms`, opacity: phase === "armed" ? 0 : 1, transform: phase === "armed" ? "translateY(8px)" : "none" }}
         >
           <div className="text-[28px] font-bold leading-none tabular-nums sm:text-[32px]">
             {s.prefix}
             <CountUp to={s.value} decimals={s.decimals} run={phase === "run"} locale={locale} />
-            <span className="text-[#7aa2ff]">{s.suffix}</span>
+            <span className="text-[var(--nv-hi,#7aa2ff)]">{s.suffix}</span>
           </div>
           <div className="mt-2 text-[12px] leading-snug text-white/65">{s.label}</div>
         </div>
@@ -115,7 +115,7 @@ export function ExpertsGrid({
   const order = useMemo(() => [...lit].sort((a, b) => a - b), [lit]);
   const rank = useMemo(() => new Map(order.map((n, i) => [n, i])), [order]);
   return (
-    <figure ref={ref} className="not-prose my-8 overflow-hidden rounded-2xl bg-[#03051f] p-4 ring-1 ring-white/10 sm:p-6">
+    <figure ref={ref} className="not-prose my-8 overflow-hidden rounded-2xl bg-[var(--nv-to,#03051f)] p-4 ring-1 ring-white/10 sm:p-6">
       <figcaption className="text-white">
         <div className="text-lg font-semibold">{title}</div>
         <div className="mt-1 text-[13px] leading-snug text-white/60">{caption}</div>
@@ -134,8 +134,8 @@ export function ExpertsGrid({
               key={i}
               className="block aspect-square rounded-full"
               style={{
-                background: on ? "#7aa2ff" : "rgba(255,255,255,.14)",
-                boxShadow: on && phase !== "armed" ? "0 0 8px 1px rgba(122,162,255,.8)" : "none",
+                background: on ? "var(--nv-hi,#7aa2ff)" : "rgba(255,255,255,.14)",
+                boxShadow: on && phase !== "armed" ? "0 0 8px 1px rgba(var(--nv-glow,122,162,255),.8)" : "none",
                 opacity: on ? (phase === "armed" ? 0.15 : 1) : 1,
                 transform: on && phase === "armed" ? "scale(.4)" : "scale(1)",
                 transition: "opacity .35s ease, transform .35s ease, box-shadow .35s ease",
@@ -146,7 +146,7 @@ export function ExpertsGrid({
         })}
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1 text-[13px] text-white/80">
-        <span className="inline-flex items-center gap-2"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[#7aa2ff] shadow-[0_0_8px_1px_rgba(122,162,255,.8)]" /><b className="tabular-nums text-white">{active}</b> {activeLabel}</span>
+        <span className="inline-flex items-center gap-2"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--nv-hi,#7aa2ff)] shadow-[0_0_8px_1px_rgba(var(--nv-glow,122,162,255),.8)]" /><b className="tabular-nums text-white">{active}</b> {activeLabel}</span>
         <span className="inline-flex items-center gap-2"><span className="inline-block h-2.5 w-2.5 rounded-full bg-white/20" /><b className="tabular-nums text-white">{total}</b> {totalLabel}</span>
       </div>
     </figure>
@@ -172,7 +172,7 @@ export function ScoreBars({
               <span className={"truncate " + (r.hl ? "font-semibold text-accent" : "text-neutral-700 dark:text-neutral-300")}>{r.label}</span>
               <span className="h-3 overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800">
                 <span
-                  className={"block h-full rounded-full " + (r.hl ? "bg-gradient-to-r from-[#2a78d6] to-[#7aa2ff]" : "bg-neutral-400/70 dark:bg-neutral-500/70")}
+                  className={"block h-full rounded-full " + (r.hl ? "bg-gradient-to-r from-[var(--nv-lo,#2a78d6)] to-[var(--nv-hi,#7aa2ff)]" : "bg-neutral-400/70 dark:bg-neutral-500/70")}
                   style={{ width: phase === "armed" ? "0%" : `${pct}%`, transition: "width .9s cubic-bezier(.2,.7,.2,1)", transitionDelay: `${i * 110}ms` }}
                 />
               </span>
@@ -195,7 +195,7 @@ export function PriceCalc({
   const cost = inM * input + outM * output;
   const inShare = cost > 0 ? (inM * input) / cost : 0.5;
   return (
-    <figure className="not-prose my-8 rounded-2xl bg-gradient-to-br from-[#0e1a52] to-[#03051f] p-4 text-white ring-1 ring-white/10 sm:p-6">
+    <figure className="not-prose my-8 rounded-2xl bg-gradient-to-br from-[var(--nv-from,#0e1a52)] to-[var(--nv-to,#03051f)] p-4 text-white ring-1 ring-white/10 sm:p-6">
       <figcaption>
         <div className="text-lg font-semibold">{title}</div>
         <div className="mt-1 text-[13px] leading-snug text-white/60">{caption}</div>
@@ -206,14 +206,14 @@ export function PriceCalc({
             <span>{labels.input}</span>
             <span><b className="text-[15px] tabular-nums text-white">{nf(inM, 0, locale)}</b> <span className="text-white/50">· {labels.unit}{nf(input, 2, locale)} {labels.perMillion}</span></span>
           </span>
-          <input type="range" min={0} max={500} step={5} value={inM} onChange={(e) => setInM(Number(e.target.value))} className="mt-2 w-full accent-[#7aa2ff]" />
+          <input type="range" min={0} max={500} step={5} value={inM} onChange={(e) => setInM(Number(e.target.value))} className="mt-2 w-full accent-[var(--nv-hi,#7aa2ff)]" />
         </label>
         <label className="block">
           <span className="flex items-baseline justify-between text-[13px] text-white/80">
             <span>{labels.output}</span>
             <span><b className="text-[15px] tabular-nums text-white">{nf(outM, 0, locale)}</b> <span className="text-white/50">· {labels.unit}{nf(output, 2, locale)} {labels.perMillion}</span></span>
           </span>
-          <input type="range" min={0} max={200} step={1} value={outM} onChange={(e) => setOutM(Number(e.target.value))} className="mt-2 w-full accent-[#7aa2ff]" />
+          <input type="range" min={0} max={200} step={1} value={outM} onChange={(e) => setOutM(Number(e.target.value))} className="mt-2 w-full accent-[var(--nv-hi,#7aa2ff)]" />
         </label>
       </div>
       <div className="mt-6 flex items-end justify-between gap-4">
@@ -223,8 +223,8 @@ export function PriceCalc({
         </div>
         <div className="w-40 sm:w-56" aria-hidden="true">
           <div className="flex h-3 overflow-hidden rounded-full bg-white/10">
-            <span className="block h-full bg-[#7aa2ff]" style={{ width: `${inShare * 100}%`, transition: "width .25s ease" }} />
-            <span className="block h-full bg-[#2a78d6]/60" style={{ width: `${(1 - inShare) * 100}%`, transition: "width .25s ease" }} />
+            <span className="block h-full bg-[var(--nv-hi,#7aa2ff)]" style={{ width: `${inShare * 100}%`, transition: "width .25s ease" }} />
+            <span className="block h-full bg-[var(--nv-lo,#2a78d6)]/60" style={{ width: `${(1 - inShare) * 100}%`, transition: "width .25s ease" }} />
           </div>
         </div>
       </div>
@@ -240,7 +240,7 @@ export function SizeCalc({
   const best = mb * (1 - highPct / 100); // максимум економії
   const worst = mb * (1 - lowPct / 100); // мінімум економії
   return (
-    <figure className="not-prose my-8 rounded-2xl bg-gradient-to-br from-[#0e1a52] to-[#03051f] p-4 text-white ring-1 ring-white/10 sm:p-6">
+    <figure className="not-prose my-8 rounded-2xl bg-gradient-to-br from-[var(--nv-from,#0e1a52)] to-[var(--nv-to,#03051f)] p-4 text-white ring-1 ring-white/10 sm:p-6">
       <figcaption>
         <div className="text-lg font-semibold">{title}</div>
         <div className="mt-1 text-[13px] leading-snug text-white/60">{caption}</div>
@@ -250,7 +250,7 @@ export function SizeCalc({
           <span>{labels.slider}</span>
           <b className="text-[15px] tabular-nums text-white">{nf(mb, 1, locale)} {unit}</b>
         </span>
-        <input type="range" min={0.5} max={max} step={0.5} value={mb} onChange={(e) => setMb(Number(e.target.value))} className="mt-2 w-full accent-[#7aa2ff]" />
+        <input type="range" min={0.5} max={max} step={0.5} value={mb} onChange={(e) => setMb(Number(e.target.value))} className="mt-2 w-full accent-[var(--nv-hi,#7aa2ff)]" />
       </label>
       <div className="mt-6 space-y-4" aria-live="polite">
         <div>
@@ -260,8 +260,8 @@ export function SizeCalc({
         <div>
           <div className="mb-1 flex justify-between text-[12px] text-white/60"><span>{labels.after}</span><span className="tabular-nums text-white">{nf(best, 1, locale)}–{nf(worst, 1, locale)} {unit}</span></div>
           <div className="relative h-4 overflow-hidden rounded-full bg-white/10">
-            <span className="absolute inset-y-0 left-0 block rounded-full bg-[#7aa2ff]/40" style={{ width: `${100 - lowPct}%`, transition: "width .25s ease" }} />
-            <span className="absolute inset-y-0 left-0 block rounded-full bg-[#7aa2ff]" style={{ width: `${100 - highPct}%`, transition: "width .25s ease" }} />
+            <span className="absolute inset-y-0 left-0 block rounded-full bg-[var(--nv-hi,#7aa2ff)]/40" style={{ width: `${100 - lowPct}%`, transition: "width .25s ease" }} />
+            <span className="absolute inset-y-0 left-0 block rounded-full bg-[var(--nv-hi,#7aa2ff)]" style={{ width: `${100 - highPct}%`, transition: "width .25s ease" }} />
           </div>
           <div className="mt-1 text-[12px] text-white/50">{labels.range}</div>
         </div>

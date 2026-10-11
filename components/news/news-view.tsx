@@ -7,7 +7,8 @@
 
 import Link from "next/link";
 import { Suspense } from "react";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
+import { newsThemeVars } from "@/components/news/news-thumb";
 import type { NewsArticle, NewsBlock } from "@/lib/news/types";
 import { altNews, relatedNews } from "@/lib/news/articles";
 import { liveAi } from "@/lib/news/live";
@@ -232,7 +233,7 @@ export async function NewsView({ article, pool }: { article: NewsArticle; pool?:
         <span>{article.kicker}</span>
       </nav>
 
-      <article lang={article.lang}>
+      <article lang={article.lang} style={newsThemeVars(article.slug, article.thumb?.hue) as CSSProperties}>
         <header className="mt-3">
           <div className="text-[11px] font-medium uppercase tracking-wide text-accent">{article.kicker}</div>
           <h1 className="mt-1 text-3xl font-bold leading-tight tracking-tight text-neutral-900 sm:text-4xl dark:text-neutral-50">{article.h1}</h1>
@@ -251,12 +252,12 @@ export async function NewsView({ article, pool }: { article: NewsArticle; pool?:
           </div>
         </header>
 
-        <section aria-label={t.short} className="mt-6 rounded-2xl bg-gradient-to-br from-[#0e1a52] to-[#03051f] p-5 text-white ring-1 ring-white/10">
-          <div className="text-[11px] font-medium uppercase tracking-wide text-[#7aa2ff]">A1 Summary · {t.short}</div>
+        <section aria-label={t.short} className="mt-6 rounded-2xl bg-gradient-to-br from-[var(--nv-from,#0e1a52)] to-[var(--nv-to,#03051f)] p-5 text-white ring-1 ring-white/10">
+          <div className="text-[11px] font-medium uppercase tracking-wide text-[var(--nv-hi,#7aa2ff)]">A1 Summary · {t.short}</div>
           <ul className="mt-2 space-y-2 text-[15px] leading-relaxed text-white/90">
             {article.summary.map((s, i) => (
               <li key={i} className="flex gap-2.5">
-                <span className="mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#7aa2ff]" aria-hidden="true" />
+                <span className="mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--nv-hi,#7aa2ff)]" aria-hidden="true" />
                 <span>{s}</span>
               </li>
             ))}

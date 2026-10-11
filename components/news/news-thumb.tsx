@@ -15,23 +15,34 @@ const BAR_H = [18, 26, 22, 38, 34, 52, 46, 64, 58, 78, 72, 92];
 const SPARK = [62, 58, 64, 52, 56, 44, 48, 36, 40, 28, 30, 16];
 
 const HUES = {
-  blue: { bg: "radial-gradient(120% 100% at 15% 0%,#1b3a95 0%,#0a1240 50%,#03051f 100%)", hi: "#7aa2ff", lo: "#2a78d6", glow: "122,162,255" },
-  teal: { bg: "radial-gradient(120% 100% at 85% 0%,#0f6b6e 0%,#073a45 50%,#021c24 100%)", hi: "#5fe0d0", lo: "#1d9aa6", glow: "95,224,208" },
-  violet: { bg: "radial-gradient(120% 100% at 15% 0%,#5b2aa8 0%,#2a1163 50%,#0e0524 100%)", hi: "#c19bff", lo: "#7a46d6", glow: "193,155,255" },
-  amber: { bg: "radial-gradient(120% 100% at 85% 0%,#9a5a10 0%,#4d2a08 50%,#1c0e02 100%)", hi: "#ffc15e", lo: "#d98a1c", glow: "255,193,94" },
-  green: { bg: "radial-gradient(120% 100% at 15% 0%,#1d7a3a 0%,#0b3d1e 50%,#031a0c 100%)", hi: "#7bf0a0", lo: "#25a653", glow: "123,240,160" },
-  orange: { bg: "radial-gradient(120% 100% at 85% 0%,#b8420f 0%,#5c1f06 50%,#210a02 100%)", hi: "#ff9a62", lo: "#e0561c", glow: "255,154,98" },
-  rose: { bg: "radial-gradient(120% 100% at 15% 0%,#a3205a 0%,#4f0e2e 50%,#1c0511 100%)", hi: "#ff8fc0", lo: "#d6407f", glow: "255,143,192" },
+  blue: { from: "#0e1a52", to: "#03051f", bg: "radial-gradient(120% 100% at 15% 0%,#1b3a95 0%,#0a1240 50%,#03051f 100%)", hi: "#7aa2ff", lo: "#2a78d6", glow: "122,162,255" },
+  teal: { from: "#0a4a55", to: "#021c24", bg: "radial-gradient(120% 100% at 85% 0%,#0f6b6e 0%,#073a45 50%,#021c24 100%)", hi: "#5fe0d0", lo: "#1d9aa6", glow: "95,224,208" },
+  violet: { from: "#33176f", to: "#0e0524", bg: "radial-gradient(120% 100% at 15% 0%,#5b2aa8 0%,#2a1163 50%,#0e0524 100%)", hi: "#c19bff", lo: "#7a46d6", glow: "193,155,255" },
+  amber: { from: "#5a310a", to: "#1c0e02", bg: "radial-gradient(120% 100% at 85% 0%,#9a5a10 0%,#4d2a08 50%,#1c0e02 100%)", hi: "#ffc15e", lo: "#d98a1c", glow: "255,193,94" },
+  green: { from: "#0f4a26", to: "#031a0c", bg: "radial-gradient(120% 100% at 15% 0%,#1d7a3a 0%,#0b3d1e 50%,#031a0c 100%)", hi: "#7bf0a0", lo: "#25a653", glow: "123,240,160" },
+  orange: { from: "#6a2508", to: "#210a02", bg: "radial-gradient(120% 100% at 85% 0%,#b8420f 0%,#5c1f06 50%,#210a02 100%)", hi: "#ff9a62", lo: "#e0561c", glow: "255,154,98" },
+  rose: { from: "#5e1236", to: "#1c0511", bg: "radial-gradient(120% 100% at 15% 0%,#a3205a 0%,#4f0e2e 50%,#1c0511 100%)", hi: "#ff8fc0", lo: "#d6407f", glow: "255,143,192" },
+  red: { from: "#66101a", to: "#210306", bg: "radial-gradient(120% 100% at 85% 0%,#b3202a 0%,#560e14 50%,#210306 100%)", hi: "#ff7a80", lo: "#e0343e", glow: "255,122,128" },
+  cyan: { from: "#0a4570", to: "#021626", bg: "radial-gradient(120% 100% at 15% 0%,#0d6fa8 0%,#08395c 50%,#021626 100%)", hi: "#6fd3ff", lo: "#1f9ae0", glow: "111,211,255" },
+  lime: { from: "#35520b", to: "#101a02", bg: "radial-gradient(120% 100% at 85% 0%,#5f8a12 0%,#2c4309 50%,#101a02 100%)", hi: "#c8f26b", lo: "#8cc21f", glow: "200,242,107" },
 } as const;
 
 type Hue = keyof typeof HUES;
-const HUE_ORDER: Hue[] = ["blue", "green", "violet", "orange", "teal", "rose", "amber"];
+const HUE_ORDER: Hue[] = ["blue", "green", "violet", "orange", "red", "teal", "rose", "amber", "cyan", "lime"];
 const MOTIF_ORDER = ["bars", "dots", "spark", "rings"] as const;
 
 function hashOf(s: string): number {
   let x = 2166136261;
   for (let i = 0; i < s.length; i++) x = Math.imul(x ^ s.charCodeAt(i), 16777619);
   return x >>> 0;
+}
+
+/** Цвета блоков внутри новости (summary, цифры, графики): тот же оттенок, что у миниатюры в списке. Кладётся в style обёртки статьи как CSS-переменные. */
+export function newsThemeVars(seed: string, given?: string): Record<string, string> {
+  const k = hashOf(seed.replace(/-en$/, ""));
+  const key = (HUE_ORDER[k % HUE_ORDER.length] ?? (given as Hue) ?? "blue") as Hue;
+  const h = HUES[key];
+  return { "--nv-from": h.from, "--nv-to": h.to, "--nv-hi": h.hi, "--nv-lo": h.lo, "--nv-glow": h.glow };
 }
 
 export function NewsThumb({ thumb: given, className = "", seed }: { thumb: NewsArticle["thumb"]; className?: string; seed?: string }) {
