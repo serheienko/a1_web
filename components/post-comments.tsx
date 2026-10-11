@@ -451,7 +451,20 @@ function Bubble({
   );
 }
 
-export function PostComments({ comments, postId }: { comments: WebComment[]; postId: string }) {
+// 2026-10-11: `api` -- откуда брать маршруты. По умолчанию комментарии
+// вакансий (бэкенд приложения); новости и события передают
+// "/api/site-comments" -- там тот же набор маршрутов с теми же телами, но
+// склад свой (см. lib/comments/site-store.ts). Вид и поведение одинаковы.
+export function PostComments({
+  comments,
+  postId,
+  api = "/api/comments",
+}: {
+  comments: WebComment[];
+  postId: string;
+  api?: string;
+}) {
+  const ownStore = api !== "/api/comments";
   const [list, setList] = useState<WebComment[]>(comments);
   const [me, setMe] = useState<Me | null>(null);
   const [signedIn, setSignedIn] = useState(false);
@@ -798,7 +811,7 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
       );
 
       try {
-        const url = mineEntry ? "/api/comments/reaction/delete" : "/api/comments/reaction/add";
+        const url = mineEntry ? `${api}/reaction/delete` : `${api}/reaction/add`;
         const body = mineEntry
           ? { postId, commentId: id, emoticon, date: mineEntry.date, userId: me.userId }
           : { postId, commentId: id, emoticon };
@@ -820,7 +833,7 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
         setFailed(true);
       }
     },
-    [list, me, postId],
+    [list, me, postId, api],
   );
 
   const removeComment = useCallback(
@@ -834,7 +847,7 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
       setDeleting(true);
       setDeleteFailed(false);
       try {
-        const res = await fetch("/api/comments/delete", {
+        const res = await fetch(`${api}/delete`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ postId, commentIds: [id] }),
@@ -850,7 +863,7 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
         setDeleting(false);
       }
     },
-    [list, postId],
+    [list, postId, api],
   );
 
   const send = useCallback(async () => {
@@ -865,7 +878,7 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
       // где текст подставляется в то же поле внизу.
       if (editing) {
         const id = Number(editing.id);
-        const res = await fetch("/api/comments/edit", {
+        const res = await fetch(`${api}/edit`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ postId, commentId: id, text: value }),
@@ -880,7 +893,7 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
         setSending(false);
         return;
       }
-      const res = await fetch("/api/comments/send", {
+      const res = await fetch(`${api}/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -925,7 +938,7 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
     } finally {
       setSending(false);
     }
-  }, [text, sending, postId, me, editing, replyTo]);
+  }, [text, sending, postId, me, editing, replyTo, api, ownStore]);
 
   // Панель наліпок привязана к кнопке-коту, но её положение снимается
   // в момент нажатия -- а сразу после нажатия на телефоне закрывается
@@ -967,12 +980,12 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
       const replyToSend = replyTo;
       setReplyTo(null);
       try {
-        const res = await fetch("/api/comments/send", {
+        const res = await fetch(`${api}/send`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             postId,
-            media: [{ fileReference: doc.fileReference }],
+            media: ownStore ? [doc] : [{ fileReference: doc.fileReference }],
             ...(replyToSend && Number(replyToSend.id) > 0 && replyToSend.authorId
               ? { replyTo: { commentId: Number(replyToSend.id), userId: replyToSend.authorId } }
               : {}),
@@ -1008,7 +1021,7 @@ export function PostComments({ comments, postId }: { comments: WebComment[]; pos
         setSending(false);
       }
     },
-    [sending, postId, me, replyTo],
+    [sending, postId, me, replyTo, api, ownStore],
   );
 
   // Ни комментариев, ни вошедшего -- блока нет вовсе.

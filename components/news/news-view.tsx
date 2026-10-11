@@ -13,6 +13,7 @@ import type { NewsArticle, NewsBlock } from "@/lib/news/types";
 import { altNews, relatedNews } from "@/lib/news/articles";
 import { liveAi } from "@/lib/news/live";
 import { readingMinutes } from "@/lib/news/util";
+import { SiteComments } from "@/components/site-comments";
 import { ExpertsGrid, LiveMarket, PriceCalc, ScoreBars, SizeCalc, StatsRow } from "@/components/news/visuals";
 
 const SITE_URL = "https://jobs.a1appp.com";
@@ -298,6 +299,8 @@ export async function NewsView({ article, pool }: { article: NewsArticle; pool?:
           </section>
         ) : null}
       </article>
+
+      <SiteComments kind="news" slug={article.slug} />
 
       {related.length > 0 ? (
         <section className="mt-12 border-t border-neutral-100 pt-8 dark:border-neutral-800">

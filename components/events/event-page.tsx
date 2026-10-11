@@ -9,6 +9,7 @@ import { findTechLanding } from "@/lib/seo/tech-landings";
 import { DateTile } from "./date-tile";
 import { EventCover } from "./event-cover";
 import { EventRow } from "./event-row";
+import { SiteComments } from "@/components/site-comments";
 
 const TXT = {
   uk: {
@@ -141,6 +142,8 @@ export async function EventPage({ slug, lang }: { slug: string; lang: EvLang }) 
           </p>
         </section>
       ) : null}
+
+      <SiteComments kind="event" slug={e.slug} />
 
       {siblings.length > 1 ? (
         <section className="mt-8">
