@@ -133,6 +133,8 @@ import type { ChatFlyoutOpenTarget } from "@/components/chats-flyout";
 import { LottiePlayer } from "@/components/lottie-player";
 import { MeetingsMenuModal, quickInviteCatAnimation } from "@/components/chat/meetings-menu-modal";
 import { useActiveLocale } from "@/lib/use-active-locale";
+import { GroupInfoModal } from "@/components/chat/group-info-modal";
+import type { GroupInfoResponse } from "@/app/api/chats/group-info/route";
 
 const POLL_MS = 3000;
 // Same throttle idea as app/chats/[chatId]/page.tsx's own readStateTick
@@ -1631,6 +1633,29 @@ export function MiniChatWindow({
   }
 
   const targetProfileHref = target.username ? profileHref(target.username) : null;
+  // 09.10.2026 (Александр: «в мини-чатах супергруппа при нажатии на имя и
+  // аватарку должна открывать информацию по группе»): как на полной странице
+  // чата -- та же карточка группы (components/chat/group-info-modal.tsx).
+  const [groupInfo, setGroupInfo] = useState<Extract<GroupInfoResponse, { isGroup: true }> | null>(null);
+  const [groupOpen, setGroupOpen] = useState(false);
+  const loadGroupInfo = () =>
+    authFetch(`/api/chats/group-info?chat=${encodeURIComponent(target.routeParam)}`)
+      .then((r) => r.json())
+      .then((d: GroupInfoResponse | null) => {
+        if (d && d.ok && d.isGroup) {
+          setGroupInfo(d);
+          return true;
+        }
+        return false;
+      })
+      .catch(() => false);
+  const openGroup = () => {
+    if (groupInfo) {
+      setGroupOpen(true);
+      return;
+    }
+    void loadGroupInfo().then((ok) => ok && setGroupOpen(true));
+  };
   // 2026-09-05 (Aleksandr: "кешировать вообще всё, если оно хотя бы
   // 1 раз открывалось") -- same persistent Cache Storage-backed
   // CachedAvatar every other avatar surface on the site now uses.
@@ -1730,7 +1755,9 @@ export function MiniChatWindow({
               {nameText}
             </Link>
           ) : (
-            <div className="max-w-full truncate">{nameText}</div>
+            <button type="button" onClick={openGroup} className="pointer-events-auto max-w-full truncate">
+              {nameText}
+            </button>
           )}
         </div>
 
@@ -1744,9 +1771,35 @@ export function MiniChatWindow({
             {avatarImg}
           </Link>
         ) : (
-          <div className="ml-auto shrink-0">{avatarImg}</div>
+          <button type="button" onClick={openGroup} aria-label={target.title || undefined} className="ml-auto shrink-0 transition hover:scale-105 active:scale-95">
+            {avatarImg}
+          </button>
         )}
       </div>
+      {groupOpen &&
+        groupInfo &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <GroupInfoModal
+            lang={lang}
+            chatId={target.routeParam}
+            info={{
+              title: groupInfo.title,
+              about: groupInfo.about,
+              photo: target.avatarUrl,
+              isPublic: groupInfo.isPublic,
+              inviteLink: groupInfo.inviteLink,
+              muted: groupInfo.muted,
+              pinned: groupInfo.pinned,
+              myRole: groupInfo.myRole,
+              members: groupInfo.members,
+            }}
+            myUserId={myUserId}
+            onChanged={() => void loadGroupInfo()}
+            onClose={() => setGroupOpen(false)}
+          />,
+          document.body,
+        )}
       {/* "Pin" feature (2026-09-08 port, Aleksandr: "закрепить
           функциональными в мини-чатах, должно быть идентично по
           UX/UI как в основных чатах") -- same shared

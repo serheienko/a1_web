@@ -920,7 +920,12 @@ export function ProfileActionRow({
           <span className="animate-viewer-row-in flex items-center justify-center">{saveIcon}</span>
         </button>
       ) : (
-      <div className="relative" ref={menuTriggerRef} onMouseEnter={menuMouseEnter} onMouseLeave={menuMouseLeave}>
+      <div className="relative z-40" ref={menuTriggerRef} onMouseEnter={menuMouseEnter} onMouseLeave={menuMouseLeave}>
+        {/* 09.10.2026 (Александр: «на ••• при ховере не срабатывает анимация,
+            только при нажатии»): меню открывается наведением и сразу кладёт
+            поверх страницы прозрачную подложку (z-30) -- она накрывала саму
+            кнопку, и наведение с неё пропадало. Кнопка теперь над подложкой
+            (z-40), как в меню «•••» поста. */}
         <button
           type="button"
           // lib/use-hover-panel.ts, 2026-09-04 entry: same "•••"-menu tap
@@ -969,7 +974,7 @@ export function ProfileActionRow({
                   type="button"
                   onClick={toggleSave}
                   disabled={saveStatus === "busy" || saveStatus === "loading"}
-                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 transition hover:bg-accent/10 hover:text-accent disabled:opacity-60 dark:text-neutral-300"
+                  className="group flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-neutral-700 transition hover:bg-accent/10 hover:text-accent disabled:opacity-60 dark:text-neutral-300"
                 >
                   {saveIcon}
                   {saveLabel}
