@@ -646,8 +646,14 @@ export default async function ProfilePage({ params }: Props) {
           вернули обратно -- см. app/jobs/[slug]/page.tsx: наверху
           карточка «це ваша компанія?» вытесняла саму компанию, ради
           видимости, которая у блока и так есть. */}
-      {rawProfile?.object === "user" && rawProfile.unclaimed && (
-        <ClaimCompanyPrompt username={username} stats={{ company: username }} />
+      {/* 11.10.2026: и мировые компании тоже (external) -- см. тот же блок
+          в app/jobs/[slug]/page.tsx. */}
+      {rawProfile?.object === "user" && (rawProfile.unclaimed || rawProfile.external) && (
+        <ClaimCompanyPrompt
+          username={username}
+          external={rawProfile.external === true}
+          stats={{ company: username }}
+        />
       )}
 
       <ProfileTabs

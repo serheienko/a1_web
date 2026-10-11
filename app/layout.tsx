@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Commissioner } from "next/font/google";
-import { Analytics } from "@vercel/analytics/next";
 import Script from "next/script";
 import "./globals.css";
 import { SiteNav } from "@/components/site-nav";
@@ -314,7 +313,6 @@ export default function RootLayout({
         <PostContextMenuHost />
         <ScrollTopFab />
         <CreatePostFab />
-        <Analytics />
         {/* 03.10.2026: пиксель Meta для рекламы — components/meta-pixel.tsx */}
         <MetaPixel />
         {/* Umami (self-hosted on Railway): page views without cookies */}

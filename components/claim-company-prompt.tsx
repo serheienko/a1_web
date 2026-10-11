@@ -42,6 +42,18 @@ const ASK: Record<Locale, string> = {
 // тот, кто нажал кнопку, — то есть сама компания. Здесь осталась
 // выгода вместо признания: соискатель читает её как «у компании есть
 // кабинет», компания — как приглашение.
+const NOTE_EXTERNAL: Record<Locale, string> = {
+  uk: "Керуйте вакансіями та сторінкою компанії від її імені.",
+  en: "Manage your vacancies and company page as the company.",
+  ru: "Управляйте вакансиями и страницей компании от её имени.",
+  de: "Verwalten Sie Ihre Stellen und Ihre Unternehmensseite als Unternehmen.",
+  es: "Gestiona tus vacantes y la pagina de la empresa en su nombre.",
+  fr: "Gerez vos offres et la page de l'entreprise en son nom.",
+  pl: "Zarzadzaj ofertami i strona firmy w jej imieniu.",
+  ptBR: "Gerencie suas vagas e a pagina da empresa em nome dela.",
+  zh: "\u4ee5\u516c\u53f8\u8eab\u4efd\u7ba1\u7406\u804c\u4f4d\u548c\u516c\u53f8\u4e3b\u9875\u3002",
+};
+
 const NOTE: Record<Locale, string> = {
   uk: "Керуйте вакансіями та спілкуйтеся з кандидатами від імені компанії.",
   en: "Manage your vacancies and talk to candidates as the company.",
@@ -124,6 +136,13 @@ const TAKE: Record<Locale, string> = {
 // под какой компанией и какой вакансией нажали «Це ваша компанія?».
 export type ClaimCompanyPromptProps = ({ postId: string } | { username: string }) & {
   stats?: { company?: string | null; post?: string | null };
+  /**
+   * 11.10.2026: профиль-«витрина» мировой вакансии (USER_FLAG.EXTERNAL).
+   * Отличие одно -- обещание под заголовком: отклики по таким вакансиям
+   * уходят на сайт компании, а не к нам, поэтому звать «спілкуйтеся з
+   * кандидатами» было бы неправдой.
+   */
+  external?: boolean;
 };
 
 export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
@@ -340,7 +359,7 @@ export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
             </div>
             <div className="min-w-0">
               <p className="text-sm font-semibold text-ink dark:text-neutral-100">{ASK[lang]}</p>
-              <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">{NOTE[lang]}</p>
+              <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">{(props.external ? NOTE_EXTERNAL : NOTE)[lang]}</p>
               <button
                 type="button"
                 onClick={() => {

@@ -352,9 +352,15 @@ export default async function JobDetailPage({ params }: Props) {
           добавляло (здесь блок и так виден без прокрутки). Порядок
           чтения важнее: что это -> кто разместил -> что я могу сделать
           -> и, кстати, если это ваша компания, заберите её. */}
-      {post.author.unclaimed && (
+      {/* 11.10.2026: и для мировых вакансий тоже (author.external). Раньше
+          блок видели только украинские и Jobico: их аккаунты помечены
+          «не забран», а мировые -- «витрина». Разница в том, куда идёт
+          отклик, а не в том, чей это профиль, и бэкенд с того же дня
+          передаёт оба вида (isClaimableAccount). */}
+      {(post.author.unclaimed || post.author.external) && (
         <ClaimCompanyPrompt
           postId={post.id}
+          external={post.author.external}
           stats={{ company: post.author.username, post: canonicalSlug }}
         />
       )}

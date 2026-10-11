@@ -229,6 +229,91 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   },
 };
 
+// 11.10.2026. Клейм открыли на весь мир, и у трёх компаний из десяти сайта
+// в профиле нет -- правилу не с чем сверять адрес. Им здесь кнопка: оставить
+// заявку человеку (app/api/claim/manual -> /admin/claims).
+type ManualKey = "ask" | "open" | "siteLabel" | "noteLabel" | "send" | "sent" | "failed";
+
+const MANUAL: Record<ManualKey, Record<Locale, string>> = {
+  ask: {
+    uk: "Немає робочої пошти на домені компанії?",
+    en: "No work address on the company's domain?",
+    ru: "Нет рабочей почты на домене компании?",
+    de: "Keine Arbeitsadresse auf der Firmendomain?",
+    es: "¿No tienes correo de trabajo en el dominio de la empresa?",
+    fr: "Pas d'adresse professionnelle sur le domaine de l'entreprise ?",
+    pl: "Nie masz służbowego adresu w domenie firmy?",
+    ptBR: "Sem e-mail de trabalho no domínio da empresa?",
+    zh: "没有公司域名的工作邮箱？",
+  },
+  open: {
+    uk: "Залишити заявку",
+    en: "Send a request",
+    ru: "Оставить заявку",
+    de: "Anfrage senden",
+    es: "Enviar solicitud",
+    fr: "Envoyer une demande",
+    pl: "Wyślij zgłoszenie",
+    ptBR: "Enviar solicitação",
+    zh: "提交申请",
+  },
+  siteLabel: {
+    uk: "Сайт компанії",
+    en: "Company website",
+    ru: "Сайт компании",
+    de: "Unternehmenswebsite",
+    es: "Sitio de la empresa",
+    fr: "Site de l'entreprise",
+    pl: "Strona firmy",
+    ptBR: "Site da empresa",
+    zh: "公司网站",
+  },
+  noteLabel: {
+    uk: "Хто ви в компанії (необов'язково)",
+    en: "Your role at the company (optional)",
+    ru: "Кто вы в компании (необязательно)",
+    de: "Ihre Rolle im Unternehmen (optional)",
+    es: "Tu puesto en la empresa (opcional)",
+    fr: "Votre rôle dans l'entreprise (facultatif)",
+    pl: "Twoja rola w firmie (opcjonalnie)",
+    ptBR: "Seu cargo na empresa (opcional)",
+    zh: "您在公司的职位（选填）",
+  },
+  send: {
+    uk: "Надіслати",
+    en: "Send",
+    ru: "Отправить",
+    de: "Senden",
+    es: "Enviar",
+    fr: "Envoyer",
+    pl: "Wyślij",
+    ptBR: "Enviar",
+    zh: "发送",
+  },
+  sent: {
+    uk: "Дякуємо. Ми перевіримо вручну й надішлемо посилання на цю пошту.",
+    en: "Thank you. We will check by hand and send the link to this address.",
+    ru: "Спасибо. Проверим вручную и пришлём ссылку на эту почту.",
+    de: "Danke. Wir prüfen das manuell und senden den Link an diese Adresse.",
+    es: "Gracias. Lo revisaremos a mano y enviaremos el enlace a este correo.",
+    fr: "Merci. Nous vérifierons manuellement et enverrons le lien à cette adresse.",
+    pl: "Dziękujemy. Sprawdzimy ręcznie i wyślemy link na ten adres.",
+    ptBR: "Obrigado. Vamos verificar manualmente e enviar o link para este e-mail.",
+    zh: "谢谢。我们会人工核对，并把链接发到该邮箱。",
+  },
+  failed: {
+    uk: "Не вдалося надіслати заявку. Спробуйте ще раз.",
+    en: "Could not send the request. Try again.",
+    ru: "Не удалось отправить заявку. Попробуйте ещё раз.",
+    de: "Anfrage konnte nicht gesendet werden. Bitte erneut versuchen.",
+    es: "No se pudo enviar la solicitud. Inténtalo de nuevo.",
+    fr: "Impossible d'envoyer la demande. Réessayez.",
+    pl: "Nie udało się wysłać zgłoszenia. Spróbuj ponownie.",
+    ptBR: "Não foi possível enviar a solicitação. Tente novamente.",
+    zh: "提交失败，请重试。",
+  },
+};
+
 const REASON_TO_KEY: Record<string, StringKey> = {
   link_invalid: "errLinkInvalid",
   already_claimed: "errAlreadyClaimed",
@@ -268,6 +353,10 @@ export function ClaimForm(props: ClaimFormProps) {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [errorKey, setErrorKey] = useState<StringKey | null>(null);
+  // Заявка человеку -- появляется только после отказа правила.
+  const [manual, setManual] = useState<"hidden" | "form" | "sent" | "failed">("hidden");
+  const [site, setSite] = useState("");
+  const [note, setNote] = useState("");
 
   async function post(url: string, body: unknown): Promise<{ ok: boolean; reason?: string; otpKey?: string }> {
     const res = await fetch(url, {
@@ -299,10 +388,38 @@ export function ClaimForm(props: ClaimFormProps) {
         setOtpKey(data.otpKey);
         setStep("code");
       } else {
-        setErrorKey(REASON_TO_KEY[data.reason ?? ""] ?? "errUnknown");
+        const key = REASON_TO_KEY[data.reason ?? ""] ?? "errUnknown";
+        setErrorKey(key);
+        // Заявку предлагаем только там, где она что-то решает: правило не
+        // нашло домена. «Пошта вже зайнята» или «не той код» человеком не
+        // лечатся.
+        if ((key === "errNeedsOtherProof" || key === "errManualReview") && !("claimKey" in props)) {
+          setManual((v) => (v === "hidden" ? "form" : v));
+        }
       }
     } catch {
       setErrorKey("errUnknown");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitManual(event: FormEvent) {
+    event.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    try {
+      const body =
+        "postId" in props
+          ? { postId: props.postId, email: email.trim(), site: site.trim(), note: note.trim() }
+          : "username" in props
+            ? { username: props.username, email: email.trim(), site: site.trim(), note: note.trim() }
+            : null;
+      if (!body) return;
+      const data = await post("/api/claim/manual", body);
+      setManual(data.ok ? "sent" : "failed");
+    } catch {
+      setManual("failed");
     } finally {
       setBusy(false);
     }
@@ -416,6 +533,35 @@ export function ClaimForm(props: ClaimFormProps) {
           {STRINGS[errorKey][lang]}
         </p>
       )}
+
+      {manual === "sent" ? (
+        <p className="mt-4 rounded-xl bg-emerald-50 px-3.5 py-2.5 text-sm text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
+          {MANUAL.sent[lang]}
+        </p>
+      ) : manual !== "hidden" ? (
+        <form className="mt-4 flex flex-col gap-3 rounded-xl bg-neutral-50 p-3.5 dark:bg-neutral-800/60" onSubmit={submitManual}>
+          <p className="text-sm font-medium text-ink dark:text-neutral-200">{MANUAL.ask[lang]}</p>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-sm text-neutral-600 dark:text-neutral-400">{MANUAL.siteLabel[lang]}</span>
+            <input
+              type="url"
+              required
+              placeholder="https://"
+              value={site}
+              onChange={(e) => setSite(e.target.value)}
+              className={fieldClass}
+            />
+          </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-sm text-neutral-600 dark:text-neutral-400">{MANUAL.noteLabel[lang]}</span>
+            <input value={note} onChange={(e) => setNote(e.target.value)} className={fieldClass} />
+          </label>
+          <button type="submit" className={buttonClass} disabled={busy}>
+            {busy ? STRINGS.working[lang] : MANUAL.send[lang]}
+          </button>
+          {manual === "failed" && <p className="text-sm text-red-600">{MANUAL.failed[lang]}</p>}
+        </form>
+      ) : null}
     </div>
   );
 }
