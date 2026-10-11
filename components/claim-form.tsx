@@ -14,6 +14,7 @@
 // same user id keeps every vacancy, chat and application it already had.
 "use client";
 
+import { track } from "@/lib/track";
 import { useEffect, useState, type FormEvent } from "react";
 import { type Locale } from "@/components/t";
 import { useActiveLocale } from "@/lib/use-active-locale";
@@ -249,10 +250,14 @@ type Step = "email" | "code" | "done";
 // его выдаёт app/api/claim/request, сверив адрес с тем, что компания
 // сама опубликовала. Дальше оба идут одним и тем же вторым шагом,
 // поэтому дублировать форму незачем.
-export type ClaimFormProps =
+export type ClaimFormProps = (
   | { claimKey: string; claimCode: string }
   | { postId: string }
-  | { username: string };
+  | { username: string }
+) & {
+  /** 11.10.2026: только для счётчика кликов, см. lib/track.ts. */
+  stats?: { company?: string | null; post?: string | null };
+};
 
 export function ClaimForm(props: ClaimFormProps) {
   const lang = useActiveLocale();
@@ -290,6 +295,7 @@ export function ClaimForm(props: ClaimFormProps) {
                 email: email.trim(),
               });
       if (data.ok && data.otpKey) {
+        track("claim_sent", { company: props.stats?.company, post: props.stats?.post });
         setOtpKey(data.otpKey);
         setStep("code");
       } else {
@@ -315,6 +321,7 @@ export function ClaimForm(props: ClaimFormProps) {
         password,
       });
       if (data.ok) {
+        track("claim_done", { company: props.stats?.company, post: props.stats?.post });
         setStep("done");
       } else {
         setErrorKey(REASON_TO_KEY[data.reason ?? ""] ?? "errUnknown");

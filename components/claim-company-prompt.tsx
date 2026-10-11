@@ -15,6 +15,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useActiveLocale } from "@/lib/use-active-locale";
 import { ClaimForm } from "@/components/claim-form";
+import { track } from "@/lib/track";
 import { LottiePlayer } from "@/components/lottie-player";
 import type { Locale } from "@/components/t";
 
@@ -119,7 +120,11 @@ const TAKE: Record<Locale, string> = {
 // Со страницы вакансии приходит postId, со страницы компании —
 // username. Разница только в том, по чему сервер будет искать профиль:
 // сам экран и правило одни и те же.
-export type ClaimCompanyPromptProps = { postId: string } | { username: string };
+// 11.10.2026: `stats` -- только для счётчика кликов (lib/track.ts):
+// под какой компанией и какой вакансией нажали «Це ваша компанія?».
+export type ClaimCompanyPromptProps = ({ postId: string } | { username: string }) & {
+  stats?: { company?: string | null; post?: string | null };
+};
 
 export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
   const lang = useActiveLocale();
@@ -338,7 +343,10 @@ export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
               <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">{NOTE[lang]}</p>
               <button
                 type="button"
-                onClick={() => setOpen(true)}
+                onClick={() => {
+                  track("claim_open", { company: props.stats?.company, post: props.stats?.post });
+                  setOpen(true);
+                }}
                 tabIndex={open ? -1 : undefined}
                 className="mt-3 rounded-full border border-neutral-300 px-4 py-2 text-sm font-semibold text-ink transition hover:border-accent hover:text-accent dark:border-neutral-700 dark:text-neutral-100"
               >
@@ -353,7 +361,11 @@ export function ClaimCompanyPrompt(props: ClaimCompanyPromptProps) {
       <div className="claim-reveal" data-open={formIn ? "true" : "false"}>
         <div>
           {open &&
-            ("postId" in props ? <ClaimForm postId={props.postId} /> : <ClaimForm username={props.username} />)}
+            ("postId" in props ? (
+              <ClaimForm postId={props.postId} stats={props.stats} />
+            ) : (
+              <ClaimForm username={props.username} stats={props.stats} />
+            ))}
         </div>
       </div>
     </div>

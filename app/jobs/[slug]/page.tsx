@@ -39,6 +39,7 @@ import { T } from "@/components/t";
 import { PostOwnerMenu } from "@/components/post-owner-menu";
 import { PostViewerMenu } from "@/components/post-viewer-menu";
 import { ClaimCompanyPrompt } from "@/components/claim-company-prompt";
+import { TrackView } from "@/components/track-view";
 import { profileHref } from "@/lib/profile-href";
 import { TagLabel } from "@/components/tag-label";
 import { LocationMap } from "@/components/location-map";
@@ -325,6 +326,7 @@ export default async function JobDetailPage({ params }: Props) {
 
       <PostViewerMenu
         postId={post.id}
+        postSlug={canonicalSlug}
         authorUserId={post.author.userId}
         authorUsername={post.author.username}
         authorName={post.author.name}
@@ -336,6 +338,10 @@ export default async function JobDetailPage({ params }: Props) {
         shareTitle={post.title}
       />
 
+      {/* 11.10.2026: отметка «страницу открыли» для статистики переходов
+          (components/track-view.tsx). Ничего не рисует. */}
+      <TrackView company={post.author.username} post={canonicalSlug} />
+
       {/* 2026-09-19: пока профиль компании никем не забран, показываем
           ей путь забрать его самой. Признак снимает бэкенд в момент
           передачи, поэтому блок исчезает без нашего участия.
@@ -346,7 +352,12 @@ export default async function JobDetailPage({ params }: Props) {
           добавляло (здесь блок и так виден без прокрутки). Порядок
           чтения важнее: что это -> кто разместил -> что я могу сделать
           -> и, кстати, если это ваша компания, заберите её. */}
-      {post.author.unclaimed && <ClaimCompanyPrompt postId={post.id} />}
+      {post.author.unclaimed && (
+        <ClaimCompanyPrompt
+          postId={post.id}
+          stats={{ company: post.author.username, post: canonicalSlug }}
+        />
+      )}
 
       <PostImages images={postImages} />
 

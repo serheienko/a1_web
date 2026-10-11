@@ -64,6 +64,7 @@ import { type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
 import { ApplyQuestionsModal } from "@/components/apply-questions-modal";
 import type { WebApplyQuestion } from "@/types/web-post";
+import { track } from "@/lib/track";
 import { ReportModal } from "@/components/report-modal";
 import type { Contact } from "@/lib/a1/schemas";
 import { LottiePlayer } from "@/components/lottie-player";
@@ -337,8 +338,11 @@ function SharePostIcon() {
   );
 }
 
+// 11.10.2026: клики «Відкрити вакансію» и «Відгукнутися» считаются для
+// админской страницы статистики (lib/track.ts -> app/api/track).
 export function PostViewerMenu({
   postId,
+  postSlug,
   authorUserId,
   authorUsername,
   authorName,
@@ -350,6 +354,8 @@ export function PostViewerMenu({
   shareTitle,
 }: {
   postId: string;
+  /** Адрес вакансии (/jobs/<slug>) -- только для счётчика кликов. */
+  postSlug?: string | null;
   authorUserId: string | null;
   authorUsername: string | null;
   // 2026-09-02: passed through to /chats/[chatId]'s own ?title=&avatar=
@@ -668,6 +674,10 @@ export function PostViewerMenu({
   // failure pattern components/profile-action-row.tsx's own openChat()
   // already uses, scoped to authorUserId instead of profileUserId.
   async function openChat() {
+    // 11.10.2026: считаем именно отклик -- кнопка в этом же месте бывает
+    // и простым «Повідомлення», это другое действие и в статистике ему
+    // делать нечего.
+    if (authorUnclaimed || hasApplyQuestions) track("apply", { company: authorUsername, post: postSlug });
     if (isAnon) {
       setAuthPromptOpen(true);
       return;
@@ -977,6 +987,7 @@ export function PostViewerMenu({
           href={externalUrl}
           target="_blank"
           rel="nofollow noopener noreferrer"
+          onClick={() => track("external", { company: authorUsername, post: postSlug })}
           aria-label={STRINGS.openVacancy[lang]}
           className="group flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-accent transition hover:bg-accent/5 dark:border-neutral-700 dark:bg-neutral-900"
         >

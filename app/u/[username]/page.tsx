@@ -647,7 +647,7 @@ export default async function ProfilePage({ params }: Props) {
           карточка «це ваша компанія?» вытесняла саму компанию, ради
           видимости, которая у блока и так есть. */}
       {rawProfile?.object === "user" && rawProfile.unclaimed && (
-        <ClaimCompanyPrompt username={username} />
+        <ClaimCompanyPrompt username={username} stats={{ company: username }} />
       )}
 
       <ProfileTabs
