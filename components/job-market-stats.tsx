@@ -23,6 +23,24 @@ function money(value: number): string {
   return `$${Math.round(value / 1000)}k`;
 }
 
+/**
+ * Название профессии на всех языках сразу. Короткий `label` («Data») в
+ * предложение не ставится: 11.10.2026 на проде вышло «Data на A1 зараз»,
+ * будто фразу оборвали. У профессии есть полные названия для uk/ru/en
+ * (lib/seo/job-role.ts), остальные языки берут английское.
+ */
+function RoleName({ role }: { role: NonNullable<JobStats["role"]> }) {
+  return (
+    <>
+      {LOCALES.map((locale) => (
+        <span key={locale} className={LOCALE_VISIBILITY_CLASS[locale]}>
+          {locale === "uk" ? role.uk : locale === "ru" ? role.ru : role.en}
+        </span>
+      ))}
+    </>
+  );
+}
+
 /** Название страны на всех языках сразу -- как в components/locale-format.tsx. */
 function CountryName({ cc }: { cc: string }) {
   const country = countryByCode(cc);
@@ -49,7 +67,7 @@ export function JobMarketStats({ stats }: { stats: JobStats | null }) {
     rows.push(
       <li key="role">
         <Link href={`/jobs/role/${role!.slug}`} className="font-medium text-accent hover:underline">
-          {role!.label}
+          <RoleName role={role!} />
         </Link>{" "}
         <T uk="на A1 зараз" en="on A1 right now" ru="на A1 сейчас" de="auf A1 gerade" es="en A1 ahora" fr="sur A1 en ce moment" pl="na A1 teraz" ptBR="no A1 agora" zh="目前在 A1" />:{" "}
         <span className="font-semibold text-neutral-900 tabular-nums dark:text-neutral-100">{roleWorld}</span>{" "}

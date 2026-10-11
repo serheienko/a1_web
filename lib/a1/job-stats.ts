@@ -30,7 +30,8 @@ import { profileHref } from "@/lib/profile-href";
 export type JobStatsTech = { tech: string; href: string | null; count: number };
 
 export type JobStats = {
-  role: { slug: JobRole; label: string } | null;
+  /** Профессия: короткая подпись и названия на языках, где они есть. */
+  role: { slug: JobRole; label: string; uk: string; ru: string; en: string } | null;
   /** Код страны вакансии, если он есть. */
   cc: string | null;
   /** Вакансий этой профессии в этой стране (или во всём мире, если страны нет). */
@@ -121,7 +122,7 @@ export function buildJobStats(all: WebPost[], post: WebPost): JobStats | null {
     : [];
 
   const stats: JobStats = {
-    role: info ? { slug: info.slug, label: info.label } : null,
+    role: info ? { slug: info.slug, label: info.label, uk: info.uk, ru: info.ru, en: info.en } : null,
     cc,
     roleHere: roleHerePosts.length,
     roleWorld: roleWorldPosts.length,
