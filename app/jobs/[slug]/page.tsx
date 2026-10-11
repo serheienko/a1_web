@@ -40,6 +40,8 @@ import { PostOwnerMenu } from "@/components/post-owner-menu";
 import { PostViewerMenu } from "@/components/post-viewer-menu";
 import { ClaimCompanyPrompt } from "@/components/claim-company-prompt";
 import { TrackView } from "@/components/track-view";
+import { JobMarketStats } from "@/components/job-market-stats";
+import { jobStatsWithin } from "@/lib/a1/job-stats";
 import { profileHref } from "@/lib/profile-href";
 import { TagLabel } from "@/components/tag-label";
 import { LocationMap } from "@/components/location-map";
@@ -202,7 +204,7 @@ export default async function JobDetailPage({ params }: Props) {
   // сложить два времени вместо того, чтобы взять максимум. Считается
   // здесь, на сервере: ссылки обязаны быть в HTML, иначе весь смысл
   // блока теряется (см. шапку components/related-jobs.tsx).
-  const [authorAvatarBlurDataUrl, postImages, related, comments] = await Promise.all([
+  const [authorAvatarBlurDataUrl, postImages, related, comments, marketStats] = await Promise.all([
     generateImageBlurDataUrl(post.author.avatarUrl),
     Promise.all(post.images.map(async (img) => ({ ...img, blurDataUrl: await generateImageBlurDataUrl(img.url) }))),
     fetchRelatedJobs(post),
@@ -210,6 +212,10 @@ export default async function JobDetailPage({ params }: Props) {
     // чего здесь не зависят, и ждать их отдельно значило бы сложить два
     // времени вместо того, чтобы взять максимум.
     fetchPostComments(post.id),
+    // 11.10.2026: цифры рынка для блока под вакансией (lib/a1/job-stats.ts).
+    // Берутся из общего обхода живых вакансий; если он ещё не прогрет,
+    // вернётся null и блока просто не будет -- страницу не задерживаем.
+    jobStatsWithin(post),
   ]);
 
   // 2026-08-30, live-testing feedback ("Berlin, Germany - нужна
@@ -518,6 +524,8 @@ export default async function JobDetailPage({ params }: Props) {
       )}
 
       <JobSummary text={post.contentText} />
+
+      <JobMarketStats stats={marketStats} />
 
       <PostComments comments={comments} postId={post.id} />
 
