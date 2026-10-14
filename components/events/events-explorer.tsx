@@ -21,16 +21,29 @@ const TXT = {
     allTopics: "Усі теми", allCats: "Усі категорії", category: "Категорія", soon: "Найближчі", today: "Сьогодні", noDay: "Цього дня подій немає. Ось найближчі:",
     dayEvents: "Події дня", inCountry: "Події", more: "Показати ще", nothing: "За цими фільтрами нічого немає. Спробуйте змінити регіон або тему.",
     region: "Регіон", topic: "Тема", list: "Усі найближчі події", free: "Безкоштовно",
+    search: "Країна, місто або назва", clear: "Очистити",
   },
   en: {
     all: "All", ua: "Ukraine", eu: "Europe", online: "Online", world: "World",
     allTopics: "All topics", allCats: "All categories", category: "Category", soon: "Coming up", today: "Today", noDay: "No events on this day. Coming up next:",
     dayEvents: "Events on this day", inCountry: "Events", more: "Show more", nothing: "Nothing matches these filters. Try another region or topic.",
     region: "Region", topic: "Topic", list: "All upcoming events", free: "Free",
+    search: "Country, city or name", clear: "Clear",
   },
 } as const;
 
 const PAGE = 20;
+
+// 14.10.2026 (Александр, скриншот с телефона: «куда-то наверх надо добавить поиск на моб, чтобы
+// искать ивенты по стране»). Поиск по странице: страна (по-украински и по-английски), город,
+// название и серия. Фильтрует то же, что и чипы, -- карусель, календарь, карту и ленту.
+const norm = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/ё/g, "е");
+
+function matchesQuery(e: ListEvent, words: string[]): boolean {
+  if (words.length === 0) return true;
+  const hay = norm([e.name, e.city, e.country, countryLabel(e.country, "uk"), countryLabel(e.country, "en"), placeLabel(e, "uk")].join(" "));
+  return words.every((w) => hay.includes(w));
+}
 const DOT: Record<Region, string> = { ua: "bg-yellow-400", eu: "bg-sky-400", online: "bg-emerald-400", world: "bg-rose-400" };
 
 function inCat(eventTags: string[], catId: string): boolean {
@@ -70,6 +83,8 @@ export function EventsExplorer({ events, tags, lang, today, heading }: { events:
   const [day, setDay] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [country, setCountry] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const words = useMemo(() => norm(query.trim()).split(/\s+/).filter(Boolean), [query]);
   const listTop = useRef<HTMLElement>(null);
   const panelRef = useRef<HTMLElement>(null);
   // Выбрали страну на карте -- плавно опускаем страницу к списку событий этой страны (если он ниже видимой части экрана).
@@ -84,19 +99,19 @@ export function EventsExplorer({ events, tags, lang, today, heading }: { events:
   };
 
   const filtered = useMemo(
-    () => events.filter((e) => (region === "all" || regionOf(e) === region) && (!tag || e.tags.includes(tag)) && (!cat || inCat(e.tags, cat))),
-    [events, region, tag, cat],
+    () => events.filter((e) => (region === "all" || regionOf(e) === region) && (!tag || e.tags.includes(tag)) && (!cat || inCat(e.tags, cat)) && matchesQuery(e, words)),
+    [events, region, tag, cat, words],
   );
   const upcoming = useMemo(() => filtered.filter((e) => e.end >= today), [filtered, today]);
   const counts = useMemo(() => {
     const c: Record<"all" | Region, number> = { all: 0, ua: 0, eu: 0, online: 0, world: 0 };
     for (const e of events) {
-      if (e.end < today || (tag && !e.tags.includes(tag)) || (cat && !inCat(e.tags, cat))) continue;
+      if (e.end < today || (tag && !e.tags.includes(tag)) || (cat && !inCat(e.tags, cat)) || !matchesQuery(e, words)) continue;
       c.all++;
       c[regionOf(e)]++;
     }
     return c;
-  }, [events, today, tag, cat]);
+  }, [events, today, tag, cat, words]);
 
   const cells = useMemo(() => daysOfMonth(month), [month]);
   const byDay = useMemo(() => {
@@ -146,11 +161,11 @@ export function EventsExplorer({ events, tags, lang, today, heading }: { events:
   const catCounts = useMemo(() => {
     const m = new Map<string, number>();
     for (const e of events) {
-      if (e.end < today || (region !== "all" && regionOf(e) !== region)) continue;
+      if (e.end < today || (region !== "all" && regionOf(e) !== region) || !matchesQuery(e, words)) continue;
       for (const c of EVENT_CATEGORIES) if (inCat(e.tags, c.id)) m.set(c.id, (m.get(c.id) ?? 0) + 1);
     }
     return m;
-  }, [events, today, region]);
+  }, [events, today, region, words]);
   const catTags = cat ? new Set(EVENT_CATEGORIES.find((c) => c.id === cat)?.tags ?? []) : null;
   const topTags = tags.filter((c) => c.upcoming > 0 && (!catTags || catTags.has(c.label))).slice(0, cat ? 30 : 16);
 
@@ -176,7 +191,28 @@ export function EventsExplorer({ events, tags, lang, today, heading }: { events:
   return (
     <div>
       {heading}
-      <div className="mt-5 flex gap-2 overflow-x-auto pb-1" role="group" aria-label={t.region}>
+      <div className="relative mt-4 sm:max-w-md">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" aria-hidden="true">
+          <circle cx="11" cy="11" r="7" />
+          <path d="m20 20-3.5-3.5" />
+        </svg>
+        <input
+          type="search"
+          value={query}
+          onChange={(ev) => { setQuery(ev.target.value); setPage(1); setDay(null); setCountry(null); }}
+          placeholder={t.search}
+          aria-label={t.search}
+          spellCheck={false}
+          enterKeyHint="search"
+          className="h-11 w-full rounded-full bg-neutral-100 pl-10 pr-10 text-[15px] text-neutral-900 outline-none ring-accent/40 placeholder:text-neutral-400 focus:ring-2 dark:bg-neutral-800 dark:text-neutral-100 [&::-webkit-search-cancel-button]:hidden"
+        />
+        {query && (
+          <button type="button" onClick={() => { setQuery(""); setPage(1); }} aria-label={t.clear} className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-neutral-400 hover:bg-black/5 hover:text-neutral-600 dark:hover:bg-white/10">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="h-4 w-4" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+          </button>
+        )}
+      </div>
+      <div className="mt-4 flex gap-2 overflow-x-auto pb-1" role="group" aria-label={t.region}>
         {(["all", "ua", "eu", "online", "world"] as const).map((r) => (
           <button key={r} type="button" onClick={() => { setRegion(r); setPage(1); }} className={pill(region === r)}>
             {t[r]} <span className="opacity-60">{counts[r]}</span>
