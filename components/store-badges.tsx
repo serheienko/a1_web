@@ -36,7 +36,7 @@ const badge =
 export function StoreBadges({ className = "" }: { className?: string }) {
   return (
     <div className={`flex flex-wrap gap-3 ${className}`}>
-      <a href={DOWNLOAD_LINKS.appStore} rel="noopener" className={badge} data-track="footer-ios" aria-label="App Store">
+      <a href={DOWNLOAD_LINKS.appStore} rel="noopener" className={badge} data-track="footer-ios" data-umami-event="store_ios" aria-label="App Store">
         <AppleGlyph />
         <span className="flex flex-col leading-none">
           <span className="text-[10px] font-medium tracking-wide opacity-90">
@@ -45,7 +45,7 @@ export function StoreBadges({ className = "" }: { className?: string }) {
           <span className="mt-1 text-[17px] font-semibold tracking-tight">App Store</span>
         </span>
       </a>
-      <a href={DOWNLOAD_LINKS.googlePlay} rel="noopener" className={badge} data-track="footer-android" aria-label="Google Play">
+      <a href={DOWNLOAD_LINKS.googlePlay} rel="noopener" className={badge} data-track="footer-android" data-umami-event="store_android" aria-label="Google Play">
         <PlayGlyph />
         <span className="flex flex-col leading-none">
           <span className="text-[10px] font-medium uppercase tracking-wide opacity-90">

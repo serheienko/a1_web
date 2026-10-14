@@ -2428,17 +2428,28 @@ textarea {
   0%, 100% { transform: translateY(0) scale(1); }
   50% { transform: translateY(-6px) scale(1.01); }
 }
-.f250-glint {
-  background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, 0.35) 50%, transparent 65%);
-  background-size: 250% 100%;
+/* v2 (Александр: «полоса пробежала, остановилась и резко исчезла -- похоже на глич»). Раньше блик
+   двигался фоном, и в конце прохода его край ещё был виден, а потом скачком возвращался в начало.
+   Теперь блик -- отдельная полоса шириной 45 % баннера: стартует целиком за левым краем, уходит целиком
+   за правый и ждёт там следующего круга. Возврат происходит вне картинки -- его не видно. */
+.f250-glint { overflow: hidden; }
+.f250-glint::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 45%;
+  background: linear-gradient(105deg, transparent 0%, rgba(255, 255, 255, 0.38) 50%, transparent 100%);
+  transform: translateX(-130%);
   animation: f250-glint 5.5s ease-in-out 1.2s infinite;
 }
 @keyframes f250-glint {
-  0% { background-position: 150% 0; }
-  45%, 100% { background-position: -100% 0; }
+  0% { transform: translateX(-130%); }
+  45%, 100% { transform: translateX(330%); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .f250-banner, .f250-glint,
+  .f250-banner, .f250-glint, .f250-glint::before,
   .f250-bg, .f250-title, .f250-bar, .f250-num, .f250-cta, .f250-float, .f250-pop, .f250-step { animation: none; }
   .f250-float { display: none; }
 }

@@ -11,9 +11,29 @@
 
 export type TrackEvent = "view" | "external" | "apply" | "claim_open" | "claim_sent" | "claim_done";
 
+type UmamiData = Record<string, string | number | boolean>;
+type UmamiWindow = Window & { umami?: { track: (name: string, data?: UmamiData) => void } };
+
+/**
+ * 14.10.2026 (Александр: «кто приходит, сколько остаётся, кто отваливается»). Событие в Umami --
+ * нашей аналитике на Railway (скрипт подключён в app/layout.tsx). Из этих событий и адресов страниц
+ * Umami строит воронку и удержание; часть цифр показывает окно «Метрики» в штабе.
+ * Скрипт ещё не загрузился или заблокирован -- молча ничего не делаем.
+ */
+export function umamiEvent(name: string, data?: UmamiData): void {
+  if (typeof window === "undefined") return;
+  try {
+    (window as UmamiWindow).umami?.track(name, data);
+  } catch {
+    // аналитика никогда не важнее страницы
+  }
+}
+
 export function track(event: TrackEvent, what?: { company?: string | null; post?: string | null }): void {
   if (typeof window === "undefined") return;
   const body = JSON.stringify({ e: event, c: what?.company ?? "", p: what?.post ?? "" });
+  // просмотр страницы Umami считает сам; остальное -- событием (отклик, переход, клейм)
+  if (event !== "view") umamiEvent(event, { company: what?.company ?? "", post: what?.post ?? "" });
   try {
     if (navigator.sendBeacon?.("/api/track", body)) return;
   } catch {

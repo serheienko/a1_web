@@ -15,6 +15,7 @@ import { AppQr } from "@/components/app-qr";
 import { InlineAuthForm } from "@/components/inline-auth-form";
 import { useActiveLocale } from "@/lib/use-active-locale";
 import { DOWNLOAD_LINKS } from "@/app/download/copy";
+import { umamiEvent } from "@/lib/track";
 
 type Checks = { photo: boolean; name: boolean; title: boolean; experience: boolean };
 type Me = { signedIn: false } | { signedIn: true; name: string; checks: Checks; complete: boolean; place: number | null };
@@ -27,7 +28,7 @@ const TXT = {
     sub: ["Дякуємо, що ви з нами з самого початку 💙 Перші 250 людей отримують ", "A1 Premium на цілий рік", " — безкоштовно."],
     left: (l: number, t: number) => `Залишилось ${l} з ${t} місць`,
     s1: "Завантаж A1",
-    s1d: "Застосунок для пошуку роботи та фахівців без CV — профіль замість резюме.",
+    s1d: "Застосунок для пошуку роботи та фахівців.",
     qr: "Наведи камеру телефона — відкриється потрібний стор",
     s2: "Заповни профіль",
     s2d: "У застосунку: Профіль → додай чотири речі. Перевіряємо автоматично, скриншоти не потрібні.",
@@ -59,7 +60,7 @@ const TXT = {
     sub: ["Thanks for being with us from day one 💙 The first 250 people get ", "A1 Premium for a whole year", " — free."],
     left: (l: number, t: number) => `${l} of ${t} spots left`,
     s1: "Get A1",
-    s1d: "Find jobs and talent without a CV — your profile is your résumé.",
+    s1d: "The app for finding jobs and talent.",
     qr: "Point your phone camera — it opens the right store",
     s2: "Fill in your profile",
     s2d: "In the app: Profile → add four things. We check automatically, no screenshots needed.",
@@ -247,6 +248,7 @@ export function First250Client() {
       const r = await fetch("/api/first250", { method: "POST" });
       const j = (await r.json()) as { ok: boolean; message?: string; place?: number; late?: boolean };
       if (j.ok && j.place) {
+        umamiEvent("first250_claim", { place: j.place });
         if (j.late) setLate(true);
         else fire();
         await load();

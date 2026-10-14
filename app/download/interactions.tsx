@@ -28,7 +28,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { track } from "@vercel/analytics";
+import { umamiEvent } from "@/lib/track";
 import { fbqTrack } from "@/lib/meta-pixel";
 import styles from "./download.module.css";
 
@@ -49,7 +49,8 @@ export function Interactions() {
       if (!name) return;
 
       try {
-        track("download_page_click", {
+        // 14.10.2026: было @vercel/analytics -- после переезда на Railway оно никуда не отправлялось.
+        umamiEvent("download_page_click", {
           target: name,
           // светлая/тёмная — интересно, влияет ли тема на поведение
           theme: document.documentElement.classList.contains("light") ? "light" : "dark",
