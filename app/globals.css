@@ -2328,6 +2328,37 @@ textarea {
   from { background-position: 0% 50%; }
   to { background-position: 100% 50%; }
 }
+/* 14.10.2026: весь фон подвала плавно переливается. Градиент вдвое шире блока и медленно едет по
+   диагонали туда-обратно; три размытых пятна плавают каждое со своим периодом (не кратными друг другу),
+   поэтому картинка не повторяется «по кругу». Анимируются только background-position и transform --
+   это дёшево для браузера (без перерасчёта раскладки). */
+.footer-bg-flow {
+  background-size: 220% 220%;
+  animation: footer-bg 26s ease-in-out infinite alternate;
+}
+@keyframes footer-bg {
+  from { background-position: 0% 0%; }
+  to { background-position: 100% 100%; }
+}
+.footer-blob-a { animation: footer-blob-a 19s ease-in-out infinite alternate; }
+.footer-blob-b { animation: footer-blob-b 23s ease-in-out infinite alternate; }
+.footer-blob-c { animation: footer-blob-c 29s ease-in-out infinite alternate; }
+@keyframes footer-blob-a {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(38vw, 90px, 0) scale(1.25); }
+}
+@keyframes footer-blob-b {
+  from { transform: translate3d(0, 0, 0) scale(1.1); }
+  to { transform: translate3d(-42vw, -120px, 0) scale(0.9); }
+}
+@keyframes footer-blob-c {
+  from { transform: translate3d(-20vw, 40px, 0) scale(0.9); opacity: 0.6; }
+  to { transform: translate3d(25vw, -60px, 0) scale(1.2); opacity: 1; }
+}
 @media (prefers-reduced-motion: reduce) {
-  .footer-flow { animation: none; }
+  .footer-flow,
+  .footer-bg-flow,
+  .footer-blob-a,
+  .footer-blob-b,
+  .footer-blob-c { animation: none; }
 }

@@ -135,18 +135,25 @@ export function SiteFooter() {
           перетекала по цвету, прям вообще не напряжно»): синий -> фиолетовый -> голубой медленно
           едут по линии туда и обратно (.footer-flow в app/globals.css; при «меньше движения» стоит). */}
       <div aria-hidden="true" className="footer-flow absolute inset-x-0 top-0 h-[1.5px]" />
-      {/* фон: мягкий синий -> фиолетовый поверх цвета страницы, в тёмной теме то же на чёрном */}
+      {/* фон: мягкий синий -> фиолетовый -> голубой поверх цвета страницы, в тёмной теме то же на чёрном.
+          14.10.2026 (Александр: «чтобы весь блок плавно переливался из цвета в цвет»): сам градиент
+          медленно едет (.footer-bg-flow), а три размытых пятна -- синее, фиолетовое и голубое -- плавают
+          каждое в своём ритме (.footer-blob-a/b/c в app/globals.css). При «меньше движения» всё стоит. */}
       <div
         aria-hidden="true"
-        className="absolute inset-0 -z-10 bg-[linear-gradient(160deg,#eef2ff_0%,#f3efff_45%,#eaf6ff_100%)] dark:bg-[linear-gradient(160deg,#070b1a_0%,#0f0a1f_50%,#04121c_100%)]"
+        className="footer-bg-flow absolute inset-0 -z-10 bg-[linear-gradient(135deg,#eef2ff_0%,#f3efff_25%,#eaf6ff_50%,#f5eefe_75%,#e8efff_100%)] dark:bg-[linear-gradient(135deg,#070b1a_0%,#0f0a1f_25%,#04121c_50%,#120a20_75%,#060d1f_100%)]"
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -left-24 -top-24 -z-10 h-72 w-72 rounded-full bg-[#335ef7]/15 blur-3xl dark:bg-[#0c8ce9]/20"
+        className="footer-blob-a pointer-events-none absolute -left-24 -top-24 -z-10 h-72 w-72 rounded-full bg-[#335ef7]/20 blur-3xl dark:bg-[#0c8ce9]/25"
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -bottom-24 right-0 -z-10 h-72 w-96 rounded-full bg-[#8b5cf6]/15 blur-3xl dark:bg-[#8b5cf6]/20"
+        className="footer-blob-b pointer-events-none absolute -bottom-24 right-0 -z-10 h-72 w-96 rounded-full bg-[#8b5cf6]/20 blur-3xl dark:bg-[#8b5cf6]/25"
+      />
+      <div
+        aria-hidden="true"
+        className="footer-blob-c pointer-events-none absolute left-1/3 top-1/3 -z-10 h-64 w-80 rounded-full bg-[#22d3ee]/15 blur-3xl dark:bg-[#22d3ee]/15"
       />
 
       <div className="mx-auto max-w-6xl px-5 pb-36 pt-12 sm:px-8 sm:pb-28 sm:pt-14">
