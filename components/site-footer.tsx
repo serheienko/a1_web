@@ -141,19 +141,19 @@ export function SiteFooter() {
           каждое в своём ритме (.footer-blob-a/b/c в app/globals.css). При «меньше движения» всё стоит. */}
       <div
         aria-hidden="true"
-        className="footer-bg-flow absolute inset-0 -z-10 bg-[linear-gradient(135deg,#e2e8ff_0%,#efe3ff_25%,#d9f1ff_50%,#f3e3ff_75%,#dfe7ff_100%)] dark:bg-[linear-gradient(135deg,#081030_0%,#170b30_25%,#03202c_50%,#1c0c2e_75%,#071233_100%)]"
+        className="footer-bg-flow absolute inset-0 -z-10 bg-[linear-gradient(135deg,#eef2ff_0%,#f3efff_25%,#eaf6ff_50%,#f5eefe_75%,#e8efff_100%)] dark:bg-[linear-gradient(135deg,#070b1a_0%,#0f0a1f_25%,#04121c_50%,#120a20_75%,#060d1f_100%)]"
       />
       <div
         aria-hidden="true"
-        className="footer-blob-a pointer-events-none absolute -left-24 -top-24 -z-10 h-72 w-72 rounded-full bg-[#335ef7]/35 blur-3xl dark:bg-[#0c8ce9]/40"
+        className="footer-blob-a pointer-events-none absolute -left-24 -top-24 -z-10 h-72 w-72 rounded-full bg-[#335ef7]/25 blur-3xl dark:bg-[#0c8ce9]/30"
       />
       <div
         aria-hidden="true"
-        className="footer-blob-b pointer-events-none absolute -bottom-24 right-0 -z-10 h-72 w-96 rounded-full bg-[#8b5cf6]/35 blur-3xl dark:bg-[#8b5cf6]/40"
+        className="footer-blob-b pointer-events-none absolute -bottom-24 right-0 -z-10 h-72 w-96 rounded-full bg-[#8b5cf6]/25 blur-3xl dark:bg-[#8b5cf6]/30"
       />
       <div
         aria-hidden="true"
-        className="footer-blob-c pointer-events-none absolute left-1/3 top-1/3 -z-10 h-64 w-80 rounded-full bg-[#22d3ee]/30 blur-3xl dark:bg-[#22d3ee]/25"
+        className="footer-blob-c pointer-events-none absolute left-1/3 top-1/3 -z-10 h-64 w-80 rounded-full bg-[#22d3ee]/20 blur-3xl dark:bg-[#22d3ee]/20"
       />
 
       <div className="mx-auto max-w-6xl px-5 pb-36 pt-12 sm:px-8 sm:pb-28 sm:pt-14">
