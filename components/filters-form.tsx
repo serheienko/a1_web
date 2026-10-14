@@ -393,6 +393,15 @@ export function FiltersForm({
   useEffect(() => {
     if (!navSlot) return;
     navSlot.style.maxWidth = searchBoxWide ? "18.6rem" : "";
+    // 14.10.2026 (Александр, скриншот: раскрытый поиск, «Україна» залезла под
+    // «Вакансії / Фахівці»): пока поиск раскрыт, у селектора страны в шапке
+    // остаётся только флаг -- название прячет CSS по этой метке на <html>
+    // (components/country-picker.tsx).
+    if (searchBoxWide) document.documentElement.dataset.navSearch = "wide";
+    else delete document.documentElement.dataset.navSearch;
+    return () => {
+      delete document.documentElement.dataset.navSearch;
+    };
   }, [navSlot, searchBoxWide]);
 
   // Александр, 18.09.2026: «кнопка "фильтры" есть только на главной, а

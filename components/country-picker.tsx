@@ -138,12 +138,12 @@ export function CountryPicker({
           // кнопку региона») -- кнопка светлеет/темнеет и слегка
           // приподнимается, как только указатель над ней или над списком.
           (open ? "bg-black/5 dark:bg-white/10 " : "hover:bg-black/5 dark:hover:bg-white/10 ") +
-          (compact ? "h-9 " : "") +
+          (compact ? "h-9 [html[data-nav-search=wide]_&]:w-9 [html[data-nav-search=wide]_&]:justify-center [html[data-nav-search=wide]_&]:px-0 " : "") +
           GLASS
         }
       >
         <span aria-hidden="true" className="text-base leading-none">{flagEmoji(currentCode)}</span>
-        <span className={"max-w-[9rem] truncate " + (compact ? "hidden lg:inline" : "")}>
+        <span className={"max-w-[9rem] truncate " + (compact ? "hidden lg:inline [html[data-nav-search=wide]_&]:hidden" : "")}>
           {currentCountry ? countryName(currentCountry, locale) : currentCode}
         </span>
         {isPending ? (
@@ -152,7 +152,7 @@ export function CountryPicker({
             <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
           </svg>
         ) : (
-          <svg viewBox="0 0 20 20" fill="none" className={"h-3.5 w-3.5 text-neutral-400 transition-transform " + (open ? "rotate-180" : "")} aria-hidden="true">
+          <svg viewBox="0 0 20 20" fill="none" className={"h-3.5 w-3.5 text-neutral-400 transition-transform " + (open ? "rotate-180 " : "") + (compact ? "[html[data-nav-search=wide]_&]:hidden" : "")} aria-hidden="true">
             <path d="M6 8l4 4 4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         )}
