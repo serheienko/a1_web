@@ -2445,9 +2445,23 @@ textarea {
   animation: f250-glint 5.5s ease-in-out 1.2s infinite;
 }
 @keyframes f250-glint {
-  0% { transform: translateX(-130%); }
-  45%, 100% { transform: translateX(330%); }
+  0% { transform: translateX(-130%); opacity: 0; }
+  6% { opacity: 1; }
+  38% { opacity: 1; }
+  45% { transform: translateX(330%); opacity: 0; }
+  100% { transform: translateX(330%); opacity: 0; }
 }
+/* v3 (14.10.2026, Александр с iPhone: «полоса подъезжает, зависает и резко выключается»). В Safari
+   скруглённая картинка с анимированным «дыханием» (transform) может не обрезать то, что выходит за её
+   края, -- блик оставался видимым у края до перезапуска круга. Теперь: 1) маска заставляет Safari
+   обрезать по скруглению всегда; 2) блик сам плавно гаснет к концу прохода и появляется плавно --
+   даже если где-то не обрежется, резкого исчезновения не будет. */
+.f250-banner {
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+  mask-image: radial-gradient(white, black);
+  isolation: isolate;
+}
+.f250-glint { border-radius: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .f250-banner, .f250-glint, .f250-glint::before,
   .f250-bg, .f250-title, .f250-bar, .f250-num, .f250-cta, .f250-float, .f250-pop, .f250-step { animation: none; }
