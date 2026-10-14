@@ -63,6 +63,7 @@ import { useRouter } from "next/navigation";
 import { type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
 import { ApplyQuestionsModal } from "@/components/apply-questions-modal";
+import { APPLY_AFTER_LOGIN_KEY, APPLY_EVENT } from "@/lib/apply-events";
 import type { WebApplyQuestion } from "@/types/web-post";
 import { track } from "@/lib/track";
 import { ReportModal } from "@/components/report-modal";
@@ -541,6 +542,35 @@ export function PostViewerMenu({
     };
   }, [authorUsername]);
 
+  // 14.10.2026 (Screening Questions, Александр). Гость нажал «Відгукнутися»
+  // у вакансии с вопросами -> вошёл (форма входа перезагружает эту же
+  // страницу) -> окно с вопросами открывается само, а не заставляет искать
+  // кнопку второй раз. Метка живёт в sessionStorage этой вкладки и только
+  // для этой вакансии.
+  useEffect(() => {
+    if (viewerStatus !== "other" || !(applyQuestions?.length ?? 0) || !authorUserId) return;
+    try {
+      if (window.sessionStorage.getItem(APPLY_AFTER_LOGIN_KEY) !== postId) return;
+      window.sessionStorage.removeItem(APPLY_AFTER_LOGIN_KEY);
+    } catch {
+      return;
+    }
+    setApplyOpen(true);
+  }, [viewerStatus, applyQuestions, authorUserId, postId]);
+
+  // Кнопка в блоке «Питання до відгуку» на самой странице
+  // (components/apply-questions-cta.tsx) зовёт то же действие, что и
+  // «Відгукнутися» в этой строке, -- через событие окна.
+  const applyActionRef = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    function onApply(event: Event) {
+      const detail = (event as CustomEvent<{ postId?: string }>).detail;
+      if (detail?.postId === postId) applyActionRef.current?.();
+    }
+    window.addEventListener(APPLY_EVENT, onApply);
+    return () => window.removeEventListener(APPLY_EVENT, onApply);
+  }, [postId]);
+
   // Предохранитель к заглушке ниже (2026-09-19). Заглушка держит место
   // под строку, пока не пришёл ответ про смотрящего, — и это правильно
   // ровно до тех пор, пока ответ вообще приходит. Если запрос повиснет
@@ -679,6 +709,13 @@ export function PostViewerMenu({
     // делать нечего.
     if (authorUnclaimed || hasApplyQuestions) track("apply", { company: authorUsername, post: postSlug });
     if (isAnon) {
+      if (hasApplyQuestions) {
+        try {
+          window.sessionStorage.setItem(APPLY_AFTER_LOGIN_KEY, postId);
+        } catch {
+          // без хранилища окно после входа просто не откроется само
+        }
+      }
       setAuthPromptOpen(true);
       return;
     }
@@ -740,6 +777,8 @@ export function PostViewerMenu({
       setOpeningChat(false);
     }
   }
+
+  applyActionRef.current = () => void openChat();
 
   async function toggleContact() {
     if (isAnon) {
@@ -1161,10 +1200,10 @@ export function PostViewerMenu({
                   <LottiePlayer src="/animations/cat-blink.json" size={64} />
                 </div>
                 <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">
-                  {authorUnclaimed ? STRINGS.applyPromptTitle[lang] : STRINGS.authPromptTitle[lang]}
+                  {authorUnclaimed || hasApplyQuestions ? STRINGS.applyPromptTitle[lang] : STRINGS.authPromptTitle[lang]}
                 </p>
                 <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                  {authorUnclaimed ? STRINGS.applyPromptBody[lang] : STRINGS.authPromptBody[lang]}
+                  {authorUnclaimed || hasApplyQuestions ? STRINGS.applyPromptBody[lang] : STRINGS.authPromptBody[lang]}
                 </p>
                 <div className="mt-4 flex flex-col gap-2">
                   <button

@@ -27,6 +27,20 @@
 // обещает «ответы сохранятся как черновик», и без этого обещание было
 // бы ложью. Любое обращение к хранилищу обёрнуто в try/catch -- в
 // приватном окне оно бросает.
+//
+// 14.10.2026 (Александр: «человек может подать аппликацию только после
+// того, как заполнит Screening Questions… репродукцию такую же, как в
+// приложении»). Догнали приложение там, где сайт от него отставал:
+//   * отправить нельзя, пока нет ответа на КАЖДЫЙ вопрос (раньше сайт
+//     пропускал вопросы без пометки required) и пока ответ не укладывается
+//     в minLength/maxLength вопроса -- иначе бэкенд всё равно откажет;
+//   * при открытии -- свежие вопросы, «вы уже откликались» и черновик с
+//     сервера (posts.applyGetDrafts), при «Вийти» -- черновик на сервер
+//     (posts.applySaveDraft), корзина стирает его (posts.applyClearDrafts):
+//     начатое в приложении продолжается на сайте и наоборот
+//     (app/api/posts/apply-state);
+//   * полоса прогресса -- доля заполненных ответов, ответы на экране
+//     проверки правятся прямо в списке -- как в приложении.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -142,6 +156,39 @@ const STRINGS = {
     uk: "Закрити", en: "Close", ru: "Закрыть", de: "Schließen", es: "Cerrar", fr: "Fermer",
     pl: "Zamknij", ptBR: "Fechar", zh: "关闭",
   },
+  // 14.10.2026: новые подписи (в приложении их нет -- там нет и этих проверок на экране).
+  minChars: {
+    uk: "Ще хоча б {n} симв.", en: "At least {n} more characters", ru: "Ещё хотя бы {n} симв.",
+    de: "Noch mindestens {n} Zeichen", es: "Al menos {n} caracteres más", fr: "Encore au moins {n} caractères",
+    pl: "Jeszcze co najmniej {n} znaków", ptBR: "Pelo menos mais {n} caracteres", zh: "至少再输入 {n} 个字符",
+  },
+  needAll: {
+    uk: "Щоб надіслати, дайте відповідь на всі запитання.",
+    en: "Answer every question to submit.",
+    ru: "Чтобы отправить, ответьте на все вопросы.",
+    de: "Beantworte alle Fragen, um abzusenden.",
+    es: "Responde todas las preguntas para enviar.",
+    fr: "Réponds à toutes les questions pour envoyer.",
+    pl: "Odpowiedz na wszystkie pytania, aby wysłać.",
+    ptBR: "Responda todas as perguntas para enviar.",
+    zh: "回答所有问题后才能提交。",
+  },
+  alreadyApplied: {
+    uk: "Ви вже відгукувалися на цю вакансію. Новий відгук прийде компанії ще раз.",
+    en: "You've already applied to this job. A new application will reach the company again.",
+    ru: "Вы уже откликались на эту вакансию. Новый отклик придёт компании ещё раз.",
+    de: "Du hast dich bereits beworben. Eine neue Bewerbung geht erneut an das Unternehmen.",
+    es: "Ya te postulaste a esta oferta. Una nueva postulación volverá a llegar a la empresa.",
+    fr: "Tu as déjà postulé. Une nouvelle candidature sera de nouveau envoyée à l'entreprise.",
+    pl: "Już aplikowałeś na tę ofertę. Nowe zgłoszenie trafi do firmy ponownie.",
+    ptBR: "Você já se candidatou. Uma nova candidatura chegará à empresa novamente.",
+    zh: "您已申请过该职位。新的申请会再次发送给公司。",
+  },
+  loading: {
+    uk: "Завантажуємо запитання…", en: "Loading questions…", ru: "Загружаем вопросы…",
+    de: "Fragen werden geladen…", es: "Cargando preguntas…", fr: "Chargement des questions…",
+    pl: "Ładowanie pytań…", ptBR: "Carregando perguntas…", zh: "正在加载问题…",
+  },
 } satisfies Record<string, Record<Locale, string>>;
 
 /** Зелёный акцент полосы прогресса -- applyQuestionsAccentGreen из приложения. */
@@ -170,9 +217,48 @@ function readDraft(postId: string): Record<string, string> {
   }
 }
 
+function writeDraft(postId: string, answers: Record<string, string>) {
+  try {
+    if (Object.values(answers).some((v) => v.trim())) {
+      window.localStorage.setItem(draftKey(postId), JSON.stringify(answers));
+    } else {
+      window.localStorage.removeItem(draftKey(postId));
+    }
+  } catch {
+    // Приватное окно или запрет на хранилище -- черновика в браузере просто не будет.
+  }
+}
+
+/**
+ * Ответ годится: не пустой и в пределах minLength/maxLength вопроса -- те же
+ * проверки, что делает бэкенд в posts.apply (длину он считает по обрезанному
+ * тексту). Пустой ответ не принимает и приложение: кнопка «Далі» там
+ * неактивна на любом вопросе, обязательный он или нет (14.10.2026: раньше
+ * сайт пропускал вопросы без пометки required, приложение -- нет).
+ */
+function answerOk(q: WebApplyQuestion, text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  if (q.minLength != null && t.length < q.minLength) return false;
+  if (q.maxLength != null && t.length > q.maxLength) return false;
+  return true;
+}
+
+/** Только ответы на нынешние вопросы (вопросы могли поменять, пока черновик лежал). */
+function fitDraft(questions: WebApplyQuestion[], draft: Record<string, string> | null): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!draft) return out;
+  for (const q of questions) {
+    if (typeof draft[q.id] === "string") out[q.id] = draft[q.id]!;
+  }
+  return out;
+}
+
+const hasText = (a: Record<string, string>) => Object.values(a).some((v) => v.trim().length > 0);
+
 export function ApplyQuestionsModal({
   postId,
-  questions,
+  questions: initialQuestions,
   authorUserId,
   onClose,
   onSubmitted,
@@ -186,6 +272,9 @@ export function ApplyQuestionsModal({
 }) {
   const lang = useActiveLocale();
   const router = useRouter();
+  const [questions, setQuestions] = useState<WebApplyQuestion[]>(initialQuestions);
+  const [loading, setLoading] = useState(true);
+  const [applied, setApplied] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [step, setStep] = useState(0);
   const [reviewing, setReviewing] = useState(false);
@@ -199,27 +288,57 @@ export function ApplyQuestionsModal({
   const isLastStep = step === lastIndex;
   const question = questions[step];
   const current = question ? (answers[question.id] ?? "") : "";
-  const hasAnything = useMemo(
-    () => questions.some((q) => (answers[q.id] ?? "").trim().length > 0),
+  const hasAnything = useMemo(() => hasText(answers), [answers]);
+  const filled = useMemo(
+    () => questions.filter((q) => answerOk(q, answers[q.id] ?? "")).length,
     [answers, questions],
   );
-  /** Обязательные вопросы, оставшиеся без ответа, блокируют отправку. */
-  const requiredSatisfied = useMemo(
-    () => questions.every((q) => !q.required || (answers[q.id] ?? "").trim().length > 0),
-    [answers, questions],
-  );
+  const allOk = filled === questions.length;
 
+  // 14.10.2026: как приложение при открытии листа -- свежие вопросы с бэкенда
+  // (страница могла закешироваться со старыми, а бэкенд сверяет ответы с
+  // текущими), отметка «уже откликались» и черновик, сохранённый на сервере:
+  // начал отвечать в приложении -- продолжил на сайте, и наоборот. Черновик
+  // этого браузера важнее серверного (он свежее), серверный -- если своего нет.
   useEffect(() => {
-    setAnswers(readDraft(postId));
+    let alive = true;
+    const local = readDraft(postId);
+    (async () => {
+      let qs = initialQuestions;
+      let server: Record<string, string> | null = null;
+      let wasApplied = false;
+      try {
+        const res = await authFetch(`/api/posts/apply-state?postId=${encodeURIComponent(postId)}`);
+        const data = await res.json().catch(() => null);
+        if (data?.ok) {
+          if (Array.isArray(data.questions) && data.questions.length > 0) qs = data.questions as WebApplyQuestion[];
+          wasApplied = data.applied === true;
+          if (data.draft && typeof data.draft === "object") server = data.draft as Record<string, string>;
+        }
+      } catch {
+        // Не достучались -- отвечаем на вопросы со страницы, черновик из браузера.
+      }
+      if (!alive) return;
+      const fromLocal = fitDraft(qs, local);
+      const start = hasText(fromLocal) ? fromLocal : fitDraft(qs, server);
+      setQuestions(qs);
+      setApplied(wasApplied);
+      setAnswers(start);
+      // Открываемся на первом вопросе без ответа -- как приложение после черновика.
+      const firstOpen = qs.findIndex((q) => !answerOk(q, start[q.id] ?? ""));
+      setStep(firstOpen === -1 ? Math.max(0, qs.length - 1) : firstOpen);
+      setLoading(false);
+    })();
+    return () => {
+      alive = false;
+    };
+    // Вопросы со страницы нужны только как запасной вариант при открытии.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [postId]);
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(draftKey(postId), JSON.stringify(answers));
-    } catch {
-      // Приватное окно или запрет на хранилище -- черновика просто не будет.
-    }
-  }, [postId, answers]);
+    if (!loading) writeDraft(postId, answers);
+  }, [loading, postId, answers]);
 
   // Страница под окном не должна прокручиваться -- как в остальных
   // модалках этого приложения.
@@ -232,8 +351,21 @@ export function ApplyQuestionsModal({
   }, []);
 
   useEffect(() => {
-    if (!reviewing) textareaRef.current?.focus();
-  }, [step, reviewing]);
+    if (!reviewing && !loading) textareaRef.current?.focus();
+  }, [step, reviewing, loading]);
+
+  /** Черновик на сервер -- как приложение при «Вийти» (posts.applySaveDraft). */
+  const saveServerDraft = useCallback(() => {
+    void authFetch("/api/posts/apply-state", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      keepalive: true,
+      body: JSON.stringify({
+        postId,
+        answers: questions.map((q) => ({ questionId: q.id, text: answers[q.id] ?? "" })),
+      }),
+    }).catch(() => {});
+  }, [postId, questions, answers]);
 
   const requestClose = useCallback(() => {
     if (hasAnything) {
@@ -260,9 +392,9 @@ export function ApplyQuestionsModal({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [clearOpen, leaveOpen, requestClose]);
 
-  function setAnswer(value: string) {
-    if (!question) return;
-    setAnswers((prev) => ({ ...prev, [question.id]: value }));
+  function setAnswerFor(id: string, value: string) {
+    setErrored(false);
+    setAnswers((prev) => ({ ...prev, [id]: value }));
   }
 
   function clearAll() {
@@ -270,6 +402,7 @@ export function ApplyQuestionsModal({
     setStep(0);
     setReviewing(false);
     setClearOpen(false);
+    void authFetch(`/api/posts/apply-state?postId=${encodeURIComponent(postId)}`, { method: "DELETE" }).catch(() => {});
   }
 
   function goBack() {
@@ -285,12 +418,11 @@ export function ApplyQuestionsModal({
   }
 
   async function submit() {
-    if (sending || !requiredSatisfied) return;
+    if (sending || !allOk) return;
     setSending(true);
     setErrored(false);
     try {
-      // Приложение отправляет ВСЕ вопросы, подставляя пустую строку
-      // там, где не ответили (applyToPost) -- повторяем.
+      // Приложение отправляет ВСЕ вопросы (applyToPost) -- повторяем.
       const res = await authFetch("/api/posts/apply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -305,11 +437,8 @@ export function ApplyQuestionsModal({
       const data = await res.json().catch(() => null);
       if (!data?.ok) throw new Error("apply_failed");
 
-      try {
-        window.localStorage.removeItem(draftKey(postId));
-      } catch {
-        // не страшно
-      }
+      // Серверный черновик бэкенд стирает сам (posts.apply, clearDraft).
+      writeDraft(postId, {});
       onSubmitted();
 
       // Сообщение с заявкой создаёт бэкенд -- ведём человека в чат, где
@@ -335,15 +464,32 @@ export function ApplyQuestionsModal({
     }
   }
 
-  const progress = reviewing ? 1 : (step + 1) / questions.length;
+  function onPrimary() {
+    if (reviewing) {
+      void submit();
+      return;
+    }
+    if (isLastStep) {
+      // Последний шаг, но где-то раньше ответ стёрли или он короче нужного --
+      // показываем все ответы разом, а не шлём заведомый отказ.
+      if (allOk) void submit();
+      else setReviewing(true);
+      return;
+    }
+    setStep((s) => Math.min(s + 1, lastIndex));
+  }
+
+  // Полоса -- доля заполненных ответов, как в приложении
+  // (applicantProgressFraction: стёр ответ -- полоса укоротилась).
+  const progress = questions.length ? filled / questions.length : 0;
   const heading = reviewing
     ? STRINGS.reviewTitle[lang]
     : isLastStep
       ? STRINGS.almostDone[lang]
       : STRINGS.title[lang];
 
-  const stepBlocked = Boolean(question?.required) && current.trim().length === 0;
-  const primaryDisabled = sending || (reviewing ? !requiredSatisfied : stepBlocked);
+  const stepBlocked = !question || !answerOk(question, current);
+  const primaryDisabled = sending || loading || (reviewing ? !allOk : stepBlocked);
   const primaryLabel = reviewing || isLastStep ? STRINGS.submit[lang] : STRINGS.next[lang];
 
   return createPortal(
@@ -361,6 +507,7 @@ export function ApplyQuestionsModal({
         {/* Полоса прогресса -- как зелёная дуга сверху листа в приложении. */}
         <div className="h-1 w-full bg-neutral-200 dark:bg-neutral-800">
           <div
+            data-testid="apply-progress"
             className="h-full transition-[width] duration-300 ease-out"
             style={{ width: `${Math.round(progress * 100)}%`, backgroundColor: ACCENT_GREEN }}
           />
@@ -379,33 +526,48 @@ export function ApplyQuestionsModal({
 
         <div className="px-6 pb-6 pt-8">
           <p className="text-center text-lg font-semibold text-neutral-900 dark:text-neutral-50">{heading}</p>
-          {(isLastStep || reviewing) && (
+          {(isLastStep || reviewing) && !loading && (
             <p className="mt-1 text-center text-xs text-neutral-500 dark:text-neutral-400">
               {STRINGS.lastStepSubtitle[lang]}
             </p>
           )}
+          {applied && !loading && (
+            <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-center text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+              {STRINGS.alreadyApplied[lang]}
+            </p>
+          )}
 
-          {reviewing ? (
-            <ul className="mt-5 flex max-h-[45vh] flex-col gap-3 overflow-y-auto">
-              {questions.map((q, i) => (
-                <li key={q.id}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setReviewing(false);
-                      setStep(i);
-                    }}
-                    className="w-full rounded-2xl bg-neutral-100 px-4 py-3 text-left transition hover:bg-neutral-200/70 dark:bg-neutral-800 dark:hover:bg-neutral-700/70"
-                  >
+          {loading ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-12" aria-live="polite">
+              <span className="h-6 w-6 animate-spin rounded-full border-2 border-neutral-300 border-t-accent" aria-hidden="true" />
+              <span className="text-xs text-neutral-500 dark:text-neutral-400">{STRINGS.loading[lang]}</span>
+            </div>
+          ) : reviewing ? (
+            // В приложении ответы на экране проверки правятся прямо в списке -- так и здесь.
+            <ul className="mt-5 flex max-h-[50vh] flex-col gap-3 overflow-y-auto pr-1">
+              {questions.map((q, i) => {
+                const value = answers[q.id] ?? "";
+                return (
+                  <li key={q.id} className="rounded-2xl bg-neutral-100 px-4 py-3 dark:bg-neutral-800">
                     <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
                       {i + 1}. {q.text}
                     </p>
-                    <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-600 dark:text-neutral-300">
-                      👉 {(answers[q.id] ?? "").trim()}
-                    </p>
-                  </button>
-                </li>
-              ))}
+                    <textarea
+                      value={value}
+                      onChange={(e) => setAnswerFor(q.id, e.target.value)}
+                      rows={2}
+                      maxLength={q.maxLength ?? 4000}
+                      placeholder={STRINGS.answerHint[lang]}
+                      aria-invalid={!answerOk(q, value)}
+                      className={
+                        "mt-2 w-full resize-y rounded-xl bg-white p-3 text-sm text-neutral-800 outline-none transition placeholder:text-neutral-400 focus:ring-2 dark:bg-neutral-900 dark:text-neutral-100 " +
+                        (answerOk(q, value) ? "ring-accent/40" : "ring-1 ring-red-400/70 focus:ring-red-400")
+                      }
+                    />
+                    <AnswerHints q={q} value={value} lang={lang} />
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             question && (
@@ -418,16 +580,23 @@ export function ApplyQuestionsModal({
                   <textarea
                     ref={textareaRef}
                     value={current}
-                    onChange={(e) => setAnswer(e.target.value)}
+                    onChange={(e) => setAnswerFor(question.id, e.target.value)}
+                    onKeyDown={(e) => {
+                      // Ctrl/Cmd+Enter -- «Далі», как отправка в чатах сайта.
+                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !primaryDisabled) {
+                        e.preventDefault();
+                        onPrimary();
+                      }
+                    }}
                     rows={5}
-                    maxLength={question.maxLength ?? 2000}
+                    maxLength={question.maxLength ?? 4000}
                     placeholder={STRINGS.answerHint[lang]}
                     className="w-full resize-none rounded-2xl bg-neutral-100 p-4 pr-11 text-sm text-neutral-900 outline-none ring-accent/40 transition placeholder:text-neutral-400 focus:ring-2 dark:bg-neutral-800 dark:text-neutral-100"
                   />
                   {current.length > 0 && (
                     <button
                       type="button"
-                      onClick={() => setAnswer("")}
+                      onClick={() => setAnswerFor(question.id, "")}
                       aria-label={STRINGS.clearAria[lang]}
                       className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-neutral-300/80 text-neutral-600 transition hover:bg-neutral-400/80 dark:bg-neutral-600 dark:text-neutral-200"
                     >
@@ -437,15 +606,19 @@ export function ApplyQuestionsModal({
                     </button>
                   )}
                 </div>
+                <AnswerHints q={question} value={current} lang={lang} />
               </>
             )
           )}
 
+          {reviewing && !allOk && !loading && (
+            <p className="mt-3 text-center text-xs text-red-600 dark:text-red-400">{STRINGS.needAll[lang]}</p>
+          )}
           {errored && (
             <p className="mt-3 text-center text-xs text-red-600 dark:text-red-400">{STRINGS.failed[lang]}</p>
           )}
 
-          {hasAnything && (
+          {hasAnything && !loading && (
             <div className="mt-4 flex justify-end">
               <button
                 type="button"
@@ -463,7 +636,7 @@ export function ApplyQuestionsModal({
           <div className="mt-2 flex items-center gap-3">
             {/* Кружок «назад» и кружок «проверить ответы» появляются со
                 второго шага -- на первом в приложении их нет. */}
-            {(step > 0 || reviewing) && (
+            {(step > 0 || reviewing) && !loading && (
               <button
                 type="button"
                 onClick={goBack}
@@ -475,7 +648,7 @@ export function ApplyQuestionsModal({
                 </svg>
               </button>
             )}
-            {!reviewing && step > 0 && (
+            {!reviewing && step > 0 && !loading && (
               <button
                 type="button"
                 onClick={() => setReviewing(true)}
@@ -490,18 +663,16 @@ export function ApplyQuestionsModal({
             )}
             <button
               type="button"
-              onClick={() => {
-                if (reviewing || isLastStep) {
-                  void submit();
-                  return;
-                }
-                setStep((s) => Math.min(s + 1, lastIndex));
-              }}
+              onClick={onPrimary}
               disabled={primaryDisabled}
               className="relative h-12 flex-1 rounded-full bg-accent text-sm font-bold uppercase tracking-wide text-white transition hover:opacity-90 disabled:opacity-40"
             >
-              {primaryLabel}
-              {!reviewing && (
+              {sending ? (
+                <span className="mx-auto block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" />
+              ) : (
+                primaryLabel
+              )}
+              {!reviewing && !loading && !sending && (
                 <span className="absolute right-5 top-1/2 -translate-y-1/2 text-xs font-semibold opacity-70">
                   {step + 1}/{questions.length}
                 </span>
@@ -527,13 +698,35 @@ export function ApplyQuestionsModal({
             body={STRINGS.leaveSubtitle[lang]}
             confirmLabel={STRINGS.leaveConfirm[lang]}
             cancelLabel={STRINGS.leaveCancel[lang]}
-            onConfirm={onClose}
+            onConfirm={() => {
+              saveServerDraft();
+              onClose();
+            }}
             onCancel={() => setLeaveOpen(false)}
           />
         )}
       </div>
     </div>,
     document.body,
+  );
+}
+
+/** Под полем: сколько ещё набрать до minLength и счётчик до maxLength. */
+function AnswerHints({ q, value, lang }: { q: WebApplyQuestion; value: string; lang: Locale }) {
+  const len = value.trim().length;
+  const short = q.minLength != null && len > 0 && len < q.minLength ? q.minLength - len : 0;
+  if (!short && q.maxLength == null) return null;
+  return (
+    <div className="mt-1 flex items-center justify-between gap-2 px-1 text-[11px]">
+      <span className="text-amber-700 dark:text-amber-400">
+        {short ? STRINGS.minChars[lang].replace("{n}", String(short)) : ""}
+      </span>
+      {q.maxLength != null && (
+        <span className={len > q.maxLength ? "text-red-600" : "text-neutral-400"}>
+          {len}/{q.maxLength}
+        </span>
+      )}
+    </div>
   );
 }
 

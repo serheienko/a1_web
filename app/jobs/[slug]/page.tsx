@@ -55,6 +55,7 @@ import { fetchRelatedJobs } from "@/lib/a1/related";
 // это ХОСТ без пути, и подпись вводила в заблуждение. linkLabel берёт
 // заголовок только если он не повторяет хост, иначе показывает адрес
 // целиком: instagram.com/digitalart.agency.
+import { ApplyQuestionsCta } from "@/components/apply-questions-cta";
 import { linkLabel } from "@/lib/a1/linkify";
 
 const SITE_URL = "https://jobs.a1appp.com";
@@ -551,6 +552,7 @@ export default async function JobDetailPage({ params }: Props) {
               </li>
             ))}
           </ul>
+          {!post.externalUrl && <ApplyQuestionsCta postId={post.id} />}
         </div>
       )}
 

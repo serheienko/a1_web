@@ -11,6 +11,7 @@ export const revalidate = 60;
 // noindex below — recommendation (b) in PLAN.md's OPEN QUESTIONS. Revisit
 // once the founder decides (a)/(b)/(c)/(d).
 
+import { ApplyQuestionsCta } from "@/components/apply-questions-cta";
 import { notFound, permanentRedirect } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -274,6 +275,7 @@ export default async function TalentDetailPage({ params }: Props) {
               </li>
             ))}
           </ul>
+          {!post.externalUrl && <ApplyQuestionsCta postId={post.id} />}
         </div>
       )}
     </main>

@@ -55,7 +55,7 @@ function fromUnixSeconds(seconds: number): Date {
  * к id вопроса, а не к его тексту. Вопрос без id для отклика бесполезен
  * -- такие пропускаем.
  */
-function mapApplyQuestions(apply: Post["apply"]): WebApplyQuestion[] {
+export function mapApplyQuestions(apply: Post["apply"]): WebApplyQuestion[] {
   if (!apply) return [];
   const out: WebApplyQuestion[] = [];
   for (const raw of apply.questions) {
