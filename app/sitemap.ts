@@ -19,7 +19,7 @@
 // for sitemap coverage is elsewhere.
 
 import type { MetadataRoute } from "next";
-import { fetchAllSitemapJobPosts, SITEMAP_CHUNK_SIZE } from "@/lib/a1/sitemap-posts";
+import { fetchAllSitemapJobPosts, SITEMAP_JOBS_PER_CHUNK, sitemapChunkCount } from "@/lib/a1/sitemap-posts";
 import { profileHref } from "@/lib/profile-href";
 import { JOB_LANDINGS } from "@/lib/seo/job-landings";
 import { FACT_LANDINGS } from "@/lib/seo/fact-landings";
@@ -48,8 +48,7 @@ export async function generateSitemaps() {
   } catch (e) {
     console.error("[sitemap] generateSitemaps: API недоступен, один пустой чанк", e);
   }
-  const chunkCount = Math.max(1, Math.ceil(posts.length / SITEMAP_CHUNK_SIZE));
-  return Array.from({ length: chunkCount }, (_, id) => ({ id }));
+  return Array.from({ length: sitemapChunkCount(posts.length) }, (_, id) => ({ id }));
 }
 
 export default async function sitemap({ id }: { id: number | string }): Promise<MetadataRoute.Sitemap> {
@@ -74,8 +73,9 @@ async function buildSitemap({ id }: { id: number | string }): Promise<MetadataRo
   const isFirstChunk = chunkId === 0;
 
   const posts = await fetchAllSitemapJobPosts();
-  const start = chunkId * SITEMAP_CHUNK_SIZE;
-  const chunk = posts.slice(start, start + SITEMAP_CHUNK_SIZE);
+  // 14.10.2026: вакансии -- с чанка 1 (см. SITEMAP_JOBS_PER_CHUNK), чанк 0 -- без них.
+  const start = (chunkId - 1) * SITEMAP_JOBS_PER_CHUNK;
+  const chunk = chunkId >= 1 ? posts.slice(start, start + SITEMAP_JOBS_PER_CHUNK) : [];
 
   const entries: MetadataRoute.Sitemap = [];
 

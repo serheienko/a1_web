@@ -27,6 +27,19 @@ const PAGE_SIZE = 100; // posts.search's documented max (PLAN.md §0.2)
 // at /sitemap.xml, confirmed live).
 export const SITEMAP_CHUNK_SIZE = 45_000;
 
+/**
+ * 14.10.2026 (SEO-проверка по аудиту). Google принимает в одном файле карты не больше 50 000
+ * адресов -- больше файл не читает вовсе. Живая /sitemap/0.xml дошла до 52 716: в первый чанк
+ * ехали и все посадочные, события, профили компаний (~16 тысяч), и все вакансии (до 45 тысяч).
+ * Теперь чанк 0 -- только посадочные, события и профили, а вакансии -- с чанка 1, по 40 000.
+ */
+export const SITEMAP_JOBS_PER_CHUNK = 40_000;
+
+/** Сколько файлов карты: 1 (посадочные) + чанки вакансий (минимум один). */
+export function sitemapChunkCount(postCount: number): number {
+  return 1 + Math.max(1, Math.ceil(postCount / SITEMAP_JOBS_PER_CHUNK));
+}
+
 // A hard safety stop across ALL chunks combined, well above any volume
 // this site will plausibly reach for a long while — it exists so a
 // backend bug (e.g. a cursor that never terminates) can't spin this into

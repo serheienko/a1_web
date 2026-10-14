@@ -17,7 +17,7 @@
 // hardcoding "1" and risking it going stale once volume grows.
 
 import type { MetadataRoute } from "next";
-import { fetchAllSitemapJobPosts, SITEMAP_CHUNK_SIZE } from "@/lib/a1/sitemap-posts";
+import { fetchAllSitemapJobPosts, sitemapChunkCount } from "@/lib/a1/sitemap-posts";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -25,7 +25,7 @@ export const revalidate = 3600;
 
 export default async function robots(): Promise<MetadataRoute.Robots> {
   const posts = await fetchAllSitemapJobPosts();
-  const chunkCount = Math.max(1, Math.ceil(posts.length / SITEMAP_CHUNK_SIZE));
+  const chunkCount = sitemapChunkCount(posts.length);
   const sitemaps = Array.from({ length: chunkCount }, (_, id) => `${SITE_URL}/sitemap/${id}.xml`);
 
   return {
