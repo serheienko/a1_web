@@ -10,6 +10,8 @@ import { AppPromo } from "@/components/app-promo";
 import { ScrollTopFab } from "@/components/scroll-top-fab";
 import { VoiceNowPlayingBar } from "@/components/chat/voice-now-playing-bar";
 import { MetaPixel } from "@/components/meta-pixel";
+import { SiteFooter } from "@/components/site-footer";
+import { SiteFooterGate } from "@/components/site-footer-gate";
 
 // Commissioner: the real typeface used in the Figma mockups (confirmed via
 // Inspect on "Feed Preview White", 2026-08-26), not a generic system stack.
@@ -297,6 +299,11 @@ export default function RootLayout({
             bubble starts a clip. */}
         <VoiceNowPlayingBar />
         {children}
+        {/* 14.10.2026: подвал на всех страницах -- components/site-footer.tsx;
+            где его нет (чаты, игра, /download) -- components/site-footer-gate.tsx */}
+        <SiteFooterGate>
+          <SiteFooter />
+        </SiteFooterGate>
         {/* 2026-08-29: floating "+" create-post button, mounted globally
             here next to <SiteNav/> for the same reason that one is —
             shown on every page, signed in or not (Aleksandr: "С логином
