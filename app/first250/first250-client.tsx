@@ -24,7 +24,7 @@ const TXT = {
   uk: {
     badge: "Beta 0.1 · акція для перших",
     hello: "Вітаємо в A1!",
-    sub: "Дякуємо, що ви з нами з самого початку 💙 Перші 250 людей отримують A1 Premium на цілий рік — безкоштовно.",
+    sub: ["Дякуємо, що ви з нами з самого початку 💙 Перші 250 людей отримують ", "A1 Premium на цілий рік", " — безкоштовно."],
     left: (l: number, t: number) => `Залишилось ${l} з ${t} місць`,
     s1: "Завантаж A1",
     s1d: "Застосунок для пошуку роботи та фахівців без CV — профіль замість резюме.",
@@ -51,12 +51,12 @@ const TXT = {
     soldTitle: "Усі 250 місць уже розібрали 🥲",
     soldSub: "Дякуємо за інтерес! Завантажуйте A1 — попереду ще багато приємного.",
     err: "Щось пішло не так. Спробуйте ще раз за хвилину.",
-    fine: "Одне місце на один акаунт. Premium вмикаємо, коли він зʼявиться в A1. Технічні акаунти компаній не беруть участі.",
+    fine: "Одне місце на один акаунт. Premium вмикаємо, коли він зʼявиться в A1.",
   },
   en: {
     badge: "Beta 0.1 · early birds",
     hello: "Welcome to A1!",
-    sub: "Thanks for being with us from day one 💙 The first 250 people get A1 Premium for a whole year — free.",
+    sub: ["Thanks for being with us from day one 💙 The first 250 people get ", "A1 Premium for a whole year", " — free."],
     left: (l: number, t: number) => `${l} of ${t} spots left`,
     s1: "Get A1",
     s1d: "Find jobs and talent without a CV — your profile is your résumé.",
@@ -83,7 +83,7 @@ const TXT = {
     soldTitle: "All 250 spots are taken 🥲",
     soldSub: "Thanks for your interest! Get A1 anyway — lots more good stuff ahead.",
     err: "Something went wrong. Please try again in a minute.",
-    fine: "One spot per account. Premium is switched on once it's live in A1. Technical company accounts don't take part.",
+    fine: "One spot per account. Premium is switched on once it's live in A1.",
   },
 };
 
@@ -288,7 +288,7 @@ export function First250Client() {
   const pct = st ? Math.min(100, Math.round((st.taken / st.total) * 100)) : 0;
 
   return (
-    <main className="f250 relative isolate overflow-hidden">
+    <main className="f250 relative isolate -mb-16 overflow-hidden pb-16">
       {canvas}
       {/* фон: мягкий переливающийся градиент и плавающие «искорки» */}
       <div aria-hidden="true" className="f250-bg absolute inset-0 -z-10" />
@@ -314,7 +314,11 @@ export function First250Client() {
             <span aria-hidden="true" className="f250-glint pointer-events-none absolute inset-0" />
           </div>
           <h1 className="f250-title mt-7 text-4xl font-extrabold tracking-tight sm:text-5xl">{t.hello}</h1>
-          <p className="mx-auto mt-3 max-w-lg text-[17px] leading-relaxed text-neutral-700 dark:text-neutral-300">{t.sub}</p>
+          <p className="mx-auto mt-3 max-w-lg text-[17px] leading-relaxed text-neutral-700 dark:text-neutral-300">
+            {t.sub[0]}
+            <b className="font-bold text-neutral-900 dark:text-white">{t.sub[1]}</b>
+            {t.sub[2]}
+          </p>
 
           {/* счётчик мест */}
           <div className="mx-auto mt-7 max-w-md rounded-3xl border border-white/70 bg-white/75 p-5 shadow-lg shadow-indigo-500/10 backdrop-blur dark:border-white/10 dark:bg-white/[0.06]">
