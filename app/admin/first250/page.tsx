@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { readSession } from "@/lib/a1/session";
 import { isAdminEmail } from "@/lib/admin-access";
-import { allEntries, totalSeats } from "@/lib/first250/store";
+import { allEntries, reservedSeats, totalSeats } from "@/lib/first250/store";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { robots: { index: false, follow: false }, title: "Перші 250 — список" };
@@ -21,7 +21,8 @@ export default async function AdminFirst250Page() {
         <div>
           <h1 className="text-2xl font-bold">Перші 250</h1>
           <p className="mt-1 text-sm text-neutral-500">
-            Забрали місце: <b>{rows.length}</b> з {total}. Premium отримують перші {total} за порядком.
+            Забрали місце за посиланням: <b>{rows.length}</b>. Ще {reservedSeats()} місць зарезервовано (№1–{reservedSeats()}) — для своїх і розіграшів.
+            Premium отримують усі до №{total}.
           </p>
         </div>
         <a href="/api/admin/first250" className="rounded-full bg-neutral-900 px-4 py-2 text-sm font-semibold text-white dark:bg-white dark:text-black">

@@ -25,6 +25,18 @@ export function totalSeats(): number {
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 250;
 }
 
+/**
+ * 14.10.2026 (Александр): 15 мест зарезервированы -- для своих (команда, друзья, розыгрыши). Их можно
+ * раздавать вручную, поэтому «залишилось» показывает места, реально доступные по ссылке: 250 - 15 - записавшиеся.
+ * Номер места человека тоже идёт после резерва (первый записавшийся по ссылке -- №16).
+ * Меняется переменной FIRST250_RESERVED без выкладки кода.
+ */
+export function reservedSeats(): number {
+  const raw = (process.env.FIRST250_RESERVED ?? "").trim();
+  const n = raw === "" ? NaN : Number(raw);
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 15;
+}
+
 export type First250Entry = {
   v: 1;
   userId: string;
@@ -113,10 +125,10 @@ let countCache: { n: number; at: number } | null = null;
 const COUNT_TTL_MS = 20_000;
 
 export async function takenCount(): Promise<number> {
-  if (countCache && Date.now() - countCache.at < COUNT_TTL_MS) return countCache.n;
+  if (countCache && Date.now() - countCache.at < COUNT_TTL_MS) return countCache.n + reservedSeats();
   const n = (await listAll()).length;
   countCache = { n, at: Date.now() };
-  return n;
+  return n + reservedSeats();
 }
 
 /** Место человека (1..N) или null, если он ещё не записывался. */
@@ -124,7 +136,7 @@ export async function placeOf(userId: string): Promise<number | null> {
   const want = fileOf(userId);
   const rows = ordered(await listAll());
   const i = rows.findIndex((r) => r.pathname === want);
-  return i === -1 ? null : i + 1;
+  return i === -1 ? null : i + 1 + reservedSeats();
 }
 
 /** Записывает человека. Если он уже есть -- ничего не меняет (время записи = его место). */
@@ -188,7 +200,7 @@ export async function allEntries(): Promise<First250Row[]> {
     const chunk = rows.slice(i, i + 16);
     const got = await Promise.all(chunk.map((r) => readEntry(r.url)));
     got.forEach((e, j) => {
-      if (e) out.push({ ...e, place: i + j + 1 });
+      if (e) out.push({ ...e, place: i + j + 1 + reservedSeats() });
     });
   }
   return out;
