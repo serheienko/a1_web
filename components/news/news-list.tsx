@@ -59,7 +59,7 @@ export function NewsList({ items, pool }: { items: NewsArticle[]; pool?: NewsArt
       {rest.map((a) => (
         <article key={a.slug} lang={a.lang} className="group grid grid-cols-[112px_1fr] gap-4 sm:grid-cols-[200px_1fr] sm:gap-5">
           <Link href={`/news/${a.slug}`} tabIndex={-1} className="block self-start overflow-hidden rounded-2xl ring-1 ring-neutral-200 transition group-hover:ring-accent/40 dark:ring-neutral-800">
-            <NewsThumb thumb={a.thumb} seed={a.slug} />
+            <NewsThumb thumb={a.thumb} seed={a.slug} compact />
           </Link>
           <div className="min-w-0">
             <Meta a={a} pool={all} />

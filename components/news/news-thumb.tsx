@@ -45,7 +45,10 @@ export function newsThemeVars(seed: string, given?: string): Record<string, stri
   return { "--nv-from": h.from, "--nv-to": h.to, "--nv-hi": h.hi, "--nv-lo": h.lo, "--nv-glow": h.glow };
 }
 
-export function NewsThumb({ thumb: given, className = "", seed }: { thumb: NewsArticle["thumb"]; className?: string; seed?: string }) {
+// compact -- маленькая миниатюра в списке. 14.10.2026 (Александр, скрин с телефона): на мобильном она
+// 112 px в ширину, и цифра с подписью налезали на узор -- выглядело как поломка. Там текст прячем,
+// остаётся только узор с цветом; с ширины sm (640 px) текст снова виден.
+export function NewsThumb({ thumb: given, className = "", seed, compact = false }: { thumb: NewsArticle["thumb"]; className?: string; seed?: string; compact?: boolean }) {
   // seed -- слаг новости; «-en» отрезаем, чтобы пара uk/en выглядела одинаково
   const k = seed ? hashOf(seed.replace(/-en$/, "")) : null;
   const thumb = k === null ? given : { ...given, hue: HUE_ORDER[k % HUE_ORDER.length], motif: MOTIF_ORDER[(k >>> 8) % MOTIF_ORDER.length] };
@@ -87,7 +90,7 @@ export function NewsThumb({ thumb: given, className = "", seed }: { thumb: NewsA
           ))}
         </span>
       )}
-      <span className="absolute inset-x-[7%] bottom-[9%] block">
+      <span className={"absolute inset-x-[7%] bottom-[9%] " + (compact ? "hidden sm:block" : "block")}>
         <span className="block text-[clamp(18px,3.2vw,34px)] font-bold leading-none tabular-nums text-white">{thumb.big}</span>
         <span className="mt-1 block text-[12px] leading-tight text-white/65">{thumb.small}</span>
       </span>
