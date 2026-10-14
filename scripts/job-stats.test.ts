@@ -70,5 +70,31 @@ const noSalary = Array.from({ length: 12 }, (_, i) => post({ id: `n${i}`, title:
 const q = buildJobStats(noSalary, noSalary[0]);
 check("без выборки нет зарплаты", q?.salary ?? null, null);
 
+// 14.10.2026: Украина -- помесячные доллары, без подмены на США.
+const ua: any[] = [];
+const uaLoc = { display: "Kyiv, Ukraine", country: "UA", city: "Kyiv" };
+for (let i = 0; i < 18; i++) ua.push(post({ id: `ua${i}`, title: "Senior Data Engineer", location: uaLoc,
+  salary: { min: 3000 + i * 100, max: 4000 + i * 100, currency: "USD", period: "MONTH" } }));
+for (let i = 0; i < 30; i++) ua.push(post({ id: `us${i}`, title: "Senior Data Engineer",
+  location: { display: "Austin, US", country: "US", city: "Austin" }, salary: sal(150000, 200000) }));
+const u = buildJobStats(ua, ua[0])!;
+check("UA: вилка по стране", u.salary?.scope, "country");
+check("UA: помесячно", u.salary?.period, "MONTH");
+check("UA: в долларах", u.salary?.currency, "USD");
+check("UA: медиана месячная", (u.salary?.median ?? 0) > 3000 && (u.salary?.median ?? 0) < 5000, true);
+
+// В стране мало вилок -- США не подставляем.
+const ua2 = ua.filter((p) => p.location.country !== "UA" || Number(p.id.slice(2)) < 5);
+check("UA: мало вилок -- зарплаты нет (не США)", buildJobStats(ua2, ua2[0])?.salary ?? null, null);
+
+// Германия -- евро в год.
+const de: any[] = [];
+for (let i = 0; i < 16; i++) de.push(post({ id: `de${i}`, title: "Data Engineer",
+  location: { display: "Berlin, Germany", country: "DE", city: "Berlin" },
+  salary: { min: 60000, max: 75000, currency: "EUR", period: "YEAR" } }));
+const d = buildJobStats(de, de[0])!;
+check("DE: евро", d.salary?.currency, "EUR");
+check("DE: в год", d.salary?.period, "YEAR");
+
 console.log(failed === 0 ? "\nВсе проверки прошли" : `\nпровалено: ${failed}`);
 process.exit(failed === 0 ? 0 : 1);

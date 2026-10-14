@@ -20,7 +20,7 @@
 
 import type { WebPost } from "@/types/web-post";
 import { allIndexedPosts } from "@/lib/a1/facts-index";
-import { annualUsd, MIN_SALARY_SAMPLE } from "@/lib/a1/stats-index";
+import { MIN_SALARY_SAMPLE } from "@/lib/a1/stats-index";
 import { extractRoles, roleInfo, type JobRole } from "@/lib/seo/job-role";
 import { extractTechTags } from "@/lib/seo/job-tech-tags";
 import { TECH_CATALOG } from "@/lib/seo/tech-catalog";
@@ -42,8 +42,16 @@ export type JobStats = {
   fresh7d: number;
   /** Вакансий в этой стране всего. */
   countryTotal: number;
-  /** Вилка в объявлениях: только там, где долларовых вилок хватает на честную медиану. */
-  salary: { n: number; median: number; p25: number; p75: number; scope: "country" | "world" } | null;
+  /** Вилка в объявлениях -- в валюте и периоде, принятых в стране вакансии (см. salaryOf). */
+  salary: {
+    n: number;
+    median: number;
+    p25: number;
+    p75: number;
+    scope: "country" | "world";
+    currency: string;
+    period: "MONTH" | "YEAR";
+  } | null;
   /** Что чаще всего просят рядом в вакансиях этой же профессии. */
   tech: JobStatsTech[];
   /** Сколько вакансий у этой компании и в скольких странах. */
@@ -70,15 +78,66 @@ function quantile(sorted: number[], q: number): number {
   return (sorted[lo] ?? 0) + ((sorted[hi] ?? 0) - (sorted[lo] ?? 0)) * (pos - lo);
 }
 
+// 14.10.2026 (Александр: «на Украину надо перестать писать медиану зп из
+// США, надо адаптировать под страну, если цифры есть»). Раньше считались
+// только долларовые вилки в пересчёте на год, а если в стране их не хватало
+// -- брался весь мир, то есть по сути США: украинской вакансии писали
+// «$140k на рік». Теперь:
+//   * вилка только по СТРАНЕ вакансии; мир -- лишь для вакансий без страны
+//     (удалёнка на весь мир), там и сравнивать больше не с чем;
+//   * валюта -- та, в которой в этой стране чаще всего пишут вилки
+//     (Украина -- $, Германия -- €, Польша -- zł), чужие валюты не смешиваем;
+//   * период -- как принято в стране: если большинство вилок помесячные
+//     (Украина, Польша), показываем «на місяць», иначе «на рік».
+// Нет честной выборки в стране -- строки про зарплату просто нет.
+
+// Грубый курс к доллару -- только чтобы отсеять явный мусор (0, опечатки на
+// порядок), а не для пересчёта: показываем всегда в родной валюте.
+const USD_RATE: Record<string, number> = {
+  USD: 1, EUR: 1.08, GBP: 1.27, CHF: 1.12, PLN: 0.25, UAH: 0.024, CZK: 0.044, RON: 0.22, HUF: 0.0028,
+  SEK: 0.095, NOK: 0.094, DKK: 0.145, CAD: 0.73, AUD: 0.66, NZD: 0.6, INR: 0.012, BRL: 0.18, MXN: 0.055,
+  ILS: 0.27, SGD: 0.74, JPY: 0.0067, KZT: 0.002, TRY: 0.03, BGN: 0.55, GEL: 0.37, AED: 0.27, ZAR: 0.055,
+};
+
 function salaryOf(posts: WebPost[], scope: "country" | "world"): JobStats["salary"] {
-  const usd: number[] = [];
+  type Pay = { cur: string; period: "MONTH" | "YEAR"; mid: number };
+  const pays: Pay[] = [];
   for (const p of posts) {
-    const v = annualUsd(p);
-    if (v != null) usd.push(v);
+    const s = p.salary;
+    if (!s) continue;
+    const cur = s.currency?.trim().toUpperCase();
+    const a = s.min ?? s.max;
+    const b = s.max ?? s.min;
+    if (!cur || a == null || b == null || a <= 0) continue;
+    const mid = (a + b) / 2;
+    const rate = USD_RATE[cur];
+    if (rate) {
+      const yearUsd = (s.period === "MONTH" ? mid * 12 : mid) * rate;
+      if (yearUsd < 3_000 || yearUsd > 600_000) continue;
+    }
+    pays.push({ cur, period: s.period === "MONTH" ? "MONTH" : "YEAR", mid });
   }
-  if (usd.length < MIN_SALARY_SAMPLE) return null;
-  usd.sort((a, b) => a - b);
-  return { n: usd.length, median: quantile(usd, 0.5), p25: quantile(usd, 0.25), p75: quantile(usd, 0.75), scope };
+  // Основная валюта страны (для мира -- доллар, если его хватает).
+  const byCur = new Map<string, number>();
+  for (const x of pays) byCur.set(x.cur, (byCur.get(x.cur) ?? 0) + 1);
+  const currency =
+    scope === "world" ? "USD" : ([...byCur].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "USD");
+  const same = pays.filter((x) => x.cur === currency);
+  if (same.length < MIN_SALARY_SAMPLE) return null;
+  const monthly = same.filter((x) => x.period === "MONTH").length;
+  const period: "MONTH" | "YEAR" = monthly * 2 > same.length ? "MONTH" : "YEAR";
+  const vals = same
+    .map((x) => (x.period === period ? x.mid : period === "MONTH" ? x.mid / 12 : x.mid * 12))
+    .sort((a, b) => a - b);
+  return {
+    n: vals.length,
+    median: quantile(vals, 0.5),
+    p25: quantile(vals, 0.25),
+    p75: quantile(vals, 0.75),
+    scope,
+    currency,
+    period,
+  };
 }
 
 function ownTech(post: WebPost): Set<string> {
@@ -182,12 +241,10 @@ export function buildJobStats(all: WebPost[], post: WebPost): JobStats | null {
     idx.fresh.set(key, fresh7d);
   }
 
-  // Вилка: сначала по стране, иначе по миру -- лишь бы выборка была честной.
+  // Вилка: только по стране вакансии; мир -- лишь когда страны у вакансии нет.
   let salary = idx.salary.get(key);
   if (salary === undefined) {
-    salary =
-      (roleHerePosts.length >= MIN_SALARY_SAMPLE ? salaryOf(roleHerePosts, "country") : null) ??
-      salaryOf(roleWorldPosts, "world");
+    salary = cc ? salaryOf(roleHerePosts, "country") : salaryOf(roleWorldPosts, "world");
     idx.salary.set(key, salary);
   }
 

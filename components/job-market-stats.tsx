@@ -19,8 +19,18 @@ import type { JobStats } from "@/lib/a1/job-stats";
 import { countryByCode, countryName, flagEmoji } from "@/lib/seo/countries";
 import { LOCALES, LOCALE_VISIBILITY_CLASS, T } from "@/components/t";
 
-function money(value: number): string {
-  return `$${Math.round(value / 1000)}k`;
+const CURRENCY_SIGN: Record<string, string> = { USD: "$", EUR: "€", GBP: "£", UAH: "₴", PLN: "zł ", JPY: "¥", INR: "₹", ILS: "₪" };
+
+/** Сумма в валюте страны: «$3 500», «€62k», «zł 18 000». */
+function money(value: number, currency = "USD"): string {
+  const sign = CURRENCY_SIGN[currency] ?? `${currency} `;
+  const n =
+    value >= 100_000
+      ? `${Math.round(value / 1000)}k`
+      : value >= 10_000
+        ? `${(Math.round(value / 500) * 500).toLocaleString("en-US").replace(/,/g, " ")}`
+        : `${(Math.round(value / 100) * 100).toLocaleString("en-US").replace(/,/g, " ")}`;
+  return sign + n;
 }
 
 /**
@@ -99,12 +109,16 @@ export function JobMarketStats({ stats }: { stats: JobStats | null }) {
     rows.push(
       <li key="salary">
         <T uk="Зарплата в оголошеннях" en="Pay stated in ads" ru="Зарплата в объявлениях" de="Gehalt in den Anzeigen" es="Salario indicado en las ofertas" fr="Salaire indiqué dans les offres" pl="Wynagrodzenie w ogłoszeniach" ptBR="Salário informado nas vagas" zh="职位中标明的薪酬" />:{" "}
-        <span className="font-semibold text-neutral-900 tabular-nums dark:text-neutral-100">{money(salary.median)}</span>{" "}
+        <span className="font-semibold text-neutral-900 tabular-nums dark:text-neutral-100">{money(salary.median, salary.currency)}</span>{" "}
         <T uk="медіана, половина пропозицій" en="median, half of them" ru="медиана, половина предложений" de="Median, die Hälfte davon" es="mediana, la mitad entre" fr="médiane, la moitié entre" pl="mediana, połowa ofert" ptBR="mediana, metade delas" zh="中位数，半数在" />{" "}
         <span className="tabular-nums">
-          {money(salary.p25)}–{money(salary.p75)}
+          {money(salary.p25, salary.currency)}–{money(salary.p75, salary.currency)}
         </span>{" "}
-        <T uk="на рік" en="a year" ru="в год" de="pro Jahr" es="al año" fr="par an" pl="rocznie" ptBR="por ano" zh="每年" />{" "}
+        {salary.period === "MONTH" ? (
+          <T uk="на місяць" en="a month" ru="в месяц" de="pro Monat" es="al mes" fr="par mois" pl="miesięcznie" ptBR="por mês" zh="每月" />
+        ) : (
+          <T uk="на рік" en="a year" ru="в год" de="pro Jahr" es="al año" fr="par an" pl="rocznie" ptBR="por ano" zh="每年" />
+        )}{" "}
         <span className="text-neutral-400">
           (<span className="tabular-nums">{salary.n}</span>{" "}
           <T uk="вакансій з вилкою" en="ads with a range" ru="вакансий с вилкой" de="Anzeigen mit Spanne" es="ofertas con rango" fr="offres avec fourchette" pl="ofert z widełkami" ptBR="vagas com faixa" zh="个标明区间的职位" />)
