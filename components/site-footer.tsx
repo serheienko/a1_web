@@ -93,7 +93,8 @@ const HEAD = {
       zh: "用手机相机扫码，自动打开对应应用商店",
     },
   ),
-  support: L("Підтримати Україну", "Support Ukraine", "Поддержать Украину", { de: "Ukraine unterstützen", es: "Apoya a Ucrania", fr: "Soutenir l'Ukraine", pl: "Wesprzyj Ukrainę", ptBR: "Apoie a Ucrânia", zh: "支持乌克兰" }),
+  support1: L("Підтримай", "Support", "Поддержи", { de: "Unterstütze", es: "Apoya a", fr: "Soutenez", pl: "Wesprzyj", ptBR: "Apoie a", zh: "支持" }),
+  support2: L("Україну", "Ukraine", "Украину", { de: "die Ukraine", es: "Ucrania", fr: "l'Ukraine", pl: "Ukrainę", ptBR: "Ucrânia", zh: "乌克兰" }),
   made: L("Зроблено в Україні", "Made in Ukraine", "Сделано в Украине", { de: "Made in Ukraine", es: "Hecho en Ucrania", fr: "Fait en Ukraine", pl: "Zrobione w Ukrainie", ptBR: "Feito na Ucrânia", zh: "乌克兰制造" }),
 };
 
@@ -190,27 +191,34 @@ export function SiteFooter() {
           </div>
         </div>
 
-        <div className="mt-12 flex flex-col gap-2 border-t border-black/5 pt-6 text-[13px] text-neutral-500 sm:flex-row sm:items-center sm:justify-between dark:border-white/10 dark:text-neutral-500">
-          <span>© {year} A1 · jobs.a1appp.com</span>
-          <span className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <T {...HEAD.made} />
-            {/* 14.10.2026 (Александр): ссылка на U24 -- официальную платформу сбора средств
-                Украины. Небольшая «пилюля» с флагом, не баннер: видно, но не отвлекает. Логотип
-                U24 не рисуем -- это чужой знак; флаг и текст говорят то же самое. */}
-            <a
-              href="https://u24.gov.ua/"
-              target="_blank"
-              rel="noopener"
-              className="group inline-flex items-center gap-2 rounded-full bg-white/60 py-1 pl-1.5 pr-3 text-[12.5px] font-medium text-neutral-700 ring-1 ring-black/5 transition hover:bg-white hover:text-neutral-900 dark:bg-white/5 dark:text-neutral-300 dark:ring-white/10 dark:hover:bg-white/10 dark:hover:text-white"
-            >
-              <span aria-hidden="true" className="flex h-4 w-6 flex-col overflow-hidden rounded-[4px] shadow-sm">
+        {/* 14.10.2026 (Александр, пример — подвал traffband.com): «Support / Ukraine» в две строки,
+            второе слово жирным курсивом, рядом флажок вместо сердечка; ведёт на U24 —
+            официальную платформу сбора средств Украины. Логотип U24 не рисуем — чужой знак. */}
+        <div className="mt-12 flex flex-col gap-6 border-t border-black/5 pt-8 sm:flex-row sm:items-end sm:justify-between dark:border-white/10">
+          <a
+            href="https://u24.gov.ua/"
+            target="_blank"
+            rel="noopener"
+            title="u24.gov.ua"
+            className="group inline-flex w-fit flex-col leading-tight text-neutral-800 transition hover:text-accent dark:text-neutral-100 dark:hover:text-accent"
+          >
+            <span className="text-[19px] font-normal">
+              <T {...HEAD.support1} />
+            </span>
+            <span className="mt-0.5 flex items-center gap-2.5 text-[23px] font-bold italic tracking-tight">
+              <T {...HEAD.support2} />
+              <span aria-hidden="true" className="flex h-[18px] w-[26px] flex-col overflow-hidden rounded-[4px] shadow-sm transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-110">
                 <span className="h-1/2 bg-[#0057B7]" />
                 <span className="h-1/2 bg-[#FFD700]" />
               </span>
-              <T {...HEAD.support} />
-              <span className="text-neutral-400 transition group-hover:translate-x-0.5 dark:text-neutral-500">· u24.gov.ua ↗</span>
-            </a>
-          </span>
+            </span>
+          </a>
+          <div className="flex flex-col gap-1 text-[13px] text-neutral-500 sm:items-end dark:text-neutral-500">
+            <span>© {year} A1 · jobs.a1appp.com</span>
+            <span>
+              <T {...HEAD.made} />
+            </span>
+          </div>
         </div>
       </div>
     </footer>
