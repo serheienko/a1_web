@@ -11,6 +11,12 @@ export async function register() {
     fetch(`http://127.0.0.1:${port}/game-map/data?region=ua`).catch(() => {});
   }, 20_000);
 
+  // 14.10.2026 (Александр: «нажимаю на статистику -- пауза, будто баг»). Первый, кто открывал /stats после
+  // деплоя, ждал ~38 с: сервер обходил все вакансии. Прогреваем страницу сами, после карты.
+  setTimeout(() => {
+    fetch(`http://127.0.0.1:${port}/stats`).catch(() => {});
+  }, 45_000);
+
   // 11.10.2026. IndexNow: раз на годину повідомляємо пошуковикам про нові й
   // змінені вакансії (див. app/api/indexnow/route.ts).
   const secret = process.env.A1_REVALIDATE_SECRET;

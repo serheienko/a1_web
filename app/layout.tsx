@@ -12,6 +12,7 @@ import { VoiceNowPlayingBar } from "@/components/chat/voice-now-playing-bar";
 import { MetaPixel } from "@/components/meta-pixel";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteFooterGate } from "@/components/site-footer-gate";
+import { NavProgress } from "@/components/nav-progress";
 
 // Commissioner: the real typeface used in the Figma mockups (confirmed via
 // Inspect on "Feed Preview White", 2026-08-26), not a generic system stack.
@@ -288,6 +289,8 @@ export default function RootLayout({
       >
         <Script id="theme-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <Script id="lang-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: LANG_INIT_SCRIPT }} />
+        {/* 14.10.2026: полоска загрузки вверху при переходах -- components/nav-progress.tsx */}
+        <NavProgress />
         <SiteNav />
         {/* 2026-09-03: cross-page voice-message "now playing" mini-bar --
             mounted globally for the same reason ChatsFab/CreatePostFab
