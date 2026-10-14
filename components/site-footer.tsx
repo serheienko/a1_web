@@ -29,6 +29,7 @@ import type { Locale } from "@/components/t";
 import { T } from "@/components/t";
 import { AppQr } from "@/components/app-qr";
 import { StoreBadges } from "@/components/store-badges";
+import { LottiePlayer } from "@/components/lottie-player";
 
 type Txt = Record<Locale, string>;
 
@@ -213,9 +214,10 @@ export function SiteFooter() {
             </span>
             <span className="mt-0.5 flex items-center gap-2.5 text-[23px] font-bold italic tracking-tight">
               <T {...HEAD.support2} />
-              <span aria-hidden="true" className="flex h-[18px] w-[26px] flex-col overflow-hidden rounded-[4px] shadow-sm transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-110">
-                <span className="h-1/2 bg-[#0057B7]" />
-                <span className="h-1/2 bg-[#FFD700]" />
+              {/* 14.10.2026: живой развевающийся флаг (Lottie из Telegram-набора Александра, public/animations/ua-flag.json),
+                  крутится без остановки. */}
+              <span aria-hidden="true" className="-my-2 inline-flex transition-transform duration-300 group-hover:scale-110">
+                <LottiePlayer src="/animations/ua-flag.json" size={40} placeholder={false} />
               </span>
             </span>
           </a>

@@ -223,7 +223,14 @@ export default async function JobDetailPage({ params }: Props) {
   // 2026-08-30, live-testing feedback ("Berlin, Germany - нужна
   // локализация") -- see components/locale-format.tsx's LocationLabel.
   // 14.10.2026: текст «A1 Summary» для карточки в начале страницы (см. ниже).
-  const snapshotSummary = splitA1Summary(post.contentText).summary;
+  // 14.10.2026 (Александр: «зарплату выносить отдельным тегом -- сразу видно»). Зарплата -- первым
+  // зелёным чипом карточки. Берём поле вакансии; если его нет, а наш пересказ называет зарплату
+  // («Зарплата: 3,000-4,000 USD на місяць.») -- берём оттуда и из текста пересказа это предложение
+  // убираем, чтобы не было дважды.
+  const rawSnapshot = splitA1Summary(post.contentText).summary;
+  const salaryInText = rawSnapshot?.match(/(?:^|\s)(?:Зарплата|Salary|Gehalt|Salario|Salaire|Wynagrodzenie|Salário|薪资)\s*[:：]\s*([^.。]*\d[^.。]*?)(?:[.。](?=\s|$)|$)/u);
+  const snapshotSummary = salaryInText ? rawSnapshot!.replace(salaryInText[0], " ").replace(/\s{2,}/g, " ").trim() : rawSnapshot;
+  const salaryChipText = !post.salary && salaryInText ? (salaryInText[1] ?? "").trim() || null : null;
   const jobLevel = extractLevel(post.title);
 
   const locationLabel = post.location ? (
@@ -392,7 +399,7 @@ export default async function JobDetailPage({ params }: Props) {
           (опыт, английский, отрасль, формат) и стек. Это то, по чему человек за пару секунд решает
           «моё / не моё», и первый уникальный для поиска текст на странице (остальное -- текст источника).
           Раньше Summary стоял в самом низу (01.10.2026), факты и стек -- отдельными строками.
-          Зарплата здесь не повторяется: она уже в строке под компанией, и только та, что в вакансии. */}
+          Зарплата -- первым зелёным чипом (см. salaryChipText выше). */}
       {(snapshotSummary || post.tags.length > 0 || hasAnyFact(facts) || techTags.length > 0) && (
         <section className="mt-6 rounded-2xl border border-accent/20 bg-accent/[0.04] p-4 dark:border-accent/25 dark:bg-accent/[0.07]">
           {snapshotSummary && (
@@ -403,8 +410,13 @@ export default async function JobDetailPage({ params }: Props) {
               </p>
             </>
           )}
-          {(post.tags.length > 0 || hasAnyFact(facts)) && (
+          {(post.tags.length > 0 || hasAnyFact(facts) || post.salary || salaryChipText) && (
             <div className={`${snapshotSummary ? "mt-3.5" : ""} flex flex-wrap gap-1.5`}>
+          {(post.salary || salaryChipText) && (
+            <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300">
+              💰 {post.salary ? <SalaryLabel salary={post.salary} /> : salaryChipText}
+            </span>
+          )}
           {/* 14.10.2026: уровень по заголовку (Junior/Middle/Senior/Lead) -- ссылкой на посадочную уровня. */}
           {jobLevel && (
             <Link
