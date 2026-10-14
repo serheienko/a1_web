@@ -95,7 +95,6 @@ const HEAD = {
   ),
   support1: L("Підтримай", "Support", "Поддержи", { de: "Unterstütze", es: "Apoya a", fr: "Soutenez", pl: "Wesprzyj", ptBR: "Apoie a", zh: "支持" }),
   support2: L("Україну", "Ukraine", "Украину", { de: "die Ukraine", es: "Ucrania", fr: "l'Ukraine", pl: "Ukrainę", ptBR: "Ucrânia", zh: "乌克兰" }),
-  made: L("Зроблено в Україні", "Made in Ukraine", "Сделано в Украине", { de: "Made in Ukraine", es: "Hecho en Ucrania", fr: "Fait en Ukraine", pl: "Zrobione w Ukrainie", ptBR: "Feito na Ucrânia", zh: "乌克兰制造" }),
 };
 
 function Column({ title, items }: { title: Txt; items: Item[] }) {
@@ -215,9 +214,6 @@ export function SiteFooter() {
           </a>
           <div className="flex flex-col gap-1 text-[13px] text-neutral-500 sm:items-end dark:text-neutral-500">
             <span>© {year} A1 · jobs.a1appp.com</span>
-            <span>
-              <T {...HEAD.made} />
-            </span>
           </div>
         </div>
       </div>
