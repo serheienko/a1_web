@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Commissioner } from "next/font/google";
+import { preload } from "react-dom";
 import Script from "next/script";
 import "./globals.css";
 import { SiteNav } from "@/components/site-nav";
@@ -18,12 +18,8 @@ import { NavProgress } from "@/components/nav-progress";
 // Inspect on "Feed Preview White", 2026-08-26), not a generic system stack.
 // Cyrillic coverage was verified before adopting it — the UI is Russian —
 // see the comment block in app/globals.css for the full source note.
-const commissioner = Commissioner({
-  subsets: ["latin", "cyrillic"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-commissioner",
-  display: "swap",
-});
+// 14.10.2026: шрифт теперь свой (public/fonts + @font-face в app/globals.css), не next/font/google:
+// сборка падала, когда Google отвечал сборщику Railway не так, как ждёт next/font.
 
 
 // Anti-flash theme script: next/script's `beforeInteractive` strategy is
@@ -272,8 +268,11 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // основные наборы шрифта (кириллица, латиница) -- грузить сразу, как делал next/font
+  preload("/fonts/commissioner-cyrillic.woff2", { as: "font", type: "font/woff2", crossOrigin: "anonymous" });
+  preload("/fonts/commissioner-latin.woff2", { as: "font", type: "font/woff2", crossOrigin: "anonymous" });
   return (
-    <html lang="uk" className={commissioner.variable + " lang-uk"}>
+    <html lang="uk" className="lang-uk">
       <head>
         <script dangerouslySetInnerHTML={{ __html: INAPP_MAP_SCRIPT }} />
       </head>
