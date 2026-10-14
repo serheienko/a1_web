@@ -13,7 +13,9 @@ export const metadata: Metadata = {
     description: "Завантаж A1, заповни профіль і забери місце серед перших 250.",
     url: "https://jobs.a1appp.com/first250",
     type: "website",
+    images: [{ url: "https://jobs.a1appp.com/first250/og.jpg", width: 1200, height: 675, alt: "Welcome to A1 — First 250" }],
   },
+  twitter: { card: "summary_large_image", images: ["https://jobs.a1appp.com/first250/og.jpg"] },
   // Акционная страница на пару недель -- в поиске ей делать нечего.
   robots: { index: false, follow: true },
 };

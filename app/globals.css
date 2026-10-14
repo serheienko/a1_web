@@ -2422,7 +2422,23 @@ textarea {
   from { transform: translateY(18px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
+/* баннер чуть «дышит», по нему раз в несколько секунд пробегает блик */
+.f250-banner { animation: f250-pop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both, f250-breathe 7s ease-in-out 0.6s infinite; }
+@keyframes f250-breathe {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-6px) scale(1.01); }
+}
+.f250-glint {
+  background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, 0.35) 50%, transparent 65%);
+  background-size: 250% 100%;
+  animation: f250-glint 5.5s ease-in-out 1.2s infinite;
+}
+@keyframes f250-glint {
+  0% { background-position: 150% 0; }
+  45%, 100% { background-position: -100% 0; }
+}
 @media (prefers-reduced-motion: reduce) {
+  .f250-banner, .f250-glint,
   .f250-bg, .f250-title, .f250-bar, .f250-num, .f250-cta, .f250-float, .f250-pop, .f250-step { animation: none; }
   .f250-float { display: none; }
 }

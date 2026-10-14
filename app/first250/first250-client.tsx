@@ -300,17 +300,20 @@ export function First250Client() {
         ))}
       </div>
 
-      <div className="mx-auto max-w-2xl px-4 pb-24 pt-8 sm:pt-12">
+      <div className="mx-auto max-w-3xl px-4 pb-24 pt-8 sm:pt-12">
         {/* шапка */}
         <section className="text-center">
           <span className="inline-flex items-center gap-2 rounded-full border border-white/60 bg-white/70 px-3 py-1 text-xs font-semibold text-accent shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/10 dark:text-sky-300">
             <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" /><span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" /></span>
             {t.badge}
           </span>
-          <div className="f250-pop mx-auto mt-4 w-fit">
-            <LottiePlayer src={claimed ? "/animations/cat-love-u.json" : "/animations/cat-hi.json"} size={168} />
+          {/* 14.10.2026: баннер от Александра (кот A1 + «Welcome to A1 · First 250») */}
+          <div className="f250-pop f250-banner relative mx-auto mt-5 overflow-hidden rounded-[28px] shadow-2xl shadow-indigo-500/25 ring-1 ring-white/60 dark:ring-white/10">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/first250/banner.webp" alt="Welcome to A1 — First 250" width={1672} height={941} className="block h-auto w-full" fetchPriority="high" />
+            <span aria-hidden="true" className="f250-glint pointer-events-none absolute inset-0" />
           </div>
-          <h1 className="f250-title mt-2 text-4xl font-extrabold tracking-tight sm:text-5xl">{t.hello}</h1>
+          <h1 className="f250-title mt-7 text-4xl font-extrabold tracking-tight sm:text-5xl">{t.hello}</h1>
           <p className="mx-auto mt-3 max-w-lg text-[17px] leading-relaxed text-neutral-700 dark:text-neutral-300">{t.sub}</p>
 
           {/* счётчик мест */}
@@ -334,6 +337,11 @@ export function First250Client() {
           </section>
         ) : claimed || late ? (
           <section className="f250-pop mt-10 rounded-3xl border border-white/70 bg-white/85 p-6 text-center shadow-xl shadow-indigo-500/15 backdrop-blur dark:border-white/10 dark:bg-white/[0.07]">
+            {!late ? (
+              <div className="mx-auto -mt-2 mb-1 w-fit">
+                <LottiePlayer src="/animations/cat-love-u.json" size={132} />
+              </div>
+            ) : null}
             <h2 className="text-3xl font-extrabold">{late || !claimed ? t.lateTitle : t.doneTitle(claimed, st?.total ?? 250)}</h2>
             <p className="mx-auto mt-3 max-w-md text-neutral-700 dark:text-neutral-300">{late ? t.lateSub : t.doneSub}</p>
             <div className="mt-7 rounded-2xl bg-gradient-to-br from-indigo-50 to-sky-50 p-5 dark:from-white/[0.04] dark:to-white/[0.02]">
