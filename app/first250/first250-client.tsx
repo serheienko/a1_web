@@ -42,7 +42,7 @@ const TXT = {
     claiming: "Записуємо…",
     hi: (n: string) => (n ? `Привіт, ${n}!` : "Привіт!"),
     doneTitle: (p: number, t: number) => `Ви №${p} з ${t}! 🎉`,
-    doneSub: "Місце ваше. Premium на рік увімкнемо на цьому акаунті, щойно він запуститься (1–2 тижні) — нічого робити не треба.",
+    doneSub: "Місце за вами 💙 Premium на рік увімкнеться на вашому акаунті автоматично, щойно ми його запустимо — це 1–2 тижні. Нічого робити не потрібно.",
     lateTitle: "Ой, ви трохи запізнились 🥲",
     lateSub: "Хтось натиснув на мить раніше. Але ми запамʼятали вас — слідкуйте за новинами в групі.",
     reviewTitle: "Сподобався A1?",
@@ -52,7 +52,7 @@ const TXT = {
     soldTitle: "Усі 250 місць уже розібрали 🥲",
     soldSub: "Дякуємо за інтерес! Завантажуйте A1 — попереду ще багато приємного.",
     err: "Щось пішло не так. Спробуйте ще раз за хвилину.",
-    fine: "Одне місце на один акаунт. Premium вмикаємо, коли він зʼявиться в A1.",
+    fine: "Одне місце — один акаунт. Premium увімкнеться автоматично, щойно зʼявиться в A1.",
   },
   en: {
     badge: "Beta 0.1 · early birds",
@@ -74,7 +74,7 @@ const TXT = {
     claiming: "Saving…",
     hi: (n: string) => (n ? `Hi, ${n}!` : "Hi!"),
     doneTitle: (p: number, t: number) => `You're #${p} of ${t}! 🎉`,
-    doneSub: "The spot is yours. We'll turn on a year of Premium on this account as soon as it launches (1–2 weeks) — nothing else to do.",
+    doneSub: "The spot is yours 💙 A year of Premium will switch on automatically on your account as soon as we launch it — in 1–2 weeks. Nothing else to do.",
     lateTitle: "Oh, just a moment too late 🥲",
     lateSub: "Someone tapped a split second earlier. We remember you though — stay tuned.",
     reviewTitle: "Enjoying A1?",
@@ -84,7 +84,7 @@ const TXT = {
     soldTitle: "All 250 spots are taken 🥲",
     soldSub: "Thanks for your interest! Get A1 anyway — lots more good stuff ahead.",
     err: "Something went wrong. Please try again in a minute.",
-    fine: "One spot per account. Premium is switched on once it's live in A1.",
+    fine: "One spot per account. Premium switches on automatically once it's live in A1.",
   },
 };
 
