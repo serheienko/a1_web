@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 // next page of mapped posts plus the next cursor (PLAN.md §2.3 / Phase 1).
 
 import { NextRequest, NextResponse } from "next/server";
-import { fetchFeedPage, parseFeedFilters } from "@/lib/a1/feed";
+import { fetchAuthorPage, fetchFeedPage, parseFeedFilters } from "@/lib/a1/feed";
 import { generateAvatarBlurDataUrl } from "@/lib/avatar-blur";
 import type { WebPostKind } from "@/types/web-post";
 
@@ -23,9 +23,11 @@ export async function GET(request: NextRequest) {
   // current page has active — the client passes them straight through as
   // the same q/category/tag params the page itself was loaded with.
   const filters = parseFeedFilters(request.nextUrl.searchParams);
+  // 14.10.2026: ?author=<id> -- следующие страницы вкладки «Дописи» в профиле (fetchAuthorPage).
+  const author = request.nextUrl.searchParams.get("author")?.trim() || null;
 
   try {
-    const page = await fetchFeedPage(kindParam as WebPostKind, cursor, filters);
+    const page = author ? await fetchAuthorPage(author, cursor) : await fetchFeedPage(kindParam as WebPostKind, cursor, filters);
 
     // 2026-09-20: ?light=1 -- ответ без размытий аватарок. Их считает sharp,
     // это самая дорогая часть ответа, а телеграм-боту картинки не нужны: он

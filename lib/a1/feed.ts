@@ -594,6 +594,44 @@ export const fetchPostsByAuthor = cache(async function fetchPostsByAuthor(
 });
 
 /**
+ * Посты автора постранично -- для вкладки «Дописи» в профиле.
+ *
+ * 14.10.2026 (Александр: «у компании 30 вакансий, а на странице 12… везде макс 12»). Профиль брал
+ * fetchPostsByAuthor() с лимитом 12 по умолчанию, и счётчик на вкладке считал ровно эти 12. Здесь --
+ * страница из 30 плюс настоящее общее число от бэкенда (expand: "count"), а остальное догружает
+ * components/load-more.tsx через /api/feed?author=… при прокрутке.
+ */
+export const AUTHOR_PAGE_SIZE = 30;
+
+export type AuthorPage = FeedPage & { hiringTotal: number };
+
+export async function fetchAuthorPage(authorId: string, cursor?: string | null): Promise<AuthorPage> {
+  const offset = cursorToOffset(cursor);
+  const raw = await call<unknown>("posts.search", {
+    author: authorId,
+    limit: AUTHOR_PAGE_SIZE,
+    ...(offset > 0 ? { offset } : {}),
+    expand: "count",
+  });
+  const parsed = PostsSearchOutputSchema.safeParse(raw);
+  if (!parsed.success) return { posts: [], next: null, hasMore: false, total: 0, hiringTotal: 0 };
+  const data = parsed.data;
+  const nextOffset = offset + AUTHOR_PAGE_SIZE;
+  const total = data.count?.total ?? offset + data.items.length;
+  const hasMore = data.count ? nextOffset < total : data.items.length === AUTHOR_PAGE_SIZE;
+  return {
+    posts: mapPosts(data.items),
+    next: hasMore ? `${LOCAL_CURSOR_PREFIX}${nextOffset}` : null,
+    hasMore,
+    total,
+    hiringTotal: data.count?.object[KIND_TO_OBJECT.hiring] ?? 0,
+  };
+}
+
+/** Одна страница автора на запрос: generateMetadata и сама страница профиля берут её вместе. */
+export const fetchAuthorFirstPage = cache((authorId: string) => fetchAuthorPage(authorId, null));
+
+/**
  * Next 15 hands RSC pages `searchParams` as a plain
  * `{ [key: string]: string | string[] | undefined }` object, not a real
  * URLSearchParams like a Route Handler gets from `request.nextUrl`. This

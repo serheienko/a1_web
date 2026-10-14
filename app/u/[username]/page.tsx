@@ -26,7 +26,8 @@ import { CachedAvatar } from "@/components/cached-avatar";
 import { fetchUserByUsername, fetchUserRawByUsername } from "@/lib/a1/users";
 import { ClaimCompanyPrompt } from "@/components/claim-company-prompt";
 import { buildEmployerTitle, buildEmployerDescription, buildEmployerJsonLd } from "@/lib/seo/profile-meta";
-import { fetchPostsByAuthor } from "@/lib/a1/feed";
+import { fetchAuthorFirstPage } from "@/lib/a1/feed";
+import { LoadMore } from "@/components/load-more";
 import { PostCard } from "@/components/post-card";
 import { ProfileTabs } from "@/components/profile-tabs";
 import {
@@ -80,8 +81,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   // Оба вызова ниже обёрнуты в cache(), поэтому сама страница ходит за
   // теми же данными бесплатно.
   const rawProfile = await fetchUserRawByUsername(username);
-  const authorPosts = rawProfile?.object === "user" ? await fetchPostsByAuthor(rawProfile._id) : [];
-  const openJobs = authorPosts.filter((post) => post.kind === "hiring").length;
+  // 14.10.2026: первая страница постов + настоящее общее число (раньше -- 12 постов и счёт по ним).
+  const authorPage = rawProfile?.object === "user" ? await fetchAuthorFirstPage(rawProfile._id) : null;
+  const authorPosts = authorPage?.posts ?? [];
+  const openJobs = authorPage?.hiringTotal || authorPosts.filter((post) => post.kind === "hiring").length;
 
   const canonical = `${SITE_URL}${profileHref(profile.username)}`;
 
@@ -320,9 +323,10 @@ export default async function ProfilePage({ params }: Props) {
   // disagree on nothing here since both parse the same response) just
   // get an empty post list.
   const rawProfile = await fetchUserRawByUsername(username);
-  const authorPosts = rawProfile?.object === "user" ? await fetchPostsByAuthor(rawProfile._id) : [];
+  const authorPage = rawProfile?.object === "user" ? await fetchAuthorFirstPage(rawProfile._id) : null;
+  const authorPosts = authorPage?.posts ?? [];
   // Тот же признак работодателя, что и в generateMetadata выше.
-  const openJobs = authorPosts.filter((post) => post.kind === "hiring").length;
+  const openJobs = authorPage?.hiringTotal || authorPosts.filter((post) => post.kind === "hiring").length;
 
   // Real per-avatar blur (lib/avatar-blur.ts) instead of the generic
   // shared shimmer — same fix as components/post-card.tsx's feed
@@ -969,6 +973,10 @@ export default async function ProfilePage({ params }: Props) {
               ownerMenu={{ redirectAfterDeleteTo: profileHref(profile.username) }}
             />
           ))}
+          {/* 14.10.2026: остальные посты догружаются при прокрутке, по 30 (fetchAuthorPage). */}
+          {authorPage?.hasMore && rawProfile?.object === "user" && (
+            <LoadMore kind="hiring" author={rawProfile._id} initialCursor={authorPage.next} initialHasMore={authorPage.hasMore} />
+          )}
         </div>
       ) : (
         <p className="text-sm text-neutral-500 dark:text-neutral-400">
@@ -977,7 +985,7 @@ export default async function ProfilePage({ params }: Props) {
       )}
           </>
         }
-        postsCount={authorPosts.length}
+        postsCount={Math.max(authorPage?.total ?? 0, authorPosts.length)}
         profileUsername={profile.username}
       />
     </main>

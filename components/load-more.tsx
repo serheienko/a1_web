@@ -65,6 +65,7 @@ export function LoadMore({
   query,
   category,
   tags,
+  author,
 }: {
   kind: WebPostKind;
   initialCursor: string | null;
@@ -74,6 +75,8 @@ export function LoadMore({
   query?: string;
   category?: number;
   tags?: string[];
+  /** 14.10.2026: посты одного автора (вкладка «Дописи» в профиле) -- /api/feed?author=. */
+  author?: string;
 }) {
   const [posts, setPosts] = useState<(WebPost & { avatarBlurDataUrl: string | null })[]>([]);
   const [cursor, setCursor] = useState(initialCursor);
@@ -102,6 +105,7 @@ export function LoadMore({
       if (query) params.set("q", query);
       if (category != null) params.set("category", String(category));
       for (const tag of tags ?? []) params.append("tag", tag);
+      if (author) params.set("author", author);
 
       const res = await authFetch(`/api/feed?${params.toString()}`, {
         cache: "no-store",
