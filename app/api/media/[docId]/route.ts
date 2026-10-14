@@ -28,13 +28,53 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { call } from "@/lib/a1/client";
 
+// 14.10.2026 (SEO, Search Console). Раньше маршрут отвечал 302 на подписанную ссылку S3, живущую 120 секунд.
+// Googlebot (логотипы компаний в разметке вакансий, картинки постов) ставит такую ссылку в очередь и
+// приходит позже -- S3 отвечает 403. В Search Console это были 76 страниц «403» и 8% обхода на редиректах.
+// Теперь отдаём сами байты с постоянного адреса /api/media/<doc>?ref=... и кешем на сутки: один запрос
+// вместо двух, и ничего не протухает. Маленький кеш в памяти, чтобы не ходить в бэкенд и S3 за каждым логотипом.
+
 type MediaGetUrlOutput = { downloadUrl: string };
 
 const MEDIA_URL_MAX_ATTEMPTS = 3;
 const MEDIA_URL_RETRY_DELAY_MS = 300;
+const MAX_BYTES = 8 * 1024 * 1024;
+const CACHE_MAX_BYTES = 64 * 1024 * 1024;
+const CACHE_TTL_MS = 60 * 60_000;
+
+type Entry = { body: Uint8Array; type: string; at: number };
+const cache = new Map<string, Entry>();
+let cacheBytes = 0;
+
+function remember(key: string, e: Entry) {
+  if (e.body.byteLength > 2 * 1024 * 1024) return;
+  const old = cache.get(key);
+  if (old) {
+    cacheBytes -= old.body.byteLength;
+    cache.delete(key);
+  }
+  cache.set(key, e);
+  cacheBytes += e.body.byteLength;
+  for (const [k, v] of cache) {
+    if (cacheBytes <= CACHE_MAX_BYTES) break;
+    cache.delete(k);
+    cacheBytes -= v.body.byteLength;
+  }
+}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function respond(e: Entry) {
+  return new NextResponse(new Uint8Array(e.body), {
+    status: 200,
+    headers: {
+      "Content-Type": e.type,
+      "Content-Length": String(e.body.byteLength),
+      "Cache-Control": "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800",
+    },
+  });
 }
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ docId: string }> }) {
@@ -46,16 +86,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ error: "missing ref" }, { status: 400 });
   }
 
-  // trackView/trackUsage are NOT booleans, despite how PLAN.md §2.6 reads
-  // ("Set trackUsage/trackView to false") — confirmed against the live
-  // OpenAPI spec on 2026-08-26: both are optional objects
-  // `{ id: string, type: UInt, at?: timestamp }` used to attribute a
-  // view/usage event to some context. Passing `false` gets a real
-  // validation error ("'trackView' must be of type object"). Since both
-  // are optional and we have no meaningful context to attribute a website
-  // pageview to anyway, omitting them entirely is what actually achieves
-  // "don't pollute in-app analytics" — there's no tracking event without
-  // a tracking context.
+  const key = `${docId}|${size}|${fileReference}`;
+  const hit = cache.get(key);
+  if (hit && Date.now() - hit.at < CACHE_TTL_MS) {
+    cache.delete(key);
+    cache.set(key, hit);
+    return respond(hit);
+  }
+
   let lastErr: unknown;
   for (let attempt = 1; attempt <= MEDIA_URL_MAX_ATTEMPTS; attempt++) {
     try {
@@ -64,31 +102,17 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         fileReference,
         size,
       });
-
-      // 2026-09-03 (Aleksandr, still happening after §6's earlier retry
-      // fix: "Периодически отваливаются аватары все равно"): a SECOND,
-      // independent bug in the same symptom -- confirmed live, not
-      // guessed, by navigating straight to this route in Chrome and
-      // reading where it actually redirects: the real S3 URL carries
-      // `X-Amz-Expires=120` (a 2-MINUTE signature). This route was
-      // telling every cache (browser + any CDN in front of it) to keep
-      // reusing that same redirect for `s-maxage=86400` -- 24 HOURS --
-      // with a 7-day stale-while-revalidate on top. Any cached hit past
-      // the real 2-minute window points at an already-expired,
-      // now-403 S3 URL, which is exactly next/image's unrecoverable
-      // broken-image state -- and a manual reload "fixes" it only when
-      // it happens to bypass whatever cached it. 45s (well under the
-      // observed 120s, no stale-while-revalidate so a cache never serves
-      // a response past its own freshness window) keeps most of the
-      // original caching benefit for a page with several images loading
-      // in the same second, without ever handing out a redirect that
-      // can outlive the URL it points to.
-      return NextResponse.redirect(downloadUrl, {
-        status: 302,
-        headers: {
-          "Cache-Control": "public, max-age=45, s-maxage=45",
-        },
-      });
+      const upstream = await fetch(downloadUrl, { cache: "no-store" });
+      if (!upstream.ok) throw new Error(`upstream ${upstream.status}`);
+      const len = Number(upstream.headers.get("content-length") ?? "0");
+      if (len > MAX_BYTES) {
+        // Большой файл не тащим через себя -- как раньше, редирект.
+        return NextResponse.redirect(downloadUrl, { status: 302, headers: { "Cache-Control": "public, max-age=45, s-maxage=45" } });
+      }
+      const body = new Uint8Array(await upstream.arrayBuffer());
+      const e: Entry = { body, type: upstream.headers.get("content-type") ?? "application/octet-stream", at: Date.now() };
+      remember(key, e);
+      return respond(e);
     } catch (err) {
       lastErr = err;
       if (attempt < MEDIA_URL_MAX_ATTEMPTS) {
