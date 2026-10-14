@@ -46,7 +46,9 @@ import { profileHref } from "@/lib/profile-href";
 import { TagLabel } from "@/components/tag-label";
 import { LocationMap } from "@/components/location-map";
 import { RelatedJobs } from "@/components/related-jobs";
-import { JobContent, JobSummary } from "@/components/job-content";
+import { JobContent } from "@/components/job-content";
+import { guessLang, splitA1Summary } from "@/lib/a1/job-content";
+import { extractLevel } from "@/lib/seo/job-level";
 import { fetchRelatedJobs } from "@/lib/a1/related";
 // 2026-09-19 (Александр: «написано instagram.com, я подумал, что это на
 // основную страницу ведёт»). У импортированных вакансий title ссылки —
@@ -220,6 +222,10 @@ export default async function JobDetailPage({ params }: Props) {
 
   // 2026-08-30, live-testing feedback ("Berlin, Germany - нужна
   // локализация") -- see components/locale-format.tsx's LocationLabel.
+  // 14.10.2026: текст «A1 Summary» для карточки в начале страницы (см. ниже).
+  const snapshotSummary = splitA1Summary(post.contentText).summary;
+  const jobLevel = extractLevel(post.title);
+
   const locationLabel = post.location ? (
     <LocationLabel display={post.location.display} country={post.location.country} worldwideAs={worldwideKind(post)} />
   ) : post.isRemote ? (
@@ -381,11 +387,33 @@ export default async function JobDetailPage({ params }: Props) {
           barely showed up against this page's own light-gray background;
           switched to a solid white pill with a hairline border, matching
           components/post-card.tsx's feed-card tags exactly. */}
-      {(post.tags.length > 0 || hasAnyFact(facts)) && (
-        <div className="mt-6 flex flex-wrap gap-1.5">
-          {/* Сначала факты (опыт, английский, отрасль), потом обычные
-              теги: это то, по чему человек решает «моё / не моё» за две
-              секунды, и место им первое. */}
+      {/* 14.10.2026 (GPT-аудит + Александр: «summary наверх, и чипы, которые сразу рассказывают о
+          вакансии»). «A1 Snapshot»: одна карточка в начале -- наш пересказ в 2–3 предложения, факты
+          (опыт, английский, отрасль, формат) и стек. Это то, по чему человек за пару секунд решает
+          «моё / не моё», и первый уникальный для поиска текст на странице (остальное -- текст источника).
+          Раньше Summary стоял в самом низу (01.10.2026), факты и стек -- отдельными строками.
+          Зарплата здесь не повторяется: она уже в строке под компанией, и только та, что в вакансии. */}
+      {(snapshotSummary || post.tags.length > 0 || hasAnyFact(facts) || techTags.length > 0) && (
+        <section className="mt-6 rounded-2xl border border-accent/20 bg-accent/[0.04] p-4 dark:border-accent/25 dark:bg-accent/[0.07]">
+          {snapshotSummary && (
+            <>
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-accent">A1 Summary</p>
+              <p lang={guessLang(snapshotSummary)} className="text-[15px] leading-relaxed text-neutral-800 dark:text-neutral-200">
+                {snapshotSummary}
+              </p>
+            </>
+          )}
+          {(post.tags.length > 0 || hasAnyFact(facts)) && (
+            <div className={`${snapshotSummary ? "mt-3.5" : ""} flex flex-wrap gap-1.5`}>
+          {/* 14.10.2026: уровень по заголовку (Junior/Middle/Senior/Lead) -- ссылкой на посадочную уровня. */}
+          {jobLevel && (
+            <Link
+              href={`/jobs/level/${jobLevel}`}
+              className="rounded-full border border-neutral-200 bg-white px-2.5 py-0.5 text-xs font-medium capitalize text-neutral-700 transition hover:border-accent/40 hover:text-accent dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
+            >
+              {jobLevel === "lead" ? "Lead" : jobLevel}
+            </Link>
+          )}
           <JobFactPills facts={facts} />
           {post.tags.map((tag) => {
             const pill =
@@ -413,25 +441,14 @@ export default async function JobDetailPage({ params }: Props) {
               </span>
             );
           })}
-        </div>
-      )}
-
-      {/* 2026-09-18. Стек, вытащенный из текста вакансии.
-          Search Console: 118 наших страниц «просканированы, но не
-          проиндексированы» -- Google прочитал копию текста с DOU и решил
-          не брать. Это первая порция СВОЕГО содержимого, которого на
-          источнике нет: человеку видно стек без чтения простыни, а
-          странице достаются свои слова. Логика -- lib/seo/job-tech-tags.ts. */}
-      {techTags.length > 0 && (
-        <section className="mt-6">
-          <h2 className="text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
-            <T uk="Стек" en="Stack" ru="Стек" de="Stack" es="Stack" fr="Stack" pl="Stack" ptBR="Stack" zh="技术栈" />
-          </h2>
-          {/* Ярлык -- ссылка, если под эту технологию есть посадочная
-              (lib/seo/tech-landings.ts). Это не украшение: именно такие
-              ссылки со страниц вакансий и дают роботу маршрут по сайту,
-              которого ему сейчас не хватает. */}
-          <ul className="mt-2 flex flex-wrap gap-1.5">
+            </div>
+          )}
+          {techTags.length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+              <h2 className="text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+                <T uk="Стек" en="Stack" ru="Стек" de="Stack" es="Stack" fr="Stack" pl="Stack" ptBR="Stack" zh="技术栈" />
+              </h2>
+          <ul className="flex flex-wrap gap-1.5">
             {techTags.map((tech) => {
               const href = techLandingHref(tech);
               // Александр, 18.09.2026: «Сделай заливку стеков FFFFFF».
@@ -455,6 +472,8 @@ export default async function JobDetailPage({ params }: Props) {
               );
             })}
           </ul>
+            </div>
+          )}
         </section>
       )}
 
@@ -522,8 +541,6 @@ export default async function JobDetailPage({ params }: Props) {
           </ul>
         </div>
       )}
-
-      <JobSummary text={post.contentText} />
 
       <JobMarketStats stats={marketStats} />
 
