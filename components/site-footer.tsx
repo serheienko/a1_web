@@ -59,7 +59,6 @@ const EXPLORE: Item[] = [
 const ABOUT: Item[] = [
   { href: "/download", label: L("Завантажити додаток", "Get the app", "Скачать приложение", { de: "App holen", es: "Descargar la app", fr: "Télécharger l'app", pl: "Pobierz aplikację", ptBR: "Baixar o app", zh: "下载应用" }) },
   { href: "https://t.me/a1jobs_bot", external: true, label: L("Telegram-бот вакансій", "Telegram job bot", "Telegram-бот вакансий", { de: "Telegram-Jobbot", es: "Bot de empleos en Telegram", fr: "Bot d'offres Telegram", pl: "Bot ofert w Telegramie", ptBR: "Bot de vagas no Telegram", zh: "Telegram 职位机器人" }) },
-  { href: "/compare", label: L("A1, Djinni чи DOU", "A1 vs Djinni vs DOU", "A1, Djinni или DOU", { de: "A1 vs. Djinni vs. DOU", es: "A1 vs Djinni vs DOU", fr: "A1, Djinni ou DOU", pl: "A1, Djinni czy DOU", ptBR: "A1, Djinni ou DOU", zh: "A1、Djinni 还是 DOU" }) },
   { href: "/terms", label: L("Умови використання", "Terms of use", "Условия использования", { de: "Nutzungsbedingungen", es: "Condiciones de uso", fr: "Conditions d'utilisation", pl: "Regulamin", ptBR: "Termos de uso", zh: "使用条款" }) },
 ];
 
