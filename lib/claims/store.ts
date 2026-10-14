@@ -10,19 +10,17 @@
 // шести компаний из десяти, значит у остальных правилу не на что опереться, и
 // без человека они свой профиль не получат никогда.
 //
-// Такие заявки складываются сюда, в Vercel Blob (один файл a1/claims/
-// requests.json -- их единицы, не тысячи), и разбираются на /admin/claims.
-//
-// Секретов здесь нет (репозиторий публичный): токен -- BLOB_READ_WRITE_TOKEN.
+// Такие заявки складываются сюда (одна запись a1/claims/requests.json -- их
+// единицы, не тысячи) и разбираются на /admin/claims. Хранилище -- база на
+// Railway (lib/kv/store.ts); до 14.10.2026 было Vercel Blob.
 
 if (typeof window !== "undefined") {
   throw new Error("[lib/claims/store] imported from the browser — server-only");
 }
 
 import { randomUUID } from "node:crypto";
+import { kvConfigured, kvGetJson, kvPutJson } from "@/lib/kv/store";
 
-const BLOB_API = "https://vercel.com/api/blob";
-const BLOB_API_VERSION = "12";
 const PATH = "a1/claims/requests.json";
 
 export type ClaimTarget = { kind: "post"; postId: string } | { kind: "username"; username: string };
@@ -49,84 +47,23 @@ type File = { v: 1; rows: ClaimRequestRow[] };
 /** Больше не храним: старые разобранные заявки обрезаются при записи. */
 const MAX_ROWS = 500;
 
-function token(): string {
-  return (process.env.BLOB_READ_WRITE_TOKEN ?? "").trim();
-}
-
-function storeIdFrom(tok: string): string {
-  const parts = tok.split("_");
-  const raw = parts.length > 3 ? (parts[3] ?? "") : "";
-  return raw.startsWith("store_") ? raw.slice("store_".length) : raw;
-}
-
-function headers(tok: string): Record<string, string> {
-  return {
-    authorization: `Bearer ${tok}`,
-    "x-api-version": BLOB_API_VERSION,
-    "x-vercel-blob-store-id": storeIdFrom(tok),
-  };
-}
-
-function localFile(): string | null {
-  return process.env.NODE_ENV !== "production" ? (process.env.CLAIMS_LOCAL_FILE ?? null) : null;
-}
-
 /** null -- хранилище не ответило (не то же самое, что «заявок нет»). */
 export async function loadClaims(): Promise<ClaimRequestRow[] | null> {
-  const local = localFile();
-  if (local) {
-    const fs = await import("node:fs/promises");
-    try {
-      return (JSON.parse(await fs.readFile(local, "utf8")) as File).rows;
-    } catch {
-      return [];
-    }
-  }
-  const tok = token();
-  if (!tok) return null;
+  if (!kvConfigured()) return null;
   try {
-    const qs = new URLSearchParams({ prefix: PATH, limit: "5" });
-    const res = await fetch(`${BLOB_API}?${qs.toString()}`, { headers: headers(tok), cache: "no-store" });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { blobs?: { pathname?: string; url?: string; downloadUrl?: string }[] };
-    const row = (data.blobs ?? []).find((b) => b.pathname === PATH);
-    if (!row) return [];
-    const url = row.downloadUrl ?? row.url;
-    if (!url) return null;
-    const file = await fetch(url, { headers: { authorization: `Bearer ${tok}` }, cache: "no-store" });
-    if (!file.ok) return null;
-    const json = (await file.json()) as File;
-    return json && json.v === 1 && Array.isArray(json.rows) ? json.rows : null;
+    const json = await kvGetJson<File>(PATH);
+    if (!json) return [];
+    return json.v === 1 && Array.isArray(json.rows) ? json.rows : null;
   } catch {
     return null;
   }
 }
 
 async function save(rows: ClaimRequestRow[]): Promise<boolean> {
-  const body = JSON.stringify({ v: 1, rows: rows.slice(-MAX_ROWS) } satisfies File);
-  const local = localFile();
-  if (local) {
-    const fs = await import("node:fs/promises");
-    await fs.writeFile(local, body);
-    return true;
-  }
-  const tok = token();
-  if (!tok) return false;
+  if (!kvConfigured()) return false;
   try {
-    const res = await fetch(`${BLOB_API}/?pathname=${encodeURIComponent(PATH)}`, {
-      method: "PUT",
-      body,
-      headers: {
-        ...headers(tok),
-        "x-vercel-blob-access": "private",
-        "x-allow-overwrite": "1",
-        "x-add-random-suffix": "0",
-        "x-content-type": "application/json",
-        "content-type": "application/json",
-      },
-      cache: "no-store",
-    });
-    return res.ok;
+    await kvPutJson(PATH, { v: 1, rows: rows.slice(-MAX_ROWS) } satisfies File);
+    return true;
   } catch {
     return false;
   }

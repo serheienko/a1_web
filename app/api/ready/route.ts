@@ -15,6 +15,8 @@
 // модулі app/game-map/data/route.ts, і так він гріється саме той.
 import { warmSegmentIndex } from "@/lib/a1/segment-index";
 import { warmTechIndex } from "@/lib/a1/tech-index";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { syncFromBlob } from "@/lib/kv/from-blob";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +24,24 @@ let ready = false;
 
 export async function GET() {
   if (!ready) {
+    // 14.10.2026: переезд хранилища с Vercel Blob на базу Railway (lib/kv/from-blob.ts). Пока на сервере
+    // есть токен Blob, новая версия сначала докопирует то, что успела записать старая, и только потом
+    // примет людей -- иначе «Перші 250», новости, события на минуту показали бы пустоту.
+    try {
+      await Promise.race([syncFromBlob(), new Promise((r) => setTimeout(r, 120_000))]);
+    } catch {
+      // не тримаємо деплой
+    }
+    // Новости и события при сборке собраны без базы (её во время сборки не видно) -- сбрасываем их кеш,
+    // первый же заход соберёт страницы из базы.
+    try {
+      revalidateTag("news");
+      revalidateTag("events");
+      revalidatePath("/news", "layout");
+      revalidatePath("/events", "layout");
+    } catch {
+      // не тримаємо деплой
+    }
     const port = process.env.PORT || "3000";
     try {
       const r = await fetch(`http://127.0.0.1:${port}/game-map/data?region=ua`, { cache: "no-store" });

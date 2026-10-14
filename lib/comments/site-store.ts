@@ -3,17 +3,16 @@
 // 11.10.2026 (Александр: «комменты под новостями и событиями, UI как под
 // постами»). Комментарии к новостям и событиям живут у нас, а не в бэкенде
 // приложения: у новости нет «поста» в бэкенде, а заводить служебные посты --
-// значит лезть в ядро и рисковать лентой. Хранилище -- Vercel Blob, по
-// файлу на страницу: a1/comments/<news|event>/<slug>.json. Тот же приём, что
-// у новостей (lib/news/dynamic-store.ts). Секретов здесь нет, токен берётся из
-// BLOB_READ_WRITE_TOKEN на сервере.
+// значит лезть в ядро и рисковать лентой. По записи на страницу:
+// a1/comments/<news|event>/<slug>.json. 14.10.2026: хранилище -- база на Railway
+// (lib/kv/store.ts), раньше было Vercel Blob.
 
 if (typeof window !== "undefined") {
   throw new Error("[lib/comments/site-store] imported from the browser — server-only");
 }
 
-const BLOB_API = "https://vercel.com/api/blob";
-const BLOB_API_VERSION = "12";
+import { kvConfigured, kvGetJson, kvPutJson } from "@/lib/kv/store";
+
 const PREFIX = "a1/comments/";
 
 export type SiteKind = "news" | "event";
@@ -50,62 +49,19 @@ export function parseKey(raw: string): { kind: SiteKind; slug: string } | null {
   return { kind, slug };
 }
 
-function token(): string {
-  return (process.env.BLOB_READ_WRITE_TOKEN ?? "").trim();
-}
-
-function storeIdFrom(tok: string): string {
-  const parts = tok.split("_");
-  const raw = parts.length > 3 ? (parts[3] ?? "") : "";
-  return raw.startsWith("store_") ? raw.slice("store_".length) : raw;
-}
-
-function headers(tok: string): Record<string, string> {
-  return {
-    authorization: `Bearer ${tok}`,
-    "x-api-version": BLOB_API_VERSION,
-    "x-vercel-blob-store-id": storeIdFrom(tok),
-  };
-}
-
 function pathOf(kind: SiteKind, slug: string): string {
   return `${PREFIX}${kind}/${slug}.json`;
-}
-
-// Только для проверки на своей машине (never в проде): файлы вместо Blob.
-function localDir(): string | null {
-  return process.env.NODE_ENV !== "production" ? (process.env.SITE_COMMENTS_LOCAL_DIR ?? null) : null;
 }
 
 const EMPTY = (): SiteThread => ({ v: 1, nextId: 1, items: [] });
 
 /** null -- хранилище не ответило (не путать с «комментариев нет»). */
 export async function readThread(kind: SiteKind, slug: string): Promise<SiteThread | null> {
-  const dir = localDir();
-  if (dir) {
-    const fs = await import("node:fs/promises");
-    try {
-      return JSON.parse(await fs.readFile(`${dir}/${kind}-${slug}.json`, "utf8")) as SiteThread;
-    } catch {
-      return EMPTY();
-    }
-  }
-  const tok = token();
-  if (!tok) return null;
-  const pathname = pathOf(kind, slug);
+  if (!kvConfigured()) return null;
   try {
-    const qs = new URLSearchParams({ prefix: pathname, limit: "5" });
-    const res = await fetch(`${BLOB_API}?${qs.toString()}`, { headers: headers(tok), cache: "no-store" });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { blobs?: { pathname?: string; url?: string; downloadUrl?: string }[] };
-    const row = (data.blobs ?? []).find((b) => b.pathname === pathname);
-    if (!row) return EMPTY();
-    const url = row.downloadUrl ?? row.url;
-    if (!url) return null;
-    const file = await fetch(url, { headers: { authorization: `Bearer ${tok}` }, cache: "no-store" });
-    if (!file.ok) return null;
-    const json = (await file.json()) as SiteThread;
-    if (!json || json.v !== 1 || !Array.isArray(json.items)) return null;
+    const json = await kvGetJson<SiteThread>(pathOf(kind, slug));
+    if (!json) return EMPTY();
+    if (json.v !== 1 || !Array.isArray(json.items)) return null;
     return json;
   } catch {
     return null;
@@ -113,30 +69,10 @@ export async function readThread(kind: SiteKind, slug: string): Promise<SiteThre
 }
 
 async function writeThread(kind: SiteKind, slug: string, thread: SiteThread): Promise<boolean> {
-  const dir = localDir();
-  if (dir) {
-    const fs = await import("node:fs/promises");
-    await fs.mkdir(dir, { recursive: true });
-    await fs.writeFile(`${dir}/${kind}-${slug}.json`, JSON.stringify(thread));
-    return true;
-  }
-  const tok = token();
-  if (!tok) return false;
+  if (!kvConfigured()) return false;
   try {
-    const res = await fetch(`${BLOB_API}/?pathname=${encodeURIComponent(pathOf(kind, slug))}`, {
-      method: "PUT",
-      body: JSON.stringify(thread),
-      headers: {
-        ...headers(tok),
-        "x-vercel-blob-access": "private",
-        "x-allow-overwrite": "1",
-        "x-add-random-suffix": "0",
-        "x-content-type": "application/json",
-        "content-type": "application/json",
-      },
-      cache: "no-store",
-    });
-    return res.ok;
+    await kvPutJson(pathOf(kind, slug), thread);
+    return true;
   } catch {
     return false;
   }

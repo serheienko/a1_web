@@ -26,4 +26,13 @@ export async function register() {
     setTimeout(ping, 10 * 60_000);
     setInterval(ping, 60 * 60_000).unref?.();
   }
+
+  // 14.10.2026: переезд хранилища с Vercel Blob на базу Railway. Пока на сервере есть BLOB_READ_WRITE_TOKEN,
+  // раз в полчаса докопировываем из Blob то, что там новее (парсер DOU, пока не обновлён, пишет туда
+  // аккаунты компаний). Убрали токен -- перенос выключается сам.
+  // Импорт строго внутри проверки NEXT_RUNTIME === "nodejs": так сборщик не тащит базу в edge-сборку.
+  if (process.env.NEXT_RUNTIME === "nodejs" && process.env.BLOB_READ_WRITE_TOKEN && process.env.KV_DATABASE_URL) {
+    const { syncFromBlob } = await import("./lib/kv/from-blob");
+    setInterval(() => void syncFromBlob().catch(() => {}), 30 * 60_000).unref?.();
+  }
 }

@@ -19,16 +19,15 @@
 // В память пишем сразу, в хранилище -- пачкой раз в FLUSH_MS. Клик не
 // ждёт сети, а при перезапуске теряется самое большее эта пачка.
 //
-// Секретов здесь нет (репозиторий публичный): токен -- BLOB_READ_WRITE_TOKEN.
+// 14.10.2026: хранилище -- база на Railway (lib/kv/store.ts), раньше Vercel Blob.
 
 if (typeof window !== "undefined") {
   throw new Error("[lib/stats/store] imported from the browser — server-only");
 }
 
 import { randomUUID } from "node:crypto";
+import { kvConfigured, kvGet, kvGetMany, kvPut } from "@/lib/kv/store";
 
-const BLOB_API = "https://vercel.com/api/blob";
-const BLOB_API_VERSION = "12";
 const PREFIX = "a1/stats/";
 
 /** Что считаем. Добавлять новые можно свободно -- старые файлы не ломаются. */
@@ -49,30 +48,6 @@ export type StatFile = {
 /** Сколько разных строк держим за день на инстанс: дальше только доращиваем уже известные. */
 const MAX_ROWS = 20000;
 const FLUSH_MS = 15_000;
-
-function token(): string {
-  return (process.env.BLOB_READ_WRITE_TOKEN ?? "").trim();
-}
-
-function storeIdFrom(tok: string): string {
-  const parts = tok.split("_");
-  const raw = parts.length > 3 ? (parts[3] ?? "") : "";
-  return raw.startsWith("store_") ? raw.slice("store_".length) : raw;
-}
-
-function headers(tok: string): Record<string, string> {
-  return {
-    authorization: `Bearer ${tok}`,
-    "x-api-version": BLOB_API_VERSION,
-    "x-vercel-blob-store-id": storeIdFrom(tok),
-  };
-}
-
-// Проверка на своей машине: вместо хранилища -- файлы в папке. В проде
-// переменная не читается.
-function localDir(): string | null {
-  return process.env.NODE_ENV !== "production" ? (process.env.STATS_LOCAL_DIR ?? null) : null;
-}
 
 export function dayOf(date: Date = new Date()): string {
   return date.toISOString().slice(0, 10);
@@ -133,8 +108,7 @@ export function bump(k: StatKey, by = 1): void {
 /** Сбрасывает накопленное в хранилище. Ошибки не бросает: статистика не важнее страницы. */
 export async function flush(): Promise<void> {
   if (flushing || pending.size === 0) return;
-  const tok = token();
-  if (!tok && !localDir()) {
+  if (!kvConfigured()) {
     pending.clear();
     return;
   }
@@ -148,12 +122,12 @@ export async function flush(): Promise<void> {
       // пережил перезапуск процесса в рамках того же дня.
       let base = written.get(day);
       if (!base) {
-        base = (await readOwnFile(tok, day))?.rows ?? {};
+        base = (await readOwnFile(day))?.rows ?? {};
       }
       for (const [key, add] of bucket) base[key] = (base[key] ?? 0) + add;
 
       const file: StatFile = { v: 1, day, instance: INSTANCE, updatedAt: new Date().toISOString(), rows: base };
-      const ok = await put(tok, `${PREFIX}${day}/${INSTANCE}.json`, JSON.stringify(file));
+      const ok = await put(`${PREFIX}${day}/${INSTANCE}.json`, JSON.stringify(file));
       if (ok) {
         written.set(day, base);
       } else {
@@ -170,83 +144,31 @@ export async function flush(): Promise<void> {
   }
 }
 
-async function put(tok: string, pathname: string, body: string): Promise<boolean> {
-  const dir = localDir();
-  if (dir) {
-    const fs = await import("node:fs/promises");
-    await fs.mkdir(dir, { recursive: true });
-    await fs.writeFile(`${dir}/${pathname.replaceAll("/", "_")}`, body);
-    return true;
-  }
+async function put(pathname: string, body: string): Promise<boolean> {
   try {
-    const res = await fetch(`${BLOB_API}/?pathname=${encodeURIComponent(pathname)}`, {
-      method: "PUT",
-      body,
-      headers: {
-        ...headers(tok),
-        "x-vercel-blob-access": "private",
-        "x-allow-overwrite": "1",
-        "x-add-random-suffix": "0",
-        "x-content-type": "application/json",
-        "content-type": "application/json",
-      },
-      cache: "no-store",
-    });
-    return res.ok;
+    await kvPut(pathname, body);
+    return true;
   } catch {
     return false;
   }
 }
 
-type BlobRow = { pathname?: string; url?: string; downloadUrl?: string };
-
-async function listDay(tok: string, day: string): Promise<BlobRow[]> {
-  const dir = localDir();
-  if (dir) {
-    const fs = await import("node:fs/promises");
-    const names = await fs.readdir(dir).catch(() => [] as string[]);
-    const want = `${PREFIX}${day}/`.replaceAll("/", "_");
-    return names.filter((n) => n.startsWith(want)).map((n) => ({ pathname: n.replaceAll("_", "/"), url: `file://${dir}/${n}` }));
-  }
-  const qs = new URLSearchParams({ prefix: `${PREFIX}${day}/`, limit: "100" });
+function parseFile(body: Buffer | null): StatFile | null {
+  if (!body) return null;
   try {
-    const res = await fetch(`${BLOB_API}?${qs.toString()}`, { headers: headers(tok), cache: "no-store" });
-    if (!res.ok) return [];
-    const data = (await res.json()) as { blobs?: BlobRow[] };
-    return data.blobs ?? [];
-  } catch {
-    return [];
-  }
-}
-
-async function readFile(tok: string, url: string): Promise<StatFile | null> {
-  if (url.startsWith("file://")) {
-    const fs = await import("node:fs/promises");
-    try {
-      return JSON.parse(await fs.readFile(url.slice("file://".length), "utf8")) as StatFile;
-    } catch {
-      return null;
-    }
-  }
-  try {
-    const res = await fetch(url, { headers: { authorization: `Bearer ${tok}` }, cache: "no-store" });
-    if (!res.ok) return null;
-    const json = (await res.json()) as StatFile;
+    const json = JSON.parse(body.toString("utf8")) as StatFile;
     return json && json.v === 1 && json.rows ? json : null;
   } catch {
     return null;
   }
 }
 
-async function readOwnFile(tok: string, day: string): Promise<StatFile | null> {
-  const want = `${PREFIX}${day}/${INSTANCE}.json`;
-  if (localDir()) {
-    const row = (await listDay(tok, day)).find((b) => b.pathname === want);
-    return row?.url ? readFile(tok, row.url) : null;
+async function readOwnFile(day: string): Promise<StatFile | null> {
+  try {
+    return parseFile(await kvGet(`${PREFIX}${day}/${INSTANCE}.json`));
+  } catch {
+    return null;
   }
-  const row = (await listDay(tok, day)).find((b) => b.pathname === want);
-  const url = row?.downloadUrl ?? row?.url;
-  return url ? readFile(tok, url) : null;
 }
 
 // ------------------------------------------------------------------ чтение
@@ -268,29 +190,28 @@ function emptyTotals(): StatTotals {
  * Читает по файлу на инстанс на день (единицы файлов), поэтому быстро.
  */
 export async function loadStats(days: number): Promise<{ ok: boolean; from: string; companies: CompanyStats[]; totals: StatTotals }> {
-  const tok = token();
   const wanted = recentDays(Math.max(1, Math.min(days, 90)));
   const from = wanted[wanted.length - 1]!;
-  if (!tok && !localDir()) return { ok: false, from, companies: [], totals: emptyTotals() };
+  if (!kvConfigured()) return { ok: false, from, companies: [], totals: emptyTotals() };
 
   // Своё ещё не сброшенное тоже показываем -- иначе свежий клик «пропадает»
   // на пятнадцать секунд и выглядит как поломка.
   await flush();
 
   const files: StatFile[] = [];
-  await Promise.all(
-    wanted.map(async (day) => {
-      const rows = await listDay(tok, day);
-      await Promise.all(
-        rows.map(async (b) => {
-          const url = b.downloadUrl ?? b.url;
-          if (!url || !b.pathname?.endsWith(".json")) return;
-          const file = await readFile(tok, url);
+  try {
+    await Promise.all(
+      wanted.map(async (day) => {
+        for (const row of await kvGetMany(`${PREFIX}${day}/`)) {
+          if (!row.path.endsWith(".json")) continue;
+          const file = parseFile(row.body);
           if (file) files.push(file);
-        }),
-      );
-    }),
-  );
+        }
+      }),
+    );
+  } catch {
+    return { ok: false, from, companies: [], totals: emptyTotals() };
+  }
 
   const byCompany = new Map<string, { totals: StatTotals; posts: Map<string, StatTotals> }>();
   const totals = emptyTotals();

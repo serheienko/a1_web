@@ -7,7 +7,9 @@
 // TECHNICAL_ACCOUNTS_JSON не попадают -- она статична и обновляется
 // руками. Их аккаунты лежали только на диске Railway, поэтому в админке
 // таких компаний не было вовсе. Теперь парсер выкладывает их в общий
-// шкафчик (хранилище Vercel Blob), а этот файл его читает.
+// шкафчик, а этот файл его читает. 14.10.2026: шкафчик -- база на Railway
+// (lib/kv/store.ts), парсер присылает файл через app/api/admin/cloud-accounts;
+// раньше это был Vercel Blob.
 //
 // Формат файла задаёт парсер, accounts_store.py:
 //
@@ -28,6 +30,7 @@
 
 import { createDecipheriv, createHash } from "node:crypto";
 import { z } from "zod";
+import { kvConfigured, kvGet, kvPut } from "@/lib/kv/store";
 
 if (typeof window !== "undefined") {
   throw new Error("[lib/a1/cloud-accounts] imported from the browser — this must stay server-only");
@@ -54,51 +57,6 @@ export type CloudAccount = z.infer<typeof CloudAccountSchema>;
 let cached: { at: number; rows: CloudAccount[] } | null = null;
 let loading: Promise<CloudAccount[]> | null = null;
 
-// 20.09.2026, ВТОРОЙ ЗАХОД. Первая версия ходила на
-// blob.vercel-storage.com -- этот адрес больше не отвечает на такие
-// запросы («Cannot get store id from token or header»). Настоящий
-// адрес API, версия и заголовок с номером хранилища взяты из
-// исходников официальной библиотеки @vercel/blob
-// (packages/blob/src/{helpers,api,list}.ts). Парсер пишет в тот же
-// адрес -- accounts_store.py, держим их в согласии.
-const BLOB_API = "https://vercel.com/api/blob";
-const BLOB_API_VERSION = "12";
-
-/** Номер хранилища зашит в сам токен: vercel_blob_rw_<номер>_<случайное>. */
-function storeIdFrom(token: string): string {
-  const parts = token.split("_");
-  const raw = parts.length > 3 ? (parts[3] ?? "") : "";
-  return raw.startsWith("store_") ? raw.slice("store_".length) : raw;
-}
-
-function apiHeaders(token: string): Record<string, string> {
-  return {
-    authorization: `Bearer ${token}`,
-    "x-api-version": BLOB_API_VERSION,
-    "x-vercel-blob-store-id": storeIdFrom(token),
-  };
-}
-
-async function findBlobUrl(token: string, pathname: string = BLOB_PATHNAME): Promise<string | null> {
-  const qs = new URLSearchParams({ prefix: pathname, limit: "10" });
-  try {
-    const res = await fetch(`${BLOB_API}?${qs.toString()}`, {
-      headers: apiHeaders(token),
-      cache: "no-store",
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as {
-      blobs?: Array<{ pathname?: string; url?: string; downloadUrl?: string }>;
-    };
-    const list = data.blobs ?? [];
-    const hit = list.find((b) => b.pathname === pathname) ?? (pathname === BLOB_PATHNAME ? list[0] : undefined);
-    // downloadUrl отдаёт файл как вложение -- нам всё равно, читаем байты.
-    return hit?.downloadUrl ?? hit?.url ?? null;
-  } catch {
-    return null;
-  }
-}
-
 function decrypt(payload: Buffer, secret: string): string | null {
   if (payload.length < MAGIC.length + 12 + 16) return null;
   if (payload.subarray(0, MAGIC.length).toString("utf8") !== MAGIC) return null;
@@ -119,36 +77,38 @@ function decrypt(payload: Buffer, secret: string): string | null {
   }
 }
 
-async function loadOne(token: string, secret: string, pathname: string): Promise<CloudAccount[]> {
-  const url = await findBlobUrl(token, pathname);
-  if (!url) return [];
-
-  const res = await fetch(url, {
-    headers: { authorization: `Bearer ${token}` },
-    cache: "no-store",
-  });
-  if (!res.ok) return [];
-
-  const json = decrypt(Buffer.from(await res.arrayBuffer()), secret);
+async function loadOne(secret: string, pathname: string): Promise<CloudAccount[]> {
+  const payload = await kvGet(pathname);
+  if (!payload) return [];
+  const json = decrypt(payload, secret);
   if (!json) return [];
-
   const parsed = z.array(CloudAccountSchema).safeParse(JSON.parse(json));
   return parsed.success ? parsed.data : [];
 }
 
 async function load(): Promise<CloudAccount[]> {
-  const token = (process.env.BLOB_READ_WRITE_TOKEN ?? "").trim();
   const secret = (process.env.A1_ACCOUNTS_SECRET ?? "").trim();
-  if (!token || !secret) return [];
+  if (!kvConfigured() || !secret) return [];
 
   // Каждый файл отдельно: битый или отсутствующий дополнительный файл
   // не должен прятать основной список парсера.
   const lists = await Promise.all(
-    [BLOB_PATHNAME, ...EXTRA_PATHNAMES].map((p) => loadOne(token, secret, p).catch(() => [] as CloudAccount[])),
+    [BLOB_PATHNAME, ...EXTRA_PATHNAMES].map((p) => loadOne(secret, p).catch(() => [] as CloudAccount[])),
   );
   const byEmail = new Map<string, CloudAccount>();
   for (const rows of lists) for (const row of rows) if (!byEmail.has(row.email)) byEmail.set(row.email, row);
   return Array.from(byEmail.values());
+}
+
+/** Парсер (accounts_store.py) присылает зашифрованный файл сюда: app/api/admin/cloud-accounts. */
+export const CLOUD_ACCOUNT_PATHS = [BLOB_PATHNAME, ...EXTRA_PATHNAMES];
+
+export async function saveCloudAccountsFile(pathname: string, payload: Buffer): Promise<boolean> {
+  if (!CLOUD_ACCOUNT_PATHS.includes(pathname) || !kvConfigured()) return false;
+  if (payload.subarray(0, MAGIC.length).toString("utf8") !== MAGIC) return false;
+  await kvPut(pathname, payload);
+  cached = null;
+  return true;
 }
 
 /** Аккаунты компаний, заведённых парсером в облаке. Пустой список --
@@ -172,7 +132,7 @@ export async function fetchCloudAccounts(): Promise<CloudAccount[]> {
 
 /** Для диагностики: сколько и когда. Паролей и почт не отдаёт. */
 export async function describeCloudAccounts(): Promise<Record<string, unknown>> {
-  const configured = Boolean(process.env.BLOB_READ_WRITE_TOKEN && process.env.A1_ACCOUNTS_SECRET);
+  const configured = Boolean(kvConfigured() && process.env.A1_ACCOUNTS_SECRET);
   const rows = configured ? await fetchCloudAccounts() : [];
   return { configured, count: rows.length, cachedAt: cached?.at ?? null };
 }
