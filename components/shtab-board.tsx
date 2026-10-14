@@ -29,6 +29,7 @@ import { ShtabMap, type MapData } from "@/components/shtab-map";
 import { ShtabRefresh } from "@/components/shtab-refresh";
 import { ShtabClock, type ClockRun, type ClockTick } from "@/components/shtab-clock";
 import { ShtabMetrics } from "@/components/shtab-metrics";
+import { ShtabScout } from "@/components/shtab-scout";
 
 const LIGHT = "--bg:#f3f4f0;--panel:#ffffff;--line:#0000001f;--mut:#566057;--txt:#14181c;--dim:#697269;--soft:#38403a;--ava:#eceee8;--edge:#0000002e;--grid:#0000000a;--row:#0000001a;--eye:#a8700a;--ring:#0000001a;--tick:#00000066;--hand:#d08a00;--shadow:0 1px 2px #0000000f";
 const DARK = "--bg:#0f1216;--panel:#171b21;--line:#ffffff1f;--mut:#9aa39a;--txt:#e8ebe4;--dim:#8b948b;--soft:#c4cbc2;--ava:#1d2229;--edge:#ffffff22;--grid:#ffffff08;--row:#ffffff10;--eye:#e8b43c;--ring:#ffffff12;--tick:#ffffff55;--hand:#e8b43c;--shadow:none";
@@ -357,6 +358,9 @@ export async function ShtabBoard() {
 
         {/* 14.10.2026: окно с главными цифрами сайта -- components/shtab-metrics.tsx */}
         <ShtabMetrics />
+
+        {/* 14.10.2026: недельный отчёт Разведчика -- components/shtab-scout.tsx */}
+        <ShtabScout />
 
         {!workingStep || !working.length ? (
         <div className="sh-now">
