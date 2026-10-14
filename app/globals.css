@@ -2313,3 +2313,21 @@ textarea {
     animation: none;
   }
 }
+
+/* 14.10.2026: верхняя линия подвала (components/site-footer.tsx) -- цвет медленно и мягко
+   перетекает туда-сюда: фирменный синий -> фиолетовый -> голубой. Края гаснут в прозрачность. */
+.footer-flow {
+  background-image: linear-gradient(90deg, #335ef7, #8b5cf6, #22d3ee, #8b5cf6, #335ef7);
+  background-size: 300% 100%;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent);
+  opacity: 0.75;
+  animation: footer-flow 14s ease-in-out infinite alternate;
+}
+@keyframes footer-flow {
+  from { background-position: 0% 50%; }
+  to { background-position: 100% 50%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .footer-flow { animation: none; }
+}

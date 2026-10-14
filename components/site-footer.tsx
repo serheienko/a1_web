@@ -93,6 +93,7 @@ const HEAD = {
       zh: "用手机相机扫码，自动打开对应应用商店",
     },
   ),
+  support: L("Підтримати Україну", "Support Ukraine", "Поддержать Украину", { de: "Ukraine unterstützen", es: "Apoya a Ucrania", fr: "Soutenir l'Ukraine", pl: "Wesprzyj Ukrainę", ptBR: "Apoie a Ucrânia", zh: "支持乌克兰" }),
   made: L("Зроблено в Україні", "Made in Ukraine", "Сделано в Украине", { de: "Made in Ukraine", es: "Hecho en Ucrania", fr: "Fait en Ukraine", pl: "Zrobione w Ukrainie", ptBR: "Feito na Ucrânia", zh: "乌克兰制造" }),
 };
 
@@ -130,11 +131,10 @@ export function SiteFooter() {
   const year = new Date().getFullYear();
   return (
     <footer className="relative isolate mt-16 overflow-hidden border-t border-transparent">
-      {/* градиентная линия сверху */}
-      <div
-        aria-hidden="true"
-        className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/60 to-transparent"
-      />
+      {/* градиентная линия сверху. 14.10.2026 (Александр: «чтобы она плавно, мягко туда-сюда
+          перетекала по цвету, прям вообще не напряжно»): синий -> фиолетовый -> голубой медленно
+          едут по линии туда и обратно (.footer-flow в app/globals.css; при «меньше движения» стоит). */}
+      <div aria-hidden="true" className="footer-flow absolute inset-x-0 top-0 h-[1.5px]" />
       {/* фон: мягкий синий -> фиолетовый поверх цвета страницы, в тёмной теме то же на чёрном */}
       <div
         aria-hidden="true"
@@ -192,8 +192,24 @@ export function SiteFooter() {
 
         <div className="mt-12 flex flex-col gap-2 border-t border-black/5 pt-6 text-[13px] text-neutral-500 sm:flex-row sm:items-center sm:justify-between dark:border-white/10 dark:text-neutral-500">
           <span>© {year} A1 · jobs.a1appp.com</span>
-          <span>
+          <span className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <T {...HEAD.made} />
+            {/* 14.10.2026 (Александр): ссылка на U24 -- официальную платформу сбора средств
+                Украины. Небольшая «пилюля» с флагом, не баннер: видно, но не отвлекает. Логотип
+                U24 не рисуем -- это чужой знак; флаг и текст говорят то же самое. */}
+            <a
+              href="https://u24.gov.ua/"
+              target="_blank"
+              rel="noopener"
+              className="group inline-flex items-center gap-2 rounded-full bg-white/60 py-1 pl-1.5 pr-3 text-[12.5px] font-medium text-neutral-700 ring-1 ring-black/5 transition hover:bg-white hover:text-neutral-900 dark:bg-white/5 dark:text-neutral-300 dark:ring-white/10 dark:hover:bg-white/10 dark:hover:text-white"
+            >
+              <span aria-hidden="true" className="flex h-4 w-6 flex-col overflow-hidden rounded-[4px] shadow-sm">
+                <span className="h-1/2 bg-[#0057B7]" />
+                <span className="h-1/2 bg-[#FFD700]" />
+              </span>
+              <T {...HEAD.support} />
+              <span className="text-neutral-400 transition group-hover:translate-x-0.5 dark:text-neutral-500">· u24.gov.ua ↗</span>
+            </a>
           </span>
         </div>
       </div>
