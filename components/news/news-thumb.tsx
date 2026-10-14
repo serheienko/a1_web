@@ -7,12 +7,8 @@
 // выбираются от слага новости (хэш): у каждой новости свой, но стабильный, а uk- и
 // en-версии одной новости выглядят одинаково. Выбор агента остаётся запасным.
 import type { NewsArticle } from "@/lib/news/types";
+import { thumbSvg } from "@/lib/news/thumb-art";
 
-const DOT_COLS = 24;
-const DOT_ROWS = 9;
-const LIT = new Set([7, 22, 41, 58, 77, 90, 109, 131, 148, 165, 187, 203]);
-const BAR_H = [18, 26, 22, 38, 34, 52, 46, 64, 58, 78, 72, 92];
-const SPARK = [62, 58, 64, 52, 56, 44, 48, 36, 40, 28, 30, 16];
 
 const HUES = {
   blue: { from: "#0e1a52", to: "#03051f", bg: "radial-gradient(120% 100% at 15% 0%,#1b3a95 0%,#0a1240 50%,#03051f 100%)", hi: "#7aa2ff", lo: "#2a78d6", glow: "122,162,255" },
@@ -29,7 +25,6 @@ const HUES = {
 
 type Hue = keyof typeof HUES;
 const HUE_ORDER: Hue[] = ["blue", "green", "violet", "orange", "red", "teal", "rose", "amber", "cyan", "lime"];
-const MOTIF_ORDER = ["bars", "dots", "spark", "rings"] as const;
 
 function hashOf(s: string): number {
   let x = 2166136261;
@@ -48,48 +43,16 @@ export function newsThemeVars(seed: string, given?: string): Record<string, stri
 // compact -- маленькая миниатюра в списке. 14.10.2026 (Александр, скрин с телефона): на мобильном она
 // 112 px в ширину, и цифра с подписью налезали на узор -- выглядело как поломка. Там текст прячем,
 // остаётся только узор с цветом; с ширины sm (640 px) текст снова виден.
-export function NewsThumb({ thumb: given, className = "", seed, compact = false }: { thumb: NewsArticle["thumb"]; className?: string; seed?: string; compact?: boolean }) {
-  // seed -- слаг новости; «-en» отрезаем, чтобы пара uk/en выглядела одинаково
-  const k = seed ? hashOf(seed.replace(/-en$/, "")) : null;
-  const thumb = k === null ? given : { ...given, hue: HUE_ORDER[k % HUE_ORDER.length], motif: MOTIF_ORDER[(k >>> 8) % MOTIF_ORDER.length] };
-  const h = HUES[(thumb.hue as Hue) ?? "blue"];
+//
+// 14.10.2026 (Александр: «всего четыре узора, однотипно»). Рисунок теперь из lib/news/thumb-art.ts:
+// 26 узоров в тему рубрики × 10 оттенков × случайные детали от слага. Та же обложка -- в картинке для
+// соцсетей и Google (app/news/[slug]/opengraph-image.tsx).
+export function NewsThumb({ thumb, className = "", seed, kicker = "", compact = false }: { thumb: NewsArticle["thumb"]; className?: string; seed?: string; kicker?: string; compact?: boolean }) {
+  const svg = thumbSvg(seed ?? thumb.big ?? "a1", kicker);
   return (
-    <span aria-hidden="true" className={"relative block aspect-[16/10] overflow-hidden " + className} style={{ background: h.bg }}>
-      {thumb.motif === "dots" ? (
-        <span className="absolute inset-x-[7%] top-[10%] grid gap-[3px]" style={{ gridTemplateColumns: `repeat(${DOT_COLS}, minmax(0, 1fr))` }}>
-          {Array.from({ length: DOT_COLS * DOT_ROWS }, (_, i) => {
-            const on = LIT.has(i);
-            return (
-              <span
-                key={i}
-                className={"block aspect-square rounded-full " + (on ? "animate-pulse motion-reduce:animate-none" : "")}
-                style={{
-                  background: on ? h.hi : "rgba(255,255,255,.14)",
-                  boxShadow: on ? `0 0 7px 1px rgba(${h.glow},.85)` : "none",
-                  animationDelay: on ? `${(i % 6) * 150}ms` : undefined,
-                }}
-              />
-            );
-          })}
-        </span>
-      ) : thumb.motif === "bars" ? (
-        <span className="absolute inset-x-[7%] top-[8%] flex h-[24%] items-end gap-[5px]">
-          {BAR_H.map((v, i) => (
-            <span key={i} className="block flex-1 rounded-t-[3px]" style={{ height: `${v}%`, background: `linear-gradient(to top,${h.lo},${h.hi})` }} />
-          ))}
-        </span>
-      ) : thumb.motif === "spark" ? (
-        <svg className="absolute inset-x-[7%] top-[9%] h-[34%] w-[86%]" viewBox="0 0 110 70" preserveAspectRatio="none">
-          <polyline fill="none" stroke={h.hi} strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" points={SPARK.map((v, i) => `${i * 10},${v}`).join(" ")} />
-          <circle cx="110" cy={SPARK[SPARK.length - 1]} r="3.2" fill={h.hi} />
-        </svg>
-      ) : (
-        <span className="absolute right-[8%] top-[8%] block h-[44%] aspect-square">
-          {[100, 72, 44].map((p, i) => (
-            <span key={i} className="absolute inset-0 m-auto block rounded-full border-2" style={{ width: `${p}%`, height: `${p}%`, borderColor: h.hi, opacity: 0.35 + i * 0.3 }} />
-          ))}
-        </span>
-      )}
+    <span aria-hidden="true" className={"relative block aspect-[16/10] overflow-hidden bg-[#03051f] " + className}>
+      <span className="absolute inset-0 block [&>svg]:h-full [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: svg }} />
+      <span className="absolute inset-x-0 bottom-0 block h-1/2 bg-gradient-to-t from-black/45 to-transparent" />
       <span className={"absolute inset-x-[7%] bottom-[9%] " + (compact ? "hidden sm:block" : "block")}>
         <span className="block text-[clamp(18px,3.2vw,34px)] font-bold leading-none tabular-nums text-white">{thumb.big}</span>
         <span className="mt-1 block text-[12px] leading-tight text-white/65">{thumb.small}</span>

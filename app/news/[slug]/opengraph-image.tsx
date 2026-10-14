@@ -3,6 +3,7 @@
 import { buildOgImage, OG_IMAGE_SIZE, OG_IMAGE_CONTENT_TYPE } from "@/lib/seo/og-image";
 import { findNews } from "@/lib/news/articles";
 import { allNews } from "@/lib/news/registry";
+import { thumbDataUri } from "@/lib/news/thumb-art";
 
 export const runtime = "nodejs";
 export const size = OG_IMAGE_SIZE;
@@ -15,5 +16,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
     eyebrow: article ? `A1 Jobs · ${article.kicker}` : "A1 Jobs",
     title: article?.h1 ?? "A1 Jobs",
     subtitle: "jobs.a1appp.com/news",
+    // 14.10.2026: фон -- обложка новости из lib/news/thumb-art.ts (та же, что в списке).
+    photoUrl: article ? thumbDataUri(article.slug, article.kicker) : undefined,
   });
 }
