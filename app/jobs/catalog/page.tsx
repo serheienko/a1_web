@@ -33,6 +33,7 @@ import { JOB_LANDINGS } from "@/lib/seo/job-landings";
 import { roleInfo } from "@/lib/seo/job-role";
 import { cityLabel, levelLabel, MIN_SEGMENT_POSTS } from "@/lib/seo/segments";
 import { TECH_LANDINGS } from "@/lib/seo/tech-landings";
+import { hiringMonths, monthLabel } from "@/lib/seo/hiring-month";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -58,7 +59,13 @@ export default async function Page() {
     techCounts(),
   ]);
 
+  // 14.10.2026: «Хто наймає в IT» по месяцам -- первым блоком, это свежий контент.
+  const hiringKeys = await hiringMonths().catch(() => [] as string[]);
   const groups: SegmentLinkGroup[] = [
+    {
+      title: { uk: "Хто наймає в IT", en: "Who's hiring in tech", ru: "Кто нанимает в IT", de: "Wer stellt ein", es: "Quién contrata", fr: "Qui recrute", pl: "Kto zatrudnia", ptBR: "Quem contrata", zh: "谁在招聘" },
+      links: hiringKeys.map((k) => ({ href: `/jobs/hiring/${k}`, label: monthLabel(k).uk })),
+    },
     {
       title: { uk: "За форматом роботи", en: "By work format", ru: "По формату работы", de: "Nach Arbeitsform", es: "Por formato", fr: "Par format", pl: "Wg formy pracy", ptBR: "Por formato", zh: "按工作形式" },
       links: JOB_LANDINGS.map((l) => ({ href: `/jobs/${l.slug}`, label: l.h1.uk })),

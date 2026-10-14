@@ -24,6 +24,7 @@ import { profileHref } from "@/lib/profile-href";
 import { JOB_LANDINGS } from "@/lib/seo/job-landings";
 import { FACT_LANDINGS } from "@/lib/seo/fact-landings";
 import { TECH_LANDINGS } from "@/lib/seo/tech-landings";
+import { HIRING_MIN_MONTH_POSTS, hiringMonth, hiringMonths } from "@/lib/seo/hiring-month";
 import { techCounts } from "@/lib/a1/tech-index";
 import { MIN_SEGMENT_POSTS } from "@/lib/seo/segments";
 import { TOP100_LANDING } from "@/lib/seo/top100-landing";
@@ -115,6 +116,14 @@ async function buildSitemap({ id }: { id: number | string }): Promise<MetadataRo
     // 10.10.2026: каталог всех витрин (app/jobs/catalog). Для робота это
     // главный узел: с него ведут ссылки на все посадочные разом.
     entries.push({ url: `${SITE_URL}/jobs/catalog` });
+    // 14.10.2026: «Хто наймає в IT» по месяцам и по стеку (lib/seo/hiring-month.ts).
+    entries.push({ url: `${SITE_URL}/jobs/hiring` });
+    for (const m of await hiringMonths()) {
+      const data = await hiringMonth(m).catch(() => null);
+      if (!data || data.total < HIRING_MIN_MONTH_POSTS) continue;
+      entries.push({ url: `${SITE_URL}/jobs/hiring/${m}` });
+      for (const slug of Object.keys(data.byStack)) entries.push({ url: `${SITE_URL}/jobs/hiring/${m}/${slug}` });
+    }
 
     // 30.09.2026 (Конкистадор, SEO). Посадочная «Топ-100 компаній світу» и
     // посадочные по странам: /jobs/country/<код>. Страна попадает в карту

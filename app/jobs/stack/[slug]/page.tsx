@@ -27,6 +27,8 @@ import { buildLandingBreadcrumbJsonLd } from "@/lib/seo/jsonld";
 import { postsForTech } from "@/lib/a1/tech-index";
 import { MIN_SEGMENT_POSTS } from "@/lib/seo/segments";
 import { SegmentLinks } from "@/components/segment-page";
+import { fill, TXT } from "@/components/hiring-page";
+import { currentMonthKey, hiringMonth, monthLabel } from "@/lib/seo/hiring-month";
 import { linksForGlobalLevels, linksForGlobalRoles, linksForTech, articleLinks } from "@/lib/seo/segment-links";
 import {
   TECH_LANDINGS,
@@ -103,6 +105,7 @@ export default async function Page({ params, searchParams }: Props) {
   if (page > 1 && posts.length === 0) notFound();
   const totalPages = Math.max(1, Math.ceil(all.length / LANDING_PAGE_SIZE));
   const avatarBlurs = await Promise.all(posts.map((post) => generateAvatarBlurDataUrl(post.author.avatarUrl)));
+  const hiring = await hiringMonth(currentMonthKey()).catch(() => null);
 
   return (
     <main className="mx-auto max-w-3xl px-4 pt-6 sm:pt-16 pb-fab-safe">
@@ -137,6 +140,15 @@ export default async function Page({ params, searchParams }: Props) {
           <T {...techLandingLead(landing.label)} />
         </p>
       </header>
+
+      {/* 14.10.2026: «Хто наймає <стек>» за текущий месяц (lib/seo/hiring-month.ts), если срез есть. */}
+      {hiring?.byStack[landing.slug] ? (
+        <p className="-mt-4 mb-8">
+          <Link href={`/jobs/hiring/${hiring.month}/${landing.slug}`} className="text-accent no-underline hover:underline">
+            <T {...fill(TXT.h1Stack, { month: monthLabel(hiring.month), label: landing.label })} /> →
+          </Link>
+        </p>
+      ) : null}
 
       {posts.length === 0 ? (
         <EmptyState
