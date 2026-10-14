@@ -31,12 +31,38 @@ type ClaimConfirmResponse = {
   refreshToken: string;
 };
 
+// 14.10.2026 (проверка безопасности клейма по GPT-аудиту). Код на почту -- 4 цифры, живёт 10 минут,
+// а бэкенд до сих пор не считал неверные попытки: перебор 10 000 вариантов за 10 минут забирал
+// чужой профиль компании. Пока правка в бэкенде не выкачена, режем перебор здесь: не больше
+// 5 неверных попыток на один код и 30 попыток в час с одного адреса. Это защищает путь через сайт;
+// прямой вызов API закрывает правка бэкенда (лимит попыток в OtpChallengeService.markAsUsed).
+const MAX_WRONG_PER_KEY = 5;
+const MAX_PER_IP_HOUR = 30;
+const wrongByKey = new Map<string, { n: number; since: number }>();
+const byIp = new Map<string, { n: number; since: number }>();
+
+function bump(map: Map<string, { n: number; since: number }>, id: string, windowMs: number): number {
+  const now = Date.now();
+  const rec = map.get(id);
+  if (!rec || now - rec.since > windowMs) {
+    map.set(id, { n: 1, since: now });
+    return 1;
+  }
+  rec.n += 1;
+  return rec.n;
+}
+
 export async function POST(request: NextRequest) {
   const parsed = Input.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ ok: false, reason: "invalid_input" }, { status: 400 });
   }
   const { otpKey, code, email, password } = parsed.data;
+
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  if (bump(byIp, ip, 3_600_000) > MAX_PER_IP_HOUR || (wrongByKey.get(otpKey)?.n ?? 0) >= MAX_WRONG_PER_KEY) {
+    return NextResponse.json({ ok: false, reason: "too_many_attempts" }, { status: 429 });
+  }
 
   try {
     const data = await call<ClaimConfirmResponse>(
@@ -55,6 +81,7 @@ export async function POST(request: NextRequest) {
     });
     return response;
   } catch (err) {
+    bump(wrongByKey, otpKey, 3_600_000);
     const known = reasonFromError(err);
     // A wrong or expired short code is the everyday failure here and the
     // backend has no dedicated code for it, so anything unrecognised at this
