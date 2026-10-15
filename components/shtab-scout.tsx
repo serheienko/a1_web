@@ -3,7 +3,8 @@
 // 14.10.2026 (Александр: «агент-разведчик… что у конкурентов можно у нас внедрить»). Окно «Разведчик»
 // в штабе: последний недельный отчёт -- 3-5 идей «что сделали / зачем нам / как у нас / сложность»,
 // ниже прошлые недели. Отчёты присылает konkistador/konk_scout.py (lib/a1/scout-store.ts).
-import { loadScoutReports, type ScoutIdea } from "@/lib/a1/scout-store";
+import { isRejected, loadScoutRejected, loadScoutReports, type ScoutIdea } from "@/lib/a1/scout-store";
+import { ScoutRejectButton } from "@/components/shtab-scout-reject";
 
 const CSS = `
 .shs{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px 16px;box-shadow:var(--shadow)}
@@ -25,6 +26,13 @@ const CSS = `
 .shs details{margin-top:10px}
 .shs summary{cursor:pointer;font-size:13px;font-weight:700}
 .shs-old{font-size:13px;color:var(--soft);margin:6px 0 0 0;padding-left:18px}
+.shs-rej{margin-top:8px;font-size:12px;font-weight:700;color:var(--dim);background:transparent;border:1px solid var(--row);border-radius:99px;padding:3px 10px;cursor:pointer}
+.shs-rej:hover{color:var(--mut)}
+.shs-rej-go{color:#991b1b;border-color:#fecaca}
+.shs-rej-box{margin-top:8px}
+.shs-rej-txt{width:100%;font:inherit;font-size:13px;border:1px solid var(--row);border-radius:10px;padding:6px 8px;background:transparent;color:inherit;resize:vertical}
+.shs-rej-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.shs-rej-err{font-size:12px;color:#991b1b}
 `;
 
 const EFFORT: Record<ScoutIdea["effort"], string> = { легко: "shs-e-easy", средне: "shs-e-mid", сложно: "shs-e-hard" };
@@ -35,8 +43,10 @@ function day(iso: string): string {
 }
 
 export async function ShtabScout() {
-  const reports = await loadScoutReports(4).catch(() => []);
-  const [last, ...older] = reports;
+  const [reports, rejected] = await Promise.all([loadScoutReports(4).catch(() => []), loadScoutRejected().catch(() => [])]);
+  // 15.10.2026: отклонённые Александром идеи не показываем (lib/a1/scout-store.ts).
+  const visible = reports.map((r) => ({ ...r, ideas: r.ideas.filter((i) => !isRejected(i, rejected)) }));
+  const [last, ...older] = visible;
 
   return (
     <section className="shs">
@@ -74,6 +84,9 @@ export async function ShtabScout() {
                   Источник{i.source ? ` · ${i.source}` : ""} ↗
                 </a>
               ) : null}
+              <div>
+                <ScoutRejectButton date={last.date} what={i.what} />
+              </div>
             </div>
           ))}
         </div>
@@ -85,6 +98,24 @@ export async function ShtabScout() {
         <div className="shs-note">
           <b>Рынок:</b> {last.market}
         </div>
+      ) : null}
+
+      {rejected.length ? (
+        <details>
+          <summary>Отклонённые идеи ({rejected.length})</summary>
+          <ul className="shs-old">
+            {rejected
+              .slice()
+              .reverse()
+              .map((r, k) => (
+                <li key={k}>
+                  {r.who ? `${r.who}: ` : ""}
+                  {r.what.replace(/[.\s]+$/, "")}
+                  {r.reason ? `. Почему: ${r.reason}` : ""}
+                </li>
+              ))}
+          </ul>
+        </details>
       ) : null}
 
       {older.length ? (

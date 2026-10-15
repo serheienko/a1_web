@@ -10,7 +10,7 @@ if (typeof window !== "undefined") {
   throw new Error("[lib/a1/scout-store] imported from the browser — this must stay server-only");
 }
 
-import { kvConfigured, kvGetMany, kvPutJson } from "@/lib/kv/store";
+import { kvConfigured, kvGetJson, kvGetMany, kvPutJson } from "@/lib/kv/store";
 
 const PREFIX = "a1/scout/";
 
@@ -61,5 +61,48 @@ export async function loadScoutReports(limit = 4): Promise<ScoutReport[]> {
     return out;
   } catch {
     return [];
+  }
+}
+
+// 15.10.2026 (Александр про идею «ИИ пишет сопроводительное письмо»: «не вижу смысла… это из штаба
+// сразу убирай»). Отклонённые идеи: из окна «Разведчик» пропадают, а сам Разведчик получает их
+// список (GET /api/shtab/scout/reject) и больше похожего не предлагает. Отчёты не трогаем --
+// отклонённые просто прячем при показе. Лежит вне a1/scout/, чтобы не смешиваться с отчётами.
+const REJECTED_PATH = "a1/scout-rejected.json";
+
+export type ScoutRejected = { date: string; who: string; what: string; reason: string; at: string };
+
+const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+
+export async function loadScoutRejected(): Promise<ScoutRejected[]> {
+  if (!kvConfigured()) return [];
+  try {
+    const j = await kvGetJson<{ items?: ScoutRejected[] }>(REJECTED_PATH);
+    return Array.isArray(j?.items) ? j.items : [];
+  } catch {
+    return [];
+  }
+}
+
+export function isRejected(idea: Pick<ScoutIdea, "what">, rejected: ScoutRejected[]): boolean {
+  const w = norm(idea.what);
+  return rejected.some((r) => norm(r.what) === w);
+}
+
+/** Отклонить идею из отчёта за date. Причина уходит Разведчику. */
+export async function rejectScoutIdea(input: { date: string; what: string; reason: string }): Promise<"ok" | "not_found" | "error"> {
+  if (!kvConfigured()) return "error";
+  try {
+    const report = (await loadScoutReports(12)).find((r) => r.date === input.date);
+    const idea = report?.ideas.find((i) => norm(i.what) === norm(input.what));
+    if (!idea) return "not_found";
+    const list = await loadScoutRejected();
+    if (!isRejected(idea, list)) {
+      list.push({ date: input.date, who: idea.who, what: idea.what, reason: input.reason.trim(), at: new Date().toISOString() });
+    }
+    await kvPutJson(REJECTED_PATH, { items: list.slice(-100) });
+    return "ok";
+  } catch {
+    return "error";
   }
 }
