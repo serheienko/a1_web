@@ -32,6 +32,7 @@ import { TOP100_LANDING } from "@/lib/seo/top100-landing";
 import { cityTechList, countrySegments, globalLevelCounts, globalRoleCounts, listCities, remoteTechList, segmentCountries } from "@/lib/a1/segment-index";
 import { COUNTRY_LANDING_CODES } from "@/lib/seo/country-landings";
 import { ARTICLES } from "@/lib/blog/articles";
+import { INTERVIEW_ENTRIES, interviewAlternates, interviewPath } from "@/lib/interview/registry";
 import { allNews } from "@/lib/news/registry";
 import { loadEvents } from "@/lib/events/store";
 import { MIN_COLLECTION, collectPlaces, collectTags, todayKyiv } from "@/lib/events/util";
@@ -149,6 +150,19 @@ async function buildSitemap({ id }: { id: number | string }): Promise<MetadataRo
 
     // 01.10.2026: блог -- список и статьи (lib/blog).
     entries.push({ url: `${SITE_URL}/blog` });
+    // 16.10.2026: «Питання на співбесіді» (lib/interview) -- украинская и английская версии
+    // на разных адресах, каждая с hreflang на другую.
+    for (const slug of [undefined, ...INTERVIEW_ENTRIES.map((e) => e.slug)]) {
+      const alt = interviewAlternates("uk", slug).languages;
+      for (const lang of ["uk", "en"] as const) {
+        entries.push({
+          url: `${SITE_URL}${interviewPath(lang, slug)}`,
+          changeFrequency: "weekly",
+          priority: slug ? 0.7 : 0.6,
+          alternates: { languages: { uk: alt.uk, en: alt.en, "x-default": alt["x-default"] } },
+        });
+      }
+    }
     // 08.10.2026: «IT новини» -- список и новости (lib/news), у каждой своя дата.
     entries.push({ url: `${SITE_URL}/news`, lastModified: new Date(), changeFrequency: "daily", priority: 0.7 });
     entries.push({ url: `${SITE_URL}/news/en`, lastModified: new Date(), changeFrequency: "daily", priority: 0.6 });

@@ -13,7 +13,7 @@ import { pagedMeta, pageOf } from "@/lib/seo/paged";
 import { globalRolePosts } from "@/lib/a1/segment-index";
 import { roleInfo } from "@/lib/seo/job-role";
 import { roleCountLine, roleH1, roleLead, roleMeta } from "@/lib/seo/role-texts";
-import { articleLinks, linksForGlobalLevels, linksForGlobalRoles } from "@/lib/seo/segment-links";
+import { articleLinks, interviewLinks, linksForGlobalLevels, linksForGlobalRoles } from "@/lib/seo/segment-links";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -57,6 +57,7 @@ export default async function Page({ params, searchParams }: Props) {
       breadcrumbName={roleH1(info.slug).uk}
       path={`/jobs/role/${info.slug}`}
       groups={[
+        ...interviewLinks({ role: info.slug }),
         ...(await linksForGlobalRoles(info.slug)),
         ...(await linksForGlobalLevels()),
         ...articleLinks(["persha-robota-v-it-bez-dosvidu", "rynok-it-vakansiy", "zarplaty-v-it-za-tehnologiyamy"]),

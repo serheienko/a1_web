@@ -29,7 +29,7 @@ import { MIN_SEGMENT_POSTS } from "@/lib/seo/segments";
 import { SegmentLinks } from "@/components/segment-page";
 import { fill, TXT } from "@/components/hiring-page";
 import { currentMonthKey, hiringMonth, monthLabel } from "@/lib/seo/hiring-month";
-import { linksForGlobalLevels, linksForGlobalRoles, linksForTech, articleLinks } from "@/lib/seo/segment-links";
+import { linksForGlobalLevels, linksForGlobalRoles, linksForTech, articleLinks, interviewLinks } from "@/lib/seo/segment-links";
 import {
   TECH_LANDINGS,
   findTechLanding,
@@ -195,7 +195,7 @@ export default async function Page({ params, searchParams }: Props) {
 
       {/* 30.09.2026: эта технология по странам и уровни -- перелинковка на
           новые сегменты (lib/seo/segments.ts). */}
-      <SegmentLinks groups={[...(await linksForTech(landing.slug)), ...(await linksForGlobalLevels()), ...(await linksForGlobalRoles()), ...articleLinks(["zarplaty-v-it-za-tehnologiyamy", "top-tehnologiy-dlya-roboty-v-it", "persha-robota-v-it-bez-dosvidu"])]} />
+      <SegmentLinks groups={[...interviewLinks({ techSlug: landing.slug }), ...(await linksForTech(landing.slug)), ...(await linksForGlobalLevels()), ...(await linksForGlobalRoles()), ...articleLinks(["zarplaty-v-it-za-tehnologiyamy", "top-tehnologiy-dlya-roboty-v-it", "persha-robota-v-it-bez-dosvidu"])]} />
     </main>
   );
 }

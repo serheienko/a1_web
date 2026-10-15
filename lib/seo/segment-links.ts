@@ -13,6 +13,7 @@ import type { SegmentLinkGroup } from "@/components/segment-page";
 import { findArticle } from "@/lib/blog/articles";
 import { roleInfo, type JobRole } from "@/lib/seo/job-role";
 import { ROLE_LINKS_TITLE } from "@/lib/seo/role-texts";
+import { interviewForRole, interviewForTechSlug, interviewPath } from "@/lib/interview/registry";
 
 const techLabel = (slug: string) => TECH_LANDINGS.find((t) => t.slug === slug)?.label ?? slug;
 
@@ -203,6 +204,22 @@ export async function linksForGlobalRoles(current?: JobRole): Promise<SegmentLin
       links: counts
         .filter((c) => c.role !== current)
         .map((c) => ({ href: `/jobs/role/${c.role}`, label: roleInfo(c.role)?.label ?? c.role })),
+    },
+  ];
+}
+
+/** 16.10.2026: ссылка на «Питання на співбесіді» со страниц вакансий профессии/стека (lib/interview). */
+export function interviewLinks(opts: { role?: string; techSlug?: string }): SegmentLinkGroup[] {
+  const entry = opts.role ? interviewForRole(opts.role) : opts.techSlug ? interviewForTechSlug(opts.techSlug) : undefined;
+  if (!entry) return [];
+  const title = { uk: "Підготовка до співбесіди", en: "Interview prep", ru: "Подготовка к собеседованию", de: "Vorbereitung aufs Interview", es: "Preparar la entrevista", fr: "Préparer l'entretien", pl: "Przygotowanie do rozmowy", ptBR: "Preparação para a entrevista", zh: "面试准备" };
+  return [
+    {
+      title,
+      links: [
+        { href: interviewPath("uk", entry.slug), label: entry.content.uk.h1 },
+        { href: interviewPath("en", entry.slug), label: entry.content.en.h1 },
+      ],
     },
   ];
 }
