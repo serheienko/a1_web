@@ -25,6 +25,7 @@ import { JOB_LANDINGS } from "@/lib/seo/job-landings";
 import { FACT_LANDINGS } from "@/lib/seo/fact-landings";
 import { TECH_LANDINGS } from "@/lib/seo/tech-landings";
 import { HIRING_MIN_MONTH_POSTS, hiringMonth, hiringMonths } from "@/lib/seo/hiring-month";
+import { hiringUkraine, hiringUkraineMonths, UA_MIN_MONTH_POSTS } from "@/lib/seo/hiring-ukraine";
 import { techCounts } from "@/lib/a1/tech-index";
 import { MIN_SEGMENT_POSTS } from "@/lib/seo/segments";
 import { TOP100_LANDING } from "@/lib/seo/top100-landing";
@@ -123,6 +124,12 @@ async function buildSitemap({ id }: { id: number | string }): Promise<MetadataRo
       if (!data || data.total < HIRING_MIN_MONTH_POSTS) continue;
       entries.push({ url: `${SITE_URL}/jobs/hiring/${m}` });
       for (const slug of Object.keys(data.byStack)) entries.push({ url: `${SITE_URL}/jobs/hiring/${m}/${slug}` });
+    }
+    // 15.10.2026: «Хто наймає в IT в Україні» по месяцам (lib/seo/hiring-ukraine.ts).
+    entries.push({ url: `${SITE_URL}/jobs/hiring/ukraine` });
+    for (const m of await hiringUkraineMonths()) {
+      const data = await hiringUkraine(m).catch(() => null);
+      if (data && data.total >= UA_MIN_MONTH_POSTS) entries.push({ url: `${SITE_URL}/jobs/hiring/ukraine/${m}` });
     }
 
     // 30.09.2026 (Конкистадор, SEO). Посадочная «Топ-100 компаній світу» и

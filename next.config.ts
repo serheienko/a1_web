@@ -71,7 +71,11 @@ const nextConfig: NextConfig = {
   },
 
   async redirects() {
-    return [{ source: "/jobs", destination: "/", permanent: true }];
+    return [
+      { source: "/jobs", destination: "/", permanent: true },
+      // 15.10.2026: Украина -- страна по умолчанию, её лента и есть главная (у /jobs/country/ua был 404).
+      { source: "/jobs/country/:code(ua|UA)", destination: "/", permanent: true },
+    ];
   },
 };
 

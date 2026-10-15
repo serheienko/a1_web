@@ -17,6 +17,8 @@ import {
   isMonthKey,
   monthLabel,
 } from "@/lib/seo/hiring-month";
+import { hiringUkraine, UA_MIN_MONTH_POSTS } from "@/lib/seo/hiring-ukraine";
+import { UA_TXT } from "@/components/hiring-ukraine-page";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -46,7 +48,7 @@ export default async function Page({ params }: Props) {
   if (!isMonthKey(month)) notFound();
   const data = await hiringMonth(month);
   if (!data || data.total < HIRING_MIN_MONTH_POSTS) notFound();
-  const [posts, keys] = await Promise.all([hiringMonthPosts(month, null), hiringMonths()]);
+  const [posts, keys, ua] = await Promise.all([hiringMonthPosts(month, null), hiringMonths(), hiringUkraine(month).catch(() => null)]);
   const label = monthLabel(month);
   const h1 = fill(TXT.h1Month, { month: label });
 
@@ -67,6 +69,13 @@ export default async function Page({ params }: Props) {
         <h1 className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl dark:text-neutral-50">
           <T {...h1} />
         </h1>
+        {ua && ua.total >= UA_MIN_MONTH_POSTS ? (
+          <p className="mt-3">
+            <Link href={`/jobs/hiring/ukraine/${month}`} className="text-accent no-underline hover:underline">
+              <T {...fill(UA_TXT.h1, { month: label })} /> →
+            </Link>
+          </p>
+        ) : null}
       </header>
       <HiringBody
         data={data}

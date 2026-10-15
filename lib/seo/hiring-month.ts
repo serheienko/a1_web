@@ -67,12 +67,12 @@ export function currentMonthKey(now: Date = new Date()): string {
   return monthKeyOf(now);
 }
 
-function monthStart(key: string): number {
+export function monthStart(key: string): number {
   const [y, m] = key.split("-").map(Number) as [number, number];
   return Date.UTC(y, m - 1, 1);
 }
 
-function nextMonthStart(key: string): number {
+export function nextMonthStart(key: string): number {
   const [y, m] = key.split("-").map(Number) as [number, number];
   return Date.UTC(y, m, 1);
 }
@@ -172,7 +172,7 @@ export function buildHiringMonth(all: WebPost[], key: string, now: Date = new Da
 let live: { source: WebPost[]; key: string; data: HiringMonth } | null = null;
 let lastSave = 0;
 
-function isLive(key: string, now: Date): boolean {
+export function isLive(key: string, now: Date): boolean {
   return now.getTime() < nextMonthStart(key) + FREEZE_GRACE_MS && now.getTime() >= monthStart(key);
 }
 

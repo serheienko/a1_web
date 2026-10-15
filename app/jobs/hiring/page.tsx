@@ -6,6 +6,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { T } from "@/components/t";
 import { fill, TXT } from "@/components/hiring-page";
+import { UA_TXT } from "@/components/hiring-ukraine-page";
 import { hiringMonths, monthLabel } from "@/lib/seo/hiring-month";
 
 const SITE_URL = "https://jobs.a1appp.com";
@@ -44,6 +45,11 @@ export default async function Page() {
           </li>
         ))}
       </ul>
+      <p className="mt-6">
+        <Link href="/jobs/hiring/ukraine" className="text-accent no-underline hover:underline">
+          <T {...fill(UA_TXT.h1, { month: { uk: "щомісячні звіти", en: "monthly reports", ru: "ежемесячные отчёты", de: "monthly reports", es: "monthly reports", fr: "monthly reports", pl: "monthly reports", ptBR: "monthly reports", zh: "monthly reports" } })} /> →
+        </Link>
+      </p>
       <p className="mt-10 text-xs leading-relaxed text-neutral-400 dark:text-neutral-500">
         <T {...TXT.how} />
       </p>
