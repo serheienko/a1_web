@@ -7,7 +7,8 @@
 // что и «Відгукнутися» в строке действий (гость -- сначала вход, потом окно откроется само).
 // Сама ничего не отправляет -- зовёт строку действий событием (lib/apply-events.ts).
 
-import { requestApply } from "@/lib/apply-events";
+import { useEffect, useState } from "react";
+import { isOwnPost, OWN_POST_EVENT, requestApply } from "@/lib/apply-events";
 import { useActiveLocale } from "@/lib/use-active-locale";
 import type { Locale } from "@/components/t";
 
@@ -37,6 +38,17 @@ const NOTE: Record<Locale, string> = {
 
 export function ApplyQuestionsCta({ postId }: { postId: string }) {
   const lang = useActiveLocale();
+  // 15.10.2026: автору свой же пост откликать нечем -- кнопку не показываем.
+  const [own, setOwn] = useState(false);
+  useEffect(() => {
+    if (isOwnPost(postId)) setOwn(true);
+    function onOwn(event: Event) {
+      if ((event as CustomEvent<{ postId?: string }>).detail?.postId === postId) setOwn(true);
+    }
+    window.addEventListener(OWN_POST_EVENT, onOwn);
+    return () => window.removeEventListener(OWN_POST_EVENT, onOwn);
+  }, [postId]);
+  if (own) return null;
   return (
     <div className="mt-3 flex flex-col items-start gap-1.5">
       <button

@@ -63,7 +63,7 @@ import { useRouter } from "next/navigation";
 import { type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
 import { ApplyQuestionsModal } from "@/components/apply-questions-modal";
-import { APPLY_AFTER_LOGIN_KEY, APPLY_EVENT } from "@/lib/apply-events";
+import { APPLY_AFTER_LOGIN_KEY, APPLY_EVENT, markOwnPost } from "@/lib/apply-events";
 import type { WebApplyQuestion } from "@/types/web-post";
 import { track } from "@/lib/track";
 import { ReportModal } from "@/components/report-modal";
@@ -562,6 +562,10 @@ export function PostViewerMenu({
   // (components/apply-questions-cta.tsx) зовёт то же действие, что и
   // «Відгукнутися» в этой строке, -- через событие окна.
   const applyActionRef = useRef<(() => void) | null>(null);
+  // 15.10.2026: свой пост -- кнопка «Відповісти й відгукнутися» под вопросами прячется.
+  useEffect(() => {
+    if (viewerStatus === "self") markOwnPost(postId);
+  }, [viewerStatus, postId]);
   useEffect(() => {
     function onApply(event: Event) {
       const detail = (event as CustomEvent<{ postId?: string }>).detail;

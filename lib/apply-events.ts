@@ -12,3 +12,19 @@ export const APPLY_AFTER_LOGIN_KEY = "a1:apply-after-login";
 export function requestApply(postId: string): void {
   window.dispatchEvent(new CustomEvent(APPLY_EVENT, { detail: { postId } }));
 }
+
+// 15.10.2026 (Александр: «нажимаю эту кнопку и ничего не происходит, но делаю это на свой же пост.
+// По идее для себя эта кнопка должна быть скрыта»). Кто смотрит -- автор или нет, знает только строка
+// действий (она спрашивает whoami). Она отмечает пост как «свой», а кнопка под вопросами прячется.
+export const OWN_POST_EVENT = "a1:own-post";
+const ownPosts = new Set<string>();
+
+export function markOwnPost(postId: string): void {
+  if (ownPosts.has(postId)) return;
+  ownPosts.add(postId);
+  window.dispatchEvent(new CustomEvent(OWN_POST_EVENT, { detail: { postId } }));
+}
+
+export function isOwnPost(postId: string): boolean {
+  return ownPosts.has(postId);
+}
