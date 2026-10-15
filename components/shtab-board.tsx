@@ -8,6 +8,7 @@
 // на <html> или системная); живое -- наверху; суточные часы и таблица очереди
 // спрятаны под кнопку; Украина (DOU + ленты компаний) -- один стол.
 import { loadPulses } from "@/lib/a1/shtab-store";
+import { kvList } from "@/lib/kv/store";
 import {
   ALL_AGENTS,
   ROOMS,
@@ -200,6 +201,28 @@ async function probe(url: string): Promise<Probe> {
   }
 }
 
+/**
+ * 15.10.2026: «Статистика кликов» -- когда в базу сайта последний раз записался клик (a1/stats/<день>/…).
+ * Заодно видно, жива ли сама база (a1-store): не прочиталась -- красным.
+ */
+async function statsProbe(now: Date): Promise<Probe> {
+  const t0 = Date.now();
+  try {
+    let latest = "";
+    for (const day of [0, 1].map((d) => new Date(now.getTime() - d * 86400_000).toISOString().slice(0, 10))) {
+      for (const r of await kvList(`a1/stats/${day}/`)) if (r.updatedAt > latest) latest = r.updatedAt;
+    }
+    const ms = Date.now() - t0;
+    if (!latest) return { ok: false, ms, status: 200, detail: "База отвечает, но кликов за сегодня и вчера нет." };
+    const ago = Math.max(0, Math.round((now.getTime() - Date.parse(latest)) / 60000));
+    const when = ago < 60 ? `${ago} мин назад` : `${Math.round(ago / 60)} ч назад`;
+    // Клики пишутся пачкой раз в несколько минут; больше 6 часов тишины днём -- повод посмотреть.
+    return { ok: ago <= 360, ms, status: 200, detail: `Последняя запись ${when}. База сайта отвечает.` };
+  } catch {
+    return { ok: false, ms: Date.now() - t0, status: 0, detail: "База сайта (a1-store) не отвечает." };
+  }
+}
+
 type TimelineRow = { min: number; title: string; detail: string };
 
 export async function ShtabBoard() {
@@ -210,6 +233,7 @@ export async function ShtabBoard() {
   const [countryOptions] = await Promise.all([
     fetchCountryOptions().catch(() => []),
     ...healthDefs.map(async (a) => { probes.set(a.id, await probe(a.health!)); }),
+    ...ALL_AGENTS.filter((a) => a.kind === "check" && a.check === "stats").map(async (a) => { probes.set(a.id, await statsProbe(now)); }),
   ]);
   // Страны, с которыми не работаем (Александр, 09.10.2026): Россия, Беларусь и полные санкции.
   const EXCLUDED: Record<string, string> = {

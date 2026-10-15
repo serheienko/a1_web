@@ -30,7 +30,11 @@ export type AgentDef = {
   /** Сколько минут после слота агенту дано до «пропустил». */
   graceMin: number;
   /** pulse -- шлёт отметки; none -- пока нет; planned -- ещё не создан; manual -- запускается вручную */
-  kind: "pulse" | "none" | "planned" | "manual" | "group" | "health";
+  kind: "pulse" | "none" | "planned" | "manual" | "group" | "health" | "check";
+  /** Для kind "check": проверка, которую штаб делает сам у себя (components/shtab-board.tsx). */
+  check?: "stats";
+  /** Как называть число из итога вместо «опубликовано» (у Логотипов -- «аватарок обновлено»). */
+  doneWord?: string;
   /** Для kind "health": адрес, который штаб сам проверяет при открытии страницы. */
   health?: string;
   note?: string;
@@ -95,7 +99,10 @@ export const ROOMS: RoomDef[] = [
     where: "GitHub Actions · 03:23 UTC",
     color: "#b58cff",
     agents: [
-      { id: "harvest", name: "Кеш Workable", nick: "Сборщик", role: "Собирает вакансии Workable и кладёт в кеш", slots: [{ h: 3, m: 23 }], graceMin: 120, track: 2, kind: "none", note: "Африка, Латам, Азия по очереди; кеш кладёт в репозиторий." },
+      // 15.10.2026: пульс шлёт сама GitHub-задача в конце (app/api/shtab/gh-pulse, без общего секрета --
+      // GitHub подписывает отметку своим ключом). GitHub запускает её с опозданием на часы (по расписанию
+      // 03:23 UTC, на деле -- утром), поэтому «льгота» 10 часов.
+      { id: "harvest", name: "Кеш Workable", nick: "Сборщик", role: "Каждую ночь забирает вакансии Workable для Африки, Латама, Азии и Океании и кладёт в запас, из которого их потом публикуют парсеры этих регионов", slots: [{ h: 3, m: 23 }], graceMin: 600, track: 2, kind: "pulse", note: "Работает на GitHub, а не на Railway: Workable не пускает Railway (ошибка 429 «слишком много запросов»)." },
     ],
   },
   {
@@ -106,12 +113,12 @@ export const ROOMS: RoomDef[] = [
     wide: true,
     agents: [
       { id: "site", name: "Сайт", role: "jobs.a1appp.com", slots: [], graceMin: 0, kind: "health", health: "https://jobs.a1appp.com/" },
-      { id: "site-premium", name: "Сайт Premium", role: "jobs-web-premium", slots: [], graceMin: 0, kind: "none" },
       { id: "api", name: "API", role: "api-service и api-gateway", slots: [], graceMin: 0, kind: "health", health: "https://api.a1appp.com/health" },
-      { id: "chat", name: "Чат", role: "chat-service и chat-web", slots: [], graceMin: 0, kind: "none" },
-      { id: "notify", name: "Уведомления", role: "notify-service", slots: [], graceMin: 0, kind: "none" },
-      { id: "media", name: "Медиа", role: "media-service", slots: [], graceMin: 0, kind: "none" },
-      { id: "umami", name: "Аналитика", role: "Umami", slots: [], graceMin: 0, kind: "none" },
+      // 15.10.2026 (Александр): «Сайт Premium», «Чат» и «Уведомления» убраны из штаба -- это служебные части
+      // бэкенда и тестовая копия сайта, следить за ними здесь не нужно.
+      { id: "media", name: "Картинки и файлы", role: "media.a1appp.com: хранит и отдаёт фото, аватарки, логотипы и вложения в чатах (часть бэкенда, не GPT)", slots: [], graceMin: 0, kind: "health", health: "https://media.a1appp.com/health" },
+      { id: "umami", name: "Аналитика Umami", role: "Посетители сайта, откуда пришли, воронка (окно «Метрики» выше)", slots: [], graceMin: 0, kind: "health", health: "https://umami-production-e14b.up.railway.app/api/heartbeat" },
+      { id: "stats", name: "Статистика кликов", role: "Наши счётчики: «Відгукнутися», «Відкрити вакансію», заявки компаний (админка статистики); заодно проверка базы сайта", slots: [], graceMin: 0, kind: "check", check: "stats" },
     ],
   },
   {
@@ -120,10 +127,13 @@ export const ROOMS: RoomDef[] = [
     where: "разное",
     color: "#ff8fb8",
     agents: [
-      { id: "tgbot", name: "Бот подписок", nick: "Бот-пингер", role: "Telegram: присылает новые вакансии по фильтру", slots: [], graceMin: 0, kind: "none" },
+      { id: "tgbot", name: "Бот вакансий в Telegram", nick: "@a1jobs_bot", role: "Раз в день присылает новые вакансии по фильтру, который человек выбрал на сайте", slots: [], graceMin: 0, kind: "health", health: "https://a1-tg-bot-production.up.railway.app/health" },
       { id: "news", name: "Редакция новостей", nick: "Редакція A1", role: "Пишет «IT новини» для сайта: 2 новости в день, uk + en", slots: DAILY_07, graceMin: KONK_GRACE, limit: 2, track: 0, kind: "pulse", note: "Работает в начале утреннего забега Конкистадора (10:00 Киев). Первая новость выходит сразу, вторая вечером." },
       { id: "events", name: "Календарь событий", nick: "Події", role: "Собирает IT-конференции и митапы мира (confs.tech, DOU, dev.events), пишет описания и теги, отправляет на сайт, раздел «Події»", slots: DAILY_07, graceMin: KONK_GRACE, track: 0, kind: "pulse", sources: "confs.tech, DOU, dev.events", note: "Идёт сразу после Редакции в утреннем забеге Конкистадора (10:00 Киев), раз в сутки. В итоге «опубликовано» — это новые события за запуск; уже известные берутся с сайта, поэтому запуск стоит копейки." },
       { id: "scout", name: "Разведчик", nick: "Разведчик", role: "Раз в неделю смотрит, что нового у конкурентов (LinkedIn, Indeed, Glassdoor, Work.ua, robota.ua и др.), и предлагает 3-5 идей для A1", slots: [], graceMin: 0, kind: "pulse", sources: "App Store (что нового в приложениях конкурентов), TechCrunch, Product Hunt, Indeed Hiring Lab, блог Glassdoor, DOU, Hacker News", note: "Раз в неделю в утреннем забеге Конкистадора. Отчёт -- в окне «Разведчик» выше. Один вызов модели в неделю, центы." },
+      // 15.10.2026: шаг утреннего забега Конкистадора (konk_logo_backfill.py): старым компаниям с котом вместо
+      // логотипа собирает аватарку с их сайта, GPT проверяет, что это логотип.
+      { id: "logos", name: "Логотипы компаний (GPT)", nick: "Логотипы", role: "Ищет логотип на сайте компании, GPT проверяет и собирает аватарку вместо кота", slots: DAILY_07, graceMin: KONK_GRACE, track: 0, kind: "pulse", doneWord: "аватарок обновлено", note: "В конце утреннего забега Конкистадора, до 300 компаний за раз." },
       { id: "hunter", name: "Сбор разработчиков", nick: "Охотник", role: "База разработчиков: GitHub, LinkedIn, Telegram", slots: [], graceMin: 0, kind: "manual", note: "Пока запускается вручную." },
     ],
   },
@@ -196,9 +206,9 @@ function fmtWhen(d: Date, now: Date): string {
   return `${date} в ${t}`;
 }
 
-function summary(rec: { published: number | null; errors: number | null; note: string }): string {
+function summary(rec: { published: number | null; errors: number | null; note: string }, doneWord = "опубликовано"): string {
   const parts: string[] = [];
-  if (rec.published !== null) parts.push(`опубликовано ${rec.published}`);
+  if (rec.published !== null) parts.push(`${doneWord} ${rec.published}`);
   if (rec.errors !== null) parts.push(`ошибок ${rec.errors}`);
   if (!parts.length && rec.note) parts.push(rec.note);
   return parts.join(", ");
@@ -209,7 +219,7 @@ export function isSoftError(rec: PulseRecord): boolean {
   return rec.status === "error" && (rec.published ?? 0) > 0 && /^код возврата/.test(rec.note || "");
 }
 
-export type Probe = { ok: boolean; ms: number; status: number };
+export type Probe = { ok: boolean; ms: number; status: number; /** Для kind "check": готовая строка «что видно». */ detail?: string };
 
 export function describeAgent(def: AgentDef, rec: PulseRecord | undefined, now: Date, probe?: Probe): AgentView {
   const nextAt = def.slots.length ? nextSlot(def.slots, now) : null;
@@ -226,6 +236,10 @@ export function describeAgent(def: AgentDef, rec: PulseRecord | undefined, now: 
     return probe.ok
       ? { def, lamp: "done", label: "Отвечает", last: `Проверено сейчас: ответ за ${(probe.ms / 1000).toFixed(1)} с.`, next: "" }
       : { def, lamp: "error", label: "Не отвечает", last: probe.status ? `Проверено сейчас: код ${probe.status}.` : "Проверено сейчас: нет ответа.", next: "" };
+  }
+  if (def.kind === "check") {
+    if (!probe) return { def, lamp: "nodata", label: "Проверка не прошла", last: "Не удалось выполнить проверку.", next: "" };
+    return { def, lamp: probe.ok ? "done" : "error", label: probe.ok ? "Пишет" : "Не пишет", last: probe.detail ?? "", next: "" };
   }
   if (def.kind === "none" || !rec) {
     if (def.kind === "pulse" && !rec) {
@@ -251,7 +265,7 @@ export function describeAgent(def: AgentDef, rec: PulseRecord | undefined, now: 
     errors: rec.errors,
     note: rec.note,
   };
-  const detail = summary(snap);
+  const detail = summary(snap, def.doneWord);
   const slot = def.slots.length ? lastSlot(def.slots, now) : null;
   const sinceSlot = slot && finished.getTime() >= slot.getTime() - 5 * 60_000;
 
