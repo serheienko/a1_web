@@ -55,6 +55,40 @@ const MAX_TOTAL_POSTS = SITEMAP_CHUNK_SIZE * 5;
 // обхід один на весь процес (див. fetchAllSitemapJobPosts нижче) і тихіший.
 const SCAN_CONCURRENCY = 4;
 
+// 16.10.2026 (счёт Railway: память jobs-web -- 2 ГБ, дороже всего
+// остального сайта вместе взятого). Этот список живёт в памяти процесса
+// сутки и держит ВСЕ живые вакансии -- десятки тысяч штук. Самое тяжёлое
+// в вакансии -- её текст, и он лежал тут ДВАЖДЫ: contentText (чистый) и
+// contentHtml (он же с разметкой, обычно даже длиннее).
+//
+// Вторая копия в этом списке не нужна никому. Единственный потребитель
+// contentHtml -- описание JobPosting в разметке для Google
+// (lib/seo/jsonld.ts), а туда вакансия приходит отдельным свежим
+// запросом на своей странице (app/jobs/[slug]/page.tsx), не отсюда. По
+// той же причине не нужны картинки, ссылки и вопросы к отклику: всё это
+// рисуется только на самой странице вакансии и на странице таланта.
+//
+// Что ОСТАЁТСЯ нетронутым: contentText -- по нему работают поиск
+// подстрокой (lib/a1/feed.ts), стек (extractTechTags), признаки
+// (lib/a1/job-facts.ts), «Військо» и worldwide-разбор. externalUrl к
+// этому моменту уже вычислен из links в lib/a1/mappers.ts, так что
+// кнопка «Відкрити вакансію» не страдает.
+const NO_IMAGES: WebPost["images"] = [];
+const NO_LINKS: WebPost["links"] = [];
+const NO_QUESTIONS: WebPost["applyQuestions"] = [];
+
+function liteJobPost(post: WebPost): WebPost {
+  if (!post.contentHtml && post.images.length === 0 && post.links.length === 0 && post.applyQuestions.length === 0) {
+    return post;
+  }
+  return { ...post, contentHtml: "", images: NO_IMAGES, links: NO_LINKS, applyQuestions: NO_QUESTIONS };
+}
+
+/** mapPosts + выкидывание полей, которые этому списку не нужны (см. liteJobPost). */
+function mapLitePosts(items: Parameters<typeof mapPosts>[0]): WebPost[] {
+  return mapPosts(items).map(liteJobPost);
+}
+
 /** Every live (non-expired, non-legacy-type, schema-valid), published Jobs
  *  post.
  *
@@ -99,24 +133,29 @@ async function scanAllSitemapJobPosts(): Promise<WebPost[]> {
     Math.max(1, Math.ceil(total / PAGE_SIZE)),
   );
 
-  const byPage: WebPost[][] = [mapPosts(first.items)];
-  for (let from = 1; from < pages; from += SCAN_CONCURRENCY) {
-    const batch = await Promise.all(
-      Array.from({ length: Math.min(SCAN_CONCURRENCY, pages - from) }, (_, i) =>
-        fetchPage((from + i) * PAGE_SIZE, false).then((parsed) => mapPosts(parsed.items)),
-      ),
-    );
-    byPage.push(...batch);
-  }
-
+  // 16.10.2026: страницы раскладываем СРАЗУ, а не копим массив массивов.
+  // Раньше до конца обхода в памяти жили все страницы целиком, включая
+  // просроченные вакансии, которые потом всё равно выбрасывались, -- на
+  // десятках тысяч вакансий это и давало всплески памяти при пересчёте.
+  // Порядок прежний: пачки идут по порядку, внутри пачки -- тоже.
   const posts: WebPost[] = [];
   const seen = new Set<string>();
-  for (const page of byPage) {
+  const take = (page: WebPost[]) => {
     for (const mapped of page) {
       if (seen.has(mapped.id)) continue;
       seen.add(mapped.id);
       if (!isJobPostingExpired(mapped)) posts.push(mapped);
     }
+  };
+
+  take(mapLitePosts(first.items));
+  for (let from = 1; from < pages; from += SCAN_CONCURRENCY) {
+    const batch = await Promise.all(
+      Array.from({ length: Math.min(SCAN_CONCURRENCY, pages - from) }, (_, i) =>
+        fetchPage((from + i) * PAGE_SIZE, false).then((parsed) => mapLitePosts(parsed.items)),
+      ),
+    );
+    for (const page of batch) take(page);
   }
 
   if (posts.length >= MAX_TOTAL_POSTS) {
@@ -181,7 +220,7 @@ async function topUp(): Promise<void> {
       external: "include",
       ...(offset > 0 ? { offset } : {}),
     });
-    return mapPosts(PostsSearchOutputSchema.parse(raw).items);
+    return mapLitePosts(PostsSearchOutputSchema.parse(raw).items);
   };
   const pages = await Promise.all(Array.from({ length: TOPUP_PAGES }, (_, i) => fetchPage(i * PAGE_SIZE)));
   const known = new Set(base.posts.map((p) => p.id));
