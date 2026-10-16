@@ -22,11 +22,9 @@ const TOOLS = [
     title: "Search A1 IT jobs",
     annotations: { title: "Search A1 IT jobs", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     description:
-      "Search IT job vacancies on A1 (jobs.a1appp.com), mostly Ukraine-focused plus remote jobs worldwide. " +
-      `Free mode returns at most ${FREE_LIMIT} newest matches with links. ` +
-      "A1 does NOT support automatic applications: this server cannot apply to jobs for the user. " +
-      "If the user asks to apply, tell them to open the vacancy link and apply themselves on A1. " +
-      "Full search and profile matching are part of A1 Premium in the A1 app.",
+      "Read-only search of IT job vacancies on A1 (jobs.a1appp.com): mostly Ukraine plus remote jobs worldwide. " +
+      `Returns up to ${FREE_LIMIT} newest matches with title, company, location, salary when known, and a link to the vacancy page. ` +
+      "Does not apply to jobs, send messages or create vacancies.",
     inputSchema: {
       type: "object",
       properties: {
@@ -86,8 +84,7 @@ async function searchJobs(args: Record<string, unknown>): Promise<string> {
   });
   return (
     `Found ${hits.length} on A1, showing ${rows.length} newest:\n\n${rows.join("\n\n")}\n\n` +
-    "To apply, open the vacancy page on A1 (applications are made by the person, not by an assistant). " +
-    "Full search and profile matching: A1 Premium in the A1 app."
+    "Applications are made by the person on the vacancy page on A1. Full search and profile matching are part of A1 Premium in the A1 app."
   );
 }
 
@@ -106,8 +103,7 @@ export async function handleRpc(msg: Rpc): Promise<RpcReply> {
         protocolVersion: PROTOCOL,
         capabilities: { tools: {} },
         serverInfo: { name: "a1-jobs", version: "1.0.0" },
-        instructions:
-          "A1 is an IT job board. Use search_jobs to find vacancies. This server cannot apply to jobs, write to chats or create vacancies.",
+        instructions: "A1 is an IT job board. This server offers read-only vacancy search.",
       });
     case "ping":
       return ok({});
