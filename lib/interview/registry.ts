@@ -16,6 +16,10 @@ import { QA_INTERVIEW } from "./qa";
 import { FRONTEND_INTERVIEW } from "./frontend";
 import { PM_INTERVIEW } from "./pm";
 import { PYTHON_INTERVIEW } from "./python";
+import { DEVOPS_INTERVIEW } from "./devops";
+import { BA_INTERVIEW } from "./ba";
+import { DATA_INTERVIEW } from "./data";
+import { DESIGN_INTERVIEW } from "./design";
 import { globalRolePosts } from "@/lib/a1/segment-index";
 import { postsForTech } from "@/lib/a1/tech-index";
 import type { JobRole } from "@/lib/seo/job-role";
@@ -41,6 +45,10 @@ export const INTERVIEW_ENTRIES: InterviewEntry[] = [
     content: PM_INTERVIEW,
     source: { kind: "role", role: "pm" },
   },
+  { slug: "devops", label: { uk: "DevOps", en: "DevOps" }, content: DEVOPS_INTERVIEW, source: { kind: "role", role: "devops" } },
+  { slug: "business-analyst", label: { uk: "Business Analyst", en: "Business Analyst" }, content: BA_INTERVIEW, source: { kind: "role", role: "ba" } },
+  { slug: "data-analyst", label: { uk: "Data Analyst", en: "Data Analyst" }, content: DATA_INTERVIEW, source: { kind: "role", role: "data" } },
+  { slug: "ui-ux-designer", label: { uk: "UI/UX дизайнер", en: "UI/UX Designer" }, content: DESIGN_INTERVIEW, source: { kind: "role", role: "design" } },
 ];
 
 export const SITE_URL = "https://jobs.a1appp.com";
