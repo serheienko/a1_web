@@ -1624,15 +1624,23 @@ export function mountGameMap(root, opts) {
   // Автовизначення: рахуємо кадри перші чотири секунди. Якщо виходить менше
   // тридцяти -- пристрій не тягне, вмикаємо простий режим самі й кажемо про це
   // (але не перебиваємо вибір людини, якщо вона вже тиснула кнопку).
-  let fpsFrom = 0, fpsN = 0, autoDone = false;
+  // 16.10.2026 (Александр: «чому тепер завжди простий режим?»). Раніше рахували кадри за перші 4 секунди
+  // разом із завантаженням і першою розкладкою карти, а час у прихованій вкладці теж ішов у знаменник --
+  // тож режим вмикався і на нормальних пристроях. Тепер: 2 секунди «розігріву» не рахуємо, беремо 90
+  // кадрів, відкидаємо паузи довші за 250 мс (вкладка була прихована) і дивимось на медіану: проста
+  // режим лише якщо типовий кадр довший за 40 мс (< 25 к/с).
+  let fpsT0 = 0, fpsLast = 0, autoDone = false;
+  const fpsDeltas = [];
   function autoLite(now) {
     if (autoDone || lite || liteChosen) return;
-    if (!fpsFrom) { fpsFrom = now; return; }
-    fpsN++;
-    const el = now - fpsFrom;
-    if (el < 4000) return;
+    if (!fpsT0) { fpsT0 = now; return; }
+    if (now - fpsT0 < 2000) { fpsLast = now; return; }
+    if (fpsLast) { const d = now - fpsLast; if (d < 250) fpsDeltas.push(d); }
+    fpsLast = now;
+    if (fpsDeltas.length < 90) return;
     autoDone = true;
-    if (fpsN / (el / 1000) < 30) { setLite(true); toast(tr('liteAuto'), tr('liteAutoSub')); }
+    fpsDeltas.sort((a, b) => a - b);
+    if (fpsDeltas[fpsDeltas.length >> 1] > 40) { setLite(true); toast(tr('liteAuto'), tr('liteAutoSub')); }
   }
   function startLoop() {
     cancelAnimationFrame(raf);
