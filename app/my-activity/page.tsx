@@ -41,9 +41,12 @@ import type { WebPost } from "@/types/web-post";
 import { authFetch } from "@/lib/auth-fetch";
 import { GLASS } from "@/lib/glass";
 import { useActiveLocale } from "@/lib/use-active-locale";
+import { ApplicationAnswer } from "@/components/application-answer";
 
 type LoadState = "loading" | "signed-out" | "error" | "ready";
-type Tab = "mine" | "posts" | "users";
+type Tab = "mine" | "posts" | "users" | "applied";
+type AppState = "applied" | "opened" | "confirmed";
+type Application = { post: WebPost & { avatarBlurDataUrl: string | null }; state: AppState; leaving?: boolean };
 
 // Matches app/api/favorites/users/route.ts's own SavedUser export --
 // re-declared locally rather than imported, same reasoning components/
@@ -63,8 +66,9 @@ type SavedUser = {
 // server-side now (2026-09-01: avatars here used to pop straight from
 // PostCard's generic gray shimmer fallback to the real photo instead
 // of blurring in like every other feed's avatars).
-type RawSavedPost = Omit<WebPost, "publishedAt" | "updatedAt"> & {
+type RawSavedPost = Omit<WebPost, "publishedAt" | "sourcePublishedAt" | "updatedAt"> & {
   publishedAt: string;
+  sourcePublishedAt?: string | null;
   updatedAt: string | null;
   avatarBlurDataUrl: string | null;
 };
@@ -73,13 +77,16 @@ function revivePostDates(post: RawSavedPost): WebPost & { avatarBlurDataUrl: str
   return {
     ...post,
     publishedAt: new Date(post.publishedAt),
+    // 16.10.2026: у внешних вакансий есть дата публикации у источника -- без неё карточка падала.
+    sourcePublishedAt: post.sourcePublishedAt ? new Date(post.sourcePublishedAt) : null,
     updatedAt: post.updatedAt ? new Date(post.updatedAt) : null,
   };
 }
 
 // Aleksandr's exact requested order: Мої дописи / Збережені публікації /
 // Збережені користувачі.
-const TAB_ORDER: Tab[] = ["mine", "posts", "users"];
+// 16.10.2026 (Александр): «Мої відгуки» -- четвёртой вкладкой.
+const TAB_ORDER: Tab[] = ["mine", "posts", "users", "applied"];
 
 function tabLabel(tab: Tab, lang: Locale): string {
   const STRINGS: Record<Tab, Record<Locale, string>> = {
@@ -91,6 +98,10 @@ function tabLabel(tab: Tab, lang: Locale): string {
       uk: "Збережені дописи", en: "Saved posts", ru: "Сохранённые публикации", de: "Gespeicherte Beiträge",
       es: "Publicaciones guardadas", fr: "Publications enregistrées", pl: "Zapisane posty",
       ptBR: "Publicações salvas", zh: "已保存帖子",
+    },
+    applied: {
+      uk: "Мої відгуки", en: "Applied", ru: "Мои отклики", de: "Bewerbungen",
+      es: "Postulaciones", fr: "Candidatures", pl: "Moje aplikacje", ptBR: "Candidaturas", zh: "我的申请",
     },
     users: {
       uk: "Збережені користувачі", en: "Saved users", ru: "Сохранённые пользователи", de: "Gespeicherte Nutzer",
@@ -198,7 +209,50 @@ export default function MyActivityPage() {
     };
   }, [tab]);
 
-  const activeState = tab === "mine" ? mineState : tab === "posts" ? postsState : usersState;
+  // 16.10.2026: «Мої відгуки» (app/api/posts/applications). Подгружаем по 20, дальше -- по кнопке.
+  const [appsState, setAppsState] = useState<LoadState>("loading");
+  const [apps, setApps] = useState<Application[]>([]);
+  const [appsNext, setAppsNext] = useState<string | null>(null);
+  const [appsMore, setAppsMore] = useState(false);
+  const appsFetched = useRef(false);
+
+  async function loadApps(next: string | null) {
+    const res = await authFetch("/api/posts/applications" + (next ? `?next=${encodeURIComponent(next)}` : ""));
+    if (res.status === 401) return "signed-out" as const;
+    const data = await res.json().catch(() => null);
+    if (!data?.ok) return "error" as const;
+    const items = ((data.items ?? []) as { post: RawSavedPost; state: AppState }[]).map((i) => ({
+      post: revivePostDates(i.post),
+      state: i.state,
+    }));
+    setApps((prev) => {
+      const seen = new Set(prev.map((a) => a.post.id));
+      return [...prev, ...items.filter((i) => !seen.has(i.post.id))];
+    });
+    setAppsNext(data.next ?? null);
+    return "ready" as const;
+  }
+
+  useEffect(() => {
+    if (tab !== "applied" || appsFetched.current) return;
+    appsFetched.current = true;
+    loadApps(null)
+      .then(setAppsState)
+      .catch(() => setAppsState("error"));
+  }, [tab]);
+
+  function onAnswered(postId: string, applied: boolean) {
+    if (applied) {
+      setApps((prev) => prev.map((a) => (a.post.id === postId ? { ...a, state: "confirmed" } : a)));
+      return;
+    }
+    // «Ні» -- карточка плавно уходит, потом пропадает из списка.
+    setApps((prev) => prev.map((a) => (a.post.id === postId ? { ...a, leaving: true } : a)));
+    window.setTimeout(() => setApps((prev) => prev.filter((a) => a.post.id !== postId)), 320);
+  }
+
+  const activeState =
+    tab === "mine" ? mineState : tab === "posts" ? postsState : tab === "users" ? usersState : appsState;
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-10 sm:py-16">
@@ -234,7 +288,7 @@ export default function MyActivityPage() {
           shorter locales). */}
       <div
         className={
-          "mt-6 grid grid-cols-3 gap-1 rounded-full p-1 " +
+          "mt-6 grid grid-cols-2 gap-1 rounded-3xl p-1 sm:grid-cols-4 sm:rounded-full " +
           GLASS +
           " sm:border-0 sm:bg-white sm:shadow-none sm:backdrop-blur-none sm:backdrop-saturate-100 sm:dark:border-0 sm:dark:bg-neutral-900 sm:dark:shadow-none"
         }
@@ -293,6 +347,9 @@ export default function MyActivityPage() {
           {tab === "posts" && (
             <T uk="Увійдіть, щоб побачити збережені дописи." en="Sign in to see your saved posts." ru="Войдите, чтобы увидеть сохранённые публикации." de="Melde dich an, um gespeicherte Beiträge zu sehen." es="Inicia sesión para ver tus publicaciones guardadas." fr="Connectez-vous pour voir vos publications enregistrées." pl="Zaloguj się, aby zobaczyć zapisane posty." ptBR="Entre para ver suas publicações salvas." zh="登录以查看已保存的帖子。" />
           )}
+          {tab === "applied" && (
+            <T uk="Увійдіть, щоб побачити свої відгуки." en="Sign in to see your applications." ru="Войдите, чтобы увидеть свои отклики." de="Melden Sie sich an, um Ihre Bewerbungen zu sehen." es="Inicie sesión para ver sus postulaciones." fr="Connectez-vous pour voir vos candidatures." pl="Zaloguj się, aby zobaczyć swoje aplikacje." ptBR="Entre para ver suas candidaturas." zh="登录以查看您的申请。" />
+          )}
           {tab === "users" && (
             <T uk="Увійдіть, щоб побачити збережених користувачів." en="Sign in to see your saved users." ru="Войдите, чтобы увидеть сохранённых пользователей." de="Melde dich an, um gespeicherte Nutzer zu sehen." es="Inicia sesión para ver tus usuarios guardados." fr="Connectez-vous pour voir vos utilisateurs enregistrés." pl="Zaloguj się, aby zobaczyć zapisanych użytkowników." ptBR="Entre para ver seus usuários salvos." zh="登录以查看已保存的用户。" />
           )}
@@ -306,6 +363,9 @@ export default function MyActivityPage() {
           )}
           {tab === "posts" && (
             <T uk="Не вдалося завантажити збережені дописи." en="Couldn't load saved posts." ru="Не удалось загрузить сохранённые публикации." de="Gespeicherte Beiträge konnten nicht geladen werden." es="No se pudieron cargar las publicaciones guardadas." fr="Impossible de charger les publications enregistrées." pl="Nie udało się załadować zapisanych postów." ptBR="Não foi possível carregar as publicações salvas." zh="无法加载已保存的帖子。" />
+          )}
+          {tab === "applied" && (
+            <T uk="Не вдалося завантажити відгуки." en="Couldn't load applications." ru="Не удалось загрузить отклики." de="Bewerbungen konnten nicht geladen werden." es="No se pudieron cargar las postulaciones." fr="Impossible de charger les candidatures." pl="Nie udało się załadować aplikacji." ptBR="Não foi possível carregar as candidaturas." zh="无法加载申请。" />
           )}
           {tab === "users" && (
             <T uk="Не вдалося завантажити збережених користувачів." en="Couldn't load saved users." ru="Не удалось загрузить сохранённых пользователей." de="Gespeicherte Nutzer konnten nicht geladen werden." es="No se pudieron cargar los usuarios guardados." fr="Impossible de charger les utilisateurs enregistrés." pl="Nie udało się załadować zapisanych użytkowników." ptBR="Não foi possível carregar os usuários salvos." zh="无法加载已保存的用户。" />
@@ -341,6 +401,53 @@ export default function MyActivityPage() {
             </li>
           ))}
         </ul>
+      )}
+
+      {tab === "applied" && appsState === "ready" && apps.length === 0 && (
+        <p className="mt-6 text-sm text-neutral-500 dark:text-neutral-400">
+          <T uk="Тут з'являться вакансії, на які ви відгукнулися." en="Jobs you apply to will appear here." ru="Здесь появятся вакансии, на которые вы откликнулись." de="Hier erscheinen Stellen, auf die Sie sich beworben haben." es="Aquí aparecerán las vacantes a las que se postule." fr="Les offres auxquelles vous postulez apparaîtront ici." pl="Tu pojawią się oferty, na które aplikujesz." ptBR="Aqui aparecerão as vagas às quais você se candidatar." zh="您申请过的职位会显示在这里。" />
+        </p>
+      )}
+      {tab === "applied" && appsState === "ready" && apps.length > 0 && (
+        <>
+          <ul className="mt-6 flex flex-col gap-3">
+            {apps.map((a) => (
+              <li
+                key={a.post.id}
+                className={
+                  "transition-all duration-300 ease-out " +
+                  (a.leaving ? "pointer-events-none -translate-x-3 scale-[0.98] opacity-0" : "opacity-100")
+                }
+              >
+                <PostCard
+                  post={a.post}
+                  avatarBlurDataUrl={a.post.avatarBlurDataUrl}
+                  footer={
+                    a.state === "opened" ? (
+                      <ApplicationAnswer postId={a.post.id} onAnswered={(yes) => onAnswered(a.post.id, yes)} />
+                    ) : null
+                  }
+                />
+              </li>
+            ))}
+          </ul>
+          {appsNext ? (
+            <div className="mt-6 flex justify-center">
+              <button
+                type="button"
+                disabled={appsMore}
+                onClick={async () => {
+                  setAppsMore(true);
+                  await loadApps(appsNext).catch(() => null);
+                  setAppsMore(false);
+                }}
+                className="rounded-full border border-neutral-200 bg-white px-5 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-60 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"
+              >
+                {appsMore ? "…" : <T uk="Показати ще" en="Show more" ru="Показать ещё" de="Mehr anzeigen" es="Mostrar más" fr="Afficher plus" pl="Pokaż więcej" ptBR="Mostrar mais" zh="显示更多" />}
+              </button>
+            </div>
+          ) : null}
+        </>
       )}
 
       {tab === "users" && usersState === "ready" && savedUsers.length === 0 && (

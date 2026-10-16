@@ -1030,7 +1030,19 @@ export function PostViewerMenu({
           href={externalUrl}
           target="_blank"
           rel="nofollow noopener noreferrer"
-          onClick={() => track("external", { company: authorUsername, post: postSlug })}
+          onClick={() => {
+            track("external", { company: authorUsername, post: postSlug });
+            // 16.10.2026: «Мої відгуки» -- вакансия попадает во вкладку со статусом «відкрито»,
+            // там человек ответит «Так/Ні». Только для вошедшего и не автора.
+            if (viewerStatus === "other") {
+              void authFetch("/api/posts/applications", {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ postId, action: "opened" }),
+                keepalive: true,
+              }).catch(() => undefined);
+            }
+          }}
           aria-label={STRINGS.openVacancy[lang]}
           className="group flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-accent transition hover:bg-accent/5 dark:border-neutral-700 dark:bg-neutral-900"
         >

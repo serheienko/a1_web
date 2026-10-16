@@ -96,6 +96,8 @@ export function PostCard({
   // exactly as before.
   highlightQuery,
   showReservation = true,
+  // 16.10.2026: блок под карточкой внутри неё (вкладка «Мої відгуки»: вопрос «Ви відгукнулися?»).
+  footer,
 }: {
   post: WebPost;
   avatarBlurDataUrl?: string | null;
@@ -105,6 +107,7 @@ export function PostCard({
   highlightQuery?: string | null;
   /** «Є бронювання» -- только для украинской ленты (Александр, 30.09.2026). */
   showReservation?: boolean;
+  footer?: ReactNode;
 }) {
   // 2026-08-30, live-testing feedback ("Berlin, Germany - нужна
   // локализация", reported against the profile page but this feed card
@@ -487,6 +490,7 @@ export function PostCard({
             </div>
           );
         })()}
+        {footer}
       </div>
     </FoldableArticle>
   );
