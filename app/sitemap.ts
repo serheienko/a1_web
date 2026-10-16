@@ -202,6 +202,8 @@ async function buildSitemap({ id }: { id: number | string }): Promise<MetadataRo
       console.error("[sitemap] события недоступны, пропускаем", e);
     }
     entries.push({ url: `${SITE_URL}/terms`, lastModified: new Date("2026-10-08"), changeFrequency: "yearly", priority: 0.2 });
+    entries.push({ url: `${SITE_URL}/privacy`, lastModified: new Date("2026-10-16"), changeFrequency: "yearly", priority: 0.2 });
+    entries.push({ url: `${SITE_URL}/ai-assistant`, lastModified: new Date("2026-10-16"), changeFrequency: "monthly", priority: 0.4 });
     for (const item of await allNews()) {
       entries.push({ url: `${SITE_URL}/news/${item.slug}`, lastModified: new Date(item.updated), changeFrequency: "weekly", priority: 0.6 });
     }

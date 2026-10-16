@@ -19,6 +19,8 @@ const PROTOCOL = "2025-03-26";
 const TOOLS = [
   {
     name: "search_jobs",
+    title: "Search A1 IT jobs",
+    annotations: { title: "Search A1 IT jobs", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     description:
       "Search IT job vacancies on A1 (jobs.a1appp.com), mostly Ukraine-focused plus remote jobs worldwide. " +
       `Free mode returns at most ${FREE_LIMIT} newest matches with links. ` +
