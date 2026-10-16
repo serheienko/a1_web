@@ -71,6 +71,24 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
         ],
         disallow: "/",
       },
+      // 16.10.2026 (Александр: счёт Railway $85). Половина обращений сайта к
+      // бэкенду -- картинки через /api/media, и большую их часть качали
+      // Amazonbot, OAI-SearchBot и SEO-сканеры. Страницы им можно, картинки --
+      // нет: у этой группы нет allow для /api/media/, так что /api/ закрывает
+      // и его. Google/Bing/Apple получают картинки как раньше (группа «*»).
+      {
+        userAgent: [
+          "Amazonbot",
+          "OAI-SearchBot",
+          "SemrushBot",
+          "AhrefsBot",
+          "MJ12bot",
+          "DotBot",
+          "DataForSeoBot",
+          "Barkrowler",
+        ],
+        disallow: ["/api/", "/admin/", "/*?_rsc=", "/*&_rsc="],
+      },
     ],
     sitemap: sitemaps,
   };
