@@ -28,7 +28,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { umamiEvent } from "@/lib/track";
+import { siteEvent } from "@/lib/track";
 import { fbqTrack } from "@/lib/meta-pixel";
 import styles from "./download.module.css";
 
@@ -50,11 +50,10 @@ export function Interactions() {
 
       try {
         // 14.10.2026: было @vercel/analytics -- после переезда на Railway оно никуда не отправлялось.
-        umamiEvent("download_page_click", {
-          target: name,
-          // светлая/тёмная — интересно, влияет ли тема на поведение
-          theme: document.documentElement.classList.contains("light") ? "light" : "dark",
-        });
+        // 16.10.2026: было в Umami, теперь в наш собственный счётчик (см. lib/track.ts).
+        // Считаем сам факт клика: по какой именно кнопке и в какой теме -- отдельный
+        // вопрос, ради которого хранить лишнее про людей не хочется.
+        siteEvent("download_click");
       } catch {
         // аналитика — вещь необязательная, клик важнее
       }

@@ -30,7 +30,7 @@ import { GoogleSignInButton } from "@/components/google-sign-in-button";
 import { AppleSignInButton } from "@/components/apple-sign-in-button";
 import { useActiveLocale } from "@/lib/use-active-locale";
 import { fbqTrack } from "@/lib/meta-pixel";
-import { umamiEvent } from "@/lib/track";
+import { siteEvent } from "@/lib/track";
 
 export type AuthMode = "sign-in" | "sign-up";
 
@@ -210,8 +210,9 @@ export function InlineAuthForm({
       // comment above.
       // 03.10.2026: пиксель Meta — регистрация состоялась. Короткая пауза,
       // чтобы событие успело уйти до перехода на следующую страницу.
-      // 14.10.2026: и в Umami -- регистрация / вход (воронка «зашёл -> зарегистрировался»).
-      umamiEvent(mode === "sign-up" ? "signup" : "signin", { method: "email" });
+      // 14.10.2026: и в нашу статистику -- регистрация / вход (воронка «зашёл -> зарегистрировался»).
+      // 16.10.2026: раньше это уходило в Umami, теперь в наш собственный счётчик (lib/track.ts).
+      siteEvent(mode === "sign-up" ? "signup" : "signin");
       if (mode === "sign-up") {
         fbqTrack("CompleteRegistration", { method: "email" });
       }

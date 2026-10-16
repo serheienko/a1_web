@@ -117,7 +117,9 @@ export const ROOMS: RoomDef[] = [
       // 15.10.2026 (Александр): «Сайт Premium», «Чат» и «Уведомления» убраны из штаба -- это служебные части
       // бэкенда и тестовая копия сайта, следить за ними здесь не нужно.
       { id: "media", name: "Картинки и файлы", role: "media.a1appp.com: хранит и отдаёт фото, аватарки, логотипы и вложения в чатах (часть бэкенда, не GPT)", slots: [], graceMin: 0, kind: "health", health: "https://media.a1appp.com/health" },
-      { id: "umami", name: "Аналитика Umami", role: "Посетители сайта, откуда пришли, воронка (окно «Метрики» выше)", slots: [], graceMin: 0, kind: "health", health: "https://umami-production-e14b.up.railway.app/api/heartbeat" },
+      // 16.10.2026: своя Umami выключена (стоила ~$4/мес памятью на Railway). Посещаемость считает
+      // Cloudflare на своей стороне, следить тут не за чем; свои события -- в окне «Метрики» выше.
+      { id: "analytics", name: "Аналитика", role: "Посещаемость -- Cloudflare Web Analytics; действия -- свой счётчик (окно «Метрики» выше)", slots: [], graceMin: 0, kind: "none" },
       { id: "stats", name: "Статистика кликов", role: "Наши счётчики: «Відгукнутися», «Відкрити вакансію», заявки компаний (админка статистики); заодно проверка базы сайта", slots: [], graceMin: 0, kind: "check", check: "stats" },
     ],
   },

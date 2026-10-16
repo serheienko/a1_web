@@ -8,32 +8,29 @@
 // доставить. Где sendBeacon нет -- обычный fetch с keepalive.
 //
 // Ничего не ломает и ничего не ждёт: любая ошибка глотается.
+//
+// 16.10.2026. Раньше часть событий (регистрация, «скачать», «Перші 250»)
+// уходила ВТОРЫМ адресом -- в Umami, нашу аналитику на Railway. Umami
+// выключили: она стоила около четырёх долларов в месяц одной только
+// памятью, а посещаемость теперь бесплатно считает Cloudflare (маячок
+// подключён в app/layout.tsx). Поэтому все события идут в одно место --
+// в наш собственный счётчик, из которого их читает окно «Метрики» в
+// штабе. Cloudflare своих событий не знает и знать не может: он видит
+// запросы, а не то, что человек нажал.
 
-export type TrackEvent = "view" | "external" | "apply" | "claim_open" | "claim_sent" | "claim_done";
+export type TrackEvent =
+  | "view"
+  | "external"
+  | "apply"
+  | "claim_open"
+  | "claim_sent"
+  | "claim_done"
+  | "signup"
+  | "signin"
+  | "download_click"
+  | "first250_claim";
 
-type UmamiData = Record<string, string | number | boolean>;
-type UmamiWindow = Window & { umami?: { track: (name: string, data?: UmamiData) => void } };
-
-/**
- * 14.10.2026 (Александр: «кто приходит, сколько остаётся, кто отваливается»). Событие в Umami --
- * нашей аналитике на Railway (скрипт подключён в app/layout.tsx). Из этих событий и адресов страниц
- * Umami строит воронку и удержание; часть цифр показывает окно «Метрики» в штабе.
- * Скрипт ещё не загрузился или заблокирован -- молча ничего не делаем.
- */
-export function umamiEvent(name: string, data?: UmamiData): void {
-  if (typeof window === "undefined") return;
-  try {
-    (window as UmamiWindow).umami?.track(name, data);
-  } catch {
-    // аналитика никогда не важнее страницы
-  }
-}
-
-export function track(event: TrackEvent, what?: { company?: string | null; post?: string | null }): void {
-  if (typeof window === "undefined") return;
-  const body = JSON.stringify({ e: event, c: what?.company ?? "", p: what?.post ?? "" });
-  // просмотр страницы Umami считает сам; остальное -- событием (отклик, переход, клейм)
-  if (event !== "view") umamiEvent(event, { company: what?.company ?? "", post: what?.post ?? "" });
+function send(body: string): void {
   try {
     if (navigator.sendBeacon?.("/api/track", body)) return;
   } catch {
@@ -44,6 +41,17 @@ export function track(event: TrackEvent, what?: { company?: string | null; post?
   } catch {
     // статистика никогда не важнее страницы
   }
+}
+
+/** Событие без привязки к компании и вакансии: регистрация, вход, «скачать», «Перші 250». */
+export function siteEvent(name: TrackEvent): void {
+  if (typeof window === "undefined") return;
+  send(JSON.stringify({ e: name, c: "", p: "" }));
+}
+
+export function track(event: TrackEvent, what?: { company?: string | null; post?: string | null }): void {
+  if (typeof window === "undefined") return;
+  send(JSON.stringify({ e: event, c: what?.company ?? "", p: what?.post ?? "" }));
 }
 
 /**

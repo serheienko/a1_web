@@ -15,7 +15,7 @@ import { AppQr } from "@/components/app-qr";
 import { InlineAuthForm } from "@/components/inline-auth-form";
 import { useActiveLocale } from "@/lib/use-active-locale";
 import { DOWNLOAD_LINKS } from "@/app/download/copy";
-import { umamiEvent } from "@/lib/track";
+import { siteEvent } from "@/lib/track";
 
 type Checks = { photo: boolean; name: boolean; title: boolean; experience: boolean };
 type Me = { signedIn: false } | { signedIn: true; name: string; checks: Checks; complete: boolean; place: number | null };
@@ -248,7 +248,7 @@ export function First250Client() {
       const r = await fetch("/api/first250", { method: "POST" });
       const j = (await r.json()) as { ok: boolean; message?: string; place?: number; late?: boolean };
       if (j.ok && j.place) {
-        umamiEvent("first250_claim", { place: j.place });
+        siteEvent("first250_claim");
         if (j.late) setLate(true);
         else fire();
         await load();

@@ -324,14 +324,19 @@ export default function RootLayout({
         <CreatePostFab />
         {/* 03.10.2026: пиксель Meta для рекламы — components/meta-pixel.tsx */}
         <MetaPixel />
-        {/* Umami (self-hosted on Railway): page views without cookies */}
+        {/* 16.10.2026. Посещаемость считает бесплатная Cloudflare Web Analytics
+            вместо своей Umami: та стояла отдельным сервисом на Railway и ела
+            около четырёх долларов в месяц одной памятью, а показывала то же
+            самое. Cookie не ставит, отдельных людей не отслеживает.
+            Токен маячка не секрет -- он и так виден в коде страницы.
+            Наши собственные события (регистрация, «скачать», «Перші 250»,
+            отклики, клейм) Cloudflare не считает и не может: они идут в наш
+            счётчик, см. lib/track.ts и окно «Метрики» в штабе. */}
         <Script
-          id="umami"
-          src="https://umami-production-e14b.up.railway.app/script.js"
-          data-website-id="e76d05a0-d9e0-4e57-8a52-4ee0c93e05db"
-          data-domains="jobs.a1appp.com"
+          id="cf-beacon"
+          src="https://static.cloudflareinsights.com/beacon.min.js"
+          data-cf-beacon='{"token": "3e8fd5119c454b1a81d406a423e366e9"}'
           strategy="afterInteractive"
-          defer
         />
       </body>
     </html>

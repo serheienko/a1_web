@@ -31,7 +31,19 @@ import { kvConfigured, kvGet, kvGetMany, kvPut } from "@/lib/kv/store";
 const PREFIX = "a1/stats/";
 
 /** Что считаем. Добавлять новые можно свободно -- старые файлы не ломаются. */
-export const STAT_EVENTS = ["view", "external", "apply", "claim_open", "claim_sent", "claim_done"] as const;
+export const STAT_EVENTS = [
+  "view",
+  "external",
+  "apply",
+  "claim_open",
+  "claim_sent",
+  "claim_done",
+  // 16.10.2026: раньше эти четыре уходили в Umami, теперь считаем у себя (см. lib/track.ts).
+  "signup",
+  "signin",
+  "download_click",
+  "first250_claim",
+] as const;
 export type StatEvent = (typeof STAT_EVENTS)[number];
 
 export type StatKey = { event: StatEvent; company: string; post: string };
@@ -182,7 +194,7 @@ export type CompanyStats = {
 };
 
 function emptyTotals(): StatTotals {
-  return { view: 0, external: 0, apply: 0, claim_open: 0, claim_sent: 0, claim_done: 0 };
+  return Object.fromEntries(STAT_EVENTS.map((e) => [e, 0])) as StatTotals;
 }
 
 /**
