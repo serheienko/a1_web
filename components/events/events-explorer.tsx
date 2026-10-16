@@ -6,9 +6,9 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { EvLang } from "@/lib/events/types";
-import { EVENT_CATEGORIES, countryLabel, eventPath, fmtRange, monthKey, monthTitle, placeLabel, regionOf, utc, type Coll, type Region } from "@/lib/events/util";
+import { EVENT_CATEGORIES, countryLabel, eventPath, fmtRange, monthKey, monthTitle, placeLabel, regionOf, todayKyiv, utc, type Coll, type Region } from "@/lib/events/util";
 import { DateTile } from "./date-tile";
 import { EventCover } from "./event-cover";
 import { EventRow, type ListEvent } from "./event-row";
@@ -74,8 +74,15 @@ function daysOfMonth(key: string): { iso: string; inMonth: boolean }[] {
   return out.slice(35).every((c) => !c.inMonth) ? out.slice(0, 35) : out;
 }
 
-export function EventsExplorer({ events, tags, lang, today, heading }: { events: ListEvent[]; tags: Coll[]; lang: EvLang; today: string; heading?: React.ReactNode }) {
+export function EventsExplorer({ events, tags, lang, today: serverToday, heading }: { events: ListEvent[]; tags: Coll[]; lang: EvLang; today: string; heading?: React.ReactNode }) {
   const t = TXT[lang];
+  // 16.10.2026 (Александр: «Найближчі» показывали уже прошедшие дни). Страница кэшируется,
+  // поэтому дату сервера сверяем с часами браузера (Киев) и берём свежую.
+  const [today, setToday] = useState(serverToday);
+  useEffect(() => {
+    const now = todayKyiv();
+    if (now !== serverToday) setToday(now);
+  }, [serverToday]);
   const [region, setRegion] = useState<"all" | Region>("all");
   const [tag, setTag] = useState("");
   const [cat, setCat] = useState("");
@@ -155,9 +162,13 @@ export function EventsExplorer({ events, tags, lang, today, heading }: { events:
   const onlineCount = useMemo(() => mapEvents.filter((e) => e.online || !e.country).length, [mapEvents]);
   const matchCountry = (e: ListEvent) => (sel === "__online" ? e.online || !e.country : e.country === sel && !e.online);
   const sel = country && (country === "__online" || mapCountries.some((c) => c.key === country)) ? country : null;
-  const panel = sel ? mapEvents.filter(matchCountry) : panelIsDay ? dayList : upcoming.slice(0, 5);
+  // «Найближчі» = то, что начинается сегодня или позже. Многодневные события, которые
+  // стартовали несколько дней назад, сюда не попадают (иначе на плитке прошедшая дата);
+  // они остаются в календаре и в ленте.
+  const soon = useMemo(() => upcoming.filter((e) => e.start >= today).sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0)), [upcoming, today]);
+  const panel = sel ? mapEvents.filter(matchCountry) : panelIsDay ? dayList : soon.slice(0, 5);
   const selLabel = sel === "__online" ? (lang === "uk" ? "онлайн" : "online") : sel ? countryLabel(sel, lang) : "";
-  const carousel = upcoming.slice(0, 8);
+  const carousel = soon.slice(0, 8);
   const catCounts = useMemo(() => {
     const m = new Map<string, number>();
     for (const e of events) {
