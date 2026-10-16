@@ -70,7 +70,9 @@ export async function loadScoutReports(limit = 4): Promise<ScoutReport[]> {
 // отклонённые просто прячем при показе. Лежит вне a1/scout/, чтобы не смешиваться с отчётами.
 const REJECTED_PATH = "a1/scout-rejected.json";
 
-export type ScoutRejected = { date: string; who: string; what: string; reason: string; at: string };
+// 16.10.2026: у записи есть статус -- "rejected" («Не подходит») или "done" («Сделано»). Старые записи
+// без статуса считаются отклонёнными. reason -- комментарий Александра (почему / как сделали).
+export type ScoutRejected = { date: string; who: string; what: string; reason: string; at: string; status?: "rejected" | "done" };
 
 const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
 
@@ -90,7 +92,7 @@ export function isRejected(idea: Pick<ScoutIdea, "what">, rejected: ScoutRejecte
 }
 
 /** Отклонить идею из отчёта за date. Причина уходит Разведчику. */
-export async function rejectScoutIdea(input: { date: string; what: string; reason: string }): Promise<"ok" | "not_found" | "error"> {
+export async function rejectScoutIdea(input: { date: string; what: string; reason: string; status?: "rejected" | "done" }): Promise<"ok" | "not_found" | "error"> {
   if (!kvConfigured()) return "error";
   try {
     const report = (await loadScoutReports(12)).find((r) => r.date === input.date);
@@ -98,7 +100,7 @@ export async function rejectScoutIdea(input: { date: string; what: string; reaso
     if (!idea) return "not_found";
     const list = await loadScoutRejected();
     if (!isRejected(idea, list)) {
-      list.push({ date: input.date, who: idea.who, what: idea.what, reason: input.reason.trim(), at: new Date().toISOString() });
+      list.push({ date: input.date, who: idea.who, what: idea.what, reason: input.reason.trim(), at: new Date().toISOString(), status: input.status ?? "rejected" });
     }
     await kvPutJson(REJECTED_PATH, { items: list.slice(-100) });
     return "ok";

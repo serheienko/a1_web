@@ -28,7 +28,10 @@ const CSS = `
 .shs-old{font-size:13px;color:var(--soft);margin:6px 0 0 0;padding-left:18px}
 .shs-rej{margin-top:8px;font-size:12px;font-weight:700;color:var(--dim);background:transparent;border:1px solid var(--row);border-radius:99px;padding:3px 10px;cursor:pointer}
 .shs-rej:hover{color:var(--mut)}
-.shs-rej-go{color:#991b1b;border-color:#fecaca}
+.shs-no{color:#dc2626;border-color:#fca5a5}
+.shs-no:hover{color:#b91c1c;background:#fee2e2}
+.shs-done{color:#15803d;border-color:#86efac}
+.shs-done:hover{color:#166534;background:#dcfce7}
 .shs-rej-box{margin-top:8px}
 .shs-rej-txt{width:100%;font:inherit;font-size:13px;border:1px solid var(--row);border-radius:10px;padding:6px 8px;background:transparent;color:inherit;resize:vertical}
 .shs-rej-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -102,16 +105,17 @@ export async function ShtabScout() {
 
       {rejected.length ? (
         <details>
-          <summary>Отклонённые идеи ({rejected.length})</summary>
+          <summary>Сделано и отклонённые ({rejected.length}) · Разведчик читает этот список и не повторяет такое</summary>
           <ul className="shs-old">
             {rejected
               .slice()
               .reverse()
               .map((r, k) => (
                 <li key={k}>
+                  {r.status === "done" ? "✅ Сделано · " : "❌ Не подходит · "}
                   {r.who ? `${r.who}: ` : ""}
                   {r.what.replace(/[.\s]+$/, "")}
-                  {r.reason ? `. Почему: ${r.reason}` : ""}
+                  {r.reason ? `. Комментарий: ${r.reason}` : ""}
                 </li>
               ))}
           </ul>
