@@ -229,6 +229,9 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://jobs.a1appp.com"),
   title: "A1 Web",
   description: "A1 — вакансии и специалисты из приложения A1, в вебе.",
+  // Native iOS Safari "Smart App Banner" (Aleksandr, 2026-10-17: like claude.ai's).
+  // Renders <meta name="apple-itunes-app" content="app-id=6443859764">.
+  itunes: { appId: "6443859764" },
   // Set GOOGLE_SITE_VERIFICATION in Vercel once you create the Search
   // Console property (Settings -> Ownership verification -> HTML tag ->
   // copy just the `content` value, not the whole tag) — this renders it

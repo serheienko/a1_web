@@ -107,7 +107,13 @@ type Platform = "ios" | "android" | "other";
 function detectPlatform(): Platform {
   if (typeof navigator === "undefined") return "other";
   const ua = navigator.userAgent;
-  if (/iphone|ipad|ipod/i.test(ua)) return "ios";
+  if (/iphone|ipad|ipod/i.test(ua)) {
+    // Real Safari already shows the native Smart App Banner (meta
+    // apple-itunes-app in app/layout.tsx) -- don't stack ours on top.
+    // Chrome/Firefox/Edge on iOS have no such banner, keep ours there.
+    if (!/crios|fxios|edgios|opios|gsa\//i.test(ua)) return "other";
+    return "ios";
+  }
   if (/android/i.test(ua)) return "android";
   return "other";
 }
