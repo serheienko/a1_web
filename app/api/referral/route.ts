@@ -45,7 +45,8 @@ function fail(err: unknown, where: string) {
   return NextResponse.json({ ok: false, message: "failed" }, { status: 502 });
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const summary = new URL(req.url).searchParams.get("summary") === "1";
   try {
     const { profile, refreshed } = await loadProfile();
     const withSession = (body: unknown, status = 200) => {
@@ -60,12 +61,13 @@ export async function GET() {
     const mine = await inviteOf(profile._id);
     if (mine && mine.status !== "live" && isComplete(profileChecks(profile))) await markLive(profile._id);
 
-    const [code, list] = await Promise.all([ensureCode(profile._id), invitesBy(profile._id)]);
+    // summary=1 -- лёгкий запрос для меню «⋯»: код не создаём, пока человек сам не открыл экран.
+    const [code, list] = await Promise.all([summary ? Promise.resolve(null) : ensureCode(profile._id), invitesBy(profile._id)]);
     const progress = progressOf(countsOf(list));
     return withSession({
       ok: true,
       code,
-      link: `${SITE}/?ref=${code}`,
+      link: code ? `${SITE}/?ref=${code}` : null,
       ladder: LADDER,
       friendDays: FRIEND_DAYS,
       holdHours: HOLD_HOURS,
@@ -92,7 +94,7 @@ export async function POST(req: Request) {
     if (profile.external || profile.unclaimed) return withSession({ ok: false, message: "not_eligible" }, 403);
     const res = await claimInvite(profile._id, String(body.code ?? ""), nameOf(profile));
     if (res === "bad_code") return withSession({ ok: false, message: "bad_code" }, 400);
-    if (res === "self") return withSession({ ok: false, message: "self" }, 400);
+    if (res === "self" || res === "mutual" || res === "limit") return withSession({ ok: false, message: res }, 400);
     return withSession({ ok: true, already: res === "already" });
   } catch (err) {
     return fail(err, "POST");

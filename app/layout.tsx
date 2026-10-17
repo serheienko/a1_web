@@ -13,6 +13,7 @@ import { MetaPixel } from "@/components/meta-pixel";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteFooterGate } from "@/components/site-footer-gate";
 import { NavProgress } from "@/components/nav-progress";
+import { RefCapture } from "@/components/ref-capture";
 
 // Commissioner: the real typeface used in the Figma mockups (confirmed via
 // Inspect on "Feed Preview White", 2026-08-26), not a generic system stack.
@@ -293,6 +294,8 @@ export default function RootLayout({
         <Script id="lang-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: LANG_INIT_SCRIPT }} />
         {/* 14.10.2026: полоска загрузки вверху при переходах -- components/nav-progress.tsx */}
         <NavProgress />
+        {/* 17.10.2026: ловит ?ref=КОД из ссылки-приглашения -- components/ref-capture.tsx */}
+        <RefCapture />
         <SiteNav />
         {/* 2026-09-03: cross-page voice-message "now playing" mini-bar --
             mounted globally for the same reason ChatsFab/CreatePostFab

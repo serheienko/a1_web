@@ -10,20 +10,22 @@
 // шаги 3+ -- только по «живым» (друг заполнил профиль). Выше 24 месяцев -- денежная
 // партнёрская программа, не месяцы.
 
-export const LADDER = [
+export type Step = { friends: number; months: number; needLive: boolean };
+
+export const LADDER: readonly Step[] = [
   { friends: 1, months: 1, needLive: false },
   { friends: 3, months: 3, needLive: false },
   { friends: 7, months: 6, needLive: true },
   { friends: 15, months: 12, needLive: true },
   { friends: 30, months: 24, needLive: true },
-] as const;
+];
 
 /** Сколько дней Alpha получает сам друг, пришедший по ссылке. */
 export const FRIEND_DAYS = 14;
 /** Сколько часов друг «вылёживается», прежде чем засчитаться (защита от накруток). */
 export const HOLD_HOURS = 48;
 /** Верхняя граница месяцев Alpha за рефералы. */
-export const MAX_MONTHS = LADDER[LADDER.length - 1].months;
+export const MAX_MONTHS = LADDER[LADDER.length - 1]?.months ?? 24;
 
 export type FriendStatus = "joined" | "live";
 
@@ -47,19 +49,20 @@ export type Progress = {
 };
 
 /** Сколько друзей «в зачёте» для ступени. */
-export function qualifying(step: (typeof LADDER)[number], c: Counts): number {
+export function qualifying(step: Step, c: Counts): number {
   return step.needLive ? c.live : c.counted;
 }
 
 export function progressOf(c: Counts): Progress {
   let reached = -1;
   for (let i = 0; i < LADDER.length; i++) {
-    if (qualifying(LADDER[i], c) >= LADDER[i].friends) reached = i;
+    const st = LADDER[i];
+    if (st && qualifying(st, c) >= st.friends) reached = i;
   }
   const nextStep = LADDER[reached + 1];
   return {
     counts: c,
-    monthsEarned: reached >= 0 ? LADDER[reached].months : 0,
+    monthsEarned: reached >= 0 ? (LADDER[reached]?.months ?? 0) : 0,
     stepReached: reached,
     next: nextStep
       ? {

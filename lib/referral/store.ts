@@ -4,7 +4,8 @@
 // Одна запись на факт, поэтому два одновременных действия не затирают друг друга:
 //   a1/referral/user/<userId>.json    -- код человека  { code }
 //   a1/referral/code/<CODE>.json      -- код -> человек { userId }
-//   a1/referral/invite/<friendId>.json -- друг -> кто пригласил (первый пригласивший побеждает)
+//   a1/referral/of/<friendId>.json    -- друг -> кто пригласил (первый пригласивший побеждает)
+//   a1/referral/by/<referrerId>/<friendId>.json -- запись о друге у пригласившего (список без перебора всех)
 
 if (typeof window !== "undefined") {
   throw new Error("[lib/referral/store] imported from the browser — server-only");
@@ -16,7 +17,8 @@ import { HOLD_HOURS, type Counts, type FriendStatus } from "./ladder";
 
 const P_USER = "a1/referral/user/";
 const P_CODE = "a1/referral/code/";
-const P_INVITE = "a1/referral/invite/";
+const P_OF = "a1/referral/of/";
+const P_BY = "a1/referral/by/";
 
 // Без похожих символов (0/O, 1/I/L), чтобы код можно было продиктовать.
 const ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
@@ -73,7 +75,14 @@ export async function ownerOfCode(code: string): Promise<string | null> {
   return (await kvGetJson<{ userId: string }>(`${P_CODE}${c}.json`))?.userId ?? null;
 }
 
-export type ClaimResult = "ok" | "already" | "self" | "bad_code";
+export type ClaimResult = "ok" | "already" | "self" | "bad_code" | "mutual" | "limit";
+
+/** Не больше стольких новых друзей в сутки на одного человека -- дальше это уже не «друзья». */
+export const DAILY_INVITE_CAP = 30;
+
+function byPath(referrerId: string, friendId: string): string {
+  return `${P_BY}${safe(referrerId)}/${safe(friendId)}.json`;
+}
 
 /** Друг вошёл по ссылке. Первый пригласивший остаётся навсегда. */
 export async function claimInvite(friendId: string, rawCode: string, name?: string): Promise<ClaimResult> {
@@ -82,6 +91,11 @@ export async function claimInvite(friendId: string, rawCode: string, name?: stri
   const referrerId = await ownerOfCode(code);
   if (!referrerId) return "bad_code";
   if (referrerId === friendId) return "self";
+  // Взаимные приглашения (A позвал B, B зовёт A) -- классическая накрутка.
+  if ((await inviteOf(referrerId))?.referrerId === friendId) return "mutual";
+  // Суточный потолок на одного пригласившего.
+  const recent = (await invitesBy(referrerId)).filter((i) => Date.now() - Date.parse(i.joinedAt) < 24 * 3600_000).length;
+  if (recent >= DAILY_INVITE_CAP) return "limit";
   const inv: Invite = {
     v: 1,
     friendId,
@@ -91,28 +105,33 @@ export async function claimInvite(friendId: string, rawCode: string, name?: stri
     status: "joined",
     ...(name ? { name: name.slice(0, 60) } : {}),
   };
-  const r = await kvPutJson(`${P_INVITE}${safe(friendId)}.json`, inv, { overwrite: false });
-  return r === "ok" ? "ok" : "already";
+  // Победитель определяется записью «друг -> пригласивший» (не перезаписывается).
+  const won = await kvPutJson(`${P_OF}${safe(friendId)}.json`, { referrerId }, { overwrite: false });
+  if (won !== "ok") return "already";
+  await kvPutJson(byPath(referrerId, friendId), inv, { overwrite: true });
+  return "ok";
 }
 
 export async function inviteOf(friendId: string): Promise<Invite | null> {
   if (!kvConfigured()) return null;
-  return kvGetJson<Invite>(`${P_INVITE}${safe(friendId)}.json`);
+  const of = await kvGetJson<{ referrerId: string }>(`${P_OF}${safe(friendId)}.json`);
+  if (!of?.referrerId) return null;
+  return kvGetJson<Invite>(byPath(of.referrerId, friendId));
 }
 
 /** Друг заполнил профиль -- помечаем «живым» (один раз). */
 export async function markLive(friendId: string): Promise<void> {
   const inv = await inviteOf(friendId);
   if (!inv || inv.status === "live") return;
-  await kvPutJson(`${P_INVITE}${safe(friendId)}.json`, { ...inv, status: "live", liveAt: new Date().toISOString() }, { overwrite: true });
+  await kvPutJson(byPath(inv.referrerId, friendId), { ...inv, status: "live", liveAt: new Date().toISOString() }, { overwrite: true });
 }
 
 export type InviteRow = { name: string; status: FriendStatus; counted: boolean; joinedAt: string };
 
-/** Все приглашённые человеком (один запрос к базе; при росте заменить на индекс по referrerId). */
+/** Все приглашённые человеком: один запрос по его префиксу. */
 export async function invitesBy(referrerId: string): Promise<Invite[]> {
   if (!kvConfigured()) return [];
-  const items = await kvGetMany(P_INVITE);
+  const items = await kvGetMany(`${P_BY}${safe(referrerId)}/`);
   const out: Invite[] = [];
   for (const it of items) {
     try {

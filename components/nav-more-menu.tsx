@@ -33,7 +33,7 @@ import { DOWNLOAD_COPY } from "@/app/download/copy";
 import { LOCALES, LOCALE_VISIBILITY_CLASS, T, type Locale } from "@/components/t";
 import { useHoverPanel } from "@/lib/use-hover-panel";
 
-type Id = "app" | "news" | "events" | "stats" | "ai" | "game";
+type Id = "app" | "news" | "events" | "stats" | "ai" | "invite" | "game";
 
 function L(uk: string, en: string, ru: string, rest?: Partial<Record<Locale, string>>): Record<Locale, string> {
   return { uk, en, ru, de: en, es: en, fr: en, pl: en, ptBR: en, zh: en, ...rest };
@@ -103,6 +103,18 @@ const TXT = {
     ),
     badge: L("Новинка", "New", "Новинка"),
   },
+  // 17.10.2026: реферальная программа «Отримай Alpha» -- страница /invite, мини-прогресс прямо в строке меню.
+  invite: {
+    title: L("Отримай Alpha", "Get Alpha", "Получи Alpha"),
+    sub: L("Запроси друзів — до 24 місяців", "Invite friends — up to 24 months", "Пригласи друзей — до 24 месяцев"),
+    prev: L(
+      "Поділись посиланням з друзями — і отримуй A1 Alpha безкоштовно. Друг теж отримує подарунок",
+      "Share your link with friends and get A1 Alpha for free. Your friend gets a gift too",
+      "Поделись ссылкой с друзьями — и получай A1 Alpha бесплатно. Друг тоже получает подарок",
+    ),
+    mo: L("міс.", "mo", "мес."),
+    friends: L("друзів", "friends", "друзей"),
+  },
   game: {
     title: L("A1 Run", "A1 Run", "A1 Run"),
     sub: L("Пограй у нашу гру", "Play our game", "Поиграй в нашу игру"),
@@ -123,7 +135,22 @@ const TXT = {
   more: L("Ще", "More", "Ещё", { de: "Mehr", es: "Más", fr: "Plus", pl: "Więcej", ptBR: "Mais", zh: "更多" }),
 };
 
-const HREF: Record<Id, string> = { app: "/download", news: "/news", events: "/events", stats: "/stats", ai: "/ai-assistant", game: "/game" };
+const HREF: Record<Id, string> = { app: "/download", news: "/news", events: "/events", stats: "/stats", ai: "/ai-assistant", invite: "/invite", game: "/game" };
+
+// Сводка рефералки для строки меню: friends -- друзей в зачёте, next -- сколько нужно до следующей награды.
+type InviteLite = { friends: number; months: number; next: { friends: number; months: number } | null };
+const LADDER_STEPS = [1, 3, 7, 15, 30];
+
+// Заливка мини-полосы -- как на странице /invite: ступени равными промежутками, плавно между соседними.
+function inviteFill(n: number): number {
+  let prev = 0;
+  for (let i = 0; i < LADDER_STEPS.length; i++) {
+    const cur = LADDER_STEPS[i] ?? 0;
+    if (n < cur) return ((i + (n - prev) / Math.max(1, cur - prev)) / LADDER_STEPS.length) * 100;
+    prev = cur;
+  }
+  return 100;
+}
 
 type StatsLite = { total: number; companies: number; countries: number; fresh24h: number; daily: { d: string; n: number }[] };
 
@@ -202,6 +229,18 @@ function AiIcon() {
   );
 }
 
+function InviteIcon() {
+  return (
+    <svg {...svgBase}>
+      <path d="M20 12v8H4v-8" />
+      <path d="M2.5 7.5h19V12h-19z" />
+      <path d="M12 7.5V20" />
+      <path d="M12 7.5H8.2a2.1 2.1 0 1 1 0-4.2C10.4 3.3 12 7.5 12 7.5z" />
+      <path d="M12 7.5h3.8a2.1 2.1 0 1 0 0-4.2C13.6 3.3 12 7.5 12 7.5z" />
+    </svg>
+  );
+}
+
 function GameIcon() {
   return (
     <svg {...svgBase}>
@@ -267,6 +306,45 @@ function Row({
         aria-hidden="true"
         className="shrink-0 -translate-x-1 text-neutral-300 opacity-0 transition duration-200 group-hover:translate-x-0 group-hover:text-accent group-hover:opacity-100 dark:text-neutral-600"
       >
+        <path d="M9 6l6 6-6 6" />
+      </svg>
+    </Link>
+  );
+}
+
+// Строка «Отримай Alpha»: вместо подписи -- мини-полоса прогресса (когда человек вошёл и уже есть друзья).
+function InviteRow({ lite, onHover, onPick }: { lite: InviteLite | null; onHover: (id: Id) => void; onPick: () => void }) {
+  const t = TXT.invite;
+  const pct = lite ? Math.min(100, Math.round(inviteFill(lite.friends))) : 0;
+  return (
+    <Link
+      href={HREF.invite}
+      onClick={onPick}
+      onMouseEnter={() => onHover("invite")}
+      onFocus={() => onHover("invite")}
+      className="group flex w-full items-center gap-3 rounded-xl px-2 py-2 transition hover:bg-neutral-100 focus-visible:bg-neutral-100 dark:hover:bg-neutral-800 dark:focus-visible:bg-neutral-800"
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-neutral-100 text-neutral-500 transition duration-200 group-hover:bg-accent/15 group-hover:text-accent dark:bg-neutral-800 dark:text-neutral-400 dark:group-hover:bg-accent/20">
+        <InviteIcon />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-1.5 text-sm font-medium text-neutral-900 dark:text-neutral-50">
+          <span className="truncate"><T {...t.title} /></span>
+        </span>
+        {lite && lite.friends > 0 ? (
+          <span className="mt-1 flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
+            <span className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
+              <span className="absolute inset-y-0 left-0 rounded-full bg-accent" style={{ width: `${Math.max(6, pct)}%` }} />
+            </span>
+            <span className="shrink-0 tabular-nums">{lite.friends} <T {...t.friends} /> · {lite.months} <T {...t.mo} /></span>
+          </span>
+        ) : (
+          <span className="block truncate text-xs text-neutral-500 dark:text-neutral-400">
+            <T {...t.sub} />
+          </span>
+        )}
+      </span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0 -translate-x-1 text-neutral-300 opacity-0 transition duration-200 group-hover:translate-x-0 group-hover:text-accent group-hover:opacity-100 dark:text-neutral-600">
         <path d="M9 6l6 6-6 6" />
       </svg>
     </Link>
@@ -440,6 +518,44 @@ function PreviewAi() {
   );
 }
 
+function PreviewInvite() {
+  const steps = [1, 3, 7, 15, 30];
+  const months = [1, 3, 6, 12, 24];
+  return (
+    <>
+      <span className="relative block aspect-[16/10] w-full overflow-hidden bg-[radial-gradient(120%_90%_at_20%_0%,#1b3a95_0%,#0a1240_48%,#03051f_100%)]">
+        <span className="absolute inset-x-5 top-5 block">
+          <span className="block text-[11px] font-medium uppercase tracking-wide text-[#7aa2ff]">Alpha · invite</span>
+          <span className="mt-1 block text-[40px] font-bold leading-none text-white">24 <span className="text-[22px] font-semibold text-white/70"><T {...TXT.invite.mo} /></span></span>
+        </span>
+        <span className="absolute inset-x-5 bottom-10 block">
+          <span className="relative block h-2 rounded-full bg-white/15">
+            <span className="absolute inset-y-0 left-0 w-[38%] rounded-full bg-[#7aa2ff]" />
+            {steps.map((_, i) => (
+              <span key={i} className={"absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-[#0a1240] " + (i < 2 ? "bg-[#7aa2ff]" : "bg-white/30")} style={{ left: `${((i + 1) / steps.length) * 100}%` }} />
+            ))}
+          </span>
+          <span className="relative mt-3 block h-8 text-[11px] leading-tight text-white/60">
+            {steps.map((n, i) => (
+              <span key={n} className="absolute -translate-x-1/2 whitespace-nowrap text-center" style={{ left: `${Math.min(92, ((i + 1) / steps.length) * 100)}%` }}>
+                <b className="block text-xs text-white">{n}</b>
+                {months[i]} <T {...TXT.invite.mo} />
+              </span>
+            ))}
+          </span>
+        </span>
+        <span className="pointer-events-none absolute inset-x-0 bottom-0 block h-12 bg-gradient-to-b from-transparent to-[#03051f]" />
+      </span>
+      <span className="block px-5 pb-5 pt-1">
+        <span className="block text-[20px] font-semibold leading-[1.2] text-white"><T {...TXT.invite.title} /></span>
+        <span className="mt-2 block text-[13px] leading-snug text-white/65">
+          <T {...TXT.invite.prev} />
+        </span>
+      </span>
+    </>
+  );
+}
+
 function PreviewGame() {
   return (
     <>
@@ -507,6 +623,8 @@ export function NavMoreMenu() {
   const [stats, setStats] = useState<StatsLite | null>(null);
   const [latestNews, setLatestNews] = useState<LatestPair | null>(null);
   const newsFetched = useRef(false);
+  const [invite, setInvite] = useState<InviteLite | null>(null);
+  const inviteFetched = useRef(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
@@ -533,6 +651,20 @@ export function NavMoreMenu() {
       })
       .catch(() => {
         newsFetched.current = false;
+      });
+  }, [open]);
+
+  // Строка «Отримай Alpha»: прогресс человека (лёгкий запрос, один раз за открытие меню; гостю -- 401, строка остаётся с подписью).
+  useEffect(() => {
+    if (!open || inviteFetched.current) return;
+    inviteFetched.current = true;
+    fetch("/api/referral?summary=1", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (j && j.ok && j.progress) setInvite({ friends: j.progress.counts.counted, months: j.progress.monthsEarned, next: j.progress.next });
+      })
+      .catch(() => {
+        inviteFetched.current = false;
       });
   }, [open]);
 
@@ -596,6 +728,7 @@ export function NavMoreMenu() {
             <Row id="events" icon={<EventsIcon />} onHover={setHovered} onPick={pick} />
             <Row id="stats" icon={<StatsIcon />} onHover={setHovered} onPick={pick} />
             <Row id="ai" icon={<AiIcon />} onHover={setHovered} onPick={pick} />
+            <InviteRow lite={invite} onHover={setHovered} onPick={pick} />
             <div className="mx-2 my-1 border-t border-neutral-100 dark:border-neutral-800" />
             <Row id="game" icon={<GameIcon />} onHover={setHovered} onPick={pick} />
           </div>
@@ -610,7 +743,7 @@ export function NavMoreMenu() {
               }
             >
               <Link key={hovered} href={HREF[hovered]} onClick={pick} className={`animate-nav-preview ${shell("bg-[#03051f]")}`}>
-                {hovered === "app" ? <PreviewApp /> : hovered === "news" ? <PreviewNews latest={latestNews} /> : hovered === "events" ? <PreviewEvents /> : hovered === "stats" ? <PreviewStats data={stats} /> : hovered === "ai" ? <PreviewAi /> : <PreviewGame />}
+                {hovered === "app" ? <PreviewApp /> : hovered === "news" ? <PreviewNews latest={latestNews} /> : hovered === "events" ? <PreviewEvents /> : hovered === "stats" ? <PreviewStats data={stats} /> : hovered === "ai" ? <PreviewAi /> : hovered === "invite" ? <PreviewInvite /> : <PreviewGame />}
               </Link>
             </div>
           )}
