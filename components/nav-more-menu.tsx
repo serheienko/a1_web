@@ -33,7 +33,7 @@ import { DOWNLOAD_COPY } from "@/app/download/copy";
 import { LOCALES, LOCALE_VISIBILITY_CLASS, T, type Locale } from "@/components/t";
 import { useHoverPanel } from "@/lib/use-hover-panel";
 
-type Id = "app" | "news" | "events" | "stats" | "game";
+type Id = "app" | "news" | "events" | "stats" | "ai" | "game";
 
 function L(uk: string, en: string, ru: string, rest?: Partial<Record<Locale, string>>): Record<Locale, string> {
   return { uk, en, ru, de: en, es: en, fr: en, pl: en, ptBR: en, zh: en, ...rest };
@@ -92,6 +92,17 @@ const TXT = {
     countries: L("країн", "countries", "стран"),
     today: L("за добу", "last 24h", "за сутки"),
   },
+  // 17.10.2026: страница /ai-assistant (подключение A1 к Claude, ChatGPT, Cursor). Фраза превью выбрана Александром.
+  ai: {
+    title: L("A1 у ШІ-чаті", "A1 in your AI chat", "A1 в ИИ-чате"),
+    sub: L("Claude, ChatGPT, Cursor", "Claude, ChatGPT, Cursor", "Claude, ChatGPT, Cursor"),
+    prev: L(
+      "Шукайте вакансії A1 прямо в Claude, ChatGPT чи Cursor",
+      "Search A1 jobs right inside Claude, ChatGPT or Cursor",
+      "Ищите вакансии A1 прямо в Claude, ChatGPT или Cursor",
+    ),
+    badge: L("Новинка", "New", "Новинка"),
+  },
   game: {
     title: L("A1 Run", "A1 Run", "A1 Run"),
     sub: L("Пограй у нашу гру", "Play our game", "Поиграй в нашу игру"),
@@ -112,7 +123,7 @@ const TXT = {
   more: L("Ще", "More", "Ещё", { de: "Mehr", es: "Más", fr: "Plus", pl: "Więcej", ptBR: "Mais", zh: "更多" }),
 };
 
-const HREF: Record<Id, string> = { app: "/download", news: "/news", events: "/events", stats: "/stats", game: "/game" };
+const HREF: Record<Id, string> = { app: "/download", news: "/news", events: "/events", stats: "/stats", ai: "/ai-assistant", game: "/game" };
 
 type StatsLite = { total: number; companies: number; countries: number; fresh24h: number; daily: { d: string; n: number }[] };
 
@@ -182,6 +193,15 @@ function StatsIcon() {
   );
 }
 
+function AiIcon() {
+  return (
+    <svg {...svgBase}>
+      <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H11l-4 4v-4H6.5A2.5 2.5 0 0 1 4 13.5v-8z" />
+      <path d="M12 6.8l.9 2.3 2.3.9-2.3.9-.9 2.3-.9-2.3-2.3-.9 2.3-.9.9-2.3z" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 function GameIcon() {
   return (
     <svg {...svgBase}>
@@ -223,8 +243,13 @@ function Row({
         {icon}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium text-neutral-900 dark:text-neutral-50">
-          <T {...t.title} />
+        <span className="flex items-center gap-1.5 text-sm font-medium text-neutral-900 dark:text-neutral-50">
+          <span className="truncate"><T {...t.title} /></span>
+          {"badge" in t ? (
+            <span className="shrink-0 rounded-full bg-accent/15 px-1.5 py-px text-[10px] font-semibold uppercase leading-4 tracking-wide text-accent">
+              <T {...t.badge} />
+            </span>
+          ) : null}
         </span>
         <span className="block truncate text-xs text-neutral-500 dark:text-neutral-400">
           <T {...t.sub} />
@@ -392,6 +417,29 @@ function PreviewEvents() {
   );
 }
 
+function PreviewAi() {
+  const logos = ["claude", "chatgpt", "cursor"];
+  return (
+    <>
+      <span className="relative flex aspect-[16/10] w-full items-center justify-center gap-4 overflow-hidden bg-[radial-gradient(120%_90%_at_20%_0%,#16307a_0%,#0a1240_45%,#03051f_100%)]">
+        {logos.map((n) => (
+          <span key={n} className="flex h-[72px] w-[72px] items-center justify-center rounded-2xl bg-white shadow-lg ring-1 ring-white/20">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={`/brand/assistants/${n}.png`} alt="" width={40} height={40} loading="lazy" className="h-10 w-10 object-contain" />
+          </span>
+        ))}
+        <span className="pointer-events-none absolute inset-x-0 bottom-0 block h-14 bg-gradient-to-b from-transparent to-[#03051f]" />
+      </span>
+      <span className="block px-5 pb-5 pt-1">
+        <span className="block text-[20px] font-semibold leading-[1.2] text-white">A1 + AI</span>
+        <span className="mt-2 block text-[13px] leading-snug text-white/65">
+          <T {...TXT.ai.prev} />
+        </span>
+      </span>
+    </>
+  );
+}
+
 function PreviewGame() {
   return (
     <>
@@ -547,6 +595,7 @@ export function NavMoreMenu() {
             <Row id="news" icon={<NewsIcon />} onHover={setHovered} onPick={pick} />
             <Row id="events" icon={<EventsIcon />} onHover={setHovered} onPick={pick} />
             <Row id="stats" icon={<StatsIcon />} onHover={setHovered} onPick={pick} />
+            <Row id="ai" icon={<AiIcon />} onHover={setHovered} onPick={pick} />
             <div className="mx-2 my-1 border-t border-neutral-100 dark:border-neutral-800" />
             <Row id="game" icon={<GameIcon />} onHover={setHovered} onPick={pick} />
           </div>
@@ -561,7 +610,7 @@ export function NavMoreMenu() {
               }
             >
               <Link key={hovered} href={HREF[hovered]} onClick={pick} className={`animate-nav-preview ${shell("bg-[#03051f]")}`}>
-                {hovered === "app" ? <PreviewApp /> : hovered === "news" ? <PreviewNews latest={latestNews} /> : hovered === "events" ? <PreviewEvents /> : hovered === "stats" ? <PreviewStats data={stats} /> : <PreviewGame />}
+                {hovered === "app" ? <PreviewApp /> : hovered === "news" ? <PreviewNews latest={latestNews} /> : hovered === "events" ? <PreviewEvents /> : hovered === "stats" ? <PreviewStats data={stats} /> : hovered === "ai" ? <PreviewAi /> : <PreviewGame />}
               </Link>
             </div>
           )}
