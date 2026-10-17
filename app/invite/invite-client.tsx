@@ -32,11 +32,11 @@ type Data = {
 };
 
 const DEFAULT_LADDER: Step[] = [
-  { friends: 1, months: 1 },
-  { friends: 3, months: 3 },
-  { friends: 7, months: 6 },
-  { friends: 15, months: 12 },
-  { friends: 30, months: 24 },
+  { friends: 3, months: 1 },
+  { friends: 5, months: 3 },
+  { friends: 10, months: 6 },
+  { friends: 20, months: 12 },
+  { friends: 40, months: 24 },
 ];
 
 function ukPlural(n: number, one: string, few: string, many: string): string {
@@ -52,20 +52,29 @@ const TXT = {
     title: "Отримай Alpha",
     sub: (d: number) => `Запрошуй друзів в A1 і отримуй Alpha безкоштовно. Друг теж отримає ${d} днів Alpha в подарунок 🎁`,
     yourLink: "Твоє посилання",
-    share: "🎁 Поділитися з другом",
+    share: "🎁 Поділитися",
     copy: "Копіювати",
     copied: "Скопійовано ✓",
+    alphaTitle: "Що таке A1 Alpha",
+    alphaSub: "Клуб для тих, хто серйозно шукає роботу чи людей. Зазвичай Alpha платна, а тут її можна отримати безкоштовно.",
+    perks: [
+      { icon: "🔎", title: "Alpha Пошук", text: "Розкажи словами, що шукаєш, і ШІ підбере найкращі вакансії та пояснить, чому вони підходять саме тобі." },
+      { icon: "🔔", title: "Нові збіги щодня", text: "Alpha запамʼятовує твій портрет і раз на день надсилає свіжі вакансії в окремий чат." },
+      { icon: "✨", title: "Magic Post", text: "Опиши вакансію чи пост голосом або текстом, і Alpha сама заповнить усі поля." },
+      { icon: "🫙", title: "Значок і бігуча стрічка", text: "Значок учасника клубу біля імені й твій власний рядок-думка, який бачать усі." },
+    ],
     ladderTitle: "Скільки друзів, стільки подарунків",
-    scaleHint: "У кружечку: скільки друзів. Під ним: скільки місяців Alpha ти отримаєш.",
+    scaleHint: "У кружечку: скільки друзів. Під ним: місяців Alpha. Кружечок заповнюється, коли друг зараховується.",
     friends: (n: number) => `${n} ${ukPlural(n, "друг", "друга", "друзів")}`,
     months: (n: number) => `${n} ${ukPlural(n, "місяць", "місяці", "місяців")}`,
     mo: "міс.",
     rule: (f: number, m: number) => `Запроси ${f} ${ukPlural(f, "друга", "друзів", "друзів")} і отримай ${m} ${ukPlural(m, "місяць", "місяці", "місяців")} Alpha`,
     total: "Разом",
     earned: (m: string) => `Вже зароблено: ${m} Alpha 🎉`,
-    none: "Поки що 0. Запроси першого друга, і це вже місяць Alpha!",
+    none: (f: number) => `Поки що 0. Запроси ${f} друзів, і це вже місяць Alpha!`,
     toNext: (left: number, f: number, m: string) => `Ще ${left} ${ukPlural(left, "друг", "друга", "друзів")} до ${f}, і будуть ${m} Alpha`,
     top: "Це максимум 🎉 Далі партнерська програма з виплатами. Напиши нам.",
+    pin: (n: number) => `${n} ${ukPlural(n, "друг", "друга", "друзів")} 🎉`,
     counted: (n: number) => `Зараховано ${n} ${ukPlural(n, "друг", "друга", "друзів")}`,
     invited: "Твої друзі",
     noInvited: "Поки нікого. Надішли посилання, і друзі зʼявляться тут.",
@@ -92,17 +101,26 @@ const TXT = {
     share: "🎁 Share with a friend",
     copy: "Copy",
     copied: "Copied ✓",
+    alphaTitle: "What is A1 Alpha",
+    alphaSub: "A club for people who are serious about finding a job or talent. Alpha is normally paid, and here you can get it for free.",
+    perks: [
+      { icon: "🔎", title: "Alpha Search", text: "Tell it in your own words what you want, and AI picks the best jobs and explains why they fit you." },
+      { icon: "🔔", title: "New matches daily", text: "Alpha remembers your profile and sends fresh jobs to a separate chat once a day." },
+      { icon: "✨", title: "Magic Post", text: "Describe a job or a post by voice or text, and Alpha fills in all the fields for you." },
+      { icon: "🫙", title: "Badge and running line", text: "A club badge next to your name and your own one-line thought that everyone can see." },
+    ],
     ladderTitle: "More friends, more gifts",
-    scaleHint: "In the circle: how many friends. Below it: how many months of Alpha you get.",
+    scaleHint: "In the circle: friends. Below it: months of Alpha. A circle fills up once a friend counts.",
     friends: (n: number) => `${n} ${n === 1 ? "friend" : "friends"}`,
     months: (n: number) => `${n} ${n === 1 ? "month" : "months"}`,
     mo: "mo",
     rule: (f: number, m: number) => `Invite ${f} ${f === 1 ? "friend" : "friends"} and get ${m} ${m === 1 ? "month" : "months"} of Alpha`,
     total: "Total",
     earned: (m: string) => `Earned so far: ${m} of Alpha 🎉`,
-    none: "Nothing yet. Invite your first friend and that's already a month of Alpha!",
+    none: (f: number) => `Nothing yet. Invite ${f} friends and that's already a month of Alpha!`,
     toNext: (left: number, f: number, m: string) => `${left} more ${left === 1 ? "friend" : "friends"} to reach ${f}, and you'll have ${m} of Alpha`,
     top: "That's the top 🎉 Next is the partner programme with payouts. Write to us.",
+    pin: (n: number) => `${n} ${n === 1 ? "friend" : "friends"} 🎉`,
     counted: (n: number) => `${n} ${n === 1 ? "friend" : "friends"} counted`,
     invited: "Your friends",
     noInvited: "Nobody yet. Send your link and your friends will show up here.",
@@ -221,6 +239,22 @@ export function InviteClient() {
         <h1 className="f250-title mt-3 text-4xl font-black leading-tight sm:text-5xl">{t.title}</h1>
         <p className="mt-3 text-base leading-relaxed text-neutral-700 dark:text-neutral-200">{t.sub(friendDays)}</p>
 
+
+        {/* Что такое Alpha: блоки в ряд (на телефоне листаются пальцем) */}
+        <section className="mt-8">
+          <h2 className="text-xl font-black text-neutral-900 dark:text-white">{t.alphaTitle}</h2>
+          <p className="mt-1 text-sm text-neutral-700 dark:text-neutral-200">{t.alphaSub}</p>
+          <div className="-mx-4 mt-4 flex snap-x snap-mandatory scroll-pl-4 gap-3 overflow-x-auto px-4 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {t.perks.map((k, i) => (
+              <div key={k.title} className={`${GLASS} f250-step w-[214px] shrink-0 snap-start p-4`} style={{ animationDelay: `${i * 110}ms` }}>
+                <span className="f250-num grid h-11 w-11 place-items-center rounded-2xl text-2xl shadow-md shadow-indigo-500/20" aria-hidden="true">{k.icon}</span>
+                <h3 className="mt-3 text-base font-extrabold text-neutral-900 dark:text-white">{k.title}</h3>
+                <p className="mt-1 text-sm leading-snug text-neutral-700 dark:text-neutral-300">{k.text}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
         {state === "loading" && <p className="mt-8 text-sm text-neutral-500">{t.loading}</p>}
         {state === "err" && <p className="mt-8 text-sm text-red-600">{t.err}</p>}
         {state === "na" && <p className="mt-8 text-sm text-neutral-500">{t.notEligible}</p>}
@@ -254,15 +288,23 @@ export function InviteClient() {
           </div>
 
           <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">{t.scaleHint}</p>
-          <div className="mx-4 mt-6">
-            <div className="relative h-3 rounded-full bg-neutral-200/80 dark:bg-white/10" role="progressbar" aria-valuemin={0} aria-valuemax={steps[steps.length - 1]?.friends ?? 30} aria-valuenow={counted}>
+          <div className="mx-4 mt-2">
+            <div className="relative mt-14 h-3 rounded-full bg-neutral-200/80 dark:bg-white/10" role="progressbar" aria-valuemin={0} aria-valuemax={steps[steps.length - 1]?.friends ?? 20} aria-valuenow={counted}>
+              {state === "ok" && counted > 0 && (
+                <span className="absolute bottom-full mb-5 -translate-x-1/2 transition-all duration-700" style={{ left: `${Math.min(94, Math.max(6, filled))}%` }}>
+                  <span className="f250-cta relative block whitespace-nowrap rounded-full px-3 py-1 text-xs font-extrabold text-white shadow-md shadow-indigo-500/30">
+                    {t.pin(counted)}
+                    <span className="absolute left-1/2 top-full h-2 w-2 -translate-x-1/2 -translate-y-1 rotate-45 bg-indigo-500" />
+                  </span>
+                </span>
+              )}
               <div className="f250-bar h-full rounded-full transition-all duration-700" style={{ width: `${state === "ok" ? Math.max(filled, counted > 0 ? 4 : 0) : 0}%` }} />
               {steps.map((s, i) => {
                 const done = i <= reached;
                 return (
                   <span
                     key={s.friends}
-                    className={"absolute top-1/2 grid h-8 w-8 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full text-xs font-black text-white ring-2 ring-white dark:ring-neutral-900 " + (done ? "f250-pop bg-emerald-500" : "f250-num")}
+                    className={"absolute top-1/2 grid h-8 w-8 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full text-xs font-black text-white ring-2 ring-white dark:ring-neutral-900 " + (done ? "f250-pop bg-emerald-500" : "bg-white !text-neutral-500 !ring-neutral-300 dark:bg-neutral-800 dark:!text-neutral-300 dark:!ring-neutral-600")}
                     style={{ left: `${posOf(i)}%` }}
                   >
                     {s.friends}
@@ -282,7 +324,7 @@ export function InviteClient() {
           {state === "ok" && (
             <div className="mt-4 rounded-2xl bg-indigo-500/10 px-4 py-3 text-sm dark:bg-indigo-400/10">
               <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600 dark:text-indigo-300">{t.counted(counted)}</p>
-              <p className="mt-1 font-bold text-neutral-900 dark:text-white">{earned > 0 ? t.earned(t.months(earned)) : t.none}</p>
+              <p className="mt-1 font-bold text-neutral-900 dark:text-white">{earned > 0 ? t.earned(t.months(earned)) : t.none(steps[0]?.friends ?? 3)}</p>
               <p className="mt-1 text-neutral-700 dark:text-neutral-200">{next ? t.toNext(next.left, next.friends, t.months(next.months)) : t.top}</p>
             </div>
           )}
@@ -295,7 +337,6 @@ export function InviteClient() {
                 <li key={s.friends} className={"flex items-center gap-3 rounded-2xl px-3 py-2.5 " + (done ? "bg-emerald-500/10" : isNext ? "bg-white/90 ring-2 ring-indigo-400/60 dark:bg-white/10" : "bg-white/50 dark:bg-white/[0.04]")}>
                   <span className={"grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm font-black text-white " + (done ? "bg-emerald-500" : "f250-num")}>{done ? "✓" : s.friends}</span>
                   <span className="min-w-0 flex-1 text-sm font-medium text-neutral-900 dark:text-neutral-50">{t.rule(s.friends, s.months)}</span>
-                  <span className="shrink-0 text-xs font-bold text-neutral-500 dark:text-neutral-400">{t.total} {s.months} {t.mo}</span>
                 </li>
               );
             })}
