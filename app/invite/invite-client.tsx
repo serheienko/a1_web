@@ -9,7 +9,7 @@
 // Условие теперь одно: друг зарегистрировался по ссылке и прошёл 48 часов (защита от фейков).
 // Язык: украинский для uk/ru, для остальных английский (как /first250).
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { InlineAuthForm } from "@/components/inline-auth-form";
 import { useActiveLocale } from "@/lib/use-active-locale";
 
@@ -39,6 +39,51 @@ const DEFAULT_LADDER: Step[] = [
   { friends: 30, months: 24 },
 ];
 
+/** Горизонтальная лента, которую на компьютере можно таскать мышкой (на телефоне работает обычный свайп). */
+function DragRow({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const st = useRef({ down: false, moved: false, x: 0, left: 0 });
+  const [drag, setDrag] = useState(false);
+
+  const onDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== "mouse" || e.button !== 0 || !ref.current) return;
+    st.current = { down: true, moved: false, x: e.clientX, left: ref.current.scrollLeft };
+  };
+  const onMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = st.current;
+    if (!d.down || !ref.current) return;
+    const dx = e.clientX - d.x;
+    if (!d.moved && Math.abs(dx) < 4) return;
+    if (!d.moved) {
+      d.moved = true;
+      setDrag(true);
+      try { ref.current.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+    }
+    ref.current.scrollLeft = d.left - dx;
+  };
+  const onUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    st.current.down = false;
+    if (st.current.moved) {
+      try { ref.current?.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+    }
+    setDrag(false);
+  };
+
+  return (
+    <div
+      ref={ref}
+      onPointerDown={onDown}
+      onPointerMove={onMove}
+      onPointerUp={onUp}
+      onPointerCancel={onUp}
+      onDragStart={(e) => e.preventDefault()}
+      className={"-mx-4 mt-4 flex scroll-pl-4 gap-3 overflow-x-auto px-4 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden " + (drag ? "cursor-grabbing select-none snap-none" : "cursor-grab snap-x snap-mandatory")}
+    >
+      {children}
+    </div>
+  );
+}
+
 function ukPlural(n: number, one: string, few: string, many: string): string {
   const m10 = n % 10;
   const m100 = n % 100;
@@ -61,7 +106,7 @@ const TXT = {
       { icon: "🔎", title: "Alpha Пошук", text: "Розкажи словами, що шукаєш, і ШІ підбере найкращі вакансії та пояснить, чому вони підходять саме тобі." },
       { icon: "🔔", title: "Нові збіги щодня", text: "Alpha запамʼятовує твій портрет і раз на день надсилає свіжі вакансії в окремий чат." },
       { icon: "✨", title: "Magic Post", text: "Опиши вакансію чи пост голосом або текстом, і Alpha сама заповнить усі поля." },
-      { icon: "🫙", title: "Значок і бігуча стрічка", text: "Значок учасника клубу біля імені й твій власний рядок-думка, який бачать усі." },
+      { icon: "🐠", title: "Значок і бігуча стрічка", text: "Значок учасника клубу біля імені й твій власний рядок-думка, який бачать усі." },
     ],
     ladderTitle: "Скільки друзів, стільки подарунків",
     scaleHint: "У кружечку: скільки друзів. Під ним: місяців Alpha. Кружечок заповнюється, коли друг зараховується.",
@@ -108,7 +153,7 @@ const TXT = {
       { icon: "🔎", title: "Alpha Search", text: "Tell it in your own words what you want, and AI picks the best jobs and explains why they fit you." },
       { icon: "🔔", title: "New matches daily", text: "Alpha remembers your profile and sends fresh jobs to a separate chat once a day." },
       { icon: "✨", title: "Magic Post", text: "Describe a job or a post by voice or text, and Alpha fills in all the fields for you." },
-      { icon: "🫙", title: "Badge and running line", text: "A club badge next to your name and your own one-line thought that everyone can see." },
+      { icon: "🐠", title: "Badge and running line", text: "A club badge next to your name and your own one-line thought that everyone can see." },
     ],
     ladderTitle: "More friends, more gifts",
     scaleHint: "In the circle: friends. Below it: months of Alpha. A circle fills up once a friend counts.",
@@ -246,7 +291,7 @@ export function InviteClient() {
         <section className="mt-8">
           <h2 className="text-xl font-black text-neutral-900 dark:text-white">{t.alphaTitle}</h2>
           <p className="mt-1 text-sm text-neutral-700 dark:text-neutral-200">{t.alphaSub}</p>
-          <div className="-mx-4 mt-4 flex snap-x snap-mandatory scroll-pl-4 gap-3 overflow-x-auto px-4 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <DragRow>
             {t.perks.map((k, i) => (
               <div key={k.title} className={`${GLASS} f250-step w-[214px] shrink-0 snap-start p-4`} style={{ animationDelay: `${i * 110}ms` }}>
                 <span className="f250-num grid h-11 w-11 place-items-center rounded-2xl text-2xl shadow-md shadow-indigo-500/20" aria-hidden="true">{k.icon}</span>
@@ -254,7 +299,7 @@ export function InviteClient() {
                 <p className="mt-1 text-sm leading-snug text-neutral-700 dark:text-neutral-300">{k.text}</p>
               </div>
             ))}
-          </div>
+          </DragRow>
         </section>
 
         {state === "loading" && <p className="mt-8 text-sm text-neutral-500">{t.loading}</p>}
