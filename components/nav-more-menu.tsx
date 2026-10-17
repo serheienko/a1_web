@@ -700,7 +700,7 @@ export function NavMoreMenu() {
           setOpen((v) => !v);
         }}
         className={
-          "group flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white shadow-sm ring-1 transition dark:bg-neutral-900 " +
+          "group flex h-11 w-11 max-sm:h-10 max-sm:w-10 shrink-0 items-center justify-center rounded-full bg-white shadow-sm ring-1 transition dark:bg-neutral-900 " +
           (open
             ? "text-accent ring-accent/40 dark:ring-accent/40"
             : "text-neutral-500 ring-neutral-200 hover:text-accent hover:ring-accent/40 dark:text-neutral-400 dark:ring-neutral-700 dark:hover:text-accent dark:hover:ring-accent/40")

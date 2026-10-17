@@ -593,7 +593,7 @@ export function AvatarMenu() {
   if (email === undefined) {
     return (
       <div
-        className="h-11 w-11 shrink-0 animate-pulse rounded-full bg-neutral-200 dark:bg-neutral-800"
+        className="h-11 w-11 max-sm:h-10 max-sm:w-10 shrink-0 animate-pulse rounded-full bg-neutral-200 dark:bg-neutral-800"
         aria-hidden="true"
       />
     );
@@ -739,7 +739,7 @@ export function AvatarMenu() {
         // вакансии») -- 44px, ровно как у пилюли с вкладками: у неё
         // p-1 по краям плюс ссылка с py-2 и строкой в 20px, то есть
         // 4 + 8 + 20 + 8 + 4. Было 36 и смотрелось мельче соседа.
-        className="h-11 w-11 shrink-0 overflow-hidden rounded-full shadow-sm ring-1 ring-black/5 transition hover:opacity-90 dark:ring-white/10"
+        className="h-11 w-11 max-sm:h-10 max-sm:w-10 shrink-0 overflow-hidden rounded-full shadow-sm ring-1 ring-black/5 transition hover:opacity-90 dark:ring-white/10"
       >
         {/* Real uploaded photo when whoami resolved one, cat fallback
             otherwise (e.g. still loading, or no photo set) -- see

@@ -244,9 +244,9 @@ export function SiteNav() {
         </div>
 
         {/* 18.10.2026 (Александр: «на мобильной версии уменьши всё сверху, чтобы спокойно помещалась кнопка с тремя точками»).
-            На телефоне пилюля больше не висит по центру поверх всего: она встаёт в строку сразу за логотипом (левее центра),
-            а справа всегда есть место для «⋯» и аватара. Кнопка «⋯» теперь есть и на телефоне. От sm и шире всё как было. */}
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center max-sm:pointer-events-auto max-sm:static max-sm:inset-auto max-sm:min-w-0 max-sm:flex-1 max-sm:justify-start">
+            На телефоне пилюля больше не висит по центру поверх всего: она встаёт в строку между логотипом и кнопками справа (по центру свободного места),
+            все три элемента одной высоты (40px), а справа всегда есть место для «⋯» и аватара. Кнопка «⋯» теперь есть и на телефоне. От sm и шире всё как было. */}
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center max-sm:pointer-events-auto max-sm:static max-sm:inset-auto max-sm:min-w-0 max-sm:flex-1">
           <div
             className={
               // 2026-09-13 (Александр, увеличенный скриншот шапки: «Ток
