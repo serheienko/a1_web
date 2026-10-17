@@ -689,7 +689,7 @@ export function NavMoreMenu() {
     `block overflow-hidden rounded-2xl ${bg} shadow-xl ring-1 ring-black/10 dark:ring-white/10`;
 
   return (
-    <div ref={wrapRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} className="relative hidden shrink-0 sm:block">
+    <div ref={wrapRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} className="relative block shrink-0">
       <button
         type="button"
         aria-haspopup="menu"

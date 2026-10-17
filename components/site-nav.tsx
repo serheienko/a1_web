@@ -244,9 +244,9 @@ export function SiteNav() {
         </div>
 
         {/* 18.10.2026 (Александр: «на мобильной версии уменьши всё сверху, чтобы спокойно помещалась кнопка с тремя точками»).
-            На телефоне пилюля больше не висит по центру поверх всего: она встаёт в строку между логотипом и кнопками справа
-            и сжимается, так что «⋯» и аватар никогда не оказываются под ней. От sm и шире всё как было. */}
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center max-sm:pointer-events-auto max-sm:static max-sm:inset-auto max-sm:min-w-0 max-sm:flex-1">
+            На телефоне пилюля больше не висит по центру поверх всего: она встаёт в строку сразу за логотипом (левее центра),
+            а справа всегда есть место для «⋯» и аватара. Кнопка «⋯» теперь есть и на телефоне. От sm и шире всё как было. */}
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center max-sm:pointer-events-auto max-sm:static max-sm:inset-auto max-sm:min-w-0 max-sm:flex-1 max-sm:justify-start">
           <div
             className={
               // 2026-09-13 (Александр, увеличенный скриншот шапки: «Ток
@@ -271,7 +271,7 @@ export function SiteNav() {
                   key={href}
                   href={href}
                   className={
-                    "rounded-full px-4 py-2 text-sm font-medium transition max-sm:whitespace-nowrap max-sm:px-3 max-sm:py-1.5 max-sm:text-[13px] sm:px-6 " +
+                    "rounded-full px-4 py-2 text-sm font-medium transition max-sm:whitespace-nowrap max-sm:px-2.5 max-sm:py-1.5 max-sm:text-[13px] max-[359px]:px-2 max-[359px]:text-xs sm:px-6 " +
                     (active
                       ? "bg-accent/15 text-accent"
                       : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50")
