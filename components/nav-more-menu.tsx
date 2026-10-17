@@ -139,7 +139,7 @@ const HREF: Record<Id, string> = { app: "/download", news: "/news", events: "/ev
 
 // Сводка рефералки для строки меню: friends -- друзей в зачёте, next -- сколько нужно до следующей награды.
 type InviteLite = { friends: number; months: number; next: { friends: number; months: number } | null };
-const LADDER_STEPS = [3, 5, 10, 20, 40];
+const LADDER_STEPS = [3, 8, 10, 18, 30];
 
 // Заливка мини-полосы -- как на странице /invite: ступени равными промежутками, плавно между соседними.
 function inviteFill(n: number): number {
@@ -521,7 +521,7 @@ function PreviewAi() {
 }
 
 function PreviewInvite() {
-  const steps = [3, 5, 10, 20, 40];
+  const steps = [3, 8, 10, 18, 30];
   const months = [1, 3, 6, 12, 24];
   return (
     <>

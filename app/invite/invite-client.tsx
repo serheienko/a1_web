@@ -33,10 +33,10 @@ type Data = {
 
 const DEFAULT_LADDER: Step[] = [
   { friends: 3, months: 1 },
-  { friends: 5, months: 3 },
+  { friends: 8, months: 3 },
   { friends: 10, months: 6 },
-  { friends: 20, months: 12 },
-  { friends: 40, months: 24 },
+  { friends: 18, months: 12 },
+  { friends: 30, months: 24 },
 ];
 
 function ukPlural(n: number, one: string, few: string, many: string): string {
@@ -70,6 +70,7 @@ const TXT = {
     mo: "міс.",
     rule: (f: number, m: number) => `Запроси ${f} ${ukPlural(f, "друга", "друзів", "друзів")} і отримай ${m} ${ukPlural(m, "місяць", "місяці", "місяців")} Alpha`,
     total: "Разом",
+    friendRow: (d: number) => `Запрошений друг: ${d} днів Alpha в подарунок`,
     earned: (m: string) => `Вже зароблено: ${m} Alpha 🎉`,
     none: (f: number) => `Поки що 0. Запроси ${f} друзів, і це вже місяць Alpha!`,
     toNext: (left: number, f: number, m: string) => `Ще ${left} ${ukPlural(left, "друг", "друга", "друзів")} до ${f}, і будуть ${m} Alpha`,
@@ -116,6 +117,7 @@ const TXT = {
     mo: "mo",
     rule: (f: number, m: number) => `Invite ${f} ${f === 1 ? "friend" : "friends"} and get ${m} ${m === 1 ? "month" : "months"} of Alpha`,
     total: "Total",
+    friendRow: (d: number) => `Invited friend: ${d} days of Alpha as a gift`,
     earned: (m: string) => `Earned so far: ${m} of Alpha 🎉`,
     none: (f: number) => `Nothing yet. Invite ${f} friends and that's already a month of Alpha!`,
     toNext: (left: number, f: number, m: string) => `${left} more ${left === 1 ? "friend" : "friends"} to reach ${f}, and you'll have ${m} of Alpha`,
@@ -330,6 +332,10 @@ export function InviteClient() {
           )}
 
           <ul className="mt-5 space-y-2">
+            <li className="flex items-center gap-3 rounded-2xl bg-fuchsia-500/10 px-3 py-2.5 ring-1 ring-fuchsia-400/30">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-fuchsia-500 to-indigo-500 text-base">🎁</span>
+              <span className="min-w-0 flex-1 text-sm font-medium text-neutral-900 dark:text-neutral-50">{t.friendRow(friendDays)}</span>
+            </li>
             {steps.map((s, i) => {
               const done = i <= reached;
               const isNext = state === "ok" && i === reached + 1;

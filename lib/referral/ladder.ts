@@ -3,7 +3,7 @@
 // 17.10.2026 (Александр). Реферальная программа: лестница наград (см. стратегию в Claude Docs
 // «A1 Рефералка»). Чистые функции без хранилища -- чтобы их можно было проверить тестом.
 //
-//   друзей:   3   5   10   20   40
+//   друзей:   3   8   10   18   30   (18.10 вечером, правка Александра; было 3/5/10/20/40)
 //   вместе:   1   3   6   12   24  месяцев Alpha
 // 18.10.2026 (Александр: «один месяц за три пользователя, один друг это совсем фигня: те, кто заметят
 // функцию, просто не будут платить нам за премиум»). Дальше 0,6 месяца за друга: 5->3, 10->6, 20->12, 40->24.
@@ -16,10 +16,10 @@ export type Step = { friends: number; months: number; needLive: boolean };
 
 export const LADDER: readonly Step[] = [
   { friends: 3, months: 1, needLive: false },
-  { friends: 5, months: 3, needLive: false },
+  { friends: 8, months: 3, needLive: false },
   { friends: 10, months: 6, needLive: false },
-  { friends: 20, months: 12, needLive: false },
-  { friends: 40, months: 24, needLive: false },
+  { friends: 18, months: 12, needLive: false },
+  { friends: 30, months: 24, needLive: false },
 ];
 
 /** Сколько дней Alpha получает сам друг, пришедший по ссылке. */
