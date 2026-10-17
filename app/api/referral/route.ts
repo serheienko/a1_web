@@ -13,9 +13,8 @@ import { A1ApiError } from "@/lib/a1/client";
 import { callAsVisitor, NoSessionError } from "@/lib/a1/visitor-call";
 import { setSession, clearSession, readSession, type SessionState } from "@/lib/a1/session";
 import { parseUserProfile, type UserProfile } from "@/lib/a1/schemas";
-import { isComplete, profileChecks } from "@/lib/first250/profile-check";
 import { FRIEND_DAYS, HOLD_HOURS, LADDER, MAX_MONTHS, progressOf } from "@/lib/referral/ladder";
-import { claimInvite, countsOf, ensureCode, inviteOf, invitesBy, markLive, rowsOf } from "@/lib/referral/store";
+import { claimInvite, countsOf, ensureCode, inviteOf, invitesBy, rowsOf } from "@/lib/referral/store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -57,9 +56,7 @@ export async function GET(req: Request) {
     if (!profile) return withSession({ ok: false, message: "not_signed_in" }, 401);
     if (profile.external || profile.unclaimed) return withSession({ ok: false, message: "not_eligible" }, 403);
 
-    // Меня пригласили, и профиль заполнен -- засчитываем как «живого» друга.
     const mine = await inviteOf(profile._id);
-    if (mine && mine.status !== "live" && isComplete(profileChecks(profile))) await markLive(profile._id);
 
     // summary=1 -- лёгкий запрос для меню «⋯»: код не создаём, пока человек сам не открыл экран.
     const [code, list] = await Promise.all([summary ? Promise.resolve(null) : ensureCode(profile._id), invitesBy(profile._id)]);

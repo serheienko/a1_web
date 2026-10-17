@@ -106,11 +106,11 @@ const TXT = {
   // 17.10.2026: реферальная программа «Отримай Alpha» -- страница /invite, мини-прогресс прямо в строке меню.
   invite: {
     title: L("Отримай Alpha", "Get Alpha", "Получи Alpha"),
-    sub: L("Запроси друзів — до 24 місяців", "Invite friends — up to 24 months", "Пригласи друзей — до 24 месяцев"),
+    sub: L("Запроси друзів", "Invite friends", "Пригласи друзей"),
     prev: L(
-      "Поділись посиланням з друзями — і отримуй A1 Alpha безкоштовно. Друг теж отримує подарунок",
+      "Поділись посиланням з друзями і отримуй A1 Alpha безкоштовно. Друг теж отримує подарунок",
       "Share your link with friends and get A1 Alpha for free. Your friend gets a gift too",
-      "Поделись ссылкой с друзьями — и получай A1 Alpha бесплатно. Друг тоже получает подарок",
+      "Поделись ссылкой с друзьями и получай A1 Alpha бесплатно. Друг тоже получает подарок",
     ),
     mo: L("міс.", "mo", "мес."),
     friends: L("друзів", "friends", "друзей"),
@@ -188,9 +188,9 @@ function NewsIcon() {
     <svg {...svgBase}>
       <path d="M4 5h12a2 2 0 0 1 2 2v12H6a2 2 0 0 1-2-2V5z" />
       <path d="M18 9h2v8a2 2 0 0 1-2 2" />
-      <path d="M7.5 9h6" />
-      <path d="M7.5 12.5h6" />
-      <path d="M7.5 16h3.5" />
+      <path d="M7.5 9h6" className="animate-news-line" style={{ animationDelay: "0ms" }} />
+      <path d="M7.5 12.5h6" className="animate-news-line" style={{ animationDelay: "120ms" }} />
+      <path d="M7.5 16h3.5" className="animate-news-line" style={{ animationDelay: "240ms" }} />
     </svg>
   );
 }
@@ -223,8 +223,8 @@ function StatsIcon() {
 function AiIcon() {
   return (
     <svg {...svgBase}>
-      <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H11l-4 4v-4H6.5A2.5 2.5 0 0 1 4 13.5v-8z" />
-      <path d="M12 6.8l.9 2.3 2.3.9-2.3.9-.9 2.3-.9-2.3-2.3-.9 2.3-.9.9-2.3z" fill="currentColor" stroke="none" />
+      <path className="animate-ai-bubble" d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H11l-4 4v-4H6.5A2.5 2.5 0 0 1 4 13.5v-8z" />
+      <path className="animate-ai-spark" d="M12 6.8l.9 2.3 2.3.9-2.3.9-.9 2.3-.9-2.3-2.3-.9 2.3-.9.9-2.3z" fill="currentColor" stroke="none" />
     </svg>
   );
 }
@@ -233,10 +233,12 @@ function InviteIcon() {
   return (
     <svg {...svgBase}>
       <path d="M20 12v8H4v-8" />
-      <path d="M2.5 7.5h19V12h-19z" />
-      <path d="M12 7.5V20" />
-      <path d="M12 7.5H8.2a2.1 2.1 0 1 1 0-4.2C10.4 3.3 12 7.5 12 7.5z" />
-      <path d="M12 7.5h3.8a2.1 2.1 0 1 0 0-4.2C13.6 3.3 12 7.5 12 7.5z" />
+      <path d="M12 12v8" />
+      <g className="animate-gift-lid">
+        <path d="M2.5 7.5h19V12h-19z" />
+        <path d="M12 7.5H8.2a2.1 2.1 0 1 1 0-4.2C10.4 3.3 12 7.5 12 7.5z" />
+        <path d="M12 7.5h3.8a2.1 2.1 0 1 0 0-4.2C13.6 3.3 12 7.5 12 7.5z" />
+      </g>
     </svg>
   );
 }

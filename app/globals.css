@@ -2506,3 +2506,47 @@ textarea {
   .f250-bg, .f250-title, .f250-bar, .f250-num, .f250-cta, .f250-float, .f250-pop, .f250-step { animation: none; }
   .f250-float { display: none; }
 }
+
+/* 18.10.2026 (Александр): в меню «⋯» ещё три иконки оживают при наведении.
+   «IT новини» -- строки текста по очереди «печатаются»; «A1 у ШІ-чаті» -- облачко подпрыгивает, искра крутится;
+   «Отримай Alpha» -- подарок: крышка с бантом подпрыгивает и покачивается, коробка чуть приседает. */
+@keyframes news-line {
+  0% { transform: scaleX(0.15); opacity: 0.4; }
+  60% { transform: scaleX(1.08); opacity: 1; }
+  100% { transform: scaleX(1); opacity: 1; }
+}
+@keyframes ai-bubble {
+  0%, 100% { transform: scale(1); }
+  35% { transform: scale(1.12) rotate(-4deg); }
+  65% { transform: scale(0.97) rotate(2deg); }
+}
+@keyframes ai-spark {
+  0% { transform: scale(1) rotate(0deg); }
+  50% { transform: scale(1.7) rotate(180deg); }
+  100% { transform: scale(1) rotate(360deg); }
+}
+@keyframes gift-lid {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-3.2px) rotate(-7deg); }
+  50% { transform: translateY(-1.4px) rotate(5deg); }
+  75% { transform: translateY(-2.4px) rotate(-3deg); }
+}
+.animate-news-line,
+.animate-ai-bubble,
+.animate-ai-spark,
+.animate-gift-lid {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.animate-news-line { transform-origin: 0% 50%; }
+.animate-gift-lid { transform-origin: 50% 100%; }
+.group:hover .animate-news-line { animation: news-line 0.55s ease-out both; }
+.group:hover .animate-ai-bubble { animation: ai-bubble 0.7s ease-in-out; }
+.group:hover .animate-ai-spark { animation: ai-spark 0.8s ease-in-out; }
+.group:hover .animate-gift-lid { animation: gift-lid 0.75s ease-in-out; }
+@media (prefers-reduced-motion: reduce) {
+  .group:hover .animate-news-line,
+  .group:hover .animate-ai-bubble,
+  .group:hover .animate-ai-spark,
+  .group:hover .animate-gift-lid { animation: none; }
+}

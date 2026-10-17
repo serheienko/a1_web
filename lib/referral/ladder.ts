@@ -6,18 +6,18 @@
 //   друзей:   1   3   7   15   30
 //   вместе:   1   3   6   12   24  месяцев Alpha
 //
-// Шаги 1-2 считаем по любому «настоящему» другу (вошёл по ссылке и прошёл 48 часов),
-// шаги 3+ -- только по «живым» (друг заполнил профиль). Выше 24 месяцев -- денежная
-// партнёрская программа, не месяцы.
+// 18.10.2026 (Александр: «убери условие про заполненный профиль, чтобы не заёбывать»): друг в зачёте,
+// когда зарегистрировался по ссылке и прошёл 48 часов. Поле needLive осталось на случай, если условие
+// понадобится вернуть (сейчас везде false). Выше 24 месяцев -- денежная партнёрская программа.
 
 export type Step = { friends: number; months: number; needLive: boolean };
 
 export const LADDER: readonly Step[] = [
   { friends: 1, months: 1, needLive: false },
   { friends: 3, months: 3, needLive: false },
-  { friends: 7, months: 6, needLive: true },
-  { friends: 15, months: 12, needLive: true },
-  { friends: 30, months: 24, needLive: true },
+  { friends: 7, months: 6, needLive: false },
+  { friends: 15, months: 12, needLive: false },
+  { friends: 30, months: 24, needLive: false },
 ];
 
 /** Сколько дней Alpha получает сам друг, пришедший по ссылке. */
