@@ -1572,6 +1572,9 @@ export function mountGameMap(root, opts) {
     resize();
     if (!(focusCC && focusCountry(focusCC, false))) showRegion(false);
     startLoop();
+    // 17.10.2026: у застосунку чекаємо на цей сигнал, щоб прибрати свій екран завантаження (раніше -- таймер
+    // на 6 с, і на повільному телефоні під ним була порожня сторінка). Без застосунку мостика A1Map нема.
+    requestAnimationFrame(() => requestAnimationFrame(() => { try { if (!destroyed && window.A1Map && window.A1Map.postMessage) window.A1Map.postMessage('ready'); } catch { /* не в застосунку */ } }));
   })();
   // Плавно переводимо камеру (або одразу, якщо animate=false).
   function moveView(s, cx, cy, animate) {
