@@ -2,7 +2,11 @@
 // 16.10.2026: сторінка для людей, які підключають коннектор A1 (MCP) до ІІ-асистентів, і для каталогу коннекторів.
 // Рішення Александра: відгуки, чати і створення вакансій асистентом не робимо.
 // Зараз коннектор відкритий (5 вакансій у відповіді); повний пошук і профіль -- з Premium пізніше.
-// Лого брендів не використовуємо (чужі торгові марки): монограми + назви.
+// 17.10.2026 (рішення Александра): показуємо логотипи асистентів. Спершу тут були
+// монограми -- побоювання через чужі торгові марки. Показати значок у відповідь на
+// питання «з чим це працює» -- звичайна практика і дозволене використання: ми не
+// видаємо себе за них і не натякаємо на партнерство. Під карточками стоїть рядок
+// «Назви та логотипи належать їхнім власникам».
 
 import type { Metadata } from "next";
 
@@ -19,10 +23,29 @@ const CARD = "rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:
 const H = "mt-12 text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-50";
 const P = "mt-3 text-neutral-700 dark:text-neutral-300 leading-relaxed";
 
-const ASSISTANTS = [
-  { mono: "C", name: "Claude", note: "Settings → Connectors", status: "Працює", color: "bg-orange-500", ok: true },
-  { mono: "G", name: "ChatGPT", note: "Режим розробника → Connectors", status: "Підтримує MCP", color: "bg-emerald-600", ok: true },
-  { mono: "Cu", name: "Cursor", note: "MCP-налаштування", status: "Підтримує MCP", color: "bg-neutral-800", ok: true },
+// 17.10.2026. Логотипи асистентів замість літер у кольорових квадратах:
+// людина впізнає значок швидше, ніж напис. Файли лежать у нас
+// (public/brand/assistants), а не тягнуться з чужих сайтів -- так сторінка
+// не залежить від того, чи відкриється чужий домен, і нічого не розповідає
+// про наших відвідувачів стороннім. Значки чорно-білі (ChatGPT, Cursor),
+// тому плитка під ними завжди світла, інакше в темній темі вони зникають.
+// Назви й логотипи належать їхнім власникам -- ми лише показуємо, з чим
+// працює коннектор; підпис про це стоїть під карточками.
+type Assistant = {
+  name: string;
+  note: string;
+  status: string;
+  ok: boolean;
+  /** Значок у public/brand/assistants. Якщо його немає -- малюємо кольоровий квадрат з `mono`. */
+  logo?: string;
+  mono?: string;
+  color?: string;
+};
+
+const ASSISTANTS: Assistant[] = [
+  { logo: "/brand/assistants/claude.png", name: "Claude", note: "Settings → Connectors", status: "Працює", ok: true },
+  { logo: "/brand/assistants/chatgpt.png", name: "ChatGPT", note: "Режим розробника → Connectors", status: "Підтримує MCP", ok: true },
+  { logo: "/brand/assistants/cursor.png", name: "Cursor", note: "MCP-налаштування", status: "Підтримує MCP", ok: true },
   { mono: "+", name: "Інші", note: "Будь-який клієнт з MCP", status: "Скоро", color: "bg-sky-500", ok: false },
 ];
 
@@ -45,14 +68,20 @@ export default function AiAssistantPage() {
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {ASSISTANTS.map((a) => (
           <div key={a.name} className={`${CARD} text-center`}>
-            <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-2xl text-xl font-bold text-white ${a.color}`}>{a.mono}</div>
+            {a.logo ? (
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white ring-1 ring-neutral-200 dark:ring-neutral-700">
+                <img src={a.logo} alt="" width={32} height={32} loading="lazy" decoding="async" className="h-8 w-8 object-contain" />
+              </div>
+            ) : (
+              <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-2xl text-xl font-bold text-white ${a.color}`}>{a.mono}</div>
+            )}
             <div className="mt-3 font-semibold text-neutral-900 dark:text-neutral-50">{a.name}</div>
             <div className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{a.note}</div>
             <div className={`mt-2 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${a.ok ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300" : "bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400"}`}>{a.status}</div>
           </div>
         ))}
       </div>
-      <p className="mt-3 text-xs text-neutral-500 dark:text-neutral-400">Підключення залежить від тарифу та налаштувань вашого асистента: ChatGPT, наприклад, вмикає зовнішні коннектори в режимі розробника. Назви належать їхнім власникам.</p>
+      <p className="mt-3 text-xs text-neutral-500 dark:text-neutral-400">Підключення залежить від тарифу та налаштувань вашого асистента: ChatGPT, наприклад, вмикає зовнішні коннектори в режимі розробника. Назви та логотипи належать їхнім власникам.</p>
 
       <h2 className={H}>Як це працює</h2>
       <ol className="mt-4 space-y-2">
