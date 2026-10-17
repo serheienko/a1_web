@@ -36,17 +36,16 @@ type Assistant = {
   note: string;
   status: string;
   ok: boolean;
-  /** Значок у public/brand/assistants. Якщо його немає -- малюємо кольоровий квадрат з `mono`. */
+  /** Значок у public/brand/assistants. Якщо його немає -- на тій самій світлій плитці стоїть знак `mono`. */
   logo?: string;
   mono?: string;
-  color?: string;
 };
 
 const ASSISTANTS: Assistant[] = [
   { logo: "/brand/assistants/claude.png", name: "Claude", note: "Settings → Connectors", status: "Працює", ok: true },
   { logo: "/brand/assistants/chatgpt.png", name: "ChatGPT", note: "Режим розробника → Connectors", status: "Підтримує MCP", ok: true },
   { logo: "/brand/assistants/cursor.png", name: "Cursor", note: "MCP-налаштування", status: "Підтримує MCP", ok: true },
-  { mono: "+", name: "Інші", note: "Будь-який клієнт з MCP", status: "Скоро", color: "bg-sky-500", ok: false },
+  { mono: "+", name: "Інші", note: "Будь-який клієнт з MCP", status: "Скоро", ok: false },
 ];
 
 const FLOW = [
@@ -68,13 +67,16 @@ export default function AiAssistantPage() {
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {ASSISTANTS.map((a) => (
           <div key={a.name} className={`${CARD} text-center`}>
-            {a.logo ? (
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white ring-1 ring-neutral-200 dark:ring-neutral-700">
+            {/* 17.10.2026 (Александр: «Інші залита синім, некрасиво»). Плитка одна на всіх:
+                світлий квадрат з тонкою рамкою. У трьох -- логотип, у «Інших» -- сірий плюс,
+                щоб ряд читався як один набір, а не як три значки і одна кнопка. */}
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white ring-1 ring-neutral-200 dark:ring-neutral-700">
+              {a.logo ? (
                 <img src={a.logo} alt="" width={32} height={32} loading="lazy" decoding="async" className="h-8 w-8 object-contain" />
-              </div>
-            ) : (
-              <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-2xl text-xl font-bold text-white ${a.color}`}>{a.mono}</div>
-            )}
+              ) : (
+                <span className="text-2xl font-semibold leading-none text-neutral-400">{a.mono}</span>
+              )}
+            </div>
             <div className="mt-3 font-semibold text-neutral-900 dark:text-neutral-50">{a.name}</div>
             <div className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{a.note}</div>
             <div className={`mt-2 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${a.ok ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300" : "bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400"}`}>{a.status}</div>
