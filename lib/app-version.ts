@@ -90,3 +90,38 @@ export function updateVerdict(current: string, rule: PlatformVersionRule): Updat
   if (compareVersions(current, rule.recommended) < 0) return "recommended";
   return "ok";
 }
+
+// 18.10.2026 (Александр: «чтобы не надо было вмешиваться»). Рекомендуемая
+// версия iOS берётся из самого App Store: как только Apple выпустила новую
+// версию, полоска «обновись» появляется у тех, у кого версия ниже. Ручное
+// значение в APP_VERSION_CONFIG остаётся нижней границей и запасным
+// вариантом: если Apple не ответил -- отдаём его, ничего не ломается.
+// `minimum` (блокирующий экран) не автоматизируется намеренно.
+const APP_STORE_LOOKUP = "https://itunes.apple.com/lookup?id=6443859764";
+
+export async function liveIosVersion(): Promise<string | null> {
+  try {
+    const response = await fetch(APP_STORE_LOOKUP, {
+      next: { revalidate: 300 },
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!response.ok) return null;
+    const data = (await response.json()) as { results?: Array<{ version?: unknown }> };
+    const version = data.results?.[0]?.version;
+    return typeof version === "string" && /^\d+(\.\d+){1,3}$/.test(version) ? version : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Ручное значение, поднятое до версии, которая реально лежит в App Store. */
+export async function resolvedConfig(): Promise<AppVersionConfig> {
+  const live = await liveIosVersion();
+  if (!live || compareVersions(live, APP_VERSION_CONFIG.ios.recommended) <= 0) {
+    return APP_VERSION_CONFIG;
+  }
+  return {
+    ...APP_VERSION_CONFIG,
+    ios: { ...APP_VERSION_CONFIG.ios, recommended: live },
+  };
+}

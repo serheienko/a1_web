@@ -15,14 +15,15 @@ export const runtime = "nodejs";
 // получить свой кусок, а не разбирать общий.
 
 import { NextRequest, NextResponse } from "next/server";
-import { APP_VERSION_CONFIG } from "@/lib/app-version";
+import { resolvedConfig } from "@/lib/app-version";
 
 export async function GET(request: NextRequest) {
   const platform = request.nextUrl.searchParams.get("platform");
+  const config = await resolvedConfig();
   const body =
     platform === "ios" || platform === "android"
-      ? { ok: true, platform, ...APP_VERSION_CONFIG[platform] }
-      : { ok: true, ...APP_VERSION_CONFIG };
+      ? { ok: true, platform, ...config[platform] }
+      : { ok: true, ...config };
 
   return NextResponse.json(body, {
     headers: {
