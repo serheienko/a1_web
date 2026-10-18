@@ -52,6 +52,9 @@ const EXPLORE: Item[] = [
   { href: "/news", label: L("IT новини", "IT News", "IT новости", { de: "IT-News", es: "Noticias IT", fr: "Actus IT", pl: "Wiadomości IT", ptBR: "Notícias de TI", zh: "IT 新闻" }) },
   { href: "/events", label: L("Події", "Events", "События", { de: "Events", es: "Eventos", fr: "Événements", pl: "Wydarzenia", ptBR: "Eventos", zh: "活动" }) },
   { href: "/stats", label: L("A1 Stats", "A1 Stats", "A1 Stats", { de: "A1 Stats", es: "A1 Stats", fr: "A1 Stats", pl: "A1 Stats", ptBR: "A1 Stats", zh: "A1 Stats" }) },
+  // 17.10.2026: две новые страницы -- рефералка «Отримай Alpha» и «A1 у ШІ-чаті» (тексты как в меню).
+  { href: "/invite", label: L("Отримай Alpha", "Get Alpha", "Получи Alpha", { de: "Hol dir Alpha", es: "Consigue Alpha", fr: "Obtenez Alpha", pl: "Zdobądź Alpha", ptBR: "Ganhe Alpha", zh: "领取 Alpha" }) },
+  { href: "/ai-assistant", label: L("A1 у ШІ-чаті", "A1 in your AI chat", "A1 в ИИ-чате", { de: "A1 im KI-Chat", es: "A1 en tu chat IA", fr: "A1 dans l'IA", pl: "A1 w czacie AI", ptBR: "A1 no chat de IA", zh: "在 AI 聊天中使用 A1" }) },
   { href: "/map", label: L("Карта IT", "IT map", "Карта IT", { de: "IT-Karte", es: "Mapa IT", fr: "Carte IT", pl: "Mapa IT", ptBR: "Mapa de TI", zh: "IT 地图" }) },
   { href: "/blog", label: L("Блог", "Blog", "Блог", { de: "Blog", es: "Blog", fr: "Blog", pl: "Blog", ptBR: "Blog", zh: "博客" }) },
   { href: "/game", label: L("Гра A1 Run", "A1 Run game", "Игра A1 Run", { de: "Spiel A1 Run", es: "Juego A1 Run", fr: "Jeu A1 Run", pl: "Gra A1 Run", ptBR: "Jogo A1 Run", zh: "A1 Run 游戏" }) },
