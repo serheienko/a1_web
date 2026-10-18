@@ -611,6 +611,10 @@ export const UserProfileSchema = z.object({
   // 18.10.2026: GitHub-логин (строчными), который человек подтвердил через GitHub OAuth.
   // Плитка GitHub показывается, только если он совпадает с логином из ссылки профиля.
   githubVerifiedLogin: z.string().nullable().catch(null),
+  // 18.10.2026: то же для Dribbble (логин + снимок работ, который бэкенд сохраняет при подтверждении;
+  // чистится в lib/dribbble/core.ts) и Stack Overflow (числовой id профиля).
+  dribbbleVerified: z.object({ login: z.string(), snapshot: z.unknown() }).nullable().catch(null),
+  stackoverflowVerifiedId: z.number().int().nullable().catch(null),
   // 30.09.2026: аккаунт-«витрина» Конкистадора -- отклик на сайте компании
   external: z.boolean().optional(),
   flags: z.number().catch(0),

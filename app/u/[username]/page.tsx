@@ -54,6 +54,10 @@ import { OCCUPATION_LABELS } from "@/components/occupation-labels";
 import { WORK_STYLE_PREFERENCE_SECTIONS } from "@/components/work-style-labels";
 import { EditProfileButton } from "@/components/edit-profile-button";
 import { GithubSection } from "@/components/github-section";
+import { DribbbleSection } from "@/components/dribbble-section";
+import { StackoverflowSection } from "@/components/stackoverflow-section";
+import { findDribbbleLogin, sanitizeDribbbleSnapshot, verifiedDribbbleLogin } from "@/lib/dribbble/core";
+import { findStackoverflowId, verifiedStackoverflowId } from "@/lib/stackoverflow/core";
 import { extractGithubLogin, findGithubLogin, verifiedGithubLogin } from "@/lib/github/core";
 // 2026-09-02: WAS briefly routed through next/dynamic() here to try to
 // dodge a suspected chunk-loading race (see PLAN.md) -- reverted, that
@@ -705,6 +709,30 @@ export default async function ProfilePage({ params }: Props) {
             username={profile.username}
             linkLogin={linkLogin}
             serverVerified={verifiedGithubLogin(profile.links, verified) !== null}
+          />
+        );
+      })()}
+
+      {/* 18.10.2026: плитки Dribbble и Stack Overflow -- по тому же правилу, что GitHub: только у подтверждённых
+          через OAuth сервиса (components/dribbble-section.tsx, components/stackoverflow-section.tsx). */}
+      {(() => {
+        const linkLogin = findDribbbleLogin(profile.links);
+        if (!linkLogin) return null;
+        const v = rawProfile?.object === "user" ? rawProfile.dribbbleVerified : null;
+        const serverSnapshot = verifiedDribbbleLogin(profile.links, v?.login) !== null ? sanitizeDribbbleSnapshot(v?.snapshot) : null;
+        return <DribbbleSection key={linkLogin} username={profile.username} linkLogin={linkLogin} serverSnapshot={serverSnapshot} />;
+      })()}
+
+      {(() => {
+        const linkId = findStackoverflowId(profile.links);
+        if (linkId === null) return null;
+        const verified = rawProfile?.object === "user" ? rawProfile.stackoverflowVerifiedId : null;
+        return (
+          <StackoverflowSection
+            key={linkId}
+            username={profile.username}
+            linkId={linkId}
+            serverVerified={verifiedStackoverflowId(profile.links, verified) !== null}
           />
         );
       })()}
