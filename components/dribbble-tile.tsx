@@ -82,8 +82,21 @@ export function DribbbleTile({
       }`}
     >
       <div className="flex items-center gap-3">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#ea4c89] text-white">
+        <span className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#ea4c89] text-white">
           <DribbbleMark />
+          {snapshot.avatarUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={snapshot.avatarUrl}
+              alt=""
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              className="absolute inset-0 h-full w-full object-cover"
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+              }}
+            />
+          )}
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-2">
