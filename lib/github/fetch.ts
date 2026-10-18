@@ -332,7 +332,7 @@ export async function getGithubSummary(login: string, rawYear?: string | null): 
   if (!isValidGithubLogin(login)) return { status: "not_found" };
   const key = login.toLowerCase();
 
-  const base = await cached<Base>(`${key}`, GITHUB_CACHE_TTL_MS, () => fetchBase(login));
+  const base = await cached<Base>(`v2/${key}`, GITHUB_CACHE_TTL_MS, () => fetchBase(login));
   if ("notFound" in base) return { status: "not_found" };
 
   const currentYear = new Date().getUTCFullYear();
