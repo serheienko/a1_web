@@ -9,6 +9,8 @@ import Link from "next/link";
 import { NewsList } from "@/components/news/news-list";
 import { newsByLang } from "@/lib/news/articles";
 import { allNews } from "@/lib/news/registry";
+import { T } from "@/components/t";
+import { ntt } from "@/lib/news/ui";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -38,10 +40,10 @@ export default async function NewsIndexEn() {
     <main className="mx-auto max-w-3xl px-4 pt-6 sm:pt-16 pb-fab-safe" lang="en">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <div className="flex items-start justify-between gap-3">
-        <h1 className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl dark:text-neutral-50">IT News</h1>
-        <Link href="/news" hrefLang="uk" lang="uk" className="mt-2 shrink-0 rounded-full bg-neutral-100 px-3 py-1 text-[12px] font-semibold text-neutral-600 transition hover:bg-accent/10 hover:text-accent dark:bg-neutral-800 dark:text-neutral-300">UA</Link>
+        <h1 className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl dark:text-neutral-50"><T {...ntt("h1")} /></h1>
+        <Link href="/news" hrefLang="uk" lang="uk" className="mt-2 hidden shrink-0 rounded-full lang-uk:inline-block lang-ru:inline-block lang-en:inline-block bg-neutral-100 px-3 py-1 text-[12px] font-semibold text-neutral-600 transition hover:bg-accent/10 hover:text-accent dark:bg-neutral-800 dark:text-neutral-300">UA</Link>
       </div>
-      <p className="mt-2 text-neutral-500 dark:text-neutral-400">The best of the tech world: numbers, charts and our take on what it means for the IT market.</p>
+      <p className="mt-2 text-neutral-500 dark:text-neutral-400"><T {...ntt("lead")} /></p>
       <NewsList items={items} pool={pool} />
     </main>
   );

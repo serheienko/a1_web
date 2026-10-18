@@ -3,7 +3,9 @@
 import Link from "next/link";
 import type { NewsArticle } from "@/lib/news/types";
 import { altNews } from "@/lib/news/articles";
-import { newsDate, readingMinutes } from "@/lib/news/util";
+import { readingMinutes } from "@/lib/news/util";
+import { T } from "@/components/t";
+import { dateAll, ntt } from "@/lib/news/ui";
 import { NewsThumb } from "@/components/news/news-thumb";
 
 const L = {
@@ -18,16 +20,16 @@ function Meta({ a, pool }: { a: NewsArticle; pool: NewsArticle[] }) {
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-neutral-500 dark:text-neutral-400">
       <span className="font-medium uppercase tracking-wide text-accent">{a.kicker}</span>
       <span>·</span>
-      <time dateTime={a.published}>{newsDate(a.published, a.lang)}</time>
+      <time dateTime={a.published}><T {...dateAll(a.published)} /></time>
       <span>·</span>
-      <span>{readingMinutes(a)} {t.min}</span>
+      <span><T {...ntt("min", { n: readingMinutes(a) })} /></span>
       {alt ? (
         <Link
           href={`/news/${alt.slug}`}
           hrefLang={alt.lang}
           lang={alt.lang}
           title={t.other}
-          className="ml-1 rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-semibold text-neutral-600 transition hover:bg-accent/10 hover:text-accent dark:bg-neutral-800 dark:text-neutral-300"
+          className="ml-1 hidden rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-semibold text-neutral-600 lang-uk:inline-block lang-ru:inline-block lang-en:inline-block transition hover:bg-accent/10 hover:text-accent dark:bg-neutral-800 dark:text-neutral-300"
         >
           {alt.lang.toUpperCase()}
         </Link>
@@ -46,7 +48,7 @@ export function NewsList({ items, pool }: { items: NewsArticle[]; pool?: NewsArt
         <Link href={`/news/${first.slug}`} className="grid gap-0 sm:grid-cols-[1.1fr_1fr]">
           <NewsThumb thumb={first.thumb} seed={first.slug} kicker={first.kicker} className="sm:h-full sm:aspect-auto sm:min-h-[220px]" />
           <span className="flex flex-col justify-center gap-2 p-5 sm:p-6">
-            <span className="text-[13px] text-neutral-400">{first.lang === "uk" ? "Свіже" : "Latest"}</span>
+            <span className="text-[13px] text-neutral-400"><T {...ntt("latest")} /></span>
             <span className="text-2xl font-bold leading-tight tracking-tight text-neutral-900 transition group-hover:text-accent dark:text-neutral-50">{first.h1}</span>
             <span className="line-clamp-3 text-[15px] leading-relaxed text-neutral-600 dark:text-neutral-400">{first.description}</span>
           </span>

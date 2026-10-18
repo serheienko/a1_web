@@ -13,6 +13,8 @@ import type { NewsArticle, NewsBlock } from "@/lib/news/types";
 import { altNews, relatedNews } from "@/lib/news/articles";
 import { liveAi } from "@/lib/news/live";
 import { readingMinutes } from "@/lib/news/util";
+import { T as TT } from "@/components/t";
+import { dateAll, liveLabelsAll, ntt } from "@/lib/news/ui";
 import { SiteComments } from "@/components/site-comments";
 import { ExpertsGrid, LiveMarket, PriceCalc, ScoreBars, SizeCalc, StatsRow } from "@/components/news/visuals";
 
@@ -120,7 +122,7 @@ function LiveSkeleton({ title }: { title: string }) {
 async function LiveBlock({ title, caption, t }: { title: string; caption: string; t: (typeof T)["uk"] | (typeof T)["en"] }) {
   const data = await liveAi();
   if (data.mlWorld + data.mlUa === 0) return null;
-  return <LiveMarket title={title} caption={caption} data={data} locale={t.locale} labels={t.liveLabels} />;
+  return <LiveMarket title={title} caption={caption} data={data} locale={t.locale} labels={t.liveLabels} labelsAll={liveLabelsAll()} pageLang={t.locale === "uk-UA" ? "uk" : "en"} />;
 }
 
 async function BlockView({ block, article }: { block: NewsBlock; article: NewsArticle }) {
@@ -184,7 +186,6 @@ export async function NewsView({ article, pool }: { article: NewsArticle; pool?:
   const url = `${SITE_URL}/news/${article.slug}`;
   const alt = altNews(article, pool);
   const related = relatedNews(article, pool);
-  const dateText = new Date(article.published + "T12:00:00Z").toLocaleDateString(t.dateLocale, { day: "numeric", month: "long", year: "numeric" });
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -229,7 +230,7 @@ export async function NewsView({ article, pool }: { article: NewsArticle; pool?:
     <main className="mx-auto max-w-3xl px-4 pt-6 sm:pt-16 pb-fab-safe">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <nav aria-label="breadcrumb" className="text-[13px] text-neutral-400">
-        <Link href="/news" className="hover:text-accent">{t.breadcrumbNews}</Link>
+        <Link href="/news" className="hover:text-accent"><TT {...ntt("h1")} /></Link>
         <span className="mx-1.5">/</span>
         <span>{article.kicker}</span>
       </nav>
@@ -239,22 +240,22 @@ export async function NewsView({ article, pool }: { article: NewsArticle; pool?:
           <div className="text-[11px] font-medium uppercase tracking-wide text-accent">{article.kicker}</div>
           <h1 className="mt-1 text-3xl font-bold leading-tight tracking-tight text-neutral-900 sm:text-4xl dark:text-neutral-50">{article.h1}</h1>
           <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-neutral-500 dark:text-neutral-400">
-            <time dateTime={article.published}>{dateText}</time>
+            <time dateTime={article.published}><TT {...dateAll(article.published)} /></time>
             <span>·</span>
-            <span>{t.editorial}</span>
+            <span><TT {...ntt("editorial")} /></span>
             <span>·</span>
-            <span>{readingMinutes(article)} {t.min}</span>
+            <span><TT {...ntt("min", { n: readingMinutes(article) })} /></span>
             {alt ? (
               <>
                 <span>·</span>
-                <Link href={`/news/${alt.slug}`} hrefLang={alt.lang} lang={alt.lang} className="text-accent hover:underline">{t.readEn}</Link>
+                <Link href={`/news/${alt.slug}`} hrefLang={alt.lang} lang={alt.lang} className="hidden text-accent hover:underline lang-uk:inline lang-ru:inline lang-en:inline">{t.readEn}</Link>
               </>
             ) : null}
           </div>
         </header>
 
         <section aria-label={t.short} className="mt-6 rounded-2xl bg-gradient-to-br from-[var(--nv-from,#0e1a52)] to-[var(--nv-to,#03051f)] p-5 text-white ring-1 ring-white/10">
-          <div className="text-[11px] font-medium uppercase tracking-wide text-[var(--nv-hi,#7aa2ff)]">A1 Summary · {t.short}</div>
+          <div className="text-[11px] font-medium uppercase tracking-wide text-[var(--nv-hi,#7aa2ff)]">A1 Summary · <TT {...ntt("short")} /></div>
           <ul className="mt-2 space-y-2 text-[15px] leading-relaxed text-white/90">
             {article.summary.map((s, i) => (
               <li key={i} className="flex gap-2.5">
@@ -268,26 +269,26 @@ export async function NewsView({ article, pool }: { article: NewsArticle; pool?:
         {await Promise.all(article.blocks.map(async (b, i) => <div key={i}>{await BlockView({ block: b, article })}</div>))}
 
         <aside className="my-8 rounded-2xl bg-neutral-50 px-4 py-4 text-[14px] leading-relaxed text-neutral-600 dark:bg-neutral-900 dark:text-neutral-400">
-          <div className="text-[11px] font-medium uppercase tracking-wide text-neutral-400">{t.source}</div>
+          <div className="text-[11px] font-medium uppercase tracking-wide text-neutral-400"><TT {...ntt("source")} /></div>
           <a href={article.source.url} target="_blank" rel="noopener noreferrer" className="mt-1 block text-[16px] font-medium text-accent hover:underline">
             {article.source.name}: {article.source.title}
           </a>
-          <p className="mt-1">{t.sourceNote}</p>
+          <p className="mt-1"><TT {...ntt("sourceNote")} /></p>
         </aside>
 
         <aside className="my-8 flex flex-col gap-3 rounded-2xl bg-accent/10 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <div className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">{t.botTitle}</div>
-            <p className="mt-1 text-[14px] leading-snug text-neutral-600 dark:text-neutral-400">{t.botText}</p>
+            <div className="text-lg font-semibold text-neutral-900 dark:text-neutral-50"><TT {...ntt("botTitle")} /></div>
+            <p className="mt-1 text-[14px] leading-snug text-neutral-600 dark:text-neutral-400"><TT {...ntt("botText")} /></p>
           </div>
           <a href={BOT_URL} target="_blank" rel="noopener noreferrer" className="inline-flex shrink-0 items-center justify-center rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90">
-            {t.botBtn}
+            <TT {...ntt("botBtn")} />
           </a>
         </aside>
 
         {article.faq.length > 0 ? (
           <section className="mt-10">
-            <h2 className="mb-3 text-2xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">{t.faq}</h2>
+            <h2 className="mb-3 text-2xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50"><TT {...ntt("faq")} /></h2>
             <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
               {article.faq.map((f) => (
                 <details key={f.q} className="group py-3">
@@ -304,7 +305,7 @@ export async function NewsView({ article, pool }: { article: NewsArticle; pool?:
 
       {related.length > 0 ? (
         <section className="mt-12 border-t border-neutral-100 pt-8 dark:border-neutral-800">
-          <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-50">{t.related}</h2>
+          <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-50"><TT {...ntt("related")} /></h2>
           <ul className="mt-4 flex flex-col gap-4">
             {related.map((r) => (
               <li key={r.slug}>

@@ -11,6 +11,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { StatItem } from "@/lib/news/types";
+import type { Locale } from "@/components/t";
+import { useActiveLocale } from "@/lib/use-active-locale";
+import { newsLocale } from "@/lib/news/ui";
 
 type Phase = "ssr" | "armed" | "run";
 
@@ -281,14 +284,19 @@ export type LiveAi = {
 };
 
 export function LiveMarket({
-  title, caption, data, locale, labels,
+  title, caption, data, locale, labels, labelsAll, pageLang,
 }: {
   title: string;
   caption: string;
   data: LiveAi;
   locale: string;
   labels: { world: string; ua: string; share: string; salaryMl: string; salaryAll: string; basedOn: string; open: string };
+  /** Подписи на всех 9 языках; если переданы, выбираются по языку сайта (страница uk -- uk/ru, страница en -- остальные). */
+  labelsAll?: Record<Locale, { world: string; ua: string; share: string; salaryMl: string; salaryAll: string; basedOn: string; open: string }>;
+  pageLang?: "uk" | "en";
 }) {
+  const active = useActiveLocale();
+  const labelsShown = labelsAll && pageLang ? labelsAll[newsLocale(pageLang, active)] : labels;
   const [ref, phase] = useReveal<HTMLDivElement>();
   const run = phase === "run";
   const cell = (value: number, label: string, decimals = 0, suffix = "", prefix = "") => (
@@ -312,13 +320,13 @@ export function LiveMarket({
         </span>
       </figcaption>
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {cell(data.mlWorld, labels.world)}
-        {cell(data.mlUa, labels.ua)}
-        {cell(data.aiShare, labels.share, 1, "%")}
-        {data.salary ? cell(Math.round(data.salary.mlMedian / 1000), labels.salaryMl, 0, "k", "$") : null}
-        {data.salary ? cell(Math.round(data.salary.allMedian / 1000), labels.salaryAll, 0, "k", "$") : null}
+        {cell(data.mlWorld, labelsShown.world)}
+        {cell(data.mlUa, labelsShown.ua)}
+        {cell(data.aiShare, labelsShown.share, 1, "%")}
+        {data.salary ? cell(Math.round(data.salary.mlMedian / 1000), labelsShown.salaryMl, 0, "k", "$") : null}
+        {data.salary ? cell(Math.round(data.salary.allMedian / 1000), labelsShown.salaryAll, 0, "k", "$") : null}
       </div>
-      <p className="mt-3 text-[12px] leading-snug text-neutral-400">{labels.basedOn}</p>
+      <p className="mt-3 text-[12px] leading-snug text-neutral-400">{labelsShown.basedOn}</p>
     </figure>
   );
 }
