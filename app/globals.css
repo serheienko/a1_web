@@ -1283,6 +1283,26 @@ textarea {
   }
 }
 
+/* Pin glyph (components/chat/group-info-modal.tsx) -- the pin tips over
+   and snaps back, like it's being pushed into a board. */
+@keyframes pin-tilt {
+  0%,
+  100% {
+    transform: rotate(0deg) translateY(0);
+  }
+  35% {
+    transform: rotate(-18deg) translateY(-1.5px);
+  }
+  70% {
+    transform: rotate(8deg) translateY(1px);
+  }
+}
+
+.group:hover .animate-pin-tilt {
+  transform-origin: 50% 85%;
+  animation: pin-tilt 0.45s ease-in-out;
+}
+
 /* 2026-09-03 (Aleksandr, attach-popover screenshot: "Анимируй все
    иконки тут") -- the paperclip trigger already wiggles
    (.animate-paperclip-wiggle above); these four cover the row icons
@@ -1717,6 +1737,7 @@ textarea {
   .group:hover .animate-block-shake,
   .group:hover .animate-theme-pop,
   .group:hover .animate-pencil-write,
+  .group:hover .animate-pin-tilt,
   .group:hover .animate-trash-wobble,
   .group:hover .animate-send-arrow,
   .group:hover .animate-back-arrow,

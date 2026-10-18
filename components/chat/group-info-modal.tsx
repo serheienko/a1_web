@@ -11,7 +11,7 @@
 //   add  -- выбор людей для добавления.
 // Права как у бэкенда: добавлять и менять может участник, убирать людей
 // из группы -- создатель/админ; удаляет группу создатель.
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
 import { CachedAvatar } from "@/components/cached-avatar";
@@ -23,6 +23,7 @@ import { groupText, membersCountText } from "@/lib/a1/group-chat";
 import { peerNameColorIndex, peerNameColorVar } from "@/lib/peer-name-color";
 import type { GroupMember } from "@/app/api/chats/group-info/route";
 import { PeoplePicker, type Person } from "@/components/chat/people-picker";
+import { ChatPhotoAttachIcon } from "@/components/chat/icons";
 
 export type GroupCardInfo = {
   title: string;
@@ -60,6 +61,70 @@ function Pill({ label, onClick, danger, disabled }: { label: string; onClick: ()
       }`}
     >
       {label}
+    </button>
+  );
+}
+
+// Иконки действий карточки (Aleksandr, 2026-10-17: «горизонтально все в одну
+// линию и иконками, как у нас в приложении, при ховере анимация»). Глифы те
+// же, что в меню сообщений (bell / pin / pencil) и в аттач-меню (photo);
+// анимация -- общие `.group:hover .animate-*` из globals.css.
+type GlyphProps = { className?: string };
+
+function BellGlyph({ className }: GlyphProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+    </svg>
+  );
+}
+
+function BellOffGlyph({ className }: GlyphProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+      <path d="M3 3l18 18" />
+    </svg>
+  );
+}
+
+function PinGlyph({ className }: GlyphProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M12 17v5" />
+      <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9a2 2 0 0 1-1.11-1.79V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" />
+    </svg>
+  );
+}
+
+function PencilGlyph({ className }: GlyphProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  );
+}
+
+/** Круглая кнопка-иконка; `group` включает hover-анимацию глифа. */
+function IconAction({ label, onClick, disabled, active, children }: { label: string; onClick: () => void; disabled?: boolean; active?: boolean; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      aria-pressed={active}
+      disabled={disabled}
+      onClick={onClick}
+      className={`group flex h-12 w-12 shrink-0 items-center justify-center rounded-full transition hover:scale-105 active:scale-95 disabled:opacity-50 ${
+        active
+          ? "bg-[#335ef7]/10 text-[#335ef7] hover:bg-[#335ef7]/15 dark:bg-[#0c8ce9]/15 dark:text-[#0c8ce9]"
+          : "bg-black/5 text-neutral-700 hover:bg-black/10 dark:bg-white/10 dark:text-neutral-100 dark:hover:bg-white/15"
+      }`}
+    >
+      {children}
     </button>
   );
 }
@@ -277,11 +342,23 @@ export function GroupInfoModal({
               <h2 className="max-w-full break-words text-[19px] font-semibold text-neutral-900 dark:text-neutral-50">{info.title || "—"}</h2>
               <div className="text-[14px] text-neutral-500 dark:text-neutral-400">{membersCountText(lang, info.members.length)}</div>
               {info.about && <p className="max-w-full whitespace-pre-line break-words text-[13px] text-neutral-600 dark:text-neutral-300">{info.about}</p>}
-              <div className="mt-1 flex flex-wrap justify-center gap-2">
-                <Pill label={info.muted ? L("groupUnmute") : L("groupMute")} onClick={() => void toggleMute()} disabled={busy} />
-                <Pill label={info.pinned ? L("chatUnpin") : L("chatPin")} onClick={() => void togglePin()} disabled={busy} />
-                {onOpenShared && <Pill label={SHARED_LABEL[lang] ?? SHARED_LABEL.en!} onClick={onOpenShared} />}
-                {canManage && <Pill label={L("editGroup")} onClick={() => setView("edit")} />}
+              <div className="mt-1 flex items-center justify-center gap-3">
+                <IconAction label={info.muted ? L("groupUnmute") : L("groupMute")} active={info.muted} disabled={busy} onClick={() => void toggleMute()}>
+                  {info.muted ? <BellOffGlyph className="h-[22px] w-[22px] animate-bell-ring" /> : <BellGlyph className="h-[22px] w-[22px] animate-bell-ring" />}
+                </IconAction>
+                <IconAction label={info.pinned ? L("chatUnpin") : L("chatPin")} active={info.pinned} disabled={busy} onClick={() => void togglePin()}>
+                  <PinGlyph className="h-[22px] w-[22px] animate-pin-tilt" />
+                </IconAction>
+                {onOpenShared && (
+                  <IconAction label={SHARED_LABEL[lang] ?? SHARED_LABEL.en!} onClick={onOpenShared}>
+                    <ChatPhotoAttachIcon className="animate-photo-attach h-[22px] w-[22px]" />
+                  </IconAction>
+                )}
+                {canManage && (
+                  <IconAction label={L("editGroup")} onClick={() => setView("edit")}>
+                    <PencilGlyph className="h-[22px] w-[22px] animate-pencil-write" />
+                  </IconAction>
+                )}
               </div>
             </div>
 
