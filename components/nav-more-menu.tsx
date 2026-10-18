@@ -32,6 +32,8 @@ import { useEffect, useRef, useState } from "react";
 import { DOWNLOAD_COPY } from "@/app/download/copy";
 import { LOCALES, LOCALE_VISIBILITY_CLASS, T, type Locale } from "@/components/t";
 import { useHoverPanel } from "@/lib/use-hover-panel";
+import { useActiveLocale } from "@/lib/use-active-locale";
+import { COPY, makeT } from "@/app/invite/copy";
 
 type Id = "app" | "news" | "events" | "stats" | "ai" | "invite" | "game";
 
@@ -44,7 +46,9 @@ const TXT = {
     title: L("Завантажити додаток", "Get the app", "Скачать приложение", {
       de: "App laden", es: "Descargar la app", fr: "Télécharger l'app", pl: "Pobierz aplikację", ptBR: "Baixar o app", zh: "下载应用",
     }),
-    sub: L("Android та iOS", "Android and iOS", "Android и iOS"),
+    sub: L("Android та iOS", "Android and iOS", "Android и iOS", {
+      de: "Android und iOS", es: "Android e iOS", fr: "Android et iOS", pl: "Android i iOS", ptBR: "Android e iOS", zh: "Android 和 iOS",
+    }),
     prev: L(
       "Android та iOS — вакансії й чати в кишені",
       "Android and iOS — jobs and chats in your pocket",
@@ -60,64 +64,118 @@ const TXT = {
     ),
   },
   news: {
-    title: L("IT новини", "IT News", "IT новости"),
-    sub: L("Головне з техсвіту — з розбором", "Tech news with our take", "Главное из техмира — с разбором"),
+    title: L("IT новини", "IT News", "IT новости", {
+      de: "IT-News", es: "Noticias IT", fr: "Actus IT", pl: "Wiadomości IT", ptBR: "Notícias de TI", zh: "IT 新闻",
+    }),
+    sub: L("Головне з техсвіту, з розбором", "Tech news with our take", "Главное из техмира, с разбором", {
+      de: "Tech-News mit unserer Einordnung", es: "Noticias tech con nuestro análisis", fr: "L'actu tech, avec notre analyse", pl: "Newsy z tech-świata z naszym komentarzem", ptBR: "Notícias de tecnologia com nossa análise", zh: "科技要闻，附我们的解读",
+    }),
     prev: L(
       "Найцікавіші IT-новини дня: цифри, графіки й що це означає для IT-ринку",
       "The day's best IT stories: numbers, charts and what they mean for the IT market",
       "Самые интересные IT-новости дня: цифры, графики и что это значит для IT-рынка",
+      {
+        de: "Die spannendsten IT-Nachrichten des Tages: Zahlen, Grafiken und was sie für den IT-Markt bedeuten",
+        es: "Las noticias IT más interesantes del día: cifras, gráficos y qué significan para el mercado IT",
+        fr: "Les actus IT les plus marquantes du jour : chiffres, graphiques et ce qu'elles changent pour le marché IT",
+        pl: "Najciekawsze newsy IT dnia: liczby, wykresy i co oznaczają dla rynku IT",
+        ptBR: "As notícias de TI mais interessantes do dia: números, gráficos e o que significam para o mercado de TI",
+        zh: "今日最值得关注的 IT 新闻：数据、图表，以及它们对 IT 市场意味着什么",
+      },
     ),
-    kicker: L("Свіже", "Latest", "Свежее"),
+    kicker: L("Свіже", "Latest", "Свежее", { de: "Neu", es: "Reciente", fr: "À la une", pl: "Najnowsze", ptBR: "Recentes", zh: "最新" }),
   },
   events: {
-    title: L("Події", "Events", "События"),
-    sub: L("Конференції та мітапи", "Conferences and meetups", "Конференции и митапы"),
+    title: L("Події", "Events", "События", { de: "Events", es: "Eventos", fr: "Événements", pl: "Wydarzenia", ptBR: "Eventos", zh: "活动" }),
+    sub: L("Конференції та мітапи", "Conferences and meetups", "Конференции и митапы", {
+      de: "Konferenzen und Meetups", es: "Conferencias y meetups", fr: "Conférences et meetups", pl: "Konferencje i meetupy", ptBR: "Conferências e meetups", zh: "大会与线下聚会",
+    }),
     prev: L(
       "Календар IT-конференцій і мітапів: Україна, Європа та онлайн — з датами, темами й описом",
       "A calendar of tech conferences and meetups: Ukraine, Europe and online — with dates, topics and a short take",
       "Календарь IT-конференций и митапов: Украина, Европа и онлайн — с датами, темами и описанием",
+      {
+        de: "Kalender für Tech-Konferenzen und Meetups: Ukraine, Europa und online, mit Terminen, Themen und kurzer Einordnung",
+        es: "Calendario de conferencias y meetups tech: Ucrania, Europa y online, con fechas, temas y una breve reseña",
+        fr: "Calendrier des conférences et meetups tech : Ukraine, Europe et en ligne, avec dates, thèmes et un court avis",
+        pl: "Kalendarz konferencji i meetupów IT: Ukraina, Europa i online, z terminami, tematami i krótkim opisem",
+        ptBR: "Calendário de conferências e meetups de tecnologia: Ucrânia, Europa e online, com datas, temas e uma breve análise",
+        zh: "科技大会与聚会日历：乌克兰、欧洲和线上，含日期、主题和简评",
+      },
     ),
-    kicker: L("Календар", "Calendar", "Календарь"),
+    kicker: L("Календар", "Calendar", "Календарь", { de: "Kalender", es: "Calendario", fr: "Calendrier", pl: "Kalendarz", ptBR: "Calendário", zh: "日历" }),
   },
   stats: {
     title: L("A1 Stats", "A1 Stats", "A1 Stats"),
-    sub: L("Живі цифри ринку вакансій", "Live job-market numbers", "Живые цифры рынка вакансий"),
+    sub: L("Живі цифри ринку вакансій", "Live job-market numbers", "Живые цифры рынка вакансий", {
+      de: "Live-Zahlen zum Jobmarkt", es: "Cifras del mercado laboral en vivo", fr: "Les chiffres du marché de l'emploi en direct", pl: "Liczby z rynku pracy na żywo", ptBR: "Números do mercado de vagas ao vivo", zh: "实时职位市场数据",
+    }),
     prev: L(
       "Вакансії по країнах, технологіях і зарплатах — оновлюється наживо",
       "Jobs by country, technology and salary — updated live",
       "Вакансии по странам, технологиям и зарплатам — обновляется вживую",
+      {
+        de: "Jobs nach Land, Technologie und Gehalt, live aktualisiert",
+        es: "Vacantes por país, tecnología y salario, actualizadas en vivo",
+        fr: "Offres par pays, technologie et salaire, mises à jour en direct",
+        pl: "Oferty według kraju, technologii i wynagrodzenia, aktualizowane na żywo",
+        ptBR: "Vagas por país, tecnologia e salário, atualizadas ao vivo",
+        zh: "按国家、技术和薪资统计的职位，实时更新",
+      },
     ),
-    jobs: L("вакансій", "jobs", "вакансий"),
-    companies: L("компаній", "companies", "компаний"),
-    countries: L("країн", "countries", "стран"),
-    today: L("за добу", "last 24h", "за сутки"),
+    jobs: L("вакансій", "jobs", "вакансий", { de: "Jobs", es: "vacantes", fr: "offres", pl: "ofert", ptBR: "vagas", zh: "职位" }),
+    companies: L("компаній", "companies", "компаний", { de: "Firmen", es: "empresas", fr: "entreprises", pl: "firm", ptBR: "empresas", zh: "公司" }),
+    countries: L("країн", "countries", "стран", { de: "Länder", es: "países", fr: "pays", pl: "krajów", ptBR: "países", zh: "国家" }),
+    today: L("за добу", "last 24h", "за сутки", { de: "letzte 24 Std.", es: "últimas 24 h", fr: "dernières 24 h", pl: "ostatnie 24 godz.", ptBR: "últimas 24 h", zh: "近 24 小时" }),
   },
   // 17.10.2026: страница /ai-assistant (подключение A1 к Claude, ChatGPT, Cursor). Фраза превью выбрана Александром.
   ai: {
-    title: L("A1 у ШІ-чаті", "A1 in your AI chat", "A1 в ИИ-чате"),
+    title: L("A1 у ШІ-чаті", "A1 in your AI chat", "A1 в ИИ-чате", {
+      de: "A1 im KI-Chat", es: "A1 en tu chat IA", fr: "A1 dans l'IA", pl: "A1 w czacie AI", ptBR: "A1 no chat de IA", zh: "在 AI 聊天中使用 A1",
+    }),
     sub: L("Claude, ChatGPT, Cursor", "Claude, ChatGPT, Cursor", "Claude, ChatGPT, Cursor"),
     prev: L(
       "Шукайте вакансії A1 прямо в Claude, ChatGPT чи Cursor",
       "Search A1 jobs right inside Claude, ChatGPT or Cursor",
       "Ищите вакансии A1 прямо в Claude, ChatGPT или Cursor",
+      {
+        de: "Suche A1-Jobs direkt in Claude, ChatGPT oder Cursor",
+        es: "Busca vacantes de A1 directamente en Claude, ChatGPT o Cursor",
+        fr: "Cherchez des offres A1 directement dans Claude, ChatGPT ou Cursor",
+        pl: "Szukaj ofert A1 prosto w Claude, ChatGPT lub Cursor",
+        ptBR: "Busque vagas do A1 direto no Claude, ChatGPT ou Cursor",
+        zh: "直接在 Claude、ChatGPT 或 Cursor 中搜索 A1 职位",
+      },
     ),
-    badge: L("Новинка", "New", "Новинка"),
+    badge: L("Новинка", "New", "Новинка", { de: "Neu", es: "Nuevo", fr: "Nouveau", pl: "Nowość", ptBR: "Novo", zh: "新" }),
   },
   // 17.10.2026: реферальная программа «Отримай Alpha» -- страница /invite, мини-прогресс прямо в строке меню.
   invite: {
-    title: L("Отримай Alpha", "Get Alpha", "Получи Alpha"),
-    sub: L("Запроси друзів", "Invite friends", "Пригласи друзей"),
+    title: L("Отримай Alpha", "Get Alpha", "Получи Alpha", {
+      de: "Hol dir Alpha", es: "Consigue Alpha", fr: "Obtenez Alpha", pl: "Zdobądź Alpha", ptBR: "Ganhe Alpha", zh: "领取 Alpha",
+    }),
+    sub: L("Запросіть друзів", "Invite friends", "Пригласите друзей", {
+      de: "Freunde einladen", es: "Invita a tus amigos", fr: "Invitez vos amis", pl: "Zaproś znajomych", ptBR: "Convide amigos", zh: "邀请好友",
+    }),
     prev: L(
-      "Поділись посиланням з друзями і отримуй A1 Alpha безкоштовно. Друг теж отримує подарунок",
+      "Поділіться посиланням з друзями і отримуйте A1 Alpha безкоштовно. Друг теж отримує подарунок",
       "Share your link with friends and get A1 Alpha for free. Your friend gets a gift too",
-      "Поделись ссылкой с друзьями и получай A1 Alpha бесплатно. Друг тоже получает подарок",
+      "Поделитесь ссылкой с друзьями и получайте A1 Alpha бесплатно. Друг тоже получает подарок",
+      {
+        de: "Teile deinen Link mit Freunden und erhalte A1 Alpha kostenlos. Dein Freund bekommt auch ein Geschenk",
+        es: "Comparte tu enlace con tus amigos y consigue A1 Alpha gratis. Tu amigo también recibe un regalo",
+        fr: "Partagez votre lien avec vos amis et obtenez A1 Alpha gratuitement. Votre ami reçoit aussi un cadeau",
+        pl: "Udostępnij link znajomym i zdobądź A1 Alpha za darmo. Twój znajomy też dostanie prezent",
+        ptBR: "Compartilhe seu link com amigos e ganhe o A1 Alpha de graça. Seu amigo também ganha um presente",
+        zh: "把链接分享给好友，免费获得 A1 Alpha。好友也会收到礼物",
+      },
     ),
-    mo: L("міс.", "mo", "мес."),
-    friends: L("друзів", "friends", "друзей"),
   },
   game: {
     title: L("A1 Run", "A1 Run", "A1 Run"),
-    sub: L("Пограй у нашу гру", "Play our game", "Поиграй в нашу игру"),
+    sub: L("Пограй у нашу гру", "Play our game", "Поиграй в нашу игру", {
+      de: "Spiel unser Spiel", es: "Juega a nuestro juego", fr: "Jouez à notre jeu", pl: "Zagraj w naszą grę", ptBR: "Jogue nosso jogo", zh: "玩玩我们的游戏",
+    }),
     prev: L(
       "Міні-гра про кота Mr Kit — біжи дахами й збирай зв’язки",
       "A mini-game about Mr Kit the cat — run the rooftops and collect connections",
@@ -134,6 +192,13 @@ const TXT = {
   },
   more: L("Ще", "More", "Ещё", { de: "Mehr", es: "Más", fr: "Plus", pl: "Więcej", ptBR: "Mais", zh: "更多" }),
 };
+
+// 18.10.2026: списки новин и подій бывают только на украинском и английском (отдельные адреса). Остальным языкам
+// (de, es, fr, pl, pt, zh) ведём на английские: так читают больше людей, чем по-украински.
+function hrefFor(id: Id, locale: Locale): string {
+  if ((id === "news" || id === "events") && locale !== "uk" && locale !== "ru") return `${HREF[id]}/en`;
+  return HREF[id];
+}
 
 const HREF: Record<Id, string> = { app: "/download", news: "/news", events: "/events", stats: "/stats", ai: "/ai-assistant", invite: "/invite", game: "/game" };
 
@@ -272,9 +337,10 @@ function Row({
   onPick: () => void;
 }) {
   const t = TXT[id];
+  const locale = useActiveLocale();
   return (
     <Link
-      href={HREF[id]}
+      href={hrefFor(id, locale)}
       onClick={onPick}
       onMouseEnter={() => onHover(id)}
       onFocus={() => onHover(id)}
@@ -317,6 +383,8 @@ function Row({
 // Строка «Отримай Alpha»: вместо подписи -- мини-полоса прогресса (когда человек вошёл и уже есть друзья).
 function InviteRow({ lite, onHover, onPick }: { lite: InviteLite | null; onHover: (id: Id) => void; onPick: () => void }) {
   const t = TXT.invite;
+  const locale = useActiveLocale();
+  const ct = makeT(COPY[locale] ?? COPY.en);
   const pct = lite ? Math.min(100, Math.round(inviteFill(lite.friends))) : 0;
   return (
     <Link
@@ -338,7 +406,7 @@ function InviteRow({ lite, onHover, onPick }: { lite: InviteLite | null; onHover
             <span className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
               <span className="absolute inset-y-0 left-0 rounded-full bg-accent" style={{ width: `${Math.max(6, pct)}%` }} />
             </span>
-            <span className="shrink-0 tabular-nums">{lite.friends} <T {...t.friends} /> · {lite.months} <T {...t.mo} /></span>
+            <span className="shrink-0 tabular-nums">{ct.friends(lite.friends)} · {ct.moLabel(lite.months)}</span>
           </span>
         ) : (
           <span className="block truncate text-xs text-neutral-500 dark:text-neutral-400">
@@ -521,6 +589,8 @@ function PreviewAi() {
 }
 
 function PreviewInvite() {
+  const locale = useActiveLocale();
+  const ct = makeT(COPY[locale] ?? COPY.en);
   const steps = [3, 8, 10, 18, 30];
   const months = [1, 3, 6, 12, 24];
   return (
@@ -528,7 +598,7 @@ function PreviewInvite() {
       <span className="relative block aspect-[16/10] w-full overflow-hidden bg-[radial-gradient(120%_90%_at_20%_0%,#1b3a95_0%,#0a1240_48%,#03051f_100%)]">
         <span className="absolute inset-x-5 top-5 block">
           <span className="block text-[11px] font-medium uppercase tracking-wide text-[#7aa2ff]">Alpha · invite</span>
-          <span className="mt-1 block text-[40px] font-bold leading-none text-white">24 <span className="text-[22px] font-semibold text-white/70"><T {...TXT.invite.mo} /></span></span>
+          <span className="mt-1 block text-[40px] font-bold leading-none text-white">24 <span className="text-[22px] font-semibold text-white/70">{ct.moLabel(24).replace(/^\d+\s?/, "")}</span></span>
         </span>
         <span className="absolute inset-x-5 bottom-10 block">
           <span className="relative block h-2 rounded-full bg-white/15">
@@ -541,7 +611,7 @@ function PreviewInvite() {
             {steps.map((n, i) => (
               <span key={n} className="absolute -translate-x-1/2 whitespace-nowrap text-center" style={{ left: `${Math.min(92, ((i + 1) / steps.length) * 100)}%` }}>
                 <b className="block text-xs text-white">{n}</b>
-                {months[i]} <T {...TXT.invite.mo} />
+                {ct.moLabel(months[i] ?? 1)}
               </span>
             ))}
           </span>
@@ -620,6 +690,7 @@ function PreviewStats({ data }: { data: StatsLite | null }) {
 }
 
 export function NavMoreMenu() {
+  const locale = useActiveLocale();
   const [open, setOpen] = useState(false);
   const [hovered, setHovered] = useState<Id | null>(null);
   const [stats, setStats] = useState<StatsLite | null>(null);
@@ -744,7 +815,7 @@ export function NavMoreMenu() {
                 (visible ? "translate-x-0 opacity-100" : "translate-x-1 opacity-0")
               }
             >
-              <Link key={hovered} href={HREF[hovered]} onClick={pick} className={`animate-nav-preview ${shell("bg-[#03051f]")}`}>
+              <Link key={hovered} href={hrefFor(hovered, locale)} onClick={pick} className={`animate-nav-preview ${shell("bg-[#03051f]")}`}>
                 {hovered === "app" ? <PreviewApp /> : hovered === "news" ? <PreviewNews latest={latestNews} /> : hovered === "events" ? <PreviewEvents /> : hovered === "stats" ? <PreviewStats data={stats} /> : hovered === "ai" ? <PreviewAi /> : hovered === "invite" ? <PreviewInvite /> : <PreviewGame />}
               </Link>
             </div>

@@ -14,12 +14,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Insights, Named } from "@/lib/a1/insights";
 import { T, type Locale } from "@/components/t";
 import { WORLD_DOTS } from "@/lib/stats/world-dots";
+import { restFor, salaryHint } from "./i18n";
 
 type Props = { initial: Insights };
 
 // ───────── подписи ─────────
 function L(uk: string, en: string, ru: string): Record<Locale, string> {
-  return { uk, en, ru, de: en, es: en, fr: en, pl: en, ptBR: en, zh: en };
+  // de, es, fr, pl, ptBR, zh -- из app/stats/i18n.ts по английскому ключу (нет ключа -- английский).
+  return { uk, en, ru, de: en, es: en, fr: en, pl: en, ptBR: en, zh: en, ...restFor(en) };
 }
 function TN({ n }: { n: Named | undefined | null }) {
   if (!n) return null;
@@ -586,11 +588,11 @@ export function StatsLive({ initial }: Props) {
       {/* ── зарплаты ── */}
       {data.salary.length ? (
         <Reveal className="mt-4">
-          <H2 sub={<T {...L(
+          <H2 sub={<T {...{ ...L(
             `Лише вакансії з указаною зарплатою в доларах, рік. Смуга -- від 25-го до 75-го перцентиля, точка -- медіана. Вакансій із зарплатою: ${fmt(data.withSalary)}.`,
             `USD salaries stated in the job post, per year. Bar: 25th–75th percentile, dot: median. Jobs with a salary: ${fmt(data.withSalary)}.`,
             `Только вакансии с указанной зарплатой в долларах, в год. Полоса -- от 25-го до 75-го перцентиля, точка -- медиана. Вакансий с зарплатой: ${fmt(data.withSalary)}.`,
-          )} />}>
+          ), ...salaryHint(fmt(data.withSalary)) }} />}>
             <T {...L("Зарплати за технологіями", "Salaries by technology", "Зарплаты по технологиям")} />
           </H2>
           <div className="st-sal">

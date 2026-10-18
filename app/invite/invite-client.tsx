@@ -7,11 +7,12 @@
 // Вид тот же, что у /first250: переливающийся фон, подарки летят вверх из-под стеклянных карточек, кнопка с
 // бегущим градиентом (классы f250-* в app/globals.css).
 // Условие теперь одно: друг зарегистрировался по ссылке и прошёл 48 часов (защита от фейков).
-// Язык: украинский для uk/ru, для остальных английский (как /first250).
+// Язык: все 9 языков сайта, тексты в copy.ts (18.10.2026: раньше были только uk и en).
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { InlineAuthForm } from "@/components/inline-auth-form";
 import { useActiveLocale } from "@/lib/use-active-locale";
+import { COPY, makeT } from "./copy";
 
 type Step = { friends: number; months: number };
 type Row = { name: string; counted: boolean; joinedAt: string };
@@ -84,111 +85,6 @@ function DragRow({ children }: { children: React.ReactNode }) {
   );
 }
 
-function ukPlural(n: number, one: string, few: string, many: string): string {
-  const m10 = n % 10;
-  const m100 = n % 100;
-  if (m10 === 1 && m100 !== 11) return one;
-  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
-  return many;
-}
-
-const TXT = {
-  uk: {
-    title: "Отримай Alpha",
-    sub: (d: number) => `Запрошуй друзів в A1 і отримуй Alpha безкоштовно. Друг теж отримає ${d} днів Alpha в подарунок 🎁`,
-    yourLink: "Твоє посилання",
-    share: "🎁 Поділитися",
-    copy: "Копіювати",
-    copied: "Скопійовано ✓",
-    alphaTitle: "Що таке A1 Alpha",
-    alphaSub: "Клуб для тих, хто серйозно шукає роботу чи людей. Зазвичай Alpha платна, а тут її можна отримати безкоштовно.",
-    perks: [
-      { icon: "🔎", title: "Alpha Пошук", text: "Розкажи словами, що шукаєш, і ШІ підбере найкращі вакансії та пояснить, чому вони підходять саме тобі." },
-      { icon: "🔔", title: "Нові збіги щодня", text: "Alpha запамʼятовує твій портрет і раз на день надсилає свіжі вакансії в окремий чат." },
-      { icon: "✨", title: "Magic Post", text: "Опиши вакансію чи пост голосом або текстом, і Alpha сама заповнить усі поля." },
-      { icon: "🐠", title: "Значок і бігуча стрічка", text: "Значок учасника клубу біля імені й твій власний рядок-думка, який бачать усі." },
-    ],
-    ladderTitle: "Скільки друзів, стільки подарунків",
-    scaleHint: "У кружечку: скільки друзів. Під ним: місяців Alpha. Кружечок заповнюється, коли друг зараховується.",
-    friends: (n: number) => `${n} ${ukPlural(n, "друг", "друга", "друзів")}`,
-    months: (n: number) => `${n} ${ukPlural(n, "місяць", "місяці", "місяців")}`,
-    mo: "міс.",
-    rule: (f: number, m: number) => `Запроси ${f} ${ukPlural(f, "друга", "друзів", "друзів")} і отримай ${m} ${ukPlural(m, "місяць", "місяці", "місяців")} Alpha`,
-    total: "Разом",
-    friendRow: (d: number) => `Запрошені друзі отримають: ${d} днів Alpha в подарунок`,
-    earned: (m: string) => `Вже зароблено: ${m} Alpha 🎉`,
-    none: (f: number) => `Поки що 0. Запроси ${f} друзів, і це вже місяць Alpha!`,
-    toNext: (left: number, f: number, m: string) => `Ще ${left} ${ukPlural(left, "друг", "друга", "друзів")} до ${f}, і будуть ${m} Alpha`,
-    top: "Це максимум 🎉 Далі партнерська програма з виплатами. Напиши нам.",
-    pin: (n: number) => `${n} ${ukPlural(n, "друг", "друга", "друзів")} 🎉`,
-    counted: (n: number) => `Зараховано ${n} ${ukPlural(n, "друг", "друга", "друзів")}`,
-    invited: "Твої друзі",
-    noInvited: "Поки нікого. Надішли посилання, і друзі зʼявляться тут.",
-    stJoined: "Чекає 48 годин",
-    stCounted: "Зараховано ✓",
-    howTitle: "Як це працює",
-    how: (h: number, d: number) => [
-      "Друг відкриває твоє посилання і реєструється в A1.",
-      `Через ${h} години він зараховується. Так ми відсіюємо фейкові реєстрації.`,
-      "Місяці Alpha накопичуються на твоєму акаунті й увімкнуться самі, щойно ми запустимо Alpha.",
-      `Друг теж отримує ${d} днів Alpha в подарунок.`,
-    ],
-    fine: "Свій акаунт запросити не можна, один друг має одного запрошувача. Фейкові реєстрації не зараховуються.",
-    signInTitle: "Увійди, щоб отримати своє посилання",
-    err: "Щось пішло не так. Спробуй ще раз за хвилину.",
-    loading: "Завантаження…",
-    notEligible: "Для цього акаунта програма недоступна.",
-    shareText: "Приєднуйся до A1 і отримай Alpha на 14 днів",
-  },
-  en: {
-    title: "Get Alpha",
-    sub: (d: number) => `Invite friends to A1 and get Alpha for free. Your friend gets ${d} days of Alpha as a gift too 🎁`,
-    yourLink: "Your link",
-    share: "🎁 Share with a friend",
-    copy: "Copy",
-    copied: "Copied ✓",
-    alphaTitle: "What is A1 Alpha",
-    alphaSub: "A club for people who are serious about finding a job or talent. Alpha is normally paid, and here you can get it for free.",
-    perks: [
-      { icon: "🔎", title: "Alpha Search", text: "Tell it in your own words what you want, and AI picks the best jobs and explains why they fit you." },
-      { icon: "🔔", title: "New matches daily", text: "Alpha remembers your profile and sends fresh jobs to a separate chat once a day." },
-      { icon: "✨", title: "Magic Post", text: "Describe a job or a post by voice or text, and Alpha fills in all the fields for you." },
-      { icon: "🐠", title: "Badge and running line", text: "A club badge next to your name and your own one-line thought that everyone can see." },
-    ],
-    ladderTitle: "More friends, more gifts",
-    scaleHint: "In the circle: friends. Below it: months of Alpha. A circle fills up once a friend counts.",
-    friends: (n: number) => `${n} ${n === 1 ? "friend" : "friends"}`,
-    months: (n: number) => `${n} ${n === 1 ? "month" : "months"}`,
-    mo: "mo",
-    rule: (f: number, m: number) => `Invite ${f} ${f === 1 ? "friend" : "friends"} and get ${m} ${m === 1 ? "month" : "months"} of Alpha`,
-    total: "Total",
-    friendRow: (d: number) => `Invited friends get: ${d} days of Alpha as a gift`,
-    earned: (m: string) => `Earned so far: ${m} of Alpha 🎉`,
-    none: (f: number) => `Nothing yet. Invite ${f} friends and that's already a month of Alpha!`,
-    toNext: (left: number, f: number, m: string) => `${left} more ${left === 1 ? "friend" : "friends"} to reach ${f}, and you'll have ${m} of Alpha`,
-    top: "That's the top 🎉 Next is the partner programme with payouts. Write to us.",
-    pin: (n: number) => `${n} ${n === 1 ? "friend" : "friends"} 🎉`,
-    counted: (n: number) => `${n} ${n === 1 ? "friend" : "friends"} counted`,
-    invited: "Your friends",
-    noInvited: "Nobody yet. Send your link and your friends will show up here.",
-    stJoined: "Waiting 48 hours",
-    stCounted: "Counted ✓",
-    howTitle: "How it works",
-    how: (h: number, d: number) => [
-      "A friend opens your link and signs up to A1.",
-      `After ${h} hours they count. This is how we filter out fake sign-ups.`,
-      "Alpha months pile up on your account and switch on by themselves once Alpha launches.",
-      `Your friend gets ${d} days of Alpha as a gift too.`,
-    ],
-    fine: "You can't invite your own account, and one friend has one inviter. Fake sign-ups don't count.",
-    signInTitle: "Sign in to get your link",
-    err: "Something went wrong. Please try again in a minute.",
-    loading: "Loading…",
-    notEligible: "The programme isn't available for this account.",
-    shareText: "Join A1 and get 14 days of Alpha",
-  },
-};
-
 const FLOATS = ["🎁", "✨", "💙", "🎁", "🎉", "⭐", "🎁", "🚀", "💎", "🎁"];
 
 const GLASS =
@@ -196,7 +92,7 @@ const GLASS =
 
 export function InviteClient() {
   const locale = useActiveLocale();
-  const t = locale === "uk" || locale === "ru" ? TXT.uk : TXT.en;
+  const t = makeT(COPY[locale] ?? COPY.en);
   const [data, setData] = useState<Data | null>(null);
   const [state, setState] = useState<"loading" | "anon" | "ok" | "err" | "na">("loading");
   const [copied, setCopied] = useState(false);
@@ -233,7 +129,7 @@ export function InviteClient() {
   const share = async () => {
     try {
       if (navigator.share) {
-        await navigator.share({ title: "A1", text: t.shareText, url: link });
+        await navigator.share({ title: "A1", text: t.shareText(friendDays), url: link });
         return;
       }
     } catch {
@@ -362,7 +258,7 @@ export function InviteClient() {
             <div className="relative mt-5 h-9">
               {steps.map((s, i) => (
                 <span key={s.friends} className={"absolute -translate-x-1/2 whitespace-nowrap text-center text-xs font-bold leading-tight " + (i <= reached ? "text-emerald-600 dark:text-emerald-400" : "text-neutral-800 dark:text-neutral-100")} style={{ left: `${posOf(i)}%` }}>
-                  {s.months} {t.mo}
+                  {t.moLabel(s.months)}
                 </span>
               ))}
             </div>
@@ -404,7 +300,7 @@ export function InviteClient() {
                 {data.invited.map((r, i) => (
                   <li key={i} className="flex items-center justify-between gap-3 py-2.5">
                     <span className="min-w-0 truncate text-sm font-semibold text-neutral-900 dark:text-neutral-100">{r.name}</span>
-                    <span className={"shrink-0 text-xs font-bold " + (r.counted ? "text-emerald-600 dark:text-emerald-400" : "text-neutral-500")}>{r.counted ? t.stCounted : t.stJoined}</span>
+                    <span className={"shrink-0 text-xs font-bold " + (r.counted ? "text-emerald-600 dark:text-emerald-400" : "text-neutral-500")}>{r.counted ? t.stCounted : t.stJoined(holdHours)}</span>
                   </li>
                 ))}
               </ul>
