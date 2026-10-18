@@ -1,9 +1,9 @@
 // components/events/date-tile.tsx -- плитка даты в стиле Apple Music «Upcoming Concerts»:
 // сверху красный месяц, снизу крупное число. Для ленты и страниц события.
-import type { EvLang } from "@/lib/events/types";
+import type { Locale } from "@/components/t";
 import { dayNum, monthShort } from "@/lib/events/util";
 
-export function DateTile({ start, lang, size = "md", past = false }: { start: string; lang: EvLang; size?: "md" | "lg"; past?: boolean }) {
+export function DateTile({ start, lang, size = "md", past = false }: { start: string; lang: Locale; size?: "md" | "lg"; past?: boolean }) {
   const lg = size === "lg";
   return (
     <span

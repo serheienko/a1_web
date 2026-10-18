@@ -8,29 +8,15 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { EvLang } from "@/lib/events/types";
+import { LOCALE_TAG } from "@/components/t";
+import { useActiveLocale } from "@/lib/use-active-locale";
+import { CAT_KEY, evLocale, ui, uiFor } from "@/lib/events/ui";
 import { EVENT_CATEGORIES, countryLabel, eventPath, fmtRange, monthKey, monthTitle, placeLabel, regionOf, todayKyiv, utc, type Coll, type Region } from "@/lib/events/util";
 import { DateTile } from "./date-tile";
 import { EventCover } from "./event-cover";
 import { EventRow, type ListEvent } from "./event-row";
 import { EventsMap, type MapCountry } from "./events-map";
 import { Pager } from "./pager";
-
-const TXT = {
-  uk: {
-    all: "Усі", ua: "Україна", eu: "Європа", online: "Онлайн", world: "Світ",
-    allTopics: "Усі теми", allCats: "Усі категорії", category: "Категорія", soon: "Найближчі", today: "Сьогодні", noDay: "Цього дня подій немає. Ось найближчі:",
-    dayEvents: "Події дня", inCountry: "Події", more: "Показати ще", nothing: "За цими фільтрами нічого немає. Спробуйте змінити регіон або тему.",
-    region: "Регіон", topic: "Тема", list: "Усі найближчі події", free: "Безкоштовно",
-    search: "Країна, місто або назва", clear: "Очистити",
-  },
-  en: {
-    all: "All", ua: "Ukraine", eu: "Europe", online: "Online", world: "World",
-    allTopics: "All topics", allCats: "All categories", category: "Category", soon: "Coming up", today: "Today", noDay: "No events on this day. Coming up next:",
-    dayEvents: "Events on this day", inCountry: "Events", more: "Show more", nothing: "Nothing matches these filters. Try another region or topic.",
-    region: "Region", topic: "Topic", list: "All upcoming events", free: "Free",
-    search: "Country, city or name", clear: "Clear",
-  },
-} as const;
 
 const PAGE = 20;
 
@@ -75,7 +61,10 @@ function daysOfMonth(key: string): { iso: string; inMonth: boolean }[] {
 }
 
 export function EventsExplorer({ events, tags, lang, today: serverToday, heading }: { events: ListEvent[]; tags: Coll[]; lang: EvLang; today: string; heading?: React.ReactNode }) {
-  const t = TXT[lang];
+  // Тексты интерфейса -- на языке сайта (9 языков); названия и описания событий -- на языке страницы (uk или en).
+  const loc = evLocale(lang, useActiveLocale());
+  const t = useMemo(() => uiFor(loc), [loc]);
+  const words = useMemo(() => ({ online: t.online, onlineLower: t.onlineLower }), [t]);
   // 16.10.2026 (Александр: «Найближчі» показывали уже прошедшие дни). Страница кэшируется,
   // поэтому дату сервера сверяем с часами браузера (Киев) и берём свежую.
   const [today, setToday] = useState(serverToday);
@@ -91,7 +80,7 @@ export function EventsExplorer({ events, tags, lang, today: serverToday, heading
   const [page, setPage] = useState(1);
   const [country, setCountry] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const words = useMemo(() => norm(query.trim()).split(/\s+/).filter(Boolean), [query]);
+  const qWords = useMemo(() => norm(query.trim()).split(/\s+/).filter(Boolean), [query]);
   const listTop = useRef<HTMLElement>(null);
   const panelRef = useRef<HTMLElement>(null);
   // Выбрали страну на карте -- плавно опускаем страницу к списку событий этой страны (если он ниже видимой части экрана).
@@ -106,19 +95,19 @@ export function EventsExplorer({ events, tags, lang, today: serverToday, heading
   };
 
   const filtered = useMemo(
-    () => events.filter((e) => (region === "all" || regionOf(e) === region) && (!tag || e.tags.includes(tag)) && (!cat || inCat(e.tags, cat)) && matchesQuery(e, words)),
-    [events, region, tag, cat, words],
+    () => events.filter((e) => (region === "all" || regionOf(e) === region) && (!tag || e.tags.includes(tag)) && (!cat || inCat(e.tags, cat)) && matchesQuery(e, qWords)),
+    [events, region, tag, cat, qWords],
   );
   const upcoming = useMemo(() => filtered.filter((e) => e.end >= today), [filtered, today]);
   const counts = useMemo(() => {
     const c: Record<"all" | Region, number> = { all: 0, ua: 0, eu: 0, online: 0, world: 0 };
     for (const e of events) {
-      if (e.end < today || (tag && !e.tags.includes(tag)) || (cat && !inCat(e.tags, cat)) || !matchesQuery(e, words)) continue;
+      if (e.end < today || (tag && !e.tags.includes(tag)) || (cat && !inCat(e.tags, cat)) || !matchesQuery(e, qWords)) continue;
       c.all++;
       c[regionOf(e)]++;
     }
     return c;
-  }, [events, today, tag, cat, words]);
+  }, [events, today, tag, cat, qWords]);
 
   const cells = useMemo(() => daysOfMonth(month), [month]);
   const byDay = useMemo(() => {
@@ -167,16 +156,16 @@ export function EventsExplorer({ events, tags, lang, today: serverToday, heading
   // они остаются в календаре и в ленте.
   const soon = useMemo(() => upcoming.filter((e) => e.start >= today).sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0)), [upcoming, today]);
   const panel = sel ? mapEvents.filter(matchCountry) : panelIsDay ? dayList : soon.slice(0, 5);
-  const selLabel = sel === "__online" ? (lang === "uk" ? "онлайн" : "online") : sel ? countryLabel(sel, lang) : "";
+  const selLabel = sel === "__online" ? t.onlineLower : sel ? countryLabel(sel, lang) : "";
   const carousel = soon.slice(0, 8);
   const catCounts = useMemo(() => {
     const m = new Map<string, number>();
     for (const e of events) {
-      if (e.end < today || (region !== "all" && regionOf(e) !== region) || !matchesQuery(e, words)) continue;
+      if (e.end < today || (region !== "all" && regionOf(e) !== region) || !matchesQuery(e, qWords)) continue;
       for (const c of EVENT_CATEGORIES) if (inCat(e.tags, c.id)) m.set(c.id, (m.get(c.id) ?? 0) + 1);
     }
     return m;
-  }, [events, today, region, words]);
+  }, [events, today, region, qWords]);
   const catTags = cat ? new Set(EVENT_CATEGORIES.find((c) => c.id === cat)?.tags ?? []) : null;
   const topTags = tags.filter((c) => c.upcoming > 0 && (!catTags || catTags.has(c.label))).slice(0, cat ? 30 : 16);
 
@@ -193,7 +182,7 @@ export function EventsExplorer({ events, tags, lang, today: serverToday, heading
     return g;
   }, [upcoming, curPage, today]);
 
-  const weekdays = useMemo(() => Array.from({ length: 7 }, (_, i) => new Date(Date.UTC(2024, 0, 1 + i, 12)).toLocaleDateString(lang === "uk" ? "uk-UA" : "en-GB", { weekday: "short", timeZone: "UTC" })), [lang]);
+  const weekdays = useMemo(() => Array.from({ length: 7 }, (_, i) => new Date(Date.UTC(2024, 0, 1 + i, 12)).toLocaleDateString(loc === "uk" ? "uk-UA" : loc === "en" ? "en-GB" : LOCALE_TAG[loc], { weekday: "short", timeZone: "UTC" })), [loc]);
 
   const pill = (active: boolean) =>
     "shrink-0 rounded-full px-3.5 py-1.5 text-[13px] font-medium transition " +
@@ -211,8 +200,8 @@ export function EventsExplorer({ events, tags, lang, today: serverToday, heading
           type="search"
           value={query}
           onChange={(ev) => { setQuery(ev.target.value); setPage(1); setDay(null); setCountry(null); }}
-          placeholder={t.search}
-          aria-label={t.search}
+          placeholder={t.searchPh}
+          aria-label={t.searchPh}
           spellCheck={false}
           enterKeyHint="search"
           className="h-11 w-full rounded-full bg-neutral-100 pl-10 pr-10 text-[15px] text-neutral-900 outline-none ring-accent/40 placeholder:text-neutral-400 focus:ring-2 dark:bg-neutral-800 dark:text-neutral-100 [&::-webkit-search-cancel-button]:hidden"
@@ -234,7 +223,7 @@ export function EventsExplorer({ events, tags, lang, today: serverToday, heading
         <button type="button" onClick={() => { setCat(""); setTag(""); setPage(1); }} className={pill(!cat)}>{t.allCats}</button>
         {EVENT_CATEGORIES.filter((c) => (catCounts.get(c.id) ?? 0) > 0).map((c) => (
           <button key={c.id} type="button" onClick={() => { setCat(cat === c.id ? "" : c.id); setTag(""); setPage(1); }} className={pill(cat === c.id)}>
-            {c[lang]} <span className="opacity-60">{catCounts.get(c.id)}</span>
+            {ui(CAT_KEY[c.id] ?? "catWeb", loc)} <span className="opacity-60">{catCounts.get(c.id)}</span>
           </button>
         ))}
       </div>
@@ -256,11 +245,11 @@ export function EventsExplorer({ events, tags, lang, today: serverToday, heading
                 <Link href={eventPath(e.slug, lang)} className="group block overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-neutral-200 transition hover:-translate-y-0.5 hover:shadow-md dark:bg-neutral-900 dark:ring-neutral-800">
                   <span className="relative block">
                     <EventCover src={e.image} name={e.name} seed={e.slug} className="aspect-[16/10] w-full" big />
-                    <span className="absolute left-3 top-3"><DateTile start={e.start} lang={lang} /></span>
+                    <span className="absolute left-3 top-3"><DateTile start={e.start} lang={loc} /></span>
                   </span>
                   <span className="block p-3">
                     <span className="line-clamp-2 block text-[15px] font-semibold leading-snug text-neutral-900 group-hover:text-accent dark:text-neutral-50">{e.name}</span>
-                    <span className="mt-1 block truncate text-[12px] text-neutral-500 dark:text-neutral-400">{placeLabel(e, lang)}</span>
+                    <span className="mt-1 block truncate text-[12px] text-neutral-500 dark:text-neutral-400">{placeLabel(e, lang, words)}</span>
                   </span>
                 </Link>
               </li>
@@ -273,7 +262,7 @@ export function EventsExplorer({ events, tags, lang, today: serverToday, heading
         <div className="self-start rounded-2xl bg-white p-4 shadow-sm ring-1 ring-neutral-200 dark:bg-neutral-900 dark:ring-neutral-800">
           <div className="flex items-center justify-between">
             <button type="button" aria-label="prev" onClick={() => setMonth(addMonths(month, -1))} className="flex h-9 w-9 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800">‹</button>
-            <button type="button" onClick={() => { setMonth(today.slice(0, 7)); setDay(today); }} className="text-[16px] font-semibold text-neutral-900 dark:text-neutral-50" title={t.today}>{monthTitle(month, lang)}</button>
+            <button type="button" onClick={() => { setMonth(today.slice(0, 7)); setDay(today); }} className="text-[16px] font-semibold text-neutral-900 dark:text-neutral-50" title={t.today}>{monthTitle(month, loc)}</button>
             <button type="button" aria-label="next" onClick={() => setMonth(addMonths(month, 1))} className="flex h-9 w-9 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800">›</button>
           </div>
           <div className="mt-3 grid grid-cols-7 gap-y-1 text-center">
@@ -316,17 +305,17 @@ export function EventsExplorer({ events, tags, lang, today: serverToday, heading
           </div>
         </div>
 
-        <EventsMap lang={lang} countries={mapCountries} onlineCount={onlineCount} selected={sel} onSelect={pickCountry} />
+        <EventsMap lang={loc} countries={mapCountries} onlineCount={onlineCount} selected={sel} onSelect={pickCountry} />
       </section>
 
       <section ref={panelRef} className="mt-6 scroll-mt-24" aria-live="polite">
           <h2 className="text-[20px] font-bold tracking-tight text-neutral-900 dark:text-neutral-50">
-            {sel ? `${t.inCountry}: ${selLabel} · ${panelIsDay && day ? fmtRange(day, day, lang) : monthTitle(month, lang)}` : panelIsDay && day ? `${t.dayEvents}: ${fmtRange(day, day, lang)}` : day ? t.noDay : t.soon}
+            {sel ? `${t.events}: ${selLabel} · ${panelIsDay && day ? fmtRange(day, day, loc) : monthTitle(month, loc)}` : panelIsDay && day ? `${t.dayEvents}: ${fmtRange(day, day, loc)}` : day ? t.noDay : t.soon}
           </h2>
           {panel.length ? (
             <ul className="mt-2">
               {panel.map((e) => (
-                <EventRow key={e.slug + (panelIsDay ? day : "")} e={e} lang={lang} showTags={false} />
+                <EventRow key={e.slug + (panelIsDay ? day : "")} e={e} lang={lang} dateLang={loc} showTags={false} />
               ))}
             </ul>
           ) : (
@@ -339,10 +328,10 @@ export function EventsExplorer({ events, tags, lang, today: serverToday, heading
         {groups.length ? (
           groups.map((g) => (
             <div key={g.key} className="mt-5">
-              <h3 className="text-[13px] font-semibold uppercase tracking-wide text-rose-500">{monthTitle(g.key, lang)}</h3>
+              <h3 className="text-[13px] font-semibold uppercase tracking-wide text-rose-500">{monthTitle(g.key, loc)}</h3>
               <ul className="mt-1">
                 {g.items.map((e) => (
-                  <EventRow key={e.slug} e={e} lang={lang} />
+                  <EventRow key={e.slug} e={e} lang={lang} dateLang={loc} />
                 ))}
               </ul>
             </div>

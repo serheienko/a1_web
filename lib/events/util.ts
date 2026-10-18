@@ -1,4 +1,5 @@
 // lib/events/util.ts -- общие функции раздела «Події»: даты, слаги, регионы, поиск.
+import { LOCALE_TAG, type Locale } from "@/components/t";
 import type { EvLang, EventItem } from "./types";
 
 export const SITE_URL = "https://jobs.a1appp.com";
@@ -16,15 +17,20 @@ export function utc(iso: string): Date {
   return new Date(iso + "T12:00:00Z");
 }
 
-const LOC: Record<EvLang, string> = { uk: "uk-UA", en: "en-GB" };
+// uk и en -- как раньше (uk-UA, en-GB), остальные языки -- по тегам сайта: даты в календаре на языке интерфейса.
+const LOC: Record<Locale, string> = { ...LOCALE_TAG, uk: "uk-UA", en: "en-GB" };
 
-export function fmtDay(iso: string, lang: EvLang, opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "long", year: "numeric" }): string {
+export function fmtDay(iso: string, lang: Locale, opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "long", year: "numeric" }): string {
   return utc(iso).toLocaleDateString(LOC[lang], { ...opts, timeZone: "UTC" });
 }
 
 /** «24–26 жовтня 2026» / «30 жовтня – 1 листопада 2026». */
-export function fmtRange(start: string, end: string, lang: EvLang): string {
+export function fmtRange(start: string, end: string, lang: Locale): string {
   if (!end || end === start) return fmtDay(start, lang);
+  // ru, de, es, fr, pl, pt-BR, zh: порядок слов и падежи подбирает сам Intl.
+  if (lang !== "uk" && lang !== "en") {
+    return new Intl.DateTimeFormat(LOC[lang], { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).formatRange(utc(start), utc(end));
+  }
   const a = utc(start);
   const b = utc(end);
   const sameMonth = a.getUTCMonth() === b.getUTCMonth() && a.getUTCFullYear() === b.getUTCFullYear();
@@ -36,7 +42,7 @@ export function fmtRange(start: string, end: string, lang: EvLang): string {
   return `${left} – ${fmtDay(end, lang)}`;
 }
 
-export function monthShort(iso: string, lang: EvLang): string {
+export function monthShort(iso: string, lang: Locale): string {
   return utc(iso).toLocaleDateString(LOC[lang], { month: "short", timeZone: "UTC" }).replace(".", "").toUpperCase();
 }
 
@@ -48,7 +54,7 @@ export function monthKey(iso: string): string {
   return iso.slice(0, 7);
 }
 
-export function monthTitle(key: string, lang: EvLang): string {
+export function monthTitle(key: string, lang: Locale): string {
   const s = new Date(`${key}-15T12:00:00Z`).toLocaleDateString(LOC[lang], { month: "long", year: "numeric", timeZone: "UTC" });
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
@@ -135,11 +141,19 @@ export function countryLabel(country: string, lang: EvLang): string {
   return lang === "uk" ? COUNTRY_UK[country] ?? c : c;
 }
 
-export function placeLabel(e: Pick<EventItem, "city" | "country" | "online">, lang: EvLang): string {
-  if (e.online && !e.city) return lang === "uk" ? "Онлайн" : "Online";
-  const parts = [cityLabel(e.city, lang), countryLabel(e.country, lang)].filter(Boolean);
-  const base = parts.join(", ");
-  return e.online ? `${base ? base + " · " : ""}${lang === "uk" ? "онлайн" : "online"}` : base;
+/** Место без слова «онлайн»: base -- «Berlin, Germany»; word -- какое слово «онлайн» дописать (null -- никакое). */
+export function placeParts(e: Pick<EventItem, "city" | "country" | "online">, lang: EvLang): { base: string; word: "online" | "onlineLower" | null } {
+  if (e.online && !e.city) return { base: "", word: "online" };
+  const base = [cityLabel(e.city, lang), countryLabel(e.country, lang)].filter(Boolean).join(", ");
+  return { base, word: e.online ? "onlineLower" : null };
+}
+
+/** Место строкой. Слова «онлайн» по умолчанию на uk/en; на других языках их передают words (из lib/events/ui.ts). */
+export function placeLabel(e: Pick<EventItem, "city" | "country" | "online">, lang: EvLang, words?: { online: string; onlineLower: string }): string {
+  const w = words ?? (lang === "uk" ? { online: "Онлайн", onlineLower: "онлайн" } : { online: "Online", onlineLower: "online" });
+  const { base, word } = placeParts(e, lang);
+  if (word === "online") return w.online;
+  return word ? `${base ? base + " · " : ""}${w.onlineLower}` : base;
 }
 
 // ---- коллекции (теги, места) ----

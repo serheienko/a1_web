@@ -5,7 +5,8 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { EvLang } from "@/lib/events/types";
+import type { Locale } from "@/components/t";
+import { uiFor } from "@/lib/events/ui";
 
 type MapData = { w: number; h: number; c: { n: string; d: string; x: number; y: number }[] };
 export type MapCountry = { key: string; label: string; n: number };
@@ -30,21 +31,17 @@ const NE_NAME: Record<string, string> = {
 };
 export const neName = (country: string): string => NE_NAME[country] ?? country;
 
-const TXT = {
-  uk: { europe: "Європа", world: "Світ", online: "Онлайн", none: "Подій на карті немає", hint: "Натисніть на країну", showAll: "Усі країни", hide: "Згорнути", onlineHint: "Онлайн-події: без країни, дивитись можна звідки завгодно" },
-  en: { europe: "Europe", world: "World", online: "Online", none: "No events on the map", hint: "Click a country", showAll: "All countries", hide: "Collapse", onlineHint: "Online events: no country, watch from anywhere" },
-} as const;
-
 export function EventsMap({
   lang, countries, onlineCount, selected, onSelect,
 }: {
-  lang: EvLang;
+  lang: Locale; // язык интерфейса (не язык данных)
   countries: MapCountry[]; // key = страна как в событиях
   onlineCount: number;
   selected: string | null; // key страны или "__online"
   onSelect: (key: string | null) => void;
 }) {
-  const t = TXT[lang];
+  const u = uiFor(lang);
+  const t = { europe: u.eu, world: u.world, online: u.online, none: u.mapNone, hint: u.mapHint, showAll: u.showAll, hide: u.hide, onlineHint: u.onlineHint };
   const [view, setView] = useState<"europe" | "world">("europe");
   const [manual, setManual] = useState(false);
   const [data, setData] = useState<MapData | null>(cache[view] ?? null);

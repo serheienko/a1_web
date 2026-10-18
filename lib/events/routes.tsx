@@ -5,6 +5,7 @@ import { CollectionPage } from "@/components/events/collection-page";
 import { loadEvents } from "./store";
 import { eventMetadata, pairLanguages } from "./seo";
 import type { EvLang, EventItem } from "./types";
+import { ttf, type UiKey } from "./ui";
 import { MIN_COLLECTION, SITE_URL, collectPlaces, collectTags, indexPath, placePath, placeSlugOf, seriesPath, tagSlug, todayKyiv, topicPath, countryLabel, cityLabel } from "./util";
 
 export async function eventMeta(slug: string, lang: EvLang): Promise<Metadata> {
@@ -60,7 +61,8 @@ export async function SeriesRoute({ slug, lang }: { slug: string; lang: EvLang }
       : next
         ? `${name}: the next edition is in ${next.start.slice(0, 4)}. Dates, venue, topics and the archive of earlier editions are collected here.`
         : `${name}: every edition we know of. As soon as the organisers announce a new date, it will appear here.`;
-  return <CollectionPage kind="series" lang={lang} title={name} lead={lead} events={events} all={all} path={seriesPath(slug, lang)} />;
+  const leadT = next ? ttf("serNext", { name, year: next.start.slice(0, 4) }) : ttf("serNone", { name });
+  return <CollectionPage kind="series" lang={lang} title={name} lead={lead} leadT={leadT} events={events} all={all} path={seriesPath(slug, lang)} />;
 }
 
 async function inTopic(slug: string): Promise<Found & { label: string }> {
@@ -98,7 +100,11 @@ export async function TopicRoute({ slug, lang }: { slug: string; lang: EvLang })
     lang === "uk"
       ? `${up ? `Найближчих подій за темою «${label}»: ${up}.` : `Найближчих подій за темою «${label}» поки немає.`} Дати, міста й короткий опис кожної; архів минулих видань нижче.`
       : `${up ? `Upcoming ${label} events: ${up}.` : `No upcoming ${label} events yet.`} Dates, cities and a short take on each; the archive of earlier editions is below.`;
-  return <CollectionPage kind="topic" lang={lang} title={topicTitle(label, lang)} lead={lead} events={events} all={all} path={topicPath(slug, lang)} />;
+  const upKey: UiKey = up ? "topicUp" : "topicNone";
+  const leadT = Object.fromEntries(
+    (Object.keys(ttf("topicTail", {})) as (keyof ReturnType<typeof ttf>)[]).map((l) => [l, `${ttf(upKey, { label, n: up })[l]} ${ttf("topicTail", {})[l]}`]),
+  ) as ReturnType<typeof ttf>;
+  return <CollectionPage kind="topic" lang={lang} title={topicTitle(label, lang)} lead={lead} titleT={ttf("topicTitle", { label })} leadT={leadT} events={events} all={all} path={topicPath(slug, lang)} />;
 }
 
 async function inPlace(slug: string): Promise<Found & { label: string; isCountry: boolean }> {
@@ -145,7 +151,11 @@ export async function PlaceRoute({ slug, lang }: { slug: string; lang: EvLang })
     lang === "uk"
       ? `${up ? `Найближчих IT-подій: ${up}.` : "Найближчих дат поки немає."} ${shown} — конференції, мітапи й воркшопи з датами, темами та коротким описом.`
       : `${up ? `Upcoming tech events: ${up}.` : "No upcoming dates yet."} ${shown} — conferences, meetups and workshops with dates, topics and a short take on each.`;
-  return <CollectionPage kind="place" lang={lang} title={placeTitle(shown, lang)} lead={lead} events={events} all={all} path={placePath(slug, lang)} />;
+  const upKey: UiKey = up ? "placeUp" : "placeNone";
+  const leadT = Object.fromEntries(
+    (Object.keys(ttf("placeTail", {})) as (keyof ReturnType<typeof ttf>)[]).map((l) => [l, `${ttf(upKey, { n: up })[l]} ${ttf("placeTail", { shown })[l]}`]),
+  ) as ReturnType<typeof ttf>;
+  return <CollectionPage kind="place" lang={lang} title={placeTitle(shown, lang)} lead={lead} titleT={ttf("placeTitle", { label: shown })} leadT={leadT} events={events} all={all} path={placePath(slug, lang)} />;
 }
 
 export { collectPlaces, collectTags };
