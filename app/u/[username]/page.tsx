@@ -53,6 +53,8 @@ import { OccupationIcon } from "@/components/occupation-icon";
 import { OCCUPATION_LABELS } from "@/components/occupation-labels";
 import { WORK_STYLE_PREFERENCE_SECTIONS } from "@/components/work-style-labels";
 import { EditProfileButton } from "@/components/edit-profile-button";
+import { GithubTile } from "@/components/github-tile";
+import { extractGithubLogin, findGithubLogin } from "@/lib/github/core";
 // 2026-09-02: WAS briefly routed through next/dynamic() here to try to
 // dodge a suspected chunk-loading race (see PLAN.md) -- reverted, that
 // attempt produced a DIFFERENT broken RSC payload (a stray "$L40"
@@ -680,7 +682,7 @@ export default async function ProfilePage({ params }: Props) {
               key={link.url}
               href={link.url}
               target="_blank"
-              rel="noopener noreferrer nofollow"
+              rel={extractGithubLogin(link.url) ? "me noopener noreferrer nofollow" : "noopener noreferrer nofollow"}
               className="flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-100 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700"
             >
               <LinkIcon />
@@ -689,6 +691,13 @@ export default async function ProfilePage({ params }: Props) {
           ))}
         </div>
       )}
+
+      {/* 18.10.2026: есть ссылка на GitHub -- под ссылками плитка GitHub (components/github-tile.tsx).
+          Грузится в браузере, когда доезжает до экрана; серверная разметка и JSON-LD не меняются. */}
+      {(() => {
+        const githubLogin = findGithubLogin(profile.links);
+        return githubLogin ? <GithubTile key={githubLogin} login={githubLogin} /> : null;
+      })()}
 
       {profile.companies.length > 0 && (
         <section className="mt-8">
