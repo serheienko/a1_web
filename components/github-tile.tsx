@@ -250,11 +250,14 @@ export function GithubTile({ login }: { login: string }) {
     const load = async () => {
       setState({ kind: "loading" });
       try {
-        const res = await fetch(`/api/github/${encodeURIComponent(login)}`);
+        // ?v=2: адрес без параметров мог застрять в кеше сервера в старом формате (без years/year) --
+        // из-за этого у владельцев с уже закешированным ответом падала вся страница профиля.
+        const res = await fetch(`/api/github/${encodeURIComponent(login)}?v=2`);
         if (!res.ok) throw new Error(String(res.status));
         const data = (await res.json()) as GithubSummary;
         if (cancelled) return;
-        if (!data || !Array.isArray(data.weeks) || isGithubSummaryTooEmpty(data)) setState({ kind: "hidden" });
+        // Ответ старого формата (без years/year) -- плитку скрываем, но страницу не роняем.
+        if (!data || !Array.isArray(data.weeks) || !Array.isArray(data.years) || typeof data.year !== "number" || isGithubSummaryTooEmpty(data)) setState({ kind: "hidden" });
         else {
           yearCache.current.set(data.year, data);
           setYear(data.year);
