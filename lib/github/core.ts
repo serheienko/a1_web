@@ -87,6 +87,20 @@ export function findGithubLogin(links: { url: string }[]): string | null {
   return null;
 }
 
+/**
+ * Логин из GitHub-ссылки профиля, но только если он подтверждён: совпадает (без учёта
+ * регистра) с githubVerifiedLogin профиля. Иначе null -> плитки нет, только обычная ссылка.
+ */
+export function verifiedGithubLogin(
+  links: { url: string }[],
+  verifiedLogin: string | null | undefined,
+): string | null {
+  if (!verifiedLogin) return null;
+  const fromLink = findGithubLogin(links);
+  if (!fromLink) return null;
+  return fromLink.toLowerCase() === verifiedLogin.trim().toLowerCase() ? fromLink : null;
+}
+
 function clampLevel(n: number): GithubDay["level"] {
   if (!Number.isFinite(n) || n <= 0) return 0;
   return (n >= 4 ? 4 : Math.round(n)) as GithubDay["level"];

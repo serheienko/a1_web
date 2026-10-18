@@ -608,6 +608,9 @@ export const UserProfileSchema = z.object({
   // «Це ваша компанія?» (components/claim-company-prompt.tsx). Бэкенд
   // отдаёт его в Resource.User, схема просто не читала.
   unclaimed: z.boolean().optional(),
+  // 18.10.2026: GitHub-логин (строчными), который человек подтвердил через GitHub OAuth.
+  // Плитка GitHub показывается, только если он совпадает с логином из ссылки профиля.
+  githubVerifiedLogin: z.string().nullable().catch(null),
   // 30.09.2026: аккаунт-«витрина» Конкистадора -- отклик на сайте компании
   external: z.boolean().optional(),
   flags: z.number().catch(0),

@@ -32,6 +32,8 @@ type Strings = {
   open: string;
   other: string;
   calendar: string;
+  /** Значок в шапке: GitHub подтверждён через OAuth. */
+  verified: string;
 };
 
 const STRINGS: Record<Locale, Strings> = {
@@ -47,6 +49,7 @@ const STRINGS: Record<Locale, Strings> = {
     open: "Відкрити на GitHub",
     other: "Інші",
     calendar: "Календар внесків на GitHub",
+    verified: "GitHub підтверджено",
   },
   en: {
     contributions: { one: "contribution", other: "contributions" },
@@ -60,6 +63,7 @@ const STRINGS: Record<Locale, Strings> = {
     open: "Open on GitHub",
     other: "Other",
     calendar: "GitHub contribution calendar",
+    verified: "GitHub verified",
   },
   ru: {
     contributions: { one: "вклад", few: "вклада", many: "вкладов", other: "вклада" },
@@ -73,6 +77,7 @@ const STRINGS: Record<Locale, Strings> = {
     open: "Открыть на GitHub",
     other: "Другие",
     calendar: "Календарь вкладов на GitHub",
+    verified: "GitHub подтверждён",
   },
   de: {
     contributions: { one: "Beitrag", other: "Beiträge" },
@@ -86,6 +91,7 @@ const STRINGS: Record<Locale, Strings> = {
     open: "Auf GitHub öffnen",
     other: "Andere",
     calendar: "GitHub-Beitragskalender",
+    verified: "GitHub bestätigt",
   },
   es: {
     contributions: { one: "contribución", other: "contribuciones" },
@@ -99,6 +105,7 @@ const STRINGS: Record<Locale, Strings> = {
     open: "Abrir en GitHub",
     other: "Otros",
     calendar: "Calendario de contribuciones de GitHub",
+    verified: "GitHub verificado",
   },
   fr: {
     contributions: { one: "contribution", other: "contributions" },
@@ -112,6 +119,7 @@ const STRINGS: Record<Locale, Strings> = {
     open: "Ouvrir sur GitHub",
     other: "Autres",
     calendar: "Calendrier des contributions GitHub",
+    verified: "GitHub vérifié",
   },
   pl: {
     contributions: { one: "kontrybucja", few: "kontrybucje", many: "kontrybucji", other: "kontrybucji" },
@@ -125,6 +133,7 @@ const STRINGS: Record<Locale, Strings> = {
     open: "Otwórz w GitHub",
     other: "Inne",
     calendar: "Kalendarz kontrybucji GitHub",
+    verified: "GitHub potwierdzony",
   },
   ptBR: {
     contributions: { one: "contribuição", other: "contribuições" },
@@ -138,6 +147,7 @@ const STRINGS: Record<Locale, Strings> = {
     open: "Abrir no GitHub",
     other: "Outras",
     calendar: "Calendário de contribuições do GitHub",
+    verified: "GitHub verificado",
   },
   zh: {
     contributions: { other: "次贡献" },
@@ -151,6 +161,7 @@ const STRINGS: Record<Locale, Strings> = {
     open: "在 GitHub 上打开",
     other: "其他",
     calendar: "GitHub 贡献日历",
+    verified: "GitHub 已验证",
   },
 };
 
@@ -304,14 +315,27 @@ export function GithubTile({ login }: { login: string }) {
       <div className="flex items-center gap-3">
         <GithubMark className="shrink-0 text-neutral-900 dark:text-neutral-100" />
         <div className="min-w-0 flex-1">
-          <a
-            href={d.htmlUrl}
-            target="_blank"
-            rel="me noopener noreferrer"
-            className="block truncate font-semibold text-neutral-900 transition-colors hover:text-accent dark:text-neutral-50"
-          >
-            {d.login}
-          </a>
+          <div className="flex min-w-0 items-center gap-2">
+            <a
+              href={d.htmlUrl}
+              target="_blank"
+              rel="me noopener noreferrer"
+              className="block min-w-0 truncate font-semibold text-neutral-900 transition-colors hover:text-accent dark:text-neutral-50"
+            >
+              {d.login}
+            </a>
+            {/* Плитка показывается только подтверждённым через GitHub OAuth -- отмечаем это. */}
+            <span
+              title={s.verified}
+              className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="m5 12.5 4.5 4.5L19 7.5" />
+              </svg>
+              <span className="hidden sm:inline">{s.verified}</span>
+              <span className="sr-only sm:hidden">{s.verified}</span>
+            </span>
+          </div>
           <div className="truncate text-sm text-ink-faint">
             {countLabel(lang, d.publicRepos, s.repositories)} · {countLabel(lang, d.followers, s.followers)}
           </div>

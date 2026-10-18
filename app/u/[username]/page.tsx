@@ -53,8 +53,8 @@ import { OccupationIcon } from "@/components/occupation-icon";
 import { OCCUPATION_LABELS } from "@/components/occupation-labels";
 import { WORK_STYLE_PREFERENCE_SECTIONS } from "@/components/work-style-labels";
 import { EditProfileButton } from "@/components/edit-profile-button";
-import { GithubTile } from "@/components/github-tile";
-import { extractGithubLogin, findGithubLogin } from "@/lib/github/core";
+import { GithubSection } from "@/components/github-section";
+import { extractGithubLogin, findGithubLogin, verifiedGithubLogin } from "@/lib/github/core";
 // 2026-09-02: WAS briefly routed through next/dynamic() here to try to
 // dodge a suspected chunk-loading race (see PLAN.md) -- reverted, that
 // attempt produced a DIFFERENT broken RSC payload (a stray "$L40"
@@ -692,11 +692,21 @@ export default async function ProfilePage({ params }: Props) {
         </div>
       )}
 
-      {/* 18.10.2026: есть ссылка на GitHub -- под ссылками плитка GitHub (components/github-tile.tsx).
-          Грузится в браузере, когда доезжает до экрана; серверная разметка и JSON-LD не меняются. */}
+      {/* 18.10.2026: плитка GitHub -- только у подтверждённого через GitHub OAuth (githubVerifiedLogin
+          совпадает с логином из ссылки). Владельцу профиля вместо неё -- кнопка «Підтвердити через
+          GitHub». Кто смотрит -- решает браузер (страница кешируется), см. components/github-section.tsx. */}
       {(() => {
-        const githubLogin = findGithubLogin(profile.links);
-        return githubLogin ? <GithubTile key={githubLogin} login={githubLogin} /> : null;
+        const linkLogin = findGithubLogin(profile.links);
+        if (!linkLogin) return null;
+        const verified = rawProfile?.object === "user" ? rawProfile.githubVerifiedLogin : null;
+        return (
+          <GithubSection
+            key={linkLogin}
+            username={profile.username}
+            linkLogin={linkLogin}
+            serverVerified={verifiedGithubLogin(profile.links, verified) !== null}
+          />
+        );
       })()}
 
       {profile.companies.length > 0 && (
