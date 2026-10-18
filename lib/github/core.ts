@@ -23,8 +23,13 @@ export type GithubSummary = {
   htmlUrl: string;
   publicRepos: number;
   followers: number;
+  /** Вклады за выбранный календарный год (см. year). */
   totalContributions: number;
   weeks: GithubWeek[];
+  /** Выбранный календарный год календаря (по умолчанию текущий). */
+  year: number;
+  /** Годы для переключателя: от текущего к году создания аккаунта, по убыванию. */
+  years: number[];
   languages: GithubLanguage[];
   topRepos: GithubRepo[];
   fetchedAt: string;
@@ -32,7 +37,41 @@ export type GithubSummary = {
 
 export const OTHER_LANGUAGE = "other";
 export const OTHER_LANGUAGE_COLOR = "#8e8e93";
-export const MAX_WEEKS = 53;
+// Календарный год может занять 54 столбца (если начинается с субботы).
+export const MAX_WEEKS = 54;
+
+/** Годы для переключателя: от текущего к году создания аккаунта (по убыванию). */
+export function githubYears(createdYear: number, currentYear: number): number[] {
+  const first = Number.isInteger(createdYear) && createdYear <= currentYear ? createdYear : currentYear;
+  const out: number[] = [];
+  for (let y = currentYear; y >= first; y--) out.push(y);
+  return out;
+}
+
+/**
+ * Параметр ?year= -> год. Нет параметра -> текущий. Не целое число или вне
+ * [год создания аккаунта .. текущий год] -> null (маршрут отвечает 400).
+ */
+export function resolveGithubYear(raw: string | null | undefined, createdYear: number, currentYear: number): number | null {
+  if (raw === null || raw === undefined || raw === "") return currentYear;
+  if (!/^\d{4}$/.test(raw)) return null;
+  const y = Number(raw);
+  return y >= Math.min(createdYear, currentYear) && y <= currentYear ? y : null;
+}
+
+/** Границы календаря года для GraphQL/HTML; для текущего года правая граница -- сейчас. */
+export function githubYearRange(year: number, now: Date): { from: string; to: string; fromDate: string; toDate: string; isCurrent: boolean } {
+  const isCurrent = year === now.getUTCFullYear();
+  const end = isCurrent ? now : new Date(Date.UTC(year, 11, 31, 23, 59, 59));
+  const toDate = end.toISOString().slice(0, 10);
+  return {
+    from: `${year}-01-01T00:00:00Z`,
+    to: isCurrent ? end.toISOString().replace(/\.\d+Z$/, "Z") : `${year}-12-31T23:59:59Z`,
+    fromDate: `${year}-01-01`,
+    toDate,
+    isCurrent,
+  };
+}
 
 // Правила GitHub для имени: латиница/цифры и одиночные дефисы, не с дефиса, до 39 символов.
 const LOGIN_RE = /^[a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38}$/i;
@@ -173,7 +212,7 @@ export function parseContributionsHtml(html: string): { totalContributions: numb
   }
 
   let total: number | null = null;
-  const h = html.match(/([\d][\d,.\s]*)\s+contributions?\s+in\s+the\s+last\s+year/i);
+  const h = html.match(/([\d][\d,.\s]*)\s+contributions?\s+in\s+(?:the\s+last\s+year|\d{4})/i);
   if (h) {
     const n = Number(h[1]!.replace(/[,.\s]/g, ""));
     if (Number.isFinite(n)) total = n;

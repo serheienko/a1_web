@@ -23,8 +23,10 @@ type Strings = {
   contributions: Forms;
   repositories: Forms;
   followers: Forms;
-  /** «N внесків за останній рік» -- {n} и {word} подставляются. */
+  /** «N внесків у 2026» -- {n}, {word} и {year} подставляются. */
   yearTotal: string;
+  /** Подпись ряда кнопок-годов (для скринридеров). */
+  yearsLabel: string;
   less: string;
   more: string;
   languages: string;
@@ -41,7 +43,8 @@ const STRINGS: Record<Locale, Strings> = {
     contributions: { one: "внесок", few: "внески", many: "внесків", other: "внеску" },
     repositories: { one: "репозиторій", few: "репозиторії", many: "репозиторіїв", other: "репозиторію" },
     followers: { one: "підписник", few: "підписники", many: "підписників", other: "підписника" },
-    yearTotal: "{n} {word} за останній рік",
+    yearTotal: "{n} {word} у {year}",
+    yearsLabel: "Рік календаря",
     less: "Менше",
     more: "Більше",
     languages: "Мови",
@@ -55,7 +58,8 @@ const STRINGS: Record<Locale, Strings> = {
     contributions: { one: "contribution", other: "contributions" },
     repositories: { one: "repository", other: "repositories" },
     followers: { one: "follower", other: "followers" },
-    yearTotal: "{n} {word} in the last year",
+    yearTotal: "{n} {word} in {year}",
+    yearsLabel: "Calendar year",
     less: "Less",
     more: "More",
     languages: "Languages",
@@ -69,7 +73,8 @@ const STRINGS: Record<Locale, Strings> = {
     contributions: { one: "вклад", few: "вклада", many: "вкладов", other: "вклада" },
     repositories: { one: "репозиторий", few: "репозитория", many: "репозиториев", other: "репозитория" },
     followers: { one: "подписчик", few: "подписчика", many: "подписчиков", other: "подписчика" },
-    yearTotal: "{n} {word} за последний год",
+    yearTotal: "{n} {word} в {year}",
+    yearsLabel: "Год календаря",
     less: "Меньше",
     more: "Больше",
     languages: "Языки",
@@ -83,7 +88,8 @@ const STRINGS: Record<Locale, Strings> = {
     contributions: { one: "Beitrag", other: "Beiträge" },
     repositories: { one: "Repository", other: "Repositorys" },
     followers: { one: "Follower", other: "Follower" },
-    yearTotal: "{n} {word} im letzten Jahr",
+    yearTotal: "{n} {word} im Jahr {year}",
+    yearsLabel: "Kalenderjahr",
     less: "Weniger",
     more: "Mehr",
     languages: "Sprachen",
@@ -97,7 +103,8 @@ const STRINGS: Record<Locale, Strings> = {
     contributions: { one: "contribución", other: "contribuciones" },
     repositories: { one: "repositorio", other: "repositorios" },
     followers: { one: "seguidor", other: "seguidores" },
-    yearTotal: "{n} {word} en el último año",
+    yearTotal: "{n} {word} en {year}",
+    yearsLabel: "Año del calendario",
     less: "Menos",
     more: "Más",
     languages: "Lenguajes",
@@ -111,7 +118,8 @@ const STRINGS: Record<Locale, Strings> = {
     contributions: { one: "contribution", other: "contributions" },
     repositories: { one: "dépôt", other: "dépôts" },
     followers: { one: "abonné", other: "abonnés" },
-    yearTotal: "{n} {word} au cours de la dernière année",
+    yearTotal: "{n} {word} en {year}",
+    yearsLabel: "Année du calendrier",
     less: "Moins",
     more: "Plus",
     languages: "Langages",
@@ -125,7 +133,8 @@ const STRINGS: Record<Locale, Strings> = {
     contributions: { one: "kontrybucja", few: "kontrybucje", many: "kontrybucji", other: "kontrybucji" },
     repositories: { one: "repozytorium", few: "repozytoria", many: "repozytoriów", other: "repozytorium" },
     followers: { one: "obserwujący", few: "obserwujących", many: "obserwujących", other: "obserwującego" },
-    yearTotal: "{n} {word} w ostatnim roku",
+    yearTotal: "{n} {word} w {year}",
+    yearsLabel: "Rok kalendarza",
     less: "Mniej",
     more: "Więcej",
     languages: "Języki",
@@ -139,7 +148,8 @@ const STRINGS: Record<Locale, Strings> = {
     contributions: { one: "contribuição", other: "contribuições" },
     repositories: { one: "repositório", other: "repositórios" },
     followers: { one: "seguidor", other: "seguidores" },
-    yearTotal: "{n} {word} no último ano",
+    yearTotal: "{n} {word} em {year}",
+    yearsLabel: "Ano do calendário",
     less: "Menos",
     more: "Mais",
     languages: "Linguagens",
@@ -153,7 +163,8 @@ const STRINGS: Record<Locale, Strings> = {
     contributions: { other: "次贡献" },
     repositories: { other: "个仓库" },
     followers: { other: "位关注者" },
-    yearTotal: "过去一年共 {n} {word}",
+    yearTotal: "{year} 年共 {n} {word}",
+    yearsLabel: "日历年份",
     less: "少",
     more: "多",
     languages: "语言",
@@ -189,7 +200,6 @@ const LEVEL_CLASS: Record<GithubDay["level"], string> = {
   4: "bg-[#335ef7] dark:bg-[#62bdff]",
 };
 
-const MOBILE_WEEKS = 26;
 
 function GithubMark({ className }: { className?: string }) {
   return (
@@ -213,6 +223,8 @@ type Tip = { text: string; x: number; y: number; align: "left" | "center" | "rig
 
 type State = { kind: "idle" } | { kind: "loading" } | { kind: "ok"; data: GithubSummary } | { kind: "hidden" };
 
+const CAL_SLOTS = 54;
+
 export function GithubTile({ login }: { login: string }) {
   const lang = useActiveLocale();
   const s = STRINGS[lang];
@@ -221,6 +233,14 @@ export function GithubTile({ login }: { login: string }) {
   const [state, setState] = useState<State>({ kind: "idle" });
   const [shown, setShown] = useState(false);
   const [tip, setTip] = useState<Tip | null>(null);
+  // Выбранный год и готовые ответы по годам (повторный клик по году -- мгновенно).
+  const [year, setYear] = useState<number | null>(null);
+  const [yearLoading, setYearLoading] = useState(false);
+  const yearCache = useRef(new Map<number, GithubSummary>());
+  const wantedYear = useRef<number | null>(null);
+  // То, что сейчас нарисовано в календаре (при переключении остаётся прежнее, пока не придёт новое).
+  const [cal, setCal] = useState<GithubSummary | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   // Грузим, только когда плитка подъехала к экрану.
   useEffect(() => {
@@ -235,7 +255,13 @@ export function GithubTile({ login }: { login: string }) {
         const data = (await res.json()) as GithubSummary;
         if (cancelled) return;
         if (!data || !Array.isArray(data.weeks) || isGithubSummaryTooEmpty(data)) setState({ kind: "hidden" });
-        else setState({ kind: "ok", data });
+        else {
+          yearCache.current.set(data.year, data);
+          setYear(data.year);
+          wantedYear.current = data.year;
+          setCal(data);
+          setState({ kind: "ok", data });
+        }
       } catch {
         if (!cancelled) setState({ kind: "hidden" });
       }
@@ -270,6 +296,15 @@ export function GithubTile({ login }: { login: string }) {
     return () => cancelAnimationFrame(id);
   }, [state.kind]);
 
+  // Календарь шире узкого экрана -- прокручивается; текущий год показываем с конца, прошлый -- с начала.
+  const calYear = cal?.year ?? null;
+  const currentYear = state.kind === "ok" ? state.data.years[0] : null;
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || calYear === null) return;
+    el.scrollLeft = calYear === currentYear ? el.scrollWidth : 0;
+  }, [calYear, currentYear]);
+
   if (state.kind === "hidden") return null;
 
   if (state.kind !== "ok") {
@@ -284,10 +319,42 @@ export function GithubTile({ login }: { login: string }) {
   }
 
   const d = state.data;
-  const weeks = d.weeks;
+  const c = cal ?? d;
+  const weeks = c.weeks;
   const firstWeekPad = weeks[0]?.days[0] ? new Date(`${weeks[0].days[0].date}T00:00:00Z`).getUTCDay() : 0;
-  const hiddenOnMobile = Math.max(0, weeks.length - MOBILE_WEEKS);
   const nf = new Intl.NumberFormat(LOCALE_TAG[lang]);
+
+  const selectYear = async (y: number) => {
+    if (y === year) return;
+    setYear(y);
+    wantedYear.current = y;
+    setTip(null);
+    const hit = yearCache.current.get(y);
+    if (hit) {
+      setYearLoading(false);
+      setCal(hit);
+      return;
+    }
+    setYearLoading(true);
+    try {
+      const res = await fetch(`/api/github/${encodeURIComponent(login)}?year=${y}`);
+      if (!res.ok) throw new Error(String(res.status));
+      const next = (await res.json()) as GithubSummary;
+      if (!next || !Array.isArray(next.weeks)) throw new Error("bad");
+      yearCache.current.set(y, next);
+      if (wantedYear.current === y) {
+        setCal(next);
+        setYearLoading(false);
+      }
+    } catch {
+      // Не загрузилось -- возвращаем прежний год.
+      if (wantedYear.current === y) {
+        setYear(cal?.year ?? null);
+        wantedYear.current = cal?.year ?? null;
+        setYearLoading(false);
+      }
+    }
+  };
 
   const onGridOver = (e: ReactMouseEvent<HTMLDivElement>) => {
     const cell = (e.target as HTMLElement).closest<HTMLElement>("[data-date]");
@@ -352,52 +419,89 @@ export function GithubTile({ login }: { login: string }) {
         </a>
       </div>
 
-      {/* Календарь */}
-      {weeks.length > 0 && (
-        <div className="mt-4">
-          <div
-            ref={gridRef}
-            role="img"
-            aria-label={s.calendar}
-            className="relative flex gap-[3px]"
-            onMouseOver={onGridOver}
-            onMouseLeave={() => setTip(null)}
-          >
-            {weeks.map((w, wi) => (
-              <div
-                key={w.days[0]?.date ?? wi}
-                className={`min-w-0 flex-1 flex-col gap-[3px] ${wi < hiddenOnMobile ? "hidden sm:flex" : "flex"}`}
-              >
-                {wi === 0 &&
-                  Array.from({ length: firstWeekPad }, (_, i) => <span key={`pad${i}`} className="aspect-square w-full" />)}
-                {w.days.map((day) => (
-                  <a
-                    key={day.date}
-                    href={`https://github.com/${encodeURIComponent(d.login)}?tab=overview&from=${day.date}&to=${day.date}`}
-                    target="_blank"
-                    rel="noopener noreferrer nofollow"
-                    tabIndex={-1}
-                    data-date={day.date}
-                    data-count={day.count}
-                    aria-label={`${countLabel(lang, day.count, s.contributions)} · ${formatDay(lang, day.date)}`}
-                    className={`block aspect-square w-full rounded-[3px] transition-transform duration-150 ease-out hover:scale-125 hover:ring-1 hover:ring-accent/60 ${LEVEL_CLASS[day.level]}`}
-                  />
-                ))}
-              </div>
-            ))}
-            <div
-              className={`pointer-events-none absolute z-10 -translate-y-full whitespace-nowrap ${
-                tip?.align === "left" ? "-translate-x-2" : tip?.align === "right" ? "-translate-x-[calc(100%-0.5rem)]" : "-translate-x-1/2"
-              } rounded-lg bg-neutral-900 px-2 py-1 text-xs text-white shadow-md transition-opacity duration-150 dark:bg-neutral-100 dark:text-neutral-900 ${
-                tip ? "opacity-100" : "opacity-0"
+      {/* Годы: как на github.com -- от текущего к году создания аккаунта */}
+      {d.years.length > 1 && (
+        <div
+          role="group"
+          aria-label={s.yearsLabel}
+          className="mt-4 flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {d.years.map((y) => (
+            <button
+              key={y}
+              type="button"
+              aria-pressed={y === year}
+              onClick={() => void selectYear(y)}
+              className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+                y === year
+                  ? "bg-accent text-white"
+                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700"
               }`}
-              style={tip ? { left: tip.x, top: tip.y - 6 } : { left: 0, top: 0 }}
             >
-              {tip?.text}
+              {y}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Календарь */}
+      {(weeks.length > 0 || yearLoading) && (
+        <div className="mt-1">
+          {/* pt-8: место под подсказку над верхним рядом (иначе её обрежет прокрутка) */}
+          <div ref={scrollRef} className="overflow-x-auto pt-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div
+              ref={gridRef}
+              role="img"
+              aria-label={s.calendar}
+              aria-busy={yearLoading}
+              className={`relative flex min-w-[648px] gap-[3px] transition-opacity duration-300 ease-out sm:min-w-0 ${
+                yearLoading ? "opacity-40" : "opacity-100"
+              }`}
+              onMouseOver={onGridOver}
+              onMouseLeave={() => setTip(null)}
+            >
+              {weeks.map((w, wi) => (
+                <div
+                  key={w.days[0]?.date ?? wi}
+                  className="flex min-w-0 flex-col gap-[3px]"
+                  style={{ flex: `0 0 calc((100% - ${(CAL_SLOTS - 1) * 3}px) / ${CAL_SLOTS})` }}
+                >
+                  {wi === 0 &&
+                    Array.from({ length: firstWeekPad }, (_, i) => <span key={`pad${i}`} className="aspect-square w-full" />)}
+                  {w.days.map((day) => (
+                    <a
+                      key={day.date}
+                      href={`https://github.com/${encodeURIComponent(d.login)}?tab=overview&from=${day.date}&to=${day.date}`}
+                      target="_blank"
+                      rel="noopener noreferrer nofollow"
+                      tabIndex={-1}
+                      data-date={day.date}
+                      data-count={day.count}
+                      aria-label={`${countLabel(lang, day.count, s.contributions)} · ${formatDay(lang, day.date)}`}
+                      className={`block aspect-square w-full rounded-[3px] transition-transform duration-150 ease-out hover:scale-125 hover:ring-1 hover:ring-accent/60 ${LEVEL_CLASS[day.level]}`}
+                    />
+                  ))}
+                </div>
+              ))}
+              <div
+                className={`pointer-events-none absolute z-10 -translate-y-full whitespace-nowrap ${
+                  tip?.align === "left" ? "-translate-x-2" : tip?.align === "right" ? "-translate-x-[calc(100%-0.5rem)]" : "-translate-x-1/2"
+                } rounded-lg bg-neutral-900 px-2 py-1 text-xs text-white shadow-md transition-opacity duration-150 dark:bg-neutral-100 dark:text-neutral-900 ${
+                  tip ? "opacity-100" : "opacity-0"
+                }`}
+                style={tip ? { left: tip.x, top: tip.y - 6 } : { left: 0, top: 0 }}
+              >
+                {tip?.text}
+              </div>
             </div>
           </div>
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-ink-faint">
-            <span>{s.yearTotal.replace("{n}", nf.format(d.totalContributions)).replace("{word}", plural(lang, d.totalContributions, s.contributions))}</span>
+            <span>
+              {s.yearTotal
+                .replace("{n}", nf.format(c.totalContributions))
+                .replace("{word}", plural(lang, c.totalContributions, s.contributions))
+                .replace("{year}", String(c.year))}
+            </span>
             <span className="flex items-center gap-1">
               {s.less}
               {([0, 1, 2, 3, 4] as const).map((l) => (

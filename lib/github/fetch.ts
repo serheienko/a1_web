@@ -11,14 +11,18 @@
 import { kvConfigured, kvGetJson, kvPutJson } from "@/lib/kv/store";
 import {
   bucketLanguages,
+  githubYearRange,
+  githubYears,
   groupDaysIntoWeeks,
   isValidGithubLogin,
   languageColor,
   levelFromGraphql,
   parseContributionsHtml,
+  resolveGithubYear,
   type GithubDay,
   type GithubRepo,
   type GithubSummary,
+  type GithubWeek,
 } from "./core";
 
 if (typeof window !== "undefined") {
@@ -26,20 +30,29 @@ if (typeof window !== "undefined") {
 }
 
 export const GITHUB_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+/** Прошлые годы не меняются -- календарь кешируем на неделю. */
+export const GITHUB_PAST_YEAR_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const TIMEOUT_MS = 8000;
 const MEMORY_MAX = 2000;
 const UA = "A1-jobs-web/1.0 (+https://jobs.a1appp.com)";
 
-type CacheEntry = { at: number; notFound?: true; data?: GithubSummary };
+/** Не зависит от года: профиль, языки, топ-репозитории (кешируется отдельно). */
+type Base = Omit<GithubSummary, "totalContributions" | "weeks" | "year" | "years"> & { createdAt: string };
+type Calendar = { totalContributions: number; weeks: GithubWeek[] };
 
-export type GithubResult = { status: "ok"; data: GithubSummary } | { status: "not_found" };
+type CacheEntry<T> = { at: number; notFound?: true; data?: T };
+
+export type GithubResult =
+  | { status: "ok"; data: GithubSummary }
+  | { status: "not_found" }
+  | { status: "bad_year" };
 
 class NotFound extends Error {}
 
-const memory = new Map<string, CacheEntry>();
-const inflight = new Map<string, Promise<GithubResult>>();
+const memory = new Map<string, CacheEntry<unknown>>();
+const inflight = new Map<string, Promise<unknown>>();
 
-function memGet(key: string): CacheEntry | undefined {
+function memGet(key: string): CacheEntry<unknown> | undefined {
   const e = memory.get(key);
   if (e) {
     memory.delete(key);
@@ -48,7 +61,7 @@ function memGet(key: string): CacheEntry | undefined {
   return e;
 }
 
-function memSet(key: string, e: CacheEntry) {
+function memSet(key: string, e: CacheEntry<unknown>) {
   memory.delete(key);
   memory.set(key, e);
   while (memory.size > MEMORY_MAX) {
@@ -58,14 +71,13 @@ function memSet(key: string, e: CacheEntry) {
   }
 }
 
-const kvPath = (key: string) => `a1/github/${key}.json`;
-
-async function readCache(key: string): Promise<CacheEntry | null> {
+// Профиль: a1/github/<login>.json (как раньше); календарь года: a1/github/cal/<login>/<год>.json.
+async function readCache<T>(key: string): Promise<CacheEntry<T> | null> {
   const m = memGet(key);
-  if (m) return m;
+  if (m) return m as CacheEntry<T>;
   if (!kvConfigured()) return null;
   try {
-    const e = await kvGetJson<CacheEntry>(kvPath(key));
+    const e = await kvGetJson<CacheEntry<T>>(`a1/github/${key}.json`);
     if (e && typeof e.at === "number") {
       memSet(key, e);
       return e;
@@ -76,18 +88,46 @@ async function readCache(key: string): Promise<CacheEntry | null> {
   return null;
 }
 
-async function writeCache(key: string, e: CacheEntry) {
+async function writeCache<T>(key: string, e: CacheEntry<T>) {
   memSet(key, e);
   if (!kvConfigured()) return;
   try {
-    await kvPutJson(kvPath(key), e);
+    await kvPutJson(`a1/github/${key}.json`, e);
   } catch (err) {
     console.warn("[github] cache write failed:", err instanceof Error ? err.message : err);
   }
 }
 
-function toResult(e: CacheEntry): GithubResult {
-  return e.notFound || !e.data ? { status: "not_found" } : { status: "ok", data: e.data };
+/**
+ * Свежий кеш -> из кеша. Иначе load(); ошибка -> старый кеш, если есть, иначе исключение.
+ * «Нет пользователя» (NotFound) тоже кешируется. Одинаковые запросы склеиваются.
+ */
+async function cached<T>(key: string, ttl: number, load: () => Promise<T>): Promise<{ notFound: true } | { data: T }> {
+  const hit = await readCache<T>(key);
+  if (hit && Date.now() - hit.at < ttl) return hit.notFound || !hit.data ? { notFound: true } : { data: hit.data };
+
+  const running = inflight.get(key) as Promise<{ notFound: true } | { data: T }> | undefined;
+  if (running) return running;
+
+  const job = (async () => {
+    try {
+      const data = await load();
+      await writeCache<T>(key, { at: Date.now(), data });
+      return { data };
+    } catch (err) {
+      if (err instanceof NotFound) {
+        await writeCache<T>(key, { at: Date.now(), notFound: true });
+        return { notFound: true as const };
+      }
+      console.warn(`[github] fetch failed for ${key}:`, err instanceof Error ? err.message : err);
+      if (hit) return hit.notFound || !hit.data ? { notFound: true as const } : { data: hit.data };
+      throw err;
+    } finally {
+      inflight.delete(key);
+    }
+  })();
+  inflight.set(key, job);
+  return job;
 }
 
 async function gh(url: string, init: RequestInit = {}): Promise<Response> {
@@ -101,10 +141,9 @@ async function gh(url: string, init: RequestInit = {}): Promise<Response> {
 
 const GRAPHQL_QUERY = `query($login: String!) {
   user(login: $login) {
-    login name avatarUrl url
+    login name avatarUrl url createdAt
     followers { totalCount }
     repositories(privacy: PUBLIC) { totalCount }
-    contributionsCollection { contributionCalendar { totalContributions weeks { contributionDays { date contributionCount contributionLevel } } } }
     repos: repositories(ownerAffiliations: OWNER, isFork: false, privacy: PUBLIC, first: 30, orderBy: { field: STARGAZERS, direction: DESC }) {
       nodes { name description stargazerCount url primaryLanguage { name color } languages(first: 10) { edges { size node { name color } } } }
     }
@@ -116,14 +155,9 @@ type GqlUser = {
   name: string | null;
   avatarUrl: string;
   url: string;
+  createdAt: string;
   followers: { totalCount: number };
   repositories: { totalCount: number };
-  contributionsCollection: {
-    contributionCalendar: {
-      totalContributions: number;
-      weeks: { contributionDays: { date: string; contributionCount: number; contributionLevel: string }[] }[];
-    };
-  };
   repos: {
     nodes: {
       name: string;
@@ -136,7 +170,7 @@ type GqlUser = {
   };
 };
 
-async function fetchViaGraphql(login: string, token: string): Promise<GithubSummary> {
+async function fetchBaseViaGraphql(login: string, token: string): Promise<Base> {
   const res = await gh("https://api.github.com/graphql", {
     method: "POST",
     headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
@@ -149,10 +183,6 @@ async function fetchViaGraphql(login: string, token: string): Promise<GithubSumm
     if (body.errors?.some((e) => e.type === "NOT_FOUND") || body.data?.user === null) throw new NotFound();
     throw new Error("graphql: empty response");
   }
-  const cal = u.contributionsCollection.contributionCalendar;
-  const days: GithubDay[] = cal.weeks.flatMap((w) =>
-    w.contributionDays.map((d) => ({ date: d.date, count: d.contributionCount, level: levelFromGraphql(d.contributionLevel) })),
-  );
   const repos = u.repos.nodes;
   const weights = repos.flatMap((r) => r.languages.edges.map((e) => ({ name: e.node.name, size: e.size, color: e.node.color })));
   return {
@@ -162,8 +192,7 @@ async function fetchViaGraphql(login: string, token: string): Promise<GithubSumm
     htmlUrl: u.url,
     publicRepos: u.repositories.totalCount,
     followers: u.followers.totalCount,
-    totalContributions: cal.totalContributions,
-    weeks: groupDaysIntoWeeks(days),
+    createdAt: u.createdAt,
     languages: bucketLanguages(weights),
     topRepos: repos.slice(0, 3).map((r) => ({
       name: r.name,
@@ -176,39 +205,25 @@ async function fetchViaGraphql(login: string, token: string): Promise<GithubSumm
   };
 }
 
-type RestUser = { login: string; name: string | null; avatar_url: string; html_url: string; public_repos: number; followers: number };
+type RestUser = { login: string; name: string | null; avatar_url: string; html_url: string; public_repos: number; followers: number; created_at: string };
 type RestRepo = { name: string; description: string | null; stargazers_count: number; html_url: string; language: string | null; fork: boolean; size: number; private?: boolean };
 
-async function fetchViaRest(login: string): Promise<GithubSummary> {
+async function fetchBaseViaRest(login: string): Promise<Base> {
   const ures = await gh(`https://api.github.com/users/${encodeURIComponent(login)}`, { headers: { accept: "application/vnd.github+json" } });
   if (ures.status === 404) throw new NotFound();
   if (!ures.ok) throw new Error(`rest user ${ures.status}`);
   const u = (await ures.json()) as RestUser;
 
-  const [reposRes, calRes] = await Promise.allSettled([
-    gh(`https://api.github.com/users/${encodeURIComponent(u.login)}/repos?per_page=100&sort=pushed`, { headers: { accept: "application/vnd.github+json" } }),
-    gh(`https://github.com/users/${encodeURIComponent(u.login)}/contributions`, { headers: { accept: "text/html" } }),
-  ]);
-
   let repos: RestRepo[] = [];
-  if (reposRes.status === "fulfilled" && reposRes.value.ok) {
-    const all = (await reposRes.value.json()) as RestRepo[];
+  const reposRes = await gh(`https://api.github.com/users/${encodeURIComponent(u.login)}/repos?per_page=100&sort=pushed`, {
+    headers: { accept: "application/vnd.github+json" },
+  }).catch(() => null);
+  if (reposRes && reposRes.ok) {
+    const all = (await reposRes.json()) as RestRepo[];
     repos = Array.isArray(all) ? all.filter((r) => !r.fork && !r.private) : [];
   } else if (u.public_repos > 0) {
     // Без списка репозиториев плитка была бы неполной -- лучше отдать старый кеш.
     throw new Error("rest repos failed");
-  }
-
-  let total = 0;
-  let weeks: GithubSummary["weeks"] = [];
-  if (calRes.status === "fulfilled" && calRes.value.ok) {
-    try {
-      const parsed = parseContributionsHtml(await calRes.value.text());
-      weeks = parsed.weeks;
-      total = parsed.totalContributions ?? 0;
-    } catch {
-      weeks = [];
-    }
   }
 
   // Топ ~30 по звёздам, затем по дате пуша (список уже отсортирован по пушу).
@@ -232,58 +247,118 @@ async function fetchViaRest(login: string): Promise<GithubSummary> {
     htmlUrl: u.html_url,
     publicRepos: u.public_repos,
     followers: u.followers,
-    totalContributions: total,
-    weeks,
+    createdAt: u.created_at,
     languages: bucketLanguages(weights),
     topRepos,
     fetchedAt: new Date().toISOString(),
   };
 }
 
-async function fetchFresh(login: string): Promise<GithubSummary> {
+async function fetchBase(login: string): Promise<Base> {
   const token = (process.env.GITHUB_TOKEN ?? "").trim();
   if (token) {
     try {
-      return await fetchViaGraphql(login, token);
+      return await fetchBaseViaGraphql(login, token);
     } catch (err) {
       if (err instanceof NotFound) throw err;
       console.warn("[github] graphql failed, trying REST:", err instanceof Error ? err.message : err);
     }
   }
-  return fetchViaRest(login);
+  return fetchBaseViaRest(login);
+}
+
+const CAL_QUERY = `query($login: String!, $from: DateTime!, $to: DateTime!) {
+  user(login: $login) {
+    contributionsCollection(from: $from, to: $to) { contributionCalendar { totalContributions weeks { contributionDays { date contributionCount contributionLevel } } } }
+  }
+}`;
+
+async function fetchCalendarViaGraphql(login: string, year: number, token: string): Promise<Calendar> {
+  const r = githubYearRange(year, new Date());
+  const res = await gh("https://api.github.com/graphql", {
+    method: "POST",
+    headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+    body: JSON.stringify({ query: CAL_QUERY, variables: { login, from: r.from, to: r.to } }),
+  });
+  if (!res.ok) throw new Error(`graphql calendar ${res.status}`);
+  const body = (await res.json()) as {
+    data?: { user: { contributionsCollection: { contributionCalendar: { totalContributions: number; weeks: { contributionDays: { date: string; contributionCount: number; contributionLevel: string }[] }[] } } } | null };
+  };
+  const cal = body.data?.user?.contributionsCollection.contributionCalendar;
+  if (!cal) throw new Error("graphql calendar: empty response");
+  // Недели на краях года могут захватывать соседний год -- оставляем только дни этого года.
+  const days: GithubDay[] = cal.weeks
+    .flatMap((w) => w.contributionDays)
+    .filter((d) => d.date.startsWith(`${year}-`))
+    .map((d) => ({ date: d.date, count: d.contributionCount, level: levelFromGraphql(d.contributionLevel) }));
+  return { totalContributions: days.reduce((a, d) => a + d.count, 0), weeks: groupDaysIntoWeeks(days) };
+}
+
+async function fetchCalendarViaHtml(login: string, year: number): Promise<Calendar> {
+  const r = githubYearRange(year, new Date());
+  const url = `https://github.com/users/${encodeURIComponent(login)}/contributions?from=${r.fromDate}&to=${r.toDate}`;
+  const res = await gh(url, { headers: { accept: "text/html" } });
+  if (!res.ok) throw new Error(`calendar html ${res.status}`);
+  const parsed = parseContributionsHtml(await res.text());
+  if (!parsed.weeks.length) throw new Error("calendar html: no days");
+  const days = parsed.weeks.flatMap((w) => w.days).filter((d) => d.date.startsWith(`${year}-`));
+  return { totalContributions: days.reduce((a, d) => a + d.count, 0), weeks: groupDaysIntoWeeks(days) };
+}
+
+async function fetchCalendar(login: string, year: number): Promise<Calendar> {
+  const token = (process.env.GITHUB_TOKEN ?? "").trim();
+  if (token) {
+    try {
+      return await fetchCalendarViaGraphql(login, year, token);
+    } catch (err) {
+      console.warn("[github] graphql calendar failed, trying HTML:", err instanceof Error ? err.message : err);
+    }
+  }
+  try {
+    return await fetchCalendarViaHtml(login, year);
+  } catch (err) {
+    console.warn("[github] calendar unavailable:", err instanceof Error ? err.message : err);
+    // Календаря нет -- плитка всё равно полезна (языки, репозитории): пустой год, но не кешируем надолго.
+    throw err;
+  }
 }
 
 /**
- * Свежий кеш -> из кеша. Иначе идём на GitHub; ошибка GitHub -> старый кеш, если есть,
- * иначе исключение (маршрут отдаёт 502).
+ * Данные плитки за календарный год (year не задан -> текущий). Профиль/языки/репозитории
+ * кешируются отдельно от календаря года, поэтому переключение года дёргает только календарь.
+ * Ошибка GitHub -> старый кеш, если есть, иначе исключение (маршрут отдаёт 502).
  */
-export async function getGithubSummary(login: string): Promise<GithubResult> {
+export async function getGithubSummary(login: string, rawYear?: string | null): Promise<GithubResult> {
   if (!isValidGithubLogin(login)) return { status: "not_found" };
   const key = login.toLowerCase();
 
-  const cached = await readCache(key);
-  if (cached && Date.now() - cached.at < GITHUB_CACHE_TTL_MS) return toResult(cached);
+  const base = await cached<Base>(`${key}`, GITHUB_CACHE_TTL_MS, () => fetchBase(login));
+  if ("notFound" in base) return { status: "not_found" };
 
-  const running = inflight.get(key);
-  if (running) return running;
+  const currentYear = new Date().getUTCFullYear();
+  const createdYear = Number(base.data.createdAt?.slice(0, 4)) || currentYear;
+  const year = resolveGithubYear(rawYear, createdYear, currentYear);
+  if (year === null) return { status: "bad_year" };
 
-  const job = (async (): Promise<GithubResult> => {
-    try {
-      const data = await fetchFresh(login);
-      await writeCache(key, { at: Date.now(), data });
-      return { status: "ok", data };
-    } catch (err) {
-      if (err instanceof NotFound) {
-        await writeCache(key, { at: Date.now(), notFound: true });
-        return { status: "not_found" };
-      }
-      console.warn(`[github] fetch failed for ${key}:`, err instanceof Error ? err.message : err);
-      if (cached) return toResult(cached);
-      throw err;
-    } finally {
-      inflight.delete(key);
-    }
-  })();
-  inflight.set(key, job);
-  return job;
+  const ttl = year === currentYear ? GITHUB_CACHE_TTL_MS : GITHUB_PAST_YEAR_TTL_MS;
+  let cal: Calendar = { totalContributions: 0, weeks: [] };
+  try {
+    const c = await cached<Calendar>(`cal/${key}/${year}`, ttl, () => fetchCalendar(login, year));
+    if ("data" in c) cal = c.data;
+  } catch {
+    // Календарь не загрузился и кеша нет -- отдаём без него (как раньше при сбое HTML).
+  }
+
+  const { createdAt: _createdAt, ...rest } = base.data;
+  void _createdAt;
+  return {
+    status: "ok",
+    data: {
+      ...rest,
+      totalContributions: cal.totalContributions,
+      weeks: cal.weeks,
+      year,
+      years: githubYears(createdYear, currentYear),
+    },
+  };
 }
