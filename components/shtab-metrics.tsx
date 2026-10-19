@@ -21,7 +21,13 @@ const CF_ANALYTICS_URL = "https://dash.cloudflare.com/?to=/:account/web-analytic
 const CSS = `
 .shm{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px 16px;box-shadow:var(--shadow)}
 .shm h2{margin:0;font-size:15px;font-weight:800}
-.shm-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.shm-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;cursor:pointer;list-style:none}
+.shm-head::-webkit-details-marker{display:none}
+.shm-head::marker{content:''}
+.shm-chev{display:inline-block;margin-right:8px;font-size:12px;color:var(--dim);transition:transform .15s}
+.shm[open] .shm-chev{transform:rotate(90deg)}
+.shm-head:hover h2{text-decoration:underline;text-decoration-color:var(--line)}
+.shm-body{margin-top:2px}
 .shm-sub{font-size:12px;color:var(--dim)}
 .shm-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:12px}
 .shm-k{border:1px solid var(--row);border-radius:12px;padding:10px 12px}
@@ -92,12 +98,20 @@ export async function ShtabMetrics() {
       : null;
 
   return (
-    <section className="shm">
+    // 19.10.2026 (Александр: «метрики сайта можно было тоже сворачивать»): блок -- <details>, как у
+    // отчёта Разведчика; по умолчанию раскрыт, свернуть можно кликом по заголовку.
+    <details className="shm" open>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <div className="shm-head">
-        <h2>📈 Метрики сайта</h2>
+      <summary className="shm-head">
+        <h2>
+          <span className="shm-chev" aria-hidden="true">
+            ▸
+          </span>
+          📈 Метрики сайта
+        </h2>
         <span className="shm-sub">{now ? "что сделали за 7 дней · и насколько это больше прошлой недели" : "счётчик"}</span>
-      </div>
+      </summary>
+      <div className="shm-body">
 
       {now ? (
         <>
@@ -143,6 +157,7 @@ export async function ShtabMetrics() {
         </a>{" "}
         (бесплатно, cookie не ставит). Список «Перші 250» — <a href="/admin/first250">здесь</a>.
       </div>
-    </section>
+      </div>
+    </details>
   );
 }
