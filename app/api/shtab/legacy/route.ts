@@ -70,7 +70,18 @@ export async function POST(req: Request) {
     const note = b.note ?? "";
     const published = num(/опубликовано\s+(\d+)/, note) ?? num(/отправлено\s+(\d+)/, note);
     const errors = num(/ошибок\s+(\d+)/, note);
-    saved = await savePulse({ agent: id, status, note: published === null && errors === null ? note.slice(0, 300) : "", published, errors });
+    let keep = published === null && errors === null ? note.slice(0, 300) : "";
+    if (id === "postman") {
+      // Почтальон: кроме числа отправленных -- очередь, «в индексе X из Y» и признак исчерпанной квоты.
+      const queue = num(/в очереди осталось\s+(\d+)/, note);
+      const idx = /в индексе\s+(\d+)\s+из\s+(\d+)/.exec(note);
+      const bits: string[] = [];
+      if (queue !== null) bits.push(`в очереди ${queue.toLocaleString("ru-RU")}`);
+      if (idx) bits.push(`в индексе Google ${idx[1]} из ${idx[2]} проверенных`);
+      if (/429|Quota exceeded/i.test(note)) bits.push("квота Google на сегодня исчерпана");
+      if (bits.length) keep = bits.join(" · ");
+    }
+    saved = await savePulse({ agent: id, status, note: keep, published, errors });
   }
 
   // 2) на старый адрес (старая карта агентов), если он задан

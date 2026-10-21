@@ -334,7 +334,7 @@ export async function ShtabBoard() {
   const workingStep = konkSteps.find((v) => v.lamp === "work");
   const bad = visible.filter((v) => v.lamp === "error" || v.lamp === "missed");
   const publishedToday = Object.values(pulses).reduce((sum, r) => {
-    if (!r || r.published == null || !r.finishedAt || !sameKyivDay(new Date(r.finishedAt), now)) return sum;
+    if (!r || r.agent === "postman" || r.published == null || !r.finishedAt || !sameKyivDay(new Date(r.finishedAt), now)) return sum;
     return sum + r.published;
   }, 0);
   let verdict: { tone: "ok" | "run" | "bad" | "wait"; title: string; text: string };
