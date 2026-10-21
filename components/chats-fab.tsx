@@ -36,6 +36,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { type Locale } from "@/components/t";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { subscribeAccountMenuOpen, getAccountMenuOpenSnapshot } from "@/lib/account-menu-open";
+import { subscribeUnread, getUnreadSnapshot, getUnreadServerSnapshot } from "@/lib/chats-unread";
 import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
 import { FabAuthPrompt } from "@/components/fab-auth-prompt";
 import { useHoverPanel } from "@/lib/use-hover-panel";
@@ -91,6 +92,9 @@ export function ChatsFab() {
   // mismatches hydration -- same reasoning as any other client-only UI
   // toggle in this app.
   const accountMenuOpen = useSyncExternalStore(subscribeAccountMenuOpen, getAccountMenuOpenSnapshot, () => false);
+  // Александр, 21.10.2026: значок непрочитанных возле иконки чатов.
+  // Стор сам ничего не запрашивает у незалогиненных — см. lib/chats-unread.ts.
+  const unread = useSyncExternalStore(subscribeUnread, getUnreadSnapshot, getUnreadServerSnapshot);
   const [email, setEmail] = useState<string | null>(null);
   const [authPromptOpen, setAuthPromptOpen] = useState(false);
   // 2026-09-03 (Aleksandr, screenshot of the mini chat window cramped
@@ -320,6 +324,14 @@ export function ChatsFab() {
         style={buttonStyle}
       >
         <ChatsIcon className="animate-chat-wiggle" />
+        {unread > 0 && (
+          <span
+            aria-hidden
+            className="pointer-events-none absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-[#335ef7] px-1 text-[11px] font-medium leading-none text-white dark:border-neutral-900 dark:bg-[#0c8ce9]"
+          >
+            {unread > 99 ? "99+" : unread}
+          </span>
+        )}
       </button>
       <ChatsFlyout
         open={flyoutOpen}
