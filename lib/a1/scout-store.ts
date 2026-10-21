@@ -99,7 +99,14 @@ export async function rejectScoutIdea(input: { date: string; what: string; reaso
     const idea = report?.ideas.find((i) => norm(i.what) === norm(input.what));
     if (!idea) return "not_found";
     const list = await loadScoutRejected();
-    if (!isRejected(idea, list)) {
+    // 21.10.2026 (Александр: «мы же это сделали -- отметь в зелёное»): идею, которая уже лежит
+    // в списке, можно переотметить -- например «не подходит» -> «сделано», с новым комментарием.
+    const prev = list.find((r) => norm(r.what) === norm(idea.what));
+    if (prev) {
+      prev.status = input.status ?? prev.status ?? "rejected";
+      if (input.reason.trim()) prev.reason = input.reason.trim();
+      prev.at = new Date().toISOString();
+    } else {
       list.push({ date: input.date, who: idea.who, what: idea.what, reason: input.reason.trim(), at: new Date().toISOString(), status: input.status ?? "rejected" });
     }
     await kvPutJson(REJECTED_PATH, { items: list.slice(-100) });

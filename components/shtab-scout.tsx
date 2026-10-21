@@ -36,6 +36,9 @@ const CSS = `
 .shs-rej-txt{width:100%;font:inherit;font-size:13px;border:1px solid var(--row);border-radius:10px;padding:6px 8px;background:transparent;color:inherit;resize:vertical}
 .shs-rej-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .shs-rej-err{font-size:12px;color:#991b1b}
+.shs-done{color:#15803d;font-weight:700}
+:root.dark .shs-done{color:#4ade80}
+@media (prefers-color-scheme:dark){:root:not(.light) .shs-done{color:#4ade80}}
 `;
 
 const EFFORT: Record<ScoutIdea["effort"], string> = { легко: "shs-e-easy", средне: "shs-e-mid", сложно: "shs-e-hard" };
@@ -105,14 +108,18 @@ export async function ShtabScout() {
 
       {rejected.length ? (
         <details>
-          <summary>Сделано и отклонённые ({rejected.length}) · Разведчик читает этот список и не повторяет такое</summary>
+          <summary>
+            <span className="shs-done">Сделано ({rejected.filter((r) => r.status === "done").length})</span> и отклонённые (
+            {rejected.filter((r) => r.status !== "done").length}) · Разведчик читает этот список и не повторяет такое
+          </summary>
           <ul className="shs-old">
             {rejected
               .slice()
               .reverse()
+              .sort((a, b) => Number(b.status === "done") - Number(a.status === "done"))
               .map((r, k) => (
                 <li key={k}>
-                  {r.status === "done" ? "✅ Сделано · " : "❌ Не подходит · "}
+                  {r.status === "done" ? <span className="shs-done">✅ Сделано · </span> : "❌ Не подходит · "}
                   {r.who ? `${r.who}: ` : ""}
                   {r.what.replace(/[.\s]+$/, "")}
                   {r.reason ? `. Комментарий: ${r.reason}` : ""}

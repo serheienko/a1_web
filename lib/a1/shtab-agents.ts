@@ -79,15 +79,14 @@ export const ROOMS: RoomDef[] = [
   {
     id: "ukraine",
     name: "Украина: вакансии и отправка в Google",
-    where: "ATS-ленты и Jobico в забеге Конкистадора 07:00 UTC · DOU 07:20 и 15:20 UTC",
+    where: "ATS-ленты в забеге Конкистадора 07:00 UTC · DOU 07:20 и 15:20 UTC",
     color: "#4aa3ff",
     agents: [
       {
         id: "ukraine", name: "Украина", nick: "Казак", role: "Все IT-вакансии Украины: DOU и ленты украинских компаний", slots: [], graceMin: 0,
-        kind: "group", members: ["kazak", "ua", "jobico"],
-        note: "Один агент по Украине: DOU (дважды в день), ленты украинских компаний и Jobico — в общем забеге.",
+        kind: "group", members: ["kazak", "ua"],
+        note: "Один агент по Украине: DOU (дважды в день) и ленты украинских компаний в общем забеге.",
       },
-      { id: "jobico", name: "Украина · Jobico", nick: "Jobico", part: "Jobico", hidden: true, role: "Лента jobico.io, кнопка ведёт на вакансию", slots: DAILY_07, graceMin: KONK_GRACE, order: 2, limit: null, sources: "Лента jobico.io (с их разрешения, с пересказом). Без дневного лимита, новых мало.", kind: "pulse", track: 0 },
       { id: "kazak", name: "Украина · DOU", nick: "Казак", part: "DOU", role: "Вакансии с DOU", hidden: true, track: 1, slots: [{ h: 7, m: 20 }, { h: 15, m: 20 }], graceMin: 120, kind: "pulse", sources: "Лента DOU, дважды в день.", limit: null },
       { id: "ua", name: "Украина · ATS-ленты", nick: "Казак 2", part: "ATS-ленты", hidden: true, track: 0, role: "IT-вакансии Украины из лент компаний", slots: DAILY_07, graceMin: KONK_GRACE, order: 8, limit: 300, sources: "Ленты украинских компаний, Workable Украина, удалёнка для Украины.", kind: "pulse" },
       { id: "postman", name: "Отправка в Google", nick: "Почтальон", role: "Отправляет адреса вакансий в Google для индекса (квота Google 200 в день)", track: 1, slots: [{ h: 7, m: 20 }, { h: 15, m: 20 }], graceMin: 120, kind: "pulse", limit: 200, note: "Очередь около 23 тысяч адресов." },
