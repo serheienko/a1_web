@@ -77,8 +77,9 @@ async function countUkraineFeed(openByCountry: Map<string, number>, total: numbe
   }
   const count = Math.max(0, total - foreign);
   // «Новые за сутки» считает общий обход вакансий (facts-index): он идёт всё
-  // равно, и отдельный запрос ради этой цифры не нужен.
-  const fresh = (peekFreshByCountry().get(DEFAULT_COUNTRY_CODE) ?? 0) + (peekWorldwide()?.fresh ?? 0);
+  // равно, и отдельный запрос ради этой цифры не нужен. 21.10.2026: мировые
+  // в ленту «Україна» больше не входят, их «новые» сюда не прибавляем.
+  const fresh = peekFreshByCountry().get(DEFAULT_COUNTRY_CODE) ?? 0;
   return { count, fresh };
 }
 

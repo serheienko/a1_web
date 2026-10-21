@@ -93,8 +93,9 @@ export type FeedFilters = {
   // id страны плюс external: "include" -- в выдаче по стране вакансии-ссылки
   // топ-компаний идут вперемешку с обычными. top100 -- имиджевый чип
   // «💯 Топ 100»: только вакансии-ссылки, страна не важна. Без того и
-  // другого лента «для тебе»: украинские + мировые с открытой географией
-  // (external: "open"; решение Александра 30.09).
+  // другого лента «для тебе» (external: "open"). 21.10.2026 (Александр):
+  // мировые вакансии в неё больше не подмешиваются -- бэкенд отдаёт по
+  // "open" только обычные; «🌏 Worldwide» есть отдельным пунктом стран.
   country?: string;
   top100?: boolean;
 };
@@ -265,9 +266,6 @@ function scanCacheKey(kind: WebPostKind, filters: FeedFilters): string {
  * null -- указателя не хватает (город по id, вакансии соискателей): тогда
  * по-прежнему обход.
  */
-/** Тег, которым бэкенд пускает внешнюю вакансию в ленту «для тебе». */
-const EXTERNAL_OPEN_TAG = "Worldwide";
-
 function poolFromIndex(all: WebPost[], kind: WebPostKind, filters: FeedFilters): WebPost[] | null {
   if (kind !== "hiring" || filters.location != null) return null;
   const categories = filters.categories ?? [];
@@ -281,10 +279,10 @@ function poolFromIndex(all: WebPost[], kind: WebPostKind, filters: FeedFilters):
     if (!tags.every((tag) => post.tags.includes(tag))) return false;
     if (filters.top100) return post.author.external === true;
     if (country) return (post.location?.country ?? "").trim().toUpperCase() === country;
-    // Режим «для тебе» у бэкенда: обычные вакансии плюс внешние, помеченные
-    // тегом Worldwide. Повторяем дословно, иначе в поиске всплывало бы то,
-    // чего в самой ленте нет (например, украинские ленты компаний у Казака 2).
-    if (post.author.external === true && !post.tags.includes(EXTERNAL_OPEN_TAG)) return false;
+    // Режим «для тебе» у бэкенда: только обычные вакансии, без внешних
+    // (21.10.2026: мировые ушли в пункт «🌏 Worldwide»). Повторяем дословно,
+    // иначе в поиске всплывало бы то, чего в самой ленте нет.
+    if (post.author.external === true) return false;
     return keepInUkraineFeed(post);
   });
 }
@@ -383,8 +381,9 @@ export async function fetchFeedPage(
   const hasStack = (filters.stack?.length ?? 0) > 0;
 
   if (!needle && !hasStack) {
-    // The common case: one request. The backend ranks the feed (real publish
-    // date + round-robin by company), slices the page with `offset`, and
+    // The common case: one request. The backend orders the feed (newest by
+    // real publish date, same company at least an hour apart -- 21.10.2026,
+    // no more round-robin or 1:2 mixing), slices the page with `offset`, and
     // `expand=count` rides along so we know how many pages exist.
     const raw = await call<unknown>("posts.search", {
       limit: FEED_PAGE_SIZE,
