@@ -46,6 +46,8 @@ export type AgentDef = {
   sources?: string;
   /** Не рисуется отдельным столом: входит в «группу» (один стол на нескольких исполнителей). */
   hidden?: boolean;
+  /** Показывать заметку пульса вместе с цифрами (у Почтальона: очередь и «в индексе X из 20»). */
+  keepNote?: boolean;
   /** Для kind "group": id участников. Лампочка стола -- худшая из лампочек участников. */
   members?: string[];
   /** Какая дорожка на суточных часах: 0 -- забег Конкистадора, 1 -- сервис DOU, 2 -- Сборщик Workable. */
@@ -89,7 +91,22 @@ export const ROOMS: RoomDef[] = [
       },
       { id: "kazak", name: "Украина · DOU", nick: "Казак", part: "DOU", role: "Вакансии с DOU", hidden: true, track: 1, slots: [{ h: 7, m: 20 }, { h: 15, m: 20 }], graceMin: 120, kind: "pulse", sources: "Лента DOU, дважды в день.", limit: null },
       { id: "ua", name: "Украина · ATS-ленты", nick: "Казак 2", part: "ATS-ленты", hidden: true, track: 0, role: "IT-вакансии Украины из лент компаний", slots: DAILY_07, graceMin: KONK_GRACE, order: 8, limit: 300, sources: "Ленты украинских компаний, Workable Украина, удалёнка для Украины.", kind: "pulse" },
-      { id: "postman", name: "Отправка в Google", nick: "Почтальон", role: "Отправляет адреса вакансий в Google для индекса (квота Google 200 в день)", track: 1, slots: [{ h: 7, m: 20 }, { h: 15, m: 20 }], graceMin: 120, kind: "pulse", limit: 200, note: "Очередь около 23 тысяч адресов." },
+    ],
+  },
+  {
+    id: "google",
+    name: "Почтальон: отправка в Google",
+    where: "Сервис DOU на Railway · после прохода DOU, 07:20 и 15:20 UTC · квота Google 200 адресов в день",
+    color: "#34c38f",
+    agents: [
+      {
+        id: "postman", name: "Почтальон", nick: "Отправка в Google",
+        role: "Отправляет адреса вакансий в Google, чтобы их проиндексировали. Лимит Google: 200 адресов в сутки (по 100 за проход).",
+        track: 1, slots: [{ h: 7, m: 20 }, { h: 15, m: 20 }], graceMin: 120, kind: "pulse", limit: 200,
+        doneWord: "отправлено", keepNote: true,
+        sources: "Адреса вакансий из карты сайта. После отправки проверяет 20 случайных: сколько уже в индексе Google.",
+        note: "Нет пульса после слота (07:20 или 15:20 UTC + 2 часа) -- лампочка краснеет.",
+      },
     ],
   },
   {
@@ -207,11 +224,11 @@ function fmtWhen(d: Date, now: Date): string {
   return `${date} в ${t}`;
 }
 
-function summary(rec: { published: number | null; errors: number | null; note: string }, doneWord = "опубликовано"): string {
+function summary(rec: { published: number | null; errors: number | null; note: string }, doneWord = "опубликовано", keepNote = false): string {
   const parts: string[] = [];
   if (rec.published !== null) parts.push(`${doneWord} ${rec.published}`);
   if (rec.errors !== null) parts.push(`ошибок ${rec.errors}`);
-  if (!parts.length && rec.note) parts.push(rec.note);
+  if ((!parts.length || keepNote) && rec.note) parts.push(rec.note);
   return parts.join(", ");
 }
 
@@ -266,7 +283,7 @@ export function describeAgent(def: AgentDef, rec: PulseRecord | undefined, now: 
     errors: rec.errors,
     note: rec.note,
   };
-  const detail = summary(snap, def.doneWord);
+  const detail = summary(snap, def.doneWord, def.keepNote);
   const slot = def.slots.length ? lastSlot(def.slots, now) : null;
   const sinceSlot = slot && finished.getTime() >= slot.getTime() - 5 * 60_000;
 
