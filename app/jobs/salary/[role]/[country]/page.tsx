@@ -11,11 +11,11 @@ import { notFound } from "next/navigation";
 import { SegmentPage } from "@/components/segment-page";
 import { SalarySummary } from "@/components/salary-summary";
 import { pagedMeta, pageOf } from "@/lib/seo/paged";
-import { salaryForRoleCountry } from "@/lib/a1/salary-index";
+import { salaryCountriesForRole, salaryForRoleCountry } from "@/lib/a1/salary-index";
 import { JOB_ROLES, type JobRole } from "@/lib/seo/job-role";
 import { countryByCode } from "@/lib/seo/countries";
 import { salaryCountLine, salaryH1, salaryLead, salaryMeta } from "@/lib/seo/salary-texts";
-import { articleLinks, linksForSalaryCountries, linksForSalaryRoles } from "@/lib/seo/segment-links";
+import { articleLinks, linksForSalaryRoles } from "@/lib/seo/segment-links";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -56,6 +56,11 @@ export default async function Page({ params, searchParams }: Props) {
   const segment = await salaryForRoleCountry(role, cc);
   if (!segment) notFound();
   const page = pageOf(await searchParams);
+  // Соседние страны -- под сводкой, чтобы переключиться было одним кликом,
+  // а не прокруткой через весь список вакансий.
+  const others = (await salaryCountriesForRole(role)).filter(
+    (c) => c.cc.toUpperCase() !== country.code.toUpperCase(),
+  );
   return (
     <SegmentPage
       page={page}
@@ -63,11 +68,10 @@ export default async function Page({ params, searchParams }: Props) {
       countLine={salaryCountLine(role)}
       lead={salaryLead(role, country)}
       posts={segment.posts}
-      beforeList={<SalarySummary stats={segment.stats} />}
+      beforeList={<SalarySummary stats={segment.stats} role={role} countries={others} />}
       breadcrumbName={salaryH1(role, country).uk}
       path={`/jobs/salary/${role}/${country.code.toLowerCase()}`}
       groups={[
-        ...(await linksForSalaryCountries(role, country.code)),
         ...(await linksForSalaryRoles(role)),
         ...articleLinks(["zarplaty-v-it-za-tehnologiyamy", "rynok-it-vakansiy"]),
       ]}

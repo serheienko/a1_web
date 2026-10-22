@@ -18,7 +18,7 @@ import { pagedMeta, pageOf } from "@/lib/seo/paged";
 import { salaryForRole, salaryCountriesForRole } from "@/lib/a1/salary-index";
 import { JOB_ROLES, type JobRole } from "@/lib/seo/job-role";
 import { salaryCountLine, salaryH1, salaryLead, salaryMeta } from "@/lib/seo/salary-texts";
-import { articleLinks, linksForSalaryCountries, linksForSalaryRoles } from "@/lib/seo/segment-links";
+import { articleLinks, linksForSalaryRoles } from "@/lib/seo/segment-links";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -55,6 +55,7 @@ export default async function Page({ params, searchParams }: Props) {
   const segment = await salaryForRole(role);
   if (!segment) notFound();
   const page = pageOf(await searchParams);
+  const countries = await salaryCountriesForRole(role);
   return (
     <SegmentPage
       page={page}
@@ -62,11 +63,10 @@ export default async function Page({ params, searchParams }: Props) {
       countLine={salaryCountLine(role)}
       lead={salaryLead(role)}
       posts={segment.posts}
-      beforeList={<SalarySummary stats={segment.stats} />}
+      beforeList={<SalarySummary stats={segment.stats} role={role} countries={countries} />}
       breadcrumbName={salaryH1(role).uk}
       path={`/jobs/salary/${role}`}
       groups={[
-        ...(await linksForSalaryCountries(role)),
         ...(await linksForSalaryRoles(role)),
         ...articleLinks(["zarplaty-v-it-za-tehnologiyamy", "rynok-it-vakansiy"]),
       ]}

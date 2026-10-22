@@ -9,8 +9,10 @@
 // девять вариантов, видимый выбирает CSS. Иначе пришлось бы читать язык
 // из куки и терять статическую генерацию страницы.
 
+import Link from "next/link";
 import { LOCALES, LOCALE_VISIBILITY_CLASS, T, type Locale } from "@/components/t";
 import { formatSalary } from "@/lib/format";
+import { countryByCode, flagEmoji } from "@/lib/seo/countries";
 import type { SalaryStats } from "@/lib/a1/salary-stats";
 
 function money(amount: number, currency: string, locale: Locale): string {
@@ -27,7 +29,25 @@ function Cell({ label, children }: { label: React.ReactNode; children: React.Rea
   );
 }
 
-export function SalarySummary({ stats }: { stats: SalaryStats }) {
+/**
+ * 22.10.2026. Разрез по странам -- прямо под сводкой, а не в блоке
+ * перелинковки внизу. На живых данных у «Project та Product Management»
+ * 758 из 1032 вакансий американские: мировая медиана -- это медиана США,
+ * и человеку из Києва она говорит неправду, пока он не увидит рядом свою
+ * страну. Внизу, после сорока карточек вакансий, он её не увидит.
+ */
+export type SalaryCountry = { cc: string; stats: SalaryStats };
+
+export function SalarySummary({
+  stats,
+  role,
+  countries = [],
+}: {
+  stats: SalaryStats;
+  /** Нужен только чтобы собрать адреса разрезов. */
+  role?: string;
+  countries?: SalaryCountry[];
+}) {
   return (
     <section className="mb-8" aria-label="salary summary">
       <div className="flex flex-col gap-3 sm:flex-row">
@@ -51,6 +71,36 @@ export function SalarySummary({ stats }: { stats: SalaryStats }) {
           {stats.count}
         </Cell>
       </div>
+
+      {role && countries.length > 0 ? (
+        <div className="mt-3">
+          <div className="mb-2 text-[12px] uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+            <T uk="За країнами" en="By country" ru="По странам" de="Nach Land" es="Por país" fr="Par pays" pl="Wg kraju" ptBR="Por país" zh="按国家" />
+          </div>
+          <ul className="flex flex-wrap gap-2">
+            {countries.map(({ cc, stats: cs }) => (
+              <li key={cc}>
+                <Link
+                  href={`/jobs/salary/${role}/${cc.toLowerCase()}`}
+                  className="flex items-baseline gap-1.5 rounded-full border border-neutral-200 px-3 py-1.5 text-[13px] transition hover:border-accent/40 hover:bg-accent/5 dark:border-neutral-800"
+                >
+                  <span aria-hidden="true">{flagEmoji(cc)}</span>
+                  <span className="text-neutral-600 dark:text-neutral-400">
+                    {countryByCode(cc)?.uk ?? cc.toUpperCase()}
+                  </span>
+                  <span className="font-semibold text-neutral-900 tabular-nums dark:text-neutral-100">
+                    {LOCALES.map((locale) => (
+                      <span key={locale} className={LOCALE_VISIBILITY_CLASS[locale]}>
+                        {money(cs.median, cs.currency, locale)}
+                      </span>
+                    ))}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {/* Что именно посчитано: без этой строки числа выглядят точнее,
           чем они есть. Половина рынка между четвертью и тремя

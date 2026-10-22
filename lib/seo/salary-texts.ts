@@ -51,10 +51,19 @@ export function salaryLead(role: JobRole, country?: Country): L {
   const place = country ? ` — ${countryName(country, "uk")}` : "";
   const placeRu = country ? ` — ${countryName(country, "ru")}` : "";
   const placeEn = country ? ` in ${country.en}` : "";
+  // 22.10.2026, сразу после выкладки. На живых данных видно: у «Project
+  // та Product Management» из 1032 вакансій 758 американских, и мировая
+  // медиана -- это медиана США. Человеку из Києва она говорит неправду,
+  // если не сказать вслух, что число смешанное. Поэтому у страницы без
+  // страны своя вторая фраза, а разрез по странам поднят под сводку
+  // (components/salary-summary.tsx).
+  const mixUk = country ? "" : " Це всі країни разом, тож число змішане: нижче той самий напрям окремо по країнах.";
+  const mixRu = country ? "" : " Это все страны сразу, так что число смешанное: ниже то же направление отдельно по странам.";
+  const mixEn = country ? "" : " This is all countries at once, so the figure is mixed — the same role by country is right below.";
   return nine(
-    `Скільки платять за напрямом «${info.uk_hint}»${place}. Рахуємо тільки по вакансіях, де компанія сама назвала суму: нижче вони всі. Оновлюється щодня разом зі стрічкою.`,
-    `Сколько платят по направлению «${info.ru}»${placeRu}. Считаем только по вакансиям, где компания сама назвала сумму: ниже они все. Обновляется ежедневно вместе с лентой.`,
-    `What ${info.en} roles pay${placeEn}, counted only from jobs where the company stated the figure itself — all of them are listed below. Updated daily.`,
+    `Скільки платять за напрямом «${info.uk_hint}»${place}.${mixUk} Рахуємо тільки по вакансіях, де компанія сама назвала суму: нижче вони всі. Оновлюється щодня разом зі стрічкою.`,
+    `Сколько платят по направлению «${info.ru}»${placeRu}.${mixRu} Считаем только по вакансиям, где компания сама назвала сумму: ниже они все. Обновляется ежедневно вместе с лентой.`,
+    `What ${info.en} roles pay${placeEn}.${mixEn} Counted only from jobs where the company stated the figure itself — all of them are listed below. Updated daily.`,
   );
 }
 
@@ -86,16 +95,4 @@ export const SALARY_LINKS_TITLE: L = {
   pl: "Wynagrodzenia wg stanowiska",
   ptBR: "Salários por função",
   zh: "各职位薪资",
-};
-
-export const SALARY_COUNTRY_LINKS_TITLE: L = {
-  uk: "Ця ж професія за країнами",
-  en: "The same role by country",
-  ru: "Та же профессия по странам",
-  de: "Dieselbe Rolle nach Land",
-  es: "El mismo puesto por país",
-  fr: "Le même métier par pays",
-  pl: "To samo stanowisko wg kraju",
-  ptBR: "A mesma função por país",
-  zh: "同一职位按国家",
 };

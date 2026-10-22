@@ -8,7 +8,7 @@ import { countryByCode, countryName, flagEmoji } from "@/lib/seo/countries";
 import { TECH_LANDINGS } from "@/lib/seo/tech-landings";
 import { EMPLOYMENT_LANDINGS } from "@/lib/seo/employment-landings";
 import { salaryCountriesForRole, salaryRoles } from "@/lib/a1/salary-index";
-import { SALARY_COUNTRY_LINKS_TITLE, SALARY_LINKS_TITLE } from "@/lib/seo/salary-texts";
+import { SALARY_LINKS_TITLE } from "@/lib/seo/salary-texts";
 import { JOB_LEVELS, type JobLevel } from "@/lib/seo/job-level";
 import { cityLabel, levelLabel } from "@/lib/seo/segments";
 import { citiesForTech, cityTechList, countrySegments, countriesForTech, globalLevelCounts, globalRoleCounts, listCities, remoteTechList } from "@/lib/a1/segment-index";
@@ -242,26 +242,6 @@ export async function linksForSalaryOfRole(role: JobRole): Promise<SegmentLinkGr
     {
       title: SALARY_LINKS_TITLE,
       links: [{ href: `/jobs/salary/${role}`, label: `Зарплати: ${roleInfo(role)?.uk ?? role}` }],
-    },
-  ];
-}
-
-/** Та же профессия по странам. currentCc -- страна, на которой стоим. */
-export async function linksForSalaryCountries(role: JobRole, currentCc?: string): Promise<SegmentLinkGroup[]> {
-  const list = (await salaryCountriesForRole(role)).filter(
-    (c) => c.cc.toUpperCase() !== (currentCc ?? "").toUpperCase(),
-  );
-  if (list.length === 0) return [];
-  return [
-    {
-      title: SALARY_COUNTRY_LINKS_TITLE,
-      links: list.map((c) => {
-        const country = countryByCode(c.cc);
-        return {
-          href: `/jobs/salary/${role}/${c.cc.toLowerCase()}`,
-          label: `${flagEmoji(c.cc)} ${country ? country.uk : c.cc.toUpperCase()}`,
-        };
-      }),
     },
   ];
 }
