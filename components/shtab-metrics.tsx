@@ -13,10 +13,35 @@
 //   - ДЕЙСТВИЯ (нажали «скачать», зарегистрировались, откликнулись, забрали профиль) -- наш
 //     собственный счётчик lib/stats/store.ts, куда шлёт маячок lib/track.ts. Их не знает никакая
 //     внешняя аналитика: она видит запросы, а не то, что человек нажал.
+import { Fragment } from "react";
 import { loadStats, type StatEvent, type StatTotals } from "@/lib/stats/store";
 import { takenCount, totalSeats } from "@/lib/first250/store";
 
 const CF_ANALYTICS_URL = "https://dash.cloudflare.com/?to=/:account/web-analytics";
+
+/** Человеческие названия каналов. Чего нет в списке -- показываем как есть. */
+const SOURCE_NAMES: Record<string, string> = {
+  direct: "Напрямую (закладка, ссылка в мессенджере)",
+  google: "Google",
+  bing: "Bing",
+  duckduckgo: "DuckDuckGo",
+  telegram: "Telegram",
+  facebook: "Facebook",
+  instagram: "Instagram",
+  linkedin: "LinkedIn",
+  x: "X (Twitter)",
+  reddit: "Reddit",
+  youtube: "YouTube",
+  github: "GitHub",
+  dou: "DOU",
+  djinni: "Djinni",
+  "work-ua": "Work.ua",
+  "robota-ua": "Robota.ua",
+  chatgpt: "ChatGPT",
+  claude: "Claude",
+  perplexity: "Perplexity",
+  other: "Другие сайты",
+};
 
 const CSS = `
 .shm{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px 16px;box-shadow:var(--shadow)}
@@ -45,6 +70,10 @@ const CSS = `
 .shm-bar>div{height:100%;background:linear-gradient(90deg,#335ef7,#8b5cf6,#22d3ee)}
 .shm-note{font-size:12px;color:var(--dim);margin-top:10px}
 .shm-note a{color:inherit;text-decoration:underline}
+.shm-src{display:grid;grid-template-columns:1fr auto auto auto;gap:4px 12px;font-size:13px}
+.shm-src>span{padding:3px 0;border-top:1px dashed var(--row);font-variant-numeric:tabular-nums;text-align:right}
+.shm-src>span:nth-child(-n+4){border-top:0;color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+.shm-src>span.shm-src-name{text-align:left;color:var(--soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 `;
 
 function n(v: number): string {
@@ -139,6 +168,39 @@ export async function ShtabMetrics() {
         </>
       ) : (
         <div className="shm-note">Счётчик действий сейчас недоступен (хранилище не ответило), попробуем снова через минуту.</div>
+      )}
+
+      {/* 22.10.2026 (Александр: «acquisition и attribution нету никакого»).
+          Откуда люди приходят и доходят ли до дела. Канал определяется один
+          раз за вкладку (lib/track.ts) и пишется отдельной строкой, не
+          привязанной ни к человеку, ни к вакансии. */}
+      {week?.sources?.length ? (
+        <div className="shm-box">
+          <h3>Откуда приходят — за 7 дней</h3>
+          <div className="shm-src">
+            <span className="shm-src-name">Канал</span>
+            <span>Страниц</span>
+            <span>Переходов</span>
+            <span>Откликов</span>
+            {week.sources.slice(0, 10).map((s) => (
+              <Fragment key={s.source}>
+                <span className="shm-src-name">{SOURCE_NAMES[s.source] ?? s.source}</span>
+                <span>{n(s.totals.view)}</span>
+                <span>{n(s.totals.external)}</span>
+                <span>{n(s.totals.apply)}</span>
+              </Fragment>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="shm-box">
+          <h3>Откуда приходят</h3>
+          <div className="shm-note" style={{ marginTop: 0 }}>
+            Метка канала ставится с 22.10.2026 — первые цифры появятся, как только
+            начнутся заходы. Ссылки, которые мы публикуем сами, стоит помечать:
+            добавить к адресу <code>?utm_source=telegram</code>, и канал будет виден отдельной строкой.
+          </div>
+        </div>
       )}
 
       <div className="shm-box">

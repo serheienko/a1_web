@@ -30,6 +30,96 @@ export type TrackEvent =
   | "download_click"
   | "first250_claim";
 
+// ──────────────────────────── откуда пришёл ────────────────────────────
+//
+// 22.10.2026 (Александр: «acquisition и attribution нету никакого»). К
+// каждому событию добавляется ярлык канала: «google», «telegram»,
+// «direct». Без него счётчик отвечает «сколько», но не отвечает «откуда»,
+// а значит ни один канал нельзя признать работающим или мёртвым.
+//
+// Канал определяется ОДИН раз за вкладку и дальше живёт в sessionStorage:
+// иначе переход внутри сайта переписал бы метку на «пришёл с a1appp.com»,
+// и всё превратилось бы в «direct».
+//
+// Хранится только ярлык -- одно слово, одинаковое у всех, кто вошёл в ту
+// же дверь. Ни адреса страницы, с которой пришли, ни чего-либо про
+// человека здесь нет и не будет.
+
+const SOURCE_KEY = "a1_src";
+
+/** Хост источника -> ярлык. Первое совпадение выигрывает. */
+const CHANNELS: [RegExp, string][] = [
+  [/(^|\.)google\./, "google"],
+  [/(^|\.)bing\./, "bing"],
+  [/(^|\.)duckduckgo\./, "duckduckgo"],
+  [/(^|\.)(t\.me|telegram\.(org|me))$/, "telegram"],
+  [/(^|\.)(facebook\.com|fb\.me)$/, "facebook"],
+  [/(^|\.)instagram\./, "instagram"],
+  [/(^|\.)(linkedin\.com|lnkd\.in)$/, "linkedin"],
+  [/(^|\.)(twitter\.com|x\.com|t\.co)$/, "x"],
+  [/(^|\.)reddit\./, "reddit"],
+  [/(^|\.)youtube\./, "youtube"],
+  [/(^|\.)github\./, "github"],
+  [/(^|\.)dou\.ua$/, "dou"],
+  [/(^|\.)djinni\./, "djinni"],
+  [/(^|\.)work\.ua$/, "work-ua"],
+  [/(^|\.)robota\.ua$/, "robota-ua"],
+  [/(^|\.)(chatgpt\.com|chat\.openai\.com)$/, "chatgpt"],
+  [/(^|\.)claude\.ai$/, "claude"],
+  [/(^|\.)perplexity\./, "perplexity"],
+];
+
+function tidy(raw: string): string {
+  const v = raw.trim().toLowerCase().slice(0, 24);
+  return /^[a-z0-9][a-z0-9-]*$/.test(v) ? v : "";
+}
+
+function detectSource(): string {
+  // Метка в ссылке сильнее реферера: её ставим мы сами, когда публикуем
+  // ссылку в канале, и ради неё вся затея.
+  try {
+    const q = new URLSearchParams(window.location.search);
+    const tagged = tidy(q.get("utm_source") ?? q.get("s") ?? "");
+    if (tagged) return tagged;
+  } catch {
+    // адрес без параметров -- не беда
+  }
+  const ref = document.referrer;
+  if (!ref) return "direct";
+  let host = "";
+  try {
+    host = new URL(ref).hostname.toLowerCase();
+  } catch {
+    return "other";
+  }
+  // Переход внутри сайта, а метки в памяти нет: значит вкладка не помнит
+  // начала пути. Честнее не записать ничего, чем записать «direct» --
+  // «direct» означает «пришёл напрямую», а мы просто не знаем.
+  if (host === "a1appp.com" || host.endsWith(".a1appp.com")) return "";
+  for (const [rx, label] of CHANNELS) if (rx.test(host)) return label;
+  return "other";
+}
+
+/** Ярлык канала этой вкладки. Пустая строка -- не знаем, строку не пишем. */
+export function currentSource(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    const saved = window.sessionStorage.getItem(SOURCE_KEY);
+    if (saved) return saved;
+  } catch {
+    // приватный режим: определим заново на каждом событии, не беда
+  }
+  const found = detectSource();
+  if (found) {
+    try {
+      window.sessionStorage.setItem(SOURCE_KEY, found);
+    } catch {
+      // см. выше
+    }
+  }
+  return found;
+}
+
 function send(body: string): void {
   try {
     if (navigator.sendBeacon?.("/api/track", body)) return;
@@ -46,12 +136,12 @@ function send(body: string): void {
 /** Событие без привязки к компании и вакансии: регистрация, вход, «скачать», «Перші 250». */
 export function siteEvent(name: TrackEvent): void {
   if (typeof window === "undefined") return;
-  send(JSON.stringify({ e: name, c: "", p: "" }));
+  send(JSON.stringify({ e: name, c: "", p: "", s: currentSource() }));
 }
 
 export function track(event: TrackEvent, what?: { company?: string | null; post?: string | null }): void {
   if (typeof window === "undefined") return;
-  send(JSON.stringify({ e: event, c: what?.company ?? "", p: what?.post ?? "" }));
+  send(JSON.stringify({ e: event, c: what?.company ?? "", p: what?.post ?? "", s: currentSource() }));
 }
 
 /**

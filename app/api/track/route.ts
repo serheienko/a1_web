@@ -8,12 +8,21 @@ export const dynamic = "force-dynamic";
 // navigator.sendBeacon -- запрос уходит в фоне и ничего не ждёт, даже
 // если страница в этот момент закрывается.
 //
-// Здесь только счётчик. Ни кто нажал, ни откуда он -- не сохраняем:
-// для вопроса «сколько переходов у этой компании» это не нужно, а
-// хранить лишнее про людей незачем.
+// Здесь только счётчик. Кто нажал -- не сохраняем: для вопроса «сколько
+// переходов у этой компании» это не нужно, а хранить лишнее про людей
+// незачем.
+//
+// 22.10.2026. Появилось одно исключение -- ярлык канала («google»,
+// «telegram», «direct»). Раньше здесь было написано «и откуда он -- не
+// сохраняем», и это стоило нам ответа на главный вопрос: какой канал
+// приводит людей. Ярлык канала -- это дверь, а не человек: он одинаковый
+// у всех, кто пришёл из поиска, и по нему нельзя узнать никого. Он идёт
+// ОТДЕЛЬНОЙ строкой (lib/stats/store.ts, SOURCE_MARK), не привязанной ни
+// к вакансии, ни к компании, поэтому связать «этот человек смотрел эту
+// вакансию» по нему тоже нельзя.
 
 import { NextRequest, NextResponse } from "next/server";
-import { bump, STAT_EVENTS, type StatEvent } from "@/lib/stats/store";
+import { bump, SOURCE_MARK, STAT_EVENTS, type StatEvent } from "@/lib/stats/store";
 
 // Столько событий с одного адреса в минуту. Не защита от злого умысла
 // (её тут и не построить), а заслон от зациклившейся страницы.
@@ -32,6 +41,15 @@ function tooMany(ip: string): boolean {
   }
   rec.n += 1;
   return rec.n > MAX_PER_MINUTE;
+}
+
+/** Ярлык канала: буквы, цифры и дефис, не длиннее 24 знаков. Длина -- чтобы
+ *  чужая метка в ссылке не наплодила строк, набор знаков -- чтобы ярлык
+ *  нельзя было спутать с ником компании. */
+function cleanSource(value: unknown): string {
+  if (typeof value !== "string") return "";
+  const v = value.trim().toLowerCase().slice(0, 24);
+  return /^[a-z0-9][a-z0-9-]*$/.test(v) ? v : "";
 }
 
 /** Ник компании / адрес вакансии: только то, что бывает в наших адресах. */
@@ -54,11 +72,14 @@ export async function POST(request: NextRequest) {
   }
   if (!body || typeof body !== "object") return new NextResponse(null, { status: 204 });
 
-  const { e, c, p } = body as { e?: unknown; c?: unknown; p?: unknown };
+  const { e, c, p, s } = body as { e?: unknown; c?: unknown; p?: unknown; s?: unknown };
   if (typeof e !== "string" || !(STAT_EVENTS as readonly string[]).includes(e)) {
     return new NextResponse(null, { status: 204 });
   }
 
-  bump({ event: e as StatEvent, company: clean(c), post: clean(p) });
+  const event = e as StatEvent;
+  bump({ event, company: clean(c), post: clean(p) });
+  const source = cleanSource(s);
+  if (source) bump({ event, company: SOURCE_MARK, post: source });
   return new NextResponse(null, { status: 204 });
 }

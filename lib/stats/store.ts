@@ -48,6 +48,20 @@ export type StatEvent = (typeof STAT_EVENTS)[number];
 
 export type StatKey = { event: StatEvent; company: string; post: string };
 
+/**
+ * 22.10.2026 (Александр: «нет агента по атрибуции... самый важный момент»).
+ * Откуда человек пришёл. Хранится ОТДЕЛЬНОЙ строкой, а не четвёртым полем
+ * ключа: поле удесятерило бы число строк (у нас их столько же, сколько
+ * вакансий), и день упёрся бы в MAX_ROWS. Здесь вместо ника компании стоит
+ * «@src», а в месте адреса вакансии -- ярлык канала: «google», «telegram»,
+ * «direct». Настоящим ником «@src» быть не может -- собачку не пропускает
+ * проверка в app/api/track/route.ts.
+ *
+ * Это ярлык ДВЕРИ, а не человека: кто нажал, мы по-прежнему не знаем и не
+ * храним. Именно поэтому строка и допустима -- см. шапку route.ts.
+ */
+export const SOURCE_MARK = "@src";
+
 export type StatFile = {
   v: 1;
   day: string;
@@ -187,6 +201,8 @@ async function readOwnFile(day: string): Promise<StatFile | null> {
 
 export type StatTotals = Record<StatEvent, number>;
 
+export type SourceStats = { source: string; totals: StatTotals };
+
 export type CompanyStats = {
   company: string;
   totals: StatTotals;
@@ -201,10 +217,10 @@ function emptyTotals(): StatTotals {
  * Сводка за последние `days` дней: по компаниям, внутри -- по вакансиям.
  * Читает по файлу на инстанс на день (единицы файлов), поэтому быстро.
  */
-export async function loadStats(days: number): Promise<{ ok: boolean; from: string; companies: CompanyStats[]; totals: StatTotals }> {
+export async function loadStats(days: number): Promise<{ ok: boolean; from: string; companies: CompanyStats[]; totals: StatTotals; sources: SourceStats[] }> {
   const wanted = recentDays(Math.max(1, Math.min(days, 90)));
   const from = wanted[wanted.length - 1]!;
-  if (!kvConfigured()) return { ok: false, from, companies: [], totals: emptyTotals() };
+  if (!kvConfigured()) return { ok: false, from, companies: [], totals: emptyTotals(), sources: [] };
 
   // Своё ещё не сброшенное тоже показываем -- иначе свежий клик «пропадает»
   // на пятнадцать секунд и выглядит как поломка.
@@ -222,16 +238,25 @@ export async function loadStats(days: number): Promise<{ ok: boolean; from: stri
       }),
     );
   } catch {
-    return { ok: false, from, companies: [], totals: emptyTotals() };
+    return { ok: false, from, companies: [], totals: emptyTotals(), sources: [] };
   }
 
   const byCompany = new Map<string, { totals: StatTotals; posts: Map<string, StatTotals> }>();
+  const bySource = new Map<string, StatTotals>();
   const totals = emptyTotals();
 
   for (const file of files) {
     for (const [raw, count] of Object.entries(file.rows)) {
       const k = parseKey(raw);
       if (!k || typeof count !== "number") continue;
+      // Строки канала -- те же события, посчитанные второй раз в другом
+      // разрезе. В общий итог и в компании они не идут, иначе всё удвоится.
+      if (k.company === SOURCE_MARK) {
+        const src = bySource.get(k.post) ?? emptyTotals();
+        src[k.event] += count;
+        bySource.set(k.post, src);
+        continue;
+      }
       totals[k.event] += count;
       const company = byCompany.get(k.company) ?? { totals: emptyTotals(), posts: new Map<string, StatTotals>() };
       company.totals[k.event] += count;
@@ -255,7 +280,11 @@ export async function loadStats(days: number): Promise<{ ok: boolean; from: stri
     }))
     .sort((a, b) => score(b.totals) - score(a.totals));
 
-  return { ok: true, from, companies, totals };
+  const sources: SourceStats[] = [...bySource.entries()]
+    .map(([source, t]) => ({ source, totals: t }))
+    .sort((a, b) => score(b.totals) - score(a.totals));
+
+  return { ok: true, from, companies, totals, sources };
 }
 
 /** Чем строка «интереснее»: переход и клейм весомее простого просмотра. */
