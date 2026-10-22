@@ -30,6 +30,8 @@ import { techCounts } from "@/lib/a1/tech-index";
 import { countryByCode, countryName, flagEmoji } from "@/lib/seo/countries";
 import { FACT_LANDINGS } from "@/lib/seo/fact-landings";
 import { JOB_LANDINGS } from "@/lib/seo/job-landings";
+import { EMPLOYMENT_LANDINGS } from "@/lib/seo/employment-landings";
+import { salaryRoles } from "@/lib/a1/salary-index";
 import { roleInfo } from "@/lib/seo/job-role";
 import { cityLabel, levelLabel, MIN_SEGMENT_POSTS } from "@/lib/seo/segments";
 import { TECH_LANDINGS } from "@/lib/seo/tech-landings";
@@ -61,6 +63,8 @@ export default async function Page() {
 
   // 14.10.2026: «Хто наймає в IT» по месяцам -- первым блоком, это свежий контент.
   const hiringKeys = await hiringMonths().catch(() => [] as string[]);
+  // 22.10.2026: зарплатные страницы -- только те, что действительно есть.
+  const salaryPages = await salaryRoles();
   const groups: SegmentLinkGroup[] = [
     {
       title: { uk: "Хто наймає в IT", en: "Who's hiring in tech", ru: "Кто нанимает в IT", de: "Wer stellt ein", es: "Quién contrata", fr: "Qui recrute", pl: "Kto zatrudnia", ptBR: "Quem contrata", zh: "谁在招聘" },
@@ -69,6 +73,14 @@ export default async function Page() {
     {
       title: { uk: "За форматом роботи", en: "By work format", ru: "По формату работы", de: "Nach Arbeitsform", es: "Por formato", fr: "Par format", pl: "Wg formy pracy", ptBR: "Por formato", zh: "按工作形式" },
       links: JOB_LANDINGS.map((l) => ({ href: `/jobs/${l.slug}`, label: l.h1.uk })),
+    },
+    {
+      title: { uk: "За типом зайнятості", en: "By employment type", ru: "По типу занятости", de: "Nach Beschäftigungsart", es: "Por tipo de jornada", fr: "Par type de contrat", pl: "Wg wymiaru etatu", ptBR: "Por tipo de contrato", zh: "按雇佣类型" },
+      links: EMPLOYMENT_LANDINGS.map((l) => ({ href: `/jobs/type/${l.slug}`, label: l.h1.uk })),
+    },
+    {
+      title: { uk: "Зарплати за напрямом", en: "Salaries by role", ru: "Зарплаты по направлению", de: "Gehälter nach Rolle", es: "Salarios por puesto", fr: "Salaires par métier", pl: "Wynagrodzenia wg stanowiska", ptBR: "Salários por função", zh: "各职位薪资" },
+      links: salaryPages.map((r) => ({ href: `/jobs/salary/${r.role}`, label: roleInfo(r.role)?.uk ?? r.role })),
     },
     {
       title: { uk: "За професією", en: "By role", ru: "По профессии", de: "Nach Rolle", es: "Por puesto", fr: "Par métier", pl: "Wg stanowiska", ptBR: "Por função", zh: "按职位" },

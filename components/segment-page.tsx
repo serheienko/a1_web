@@ -99,6 +99,7 @@ export async function SegmentPage({
   path,
   groups,
   page = 1,
+  beforeList,
 }: {
   h1: L;
   countLine: L;
@@ -110,6 +111,10 @@ export async function SegmentPage({
   groups: SegmentLinkGroup[];
   /** Номер страницы списка (?page=N), с 1. */
   page?: number;
+  /** 22.10.2026. Блок между шапкой и списком: зарплатная сводка
+   *  (components/salary-summary.tsx). Нужен только на первой странице --
+   *  на второй числа те же, а место занимают. */
+  beforeList?: React.ReactNode;
 }) {
   // 08.10.2026: страницы по 20 с нумерацией (раньше -- только первые 40, дальше листать было некуда).
   const shown = posts.slice((page - 1) * LANDING_PAGE_SIZE, page * LANDING_PAGE_SIZE);
@@ -143,6 +148,8 @@ export async function SegmentPage({
           <T {...lead} />
         </p>
       </header>
+
+      {page === 1 ? beforeList : null}
 
       {shown.length === 0 ? (
         <EmptyState

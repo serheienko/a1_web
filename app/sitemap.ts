@@ -22,6 +22,8 @@ import type { MetadataRoute } from "next";
 import { fetchAllSitemapJobPosts, SITEMAP_JOBS_PER_CHUNK, sitemapChunkCount } from "@/lib/a1/sitemap-posts";
 import { profileHref } from "@/lib/profile-href";
 import { JOB_LANDINGS } from "@/lib/seo/job-landings";
+import { EMPLOYMENT_LANDINGS } from "@/lib/seo/employment-landings";
+import { salaryRoleCountryPairs, salaryRoles } from "@/lib/a1/salary-index";
 import { FACT_LANDINGS } from "@/lib/seo/fact-landings";
 import { TECH_LANDINGS } from "@/lib/seo/tech-landings";
 import { HIRING_MIN_MONTH_POSTS, hiringMonth, hiringMonths } from "@/lib/seo/hiring-month";
@@ -93,6 +95,11 @@ async function buildSitemap({ id }: { id: number | string }): Promise<MetadataRo
     for (const landing of JOB_LANDINGS) {
       entries.push({ url: `${SITE_URL}/jobs/${landing.slug}` });
     }
+    // 22.10.2026: посадочные по типу занятости
+    // (lib/seo/employment-landings.ts). Их тоже три, едут рядом.
+    for (const landing of EMPLOYMENT_LANDINGS) {
+      entries.push({ url: `${SITE_URL}/jobs/type/${landing.slug}` });
+    }
     // 2026-09-18: посадочные по стеку (lib/seo/tech-landings.ts). С
     // 10.10.2026 их не шестнадцать, а весь словарь технологий -- всё ещё
     // меньше сотни, так что отдельного чанка по-прежнему не стоят.
@@ -110,6 +117,17 @@ async function buildSitemap({ id }: { id: number | string }): Promise<MetadataRo
     // (lib/seo/fact-landings.ts) -- «без досвіду» и «бронювання».
     for (const landing of FACT_LANDINGS) {
       entries.push({ url: `${SITE_URL}/jobs/tag/${landing.slug}` });
+    }
+    // 22.10.2026: зарплатные страницы (lib/a1/salary-index.ts). В карту
+    // идут только существующие: индекс сам отсекает выборки, где
+    // вакансий с названной суммой меньше порога, -- остальные отвечают
+    // 404, и делать им в карте нечего.
+    entries.push({ url: `${SITE_URL}/jobs/salary` });
+    for (const { role } of await salaryRoles()) {
+      entries.push({ url: `${SITE_URL}/jobs/salary/${role}` });
+    }
+    for (const pair of await salaryRoleCountryPairs()) {
+      entries.push({ url: `${SITE_URL}/jobs/salary/${pair.role}/${pair.cc.toLowerCase()}` });
     }
     // 2026-09-18: страница сравнения с Djinni и DOU (app/compare).
     entries.push({ url: `${SITE_URL}/compare` });

@@ -28,7 +28,7 @@ import { truncateAtWordBoundary } from "@/lib/format";
 import { COUNTRIES } from "@/lib/seo/countries";
 import type { WebPost } from "@/types/web-post";
 import { buildJobMetaDescription, buildExternalJobMetaDescription, isExternalIndexable } from "@/lib/seo/job-meta";
-import { findLandingByTag } from "@/lib/seo/job-landings";
+import { findLandingByTag, landingHref } from "@/lib/seo/landing-for-tag";
 import { fetchPostComments } from "@/lib/a1/comments";
 import { PostComments } from "@/components/post-comments";
 import { RelativeTime, SalaryLabel, LocationLabel } from "@/components/locale-format";
@@ -441,7 +441,7 @@ export default async function JobDetailPage({ params }: Props) {
               return (
                 <Link
                   key={tag}
-                  href={`/jobs/${landing.slug}`}
+                  href={landingHref(landing)}
                   className={`${pill} transition hover:border-accent/40 hover:text-accent`}
                 >
                   <TagLabel text={tag} />

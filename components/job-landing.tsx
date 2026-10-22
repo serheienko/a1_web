@@ -18,6 +18,7 @@ import { EmptyState } from "@/components/empty-state";
 import { LOCALES, LOCALE_VISIBILITY_CLASS, type Locale } from "@/components/t";
 import { T } from "@/components/t";
 import type { JobLanding } from "@/lib/seo/job-landings";
+import { landingHref } from "@/lib/seo/landing-for-tag";
 import { LandingCountryBadge } from "@/components/landing-country-badge";
 import { LandingBar } from "@/components/landing-bar";
 import { withCountry } from "@/lib/seo/landing-country";
@@ -69,7 +70,7 @@ export async function JobLandingPage({
   const totalPages = Math.max(1, Math.ceil(total / FEED_PAGE_SIZE));
   const avatarBlurs = await Promise.all(posts.map((post) => generateAvatarBlurDataUrl(post.author.avatarUrl)));
 
-  const basePath = `/jobs/${landing.slug}`;
+  const basePath = landingHref(landing);
 
   return (
     <main className="mx-auto max-w-3xl px-4 pt-6 sm:pt-16 pb-fab-safe">
@@ -113,7 +114,13 @@ export async function JobLandingPage({
       {posts.length === 0 ? (
         <EmptyState
           message={
-            <T uk="Поки немає відкритих вакансій у цьому форматі." en="There are no open jobs in this format yet." ru="Пока нет открытых вакансий в этом формате." de="Es gibt noch keine offenen Stellen in diesem Format." es="Todavía no hay vacantes en este formato." fr="Il n'y a pas encore d'offres dans ce format." pl="Nie ma jeszcze ofert w tym formacie." ptBR="Ainda não há vagas neste formato." zh="该形式暂无开放职位。" />
+            // 22.10.2026: у посадочных по типу занятости свой текст --
+            // «в цьому форматі» там читалось бы про remote/офис.
+            landing.empty ? (
+              <T {...landing.empty} />
+            ) : (
+              <T uk="Поки немає відкритих вакансій у цьому форматі." en="There are no open jobs in this format yet." ru="Пока нет открытых вакансий в этом формате." de="Es gibt noch keine offenen Stellen in diesem Format." es="Todavía no hay vacantes en este formato." fr="Il n'y a pas encore d'offres dans ce format." pl="Nie ma jeszcze ofert w tym formacie." ptBR="Ainda não há vagas neste formato." zh="该形式暂无开放职位。" />
+            )
           }
         />
       ) : (

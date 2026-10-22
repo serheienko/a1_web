@@ -6,6 +6,9 @@
 
 import { countryByCode, countryName, flagEmoji } from "@/lib/seo/countries";
 import { TECH_LANDINGS } from "@/lib/seo/tech-landings";
+import { EMPLOYMENT_LANDINGS } from "@/lib/seo/employment-landings";
+import { salaryCountriesForRole, salaryRoles } from "@/lib/a1/salary-index";
+import { SALARY_COUNTRY_LINKS_TITLE, SALARY_LINKS_TITLE } from "@/lib/seo/salary-texts";
 import { JOB_LEVELS, type JobLevel } from "@/lib/seo/job-level";
 import { cityLabel, levelLabel } from "@/lib/seo/segments";
 import { citiesForTech, cityTechList, countrySegments, countriesForTech, globalLevelCounts, globalRoleCounts, listCities, remoteTechList } from "@/lib/a1/segment-index";
@@ -181,6 +184,86 @@ export function articleLinks(slugs: string[]): SegmentLinkGroup[] {
   if (links.length === 0) return [];
   const title = { uk: "Корисні статті", en: "Useful articles", ru: "Полезные статьи", de: "Nützliche Artikel", es: "Artículos útiles", fr: "Articles utiles", pl: "Przydatne artykuły", ptBR: "Artigos úteis", zh: "实用文章" };
   return [{ title, links }];
+}
+
+/**
+ * 22.10.2026. Блок «за типом зайнятості»: ссылки между тремя страницами
+ * /jobs/type/*. Счётчиками не проверяем, в отличие от сегментов по
+ * странам и технологиям: эти три страницы существуют всегда, как и
+ * посадочные по формату работы, и ведут на живой список или на честный
+ * «поки немає».
+ */
+export function linksForEmploymentTypes(current?: string): SegmentLinkGroup[] {
+  const links = EMPLOYMENT_LANDINGS.filter((l) => l.slug !== current).map((l) => ({
+    href: `/jobs/type/${l.slug}`,
+    // Подпись одноязычная, как во всех блоках перелинковки: тип ссылки
+    // здесь -- string, а не девятиязычная запись (см. SegmentLinkGroup).
+    label: l.h1.uk,
+  }));
+  if (links.length === 0) return [];
+  return [
+    {
+      title: { uk: "За типом зайнятості", en: "By employment type", ru: "По типу занятости", de: "Nach Beschäftigungsart", es: "Por tipo de jornada", fr: "Par type de contrat", pl: "Wg wymiaru etatu", ptBR: "Por tipo de contrato", zh: "按雇佣类型" },
+      links,
+    },
+  ];
+}
+
+/**
+ * 22.10.2026. Блоки перелинковки зарплатных страниц. Ссылки идут только
+ * на те, что действительно существуют: salaryRoles() и
+ * salaryCountriesForRole() сами отсекают выборки, где вакансий с
+ * названной суммой меньше порога.
+ */
+export async function linksForSalaryRoles(current?: JobRole): Promise<SegmentLinkGroup[]> {
+  const list = (await salaryRoles()).filter((r) => r.role !== current);
+  if (list.length === 0) return [];
+  return [
+    {
+      title: SALARY_LINKS_TITLE,
+      links: list.map((r) => ({
+        href: `/jobs/salary/${r.role}`,
+        label: roleInfo(r.role)?.uk ?? r.role,
+      })),
+    },
+  ];
+}
+
+/**
+ * Одна ссылка с обычной страницы профессии на её зарплатную -- если та
+ * существует. Самый ценный внутренний переход из всех: человек, который
+ * смотрит вакансии по направлению, следующим вопросом спрашивает
+ * «сколько тут платят».
+ */
+export async function linksForSalaryOfRole(role: JobRole): Promise<SegmentLinkGroup[]> {
+  const has = (await salaryRoles()).some((r) => r.role === role);
+  if (!has) return [];
+  return [
+    {
+      title: SALARY_LINKS_TITLE,
+      links: [{ href: `/jobs/salary/${role}`, label: `Зарплати: ${roleInfo(role)?.uk ?? role}` }],
+    },
+  ];
+}
+
+/** Та же профессия по странам. currentCc -- страна, на которой стоим. */
+export async function linksForSalaryCountries(role: JobRole, currentCc?: string): Promise<SegmentLinkGroup[]> {
+  const list = (await salaryCountriesForRole(role)).filter(
+    (c) => c.cc.toUpperCase() !== (currentCc ?? "").toUpperCase(),
+  );
+  if (list.length === 0) return [];
+  return [
+    {
+      title: SALARY_COUNTRY_LINKS_TITLE,
+      links: list.map((c) => {
+        const country = countryByCode(c.cc);
+        return {
+          href: `/jobs/salary/${role}/${c.cc.toLowerCase()}`,
+          label: `${flagEmoji(c.cc)} ${country ? country.uk : c.cc.toUpperCase()}`,
+        };
+      }),
+    },
+  ];
 }
 
 /** Блок для /jobs/remote: удалённо по технологиям (01.10.2026). */

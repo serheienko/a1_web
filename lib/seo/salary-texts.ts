@@ -1,0 +1,101 @@
+// lib/seo/salary-texts.ts
+//
+// 22.10.2026 (Разведчик: «сторінки Зарплати: <роль>, <країна>»). Тексты
+// зарплатных страниц. Устроено как lib/seo/role-texts.ts: всё собирается
+// из полей самой профессии (lib/seo/job-role.ts) и страны
+// (lib/seo/countries.ts), а не из справочников Record<JobRole, ...> --
+// при сорока с лишним профессиях справочник означал бы правку в трёх
+// местах на каждую новую.
+//
+// Отбор и арифметика -- в lib/a1/salary-index.ts и lib/a1/salary-stats.ts.
+
+import type { Locale } from "@/components/t";
+import { roleInfo, type JobRole } from "@/lib/seo/job-role";
+import { countryName, type Country } from "@/lib/seo/countries";
+
+type L = Record<Locale, string>;
+
+/** Девятиязычная запись, где отличаются только украинский и русский. */
+function nine(uk: string, ru: string, en: string): L {
+  return { uk, en, ru, de: en, es: en, fr: en, pl: en, ptBR: en, zh: en };
+}
+
+export function salaryH1(role: JobRole, country?: Country): L {
+  const info = roleInfo(role)!;
+  if (!country) {
+    return nine(`Зарплати: ${info.uk}`, `Зарплаты: ${info.ru}`, `${info.en} salaries`);
+  }
+  return nine(
+    `Зарплати: ${info.uk}, ${countryName(country, "uk")}`,
+    `Зарплаты: ${info.ru}, ${countryName(country, "ru")}`,
+    `${info.en} salaries in ${country.en}`,
+  );
+}
+
+/** Строка под заголовком. {n} -- число вакансий, попавших в расчёт. */
+export function salaryCountLine(role: JobRole): L {
+  const en = `based on {n} ${roleInfo(role)!.en} jobs with a stated salary`;
+  return nine(
+    "за {n} вакансіями, де компанія назвала суму",
+    "по {n} вакансиям, где компания назвала сумму",
+    en,
+  );
+}
+
+export function salaryLead(role: JobRole, country?: Country): L {
+  const info = roleInfo(role)!;
+  // Страна приписывается через тире, а не предлогом: справочник
+  // (lib/seo/countries.ts) знает только именительный падеж, и «в Польща»
+  // из него выходит само собой. Тот же приём, что у cityH1 в
+  // lib/seo/segments.ts -- там падеж обходят двоеточием.
+  const place = country ? ` — ${countryName(country, "uk")}` : "";
+  const placeRu = country ? ` — ${countryName(country, "ru")}` : "";
+  const placeEn = country ? ` in ${country.en}` : "";
+  return nine(
+    `Скільки платять за напрямом «${info.uk_hint}»${place}. Рахуємо тільки по вакансіях, де компанія сама назвала суму: нижче вони всі. Оновлюється щодня разом зі стрічкою.`,
+    `Сколько платят по направлению «${info.ru}»${placeRu}. Считаем только по вакансиям, где компания сама назвала сумму: ниже они все. Обновляется ежедневно вместе с лентой.`,
+    `What ${info.en} roles pay${placeEn}, counted only from jobs where the company stated the figure itself — all of them are listed below. Updated daily.`,
+  );
+}
+
+export function salaryMeta(role: JobRole, country?: Country): { title: string; description: string } {
+  const info = roleInfo(role)!;
+  const place = country ? `, ${countryName(country, "uk")}` : "";
+  return {
+    title: `Зарплати: ${info.uk}${place} — вилка та медіана | A1 Jobs`,
+    description: `Скільки платять за напрямом «${info.uk_hint}»${place}: вилка, медіана і всі вакансії з указаною сумою. Оновлюється щодня.`,
+  };
+}
+
+/** Заголовок страницы-указателя /jobs/salary. */
+export const SALARY_HUB_H1: L = nine("Зарплати в IT", "Зарплаты в IT", "IT salaries");
+
+export const SALARY_HUB_LEAD: L = nine(
+  "Скільки платять за напрямами — за вакансіями, де компанія сама назвала суму. Сторінка з'являється лише там, де таких вакансій достатньо: медіана за трьома вакансіями — це не медіана, а три вакансії.",
+  "Сколько платят по направлениям — по вакансиям, где компания сама назвала сумму. Страница появляется только там, где таких вакансий достаточно: медиана по трём вакансиям — это не медиана, а три вакансии.",
+  "What roles pay, counted from jobs where the company stated the figure itself. A page appears only where there are enough such jobs — a median over three jobs is not a median, it is three jobs.",
+);
+
+export const SALARY_LINKS_TITLE: L = {
+  uk: "Зарплати за напрямом",
+  en: "Salaries by role",
+  ru: "Зарплаты по направлению",
+  de: "Gehälter nach Rolle",
+  es: "Salarios por puesto",
+  fr: "Salaires par métier",
+  pl: "Wynagrodzenia wg stanowiska",
+  ptBR: "Salários por função",
+  zh: "各职位薪资",
+};
+
+export const SALARY_COUNTRY_LINKS_TITLE: L = {
+  uk: "Ця ж професія за країнами",
+  en: "The same role by country",
+  ru: "Та же профессия по странам",
+  de: "Dieselbe Rolle nach Land",
+  es: "El mismo puesto por país",
+  fr: "Le même métier par pays",
+  pl: "To samo stanowisko wg kraju",
+  ptBR: "A mesma função por país",
+  zh: "同一职位按国家",
+};
