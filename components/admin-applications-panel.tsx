@@ -27,6 +27,7 @@ import { AdminNav, useAdminLocale } from "@/components/admin-nav";
 import type { Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
 import { ClaimLinkButton, ClaimLinkDetails, useClaimLink } from "@/components/admin-claim-link";
+import { parseSlugId } from "@/lib/seo/slug";
 
 type ApplicationMessage = { id: string; text: string; kind: string; dateMs: number; fromCompany: boolean };
 type Application = {
@@ -41,10 +42,73 @@ type Application = {
   messages: ApplicationMessage[];
 };
 
+// 23.10.2026 (Александр: «мне надо отклики и рядом метрику с просмотром
+// их страницы... хороший аргумент потом показывать компаниям: у нас 200
+// просмотров вашей вакансии и 5 откликов»).
+//
+// Цифры берём из нашего же счётчика (lib/stats/store.ts, окно «Метрики»
+// в штабе) -- один запрос на всю страницу, не по запросу на отклик.
+// Umami, которая считала посещаемость раньше, выключена 16.10.2026, так
+// что другого источника просмотров у нас и нет.
+//
+// Связь «отклик -> вакансия» идёт через id поста. Текст отклика
+// (components/post-viewer-menu.tsx, applyMessage) заканчивается ссылкой
+// вида .../postDetails/po_123, а адрес вакансии на сайте -- это
+// «<заголовок>-po_123» (lib/seo/slug.ts). То есть id в обоих местах один
+// и тот же, и parseSlugId достаёт его из адреса обратно.
+type StatTotals = Record<string, number>;
+type StatsCompany = { company: string; totals: StatTotals; posts: { post: string; totals: StatTotals }[] };
+type StatsIndex = {
+  /** id поста -> цифры ИМЕННО этой вакансии (+ ник компании). */
+  byPostId: Map<string, { company: string; totals: StatTotals }>;
+  /** ник компании -> цифры по всем её вакансиям вместе. */
+  byCompany: Map<string, StatTotals>;
+};
+
+/** Сколько дней статистики тянем. Счётчик начал писать 11.10.2026, 90 -- потолок loadStats. */
+const STATS_DAYS = 90;
+
+const POST_ID_IN_TEXT = /po_[a-zA-Z0-9]+/;
+
+/** id вакансии из текста отклика. Берём первое совпадение: ссылка в отклике одна. */
+function postIdOf(app: Application): string | null {
+  for (const m of app.messages) {
+    const hit = m.text.match(POST_ID_IN_TEXT);
+    if (hit) return hit[0].toLowerCase();
+  }
+  return null;
+}
+
+function buildStatsIndex(companies: StatsCompany[]): StatsIndex {
+  const byPostId = new Map<string, { company: string; totals: StatTotals }>();
+  const byCompany = new Map<string, StatTotals>();
+  for (const c of companies) {
+    byCompany.set(c.company, c.totals);
+    for (const p of c.posts) {
+      const id = parseSlugId(p.post);
+      if (id) byPostId.set(id.toLowerCase(), { company: c.company, totals: p.totals });
+    }
+  }
+  return { byPostId, byCompany };
+}
+
+async function fetchStats(): Promise<StatsIndex | null> {
+  try {
+    const res = await authFetch(`/api/admin/stats?days=${STATS_DAYS}`);
+    const data = await res.json();
+    if (!data?.ok || !Array.isArray(data.companies)) return null;
+    return buildStatsIndex(data.companies as StatsCompany[]);
+  } catch {
+    // Статистика -- добавка к списку откликов, а не он сам: не вышло -- список всё равно открывается.
+    return null;
+  }
+}
+
 type StringKey =
   | "title" | "signedInAs" | "totalCount" | "loadingMore" | "searchPlaceholder"
   | "empty" | "noMatches" | "loadError" | "unknownApplicant"
-  | "noText" | "fromCompany" | "refresh" | "groupCount";
+  | "noText" | "fromCompany" | "refresh" | "groupCount"
+  | "statViews" | "statExternal" | "statApply" | "statNone" | "statCompanyTotal";
 
 const STRINGS: Record<StringKey, Record<Locale, string>> = {
   title: { uk: "Відгуки", en: "Applications", ru: "Отклики", de: "Bewerbungen", es: "Candidaturas", fr: "Candidatures", pl: "Aplikacje", ptBR: "Candidaturas", zh: "申请" },
@@ -60,6 +124,13 @@ const STRINGS: Record<StringKey, Record<Locale, string>> = {
   fromCompany: { uk: "Від компанії", en: "From the company", ru: "От компании", de: "Vom Unternehmen", es: "De la empresa", fr: "De l'entreprise", pl: "Od firmy", ptBR: "Da empresa", zh: "来自公司" },
   groupCount: { uk: "відгуків: {n}", en: "applications: {n}", ru: "откликов: {n}", de: "Bewerbungen: {n}", es: "candidaturas: {n}", fr: "candidatures : {n}", pl: "aplikacji: {n}", ptBR: "candidaturas: {n}", zh: "申请：{n}" },
   refresh: { uk: "Оновити", en: "Refresh", ru: "Обновить", de: "Aktualisieren", es: "Actualizar", fr: "Actualiser", pl: "Odśwież", ptBR: "Atualizar", zh: "刷新" },
+  // 23.10.2026. Подписи к цифрам счётчика. Коротко: они стоят в одну
+  // строку под откликом, рядом с датой, а не отдельной таблицей.
+  statViews: { uk: "переглядів: {n}", en: "views: {n}", ru: "просмотров: {n}", de: "Aufrufe: {n}", es: "vistas: {n}", fr: "vues : {n}", pl: "wyświetleń: {n}", ptBR: "visualizações: {n}", zh: "浏览：{n}" },
+  statExternal: { uk: "переходів: {n}", en: "clicks out: {n}", ru: "переходов: {n}", de: "Weiterleitungen: {n}", es: "clics salientes: {n}", fr: "clics sortants : {n}", pl: "przejść: {n}", ptBR: "cliques externos: {n}", zh: "跳转：{n}" },
+  statApply: { uk: "відгуків: {n}", en: "applications: {n}", ru: "откликов: {n}", de: "Bewerbungen: {n}", es: "candidaturas: {n}", fr: "candidatures : {n}", pl: "aplikacji: {n}", ptBR: "candidaturas: {n}", zh: "申请：{n}" },
+  statNone: { uk: "статистики ще немає", en: "no stats yet", ru: "статистики ещё нет", de: "noch keine Statistik", es: "aún sin estadísticas", fr: "pas encore de statistiques", pl: "brak jeszcze statystyk", ptBR: "ainda sem estatísticas", zh: "暂无统计" },
+  statCompanyTotal: { uk: "Усі вакансії компанії", en: "All company vacancies", ru: "Все вакансии компании", de: "Alle Stellen des Unternehmens", es: "Todas las vacantes de la empresa", fr: "Toutes les offres de l'entreprise", pl: "Wszystkie oferty firmy", ptBR: "Todas as vagas da empresa", zh: "公司全部职位" },
 };
 
 function t(key: StringKey, lang: Locale, vars?: Record<string, string | number>): string {
@@ -113,6 +184,9 @@ export function AdminApplicationsPanel({ signedInAs }: { signedInAs: string }) {
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState(false);
   const [query, setQuery] = useState("");
+  // Цифры счётчика: грузятся один раз, параллельно обходу аккаунтов, и
+  // ничего не блокируют -- пока их нет, под откликами просто пусто.
+  const [stats, setStats] = useState<StatsIndex | null>(null);
   // Bumped on every (re)start and on unmount — an in-flight run whose id
   // no longer matches drops its results instead of writing them into a
   // newer run's state.
@@ -179,6 +253,7 @@ export function AdminApplicationsPanel({ signedInAs }: { signedInAs: string }) {
 
   useEffect(() => {
     scanAll();
+    void fetchStats().then(setStats);
     return () => {
       runIdRef.current++;
     };
@@ -246,7 +321,10 @@ export function AdminApplicationsPanel({ signedInAs }: { signedInAs: string }) {
         </div>
         <button
           type="button"
-          onClick={() => scanAll(true)}
+          onClick={() => {
+            void scanAll(true);
+            void fetchStats().then(setStats);
+          }}
           className="shrink-0 rounded-full border border-neutral-300 px-3 py-1 text-xs font-medium text-neutral-600 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
         >
           {STRINGS.refresh[lang]}
@@ -282,7 +360,7 @@ export function AdminApplicationsPanel({ signedInAs }: { signedInAs: string }) {
 
       <div className="flex flex-col gap-2">
         {groups?.map((group) => (
-          <CompanyApplications key={group.companyEmail} group={group} lang={lang} />
+          <CompanyApplications key={group.companyEmail} group={group} lang={lang} stats={stats} />
         ))}
       </div>
 
@@ -306,9 +384,11 @@ export function AdminApplicationsPanel({ signedInAs }: { signedInAs: string }) {
 function CompanyApplications({
   group,
   lang,
+  stats,
 }: {
   group: { companyName: string; companyEmail: string; apps: Application[]; lastMessageAtMs: number };
   lang: Locale;
+  stats: StatsIndex | null;
 }) {
   // Свёрнуто по умолчанию: в шапке и так видно компанию, сколько
   // откликов и когда был последний -- этого хватает, чтобы решить,
@@ -316,6 +396,17 @@ function CompanyApplications({
   const [open, setOpen] = useState(false);
   const claim = useClaimLink(group.companyEmail, lang);
   const latest = group.apps[0];
+  // Ник компании в счётчике мы знаем не из аккаунта (там только почта), а
+  // через любую её вакансию, на которую пришёл отклик.
+  const companyTotals = useMemo(() => {
+    if (!stats) return null;
+    for (const app of group.apps) {
+      const id = postIdOf(app);
+      const hit = id ? stats.byPostId.get(id) : null;
+      if (hit) return stats.byCompany.get(hit.company) ?? null;
+    }
+    return null;
+  }, [stats, group.apps]);
 
   return (
     <div className="rounded-xl border border-neutral-200 dark:border-neutral-800">
@@ -344,6 +435,11 @@ function CompanyApplications({
               {t("groupCount", lang, { n: group.apps.length })}
               {latest ? ` · ${latest.applicantName || STRINGS.unknownApplicant[lang]} · ${formatWhen(group.lastMessageAtMs)}` : ""}
             </span>
+            {companyTotals && (
+              <span className="mt-0.5 block truncate text-xs text-accent">
+                {STRINGS.statCompanyTotal[lang]}: {t("statViews", lang, { n: companyTotals.view ?? 0 })} · {t("statExternal", lang, { n: companyTotals.external ?? 0 })} · {t("statApply", lang, { n: companyTotals.apply ?? 0 })}
+              </span>
+            )}
           </span>
         </button>
         <ClaimLinkButton lang={lang} busy={claim.busy} onClick={() => void claim.createLink()} />
@@ -356,7 +452,7 @@ function CompanyApplications({
       {open && (
         <div className="flex flex-col gap-2 border-t border-neutral-100 p-3 dark:border-neutral-900">
           {group.apps.map((app) => (
-            <ApplicationCard key={app.chatId} app={app} lang={lang} />
+            <ApplicationCard key={app.chatId} app={app} lang={lang} stats={stats} />
           ))}
         </div>
       )}
@@ -364,7 +460,16 @@ function CompanyApplications({
   );
 }
 
-function ApplicationCard({ app, lang }: { app: Application; lang: Locale }) {
+function ApplicationCard({ app, lang, stats }: { app: Application; lang: Locale; stats: StatsIndex | null }) {
+  // Цифры по ТОЙ вакансии, на которую этот отклик. Нет записи -- значит
+  // вакансию не открывали с 11.10.2026 (раньше счётчика не было) либо в
+  // отклике нет ссылки: и то и другое честнее показать словами, чем нулём.
+  const postStats = useMemo(() => {
+    if (!stats) return null;
+    const id = postIdOf(app);
+    return id ? (stats.byPostId.get(id)?.totals ?? null) : null;
+  }, [stats, app]);
+
   return (
     <div className="rounded-lg border border-neutral-200 p-2.5 dark:border-neutral-800">
       <div className="mb-1 flex items-start justify-between gap-2">
@@ -376,6 +481,14 @@ function ApplicationCard({ app, lang }: { app: Application; lang: Locale }) {
         </span>
         <span className="shrink-0 text-[11px] text-neutral-400 dark:text-neutral-500">{formatWhen(app.lastMessageAtMs)}</span>
       </div>
+
+      {stats && (
+        <p className="mb-1.5 text-[11px] text-neutral-500 dark:text-neutral-400">
+          {postStats
+            ? `${t("statViews", lang, { n: postStats.view ?? 0 })} · ${t("statExternal", lang, { n: postStats.external ?? 0 })} · ${t("statApply", lang, { n: postStats.apply ?? 0 })}`
+            : STRINGS.statNone[lang]}
+        </p>
+      )}
 
       <div className="flex flex-col gap-1.5">
         {app.messages.map((m) => (
