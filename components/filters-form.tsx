@@ -69,6 +69,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import type { Category, Tag } from "@/lib/a1/datasets";
 import { StackPicker } from "@/components/stack-picker";
+import { TECH_CATALOG } from "@/lib/seo/tech-catalog";
 import { TelegramSubscribe } from "@/components/telegram-subscribe";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
 import { FilterIcon } from "@/components/filter-icon";
@@ -99,6 +100,7 @@ type FiltersFormStringKey =
   | "categories"
   | "people"
   | "tags"
+  | "technologies"
   | "filters"
   | "events"
   | "category"
@@ -145,6 +147,15 @@ const FILTERS_FORM_STRINGS: Record<FiltersFormStringKey, Record<Locale, string>>
   tags: {
     uk: "Теги", en: "Tags", ru: "Теги", de: "Tags", es: "Etiquetas",
     fr: "Tags", pl: "Tagi", ptBR: "Tags", zh: "标签",
+  },
+  // 24.10.2026 (Александр: «ищу по стеку, например Python -- найди по
+  // ключевому слову»). Отдельная группа подсказок поверх словаря технологий
+  // (lib/seo/tech-catalog.ts), который уже используется панелью фильтров
+  // (components/stack-picker.tsx) -- тот же локальный список, без похода на
+  // сервер, подключаем только к этому полю ввода.
+  technologies: {
+    uk: "Технології", en: "Technologies", ru: "Технологии", de: "Technologien",
+    es: "Tecnologías", fr: "Technologies", pl: "Technologie", ptBR: "Tecnologias", zh: "技术",
   },
   filters: {
     uk: "Фільтри", en: "Filters", ru: "Фильтры", de: "Filter", es: "Filtros",
@@ -474,6 +485,7 @@ export function FiltersForm({
     tags?: string[];
     location?: number | null;
     locationLabel?: string | null;
+    stack?: string[];
   }) {
     const params = new URLSearchParams();
     const q = overrides.q !== undefined ? overrides.q : query;
@@ -487,13 +499,21 @@ export function FiltersForm({
     // без переноса выбранный стек молча слетал бы от любой буквы в поиске.
     // Читаем из window по той же причине, что и сброс ниже: useSearchParams
     // потребовал бы <Suspense> вокруг формы на каждой странице.
-    if (typeof window !== "undefined") {
+    // 24.10.2026: подсказка по технологии (ниже, techSuggestions) задаёт
+    // стек явно через overrides.stack -- тогда он замещает прежний выбор,
+    // а не складывается с ним по той же логике, что и смена категории.
+    if (overrides.stack !== undefined) {
+      for (const slug of overrides.stack) params.append("stack", slug);
+    } else if (typeof window !== "undefined") {
       const current = new URLSearchParams(window.location.search);
       for (const slug of current.getAll("stack")) {
         params.append("stack", slug);
       }
+    }
+    if (typeof window !== "undefined") {
       // 30.09.2026: страна и «Топ 100» -- тоже не этой формы, но живут в
       // том же адресе и не должны слетать от буквы в поиске.
+      const current = new URLSearchParams(window.location.search);
       const country = current.get("country");
       if (country) params.set("country", country);
       if (current.get("top100") === "1") params.set("top100", "1");
@@ -564,6 +584,18 @@ export function FiltersForm({
     navigate({ q: "", tags: currentTags.includes(value) ? currentTags : [...currentTags, value] });
   }
 
+  // 24.10.2026: выбор технологии из подсказок -- это тот же фильтр по
+  // стеку, что и в панели (components/stack-picker.tsx), просто дотянутый
+  // до поля свободного поиска. Один клик -- один стек (заменяет прежний
+  // выбор, а не добавляется к нему): человек напечатал «Python», значит
+  // хочет именно Python, а не Python ИЛИ то, что было выбрано раньше.
+  function pickTechSuggestion(slug: string) {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setQuery("");
+    setInputFocused(false);
+    navigate({ q: "", stack: [slug] });
+  }
+
   async function searchLocationsClient(q: string) {
     const trimmed = q.trim();
     if (trimmed.length < 2) {
@@ -621,6 +653,21 @@ export function FiltersForm({
         .filter((t) => !currentTags.includes(t.value) && t.text.toLowerCase().includes(needle))
         .slice(0, MAX_SUGGESTIONS_PER_GROUP)
     : [];
+  // 24.10.2026: тот же приём, что у categorySuggestions/tagSuggestions --
+  // фильтруем уже имеющийся на клиенте словарь (lib/seo/tech-catalog.ts,
+  // ~80 технологий), без похода на сервер. Матч по вхождению в начало имени
+  // в приоритете (напечатал «py» -- сперва Python, а не PyTorch где-то
+  // глубже списка), иначе порядок словаря.
+  const techSuggestions = needle
+    ? [...TECH_CATALOG]
+        .filter((entry) => entry.tech.toLowerCase().includes(needle))
+        .sort((a, b) => {
+          const aStarts = a.tech.toLowerCase().startsWith(needle) ? 0 : 1;
+          const bStarts = b.tech.toLowerCase().startsWith(needle) ? 0 : 1;
+          return aStarts - bStarts;
+        })
+        .slice(0, MAX_SUGGESTIONS_PER_GROUP)
+    : [];
   // Отдельный поход на сервер за людьми, с той же задержкой в 350 мс,
   // что и у самого поиска: набор ника -- это те же несколько нажатий
   // подряд, и дёргать сервер на каждое незачем. Отменяется на лету:
@@ -676,7 +723,9 @@ export function FiltersForm({
   }, [needle, inputFocused]);
 
   const showSuggestions =
-    inputFocused && needle.length > 0 && (people.length > 0 || eventHits.length > 0 || categorySuggestions.length > 0 || tagSuggestions.length > 0);
+    inputFocused &&
+    needle.length > 0 &&
+    (techSuggestions.length > 0 || people.length > 0 || eventHits.length > 0 || categorySuggestions.length > 0 || tagSuggestions.length > 0);
 
   // Aleksandr, 2026-08-27: "автоподбор слов вот как гугл делает, таким
   // выпадающим списком. Список именно того что у нас уже есть" —
@@ -688,7 +737,33 @@ export function FiltersForm({
   // wrapper, `absolute ... top-full`).
   const suggestionsDropdown = showSuggestions && (
     <div className="absolute left-0 right-0 top-full z-[44] mt-1 overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
-      {/* Люди -- первой группой: если человек набрал чей-то ник, он ищет
+      {/* Технології -- самой первой группой, ПЕРЕД людьми: словарь короткий
+          и точный (~80 имён), а подсказка по людям матчит и по био, из-за
+          чего на «Python» всплывали компании, у которых в названии его
+          нет (найдено 24.10.2026, живой пример Александра). Точное
+          совпадение с известной технологией -- куда более вероятный
+          смысл запроса, чем совпадение где-то в чужом био. Ведёт сразу на
+          посадочную /jobs/stack/<slug> -- тот же фильтр, что применяет
+          панель (components/stack-picker.tsx), посчитан заранее и
+          бесплатен: никакого похода в бэкенд для самого поиска. */}
+      {techSuggestions.length > 0 && (
+        <div className="border-b border-neutral-100 py-1 last:border-b-0 dark:border-neutral-800">
+          <div className="px-3 py-1 text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+            {FILTERS_FORM_STRINGS.technologies[lang]}
+          </div>
+          {techSuggestions.map((entry) => (
+            <button
+              key={entry.slug}
+              type="button"
+              onClick={() => pickTechSuggestion(entry.slug)}
+              className="block w-full truncate px-3 py-1.5 text-left text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+            >
+              {entry.tech}
+            </button>
+          ))}
+        </div>
+      )}
+      {/* Люди -- следующей группой: если человек набрал чей-то ник, он ищет
           именно человека, а не вакансию со словом из ника. Строка ведёт
           сразу на профиль, а не подставляет текст в фильтр, как строки
           ниже: профиль и есть ответ на такой запрос. */}
