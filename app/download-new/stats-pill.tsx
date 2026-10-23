@@ -1,14 +1,18 @@
 // app/download-new/stats-pill.tsx
 //
-// Aleksandr, 23.10.2026: «зелёная пульсирующая точка, число вакансий; при
-// нажатии разворачивается в список». Свёрнутая плашка: точка, число вакансий и
-// слово («53 040 вакансій»). Нажатие раскрывает список: компании, страны,
-// новые за сутки. Раскрывается поверх страницы (не двигает заголовок), закрывается
-// повторным нажатием, нажатием в сторону или Esc. Подписи приходят готовыми
-// из серверной страницы (там девять языков), числа — из ./live-number.tsx.
+// Aleksandr, 23.10.2026: «зелёная пульсирующая точка, число вакансий; по нажатию
+// разворачивается». Потом: «список вбок, не вниз; на десктопе показывать всё сразу и
+// без вида кнопки».
+//
+// Телефон: свёрнуто «● 53 040 вакансій ›». Нажатие раскрывает плашку ВБОК одной
+// строкой: у каждой цифры подпись под ней. Закрывается повторным нажатием, нажатием
+// в сторону или Esc. Компьютер: всегда показано всё, строка статуса без рамки и
+// заливки, кнопки нет (CSS её скрывает, поэтому и с клавиатуры в неё не попасть).
+// Подписи приходят готовыми из серверной страницы (девять языков), числа живые из
+// ./live-number.tsx.
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { LiveNumber } from "./live-number";
 import n from "./download-new.module.css";
 
@@ -25,6 +29,7 @@ export function StatsPill({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const labelId = useId();
 
   useEffect(() => {
     if (!open) return;
@@ -45,30 +50,32 @@ export function StatsPill({
   return (
     <div className={n.statsWrap} ref={ref}>
       <div className={n.stats} data-open={open ? "1" : undefined}>
-        <button type="button" className={n.statsHead} aria-expanded={open} aria-controls="live-more" onClick={() => setOpen((v) => !v)}>
-          <span className={n.liveDot} aria-hidden="true" />
-          <LiveNumber field="jobs" className={n.headNum} />
-          <span className={n.headLabel}>{jobs}</span>
-          <svg className={n.chev} viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
-        <div className={n.more} id="live-more" aria-hidden={!open}>
-          <div className={n.moreInner}>
-            <div className={n.row}>
-              <LiveNumber field="companies" className={n.rowNum} />
-              <span className={n.rowLabel}>{companies}</span>
-            </div>
-            <div className={n.row}>
-              <LiveNumber field="countries" className={n.rowNum} />
-              <span className={n.rowLabel}>{countries}</span>
-            </div>
-            <div className={n.row}>
-              <LiveNumber field="today" className={n.rowNum} prefix="+" />
-              <span className={n.rowLabel}>{today}</span>
-            </div>
-          </div>
-        </div>
+        <span className={n.liveDot} aria-hidden="true" />
+        <span className={n.item}>
+          <LiveNumber field="jobs" className={n.num} />
+          <span className={n.lab} id={labelId}>{jobs}</span>
+        </span>
+        <span className={n.extra}>
+          <span className={n.extraInner}>
+            <span className={n.item}>
+              <LiveNumber field="companies" className={n.num} />
+              <span className={n.lab}>{companies}</span>
+            </span>
+            <span className={n.item}>
+              <LiveNumber field="countries" className={n.num} />
+              <span className={n.lab}>{countries}</span>
+            </span>
+            <span className={n.item}>
+              <LiveNumber field="today" className={n.num} prefix="+" />
+              <span className={n.lab}>{today}</span>
+            </span>
+          </span>
+        </span>
+        <svg className={n.chev} viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        {/* прозрачная кнопка поверх всей плашки: нажимается вся, а не только стрелка */}
+        <button type="button" className={n.toggle} aria-expanded={open} aria-labelledby={labelId} onClick={() => setOpen((v) => !v)} />
       </div>
     </div>
   );
