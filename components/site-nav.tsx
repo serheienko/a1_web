@@ -180,7 +180,7 @@ export function SiteNav() {
   // 2026-09-14: установочная страница /download (app/download/page.tsx)
   // -- отдельный тёмный плакат для соцсетей со своей шапкой (логотип
   // + ссылка на основной сайт). Общая навигация сайта на ней лишняя.
-  if (pathname === "/download") return null;
+  if ((pathname === "/download" || pathname === "/download-new")) return null;
 
   return (
     <nav

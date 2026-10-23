@@ -1,0 +1,235 @@
+// app/download-new/copy.ts
+//
+// Aleksandr, 23.10.2026: черновик новой установочной страницы (идея: прокрутка
+// как презентация + живой счётчик вакансий). Тексты только для НОВЫХ блоков;
+// заголовок, кнопки и меню берутся из ../download/copy.ts, чтобы при выборе
+// этой страницы главной они не разъехались.
+import type { Locale } from "@/components/t";
+
+export type NewCopy = {
+  /** Подпись у живого числа вакансий в первом экране. */
+  liveLabel: string;
+  /** Подписи под цифрами в полосе статистики. */
+  statJobs: string;
+  statCompanies: string;
+  statCountries: string;
+  statToday: string;
+  /** Подсказка внизу первого экрана. */
+  scroll: string;
+  storyEyebrow: string;
+  storyTitle: string;
+  s1Title: string;
+  s1Text: string;
+  s2Title: string;
+  s2Text: string;
+  s3Title: string;
+  s3Text: string;
+  /** Тексты внутри «телефонов». */
+  chatIn: string;
+  chatOut: string;
+  chatIn2: string;
+  offerBadge: string;
+  ctaTitle: string;
+  ctaText: string;
+};
+
+export const NEW_COPY: Record<Locale, NewCopy> = {
+  uk: {
+    liveLabel: "вакансій на A1 просто зараз",
+    statJobs: "вакансій",
+    statCompanies: "компаній",
+    statCountries: "країн",
+    statToday: "нових за добу",
+    scroll: "Як це працює",
+    storyEyebrow: "Як це працює",
+    storyTitle: "Три кроки до роботи",
+    s1Title: "Знайдіть",
+    s1Text: "Тисячі вакансій з усього світу в одній стрічці. Фільтри за країною, технологією та форматом роботи.",
+    s2Title: "Напишіть напряму",
+    s2Text: "Без посередників і анкет. Одразу в чат до компанії чи фахівця.",
+    s3Title: "Отримайте оффер",
+    s3Text: "Домовляйтеся, ставте запитання й закривайте угоду — усе в одному застосунку.",
+    chatIn: "Вітаю! Ваша вакансія ще актуальна?",
+    chatOut: "Так! Може, поспілкуємось завтра об 11:00?",
+    chatIn2: "Домовились 👍",
+    offerBadge: "Оффер отримано",
+    ctaTitle: "Готові спробувати?",
+    ctaText: "Завантажте A1 і знайдіть свій наступний крок.",
+  },
+  en: {
+    liveLabel: "jobs on A1 right now",
+    statJobs: "jobs",
+    statCompanies: "companies",
+    statCountries: "countries",
+    statToday: "new today",
+    scroll: "How it works",
+    storyEyebrow: "How it works",
+    storyTitle: "Three steps to a new job",
+    s1Title: "Find",
+    s1Text: "Thousands of jobs from around the world in one feed. Filter by country, technology and work format.",
+    s2Title: "Message directly",
+    s2Text: "No middlemen, no forms. Straight into a chat with the company or the specialist.",
+    s3Title: "Get the offer",
+    s3Text: "Talk it through, ask questions and close the deal — all in one app.",
+    chatIn: "Hi! Is your role still open?",
+    chatOut: "Yes! Shall we talk tomorrow at 11:00?",
+    chatIn2: "Deal 👍",
+    offerBadge: "Offer received",
+    ctaTitle: "Ready to try?",
+    ctaText: "Download A1 and find your next step.",
+  },
+  ru: {
+    liveLabel: "вакансий на A1 прямо сейчас",
+    statJobs: "вакансий",
+    statCompanies: "компаний",
+    statCountries: "стран",
+    statToday: "новых за сутки",
+    scroll: "Как это работает",
+    storyEyebrow: "Как это работает",
+    storyTitle: "Три шага к работе",
+    s1Title: "Найдите",
+    s1Text: "Тысячи вакансий со всего мира в одной ленте. Фильтры по стране, технологии и формату работы.",
+    s2Title: "Напишите напрямую",
+    s2Text: "Без посредников и анкет. Сразу в чат с компанией или специалистом.",
+    s3Title: "Получите оффер",
+    s3Text: "Договаривайтесь, задавайте вопросы и закрывайте сделку — всё в одном приложении.",
+    chatIn: "Здравствуйте! Ваша вакансия ещё актуальна?",
+    chatOut: "Да! Может, поговорим завтра в 11:00?",
+    chatIn2: "Договорились 👍",
+    offerBadge: "Оффер получен",
+    ctaTitle: "Готовы попробовать?",
+    ctaText: "Скачайте A1 и найдите свой следующий шаг.",
+  },
+  de: {
+    liveLabel: "Jobs auf A1 – genau jetzt",
+    statJobs: "Jobs",
+    statCompanies: "Unternehmen",
+    statCountries: "Länder",
+    statToday: "neu heute",
+    scroll: "So funktioniert’s",
+    storyEyebrow: "So funktioniert’s",
+    storyTitle: "Drei Schritte zum neuen Job",
+    s1Title: "Finden",
+    s1Text: "Tausende Jobs aus aller Welt in einem Feed. Filter nach Land, Technologie und Arbeitsform.",
+    s2Title: "Direkt schreiben",
+    s2Text: "Ohne Vermittler und Formulare. Direkt im Chat mit dem Unternehmen oder der Fachkraft.",
+    s3Title: "Angebot erhalten",
+    s3Text: "Absprechen, Fragen stellen und den Deal abschließen – alles in einer App.",
+    chatIn: "Hallo! Ist Ihre Stelle noch offen?",
+    chatOut: "Ja! Sollen wir morgen um 11:00 sprechen?",
+    chatIn2: "Abgemacht 👍",
+    offerBadge: "Angebot erhalten",
+    ctaTitle: "Bereit zum Ausprobieren?",
+    ctaText: "Laden Sie A1 herunter und finden Sie Ihren nächsten Schritt.",
+  },
+  es: {
+    liveLabel: "empleos en A1 ahora mismo",
+    statJobs: "empleos",
+    statCompanies: "empresas",
+    statCountries: "países",
+    statToday: "nuevos hoy",
+    scroll: "Cómo funciona",
+    storyEyebrow: "Cómo funciona",
+    storyTitle: "Tres pasos hacia un nuevo empleo",
+    s1Title: "Encuentre",
+    s1Text: "Miles de empleos de todo el mundo en un solo feed. Filtros por país, tecnología y modalidad de trabajo.",
+    s2Title: "Escriba directamente",
+    s2Text: "Sin intermediarios ni formularios. Directo al chat con la empresa o el especialista.",
+    s3Title: "Reciba la oferta",
+    s3Text: "Hablen, resuelvan dudas y cierren el trato, todo en una sola app.",
+    chatIn: "¡Hola! ¿Sigue abierta su vacante?",
+    chatOut: "¡Sí! ¿Hablamos mañana a las 11:00?",
+    chatIn2: "Hecho 👍",
+    offerBadge: "Oferta recibida",
+    ctaTitle: "¿Listo para probar?",
+    ctaText: "Descargue A1 y encuentre su próximo paso.",
+  },
+  fr: {
+    liveLabel: "offres sur A1 en ce moment",
+    statJobs: "offres",
+    statCompanies: "entreprises",
+    statCountries: "pays",
+    statToday: "nouvelles aujourd’hui",
+    scroll: "Comment ça marche",
+    storyEyebrow: "Comment ça marche",
+    storyTitle: "Trois étapes vers un nouvel emploi",
+    s1Title: "Trouvez",
+    s1Text: "Des milliers d’offres du monde entier dans un seul fil. Filtres par pays, technologie et mode de travail.",
+    s2Title: "Écrivez directement",
+    s2Text: "Sans intermédiaire ni formulaire. Directement dans le chat avec l’entreprise ou le spécialiste.",
+    s3Title: "Recevez l’offre",
+    s3Text: "Discutez, posez vos questions et concluez, le tout dans une seule appli.",
+    chatIn: "Bonjour ! Votre poste est-il toujours ouvert ?",
+    chatOut: "Oui ! On en parle demain à 11 h ?",
+    chatIn2: "Entendu 👍",
+    offerBadge: "Offre reçue",
+    ctaTitle: "Prêt à essayer ?",
+    ctaText: "Téléchargez A1 et trouvez votre prochaine étape.",
+  },
+  pl: {
+    liveLabel: "ofert na A1 w tej chwili",
+    statJobs: "ofert",
+    statCompanies: "firm",
+    statCountries: "krajów",
+    statToday: "nowych dziś",
+    scroll: "Jak to działa",
+    storyEyebrow: "Jak to działa",
+    storyTitle: "Trzy kroki do nowej pracy",
+    s1Title: "Znajdź",
+    s1Text: "Tysiące ofert z całego świata w jednym feedzie. Filtry według kraju, technologii i formy pracy.",
+    s2Title: "Napisz bezpośrednio",
+    s2Text: "Bez pośredników i formularzy. Od razu na czat z firmą lub specjalistą.",
+    s3Title: "Odbierz ofertę",
+    s3Text: "Dogadaj się, zadaj pytania i dopnij umowę — wszystko w jednej aplikacji.",
+    chatIn: "Dzień dobry! Czy oferta jest jeszcze aktualna?",
+    chatOut: "Tak! Porozmawiamy jutro o 11:00?",
+    chatIn2: "Umowa 👍",
+    offerBadge: "Oferta otrzymana",
+    ctaTitle: "Gotowi spróbować?",
+    ctaText: "Pobierz A1 i znajdź swój następny krok.",
+  },
+  ptBR: {
+    liveLabel: "vagas no A1 agora mesmo",
+    statJobs: "vagas",
+    statCompanies: "empresas",
+    statCountries: "países",
+    statToday: "novas hoje",
+    scroll: "Como funciona",
+    storyEyebrow: "Como funciona",
+    storyTitle: "Três passos até um novo emprego",
+    s1Title: "Encontre",
+    s1Text: "Milhares de vagas do mundo todo em um só feed. Filtros por país, tecnologia e formato de trabalho.",
+    s2Title: "Escreva direto",
+    s2Text: "Sem intermediários nem formulários. Direto no chat com a empresa ou o especialista.",
+    s3Title: "Receba a proposta",
+    s3Text: "Converse, tire dúvidas e feche o negócio, tudo em um só app.",
+    chatIn: "Olá! Sua vaga ainda está aberta?",
+    chatOut: "Sim! Vamos conversar amanhã às 11:00?",
+    chatIn2: "Combinado 👍",
+    offerBadge: "Proposta recebida",
+    ctaTitle: "Pronto para testar?",
+    ctaText: "Baixe o A1 e encontre o seu próximo passo.",
+  },
+  zh: {
+    liveLabel: "A1 上此刻的职位",
+    statJobs: "个职位",
+    statCompanies: "家公司",
+    statCountries: "个国家",
+    statToday: "今日新增",
+    scroll: "使用方法",
+    storyEyebrow: "使用方法",
+    storyTitle: "三步找到新工作",
+    s1Title: "发现",
+    s1Text: "来自全球的数千个职位汇聚在一个信息流中。可按国家、技术和工作方式筛选。",
+    s2Title: "直接沟通",
+    s2Text: "没有中介，没有表格。直接与公司或专业人士聊天。",
+    s3Title: "获得录用",
+    s3Text: "沟通细节、提出问题、敲定合作——全都在一个应用里。",
+    chatIn: "您好！这个职位还在招吗？",
+    chatOut: "在招！明天 11:00 聊聊？",
+    chatIn2: "一言为定 👍",
+    offerBadge: "已收到录用通知",
+    ctaTitle: "准备好试试了吗？",
+    ctaText: "下载 A1，找到你的下一步。",
+  },
+};

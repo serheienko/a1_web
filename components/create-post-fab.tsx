@@ -140,7 +140,7 @@ export function CreatePostFab() {
   // page does instead of a smaller one-off header button, cat+progress-
   // bar popup and all (this component's own posting-cat.json below).
   // 2026-09-14: та же причина для /download -- см. app/download/page.tsx.
-  if (pathname?.startsWith("/sign-in") || pathname?.startsWith("/chats/") || pathname === "/download") return null;
+  if (pathname?.startsWith("/sign-in") || pathname?.startsWith("/chats/") || (pathname === "/download" || pathname === "/download-new")) return null;
 
   // 2026-09-02 (Aleksandr: "В незалогиненых тоже показывай модалку на
   // обе кнопки и не уводи со страницы") -- this used to navigate

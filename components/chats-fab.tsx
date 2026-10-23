@@ -251,7 +251,7 @@ export function ChatsFab() {
   // 2026-09-14: /download -- отдельная установочная страница-плакат
   // (app/download/page.tsx), которую Александр шарит в соцсетях. Ни
   // навигации сайта, ни плавающих кнопок на ней быть не должно.
-  if (pathname?.startsWith("/sign-in") || pathname?.startsWith("/chats") || pathname === "/download") return null;
+  if (pathname?.startsWith("/sign-in") || pathname?.startsWith("/chats") || (pathname === "/download" || pathname === "/download-new")) return null;
 
   const buttonClassName = `group fixed right-5 z-40 flex h-12 w-12 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-700 shadow-lg transition duration-200 hover:bg-neutral-50 active:scale-95 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800 ${
     accountMenuOpen ? "pointer-events-none opacity-0" : "opacity-100"

@@ -199,7 +199,7 @@ export function ScrollTopFab() {
   // 2026-09-14: /download -- отдельная установочная страница-плакат
   // (app/download/page.tsx), которую Александр шарит в соцсетях. Ни
   // навигации сайта, ни плавающих кнопок на ней быть не должно.
-  if (pathname?.startsWith("/sign-in") || pathname?.startsWith("/chats") || pathname === "/download") return null;
+  if (pathname?.startsWith("/sign-in") || pathname?.startsWith("/chats") || (pathname === "/download" || pathname === "/download-new")) return null;
 
   return (
     <div

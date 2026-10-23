@@ -17,7 +17,7 @@ const HIDDEN_PREFIXES = ["/chats", "/game", "/sign-in", "/onboarding", "/admin",
 
 export function SiteFooterGate({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? "/";
-  if (pathname === "/download") return null;
+  if ((pathname === "/download" || pathname === "/download-new")) return null;
   if (HIDDEN_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/") || (p === "/game" && pathname.startsWith("/game-map")))) {
     return null;
   }
