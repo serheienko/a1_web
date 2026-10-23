@@ -1,4 +1,4 @@
-// app/download-new/live-number.tsx
+// app/download/live-number.tsx
 //
 // Aleksandr, 23.10.2026: «счётчик лайв, количество вакансий — на установочной
 // странице». Берёт настоящие цифры из /api/public/summary (тот же ответ, что
@@ -6,6 +6,8 @@
 // «накручивает» число до значения. Раз в минуту спрашивает снова и, если
 // вакансий стало больше или меньше, докручивает до нового числа. Цифры только
 // настоящие: пока ответа нет, показывается тире, а не выдуманное число.
+// Крутится один раз, сразу при получении данных, даже у цифр в свёрнутой плашке:
+// при раскрытии они уже стоят на месте, второй прокрутки нет.
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -64,10 +66,8 @@ function fmt(n: number): string {
 
 export function LiveNumber({ field, prefix = "", className }: { field: LiveField; prefix?: string; className?: string }) {
   const [shown, setShown] = useState<number | null>(null);
-  const ref = useRef<HTMLSpanElement>(null);
   const target = useRef<number | null>(null);
   const current = useRef(0);
-  const visible = useRef(false);
   const raf = useRef(0);
 
   useEffect(() => {
@@ -76,7 +76,7 @@ export function LiveNumber({ field, prefix = "", className }: { field: LiveField
     function run() {
       cancelAnimationFrame(raf.current);
       const to = target.current;
-      if (to == null || !visible.current) return;
+      if (to == null) return;
       if (reduced) {
         current.current = to;
         setShown(to);
@@ -88,8 +88,9 @@ export function LiveNumber({ field, prefix = "", className }: { field: LiveField
         return;
       }
       const start = performance.now();
-      // дальше от нуля — дольше крутим; небольшая подкрутка при обновлении — быстро
-      const ms = from === 0 ? 1600 : 700;
+      // Aleksandr, 23.10: «слишком медленно, и второй раз прокручивается при раскрытии».
+      // Первый набор короткий (0.7 с), подкрутка при обновлении ещё короче.
+      const ms = from === 0 ? 700 : 450;
       const step = (now: number) => {
         const t = Math.min(1, (now - start) / ms);
         const eased = 1 - Math.pow(1 - t, 3);
@@ -106,34 +107,14 @@ export function LiveNumber({ field, prefix = "", className }: { field: LiveField
       run();
     });
 
-    let io: IntersectionObserver | null = null;
-    const el = ref.current;
-    if (el && "IntersectionObserver" in window) {
-      io = new IntersectionObserver(
-        (entries) => {
-          const seen = entries.some((e) => e.isIntersecting);
-          if (seen && !visible.current) {
-            visible.current = true;
-            run();
-          }
-        },
-        { threshold: 0.3 },
-      );
-      io.observe(el);
-    } else {
-      visible.current = true;
-      run();
-    }
-
     return () => {
       unsub();
-      io?.disconnect();
       cancelAnimationFrame(raf.current);
     };
   }, [field]);
 
   return (
-    <span ref={ref} className={className} style={{ fontVariantNumeric: "tabular-nums" }}>
+    <span className={className} style={{ fontVariantNumeric: "tabular-nums" }}>
       {shown == null ? "—" : `${prefix}${fmt(shown)}`}
     </span>
   );
