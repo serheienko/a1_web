@@ -92,9 +92,15 @@
     align-items: center;
     gap: 6px;
     transform: translateX(-50%);
-    color: var(--ink-muted);
+    padding: 9px 16px 7px;
+    border-radius: 999px;
+    background: var(--chip-bg);
+    border: 1px solid var(--chip-border);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    color: var(--ink);
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     text-decoration: none;
@@ -102,7 +108,8 @@
   }
 
   .hint:hover {
-    color: var(--ink);
+    background: var(--chip-hover-bg);
+    border-color: var(--chip-hover-border);
   }
 
   .hintArrow {
@@ -277,8 +284,8 @@
 .steps {
   position: relative;
   display: grid;
-  gap: clamp(72px, 11vw, 150px);
-  margin-top: clamp(48px, 8vw, 110px);
+  gap: clamp(56px, 8vw, 110px);
+  margin-top: clamp(40px, 6vw, 90px);
 }
 
 .rail {
@@ -384,7 +391,7 @@
 .phone {
   position: relative;
   width: min(272px, 70vw);
-  aspect-ratio: 9 / 18.4;
+  aspect-ratio: 9 / 16.8;
   padding: 9px;
   border-radius: 42px;
   background: var(--s-phone);
@@ -521,6 +528,41 @@
 }
 
 /* шаг 2: чат */
+
+.chatHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--s-line);
+}
+
+.avatar {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: linear-gradient(140deg, var(--s-accent), var(--s-accent-2));
+}
+
+.headLines {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.headLines i {
+  display: block;
+  height: 6px;
+  width: 74px;
+  border-radius: 3px;
+  background: var(--s-line);
+}
+
+.headLines i + i {
+  width: 44px;
+  opacity: 0.6;
+}
 
 .chat {
   display: flex;

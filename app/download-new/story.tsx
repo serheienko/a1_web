@@ -33,6 +33,7 @@ const JOBS = [
   { title: "Senior React Developer", meta: "Remote · EU", tags: ["React", "TypeScript"], pay: "$4–5k" },
   { title: "Product Designer", meta: "Hybrid · Berlin", tags: ["Figma", "UX"], pay: "€4k" },
   { title: "Data Analyst", meta: "Remote · Worldwide", tags: ["SQL", "Python"], pay: "$3k" },
+  { title: "QA Engineer", meta: "Remote · Poland", tags: ["Cypress", "API"], pay: "$3.5k" },
 ];
 
 export function Story({ cta }: { cta: ReactNode }) {
@@ -137,6 +138,13 @@ export function Story({ cta }: { cta: ReactNode }) {
               </div>
               <div className={n.phoneCol}>
                 <Phone>
+                  <div className={n.chatHead}>
+                    <i className={n.avatar} />
+                    <span className={n.headLines}>
+                      <i />
+                      <i />
+                    </span>
+                  </div>
                   <div className={n.chat}>
                     <div className={`${n.bubble} ${n.bIn}`} style={{ ["--i" as string]: 0 }}>
                       <LocN render={(c) => c.chatIn} />
