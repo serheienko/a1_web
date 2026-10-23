@@ -55,11 +55,11 @@ function subscribe(fn: (s: Summary) => void): () => void {
   };
 }
 
-// Тонкий неразрывный пробел между тысячами: одинаково читается во всех языках.
+// Неразрывный пробел между тысячами: одинаково читается во всех языках.
 function fmt(n: number): string {
   return Math.round(n)
     .toString()
-    .replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+    .replace(/\B(?=(\d{3})+(?!\d))/g, "\u00a0");
 }
 
 export function LiveNumber({ field, prefix = "", className }: { field: LiveField; prefix?: string; className?: string }) {
