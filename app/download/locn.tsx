@@ -5,8 +5,8 @@
 // текстов новых блоков (./copy.ts). Правила показа берём из CSS-модуля
 // старой страницы, чтобы не плодить копии.
 import { LOCALES } from "@/components/t";
-import { NEW_COPY, type NewCopy } from "./copy";
-import styles from "../download/download.module.css";
+import { NEW_COPY, type NewCopy } from "./stats-copy";
+import styles from "./download.module.css";
 
 export function LocN({
   render,

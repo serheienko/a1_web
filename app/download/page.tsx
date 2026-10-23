@@ -1,5 +1,10 @@
 // app/download/page.tsx
 //
+// 23.10.2026 Александр утвердил черновик /download-new как главную установочную страницу:
+// тот же первый экран плюс плашка живых цифр под логотипом (вакансии, компании, страны,
+// новые за сутки; на телефоне раскрывается вбок, на компьютере показана сразу) и параллакс
+// от наклона телефона. Прежняя версия лежит в _patches/dn-old/download-page-before-new.tsx.
+//
 // Aleksandr, 2026-09-14: «нам надо сделать установочную страницу,
 // которую мы будем шарить в соцсетях» — отдельный тёмный первый экран
 // с котом и двумя кнопками установки, живёт на jobs.a1appp.com/download.
@@ -33,6 +38,10 @@ import { SitePreview } from "./site-preview";
 import { Sound } from "./sound";
 import { Ambience } from "./ambience";
 import styles from "./download.module.css";
+import n from "./stats.module.css";
+import { StatsPill } from "./stats-pill";
+import { LocN } from "./locn";
+import { Tilt } from "./tilt";
 
 // Montserrat — шрифт из макета: геометричный гротеск с круглыми «о» и
 // плоскими окончаниями штрихов (у остального сайта другой, Commissioner:
@@ -55,21 +64,7 @@ export const metadata: Metadata = {
     url: "https://jobs.a1appp.com/download",
     siteName: "A1",
     type: "website",
-    /*
-     * Своя картинка предпросмотра: именно её видят в Telegram, Facebook
-     * и LinkedIn ДО того, как откроют ссылку — то есть по ней решают,
-     * открывать ли вообще. Без неё подтянулась бы общая картинка сайта.
-     * Файл статический (public/download/og.jpg), генерировать на лету
-     * незачем — страница одна.
-     */
-    images: [
-      {
-        url: "/download/og.jpg",
-        width: 1200,
-        height: 630,
-        alt: "A1 — знаходьте роботу та спеціалістів",
-      },
-    ],
+    images: [{ url: "/download/og.jpg", width: 1200, height: 630, alt: "A1 — знаходьте роботу та спеціалістів" }],
   },
   twitter: {
     card: "summary_large_image",
@@ -160,6 +155,8 @@ export default function DownloadPage() {
       <script dangerouslySetInnerHTML={{ __html: PLATFORM_INIT_SCRIPT }} />
       {/* невидимый слушатель: считает нажатия по кнопкам установки */}
       <Interactions />
+      {/* параллакс от наклона телефона и от пальца (на компьютере фон едет за мышью, см. Ambience) */}
+      <Tilt />
       {/* два слоя иллюстрации: светлая проявляется поверх тёмной,
           поэтому смена темы выглядит как растворение, а не как перезагрузка */}
       <div className={styles.bg} aria-hidden="true" />
@@ -196,6 +193,15 @@ export default function DownloadPage() {
             <Menu />
           </div>
         </header>
+        <div className={n.dock}>
+        {/* живые цифры под логотипом: «● 53 040 вакансій», по нажатию раскрывается списком; на вёрстку не влияет (position: absolute) */}
+        <StatsPill
+          jobs={<LocN inline render={(c) => c.statJobs} />}
+          companies={<LocN inline render={(c) => c.statCompanies} />}
+          countries={<LocN inline render={(c) => c.statCountries} />}
+          today={<LocN inline render={(c) => c.statToday} />}
+        />
+        </div>
       </div>
 
       <div className={`${styles.container} ${styles.hero}`}>

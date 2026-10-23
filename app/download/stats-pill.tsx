@@ -14,7 +14,7 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { LiveNumber } from "./live-number";
-import n from "./download-new.module.css";
+import n from "./stats.module.css";
 
 export function StatsPill({
   jobs,
