@@ -38,7 +38,7 @@ import { Sound } from "../download/sound";
 import { Ambience } from "../download/ambience";
 import styles from "../download/download.module.css";
 import n from "./download-new.module.css";
-import { LiveNumber } from "./live-number";
+import { StatsPill } from "./stats-pill";
 import { LocN } from "./locn";
 import { Tilt } from "./tilt";
 
@@ -198,34 +198,13 @@ export default function DownloadPage() {
 
       <div className={`${styles.container} ${styles.hero}`}>
         <div className={styles.copy}>
-          {/* живые цифры одной плашкой: настоящие данные из /api/public/summary, накручиваются при открытии */}
-          <div className={n.stats}>
-            <span className={n.liveDot} aria-hidden="true" />
-            <span className={n.stat}>
-              <LiveNumber field="jobs" className={n.statNum} />
-              <span className={n.statLabel}>
-                <LocN inline render={(c) => c.statJobs} />
-              </span>
-            </span>
-            <span className={n.stat}>
-              <LiveNumber field="companies" className={n.statNum} />
-              <span className={n.statLabel}>
-                <LocN inline render={(c) => c.statCompanies} />
-              </span>
-            </span>
-            <span className={n.stat}>
-              <LiveNumber field="countries" className={n.statNum} />
-              <span className={n.statLabel}>
-                <LocN inline render={(c) => c.statCountries} />
-              </span>
-            </span>
-            <span className={n.stat}>
-              <LiveNumber field="today" className={n.statNum} prefix="+" />
-              <span className={n.statLabel}>
-                <LocN inline render={(c) => c.statToday} />
-              </span>
-            </span>
-          </div>
+          {/* живые цифры: свёрнутая плашка «● 53 040 вакансій», по нажатию раскрывается списком */}
+          <StatsPill
+            jobs={<LocN inline render={(c) => c.statJobs} />}
+            companies={<LocN inline render={(c) => c.statCompanies} />}
+            countries={<LocN inline render={(c) => c.statCountries} />}
+            today={<LocN inline render={(c) => c.statToday} />}
+          />
 
           <h1 className={styles.headline}>
             <Loc

@@ -2,25 +2,149 @@
  * app/download-new/download-new.module.css
  *
  * Aleksandr, 23.10.2026: черновик новой установочной страницы. Первый экран --
- * прежний (../download/download.module.css), здесь только плашка живых цифр над
- * заголовком: вакансии, компании, страны, новые за сутки. Цвета берёт у страницы
- * (--chip-*, --ink*), поэтому тёмная и светлая темы работают сами.
+ * прежний (../download/download.module.css), здесь только плашка живой статистики
+ * над заголовком: свёрнутая («● 53 040 вакансій») и раскрытая списком. Цвета берёт
+ * у страницы (--chip-*, --panel-*, --ink*), поэтому обе темы работают сами.
  */
 
-.stats {
-  display: inline-flex;
-  align-items: center;
-  gap: clamp(14px, 1.7vw, 26px);
+/* обёртка держит место свёрнутой плашки, а раскрытый список лежит поверх и ничего не двигает */
+.statsWrap {
+  position: relative;
+  height: 44px;
   margin: 0 0 22px;
-  padding: 11px clamp(16px, 1.6vw, 24px) 11px 15px;
-  border-radius: 20px;
+  animation: rise 620ms cubic-bezier(0.22, 0.61, 0.36, 1) 20ms both;
+}
+
+.stats {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  max-width: 100%;
+  overflow: hidden;
+  border-radius: 22px;
   background: var(--chip-bg);
   border: 1px solid var(--chip-border);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
-  animation: rise 620ms cubic-bezier(0.22, 0.61, 0.36, 1) 20ms both;
+  transition:
+    background-color 220ms ease,
+    border-color 220ms ease,
+    box-shadow 260ms ease,
+    border-radius 260ms ease;
 }
 
+.stats[data-open] {
+  border-radius: 22px;
+  background: var(--panel-bg);
+  border-color: var(--panel-border);
+  box-shadow: var(--panel-shadow);
+}
+
+.statsHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 42px;
+  padding: 0 14px 0 15px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.statsHead:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -3px;
+  border-radius: 22px;
+}
+
+.headNum {
+  font-size: clamp(17px, 1.5vw, 21px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.headLabel {
+  color: var(--ink-desc);
+  font-size: clamp(14px, 1.15vw, 16px);
+  font-weight: 600;
+}
+
+.chev {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin-left: 4px;
+  color: var(--ink-muted);
+  transition: transform 260ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.stats[data-open] .chev {
+  transform: rotate(180deg);
+}
+
+/* список: раскрывается плавно по высоте, пока закрыт -- недоступен для клавиатуры и чтения */
+.more {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition:
+    grid-template-rows 300ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    visibility 0s linear 300ms;
+}
+
+.stats[data-open] .more {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition:
+    grid-template-rows 300ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    visibility 0s;
+}
+
+.moreInner {
+  min-height: 0;
+  overflow: hidden;
+  padding: 0 16px;
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 11px 0;
+  border-top: 1px solid var(--chip-border);
+  white-space: nowrap;
+}
+
+.row:last-child {
+  padding-bottom: 14px;
+}
+
+.rowNum {
+  min-width: 4.6ch;
+  color: var(--ink);
+  font-size: clamp(17px, 1.5vw, 21px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.rowLabel {
+  color: var(--ink-desc);
+  font-size: clamp(14px, 1.15vw, 16px);
+  font-weight: 600;
+}
+
+/* зелёная точка с расходящимся кольцом */
 .liveDot {
   position: relative;
   display: inline-block;
@@ -39,34 +163,6 @@
   border-radius: 50%;
   border: 2px solid #35e07a;
   animation: ping 1.9s ease-out infinite;
-}
-
-.stat {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-  white-space: nowrap;
-}
-
-.stat + .stat {
-  padding-left: clamp(14px, 1.7vw, 26px);
-  border-left: 1px solid var(--chip-border);
-}
-
-.statNum {
-  color: var(--ink);
-  font-size: clamp(17px, 1.6vw, 24px);
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: -0.02em;
-}
-
-.statLabel {
-  color: var(--ink-muted);
-  font-size: clamp(10.5px, 0.9vw, 13px);
-  font-weight: 600;
-  line-height: 1.1;
 }
 
 @keyframes ping {
@@ -91,43 +187,15 @@
   }
 }
 
-/* телефон: плашка на всю ширину, четыре цифры в ряд, точка уходит в угол */
-@media (max-width: 900px) {
-  .stats {
-    display: flex;
-    justify-content: space-between;
-    gap: 0;
-    width: 100%;
-    padding: 10px 12px;
-    border-radius: 16px;
-  }
-
-  .liveDot {
-    display: none;
-  }
-
-  .stat {
-    flex: 1 1 0;
-    align-items: center;
-    text-align: center;
-  }
-
-  .stat + .stat {
-    padding-left: 0;
-  }
-
-  .statNum {
-    font-size: clamp(15px, 4.4vw, 19px);
-  }
-
-  .statLabel {
-    font-size: clamp(9.5px, 2.6vw, 11.5px);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .stats,
+  .statsWrap,
   .liveDot::after {
     animation: none !important;
+  }
+
+  .stats,
+  .more,
+  .chev {
+    transition: none !important;
   }
 }
