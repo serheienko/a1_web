@@ -194,18 +194,19 @@ export default function DownloadPage() {
             <Menu />
           </div>
         </header>
+        <div className={n.dock}>
+        {/* живые цифры под логотипом: «● 53 040 вакансій», по нажатию раскрывается списком; на вёрстку не влияет (position: absolute) */}
+        <StatsPill
+          jobs={<LocN inline render={(c) => c.statJobs} />}
+          companies={<LocN inline render={(c) => c.statCompanies} />}
+          countries={<LocN inline render={(c) => c.statCountries} />}
+          today={<LocN inline render={(c) => c.statToday} />}
+        />
+        </div>
       </div>
 
       <div className={`${styles.container} ${styles.hero}`}>
         <div className={styles.copy}>
-          {/* живые цифры: свёрнутая плашка «● 53 040 вакансій», по нажатию раскрывается списком */}
-          <StatsPill
-            jobs={<LocN inline render={(c) => c.statJobs} />}
-            companies={<LocN inline render={(c) => c.statCompanies} />}
-            countries={<LocN inline render={(c) => c.statCountries} />}
-            today={<LocN inline render={(c) => c.statToday} />}
-          />
-
           <h1 className={styles.headline}>
             <Loc
               render={(copy) => (
