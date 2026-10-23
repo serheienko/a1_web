@@ -397,8 +397,17 @@ export async function fetchFeedPage(
     // count.total spans every post type (the backend counts with `object`
     // cleared), so the per-kind number is the one to use; fall back to what
     // this page proves exists if the expand is ever missing.
+    // 23.10.2026: peekUkraineFeedTotal() -- число БЕЗ учёта tags/categories
+    // (считается раз в час отдельным обходом, см. country-counts.ts). Если
+    // страница сузила выдачу тегом ("/jobs/type/full-time" и т.п.) или
+    // категорией, это число -- весь фид "для тебе", а не отфильтрованный
+    // кусок, и подменяло реальный total бэкенда: все три /jobs/type/*
+    // показывали одинаковую (неверную) цифру вместо своих 19/11/0. Теперь
+    // короткий путь работает только когда тег/категория не заданы -- именно
+    // тот случай, под который peekUkraineFeedTotal и считается.
+    const noTagOrCategoryFilter = (filters.tags?.length ?? 0) === 0 && (filters.categories?.length ?? 0) === 0;
     const total =
-      (inUkraineMode(kind, filters) ? peekUkraineFeedTotal() : null) ??
+      (inUkraineMode(kind, filters) && noTagOrCategoryFilter ? peekUkraineFeedTotal() : null) ??
       parsed.count?.object[KIND_TO_OBJECT[kind]] ??
       parsed.count?.total ??
       offset + posts.length + (hasMore ? 1 : 0);
