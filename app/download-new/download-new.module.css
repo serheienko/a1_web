@@ -88,18 +88,19 @@
   font-weight: 600;
 }
 
-/* остальные цифры выезжают вправо: ширина анимируется через 0fr -> 1fr */
+/* остальные цифры выезжают вправо: анимируется максимальная ширина */
 .extra {
-  display: grid;
-  grid-template-columns: 0fr;
+  display: block;
+  max-width: 0;
+  overflow: hidden;
   opacity: 0;
   transition:
-    grid-template-columns 320ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    max-width 340ms cubic-bezier(0.22, 0.61, 0.36, 1),
     opacity 240ms ease;
 }
 
 .stats[data-open] .extra {
-  grid-template-columns: 1fr;
+  max-width: 420px;
   opacity: 1;
 }
 
@@ -168,8 +169,10 @@
     font-size: clamp(14px, 1.15vw, 16px);
   }
 
-  .extra {
-    grid-template-columns: 1fr;
+  .extra,
+  .stats[data-open] .extra {
+    max-width: none;
+    overflow: visible;
     opacity: 1;
   }
 
