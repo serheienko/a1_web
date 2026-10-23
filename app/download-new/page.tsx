@@ -1,6 +1,6 @@
 // app/download-new/page.tsx -- ЧЕРНОВИК новой установочной страницы (23.10.2026).
-// Первый экран тот же, что у ../download/page.tsx, плюс живое число вакансий, параллакс
-// от наклона телефона, подсказка «листайте» и три шага ниже. Если Александр выберет её
+// Первый экран тот же, что у ../download/page.tsx, плюс плашка живых цифр (вакансии, компании,
+// страны, новые за сутки) и параллакс от наклона телефона. Одна экранная страница, без блоков ниже. Если Александр выберет её
 // главной, этот файл заменит ../download/page.tsx. До тех пор страница закрыта от поисковиков.
 //
 //
@@ -40,7 +40,6 @@ import styles from "../download/download.module.css";
 import n from "./download-new.module.css";
 import { LiveNumber } from "./live-number";
 import { LocN } from "./locn";
-import { Story } from "./story";
 import { Tilt } from "./tilt";
 
 // Montserrat — шрифт из макета: геометричный гротеск с круглыми «о» и
@@ -153,7 +152,6 @@ function AppleIcon() {
 
 export default function DownloadPage() {
   return (
-    <>
     <main className={`${montserrat.variable} ${styles.page}`}>
       <script dangerouslySetInnerHTML={{ __html: PLATFORM_INIT_SCRIPT }} />
       {/* невидимый слушатель: считает нажатия по кнопкам установки */}
@@ -200,14 +198,34 @@ export default function DownloadPage() {
 
       <div className={`${styles.container} ${styles.hero}`}>
         <div className={styles.copy}>
-          {/* живое число: настоящие данные из /api/public/summary, накручивается при открытии */}
-          <p className={n.live}>
+          {/* живые цифры одной плашкой: настоящие данные из /api/public/summary, накручиваются при открытии */}
+          <div className={n.stats}>
             <span className={n.liveDot} aria-hidden="true" />
-            <LiveNumber field="jobs" className={n.liveNum} />
-            <span>
-              <LocN inline render={(c) => c.liveLabel} />
+            <span className={n.stat}>
+              <LiveNumber field="jobs" className={n.statNum} />
+              <span className={n.statLabel}>
+                <LocN inline render={(c) => c.statJobs} />
+              </span>
             </span>
-          </p>
+            <span className={n.stat}>
+              <LiveNumber field="companies" className={n.statNum} />
+              <span className={n.statLabel}>
+                <LocN inline render={(c) => c.statCompanies} />
+              </span>
+            </span>
+            <span className={n.stat}>
+              <LiveNumber field="countries" className={n.statNum} />
+              <span className={n.statLabel}>
+                <LocN inline render={(c) => c.statCountries} />
+              </span>
+            </span>
+            <span className={n.stat}>
+              <LiveNumber field="today" className={n.statNum} prefix="+" />
+              <span className={n.statLabel}>
+                <LocN inline render={(c) => c.statToday} />
+              </span>
+            </span>
+          </div>
 
           <h1 className={styles.headline}>
             <Loc
@@ -275,48 +293,6 @@ export default function DownloadPage() {
           </p>
         </div>
       </div>
-      {/* подсказка «листайте»: только на компьютере, на телефоне страница и так листается пальцем */}
-      <a className={n.hint} href="#how">
-        <LocN render={(c) => c.scroll} />
-        <svg className={n.hintArrow} viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </a>
     </main>
-
-    {/* всё ниже первого экрана: полоса цифр, три шага, призыв */}
-    <Story
-      cta={
-        <>
-          <a className={`${styles.btn} ${styles.android}`} href={DOWNLOAD_LINKS.googlePlay} rel="noopener" data-track="android" data-magnet="">
-            <AndroidIcon />
-            <span className={styles.btnText}>
-              <Loc
-                render={(copy) => (
-                  <>
-                    <span className={styles.btnTop}>{copy.downloadVerb}</span>
-                    <span className={styles.btnBottom}>{copy.android}</span>
-                  </>
-                )}
-              />
-            </span>
-          </a>
-          <a className={`${styles.btn} ${styles.ios}`} href={DOWNLOAD_LINKS.appStore} rel="noopener" data-track="ios" data-magnet="">
-            <AppleIcon />
-            <span className={styles.btnText}>
-              <Loc
-                render={(copy) => (
-                  <>
-                    <span className={styles.btnTop}>{copy.downloadVerb}</span>
-                    <span className={styles.btnBottom}>{copy.ios}</span>
-                  </>
-                )}
-              />
-            </span>
-          </a>
-        </>
-      }
-    />
-    </>
   );
 }
