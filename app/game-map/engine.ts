@@ -1396,7 +1396,7 @@ export function mountGameMap(root, opts) {
     if (e.target.closest('.gm-ally') && popFor) toggleAlly(popFor);
     if (e.target.closest('.gm-fs')) toggleFs();
     if (e.target.closest('.gm-close')) closeApp();
-    if (e.target.closest('[data-egg]')) { sug.classList.remove('on'); qIn.blur(); import('./neptune').then((m) => m.openNeptune({ lang })); return; }
+    if (e.target.closest('[data-egg]')) { sug.classList.remove('on'); qIn.blur(); import('./neptune').then((m) => m.openNeptune({ lang, host: neptuneHost() })); return; }
     const si = e.target.closest('[data-ci]'); if (si) { pickCompany(byCi(si.dataset.ci)); }
   });
   // ---------- режим приложения ----------
@@ -1448,6 +1448,11 @@ export function mountGameMap(root, opts) {
       : (q ? (isNeptuneNearQ(q) ? `<div class="gm-none gm-egg-near"><b>${esc(tr('eggNear'))}</b><small>${esc(tr('eggNearSub'))}</small></div>` : `<div class="gm-none">${esc(tr('none'))}</div>`) : '');
     sug.classList.toggle('on', !!q);
   }
+  // 24.10.2026: в приложении (и в полноэкранном режиме сайта) карта сама лежит
+  // поверх страницы (gm-full / Fullscreen API), и резиденция, добавленная в body,
+  // оказывалась ПОД ней: музыка играла, а сцены не видно (Александр). Тогда
+  // кладём резиденцию внутрь самой карты.
+  function neptuneHost() { return document.fullscreenElement || document.webkitFullscreenElement || (root.classList.contains('gm-full') ? root : document.body); }
   function byCi(ci) { return String(ci).startsWith('o') ? offMap[Number(String(ci).slice(1))] : cos[Number(ci)]; }
   // 07.10.2026 (Александр: «як зробити, щоб піни відкривались»): натиск на «+N» довантажує
   // компанії саме цього міста (маленький запит, лише по натиску) і ставить їх будинками на місце піна,
@@ -1513,7 +1518,7 @@ export function mountGameMap(root, opts) {
       // (app/game-map/neptune.ts грузится только сейчас, остальным ничего не весит).
       if (isNeptuneSecretQ(qIn.value)) {
         sug.classList.remove('on'); qIn.blur();
-        import('./neptune').then((m) => m.openNeptune({ lang }));
+        import('./neptune').then((m) => m.openNeptune({ lang, host: neptuneHost() }));
         return;
       }
       if (sugIdx >= 0) pickCompany(sugList[sugIdx].c);

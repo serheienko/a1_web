@@ -60,6 +60,11 @@ const PIECES: Piece[] = [
   { src: "geyser", x: 1215, y: 770, w: 118 },
 ];
 
+// Окна дома: x, y, ширина, высота в % от картинки (вырезаны из residence-windows.webp).
+// Каждое окно -- отдельный «огонёк гирлянды» (Александр: «как огни на новогодней ёлке»).
+const WINDOWS = [38.11,16.98,3.67,3.91,59.44,18.88,6.33,8.94,41.22,20.67,2.11,2.12,36.22,30.28,3.0,4.02,41.78,31.84,5.67,4.47,67.44,32.4,2.0,1.45,50.33,32.85,5.78,3.91,24.33,33.07,2.89,2.46,59.22,33.07,5.11,3.58,34.33,36.31,3.67,2.01,67.33,36.42,3.33,2.01,65.33,36.65,1.11,1.12,32.89,37.99,0.89,1.01,48.11,38.88,5.44,3.91,61.78,39.22,2.0,2.79,39.22,40.11,1.11,1.34,84.22,40.67,4.44,3.46,33.78,42.12,2.56,1.79,67.33,42.46,2.56,2.35,64.67,43.24,0.78,1.68,39.11,46.15,2.22,4.58,61.78,46.26,2.33,5.7,78.11,46.48,1.33,1.34,56.44,46.82,0.89,1.45,66.11,47.71,3.89,2.57,34.11,47.82,3.89,2.68,48.56,48.16,4.89,5.59,64.67,50.17,0.78,2.46,72.11,50.73,2.0,1.45,82.56,52.85,3.0,2.01,64.78,53.63,4.11,1.9,73.78,53.85,0.89,1.01,35.56,53.97,2.11,1.23,92.78,54.75,3.22,2.57,69.22,55.08,2.78,2.23,58.33,55.87,1.67,1.12,43.89,55.98,3.89,1.45,19.89,56.54,1.11,1.79,64.56,58.1,2.33,3.13,37.11,58.44,2.11,5.03,15.22,58.55,1.44,1.23,12.89,60.0,8.0,5.03,47.78,60.45,4.78,5.7,56.56,60.56,1.67,5.7,87.56,61.34,1.56,1.56,25.89,61.79,1.0,1.01,11.0,62.35,1.22,0.89,87.33,63.24,5.89,7.26,37.0,64.02,2.22,2.23,10.0,64.13,1.11,0.89,13.78,64.58,17.67,5.03,32.33,65.36,1.56,2.01,63.78,65.36,1.67,2.68,66.22,65.36,1.0,1.12,47.78,66.03,4.78,5.47,79.56,66.82,5.44,4.58,92.89,66.82,1.0,1.56,40.89,67.26,1.11,4.47,69.78,68.04,1.22,1.79,67.78,68.16,1.56,1.23,3.44,68.72,0.89,1.23,74.56,69.05,4.89,2.35,29.56,69.5,5.89,3.02,5.0,69.72,1.78,1.68,24.11,71.73,2.44,1.79,11.33,72.18,1.44,1.45,66.44,72.4,3.33,5.25,13.11,72.63,1.89,1.45,15.44,73.07,2.11,1.45,18.0,73.3,1.44,1.34,4.67,73.63,2.56,4.58,87.11,73.63,5.44,7.37,56.56,73.74,2.0,6.03,62.0,73.97,2.89,5.92,31.44,74.64,1.44,1.34,52.67,74.64,1.56,2.57,82.67,74.75,2.89,5.7,75.89,74.97,5.44,6.26,97.33,75.2,1.0,1.23,43.0,75.75,4.56,5.92,11.89,76.09,4.67,5.36,29.67,76.87,0.78,1.01,50.78,78.1,3.0,2.35,66.78,78.99,2.22,1.56,23.11,79.33,0.78,1.68,34.11,79.55,4.44,3.35,24.33,79.66,2.33,2.12,27.22,80.45,2.44,2.12,90.89,80.45,4.0,3.24,63.0,81.45,1.0,1.23,88.44,82.35,2.11,2.23,87.0,82.79,1.11,2.12,23.56,83.91,4.0,4.8,80.78,84.58,0.89,2.01,77.78,84.92,2.67,2.35,51.0,85.36,1.33,2.01,72.78,85.36,4.44,2.57,89.78,85.36,4.89,5.81,52.67,85.81,3.33,2.35,67.89,85.81,4.44,2.23,56.56,86.48,3.0,2.23,60.0,86.82,1.0,2.01,21.44,87.37,0.89,1.56,75.56,89.83,5.0,5.14,52.22,90.39,5.89,4.8,68.89,90.73,5.56,4.69,48.33,93.74,1.89,1.79,85.33,94.3,1.67,2.35,64.56,96.31,2.33,2.79];
+const LIGHTS = ["#ff4fd8", "#3ee8ff", "#ffd84d", "#9b7bff", "#5dff9e", "#ff7a4d"];
+
 function el(tag: string, cls: string, html?: string): HTMLElement {
   const n = document.createElement(tag);
   n.className = cls;
@@ -96,7 +101,7 @@ function preload(srcs: string[]): Promise<void> {
 let openNow: (() => void) | null = null;
 
 /** Открыть резиденцию. Возвращает функцию закрытия. */
-export function openNeptune(opts: { lang?: string; onClose?: () => void } = {}): () => void {
+export function openNeptune(opts: { lang?: string; onClose?: () => void; host?: Element | null } = {}): () => void {
   if (openNow) return openNow;
   const lang: Lang = (opts.lang && opts.lang in STR ? opts.lang : "uk") as Lang;
   const t = STR[lang];
@@ -170,6 +175,20 @@ export function openNeptune(opts: { lang?: string; onClose?: () => void } = {}):
   const house = el("div", "np-house");
   place(house, 795, 640, 520, ASPECT.residence);
   house.innerHTML = `<img src="${BASE}/residence.webp" alt="${t.title}" draggable="false"><span class="np-tint"></span><span class="np-tint np-tint-b"></span><span class="np-win"></span>`;
+  {
+    // Горит примерно 2/3 окон, у каждого свой цвет, темп и задержка -- мерцают вразнобой и плавно.
+    const win = house.querySelector(".np-win") as HTMLElement;
+    let r = 11;
+    const rnd = () => ((r = (r * 16807) % 2147483647) / 2147483647);
+    const parts: string[] = [];
+    for (let i = 0; i < WINDOWS.length; i += 4) {
+      if (rnd() < 0.34) continue;
+      const [x, y, w, h] = WINDOWS.slice(i, i + 4);
+      const c = LIGHTS[Math.floor(rnd() * LIGHTS.length)];
+      parts.push(`<i style="left:${x}%;top:${y}%;width:${w}%;height:${h}%;background:${c};--d:${(2.2 + rnd() * 2.8).toFixed(2)}s;--l:${(-rnd() * 5).toFixed(2)}s"></i>`);
+    }
+    win.innerHTML = parts.join("");
+  }
   stage.appendChild(house);
 
   // Гейзер: клубы пара.
@@ -282,7 +301,7 @@ export function openNeptune(opts: { lang?: string; onClose?: () => void } = {}):
 
   const prevOverflow = document.body.style.overflow;
   document.body.style.overflow = "hidden";
-  document.body.appendChild(root);
+  (opts.host ?? document.body).appendChild(root);
   requestAnimationFrame(() => root.classList.add("np-in"));
 
   // Сначала грузим картинки (за туманом), потом «ныряем».
@@ -323,7 +342,7 @@ export function openNeptune(opts: { lang?: string; onClose?: () => void } = {}):
 }
 
 const CSS = `
-.np-root{position:fixed;inset:0;z-index:2147483000;overflow:hidden;background:radial-gradient(120% 90% at 50% 40%,#16246b 0%,#0b1440 45%,#04071c 100%);opacity:0;transition:opacity .45s ease;font-family:inherit;color:#fff;-webkit-tap-highlight-color:transparent}
+.np-root{position:fixed;inset:0;z-index:2147483647;overflow:hidden;background:radial-gradient(120% 90% at 50% 40%,#16246b 0%,#0b1440 45%,#04071c 100%);opacity:0;transition:opacity .45s ease;font-family:inherit;color:#fff;-webkit-tap-highlight-color:transparent}
 .np-root.np-in{opacity:1}
 .np-root.np-out{opacity:0}
 .np-root img{display:block;width:100%;height:100%;object-fit:contain;user-select:none;-webkit-user-drag:none;pointer-events:none}
@@ -355,11 +374,10 @@ const CSS = `
 @keyframes np-disco{0%{background-position:0% 50%}100%{background-position:300% 50%}}
 @keyframes np-pulse{from{opacity:.18}to{opacity:.45}}
 /* Разноцветный свет из окон: маска окон вырезана из картинки дома (residence-windows.webp). */
-.np-win{position:absolute;inset:0;-webkit-mask-image:url(/game-map/neptune/residence-windows.webp);mask-image:url(/game-map/neptune/residence-windows.webp);-webkit-mask-size:100% 100%;mask-size:100% 100%;background:radial-gradient(circle at 18% 28%,#ff5cf0 0 20%,transparent 22%),radial-gradient(circle at 70% 60%,#4de8ff 0 18%,transparent 20%),radial-gradient(circle at 40% 86%,#ffd84d 0 14%,transparent 16%),radial-gradient(circle at 88% 14%,#8f7bff 0 15%,transparent 17%);background-size:300px 300px;animation:np-win 9s linear infinite,np-winp 2.4s ease-in-out infinite alternate;filter:drop-shadow(0 0 5px rgba(255,140,240,.6))}
-/* 24.10.2026 (Александр: «все окна меняют цвета, чересчур жёстко»): теперь светятся
-   не все окна, а несколько цветных пятен медленно плывут по фасаду. */
-@keyframes np-win{0%{background-position:0 0}100%{background-position:300px 150px}}
-@keyframes np-winp{from{opacity:.55}to{opacity:.85}}
+.np-win{position:absolute;inset:0;-webkit-mask-image:url(/game-map/neptune/residence-windows.webp);mask-image:url(/game-map/neptune/residence-windows.webp);-webkit-mask-size:100% 100%;mask-size:100% 100%;filter:drop-shadow(0 0 4px rgba(255,255,255,.5))}
+/* Гирлянда: каждое окно плавно разгорается и гаснет (alternate -- без скачка в конце круга). */
+.np-win i{position:absolute;margin:-1%;padding:1%;box-sizing:content-box;opacity:.12;animation:np-light var(--d) ease-in-out var(--l) infinite alternate}
+@keyframes np-light{0%,25%{opacity:.12}75%,100%{opacity:.95}}
 .np-hover{animation:np-bob 3.2s ease-in-out infinite}
 .np-holo{animation:np-bob 4s ease-in-out infinite,np-glow 1.8s ease-in-out infinite alternate}
 .np-drone{animation:np-drone 7s ease-in-out infinite}
