@@ -100,6 +100,16 @@ const HOVER_CLOSE_DELAY_MS = 200;
 const CLOSE_TRANSITION_MS = 150;
 const RECENT_HOVER_OPEN_MS = 300;
 
+// 25.10.2026 (Александр, видео с iPhone: фильтры открываются и сразу
+// закрываются). На телефоне мыши нет, но браузер после тапа шлёт
+// эмулированные mouseenter/mouseleave. Открытие панели сдвигает вёрстку,
+// под «пальцем» оказывается другой элемент -- приходит mouseleave, и через
+// 200 мс панель закрывалась. На устройствах без наведения hover-логику
+// не используем вовсе: там панель открывается и закрывается только тапом.
+function noHover(): boolean {
+  return typeof window !== "undefined" && window.matchMedia("(hover: none)").matches;
+}
+
 export type HoverPanelRefPair = {
   trigger: RefObject<HTMLElement | null>;
   panel: RefObject<HTMLElement | null>;
@@ -130,6 +140,7 @@ export function useHoverPanel(open: boolean, setOpen: (open: boolean) => void, r
   }, []);
 
   function handleMouseEnter() {
+    if (noHover()) return;
     if (hoverCloseTimerRef.current) {
       clearTimeout(hoverCloseTimerRef.current);
       hoverCloseTimerRef.current = null;
@@ -156,6 +167,7 @@ export function useHoverPanel(open: boolean, setOpen: (open: boolean) => void, r
   }
 
   function handleMouseLeave() {
+    if (noHover()) return;
     if (isFocusInsideAny()) return;
     hoverCloseTimerRef.current = setTimeout(() => setOpen(false), HOVER_CLOSE_DELAY_MS);
   }
@@ -163,7 +175,7 @@ export function useHoverPanel(open: boolean, setOpen: (open: boolean) => void, r
   // Authoritative-geometry backstop — see this file's own header comment
   // for why onMouseEnter/onMouseLeave alone aren't enough.
   useEffect(() => {
-    if (!open) return;
+    if (!open || noHover()) return;
     const margin = 4;
     function isInside(rect: DOMRect | undefined, x: number, y: number) {
       if (!rect) return false;
@@ -227,8 +239,16 @@ export function useHoverPanel(open: boolean, setOpen: (open: boolean) => void, r
       t instanceof Node && refPairs.some(({ panel, trigger }) => panel.current?.contains(t) || trigger.current?.contains(t));
     let startY: number | null = null;
     let startX = 0;
+    // 25.10.2026 (Александр, видео с iPhone: после выбора фильтра панель
+    // открывается и сразу закрывается). Открытие панели меняет вёрстку над
+    // ней (строка поиска/чипы), браузер сдвигает прокрутку сам -- и
+    // onScroll ниже закрывал панель, хотя палец страницу не листал.
+    // Теперь по прокрутке закрываем только после касания ВНЕ панели.
+    let lastOutsideTouchAt = 0;
     function onTouchStart(e: TouchEvent) {
-      startY = insidePanel(e.target) ? null : e.touches[0]?.clientY ?? null;
+      const outside = !insidePanel(e.target);
+      if (outside) lastOutsideTouchAt = Date.now();
+      startY = outside ? e.touches[0]?.clientY ?? null : null;
       startX = e.touches[0]?.clientX ?? 0;
     }
     function onTouchMove(e: TouchEvent) {
@@ -243,6 +263,8 @@ export function useHoverPanel(open: boolean, setOpen: (open: boolean) => void, r
     const scrollY0 = window.scrollY;
     function onScroll(e: Event) {
       if (isFocusInsideAny() || insidePanel(e.target)) return;
+      // Прокрутка не от пальца человека (сдвиг вёрстки, якорение) -- не повод.
+      if (Date.now() - lastOutsideTouchAt > 2500) return;
       if (e.target === document && Math.abs(window.scrollY - scrollY0) < 24) return;
       setOpen(false);
     }
