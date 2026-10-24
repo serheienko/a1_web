@@ -25,6 +25,19 @@ import { profileHref } from "@/lib/profile-href";
 
 export type Named = Record<Locale, string>;
 
+export type SalaryRow = { tech: string; href: string | null; n: number; median: number; p25: number; p75: number };
+
+export type SalaryCountry = {
+  cc: string;
+  /** Валюта, в которой в этой стране больше всего вакансий; по ней и считаем. */
+  currency: string;
+  /** Месяц там, где так принято думать о зарплате (Украина, Польша...), иначе год. */
+  period: "MONTH" | "YEAR";
+  /** Вакансий с зарплатой в этой валюте в стране. */
+  n: number;
+  rows: SalaryRow[];
+};
+
 export type Insights = {
   updatedAt: string;
   total: number;
@@ -46,8 +59,17 @@ export type Insights = {
   roles: { slug: JobRole; label: string; n: number; href: string }[];
   format: { remote: number; hybrid: number; office: number };
   levels: { level: JobLevel; n: number }[];
-  salary: { tech: string; href: string | null; n: number; median: number; p25: number; p75: number }[];
+  salary: SalaryRow[];
   salaryOverall: { n: number; median: number; p25: number; p75: number } | null;
+  /**
+   * 24.10.2026 (Александр: «для Украины это нереальные зарплаты -- нужен
+   * выбор страны»). Те же зарплаты по технологиям, но отдельно по каждой
+   * стране, где данных хватает (см. salaryByCountryOf). `salary` выше --
+   * это «все страны», он не меняется.
+   */
+  salaryByCountry: SalaryCountry[];
+  /** Топ компаний по странам (топ стран по числу вакансий). «Все» -- companiesTop. */
+  companiesByCountry: { cc: string; rows: { name: string; href: string | null; n: number }[] }[];
   daily: { d: string; n: number }[];
   companiesTop: { name: string; href: string | null; n: number; avatar: string | null }[];
   segments: { role: JobRole; label: string; cc: string; n: number; href: string }[];
@@ -93,6 +115,66 @@ function ccOf(p: WebPost): string {
   return cc;
 }
 
+// ───── зарплаты по странам (24.10.2026) ─────
+//
+// Валюты НЕ пересчитываем -- то же решение, что в lib/a1/salary-stats.ts
+// (зашитый курс молча устаревает). В каждой стране берём валюту, в которой
+// там больше всего вакансий с зарплатой: Украина и США -- доллары, Германия
+// -- евро, Британия -- фунты. Так числа всегда те, что написаны в вакансиях.
+
+/** Страны, где о зарплате думают «в месяц». Остальные -- «в год». */
+const MONTHLY_CC = new Set("UA PL KZ GE MD AM AZ UZ KG RO BG RS".split(" "));
+/** Сколько строк-технологий нужно стране, чтобы попасть в выбор. */
+const MIN_COUNTRY_ROWS = 3;
+/** Сколько стран показываем в топе компаний. */
+const COMPANY_COUNTRIES = 12;
+
+/**
+ * Зарплата вакансии в год в её валюте. Порог «от 6 000 в год» -- только
+ * для долларов и только против явного мусора: $500 в месяц у джуна в
+ * Украине -- реальная зарплата, а общий порог /stats ($20k в год) её
+ * отрезал бы.
+ */
+function annualAmount(p: WebPost): { amount: number; currency: string } | null {
+  const s = p.salary;
+  if (!s) return null;
+  const currency = s.currency?.trim().toUpperCase();
+  if (!currency) return null;
+  const lo = s.min ?? s.max;
+  const hi = s.max ?? s.min;
+  if (lo == null || hi == null) return null;
+  const mid = (lo + hi) / 2;
+  if (!Number.isFinite(mid) || mid <= 0) return null;
+  const year = s.period === "YEAR" ? mid : mid * 12;
+  if (currency === "USD" && (year < 6_000 || year > 600_000)) return null;
+  return { amount: year, currency };
+}
+
+type CountrySalaryAcc = { byCur: Map<string, number>; byTech: Map<string, { amount: number; currency: string }[]> };
+
+function salaryByCountryOf(acc: Map<string, CountrySalaryAcc>): SalaryCountry[] {
+  const out: SalaryCountry[] = [];
+  for (const [cc, a] of acc) {
+    let currency = "";
+    let n = 0;
+    for (const [cur, k] of a.byCur) if (k > n) { currency = cur; n = k; }
+    if (!currency) continue;
+    const period = MONTHLY_CC.has(cc) ? "MONTH" : "YEAR";
+    const div = period === "MONTH" ? 12 : 1;
+    const rows: SalaryRow[] = [];
+    for (const [t, list] of a.byTech) {
+      const s = list.filter((x) => x.currency === currency).map((x) => x.amount / div).sort((x, y) => x - y);
+      if (s.length < MIN_SALARY_SAMPLE) continue;
+      rows.push({ tech: t, href: techLandingHref(t), n: s.length, median: quantile(s, 0.5), p25: quantile(s, 0.25), p75: quantile(s, 0.75) });
+    }
+    if (rows.length < MIN_COUNTRY_ROWS) continue;
+    rows.sort((x, y) => y.median - x.median);
+    out.push({ cc, currency, period, n, rows: rows.slice(0, 16) });
+  }
+  // Украина первой (это наш дом), дальше -- где больше данных.
+  return out.sort((x, y) => (x.cc === "UA" ? -1 : y.cc === "UA" ? 1 : y.n - x.n));
+}
+
 const KYIV = "Europe/Kyiv";
 function dayKey(d: Date): string {
   return d.toLocaleDateString("sv-SE", { timeZone: KYIV }); // 2026-10-08
@@ -118,6 +200,8 @@ export function buildInsights(posts: WebPost[]): Insights {
   const daily = new Map<string, number>();
   const salaryByTech = new Map<string, number[]>();
   const salaryAll: number[] = [];
+  const salaryCc = new Map<string, CountrySalaryAcc>();
+  const companiesCc = new Map<string, Map<string, { name: string; href: string | null; n: number }>>();
   const fmt = { remote: 0, hybrid: 0, office: 0 };
   let fresh24h = 0;
   let fresh7d = 0;
@@ -142,6 +226,13 @@ export function buildInsights(posts: WebPost[]): Insights {
         n: 1,
         avatar: p.author.avatarUrl,
       });
+    if (cc && cc !== "WW") {
+      let m = companiesCc.get(cc);
+      if (!m) companiesCc.set(cc, (m = new Map()));
+      const r = m.get(key);
+      if (r) r.n++;
+      else m.set(key, { name: p.author.name, href: p.author.username ? profileHref(p.author.username) : null, n: 1 });
+    }
 
     if (cc) {
       const e = countries.get(cc) ?? { n: 0, fresh: 0 };
@@ -183,6 +274,19 @@ export function buildInsights(posts: WebPost[]): Insights {
         const list = salaryByTech.get(t);
         if (list) list.push(usd);
         else salaryByTech.set(t, [usd]);
+      }
+    }
+
+    const local = cc && cc !== "WW" ? annualAmount(p) : null;
+    if (local) {
+      let a = salaryCc.get(cc);
+      if (!a) salaryCc.set(cc, (a = { byCur: new Map(), byTech: new Map() }));
+      a.byCur.set(local.currency, (a.byCur.get(local.currency) ?? 0) + 1);
+      for (const t of techs) {
+        if (!KNOWN_TECH.has(t)) continue;
+        const list = a.byTech.get(t);
+        if (list) list.push(local);
+        else a.byTech.set(t, [local]);
       }
     }
 
@@ -273,6 +377,11 @@ export function buildInsights(posts: WebPost[]): Insights {
         : null,
     daily: days,
     companiesTop: [...companies.values()].sort((a, b) => b.n - a.n).slice(0, 16),
+    salaryByCountry: salaryByCountryOf(salaryCc),
+    companiesByCountry: byCountry
+      .filter((c) => c.cc !== "WW" && companiesCc.has(c.cc))
+      .slice(0, COMPANY_COUNTRIES)
+      .map((c) => ({ cc: c.cc, rows: [...companiesCc.get(c.cc)!.values()].sort((a, b) => b.n - a.n).slice(0, 16) })),
     segments: [...segments]
       .sort((a, b) => b[1] - a[1])
       .slice(0, 12)

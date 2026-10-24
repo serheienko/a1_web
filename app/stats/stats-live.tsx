@@ -11,7 +11,7 @@
 // подписи и числа -- цветом текста, а не цветом серии.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Insights, Named } from "@/lib/a1/insights";
+import type { Insights, Named, SalaryCountry } from "@/lib/a1/insights";
 import { T, type Locale } from "@/components/t";
 import { WORLD_DOTS } from "@/lib/stats/world-dots";
 import { restFor, salaryHint } from "./i18n";
@@ -53,6 +53,40 @@ function fmt(n: number): string {
 }
 function money(n: number): string {
   return n >= 1000 ? `$${Math.round(n / 1000)}k` : `$${Math.round(n)}`;
+}
+// 24.10.2026: зарплата в валюте страны. Год -- «$216k», месяц -- «$4 500»
+// (так в Украине и пишут в вакансиях), злотые -- знаком после числа.
+const CUR_SIGN: Record<string, string> = { USD: "$", EUR: "€", GBP: "£", UAH: "₴", CAD: "C$", AUD: "A$", INR: "₹", JPY: "¥", ILS: "₪" };
+const CUR_AFTER: Record<string, string> = { PLN: "zł", CZK: "Kč", CHF: "CHF", SEK: "kr", NOK: "kr", DKK: "kr", RON: "lei", HUF: "Ft" };
+function moneyIn(n: number, currency: string, period: "MONTH" | "YEAR"): string {
+  const num = period === "YEAR" && n >= 1000 ? `${Math.round(n / 1000)}k` : fmt(Math.round(n / 50) * 50);
+  if (CUR_AFTER[currency]) return `${num}${NBSP}${CUR_AFTER[currency]}`;
+  const sign = CUR_SIGN[currency];
+  return sign ? `${sign}${num}` : `${num}${NBSP}${currency}`;
+}
+
+// Какую страну показать по умолчанию: по языку сайта (класс lang-xx на <html>).
+const LOCALE_CC: Record<string, string> = { uk: "UA", ru: "UA", en: "US", de: "DE", pl: "PL", es: "ES", fr: "FR", ptbr: "BR" };
+function localeCc(): string | null {
+  if (typeof document === "undefined") return null;
+  const m = /\blang-([a-z]+)\b/.exec(document.documentElement.className);
+  return m ? (LOCALE_CC[m[1]!] ?? null) : null;
+}
+
+/** Строка чипов «Усі країни / 🇺🇦 Україна / 🇺🇸 США...» -- общая для зарплат и топа компаний. */
+function CountryChips({ ccs, value, onChange, names }: { ccs: string[]; value: string; onChange: (cc: string) => void; names: Insights["names"] }) {
+  return (
+    <div className="st-chips-scroll mb-4 flex max-w-full gap-1.5 overflow-x-auto pb-1">
+      <button type="button" onClick={() => onChange("ALL")} className={`st-chip shrink-0 ${value === "ALL" ? "st-chip-on" : ""}`}>
+        🌍 <T {...L("Усі країни", "All countries", "Все страны")} />
+      </button>
+      {ccs.map((cc) => (
+        <button key={cc} type="button" onClick={() => onChange(cc)} className={`st-chip shrink-0 whitespace-nowrap ${value === cc ? "st-chip-on" : ""}`}>
+          {flag(cc)} {names[cc] ? <TN n={names[cc]} /> : cc}
+        </button>
+      ))}
+    </div>
+  );
 }
 function flag(cc: string): string {
   if (cc === "WW") return "🌏";
@@ -418,6 +452,20 @@ export function StatsLive({ initial }: Props) {
   const [data, setData] = useState(initial);
   const [delta, setDelta] = useState<number | null>(null);
   const [techGroup, setTechGroup] = useState<string>("all");
+  // 24.10.2026: выбор страны для зарплат и топа компаний. На сервере --
+  // Украина (основная аудитория, её же видит поисковик), после загрузки --
+  // страна по языку сайта, если по ней есть данные.
+  const hasSal = (cc: string) => initial.salaryByCountry.some((c) => c.cc === cc);
+  const hasComp = (cc: string) => initial.companiesByCountry.some((c) => c.cc === cc);
+  const [salCc, setSalCc] = useState<string>(hasSal("UA") ? "UA" : "ALL");
+  const [compCc, setCompCc] = useState<string>(hasComp("UA") ? "UA" : "ALL");
+  useEffect(() => {
+    const cc = localeCc();
+    if (!cc) return;
+    if (hasSal(cc)) setSalCc(cc);
+    if (hasComp(cc)) setCompCc(cc);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const prevTotal = useRef(initial.total);
 
   // живое обновление: раз в минуту, только пока вкладка открыта
@@ -450,7 +498,11 @@ export function StatsLive({ initial }: Props) {
   const countriesTop = data.byCountry.filter((c) => c.cc !== "WW").slice(0, 15);
   const techShown = (techGroup === "all" ? data.tech : data.tech.filter((t) => t.group === techGroup)).slice(0, 24);
   const techMax = Math.max(1, ...techShown.map((t) => t.n));
-  const salaryMax = Math.max(1, ...data.salary.map((s) => s.p75));
+  const salCountry: SalaryCountry | null = salCc === "ALL" ? null : (data.salaryByCountry.find((c) => c.cc === salCc) ?? null);
+  const salRows = salCountry ? salCountry.rows : data.salary;
+  const salMoney = (n: number) => (salCountry ? moneyIn(n, salCountry.currency, salCountry.period) : money(n));
+  const salaryMax = Math.max(1, ...salRows.map((s) => s.p75));
+  const compRows = compCc === "ALL" ? data.companiesTop : (data.companiesByCountry.find((c) => c.cc === compCc)?.rows ?? data.companiesTop);
 
   return (
     <div className="st-root">
@@ -586,24 +638,36 @@ export function StatsLive({ initial }: Props) {
       </div>
 
       {/* ── зарплаты ── */}
-      {data.salary.length ? (
+      {data.salary.length || data.salaryByCountry.length ? (
         <Reveal className="mt-4">
-          <H2 sub={<T {...{ ...L(
-            `Лише вакансії з указаною зарплатою в доларах, рік. Смуга -- від 25-го до 75-го перцентиля, точка -- медіана. Вакансій із зарплатою: ${fmt(data.withSalary)}.`,
-            `USD salaries stated in the job post, per year. Bar: 25th–75th percentile, dot: median. Jobs with a salary: ${fmt(data.withSalary)}.`,
-            `Только вакансии с указанной зарплатой в долларах, в год. Полоса -- от 25-го до 75-го перцентиля, точка -- медиана. Вакансий с зарплатой: ${fmt(data.withSalary)}.`,
+          <H2 sub={salCountry ? (
+            <>
+              <TN n={data.names[salCountry.cc]} />{". "}
+              <T {...L(
+                `Лише вакансії з указаною зарплатою в ${salCountry.currency}, ${salCountry.period === "MONTH" ? "на місяць" : "на рік"}. Смуга -- від 25-го до 75-го перцентиля, точка -- медіана. Вакансій із зарплатою: ${fmt(salCountry.n)}.`,
+                `Only jobs with a salary stated in ${salCountry.currency}, per ${salCountry.period === "MONTH" ? "month" : "year"}. Bar: 25th–75th percentile, dot: median. Jobs with a salary: ${fmt(salCountry.n)}.`,
+                `Только вакансии с указанной зарплатой в ${salCountry.currency}, ${salCountry.period === "MONTH" ? "в месяц" : "в год"}. Полоса -- от 25-го до 75-го перцентиля, точка -- медиана. Вакансий с зарплатой: ${fmt(salCountry.n)}.`,
+              )} />
+            </>
+          ) : <T {...{ ...L(
+            `Усі країни разом -- переважно США. Лише вакансії з указаною зарплатою в доларах, рік. Смуга -- від 25-го до 75-го перцентиля, точка -- медіана. Вакансій із зарплатою: ${fmt(data.withSalary)}.`,
+            `All countries together -- mostly the US. USD salaries stated in the job post, per year. Bar: 25th–75th percentile, dot: median. Jobs with a salary: ${fmt(data.withSalary)}.`,
+            `Все страны вместе -- в основном США. Только вакансии с указанной зарплатой в долларах, в год. Полоса -- от 25-го до 75-го перцентиля, точка -- медиана. Вакансий с зарплатой: ${fmt(data.withSalary)}.`,
           ), ...salaryHint(fmt(data.withSalary)) }} />}>
             <T {...L("Зарплати за технологіями", "Salaries by technology", "Зарплаты по технологиям")} />
           </H2>
-          <div className="st-sal">
-            {data.salary.map((s, i) => (
-              <div key={s.tech} className="st-sal-row" title={`${s.tech}: ${money(s.p25)}–${money(s.p75)}, median ${money(s.median)}, n=${s.n}`}>
+          {data.salaryByCountry.length ? (
+            <CountryChips ccs={data.salaryByCountry.map((c) => c.cc)} value={salCc} onChange={setSalCc} names={data.names} />
+          ) : null}
+          <div className="st-sal" key={salCc}>
+            {salRows.map((s, i) => (
+              <div key={s.tech} className="st-sal-row" title={`${s.tech}: ${salMoney(s.p25)}–${salMoney(s.p75)}, median ${salMoney(s.median)}, n=${s.n}`}>
                 <span className="st-bar-label">{s.href ? <a href={s.href} className="hover:text-accent">{s.tech}</a> : s.tech}</span>
                 <span className="st-sal-track">
                   <span className="st-sal-range" style={{ left: `${(s.p25 / salaryMax) * 100}%`, ["--w" as string]: `${((s.p75 - s.p25) / salaryMax) * 100}%`, transitionDelay: `${i * 40}ms` }} />
                   <span className="st-sal-med" style={{ left: `${(s.median / salaryMax) * 100}%`, transitionDelay: `${i * 40 + 300}ms` }} />
                 </span>
-                <span className="st-bar-val">{money(s.median)}</span>
+                <span className="st-bar-val">{salMoney(s.median)}</span>
               </div>
             ))}
           </div>
@@ -611,13 +675,18 @@ export function StatsLive({ initial }: Props) {
       ) : null}
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <Reveal>
+        {/* min-w-0: без него строка стран (прокручивается вбок) растягивает
+            колонку сетки шире экрана, и вся страница едет вбок на телефоне. */}
+        <Reveal className="min-w-0">
           <H2 sub={<T {...L("Хто зараз наймає найбільше", "Who is hiring the most right now", "Кто сейчас нанимает больше всех")} />}>
             <T {...L("Топ компаній", "Top companies", "Топ компаний")} />
           </H2>
-          <div className="st-bars">
-            {data.companiesTop.map((c, i) => (
-              <Bar key={c.name + i} i={i} max={data.companiesTop[0]?.n ?? 1} value={c.n} href={c.href} label={c.name} />
+          {data.companiesByCountry.length ? (
+            <CountryChips ccs={data.companiesByCountry.map((c) => c.cc)} value={compCc} onChange={setCompCc} names={data.names} />
+          ) : null}
+          <div className="st-bars" key={compCc}>
+            {compRows.map((c, i) => (
+              <Bar key={c.name + i} i={i} max={compRows[0]?.n ?? 1} value={c.n} href={c.href} label={c.name} />
             ))}
           </div>
         </Reveal>
@@ -717,6 +786,8 @@ const CSS = `
 @media (prefers-color-scheme: dark){:root:not(.light) .st-legend-ramp{background:linear-gradient(90deg,#104281,#1c5cab,#3987e5,#86b6ef,#cde2fb)}}
 .st-chip{font-size:12px;padding:5px 10px;border-radius:999px;background:var(--track);transition:background .2s,color .2s}
 .st-chip-on{background:var(--bar);color:#fff}
+.st-chips-scroll{scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.st-chips-scroll::-webkit-scrollbar{display:none}
 .st-levels{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;align-items:end;height:200px}
 .st-level{display:flex;flex-direction:column;align-items:center;height:100%}
 .st-level-val{font-weight:700;font-variant-numeric:tabular-nums;font-size:15px}
