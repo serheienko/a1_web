@@ -157,6 +157,7 @@ const TXT = {
     sub: L("Чек-листи та інструменти", "Checklists and tools", "Чек-листы и инструменты", {
       de: "Checklisten und Tools", es: "Listas y herramientas", fr: "Checklists et outils", pl: "Listy kontrolne i narzędzia", ptBR: "Checklists e ferramentas", zh: "清单与工具",
     }),
+    badge: L("Новинка", "New", "Новинка", { de: "Neu", es: "Nuevo", fr: "Nouveau", pl: "Nowość", ptBR: "Novo", zh: "新" }),
     prev: L(
       "Підготовка для кандидата, чесний процес для інтерв'юера і прийоми проти AI-підказок",
       "Prep for candidates, a fair process for interviewers and tricks against AI prompting",

@@ -167,6 +167,24 @@ function FraudIcon({ name }: { name: AntifraudIcon }) {
   }
 }
 
+// 24.10.2026 (Александр): значок блока «Як помітити AI-підказки» -- закрытый
+// глаз, который «открывается», когда блок раскрывают: веко поднимается,
+// появляется зрачок. Анимация чисто на CSS по атрибуту open у <details>.
+function EyeToggleIcon() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true" {...stroke} className="kit-eye">
+      <g className="kit-eye-closed">
+        <path d="M3 10c2.5 3 5.5 4.5 9 4.5s6.5-1.5 9-4.5" />
+        <path d="M7 13.5L5.5 16M12 14.5V17M17 13.5l1.5 2.5" />
+      </g>
+      <g className="kit-eye-open">
+        <path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12s-3.5 6.5-9.5 6.5S2.5 12 2.5 12z" />
+        <circle cx="12" cy="12" r="3" className="kit-eye-pupil" />
+      </g>
+    </svg>
+  );
+}
+
 // ───────── переключатель «Кандидату / Інтерв'юеру» ─────────
 export function RoleSwitch({ role }: { role: Role }) {
   const items: { r: Role; label: typeof UI.roleCandidate }[] = [
@@ -423,7 +441,7 @@ export function Antifraud() {
     <details className="kit-fraud group mt-10 rounded-[28px] bg-card dark:bg-neutral-900">
       <summary className="flex cursor-pointer list-none items-center gap-4 p-5 sm:p-7 [&::-webkit-details-marker]:hidden">
         <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-accent/10 text-accent">
-          <FraudIcon name="eye" />
+          <EyeToggleIcon />
         </span>
         <span className="min-w-0 flex-1">
           <span className="block text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
@@ -753,6 +771,14 @@ const CSS = `
 .kit-tile:hover{transform:translateY(-2px);box-shadow:0 8px 24px -12px rgba(0,0,0,.25);border-color:transparent}
 .kit-tile-logo{display:flex;height:44px;width:44px;flex-shrink:0;align-items:center;justify-content:center;border-radius:13px;background:#fff;box-shadow:inset 0 0 0 1px rgba(0,0,0,.06)}
 .kit-fraud[open] .kit-fraud-card{animation:kit-rise .4s ease both}
+.kit-eye g{transform-box:fill-box;transform-origin:center}
+.kit-eye-closed{transition:opacity .2s ease,transform .25s ease}
+.kit-eye-open{opacity:0;transform:scaleY(.1);transition:opacity .25s ease .08s,transform .35s cubic-bezier(.3,1.5,.5,1) .08s}
+.kit-eye-pupil{fill:currentColor;transform-box:fill-box;transform-origin:center;transform:scale(0);transition:transform .3s ease .25s}
+.kit-fraud[open] .kit-eye-closed{opacity:0;transform:translateY(-2px) scaleY(.4)}
+.kit-fraud[open] .kit-eye-open{opacity:1;transform:scaleY(1)}
+.kit-fraud[open] .kit-eye-pupil{transform:scale(1)}
+.kit-fraud:not([open]) summary:hover .kit-eye-closed{transform:translateY(-1px)}
 @keyframes kit-rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .kit-a1{background:linear-gradient(135deg,#335ef7 0%,#5b7cff 100%);transition:transform .15s,box-shadow .2s}
 .kit-a1:hover{transform:translateY(-2px);box-shadow:0 12px 30px -14px rgba(51,94,247,.7)}
@@ -771,5 +797,5 @@ const CSS = `
 .kit-cv-btn:hover{transform:translateY(-1px);box-shadow:0 10px 24px -10px rgba(0,0,0,.45)}
 .kit-cv-demo{background:#fafafa}
 .dark .kit-cv-demo{background:#0a0a0a}
-@media (prefers-reduced-motion: reduce){.kit-confetti{display:none}.kit-ring-done,.kit-item-on .kit-box,.kit-fraud[open] .kit-fraud-card{animation:none}}
+@media (prefers-reduced-motion: reduce){.kit-confetti{display:none}.kit-eye g,.kit-eye-pupil{transition:none!important}.kit-ring-done,.kit-item-on .kit-box,.kit-fraud[open] .kit-fraud-card{animation:none}}
 `;
