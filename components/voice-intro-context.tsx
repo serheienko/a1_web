@@ -19,6 +19,8 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { useActiveLocale } from "@/lib/use-active-locale";
+import type { Locale } from "@/components/t";
 
 const RATES = [1, 1.5, 2] as const;
 type Rate = (typeof RATES)[number];
@@ -44,7 +46,23 @@ type VoiceIntroState = {
 
 const VoiceIntroContext = createContext<VoiceIntroState | null>(null);
 
-export function VoiceIntroProvider({ url, children }: { url: string | null; children: ReactNode }) {
+// 24.10.2026 (Александр, профиль-пример Mr Kit на /spivbesida: «голосовые
+// визитки на всех языках, каждая играет на своём языке сайта»).
+// urlByLocale -- необязательная карта «язык сайта -> файл». Если она есть,
+// играет запись на текущем языке (useActiveLocale следит за переключателем),
+// а url остаётся запасной. У живых профилей карты нет, для них ничего не
+// меняется.
+export function VoiceIntroProvider({
+  url: fallbackUrl,
+  urlByLocale,
+  children,
+}: {
+  url: string | null;
+  urlByLocale?: Partial<Record<Locale, string>>;
+  children: ReactNode;
+}) {
+  const lang = useActiveLocale();
+  const url = urlByLocale?.[lang] ?? fallbackUrl;
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const rafRef = useRef<number | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -52,6 +70,17 @@ export function VoiceIntroProvider({ url, children }: { url: string | null; chil
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [rate, setRate] = useState<Rate>(RATES[0]);
+
+  // Сменили язык сайта -> другая запись. Старую останавливаем, прогресс с нуля,
+  // скорость переносим на новый файл.
+  useEffect(() => {
+    setPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
+    const audio = audioRef.current;
+    if (audio) audio.playbackRate = rate;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [url]);
 
   // Drives both the ring's progress arc and the player's scrubber off the
   // real <audio> clock via rAF (smoother than the coarse `timeupdate`
@@ -132,6 +161,7 @@ export function VoiceIntroProvider({ url, children }: { url: string | null; chil
       <audio
         ref={audioRef}
         src={url}
+        preload="metadata"
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
         onEnded={() => {

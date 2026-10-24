@@ -76,7 +76,13 @@ export type ProfileViewProps = {
   openJobs: number;
   posts: ReactNode;
   postsCount: number;
-  demo?: { github?: GithubSummary; stackoverflow?: StackoverflowSummary; dribbble?: DribbbleSnapshot };
+  demo?: {
+    github?: GithubSummary;
+    stackoverflow?: StackoverflowSummary;
+    dribbble?: DribbbleSnapshot;
+    /** Голосовая визитка на каждом языке сайта (пример Mr Kit). */
+    voiceByLocale?: Partial<Record<Locale, string>>;
+  };
   embed?: boolean;
 };
 
@@ -270,7 +276,7 @@ export function ProfileView({
   const Wrapper = embed ? "div" : "main";
 
   return (
-    <VoiceIntroProvider url={profile.voiceIntroUrl}>
+    <VoiceIntroProvider url={profile.voiceIntroUrl} urlByLocale={demo?.voiceByLocale}>
     {/* Aleksandr, 2026-08-28: first tried dropping `mx-auto` to left-align
         this against the nav logo — he corrected that: "НЕ к левому
         краю... по центру страницы, как ориентир - 2 верхних таба" (NOT

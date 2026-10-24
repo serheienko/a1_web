@@ -32,11 +32,18 @@ const CAT = "/spivbesida/mr-kit-avatar.webp";
 const CAT_BLUR =
   "data:image/jpeg;base64,/9j/2wBDABALDA4MChAODQ4SERATGCgaGBYWGDEjJR0oOjM9PDkzODdASFxOQERXRTc4UG1RV19iZ2hnPk1xeXBkeFxlZ2P/2wBDARESEhgVGC8aGi9jQjhCY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2P/wAARCAAMAAwDASIAAhEBAxEB/8QAFgABAQEAAAAAAAAAAAAAAAAABgQF/8QAHhAAAQUBAAMBAAAAAAAAAAAAAgEDBAURABIhQSL/xAAVAQEBAAAAAAAAAAAAAAAAAAADBP/EABoRAAICAwAAAAAAAAAAAAAAAAEDAAIEERL/2gAMAwEAAhEDEQA/ALrC5kRbQhAfyHrxX721CedkRhdPEUvnBLWQ65byVItVFxOa0jpO1TBFm51uUgLVWwEHoan/2Q==";
 
+// 24.10.2026: голосовые визитки кота от Александра (ElevenLabs), по одной на
+// каждый язык сайта. Пережаты в моно 64 kbps (~270 КБ вместо ~550 КБ), для
+// голоса разницы не слышно. Играет запись на текущем языке сайта.
+const VOICE = Object.fromEntries(
+  (["uk", "en", "ru", "de", "es", "fr", "pl", "ptBR", "zh"] as const).map((l) => [l, `/spivbesida/mr-kit-voice-${l}.mp3`]),
+) as Record<"uk" | "en" | "ru" | "de" | "es" | "fr" | "pl" | "ptBR" | "zh", string>;
+
 const PROFILE: WebProfile = {
   username: USERNAME,
   fullName: "Mr Kit",
   avatarUrl: CAT,
-  voiceIntroUrl: null,
+  voiceIntroUrl: "/spivbesida/mr-kit-voice-uk.mp3",
   occupation: "professional",
   expertise: "Senior",
   profileTitle: "Guardian of the A1 universe and its official mascot",
@@ -256,7 +263,7 @@ export function MrKitProfile() {
         </p>
       }
       postsCount={0}
-      demo={{ github: GITHUB, stackoverflow: STACKOVERFLOW, dribbble: DRIBBBLE }}
+      demo={{ github: GITHUB, stackoverflow: STACKOVERFLOW, dribbble: DRIBBBLE, voiceByLocale: VOICE }}
       embed
     />
   );
