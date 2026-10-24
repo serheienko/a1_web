@@ -51,8 +51,9 @@ const PIECES: Piece[] = [
   { src: "pylon", x: 1290, y: 610, w: 112, cls: "np-pylon" },
   { src: "statue", x: 555, y: 665, w: 92, cls: "np-shine" },
   { src: "disco", x: 1030, y: 640, w: 62, cls: "np-disco", delay: 0.7 },
-  { src: "butler", x: 665, y: 712, w: 86 },
-  { src: "fish", x: 1120, y: 705, w: 130, cls: "np-neon" },
+  { src: "butler", x: 668, y: 712, w: 96, cls: "np-idle" },
+  // Рыба -- на снегу между двумя лунками (раньше одна нога стояла в воде, Александр).
+  { src: "fish", x: 1180, y: 652, w: 124, cls: "np-neon" },
   { src: "crystals-s", x: 470, y: 765, w: 110, cls: "np-glint", delay: 1.3 },
   { src: "geyser", x: 1215, y: 770, w: 118 },
 ];
@@ -70,7 +71,7 @@ function place(n: HTMLElement, x: number, y: number, w: number, aspect: number) 
 }
 
 const ASPECT = {
-  residence: 895 / 900, ground: 742 / 1100, butler: 290 / 260, "butler-wave": 260 / 260, drone: 224 / 220, quad: 239 / 260, turret: 175 / 160,
+  residence: 895 / 900, ground: 742 / 1100, butler: 256 / 260, "butler-wave": 256 / 260, drone: 224 / 220, quad: 239 / 260, turret: 175 / 160,
   ship: 358 / 340, pylon: 222 / 220, dish: 271 / 260, holo: 267 / 260, disco: 174 / 160, fish: 253 / 260, statue: 235 / 220, crystals: 294 / 300,
   "crystals-s": 236 / 220, spire: 215 / 200, geyser: 246 / 240,
 } as const satisfies Record<string, number>;
@@ -166,7 +167,7 @@ export function openNeptune(opts: { lang?: string; onClose?: () => void } = {}):
   // Дом + цветная «дискотечная» накладка по силуэту дома (mask-image).
   const house = el("div", "np-house");
   place(house, 795, 640, 520, ASPECT.residence);
-  house.innerHTML = `<img src="${BASE}/residence.webp" alt="${t.title}" draggable="false"><span class="np-tint"></span><span class="np-tint np-tint-b"></span>`;
+  house.innerHTML = `<img src="${BASE}/residence.webp" alt="${t.title}" draggable="false"><span class="np-tint"></span><span class="np-tint np-tint-b"></span><span class="np-win"></span>`;
   stage.appendChild(house);
 
   // Гейзер: клубы пара.
@@ -183,8 +184,13 @@ export function openNeptune(opts: { lang?: string; onClose?: () => void } = {}):
 
   // Дворецкий справа машет: два кадра по очереди.
   const waver = el("div", "np-piece np-waver");
-  place(waver, 935, 712, 86, ASPECT.butler);
-  waver.innerHTML = `<img src="${BASE}/butler.webp" alt="" draggable="false"><img class="np-wave" src="${BASE}/butler-wave.webp" alt="" draggable="false">`;
+  // Оба кадра вырезаны одним общим кадром (public/game-map/neptune/butler*.webp),
+  // иначе при смене позы дворецкий «прыгал» (Александр: «кот-официант глючит»).
+  place(waver, 938, 712, 96, ASPECT.butler);
+  // Второй заход: два разных рисунка позы при смене кадров всё равно дёргались
+  // (поднос и наклон корпуса нарисованы по-разному). Теперь он просто машет --
+  // один кадр, мягко покачивается от ног.
+  waver.innerHTML = `<img src="${BASE}/butler-wave.webp" alt="" draggable="false">`;
   stage.appendChild(waver);
 
   // В воздухе.
@@ -242,7 +248,7 @@ export function openNeptune(opts: { lang?: string; onClose?: () => void } = {}):
 
   // Сначала грузим картинки (за туманом), потом «ныряем».
   let alive = true;
-  preload(["residence", "ground", ...new Set(PIECES.map((p) => p.src)), "butler-wave", "holo", "drone", "quad"]).then(() => {
+  preload(["residence", "residence-windows", "ground", ...new Set(PIECES.map((p) => p.src)), "butler-wave", "holo", "drone", "quad"]).then(() => {
     if (alive) root.classList.add("np-ready");
   });
 
@@ -287,8 +293,8 @@ const CSS = `
 .np-ready .np-ground,.np-ready .np-house,.np-ready .np-piece{opacity:1}
 .np-vp{transform:scale(1.18);transition:transform 1.6s cubic-bezier(.2,.7,.2,1)}
 .np-ready .np-vp{transform:none}
-.np-ground{filter:drop-shadow(0 40px 60px rgba(0,0,0,.45));animation:np-float 9s ease-in-out infinite}
-@keyframes np-float{0%,100%{translate:0 0}50%{translate:0 -8px}}
+/* Остров и дом стоят на месте (Александр: «дом пусть не летает»), двигаются только спрайты и свет. */
+.np-ground{filter:drop-shadow(0 40px 60px rgba(0,0,0,.45))}
 .np-floor{left:330px;top:420px;width:960px;height:330px;border-radius:50%;overflow:hidden;mix-blend-mode:screen;opacity:0;transition:opacity 1s .6s}
 .np-ready .np-floor{opacity:.85}
 .np-spot{position:absolute;width:220px;height:110px;border-radius:50%;filter:blur(18px);background:hsl(calc(var(--i)*72 + 200) 100% 60% / .55);left:calc(var(--i)*170px);top:calc(40px + var(--i)*30px);animation:np-spot 6s ease-in-out infinite;animation-delay:calc(var(--i)*-1.2s)}
@@ -303,6 +309,10 @@ const CSS = `
 .np-tint-b{mix-blend-mode:overlay;opacity:.3;animation-duration:3.6s,.45s;animation-direction:reverse,alternate}
 @keyframes np-disco{0%{background-position:0% 50%}100%{background-position:300% 50%}}
 @keyframes np-pulse{from{opacity:.18}to{opacity:.45}}
+/* Разноцветный свет из окон: маска окон вырезана из картинки дома (residence-windows.webp). */
+.np-win{position:absolute;inset:0;-webkit-mask-image:url(/game-map/neptune/residence-windows.webp);mask-image:url(/game-map/neptune/residence-windows.webp);-webkit-mask-size:100% 100%;mask-size:100% 100%;background:linear-gradient(115deg,#ff3df2 0 16%,#3df5ff 16% 33%,#ffe14d 33% 50%,#7a5cff 50% 66%,#4dff9a 66% 83%,#ff6b3d 83% 100%);background-size:240px 240px;animation:np-win 1.6s steps(4) infinite,np-winp .4s ease-in-out infinite alternate;filter:saturate(1.6) brightness(1.25) drop-shadow(0 0 7px rgba(255,120,240,.95))}
+@keyframes np-win{0%{background-position:0 0}100%{background-position:240px 120px}}
+@keyframes np-winp{from{opacity:.8}to{opacity:1}}
 .np-hover{animation:np-bob 3.2s ease-in-out infinite}
 .np-holo{animation:np-bob 4s ease-in-out infinite,np-glow 1.8s ease-in-out infinite alternate}
 .np-drone{animation:np-drone 7s ease-in-out infinite}
@@ -326,8 +336,10 @@ const CSS = `
 .np-turret::after{content:"";position:absolute;left:46%;bottom:88%;width:5px;height:240px;background:linear-gradient(to top,#3df5ff,transparent);filter:blur(1.5px);opacity:.6;animation:np-laser 2.2s ease-in-out infinite}
 @keyframes np-laser{0%,100%{opacity:.25}50%{opacity:.85}}
 .np-waver img{position:absolute;inset:0}
-.np-wave{animation:np-wave 1.1s steps(1) infinite}
-@keyframes np-wave{0%{opacity:0}50%{opacity:1}}
+.np-idle{animation:np-idle 3s ease-in-out infinite}
+@keyframes np-idle{0%,100%{translate:0 0}50%{translate:0 -3px}}
+.np-waver{transform-origin:50% 100%;animation:np-sway 2.2s ease-in-out infinite}
+@keyframes np-sway{0%,100%{rotate:-2.5deg;translate:0 0}50%{rotate:2.5deg;translate:0 -4px}}
 .np-steam{position:absolute;left:38%;bottom:70%;width:44px;height:44px;border-radius:50%;background:rgba(170,240,255,.55);filter:blur(8px);animation:np-steam 3.2s ease-out infinite;animation-delay:calc(var(--i)*-.8s)}
 @keyframes np-steam{0%{transform:translate(0,0) scale(.5);opacity:0}15%{opacity:.8}100%{transform:translate(18px,-170px) scale(2.2);opacity:0}}
 .np-fog{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 62% 58% at 50% 54%,transparent 52%,rgba(150,170,230,.18) 70%,rgba(18,26,70,.92) 100%)}
