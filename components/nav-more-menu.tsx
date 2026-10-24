@@ -35,7 +35,7 @@ import { useHoverPanel } from "@/lib/use-hover-panel";
 import { useActiveLocale } from "@/lib/use-active-locale";
 import { COPY, makeT } from "@/app/invite/copy";
 
-type Id = "app" | "news" | "events" | "stats" | "ai" | "invite" | "game";
+type Id = "app" | "news" | "events" | "stats" | "interview" | "ai" | "invite" | "game";
 
 function L(uk: string, en: string, ru: string, rest?: Partial<Record<Locale, string>>): Record<Locale, string> {
   return { uk, en, ru, de: en, es: en, fr: en, pl: en, ptBR: en, zh: en, ...rest };
@@ -149,6 +149,28 @@ const TXT = {
     ),
     badge: L("Новинка", "New", "Новинка", { de: "Neu", es: "Nuevo", fr: "Nouveau", pl: "Nowość", ptBR: "Novo", zh: "新" }),
   },
+  // 24.10.2026: раздел «Співбесіда» -- чек-листы и инструменты кандидату и интервьюеру (/spivbesida).
+  interview: {
+    title: L("Співбесіда", "Interview", "Собеседование", {
+      de: "Vorstellungsgespräch", es: "Entrevista", fr: "Entretien", pl: "Rozmowa kwalifikacyjna", ptBR: "Entrevista", zh: "面试",
+    }),
+    sub: L("Чек-листи та інструменти", "Checklists and tools", "Чек-листы и инструменты", {
+      de: "Checklisten und Tools", es: "Listas y herramientas", fr: "Checklists et outils", pl: "Listy kontrolne i narzędzia", ptBR: "Checklists e ferramentas", zh: "清单与工具",
+    }),
+    prev: L(
+      "Підготовка для кандидата, чесний процес для інтерв'юера і прийоми проти AI-підказок",
+      "Prep for candidates, a fair process for interviewers and tricks against AI prompting",
+      "Подготовка для кандидата, честный процесс для интервьюера и приёмы против AI-подсказок",
+      {
+        de: "Vorbereitung für Bewerber, ein fairer Ablauf für Interviewer und Tricks gegen KI-Souffleure",
+        es: "Preparación para candidatos, un proceso justo para entrevistadores y trucos contra la ayuda de IA",
+        fr: "Préparation pour les candidats, un processus équitable pour les recruteurs et des astuces contre l'aide d'une IA",
+        pl: "Przygotowanie dla kandydata, uczciwy proces dla rekrutera i sposoby na podpowiedzi AI",
+        ptBR: "Preparação para candidatos, um processo justo para entrevistadores e truques contra ajuda de IA",
+        zh: "求职者的准备、面试官的公平流程，以及应对 AI 提示的方法",
+      },
+    ),
+  },
   // 17.10.2026: реферальная программа «Отримай Alpha» -- страница /invite, мини-прогресс прямо в строке меню.
   invite: {
     title: L("Отримай Alpha", "Get Alpha", "Получи Alpha", {
@@ -200,7 +222,7 @@ function hrefFor(id: Id, locale: Locale): string {
   return HREF[id];
 }
 
-const HREF: Record<Id, string> = { app: "/download", news: "/news", events: "/events", stats: "/stats", ai: "/ai-assistant", invite: "/invite", game: "/game" };
+const HREF: Record<Id, string> = { app: "/download", news: "/news", events: "/events", stats: "/stats", interview: "/spivbesida", ai: "/ai-assistant", invite: "/invite", game: "/game" };
 
 // Сводка рефералки для строки меню: friends -- друзей в зачёте, next -- сколько нужно до следующей награды.
 type InviteLite = { friends: number; months: number; next: { friends: number; months: number } | null };
@@ -281,6 +303,18 @@ function StatsIcon() {
       <rect x="5" y="12" width="3.4" height="7" rx="1" className="animate-stats-bar" style={{ animationDelay: "0ms" }} />
       <rect x="10.3" y="6" width="3.4" height="13" rx="1" className="animate-stats-bar" style={{ animationDelay: "70ms" }} />
       <rect x="15.6" y="9" width="3.4" height="10" rx="1" className="animate-stats-bar" style={{ animationDelay: "140ms" }} />
+    </svg>
+  );
+}
+
+// 24.10.2026: «Співбесіда» -- листок с галочками, галочки дорисовываются при наведении.
+function InterviewIcon() {
+  return (
+    <svg {...svgBase}>
+      <rect x="4.5" y="3" width="15" height="18" rx="3" />
+      <path d="M8 8.5l1.5 1.5 2.5-2.5" className="animate-news-line" style={{ animationDelay: "0ms" }} />
+      <path d="M8 14l1.5 1.5 2.5-2.5" className="animate-news-line" style={{ animationDelay: "160ms" }} />
+      <path d="M14.5 9h2M14.5 14.5h2" />
     </svg>
   );
 }
@@ -565,6 +599,46 @@ function PreviewEvents() {
   );
 }
 
+// 24.10.2026: превью «Співбесіди» -- мини-чек-лист с прогрессом.
+function PreviewInterview() {
+  const rows = [true, true, false];
+  return (
+    <>
+      <span className="relative block aspect-[16/10] w-full overflow-hidden bg-[radial-gradient(120%_90%_at_20%_0%,#1f5f4a_0%,#0b2a2a_48%,#03051f_100%)]">
+        <span className="absolute inset-x-5 top-5 flex items-center gap-3">
+          <span className="relative block h-12 w-12">
+            <svg viewBox="0 0 48 48" className="h-12 w-12 -rotate-90" aria-hidden>
+              <circle cx="24" cy="24" r="19" fill="none" stroke="rgba(255,255,255,.15)" strokeWidth="5" />
+              <circle cx="24" cy="24" r="19" fill="none" stroke="#4ade80" strokeWidth="5" strokeLinecap="round" strokeDasharray="119.4" strokeDashoffset="40" />
+            </svg>
+            <span className="absolute inset-0 flex items-center justify-center text-[12px] font-bold text-white">2/3</span>
+          </span>
+          <span className="text-[11px] font-medium uppercase tracking-wide text-[#86efac]">Checklist</span>
+        </span>
+        <span className="absolute inset-x-5 bottom-8 block space-y-2">
+          {rows.map((on, i) => (
+            <span key={i} className="flex items-center gap-2.5 rounded-xl bg-white/[0.08] px-3 py-2">
+              <span className={"flex h-4 w-4 items-center justify-center rounded-[5px] " + (on ? "bg-[#4ade80]" : "ring-2 ring-white/30")}>
+                {on ? (
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#052e16" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+                ) : null}
+              </span>
+              <span className={"block h-2 rounded-full " + (on ? "w-1/2 bg-white/25" : "w-2/3 bg-white/40")} />
+            </span>
+          ))}
+        </span>
+        <span className="pointer-events-none absolute inset-x-0 bottom-0 block h-10 bg-gradient-to-b from-transparent to-[#03051f]" />
+      </span>
+      <span className="block px-5 pb-5 pt-1">
+        <span className="block text-[20px] font-semibold leading-[1.2] text-white"><T {...TXT.interview.title} /></span>
+        <span className="mt-2 block text-[13px] leading-snug text-white/65">
+          <T {...TXT.interview.prev} />
+        </span>
+      </span>
+    </>
+  );
+}
+
 function PreviewAi() {
   const logos = ["claude", "chatgpt", "cursor"];
   return (
@@ -800,6 +874,7 @@ export function NavMoreMenu() {
             <Row id="news" icon={<NewsIcon />} onHover={setHovered} onPick={pick} />
             <Row id="events" icon={<EventsIcon />} onHover={setHovered} onPick={pick} />
             <Row id="stats" icon={<StatsIcon />} onHover={setHovered} onPick={pick} />
+            <Row id="interview" icon={<InterviewIcon />} onHover={setHovered} onPick={pick} />
             <Row id="ai" icon={<AiIcon />} onHover={setHovered} onPick={pick} />
             <InviteRow lite={invite} onHover={setHovered} onPick={pick} />
             <div className="mx-2 my-1 border-t border-neutral-100 dark:border-neutral-800" />
@@ -816,7 +891,7 @@ export function NavMoreMenu() {
               }
             >
               <Link key={hovered} href={hrefFor(hovered, locale)} onClick={pick} className={`animate-nav-preview ${shell("bg-[#03051f]")}`}>
-                {hovered === "app" ? <PreviewApp /> : hovered === "news" ? <PreviewNews latest={latestNews} /> : hovered === "events" ? <PreviewEvents /> : hovered === "stats" ? <PreviewStats data={stats} /> : hovered === "ai" ? <PreviewAi /> : hovered === "invite" ? <PreviewInvite /> : <PreviewGame />}
+                {hovered === "app" ? <PreviewApp /> : hovered === "news" ? <PreviewNews latest={latestNews} /> : hovered === "events" ? <PreviewEvents /> : hovered === "stats" ? <PreviewStats data={stats} /> : hovered === "interview" ? <PreviewInterview /> : hovered === "ai" ? <PreviewAi /> : hovered === "invite" ? <PreviewInvite /> : <PreviewGame />}
               </Link>
             </div>
           )}

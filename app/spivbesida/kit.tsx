@@ -1,0 +1,678 @@
+"use client";
+
+// app/spivbesida/kit.tsx -- интерактивные блоки страниц «Співбесіда»
+// (24.10.2026, Александр: «сделать прикольно и интерактивно, не скучно, чтобы
+// и кандидату, и интервьюеру было удобно»).
+//
+// Что здесь:
+// - Checklist: галочки с прогресс-кольцом, конфетти на 100%, «Скопіювати
+//   чек-лист» (вставляется с ☐/☑ в Notion, Telegram, Google Docs). Галочки
+//   живут в localStorage этого браузера: аккаунт не нужен, сервер не трогаем.
+//   Нет хранилища (приватное окно) -- просто не запоминаем, страница работает.
+// - Templates: готовые тексты интервьюеру с кнопкой «Скопіювати».
+// - Antifraud: свёрнутый блок с приёмами против AI-подсказок.
+// - Tools: плитки сервисов со значком бренда (lib/interview-kit/logos.ts) или
+//   буквой названия цветом бренда, если значка нет.
+//
+// Весь видимый текст идёт через <T> (все 9 языков в HTML, видно нужный), а
+// для буфера обмена язык берём из useActiveLocale: туда <T> не вставишь.
+
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { T, type Locale } from "@/components/t";
+import { useActiveLocale } from "@/lib/use-active-locale";
+import { LOGOS } from "@/lib/interview-kit/logos";
+import {
+  ANTIFRAUD,
+  CHECKLIST,
+  FROM_A1,
+  HUB,
+  ROLE_PATH,
+  TEMPLATES,
+  TOOL_GROUPS,
+  UI,
+  type AntifraudIcon,
+  type Role,
+  type Stage,
+  type Tool,
+} from "@/lib/interview-kit/content";
+
+const STAGES: Stage[] = ["before", "during", "after"];
+
+// ───────── буфер обмена ─────────
+async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    // Старые браузеры и встроенные webview: через скрытое поле.
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+}
+
+function useCopied(): [boolean, (text: string) => void] {
+  const [copied, setCopied] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  return [
+    copied,
+    (text: string) => {
+      void copyText(text).then((ok) => {
+        if (!ok) return;
+        setCopied(true);
+        if (timer.current) clearTimeout(timer.current);
+        timer.current = setTimeout(() => setCopied(false), 1800);
+      });
+    },
+  ];
+}
+
+// ───────── значки ─────────
+const stroke = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+
+function CopyIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" {...stroke}>
+      <rect x="9" y="9" width="11" height="11" rx="2.5" />
+      <path d="M15 9V6.5A2.5 2.5 0 0 0 12.5 4h-6A2.5 2.5 0 0 0 4 6.5v6A2.5 2.5 0 0 0 6.5 15H9" />
+    </svg>
+  );
+}
+function CheckIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" {...stroke} strokeWidth={2.4}>
+      <path d="M5 12.5l4.5 4.5L19 7.5" />
+    </svg>
+  );
+}
+function ArrowOut() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" {...stroke}>
+      <path d="M7 17L17 7" />
+      <path d="M8 7h9v9" />
+    </svg>
+  );
+}
+function ResetIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" {...stroke}>
+      <path d="M4 12a8 8 0 1 0 2.4-5.7" />
+      <path d="M4 4v4h4" />
+    </svg>
+  );
+}
+
+function FraudIcon({ name }: { name: AntifraudIcon }) {
+  const p = { width: 26, height: 26, viewBox: "0 0 24 24", "aria-hidden": true, ...stroke };
+  switch (name) {
+    case "ear":
+      return (
+        <svg {...p}>
+          <path d="M7 9a5 5 0 0 1 10 0c0 3-2.5 3.5-2.5 6.5a3 3 0 0 1-5.5 1.6" />
+          <path d="M10 9.5a2 2 0 0 1 4 0c0 1.2-1 1.5-1 2.5" />
+        </svg>
+      );
+    case "eye":
+      return (
+        <svg {...p}>
+          <path d="M3 10c2.5 3 5.5 4.5 9 4.5s6.5-1.5 9-4.5" />
+          <path d="M7 13.5L5.5 16M12 14.5V17M17 13.5l1.5 2.5" />
+        </svg>
+      );
+    case "pen":
+      return (
+        <svg {...p}>
+          <path d="M4 20l4-1 10.5-10.5a2.1 2.1 0 0 0-3-3L5 16l-1 4z" />
+          <path d="M14 7l3 3" />
+        </svg>
+      );
+    case "clock":
+      return (
+        <svg {...p}>
+          <circle cx="12" cy="12" r="8" />
+          <path d="M12 8v4l2.5 2" />
+        </svg>
+      );
+    case "twist":
+      return (
+        <svg {...p}>
+          <path d="M4 8h12l-3-3" />
+          <path d="M20 16H8l3 3" />
+        </svg>
+      );
+    case "screen":
+      return (
+        <svg {...p}>
+          <rect x="3" y="4" width="18" height="12" rx="2" />
+          <path d="M8 20h8M12 16v4" />
+        </svg>
+      );
+  }
+}
+
+// ───────── переключатель «Кандидату / Інтерв'юеру» ─────────
+export function RoleSwitch({ role }: { role: Role }) {
+  const items: { r: Role; label: typeof UI.roleCandidate }[] = [
+    { r: "candidate", label: UI.roleCandidate },
+    { r: "interviewer", label: UI.roleInterviewer },
+  ];
+  return (
+    <div className="inline-flex rounded-full bg-neutral-100 p-1 dark:bg-neutral-800">
+      {items.map(({ r, label }) => (
+        <Link
+          key={r}
+          href={ROLE_PATH[r]}
+          aria-current={r === role ? "page" : undefined}
+          className={
+            "rounded-full px-4 py-2 text-[14px] font-medium transition " +
+            (r === role
+              ? "bg-white text-neutral-900 shadow-sm dark:bg-neutral-950 dark:text-white"
+              : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white")
+          }
+        >
+          <T {...label} />
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+// ───────── заглушка иллюстрации ─────────
+export function IllustrationSlot({ className = "" }: { className?: string }) {
+  return (
+    <div
+      className={
+        "kit-ill relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-[28px] border-2 border-dashed border-neutral-200 dark:border-neutral-700 " +
+        className
+      }
+    >
+      <span className="kit-ill-blob kit-ill-a" />
+      <span className="kit-ill-blob kit-ill-b" />
+      <span className="relative flex flex-col items-center gap-2 text-neutral-400 dark:text-neutral-500">
+        <svg width="40" height="40" viewBox="0 0 24 24" aria-hidden="true" {...stroke} strokeWidth={1.5}>
+          <rect x="3" y="4" width="18" height="16" rx="3" />
+          <circle cx="9" cy="10" r="1.8" />
+          <path d="M21 16l-5-5-9 9" />
+        </svg>
+        <span className="text-[13px] font-medium">
+          <T {...UI.illustration} />
+        </span>
+      </span>
+    </div>
+  );
+}
+
+// ───────── чек-лист ─────────
+function storageKey(role: Role) {
+  return `a1-interview-kit:${role}`;
+}
+function readSaved(role: Role): string[] {
+  try {
+    const raw = window.localStorage.getItem(storageKey(role));
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+function writeSaved(role: Role, ids: string[]) {
+  try {
+    window.localStorage.setItem(storageKey(role), JSON.stringify(ids));
+  } catch {
+    /* приватное окно -- просто не запоминаем */
+  }
+}
+
+function checklistText(role: Role, done: Set<string>, loc: Locale): string {
+  const items = CHECKLIST[role];
+  const head = `${UI.checklist[loc]}: ${role === "candidate" ? UI.roleCandidate[loc] : UI.roleInterviewer[loc]} (A1)`;
+  const parts = [head];
+  for (const s of STAGES) {
+    const rows = items.filter((i) => i.stage === s).map((i) => `${done.has(i.id) ? "☑" : "☐"} ${i.text[loc]}`);
+    parts.push(`\n${UI.stage[s][loc]}\n${rows.join("\n")}`);
+  }
+  parts.push(`\njobs.a1appp.com${ROLE_PATH[role]}`);
+  return parts.join("\n");
+}
+
+const CONFETTI = Array.from({ length: 22 }, (_, i) => i);
+
+export function Checklist({ role }: { role: Role }) {
+  const items = CHECKLIST[role];
+  const loc = useActiveLocale();
+  const [done, setDone] = useState<Set<string>>(() => new Set());
+  const [loaded, setLoaded] = useState(false);
+  const [burst, setBurst] = useState(0);
+  const [copied, copy] = useCopied();
+
+  useEffect(() => {
+    const known = new Set(items.map((i) => i.id));
+    setDone(new Set(readSaved(role).filter((id) => known.has(id))));
+    setLoaded(true);
+  }, [role, items]);
+
+  const total = items.length;
+  const count = done.size;
+  const pct = total ? count / total : 0;
+  const msg = count === 0 ? UI.progress[0]! : count === total ? UI.progress[3]! : pct < 0.5 ? UI.progress[1]! : UI.progress[2]!;
+
+  function toggle(id: string) {
+    const next = new Set(done);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setDone(next);
+    writeSaved(role, [...next]);
+    if (next.size === total && done.size !== total) setBurst((b) => b + 1);
+  }
+  function reset() {
+    setDone(new Set());
+    writeSaved(role, []);
+  }
+
+  const R = 26;
+  const C = 2 * Math.PI * R;
+
+  return (
+    <section className="kit-card rounded-[28px] bg-card p-5 sm:p-7 dark:bg-neutral-900">
+      <div className="flex flex-wrap items-center gap-4">
+        <div className={`relative h-[68px] w-[68px] shrink-0 ${count === total ? "kit-ring-done" : ""}`}>
+          <svg viewBox="0 0 64 64" className="h-full w-full -rotate-90" aria-hidden="true">
+            <circle cx="32" cy="32" r={R} className="kit-ring-track" strokeWidth="7" fill="none" />
+            <circle
+              cx="32" cy="32" r={R} fill="none" strokeWidth="7" strokeLinecap="round"
+              className="kit-ring-fill"
+              strokeDasharray={C}
+              strokeDashoffset={C * (1 - pct)}
+            />
+          </svg>
+          <span className="absolute inset-0 flex items-center justify-center text-[15px] font-bold tabular-nums text-neutral-900 dark:text-white" suppressHydrationWarning>
+            {count}/{total}
+          </span>
+          {burst > 0 ? (
+            <span key={burst} className="kit-confetti" aria-hidden="true">
+              {CONFETTI.map((i) => (
+                <span key={i} style={{ ["--a" as string]: `${(i / CONFETTI.length) * 360}deg`, ["--d" as string]: `${46 + (i % 4) * 12}px`, ["--c" as string]: `var(--k${i % 5})` }} />
+              ))}
+            </span>
+          ) : null}
+        </div>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
+            <T {...UI.checklist} />
+          </h2>
+          <p className={`mt-0.5 text-[14px] font-medium ${count === total ? "text-emerald-600 dark:text-emerald-400" : "text-accent"}`} suppressHydrationWarning>
+            <T {...msg} />
+          </p>
+        </div>
+        <div className="flex w-full gap-2 sm:w-auto">
+          <button
+            type="button"
+            onClick={() => copy(checklistText(role, done, loc))}
+            className="kit-btn flex-1 sm:flex-none"
+          >
+            {copied ? <CheckIcon /> : <CopyIcon />}
+            <span>{copied ? <T {...UI.copied} /> : <T {...UI.copyChecklist} />}</span>
+          </button>
+          {count > 0 ? (
+            <button type="button" onClick={reset} className="kit-btn kit-btn-ghost" aria-label={UI.reset[loc]} title={UI.reset[loc]}>
+              <ResetIcon />
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-5 lg:grid-cols-3">
+        {STAGES.map((s, si) => {
+          const rows = items.filter((i) => i.stage === s);
+          const stageDone = rows.filter((i) => done.has(i.id)).length;
+          return (
+            <div key={s}>
+              <div className="mb-2 flex items-center gap-2">
+                <span className={`flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-bold ${stageDone === rows.length ? "bg-emerald-500 text-white" : "bg-accent/10 text-accent"}`} suppressHydrationWarning>
+                  {stageDone === rows.length ? <CheckIcon size={13} /> : si + 1}
+                </span>
+                <span className="text-[13px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                  <T {...UI.stage[s]} />
+                </span>
+              </div>
+              <ul className="space-y-2">
+                {rows.map((it) => {
+                  const on = done.has(it.id);
+                  return (
+                    <li key={it.id}>
+                      <button
+                        type="button"
+                        role="checkbox"
+                        aria-checked={on}
+                        onClick={() => toggle(it.id)}
+                        className={`kit-item ${on ? "kit-item-on" : ""} ${loaded ? "" : "kit-item-static"}`}
+                      >
+                        <span className="kit-box">{on ? <CheckIcon size={14} /> : null}</span>
+                        <span className="kit-item-text"><T {...it.text} /></span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
+      <p className="mt-5 text-[12px] text-neutral-400 dark:text-neutral-500">
+        <T {...UI.saved} />
+      </p>
+    </section>
+  );
+}
+
+// ───────── готовые тексты ─────────
+function TemplateCard({ label, text }: { label: typeof UI.copy; text: typeof UI.copy }) {
+  const loc = useActiveLocale();
+  const [copied, copy] = useCopied();
+  return (
+    <div className="flex flex-col rounded-[22px] bg-card p-5 dark:bg-neutral-900">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[13px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+          <T {...label} />
+        </span>
+        <button type="button" onClick={() => copy(text[loc])} className="kit-btn kit-btn-sm">
+          {copied ? <CheckIcon /> : <CopyIcon />}
+          <span>{copied ? <T {...UI.copied} /> : <T {...UI.copy} />}</span>
+        </button>
+      </div>
+      <p className="kit-quote mt-3 flex-1 rounded-2xl bg-neutral-50 p-4 text-[14px] leading-relaxed text-neutral-700 dark:bg-neutral-800/60 dark:text-neutral-200">
+        <T {...text} />
+      </p>
+    </div>
+  );
+}
+
+export function Templates() {
+  return (
+    <section className="mt-10">
+      <h2 className="text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
+        <T {...TEMPLATES.title} />
+      </h2>
+      <div className="mt-4 grid gap-4 md:grid-cols-2">
+        {TEMPLATES.items.map((it) => (
+          <TemplateCard key={it.id} label={it.label} text={it.text} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// ───────── приёмы против AI-подсказок ─────────
+export function Antifraud() {
+  return (
+    <details className="kit-fraud group mt-10 rounded-[28px] bg-card dark:bg-neutral-900">
+      <summary className="flex cursor-pointer list-none items-center gap-4 p-5 sm:p-7 [&::-webkit-details-marker]:hidden">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-accent/10 text-accent">
+          <FraudIcon name="eye" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
+            <T {...ANTIFRAUD.title} />
+          </span>
+          <span className="mt-0.5 block text-[14px] text-neutral-500 dark:text-neutral-400">
+            <T {...ANTIFRAUD.sub} />
+          </span>
+        </span>
+        <span className="kit-chev flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-neutral-600 transition-transform group-open:rotate-180 dark:bg-neutral-800 dark:text-neutral-300">
+          <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" {...stroke} strokeWidth={2.2}>
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </span>
+      </summary>
+      <div className="grid gap-3 px-5 pb-5 sm:grid-cols-2 sm:px-7 sm:pb-7 lg:grid-cols-3">
+        {ANTIFRAUD.cards.map((c, i) => (
+          <div key={c.icon} className="kit-fraud-card rounded-[20px] bg-neutral-50 p-4 dark:bg-neutral-800/60" style={{ animationDelay: `${i * 60}ms` }}>
+            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-accent shadow-sm dark:bg-neutral-900">
+              <FraudIcon name={c.icon} />
+            </span>
+            <div className="mt-3 text-[15px] font-semibold text-neutral-900 dark:text-neutral-50">
+              <T {...c.title} />
+            </div>
+            <p className="mt-1 text-[13px] leading-snug text-neutral-600 dark:text-neutral-300">
+              <T {...c.text} />
+            </p>
+          </div>
+        ))}
+      </div>
+    </details>
+  );
+}
+
+// ───────── инструменты ─────────
+// Значки, которые в коллекции слишком светлые для белой плитки.
+const LOGO_COLOR_FIX: Record<string, string> = { tldraw: "#1D1D1D" };
+
+function host(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+function ToolTile({ tool }: { tool: Tool }) {
+  const logo = tool.logo ? LOGOS[tool.logo] : undefined;
+  const color = tool.logo ? (LOGO_COLOR_FIX[tool.logo] ?? logo?.hex) : tool.color;
+  return (
+    <a href={tool.url} target="_blank" rel="noopener noreferrer" className="kit-tile group">
+      <span className="kit-tile-logo">
+        {logo ? (
+          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill={color}>
+            <path d={logo.path} />
+          </svg>
+        ) : (
+          <span className="text-[18px] font-bold" style={{ color }}>{tool.name.replace(/[^A-Za-z]/g, "").charAt(0).toUpperCase()}</span>
+        )}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[14px] font-semibold text-neutral-900 dark:text-neutral-50">{tool.name}</span>
+        <span className="block truncate text-[12px] text-neutral-400 dark:text-neutral-500">{host(tool.url)}</span>
+      </span>
+      <span className="hidden text-neutral-300 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-accent sm:block dark:text-neutral-600">
+        <ArrowOut />
+      </span>
+    </a>
+  );
+}
+
+export function Tools({ role }: { role: Role }) {
+  return (
+    <section className="mt-10">
+      <h2 className="text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
+        <T {...UI.tools} />
+      </h2>
+      <div className="mt-3 flex gap-3 rounded-2xl bg-accent/[0.07] p-4 text-[13px] leading-snug text-neutral-700 dark:bg-accent/10 dark:text-neutral-200">
+        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" className="mt-px shrink-0 text-accent" {...stroke}>
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 11v5M12 8h.01" />
+        </svg>
+        <span><T {...UI.toolsRule} /></span>
+      </div>
+      <div className="mt-6 space-y-8">
+        {TOOL_GROUPS[role].map((g) => (
+          <div key={g.id}>
+            <h3 className="text-[16px] font-semibold text-neutral-900 dark:text-neutral-50">
+              <T {...g.title} />
+            </h3>
+            <p className="mt-0.5 text-[13px] text-neutral-500 dark:text-neutral-400">
+              <T {...g.desc} />
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+              {g.tools.map((tool) => (
+                <ToolTile key={tool.name} tool={tool} />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// ───────── «От A1» ─────────
+export function FromA1() {
+  const loc = useActiveLocale();
+  return (
+    <section className="mt-10">
+      <h2 className="text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
+        <T {...UI.fromA1} />
+      </h2>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        {FROM_A1.map((c) => {
+          const href = loc === "uk" ? c.href.uk : loc === "ru" ? c.href.ru : c.href.other;
+          return (
+            <Link key={c.id} href={href} className="kit-a1 group flex items-center gap-4 rounded-[22px] p-5">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-white">
+                {c.id === "salaries" ? (
+                  <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" {...stroke}>
+                    <path d="M3 21h18" />
+                    <rect x="5" y="12" width="3.4" height="7" rx="1" />
+                    <rect x="10.3" y="6" width="3.4" height="13" rx="1" />
+                    <rect x="15.6" y="9" width="3.4" height="10" rx="1" />
+                  </svg>
+                ) : (
+                  <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" {...stroke}>
+                    <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H11l-4 4v-4H6.5A2.5 2.5 0 0 1 4 13.5v-8z" />
+                    <path d="M10 8.2a2 2 0 1 1 2.6 1.9c-.4.2-.6.5-.6 1v.4M12 13.6h.01" />
+                  </svg>
+                )}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[16px] font-semibold text-white"><T {...c.title} /></span>
+                <span className="mt-0.5 block text-[13px] text-white/75"><T {...c.desc} /></span>
+              </span>
+              <span className="text-white/70 transition group-hover:translate-x-1">
+                <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" {...stroke} strokeWidth={2.2}>
+                  <path d="M5 12h14M13 6l6 6-6 6" />
+                </svg>
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+// ───────── карточки хаба ─────────
+export function HubCards() {
+  const cards = [
+    { role: "candidate" as Role, title: HUB.candidateTitle, desc: HUB.candidateDesc, n: CHECKLIST.candidate.length },
+    { role: "interviewer" as Role, title: HUB.interviewerTitle, desc: HUB.interviewerDesc, n: CHECKLIST.interviewer.length },
+  ];
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      {cards.map((c, i) => (
+        <Link key={c.role} href={ROLE_PATH[c.role]} className={`kit-hub group ${i === 1 ? "kit-hub-b" : ""}`}>
+          <span className="kit-hub-icon">
+            {c.role === "candidate" ? (
+              <svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true" {...stroke}>
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4 21c0-4 3.5-6 8-6s8 2 8 6" />
+              </svg>
+            ) : (
+              <svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true" {...stroke}>
+                <rect x="3" y="5" width="18" height="12" rx="2.5" />
+                <circle cx="12" cy="11" r="2.5" />
+                <path d="M8 21h8" />
+              </svg>
+            )}
+          </span>
+          <span className="mt-auto block pt-10">
+            <span className="block text-[22px] font-bold tracking-tight text-white"><T {...c.title} /></span>
+            <span className="mt-1 block text-[14px] leading-snug text-white/75"><T {...c.desc} /></span>
+          </span>
+          <span className="mt-4 flex items-center justify-between">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold text-white">
+              <CheckIcon size={13} /> {c.n}
+            </span>
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-neutral-900 transition group-hover:translate-x-1">
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" {...stroke} strokeWidth={2.2}>
+                <path d="M5 12h14M13 6l6 6-6 6" />
+              </svg>
+            </span>
+          </span>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+// ───────── стили (одним куском, как на /stats) ─────────
+export function KitStyles() {
+  return <style>{CSS}</style>;
+}
+
+const CSS = `
+.kit-card,.kit-fraud{--k0:#335ef7;--k1:#22c55e;--k2:#f59e0b;--k3:#ec4899;--k4:#06b6d4}
+.kit-ring-track{stroke:#e5e7eb}
+.dark .kit-ring-track{stroke:#262626}
+.kit-ring-fill{stroke:var(--color-accent);transition:stroke-dashoffset .6s cubic-bezier(.2,.8,.2,1),stroke .3s}
+.kit-ring-done .kit-ring-fill{stroke:#22c55e}
+.kit-ring-done{animation:kit-pop .5s ease}
+@keyframes kit-pop{0%{transform:scale(1)}40%{transform:scale(1.12)}100%{transform:scale(1)}}
+.kit-confetti{position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:none}
+.kit-confetti span{position:absolute;width:7px;height:7px;border-radius:2px;background:var(--c);transform:rotate(var(--a)) translateY(0);opacity:0;animation:kit-burst .9s cubic-bezier(.15,.7,.3,1) forwards}
+@keyframes kit-burst{0%{opacity:1;transform:rotate(var(--a)) translateY(0) scale(1)}100%{opacity:0;transform:rotate(var(--a)) translateY(calc(var(--d) * -1)) scale(.6)}}
+.kit-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:42px;padding:0 16px;border-radius:999px;background:var(--color-accent);color:#fff;font-size:14px;font-weight:600;transition:transform .15s,filter .15s,background .2s;white-space:nowrap}
+.kit-btn:hover{filter:brightness(1.08)}
+.kit-btn:active{transform:scale(.97)}
+.kit-btn-ghost{background:#f3f4f6;color:#404040;width:42px;padding:0}
+.dark .kit-btn-ghost{background:#262626;color:#e5e5e5}
+.kit-btn-sm{height:34px;padding:0 12px;font-size:13px}
+.kit-item{display:flex;width:100%;align-items:flex-start;gap:12px;text-align:left;padding:12px 14px;border-radius:16px;background:#f7f7f8;transition:background .2s,transform .12s}
+.dark .kit-item{background:rgba(38,38,38,.6)}
+.kit-item:hover{background:#eef1fe}
+.dark .kit-item:hover{background:rgba(51,94,247,.14)}
+.kit-item:active{transform:scale(.99)}
+.kit-box{margin-top:1px;display:flex;height:22px;width:22px;flex-shrink:0;align-items:center;justify-content:center;border-radius:7px;border:2px solid #d4d4d8;background:#fff;color:#fff;transition:background .2s,border-color .2s,transform .2s}
+.dark .kit-box{border-color:#525252;background:#171717}
+.kit-item-text{font-size:14px;line-height:1.45;color:#262626;transition:color .2s}
+.dark .kit-item-text{color:#e5e5e5}
+.kit-item-on .kit-box{background:#22c55e;border-color:#22c55e;animation:kit-check .3s ease}
+.kit-item-on .kit-item-text{color:#a3a3a3;text-decoration:line-through;text-decoration-color:rgba(163,163,163,.6)}
+.dark .kit-item-on .kit-item-text{color:#737373}
+.kit-item-static .kit-box{animation:none}
+@keyframes kit-check{0%{transform:scale(.6)}60%{transform:scale(1.15)}100%{transform:scale(1)}}
+.kit-tile{display:flex;align-items:center;gap:10px;padding:10px;border-radius:18px;background:var(--color-card);border:1px solid #eeeeef;transition:transform .15s,box-shadow .2s,border-color .2s}
+.dark .kit-tile{background:#171717;border-color:#262626}
+.kit-tile:hover{transform:translateY(-2px);box-shadow:0 8px 24px -12px rgba(0,0,0,.25);border-color:transparent}
+.kit-tile-logo{display:flex;height:44px;width:44px;flex-shrink:0;align-items:center;justify-content:center;border-radius:13px;background:#fff;box-shadow:inset 0 0 0 1px rgba(0,0,0,.06)}
+.kit-fraud[open] .kit-fraud-card{animation:kit-rise .4s ease both}
+@keyframes kit-rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.kit-a1{background:linear-gradient(135deg,#335ef7 0%,#5b7cff 100%);transition:transform .15s,box-shadow .2s}
+.kit-a1:hover{transform:translateY(-2px);box-shadow:0 12px 30px -14px rgba(51,94,247,.7)}
+.kit-hub{position:relative;display:flex;min-height:300px;flex-direction:column;overflow:hidden;border-radius:28px;padding:24px;background:radial-gradient(120% 90% at 15% 0%,#4b6fff 0%,#2846c9 50%,#132a8a 100%);transition:transform .2s,box-shadow .2s}
+.kit-hub-b{background:radial-gradient(120% 90% at 15% 0%,#2a2f45 0%,#141826 55%,#05070f 100%)}
+.kit-hub:hover{transform:translateY(-3px);box-shadow:0 20px 40px -20px rgba(19,42,138,.8)}
+.kit-hub::after{content:"";position:absolute;right:-60px;top:-60px;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.08);transition:transform .4s}
+.kit-hub:hover::after{transform:scale(1.15)}
+.kit-hub-icon{display:flex;height:56px;width:56px;align-items:center;justify-content:center;border-radius:18px;background:rgba(255,255,255,.14);color:#fff}
+.kit-ill{background:linear-gradient(135deg,#f5f7ff 0%,#eef2ff 100%)}
+.dark .kit-ill{background:linear-gradient(135deg,#111427 0%,#0b0d18 100%)}
+.kit-ill-blob{position:absolute;border-radius:50%;filter:blur(30px);opacity:.55}
+.kit-ill-a{width:45%;height:45%;left:8%;top:10%;background:#c7d2fe;animation:kit-float 7s ease-in-out infinite}
+.kit-ill-b{width:40%;height:40%;right:10%;bottom:8%;background:#bae6fd;animation:kit-float 9s ease-in-out infinite reverse}
+.dark .kit-ill-a{background:#1e2a6b}
+.dark .kit-ill-b{background:#0c3a5a}
+@keyframes kit-float{0%,100%{transform:translate(0,0)}50%{transform:translate(12px,-10px)}}
+@media (prefers-reduced-motion: reduce){.kit-confetti,.kit-ill-blob{display:none}.kit-ring-done,.kit-item-on .kit-box,.kit-fraud[open] .kit-fraud-card{animation:none}}
+`;

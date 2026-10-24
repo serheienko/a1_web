@@ -227,6 +227,10 @@ async function buildSitemap({ id }: { id: number | string }): Promise<MetadataRo
     }
     // 08.10.2026: живая статистика вакансий (/stats), цифры меняются каждый день.
     entries.push({ url: `${SITE_URL}/stats`, lastModified: new Date(), changeFrequency: "daily", priority: 0.7 });
+    // 24.10.2026: «Співбесіда» -- вход и две страницы (кандидату, интервьюеру).
+    for (const path of ["/spivbesida", "/spivbesida/kandydatu", "/spivbesida/interviueru"]) {
+      entries.push({ url: `${SITE_URL}${path}`, lastModified: new Date("2026-10-24"), changeFrequency: "monthly", priority: 0.6 });
+    }
     for (const article of ARTICLES) {
       entries.push({ url: `${SITE_URL}/blog/${article.slug}`, lastModified: new Date(article.updated) });
     }
