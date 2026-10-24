@@ -341,9 +341,11 @@ const CSS = `
 @keyframes np-disco{0%{background-position:0% 50%}100%{background-position:300% 50%}}
 @keyframes np-pulse{from{opacity:.18}to{opacity:.45}}
 /* Разноцветный свет из окон: маска окон вырезана из картинки дома (residence-windows.webp). */
-.np-win{position:absolute;inset:0;-webkit-mask-image:url(/game-map/neptune/residence-windows.webp);mask-image:url(/game-map/neptune/residence-windows.webp);-webkit-mask-size:100% 100%;mask-size:100% 100%;background:linear-gradient(115deg,#ff3df2 0 16%,#3df5ff 16% 33%,#ffe14d 33% 50%,#7a5cff 50% 66%,#4dff9a 66% 83%,#ff6b3d 83% 100%);background-size:240px 240px;animation:np-win 1.6s steps(4) infinite,np-winp .4s ease-in-out infinite alternate;filter:saturate(1.6) brightness(1.25) drop-shadow(0 0 7px rgba(255,120,240,.95))}
-@keyframes np-win{0%{background-position:0 0}100%{background-position:240px 120px}}
-@keyframes np-winp{from{opacity:.8}to{opacity:1}}
+.np-win{position:absolute;inset:0;-webkit-mask-image:url(/game-map/neptune/residence-windows.webp);mask-image:url(/game-map/neptune/residence-windows.webp);-webkit-mask-size:100% 100%;mask-size:100% 100%;background:radial-gradient(circle at 18% 28%,#ff5cf0 0 20%,transparent 22%),radial-gradient(circle at 70% 60%,#4de8ff 0 18%,transparent 20%),radial-gradient(circle at 40% 86%,#ffd84d 0 14%,transparent 16%),radial-gradient(circle at 88% 14%,#8f7bff 0 15%,transparent 17%);background-size:300px 300px;animation:np-win 9s linear infinite,np-winp 2.4s ease-in-out infinite alternate;filter:drop-shadow(0 0 5px rgba(255,140,240,.6))}
+/* 24.10.2026 (Александр: «все окна меняют цвета, чересчур жёстко»): теперь светятся
+   не все окна, а несколько цветных пятен медленно плывут по фасаду. */
+@keyframes np-win{0%{background-position:0 0}100%{background-position:300px 150px}}
+@keyframes np-winp{from{opacity:.55}to{opacity:.85}}
 .np-hover{animation:np-bob 3.2s ease-in-out infinite}
 .np-holo{animation:np-bob 4s ease-in-out infinite,np-glow 1.8s ease-in-out infinite alternate}
 .np-drone{animation:np-drone 7s ease-in-out infinite}
