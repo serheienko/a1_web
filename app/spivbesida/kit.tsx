@@ -853,11 +853,11 @@ const CSS = `
 .kit-tile:hover{transform:translateY(-2px);box-shadow:0 8px 24px -12px rgba(0,0,0,.25);border-color:transparent}
 .kit-tile-logo{display:flex;height:44px;width:44px;flex-shrink:0;align-items:center;justify-content:center;border-radius:13px;background:#fff;box-shadow:inset 0 0 0 1px rgba(0,0,0,.06)}
 .kit-fraud[open] .kit-fraud-card{animation:kit-rise .4s ease both}
-.kit-ill{position:relative;overflow:hidden;border-radius:28px;background:#e9edf7}
+.kit-ill{position:relative;overflow:hidden;border-radius:28px;background:#e9edf7;isolation:isolate;transform:translateZ(0);-webkit-mask-image:-webkit-radial-gradient(white,black);mask-image:radial-gradient(white,black)}
 .dark .kit-ill{background:#15182a}
 .kit-ill::before{content:"";position:absolute;inset:-30px;background-image:var(--blur-wide);background-size:cover;background-position:center;filter:blur(20px);transition:opacity .6s ease}
 @media (min-width:768px){.kit-ill::before{background-image:var(--blur-square)}}
-.kit-ill img{position:relative;opacity:0;transition:opacity .5s ease}
+.kit-ill img{position:relative;border-radius:28px;opacity:0;transition:opacity .5s ease}
 .kit-ill-loaded img{opacity:1}
 .kit-ill-loaded::before{opacity:0}
 .kit-eye g{transform-box:fill-box;transform-origin:center}
