@@ -7,7 +7,8 @@ import Link from "next/link";
 import { T } from "@/components/t";
 import { buildLandingBreadcrumbJsonLd } from "@/lib/seo/jsonld";
 import { PAGE, ROLE_PATH, UI, type Role } from "@/lib/interview-kit/content";
-import { Antifraud, Checklist, FromA1, IllustrationSlot, KitStyles, RoleSwitch, Templates, Tools } from "./kit";
+import { MrKitProfile } from "@/lib/interview-kit/mr-kit";
+import { Antifraud, Checklist, FromA1, IllustrationSlot, KitStyles, ProfileInsteadOfCv, RoleSwitch, Templates, Tools } from "./kit";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -66,6 +67,9 @@ export function RolePage({ role }: { role: Role }) {
       <div className="mt-8">
         <Checklist role={role} />
       </div>
+
+      {/* 24.10.2026: кандидату -- тезис «профиль A1 вместо резюме» сразу под чек-листом. */}
+      {role === "candidate" ? <ProfileInsteadOfCv example={<MrKitProfile />} /> : null}
 
       {role === "interviewer" ? (
         <>

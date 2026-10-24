@@ -17,16 +17,20 @@
 // Весь видимый текст идёт через <T> (все 9 языков в HTML, видно нужный), а
 // для буфера обмена язык берём из useActiveLocale: туда <T> не вставишь.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { T, type Locale } from "@/components/t";
 import { useActiveLocale } from "@/lib/use-active-locale";
 import { LOGOS } from "@/lib/interview-kit/logos";
+import { authFetch } from "@/lib/auth-fetch";
+import { profileHref } from "@/lib/profile-href";
+import { PROFILE_FILLED_MIN } from "@/lib/profile-fill";
 import {
   ANTIFRAUD,
   CHECKLIST,
   FROM_A1,
   HUB,
+  PROFILE_CV,
   ROLE_PATH,
   TEMPLATES,
   TOOL_GROUPS,
@@ -572,6 +576,100 @@ export function FromA1() {
   );
 }
 
+// ───────── «Профіль A1 замість резюме» ─────────
+// Гость видит «Створити профіль». Вошедший, у кого заполнено меньше
+// PROFILE_FILLED_MIN разделов, видит «Заповнити профіль» и полоску прогресса
+// (кнопка открывает его профиль сразу с редактором, ?edit=1). У кого профиль
+// заполнен, блока нет совсем. Сервер всегда рисует гостевой вариант: так его
+// видит поисковик и большинство посетителей; вошедшим блок меняется после
+// ответа /api/account/whoami.
+type Viewer = { state: "guest" } | { state: "partial"; username: string; filled: number } | { state: "done" };
+
+export function ProfileInsteadOfCv({ example }: { example?: ReactNode }) {
+  const [viewer, setViewer] = useState<Viewer>({ state: "guest" });
+  useEffect(() => {
+    let cancelled = false;
+    authFetch("/api/account/whoami")
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled || !d?.ok || !d.username) return;
+        const filled = typeof d.profileFilled === "number" ? d.profileFilled : 0;
+        setViewer(filled >= PROFILE_FILLED_MIN ? { state: "done" } : { state: "partial", username: d.username, filled });
+      })
+      .catch(() => {
+        /* не вошёл или сбой -- остаёмся гостем */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (viewer.state === "done") return null;
+
+  const href =
+    viewer.state === "partial"
+      ? `${profileHref(viewer.username)}?edit=1`
+      : `/sign-in?next=${encodeURIComponent("/spivbesida/kandydatu")}`;
+
+  return (
+    <section className="kit-cv mt-10 overflow-hidden rounded-[28px]">
+      <div className="relative p-6 sm:p-8">
+        <span className="kit-cv-glow" aria-hidden="true" />
+        <div className="relative flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+          <div className="max-w-2xl">
+            <div className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wide text-white/70">
+              <span className="kit-cv-cv">CV</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" {...stroke} strokeWidth={2.2}><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+              <span className="rounded-md bg-white px-1.5 py-0.5 text-[11px] font-bold text-[#2846c9]">A1</span>
+            </div>
+            <h2 className="mt-3 text-2xl font-bold tracking-tight text-white sm:text-[28px]">
+              <T {...PROFILE_CV.title} />
+            </h2>
+            <p className="mt-2 text-[15px] leading-relaxed text-white/80">
+              <T {...PROFILE_CV.text} />
+            </p>
+            <ul className="mt-4 flex flex-wrap gap-2">
+              {PROFILE_CV.tags.map((tag, i) => (
+                <li key={tag.id} className="kit-cv-tag" style={{ animationDelay: `${i * 50}ms` }}>
+                  <T {...tag.label} />
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="flex shrink-0 flex-col items-start gap-3 md:items-end">
+            {viewer.state === "partial" ? (
+              <div className="w-48">
+                <div className="flex justify-between text-[12px] font-medium text-white/75">
+                  <span><T {...PROFILE_CV.filled} /></span>
+                  <span className="tabular-nums">{Math.min(viewer.filled, PROFILE_FILLED_MIN)}/{PROFILE_FILLED_MIN}</span>
+                </div>
+                <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-white/20">
+                  <div className="h-full rounded-full bg-white transition-all" style={{ width: `${(Math.min(viewer.filled, PROFILE_FILLED_MIN) / PROFILE_FILLED_MIN) * 100}%` }} />
+                </div>
+              </div>
+            ) : null}
+            <Link href={href} className="kit-cv-btn group">
+              <T {...(viewer.state === "partial" ? PROFILE_CV.fill : PROFILE_CV.create)} />
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" {...stroke} strokeWidth={2.2} className="transition group-hover:translate-x-0.5"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+            </Link>
+          </div>
+        </div>
+      </div>
+      {example ? (
+        <details className="kit-cv-example group border-t border-white/15">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-6 py-4 text-[15px] font-semibold text-white sm:px-8 [&::-webkit-details-marker]:hidden">
+            <span><T {...PROFILE_CV.example} /></span>
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 transition-transform group-open:rotate-180">
+              <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" {...stroke} strokeWidth={2.2}><path d="M6 9l6 6 6-6" /></svg>
+            </span>
+          </summary>
+          <div className="kit-cv-demo px-2 py-6 sm:px-6">{example}</div>
+        </details>
+      ) : null}
+    </section>
+  );
+}
+
 // ───────── карточки хаба ─────────
 export function HubCards() {
   const cards = [
@@ -666,6 +764,15 @@ const CSS = `
 .kit-hub::after{content:"";position:absolute;right:-60px;top:-60px;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.08);transition:transform .4s}
 .kit-hub:hover::after{transform:scale(1.15)}
 .kit-hub-icon{display:flex;height:56px;width:56px;align-items:center;justify-content:center;border-radius:18px;background:rgba(255,255,255,.14);color:#fff}
+.kit-cv{background:radial-gradient(120% 120% at 0% 0%,#4b6fff 0%,#2846c9 45%,#132a8a 100%)}
+.kit-cv-glow{position:absolute;right:-80px;top:-80px;width:280px;height:280px;border-radius:50%;background:rgba(255,255,255,.1)}
+.kit-cv-cv{position:relative;padding:2px 6px;border-radius:6px;border:1px solid rgba(255,255,255,.45);font-size:11px;font-weight:700;letter-spacing:.04em;color:rgba(255,255,255,.75)}
+.kit-cv-cv::after{content:"";position:absolute;left:-3px;right:-3px;top:50%;height:2px;background:#fff;transform:rotate(-14deg)}
+.kit-cv-tag{font-size:13px;font-weight:500;color:#fff;padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.18);animation:kit-rise .4s ease both}
+.kit-cv-btn{display:inline-flex;align-items:center;gap:8px;height:48px;padding:0 22px;border-radius:999px;background:#fff;color:#1b2f8f;font-size:15px;font-weight:700;transition:transform .15s,box-shadow .2s;white-space:nowrap}
+.kit-cv-btn:hover{transform:translateY(-1px);box-shadow:0 10px 24px -10px rgba(0,0,0,.45)}
+.kit-cv-demo{background:#fafafa}
+.dark .kit-cv-demo{background:#0a0a0a}
 .kit-ill{background:linear-gradient(135deg,#f5f7ff 0%,#eef2ff 100%)}
 .dark .kit-ill{background:linear-gradient(135deg,#111427 0%,#0b0d18 100%)}
 .kit-ill-blob{position:absolute;border-radius:50%;filter:blur(30px);opacity:.55}

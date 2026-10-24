@@ -63,7 +63,8 @@ function ArrowIcon() {
 
 type State = { kind: "idle" } | { kind: "loading" } | { kind: "ok"; data: StackoverflowSummary } | { kind: "hidden" };
 
-export function StackoverflowTile({ id }: { id: number }) {
+// 24.10.2026: initialData -- готовые данные вместо запроса (пример профиля Mr Kit).
+export function StackoverflowTile({ id, initialData }: { id: number; initialData?: StackoverflowSummary }) {
   const lang = useActiveLocale();
   const s = STRINGS[lang];
   const rootRef = useRef<HTMLDivElement>(null);
@@ -78,9 +79,13 @@ export function StackoverflowTile({ id }: { id: number }) {
     const load = async () => {
       setState({ kind: "loading" });
       try {
-        const res = await fetch(`/api/stackoverflow/${id}`);
-        if (!res.ok) throw new Error(String(res.status));
-        const data = (await res.json()) as StackoverflowSummary;
+        let data: StackoverflowSummary;
+        if (initialData) data = initialData;
+        else {
+          const res = await fetch(`/api/stackoverflow/${id}`);
+          if (!res.ok) throw new Error(String(res.status));
+          data = (await res.json()) as StackoverflowSummary;
+        }
         if (cancelled) return;
         if (!data || typeof data.reputation !== "number" || isStackoverflowSummaryHidden(data)) setState({ kind: "hidden" });
         else setState({ kind: "ok", data });
@@ -109,7 +114,7 @@ export function StackoverflowTile({ id }: { id: number }) {
       io.disconnect();
     };
     // state.kind в зависимостях не нужен: эффект только стартует загрузку один раз.
-  }, [id]);
+  }, [id, initialData]);
 
   // Плавное появление после загрузки.
   useEffect(() => {

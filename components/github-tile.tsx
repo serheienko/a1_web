@@ -225,7 +225,9 @@ type State = { kind: "idle" } | { kind: "loading" } | { kind: "ok"; data: Github
 
 const CAL_SLOTS = 54;
 
-export function GithubTile({ login }: { login: string }) {
+// 24.10.2026: initialData -- готовые данные вместо запроса (пример профиля Mr Kit на
+// /spivbesida/kandydatu, components/profile-view.tsx). У настоящих профилей его нет.
+export function GithubTile({ login, initialData }: { login: string; initialData?: GithubSummary }) {
   const lang = useActiveLocale();
   const s = STRINGS[lang];
   const rootRef = useRef<HTMLDivElement>(null);
@@ -252,9 +254,13 @@ export function GithubTile({ login }: { login: string }) {
       try {
         // ?v=2: адрес без параметров мог застрять в кеше сервера в старом формате (без years/year) --
         // из-за этого у владельцев с уже закешированным ответом падала вся страница профиля.
-        const res = await fetch(`/api/github/${encodeURIComponent(login)}?v=2`);
-        if (!res.ok) throw new Error(String(res.status));
-        const data = (await res.json()) as GithubSummary;
+        let data: GithubSummary;
+        if (initialData) data = initialData;
+        else {
+          const res = await fetch(`/api/github/${encodeURIComponent(login)}?v=2`);
+          if (!res.ok) throw new Error(String(res.status));
+          data = (await res.json()) as GithubSummary;
+        }
         if (cancelled) return;
         // Ответ старого формата (без years/year) -- плитку скрываем, но страницу не роняем.
         if (!data || !Array.isArray(data.weeks) || !Array.isArray(data.years) || typeof data.year !== "number" || isGithubSummaryTooEmpty(data)) setState({ kind: "hidden" });
@@ -290,7 +296,7 @@ export function GithubTile({ login }: { login: string }) {
       io.disconnect();
     };
     // state.kind в зависимостях не нужен: эффект только стартует загрузку один раз.
-  }, [login]);
+  }, [login, initialData]);
 
   // Плавное появление после загрузки.
   useEffect(() => {

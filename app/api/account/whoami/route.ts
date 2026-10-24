@@ -37,6 +37,8 @@ import { callAsVisitor, NoSessionError } from "@/lib/a1/visitor-call";
 import { setSession, clearSession } from "@/lib/a1/session";
 import { parseUserProfile } from "@/lib/a1/schemas";
 import { buildMediaProxyUrl } from "@/lib/a1/mappers";
+import { mapUserProfile } from "@/lib/a1/user-mappers";
+import { countFilledProfileFields } from "@/lib/profile-fill";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -68,7 +70,12 @@ export async function GET() {
     // имени нет. Это СВОЙ id и только свой -- чужих этот маршрут не
     // отдаёт и не может.
     const userId = profile?.object === "user" ? profile._id : null;
-    const response = NextResponse.json({ ok: true, userId, username, avatarUrl, name });
+    // 24.10.2026 (страница /spivbesida/kandydatu, блок «Профіль A1 замість
+    // резюме»): сколько разделов профиля заполнено -- блок зовёт заполнить
+    // профиль, пока их меньше lib/profile-fill.ts PROFILE_FILLED_MIN.
+    const web = profile ? mapUserProfile(profile) : null;
+    const profileFilled = web ? countFilledProfileFields(web) : 0;
+    const response = NextResponse.json({ ok: true, userId, username, avatarUrl, name, profileFilled });
     if (refreshedSession) setSession(response, refreshedSession);
     return response;
   } catch (err) {

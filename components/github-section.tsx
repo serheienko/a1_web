@@ -18,6 +18,7 @@ import { useEffect, useState } from "react";
 import { type Locale } from "@/components/t";
 import { GithubTile } from "@/components/github-tile";
 import { authFetch } from "@/lib/auth-fetch";
+import type { GithubSummary } from "@/lib/github/core";
 import { useActiveLocale } from "@/lib/use-active-locale";
 
 type Strings = { verify: string; hint: string; redirecting: string; busy: string; error: string };
@@ -103,9 +104,11 @@ type Props = {
   linkLogin: string | null;
   /** Сервер уже видит подтверждение (логин из ссылки == githubVerifiedLogin). */
   serverVerified: boolean;
+  /** 24.10.2026: готовые данные для примера профиля (Mr Kit) -- без проверок и запросов. */
+  demoData?: GithubSummary;
 };
 
-export function GithubSection({ username, linkLogin, serverVerified }: Props) {
+export function GithubSection({ username, linkLogin, serverVerified, demoData }: Props) {
   const lang = useActiveLocale();
   const s = STRINGS[lang];
   const [verified, setVerified] = useState(serverVerified);
@@ -115,7 +118,7 @@ export function GithubSection({ username, linkLogin, serverVerified }: Props) {
 
   // Свежее подтверждение владельца: страница могла быть из кеша.
   useEffect(() => {
-    if (!linkLogin) return;
+    if (!linkLogin || demoData) return;
     let cancelled = false;
     (async () => {
       try {
@@ -132,7 +135,7 @@ export function GithubSection({ username, linkLogin, serverVerified }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [username, linkLogin]);
+  }, [username, linkLogin, demoData]);
 
   const card = linkLogin && !verified && isOwner;
   useEffect(() => {
@@ -145,6 +148,7 @@ export function GithubSection({ username, linkLogin, serverVerified }: Props) {
   }, [card]);
 
   if (!linkLogin) return null;
+  if (demoData) return <GithubTile key={linkLogin} login={linkLogin} initialData={demoData} />;
   if (verified) return <GithubTile key={linkLogin} login={linkLogin} />;
   if (!card) return null;
 

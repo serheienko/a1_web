@@ -780,3 +780,37 @@ export const CHECKLIST: Record<Role, CheckItem[]> = {
   candidate: CANDIDATE_CHECKLIST,
   interviewer: INTERVIEWER_CHECKLIST,
 };
+
+// ───────── «Профіль A1 замість резюме» (кандидату) ─────────
+// 24.10.2026 (Александр: «продвигать тезис, что профиль заменяет резюме;
+// гостю "Створити профіль", тем, кто заполнил меньше 5 полей, "Заповніть",
+// заполненным не показывать; теги, чем профиль лучше; ниже пример профиля
+// кота по стрелке»).
+export const PROFILE_CV = {
+  title: t("Профіль A1 замість резюме", "Your A1 profile instead of a CV", "Профиль A1 вместо резюме", "Dein A1-Profil statt Lebenslauf", "Tu perfil de A1 en lugar del CV", "Votre profil A1 à la place du CV", "Profil A1 zamiast CV", "Seu perfil A1 no lugar do currículo", "用 A1 个人主页代替简历"),
+  text: t(
+    "Класичне резюме застаріло. Надішліть рекрутеру одне посилання на свій профіль A1: живий, інтерактивний і завжди актуальний.",
+    "The classic CV is outdated. Send a recruiter one link to your A1 profile: live, interactive and always up to date.",
+    "Классическое резюме устарело. Отправьте рекрутеру одну ссылку на свой профиль A1: живой, интерактивный и всегда актуальный.",
+    "Der klassische Lebenslauf ist von gestern. Schick Recruitern einen Link zu deinem A1-Profil: lebendig, interaktiv und immer aktuell.",
+    "El CV clásico se ha quedado viejo. Envía a los reclutadores un enlace a tu perfil de A1: vivo, interactivo y siempre al día.",
+    "Le CV classique a fait son temps. Envoyez aux recruteurs un lien vers votre profil A1 : vivant, interactif et toujours à jour.",
+    "Klasyczne CV to przeszłość. Wyślij rekruterowi jeden link do profilu A1: żywego, interaktywnego i zawsze aktualnego.",
+    "O currículo clássico ficou para trás. Mande ao recrutador um link para seu perfil A1: vivo, interativo e sempre atualizado.",
+    "传统简历已经过时。给招聘方发一个 A1 个人主页链接就够了：生动、可互动，而且随时是最新的。",
+  ),
+  tags: [
+    { id: "voice", label: t("Голосова візитка", "Voice intro", "Голосовая визитка", "Sprach-Intro", "Presentación de voz", "Présentation vocale", "Wizytówka głosowa", "Apresentação em áudio", "语音名片") },
+    { id: "skills", label: t("Стек і рівень навичок", "Stack and skill levels", "Стек и уровень навыков", "Stack und Skill-Level", "Stack y nivel", "Stack et niveau", "Stack i poziom", "Stack e nível", "技术栈与熟练度") },
+    { id: "github", label: t("GitHub", "GitHub", "GitHub", "GitHub", "GitHub", "GitHub", "GitHub", "GitHub", "GitHub") },
+    { id: "dribbble", label: t("Dribbble", "Dribbble", "Dribbble", "Dribbble", "Dribbble", "Dribbble", "Dribbble", "Dribbble", "Dribbble") },
+    { id: "so", label: t("Stack Overflow", "Stack Overflow", "Stack Overflow", "Stack Overflow", "Stack Overflow", "Stack Overflow", "Stack Overflow", "Stack Overflow", "Stack Overflow") },
+    { id: "links", label: t("Посилання", "Links", "Ссылки", "Links", "Enlaces", "Liens", "Linki", "Links", "链接") },
+    { id: "exp", label: t("Досвід і компанії", "Experience", "Опыт и компании", "Erfahrung", "Experiencia", "Expérience", "Doświadczenie", "Experiência", "工作经历") },
+    { id: "langs", label: t("Мови", "Languages", "Языки", "Sprachen", "Idiomas", "Langues", "Języki", "Idiomas", "语言") },
+  ],
+  create: t("Створити профіль", "Create profile", "Создать профиль", "Profil erstellen", "Crear perfil", "Créer mon profil", "Utwórz profil", "Criar perfil", "创建个人主页"),
+  fill: t("Заповнити профіль", "Complete your profile", "Заполнить профиль", "Profil vervollständigen", "Completar perfil", "Compléter mon profil", "Uzupełnij profil", "Completar perfil", "完善个人主页"),
+  filled: t("Заповнено", "Completed", "Заполнено", "Ausgefüllt", "Completado", "Rempli", "Uzupełniono", "Preenchido", "已完成"),
+  example: t("Приклад заповненого профілю", "Example of a complete profile", "Пример заполненного профиля", "Beispiel für ein vollständiges Profil", "Ejemplo de perfil completo", "Exemple de profil complet", "Przykład wypełnionego profilu", "Exemplo de perfil completo", "完整个人主页示例"),
+};

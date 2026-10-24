@@ -1,0 +1,853 @@
+// components/profile-view.tsx
+//
+// 24.10.2026: разметка публичного профиля, вынесенная из app/u/[username]/
+// page.tsx без изменений. Зачем: тот же самый вид показывает пример
+// заполненного профиля Mr Kit на /spivbesida/kandydatu (Александр: «пример
+// не должен отличаться от профиля сайта»). Поменяли что-то в профиле --
+// пример поменялся вместе с ним.
+//
+// Здесь только вид: никаких запросов. Всё, что страница профиля добывает
+// с сервера (подписи хобби и стиля работы, обложки, блюр аватарки, посты),
+// она считает сама и передаёт сюда готовым.
+//
+// demo -- режим примера: нет кнопки «редактировать», GitHub / Stack Overflow
+// / Dribbble показывают переданные данные вместо запроса к сервису.
+// embed -- без отступов страницы (вид вставлен внутрь другой страницы).
+
+import type { ReactNode } from "react";
+import { Suspense } from "react";
+import Link from "next/link";
+import type { WebProfile } from "@/types/web-profile";
+import { CachedAvatar } from "@/components/cached-avatar";
+import { ClaimCompanyPrompt } from "@/components/claim-company-prompt";
+import { buildEmployerJsonLd } from "@/lib/seo/profile-meta";
+import { ProfileTabs } from "@/components/profile-tabs";
+import { pickDefaultCatAvatar } from "@/lib/avatars";
+import { profileHref } from "@/lib/profile-href";
+import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
+import { formatLanguageName } from "@/lib/format";
+import { LocationLabel } from "@/components/locale-format";
+import { T, type Locale } from "@/components/t";
+import { VoiceIntroProvider } from "@/components/voice-intro-context";
+import { VoiceIntroRing } from "@/components/voice-intro-ring";
+import { ProfilePhotoViewer } from "@/components/profile-photo-viewer";
+import { VoiceIntroPlayer } from "@/components/voice-intro-player";
+import { OccupationIcon } from "@/components/occupation-icon";
+import { OCCUPATION_LABELS } from "@/components/occupation-labels";
+import { EditProfileButton } from "@/components/edit-profile-button";
+import { GithubSection } from "@/components/github-section";
+import { DribbbleSection } from "@/components/dribbble-section";
+import { StackoverflowSection } from "@/components/stackoverflow-section";
+import { findDribbbleLogin, sanitizeDribbbleSnapshot, verifiedDribbbleLogin, type DribbbleSnapshot } from "@/lib/dribbble/core";
+import { findStackoverflowId, verifiedStackoverflowId, type StackoverflowSummary } from "@/lib/stackoverflow/core";
+import { extractGithubLogin, findGithubLogin, verifiedGithubLogin, type GithubSummary } from "@/lib/github/core";
+import { ProfileActionRow } from "@/components/profile-action-row";
+import { MarqueeName } from "@/components/marquee-name";
+import { FavoriteCover, FavoriteCoverFallback, FavoriteFallbackPill, type FavoriteKind } from "@/components/favorite-cover";
+import type { CoverImage } from "@/lib/covers";
+
+const SITE_URL = "https://jobs.a1appp.com";
+
+/** Поля «сырого» профиля, которые нужны виду (id, признаки компании, подтверждения сервисов). */
+export type ProfileViewRaw = {
+  id: string;
+  unclaimed: boolean;
+  external: boolean;
+  githubVerifiedLogin: string | null;
+  dribbbleVerified: { login?: string | null; snapshot?: unknown } | null;
+  stackoverflowVerifiedId: number | null;
+};
+
+export type WorkStyleChip = { key: string; section: Record<Locale, string>; values: Record<Locale, string> };
+
+export type ProfileViewProps = {
+  profile: WebProfile;
+  /** Имя из адреса страницы (для блока «це ваша компанія»). */
+  routeUsername: string;
+  raw: ProfileViewRaw | null;
+  avatarBlur: { blurDataUrl: string | null; width: number; height: number } | null;
+  companyCategoryLabel: (id: number | null) => string | null;
+  /** null -- секции «Хобі» нет. */
+  hobbyItems: Record<Locale, string>[] | null;
+  workInterestItems: Record<Locale, string>[];
+  /** null -- секции «Стиль роботи» нет. */
+  workStyleChips: WorkStyleChip[] | null;
+  covers: { books: (CoverImage | null)[]; movies: (CoverImage | null)[]; games: (CoverImage | null)[] };
+  openJobs: number;
+  posts: ReactNode;
+  postsCount: number;
+  demo?: { github?: GithubSummary; stackoverflow?: StackoverflowSummary; dribbble?: DribbbleSnapshot };
+  embed?: boolean;
+};
+
+// 2026-09-03 (Aleksandr, screenshot of the "Навички" skill bars: "эта
+// полоска, которая оставшаяся, незаполненная... сильно молочная, её не
+// видно... сделай чисто белый FFFFFF 100%") -- same fix as pillList's
+// own bg-neutral-100 -> bg-white history (see its own comment above):
+// the unfilled track was neutral-100 (a barely-there off-white against
+// this page's own #f2f2f7-ish background), now plain white to match
+// every other "white chip on the page background" surface here
+// (pillList's pills, the Links/Vacancies/Professions tab strip).
+function levelBar(level: number, max: number) {
+  const pct = Math.max(0, Math.min(100, (level / max) * 100));
+  return (
+    <div className="h-1.5 w-full max-w-[160px] overflow-hidden rounded-full bg-white dark:bg-neutral-800">
+      <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
+    </div>
+  );
+}
+
+// Same white pill used for profile.links (Aleksandr, 2026-08-27: "Сделай
+// заливку этих штук, табов полностью FFFFFF 100%") — reused here so
+// hobbies/work-interests/work-style tags read as the same visual
+// language instead of introducing a second tag style.
+// 2026-09-03 (Aleksandr, screenshot: "Хобі"/"Робочі інтереси" pills
+// showing raw English -- "Salsa", "Accounting" -- despite the section
+// headers themselves being Ukrainian): items are now a per-locale
+// Record<Locale, string> (built via translateHobbyItem/
+// translateWorkInterest below, same table components/profile-editor.tsx's
+// edit-mode pills already use) rendered through <T>, same
+// precompute-all-9-locales-server-side pattern the Work style pills
+// further down this file already use -- this server component has no
+// `lang` of its own to translate into.
+function pillList(items: Record<Locale, string>[]) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {items.map((item, i) => (
+        <span
+          key={i}
+          className="rounded-full bg-white px-3 py-1.5 text-sm text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
+        >
+          <T {...item} />
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// 2026-09-02 (Aleksandr, screenshot of a profile's link pill ("Supa
+// Link"): "В линки в профилях в начале показывай иконку ссылки, чтобы
+// было понятно, что это ссылка") -- a plain text pill with no chrome
+// (no underline, no accent color) reads as just another tag until you
+// hover it; a small leading glyph is the cheapest way to mark it as a
+// link at a glance, same "one small leading icon" convention components/
+// post-viewer-menu.tsx's dropdown rows already use. Classic two-link
+// chain-link glyph, not a generic arrow -- reads as "URL" specifically
+// rather than "navigate"/"external".
+function LinkIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0 text-neutral-400 dark:text-neutral-500">
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+    </svg>
+  );
+}
+
+// Aleksandr, 2026-08-28: "УЛЮБЛЕНЕ давай отобразим таким UI как вприложении?
+// Типа такие квадратные картинки (такие же как в апке)" — square cover
+// tile matching the app's own Books/Movies/Games picker (Figma node
+// reviewed 2026-08-28). cover comes from lib/covers.ts's best-effort
+// third-party lookups; null falls back to a plain tinted square.
+//
+// 2026-08-28 follow-up: titles moved below the tile instead of overlaid
+// on it (bottom-anchored + gradient scrim), because a long single-word
+// title like "Bloodborne" either overflowed the tile or looked cramped
+// wrapping over the artwork ("с длинными названиями как-то не оч
+// выглядит... может обложки увеличить, или ставить название под
+// ними?"). Caption-below-cover, App-Store/Music-grid style: the full
+// cover shows uncropped by a scrim, and the title gets its own row to
+// wrap onto (line-clamp-2 as a safety net for the rare very long book
+// title) instead of fighting the image for contrast. Covers render
+// through next/image (capped quality so Vercel's optimizer keeps each
+// file well under the ~100-150KB target) with a real per-image blurred
+// placeholder from lib/covers.ts, generated from the actual cover's own
+// pixels via sharp — not the generic shared shimmer used elsewhere (see
+// lib/blur-placeholder.ts).
+function favoriteTile(
+  title: string,
+  subtitle: string | null,
+  cover: CoverImage | null,
+  itemKey: string,
+  kind: FavoriteKind,
+) {
+  // 2026-09-01, live screenshot ("там де не знайшло обкладинку
+  // показується просто текст, але він випадає із загального блоку"): a
+  // tile with no cover used to skip the square box entirely, which
+  // broke the grid next to tiles that DID find one (The Witcher vs
+  // Mafia in the same Games row). Now every tile keeps the same square
+  // slot -- a real cover when lib/covers.ts found one, a muted
+  // category-icon fallback (components/favorite-cover.tsx's
+  // FavoriteCoverFallback) otherwise -- so the grid always lines up
+  // regardless of which titles had art.
+  // 2026-09-11: the caption is passed INTO FavoriteCover (not rendered
+  // after it) so that its runtime "cover failed to load" pill -- which
+  // already shows the title itself -- doesn't get the title repeated
+  // underneath (Aleksandr's screenshot: Blade Runner / Forrest Gump).
+  const caption = (
+    <div>
+      <div className="line-clamp-2 text-sm font-medium leading-snug text-neutral-800 dark:text-neutral-200">
+        {title}
+      </div>
+      {subtitle && (
+        <div className="mt-0.5 line-clamp-1 text-xs text-neutral-500 dark:text-neutral-400">
+          {subtitle}
+        </div>
+      )}
+    </div>
+  );
+  return (
+    <div key={itemKey} className="flex flex-col gap-1.5">
+      {cover ? (
+        <FavoriteCover cover={cover} kind={kind} title={title} subtitle={subtitle} caption={caption} />
+      ) : (
+        <>
+          <FavoriteCoverFallback kind={kind} />
+          {caption}
+        </>
+      )}
+    </div>
+  );
+}
+
+// 2026-09-02 (Aleksandr, voice note: "цей темний квадрат, він якийсь
+// невиликойний... зроби пілюлю, як стиль роботи вище, тільки
+// двохповерхову" -- see components/favorite-cover.tsx's own
+// FavoriteFallbackPill comment for the full context): splits each
+// category's items into two groups BEFORE rendering -- `cover !== null`
+// (a real cover lib/covers.ts actually found) keeps the existing
+// square-tile grid via favoriteTile() above, unchanged; `cover === null`
+// (nothing found at all) renders as a wrapped row of FavoriteFallbackPill
+// chips instead of a square icon tile. Deliberately NOT touching what
+// happens when a found cover's own URL fails to load in the browser at
+// runtime -- FavoriteCover's own onError still falls back to the square
+// FavoriteCoverFallback icon there, preserving the grid-alignment fix
+// that tile's header comment describes (a wide pill sitting in a grid
+// row next to real square covers would break the same way).
+function favoriteCategory(
+  heading: ReactNode,
+  kind: FavoriteKind,
+  items: { title: string; subtitle: string | null; cover: CoverImage | null; key: string }[],
+) {
+  const withCover = items.filter((it) => it.cover !== null);
+  const withoutCover = items.filter((it) => it.cover === null);
+  return (
+    <div key={kind}>
+      <h3 className="text-sm text-neutral-500 dark:text-neutral-400">{heading}</h3>
+      {withCover.length > 0 && (
+        <div className="mt-2 grid grid-cols-3 gap-3">
+          {withCover.map((it) => favoriteTile(it.title, it.subtitle, it.cover, it.key, kind))}
+        </div>
+      )}
+      {withoutCover.length > 0 && (
+        <div className={`flex flex-wrap gap-2 ${withCover.length > 0 ? "mt-3" : "mt-2"}`}>
+          {withoutCover.map((it) => (
+            <FavoriteFallbackPill key={it.key} kind={kind} title={it.title} subtitle={it.subtitle} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function ProfileView({
+  profile,
+  routeUsername,
+  raw,
+  avatarBlur,
+  companyCategoryLabel,
+  hobbyItems,
+  workInterestItems,
+  workStyleChips,
+  covers,
+  openJobs,
+  posts,
+  postsCount,
+  demo,
+  embed,
+}: ProfileViewProps) {
+  const avatarBlurDataUrl = avatarBlur?.blurDataUrl ?? null;
+  const locationLabel = profile.location ? profile.location.display : null;
+  const Wrapper = embed ? "div" : "main";
+
+  return (
+    <VoiceIntroProvider url={profile.voiceIntroUrl}>
+    {/* Aleksandr, 2026-08-28: first tried dropping `mx-auto` to left-align
+        this against the nav logo — he corrected that: "НЕ к левому
+        краю... по центру страницы, как ориентир - 2 верхних таба" (NOT
+        to the left edge — centered on the page, using the two top tabs
+        as the reference point). Went back to `mx-auto`, which IS
+        mathematically centered on the same axis as the nav's tab pill
+        (verified live: both resolve to the exact same center X) — but
+        he came back with a photo of his own Figma measurements showing
+        it still read as left-shifted to him, and he was right: a fixed
+        672px (`max-w-2xl`) box being centered isn't the same as this
+        PAGE'S CONTENT looking centered, because every row here (avatar+
+        name, tag pills, skill bars, language bars) is left-aligned text
+        that's narrower than 672px — so the visible "mass" of the block
+        sits in the box's left portion while the box's own right portion
+        is invisible padding, and a centered invisible box with
+        left-heavy visible content reads as shifted left.
+
+        2026-08-28 follow-up: `w-fit` (shrink to whatever the widest row
+        needs) fixed it THEN, but it's fragile — it recentres around
+        whichever row happens to be widest, and it silently broke again
+        the moment the Favorites section below grew a multi-column tile
+        grid (games can have 8 covers): that grid's own shrink-to-fit
+        "max-content" width doesn't respect wrapping, so the browser
+        measured it as if all tiles sat on one line, ballooned back up
+        toward the 672px `max-w-2xl` ceiling, and every other narrower
+        row (name, skills, bio) was left-heavy inside that wide box all
+        over again — "Опять съехал блок влево". A fixed width sidesteps
+        the whole shrink-to-fit dance instead of chasing it: no future
+        row — no matter how wide its own content wants to be — can ever
+        hijack the container's width again, since the container no
+        longer measures its children to decide its own size (the
+        Favorites grid above is `grid-cols-3`, a fixed column count, not
+        shrink-to-fit, so it can't do this regardless of the number
+        below). Mobile is untouched — `w-full` below max-w-2xl.
+
+        2026-08-31, live-testing feedback (screenshot, "Aleksandr…" still
+        cut off; MarqueeName's own desktop branch now wraps instead of
+        truncating — see that component's own comment — but a merely
+        two-line name still isn't what was asked for): "зачем мы
+        придумали такую верстку на десктопе?? у нас что ширины экрана не
+        хватает??? Нам надо, чтобы на десктопе помещалось ПОЛНОЕ ИМЯ".
+        Fair — the original ~420px (Figma's ~426px measurement) was sized
+        for the AVATAR ROW's minimum, not for fitting a full display name
+        on one line next to a 112.5px avatar; there was no reason to
+        stay that narrow once the ask became "the name must fit", since
+        a fixed px width doesn't care what number it is (see above) and
+        desktop plainly has the room. Widened to 640px — comfortably fits
+        a normal-length full name on one line at text-2xl/font-semibold
+        next to the avatar+gap, while MarqueeName's wrap-instead-of-
+        truncate fallback still catches the rare pathologically long one
+        instead of clipping it. */}
+    <Wrapper className={embed ? "mx-auto w-full max-w-2xl sm:w-[640px]" : "mx-auto w-full max-w-2xl px-4 pt-5 sm:w-[640px] sm:pt-11 pb-fab-safe"}>
+      {/* 2026-09-15: разметка организации и дорожка обратно в ленту --
+          только у работодателя (есть живая вакансия). У соискателя ни
+          того, ни другого: Organization про человека -- неправда, а
+          вести робота по ссылкам в профили живых людей мы пока не
+          хотим (вся лента «Фахівці» под noindex, вопрос приватности в
+          PLAN.md открыт).
+
+          Логотип в разметку намеренно не кладём: адрес аватарки
+          содержит fileReference, который бэкенд меняет при каждой
+          выдаче, и к моменту, когда Google соберётся её забрать,
+          ссылка будет мёртвой. Лучше без логотипа, чем с битым. */}
+      {openJobs > 0 && (
+        <>
+          {/* eslint-disable-next-line react/no-danger */}
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify(
+                buildEmployerJsonLd({
+                  fullName: profile.fullName,
+                  url: `${SITE_URL}${profileHref(profile.username)}`,
+                  bio: profile.profileTitle || profile.bio,
+                  logoUrl: null,
+                  sameAs: profile.links.map((link) => link.url).filter((url) => /^https?:\/\//.test(url)),
+                }),
+              ),
+            }}
+          />
+          <nav aria-label="breadcrumb" className="mb-4 text-[13px] text-neutral-400 dark:text-neutral-500">
+            <Link href="/" className="transition hover:text-accent">
+              <T uk="Вакансії" en="Jobs" ru="Вакансии" de="Stellen" es="Vacantes" fr="Offres" pl="Oferty" ptBR="Vagas" zh="职位" />
+            </Link>
+            <span aria-hidden="true" className="px-1.5">/</span>
+          </nav>
+        </>
+      )}
+      {/* Avatar sized off Instagram's own profile page as reference
+          (Aleksandr, 2026-08-26): originally ~96px mobile / 150px
+          desktop. Aleksandr, 2026-08-27, after seeing the voice-intro
+          ring live: "оно какое-то очень большое... давай его в два раза
+          уменьшим" — halved to ~48px mobile / 75px desktop. Aleksandr,
+          2026-08-28: "Увеличь на 50% аватар в профиле" — back up 50% from
+          that halved size, to ~72px mobile / 112.5px desktop (still well
+          under the original 96/150). The ring SVG
+          (components/voice-intro-ring.tsx) scales with this box
+          automatically (its viewBox is relative, not fixed pixels), so
+          nothing there needed to change — only the badge's own fixed
+          sizing did. */}
+      <div className="relative flex items-center gap-4 sm:gap-8">
+        {/* `relative` moved here (from the avatar-only wrapper) so
+            EditProfileButton/AddContactButton, below, can pin to this
+            whole row's right edge instead of the avatar's own corner --
+            Aleksandr, 2026-08-31, after trying the avatar-corner
+            placement live: "лучше все таки поставить иконку
+            редактирования профиля справа, чуть выше имени". Since the
+            row is `items-center` and the avatar is taller than the
+            two-line name block, right-0/top-0 here lands noticeably
+            above the name's own vertical center, matching that. `relative`
+            stays on this avatar wrapper too -- it's what the weekly cat
+            badge's own `left-full` positioning (below) is anchored to. */}
+        <div className="relative shrink-0">
+          {/* Fix Tracker (2026-09-07, order 109) -- see components/
+              profile-photo-viewer.tsx's own header for why this is a
+              separate right-click/`?photo=1` entry point rather than
+              reusing VoiceIntroRing's left-click. Suspense is required
+              here (not optional boilerplate): ProfilePhotoViewer reads
+              useSearchParams(), and Next.js requires any client
+              component doing that to sit under a Suspense boundary,
+              or this page (statically rendered, `revalidate = 60`
+              above) would be forced fully dynamic. Only wraps the
+              avatar when there's a real photo to show full-size --
+              the generic default-cat mascot below has nothing to
+              enlarge. */}
+          {profile.avatarUrl ? (
+            <Suspense fallback={null}>
+              <ProfilePhotoViewer
+                photoUrl={profile.avatarUrl}
+                blurDataUrl={avatarBlurDataUrl}
+                photoWidth={avatarBlur?.width ?? 0}
+                photoHeight={avatarBlur?.height ?? 0}
+              >
+                <VoiceIntroRing>
+                  {/* 2026-09-05 (Aleksandr: "Еще сделай кеширование постов,
+                      если они раньше открывались") -- same persistent Cache
+                      Storage-backed avatar cache components/post-card.tsx's
+                      feed cards already use (CachedAvatar/lib/avatar-image-
+                      cache.ts, 6.183) instead of a plain next/image -- once a
+                      visitor has seen this author's avatar anywhere on the
+                      site, reopening this exact profile never re-fetches it. */}
+                  <CachedAvatar
+                    src={profile.avatarUrl}
+                    blurDataURL={avatarBlurDataUrl ?? BLUR_DATA_URL}
+                    size={150}
+                    className="h-[72px] w-[72px] shrink-0 rounded-full object-cover sm:h-[112.5px] sm:w-[112.5px]"
+                  />
+                </VoiceIntroRing>
+              </ProfilePhotoViewer>
+            </Suspense>
+          ) : (
+            <VoiceIntroRing>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={pickDefaultCatAvatar(profile.username)}
+                alt=""
+                width={150}
+                height={150}
+                // Rounded-full (circle), matching the real-photo branch
+                // above. Aleksandr, 2026-08-29: reverted an earlier same-
+                // day square-crop change here -- "профиль должен быть без
+                // квадрата, там анимированные коти без фона которые
+                // говорят про роль пользователя" (the profile's own
+                // default-cat presentation is a separate thing, distinct
+                // from the feed's and onboarding's, and was already right
+                // before that square-crop change). See components/
+                // post-card.tsx's PLAN.md §6.35 for the matching feed-side
+                // revert of the same over-generalized fix.
+                className="h-[72px] w-[72px] shrink-0 rounded-full object-cover sm:h-[112.5px] sm:w-[112.5px]"
+              />
+            </VoiceIntroRing>
+          )}
+          {/* 2026-08-31: the weekly-rotating cat badge that briefly lived
+              here moved to components/avatar-menu.tsx instead --
+              Aleksandr, after seeing it live: "я имел в виду верхнюю
+              [аватарку], которая в правом верхнем углу... до этого кота
+              ты меня поселил возле моей основной аватарки, а я не это
+              хотел... тот [эту, основную] не трогай, там кот не должен
+              быть." See that file's own comment for the actual
+              placement. */}
+        </div>
+        <div className="min-w-0 flex-1">
+          <MarqueeName text={profile.fullName} className="text-xl font-semibold text-neutral-900 sm:text-2xl dark:text-neutral-50" />
+          <p className="truncate text-sm text-neutral-500 dark:text-neutral-400">@{profile.username}</p>
+        </div>
+        {/* EditProfileButton (own profile only) stays pinned to this
+            row's own right edge -- see the comment on the row div above.
+            The old AddContactButton corner badge that used to sit right
+            next to it is gone: 2026-09-01 (Aleksandr, 3 native-app
+            screenshots), that single icon is replaced by the full
+            <ProfileActionRow> below (add contact / share / message /
+            "•••") instead of living up here. */}
+        {!demo && <EditProfileButton username={profile.username} className="absolute right-0 top-0" />}
+      </div>
+
+      {/* Fuller player element — speed + scrubbing — for the same clip
+          the ring plays, per Aleksandr's 2026-08-27 follow-up asking for
+          both. Shares the ring's audio state via VoiceIntroProvider so
+          only one of them is ever actually playing. */}
+      {profile.voiceIntroUrl && <VoiceIntroPlayer />}
+
+      {profile.profileTitle && <p className="mt-4 text-base text-neutral-700 dark:text-neutral-300">{profile.profileTitle}</p>}
+
+      {(() => {
+        const occupationLabel = OCCUPATION_LABELS[profile.occupation] ?? null;
+        return (
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-neutral-500 dark:text-neutral-400">
+            {occupationLabel && (
+              <span className="inline-flex items-center gap-1.5">
+                <OccupationIcon occupation={profile.occupation} background={false} />
+                <T {...occupationLabel} />
+              </span>
+            )}
+            {locationLabel && (
+              <>
+                {occupationLabel && <span aria-hidden="true">·</span>}
+                <span>
+                  <LocationLabel display={profile.location!.display} country={profile.location!.country} />
+                </span>
+              </>
+            )}
+            {profile.expertise && (
+              <>
+                {(occupationLabel || locationLabel) && <span aria-hidden="true">·</span>}
+                <span>{profile.expertise}</span>
+              </>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* Aleksandr, 2026-08-31: "убери карту из профиля совсем, должна
+          быть только в постах" -- the profile map from the previous
+          message was reverted; LocationMap now only renders on the job
+          post detail page (app/jobs/[slug]/page.tsx). */}
+
+      {/* 2026-09-01 (Aleksandr, 3 native-app screenshots: someone
+          else's profile with a row of 4 buttons -- add contact / share
+          / message / "•••" (Save/Mute/Block) -- right below role/
+          location): "у нас сейчас есть возле... зелёная иконка добавить
+          пользователя, мы её убираем и вместо неё ставим вот этот ряд
+          из четырёх кнопок." Renders nothing for your own profile or a
+          signed-out visitor, same gating components/add-contact-
+          button.tsx (the badge it replaces) already had -- see
+          components/profile-action-row.tsx's own header comment for
+          the full plan, including why Mute/Block are UI-only stubs.
+          Sits here, between role/location and the tabs below, matching
+          the native screenshot's own stacking order; if that reads as
+          cramped once live, the agreed fallback is pushing ProfileTabs
+          and the "+" create-post FAB further down as a follow-up, not
+          attempted preemptively. */}
+      <ProfileActionRow
+        username={profile.username}
+        profileUserId={raw?.id ?? null}
+        shareUrl={
+          raw
+            ? `https://a1appp.com/userProfile/${raw.id}`
+            : `${SITE_URL}${profileHref(profile.username)}`
+        }
+        shareTitle={profile.fullName}
+        avatarUrl={profile.avatarUrl}
+        unclaimed={raw?.unclaimed === true}
+      />
+
+      {/* Aleksandr, 2026-08-30: "должны быть просто две кнопки...
+          первая -- это bio, а второе -- посты" -- ProfileTabs
+          (components/profile-tabs.tsx) is the client-side tab
+          switch; everything below was already fetched/rendered
+          server-side either way, this only decides which half is
+          visible. */}
+      {/* 2026-09-19 (Александр: «добавь такой же блок в профили
+          компаний»). Тот же блок, что на странице вакансии, только
+          профиль здесь ищется по юзернейму. Признак снимает бэкенд в
+          момент передачи, поэтому блок исчезает сам.
+
+          Пробовали в тот же день поднять его в самый верх страницы и
+          вернули обратно -- см. app/jobs/[slug]/page.tsx: наверху
+          карточка «це ваша компанія?» вытесняла саму компанию, ради
+          видимости, которая у блока и так есть. */}
+      {/* 11.10.2026: и мировые компании тоже (external) -- см. тот же блок
+          в app/jobs/[slug]/page.tsx. */}
+      {raw && (raw.unclaimed || raw.external) && (
+        <ClaimCompanyPrompt
+          username={routeUsername}
+          external={raw.external === true}
+          stats={{ company: routeUsername }}
+        />
+      )}
+
+      <ProfileTabs
+        bio={
+          <>
+      {profile.bio && <p className="mt-6 whitespace-pre-wrap text-neutral-700 dark:text-neutral-300">{profile.bio}</p>}
+
+      {(profile.phone || profile.email || profile.dob) && (
+        <div className="mt-6 flex flex-col gap-1 text-sm text-neutral-600 dark:text-neutral-400">
+          {profile.phone && <div><T uk="Телефон" en="Phone" ru="Телефон" de="Telefon" es="Teléfono" fr="Téléphone" pl="Telefon" ptBR="Telefone" zh="电话" />: {profile.phone}</div>}
+          {profile.email && <div>Email: {profile.email}</div>}
+          {profile.dob && <div><T uk="Дата народження" en="Date of birth" ru="Дата рождения" de="Geburtsdatum" es="Fecha de nacimiento" fr="Date de naissance" pl="Data urodzenia" ptBR="Data de nascimento" zh="出生日期" />: {profile.dob}</div>}
+        </div>
+      )}
+
+      {profile.links.length > 0 && (
+        <div className="mt-6 flex flex-wrap gap-3">
+          {profile.links.map((link) => (
+            <a
+              key={link.url}
+              href={demo ? "#" : link.url}
+              target="_blank"
+              rel={extractGithubLogin(link.url) ? "me noopener noreferrer nofollow" : "noopener noreferrer nofollow"}
+              className="flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-100 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700"
+            >
+              <LinkIcon />
+              {link.title || link.url}
+            </a>
+          ))}
+        </div>
+      )}
+
+      {/* 18.10.2026: плитка GitHub -- только у подтверждённого через GitHub OAuth (githubVerifiedLogin
+          совпадает с логином из ссылки). Владельцу профиля вместо неё -- кнопка «Підтвердити через
+          GitHub». Кто смотрит -- решает браузер (страница кешируется), см. components/github-section.tsx. */}
+      {(() => {
+        const linkLogin = findGithubLogin(profile.links);
+        if (!linkLogin) return null;
+        const verified = raw?.githubVerifiedLogin ?? null;
+        return (
+          <GithubSection
+            key={linkLogin}
+            username={profile.username}
+            linkLogin={linkLogin}
+            serverVerified={verifiedGithubLogin(profile.links, verified) !== null}
+            demoData={demo?.github}
+          />
+        );
+      })()}
+
+      {/* 18.10.2026: плитки Dribbble и Stack Overflow -- по тому же правилу, что GitHub: только у подтверждённых
+          через OAuth сервиса (components/dribbble-section.tsx, components/stackoverflow-section.tsx). */}
+      {(() => {
+        const linkLogin = findDribbbleLogin(profile.links);
+        if (!linkLogin) return null;
+        const v = raw?.dribbbleVerified ?? null;
+        const serverSnapshot = demo?.dribbble ?? (verifiedDribbbleLogin(profile.links, v?.login) !== null ? sanitizeDribbbleSnapshot(v?.snapshot) : null);
+        return <DribbbleSection key={linkLogin} username={profile.username} linkLogin={linkLogin} serverSnapshot={serverSnapshot} />;
+      })()}
+
+      {(() => {
+        const linkId = findStackoverflowId(profile.links);
+        if (linkId === null) return null;
+        const verified = raw?.stackoverflowVerifiedId ?? null;
+        return (
+          <StackoverflowSection
+            key={linkId}
+            username={profile.username}
+            linkId={linkId}
+            serverVerified={verifiedStackoverflowId(profile.links, verified) !== null}
+            demoData={demo?.stackoverflow}
+          />
+        );
+      })()}
+
+      {profile.companies.length > 0 && (
+        <section className="mt-8">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Досвід роботи" en="Work experience" ru="Опыт работы" de="Berufserfahrung" es="Experiencia laboral" fr="Expérience professionnelle" pl="Doświadczenie zawodowe" ptBR="Experiência profissional" zh="工作经验" /></h2>
+          <div className="mt-3 flex flex-col gap-4">
+            {profile.companies.map((company, i) => {
+              // Aleksandr, 2026-08-27 (mobile app video): the app's
+              // company card shows a category chip ("IT"), team size
+              // ("2-10"), founding year, and a clickable website — all of
+              // this was already sitting in WebProfileCompany (mostly
+              // unused) except category, which needed the dataset lookup
+              // above.
+              //
+              // 2026-08-28 fix: this used to just join raw values with
+              // " · ", which rendered as the unreadable "IT · 10 · 0" —
+              // Aleksandr: "IT - 10 - 0 это что?" The "10" was the bare
+              // employeesCount with no unit (needs a translated suffix to
+              // read as a headcount, not a mystery number), and the
+              // trailing "0" was establishedYear defaulting to 0 when a
+              // company has no founding year set (0 isn't a real year —
+              // same "unset" treatment as null, just filtered out here
+              // instead of at the schema level since other establishedYear
+              // readers might still want to see the raw 0).
+              const metaParts: ReactNode[] = [];
+              const categoryLabel = companyCategoryLabel(company.category);
+              if (categoryLabel) metaParts.push(<span key="category">{categoryLabel}</span>);
+              if (company.employeesCount != null && company.employeesCount > 0) {
+                metaParts.push(
+                  <span key="employees">
+                    {company.employeesCount}{" "}
+                    <T uk="співробітників" en="employees" ru="сотрудников" de="Mitarbeiter" es="empleados" fr="employés" pl="pracowników" ptBR="funcionários" zh="名员工" />
+                  </span>,
+                );
+              }
+              if (company.establishedYear != null && company.establishedYear > 0) {
+                metaParts.push(<span key="year">{company.establishedYear}</span>);
+              }
+              return (
+                <div key={`${company.name}-${i}`}>
+                  <div className="font-medium text-neutral-900 dark:text-neutral-50">{company.name}</div>
+                  {company.positionDescription && (
+                    <div className="text-sm text-neutral-600 dark:text-neutral-400">{company.positionDescription}</div>
+                  )}
+                  {company.description && <div className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">{company.description}</div>}
+                  {metaParts.length > 0 && (
+                    <div className="mt-1 flex flex-wrap items-center gap-x-1.5 text-sm text-neutral-500 dark:text-neutral-400">
+                      {metaParts.map((part, idx) => (
+                        <span key={idx} className="flex items-center gap-1.5">
+                          {idx > 0 && <span aria-hidden="true">·</span>}
+                          {part}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {company.link && (
+                    <a
+                      href={company.link.url}
+                      target="_blank"
+                      rel="noopener noreferrer nofollow"
+                      className="mt-1 inline-block text-sm text-accent hover:underline"
+                    >
+                      {company.link.title || company.link.url}
+                    </a>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {profile.education.length > 0 && (
+        <section className="mt-8">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Освіта" en="Education" ru="Образование" de="Ausbildung" es="Educación" fr="Formation" pl="Wykształcenie" ptBR="Formação" zh="教育背景" /></h2>
+          <ul className="mt-3 flex flex-col gap-1 text-sm text-neutral-700 dark:text-neutral-300">
+            {profile.education.map((entry, i) => (
+              <li key={i}>{entry}</li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {profile.skills.length > 0 && (
+        <section className="mt-8">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Навички" en="Skills" ru="Навыки" de="Fähigkeiten" es="Habilidades" fr="Compétences" pl="Umiejętności" ptBR="Habilidades" zh="技能" /></h2>
+          <div className="mt-3 flex flex-col gap-2">
+            {profile.skills.map((skill) => (
+              <div key={skill.value} className="flex items-center gap-3">
+                <span className="w-36 shrink-0 text-sm text-neutral-700 sm:w-40 dark:text-neutral-300">{skill.value}</span>
+                {levelBar(skill.level, 100)}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {profile.languages.length > 0 && (
+        <section className="mt-8">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Мови" en="Languages" ru="Языки" de="Sprachen" es="Idiomas" fr="Langues" pl="Języki" ptBR="Idiomas" zh="语言" /></h2>
+          <div className="mt-3 flex flex-col gap-2">
+            {profile.languages.map((lang) => (
+              <div key={lang.value} className="flex items-center gap-3">
+                <span className="w-36 shrink-0 text-sm text-neutral-700 sm:w-40 dark:text-neutral-300">{formatLanguageName(lang.value)}</span>
+                {levelBar(lang.level, 4)}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Aleksandr, 2026-08-27, screen recordings: "Профиль отображен
+          только частично. Много полей пропущенно." — hobbies/work
+          interests/work-style preferences/favorite books,movies,games
+          below, matched against Figma node-id=24338-3649 per his
+          follow-up ("зайти, посмотреть и сопоставить"). All four raw
+          fields already existed on WebProfile from that earlier pass;
+          this is only the missing JSX. */}
+      {hobbyItems && (
+        <section className="mt-8">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Хобі" en="Hobbies" ru="Хобби" de="Hobbys" es="Aficiones" fr="Loisirs" pl="Hobby" ptBR="Hobbies" zh="爱好" /></h2>
+          <div className="mt-3">
+            {pillList(hobbyItems)}
+          </div>
+        </section>
+      )}
+
+      {profile.workInterests.length > 0 && (
+        <section className="mt-8">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Робочі інтереси" en="Work interests" ru="Рабочие интересы" de="Berufliche Interessen" es="Intereses profesionales" fr="Intérêts professionnels" pl="Zainteresowania zawodowe" ptBR="Interesses profissionais" zh="工作兴趣" /></h2>
+          <div className="mt-3">
+            {pillList(workInterestItems)}
+          </div>
+        </section>
+      )}
+
+      {workStyleChips && (
+        <section className="mt-8">
+          {/* 2026-08-31, live-testing feedback ("Тут надо Стиль роботи, а
+              не Переваги"): this public-profile heading had its own copy
+              of the string, separate from components/profile-editor.tsx's
+              sectionWorkStyle -- the two drifted out of sync (editor says
+              "Стиль роботи"/"Work style", this said "Переваги в роботі"/
+              "Work preferences"). Copied verbatim from sectionWorkStyle
+              across all 9 locales instead of just fixing uk, so the same
+              mismatch doesn't quietly persist in every other language. */}
+          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Стиль роботи" en="Work style" ru="Стиль работы" de="Arbeitsstil" es="Estilo de trabajo" fr="Style de travail" pl="Styl pracy" ptBR="Estilo de trabalho" zh="工作风格" /></h2>
+          {/* 2026-09-02 (Aleksandr, live screenshot: "чтобы показувався
+              частково горизонтально, типа по 3-4 шт если помещается" --
+              AskUserQuestion round 1, picked "Компактные карточки"):
+              tried as its own bordered card per section first
+              (grid-cols-[repeat(auto-fill,minmax(140px,1fr))]). Rejected
+              on sight once live ("Не, ну это плохо :))") -- a card's
+              height is driven by how many values THAT section has, so a
+              one-value card next to a four-value card read as a jagged,
+              uneven brick wall rather than the "красиво" result the
+              screenshot asked for.
+              Round 2: flat inline chips instead of cards -- one
+              "Label: value1, value2" pill per section, no card
+              container, no per-section height variance at all (every
+              chip is exactly one line tall regardless of how many
+              values it holds). flex-wrap still fits "3-4 per row where
+              it fits" the same way the original request asked for, just
+              by natural wrapping instead of a grid -- every chip being
+              the same height is what actually reads as tidy instead of
+              jagged. */}
+          <div className="mt-4 flex flex-wrap gap-2">
+            {workStyleChips.map(({ key, section, values: valueVariants }) => {
+              // 24.10.2026: подписи и перевод значений теперь считает страница
+              // (app/u/[username]/page.tsx, workStyleChips) и передаёт
+              // готовыми -- так этот же вид умеет показывать и пример профиля.
+              return (
+                <div
+                  key={key}
+                  className="flex items-center gap-1.5 rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-sm dark:border-neutral-800 dark:bg-neutral-900/60"
+                >
+                  <span className="text-neutral-400 dark:text-neutral-500"><T {...section} />:</span>
+                  <span className="text-neutral-700 dark:text-neutral-200"><T {...valueVariants} /></span>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {(profile.favoriteBooks.length > 0 || profile.favoriteMovies.length > 0 || profile.favoriteGames.length > 0) && (
+        <section className="mt-8">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500"><T uk="Улюблене" en="Favorites" ru="Любимое" de="Favoriten" es="Favoritos" fr="Favoris" pl="Ulubione" ptBR="Favoritos" zh="最爱" /></h2>
+          <div className="mt-3 flex flex-col gap-6">
+            {profile.favoriteBooks.length > 0 &&
+              favoriteCategory(
+                <T uk="Книги" en="Books" ru="Книги" de="Bücher" es="Libros" fr="Livres" pl="Książki" ptBR="Livros" zh="书籍" />,
+                "book",
+                profile.favoriteBooks.map((b, i) => ({ title: b.title, subtitle: b.author || null, cover: covers.books[i] ?? null, key: `book-${i}` })),
+              )}
+            {profile.favoriteMovies.length > 0 &&
+              favoriteCategory(
+                <T uk="Фільми" en="Movies" ru="Фильмы" de="Filme" es="Películas" fr="Films" pl="Filmy" ptBR="Filmes" zh="电影" />,
+                "movie",
+                profile.favoriteMovies.map((m, i) => ({ title: m.title, subtitle: null, cover: covers.movies[i] ?? null, key: `movie-${i}` })),
+              )}
+            {profile.favoriteGames.length > 0 &&
+              favoriteCategory(
+                <T uk="Ігри" en="Games" ru="Игры" de="Spiele" es="Juegos" fr="Jeux" pl="Gry" ptBR="Jogos" zh="游戏" />,
+                "game",
+                profile.favoriteGames.map((g, i) => ({ title: g.title, subtitle: null, cover: covers.games[i] ?? null, key: `game-${i}` })),
+              )}
+          </div>
+        </section>
+      )}
+          </>
+        }
+        posts={posts}
+        postsCount={postsCount}
+        profileUsername={profile.username}
+      />
+    </Wrapper>
+    </VoiceIntroProvider>
+  );
+}

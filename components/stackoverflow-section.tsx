@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { StackoverflowTile } from "@/components/stackoverflow-tile";
 import { VerifyCtaCard, useStartVerify } from "@/components/verify-cta";
 import { authFetch } from "@/lib/auth-fetch";
+import type { StackoverflowSummary } from "@/lib/stackoverflow/core";
 
 function StackoverflowMark() {
   return (
@@ -26,15 +27,18 @@ type Props = {
   linkId: number;
   /** Сервер уже видит подтверждение (id из ссылки == stackoverflowVerifiedId). */
   serverVerified: boolean;
+  /** 24.10.2026: готовые данные для примера профиля (Mr Kit) -- без проверок и запросов. */
+  demoData?: StackoverflowSummary;
 };
 
-export function StackoverflowSection({ username, linkId, serverVerified }: Props) {
+export function StackoverflowSection({ username, linkId, serverVerified, demoData }: Props) {
   const [verified, setVerified] = useState(serverVerified);
   const [isOwner, setIsOwner] = useState(false);
   const [shown, setShown] = useState(false);
   const { phase, start } = useStartVerify("stackoverflow");
 
   useEffect(() => {
+    if (demoData) return;
     let cancelled = false;
     (async () => {
       try {
@@ -51,7 +55,7 @@ export function StackoverflowSection({ username, linkId, serverVerified }: Props
     return () => {
       cancelled = true;
     };
-  }, [username, linkId]);
+  }, [username, linkId, demoData]);
 
   const card = !verified && isOwner;
   useEffect(() => {
@@ -63,6 +67,7 @@ export function StackoverflowSection({ username, linkId, serverVerified }: Props
     return () => cancelAnimationFrame(id);
   }, [card]);
 
+  if (demoData) return <StackoverflowTile key={linkId} id={linkId} initialData={demoData} />;
   if (verified) return <StackoverflowTile key={linkId} id={linkId} />;
   if (!card) return null;
   return <VerifyCtaCard provider="stackoverflow" icon={<StackoverflowMark />} phase={phase} onStart={start} shown={shown} />;

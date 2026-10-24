@@ -60,7 +60,18 @@ export function EditProfileButton({ username, className }: { username: string; c
     authFetch("/api/account/whoami")
       .then((r) => r.json())
       .then((data) => {
-        if (!cancelled && data?.ok && data.username === username) setIsOwner(true);
+        if (!cancelled && data?.ok && data.username === username) {
+          setIsOwner(true);
+          // 24.10.2026: ссылка «Заповнити профіль» со страницы /spivbesida/
+          // kandydatu ведёт сюда с ?edit=1 -- сразу открываем редактор и
+          // убираем параметр из адреса, чтобы он не открылся снова.
+          const url = new URL(window.location.href);
+          if (url.searchParams.get("edit") === "1") {
+            setOpen(true);
+            url.searchParams.delete("edit");
+            window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+          }
+        }
       })
       .catch(() => {
         // Signed out, or the call failed -- no button, same as before
