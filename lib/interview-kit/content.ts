@@ -742,30 +742,11 @@ const G_ALGO: ToolGroup = {
   ],
 };
 
-const G_CV: ToolGroup = {
-  id: "cv",
-  title: t("Резюме", "CV", "Резюме", "Lebenslauf", "CV", "CV", "CV", "Currículo", "简历"),
-  desc: t(
-    "Конструктори з готовими шаблонами: охайне резюме за вечір.",
-    "Builders with ready templates: a tidy CV in one evening.",
-    "Конструкторы с готовыми шаблонами: аккуратное резюме за вечер.",
-    "Baukästen mit fertigen Vorlagen: ein sauberer Lebenslauf an einem Abend.",
-    "Editores con plantillas listas: un CV limpio en una tarde.",
-    "Des éditeurs avec modèles prêts : un CV soigné en une soirée.",
-    "Kreatory z gotowymi szablonami: schludne CV w jeden wieczór.",
-    "Editores com modelos prontos: um currículo caprichado em uma noite.",
-    "带现成模板的简历工具：一个晚上做出整洁的简历。",
-  ),
-  tools: [
-    { name: "Canva", url: ref("https://www.canva.com/resumes/"), color: "#00C4CC" },
-    { name: "FlowCV", url: ref("https://flowcv.com"), color: "#3B82F6" },
-    { name: "Novorésumé", url: ref("https://novoresume.com"), color: "#2B6CB0" },
-  ],
-};
-
 export const TOOL_GROUPS: Record<Role, ToolGroup[]> = {
   interviewer: [G_RECORD, G_CODE, G_BOARD, G_DETECT, G_SCHEDULE],
-  candidate: [G_PRACTICE, G_ALGO, G_BOARD, G_CV],
+  // 24.10.2026: блок «Резюме» убран (Александр): A1 ведёт к тому, что профиль
+  // заменяет резюме, советовать конструкторы CV значит спорить с собой.
+  candidate: [G_PRACTICE, G_ALGO, G_BOARD],
 };
 
 // ───────── «От A1» (кандидату) ─────────
