@@ -40,7 +40,6 @@ export const UI = {
   kicker: t("A1 · Співбесіда", "A1 · Interview", "A1 · Собеседование", "A1 · Vorstellungsgespräch", "A1 · Entrevista", "A1 · Entretien", "A1 · Rozmowa kwalifikacyjna", "A1 · Entrevista", "A1 · 面试"),
   roleCandidate: t("Кандидату", "For candidates", "Кандидату", "Für Bewerber", "Para candidatos", "Pour les candidats", "Dla kandydatów", "Para candidatos", "求职者"),
   roleInterviewer: t("Інтерв'юеру", "For interviewers", "Интервьюеру", "Für Interviewer", "Para entrevistadores", "Pour les recruteurs", "Dla rekruterów", "Para entrevistadores", "面试官"),
-  illustration: t("Тут буде ілюстрація", "Illustration coming soon", "Здесь будет иллюстрация", "Hier kommt eine Illustration hin", "Aquí irá una ilustración", "Une illustration arrive ici", "Tu pojawi się ilustracja", "Aqui vai uma ilustração", "插图即将上线"),
   checklist: t("Чек-лист", "Checklist", "Чек-лист", "Checkliste", "Lista de control", "Checklist", "Lista kontrolna", "Checklist", "清单"),
   stage: {
     before: t("До співбесіди", "Before", "До собеседования", "Vorher", "Antes", "Avant", "Przed", "Antes", "面试前"),

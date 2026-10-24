@@ -1,6 +1,5 @@
 // app/spivbesida/role-page.tsx -- общий макет страниц «Кандидату» и
-// «Інтерв'юеру» (24.10.2026). Шапка с переключателем ролей и местом под
-// иллюстрацию, дальше блоки из kit.tsx в своём порядке для каждой роли.
+// «Інтерв'юеру» (24.10.2026). Шапка с переключателем ролей и иллюстрацией, дальше блоки из kit.tsx в своём порядке для каждой роли.
 
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -8,7 +7,7 @@ import { T } from "@/components/t";
 import { buildLandingBreadcrumbJsonLd } from "@/lib/seo/jsonld";
 import { PAGE, ROLE_PATH, UI, type Role } from "@/lib/interview-kit/content";
 import { MrKitProfile } from "@/lib/interview-kit/mr-kit";
-import { Antifraud, Checklist, FromA1, IllustrationSlot, KitStyles, ProfileInsteadOfCv, RoleSwitch, Templates, Tools } from "./kit";
+import { Antifraud, Checklist, FromA1, KitStyles, ProfileInsteadOfCv, RoleIllustration, RoleSwitch, Templates, Tools } from "./kit";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -61,7 +60,7 @@ export function RolePage({ role }: { role: Role }) {
             <RoleSwitch role={role} />
           </div>
         </div>
-        <IllustrationSlot className="max-md:aspect-[16/9]" />
+        <RoleIllustration role={role} />
       </header>
 
       <div className="mt-8">

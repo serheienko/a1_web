@@ -194,28 +194,26 @@ export function RoleSwitch({ role }: { role: Role }) {
   );
 }
 
-// ───────── заглушка иллюстрации ─────────
-export function IllustrationSlot({ className = "" }: { className?: string }) {
+// ───────── иллюстрация в шапке ─────────
+// 24.10.2026: картинки Александра, у каждой роли две: широкая (телефон,
+// баннер на всю ширину) и квадратная (десктоп, колонка справа). Выбирает
+// браузер через <picture> по ширине окна -- поэтому и при растягивании
+// окна на десктопе картинка меняется сама, без JS. Граница та же, что у
+// сетки шапки (md, 768px).
+export function RoleIllustration({ role }: { role: Role }) {
   return (
-    <div
-      className={
-        "kit-ill relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-[28px] border-2 border-dashed border-neutral-200 dark:border-neutral-700 " +
-        className
-      }
-    >
-      <span className="kit-ill-blob kit-ill-a" />
-      <span className="kit-ill-blob kit-ill-b" />
-      <span className="relative flex flex-col items-center gap-2 text-neutral-400 dark:text-neutral-500">
-        <svg width="40" height="40" viewBox="0 0 24 24" aria-hidden="true" {...stroke} strokeWidth={1.5}>
-          <rect x="3" y="4" width="18" height="16" rx="3" />
-          <circle cx="9" cy="10" r="1.8" />
-          <path d="M21 16l-5-5-9 9" />
-        </svg>
-        <span className="text-[13px] font-medium">
-          <T {...UI.illustration} />
-        </span>
-      </span>
-    </div>
+    <picture className="block overflow-hidden rounded-[28px]">
+      <source media="(min-width: 768px)" srcSet={`/spivbesida/${role}-square.webp`} width={1000} height={1000} />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={`/spivbesida/${role}-wide.webp`}
+        width={1600}
+        height={640}
+        alt="Mr Kit"
+        fetchPriority="high"
+        className="block aspect-[5/2] h-auto w-full object-cover md:aspect-square"
+      />
+    </picture>
   );
 }
 
@@ -773,13 +771,5 @@ const CSS = `
 .kit-cv-btn:hover{transform:translateY(-1px);box-shadow:0 10px 24px -10px rgba(0,0,0,.45)}
 .kit-cv-demo{background:#fafafa}
 .dark .kit-cv-demo{background:#0a0a0a}
-.kit-ill{background:linear-gradient(135deg,#f5f7ff 0%,#eef2ff 100%)}
-.dark .kit-ill{background:linear-gradient(135deg,#111427 0%,#0b0d18 100%)}
-.kit-ill-blob{position:absolute;border-radius:50%;filter:blur(30px);opacity:.55}
-.kit-ill-a{width:45%;height:45%;left:8%;top:10%;background:#c7d2fe;animation:kit-float 7s ease-in-out infinite}
-.kit-ill-b{width:40%;height:40%;right:10%;bottom:8%;background:#bae6fd;animation:kit-float 9s ease-in-out infinite reverse}
-.dark .kit-ill-a{background:#1e2a6b}
-.dark .kit-ill-b{background:#0c3a5a}
-@keyframes kit-float{0%,100%{transform:translate(0,0)}50%{transform:translate(12px,-10px)}}
-@media (prefers-reduced-motion: reduce){.kit-confetti,.kit-ill-blob{display:none}.kit-ring-done,.kit-item-on .kit-box,.kit-fraud[open] .kit-fraud-card{animation:none}}
+@media (prefers-reduced-motion: reduce){.kit-confetti{display:none}.kit-ring-done,.kit-item-on .kit-box,.kit-fraud[open] .kit-fraud-card{animation:none}}
 `;
