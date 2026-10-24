@@ -31,6 +31,7 @@ import { MR_KIT_AVATAR, MR_KIT_AVATAR_BLUR } from "@/lib/interview-kit/mr-kit-av
 import { WORK_STYLE_PREFERENCE_SECTIONS } from "@/components/work-style-labels";
 import { LOCALES, type Locale } from "@/components/t";
 import { useActiveLocale } from "@/lib/use-active-locale";
+import { LottiePlayer } from "@/components/lottie-player";
 
 type L9 = Record<Locale, string>;
 function t(uk: string, en: string, ru: string, de: string, es: string, fr: string, pl: string, ptBR: string, zh: string): L9 {
@@ -187,7 +188,7 @@ const TX = {
   ),
   // Александр: «$3 000–5 000 для кота странно» -- зарплата в кошачьей валюте,
   // но в том же виде «от–до /міс», что у настоящих вакансий.
-  salary: t("🥫 300–500 консерв/міс", "🥫 300–500 cans/mo", "🥫 300–500 консерв/мес", "🥫 300–500 Dosen/Monat", "🥫 300–500 latas/mes", "🥫 300–500 boîtes/mois", "🥫 300–500 puszek/mies.", "🥫 300–500 latas/mês", "🥫 300–500 罐/月"),
+  salary: t("300–500 консерв/міс", "300–500 cans/mo", "300–500 консерв/мес", "300–500 Dosen/Monat", "300–500 latas/mes", "300–500 boîtes/mois", "300–500 puszek/mies.", "300–500 latas/mês", "300–500 罐/月"),
   postText: t(
     "Вмію тримати всесвіт A1 у робочому стані, знаходити баги носом і підіймати настрій команді на дейліках. Remote, з підвіконня. Оплата смаколиками обговорюється.",
     "I can keep the A1 universe running, sniff out bugs and lift the team's mood at dailies. Remote, from the windowsill. Payment in treats is negotiable.",
@@ -465,7 +466,13 @@ export function MrKitProfile() {
         openJobs={0}
         posts={
           <div className="kit-demo-static">
-            <PostCard post={buildPost(l)} avatarBlurDataUrl={CAT_BLUR} onOpen={() => {}} showReservation={false} salaryOverride={TX.salary[l]} />
+            <PostCard post={buildPost(l)} avatarBlurDataUrl={CAT_BLUR} onOpen={() => {}} showReservation={false} salaryOverride={
+                <span className="inline-flex items-center gap-1 align-middle">
+                  {/* 24.10.2026: анимированная консерва от Александра (Telegram-стикер .tgs -> Lottie JSON), крутится без остановки. */}
+                  <LottiePlayer src="/spivbesida/mr-kit-can.json" size={20} placeholder={false} />
+                  {TX.salary[l]}
+                </span>
+              } />
           </div>
         }
         postsCount={1}

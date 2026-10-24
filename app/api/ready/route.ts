@@ -21,9 +21,27 @@ import { syncFromBlob } from "@/lib/kv/from-blob";
 export const dynamic = "force-dynamic";
 
 let ready = false;
+// 24.10.2026: деплой упал по healthcheck (5 минут не хватило). Причина: каждая
+// попытка Railway (раз в 10-40 с) запускала ВЕСЬ прогрев заново, параллельно с
+// ещё идущими, и они душили друг друга. Теперь прогрев один (warming), а
+// попытки только ждут его до 8 с и отвечают 503, пока он не закончится.
+let warming: Promise<void> | null = null;
 
 export async function GET() {
   if (!ready) {
+    warming ??= warm().finally(() => {
+      ready = true;
+    });
+    await Promise.race([warming, new Promise((r) => setTimeout(r, 8_000))]);
+    if (!ready) {
+      return Response.json({ ok: false, warming: true }, { status: 503, headers: { "Cache-Control": "no-store" } });
+    }
+  }
+  return Response.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
+}
+
+async function warm() {
+  {
     // 14.10.2026: переезд хранилища с Vercel Blob на базу Railway (lib/kv/from-blob.ts). Пока на сервере
     // есть токен Blob, новая версия сначала докопирует то, что успела записать старая, и только потом
     // примет людей -- иначе «Перші 250», новости, события на минуту показали бы пустоту.
@@ -58,7 +76,5 @@ export async function GET() {
     } catch {
       // те саме: не тримаємо деплой, покажчик збереться на першому запиті
     }
-    ready = true;
   }
-  return Response.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
 }
