@@ -233,8 +233,20 @@ export function openNeptune(opts: { lang?: string; onClose?: () => void } = {}):
   // три трека (public/game-map/neptune/music). Музыку карты на время глушим, а
   // при выходе возвращаем. Если на карте музыка играла -- здесь сразу играет своя.
   const mapMusic = getMapMusic();
-  const mapWasOn = mapMusic.playing;
-  if (mapWasOn) mapMusic.pause();
+  // 24.10.2026 (Александр: «в приложении две музыки играют одновременно»).
+  // Музыка карты могла включиться уже ПОСЛЕ входа сюда: она стартует не сразу
+  // (сначала аудио-движок, потом play), а в приложении -- ещё и от касания поля
+  // поиска. Поэтому не один раз «проверили и выключили», а следим всё время,
+  // пока резиденция открыта: заиграла карта -- глушим, запоминаем, что надо
+  // вернуть при выходе.
+  let mapWasOn = mapMusic.playing;
+  let alive0 = true;
+  const unsubMap = mapMusic.subscribe((on) => {
+    if (on && alive0) {
+      mapWasOn = true;
+      mapMusic.pause();
+    }
+  });
   const music = new MapMusic({ tracks: ["1", "2", "3"], base: `${BASE}/music/`, key: "a1-neptune-music" });
   const mBtn = head.querySelector(".np-m") as HTMLButtonElement;
   const unsub = music.subscribe((on) => {
@@ -294,6 +306,8 @@ export function openNeptune(opts: { lang?: string; onClose?: () => void } = {}):
     window.removeEventListener("resize", fit);
     root.removeEventListener("pointerdown", wake);
     unsub();
+    alive0 = false;
+    unsubMap();
     music.dispose();
     if (mapWasOn) mapMusic.start();
     root.classList.remove("np-in");
