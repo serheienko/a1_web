@@ -185,6 +185,9 @@ const TX = {
     "Senior Mascot procura notebook quentinho e um ótimo time",
     "资深吉祥物寻找温暖的笔记本和优秀团队",
   ),
+  // Александр: «$3 000–5 000 для кота странно» -- зарплата в кошачьей валюте,
+  // но в том же виде «от–до /міс», что у настоящих вакансий.
+  salary: t("🥫 300–500 консерв/міс", "🥫 300–500 cans/mo", "🥫 300–500 консерв/мес", "🥫 300–500 Dosen/Monat", "🥫 300–500 latas/mes", "🥫 300–500 boîtes/mois", "🥫 300–500 puszek/mies.", "🥫 300–500 latas/mês", "🥫 300–500 罐/月"),
   postText: t(
     "Вмію тримати всесвіт A1 у робочому стані, знаходити баги носом і підіймати настрій команді на дейліках. Remote, з підвіконня. Оплата смаколиками обговорюється.",
     "I can keep the A1 universe running, sniff out bugs and lift the team's mood at dailies. Remote, from the windowsill. Payment in treats is negotiable.",
@@ -462,7 +465,7 @@ export function MrKitProfile() {
         openJobs={0}
         posts={
           <div className="kit-demo-static">
-            <PostCard post={buildPost(l)} avatarBlurDataUrl={CAT_BLUR} onOpen={() => {}} showReservation={false} />
+            <PostCard post={buildPost(l)} avatarBlurDataUrl={CAT_BLUR} onOpen={() => {}} showReservation={false} salaryOverride={TX.salary[l]} />
           </div>
         }
         postsCount={1}

@@ -98,6 +98,7 @@ export function PostCard({
   showReservation = true,
   // 16.10.2026: блок под карточкой внутри неё (вкладка «Мої відгуки»: вопрос «Ви відгукнулися?»).
   footer,
+  salaryOverride,
 }: {
   post: WebPost;
   avatarBlurDataUrl?: string | null;
@@ -108,6 +109,8 @@ export function PostCard({
   /** «Є бронювання» -- только для украинской ленты (Александр, 30.09.2026). */
   showReservation?: boolean;
   footer?: ReactNode;
+  /** Своя подпись вместо зарплаты (24.10.2026: пример Mr Kit, «300–500 консерв/міс»). */
+  salaryOverride?: ReactNode;
 }) {
   // 2026-08-30, live-testing feedback ("Berlin, Germany - нужна
   // локализация", reported against the profile page but this feed card
@@ -424,7 +427,7 @@ export function PostCard({
             <>
               <span aria-hidden="true">·</span>
               <span>
-                <SalaryLabel salary={post.salary!} />
+                {salaryOverride ?? <SalaryLabel salary={post.salary!} />}
               </span>
             </>
           )}
