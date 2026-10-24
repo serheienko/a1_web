@@ -909,5 +909,23 @@ const CSS = `
 .dark .kit-cv-light .kit-cv-ava{box-shadow:0 0 0 2px #171717,0 0 0 4px rgba(51,94,247,.35)}
 .kit-cv-demo{background:#fafafa}
 .dark .kit-cv-demo{background:#0a0a0a}
+/* 24.10.2026 (Александр: тёмная тема): в режиме «Авто» класса .dark нет,
+   тёмный вид идёт от системы -- повторяем .dark-правила через media. */
+@media (prefers-color-scheme: dark){
+:root:not(.light) .kit-ring-track{stroke:#262626}
+:root:not(.light) .kit-btn-ghost{background:#262626;color:#e5e5e5}
+:root:not(.light) .kit-item{background:rgba(38,38,38,.6)}
+:root:not(.light) .kit-item:hover{background:rgba(51,94,247,.14)}
+:root:not(.light) .kit-box{border-color:#525252;background:#171717}
+:root:not(.light) .kit-item-text{color:#e5e5e5}
+:root:not(.light) .kit-item-on .kit-item-text{color:#737373}
+:root:not(.light) .kit-tile{background:#171717;border-color:#262626}
+:root:not(.light) .kit-ill{background:#15182a}
+:root:not(.light) .kit-cv-light{background:#171717}
+:root:not(.light) .kit-cv-wrap-light{border-color:#262626;box-shadow:none}
+:root:not(.light) .kit-cv-light .kit-cv-tag{color:#c7d2fe;background:rgba(51,94,247,.16);border-color:rgba(51,94,247,.25)}
+:root:not(.light) .kit-cv-light .kit-cv-ava{box-shadow:0 0 0 2px #171717,0 0 0 4px rgba(51,94,247,.35)}
+:root:not(.light) .kit-cv-demo{background:#0a0a0a}
+}
 @media (prefers-reduced-motion: reduce){.kit-confetti{display:none}.kit-eye g,.kit-eye-pupil{transition:none!important}.kit-cv-panel,.kit-cv-panel .kit-cv-demo{transition:none!important}.kit-ring-done,.kit-btn-done svg,.kit-item-on .kit-box,.kit-fraud[open] .kit-fraud-card{animation:none}}
 `;
