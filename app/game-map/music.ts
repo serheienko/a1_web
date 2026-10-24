@@ -53,9 +53,15 @@ function shuffle(list: string[], avoidFirst?: string | null): string[] {
   return a;
 }
 
-function samePlaylist(q: unknown): q is string[] {
-  return Array.isArray(q) && q.length === TRACKS.length && TRACKS.every((t) => q.includes(t));
+function samePlaylist(q: unknown, tracks: string[]): q is string[] {
+  return Array.isArray(q) && q.length === tracks.length && tracks.every((t) => q.includes(t));
 }
+
+// 24.10.2026: тот же плеер играет и в пасхалке «резиденция Mr Kit» (./neptune.ts)
+// со своими треками и своей памятью -- поэтому список треков, папка и ключ
+// хранения теперь параметры. Карта по-прежнему зовёт без параметров.
+export type MusicConfig = { tracks: string[]; base: string; key: string };
+const MAP_MUSIC: MusicConfig = { tracks: TRACKS, base: BASE, key: KEY };
 
 // 0,1 с тиші: нею «благословляємо» другий програвач у момент кліку, бо
 // iPhone дозволяє грати лише тим програвачам, які вже грали від дотику.
@@ -91,10 +97,12 @@ export class MapMusic {
   private ogg: boolean | null = null;
   private offs: (() => void)[] = [];
 
-  constructor() {
+  private cfg: MusicConfig;
+  constructor(cfg: MusicConfig = MAP_MUSIC) {
+    this.cfg = cfg;
     try {
-      const s = JSON.parse(localStorage.getItem(KEY) || 'null') as Saved | null;
-      if (s && s.v === 1 && samePlaylist(s.q)) {
+      const s = JSON.parse(localStorage.getItem(cfg.key) || 'null') as Saved | null;
+      if (s && s.v === 1 && samePlaylist(s.q, cfg.tracks)) {
         this.q = s.q;
         this.i = Math.min(Math.max(0, s.i | 0), this.q.length - 1);
         this.startAt = Math.max(0, +s.t || 0);
@@ -103,7 +111,7 @@ export class MapMusic {
     } catch {
       /* приватний режим */
     }
-    if (!this.q.length) { this.q = shuffle(TRACKS); this.i = 0; this.startAt = 0; }
+    if (!this.q.length) { this.q = shuffle(cfg.tracks); this.i = 0; this.startAt = 0; }
     const onVis = () => this.onVisibility();
     const onHide = () => { this.capture(); this.save(); };
     document.addEventListener('visibilitychange', onVis);
@@ -123,7 +131,7 @@ export class MapMusic {
     this.lastSave = Date.now();
     try {
       const s: Saved = { v: 1, on: this.wanted, q: this.q, i: this.i, t: Math.round(this.startAt * 10) / 10 };
-      localStorage.setItem(KEY, JSON.stringify(s));
+      localStorage.setItem(this.cfg.key, JSON.stringify(s));
     } catch {
       /* приватний режим */
     }
@@ -137,7 +145,7 @@ export class MapMusic {
 
   private url(name: string, el: HTMLAudioElement) {
     if (this.ogg === null) this.ogg = !!el.canPlayType('audio/ogg; codecs=opus');
-    return BASE + name + (this.ogg ? '.ogg' : '.m4a');
+    return this.cfg.base + name + (this.ogg ? '.ogg' : '.m4a');
   }
   private setSrc(d: Deck, name: string) {
     if (d.name === name) return;
@@ -248,17 +256,20 @@ export class MapMusic {
 
   toggle() { if (this.playing) this.stop(); else this.start(); }
 
+  /** Пауза без смены выбора «музыка включена» (пасхалка на Нептуне глушит карту на время). */
+  pause() { const w = this.wanted; this.stop(); this.wanted = w; this.save(); }
+
   // Дотик до карти: якщо людина раніше лишила музику ввімкненою -- вмикаємо.
   autoResume() { if (this.wanted && !this.playing) this.start(); }
 
   private upcoming(): string {
     if (this.i + 1 < this.q.length) return this.q[this.i + 1] as string;
-    this.nq ||= shuffle(TRACKS, this.q[this.q.length - 1]);
+    this.nq ||= shuffle(this.cfg.tracks, this.q[this.q.length - 1]);
     return this.nq[0] as string;
   }
   private advance() {
     if (this.i + 1 < this.q.length) this.i++;
-    else { this.q = this.nq || shuffle(TRACKS, this.q[this.q.length - 1]); this.nq = null; this.i = 0; }
+    else { this.q = this.nq || shuffle(this.cfg.tracks, this.q[this.q.length - 1]); this.nq = null; this.i = 0; }
     this.startAt = 0;
   }
 
@@ -293,7 +304,7 @@ export class MapMusic {
 
   private onError() {
     this.errors++;
-    if (this.errors > TRACKS.length) { this.stop(); return; }
+    if (this.errors > this.cfg.tracks.length) { this.stop(); return; }
     this.fading = false;
     this.crossfade(true);
   }

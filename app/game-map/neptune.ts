@@ -17,6 +17,8 @@
 // Вся анимация -- CSS transform/opacity (дёшево для телефона), при
 // prefers-reduced-motion она выключена.
 
+import { MapMusic, getMapMusic } from "./music";
+
 type Lang = "uk" | "en" | "ru" | "de" | "es" | "fr" | "pl" | "ptBR" | "zh";
 
 const BASE = "/game-map/neptune";
@@ -27,16 +29,16 @@ export function isNeptuneSecret(q: string): boolean {
   return SECRET.has(q.toLowerCase().replace(/[^a-z]/g, ""));
 }
 
-const STR: Record<Lang, { title: string; sub: string; found: string; close: string; flying: string }> = {
-  uk: { title: "Резиденція Mr Kit", sub: "Нептун, всесвіт A1", found: "Ти знайшов секретну локацію 🤫", close: "Повернутися на карту", flying: "Летимо на Нептун…" },
-  en: { title: "Mr Kit's Residence", sub: "Neptune, A1 Universe", found: "You found a secret location 🤫", close: "Back to the map", flying: "Flying to Neptune…" },
-  ru: { title: "Резиденция Mr Kit", sub: "Нептун, вселенная A1", found: "Ты нашёл секретную локацию 🤫", close: "Вернуться на карту", flying: "Летим на Нептун…" },
-  de: { title: "Mr Kits Residenz", sub: "Neptun, A1-Universum", found: "Du hast einen geheimen Ort gefunden 🤫", close: "Zurück zur Karte", flying: "Flug zum Neptun…" },
-  es: { title: "Residencia de Mr Kit", sub: "Neptuno, universo A1", found: "Encontraste un lugar secreto 🤫", close: "Volver al mapa", flying: "Volando a Neptuno…" },
-  fr: { title: "Résidence de Mr Kit", sub: "Neptune, univers A1", found: "Tu as trouvé un lieu secret 🤫", close: "Retour à la carte", flying: "En route pour Neptune…" },
-  pl: { title: "Rezydencja Mr Kita", sub: "Neptun, wszechświat A1", found: "Znalazłeś sekretne miejsce 🤫", close: "Wróć do mapy", flying: "Lecimy na Neptuna…" },
-  ptBR: { title: "Residência do Mr Kit", sub: "Netuno, universo A1", found: "Você achou um lugar secreto 🤫", close: "Voltar ao mapa", flying: "Voando para Netuno…" },
-  zh: { title: "Mr Kit 的官邸", sub: "海王星，A1 宇宙", found: "你发现了一个秘密地点 🤫", close: "返回地图", flying: "正在飞往海王星…" },
+const STR: Record<Lang, { title: string; sub: string; found: string; close: string; flying: string; mOn?: string; mOff?: string }> = {
+  uk: { mOn: "Увімкнути музику", mOff: "Вимкнути музику", title: "Резиденція Mr Kit", sub: "Нептун, всесвіт A1", found: "Ти знайшов секретну локацію 🤫", close: "Повернутися на карту", flying: "Летимо на Нептун…" },
+  en: { mOn: "Turn music on", mOff: "Turn music off", title: "Mr Kit's Residence", sub: "Neptune, A1 Universe", found: "You found a secret location 🤫", close: "Back to the map", flying: "Flying to Neptune…" },
+  ru: { mOn: "Включить музыку", mOff: "Выключить музыку", title: "Резиденция Mr Kit", sub: "Нептун, вселенная A1", found: "Ты нашёл секретную локацию 🤫", close: "Вернуться на карту", flying: "Летим на Нептун…" },
+  de: { mOn: "Musik an", mOff: "Musik aus", title: "Mr Kits Residenz", sub: "Neptun, A1-Universum", found: "Du hast einen geheimen Ort gefunden 🤫", close: "Zurück zur Karte", flying: "Flug zum Neptun…" },
+  es: { mOn: "Activar música", mOff: "Desactivar música", title: "Residencia de Mr Kit", sub: "Neptuno, universo A1", found: "Encontraste un lugar secreto 🤫", close: "Volver al mapa", flying: "Volando a Neptuno…" },
+  fr: { mOn: "Activer la musique", mOff: "Couper la musique", title: "Résidence de Mr Kit", sub: "Neptune, univers A1", found: "Tu as trouvé un lieu secret 🤫", close: "Retour à la carte", flying: "En route pour Neptune…" },
+  pl: { mOn: "Włącz muzykę", mOff: "Wyłącz muzykę", title: "Rezydencja Mr Kita", sub: "Neptun, wszechświat A1", found: "Znalazłeś sekretne miejsce 🤫", close: "Wróć do mapy", flying: "Lecimy na Neptuna…" },
+  ptBR: { mOn: "Ligar música", mOff: "Desligar música", title: "Residência do Mr Kit", sub: "Netuno, universo A1", found: "Você achou um lugar secreto 🤫", close: "Voltar ao mapa", flying: "Voando para Netuno…" },
+  zh: { mOn: "打开音乐", mOff: "关闭音乐", title: "Mr Kit 的官邸", sub: "海王星，A1 宇宙", found: "你发现了一个秘密地点 🤫", close: "返回地图", flying: "正在飞往海王星…" },
 };
 
 // Сцена в своих координатах 1600x1000; x,y -- точка «ног» спрайта (низ по центру).
@@ -217,7 +219,7 @@ export function openNeptune(opts: { lang?: string; onClose?: () => void } = {}):
   const head = el(
     "div",
     "np-head",
-    `<div class="np-chip"><span class="np-chip-ic">🪐</span><span><b></b><small></small></span></div><button type="button" class="np-x" aria-label=""><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>`,
+    `<div class="np-chip"><span class="np-chip-ic">🪐</span><span><b></b><small></small></span></div><div class="np-btns"><button type="button" class="np-m" aria-pressed="false"><span class="np-eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span></button><button type="button" class="np-x" aria-label=""><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`,
   );
   (head.querySelector("b") as HTMLElement).textContent = t.title;
   (head.querySelector("small") as HTMLElement).textContent = t.sub;
@@ -225,6 +227,31 @@ export function openNeptune(opts: { lang?: string; onClose?: () => void } = {}):
   xBtn.setAttribute("aria-label", t.close);
   xBtn.title = t.close;
   root.appendChild(head);
+
+  // Музыка -- тот же плеер, что у карты (./music.ts): треки по кругу в случайном
+  // порядке, плавный переход, выбор «включено» и место в треке помнятся. Свои
+  // три трека (public/game-map/neptune/music). Музыку карты на время глушим, а
+  // при выходе возвращаем. Если на карте музыка играла -- здесь сразу играет своя.
+  const mapMusic = getMapMusic();
+  const mapWasOn = mapMusic.playing;
+  if (mapWasOn) mapMusic.pause();
+  const music = new MapMusic({ tracks: ["1", "2", "3"], base: `${BASE}/music/`, key: "a1-neptune-music" });
+  const mBtn = head.querySelector(".np-m") as HTMLButtonElement;
+  const unsub = music.subscribe((on) => {
+    const label = (on ? t.mOff : t.mOn) ?? "";
+    mBtn.classList.toggle("on", on);
+    mBtn.setAttribute("aria-pressed", on ? "true" : "false");
+    mBtn.setAttribute("aria-label", label);
+    mBtn.title = label;
+  });
+  mBtn.addEventListener("click", () => music.toggle());
+  if (mapWasOn) music.start();
+  else music.autoResume();
+  // Как на карте: если музыку тут включали раньше, она вступает от первого касания.
+  const wake = (e: Event) => {
+    if (!(e.target as HTMLElement).closest(".np-m")) music.autoResume();
+  };
+  root.addEventListener("pointerdown", wake);
   const found = el("div", "np-found");
   found.textContent = t.found;
   root.appendChild(found);
@@ -265,6 +292,10 @@ export function openNeptune(opts: { lang?: string; onClose?: () => void } = {}):
     openNow = null;
     document.removeEventListener("keydown", onKey);
     window.removeEventListener("resize", fit);
+    root.removeEventListener("pointerdown", wake);
+    unsub();
+    music.dispose();
+    if (mapWasOn) mapMusic.start();
     root.classList.remove("np-in");
     root.classList.add("np-out");
     setTimeout(() => {
@@ -351,7 +382,19 @@ const CSS = `
 .np-chip b{display:block;font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .np-chip small{display:block;font-size:12px;color:rgba(200,215,255,.8)}
 .np-x{flex:none;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;background:rgba(10,16,48,.55);border:1px solid rgba(160,190,255,.25);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);cursor:pointer;transition:transform .15s,background .2s}
-.np-x:hover{background:rgba(51,94,247,.6);transform:scale(1.05)}
+.np-x svg{transition:transform .35s cubic-bezier(.3,1.6,.5,1)}
+.np-x:hover{background:rgba(255,61,242,.35);border-color:rgba(255,141,245,.6);transform:scale(1.08);box-shadow:0 0 18px rgba(255,61,242,.45)}
+.np-x:hover svg{transform:rotate(90deg)}
+.np-x:active{transform:scale(.94)}
+.np-btns{display:flex;gap:10px;flex:none}
+.np-m{flex:none;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:#c8d4ff;background:rgba(10,16,48,.55);border:1px solid rgba(160,190,255,.25);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);cursor:pointer;transition:transform .15s,background .2s,color .2s}
+.np-m:hover{background:rgba(51,94,247,.6);transform:scale(1.05)}
+.np-m.on{color:#ff8df5;border-color:rgba(255,141,245,.5)}
+.np-eq{display:flex;align-items:flex-end;gap:3px;height:16px}
+.np-eq i{display:block;width:3px;height:100%;border-radius:2px;background:currentColor;opacity:.6;transform-origin:50% 100%;transform:scaleY(.35)}
+.np-m.on .np-eq i{opacity:1;animation:np-eq 1.1s ease-in-out infinite alternate}
+.np-m.on .np-eq i:nth-child(2){animation-duration:.8s;animation-delay:-.3s}.np-m.on .np-eq i:nth-child(3){animation-duration:1.3s;animation-delay:-.6s}.np-m.on .np-eq i:nth-child(4){animation-duration:.95s;animation-delay:-.15s}
+@keyframes np-eq{from{transform:scaleY(.25)}to{transform:scaleY(1)}}
 .np-found{position:absolute;left:50%;bottom:max(22px,env(safe-area-inset-bottom));transform:translate(-50%,10px);padding:9px 16px;border-radius:999px;background:rgba(10,16,48,.55);border:1px solid rgba(160,190,255,.25);font-size:14px;white-space:nowrap;opacity:0;transition:opacity .6s 1.4s,transform .6s 1.4s}
 .np-ready .np-found{opacity:1;transform:translate(-50%,0)}
 .np-loading{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:15px;color:rgba(210,222,255,.85);transition:opacity .4s}
