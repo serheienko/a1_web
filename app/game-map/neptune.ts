@@ -266,7 +266,7 @@ export function openNeptune(opts: { lang?: string; onClose?: () => void; host?: 
       mapMusic.pause();
     }
   });
-  const music = new MapMusic({ tracks: ["1", "2", "3"], base: `${BASE}/music/`, key: "a1-neptune-music" });
+  const music = new MapMusic({ tracks: ["1", "2"], base: `${BASE}/music/`, key: "a1-neptune-music" });
   const mBtn = head.querySelector(".np-m") as HTMLButtonElement;
   const unsub = music.subscribe((on) => {
     const label = (on ? t.mOff : t.mOn) ?? "";
