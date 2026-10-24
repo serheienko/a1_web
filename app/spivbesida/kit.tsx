@@ -25,6 +25,7 @@ import { LOGOS } from "@/lib/interview-kit/logos";
 import { authFetch } from "@/lib/auth-fetch";
 import { profileHref } from "@/lib/profile-href";
 import { PROFILE_FILLED_MIN } from "@/lib/profile-fill";
+import { MR_KIT_AVATAR, MR_KIT_AVATAR_BLUR } from "@/lib/interview-kit/mr-kit-avatar";
 import {
   ANTIFRAUD,
   CHECKLIST,
@@ -629,7 +630,19 @@ type Viewer = { state: "guest" } | { state: "partial"; username: string; filled:
 type CvVariant = "hub" | "candidate" | "interviewer";
 const CV_NEXT: Record<CvVariant, string> = { hub: "/spivbesida", candidate: "/spivbesida/kandydatu", interviewer: "/spivbesida/interviueru" };
 
-export function ProfileInsteadOfCv({ example, variant = "candidate", className = "mt-10" }: { example?: ReactNode; variant?: CvVariant; className?: string }) {
+export function ProfileInsteadOfCv({
+  example,
+  variant = "candidate",
+  tone = "blue",
+  className = "mt-10",
+}: {
+  example?: ReactNode;
+  variant?: CvVariant;
+  // 24.10.2026 (Александр): на входе в раздел синий баннер сливался с синей
+  // карточкой «Я кандидат», там он белый (light). На страницах ролей синий.
+  tone?: "blue" | "light";
+  className?: string;
+}) {
   const [viewer, setViewer] = useState<Viewer>({ state: "guest" });
   useEffect(() => {
     let cancelled = false;
@@ -655,22 +668,23 @@ export function ProfileInsteadOfCv({ example, variant = "candidate", className =
         ? profileHref(viewer.username)
         : `/sign-in?next=${encodeURIComponent(CV_NEXT[variant])}`;
   const text = variant === "hub" ? PROFILE_CV.textHub : variant === "interviewer" ? PROFILE_CV.textInterviewer : PROFILE_CV.text;
+  const L = tone === "light";
 
   return (
-    <section className={`kit-cv ${className} overflow-hidden rounded-[28px]`}>
+    <section className={`kit-cv ${L ? "kit-cv-light" : ""} ${className} overflow-hidden rounded-[28px]`}>
       <div className="relative p-6 sm:p-8">
         <span className="kit-cv-glow" aria-hidden="true" />
         <div className="relative flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div className="max-w-2xl">
-            <div className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wide text-white/70">
+            <div className={`flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wide ${L ? "text-neutral-400" : "text-white/70"}`}>
               <span className="kit-cv-cv">CV</span>
               <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" {...stroke} strokeWidth={2.2}><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-              <span className="rounded-md bg-white px-1.5 py-0.5 text-[11px] font-bold text-[#2846c9]">A1</span>
+              <span className={`rounded-md px-1.5 py-0.5 text-[11px] font-bold ${L ? "bg-accent text-white" : "bg-white text-[#2846c9]"}`}>A1</span>
             </div>
-            <h2 className="mt-3 text-2xl font-bold tracking-tight text-white sm:text-[28px]">
+            <h2 className={`mt-3 text-2xl font-bold tracking-tight sm:text-[28px] ${L ? "text-neutral-900 dark:text-white" : "text-white"}`}>
               <T {...PROFILE_CV.title} />
             </h2>
-            <p className="mt-2 text-[15px] leading-relaxed text-white/80">
+            <p className={`mt-2 text-[15px] leading-relaxed ${L ? "text-neutral-600 dark:text-neutral-300" : "text-white/80"}`}>
               <T {...text} />
             </p>
             <ul className="mt-4 flex flex-wrap gap-2">
@@ -684,12 +698,12 @@ export function ProfileInsteadOfCv({ example, variant = "candidate", className =
           <div className="flex shrink-0 flex-col items-start gap-3 md:items-end">
             {viewer.state === "partial" ? (
               <div className="w-48">
-                <div className="flex justify-between text-[12px] font-medium text-white/75">
+                <div className={`flex justify-between text-[12px] font-medium ${L ? "text-neutral-500 dark:text-neutral-400" : "text-white/75"}`}>
                   <span><T {...PROFILE_CV.filled} /></span>
                   <span className="tabular-nums">{Math.min(viewer.filled, PROFILE_FILLED_MIN)}/{PROFILE_FILLED_MIN}</span>
                 </div>
-                <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-white/20">
-                  <div className="h-full rounded-full bg-white transition-all" style={{ width: `${(Math.min(viewer.filled, PROFILE_FILLED_MIN) / PROFILE_FILLED_MIN) * 100}%` }} />
+                <div className={`mt-1.5 h-2 overflow-hidden rounded-full ${L ? "bg-neutral-200 dark:bg-neutral-700" : "bg-white/20"}`}>
+                  <div className={`h-full rounded-full transition-all ${L ? "bg-accent" : "bg-white"}`} style={{ width: `${(Math.min(viewer.filled, PROFILE_FILLED_MIN) / PROFILE_FILLED_MIN) * 100}%` }} />
                 </div>
               </div>
             ) : null}
@@ -701,10 +715,27 @@ export function ProfileInsteadOfCv({ example, variant = "candidate", className =
         </div>
       </div>
       {example ? (
-        <details className="kit-cv-example group border-t border-white/15">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-6 py-4 text-[15px] font-semibold text-white sm:px-8 [&::-webkit-details-marker]:hidden">
-            <span><T {...PROFILE_CV.example} /></span>
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 transition-transform group-open:rotate-180">
+        <details className={`kit-cv-example group border-t ${L ? "border-neutral-200 dark:border-neutral-800" : "border-white/15"}`}>
+          {/* 24.10.2026 (Александр): свёрнутый пример выглядит как карточка
+              профиля -- круглый аватар кота, имя, ник, -- а целиком
+              раскрывается по стрелке. */}
+          <summary className="kit-cv-summary flex cursor-pointer list-none items-center gap-3 px-6 py-4 sm:px-8 [&::-webkit-details-marker]:hidden">
+            <span
+              className="kit-cv-ava relative h-12 w-12 shrink-0 overflow-hidden rounded-full"
+              style={{ backgroundImage: `url(${MR_KIT_AVATAR_BLUR})` }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={MR_KIT_AVATAR} alt="" width={48} height={48} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className={`block truncate text-[15px] font-semibold ${L ? "text-neutral-900 dark:text-white" : "text-white"}`}>
+                Mr Kit <span className={`font-normal ${L ? "text-neutral-400" : "text-white/60"}`}>@mrkit</span>
+              </span>
+              <span className={`block text-[13px] leading-snug ${L ? "text-accent" : "text-white/75"}`}>
+                <T {...PROFILE_CV.example} />
+              </span>
+            </span>
+            <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-transform group-open:rotate-180 ${L ? "bg-accent text-white" : "bg-white/15 text-white"}`}>
               <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" {...stroke} strokeWidth={2.2}><path d="M6 9l6 6 6-6" /></svg>
             </span>
           </summary>
@@ -835,6 +866,20 @@ const CSS = `
 .kit-cv-tag{font-size:13px;font-weight:500;color:#fff;padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.18);animation:kit-rise .4s ease both}
 .kit-cv-btn{display:inline-flex;align-items:center;gap:8px;height:48px;padding:0 22px;border-radius:999px;background:#fff;color:#1b2f8f;font-size:15px;font-weight:700;transition:transform .15s,box-shadow .2s;white-space:nowrap}
 .kit-cv-btn:hover{transform:translateY(-1px);box-shadow:0 10px 24px -10px rgba(0,0,0,.45)}
+.kit-cv-ava{background-size:cover;background-position:center;box-shadow:0 0 0 2px rgba(255,255,255,.6)}
+.kit-cv-summary:hover .kit-cv-ava{transform:scale(1.05)}
+.kit-cv-ava{transition:transform .2s}
+.kit-cv-light{background:var(--color-card,#fff);box-shadow:0 1px 2px rgba(0,0,0,.04),0 12px 32px -18px rgba(19,42,138,.25);border:1px solid #eceef3}
+.dark .kit-cv-light{background:#171717;border-color:#262626;box-shadow:none}
+.kit-cv-light .kit-cv-glow{background:radial-gradient(circle,rgba(51,94,247,.12),rgba(51,94,247,0) 70%)}
+.kit-cv-light .kit-cv-cv{border-color:#d4d4d8;color:#a1a1aa}
+.kit-cv-light .kit-cv-cv::after{background:#ef4444}
+.kit-cv-light .kit-cv-tag{color:#2846c9;background:#eef1fe;border-color:#dfe5fd}
+.dark .kit-cv-light .kit-cv-tag{color:#c7d2fe;background:rgba(51,94,247,.16);border-color:rgba(51,94,247,.25)}
+.kit-cv-light .kit-cv-btn{background:var(--color-accent);color:#fff}
+.kit-cv-light .kit-cv-btn:hover{box-shadow:0 10px 24px -10px rgba(51,94,247,.7)}
+.kit-cv-light .kit-cv-ava{box-shadow:0 0 0 2px #fff,0 0 0 4px #dfe5fd}
+.dark .kit-cv-light .kit-cv-ava{box-shadow:0 0 0 2px #171717,0 0 0 4px rgba(51,94,247,.35)}
 .kit-cv-demo{background:#fafafa}
 .dark .kit-cv-demo{background:#0a0a0a}
 @media (prefers-reduced-motion: reduce){.kit-confetti{display:none}.kit-eye g,.kit-eye-pupil{transition:none!important}.kit-ring-done,.kit-btn-done svg,.kit-item-on .kit-box,.kit-fraud[open] .kit-fraud-card{animation:none}}

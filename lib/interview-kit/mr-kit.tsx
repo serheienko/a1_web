@@ -17,6 +17,7 @@ import type { WebProfile } from "@/types/web-profile";
 import type { GithubSummary, GithubWeek } from "@/lib/github/core";
 import type { StackoverflowSummary } from "@/lib/stackoverflow/core";
 import type { DribbbleSnapshot } from "@/lib/dribbble/core";
+import { MR_KIT_AVATAR, MR_KIT_AVATAR_BLUR } from "@/lib/interview-kit/mr-kit-avatar";
 import { WORK_STYLE_PREFERENCE_SECTIONS } from "@/components/work-style-labels";
 import { T, type Locale } from "@/components/t";
 
@@ -28,9 +29,8 @@ function t(uk: string, en: string, ru: string, de: string, es: string, fr: strin
 const USERNAME = "mrkit";
 // 24.10.2026: аватарка от Александра (public/spivbesida/mr-kit-avatar.webp, 600x600).
 // Она же -- аватар кота в его GitHub, Dribbble и Stack Overflow, чтобы везде был один кот.
-const CAT = "/spivbesida/mr-kit-avatar.webp";
-const CAT_BLUR =
-  "data:image/jpeg;base64,/9j/2wBDABALDA4MChAODQ4SERATGCgaGBYWGDEjJR0oOjM9PDkzODdASFxOQERXRTc4UG1RV19iZ2hnPk1xeXBkeFxlZ2P/2wBDARESEhgVGC8aGi9jQjhCY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2P/wAARCAAMAAwDASIAAhEBAxEB/8QAFgABAQEAAAAAAAAAAAAAAAAABgQF/8QAHhAAAQUBAAMBAAAAAAAAAAAAAgEDBAURABIhQSL/xAAVAQEBAAAAAAAAAAAAAAAAAAADBP/EABoRAAICAwAAAAAAAAAAAAAAAAEDAAIEERL/2gAMAwEAAhEDEQA/ALrC5kRbQhAfyHrxX721CedkRhdPEUvnBLWQ65byVItVFxOa0jpO1TBFm51uUgLVWwEHoan/2Q==";
+const CAT = MR_KIT_AVATAR;
+const CAT_BLUR = MR_KIT_AVATAR_BLUR;
 
 // 24.10.2026: голосовые визитки кота от Александра (ElevenLabs), по одной на
 // каждый язык сайта. Пережаты в моно 64 kbps (~270 КБ вместо ~550 КБ), для

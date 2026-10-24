@@ -44,7 +44,7 @@ export default function Page() {
       <div className="mt-8">
         <HubCards />
       </div>
-      <ProfileInsteadOfCv variant="hub" className="mt-4" example={<MrKitProfile />} />
+      <ProfileInsteadOfCv variant="hub" tone="light" className="mt-4" example={<MrKitProfile />} />
     </main>
   );
 }
