@@ -223,6 +223,15 @@ function hrefFor(id: Id, locale: Locale): string {
   return HREF[id];
 }
 
+// 24.10.2026 (Александр: «на кружок "⋯" маленькую синюю точку, что появилось
+// что-то новое; убирать после того, как человек один раз откроет меню; без
+// костов»). Ключ новинок -- id пунктов с плашкой «Новинка». Человек открыл
+// меню -- запоминаем ключ в браузере (localStorage), точка гаснет. Появится
+// новый пункт с плашкой -- ключ поменяется, и точка загорится снова. Сервер
+// не нужен; на новом устройстве точку увидят ещё раз, для меню это ок.
+const NEW_KEY = (Object.keys(TXT) as (keyof typeof TXT)[]).filter((id) => "badge" in TXT[id]).sort().join(",");
+const NEW_SEEN_STORAGE = "a1-more-menu-seen";
+
 const HREF: Record<Id, string> = { app: "/download", news: "/news", events: "/events", stats: "/stats", interview: "/spivbesida", ai: "/ai-assistant", invite: "/invite", game: "/game" };
 
 // Сводка рефералки для строки меню: friends -- друзей в зачёте, next -- сколько нужно до следующей награды.
@@ -830,6 +839,25 @@ export function NavMoreMenu() {
       });
   }, [hovered]);
 
+  const [hasNew, setHasNew] = useState(false);
+  useEffect(() => {
+    if (!NEW_KEY) return;
+    try {
+      setHasNew(localStorage.getItem(NEW_SEEN_STORAGE) !== NEW_KEY);
+    } catch {
+      /* приватный режим -- просто без точки */
+    }
+  }, []);
+  useEffect(() => {
+    if (!open || !hasNew) return;
+    setHasNew(false);
+    try {
+      localStorage.setItem(NEW_SEEN_STORAGE, NEW_KEY);
+    } catch {
+      /* не сохранилось -- точка вернётся при следующем заходе, не страшно */
+    }
+  }, [open, hasNew]);
+
   const pick = () => setOpen(false);
   const shell = (bg: string) =>
     `block overflow-hidden rounded-2xl ${bg} shadow-xl ring-1 ring-black/10 dark:ring-white/10`;
@@ -846,7 +874,7 @@ export function NavMoreMenu() {
           setOpen((v) => !v);
         }}
         className={
-          "group flex h-11 w-11 max-sm:h-10 max-sm:w-10 shrink-0 items-center justify-center rounded-full bg-white shadow-sm ring-1 transition dark:bg-neutral-900 " +
+          "group relative flex h-11 w-11 max-sm:h-10 max-sm:w-10 shrink-0 items-center justify-center rounded-full bg-white shadow-sm ring-1 transition dark:bg-neutral-900 " +
           (open
             ? "text-accent ring-accent/40 dark:ring-accent/40"
             : "text-neutral-500 ring-neutral-200 hover:text-accent hover:ring-accent/40 dark:text-neutral-400 dark:ring-neutral-700 dark:hover:text-accent dark:hover:ring-accent/40")
@@ -860,6 +888,12 @@ export function NavMoreMenu() {
         <span className="sr-only">
           <T {...TXT.more} />
         </span>
+        {hasNew ? (
+          <span aria-hidden="true" className="absolute right-0 top-0 flex h-3 w-3">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-50" />
+            <span className="relative inline-flex h-3 w-3 rounded-full bg-accent ring-2 ring-white dark:ring-neutral-950" />
+          </span>
+        ) : null}
       </button>
 
       {rendered && (

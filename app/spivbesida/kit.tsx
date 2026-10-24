@@ -644,6 +644,7 @@ export function ProfileInsteadOfCv({
   className?: string;
 }) {
   const [viewer, setViewer] = useState<Viewer>({ state: "guest" });
+  const [open, setOpen] = useState(false);
   useEffect(() => {
     let cancelled = false;
     authFetch("/api/account/whoami")
@@ -671,7 +672,8 @@ export function ProfileInsteadOfCv({
   const L = tone === "light";
 
   return (
-    <section className={`kit-cv ${L ? "kit-cv-light" : ""} ${className} overflow-hidden rounded-[28px]`}>
+    <section className={`kit-cv-wrap ${L ? "kit-cv-wrap-light" : ""} ${className} overflow-hidden rounded-[28px]`}>
+      <div className={`kit-cv ${L ? "kit-cv-light" : ""} relative`}>
       <div className="relative p-6 sm:p-8">
         <span className="kit-cv-glow" aria-hidden="true" />
         <div className="relative flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
@@ -714,33 +716,49 @@ export function ProfileInsteadOfCv({
           </div>
         </div>
       </div>
-      {example ? (
-        <details className={`kit-cv-example group border-t ${L ? "border-neutral-200 dark:border-neutral-800" : "border-white/15"}`}>
-          {/* 24.10.2026 (Александр): свёрнутый пример выглядит как карточка
-              профиля -- круглый аватар кота, имя, ник, -- а целиком
-              раскрывается по стрелке. */}
-          <summary className="kit-cv-summary flex cursor-pointer list-none items-center gap-3 px-6 py-4 sm:px-8 [&::-webkit-details-marker]:hidden">
-            <span
-              className="kit-cv-ava relative h-12 w-12 shrink-0 overflow-hidden rounded-full"
-              style={{ backgroundImage: `url(${MR_KIT_AVATAR_BLUR})` }}
+        {example ? (
+          <div className={`border-t ${L ? "border-neutral-200 dark:border-neutral-800" : "border-white/15"}`}>
+            {/* 24.10.2026 (Александр): свёрнутый пример выглядит как карточка
+                профиля -- круглый аватар кота, имя, ник, -- а целиком
+                раскрывается по стрелке, плавно, слайдом. */}
+            <button
+              type="button"
+              aria-expanded={open}
+              onClick={() => setOpen((v) => !v)}
+              className="kit-cv-example kit-cv-summary group flex w-full cursor-pointer items-center gap-3 px-6 py-4 text-left sm:px-8"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={MR_KIT_AVATAR} alt="" width={48} height={48} loading="lazy" decoding="async" className="h-full w-full object-cover" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className={`block truncate text-[15px] font-semibold ${L ? "text-neutral-900 dark:text-white" : "text-white"}`}>
-                Mr Kit <span className={`font-normal ${L ? "text-neutral-400" : "text-white/60"}`}>@mrkit</span>
+              <span
+                className="kit-cv-ava relative h-12 w-12 shrink-0 overflow-hidden rounded-full"
+                style={{ backgroundImage: `url(${MR_KIT_AVATAR_BLUR})` }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={MR_KIT_AVATAR} alt="" width={48} height={48} loading="lazy" decoding="async" className="h-full w-full object-cover" />
               </span>
-              <span className={`block text-[13px] leading-snug ${L ? "text-accent" : "text-white/75"}`}>
-                <T {...PROFILE_CV.example} />
+              <span className="min-w-0 flex-1">
+                <span className={`block truncate text-[15px] font-semibold ${L ? "text-neutral-900 dark:text-white" : "text-white"}`}>
+                  Mr Kit <span className={`font-normal ${L ? "text-neutral-400" : "text-white/60"}`}>@mrkit</span>
+                </span>
+                <span className={`block text-[13px] leading-snug ${L ? "text-accent" : "text-white/75"}`}>
+                  <T {...PROFILE_CV.example} />
+                </span>
               </span>
-            </span>
-            <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-transform group-open:rotate-180 ${L ? "bg-accent text-white" : "bg-white/15 text-white"}`}>
-              <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" {...stroke} strokeWidth={2.2}><path d="M6 9l6 6 6-6" /></svg>
-            </span>
-          </summary>
-          <div className="kit-cv-demo px-2 py-6 sm:px-6">{example}</div>
-        </details>
+              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-transform duration-300 ${open ? "rotate-180" : ""} ${L ? "bg-accent text-white" : "bg-white/15 text-white"}`}>
+                <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" {...stroke} strokeWidth={2.2}><path d="M6 9l6 6 6-6" /></svg>
+              </span>
+            </button>
+          </div>
+        ) : null}
+      </div>
+      {/* Сам пример -- ВНЕ цветной шапки: раньше он лежал внутри неё, и градиент
+          растягивался на всю высоту профиля, поэтому при переключении «Біо /
+          Дописи» шапка меняла цвет (Александр). Раскрытие -- через
+          grid-template-rows 0fr -> 1fr, высоту считать не нужно. */}
+      {example ? (
+        <div className={`kit-cv-panel ${open ? "kit-cv-panel-open" : ""}`} aria-hidden={!open} inert={!open}>
+          <div className="min-h-0 overflow-hidden">
+            <div className="kit-cv-demo px-2 py-6 sm:px-6">{example}</div>
+          </div>
+        </div>
       ) : null}
     </section>
   );
@@ -869,8 +887,17 @@ const CSS = `
 .kit-cv-ava{background-size:cover;background-position:center;box-shadow:0 0 0 2px rgba(255,255,255,.6)}
 .kit-cv-summary:hover .kit-cv-ava{transform:scale(1.05)}
 .kit-cv-ava{transition:transform .2s}
-.kit-cv-light{background:var(--color-card,#fff);box-shadow:0 1px 2px rgba(0,0,0,.04),0 12px 32px -18px rgba(19,42,138,.25);border:1px solid #eceef3}
-.dark .kit-cv-light{background:#171717;border-color:#262626;box-shadow:none}
+.kit-cv-light{background:var(--color-card,#fff)}
+.dark .kit-cv-light{background:#171717}
+.kit-cv-wrap-light{box-shadow:0 1px 2px rgba(0,0,0,.04),0 12px 32px -18px rgba(19,42,138,.25);border:1px solid #eceef3}
+.dark .kit-cv-wrap-light{border-color:#262626;box-shadow:none}
+.kit-cv-panel{display:grid;grid-template-rows:0fr;transition:grid-template-rows .5s cubic-bezier(.3,.7,.2,1)}
+.kit-cv-panel-open{grid-template-rows:1fr}
+.kit-cv-panel .kit-cv-demo{opacity:0;transform:translateY(-12px);transition:opacity .4s ease,transform .5s cubic-bezier(.3,.7,.2,1)}
+.kit-cv-panel-open .kit-cv-demo{opacity:1;transform:none}
+.kit-demo a{pointer-events:none;cursor:default}
+.kit-demo [data-ext-open]{display:none!important}
+.kit-demo-static,.kit-demo-static *{pointer-events:none!important}
 .kit-cv-light .kit-cv-glow{background:radial-gradient(circle,rgba(51,94,247,.12),rgba(51,94,247,0) 70%)}
 .kit-cv-light .kit-cv-cv{border-color:#d4d4d8;color:#a1a1aa}
 .kit-cv-light .kit-cv-cv::after{background:#ef4444}
@@ -882,5 +909,5 @@ const CSS = `
 .dark .kit-cv-light .kit-cv-ava{box-shadow:0 0 0 2px #171717,0 0 0 4px rgba(51,94,247,.35)}
 .kit-cv-demo{background:#fafafa}
 .dark .kit-cv-demo{background:#0a0a0a}
-@media (prefers-reduced-motion: reduce){.kit-confetti{display:none}.kit-eye g,.kit-eye-pupil{transition:none!important}.kit-ring-done,.kit-btn-done svg,.kit-item-on .kit-box,.kit-fraud[open] .kit-fraud-card{animation:none}}
+@media (prefers-reduced-motion: reduce){.kit-confetti{display:none}.kit-eye g,.kit-eye-pupil{transition:none!important}.kit-cv-panel,.kit-cv-panel .kit-cv-demo{transition:none!important}.kit-ring-done,.kit-btn-done svg,.kit-item-on .kit-box,.kit-fraud[open] .kit-fraud-card{animation:none}}
 `;

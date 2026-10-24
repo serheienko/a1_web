@@ -143,6 +143,7 @@ export function DribbbleTile({
           rel="me noopener noreferrer"
           aria-label={s.open}
           title={s.open}
+          data-ext-open=""
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-neutral-600 transition-all duration-200 hover:scale-105 hover:bg-accent hover:text-white dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-accent dark:hover:text-white"
         >
           <ArrowIcon />

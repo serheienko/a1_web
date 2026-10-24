@@ -55,6 +55,24 @@ export function formatLanguageName(code: string): string {
   }
 }
 
+// 24.10.2026: название языка на языке сайта (раньше в профиле всегда было
+// по-русски: «Украинский» даже на украинской версии). locale -- BCP-47 тег.
+const languageNamesByLocale = new Map<string, Intl.DisplayNames>();
+export function formatLanguageNameIn(code: string, locale: string): string {
+  try {
+    let dn = languageNamesByLocale.get(locale);
+    if (!dn) {
+      dn = new Intl.DisplayNames([locale], { type: "language" });
+      languageNamesByLocale.set(locale, dn);
+    }
+    const name = dn.of(code.toLowerCase());
+    if (!name) return code.toUpperCase();
+    return name.charAt(0).toLocaleUpperCase(locale) + name.slice(1);
+  } catch {
+    return formatLanguageName(code);
+  }
+}
+
 /** "3 hours ago" / "2 days ago", etc — in the given locale, relative to
  *  now. See getRtf's own comment above for why this takes a locale
  *  instead of hard-coding one. */

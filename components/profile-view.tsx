@@ -25,9 +25,9 @@ import { ProfileTabs } from "@/components/profile-tabs";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { profileHref } from "@/lib/profile-href";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
-import { formatLanguageName } from "@/lib/format";
+import { formatLanguageNameIn } from "@/lib/format";
 import { LocationLabel } from "@/components/locale-format";
-import { T, type Locale } from "@/components/t";
+import { LOCALES, LOCALE_TAG, T, type Locale } from "@/components/t";
 import { VoiceIntroProvider } from "@/components/voice-intro-context";
 import { VoiceIntroRing } from "@/components/voice-intro-ring";
 import { ProfilePhotoViewer } from "@/components/profile-photo-viewer";
@@ -82,6 +82,10 @@ export type ProfileViewProps = {
     dribbble?: DribbbleSnapshot;
     /** Голосовая визитка на каждом языке сайта (пример Mr Kit). */
     voiceByLocale?: Partial<Record<Locale, string>>;
+    /** Своя подпись вместо локации (у Mr Kit -- планета Нептун). */
+    locationLabel?: ReactNode;
+    /** Строчка под списком языков. */
+    languagesNote?: ReactNode;
   };
   embed?: boolean;
 };
@@ -494,7 +498,7 @@ export function ProfileView({
               <>
                 {occupationLabel && <span aria-hidden="true">·</span>}
                 <span>
-                  <LocationLabel display={profile.location!.display} country={profile.location!.country} />
+                  {demo?.locationLabel ?? <LocationLabel display={profile.location!.display} country={profile.location!.country} />}
                 </span>
               </>
             )}
@@ -740,10 +744,11 @@ export function ProfileView({
           <div className="mt-3 flex flex-col gap-2">
             {profile.languages.map((lang) => (
               <div key={lang.value} className="flex items-center gap-3">
-                <span className="w-36 shrink-0 text-sm text-neutral-700 sm:w-40 dark:text-neutral-300">{formatLanguageName(lang.value)}</span>
+                <span className="w-36 shrink-0 text-sm text-neutral-700 sm:w-40 dark:text-neutral-300"><T {...(Object.fromEntries(LOCALES.map((l) => [l, formatLanguageNameIn(lang.value, LOCALE_TAG[l])])) as Record<Locale, string>)} /></span>
                 {levelBar(lang.level, 4)}
               </div>
             ))}
+            {demo?.languagesNote ? <div className="text-sm text-neutral-500 dark:text-neutral-400">{demo.languagesNote}</div> : null}
           </div>
         </section>
       )}
