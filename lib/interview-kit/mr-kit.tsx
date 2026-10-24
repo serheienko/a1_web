@@ -10,15 +10,13 @@
 // ведут ("#"): аккаунтов кота на GitHub и прочих сервисах нет, а вести людей
 // на чужие страницы с похожим логином нельзя.
 //
-// Аватарка и голосовая визитка -- позже (Александр пришлёт): пока вместо
-// фото стоит стандартный кот сайта, визитки нет.
+// Голосовая визитка -- позже (Александр пришлёт записи на всех языках).
 
 import { ProfileView, type WorkStyleChip } from "@/components/profile-view";
 import type { WebProfile } from "@/types/web-profile";
 import type { GithubSummary, GithubWeek } from "@/lib/github/core";
 import type { StackoverflowSummary } from "@/lib/stackoverflow/core";
 import type { DribbbleSnapshot } from "@/lib/dribbble/core";
-import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { WORK_STYLE_PREFERENCE_SECTIONS } from "@/components/work-style-labels";
 import { T, type Locale } from "@/components/t";
 
@@ -28,12 +26,16 @@ function t(uk: string, en: string, ru: string, de: string, es: string, fr: strin
 }
 
 const USERNAME = "mrkit";
-const CAT = pickDefaultCatAvatar(USERNAME);
+// 24.10.2026: аватарка от Александра (public/spivbesida/mr-kit-avatar.webp, 600x600).
+// Она же -- аватар кота в его GitHub, Dribbble и Stack Overflow, чтобы везде был один кот.
+const CAT = "/spivbesida/mr-kit-avatar.webp";
+const CAT_BLUR =
+  "data:image/jpeg;base64,/9j/2wBDABALDA4MChAODQ4SERATGCgaGBYWGDEjJR0oOjM9PDkzODdASFxOQERXRTc4UG1RV19iZ2hnPk1xeXBkeFxlZ2P/2wBDARESEhgVGC8aGi9jQjhCY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2P/wAARCAAMAAwDASIAAhEBAxEB/8QAFgABAQEAAAAAAAAAAAAAAAAABgQF/8QAHhAAAQUBAAMBAAAAAAAAAAAAAgEDBAURABIhQSL/xAAVAQEBAAAAAAAAAAAAAAAAAAADBP/EABoRAAICAwAAAAAAAAAAAAAAAAEDAAIEERL/2gAMAwEAAhEDEQA/ALrC5kRbQhAfyHrxX721CedkRhdPEUvnBLWQ65byVItVFxOa0jpO1TBFm51uUgLVWwEHoan/2Q==";
 
 const PROFILE: WebProfile = {
   username: USERNAME,
   fullName: "Mr Kit",
-  avatarUrl: null,
+  avatarUrl: CAT,
   voiceIntroUrl: null,
   occupation: "professional",
   expertise: "Senior",
@@ -241,7 +243,7 @@ export function MrKitProfile() {
       profile={PROFILE}
       routeUsername={USERNAME}
       raw={null}
-      avatarBlur={null}
+      avatarBlur={{ blurDataUrl: CAT_BLUR, width: 600, height: 600 }}
       companyCategoryLabel={(id) => (id == null ? null : (CATEGORY[id] ?? null))}
       hobbyItems={HOBBIES}
       workInterestItems={INTERESTS}
