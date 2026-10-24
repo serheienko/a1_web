@@ -290,14 +290,88 @@ export function openNeptune(opts: { lang?: string; onClose?: () => void; host?: 
   loading.textContent = t.flying;
   root.appendChild(loading);
 
+  // 24.10.2026 (Александр: «при зуме пальцами карта сбрасывается и выходит из
+  // резиденции»): браузер зумил всю страницу, а не сцену. Теперь зум пальцами
+  // (и колесо/двойной тап) работает внутри сцены: 1x..3.5x, сдвиг пальцем.
+  let zoom = 1, panX = 0, panY = 0, baseS = 1;
+  const clampPan = () => {
+    const mx = Math.max(0, (1600 * baseS * zoom - window.innerWidth) / 2);
+    const my = Math.max(0, (1000 * baseS * zoom - window.innerHeight) / 2);
+    panX = Math.min(mx, Math.max(-mx, panX));
+    panY = Math.min(my, Math.max(-my, panY));
+  };
   const fit = () => {
     const vw = window.innerWidth, vh = window.innerHeight;
     // На телефоне (вертикально) чуть крупнее: края острова можно обрезать, дом важнее.
-    const s = Math.min(vw / (vh > vw * 1.3 ? 1120 : 1250), vh / 860);
-    stage.style.transform = `translate(-50%,-50%) scale(${s})`;
+    baseS = Math.min(vw / (vh > vw * 1.3 ? 1120 : 1250), vh / 860);
+    clampPan();
+    stage.style.transform = `translate(-50%,-50%) translate(${panX}px,${panY}px) scale(${baseS * zoom})`;
   };
   fit();
   window.addEventListener("resize", fit);
+  const zoomAt = (cx: number, cy: number, nz: number) => {
+    nz = Math.max(1, Math.min(3.5, nz));
+    const k = nz / zoom;
+    const ox = cx - window.innerWidth / 2, oy = cy - window.innerHeight / 2;
+    panX = ox - (ox - panX) * k;
+    panY = oy - (oy - panY) * k;
+    zoom = nz;
+    if (zoom === 1) { panX = 0; panY = 0; }
+    stage.style.transition = "";
+    fit();
+  };
+  const pts = new Map<number, { x: number; y: number }>();
+  let pinch: { d: number; z: number } | null = null;
+  let lastTap = 0;
+  const gdist = () => {
+    const [a, b] = [...pts.values()];
+    return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 1;
+  };
+  const onDown = (e: PointerEvent) => {
+    if ((e.target as HTMLElement).closest(".np-m,.np-x")) return;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size === 2) pinch = { d: gdist(), z: zoom };
+    else if (pts.size === 1) {
+      const now = Date.now();
+      if (now - lastTap < 300) zoomAt(e.clientX, e.clientY, zoom > 1.2 ? 1 : 2.2);
+      lastTap = now;
+    }
+  };
+  const onMove = (e: PointerEvent) => {
+    const p = pts.get(e.pointerId);
+    if (!p) return;
+    const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    p.x = e.clientX;
+    p.y = e.clientY;
+    if (pts.size >= 2 && pinch) {
+      const [a, b] = [...pts.values()];
+      if (a && b) zoomAt((a.x + b.x) / 2, (a.y + b.y) / 2, pinch.z * (gdist() / pinch.d));
+    } else if (pts.size === 1 && zoom > 1) {
+      panX += dx;
+      panY += dy;
+      fit();
+    }
+  };
+  const onUp = (e: PointerEvent) => {
+    pts.delete(e.pointerId);
+    if (pts.size < 2) pinch = null;
+  };
+  const onWheel = (e: WheelEvent) => {
+    e.preventDefault();
+    zoomAt(e.clientX, e.clientY, zoom * Math.exp(-e.deltaY * 0.0015));
+  };
+  const stopGesture = (e: Event) => e.preventDefault();
+  root.addEventListener("pointerdown", onDown);
+  root.addEventListener("pointermove", onMove);
+  root.addEventListener("pointerup", onUp);
+  root.addEventListener("pointercancel", onUp);
+  root.addEventListener("wheel", onWheel, { passive: false });
+  // Safari: свой жест зума страницы
+  for (const g of ["gesturestart", "gesturechange", "gestureend"]) root.addEventListener(g, stopGesture);
+  // Не даём событиям уйти в карту под резиденцией (она сама двигается/зумится от пальцев).
+  for (const ev of ["pointerdown", "pointermove", "pointerup", "touchstart", "touchmove", "click", "dblclick"]) {
+    root.addEventListener(ev, (e) => e.stopPropagation());
+  }
 
   const prevOverflow = document.body.style.overflow;
   document.body.style.overflow = "hidden";
@@ -324,6 +398,12 @@ export function openNeptune(opts: { lang?: string; onClose?: () => void; host?: 
     document.removeEventListener("keydown", onKey);
     window.removeEventListener("resize", fit);
     root.removeEventListener("pointerdown", wake);
+    root.removeEventListener("pointerdown", onDown);
+    root.removeEventListener("pointermove", onMove);
+    root.removeEventListener("pointerup", onUp);
+    root.removeEventListener("pointercancel", onUp);
+    root.removeEventListener("wheel", onWheel);
+    for (const g of ["gesturestart", "gesturechange", "gestureend"]) root.removeEventListener(g, stopGesture);
     unsub();
     alive0 = false;
     unsubMap();
@@ -342,7 +422,7 @@ export function openNeptune(opts: { lang?: string; onClose?: () => void; host?: 
 }
 
 const CSS = `
-.np-root{position:fixed;inset:0;z-index:2147483647;overflow:hidden;background:radial-gradient(120% 90% at 50% 40%,#16246b 0%,#0b1440 45%,#04071c 100%);opacity:0;transition:opacity .45s ease;font-family:inherit;color:#fff;-webkit-tap-highlight-color:transparent}
+.np-root{touch-action:none;overscroll-behavior:none;position:fixed;inset:0;z-index:2147483647;overflow:hidden;background:radial-gradient(120% 90% at 50% 40%,#16246b 0%,#0b1440 45%,#04071c 100%);opacity:0;transition:opacity .45s ease;font-family:inherit;color:#fff;-webkit-tap-highlight-color:transparent}
 .np-root.np-in{opacity:1}
 .np-root.np-out{opacity:0}
 .np-root img{display:block;width:100%;height:100%;object-fit:contain;user-select:none;-webkit-user-drag:none;pointer-events:none}
