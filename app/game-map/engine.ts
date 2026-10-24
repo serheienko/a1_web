@@ -141,6 +141,10 @@ function decorW(k) {
   if (k === 'llama' || k === 'water-tower') return 15;
   return 18;
 }
+// Та же проверка, что isNeptuneSecret в neptune.ts, но здесь -- чтобы сам модуль
+// резиденции не попадал в основную сборку карты.
+const NEPTUNE_KEYS = new Set(['mrkitresidence', 'mrkitsresidence', 'misterkitresidence', 'residenceofmrkit', 'mrkithouse', 'mrkitshouse']);
+function isNeptuneSecretQ(q) { return NEPTUNE_KEYS.has(String(q || '').toLowerCase().replace(/[^a-z]/g, '')); }
 function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
 const EMP_LEVELS = [1, 5, 15, 40, 100, 250, 600, 1500];
 function levelBy(arr, n) { let l = 1; for (let i = 0; i < arr.length; i++) if (n >= arr[i]) l = i + 1; return l; }
@@ -1493,7 +1497,17 @@ export function mountGameMap(root, opts) {
   on(qIn, 'focus', renderSug);
   on(qIn, 'keydown', (e) => {
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); if (!sugList.length) return; sugIdx = (sugIdx + (e.key === 'ArrowDown' ? 1 : -1) + sugList.length) % sugList.length; sug.querySelectorAll('.gm-si').forEach((b, k) => b.classList.toggle('on', k === sugIdx)); }
-    else if (e.key === 'Enter') { e.preventDefault(); if (sugIdx >= 0) pickCompany(sugList[sugIdx].c); }
+    else if (e.key === 'Enter') {
+      e.preventDefault();
+      // 24.10.2026: пасхалка -- «Mr Kit residence» открывает резиденцию кота на Нептуне
+      // (app/game-map/neptune.ts грузится только сейчас, остальным ничего не весит).
+      if (isNeptuneSecretQ(qIn.value)) {
+        sug.classList.remove('on'); qIn.blur();
+        import('./neptune').then((m) => m.openNeptune({ lang }));
+        return;
+      }
+      if (sugIdx >= 0) pickCompany(sugList[sugIdx].c);
+    }
     else if (e.key === 'Escape') { sug.classList.remove('on'); qIn.blur(); }
   });
   on(qIn, 'blur', () => setTimeout(() => sug.classList.remove('on'), 150));
