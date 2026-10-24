@@ -218,17 +218,40 @@ export function RoleSwitch({ role }: { role: Role }) {
 // браузер через <picture> по ширине окна -- поэтому и при растягивании
 // окна на десктопе картинка меняется сама, без JS. Граница та же, что у
 // сетки шапки (md, 768px).
+//
+// Пока картинка грузится, на её месте размытая копия (крошечный jpeg прямо
+// в коде, ~470 байт), потом картинка плавно проявляется (Александр: «пока
+// её нет, показывай подгрузку через блюр»). loading="lazy" здесь не ставим:
+// картинка в первом экране, отложенная загрузка только задержала бы её.
+const ILL_BLUR: Record<Role, { wide: string; square: string }> = {
+  candidate: { wide: "data:image/jpeg;base64,/9j/2wBDAA4KCw0LCQ4NDA0QDw4RFiQXFhQUFiwgIRokNC43NjMuMjI6QVNGOj1OPjIySGJJTlZYXV5dOEVmbWVabFNbXVn/2wBDAQ8QEBYTFioXFypZOzI7WVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVn/wAARCAAIABQDASIAAhEBAxEB/8QAFwABAAMAAAAAAAAAAAAAAAAAAAMEBf/EACAQAAICAgAHAAAAAAAAAAAAAAECAAMEEQUTISMxUWH/xAAWAQEBAQAAAAAAAAAAAAAAAAADAAX/xAAbEQADAAIDAAAAAAAAAAAAAAAAAQIDISIxgf/aAAwDAQACEQMRAD8A1rw2NiKqUu15Q6CdQD9k3BDm8jvKyvvwwiIcTKw6Xotdl2/Oeq5ldkU+iYiJnUuTI//Z", square: "data:image/jpeg;base64,/9j/2wBDAA4KCw0LCQ4NDA0QDw4RFiQXFhQUFiwgIRokNC43NjMuMjI6QVNGOj1OPjIySGJJTlZYXV5dOEVmbWVabFNbXVn/2wBDAQ8QEBYTFioXFypZOzI7WVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVn/wAARCAAMAAwDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAABAX/xAAgEAACAAUFAQAAAAAAAAAAAAABAgADBAUREhMhMVEU/8QAFQEBAQAAAAAAAAAAAAAAAAAAAwT/xAAbEQACAQUAAAAAAAAAAAAAAAABAgADEUFRYf/aAAwDAQACEQMRAD8AcbmtNcZNPJIfKjPPR8i99BYA408eQbal77MZSFu8lREqsvFXJqGSWyKo6GmJHemFUKLb7FZTmf/Z" },
+  interviewer: { wide: "data:image/jpeg;base64,/9j/2wBDAA4KCw0LCQ4NDA0QDw4RFiQXFhQUFiwgIRokNC43NjMuMjI6QVNGOj1OPjIySGJJTlZYXV5dOEVmbWVabFNbXVn/2wBDAQ8QEBYTFioXFypZOzI7WVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVn/wAARCAAIABQDASIAAhEBAxEB/8QAFwABAAMAAAAAAAAAAAAAAAAAAAQFBv/EACAQAAEEAQQDAAAAAAAAAAAAAAEAAgMREgQFEyEjMTL/xAAVAQEBAAAAAAAAAAAAAAAAAAADBP/EABoRAAMAAwEAAAAAAAAAAAAAAAABEQIEIUH/2gAMAwEAAhEDEQA/ANbC7VPgY5wxv3aoNwfrxuYLYZHQnp2FG0RFrxPqvPRITONoAw8Ir4PVIiKN4qiw/9k=", square: "data:image/jpeg;base64,/9j/2wBDAA4KCw0LCQ4NDA0QDw4RFiQXFhQUFiwgIRokNC43NjMuMjI6QVNGOj1OPjIySGJJTlZYXV5dOEVmbWVabFNbXVn/2wBDAQ8QEBYTFioXFypZOzI7WVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVn/wAARCAAMAAwDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAABQP/xAAeEAACAgICAwAAAAAAAAAAAAABAgMEABEFIRIxQf/EABUBAQEAAAAAAAAAAAAAAAAAAAME/8QAGREAAgMBAAAAAAAAAAAAAAAAAAECERNR/9oADAMBAAIRAxEAPwB/lLhrUnlVQB0AT9wylZgtVxNtELE9eWLwhLNZVmijZR3ojIvQqxtpIUUe9BRk6xzqSd9GUWf/2Q==" },
+};
+
 export function RoleIllustration({ role }: { role: Role }) {
+  const [loaded, setLoaded] = useState(false);
+  const imgRef = useRef<HTMLImageElement>(null);
+  // Картинка могла загрузиться до того, как React повесил onLoad (из кеша).
+  useEffect(() => {
+    const img = imgRef.current;
+    if (img && img.complete && img.naturalWidth > 0) setLoaded(true);
+  }, []);
   return (
-    <picture className="block overflow-hidden rounded-[28px]">
+    <picture
+      className={`kit-ill block ${loaded ? "kit-ill-loaded" : ""}`}
+      style={{ ["--blur-wide" as string]: `url(${ILL_BLUR[role].wide})`, ["--blur-square" as string]: `url(${ILL_BLUR[role].square})` }}
+    >
       <source media="(min-width: 768px)" srcSet={`/spivbesida/${role}-square.webp`} width={1000} height={1000} />
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
+        ref={imgRef}
         src={`/spivbesida/${role}-wide.webp`}
         width={1600}
         height={640}
         alt="Mr Kit"
         fetchPriority="high"
+        decoding="async"
+        onLoad={() => setLoaded(true)}
         className="block aspect-[5/2] h-auto w-full object-cover md:aspect-square"
       />
     </picture>
@@ -771,6 +794,13 @@ const CSS = `
 .kit-tile:hover{transform:translateY(-2px);box-shadow:0 8px 24px -12px rgba(0,0,0,.25);border-color:transparent}
 .kit-tile-logo{display:flex;height:44px;width:44px;flex-shrink:0;align-items:center;justify-content:center;border-radius:13px;background:#fff;box-shadow:inset 0 0 0 1px rgba(0,0,0,.06)}
 .kit-fraud[open] .kit-fraud-card{animation:kit-rise .4s ease both}
+.kit-ill{position:relative;overflow:hidden;border-radius:28px;background:#e9edf7}
+.dark .kit-ill{background:#15182a}
+.kit-ill::before{content:"";position:absolute;inset:-30px;background-image:var(--blur-wide);background-size:cover;background-position:center;filter:blur(20px);transition:opacity .6s ease}
+@media (min-width:768px){.kit-ill::before{background-image:var(--blur-square)}}
+.kit-ill img{position:relative;opacity:0;transition:opacity .5s ease}
+.kit-ill-loaded img{opacity:1}
+.kit-ill-loaded::before{opacity:0}
 .kit-eye g{transform-box:fill-box;transform-origin:center}
 .kit-eye-closed{transition:opacity .2s ease,transform .25s ease}
 .kit-eye-open{opacity:0;transform:scaleY(.1);transition:opacity .25s ease .08s,transform .35s cubic-bezier(.3,1.5,.5,1) .08s}

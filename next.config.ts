@@ -63,6 +63,12 @@ const nextConfig: NextConfig = {
       },
       // Лише файли карти, НЕ саму сторінку /game-map і не /game-map/data
       // (":path*" ловить і порожній шлях -- сторінка застрягла б у кеші).
+      // 24.10.2026: картинки раздела «Співбесіда» (коты в шапке, аватар Mr Kit) --
+      // тоже неделя. Только файлы .webp, не сами страницы /spivbesida/*.
+      {
+        source: "/spivbesida/:file(.+\\.webp)",
+        headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=2592000" }],
+      },
       ...["/game-map/v2/:path+", "/game-map/:file(.+\\.webp)"].map((source) => ({
         source,
         headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=2592000" }],
