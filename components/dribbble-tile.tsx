@@ -163,17 +163,7 @@ export function DribbbleTile({
               rel="noopener noreferrer nofollow"
               className="group block"
             >
-              <span className="block aspect-[4/3] overflow-hidden rounded-xl bg-neutral-100 dark:bg-neutral-800">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={shot.imageUrl}
-                  alt={shot.title || s.untitled}
-                  loading="lazy"
-                  decoding="async"
-                  referrerPolicy="no-referrer"
-                  className="h-full w-full object-cover transition-transform duration-300 ease-out group-hover:scale-105"
-                />
-              </span>
+              <ShotImage src={shot.imageUrl} alt={shot.title || s.untitled} blur={shot.blurDataUrl} />
               <span className="mt-1.5 block truncate text-xs text-neutral-700 transition-colors group-hover:text-accent sm:text-sm dark:text-neutral-300">
                 {shot.title || s.untitled}
               </span>
@@ -182,5 +172,34 @@ export function DribbbleTile({
         ))}
       </ul>
     </section>
+  );
+}
+
+// 24.10.2026 (Александр: «картинки подгружать через lazy load и сначала
+// показывать блюром, чтобы не было пустых мест»). Пока картинка грузится,
+// на её месте размытое превью (если оно есть) или серый фон, потом картинка
+// плавно проявляется. lazy -- грузится, только когда долистали до плитки.
+function ShotImage({ src, alt, blur }: { src: string; alt: string; blur?: string }) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <span
+      className="relative block aspect-[4/3] overflow-hidden rounded-xl bg-neutral-100 dark:bg-neutral-800"
+      style={blur ? { backgroundImage: `url(${blur})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
+    >
+      {blur && !loaded && <span aria-hidden className="absolute inset-0 backdrop-blur-md" />}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt={alt}
+        loading="lazy"
+        decoding="async"
+        referrerPolicy="no-referrer"
+        ref={(img) => {
+          if (img && img.complete && img.naturalWidth > 0 && !loaded) setLoaded(true);
+        }}
+        onLoad={() => setLoaded(true)}
+        className={`relative h-full w-full object-cover transition-[transform,opacity] duration-500 ease-out group-hover:scale-105 ${loaded ? "opacity-100" : "opacity-0"}`}
+      />
+    </span>
   );
 }

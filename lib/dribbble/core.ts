@@ -8,7 +8,14 @@
 // Здесь только чистые части без сети и импортов: разбор ссылки, сверка с подтверждённым логином,
 // очистка снимка. Проверка: node --test lib/dribbble/core.test.mjs
 
-export type DribbbleShot = { id: string; title: string; imageUrl: string; htmlUrl: string };
+export type DribbbleShot = {
+  id: string;
+  title: string;
+  imageUrl: string;
+  htmlUrl: string;
+  /** Крошечное размытое превью (data:URL), пока грузится картинка. Только для статичных примеров (Mr Kit). */
+  blurDataUrl?: string;
+};
 
 export type DribbbleSnapshot = {
   login: string;

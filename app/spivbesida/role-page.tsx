@@ -67,15 +67,17 @@ export function RolePage({ role }: { role: Role }) {
         <Checklist role={role} />
       </div>
 
-      {/* 24.10.2026: кандидату -- тезис «профиль A1 вместо резюме» сразу под чек-листом. */}
-      {role === "candidate" ? <ProfileInsteadOfCv example={<MrKitProfile />} /> : null}
-
+      {/* 24.10.2026: тезис «профиль A1 вместо резюме» на обеих страницах, перед
+          инструментами. Кандидату -- сразу под чек-листом, интервьюеру -- после
+          готовых текстов и антифрода. Текст под роль. */}
       {role === "interviewer" ? (
         <>
           <Templates />
           <Antifraud />
         </>
       ) : null}
+
+      <ProfileInsteadOfCv variant={role} example={<MrKitProfile />} />
 
       <Tools role={role} />
 

@@ -364,7 +364,7 @@ export function Checklist({ role }: { role: Role }) {
           <button
             type="button"
             onClick={() => copy(checklistText(role, done, loc))}
-            className="kit-btn flex-1 sm:flex-none"
+            className={`kit-btn flex-1 sm:flex-none ${copied ? "kit-btn-done" : ""}`}
           >
             {copied ? <CheckIcon /> : <CopyIcon />}
             <span>{copied ? <T {...UI.copied} /> : <T {...UI.copyChecklist} />}</span>
@@ -431,7 +431,7 @@ function TemplateCard({ label, text }: { label: typeof UI.copy; text: typeof UI.
         <span className="text-[13px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
           <T {...label} />
         </span>
-        <button type="button" onClick={() => copy(text[loc])} className="kit-btn kit-btn-sm">
+        <button type="button" onClick={() => copy(text[loc])} className={`kit-btn kit-btn-sm ${copied ? "kit-btn-done" : ""}`}>
           {copied ? <CheckIcon /> : <CopyIcon />}
           <span>{copied ? <T {...UI.copied} /> : <T {...UI.copy} />}</span>
         </button>
@@ -619,12 +619,17 @@ export function FromA1() {
 // Гость видит «Створити профіль». Вошедший, у кого заполнено меньше
 // PROFILE_FILLED_MIN разделов, видит «Заповнити профіль» и полоску прогресса
 // (кнопка открывает его профиль сразу с редактором, ?edit=1). У кого профиль
-// заполнен, блока нет совсем. Сервер всегда рисует гостевой вариант: так его
-// видит поисковик и большинство посетителей; вошедшим блок меняется после
+// заполнен, видит «Мій профіль». 24.10.2026 (Александр): блок больше не
+// прячем ни от кого, он висит как рекомендация «тримайте профіль заповненим»
+// для обеих сторон. variant выбирает текст под место: вход в раздел (hub),
+// кандидату, интервьюеру. Сервер всегда рисует гостевой вариант: так его
+// видит поисковик и большинство посетителей; вошедшим кнопка меняется после
 // ответа /api/account/whoami.
-type Viewer = { state: "guest" } | { state: "partial"; username: string; filled: number } | { state: "done" };
+type Viewer = { state: "guest" } | { state: "partial"; username: string; filled: number } | { state: "done"; username: string };
+type CvVariant = "hub" | "candidate" | "interviewer";
+const CV_NEXT: Record<CvVariant, string> = { hub: "/spivbesida", candidate: "/spivbesida/kandydatu", interviewer: "/spivbesida/interviueru" };
 
-export function ProfileInsteadOfCv({ example }: { example?: ReactNode }) {
+export function ProfileInsteadOfCv({ example, variant = "candidate", className = "mt-10" }: { example?: ReactNode; variant?: CvVariant; className?: string }) {
   const [viewer, setViewer] = useState<Viewer>({ state: "guest" });
   useEffect(() => {
     let cancelled = false;
@@ -633,7 +638,7 @@ export function ProfileInsteadOfCv({ example }: { example?: ReactNode }) {
       .then((d) => {
         if (cancelled || !d?.ok || !d.username) return;
         const filled = typeof d.profileFilled === "number" ? d.profileFilled : 0;
-        setViewer(filled >= PROFILE_FILLED_MIN ? { state: "done" } : { state: "partial", username: d.username, filled });
+        setViewer(filled >= PROFILE_FILLED_MIN ? { state: "done", username: d.username } : { state: "partial", username: d.username, filled });
       })
       .catch(() => {
         /* не вошёл или сбой -- остаёмся гостем */
@@ -643,15 +648,16 @@ export function ProfileInsteadOfCv({ example }: { example?: ReactNode }) {
     };
   }, []);
 
-  if (viewer.state === "done") return null;
-
   const href =
     viewer.state === "partial"
       ? `${profileHref(viewer.username)}?edit=1`
-      : `/sign-in?next=${encodeURIComponent("/spivbesida/kandydatu")}`;
+      : viewer.state === "done"
+        ? profileHref(viewer.username)
+        : `/sign-in?next=${encodeURIComponent(CV_NEXT[variant])}`;
+  const text = variant === "hub" ? PROFILE_CV.textHub : variant === "interviewer" ? PROFILE_CV.textInterviewer : PROFILE_CV.text;
 
   return (
-    <section className="kit-cv mt-10 overflow-hidden rounded-[28px]">
+    <section className={`kit-cv ${className} overflow-hidden rounded-[28px]`}>
       <div className="relative p-6 sm:p-8">
         <span className="kit-cv-glow" aria-hidden="true" />
         <div className="relative flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
@@ -665,7 +671,7 @@ export function ProfileInsteadOfCv({ example }: { example?: ReactNode }) {
               <T {...PROFILE_CV.title} />
             </h2>
             <p className="mt-2 text-[15px] leading-relaxed text-white/80">
-              <T {...PROFILE_CV.text} />
+              <T {...text} />
             </p>
             <ul className="mt-4 flex flex-wrap gap-2">
               {PROFILE_CV.tags.map((tag, i) => (
@@ -688,7 +694,7 @@ export function ProfileInsteadOfCv({ example }: { example?: ReactNode }) {
               </div>
             ) : null}
             <Link href={href} className="kit-cv-btn group">
-              <T {...(viewer.state === "partial" ? PROFILE_CV.fill : PROFILE_CV.create)} />
+              <T {...(viewer.state === "partial" ? PROFILE_CV.fill : viewer.state === "done" ? PROFILE_CV.myProfile : PROFILE_CV.create)} />
               <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" {...stroke} strokeWidth={2.2} className="transition group-hover:translate-x-0.5"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
             </Link>
           </div>
@@ -769,9 +775,13 @@ const CSS = `
 .kit-confetti{position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:none}
 .kit-confetti span{position:absolute;width:7px;height:7px;border-radius:2px;background:var(--c);transform:rotate(var(--a)) translateY(0);opacity:0;animation:kit-burst .9s cubic-bezier(.15,.7,.3,1) forwards}
 @keyframes kit-burst{0%{opacity:1;transform:rotate(var(--a)) translateY(0) scale(1)}100%{opacity:0;transform:rotate(var(--a)) translateY(calc(var(--d) * -1)) scale(.6)}}
-.kit-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:42px;padding:0 16px;border-radius:999px;background:var(--color-accent);color:#fff;font-size:14px;font-weight:600;transition:transform .15s,filter .15s,background .2s;white-space:nowrap}
+.kit-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:42px;padding:0 16px;border-radius:999px;background:var(--color-accent);color:#fff;font-size:14px;font-weight:600;transition:transform .2s,filter .15s,background .2s,box-shadow .2s;white-space:nowrap}
 .kit-btn:hover{filter:brightness(1.08)}
-.kit-btn:active{transform:scale(.97)}
+.kit-btn:not(.kit-btn-ghost):hover{transform:translateY(-1px);box-shadow:0 10px 22px -10px rgba(51,94,247,.75)}
+.kit-btn:active,.kit-btn:not(.kit-btn-ghost):active{transform:scale(.97);box-shadow:none}
+.kit-btn svg{transition:transform .25s cubic-bezier(.3,1.6,.5,1)}
+.kit-btn:not(.kit-btn-ghost):hover svg{transform:rotate(-8deg) scale(1.1)}
+.kit-btn-done svg{animation:kit-pop .45s ease}
 .kit-btn-ghost{background:#f3f4f6;color:#404040;width:42px;padding:0}
 .dark .kit-btn-ghost{background:#262626;color:#e5e5e5}
 .kit-btn-sm{height:34px;padding:0 12px;font-size:13px}
@@ -827,5 +837,5 @@ const CSS = `
 .kit-cv-btn:hover{transform:translateY(-1px);box-shadow:0 10px 24px -10px rgba(0,0,0,.45)}
 .kit-cv-demo{background:#fafafa}
 .dark .kit-cv-demo{background:#0a0a0a}
-@media (prefers-reduced-motion: reduce){.kit-confetti{display:none}.kit-eye g,.kit-eye-pupil{transition:none!important}.kit-ring-done,.kit-item-on .kit-box,.kit-fraud[open] .kit-fraud-card{animation:none}}
+@media (prefers-reduced-motion: reduce){.kit-confetti{display:none}.kit-eye g,.kit-eye-pupil{transition:none!important}.kit-ring-done,.kit-btn-done svg,.kit-item-on .kit-box,.kit-fraud[open] .kit-fraud-card{animation:none}}
 `;

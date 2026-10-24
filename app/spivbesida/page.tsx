@@ -1,12 +1,14 @@
 // app/spivbesida/page.tsx -- вход в раздел «Співбесіда» (24.10.2026,
 // Александр: «две разные страницы, для соискателей и для интервьюеров»).
-// Здесь только две большие карточки-двери.
+// Здесь две большие карточки-двери и под ними широкий баннер «Профіль A1
+// замість резюме» (24.10.2026: рекомендация для обеих сторон, с примером Mr Kit).
 
 import type { Metadata } from "next";
 import { T } from "@/components/t";
 import { buildLandingBreadcrumbJsonLd } from "@/lib/seo/jsonld";
 import { HUB, UI } from "@/lib/interview-kit/content";
-import { HubCards, KitStyles } from "./kit";
+import { MrKitProfile } from "@/lib/interview-kit/mr-kit";
+import { HubCards, KitStyles, ProfileInsteadOfCv } from "./kit";
 
 const URL = "https://jobs.a1appp.com/spivbesida";
 const TITLE = "Співбесіда в IT: чек-листи й інструменти для кандидатів і інтерв'юерів | A1 Jobs";
@@ -42,6 +44,7 @@ export default function Page() {
       <div className="mt-8">
         <HubCards />
       </div>
+      <ProfileInsteadOfCv variant="hub" className="mt-4" example={<MrKitProfile />} />
     </main>
   );
 }
