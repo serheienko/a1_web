@@ -75,6 +75,20 @@ export function buildEmployerDescription(fullName: string, openJobs: number, bio
 }
 
 /**
+ * 25.10.2026 (Александр, превью ссылки в Telegram: «не надо дублировать имя
+ * в тексте»). Для превью (og/twitter) имя уже стоит заголовком строкой выше,
+ * поэтому текст -- без него: «1 відкрита вакансія в A1 Jobs. A1 Soft Dev».
+ * Описание для Google (buildEmployerDescription) имя сохраняет.
+ */
+export function buildEmployerPreviewDescription(openJobs: number, bio: string): string {
+  const phrase = vacancyCountPhrase(openJobs);
+  const lead = `${phrase.charAt(0).toUpperCase()}${phrase.slice(1)} в A1 Jobs.`;
+  const tail = bio.replace(/\s+/g, " ").trim();
+  const full = tail ? `${lead} ${tail}` : lead;
+  return truncateAtWordBoundary(full, MAX_DESCRIPTION).replace(/[\s:;,\-–—(«"']+$/u, "");
+}
+
+/**
  * Organization для страницы работодателя. Это описание сайта не самого
  * себя (то на главной), а конкретной компании: имя, логотип, ссылка на
  * её собственный сайт. Из такого Google собирает связь «эта страница --

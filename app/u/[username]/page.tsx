@@ -21,7 +21,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { fetchUserByUsername, fetchUserRawByUsername } from "@/lib/a1/users";
-import { buildEmployerTitle, buildEmployerDescription } from "@/lib/seo/profile-meta";
+import { buildEmployerTitle, buildEmployerDescription, buildEmployerPreviewDescription } from "@/lib/seo/profile-meta";
 import { fetchAuthorFirstPage } from "@/lib/a1/feed";
 import { LoadMore } from "@/components/load-more";
 import { PostCard } from "@/components/post-card";
@@ -72,13 +72,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   if (openJobs > 0) {
     const employerDescription = buildEmployerDescription(profile.fullName, openJobs, profile.profileTitle || profile.bio);
+    const previewDescription = buildEmployerPreviewDescription(openJobs, profile.profileTitle || profile.bio);
     return {
       title: buildEmployerTitle(profile.fullName),
       description: employerDescription,
       alternates: { canonical },
-      openGraph: { title: profile.fullName, description: employerDescription, type: "profile", url: canonical },
+      openGraph: { title: profile.fullName, description: previewDescription, type: "profile", url: canonical },
       // 25.10.2026: большая карточка-превью (opengraph-image.tsx рядом) и в X.
-      twitter: { card: "summary_large_image", title: profile.fullName, description: employerDescription },
+      twitter: { card: "summary_large_image", title: profile.fullName, description: previewDescription },
     };
   }
 

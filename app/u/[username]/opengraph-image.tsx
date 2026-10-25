@@ -34,12 +34,17 @@ export default async function Image({ params }: Props) {
   // Текущее место работы -- компания без даты окончания (первая такая).
   const current = profile.companies.find((c) => c.positionStart && !c.positionEnd) ?? null;
 
+  // Компания не повторяет заголовок («A1 Soft Dev» и там, и там).
+  const title = profile.profileTitle || profile.expertise || null;
+  const companyName = current?.name?.trim() || null;
+  const company = companyName && title && title.toLowerCase().includes(companyName.toLowerCase()) ? null : companyName;
+
   return buildProfileOgImage({
     username: profile.username,
     fullName: profile.fullName,
-    title: profile.profileTitle || profile.expertise || null,
+    title,
     location: profile.location?.display || null,
-    company: current?.name || null,
+    company,
     languages: profile.languages.map((l) => l.value),
     // Своего фото нет -- тот же фирменный кот, что на странице профиля
     // (components/profile-view.tsx): 30 котов, выбор по нику.
