@@ -35,6 +35,7 @@ import { VoiceIntroPlayer } from "@/components/voice-intro-player";
 import { OccupationIcon } from "@/components/occupation-icon";
 import { OCCUPATION_LABELS } from "@/components/occupation-labels";
 import { EditProfileButton } from "@/components/edit-profile-button";
+import { ProfileShare } from "@/components/profile-share";
 import { GithubSection } from "@/components/github-section";
 import { DribbbleSection } from "@/components/dribbble-section";
 import { StackoverflowSection } from "@/components/stackoverflow-section";
@@ -544,6 +545,10 @@ export function ProfileView({
         avatarUrl={profile.avatarUrl}
         unclaimed={raw?.unclaimed === true}
       />
+
+      {/* 25.10.2026: на своём профиле -- «Поділитися профілем» (ссылка, QR,
+          куда вставить). Ряд выше для владельца пустой, так что место одно. */}
+      {!demo && <ProfileShare username={profile.username} fullName={profile.fullName} />}
 
       {/* Aleksandr, 2026-08-30: "должны быть просто две кнопки...
           первая -- это bio, а второе -- посты" -- ProfileTabs

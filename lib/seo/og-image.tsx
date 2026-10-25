@@ -50,11 +50,17 @@ const fontCache = new Map<string, ArrayBuffer | null>();
  * woff2. This is the same trick Vercel's own og-image examples use.
  */
 async function loadCommissionerBold(text: string): Promise<ArrayBuffer | null> {
+  return loadCommissioner(text, 700);
+}
+
+/** 25.10.2026: та же загрузка, но любой толщины (карточка профиля берёт 500 и 700). */
+export async function loadCommissioner(text: string, weight: 400 | 500 | 600 | 700): Promise<ArrayBuffer | null> {
   const uniqueChars = Array.from(new Set(Array.from(text))).join("");
-  if (fontCache.has(uniqueChars)) return fontCache.get(uniqueChars)!;
+  const key = `${weight}:${uniqueChars}`;
+  if (fontCache.has(key)) return fontCache.get(key)!;
 
   try {
-    const cssUrl = `https://fonts.googleapis.com/css2?family=Commissioner:wght@700&text=${encodeURIComponent(uniqueChars)}`;
+    const cssUrl = `https://fonts.googleapis.com/css2?family=Commissioner:wght@${weight}&text=${encodeURIComponent(uniqueChars)}`;
     const cssRes = await fetch(cssUrl, {
       headers: {
         "User-Agent":
@@ -69,7 +75,7 @@ async function loadCommissionerBold(text: string): Promise<ArrayBuffer | null> {
     const fontRes = await fetch(fontUrl);
     if (!fontRes.ok) throw new Error(`font file responded ${fontRes.status}`);
     const buffer = await fontRes.arrayBuffer();
-    fontCache.set(uniqueChars, buffer);
+    fontCache.set(key, buffer);
     return buffer;
   } catch (err) {
     // A missing/failed font must never break the whole og:image — a
@@ -77,7 +83,7 @@ async function loadCommissionerBold(text: string): Promise<ArrayBuffer | null> {
     // default (Latin-only, but still a valid image), which is a far
     // better failure mode than a 500 on every share preview.
     console.warn("[og-image] Commissioner font load failed, falling back to default:", err instanceof Error ? err.message : err);
-    fontCache.set(uniqueChars, null);
+    fontCache.set(key, null);
     return null;
   }
 }

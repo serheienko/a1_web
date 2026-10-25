@@ -60,6 +60,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
+import { ApplyLinkToast, type ApplyLinkToastState } from "@/components/apply-link-toast";
 import { type Locale } from "@/components/t";
 import { authFetch } from "@/lib/auth-fetch";
 import { ApplyQuestionsModal } from "@/components/apply-questions-modal";
@@ -449,6 +450,10 @@ export function PostViewerMenu({
   // actions gated behind the authPromptOpen popup below instead of the
   // fetches that only make sense for "other".
   const [viewerStatus, setViewerStatus] = useState<"loading" | "self" | "other" | "anon" | "error">("loading");
+  // 25.10.2026: свой ник -- для ссылки на профиль, которая уходит в буфер
+  // при «Відкрити вакансію» (components/apply-link-toast.tsx).
+  const [myUsername, setMyUsername] = useState<string | null>(null);
+  const [applyToast, setApplyToast] = useState<ApplyLinkToastState | null>(null);
   const [open, setOpen] = useState(false);
   const [authPromptOpen, setAuthPromptOpen] = useState(false);
   // 2026-09-02 (Aleksandr: "все логины должны после залогинювання
@@ -533,6 +538,7 @@ export function PostViewerMenu({
           return;
         }
         setViewerStatus(data.username && data.username === authorUsername ? "self" : "other");
+        setMyUsername(typeof data.username === "string" && data.username ? data.username : null);
       })
       .catch(() => {
         if (!cancelled) setViewerStatus("error");
@@ -1032,6 +1038,26 @@ export function PostViewerMenu({
           rel="nofollow noopener noreferrer"
           onClick={() => {
             track("external", { company: authorUsername, post: postSlug });
+            // 25.10.2026: ссылка на свой профиль A1 -- сразу в буфер (клик даёт
+            // право писать в буфер без лишней кнопки), плюс подсказка, куда
+            // её вставить в отклике. Метка ?from=apply -- чтобы потом
+            // посчитать, сколько HR её открыли.
+            if (viewerStatus === "other" && myUsername) {
+              const link = `https://jobs.a1appp.com${profileHref(myUsername)}?from=apply`;
+              navigator.clipboard
+                ?.writeText(link)
+                .then(() => setApplyToast({ trigger: Date.now(), kind: "copied" }))
+                .catch(() => undefined);
+            } else if (viewerStatus === "anon") {
+              try {
+                if (!sessionStorage.getItem("a1-apply-guest-hint")) {
+                  sessionStorage.setItem("a1-apply-guest-hint", "1");
+                  setApplyToast({ trigger: Date.now(), kind: "guest" });
+                }
+              } catch {
+                // sessionStorage недоступен -- подсказку просто не показываем.
+              }
+            }
             // 16.10.2026: «Мої відгуки» -- вакансия попадает во вкладку со статусом «відкрито»,
             // там человек ответит «Так/Ні». Только для вошедшего и не автора.
             if (viewerStatus === "other") {
@@ -1289,6 +1315,9 @@ export function PostViewerMenu({
         <ShareTargetModal lang={lang} target={shareTarget} onClose={() => setShareTarget(null)} />,
         document.body,
       )}
+
+    {/* 25.10.2026: «ссылка на профиль скопирована -- вставь в отклик». */}
+    <ApplyLinkToast state={applyToast} lang={lang} />
     </>
   );
 }

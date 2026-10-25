@@ -77,6 +77,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description: employerDescription,
       alternates: { canonical },
       openGraph: { title: profile.fullName, description: employerDescription, type: "profile", url: canonical },
+      // 25.10.2026: большая карточка-превью (opengraph-image.tsx рядом) и в X.
+      twitter: { card: "summary_large_image", title: profile.fullName, description: employerDescription },
     };
   }
 
@@ -88,6 +90,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     description,
     alternates: { canonical },
     openGraph: { title: profile.fullName, description, type: "profile", url: canonical },
+    twitter: { card: "summary_large_image", title: profile.fullName, description },
   };
 }
 
