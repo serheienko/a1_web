@@ -34,6 +34,12 @@ import { usePathname } from "next/navigation";
 import { FiltersForm } from "@/components/filters-form";
 import type { Category, Tag } from "@/lib/a1/datasets";
 
+// Как isItCategory в lib/a1/datasets.ts (тот модуль серверный, в браузер не
+// тянем): категория, чьё название из одних букв -- «IT».
+function itValue(categories: Category[]): number | undefined {
+  return categories.find((c) => c.text.replace(/[^\p{L}]/gu, "").toLowerCase() === "it")?.value;
+}
+
 /** Страницы, где поиск и фильтры рисует сама страница. */
 const OWN_SEARCH_PATHS = new Set(["/", "/talents"]);
 
@@ -96,6 +102,13 @@ export function NavFilters() {
       tags={tags}
       currentTags={[]}
       emptyCategoryValues={emptyCategoryValues}
+      // 25.10.2026 (Александр, скриншот каталога профессий: «надо, чтобы
+      // фильтры по стеку тоже показывались»). Та же роль и стек, что на
+      // ленте: форма уводит на ленту, там выбор и применится.
+      itCategoryValue={itValue(categories)}
+      showRoles
+      currentRoles={[]}
+      currentStack={[]}
       urlMode="push"
       desktopOnly
     />
