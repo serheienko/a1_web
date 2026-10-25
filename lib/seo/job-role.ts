@@ -524,6 +524,50 @@ export const ROLES: RoleInfo[] = [
   },
 ];
 
+// 25.10.2026 (Александр: «в ролях точно все вакансии?» -- нет: из 18 540
+// заголовков карты сайта роль не находилась у ~34%). Добавки к правилам выше:
+// названия на немецком, французском, испанском, португальском, итальянском,
+// польском, шведском, чешском и английские, которых не было (Solutions /
+// Presales / Forward Deployed Engineer, ServiceNow, SysOps...). Отдельная
+// таблица, а не правка rx выше: граница слова здесь понимает любые буквы
+// (é, ü, ø), а не только латиницу и кириллицу.
+const BU = "(^|[^\\p{L}\\p{N}])";
+const EU = "([^\\p{L}\\p{N}]|$)";
+const rxu = (body: string) => new RegExp(`${BU}(${body})${EU}`, "iu");
+
+const EXTRA: Partial<Record<JobRole, RegExp>> = {
+  software: rxu(
+    "software ?(engineering|entwickler[a-z]*|ingenieur[a-z]*)|softwareentwickler[a-z]*|entwickler[a-z]*|d[ée]veloppeur[a-z]*|desarrollador[a-z]*|programador[a-z]*|desenvolvedor[a-z]*|sviluppatore|programista|systemutvecklare|utvecklare|v[ýy]voj[áa][řr][a-z]*|ontwikkelaar|ing[ée]nieur logiciel|forward deployed|fde|member of technical staff|applications? (engineer|developer)|integration (engineer|developer)|developer|inzhener programist",
+  ),
+  backend: rxu("(\\.?net|java|python|php|golang|scala|ruby) (entwickler[a-z]*|d[ée]veloppeur[a-z]*|desarrollador[a-z]*|programador[a-z]*|desenvolvedor[a-z]*|programista|utvecklare|engineer|developer)"),
+  frontend: rxu("web ?(developer|entwickler[a-z]*|d[ée]veloppeur[a-z]*)|javascript (developer|engineer)|typescript (developer|engineer)"),
+  mobile: rxu("mobile app|app (developer|entwickler[a-z]*|d[ée]veloppeur[a-z]*)|mobile"),
+  devops: rxu("systemadministrator[a-z]*|systemadministration|sysops|kubernetes|cloud (developer|specialist|consultant|operations)|administrateur (syst[èe]mes?|r[ée]seaux?)|administrador de sistemas|ing[ée]nieur (devops|cloud|syst[èe]mes?)|infrastructure|linux|techops|reliability engineer|platform engineering|virtuali[sz]ation"),
+  network: rxu("netzwerk[a-z]*|network|r[ée]seaux?|redes|telecom[a-z]*|telco"),
+  data: rxu("data(?! (protection|privacy|cent(er|re)))|dados|daten|donn[ée]es|datos|analytics|bi"),
+  ai: rxu("research (scientist|engineer)|applied (scientist|ai|ml)|scientist|ai|ml|machine|k[üu]nstliche|intelligence artificielle|inteligencia artificial|robotics"),
+  security: rxu("security|s[ée]curit[ée]|sicherheit|seguridad|seguran[çc]a|cyber|identity|iam|incident response|threat|vulnerability|insider risk|abuse|systems[äa]kerhet[a-z]*|s[äa]kerhet[a-z]*"),
+  qa: rxu("testing|testautomat[a-z]*|qualit[äa]tssicher[a-z]*|test (analyst|manager|lead|technician)|validation|verification|quality"),
+  support: rxu("supporter|support|helpdesk|(1st|2nd|3rd|first|second|third) level|servicedesk"),
+  dba: rxu("data ?base|datenbank[a-z]*|banco de dados|base de donn[ée]es|dbre"),
+  erp: rxu("servicenow|workday|oracle (fusion|ebs|apps)|microsoft dynamics|dynamics 365|d365|crm (developer|consultant|administrator)|implementation (consultant|specialist)|functional consultant"),
+  architect: rxu("architect|architekt[a-z]*|architecte|arquitect[oa]|arquitet[oa]"),
+  lead: rxu("(director|manager|head|vp)( of)?( software| field| platform| systems)? engineering|engineering (director|manager|lead)|teamleiter[a-z]*|team leader"),
+  pm: rxu("projektleiter[a-z]*|projektmanager[a-z]*|chef de projet|gestor de proyectos|gerente de projetos|kierownik projektu|product (leadership|director|management|specialist)|technical program|program (lead|director)|programme manager|project (lead|coordinator|director)"),
+  sales: rxu("presales|pre sales|solutions? (engineer|consultant|specialist)|sales|vertrieb[a-z]*|vente[a-z]*|commercial[e]?|ventas|vendas|handlowiec|agente|procacciatore|gtm|go to market|partnerships?|channel (manager|partner)|ejecutivo|account director|business developer"),
+  account: rxu("customer (success|experience|engagement|relations)|client services|onboarding (specialist|manager)"),
+  recruiter: rxu("recruiting|talent|people (and |& )?culture|people business partner|human resources|personalreferent[a-z]*|rrhh|ressources humaines"),
+  marketing: rxu("marketing|marketer|brand|communications|public relations|growth"),
+  finance: rxu("finance|financial|controlling|controller|buchhalt[a-z]*|comptable|contador|contabil[a-z]*|tax|audit[a-z]*|billing|payments?|fp&a"),
+  legal: rxu("legal|counsel|compliance|privacy|data protection|governance|regulatory|grc|jurist[a-z]*|avocat|abogad[oa]"),
+  hardware: rxu("hardware|electrical|mechanical|electronics?|avionics|propulsion|rf|antenna|silicon|asic|vlsi|manufacturing|production engineer|technician|techniker[a-z]*|mechatron[a-z]*|thermal|structures engineer|vehicle|cabin|spacecraft|satellite"),
+  embedded: rxu("controls engineer|plc|scada|automation engineer|automotive|autosar|microcontroller|mechatron[a-z]*"),
+  ops: rxu("operations|coordinator|coordinador[a]?|logisti[ck][a-z]*|supply|procurement|facility|workplace"),
+  education: rxu("training (specialist|manager|coordinator|lead)|trainer|teacher|enseignant|profesor[a]?|formateur|instructor"),
+  design: rxu("designer[a-z]*|mediengestalter[a-z]*|graphiste|dise[ñn]ador[a]?"),
+  content: rxu("writer|redakteur[a-z]*|r[ée]dacteur[a-z]*|redactor[a]?"),
+};
+
 export const JOB_ROLES: JobRole[] = ROLES.map((r) => r.slug);
 
 export function roleInfo(slug: string): RoleInfo | null {
@@ -543,6 +587,15 @@ export function extractRoles(title: string): JobRole[] {
   // Ассистент руководителя -- не топменеджер («Executive Assistant to CEO»).
   const t = /assistant|асистент|помічник/i.test(title) ? title.replace(/\b(ceo|cto|coo|cfo|директор[а-яіїєґ]*)\b/gi, "") : title;
   let roles = ROLES.filter((r) => r.rx.test(t)).map((r) => r.slug);
+  // Добавки -- только когда основные правила ничего не нашли: так уже
+  // размеченные вакансии не меняются, а «пустые» получают роль.
+  if (roles.length === 0) {
+    roles = ROLES.filter((r) => EXTRA[r.slug]?.test(t)).map((r) => r.slug);
+    // «Business Developer», «Sales Developer» -- продажи, а не разработка.
+    if (roles.includes("software") && roles.some((r) => r === "sales" || r === "account" || r === "affiliate" || r === "recruiter" || r === "marketing")) {
+      roles = roles.filter((r) => r !== "software");
+    }
+  }
   if (roles.includes("lead") && roles.some((r) => NON_ENGINEERING.includes(r))) roles = roles.filter((r) => r !== "lead");
   if (roles.includes("software") && roles.some((r) => r === "backend" || r === "frontend" || r === "fullstack" || r === "mobile" || r === "qa" || r === "embedded" || r === "gamedev" || r === "ai" || r === "data")) {
     roles = roles.filter((r) => r !== "software");
@@ -550,5 +603,9 @@ export function extractRoles(title: string): JobRole[] {
   // «Head of Sales» -- это продажи; в топменеджмент «Head of …» идёт, только
   // если больше ни во что не попал («Head of Warehousing»).
   if (roles.length === 0 && /(^|[^a-z])head of /i.test(t)) roles = ["clevel"];
+  // 25.10.2026: остаток. «Director …», «VP …» без направления -- топменеджмент;
+  // просто «Engineer» / «Ingénieur» без направления -- разработка ПО.
+  if (roles.length === 0 && /(^|[^\p{L}])(director|directeur|direktor|director[a]?|vp|vice president|chief|founder|co ?founder)([^\p{L}]|$)/iu.test(t)) roles = ["clevel"];
+  if (roles.length === 0 && !/(^|[^\p{L}])(civil|chemical|structural|process|environmental|geotechnical|biomedical)([^\p{L}]|$)/iu.test(t) && /(^|[^\p{L}])(engineer|engineering|ing[ée]nieur[a-z]*|ingeniero|engenheiro|inzhener|in[żz]ynier|technical staff)([^\p{L}]|$)/iu.test(t)) roles = ["software"];
   return roles;
 }
