@@ -81,6 +81,7 @@ export function StackPicker({
   selected,
   variant = "panel",
   lang: langProp,
+  autoScroll = true,
 }: {
   basePath: string;
   selected: string[];
@@ -89,6 +90,9 @@ export function StackPicker({
   /** Язык для ПЛЕЙСХОЛДЕРА поиска. Панель фильтров уже знает свой и передаёт
    *  его; на главной компонент стоит сам по себе и определяет язык ниже. */
   lang?: Locale;
+  /** Подкручивать окно фильтров к блоку после раскрытия (после выбора IT).
+   *  25.10.2026: когда блок виден сразу при открытии фильтров -- не нужно. */
+  autoScroll?: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -134,12 +138,12 @@ export function StackPicker({
   // блоку. `nearest` -- чтобы сдвинуть ровно настолько, насколько нужно, и
   // не дёргать страницу целиком.
   useEffect(() => {
-    if (variant !== "panel") return;
+    if (variant !== "panel" || !autoScroll) return;
     const id = setTimeout(() => {
       boxRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
     }, 340);
     return () => clearTimeout(id);
-  }, [variant]);
+  }, [variant, autoScroll]);
 
   // Числа спрашиваем ровно тогда, когда открыли полный список: на полосе из
   // шестнадцати популярных они не нужны, а запрос не бесплатный.

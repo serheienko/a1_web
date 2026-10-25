@@ -1091,11 +1091,21 @@ export function FiltersForm({
   // вместе"), shared verbatim by both the mobile and desktop popovers —
   // see this file's top comment for why mobile no longer has its own
   // separate always-visible checkbox row.
-  // Роль показывается внутри блока IT (stackSectionBody); здесь только для
-  // случая, когда роль уже в адресе, а IT не выбрана (старая ссылка) --
-  // чтобы её было видно и можно было снять.
+  // 25.10.2026 (Александр: «если у нас только IT-вакансии, может, дефолтно
+  // показывать роли»). Фильтр IT по-настоящему не включаем (главная с
+  // фильтром закрыта от индексации, на кнопке горела бы точка), но пока
+  // категория не выбрана, роль и стек видны сразу -- как будто выбрана IT.
+  // Выбрал другую категорию -- блок прячется. Внутри IT он по-прежнему
+  // стоит под строкой IT (stackSectionBody).
   const roleSectionBody =
-    showRoles && !stackVisible && currentRoles.length > 0 ? (
+    showRoles && currentCategory == null ? (
+      <>
+        <RolePicker basePath={basePath} selected={currentRoles} lang={lang} />
+        <div className="mt-1 px-1">
+          <StackPicker basePath={basePath} selected={currentStack} variant="panel" lang={lang} autoScroll={false} />
+        </div>
+      </>
+    ) : showRoles && !stackVisible && currentRoles.length > 0 ? (
       <RolePicker basePath={basePath} selected={currentRoles} lang={lang} />
     ) : null;
 
