@@ -59,9 +59,19 @@ function refreshOnce(refreshToken: string): Promise<AuthRefreshResponse> {
     "auth.refreshToken",
     { refreshToken },
     { skipAuth: true },
-  ).finally(() => {
-    inFlightRefreshes.delete(refreshToken);
-  });
+  ).then(
+    // 25.10.2026 (Александр: «на сайте часто разлогинивает»): держим ответ
+    // ещё 30 секунд. Запрос, ушедший со старой cookie чуть позже (браузер ещё
+    // не сохранил новую), получит ту же пару, а не провернёт её ещё раз.
+    (result) => {
+      setTimeout(() => inFlightRefreshes.delete(refreshToken), 30_000);
+      return result;
+    },
+    (error) => {
+      inFlightRefreshes.delete(refreshToken);
+      throw error;
+    },
+  );
   inFlightRefreshes.set(refreshToken, promise);
   return promise;
 }
