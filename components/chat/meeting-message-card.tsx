@@ -48,7 +48,7 @@
 // reproduced below. `mine` no longer drives ANY color in this file; it
 // still only decides which identity is "the proposer" vs "the other
 // participant" (unchanged, see MeetingMessageCard's own comment).
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { T, type Locale } from "@/components/t";
 import type { ReactNode } from "react";
 import { bucketForHour, bucketEmoji, type MeetingPayload, type MeetingAcceptPayload, type MeetingTimeBucket } from "@/lib/a1/meeting-protocol";
@@ -71,9 +71,25 @@ type StringKey =
   | "daytime"
   | "evening"
   | "lateNight"
-  | "joinMeeting";
+  | "joinMeeting"
+  | "addToCalendar"
+  | "inCalendar"
+  | "eventTitle";
 
 const STRINGS: Record<StringKey, Record<Locale, string>> = {
+  // 25.10.2026 (Александр: «кнопкой добавлять встречу в Google календарь»).
+  addToCalendar: {
+    uk: "Додати в календар", en: "Add to calendar", ru: "Добавить в календарь", de: "Zum Kalender hinzufügen",
+    es: "Añadir al calendario", fr: "Ajouter au calendrier", pl: "Dodaj do kalendarza", ptBR: "Adicionar ao calendário", zh: "添加到日历",
+  },
+  inCalendar: {
+    uk: "У календарі", en: "In calendar", ru: "В календаре", de: "Im Kalender",
+    es: "En el calendario", fr: "Dans le calendrier", pl: "W kalendarzu", ptBR: "No calendário", zh: "已在日历中",
+  },
+  eventTitle: {
+    uk: "Зустріч з {name}", en: "Meeting with {name}", ru: "Встреча с {name}", de: "Treffen mit {name}",
+    es: "Reunión con {name}", fr: "Rendez-vous avec {name}", pl: "Spotkanie z {name}", ptBR: "Reunião com {name}", zh: "与 {name} 的会议",
+  },
   // 2026-09-04 (round three, native reference screenshot's own header
   // literally reads "Meeting proposal", two words) -- was a bare
   // "Зустріч"/"Meeting" single word.
@@ -298,6 +314,38 @@ function ParticipantRow({
   );
 }
 
+// 25.10.2026: Google Calendar's "new event" page, filled in (no sign-in on
+// our side, nothing to authorize). 30 minutes, the meeting link in both the
+// place and the description.
+function googleCalendarUrl(title: string, startMs: number, link: string | null): string {
+  const fmt = (ms: number) => new Date(ms).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  const params = new URLSearchParams({
+    action: "TEMPLATE",
+    text: title,
+    dates: `${fmt(startMs)}/${fmt(startMs + 30 * 60 * 1000)}`,
+    details: [link, "A1 · jobs.a1appp.com"].filter(Boolean).join("\n"),
+  });
+  if (link) params.set("location", link);
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
+function CalendarIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <rect x="3" y="5" width="18" height="16" rx="3" />
+      <path d="M3 10h18M8 3v4M16 3v4M12 13v5M9.5 15.5h5" />
+    </svg>
+  );
+}
+
+function CheckIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M20 6L9 17l-5-5" />
+    </svg>
+  );
+}
+
 export function MeetingMessageCard({
   lang,
   payload,
@@ -349,6 +397,28 @@ export function MeetingMessageCard({
 }) {
   const [showTimeVisibility, setShowTimeVisibility] = useState(false);
   const accepted = acceptPayload !== null;
+
+  // «Додати в календар»: once accepted and still ahead. Remembered per
+  // meeting in this browser (best effort -- storage can be unavailable).
+  const calKey = `a1-meet-cal-${payload.startsAtUtcMs}-${payload.link ?? ""}`;
+  const [inCalendar, setInCalendar] = useState(false);
+  useEffect(() => {
+    try {
+      setInCalendar(localStorage.getItem(calKey) === "1");
+    } catch {
+      // no storage -- the button just stays «add»
+    }
+  }, [calKey]);
+  const showCalendar = accepted && payload.startsAtUtcMs > Date.now();
+  const calendarHref = googleCalendarUrl(t("eventTitle", lang).replace("{name}", peerName || "A1"), payload.startsAtUtcMs, payload.link);
+  const markInCalendar = () => {
+    setInCalendar(true);
+    try {
+      localStorage.setItem(calKey, "1");
+    } catch {
+      // ignore
+    }
+  };
 
   const proposer: Participant = mine ? { name: myName, avatarUrl: myAvatarUrl } : { name: peerName, avatarUrl: peerAvatarUrl };
   const other: Participant = mine ? { name: peerName, avatarUrl: peerAvatarUrl } : { name: myName, avatarUrl: myAvatarUrl };
@@ -442,6 +512,7 @@ export function MeetingMessageCard({
                 {t("accept", lang)}
               </button>
             ) : payload.link && (accepted || !canAccept) ? (
+              <>
               <a
                 href={payload.link}
                 target="_blank"
@@ -450,6 +521,38 @@ export function MeetingMessageCard({
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-white/15 px-4 py-2 text-[14px] font-semibold text-white transition hover:bg-white/25"
               >
                 {t("joinMeeting", lang)}
+              </a>
+              {/* С ссылкой главная кнопка -- «Приєднатися», календарь -- круглый значок справа. */}
+              {showCalendar && (
+                <a
+                  href={calendarHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    markInCalendar();
+                  }}
+                  aria-label={t(inCalendar ? "inCalendar" : "addToCalendar", lang)}
+                  title={t(inCalendar ? "inCalendar" : "addToCalendar", lang)}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/15 text-white/85 transition hover:bg-white/25"
+                >
+                  {inCalendar ? <CheckIcon className="h-4 w-4" /> : <CalendarIcon className="h-4 w-4" />}
+                </a>
+              )}
+              </>
+            ) : showCalendar ? (
+              <a
+                href={calendarHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  markInCalendar();
+                }}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-white/15 px-4 py-2 text-[14px] font-semibold text-white transition hover:bg-white/25"
+              >
+                {inCalendar ? <CheckIcon className="h-4 w-4" /> : <CalendarIcon className="h-4 w-4" />}
+                {t(inCalendar ? "inCalendar" : "addToCalendar", lang)}
               </a>
             ) : (
               // 2026-09-04 (round three, native reference): the empty
