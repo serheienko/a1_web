@@ -9,6 +9,7 @@ import { fetchUserByUsername, fetchUserRawByUsername } from "@/lib/a1/users";
 import { fetchAuthorFirstPage } from "@/lib/a1/feed";
 import { buildOgImage, OG_IMAGE_SIZE, OG_IMAGE_CONTENT_TYPE } from "@/lib/seo/og-image";
 import { buildProfileOgImage } from "@/lib/seo/profile-og-image";
+import { pickDefaultCatAvatar } from "@/lib/avatars";
 
 export const runtime = "nodejs";
 export const revalidate = 3600;
@@ -40,7 +41,9 @@ export default async function Image({ params }: Props) {
     location: profile.location?.display || null,
     company: current?.name || null,
     languages: profile.languages.map((l) => l.value),
-    avatarUrl: profile.avatarUrl,
+    // Своего фото нет -- тот же фирменный кот, что на странице профиля
+    // (components/profile-view.tsx): 30 котов, выбор по нику.
+    avatarUrl: profile.avatarUrl ?? pickDefaultCatAvatar(profile.username),
     skills: [...profile.skills].sort((a, b) => b.level - a.level).map((s) => s.value),
     bio: profile.bio || null,
     voiceIntro: Boolean(profile.voiceIntroUrl),
