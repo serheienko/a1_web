@@ -523,6 +523,8 @@ export function FiltersForm({
     // передаёт roles: [] явно.
     if (overrides.roles !== undefined) {
       for (const r of overrides.roles) params.append("role", r);
+    } else if (overrides.category !== undefined && overrides.category !== itCategoryValue) {
+      // Ушли из IT -- роль, живущая только внутри IT, снимается.
     } else if (typeof window !== "undefined") {
       for (const r of new URLSearchParams(window.location.search).getAll("role")) params.append("role", r);
     }
@@ -904,8 +906,16 @@ export function FiltersForm({
     query.trim() || currentCategory != null || currentTags.length > 0 || currentLocation != null || currentStack.length > 0 || currentRoles.length > 0,
   );
 
+  // 25.10.2026 (Александр: «роли должны появляться после выбора категории
+  // IT, иначе конфликтует с будущими категориями»). Роль -- внутри блока IT,
+  // над стеком: сначала «кем», потом «на чём».
   const stackSectionBody = stackVisible ? (
-    <div className="mt-1 mb-1 rounded-md bg-accent/5 px-2 pb-2 pt-2">
+    <div className="mt-1 mb-1 rounded-md bg-accent/5 px-2 pb-2 pt-1">
+      {showRoles ? (
+        <div className="mb-2">
+          <RolePicker basePath={basePath} selected={currentRoles} lang={lang} divider={false} />
+        </div>
+      ) : null}
       <StackPicker basePath={basePath} selected={currentStack} variant="panel" lang={lang} />
     </div>
   ) : null;
@@ -1081,7 +1091,13 @@ export function FiltersForm({
   // вместе"), shared verbatim by both the mobile and desktop popovers —
   // see this file's top comment for why mobile no longer has its own
   // separate always-visible checkbox row.
-  const roleSectionBody = showRoles ? <RolePicker basePath={basePath} selected={currentRoles} lang={lang} /> : null;
+  // Роль показывается внутри блока IT (stackSectionBody); здесь только для
+  // случая, когда роль уже в адресе, а IT не выбрана (старая ссылка) --
+  // чтобы её было видно и можно было снять.
+  const roleSectionBody =
+    showRoles && !stackVisible && currentRoles.length > 0 ? (
+      <RolePicker basePath={basePath} selected={currentRoles} lang={lang} />
+    ) : null;
 
   const tagChipsBody = tags.length > 0 && (
     <>

@@ -242,6 +242,33 @@ const searchCache = new Map<string, { expiresAt: number; promise: Promise<WebPos
  * Теперь обход один на комбинацию бэкенд-фильтров, а текст и стек
  * отсеиваются поверх него, в памяти.
  */
+/**
+ * 25.10.2026 (Александр: «почему так мало вакансий на ролях?»). Роль и стек
+ * теперь считаются по ОБЩЕМУ указателю (facts-index, вся база в памяти), а
+ * не по stack-index, который обрезан на трёх тысячах из восьми. Чтобы не
+ * гонять регулярки по тексту на каждый запрос, результат запоминается на
+ * самом объекте вакансии: указатель обновляется раз в час, вместе с ним
+ * уходят и эти записи.
+ */
+const techMemo = new WeakMap<WebPost, string[]>();
+const roleMemo = new WeakMap<WebPost, JobRole[]>();
+function techsOf(post: WebPost): string[] {
+  let v = techMemo.get(post);
+  if (!v) techMemo.set(post, (v = extractTechTags(post.title, post.contentText)));
+  return v;
+}
+function rolesOf(post: WebPost): JobRole[] {
+  let v = roleMemo.get(post);
+  if (!v) roleMemo.set(post, (v = extractRoles(post.title)));
+  return v;
+}
+
+/** Пул всей базы под текущие фильтры бэкенда или null, если указателя нет. */
+async function indexedPool(kind: WebPostKind, filters: FeedFilters): Promise<WebPost[] | null> {
+  const indexed = await allIndexedPosts().catch(() => null);
+  return indexed ? poolFromIndex(indexed, kind, filters) : null;
+}
+
 function scanCacheKey(kind: WebPostKind, filters: FeedFilters): string {
   return JSON.stringify([
     kind,
@@ -320,11 +347,11 @@ function applyLocalFilters(posts: WebPost[], filters: FeedFilters, needle: strin
       return false;
     }
     if (stack.length > 0) {
-      const tags = extractTechTags(post.title, post.contentText);
+      const tags = techsOf(post);
       if (!stack.some((tech) => tags.includes(tech))) return false;
     }
     if (roles.length > 0) {
-      const own = extractRoles(post.title);
+      const own = rolesOf(post);
       if (!roles.some((role) => own.includes(role))) return false;
     }
     return true;
@@ -433,6 +460,18 @@ export async function fetchFeedPage(
   // lib/a1/stack-index.ts. Вместе с поиском по тексту указатель не поможет:
   // там нужен сам текст, поэтому такая пара по-прежнему идёт обходом ниже.
   if (hasStack && !needle) {
+    // Сначала -- вся база из общего указателя (см. techsOf/rolesOf выше).
+    const pool = await indexedPool(kind, filters);
+    if (pool) {
+      const matches = applyLocalFilters(pool, filters, null);
+      const more = nextOffset < matches.length;
+      return {
+        posts: matches.slice(offset, nextOffset),
+        next: more ? `${LOCAL_CURSOR_PREFIX}${nextOffset}` : null,
+        hasMore: more,
+        total: matches.length,
+      };
+    }
     const stack = filters.stack ?? [];
     const roles = filters.roles ?? [];
     const index = await fetchStackIndex(scanCacheKey(kind, filters), filterParams(kind, filters));
@@ -505,8 +544,14 @@ export async function fetchStackCounts(
   kind: WebPostKind,
   filters: FeedFilters,
 ): Promise<Record<string, number>> {
-  const index = await fetchStackIndex(scanCacheKey(kind, filters), filterParams(kind, filters));
   const counts: Record<string, number> = {};
+  const pool = await indexedPool(kind, filters);
+  if (pool) {
+    // 25.10.2026: по всей базе, а не по трём тысячам из stack-index.
+    for (const post of pool) for (const tech of techsOf(post)) counts[tech] = (counts[tech] ?? 0) + 1;
+    return counts;
+  }
+  const index = await fetchStackIndex(scanCacheKey(kind, filters), filterParams(kind, filters));
   for (const entry of index) {
     for (const tech of entry.techs) counts[tech] = (counts[tech] ?? 0) + 1;
   }
@@ -752,9 +797,17 @@ export async function fetchRoleCounts(
   kind: WebPostKind,
   filters: FeedFilters,
 ): Promise<Record<string, number>> {
-  const index = await fetchStackIndex(scanCacheKey(kind, filters), filterParams(kind, filters));
   const stack = filters.stack ?? [];
   const counts: Record<string, number> = {};
+  const pool = await indexedPool(kind, filters);
+  if (pool) {
+    for (const post of pool) {
+      if (stack.length > 0 && !stack.some((tech) => techsOf(post).includes(tech))) continue;
+      for (const role of rolesOf(post)) counts[role] = (counts[role] ?? 0) + 1;
+    }
+    return counts;
+  }
+  const index = await fetchStackIndex(scanCacheKey(kind, filters), filterParams(kind, filters));
   for (const entry of index) {
     if (stack.length > 0 && !stack.some((tech) => entry.techs.includes(tech))) continue;
     for (const role of entry.roles ?? []) counts[role] = (counts[role] ?? 0) + 1;

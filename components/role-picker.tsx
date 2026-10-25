@@ -30,7 +30,7 @@ const STR: Record<"title" | "all" | "less", Record<Locale, string>> = {
   less: { uk: "Згорнути", en: "Show less", ru: "Свернуть", de: "Weniger", es: "Mostrar menos", fr: "Réduire", pl: "Zwiń", ptBR: "Mostrar menos", zh: "收起" },
 };
 
-export function RolePicker({ basePath, selected, lang }: { basePath: string; selected: string[]; lang: Locale }) {
+export function RolePicker({ basePath, selected, lang, divider = true }: { basePath: string; selected: string[]; lang: Locale; divider?: boolean }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [counts, setCounts] = useState<Record<string, number> | null>(null);
@@ -106,7 +106,7 @@ export function RolePicker({ basePath, selected, lang }: { basePath: string; sel
 
   return (
     <>
-      <div className="my-2 border-t border-neutral-100 dark:border-neutral-800" />
+      {divider ? <div className="my-2 border-t border-neutral-100 dark:border-neutral-800" /> : null}
       <div className="px-1 pb-1.5 pt-1 text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
         {STR.title[lang]}
       </div>
