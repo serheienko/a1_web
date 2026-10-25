@@ -32,6 +32,7 @@ import { TOP100_LANDING } from "@/lib/seo/top100-landing";
 import { TECH_CATALOG } from "@/lib/seo/tech-catalog";
 import { fetchCategories, itCategoryValue } from "@/lib/a1/datasets";
 import { StackPicker } from "@/components/stack-picker";
+import { SelectedRoles } from "@/components/selected-roles";
 import { buildSiteJsonLd } from "@/lib/seo/jsonld";
 import { withCountry } from "@/lib/seo/landing-country";
 
@@ -269,6 +270,8 @@ export default async function HomePage({ searchParams }: Props) {
           индексации тем же правилом, что и любая отфильтрованная
           (hasActiveFilters выше), поэтому веса эти кнопки не теряют --
           вес по стеку носят посадочные /jobs/stack/<slug>. */}
+      {/* 25.10.2026: выбранные роли -- чипами над стеком, видно, что выбрано. */}
+      {filters.roles?.length ? <SelectedRoles key={filters.roles.join(",")} basePath="/" roles={filters.roles} /> : null}
       {showStack ? <StackPicker basePath="/" selected={selectedStack} variant="row" /> : null}
 
       <Filters
