@@ -57,5 +57,8 @@ export const ROLE_LABELS: Record<JobRole, L> = {
   localization: { uk: "Локалізація / переклад", en: "Localization", ru: "Локализация / перевод", de: "Lokalisierung", es: "Localización", fr: "Localisation", pl: "Lokalizacja", ptBR: "Localização", zh: "本地化 / 翻译" },
   moderation: { uk: "Модерація", en: "Moderation", ru: "Модерация", de: "Moderation", es: "Moderación", fr: "Modération", pl: "Moderacja", ptBR: "Moderação", zh: "内容审核" },
   education: { uk: "Освіта / менторство", en: "Education / mentoring", ru: "Образование / менторство", de: "Bildung / Mentoring", es: "Educación / mentoría", fr: "Formation / mentorat", pl: "Edukacja / mentoring", ptBR: "Educação / mentoria", zh: "教育 / 导师" },
+  software: { uk: "Software Engineer", en: "Software Engineer", ru: "Software Engineer", de: "Software Engineer", es: "Ingeniero de software", fr: "Ingénieur logiciel", pl: "Software Engineer", ptBR: "Engenheiro de software", zh: "软件工程师" },
+  hardware: { uk: "Інженер-конструктор / hardware", en: "Hardware / mechanical", ru: "Инженер-конструктор / hardware", de: "Hardware / Mechanik", es: "Hardware / mecánica", fr: "Hardware / mécanique", pl: "Hardware / mechanika", ptBR: "Hardware / mecânica", zh: "硬件 / 机械" },
+  military: { uk: "Сили оборони / БпЛА", en: "Defense / drones", ru: "Силы обороны / БПЛА", de: "Verteidigung / Drohnen", es: "Defensa / drones", fr: "Défense / drones", pl: "Obronność / drony", ptBR: "Defesa / drones", zh: "国防 / 无人机" },
   ops: { uk: "Операційний менеджмент", en: "Operations", ru: "Операционный менеджмент", de: "Operations", es: "Operaciones", fr: "Opérations", pl: "Operacje", ptBR: "Operações", zh: "运营管理" },
 };

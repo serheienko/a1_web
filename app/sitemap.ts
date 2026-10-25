@@ -245,6 +245,7 @@ async function buildSitemap({ id }: { id: number | string }): Promise<MetadataRo
       }
       for (const t of await remoteTechList()) entries.push({ url: `${SITE_URL}/jobs/remote/${t.slug}` });
       for (const { level } of await globalLevelCounts()) entries.push({ url: `${SITE_URL}/jobs/level/${level}` });
+      entries.push({ url: `${SITE_URL}/jobs/role` });
       for (const { role } of await globalRoleCounts()) entries.push({ url: `${SITE_URL}/jobs/role/${role}` });
       for (const cc of await segmentCountries()) {
         const seg = await countrySegments(cc);

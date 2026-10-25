@@ -145,6 +145,9 @@ export default async function Page() {
           zh="所有职位合集集中在一处：按职位、技术、城市、国家、级别和工作形式。"
         />
       </p>
+      <a href="/jobs/role" className="mt-5 inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-4 py-2 text-sm font-medium text-accent transition hover:bg-accent/15">
+        <T uk="Усі професії за напрямами" en="All roles by direction" ru="Все профессии по направлениям" de="Alle Rollen nach Bereich" es="Todos los puestos por área" fr="Tous les métiers par domaine" pl="Wszystkie stanowiska wg kierunku" ptBR="Todas as funções por área" zh="按方向查看全部职位" /> →
+      </a>
       <SegmentLinks groups={groups} />
     </main>
   );

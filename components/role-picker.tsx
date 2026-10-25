@@ -24,7 +24,8 @@ import type { Locale } from "@/components/t";
 
 const FIRST = 12;
 
-const STR: Record<"title" | "all" | "less", Record<Locale, string>> = {
+const STR: Record<"title" | "all" | "less" | "hub", Record<Locale, string>> = {
+  hub: { uk: "Каталог професій", en: "Role catalog", ru: "Каталог профессий", de: "Rollenkatalog", es: "Catálogo de puestos", fr: "Catalogue des métiers", pl: "Katalog stanowisk", ptBR: "Catálogo de funções", zh: "职位目录" },
   title: { uk: "Роль", en: "Role", ru: "Роль", de: "Rolle", es: "Rol", fr: "Rôle", pl: "Rola", ptBR: "Função", zh: "职位类型" },
   all: { uk: "Усі ролі", en: "All roles", ru: "Все роли", de: "Alle Rollen", es: "Todos los roles", fr: "Tous les rôles", pl: "Wszystkie role", ptBR: "Todas as funções", zh: "全部类型" },
   less: { uk: "Згорнути", en: "Show less", ru: "Свернуть", de: "Weniger", es: "Mostrar menos", fr: "Réduire", pl: "Zwiń", ptBR: "Mostrar menos", zh: "收起" },
@@ -141,6 +142,9 @@ export function RolePicker({ basePath, selected, lang, divider = true }: { baseP
               </button>
             </>
           ) : null}
+          <a href="/jobs/role" className="mx-1 mb-1 ml-2 inline-flex items-center gap-1 text-xs text-neutral-400 transition hover:text-accent dark:text-neutral-500">
+            {STR.hub[lang]} →
+          </a>
         </>
       )}
     </>

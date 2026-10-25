@@ -28,7 +28,8 @@ export type JobRole =
   | "embedded" | "gamedev" | "blockchain" | "sap" | "salesforce" | "erp"
   | "recruiter" | "marketing" | "ppc" | "seo" | "aso" | "smm" | "content" | "techwriter"
   | "sales" | "account" | "affiliate" | "finance" | "legal" | "office" | "clevel"
-  | "devrel" | "motion" | "localization" | "moderation" | "education" | "ops";
+  | "devrel" | "motion" | "localization" | "moderation" | "education" | "ops"
+  | "software" | "hardware" | "military";
 
 export type RoleInfo = {
   slug: JobRole;
@@ -59,7 +60,7 @@ export const ROLES: RoleInfo[] = [
     en: "QA & testing",
     uk_hint: "QA, тестувальник, QA automation, SDET",
     titleUk: "Вакансії QA — робота тестувальником (QA, QA automation)",
-    rx: rx("qa|qe|sdet|quality assurance|quality engineer|test engineer|test automation|software tester|tester|тестувальник[а-яіїєґ]*|тестировщик[а-яіїєґ]*"),
+    rx: rx("qa|qe|sdet|quality assurance|quality engineer|test engineer|test automation|software tester|tester|developer in test|engineer in test|тестувальник[а-яіїєґ]*|тестировщик[а-яіїєґ]*"),
   },
   {
     slug: "frontend",
@@ -79,7 +80,7 @@ export const ROLES: RoleInfo[] = [
     en: "Backend",
     uk_hint: "Backend, Java, Python, Node.js, .NET, Go",
     titleUk: "Backend вакансії — робота Backend-розробником",
-    rx: rx("back[- ]?end|server[- ]side|java developer|python developer|node\\.?js developer|golang developer|go developer|\\.net developer|php developer|ruby developer"),
+    rx: rx("back[- ]?end|server[- ]side|(java|python|node\\.?js|golang|go|\\.net|c#|php|ruby|scala|elixir|kotlin backend|django|laravel|symfony) (developer|engineer|programmer)|розробник[а-яіїєґ]* (python|java|php|\\.net)"),
   },
   {
     slug: "fullstack",
@@ -99,7 +100,7 @@ export const ROLES: RoleInfo[] = [
     en: "Mobile (iOS, Android)",
     uk_hint: "iOS, Android, Flutter, React Native, Swift, Kotlin",
     titleUk: "Мобільна розробка: вакансії iOS, Android, Flutter",
-    rx: rx("mobile|ios|android|flutter|react native|swift developer|kotlin developer"),
+    rx: rx("ios|android|flutter|react native|swift|kotlin multiplatform|mobile (developer|engineer|dev|qa)|мобільн[а-яіїєґ]* розроб[а-яіїєґ]*"),
   },
   {
     slug: "devops",
@@ -109,7 +110,7 @@ export const ROLES: RoleInfo[] = [
     en: "DevOps & infrastructure",
     uk_hint: "DevOps, SRE, Cloud, Kubernetes, системний адміністратор",
     titleUk: "DevOps вакансії — робота DevOps, SRE, Cloud",
-    rx: rx("devops|sre|site reliability|platform engineer|cloud engineer|infrastructure engineer|system administrator|sysadmin|systems engineer|devsecops"),
+    rx: rx("devops|sre|site reliability|platform engineer|cloud engineer|infrastructure engineer|systems? administrator|sysadmin|devsecops|linux (engineer|administrator)|системн[а-яіїєґ]* адміністратор[а-яіїєґ]*|системн[а-яіїєґ]* администратор[а-яіїєґ]*"),
   },
   {
     slug: "data",
@@ -119,7 +120,7 @@ export const ROLES: RoleInfo[] = [
     en: "Data & analytics",
     uk_hint: "Data Analyst, Data Scientist, Data Engineer, BI, аналітик даних",
     titleUk: "Вакансії Data — Data Analyst, Data Scientist, Data Engineer",
-    rx: rx("data (scientist|analyst|engineer|architect)|data science|bi (developer|analyst|engineer)|analytics engineer|business intelligence|product analyst|web analyst|аналітик даних|аналитик данных"),
+    rx: rx("data (scientist|analyst|engineer|architect)|data science|databricks|bi (developer|analyst|engineer)|analytics (engineer|lead|manager)|business intelligence|(product|web|marketing|growth|bi|reporting) analyst|аналітик даних|аналитик данных"),
   },
   {
     slug: "design",
@@ -129,7 +130,7 @@ export const ROLES: RoleInfo[] = [
     en: "UI/UX design",
     uk_hint: "UI/UX дизайнер, Product Designer, графічний дизайнер",
     titleUk: "Вакансії UI/UX дизайнера — робота дизайнером в IT",
-    rx: rx("designer|ux|ui/ux|ux/ui|product design|design lead|дизайнер[а-яіїєґ]*"),
+    rx: rx("designer|ux|ui/ux|ux/ui|product design|design lead|art director|(2d|3d|game|concept|ui) artist|illustrator|дизайнер[а-яіїєґ]*|ілюстратор[а-яіїєґ]*"),
   },
   {
     slug: "pm",
@@ -139,7 +140,7 @@ export const ROLES: RoleInfo[] = [
     en: "Project & product management",
     uk_hint: "Project Manager, Product Manager, Product Owner, Scrum Master",
     titleUk: "Вакансії Project та Product Manager — робота в IT",
-    rx: rx("project manager|product manager|product owner|scrum master|delivery manager|program manager|проджект[а-яіїєґ]*|продакт[а-яіїєґ]*"),
+    rx: rx("project manager|product manager|product owner|product lead|head of product|scrum master|delivery manager|program manager|pmo|керівник[а-яіїєґ]* проєкт[а-яіїєґ]*|керівник[а-яіїєґ]* проект[а-яіїєґ]*|проджект[а-яіїєґ]*|продакт[а-яіїєґ]*"),
   },
   {
     slug: "ai",
@@ -179,7 +180,7 @@ export const ROLES: RoleInfo[] = [
     en: "Team & engineering leadership",
     uk_hint: "Team Lead, Tech Lead, Engineering Manager",
     titleUk: "Вакансії Team Lead та Tech Lead — робота тимлідом",
-    rx: rx("team lead|tech lead|technical lead|engineering manager|development manager|head of engineering|head of development|тимлід[а-яіїєґ]*|тимлид[а-яіїєґ]*"),
+    rx: rx("team lead|tech lead|technical lead|engineering manager|software development manager|head of engineering|head of development|head of software|vp of engineering|тимлід[а-яіїєґ]*|тимлид[а-яіїєґ]*"),
   },
   {
     slug: "security",
@@ -289,7 +290,7 @@ export const ROLES: RoleInfo[] = [
     en: "Recruiting & HR",
     uk_hint: "IT Recruiter, Talent Acquisition, Sourcer, HR, People Partner",
     titleUk: "Вакансії рекрутера та HR — IT Recruiter, Talent Acquisition",
-    rx: rx("recruiter|recruitment|talent acquisition|sourcer|hr (manager|generalist|specialist|director)|hrbp|hr business partner|people partner|people operations|рекрутер[а-яіїєґ]*|рекрутинг[а-яіїєґ]*"),
+    rx: rx("recruiter|recruitment|talent acquisition|sourcer|hr (manager|generalist|specialist|director|lead|partner)|hrbp|hr business partner|people partner|people operations|c&b|compensation|рекрутер[а-яіїєґ]*|рекрутинг[а-яіїєґ]*|hr[- ]?менеджер[а-яіїєґ]*"),
   },
   {
     slug: "marketing",
@@ -299,7 +300,7 @@ export const ROLES: RoleInfo[] = [
     en: "Marketing",
     uk_hint: "Marketing Manager, Growth, Brand, CMO",
     titleUk: "Вакансії в маркетингу — Marketing Manager, Growth, Brand",
-    rx: rx("marketing (manager|specialist|lead|director)|head of marketing|growth (manager|marketer|lead)|brand manager|cmo|product marketing|маркетолог[а-яіїєґ]*"),
+    rx: rx("marketing (manager|specialist|lead|director|analyst)|head of marketing|growth (manager|marketer|lead)|brand manager|cmo|product marketing|crm (manager|marketing|specialist)|retention (manager|marketing|specialist)|lifecycle (manager|marketing)|email marketing|маркетолог[а-яіїєґ]*|маркетинг[а-яіїєґ]*"),
   },
   {
     slug: "ppc",
@@ -339,7 +340,7 @@ export const ROLES: RoleInfo[] = [
     en: "SMM & community",
     uk_hint: "SMM, Social Media, Community Manager",
     titleUk: "Вакансії SMM та Community Manager",
-    rx: rx("smm|social media (manager|marketing|specialist)|community manager|комьюніті[- ]?менеджер[а-яіїєґ]*"),
+    rx: rx("smm|social media (manager|marketing|specialist)|community manager|комьюніті[- ]?менеджер[а-яіїєґ]*|ком.юніті[- ]?менеджер[а-яіїєґ]*"),
   },
   {
     slug: "content",
@@ -349,7 +350,7 @@ export const ROLES: RoleInfo[] = [
     en: "Content & copywriting",
     uk_hint: "Copywriter, Content Manager, Content Writer",
     titleUk: "Вакансії копірайтера та контент-менеджера",
-    rx: rx("copywriter|copywriting|content (manager|writer|specialist|editor|marketer|creator)|копірайтер[а-яіїєґ]*|копирайтер[а-яіїєґ]*|контент[- ]?менеджер[а-яіїєґ]*"),
+    rx: rx("copywriter|copywriting|editor|content (manager|writer|specialist|editor|marketer|creator)|копірайтер[а-яіїєґ]*|копирайтер[а-яіїєґ]*|редактор[а-яіїєґ]*|контент[- ]?менеджер[а-яіїєґ]*"),
   },
   {
     slug: "techwriter",
@@ -379,7 +380,7 @@ export const ROLES: RoleInfo[] = [
     en: "Account management & customer success",
     uk_hint: "Account Manager, Customer Success, Client Manager",
     titleUk: "Вакансії Account Manager та Customer Success",
-    rx: rx("account manager|customer success|client (manager|partner|success)|key account|акаунт[- ]?менеджер[а-яіїєґ]*|аккаунт[- ]?менеджер[а-яіїєґ]*"),
+    rx: rx("account manager|customer success|client (manager|partner|success)|key account|vip manager|акаунт[- ]?менеджер[а-яіїєґ]*|аккаунт[- ]?менеджер[а-яіїєґ]*"),
   },
   {
     slug: "affiliate",
@@ -399,7 +400,7 @@ export const ROLES: RoleInfo[] = [
     en: "Finance & accounting",
     uk_hint: "Financial Analyst, Accountant, Payroll, Controller",
     titleUk: "Вакансії у фінансах — фінансовий аналітик, бухгалтер",
-    rx: rx("financial (analyst|controller|manager)|finance (manager|director|specialist)|accountant|accounting|payroll|bookkeeper|cfo|бухгалтер[а-яіїєґ]*|фінансовий аналітик[а-яіїєґ]*|финансовый аналитик[а-яіїєґ]*"),
+    rx: rx("financial (analyst|controller|manager)|finance (manager|director|specialist)|accountant|accounting|payroll|bookkeeper|cfo|treasury|risk (manager|analyst)|fraud|investment analyst|бухгалтер[а-яіїєґ]*|фінансовий аналітик[а-яіїєґ]*|финансовый аналитик[а-яіїєґ]*"),
   },
   {
     slug: "legal",
@@ -429,7 +430,37 @@ export const ROLES: RoleInfo[] = [
     en: "Executive & C-level",
     uk_hint: "CEO, CTO, COO, VP, Head of, Director",
     titleUk: "Вакансії топменеджменту — CEO, CTO, VP, Head of",
-    rx: rx("ceo|cto|coo|cpo|chief [a-z]+ officer|vp of|vice president|managing director|head of"),
+    rx: rx("ceo|cto|coo|cpo|cio|cmo|cfo|cro|chief [a-z]+ officer|vp of|vice president|managing director|general manager|директор[а-яіїєґ]*"),
+  },
+  {
+    slug: "software",
+    label: "Software Engineer",
+    uk: "Розробка ПЗ",
+    ru: "Разработка ПО",
+    en: "Software engineering",
+    uk_hint: "Software Engineer, програміст, розробник ПЗ",
+    titleUk: "Вакансії Software Engineer — робота програмістом",
+    rx: rx("software (engineer|developer)|programmer|програміст[а-яіїєґ]*|программист[а-яіїєґ]*|розробник[а-яіїєґ]* (пз|програмного)|(c\\+\\+|c/c\\+\\+|rust) (developer|engineer)"),
+  },
+  {
+    slug: "hardware",
+    label: "Hardware & mechanical",
+    uk: "Інженерія та конструювання",
+    ru: "Инженерия и конструирование",
+    en: "Hardware & mechanical engineering",
+    uk_hint: "Інженер-конструктор, Mechanical, Electronics, CAD, RF",
+    titleUk: "Вакансії інженера-конструктора — Mechanical, Electronics, CAD",
+    rx: rx("mechanical engineer|electrical engineer|electronics (engineer|design)|design engineer|cad|solidworks|pcb|rf engineer|інженер[а-яіїєґ]*[- ]конструктор[а-яіїєґ]*|конструктор[а-яіїєґ]*|інженер[а-яіїєґ]*[- ]проєктувальник[а-яіїєґ]*|електронщик[а-яіїєґ]*"),
+  },
+  {
+    slug: "military",
+    label: "Defense & military",
+    uk: "Сили оборони та БпЛА",
+    ru: "Силы обороны и БПЛА",
+    en: "Defense, military & drones",
+    uk_hint: "Оператор БпЛА, інженер БпЛА, військові посади, FPV",
+    titleUk: "Вакансії в силах оборони — оператор БпЛА, інженер, військова служба",
+    rx: rx("бпла|бпак|безпілотн[а-яіїєґ]*|uav|uas|fpv|drone|військов[а-яіїєґ]*|військовослужбов[а-яіїєґ]*|зсу|командир[а-яіїєґ]*|розвідник[а-яіїєґ]*|нрк|ardupilot"),
   },
   {
     slug: "devrel",
@@ -479,7 +510,7 @@ export const ROLES: RoleInfo[] = [
     en: "Education & mentoring",
     uk_hint: "Mentor, Trainer, Tutor, викладач",
     titleUk: "Вакансії ментора та викладача в IT",
-    rx: rx("mentor|trainer|tutor|lecturer|teacher|instructor|викладач[а-яіїєґ]*|ментор[а-яіїєґ]*|преподаватель[а-яіїєґ]*"),
+    rx: rx("mentor|trainer|tutor|lecturer|teacher|instructor|викладач[а-яіїєґ]*|ментор[а-яіїєґ]*|інструктор[а-яіїєґ]*|преподаватель[а-яіїєґ]*"),
   },
   {
     slug: "ops",
@@ -489,7 +520,7 @@ export const ROLES: RoleInfo[] = [
     en: "Operations",
     uk_hint: "Operations Manager, Business Operations, RevOps",
     titleUk: "Вакансії Operations Manager — операційний менеджмент",
-    rx: rx("operations (manager|specialist|lead|analyst|director)|head of operations|business operations|revops|revenue operations"),
+    rx: rx("operations (manager|specialist|lead|analyst|director|coordinator)|head of operations|business operations|revops|revenue operations|procurement|supply chain|logistics (manager|specialist)|закупівл[а-яіїєґ]*|логіст[а-яіїєґ]*"),
   },
 ];
 
@@ -499,6 +530,25 @@ export function roleInfo(slug: string): RoleInfo | null {
   return ROLES.find((r) => r.slug === slug) ?? null;
 }
 
+// 25.10.2026 (разбор 7 917 живых заголовков). Профессии «не из разработки»:
+// если заголовок попал в одну из них, «Team Lead» в нём -- это тимлид
+// продаж/поддержки/медиабаинга, а не инженерный, и «Software Engineer»
+// общий -- лишний, когда язык уже назван (Backend).
+const NON_ENGINEERING: JobRole[] = [
+  "recruiter", "marketing", "ppc", "seo", "aso", "smm", "content", "sales", "account",
+  "affiliate", "finance", "legal", "office", "support", "moderation", "education", "ops", "motion",
+];
+
 export function extractRoles(title: string): JobRole[] {
-  return ROLES.filter((r) => r.rx.test(title)).map((r) => r.slug);
+  // Ассистент руководителя -- не топменеджер («Executive Assistant to CEO»).
+  const t = /assistant|асистент|помічник/i.test(title) ? title.replace(/\b(ceo|cto|coo|cfo|директор[а-яіїєґ]*)\b/gi, "") : title;
+  let roles = ROLES.filter((r) => r.rx.test(t)).map((r) => r.slug);
+  if (roles.includes("lead") && roles.some((r) => NON_ENGINEERING.includes(r))) roles = roles.filter((r) => r !== "lead");
+  if (roles.includes("software") && roles.some((r) => r === "backend" || r === "frontend" || r === "fullstack" || r === "mobile" || r === "qa" || r === "embedded" || r === "gamedev" || r === "ai" || r === "data")) {
+    roles = roles.filter((r) => r !== "software");
+  }
+  // «Head of Sales» -- это продажи; в топменеджмент «Head of …» идёт, только
+  // если больше ни во что не попал («Head of Warehousing»).
+  if (roles.length === 0 && /(^|[^a-z])head of /i.test(t)) roles = ["clevel"];
+  return roles;
 }
