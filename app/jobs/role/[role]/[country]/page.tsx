@@ -11,10 +11,13 @@ export const revalidate = 3600;
 // Украина отдельной парой не живёт -- её покрывает /jobs/role/<role>.
 
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
+import { RegionNotice } from "@/components/region-notice";
+import { MIN_SEGMENT_POSTS } from "@/lib/seo/segments";
+import { LINK_ALL_ROLES, LINK_ROLE_EVERYWHERE, thinRoleText } from "@/lib/seo/region-texts";
 import { SegmentPage } from "@/components/segment-page";
 import { pagedMeta, pageOf } from "@/lib/seo/paged";
-import { countryRolePosts } from "@/lib/a1/segment-index";
+import { countryRolePostsAny } from "@/lib/a1/segment-index";
 import { roleInfo } from "@/lib/seo/job-role";
 import { countryByCode, DEFAULT_COUNTRY_CODE, WORLDWIDE_CODE } from "@/lib/seo/countries";
 import { roleCountryCountLine, roleCountryH1, roleCountryLead, roleCountryMeta } from "@/lib/seo/role-texts";
@@ -24,13 +27,19 @@ const SITE_URL = "https://jobs.a1appp.com";
 
 type Props = { params: Promise<{ role: string; country: string }>; searchParams: Promise<{ [key: string]: string | string[] | undefined }> };
 
+// 25.10.2026 (Александр: «по всем странам, которые у нас в листинге, можно
+// было посмотреть; если данных недостаточно -- так и писать»). Страница есть
+// для любой страны списка; меньше MIN_SEGMENT_POSTS вакансий -- плашка
+// «в этом регионе пока мало» и noindex. Украина и «Весь світ» -- это общая
+// страница профессии (Украина + удалённые), туда и уводим.
 async function resolve(roleSlug: string, code: string) {
   const info = roleInfo(roleSlug);
   const country = countryByCode(code);
-  if (!info || !country || country.code === DEFAULT_COUNTRY_CODE || country.code === WORLDWIDE_CODE) return null;
-  if (code !== code.toLowerCase()) return null;
-  const posts = await countryRolePosts(country.code, info.slug);
-  return posts ? { info, country, posts } : null;
+  if (!info || !country) return null;
+  if (country.code === DEFAULT_COUNTRY_CODE || country.code === WORLDWIDE_CODE) permanentRedirect(`/jobs/role/${info.slug}`);
+  if (code !== code.toLowerCase()) permanentRedirect(`/jobs/role/${info.slug}/${country.code.toLowerCase()}`);
+  const posts = await countryRolePostsAny(country.code, info.slug);
+  return { info, country, posts, thin: posts.length < MIN_SEGMENT_POSTS };
 }
 
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
@@ -46,6 +55,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
     alternates: { canonical: url },
     openGraph: { title: meta.title, description: meta.description, url, type: "website" },
     twitter: { card: "summary_large_image", title: meta.title, description: meta.description },
+    ...(r.thin ? { robots: { index: false, follow: true } } : {}),
   }, url, pageOf(await searchParams));
 }
 
@@ -63,6 +73,17 @@ export default async function Page({ params, searchParams }: Props) {
       countLine={roleCountryCountLine()}
       lead={roleCountryLead(r.info.slug, r.country)}
       posts={r.posts}
+      beforeList={
+        r.thin ? (
+          <RegionNotice
+            text={thinRoleText(r.info.slug, r.country)}
+            links={[
+              { href: `/jobs/role/${r.info.slug}`, label: LINK_ROLE_EVERYWHERE },
+              { href: `/jobs/country/${country}/roles`, label: LINK_ALL_ROLES },
+            ]}
+          />
+        ) : undefined
+      }
       breadcrumbName={h1.uk}
       path={path}
       groups={[

@@ -14,11 +14,11 @@ export const revalidate = 3600;
 
 import type { Metadata } from "next";
 import Link from "next/link";
-import { T, type Locale } from "@/components/t";
+import { T } from "@/components/t";
 import { globalRoleCounts } from "@/lib/a1/segment-index";
-import { salaryRoles } from "@/lib/a1/salary-index";
+import { salaryCountriesForRole } from "@/lib/a1/salary-index";
 import { roleInfo, type JobRole } from "@/lib/seo/job-role";
-import { ROLE_LABELS } from "@/lib/seo/role-labels";
+import { orderedRoles, RoleHubGrid } from "@/components/role-hub";
 import { buildLandingBreadcrumbJsonLd } from "@/lib/seo/jsonld";
 
 const SITE_URL = "https://jobs.a1appp.com";
@@ -35,58 +35,17 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION },
 };
 
-type Group = { title: Record<Locale, string>; roles: JobRole[] };
-
-const GROUPS: Group[] = [
-  {
-    title: { uk: "Розробка", en: "Development", ru: "Разработка", de: "Entwicklung", es: "Desarrollo", fr: "Développement", pl: "Programowanie", ptBR: "Desenvolvimento", zh: "开发" },
-    roles: ["frontend", "backend", "fullstack", "mobile", "software", "embedded", "gamedev", "blockchain", "ai", "architect", "lead"],
-  },
-  {
-    title: { uk: "Якість та інфраструктура", en: "Quality & infrastructure", ru: "Качество и инфраструктура", de: "Qualität & Infrastruktur", es: "Calidad e infraestructura", fr: "Qualité & infrastructure", pl: "Jakość i infrastruktura", ptBR: "Qualidade e infraestrutura", zh: "质量与基础设施" },
-    roles: ["qa", "devops", "security", "dba", "network", "support"],
-  },
-  {
-    title: { uk: "Дані та аналітика", en: "Data & analysis", ru: "Данные и аналитика", de: "Daten & Analyse", es: "Datos y análisis", fr: "Données & analyse", pl: "Dane i analiza", ptBR: "Dados e análise", zh: "数据与分析" },
-    roles: ["data", "ba"],
-  },
-  {
-    title: { uk: "Продукт і дизайн", en: "Product & design", ru: "Продукт и дизайн", de: "Produkt & Design", es: "Producto y diseño", fr: "Produit & design", pl: "Produkt i design", ptBR: "Produto e design", zh: "产品与设计" },
-    roles: ["pm", "design", "motion", "techwriter"],
-  },
-  {
-    title: { uk: "Маркетинг", en: "Marketing", ru: "Маркетинг", de: "Marketing", es: "Marketing", fr: "Marketing", pl: "Marketing", ptBR: "Marketing", zh: "市场营销" },
-    roles: ["marketing", "ppc", "seo", "aso", "smm", "content", "affiliate"],
-  },
-  {
-    title: { uk: "Продажі та клієнти", en: "Sales & customers", ru: "Продажи и клиенты", de: "Vertrieb & Kunden", es: "Ventas y clientes", fr: "Ventes & clients", pl: "Sprzedaż i klienci", ptBR: "Vendas e clientes", zh: "销售与客户" },
-    roles: ["sales", "account", "devrel"],
-  },
-  {
-    title: { uk: "Бізнес-системи", en: "Business systems", ru: "Бизнес-системы", de: "Business-Systeme", es: "Sistemas empresariales", fr: "Systèmes d'entreprise", pl: "Systemy biznesowe", ptBR: "Sistemas empresariais", zh: "企业系统" },
-    roles: ["sap", "salesforce", "erp"],
-  },
-  {
-    title: { uk: "Люди, гроші й операції", en: "People, finance & operations", ru: "Люди, финансы и операции", de: "Personal, Finanzen & Operations", es: "Personas, finanzas y operaciones", fr: "RH, finance & opérations", pl: "Ludzie, finanse i operacje", ptBR: "Pessoas, finanças e operações", zh: "人事、财务与运营" },
-    roles: ["clevel", "recruiter", "finance", "legal", "ops", "office", "education", "localization", "moderation"],
-  },
-  {
-    title: { uk: "Інженерія та оборона", en: "Engineering & defense", ru: "Инженерия и оборона", de: "Ingenieurwesen & Verteidigung", es: "Ingeniería y defensa", fr: "Ingénierie & défense", pl: "Inżynieria i obronność", ptBR: "Engenharia e defesa", zh: "工程与国防" },
-    roles: ["hardware", "military"],
-  },
-];
-
-const JOBS_WORD: Record<Locale, string> = { uk: "вакансій", en: "jobs", ru: "вакансий", de: "Jobs", es: "vacantes", fr: "offres", pl: "ofert", ptBR: "vagas", zh: "个职位" };
-const SALARY_WORD: Record<Locale, string> = { uk: "Зарплати", en: "Salaries", ru: "Зарплаты", de: "Gehälter", es: "Salarios", fr: "Salaires", pl: "Wynagrodzenia", ptBR: "Salários", zh: "薪资" };
-
 export default async function Page() {
-  const [counts, salary] = await Promise.all([globalRoleCounts(), salaryRoles().catch(() => [])]);
-  const byRole = new Map(counts.map((c) => [c.role, c.count]));
-  const withSalary = new Set(salary.map((s) => s.role));
-  const listed = GROUPS.flatMap((g) => g.roles).filter((r) => byRole.has(r));
-  // Роли, которые ни в одну группу не попали (появились позже) -- не теряем.
-  const extra = counts.map((c) => c.role).filter((r) => !GROUPS.some((g) => g.roles.includes(r)));
-  const groups = extra.length ? [...GROUPS, { title: { uk: "Інше", en: "Other", ru: "Другое", de: "Sonstiges", es: "Otros", fr: "Autres", pl: "Inne", ptBR: "Outros", zh: "其他" }, roles: extra }] : GROUPS;
+  const counts = await globalRoleCounts();
+  const byRole = new Map<JobRole, number>(counts.map((c) => [c.role, c.count]));
+  const ordered = orderedRoles(byRole);
+  // 25.10.2026 (Александр: «для Украины показываются не целевые зарплаты»).
+  // Этот указатель -- Украина и удалённые, поэтому «Зарплати» ведут на
+  // украинскую вилку и только там, где её хватает посчитать.
+  const salaryLists = await Promise.all(ordered.map((r) => salaryCountriesForRole(r).catch(() => [])));
+  const withSalary = new Set(ordered.filter((_, i) => (salaryLists[i] ?? []).some((x) => x.cc === "ua")));
+  const listed = ordered;
+  const extra: JobRole[] = [];
 
   const itemList = {
     "@context": "https://schema.org",
@@ -126,46 +85,11 @@ export default async function Page() {
         />
       </p>
 
-      <div className="mt-8 space-y-9">
-        {groups.map((g) => {
-          const roles = g.roles.filter((r) => byRole.has(r)).sort((a, b) => (byRole.get(b) ?? 0) - (byRole.get(a) ?? 0));
-          if (roles.length === 0) return null;
-          return (
-            <section key={g.title.en}>
-              <h2 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
-                <T {...g.title} />
-              </h2>
-              <ul className="grid gap-2.5 sm:grid-cols-2">
-                {roles.map((r) => {
-                  const info = roleInfo(r);
-                  return (
-                    <li key={r}>
-                      <div className="role-card group relative rounded-2xl border border-neutral-200 bg-white p-4 transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-[0_10px_28px_-16px_rgba(51,94,247,.45)] dark:border-neutral-800 dark:bg-neutral-900">
-                        <Link href={`/jobs/role/${r}`} className="block after:absolute after:inset-0 after:content-['']">
-                          <span className="flex items-baseline justify-between gap-3">
-                            <span className="text-[16px] font-semibold text-neutral-900 transition group-hover:text-accent dark:text-neutral-50">
-                              <T {...ROLE_LABELS[r]} />
-                            </span>
-                            <span className="shrink-0 text-[13px] tabular-nums text-neutral-500 dark:text-neutral-400">
-                              {byRole.get(r)} <T {...JOBS_WORD} />
-                            </span>
-                          </span>
-                          {info ? <span className="mt-1 block text-[13px] leading-snug text-neutral-500 dark:text-neutral-400">{info.uk_hint}</span> : null}
-                        </Link>
-                        {withSalary.has(r) ? (
-                          <Link href={`/jobs/salary/${r}`} className="relative z-10 mt-2 inline-flex items-center gap-1 text-[12px] font-medium text-accent hover:underline">
-                            <T {...SALARY_WORD} /> →
-                          </Link>
-                        ) : null}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-          );
-        })}
-      </div>
+      <RoleHubGrid
+        counts={byRole}
+        roleHref={(r) => `/jobs/role/${r}`}
+        salaryHref={(r) => (withSalary.has(r) ? `/jobs/salary/${r}/ua` : null)}
+      />
     </main>
   );
 }

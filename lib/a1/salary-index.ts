@@ -127,6 +127,13 @@ export async function salaryForRoleCountry(role: JobRole, cc: string): Promise<S
   return segment((await index()).byRoleCountry.get(`${role}/${cc.toLowerCase()}`));
 }
 
+/** 25.10.2026: вакансии профессии в стране с названной суммой, сколько бы
+ *  их ни было (для плашки «мало данных» на странице зарплат). */
+export async function salaryPostsForRoleCountry(role: JobRole, cc: string): Promise<WebPost[]> {
+  const bucket = (await index()).byRoleCountry.get(`${role}/${cc.toLowerCase()}`);
+  return bucket ? [...bucket.posts].sort(byDate) : [];
+}
+
 /** Профессии, у которых хватает данных на свою страницу, крупные сверху. */
 export async function salaryRoles(): Promise<{ role: JobRole; stats: SalaryStats }[]> {
   const idx = await index();

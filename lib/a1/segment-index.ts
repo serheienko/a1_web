@@ -305,6 +305,22 @@ export async function countryRolePosts(cc: string, role: JobRole): Promise<WebPo
   return enough(list) ? [...list].sort(byDate) : null;
 }
 
+/** 25.10.2026: вакансии профессии в стране, сколько бы их ни было (страница
+ *  открыта для любой страны списка; меньше порога -- плашка «мало» и noindex). */
+export async function countryRolePostsAny(cc: string, role: JobRole): Promise<WebPost[]> {
+  const list = (await index()).countryRole.get(`${cc.toLowerCase()}/${role}`) ?? [];
+  return [...list].sort(byDate);
+}
+
+/** 25.10.2026: все профессии страны, где есть хоть одна вакансия, по убыванию. */
+export async function countryRoleCountsAll(cc: string): Promise<{ role: JobRole; count: number }[]> {
+  const idx = await index();
+  const lc = cc.toLowerCase();
+  return JOB_ROLES.map((role) => ({ role, count: idx.countryRole.get(`${lc}/${role}`)?.length ?? 0 }))
+    .filter((r) => r.count > 0)
+    .sort((a, b) => b.count - a.count);
+}
+
 /** Страны, где у профессии есть своя страница (10+ вакансий), по убыванию. */
 export async function roleCountryCounts(role: JobRole): Promise<{ cc: string; count: number }[]> {
   const out: { cc: string; count: number }[] = [];

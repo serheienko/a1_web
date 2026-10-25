@@ -248,7 +248,10 @@ async function buildSitemap({ id }: { id: number | string }): Promise<MetadataRo
       entries.push({ url: `${SITE_URL}/jobs/role` });
       for (const { role } of await globalRoleCounts()) entries.push({ url: `${SITE_URL}/jobs/role/${role}` });
       // 25.10.2026: профессия + страна.
-      for (const { cc, role } of await countryRolePairs()) entries.push({ url: `${SITE_URL}/jobs/role/${role}/${cc}` });
+      const pairs = await countryRolePairs();
+      for (const { cc, role } of pairs) entries.push({ url: `${SITE_URL}/jobs/role/${role}/${cc}` });
+      // 25.10.2026: указатель профессий страны -- там, где есть хоть одна страница профессии.
+      for (const cc of new Set(pairs.map((p) => p.cc))) entries.push({ url: `${SITE_URL}/jobs/country/${cc}/roles` });
       for (const cc of await segmentCountries()) {
         const seg = await countrySegments(cc);
         for (const s of seg.stacks) entries.push({ url: `${SITE_URL}/jobs/country/${cc}/${s.slug}` });

@@ -66,6 +66,7 @@ export function CountryPicker({
   options,
   compact = false,
   preserveParams = true,
+  hrefForCode,
 }: {
   basePath: string;
   /** ISO-код выбранной страны; undefined = Україна (лента «для тебе»). */
@@ -78,6 +79,9 @@ export function CountryPicker({
   /** false -- на странице вакансии/профиля чужие параметры адреса
    *  (?page, ?q) в ленту переносить незачем. */
   preserveParams?: boolean;
+  /** 25.10.2026: своя ссылка на страну -- страницы профессий и зарплат
+   *  переключаются на ту же страницу другой страны, а не на ленту. */
+  hrefForCode?: (code: string) => string;
 }) {
   const locale = useActiveLocale();
   const [open, setOpen] = useState(false);
@@ -177,7 +181,7 @@ export function CountryPicker({
             if (!country) return null;
             const selected = row.code === currentCode;
             const isDefault = row.code === DEFAULT_COUNTRY_CODE;
-            const href = hrefFor(basePath, row.code, search, preserveParams);
+            const href = hrefForCode ? hrefForCode(row.code) : hrefFor(basePath, row.code, search, preserveParams);
             return (
               <Link
                 key={row.code}

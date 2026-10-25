@@ -64,6 +64,40 @@ export function LandingCountryPicker({ basePath, current }: { basePath: string; 
   return <CountryPicker basePath={basePath} current={current} options={options ?? [{ code: "UA", count: 0 }]} />;
 }
 
+/**
+ * 25.10.2026 (Александр: «если я на странице по ролям меняю сверху гео --
+ * показывать страницу по ролям именно этой страны; такая же логика с
+ * зарплатами; по всем странам из списка»). Для указателя профессий,
+ * страниц профессии и зарплат выбор страны ведёт на ту же страницу другой
+ * страны. Украина и «Весь світ» для профессий -- общая страница (Украина +
+ * удалённые); для зарплат «Весь світ» -- сводка по всем странам, Украина --
+ * своя украинская вилка.
+ */
+export function segmentCountryRoute(pathname: string): { current: string; href: (code: string) => string } | null {
+  const p = pathname.replace(/\/+$/, "") || "/";
+  const lc = (code: string) => code.toLowerCase();
+  const general = (code: string) => code === "UA" || code === "WW";
+
+  if (p === "/jobs/role") {
+    return { current: "UA", href: (c) => (general(c) ? "/jobs/role" : `/jobs/country/${lc(c)}/roles`) };
+  }
+  let m = p.match(/^\/jobs\/country\/([a-z]{2})\/roles$/);
+  if (m) {
+    return { current: (m[1] ?? "UA").toUpperCase(), href: (c) => (general(c) ? "/jobs/role" : `/jobs/country/${lc(c)}/roles`) };
+  }
+  m = p.match(/^\/jobs\/role\/([a-z0-9-]+)(?:\/([a-z]{2}))?$/);
+  if (m) {
+    const role = m[1];
+    return { current: m[2] ? m[2].toUpperCase() : "UA", href: (c) => (general(c) ? `/jobs/role/${role}` : `/jobs/role/${role}/${lc(c)}`) };
+  }
+  m = p.match(/^\/jobs\/salary\/([a-z0-9-]+)(?:\/([a-z]{2}))?$/);
+  if (m) {
+    const role = m[1];
+    return { current: m[2] ? m[2].toUpperCase() : "WW", href: (c) => (c === "WW" ? `/jobs/salary/${role}` : `/jobs/salary/${role}/${lc(c)}`) };
+  }
+  return null;
+}
+
 function NavCountryInner() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -87,13 +121,15 @@ function NavCountryInner() {
   // страна меняется, а тег остаётся -- иначе выбор страны выкидывал на главную.
   // «Топ 100» и «Бронювання» от страны не зависят, у них прежнее поведение.
   const onLanding = isCountryLanding(pathname);
+  const segment = segmentCountryRoute(pathname);
   return (
     <CountryPicker
       basePath={onLanding ? pathname : "/"}
-      current={searchParams.get("country") ?? undefined}
+      current={segment ? segment.current : (searchParams.get("country") ?? undefined)}
       options={list}
       compact
       preserveParams={pathname === "/" || onLanding}
+      hrefForCode={segment?.href}
     />
   );
 }
