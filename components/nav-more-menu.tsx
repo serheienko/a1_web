@@ -790,7 +790,7 @@ export function NavMoreMenu() {
   const { rendered, visible, handleMouseEnter, handleMouseLeave, isRecentHoverOpen } = useHoverPanel(open, setOpen, [
     { trigger: wrapRef, panel: panelRef },
     { trigger: previewRef, panel: previewRef },
-  ]);
+  ], "nav");
 
   // Меню закрылось -- превью начинается заново, а не показывает прошлую строку.
   useEffect(() => {

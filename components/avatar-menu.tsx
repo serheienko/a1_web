@@ -420,7 +420,7 @@ export function AvatarMenu() {
   const panelOuterRef = useRef<HTMLDivElement | null>(null);
   const { rendered, visible, handleMouseEnter, handleMouseLeave, isRecentHoverOpen } = useHoverPanel(open, setOpen, [
     { trigger: wrapperRef, panel: panelOuterRef },
-  ]);
+  ], "nav");
   // 2026-09-02 (Aleksandr, live mobile screenshot: this panel's own
   // "Chats" row sits under components/chats-fab.tsx's fixed button on
   // mobile) -- mirror `open` into the shared store that button reads,

@@ -87,6 +87,7 @@ export function CountryPicker({
     open,
     setOpen,
     [{ trigger: triggerRef, panel: panelRef }],
+    "nav",
   );
 
   const router = useRouter();

@@ -115,7 +115,35 @@ export type HoverPanelRefPair = {
   panel: RefObject<HTMLElement | null>;
 };
 
-export function useHoverPanel(open: boolean, setOpen: (open: boolean) => void, refPairs: HoverPanelRefPair[]) {
+// 25.10.2026 (Александр, видео: открыт попап профиля, жмёшь «•••» -- меню
+// появляется ПОД профилем, и оба висят). Попапы одной группы (шапка: аватар,
+// «•••», фильтры, страна) закрывают друг друга: открылся один -- остальные
+// закрываются. Через событие на window, без общего состояния.
+const GROUP_EVENT = "a1:hover-panel-open";
+let panelSeq = 0;
+
+export function useHoverPanel(
+  open: boolean,
+  setOpen: (open: boolean) => void,
+  refPairs: HoverPanelRefPair[],
+  group?: string,
+) {
+  const idRef = useRef(0);
+  if (idRef.current === 0) idRef.current = ++panelSeq;
+  useEffect(() => {
+    if (!group || typeof window === "undefined") return;
+    if (open) window.dispatchEvent(new CustomEvent(GROUP_EVENT, { detail: { group, id: idRef.current } }));
+  }, [open, group]);
+  useEffect(() => {
+    if (!group || typeof window === "undefined") return;
+    const onOther = (e: Event) => {
+      const d = (e as CustomEvent<{ group: string; id: number }>).detail;
+      if (d && d.group === group && d.id !== idRef.current) setOpen(false);
+    };
+    window.addEventListener(GROUP_EVENT, onOther);
+    return () => window.removeEventListener(GROUP_EVENT, onOther);
+  }, [group]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const [rendered, setRendered] = useState(false);
   const [visible, setVisible] = useState(false);
   const hoverCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

@@ -324,7 +324,7 @@ export function FiltersForm({
   } = useHoverPanel(filtersOpen, setFiltersOpen, [
     { trigger: filtersRef, panel: filtersPanelRef },
     { trigger: desktopFiltersRef, panel: desktopFiltersPanelRef },
-  ]);
+  ], "nav");
   // 2026-08-30, final round on the search-widen-vs-Filters saga:
   // Aleksandr's actual spec needs BOTH halves at once, which a single
   // `inputFocused || filtersOpen` flag can't express: "если ничего не
