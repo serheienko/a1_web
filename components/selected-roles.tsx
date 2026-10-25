@@ -61,9 +61,11 @@ export function SelectedRoles({ basePath, roles }: { basePath: string; roles: Jo
             type="button"
             onClick={() => remove(slug)}
             aria-label="×"
-            className="flex h-5 w-5 items-center justify-center rounded-full transition hover:bg-accent/15 active:scale-90"
+            // 25.10.2026 (Александр: «анимация на крестик при ховере»): кружок
+            // заливается синим, крестик белеет, чуть растёт и поворачивается.
+            className="group/x flex h-5 w-5 items-center justify-center rounded-full transition-all duration-200 ease-out hover:scale-110 hover:bg-accent hover:text-white focus-visible:bg-accent focus-visible:text-white active:scale-90 motion-reduce:transition-none"
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true" className="transition-transform duration-300 ease-out group-hover/x:rotate-90 motion-reduce:transition-none">
               <path d="M6 6l12 12M18 6L6 18" />
             </svg>
           </button>
