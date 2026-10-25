@@ -21,6 +21,7 @@ export async function Filters({
   currentLocation,
   currentLocationLabel,
   currentStack = [],
+  currentRoles = [],
   currentCountry,
 }: {
   kind: WebPostKind;
@@ -34,6 +35,8 @@ export async function Filters({
    *  категории IT -- id этой категории знает только сервер (список категорий
    *  приходит с бэкенда), поэтому решение принимается здесь, а не в форме. */
   currentStack?: string[];
+  /** 25.10.2026: выбранные профессии из ?role=. */
+  currentRoles?: string[];
   /** 30.09.2026: ISO-код страны из ?country= (селектор у поиска). */
   currentCountry?: string;
 }) {
@@ -62,6 +65,8 @@ export async function Filters({
       emptyCategoryValues={emptyCategoryValues}
       itCategoryValue={itCategoryValue(categories)}
       currentStack={currentStack}
+      currentRoles={currentRoles}
+      showRoles={kind === "hiring"}
       currentCountry={currentCountry}
       countryOptions={countryOptions}
     />

@@ -34,9 +34,12 @@ import { call } from "./client";
 import { PostsSearchOutputSchema } from "./schemas";
 import { mapPosts } from "./mappers";
 import { extractTechTags } from "@/lib/seo/job-tech-tags";
+import { extractRoles, type JobRole } from "@/lib/seo/job-role";
 
-/** Одна строка указателя: какая вакансия и какие технологии в ней нашлись. */
-export type StackIndexEntry = { id: string; techs: string[] };
+/** Одна строка указателя: какая вакансия, какие технологии в ней нашлись и
+ *  к каким профессиям она относится (25.10.2026, фильтр «Роль»: профессия
+ *  считается по заголовку, lib/seo/job-role.ts). */
+export type StackIndexEntry = { id: string; techs: string[]; roles: JobRole[] };
 
 const PAGE_SIZE = 100; // posts.search's documented max per request
 const CONCURRENCY = 12; // страниц за раз; см. ниже, почему не все сразу
@@ -81,7 +84,7 @@ async function buildIndex(searchParams: Record<string, unknown>): Promise<StackI
     for (const post of mapPosts(items)) {
       if (seen.has(post.id)) continue;
       seen.add(post.id);
-      out.push({ id: post.id, techs: extractTechTags(post.title, post.contentText) });
+      out.push({ id: post.id, techs: extractTechTags(post.title, post.contentText), roles: extractRoles(post.title) });
     }
   }
   return out;
@@ -98,7 +101,7 @@ export function fetchStackIndex(
   cacheKey: string,
   searchParams: Record<string, unknown>,
 ): Promise<StackIndexEntry[]> {
-  return unstable_cache(() => buildIndex(searchParams), ["stack-index-v1", cacheKey], {
+  return unstable_cache(() => buildIndex(searchParams), ["stack-index-v2", cacheKey], {
     revalidate: TTL_SECONDS,
   })();
 }

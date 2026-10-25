@@ -69,6 +69,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import type { Category, Tag } from "@/lib/a1/datasets";
 import { StackPicker } from "@/components/stack-picker";
+import { RolePicker } from "@/components/role-picker";
 import { TECH_CATALOG } from "@/lib/seo/tech-catalog";
 import { TelegramSubscribe } from "@/components/telegram-subscribe";
 import { LOCALES, LOCALE_CLASS, type Locale } from "@/components/t";
@@ -193,6 +194,8 @@ export function FiltersForm({
   currentCategory,
   itCategoryValue,
   currentStack = [],
+  currentRoles = [],
+  showRoles = false,
   currentTags,
   currentLocation,
   currentLocationLabel,
@@ -212,6 +215,10 @@ export function FiltersForm({
   itCategoryValue?: number;
   /** Выбранные слаги стека из адреса. */
   currentStack?: string[];
+  /** 25.10.2026: выбранные профессии из ?role= (components/role-picker.tsx). */
+  currentRoles?: string[];
+  /** Блок «Роль» -- только у вакансий. */
+  showRoles?: boolean;
   currentTags: string[];
   currentLocation?: number;
   currentLocationLabel?: string;
@@ -486,6 +493,7 @@ export function FiltersForm({
     location?: number | null;
     locationLabel?: string | null;
     stack?: string[];
+    roles?: string[];
   }) {
     const params = new URLSearchParams();
     const q = overrides.q !== undefined ? overrides.q : query;
@@ -509,6 +517,14 @@ export function FiltersForm({
       for (const slug of current.getAll("stack")) {
         params.append("stack", slug);
       }
+    }
+    // 25.10.2026: роль -- тоже свой блок (components/role-picker.tsx);
+    // переносим, чтобы не слетала от буквы в поиске. Сброс всех фильтров
+    // передаёт roles: [] явно.
+    if (overrides.roles !== undefined) {
+      for (const r of overrides.roles) params.append("role", r);
+    } else if (typeof window !== "undefined") {
+      for (const r of new URLSearchParams(window.location.search).getAll("role")) params.append("role", r);
     }
     if (typeof window !== "undefined") {
       // 30.09.2026: страна и «Топ 100» -- тоже не этой формы, но живут в
@@ -640,7 +656,7 @@ export function FiltersForm({
   // text search is deliberately left alone here — it already has its
   // own clear (x) button right on the input.
   function resetAllFilters() {
-    navigate({ category: null, tags: [], location: null, locationLabel: null });
+    navigate({ category: null, tags: [], location: null, locationLabel: null, roles: [] });
     setFiltersOpen(false);
   }
 
@@ -885,7 +901,7 @@ export function FiltersForm({
   // 2026-09-20. Есть ли вообще что предлагать боту. Подписка на пустой фильтр
   // -- это «шли мне всё подряд», то есть спам; кнопки в таком случае нет.
   const hasAnyFilter = Boolean(
-    query.trim() || currentCategory != null || currentTags.length > 0 || currentLocation != null || currentStack.length > 0,
+    query.trim() || currentCategory != null || currentTags.length > 0 || currentLocation != null || currentStack.length > 0 || currentRoles.length > 0,
   );
 
   const stackSectionBody = stackVisible ? (
@@ -974,7 +990,7 @@ export function FiltersForm({
   // 2026-08-28: "добавим... кнопку reset... чтобы можно было сбросить
   // эти все [фильтры] одной кнопкой" — only rendered once something is
   // actually active, so an empty popover doesn't carry a dead button.
-  const resetAllFiltersBody = (currentCategory != null || currentLocation != null || currentTags.length > 0) && (
+  const resetAllFiltersBody = (currentCategory != null || currentLocation != null || currentTags.length > 0 || currentRoles.length > 0) && (
     <div className="mb-1 flex justify-end px-1 pb-1">
       <button
         type="button"
@@ -1065,6 +1081,8 @@ export function FiltersForm({
   // вместе"), shared verbatim by both the mobile and desktop popovers —
   // see this file's top comment for why mobile no longer has its own
   // separate always-visible checkbox row.
+  const roleSectionBody = showRoles ? <RolePicker basePath={basePath} selected={currentRoles} lang={lang} /> : null;
+
   const tagChipsBody = tags.length > 0 && (
     <>
       <div className="my-2 border-t border-neutral-100 dark:border-neutral-800" />
@@ -1187,13 +1205,13 @@ export function FiltersForm({
               aria-expanded={filtersOpen}
               className={
                 "group relative flex h-10 w-10 items-center justify-center rounded-full transition " +
-                (currentCategory != null || currentLocation != null || currentTags.length > 0
+                (currentCategory != null || currentLocation != null || currentTags.length > 0 || currentRoles.length > 0
                   ? "border border-accent/40 bg-accent/10 text-accent"
                   : GLASS + " text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50")
               }
             >
               <FilterIcon className="h-5 w-5" />
-              {(currentCategory != null || currentLocation != null || currentTags.length > 0) && (
+              {(currentCategory != null || currentLocation != null || currentTags.length > 0 || currentRoles.length > 0) && (
                 <span
                   className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-accent ring-2 ring-white dark:ring-black"
                   aria-hidden="true"
@@ -1234,6 +1252,7 @@ export function FiltersForm({
                 {resetAllFiltersBody}
                 {locationSectionBody}
                 {tagChipsBody}
+                {roleSectionBody}
                 {categoryListBody}
               </div>
             )}
@@ -1356,6 +1375,7 @@ export function FiltersForm({
                   {resetAllFiltersBody}
                   {locationSectionBody}
                   {tagChipsBody}
+                  {roleSectionBody}
                   {categoryListBody}
                 </div>
               )}

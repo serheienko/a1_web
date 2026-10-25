@@ -280,6 +280,7 @@ export default async function HomePage({ searchParams }: Props) {
         currentLocation={filters.location}
         currentLocationLabel={filters.locationLabel}
         currentStack={selectedStack}
+        currentRoles={filters.roles ?? []}
         currentCountry={filters.country}
       />
 

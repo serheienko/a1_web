@@ -30,6 +30,7 @@ import type { WebPost, WebPostKind } from "@/types/web-post";
 import { extractTechTags } from "@/lib/seo/job-tech-tags";
 import { techForSlug } from "@/lib/seo/tech-catalog";
 import { fetchStackIndex } from "./stack-index";
+import { extractRoles, roleInfo, type JobRole } from "@/lib/seo/job-role";
 import { fetchPostsByIds } from "./posts";
 import { peekUkraineFeedTotal } from "./country-counts";
 import { countryByCode, DEFAULT_COUNTRY_CODE, WORLDWIDE_CODE } from "@/lib/seo/countries";
@@ -88,6 +89,8 @@ export type FeedFilters = {
   // 2026-09-20): разработчик думает «я умею Python и Go, покажи и то и то»,
   // а «оба сразу» на нашей базе почти всегда даёт пустой экран.
   stack?: string[];
+  /** 25.10.2026: профессии из ?role=qa&role=devops (lib/seo/job-role.ts), через ИЛИ, как стек. */
+  roles?: JobRole[];
   // 30.09.2026 (Конкистадор). country -- ISO-код страны из селектора у
   // поиска (lib/seo/countries.ts); уходит в posts.search как location =
   // id страны плюс external: "include" -- в выдаче по стране вакансии-ссылки
@@ -304,7 +307,8 @@ async function getScanPosts(kind: WebPostKind, filters: FeedFilters): Promise<We
 /** Отбор поверх обойдённого списка: текст и стек -- то, чего бэкенд не умеет. */
 function applyLocalFilters(posts: WebPost[], filters: FeedFilters, needle: string | null): WebPost[] {
   const stack = filters.stack ?? [];
-  if (!needle && stack.length === 0) return posts;
+  const roles = filters.roles ?? [];
+  if (!needle && stack.length === 0 && roles.length === 0) return posts;
 
   return posts.filter((post) => {
     if (
@@ -318,6 +322,10 @@ function applyLocalFilters(posts: WebPost[], filters: FeedFilters, needle: strin
     if (stack.length > 0) {
       const tags = extractTechTags(post.title, post.contentText);
       if (!stack.some((tech) => tags.includes(tech))) return false;
+    }
+    if (roles.length > 0) {
+      const own = extractRoles(post.title);
+      if (!roles.some((role) => own.includes(role))) return false;
     }
     return true;
   });
@@ -378,7 +386,7 @@ export async function fetchFeedPage(
   if (kind === "hiring" && filters.country === WORLDWIDE_CODE) return fetchWorldwidePage(offset, filters);
   const nextOffset = offset + FEED_PAGE_SIZE;
   const needle = filters.q?.trim().toLowerCase() || null;
-  const hasStack = (filters.stack?.length ?? 0) > 0;
+  const hasStack = (filters.stack?.length ?? 0) > 0 || (filters.roles?.length ?? 0) > 0;
 
   if (!needle && !hasStack) {
     // The common case: one request. The backend orders the feed (newest by
@@ -426,8 +434,14 @@ export async function fetchFeedPage(
   // там нужен сам текст, поэтому такая пара по-прежнему идёт обходом ниже.
   if (hasStack && !needle) {
     const stack = filters.stack ?? [];
+    const roles = filters.roles ?? [];
     const index = await fetchStackIndex(scanCacheKey(kind, filters), filterParams(kind, filters));
-    const matched = index.filter((entry) => stack.some((tech) => entry.techs.includes(tech)));
+    // Стек и роль вместе -- через И: «QA, который пишет на Python».
+    const matched = index.filter(
+      (entry) =>
+        (stack.length === 0 || stack.some((tech) => entry.techs.includes(tech))) &&
+        (roles.length === 0 || roles.some((role) => (entry.roles ?? []).includes(role))),
+    );
     const hasMoreByIndex = nextOffset < matched.length;
 
     return {
@@ -683,6 +697,14 @@ export function parseFeedFilters(params: URLSearchParams): FeedFilters {
   // (lib/seo/tech-catalog.ts, все 79 технологий), а не шестнадцать
   // посадочных -- фильтр знает весь словарь, посадочные по-прежнему свою
   // короткую выборку.
+  const roles = [
+    ...new Set(
+      params
+        .getAll("role")
+        .map((slug) => roleInfo(slug)?.slug)
+        .filter((role): role is JobRole => Boolean(role)),
+    ),
+  ];
   const stack = params
     .getAll("stack")
     .map((slug) => techForSlug(slug))
@@ -701,6 +723,7 @@ export function parseFeedFilters(params: URLSearchParams): FeedFilters {
     location: Number.isFinite(locationId) && locationParam ? locationId : undefined,
     locationLabel: locationLabel || undefined,
     stack: stack.length > 0 ? [...new Set(stack)] : undefined,
+    roles: roles.length > 0 ? roles : undefined,
     country: country && country !== DEFAULT_COUNTRY_CODE ? country : undefined,
     top100: top100 || undefined,
   };
@@ -712,8 +735,29 @@ export function hasActiveFilters(filters: FeedFilters): boolean {
       (filters.categories && filters.categories.length > 0) ||
       (filters.tags && filters.tags.length > 0) ||
       (filters.stack && filters.stack.length > 0) ||
+      (filters.roles && filters.roles.length > 0) ||
       filters.location != null ||
       filters.country != null ||
       filters.top100 === true,
   );
+}
+
+/**
+ * 25.10.2026. Сколько вакансий за каждой профессией -- для фильтра «Роль»
+ * (components/role-picker.tsx), по тому же указателю, что и сам фильтр.
+ * Как и у стека, выбранные роли в подсчёт не входят, а стек -- входит:
+ * человек, выбравший Python, видит, сколько среди них QA, Backend и т.д.
+ */
+export async function fetchRoleCounts(
+  kind: WebPostKind,
+  filters: FeedFilters,
+): Promise<Record<string, number>> {
+  const index = await fetchStackIndex(scanCacheKey(kind, filters), filterParams(kind, filters));
+  const stack = filters.stack ?? [];
+  const counts: Record<string, number> = {};
+  for (const entry of index) {
+    if (stack.length > 0 && !stack.some((tech) => entry.techs.includes(tech))) continue;
+    for (const role of entry.roles ?? []) counts[role] = (counts[role] ?? 0) + 1;
+  }
+  return counts;
 }
