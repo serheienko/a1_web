@@ -83,7 +83,6 @@ export default async function Page() {
   const [counts, salary] = await Promise.all([globalRoleCounts(), salaryRoles().catch(() => [])]);
   const byRole = new Map(counts.map((c) => [c.role, c.count]));
   const withSalary = new Set(salary.map((s) => s.role));
-  const total = counts.reduce((n, c) => n + c.count, 0);
   const listed = GROUPS.flatMap((g) => g.roles).filter((r) => byRole.has(r));
   // Роли, которые ни в одну группу не попали (появились позже) -- не теряем.
   const extra = counts.map((c) => c.role).filter((r) => !GROUPS.some((g) => g.roles.includes(r)));
@@ -115,15 +114,15 @@ export default async function Page() {
       </h1>
       <p className="mt-3 text-[15px] leading-relaxed text-neutral-600 dark:text-neutral-300">
         <T
-          uk={`Оберіть свою професію: ${listed.length + extra.length} напрямів і ${total} відкритих позицій в Україні та віддалено. Роль визначаємо за назвою вакансії, список оновлюється щодня.`}
-          en={`Pick your role: ${listed.length + extra.length} directions and ${total} open positions in Ukraine and remote. The role comes from the job title, the list updates daily.`}
-          ru={`Выберите профессию: ${listed.length + extra.length} направлений и ${total} открытых позиций в Украине и удалённо. Роль определяем по названию вакансии, список обновляется ежедневно.`}
-          de={`Wählen Sie Ihre Rolle: ${listed.length + extra.length} Richtungen und ${total} offene Stellen in der Ukraine und remote. Die Rolle ergibt sich aus dem Jobtitel, täglich aktualisiert.`}
-          es={`Elige tu puesto: ${listed.length + extra.length} áreas y ${total} posiciones abiertas en Ucrania y en remoto. El puesto sale del título de la vacante y se actualiza a diario.`}
-          fr={`Choisissez votre métier : ${listed.length + extra.length} domaines et ${total} postes ouverts en Ukraine et à distance. Le métier vient de l'intitulé, mis à jour chaque jour.`}
-          pl={`Wybierz swoje stanowisko: ${listed.length + extra.length} kierunków i ${total} otwartych ofert w Ukrainie i zdalnie. Rolę określamy po tytule oferty, lista odświeża się codziennie.`}
-          ptBR={`Escolha sua função: ${listed.length + extra.length} áreas e ${total} vagas abertas na Ucrânia e remotas. A função vem do título da vaga, atualizada diariamente.`}
-          zh={`选择你的职位：${listed.length + extra.length} 个方向，乌克兰及远程共 ${total} 个在招职位。职位类型根据职位名称判断，每日更新。`}
+          uk={`Оберіть свою професію: ${listed.length + extra.length} напрямів з вакансіями в Україні та віддалено. Роль визначаємо за назвою вакансії, список оновлюється щодня.`}
+          en={`Pick your role: ${listed.length + extra.length} directions with open jobs in Ukraine and remote. The role comes from the job title, the list updates daily.`}
+          ru={`Выберите профессию: ${listed.length + extra.length} направлений с вакансиями в Украине и удалённо. Роль определяем по названию вакансии, список обновляется ежедневно.`}
+          de={`Wählen Sie Ihre Rolle: ${listed.length + extra.length} Richtungen mit offenen Stellen in der Ukraine und remote. Die Rolle ergibt sich aus dem Jobtitel, täglich aktualisiert.`}
+          es={`Elige tu puesto: ${listed.length + extra.length} áreas con vacantes en Ucrania y en remoto. El puesto sale del título de la vacante y se actualiza a diario.`}
+          fr={`Choisissez votre métier : ${listed.length + extra.length} domaines avec des offres en Ukraine et à distance. Le métier vient de l'intitulé, mis à jour chaque jour.`}
+          pl={`Wybierz swoje stanowisko: ${listed.length + extra.length} kierunków z ofertami w Ukrainie i zdalnie. Rolę określamy po tytule oferty, lista odświeża się codziennie.`}
+          ptBR={`Escolha sua função: ${listed.length + extra.length} áreas com vagas na Ucrânia e remotas. A função vem do título da vaga, atualizada diariamente.`}
+          zh={`选择你的职位：${listed.length + extra.length} 个方向，涵盖乌克兰及远程职位。职位类型根据职位名称判断，每日更新。`}
         />
       </p>
 
