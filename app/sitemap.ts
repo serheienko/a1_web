@@ -31,7 +31,7 @@ import { hiringUkraine, hiringUkraineMonths, UA_MIN_MONTH_POSTS } from "@/lib/se
 import { techCounts } from "@/lib/a1/tech-index";
 import { MIN_SEGMENT_POSTS } from "@/lib/seo/segments";
 import { TOP100_LANDING } from "@/lib/seo/top100-landing";
-import { cityTechList, countrySegments, globalLevelCounts, globalRoleCounts, listCities, remoteTechList, segmentCountries } from "@/lib/a1/segment-index";
+import { cityTechList, countryRolePairs, countrySegments, globalLevelCounts, globalRoleCounts, listCities, remoteTechList, segmentCountries } from "@/lib/a1/segment-index";
 import { COUNTRY_LANDING_CODES } from "@/lib/seo/country-landings";
 import { ARTICLES } from "@/lib/blog/articles";
 import { INTERVIEW_ENTRIES, interviewAlternates, interviewPath } from "@/lib/interview/registry";
@@ -247,6 +247,8 @@ async function buildSitemap({ id }: { id: number | string }): Promise<MetadataRo
       for (const { level } of await globalLevelCounts()) entries.push({ url: `${SITE_URL}/jobs/level/${level}` });
       entries.push({ url: `${SITE_URL}/jobs/role` });
       for (const { role } of await globalRoleCounts()) entries.push({ url: `${SITE_URL}/jobs/role/${role}` });
+      // 25.10.2026: профессия + страна.
+      for (const { cc, role } of await countryRolePairs()) entries.push({ url: `${SITE_URL}/jobs/role/${role}/${cc}` });
       for (const cc of await segmentCountries()) {
         const seg = await countrySegments(cc);
         for (const s of seg.stacks) entries.push({ url: `${SITE_URL}/jobs/country/${cc}/${s.slug}` });

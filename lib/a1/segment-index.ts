@@ -36,6 +36,8 @@ export type SegIndex = {
   cityTech: Map<string, WebPost[]>;
   /** Удалённые вакансии (украинские и «отовсюду») по технологии: ключ «python». */
   remoteTech: Map<string, WebPost[]>;
+  /** 25.10.2026: профессия в стране (кроме Украины): ключ «pl/qa». */
+  countryRole: Map<string, WebPost[]>;
 };
 
 let cached: SegIndex | null = null;
@@ -69,6 +71,7 @@ export function buildSegmentIndex(posts: WebPost[]): SegIndex {
   const globalLevel = new Map<JobLevel, WebPost[]>();
   const globalRole = new Map<JobRole, WebPost[]>();
   const remoteTech = new Map<string, WebPost[]>();
+  const countryRole = new Map<string, WebPost[]>();
 
   for (const post of posts) {
     const cc = post.location?.country?.trim().toUpperCase() || "";
@@ -115,6 +118,8 @@ export function buildSegmentIndex(posts: WebPost[]): SegIndex {
       if (roles.length > 0) {
         const kind = worldwideKind(post);
         if (cc === "UA" || kind === "world" || kind === "remote") for (const role of roles) push(globalRole, role, post);
+        // 25.10.2026: «QA вакансії в Польщі» -- профессия + страна.
+        if (cc && cc !== "WW" && cc !== "UA") for (const role of roles) push(countryRole, `${cc.toLowerCase()}/${role}`, post);
       }
     }
   }
@@ -142,7 +147,7 @@ export function buildSegmentIndex(posts: WebPost[]): SegIndex {
     }
   }
 
-  return { source: posts, cities, countryTech, countryLevel, countryRemote, globalLevel, globalRole, cityTech, remoteTech };
+  return { source: posts, cities, countryTech, countryLevel, countryRemote, globalLevel, globalRole, cityTech, remoteTech, countryRole };
 }
 
 /** Прогрев перед тем, как Railway пустит людей на новую версию: собрать
@@ -291,4 +296,41 @@ export async function citiesForTech(techSlug: string): Promise<{ slug: string; c
     if (c) out.push({ slug: citySlug, city: c.city, cc: c.cc, count: list.length });
   }
   return out.sort((a, b) => b.count - a.count);
+}
+
+// ---------- 25.10.2026: профессия + страна (/jobs/role/<role>/<cc>) ----------
+
+export async function countryRolePosts(cc: string, role: JobRole): Promise<WebPost[] | null> {
+  const list = (await index()).countryRole.get(`${cc.toLowerCase()}/${role}`);
+  return enough(list) ? [...list].sort(byDate) : null;
+}
+
+/** Страны, где у профессии есть своя страница (10+ вакансий), по убыванию. */
+export async function roleCountryCounts(role: JobRole): Promise<{ cc: string; count: number }[]> {
+  const out: { cc: string; count: number }[] = [];
+  for (const [key, list] of (await index()).countryRole) {
+    const [cc, r] = key.split("/");
+    if (r === role && cc && list.length >= MIN_SEGMENT_POSTS) out.push({ cc, count: list.length });
+  }
+  return out.sort((a, b) => b.count - a.count);
+}
+
+/** Профессии страны со своей страницей, по убыванию. */
+export async function countryRoleCounts(cc: string): Promise<{ role: JobRole; count: number }[]> {
+  const idx = await index();
+  const lc = cc.toLowerCase();
+  return JOB_ROLES.map((role) => ({ role, count: idx.countryRole.get(`${lc}/${role}`)?.length ?? 0 }))
+    .filter((r) => r.count >= MIN_SEGMENT_POSTS)
+    .sort((a, b) => b.count - a.count);
+}
+
+/** Все живые пары -- для карты сайта. */
+export async function countryRolePairs(): Promise<{ cc: string; role: JobRole }[]> {
+  const out: { cc: string; role: JobRole }[] = [];
+  for (const [key, list] of (await index()).countryRole) {
+    if (list.length < MIN_SEGMENT_POSTS) continue;
+    const [cc, role] = key.split("/");
+    if (cc && role) out.push({ cc, role: role as JobRole });
+  }
+  return out;
 }

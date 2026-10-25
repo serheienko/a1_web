@@ -9,7 +9,7 @@ import { notFound } from "next/navigation";
 import { JobLandingPage } from "@/components/job-landing";
 import { findCountryLanding } from "@/lib/seo/country-landings";
 import { SegmentLinks } from "@/components/segment-page";
-import { articleLinks, linksForCountry } from "@/lib/seo/segment-links";
+import { articleLinks, linksForCountry, linksForCountryRoles } from "@/lib/seo/segment-links";
 import { parsePageParam, toURLSearchParams, fetchFeedPage, pageToCursor } from "@/lib/a1/feed";
 
 const SITE_URL = "https://jobs.a1appp.com";
@@ -65,6 +65,7 @@ export default async function Page({ params, searchParams }: Props) {
     found.country.code === "WW"
       ? articleLinks(["viddalena-robota-na-inozemnu-kompaniyu", "rynok-it-vakansiy"])
       : [
+          ...(await linksForCountryRoles(found.country.code)),
           ...(await linksForCountry(found.country.code)),
           ...articleLinks(
             COUNTRY_GUIDES[found.country.code]

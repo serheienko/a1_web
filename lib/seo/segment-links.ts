@@ -11,7 +11,7 @@ import { salaryCountriesForRole, salaryRoles } from "@/lib/a1/salary-index";
 import { SALARY_LINKS_TITLE } from "@/lib/seo/salary-texts";
 import { JOB_LEVELS, type JobLevel } from "@/lib/seo/job-level";
 import { cityLabel, levelLabel } from "@/lib/seo/segments";
-import { citiesForTech, cityTechList, countrySegments, countriesForTech, globalLevelCounts, globalRoleCounts, listCities, remoteTechList } from "@/lib/a1/segment-index";
+import { citiesForTech, cityTechList, countryRoleCounts, countrySegments, countriesForTech, globalLevelCounts, globalRoleCounts, listCities, remoteTechList, roleCountryCounts } from "@/lib/a1/segment-index";
 import type { SegmentLinkGroup } from "@/components/segment-page";
 import { findArticle } from "@/lib/blog/articles";
 import { roleInfo, type JobRole } from "@/lib/seo/job-role";
@@ -283,6 +283,34 @@ export function interviewLinks(opts: { role?: string; techSlug?: string }): Segm
         { href: interviewPath("uk", entry.slug), label: entry.content.uk.h1 },
         { href: interviewPath("en", entry.slug), label: entry.content.en.h1 },
       ],
+    },
+  ];
+}
+
+/** 25.10.2026: страны профессии (для /jobs/role/<role> и /jobs/role/<role>/<cc>). */
+export async function linksForRoleCountries(role: JobRole, current?: string): Promise<SegmentLinkGroup[]> {
+  const list = (await roleCountryCounts(role)).filter((c) => c.cc !== current);
+  if (list.length === 0) return [];
+  const label = roleInfo(role)?.label ?? role;
+  return [
+    {
+      title: { uk: `${label} в інших країнах`, en: `${label} in other countries`, ru: `${label} в других странах`, de: `${label} in anderen Ländern`, es: `${label} en otros países`, fr: `${label} dans d'autres pays`, pl: `${label} w innych krajach`, ptBR: `${label} em outros países`, zh: `其他国家的${label}` },
+      links: list.slice(0, 30).map((c) => {
+        const country = countryByCode(c.cc);
+        return { href: `/jobs/role/${role}/${c.cc}`, label: `${flagEmoji(c.cc)} ${country ? country.en : c.cc.toUpperCase()}` };
+      }),
+    },
+  ];
+}
+
+/** 25.10.2026: профессии страны (для страницы страны и /jobs/role/<role>/<cc>). */
+export async function linksForCountryRoles(cc: string, current?: JobRole): Promise<SegmentLinkGroup[]> {
+  const list = (await countryRoleCounts(cc)).filter((r) => r.role !== current);
+  if (list.length === 0) return [];
+  return [
+    {
+      title: ROLE_LINKS_TITLE,
+      links: list.map((r) => ({ href: `/jobs/role/${r.role}/${cc.toLowerCase()}`, label: roleInfo(r.role)?.label ?? r.role })),
     },
   ];
 }
