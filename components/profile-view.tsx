@@ -475,6 +475,17 @@ export function ProfileView({
             <ProfileActionRow> below (add contact / share / message /
             "•••") instead of living up here. */}
         {!demo && <EditProfileButton username={profile.username} className="absolute right-0 top-0" />}
+        {/* 25.10.2026: на своём профиле -- круглое «поділитися» прямо под
+            карандашом (components/profile-share.tsx). */}
+        {!demo && raw && (
+          <ProfileShare
+            username={profile.username}
+            userId={raw.id}
+            fullName={profile.fullName}
+            url={`${SITE_URL}${profileHref(profile.username)}`}
+            className="absolute right-0 top-9"
+          />
+        )}
       </div>
 
       {/* Fuller player element — speed + scrubbing — for the same clip
@@ -536,19 +547,14 @@ export function ProfileView({
       <ProfileActionRow
         username={profile.username}
         profileUserId={raw?.id ?? null}
-        shareUrl={
-          raw
-            ? `https://a1appp.com/userProfile/${raw.id}`
-            : `${SITE_URL}${profileHref(profile.username)}`
-        }
+        // 25.10.2026: наружу делимся веб-профилем -- только у него личная
+        // карточка-превью (app/u/[username]/opengraph-image.tsx). В чат A1
+        // уходит карточка контакта по userId, этот адрес там лишь запасной.
+        shareUrl={`${SITE_URL}${profileHref(profile.username)}`}
         shareTitle={profile.fullName}
         avatarUrl={profile.avatarUrl}
         unclaimed={raw?.unclaimed === true}
       />
-
-      {/* 25.10.2026: на своём профиле -- «Поділитися профілем» (ссылка, QR,
-          куда вставить). Ряд выше для владельца пустой, так что место одно. */}
-      {!demo && <ProfileShare username={profile.username} fullName={profile.fullName} />}
 
       {/* Aleksandr, 2026-08-30: "должны быть просто две кнопки...
           первая -- это bio, а второе -- посты" -- ProfileTabs

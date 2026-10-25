@@ -100,7 +100,7 @@ function langLabel(v: string): string {
 
 function MicBadge() {
   return (
-    <svg width="58" height="58" viewBox="0 0 24 24">
+    <svg width="54" height="54" viewBox="0 0 24 24">
       <circle cx="12" cy="12" r="12" fill="#fff" />
       <circle cx="12" cy="12" r="9.6" fill="#7B4DFF" />
       <rect x="9.9" y="6.4" width="4.2" height="7.4" rx="2.1" fill="#fff" />
@@ -110,7 +110,7 @@ function MicBadge() {
 }
 
 function Icon({ kind }: { kind: "pin" | "work" | "lang" | "jobs" }) {
-  const common = { width: 26, height: 26, viewBox: "0 0 24 24", fill: "none", stroke: "#8A8F98", strokeWidth: 2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  const common = { width: 34, height: 34, viewBox: "0 0 24 24", fill: "none", stroke: "#8A8F98", strokeWidth: 2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
   if (kind === "pin")
     return (
       <svg {...common}>
@@ -136,16 +136,16 @@ function Icon({ kind }: { kind: "pin" | "work" | "lang" | "jobs" }) {
 
 export async function buildProfileOgImage(p: ProfileOgParams): Promise<ImageResponse> {
   const name = clip(p.fullName || p.username, 30);
-  const title = p.title ? clip(p.title, 64) : null;
+  const title = p.title ? clip(p.title, 52) : null;
   const facts: { kind: "pin" | "work" | "lang" | "jobs"; text: string }[] = [];
-  if (p.location) facts.push({ kind: "pin", text: clip(p.location, 26) });
-  if (p.company) facts.push({ kind: "work", text: clip(p.company, 24) });
+  if (p.location) facts.push({ kind: "pin", text: clip(p.location, 22) });
+  if (p.company) facts.push({ kind: "work", text: clip(p.company, 20) });
   if (p.openJobs > 0) facts.push({ kind: "jobs", text: String(p.openJobs) });
-  const langs = Array.from(new Set(p.languages.map(langLabel).filter(Boolean))).slice(0, 4);
+  const langs = Array.from(new Set(p.languages.map(langLabel).filter(Boolean))).slice(0, 3);
   if (langs.length) facts.push({ kind: "lang", text: langs.join(" · ") });
 
-  const skills = p.skills.map((s) => clip(s, 20)).filter(Boolean).slice(0, 8);
-  const bio = skills.length === 0 && p.bio ? clip(p.bio, 150) : null;
+  const skills = p.skills.map((s) => clip(s, 18)).filter(Boolean).slice(0, 4);
+  const bio = skills.length === 0 && p.bio ? clip(p.bio, 90) : null;
   const handle = `jobs.a1appp.com/u/${p.username}`;
 
   const allText = [name, title ?? "", handle, initials(p.fullName), ...facts.map((f) => f.text), ...skills, bio ?? ""].join("");
@@ -160,7 +160,7 @@ export async function buildProfileOgImage(p: ProfileOgParams): Promise<ImageResp
     ...(medium ? [{ name: "Commissioner", data: medium, weight: 500 as const, style: "normal" as const }] : []),
   ];
   const fontFamily = fonts.length ? "Commissioner" : undefined;
-  const nameSize = name.length > 22 ? 54 : 64;
+  const nameSize = name.length > 20 ? 60 : 72;
 
   return new ImageResponse(
     (
@@ -175,12 +175,12 @@ export async function buildProfileOgImage(p: ProfileOgParams): Promise<ImageResp
           <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
             {logo ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={logo} width={58} height={42} style={{ width: 58, height: 42 }} />
+              <img src={logo} width={66} height={48} style={{ width: 66, height: 48 }} />
             ) : (
               <div style={{ display: "flex", fontSize: 38, fontWeight: 700, color: "#fff" }}>A1</div>
             )}
             <div style={{ display: "flex", width: 2, height: 30, background: "rgba(255,255,255,0.35)" }} />
-            <div style={{ display: "flex", fontSize: 25, fontWeight: 500, color: "rgba(255,255,255,0.92)" }}>{handle}</div>
+            <div style={{ display: "flex", fontSize: 31, fontWeight: 500, color: "rgba(255,255,255,0.95)" }}>{handle}</div>
           </div>
         </div>
 
@@ -189,31 +189,31 @@ export async function buildProfileOgImage(p: ProfileOgParams): Promise<ImageResp
           style={{
             display: "flex",
             flexDirection: "column",
-            margin: "26px 48px 48px",
+            margin: "22px 40px 40px",
             flex: 1,
             background: "#FFFFFF",
             borderRadius: 40,
             boxShadow: "0 24px 60px rgba(20, 12, 70, 0.28)",
-            padding: "0 56px",
+            padding: "0 52px",
             justifyContent: "center",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 46 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 40 }}>
             {/* Цветное кольцо и микрофон -- только при голосовом интро; иначе тонкая светлая рамка. */}
-            <div style={{ display: "flex", position: "relative", width: 232, height: 232, flexShrink: 0 }}>
-              <div style={{ position: "absolute", left: 0, top: 0, width: 232, height: 232, borderRadius: 9999, background: p.voiceIntro ? RING_GRADIENT : "#ECEEF3", display: "flex" }} />
-              <div style={{ position: "absolute", left: 8, top: 8, width: 216, height: 216, borderRadius: 9999, background: "#fff", display: "flex" }} />
+            <div style={{ display: "flex", position: "relative", width: 212, height: 212, flexShrink: 0 }}>
+              <div style={{ position: "absolute", left: 0, top: 0, width: 212, height: 212, borderRadius: 9999, background: p.voiceIntro ? RING_GRADIENT : "#ECEEF3", display: "flex" }} />
+              <div style={{ position: "absolute", left: 8, top: 8, width: 196, height: 196, borderRadius: 9999, background: "#fff", display: "flex" }} />
               {avatar ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={avatar} width={200} height={200} style={{ position: "absolute", left: 16, top: 16, width: 200, height: 200, borderRadius: 9999, objectFit: "cover" }} />
+                <img src={avatar} width={180} height={180} style={{ position: "absolute", left: 16, top: 16, width: 180, height: 180, borderRadius: 9999, objectFit: "cover" }} />
               ) : (
                 <div
                   style={{
                     position: "absolute",
                     left: 16,
                     top: 16,
-                    width: 200,
-                    height: 200,
+                    width: 180,
+                    height: 180,
                     borderRadius: 9999,
                     background: BRAND_GRADIENT,
                     display: "flex",
@@ -228,7 +228,7 @@ export async function buildProfileOgImage(p: ProfileOgParams): Promise<ImageResp
                 </div>
               )}
               {p.voiceIntro && (
-                <div style={{ position: "absolute", right: 6, bottom: 10, display: "flex" }}>
+                <div style={{ position: "absolute", right: 2, bottom: 6, display: "flex" }}>
                   <MicBadge />
                 </div>
               )}
@@ -237,12 +237,12 @@ export async function buildProfileOgImage(p: ProfileOgParams): Promise<ImageResp
             <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", fontSize: nameSize, fontWeight: 700, color: "#111111", lineHeight: 1.05, letterSpacing: -1 }}>{name}</div>
               {title && (
-                <div style={{ display: "flex", fontSize: 31, fontWeight: 500, color: "#3F3F46", marginTop: 14, lineHeight: 1.25 }}>{title}</div>
+                <div style={{ display: "flex", fontSize: 42, fontWeight: 500, color: "#27272A", marginTop: 12, lineHeight: 1.2 }}>{title}</div>
               )}
               {facts.length > 0 && (
-                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 26, marginTop: 18, fontSize: 26, fontWeight: 500, color: "#6B7280" }}>
+                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", columnGap: 30, rowGap: 6, marginTop: 16, fontSize: 35, fontWeight: 500, color: "#52525B" }}>
                   {facts.map((f) => (
-                    <div key={f.kind} style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                    <div key={f.kind} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <Icon kind={f.kind} />
                       <span>{f.text}</span>
                     </div>
@@ -253,18 +253,18 @@ export async function buildProfileOgImage(p: ProfileOgParams): Promise<ImageResp
           </div>
 
           {skills.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 34, maxHeight: 128, overflow: "hidden" }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 14, marginTop: 32, maxHeight: 70, overflow: "hidden" }}>
               {skills.map((s) => (
                 <div
                   key={s}
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    padding: "11px 22px",
+                    padding: "12px 26px",
                     borderRadius: 9999,
                     background: "rgba(51, 94, 247, 0.09)",
                     color: ACCENT,
-                    fontSize: 25,
+                    fontSize: 34,
                     fontWeight: 500,
                   }}
                 >
@@ -274,7 +274,7 @@ export async function buildProfileOgImage(p: ProfileOgParams): Promise<ImageResp
             </div>
           )}
           {bio && (
-            <div style={{ display: "flex", marginTop: 30, fontSize: 27, fontWeight: 500, color: "#52525B", lineHeight: 1.4, borderLeft: "4px solid rgba(51, 94, 247, 0.35)", paddingLeft: 20 }}>{bio}</div>
+            <div style={{ display: "flex", marginTop: 28, fontSize: 35, fontWeight: 500, color: "#3F3F46", lineHeight: 1.35, borderLeft: "4px solid rgba(51, 94, 247, 0.35)", paddingLeft: 20 }}>{bio}</div>
           )}
         </div>
       </div>

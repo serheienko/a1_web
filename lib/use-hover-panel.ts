@@ -288,6 +288,15 @@ export function useHoverPanel(
         setOpen(false);
       }
     }
+    // 25.10.2026 (Александр, скриншот меню «Ще» на телефоне: «надо чтобы
+    // любой тап вне окна закрывал меню»). Касание снаружи, которое не стало
+    // прокруткой (палец почти не сдвинулся, см. onTouchMove), -- это тап:
+    // закрываем. Тап по самой кнопке-триггеру сюда не попадает (insidePanel).
+    function onTouchEnd() {
+      if (startY === null || isFocusInsideAny()) return;
+      startY = null;
+      setOpen(false);
+    }
     const scrollY0 = window.scrollY;
     function onScroll(e: Event) {
       if (isFocusInsideAny() || insidePanel(e.target)) return;
@@ -298,8 +307,10 @@ export function useHoverPanel(
     }
     document.addEventListener("touchstart", onTouchStart, { passive: true, capture: true });
     document.addEventListener("touchmove", onTouchMove, { passive: true, capture: true });
+    document.addEventListener("touchend", onTouchEnd, { passive: true, capture: true });
     window.addEventListener("scroll", onScroll, { passive: true, capture: true });
     return () => {
+      document.removeEventListener("touchend", onTouchEnd, { capture: true });
       document.removeEventListener("touchstart", onTouchStart, { capture: true });
       document.removeEventListener("touchmove", onTouchMove, { capture: true });
       window.removeEventListener("scroll", onScroll, { capture: true });
