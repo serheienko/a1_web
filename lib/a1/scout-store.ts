@@ -31,6 +31,9 @@ export type ScoutReport = {
   market: string;
   scanned: { apps: number; feeds: number; hn: number; items: number };
   errors: string[];
+  /** 25.10.2026: SEO-разведка (konk_seo_scout.py) -- отдельный блок того же отчёта. */
+  seo?: ScoutIdea[];
+  seoInfo?: { sites: number; ok: number; near: number; trend: string };
 };
 
 export async function saveScoutReport(r: ScoutReport): Promise<boolean> {
@@ -96,7 +99,7 @@ export async function rejectScoutIdea(input: { date: string; what: string; reaso
   if (!kvConfigured()) return "error";
   try {
     const report = (await loadScoutReports(12)).find((r) => r.date === input.date);
-    const idea = report?.ideas.find((i) => norm(i.what) === norm(input.what));
+    const idea = [...(report?.ideas ?? []), ...(report?.seo ?? [])].find((i) => norm(i.what) === norm(input.what));
     if (!idea) return "not_found";
     const list = await loadScoutRejected();
     // 21.10.2026 (Александр: «мы же это сделали -- отметь в зелёное»): идею, которая уже лежит

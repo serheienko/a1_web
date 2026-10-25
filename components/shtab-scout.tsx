@@ -51,7 +51,11 @@ function day(iso: string): string {
 export async function ShtabScout() {
   const [reports, rejected] = await Promise.all([loadScoutReports(4).catch(() => []), loadScoutRejected().catch(() => [])]);
   // 15.10.2026: отклонённые Александром идеи не показываем (lib/a1/scout-store.ts).
-  const visible = reports.map((r) => ({ ...r, ideas: r.ideas.filter((i) => !isRejected(i, rejected)) }));
+  const visible = reports.map((r) => ({
+    ...r,
+    ideas: r.ideas.filter((i) => !isRejected(i, rejected)),
+    seo: (r.seo ?? []).filter((i) => !isRejected(i, rejected)),
+  }));
   const [last, ...older] = visible;
 
   return (
@@ -104,6 +108,55 @@ export async function ShtabScout() {
         <div className="shs-note">
           <b>Рынок:</b> {last.market}
         </div>
+      ) : null}
+
+      {/* 25.10.2026: SEO-разведка -- что делают в Google сильные сайты (konk_seo_scout.py). */}
+      {last?.seoInfo ? (
+        <>
+          <div className="shs-head" style={{ marginTop: 18 }}>
+            <h2>🔎 SEO-розвідка</h2>
+            <span className="shs-sub">
+              сайтов разобрано {last.seoInfo.ok} из {last.seoInfo.sites}
+              {last.seoInfo.near ? ` · наших запросов «почти в топе»: ${last.seoInfo.near}` : " · Search Console не подключена"}
+            </span>
+          </div>
+          {last.seo.length ? (
+            <div className="shs-list">
+              {last.seo.map((i, k) => (
+                <div className="shs-i" key={`seo-${k}`}>
+                  <div className="shs-top">
+                    {i.who ? <span className="shs-who">{i.who}</span> : null}
+                    <span className={`shs-e ${EFFORT[i.effort]}`}>{i.effort}</span>
+                  </div>
+                  <div className="shs-what">{i.what}</div>
+                  <div className="shs-p">
+                    <b>Что даёт:</b> {i.why}
+                  </div>
+                  {i.how ? (
+                    <div className="shs-p">
+                      <b>Как сделать лучше:</b> {i.how}
+                    </div>
+                  ) : null}
+                  {i.url ? (
+                    <a className="shs-a" href={i.url} target="_blank" rel="noopener noreferrer">
+                      Пример у них ↗
+                    </a>
+                  ) : null}
+                  <div>
+                    <ScoutRejectButton date={last.date} what={i.what} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="shs-note">За эту неделю SEO-идей, которые стоит делать, не нашлось.</div>
+          )}
+          {last.seoInfo.trend ? (
+            <div className="shs-note">
+              <b>Тренд:</b> {last.seoInfo.trend}
+            </div>
+          ) : null}
+        </>
       ) : null}
 
       {rejected.length ? (

@@ -31,6 +31,10 @@ const Body = z.object({
     items: z.number().int().min(0).max(10_000),
   }),
   errors: z.array(z.string().max(300)).max(20),
+  seo: z.array(Idea).max(8).optional(),
+  seoInfo: z
+    .object({ sites: z.number().int().min(0).max(1000), ok: z.number().int().min(0).max(1000), near: z.number().int().min(0).max(1000), trend: z.string().max(500) })
+    .optional(),
 });
 
 export async function POST(req: Request) {
@@ -49,7 +53,9 @@ export async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ ok: false, error: "bad body" }, { status: 400 });
 
   // Ссылки -- только http(s): их рисует штаб.
-  const ideas = parsed.data.ideas.map((i) => ({ ...i, url: /^https?:\/\//.test(i.url) ? i.url : "" }));
-  const saved = await saveScoutReport({ ...parsed.data, ideas });
+  const fix = <T extends { url: string }>(i: T): T => ({ ...i, url: /^https?:\/\//.test(i.url) ? i.url : "" });
+  const ideas = parsed.data.ideas.map(fix);
+  const seo = parsed.data.seo?.map(fix);
+  const saved = await saveScoutReport({ ...parsed.data, ideas, ...(seo ? { seo } : {}) });
   return NextResponse.json({ ok: saved }, { status: saved ? 200 : 502 });
 }
