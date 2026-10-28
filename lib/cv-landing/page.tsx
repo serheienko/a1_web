@@ -11,6 +11,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CvLandingCta } from "@/components/cv-landing-cta";
+import { CV_FX2_CSS, CvCount, CvFeatureCard, CvSteps, CvWords, GhCellsBg } from "@/components/cv-landing-fx2";
+import { cvText } from "@/lib/cv/i18n";
 import { CV_ROLES } from "@/lib/cv-roles/roles";
 import { ROLE_TEXT, rolePath } from "@/lib/cv-roles/registry";
 import { CV_FX_CSS, CvCheck, CvReveal, CvTilt, HeroCv, QrScanDemo } from "@/components/cv-landing-fx";
@@ -106,20 +108,6 @@ function Check() {
   );
 }
 
-const FEATURE_ICONS = [
-  // QR
-  <path key="qr" d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 18h2v2h-2zM14 18h2M18 14h2" />,
-  // stats
-  <path key="st" d="M4 20V10M10 20V4M16 20v-7M22 20H2" />,
-  // sliders
-  <path key="sl" d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0M14 4v4M8 10v4M16 16v4" />,
-  // timeline
-  <path key="tl" d="M6 4v16M6 7h12M6 13h9M6 19h12" />,
-  // link
-  <path key="ln" d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" />,
-  // voice
-  <path key="vo" d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3" />,
-];
 
 export function CvLandingPage({ lang }: { lang: CvLandingLang }) {
   const c = CV_LANDING[lang];
@@ -132,7 +120,7 @@ export function CvLandingPage({ lang }: { lang: CvLandingLang }) {
 
   return (
     <main lang={htmlLang} className="mx-auto max-w-5xl px-4 pt-6 sm:pt-10 pb-fab-safe">
-      <style dangerouslySetInnerHTML={{ __html: CV_FX_CSS }} />
+      <style dangerouslySetInnerHTML={{ __html: CV_FX_CSS + CV_FX2_CSS }} />
       {jsonLd(lang).map((j, i) => (
         <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(j) }} />
       ))}
@@ -176,53 +164,72 @@ export function CvLandingPage({ lang }: { lang: CvLandingLang }) {
 
       {/* 3 шага */}
       <section className="mt-20">
-        <h2 className={h2}>{c.stepsTitle}</h2>
-        <ol className="mt-6 grid gap-4 md:grid-cols-3">
+        <CvWords className={h2} text={c.stepsTitle} />
+        <div className="mt-6">
+        <CvSteps>
+        <ol className="relative grid gap-4 md:grid-cols-3">
           {c.steps.map((s, i) => (
-            <li key={s.title} id={`step-${i + 1}`} className={card}>
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-[15px] font-bold text-white">{i + 1}</div>
+            <li key={s.title} id={`step-${i + 1}`} className={`cvl-step relative ${card}`} style={{ ["--i" as string]: i }}>
+              <div className="cvl-dot relative z-[2] flex h-9 w-9 items-center justify-center rounded-full bg-accent text-[15px] font-bold text-white">{i + 1}</div>
               <h3 className="mt-4 text-[17px] font-semibold text-neutral-900 dark:text-neutral-50">{s.title}</h3>
               <p className={`mt-2 ${body}`}>{s.text}</p>
             </li>
           ))}
         </ol>
+        </CvSteps>
+        </div>
       </section>
 
       {/* Что внутри */}
       <section className="mt-20">
-        <h2 className={h2}>{c.insideTitle}</h2>
+        <CvWords className={h2} text={c.insideTitle} />
         <div className="mt-3 grid items-center gap-6 md:grid-cols-[1fr_1.1fr]">
           <p className={body}>{c.insideLead}</p>
           <QrScanDemo label={c.inside[0]?.title ?? ""} />
         </div>
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {c.inside.map((f, i) => (
-            <div key={f.title} className={card}>
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-accent" aria-hidden="true">
-                {FEATURE_ICONS[i % FEATURE_ICONS.length]}
-              </svg>
+            <CvFeatureCard key={f.title} index={i} className={card}>
               <h3 className="mt-3 text-[16px] font-semibold text-neutral-900 dark:text-neutral-50">{f.title}</h3>
               <p className={`mt-2 ${body}`}>{f.text}</p>
-            </div>
+            </CvFeatureCard>
           ))}
         </div>
       </section>
 
       {/* Подтверждённая статистика */}
-      <section className="mt-20 rounded-[32px] bg-[linear-gradient(125deg,#335EF7_0%,#6A4BF5_55%,#A63DF2_100%)] p-7 text-white sm:p-10">
-        <h2 className="text-2xl font-bold tracking-tight sm:text-[28px]">{c.verifiedTitle}</h2>
-        <div className="mt-4 grid gap-4 md:grid-cols-2">
+      <section className="relative mt-20 overflow-hidden rounded-[32px] bg-[linear-gradient(125deg,#335EF7_0%,#6A4BF5_55%,#A63DF2_100%)] p-7 text-white sm:p-10">
+        <GhCellsBg />
+        <div className="relative">
+        <CvWords className="text-2xl font-bold tracking-tight sm:text-[28px]" text={c.verifiedTitle} />
+        {/* 28.10.2026: цифры как в примере CV Mr. Kit, отсчитываются при прокрутке. */}
+        <div className="mt-6 grid grid-cols-3 gap-3">
+          {(
+            [
+              [261, "contributions", "GitHub"],
+              [12, "dribbbleWorks", ""],
+              [1240, "soReputation", ""],
+            ] as const
+          ).map(([n, k, pre]) => (
+            <div key={k} className="rounded-2xl bg-white/10 p-4 backdrop-blur-sm">
+              <CvCount to={n} className="block text-[28px] font-extrabold leading-none sm:text-[36px]" />
+              <span className="mt-1.5 block text-[12px] text-white/80 sm:text-[13px]">{pre ? `${pre} · ` : ""}{cvText(lang, k)}</span>
+            </div>
+          ))}
+        </div>
+        <div className="mt-6 grid gap-4 md:grid-cols-2">
           {c.verifiedText.map((p) => (
             <p key={p} className="text-[15px] leading-relaxed text-white/90">
               {p}
             </p>
           ))}
         </div>
+        </div>
       </section>
 
       {/* Роли */}
       <section className="mt-20">
-        <h2 className={h2}>{c.rolesTitle}</h2>
+        <CvWords className={h2} text={c.rolesTitle} />
         <p className={`mt-3 max-w-3xl ${body}`}>{c.rolesLead}</p>
         <ul className="mt-6 flex flex-wrap gap-2">
           {/* 28.10.2026: каждая роль ведёт на свою страницу «пример резюме» (lib/cv-roles). */}
@@ -242,7 +249,7 @@ export function CvLandingPage({ lang }: { lang: CvLandingLang }) {
       {/* Честно бесплатно */}
       <section className="mt-20 grid gap-8 md:grid-cols-[0.9fr_1.1fr]">
         <div>
-          <h2 className={h2}>{c.freeTitle}</h2>
+          <CvWords className={h2} text={c.freeTitle} />
           <p className={`mt-3 ${body}`}>{c.freeText}</p>
         </div>
         <div className="overflow-x-auto rounded-3xl border border-neutral-200 dark:border-neutral-800">
@@ -311,7 +318,7 @@ export function CvLandingPage({ lang }: { lang: CvLandingLang }) {
 
       {/* FAQ: ответы в HTML сразу, <details> только сворачивает */}
       <section className="mt-20">
-        <h2 className={h2}>{c.faqTitle}</h2>
+        <CvWords className={h2} text={c.faqTitle} />
         <div className="mt-6 divide-y divide-neutral-200 rounded-3xl border border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800">
           {c.faq.map((f, i) => (
             <details key={f.q} className="group px-5 py-4" open={i === 0}>
