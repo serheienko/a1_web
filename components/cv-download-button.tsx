@@ -71,7 +71,7 @@ export function CvDownloadButton({ username, className }: { username: string; cl
       aria-label={LABEL[lang]}
       title={LABEL[lang]}
       className={
-        "flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-neutral-900/80 text-white shadow-sm transition hover:bg-neutral-900 active:scale-90 disabled:opacity-80 dark:border-black " +
+        "group flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-neutral-900/80 text-white shadow-sm transition hover:bg-neutral-900 active:scale-90 disabled:opacity-80 dark:border-black " +
         (className ?? "")
       }
       disabled={busy}
@@ -82,7 +82,10 @@ export function CvDownloadButton({ username, className }: { username: string; cl
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5" aria-hidden="true">
           <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
           <path d="M14 3v5h5" />
-          <path d="M12 11v6M9.5 14.5 12 17l2.5-2.5" />
+          {/* 28.10.2026: при наведении стрелка «ныряет» вниз, как у кнопки «завантажити застосунок». */}
+          <g className="animate-app-install-arrow">
+            <path d="M12 11v6M9.5 14.5 12 17l2.5-2.5" />
+          </g>
         </svg>
       )}
     </button>
