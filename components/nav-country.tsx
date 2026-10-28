@@ -98,10 +98,47 @@ export function segmentCountryRoute(pathname: string): { current: string; href: 
   return null;
 }
 
+/**
+ * 28.10.2026 (Александр: «я в фильтре Великобритания, открываю вакансию --
+ * сверху переключается на Украину; надо, чтобы запоминалось»).
+ *
+ * ЧТО БЫЛО. Выбранная страна жила только в адресе (?country=gb). У страницы
+ * вакансии, профиля и остальных страниц параметра нет, и кнопка рисовала
+ * Україну, хотя человек смотрит ленту Великобритании.
+ *
+ * ЧТО ТЕПЕРЬ. Страну помним в sessionStorage вкладки (закрыл вкладку --
+ * снова Україна по умолчанию, никаких «вечных» настроек). Где лента сама
+ * решается адресом -- главная, посадочные тегов, страницы профессий и
+ * зарплат -- адрес главнее и обновляет запомненное. На остальных страницах
+ * кнопка показывает запомненную страну. Страницы вакансий не меняются:
+ * они кэшируются и индексируются, всё делает только браузер.
+ */
+const COUNTRY_MEMORY_KEY = "a1.feedCountry";
+
 function NavCountryInner() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [options, setOptions] = useState<CountryOption[] | null>(cache);
+  const [remembered, setRemembered] = useState<string | undefined>(undefined);
+  const urlParam = searchParams.get("country") ?? undefined;
+  const urlDecides = pathname === "/" || isCountryLanding(pathname) || segmentCountryRoute(pathname) !== null;
+
+  useEffect(() => {
+    try {
+      if (urlDecides) {
+        // Лента определяется адресом: нет параметра -- это Україна.
+        if (!segmentCountryRoute(pathname)) sessionStorage.setItem(COUNTRY_MEMORY_KEY, (urlParam ?? "UA").toUpperCase());
+        setRemembered(undefined);
+      } else if (urlParam) {
+        sessionStorage.setItem(COUNTRY_MEMORY_KEY, urlParam.toUpperCase());
+        setRemembered(undefined);
+      } else {
+        setRemembered(sessionStorage.getItem(COUNTRY_MEMORY_KEY) ?? undefined);
+      }
+    } catch {
+      // Браузер не дал хранилище (приватный режим) -- остаётся Україна, как раньше.
+    }
+  }, [pathname, urlParam, urlDecides]);
 
   useEffect(() => {
     let alive = true;
@@ -125,7 +162,7 @@ function NavCountryInner() {
   return (
     <CountryPicker
       basePath={onLanding ? pathname : "/"}
-      current={segment ? segment.current : (searchParams.get("country") ?? undefined)}
+      current={segment ? segment.current : (urlParam ?? remembered)}
       options={list}
       compact
       preserveParams={pathname === "/" || onLanding}
