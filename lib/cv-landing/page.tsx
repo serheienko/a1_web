@@ -12,6 +12,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CV_FX_CSS, CV_FX2_CSS } from "@/lib/cv-landing/fx-css";
 import { CvLandingCta } from "@/components/cv-landing-cta";
+import { CvLangSync } from "@/components/cv-lang-sync";
 import { CvCount, CvFeatureCard, CvSteps, CvWords, GhCellsBg } from "@/components/cv-landing-fx2";
 import { cvText } from "@/lib/cv/i18n";
 import { CV_ROLES } from "@/lib/cv-roles/roles";
@@ -122,6 +123,7 @@ export function CvLandingPage({ lang }: { lang: CvLandingLang }) {
   return (
     <main lang={htmlLang} className="mx-auto max-w-5xl px-4 pt-6 sm:pt-10 pb-fab-safe">
       <style dangerouslySetInnerHTML={{ __html: CV_FX_CSS + CV_FX2_CSS }} />
+      <CvLangSync lang={lang} paths={Object.fromEntries(CV_LANDING_LANGS.map((l) => [l, cvLandingPath(l)]))} />
       {jsonLd(lang).map((j, i) => (
         <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(j) }} />
       ))}

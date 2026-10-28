@@ -8,9 +8,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CV_FX_CSS } from "@/lib/cv-landing/fx-css";
 import { CvLandingCta } from "@/components/cv-landing-cta";
+import { CvLangSync } from "@/components/cv-lang-sync";
 import { CvTilt, HeroCv } from "@/components/cv-landing-fx";
 import type { CvLandingLang } from "@/lib/cv-landing/types";
-import { CV_LANDING, CV_LANDING_HREFLANG, CV_LANDING_OG_LOCALE, CV_LANDING_SITE, cvLandingPath } from "@/lib/cv-landing/registry";
+import { CV_LANDING, CV_LANDING_HREFLANG, CV_LANDING_LANGS, CV_LANDING_OG_LOCALE, CV_LANDING_SITE, cvLandingPath } from "@/lib/cv-landing/registry";
 import { findCvRole } from "@/lib/cv-roles/roles";
 import type { RoleSlug } from "@/lib/cv-roles/types";
 import { ROLE_TEXT, ROLE_UI, fillTpl, roleAlternates, rolePath } from "@/lib/cv-roles/registry";
@@ -83,6 +84,7 @@ export async function CvRolePage({ lang, slug }: { lang: CvLandingLang; slug: Ro
   return (
     <main lang={htmlLang} className="mx-auto max-w-5xl px-4 pt-6 sm:pt-10 pb-fab-safe">
       <style dangerouslySetInnerHTML={{ __html: CV_FX_CSS }} />
+      <CvLangSync lang={lang} paths={Object.fromEntries(CV_LANDING_LANGS.map((l) => [l, rolePath(l, slug)]))} />
       {ld.map((j, i) => (
         <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(j) }} />
       ))}
