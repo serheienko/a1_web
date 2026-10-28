@@ -75,7 +75,10 @@ export async function GET() {
     // профиль, пока их меньше lib/profile-fill.ts PROFILE_FILLED_MIN.
     const web = profile ? mapUserProfile(profile) : null;
     const profileFilled = web ? countFilledProfileFields(web) : 0;
-    const response = NextResponse.json({ ok: true, userId, username, avatarUrl, name, profileFilled });
+    // 28.10.2026: роль обязательна -- components/require-role.tsx отправляет
+    // на /onboarding/profile того, у кого её нет.
+    const occupation = profile?.object === "user" ? profile.occupation : "";
+    const response = NextResponse.json({ ok: true, userId, username, avatarUrl, name, profileFilled, occupation });
     if (refreshedSession) setSession(response, refreshedSession);
     return response;
   } catch (err) {

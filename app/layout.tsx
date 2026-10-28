@@ -14,6 +14,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteFooterGate } from "@/components/site-footer-gate";
 import { NavProgress } from "@/components/nav-progress";
 import { RefCapture } from "@/components/ref-capture";
+import { RequireRole } from "@/components/require-role";
 
 // Commissioner: the real typeface used in the Figma mockups (confirmed via
 // Inspect on "Feed Preview White", 2026-08-26), not a generic system stack.
@@ -328,6 +329,8 @@ export default function RootLayout({
         <PostContextMenuHost />
         <ScrollTopFab />
         <CreatePostFab />
+        {/* 28.10.2026: без роли -- обратно на заполнение профиля. */}
+        <RequireRole />
         {/* 03.10.2026: пиксель Meta для рекламы — components/meta-pixel.tsx */}
         <MetaPixel />
         {/* 16.10.2026. Посещаемость считает бесплатная Cloudflare Web Analytics
