@@ -12,6 +12,7 @@ import { useEffect, useLayoutEffect, useState } from "react";
 const WHO_KEY = "a1-cv-who";
 import { authFetch } from "@/lib/auth-fetch";
 import { profileHref } from "@/lib/profile-href";
+import { DISPLAY_COOKIE } from "@/lib/a1/session-constants";
 
 type Props = {
   lang: string;
@@ -33,10 +34,22 @@ export function CvLandingCta({ lang, path, ctaCreate, ctaDownload, ctaFill, hint
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
 
+  // 28.10.2026 (Александр: «кнопка все равно моргает»). Ответа whoami ждали до 2-3 с
+  // (он стоит в общей очереди authFetch). Теперь решаем сразу, до первой отрисовки:
+  // нет cookie a1_user -- человек точно не вошёл; есть -- берём username из того же
+  // кэша, что и аватарка в шапке (a1_profile_cache:<email>), или из прошлого ответа.
   useLayoutEffect(() => {
     try {
-      const cached = sessionStorage.getItem(WHO_KEY);
-      if (cached !== null) setState({ ready: true, username: cached || null });
+      const m = document.cookie.match(new RegExp(`(?:^|; )${DISPLAY_COOKIE}=([^;]*)`));
+      if (!m) {
+        setState({ ready: true, username: null });
+        return;
+      }
+      const email = decodeURIComponent(m[1] ?? "");
+      const prof = localStorage.getItem("a1_profile_cache:" + email);
+      const fromProfile = prof ? (JSON.parse(prof) as { username?: string | null }).username : null;
+      const cached = fromProfile || localStorage.getItem(WHO_KEY);
+      if (cached) setState({ ready: true, username: cached });
     } catch {
       /* без хранилища -- ждём ответа */
     }
@@ -51,7 +64,8 @@ export function CvLandingCta({ lang, path, ctaCreate, ctaDownload, ctaFill, hint
         const u = d?.ok && typeof d.username === "string" && d.username ? (d.username as string) : null;
         setState({ ready: true, username: u });
         try {
-          sessionStorage.setItem(WHO_KEY, u ?? "");
+          if (u) localStorage.setItem(WHO_KEY, u);
+          else localStorage.removeItem(WHO_KEY);
         } catch {
           /* не страшно */
         }
@@ -98,11 +112,24 @@ export function CvLandingCta({ lang, path, ctaCreate, ctaDownload, ctaFill, hint
     }
   }
 
-  const fade = "transition-opacity duration-300 " + (state.ready ? "opacity-100" : "pointer-events-none opacity-0");
+  // Сервер рисует кнопку «Створити» -- для гостя она видна с первого кадра. Если
+  // в браузере есть cookie a1_user, скрипт ниже ещё до отрисовки помечает <html>,
+  // и CSS прячет кнопки, пока не узнаем username (обычно сразу, из кэша).
+  const ready = state.ready ? "" : undefined;
+  const guard = (
+    <>
+      <style>{`html[data-a1-signed] .cvl-cta:not([data-ready]){opacity:0;pointer-events:none}.cvl-cta{transition:opacity .2s}`}</style>
+      <script
+        suppressHydrationWarning
+        dangerouslySetInnerHTML={{ __html: `try{/(?:^|; )${DISPLAY_COOKIE}=/.test(document.cookie)&&document.documentElement.setAttribute("data-a1-signed","")}catch(e){}` }}
+      />
+    </>
+  );
 
   if (!username) {
     return (
-      <div className={"flex flex-wrap gap-3 " + fade}>
+      <div className="cvl-cta flex flex-wrap gap-3" data-ready={ready}>
+        {guard}
         <a href={`/sign-in?reason=cv&next=${encodeURIComponent(path)}`} className={`${base} ${primary}`}>
           {ctaCreate}
         </a>
@@ -111,7 +138,8 @@ export function CvLandingCta({ lang, path, ctaCreate, ctaDownload, ctaFill, hint
   }
 
   return (
-    <div className={fade}>
+    <div className="cvl-cta" data-ready={ready}>
+      {guard}
       <div className="flex flex-wrap gap-3">
         <button type="button" onClick={download} disabled={busy} className={`${base} ${primary} disabled:opacity-80`}>
           {busy ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-current/30 border-t-current" aria-hidden="true" /> : null}
