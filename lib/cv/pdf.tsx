@@ -19,7 +19,7 @@ import { promises as fs } from "node:fs";
 import sharp from "sharp";
 import { Document, Page, View, Text, Image, Link, Font, Svg, Defs, LinearGradient, Stop, Rect, Path, renderToBuffer } from "@react-pdf/renderer";
 import type { CvData } from "@/lib/cv/data";
-import { allCvTexts, cvText, yearsText } from "@/lib/cv/i18n";
+import { allCvTexts, cvText, soAnswers, yearsText } from "@/lib/cv/i18n";
 
 const FONT_DIR = path.join(process.cwd(), "assets", "cv-fonts");
 let fontsReady = false;
@@ -228,12 +228,11 @@ function CvDocument({ d, logo, family }: { d: CvData; logo: { blue: string; whit
                   <Text style={{ fontSize: 15, fontWeight: 800 }}>{d.stackoverflow.reputation.toLocaleString("en-US").replace(/,/g, " ")}</Text>
                   <Text style={{ fontSize: 8.4, color: MUTED, flex: 1 }}>{t("soReputation")}</Text>
                 </View>
-                {d.stackoverflow.gold + d.stackoverflow.silver + d.stackoverflow.bronze > 0 ? (
                 <View style={{ flexDirection: "row", gap: 9, marginTop: 7 }}>
                   {[
-                    ["#E8B400", d.stackoverflow.gold],
-                    ["#A9B4C2", d.stackoverflow.silver],
-                    ["#C8803F", d.stackoverflow.bronze],
+                    ["#ffcc01", d.stackoverflow.gold],
+                    ["#b4b8bc", d.stackoverflow.silver],
+                    ["#d1a684", d.stackoverflow.bronze],
                   ].map(([c, n]) => (
                     <View key={String(c)} style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
                       <View style={{ width: 6.8, height: 6.8, borderRadius: 3.4, backgroundColor: String(c) }} />
@@ -241,7 +240,9 @@ function CvDocument({ d, logo, family }: { d: CvData; logo: { blue: string; whit
                     </View>
                   ))}
                 </View>
-                ) : null}
+                <Text style={{ fontSize: 8.4, color: MUTED, marginTop: 6 }}>
+                  {soAnswers(d.lang, d.stackoverflow.answers)}
+                </Text>
                 {d.stackoverflow.tags.length ? (
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
                     {d.stackoverflow.tags.map((tag) => (

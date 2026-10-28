@@ -43,7 +43,7 @@ export type CvData = {
   favorites: { books: string[]; movies: string[]; games: string[] };
   github: { login: string; url: string; total: number; levels: number[][] } | null;
   dribbble: { url: string; shots: number; images: string[] } | null;
-  stackoverflow: { url: string; reputation: number; gold: number; silver: number; bronze: number; tags: string[] } | null;
+  stackoverflow: { url: string; answers: number; acceptRate: number | null; reputation: number; gold: number; silver: number; bronze: number; tags: string[] } | null;
 };
 
 async function imageAsDataUrl(url: string | null, w: number, h: number, fit: "cover" | "contain" = "cover"): Promise<string | null> {
@@ -152,9 +152,10 @@ export async function buildCvData(username: string, fallbackLang: CvLang, forced
     };
   }
   const stackoverflow: CvData["stackoverflow"] =
-    // 28.10.2026: свежий аккаунт (репутация 1, ни медалей, ни тегов) -- пустая плитка только портит CV, не рисуем.
-    so && so.status === "ok" && !(so.data.reputation < 10 && so.data.topTags.length === 0 && so.data.badges.gold + so.data.badges.silver + so.data.badges.bronze === 0)
+    so && so.status === "ok"
       ? {
+          answers: so.data.answerCount,
+          acceptRate: so.data.acceptRate,
           url: so.data.htmlUrl,
           reputation: so.data.reputation,
           gold: so.data.badges.gold,

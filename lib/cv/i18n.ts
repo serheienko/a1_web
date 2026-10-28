@@ -78,5 +78,29 @@ export function yearsText(lang: CvLang, n: number): string {
 
 /** Все подписи резюме на языке -- чтобы подгрузить под них шрифт (китайский). */
 export function allCvTexts(lang: CvLang): string {
-  return Object.values(S).map((m) => m[lang] ?? "").join("") + Object.values(YEARS[lang]).join("");
+  return Object.values(S).map((m) => m[lang] ?? "").join("") + Object.values(YEARS[lang]).join("") + Object.values(ANSWERS[lang]).join("");
+}
+
+const ANSWERS: Record<CvLang, Partial<Record<Intl.LDMLPluralRule, string>>> = {
+  uk: { one: "{n} відповідь", few: "{n} відповіді", many: "{n} відповідей", other: "{n} відповіді" },
+  ru: { one: "{n} ответ", few: "{n} ответа", many: "{n} ответов", other: "{n} ответа" },
+  en: { one: "{n} answer", other: "{n} answers" },
+  de: { one: "{n} Antwort", other: "{n} Antworten" },
+  es: { one: "{n} respuesta", other: "{n} respuestas" },
+  fr: { one: "{n} réponse", other: "{n} réponses" },
+  pl: { one: "{n} odpowiedź", few: "{n} odpowiedzi", many: "{n} odpowiedzi", other: "{n} odpowiedzi" },
+  ptBR: { one: "{n} resposta", other: "{n} respostas" },
+  zh: { other: "{n} 个回答" },
+};
+
+/** «12 відповідей» -- строка в плитке Stack Overflow, как в приложении. */
+export function soAnswers(lang: CvLang, n: number): string {
+  const forms = ANSWERS[lang];
+  let cat: Intl.LDMLPluralRule = "other";
+  try {
+    cat = new Intl.PluralRules(CV_LOCALE_TAG[lang]).select(n);
+  } catch {
+    /* other */
+  }
+  return (forms[cat] ?? forms.other ?? "{n}").replace("{n}", String(n));
 }
