@@ -292,7 +292,7 @@ export function CvLandingPage({ lang }: { lang: CvLandingLang }) {
           <h2 className="text-xl font-bold tracking-tight text-neutral-900 sm:text-2xl dark:text-neutral-50">{c.jobsTitle}</h2>
           <p className={`mt-2 ${body}`}>{c.jobsText}</p>
         </div>
-        <Link href="/" className="inline-flex h-12 shrink-0 items-center rounded-full bg-neutral-900 px-6 text-[15px] font-semibold text-white transition hover:bg-neutral-800 dark:bg-white dark:text-neutral-900">
+        <Link href="/" className="inline-flex h-12 shrink-0 items-center rounded-full bg-neutral-900 px-6 text-[15px] font-semibold text-white transition hover:bg-neutral-700 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200">
           {c.jobsCta}
         </Link>
       </section>
