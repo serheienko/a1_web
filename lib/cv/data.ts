@@ -152,7 +152,8 @@ export async function buildCvData(username: string, fallbackLang: CvLang, forced
     };
   }
   const stackoverflow: CvData["stackoverflow"] =
-    so && so.status === "ok"
+    // 28.10.2026: свежий аккаунт (репутация 1, ни медалей, ни тегов) -- пустая плитка только портит CV, не рисуем.
+    so && so.status === "ok" && !(so.data.reputation < 10 && so.data.topTags.length === 0 && so.data.badges.gold + so.data.badges.silver + so.data.badges.bronze === 0)
       ? {
           url: so.data.htmlUrl,
           reputation: so.data.reputation,
