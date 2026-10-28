@@ -145,7 +145,7 @@ export function CvLandingPage({ lang }: { lang: CvLandingLang }) {
       </nav>
 
       {/* Первый экран */}
-      <section className="mt-4 grid items-center gap-10 md:grid-cols-[1.1fr_0.9fr]">
+      <section className="mt-4 grid items-center gap-10 overflow-x-clip py-2 md:grid-cols-[1.1fr_0.9fr] md:overflow-visible">
         <div>
           <div className="text-[12px] font-semibold uppercase tracking-wide text-accent">{c.eyebrow}</div>
           <h1 className="mt-2 text-[34px] font-extrabold leading-[1.08] tracking-tight text-neutral-900 sm:text-5xl dark:text-neutral-50">{c.h1}</h1>
@@ -173,7 +173,7 @@ export function CvLandingPage({ lang }: { lang: CvLandingLang }) {
             height={1075}
             priority
             sizes="(min-width: 768px) 380px, 90vw"
-            className="w-full rotate-[1.5deg] rounded-2xl shadow-[0_30px_60px_-20px_rgba(20,16,80,0.45)] ring-1 ring-black/5"
+            className="w-full rounded-2xl md:rotate-[1.5deg] shadow-[0_30px_60px_-20px_rgba(20,16,80,0.45)] ring-1 ring-black/5"
           />
         </div>
       </section>
