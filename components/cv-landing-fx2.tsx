@@ -49,15 +49,12 @@ export function CvWords({ text, as = "h2", className }: { text: string; as?: "h2
   );
 }
 
-/** Обёртка шагов: линия между кружками и поочерёдное появление карточек. */
+/** Обёртка шагов: поочерёдное появление карточек. */
 export function CvSteps({ children }: { children: ReactNode }) {
   const [ref, inView] = useInView<HTMLDivElement>(0.3);
   return (
     <div ref={ref} className={"cvl-steps relative " + (inView ? "cvl-in" : "")}>
-      {/* линия на уровне кружков, только на широком экране (там шаги в ряд) */}
-      <div className="pointer-events-none absolute left-[42px] right-[calc((100%-32px)/3-42px)] top-[41px] z-[1] hidden h-[2px] md:block" aria-hidden="true">
-        <div className="cvl-line h-full w-full rounded-full bg-[linear-gradient(90deg,#335EF7,#6A4BF5,#A63DF2)]" />
-      </div>
+      {/* 28.10.2026: линию между кружками убрали (Александр: «выглядит как баг») */}
       {children}
     </div>
   );
