@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // 28.10.2026: PDF-резюме (lib/cv/pdf.tsx). react-pdf -- ESM-пакет со своими
+  // шрифтовыми модулями, его не собираем в бандл, а грузим из node_modules.
+  serverExternalPackages: ["@react-pdf/renderer"],
+
   images: {
     // Third-party cover art for the profile's Favorites tiles (see
     // lib/covers.ts) — next/image needs each remote host allow-listed,

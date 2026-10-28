@@ -36,6 +36,7 @@ import { OccupationIcon } from "@/components/occupation-icon";
 import { OCCUPATION_LABELS } from "@/components/occupation-labels";
 import { EditProfileButton } from "@/components/edit-profile-button";
 import { ProfileShare } from "@/components/profile-share";
+import { CvDownloadButton } from "@/components/cv-download-button";
 import { GithubSection } from "@/components/github-section";
 import { DribbbleSection } from "@/components/dribbble-section";
 import { StackoverflowSection } from "@/components/stackoverflow-section";
@@ -486,6 +487,8 @@ export function ProfileView({
             className="absolute right-0 top-9"
           />
         )}
+        {/* 28.10.2026: «Зберегти CV» -- PDF-резюме из профиля (components/cv-download-button.tsx). */}
+        {!demo && raw && <CvDownloadButton username={profile.username} className="absolute right-0 top-[4.5rem]" />}
       </div>
 
       {/* Fuller player element — speed + scrubbing — for the same clip
