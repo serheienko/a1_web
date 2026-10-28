@@ -9,9 +9,9 @@
 // BreadcrumbList.
 
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { CvLandingCta } from "@/components/cv-landing-cta";
+import { CV_FX_CSS, CvCheck, CvReveal, CvTilt, HeroCv, QrScanDemo } from "@/components/cv-landing-fx";
 import type { CvLandingLang } from "@/lib/cv-landing/types";
 import {
   CV_LANDING,
@@ -132,6 +132,7 @@ export function CvLandingPage({ lang }: { lang: CvLandingLang }) {
 
   return (
     <main lang={htmlLang} className="mx-auto max-w-5xl px-4 pt-6 sm:pt-10 pb-fab-safe">
+      <style dangerouslySetInnerHTML={{ __html: CV_FX_CSS }} />
       {jsonLd(lang).map((j, i) => (
         <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(j) }} />
       ))}
@@ -165,16 +166,11 @@ export function CvLandingPage({ lang }: { lang: CvLandingLang }) {
           </ul>
         </div>
         <div className="relative mx-auto w-full max-w-[380px]">
-          <div className="absolute -inset-6 -z-10 rounded-[40px] bg-[radial-gradient(60%_60%_at_50%_40%,rgba(51,94,247,0.28),transparent_70%)]" aria-hidden="true" />
-          <Image
-            src={`/cv-builder/cv-${lang}.webp`}
-            alt={c.sampleAlt}
-            width={760}
-            height={1075}
-            priority
-            sizes="(min-width: 768px) 380px, 90vw"
-            className="w-full rounded-2xl md:rotate-[1.5deg] shadow-[0_30px_60px_-20px_rgba(20,16,80,0.45)] ring-1 ring-black/5"
-          />
+          {/* 28.10.2026: мягкое свечение под листом; в тёмной теме чуть заметнее (Александр: «аккуратненькая тенюха, не кричащая»). */}
+          <div className="pointer-events-none absolute -inset-4 hidden rounded-[40px] md:block bg-[radial-gradient(60%_55%_at_50%_45%,rgba(51,94,247,0.22),transparent_72%)] blur-xl dark:bg-[radial-gradient(62%_58%_at_50%_52%,rgba(107,77,255,0.55),rgba(51,94,247,0.18)_45%,transparent_76%)] md:-inset-8" aria-hidden="true" />
+          <CvTilt>
+            <HeroCv lang={lang} alt={c.sampleAlt} />
+          </CvTilt>
         </div>
       </section>
 
@@ -195,7 +191,10 @@ export function CvLandingPage({ lang }: { lang: CvLandingLang }) {
       {/* Что внутри */}
       <section className="mt-20">
         <h2 className={h2}>{c.insideTitle}</h2>
-        <p className={`mt-3 max-w-3xl ${body}`}>{c.insideLead}</p>
+        <div className="mt-3 grid items-center gap-6 md:grid-cols-[1fr_1.1fr]">
+          <p className={body}>{c.insideLead}</p>
+          <QrScanDemo label={c.inside[0]?.title ?? ""} />
+        </div>
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {c.inside.map((f, i) => (
             <div key={f.title} className={card}>
@@ -252,14 +251,21 @@ export function CvLandingPage({ lang }: { lang: CvLandingLang }) {
               </tr>
             </thead>
             <tbody>
-              {c.compare.map(([row, us, them]) => (
-                <tr key={row} className="border-t border-neutral-200 dark:border-neutral-800">
+              {c.compare.map(([row, us, them], i) => (
+                <CvReveal key={row} delay={i * 0.12} className="border-t border-neutral-200 dark:border-neutral-800">
                   <th scope="row" className="px-4 py-3 font-medium text-neutral-800 dark:text-neutral-200">
                     {row}
                   </th>
-                  <td className="px-4 py-3 font-semibold text-emerald-700 dark:text-emerald-400">{us}</td>
-                  <td className="px-4 py-3 text-neutral-500 dark:text-neutral-400">{them}</td>
-                </tr>
+                  <td className="px-4 py-3 font-semibold text-emerald-700 dark:text-emerald-400">
+                    <span className="cvl-us inline-flex items-center gap-1.5">
+                      <CvCheck />
+                      {us}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-neutral-500 dark:text-neutral-400">
+                    <span className="cvl-them">{them}</span>
+                  </td>
+                </CvReveal>
               ))}
             </tbody>
           </table>
