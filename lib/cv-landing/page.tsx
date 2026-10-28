@@ -38,7 +38,6 @@ const LANG_NAME: Record<CvLandingLang, string> = {
 export function cvLandingMetadata(lang: CvLandingLang): Metadata {
   const c = CV_LANDING[lang];
   const alternates = cvLandingAlternates(lang);
-  const image = `${CV_LANDING_SITE}/cv-builder/cv-${lang}.webp`;
   return {
     title: { absolute: c.title },
     description: c.description,
@@ -49,9 +48,8 @@ export function cvLandingMetadata(lang: CvLandingLang): Metadata {
       url: alternates.canonical,
       type: "website",
       locale: CV_LANDING_OG_LOCALE[lang],
-      images: [{ url: image, width: 760, height: 1075, alt: c.sampleAlt }],
     },
-    twitter: { card: "summary_large_image", title: c.title, description: c.description, images: [image] },
+    twitter: { card: "summary_large_image", title: c.title, description: c.description },
   };
 }
 

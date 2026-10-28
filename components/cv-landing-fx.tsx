@@ -31,6 +31,8 @@ export const CV_FX_CSS = `
 @keyframes cvl-flash{0%,29%{opacity:0}31%{opacity:.85}38%,100%{opacity:0}}
 @keyframes cvl-wave{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
 @keyframes cvl-draw{from{stroke-dashoffset:24}to{stroke-dashoffset:0}}
+@keyframes cvl-gradmove{to{background-position:300% 0}}
+.cvl-grad{background:linear-gradient(90deg,#335EF7,#6A4BF5,#A63DF2,#6A4BF5,#335EF7);background-size:300% 100%;animation:cvl-gradmove 6s linear infinite}
 @keyframes cvl-strike{from{background-size:0 2px}to{background-size:100% 2px}}
 .cvl-sheet .cvl-a{opacity:0;animation:cvl-fade .55s cubic-bezier(.2,.8,.2,1) forwards}
 .cvl-sheet .cvl-photo{opacity:0;animation:cvl-pop .6s cubic-bezier(.2,.8,.2,1) forwards}
@@ -52,7 +54,7 @@ export const CV_FX_CSS = `
 .cvl-row .cvl-us{opacity:.25;transition:opacity .4s}
 .cvl-row.cvl-in .cvl-us{opacity:1;transition-delay:var(--d,0s)}
 @media (prefers-reduced-motion:reduce){
-  .cvl-sheet *,.cvl-phone,.cvl-screen,.cvl-flash,.cvl-scan,.cvl-w,.cvl-row *{animation:none!important;transition:none!important;opacity:1!important;clip-path:none!important}
+  .cvl-grad,.cvl-sheet *,.cvl-phone,.cvl-screen,.cvl-flash,.cvl-scan,.cvl-w,.cvl-row *{animation:none!important;transition:none!important;opacity:1!important;clip-path:none!important}
   .cvl-row .cvl-check path{stroke-dashoffset:0}
   .cvl-row .cvl-them{background-size:100% 2px}
   .cvl-tilt{transform:none!important}

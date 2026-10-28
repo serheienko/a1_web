@@ -36,6 +36,7 @@ import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { generateImageBlurDataUrl } from "@/lib/avatar-blur";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
 import { T } from "@/components/t";
+import { CvPromoStrip } from "@/components/cv-promo-strip";
 import { PostOwnerMenu } from "@/components/post-owner-menu";
 import { PostViewerMenu } from "@/components/post-viewer-menu";
 import { ClaimCompanyPrompt } from "@/components/claim-company-prompt";
@@ -557,6 +558,9 @@ export default async function JobDetailPage({ params }: Props) {
       )}
 
       <JobMarketStats stats={marketStats} />
+
+      {/* 28.10.2026: ссылка на конструктор резюме (внутренняя перелинковка для SEO). */}
+      <CvPromoStrip />
 
       <PostComments comments={comments} postId={post.id} />
 

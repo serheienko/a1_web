@@ -7,7 +7,9 @@
 // собирается из профиля (решение Александра 28.10.2026).
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
+
+const WHO_KEY = "a1-cv-who";
 import { authFetch } from "@/lib/auth-fetch";
 import { profileHref } from "@/lib/profile-href";
 
@@ -22,18 +24,41 @@ type Props = {
 };
 
 export function CvLandingCta({ lang, path, ctaCreate, ctaDownload, ctaFill, hint, tone = "light" }: Props) {
-  const [username, setUsername] = useState<string | null>(null);
+  // 28.10.2026 (Александр: «при перезагрузке кнопка 0,3 с прыгает»). Пока не знаем, вошёл ли
+  // человек, кнопки невидимы (место занято, ничего не прыгает), потом плавно проявляются.
+  // Последний ответ запоминаем в sessionStorage и берём его до первой отрисовки --
+  // при перезагрузке сразу верная кнопка.
+  const [state, setState] = useState<{ ready: boolean; username: string | null }>({ ready: false, username: null });
+  const username = state.username;
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+
+  useLayoutEffect(() => {
+    try {
+      const cached = sessionStorage.getItem(WHO_KEY);
+      if (cached !== null) setState({ ready: true, username: cached || null });
+    } catch {
+      /* без хранилища -- ждём ответа */
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     authFetch("/api/account/whoami")
       .then((r) => r.json())
       .then((d) => {
-        if (!cancelled && d?.ok && typeof d.username === "string" && d.username) setUsername(d.username);
+        if (cancelled) return;
+        const u = d?.ok && typeof d.username === "string" && d.username ? (d.username as string) : null;
+        setState({ ready: true, username: u });
+        try {
+          sessionStorage.setItem(WHO_KEY, u ?? "");
+        } catch {
+          /* не страшно */
+        }
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!cancelled) setState((s) => ({ ...s, ready: true }));
+      });
     return () => {
       cancelled = true;
     };
@@ -42,7 +67,7 @@ export function CvLandingCta({ lang, path, ctaCreate, ctaDownload, ctaFill, hint
   const primary =
     tone === "dark"
       ? "bg-white text-[#2840B8] hover:bg-white/90"
-      : "bg-accent text-white hover:brightness-110";
+      : "cvl-grad text-white shadow-[0_10px_30px_-10px_rgba(107,77,255,0.7)] hover:brightness-110";
   const secondary =
     tone === "dark"
       ? "border border-white/50 bg-white/10 text-white hover:bg-white/20"
@@ -73,9 +98,11 @@ export function CvLandingCta({ lang, path, ctaCreate, ctaDownload, ctaFill, hint
     }
   }
 
+  const fade = "transition-opacity duration-300 " + (state.ready ? "opacity-100" : "pointer-events-none opacity-0");
+
   if (!username) {
     return (
-      <div className="flex flex-wrap gap-3">
+      <div className={"flex flex-wrap gap-3 " + fade}>
         <a href={`/sign-in?reason=cv&next=${encodeURIComponent(path)}`} className={`${base} ${primary}`}>
           {ctaCreate}
         </a>
@@ -84,7 +111,7 @@ export function CvLandingCta({ lang, path, ctaCreate, ctaDownload, ctaFill, hint
   }
 
   return (
-    <div>
+    <div className={fade}>
       <div className="flex flex-wrap gap-3">
         <button type="button" onClick={download} disabled={busy} className={`${base} ${primary} disabled:opacity-80`}>
           {busy ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-current/30 border-t-current" aria-hidden="true" /> : null}
