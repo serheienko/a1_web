@@ -82,7 +82,7 @@ const LINE = "#E2E6F5";
 const HEAT = ["#EDF0FA", "#C7D2FB", "#8FA3F8", ACCENT, "#2840B8"];
 
 function H2({ children }: { children: string }) {
-  return <Text style={{ fontSize: 9, fontWeight: 700, letterSpacing: 0.9, textTransform: "uppercase", color: ACCENT, marginBottom: 7 }}>{children}</Text>;
+  return <Text style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", color: ACCENT, marginBottom: 7 }}>{children}</Text>;
 }
 
 function Chip({ children, light }: { children: string; light?: boolean }) {
@@ -143,7 +143,7 @@ function CvDocument({ d, logo, family }: { d: CvData; logo: { blue: string; whit
             </View>
           ) : null}
           <View style={{ flex: 1, color: "#FFFFFF" }}>
-            <Text style={{ fontSize: 9.5, fontWeight: 600, letterSpacing: 0.8, textTransform: "uppercase", opacity: 0.85 }}>{t("resumeFrom")}</Text>
+            <Text style={{ fontSize: 9.5, fontWeight: 600, textTransform: "uppercase", opacity: 0.85 }}>{t("resumeFrom")}</Text>
             <Text style={{ fontSize: d.name.length > 22 ? 24 : 30, fontWeight: 800, marginTop: 4, lineHeight: 1.08 }}>{d.name}</Text>
             {d.role ? <Text style={{ fontSize: 13.5, fontWeight: 600, marginTop: 4 }}>{d.role}</Text> : null}
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
