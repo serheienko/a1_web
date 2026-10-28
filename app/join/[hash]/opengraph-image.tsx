@@ -26,5 +26,6 @@ export default async function Image({ params }: Props) {
     pictureName: g.title,
     facts: [{ kind: "people", text: String(g.memberCount) }],
     chips: [],
+    description: g.description,
   });
 }

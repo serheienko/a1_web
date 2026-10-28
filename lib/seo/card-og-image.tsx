@@ -35,6 +35,8 @@ export type CardOgParams = {
   pictureName: string;
   facts: CardFact[];
   chips: string[];
+  /** Описание (у группы), серым под заголовком. */
+  description?: string | null;
 };
 
 function FactIcon({ kind }: { kind: CardFact["kind"] }) {
@@ -74,8 +76,9 @@ export async function buildCardOgImage(p: CardOgParams): Promise<ImageResponse> 
   const title = clip(p.title, 70);
   const eyebrow = p.eyebrow ? clip(p.eyebrow, 34) : null;
   const facts = p.facts.slice(0, 3).map((f) => ({ ...f, text: clip(f.text, 24) }));
+  const description = p.description ? clip(p.description, 120) : null;
   const chips = p.chips.map((s) => clip(s, 18)).filter(Boolean).slice(0, 4);
-  const allText = [title, eyebrow ?? "", p.handle, initials(p.pictureName), ...facts.map((f) => f.text), ...chips].join("");
+  const allText = [title, eyebrow ?? "", p.handle, initials(p.pictureName), ...facts.map((f) => f.text), ...chips, description ?? ""].join("");
   const [bold, medium, picture, logo] = await Promise.all([
     loadCommissioner(allText, 700),
     loadCommissioner(allText, 500),
@@ -123,6 +126,7 @@ export async function buildCardOgImage(p: CardOgParams): Promise<ImageResponse> 
             <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
               {eyebrow && <div style={{ display: "flex", fontSize: 36, fontWeight: 700, color: ACCENT, marginBottom: 8 }}>{eyebrow}</div>}
               <div style={{ display: "flex", fontSize: titleSize, fontWeight: 700, color: "#111111", lineHeight: 1.08, letterSpacing: -1 }}>{title}</div>
+              {description && <div style={{ display: "flex", fontSize: 30, fontWeight: 500, color: "#52525B", lineHeight: 1.3, marginTop: 12 }}>{description}</div>}
               {facts.length > 0 && (
                 <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", columnGap: 30, rowGap: 6, marginTop: 18, fontSize: 34, fontWeight: 500, color: "#52525B" }}>
                   {facts.map((f) => (
@@ -167,6 +171,15 @@ export function salaryText(s: { min: number | null; max: number | null; currency
   return s.min != null && s.max == null ? `${sym}${num(one)}+` : `${sym}${num(one)}`;
 }
 
+const FORMAT: Record<string, string> = { remote: "Remote", hybrid: "Hybrid", "no-site": "On-site", office: "On-site" };
+const EMPLOYMENT: Record<string, string> = {
+  "full-time": "Full-time",
+  "part-time": "Part-time",
+  contract: "Contract",
+  freelance: "Freelance",
+  internship: "Internship",
+};
+
 /** Карточка для вакансии (hiring) и поста «шукаю роботу» (seeking). */
 export function cardParamsForPost(post: import("@/types/web-post").WebPost, handle: string): CardOgParams {
   const hiring = post.kind === "hiring";
@@ -176,7 +189,14 @@ export function cardParamsForPost(post: import("@/types/web-post").WebPost, hand
   if (money) facts.push({ kind: "money", text: money });
   const place = post.location?.city || post.location?.display || "";
   if (place) facts.push({ kind: "pin", text: place });
-  if (post.isRemote) facts.push({ kind: "remote", text: "Remote" });
+  // Формат работы -- в факты (с глобусом), а не в теги: в базе он хранится
+  // служебными словами (remote / hybrid / "no-site" = офис).
+  const norm = (t: string) => t.trim().toLowerCase();
+  const format = post.tags.map(norm).map((t) => FORMAT[t]).find(Boolean) ?? (post.isRemote ? "Remote" : null);
+  if (format) facts.push({ kind: "remote", text: format });
+  const chips = post.tags
+    .filter((t) => !FORMAT[norm(t)])
+    .map((t) => EMPLOYMENT[norm(t)] ?? t);
   const firstImage = post.images[0]?.url ?? null;
   return {
     handle,
@@ -185,9 +205,9 @@ export function cardParamsForPost(post: import("@/types/web-post").WebPost, hand
     // Вакансия: логотип компании (аватар автора-компании), если нет --
     // первое фото поста. Кандидат: его фото.
     pictureUrl: anon ? null : post.author.avatarUrl ?? (hiring ? firstImage : null),
-    pictureShape: hiring ? "square" : "circle",
+    pictureShape: "circle",
     pictureName: anon ? post.title : post.author.name,
     facts,
-    chips: post.tags,
+    chips,
   };
 }
