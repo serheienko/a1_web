@@ -197,7 +197,7 @@ export async function buildCvData(username: string, fallbackLang: CvLang, forced
       experience,
       education: profile.education.filter((e) => e.trim()),
       skills: [...profile.skills].sort((a, b) => b.level - a.level).slice(0, 8).map((s) => ({ name: s.value, level: Math.max(0, Math.min(100, s.level)) })),
-      languages: profile.languages.map((l) => ({ name: formatLanguageNameIn(l.value, tag), level: Math.max(0, Math.min(5, l.level)) })),
+      languages: profile.languages.map((l) => ({ name: formatLanguageNameIn(l.value, tag), level: Math.max(1, Math.min(5, l.level + 1)) })), // в профиле уровни 0..4 (5 штук), точек 5
       hobbies,
       favorites: {
         books: profile.favoriteBooks.map((b) => b.title).filter(Boolean).slice(0, 3),
