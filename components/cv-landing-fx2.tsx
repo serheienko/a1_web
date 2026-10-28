@@ -160,13 +160,13 @@ export function CvCount({ to, className }: { to: number; className?: string }) {
 /** Фон из квадратиков GitHub, которые медленно загораются (за фиолетовым блоком). */
 export function GhCellsBg() {
   const cols = 40;
-  const rows = 7;
+  const rows = 4;
   const cells = Array.from({ length: cols * rows }, (_, i) => {
     const r = ((i * 9301 + 49297) % 233280) / 233280;
     return { o: 0.2 + r * 0.5, t: 3 + (r * 5) % 4, d: (r * 7) % 6 };
   });
   return (
-    <div className="cvl-ghbg pointer-events-none absolute inset-0 grid content-end gap-[5px] p-5 opacity-60" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }} aria-hidden="true">
+    <div className="cvl-ghbg pointer-events-none mt-8 grid grid-cols-[repeat(20,minmax(0,1fr))] gap-[4px] opacity-70 [mask-image:linear-gradient(to_bottom,transparent,#000_70%)] max-sm:[&>i:nth-child(n+81)]:hidden sm:grid-cols-[repeat(40,minmax(0,1fr))] sm:gap-[5px]" aria-hidden="true">
       {cells.map((c, i) => (
         <i key={i} className="block aspect-square rounded-[3px] bg-white" style={{ ["--o" as string]: c.o, ["--t" as string]: `${c.t}s`, ["--d" as string]: `${c.d}s`, opacity: 0.08 }} />
       ))}

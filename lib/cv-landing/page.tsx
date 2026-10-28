@@ -200,7 +200,6 @@ export function CvLandingPage({ lang }: { lang: CvLandingLang }) {
 
       {/* Подтверждённая статистика */}
       <section className="relative mt-20 overflow-hidden rounded-[32px] bg-[linear-gradient(125deg,#335EF7_0%,#6A4BF5_55%,#A63DF2_100%)] p-7 text-white sm:p-10">
-        <GhCellsBg />
         <div className="relative">
         <CvWords className="text-2xl font-bold tracking-tight sm:text-[28px]" text={c.verifiedTitle} />
         {/* 28.10.2026: цифры как в примере CV Mr. Kit, отсчитываются при прокрутке. */}
@@ -212,8 +211,8 @@ export function CvLandingPage({ lang }: { lang: CvLandingLang }) {
               [1240, "soReputation", ""],
             ] as const
           ).map(([n, k, pre]) => (
-            <div key={k} className="rounded-2xl bg-white/10 p-4 backdrop-blur-sm">
-              <CvCount to={n} className="block text-[28px] font-extrabold leading-none sm:text-[36px]" />
+            <div key={k} className="rounded-2xl bg-white/10 p-3 backdrop-blur-sm sm:p-4">
+              <CvCount to={n} className="block whitespace-nowrap text-[22px] font-extrabold leading-none sm:text-[36px]" />
               <span className="mt-1.5 block text-[12px] text-white/80 sm:text-[13px]">{pre ? `${pre} · ` : ""}{cvText(lang, k)}</span>
             </div>
           ))}
@@ -226,6 +225,8 @@ export function CvLandingPage({ lang }: { lang: CvLandingLang }) {
           ))}
         </div>
         </div>
+        {/* 28.10.2026 (Александр: «текст плохо читается»): клетки GitHub -- отдельной полосой под текстом, а не под ним. */}
+        <GhCellsBg />
       </section>
 
       {/* Роли */}
