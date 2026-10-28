@@ -53,7 +53,10 @@ export async function GET(req: NextRequest) {
       const post = await fetchPostById(id);
       if (post) {
         const slug = slugify(post.title, post.id);
-        return NextResponse.redirect(new URL(`/jobs/${slug}`, SITE_URL), { status: 302 });
+        // 28.10.2026: пост «шукаю роботу» живёт на /talents/, а не на
+        // /jobs/ -- раньше ссылка из приложения на такой пост вела на 404.
+        const section = post.kind === "seeking" ? "talents" : "jobs";
+        return NextResponse.redirect(new URL(`/${section}/${slug}`, SITE_URL), { status: 302 });
       }
     } else if (type === "profile") {
       const username = await fetchUsernameById(id);
