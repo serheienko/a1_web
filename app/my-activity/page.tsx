@@ -112,6 +112,39 @@ function tabLabel(tab: Tab, lang: Locale): string {
   return STRINGS[tab][lang];
 }
 
+const SCHEDULED_BADGE_CLASS = "bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200";
+
+const INTL_LOCALE: Record<Locale, string> = {
+  uk: "uk-UA", en: "en-GB", ru: "ru-RU", de: "de-DE", es: "es-ES", fr: "fr-FR", pl: "pl-PL", ptBR: "pt-BR", zh: "zh-CN",
+};
+
+/** «🕒 жовт. 28 · 16:19» -- как бэдж запланированного поста в приложении. */
+function ScheduledLabel({ at, lang }: { at: Date; lang: Locale }) {
+  const loc = INTL_LOCALE[lang] ?? "uk-UA";
+  const day = new Intl.DateTimeFormat(loc, { month: "short", day: "numeric" }).format(at);
+  const time = new Intl.DateTimeFormat(loc, { hour: "2-digit", minute: "2-digit", hour12: false }).format(at);
+  return (
+    <span className="inline-flex items-center gap-1">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3 2" />
+      </svg>
+      {day} · {time}
+    </span>
+  );
+}
+
+/** Запланированный пост ещё не опубликован -- публичной страницы у него нет;
+ *  открываем свой профиль, где его можно отредактировать. */
+function openOwnProfile() {
+  authFetch("/api/account/whoami")
+    .then((r) => r.json())
+    .then((d) => {
+      if (d?.ok && d.username) window.location.href = profileHref(d.username);
+    })
+    .catch(() => {});
+}
+
 export default function MyActivityPage() {
   const lang = useActiveLocale();
   const [tab, setTab] = useState<Tab>("mine");
@@ -119,6 +152,7 @@ export default function MyActivityPage() {
   const [mineState, setMineState] = useState<LoadState>("loading");
   const [minePosts, setMinePosts] = useState<(WebPost & { avatarBlurDataUrl: string | null })[]>([]);
   const mineFetched = useRef(false);
+  const [scheduledPosts, setScheduledPosts] = useState<{ post: WebPost & { avatarBlurDataUrl: string | null }; at: Date }[]>([]);
 
   const [postsState, setPostsState] = useState<LoadState>("loading");
   const [posts, setPosts] = useState<(WebPost & { avatarBlurDataUrl: string | null })[]>([]);
@@ -146,6 +180,29 @@ export default function MyActivityPage() {
         }
         setMinePosts(((data.posts ?? []) as RawSavedPost[]).map(revivePostDates));
         setMineState("ready");
+        // 28.10.2026 (Александр): запланированные посты тоже здесь, с
+        // бэджем «часы + время выхода», как в профиле в приложении.
+        // mine-feed отдаёт только опубликованные, поэтому берём их из
+        // /api/posts/mine (там же черновики и запланированные).
+        authFetch("/api/posts/mine")
+          .then((r) => r.json())
+          .then((mine) => {
+            if (cancelled || !mine?.ok || !Array.isArray(mine.draftsAndScheduled)) return;
+            const whenById: Record<string, number> = {};
+            for (const p of (mine.posts ?? []) as { id: string; scheduled?: number | null }[]) {
+              if (p.scheduled) whenById[p.id] = p.scheduled;
+            }
+            const now = Date.now() / 1000;
+            const cards = (mine.draftsAndScheduled as { post: RawSavedPost; status: string; avatarBlurDataUrl: string | null }[])
+              .filter((c) => c.status === "scheduled" && (whenById[c.post.id] ?? 0) > now)
+              .map((c) => ({
+                post: revivePostDates({ ...c.post, avatarBlurDataUrl: c.avatarBlurDataUrl ?? null }),
+                at: new Date((whenById[c.post.id] ?? 0) * 1000),
+              }))
+              .sort((a, b) => a.at.getTime() - b.at.getTime());
+            setScheduledPosts(cards);
+          })
+          .catch(() => {});
       })
       .catch(() => {
         if (!cancelled) setMineState("error");
@@ -373,13 +430,23 @@ export default function MyActivityPage() {
         </p>
       )}
 
-      {tab === "mine" && mineState === "ready" && minePosts.length === 0 && (
+      {tab === "mine" && mineState === "ready" && minePosts.length === 0 && scheduledPosts.length === 0 && (
         <p className="mt-6 text-sm text-neutral-500 dark:text-neutral-400">
           <T uk="У вас ще немає опублікованих дописів." en="You don't have any published posts yet." ru="У вас пока нет опубликованных публикаций." de="Noch keine veröffentlichten Beiträge." es="Aún no tienes publicaciones." fr="Vous n'avez pas encore de publications." pl="Nie masz jeszcze opublikowanych postów." ptBR="Você ainda não tem publicações." zh="您还没有已发布的帖子。" />
         </p>
       )}
-      {tab === "mine" && mineState === "ready" && minePosts.length > 0 && (
+      {tab === "mine" && mineState === "ready" && (minePosts.length > 0 || scheduledPosts.length > 0) && (
         <ul className="mt-6 flex flex-col gap-3">
+          {scheduledPosts.map(({ post, at }) => (
+            <li key={"s-" + post.id}>
+              <PostCard
+                post={post}
+                avatarBlurDataUrl={post.avatarBlurDataUrl}
+                statusBadge={{ label: <ScheduledLabel at={at} lang={lang} />, className: SCHEDULED_BADGE_CLASS }}
+                onOpen={openOwnProfile}
+              />
+            </li>
+          ))}
           {minePosts.map((post) => (
             <li key={post.id}>
               <PostCard post={post} avatarBlurDataUrl={post.avatarBlurDataUrl} />
