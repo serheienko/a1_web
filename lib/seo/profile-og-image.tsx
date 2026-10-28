@@ -52,7 +52,7 @@ export type ProfileOgParams = {
 // Логотип и фото -- в data:-адреса. Satori (рисует next/og) не понимает webp,
 // а медиа-прокси отдаёт фото как есть, поэтому фото всегда перегоняем в PNG.
 let logoDataUrl: string | null | undefined;
-async function loadLogo(): Promise<string | null> {
+export async function loadLogo(): Promise<string | null> {
   if (logoDataUrl !== undefined) return logoDataUrl;
   try {
     const res = await fetch(`${SITE_URL}/brand/a1-logo-white.svg`);
@@ -65,7 +65,7 @@ async function loadLogo(): Promise<string | null> {
   return logoDataUrl;
 }
 
-async function loadAvatar(url: string | null): Promise<string | null> {
+export async function loadAvatar(url: string | null): Promise<string | null> {
   if (!url) return null;
   try {
     const abs = url.startsWith("http") ? url : `${SITE_URL}${url}`;
@@ -81,12 +81,12 @@ async function loadAvatar(url: string | null): Promise<string | null> {
   }
 }
 
-function initials(name: string): string {
+export function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "A1";
 }
 
-function clip(text: string, max: number): string {
+export function clip(text: string, max: number): string {
   const t = text.replace(/\s+/g, " ").trim();
   return t.length > max ? t.slice(0, max - 1).trimEnd() + "…" : t;
 }
