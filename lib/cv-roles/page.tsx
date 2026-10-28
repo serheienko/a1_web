@@ -6,8 +6,9 @@
 
 import type { Metadata } from "next";
 import Link from "next/link";
+import { CV_FX_CSS } from "@/lib/cv-landing/fx-css";
 import { CvLandingCta } from "@/components/cv-landing-cta";
-import { CV_FX_CSS, CvTilt, HeroCv } from "@/components/cv-landing-fx";
+import { CvTilt, HeroCv } from "@/components/cv-landing-fx";
 import type { CvLandingLang } from "@/lib/cv-landing/types";
 import { CV_LANDING, CV_LANDING_HREFLANG, CV_LANDING_OG_LOCALE, CV_LANDING_SITE, cvLandingPath } from "@/lib/cv-landing/registry";
 import { findCvRole } from "@/lib/cv-roles/roles";

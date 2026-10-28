@@ -7,51 +7,6 @@
 
 import { createElement, useEffect, useRef, useState, type ReactNode } from "react";
 
-export const CV_FX2_CSS = `
-.cvl-words .cvl-wd{display:inline-block;opacity:0;transform:translateY(.45em);filter:blur(4px);transition:opacity .55s ease,transform .55s cubic-bezier(.2,.8,.2,1),filter .55s ease;transition-delay:calc(var(--i)*70ms)}
-.cvl-words.cvl-in .cvl-wd{opacity:1;transform:none;filter:none}
-.cvl-steps .cvl-line{transform:scaleX(0);transform-origin:left;transition:transform 1.2s cubic-bezier(.65,0,.35,1) .15s}
-.cvl-steps.cvl-in .cvl-line{transform:scaleX(1)}
-.cvl-steps .cvl-step{opacity:0;transform:translateY(14px);transition:opacity .5s ease,transform .5s cubic-bezier(.2,.8,.2,1);transition-delay:calc(.2s + var(--i)*.35s)}
-.cvl-steps.cvl-in .cvl-step{opacity:1;transform:none}
-.cvl-steps .cvl-dot{transition:box-shadow .4s ease;transition-delay:calc(.35s + var(--i)*.35s)}
-.cvl-steps.cvl-in .cvl-dot{box-shadow:0 0 0 6px rgba(51,94,247,.15)}
-@keyframes cvl-ic-blink{0%,100%{opacity:1}50%{opacity:.15}}
-@keyframes cvl-ic-grow{0%{transform:scaleY(.2)}60%{transform:scaleY(1.08)}100%{transform:scaleY(1)}}
-@keyframes cvl-ic-slide{0%,100%{transform:translateX(0)}50%{transform:translateX(var(--dx,3px))}}
-@keyframes cvl-ic-draw{from{stroke-dashoffset:14}to{stroke-dashoffset:0}}
-@keyframes cvl-ic-wiggle{0%,100%{transform:rotate(0)}25%{transform:rotate(-12deg)}75%{transform:rotate(12deg)}}
-@keyframes cvl-ic-wave{0%{opacity:.9;transform:scale(.7)}100%{opacity:0;transform:scale(1.35)}}
-.cvl-ic *{transform-box:fill-box}
-.cvl-ic .b1,.cvl-ic .b2,.cvl-ic .b3{transform-origin:bottom}
-.cvl-card:hover .cvl-ic .q1,.cvl-in .cvl-ic .q1{animation:cvl-ic-blink 1.2s ease-in-out 2}
-.cvl-card:hover .cvl-ic .q2,.cvl-in .cvl-ic .q2{animation:cvl-ic-blink 1.2s ease-in-out .3s 2}
-.cvl-card:hover .cvl-ic .b1,.cvl-in .cvl-ic .b1{animation:cvl-ic-grow .7s ease-out}
-.cvl-card:hover .cvl-ic .b2,.cvl-in .cvl-ic .b2{animation:cvl-ic-grow .7s ease-out .12s both}
-.cvl-card:hover .cvl-ic .b3,.cvl-in .cvl-ic .b3{animation:cvl-ic-grow .7s ease-out .24s both}
-.cvl-card:hover .cvl-ic .k1,.cvl-in .cvl-ic .k1{--dx:6px;animation:cvl-ic-slide 1s ease-in-out}
-.cvl-card:hover .cvl-ic .k2,.cvl-in .cvl-ic .k2{--dx:-5px;animation:cvl-ic-slide 1s ease-in-out .1s}
-.cvl-card:hover .cvl-ic .k3,.cvl-in .cvl-ic .k3{--dx:4px;animation:cvl-ic-slide 1s ease-in-out .2s}
-.cvl-ic .t1,.cvl-ic .t2,.cvl-ic .t3{stroke-dasharray:14}
-.cvl-card:hover .cvl-ic .t1,.cvl-in .cvl-ic .t1{animation:cvl-ic-draw .5s ease-out both}
-.cvl-card:hover .cvl-ic .t2,.cvl-in .cvl-ic .t2{animation:cvl-ic-draw .5s ease-out .15s both}
-.cvl-card:hover .cvl-ic .t3,.cvl-in .cvl-ic .t3{animation:cvl-ic-draw .5s ease-out .3s both}
-.cvl-ic .lk{transform-origin:center}
-.cvl-card:hover .cvl-ic .lk,.cvl-in .cvl-ic .lk{animation:cvl-ic-wiggle .6s ease-in-out}
-.cvl-ic .w1,.cvl-ic .w2{transform-origin:center;opacity:0}
-.cvl-card:hover .cvl-ic .w1,.cvl-in .cvl-ic .w1{animation:cvl-ic-wave 1.1s ease-out 2}
-.cvl-card:hover .cvl-ic .w2,.cvl-in .cvl-ic .w2{animation:cvl-ic-wave 1.1s ease-out .35s 2}
-.cvl-card{transition:transform .25s ease,box-shadow .25s ease}
-.cvl-card:hover{transform:translateY(-3px);box-shadow:0 18px 40px -22px rgba(51,94,247,.45)}
-@keyframes cvl-gh{0%,100%{opacity:.08}50%{opacity:var(--o,.5)}}
-.cvl-ghbg i{animation:cvl-gh var(--t,4s) ease-in-out var(--d,0s) infinite}
-@media (prefers-reduced-motion:reduce){
-  .cvl-words .cvl-wd,.cvl-steps .cvl-step{opacity:1!important;transform:none!important;filter:none!important;transition:none!important}
-  .cvl-steps .cvl-line{transform:none!important;transition:none!important}
-  .cvl-ic *,.cvl-ghbg i{animation:none!important}
-  .cvl-card:hover{transform:none}
-}
-`;
 
 function useInView<T extends Element>(threshold = 0.35) {
   const ref = useRef<T>(null);

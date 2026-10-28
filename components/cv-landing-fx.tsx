@@ -17,52 +17,6 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { cvText } from "@/lib/cv/i18n";
 import type { CvLang } from "@/lib/cv/detect-lang";
 
-export const CV_FX_CSS = `
-@keyframes cvl-fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-@keyframes cvl-pop{0%{opacity:0;transform:scale(.6)}70%{transform:scale(1.06)}100%{opacity:1;transform:scale(1)}}
-@keyframes cvl-type{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
-@keyframes cvl-caret{50%{border-color:transparent}}
-@keyframes cvl-bar{from{width:0}}
-@keyframes cvl-cell{from{background:#EDF0FA}}
-@keyframes cvl-print{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0 0 0 0)}}
-@keyframes cvl-scanline{0%,100%{top:8%}50%{top:88%}}
-@keyframes cvl-phone{0%,12%{transform:translate(78%,30%) rotate(10deg)}30%,78%{transform:translate(8%,2%) rotate(-3deg)}92%,100%{transform:translate(78%,30%) rotate(10deg)}}
-@keyframes cvl-screen{0%,30%{opacity:0}38%,76%{opacity:1}84%,100%{opacity:0}}
-@keyframes cvl-flash{0%,29%{opacity:0}31%{opacity:.85}38%,100%{opacity:0}}
-@keyframes cvl-wave{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
-@keyframes cvl-draw{from{stroke-dashoffset:24}to{stroke-dashoffset:0}}
-@keyframes cvl-gradmove{to{background-position:300% 0}}
-.cvl-grad{position:relative;overflow:hidden;isolation:isolate;background:linear-gradient(90deg,#335EF7,#6A4BF5,#A63DF2,#6A4BF5,#335EF7);background-size:300% 100%;animation:cvl-gradmove 6s linear infinite}
-@keyframes cvl-shine{0%,55%{transform:translateX(-120%) skewX(-20deg)}100%{transform:translateX(320%) skewX(-20deg)}}
-.cvl-grad::after{content:'';position:absolute;top:0;bottom:0;left:0;width:35%;z-index:-1;background:linear-gradient(90deg,transparent,rgba(255,255,255,.45),transparent);animation:cvl-shine 3.2s ease-in-out infinite}
-.cvl-grad:hover{box-shadow:0 14px 40px -10px rgba(166,61,242,.8)}
-@keyframes cvl-strike{from{background-size:0 2px}to{background-size:100% 2px}}
-.cvl-sheet .cvl-a{opacity:0;animation:cvl-fade .55s cubic-bezier(.2,.8,.2,1) forwards}
-.cvl-sheet .cvl-photo{opacity:0;animation:cvl-pop .6s cubic-bezier(.2,.8,.2,1) forwards}
-.cvl-sheet .cvl-name{display:inline-block;clip-path:inset(0 100% 0 0);animation:cvl-type .9s steps(9,end) .45s forwards}
-.cvl-sheet .cvl-bar{animation:cvl-bar 1s cubic-bezier(.2,.8,.2,1) both}
-.cvl-sheet .cvl-cell{animation:cvl-cell .5s ease-out both}
-.cvl-sheet .cvl-qr{clip-path:inset(0 0 100% 0);animation:cvl-print 1.1s steps(12,end) 2.6s forwards}
-.cvl-tilt{transform:perspective(1100px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));transition:transform .25s ease-out;will-change:transform}
-.cvl-glare{background:radial-gradient(circle at var(--gx,50%) var(--gy,0%),rgba(255,255,255,.45),transparent 45%);opacity:var(--go,0);transition:opacity .3s}
-.cvl-phone{animation:cvl-phone 6s cubic-bezier(.45,.05,.25,1) infinite}
-.cvl-screen{animation:cvl-screen 6s linear infinite}
-.cvl-flash{animation:cvl-flash 6s linear infinite}
-.cvl-scan{animation:cvl-scanline 1.6s ease-in-out infinite}
-.cvl-w{transform-origin:bottom;animation:cvl-wave .9s ease-in-out infinite}
-.cvl-row .cvl-check path{stroke-dasharray:24;stroke-dashoffset:24}
-.cvl-row.cvl-in .cvl-check path{animation:cvl-draw .45s ease-out forwards;animation-delay:var(--d,0s)}
-.cvl-row .cvl-them{background:linear-gradient(currentColor,currentColor) no-repeat 0 55%/0 2px}
-.cvl-row.cvl-in .cvl-them{animation:cvl-strike .45s ease-out forwards;animation-delay:calc(var(--d,0s) + .2s)}
-.cvl-row .cvl-us{opacity:.25;transition:opacity .4s}
-.cvl-row.cvl-in .cvl-us{opacity:1;transition-delay:var(--d,0s)}
-@media (prefers-reduced-motion:reduce){
-  .cvl-grad,.cvl-grad::after,.cvl-sheet *,.cvl-phone,.cvl-screen,.cvl-flash,.cvl-scan,.cvl-w,.cvl-row *{animation:none!important;transition:none!important;opacity:1!important;clip-path:none!important}
-  .cvl-row .cvl-check path{stroke-dashoffset:0}
-  .cvl-row .cvl-them{background-size:100% 2px}
-  .cvl-tilt{transform:none!important}
-}
-`;
 
 /** Наклон за мышкой + блик. На телефоне (без наведения) ничего не делает. */
 export function CvTilt({ children, className }: { children: ReactNode; className?: string }) {

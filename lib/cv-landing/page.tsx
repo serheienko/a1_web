@@ -10,12 +10,13 @@
 
 import type { Metadata } from "next";
 import Link from "next/link";
+import { CV_FX_CSS, CV_FX2_CSS } from "@/lib/cv-landing/fx-css";
 import { CvLandingCta } from "@/components/cv-landing-cta";
-import { CV_FX2_CSS, CvCount, CvFeatureCard, CvSteps, CvWords, GhCellsBg } from "@/components/cv-landing-fx2";
+import { CvCount, CvFeatureCard, CvSteps, CvWords, GhCellsBg } from "@/components/cv-landing-fx2";
 import { cvText } from "@/lib/cv/i18n";
 import { CV_ROLES } from "@/lib/cv-roles/roles";
 import { ROLE_TEXT, rolePath } from "@/lib/cv-roles/registry";
-import { CV_FX_CSS, CvCheck, CvReveal, CvTilt, HeroCv, QrScanDemo } from "@/components/cv-landing-fx";
+import { CvCheck, CvReveal, CvTilt, HeroCv, QrScanDemo } from "@/components/cv-landing-fx";
 import type { CvLandingLang } from "@/lib/cv-landing/types";
 import {
   CV_LANDING,
