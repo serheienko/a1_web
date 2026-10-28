@@ -69,6 +69,18 @@ const STRINGS: Record<SignInStringKey, Record<Locale, string>> = {
   },
 };
 
+const CV_NOTICE: Record<string, string> = {
+  uk: "Увійдіть або зареєструйтеся: резюме збирається з Вашого профілю в A1, і Ви отримаєте його безкоштовно в PDF.",
+  en: "Sign in or create an account: your CV is built from your A1 profile, and you get it as a free PDF.",
+  ru: "Войдите или зарегистрируйтесь: резюме собирается из Вашего профиля в A1, и Вы получите его бесплатно в PDF.",
+  de: "Melden Sie sich an oder registrieren Sie sich: Ihr Lebenslauf entsteht aus Ihrem A1-Profil, kostenlos als PDF.",
+  es: "Inicie sesión o regístrese: su CV se crea a partir de su perfil de A1 y lo obtiene gratis en PDF.",
+  fr: "Connectez-vous ou inscrivez-vous : votre CV est créé à partir de votre profil A1, gratuitement en PDF.",
+  pl: "Zaloguj się lub zarejestruj: CV powstaje z Twojego profilu w A1, a PDF dostajesz za darmo.",
+  ptBR: "Entre ou cadastre-se: seu currículo é montado a partir do seu perfil no A1, grátis em PDF.",
+  zh: "请登录或注册：简历由您的 A1 个人资料生成，PDF 免费下载。",
+};
+
 export default function SignInPage() {
   const lang = useActiveLocale();
   // 2026-08-29: true only when arrived via components/create-post-
@@ -83,13 +95,23 @@ export default function SignInPage() {
   const [showCreatePostNotice, setShowCreatePostNotice] = useState(false);
   const [showProfileActionNotice, setShowProfileActionNotice] = useState(false);
 
+  // 28.10.2026: со страницы «CV Builder» (?reason=cv&next=/cv-builder...) --
+  // своя подсказка и возврат туда же после входа (только адреса этого сайта).
+  const [showCvNotice, setShowCvNotice] = useState(false);
+  const [returnTo, setReturnTo] = useState("/");
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     setShowCreatePostNotice(params.get("reason") === "create-post");
     setShowProfileActionNotice(params.get("reason") === "profile-action");
+    setShowCvNotice(params.get("reason") === "cv");
+    const next = params.get("next");
+    if (next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/\\")) setReturnTo(next);
   }, []);
 
-  const notice = showCreatePostNotice
+  const notice = showCvNotice
+    ? CV_NOTICE[lang]
+    : showCreatePostNotice
     ? STRINGS.createPostNotice[lang]
     : showProfileActionNotice
       ? STRINGS.profileActionNotice[lang]
@@ -115,7 +137,7 @@ export default function SignInPage() {
           menu.tsx's signed-out nav button) -- this page is just that
           component's own chrome (back link, card, full-page layout). */}
       <div className="rounded-card border border-neutral-200 bg-card p-8 shadow-lg shadow-neutral-900/5 dark:border-neutral-800 dark:bg-neutral-950 dark:shadow-black/40">
-        <InlineAuthForm lang={lang} notice={notice} returnTo="/" />
+        <InlineAuthForm lang={lang} notice={notice} returnTo={returnTo} />
       </div>
     </main>
   );

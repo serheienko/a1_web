@@ -36,6 +36,7 @@ import { COUNTRY_LANDING_CODES } from "@/lib/seo/country-landings";
 import { ARTICLES } from "@/lib/blog/articles";
 import { INTERVIEW_ENTRIES, interviewAlternates, interviewPath } from "@/lib/interview/registry";
 import { allNews } from "@/lib/news/registry";
+import { CV_LANDING_LANGS, cvLandingAlternates, cvLandingPath } from "@/lib/cv-landing/registry";
 import { loadEvents } from "@/lib/events/store";
 import { MIN_COLLECTION, collectPlaces, collectTags, todayKyiv } from "@/lib/events/util";
 
@@ -179,6 +180,13 @@ async function buildSitemap({ id }: { id: number | string }): Promise<MetadataRo
           priority: slug ? 0.7 : 0.6,
           alternates: { languages: { uk: alt.uk, en: alt.en, "x-default": alt["x-default"] } },
         });
+      }
+    }
+    // 28.10.2026: «CV Builder» -- 9 языковых версий, каждая со ссылками на остальные.
+    {
+      const alt = cvLandingAlternates("uk").languages;
+      for (const lang of CV_LANDING_LANGS) {
+        entries.push({ url: `${SITE_URL}${cvLandingPath(lang)}`, changeFrequency: "weekly", priority: 0.8, alternates: { languages: alt } });
       }
     }
     // 08.10.2026: «IT новини» -- список и новости (lib/news), у каждой своя дата.

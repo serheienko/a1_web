@@ -77,6 +77,15 @@ function CopyIcon({ className }: IconProps) {
   );
 }
 
+function LinkIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7" />
+      <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" />
+    </svg>
+  );
+}
+
 function EditIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
@@ -177,7 +186,7 @@ function DiscussIcon({ className }: IconProps) {
   );
 }
 
-export type ActionKey = "reply" | "discuss" | "copy" | "edit" | "remind" | "forward" | "pin" | "delete" | "select";
+export type ActionKey = "reply" | "discuss" | "copy" | "copyLink" | "edit" | "remind" | "forward" | "pin" | "delete" | "select";
 
 type ActionRow = {
   key: ActionKey;
@@ -208,6 +217,14 @@ const ACTION_ROWS: ActionRow[] = [
     icon: CopyIcon,
     group: "main",
     label: { uk: "Скопіювати", en: "Copy", ru: "Скопировать", de: "Kopieren", es: "Copiar", fr: "Copier", pl: "Kopiuj", ptBR: "Copiar", zh: "复制" },
+  },
+  // 28.10.2026 (Александр: «на сайте нет "скопировать ссылку на сообщение" в группе, в приложении есть»).
+  // Ссылка того же вида, что в приложении: jobs.a1appp.com/c/<чат>/<сообщение>.
+  {
+    key: "copyLink",
+    icon: LinkIcon,
+    group: "main",
+    label: { uk: "Копіювати посилання", en: "Copy link", ru: "Копировать ссылку", de: "Link kopieren", es: "Copiar enlace", fr: "Copier le lien", pl: "Kopiuj link", ptBR: "Copiar link", zh: "复制链接" },
   },
   {
     key: "edit",
@@ -267,6 +284,7 @@ export function MessageActionsMenu({
   onReact,
   myReactionEmoticon,
   onCopy,
+  onCopyLink,
   onEdit,
   onForward,
   onDelete,
@@ -304,6 +322,8 @@ export function MessageActionsMenu({
   // so callers that can't build copy text for the tapped message just
   // omit this prop and the row quietly no-ops, same as before.
   onCopy?: () => void;
+  /** Скопировать ссылку на сообщение (только группы). */
+  onCopyLink?: () => void;
   // 2026-09-05 follow-up (Aleksandr: "Давай одновременно сделаем
   // кнопки редактировать... удалить... И переслать") -- three more
   // rows go live. onEdit/onForward optional for the same reason as
@@ -473,6 +493,7 @@ export function MessageActionsMenu({
   // их обработчики не опциональны.
   function rowIsAvailable(key: ActionKey): boolean {
     if (key === "copy") return Boolean(onCopy);
+    if (key === "copyLink") return Boolean(onCopyLink);
     if (key === "forward") return Boolean(onForward);
     if (key === "edit") return Boolean(onEdit);
     if (key === "remind") return Boolean(onRemind);
@@ -488,6 +509,7 @@ export function MessageActionsMenu({
     // (2026-09-06 follow-up) now do something real too.
     if (key === "reply") onReply();
     if (key === "copy") onCopy?.();
+    if (key === "copyLink") onCopyLink?.();
     if (key === "edit") onEdit?.();
     if (key === "remind") onRemind?.();
     if (key === "forward") onForward?.();

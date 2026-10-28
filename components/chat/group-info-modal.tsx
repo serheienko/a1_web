@@ -11,6 +11,9 @@
 //   add  -- выбор людей для добавления.
 // Права как у бэкенда: добавлять и менять может участник, убирать людей
 // из группы -- создатель/админ; удаляет группу создатель.
+import { copyText } from "@/lib/copy-text";
+
+const CLOSE: Record<string, string> = { uk: "Закрити", en: "Close", ru: "Закрыть", de: "Schließen", es: "Cerrar", fr: "Fermer", pl: "Zamknij", ptBR: "Fechar", zh: "关闭" };
 import { useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { backdropDismiss } from "@/lib/use-backdrop-dismiss";
@@ -258,12 +261,10 @@ export function GroupInfoModal({
 
   async function copyLink() {
     if (!link) return;
-    try {
-      await navigator.clipboard.writeText(link);
+    // 28.10.2026: на iPhone navigator.clipboard иногда отказывал, и «Скопіювати» молчал. Теперь с запасным путём.
+    if (await copyText(link)) {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1600);
-    } catch {
-      /* буфер недоступен -- ссылка и так видна на экране */
     }
   }
 
@@ -334,7 +335,19 @@ export function GroupInfoModal({
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4" {...backdropDismiss(onClose)}>
-      <div className="flex max-h-[88vh] w-full max-w-sm flex-col gap-4 overflow-hidden rounded-2xl bg-white p-5 shadow-xl dark:bg-neutral-900" onClick={(e) => e.stopPropagation()}>
+      <div className="relative flex max-h-[88vh] w-full max-w-sm flex-col gap-4 overflow-hidden rounded-2xl bg-white p-5 shadow-xl dark:bg-neutral-900" onClick={(e) => e.stopPropagation()}>
+        {/* 28.10.2026 (Александр): крестик сверху справа -- окно почти на весь экран, а куда тапнуть мимо, не видно. */}
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={CLOSE[lang] ?? CLOSE.en}
+          title={CLOSE[lang] ?? CLOSE.en}
+          className="group absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-neutral-100 text-neutral-500 transition hover:bg-neutral-200 hover:text-neutral-900 active:scale-90 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-700 dark:hover:text-white"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="transition-transform duration-300 ease-out group-hover:rotate-90" aria-hidden="true">
+            <path d="M3.5 3.5l9 9M12.5 3.5l-9 9" />
+          </svg>
+        </button>
         {view === "main" && (
           <>
             <div className="flex flex-col items-center gap-2 text-center">

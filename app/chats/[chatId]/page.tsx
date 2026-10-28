@@ -8083,6 +8083,15 @@ export default function ChatWindowPage() {
               ? () => void discussMessage(actionsMenu.message)
               : undefined
           }
+          onCopyLink={
+            isGroup && !isServiceFlags(actionsMenu.message.flags) && Number(actionsMenu.message._id) > 0
+              ? () => {
+                  const link = `https://jobs.a1appp.com/c/${encodeURIComponent(chatId)}/${actionsMenu.message._id}`;
+                  navigator.clipboard?.writeText(link).catch(() => {});
+                  setCopyToast({ trigger: Date.now(), anchorRect: actionsMenu.anchorRect });
+                }
+              : undefined
+          }
           onReply={() => {
             setEditingMessage(null);
             setReplyTarget(actionsMenu.message);

@@ -19,7 +19,7 @@ import { promises as fs } from "node:fs";
 import sharp from "sharp";
 import { Document, Page, View, Text, Image, Link, Font, Svg, Defs, LinearGradient, Stop, Rect, Path, renderToBuffer } from "@react-pdf/renderer";
 import type { CvData } from "@/lib/cv/data";
-import { cvText, yearsText } from "@/lib/cv/i18n";
+import { allCvTexts, cvText, yearsText } from "@/lib/cv/i18n";
 
 const FONT_DIR = path.join(process.cwd(), "assets", "cv-fonts");
 let fontsReady = false;
@@ -388,7 +388,7 @@ export async function renderCvPdf(d: CvData): Promise<Buffer> {
   let family = "Commissioner";
   if (d.lang === "zh" || /[㐀-鿿]/.test(JSON.stringify([d.name, d.role, d.about]))) {
     const allText = JSON.stringify(d).replace(/data:[^"]+/g, "");
-    const cjk = await cjkFamily(allText + "–·…%");
+    const cjk = await cjkFamily(allText + allCvTexts(d.lang) + "0123456789–·…%");
     if (cjk) family = cjk;
   }
   const logo = await logos();

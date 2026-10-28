@@ -35,7 +35,7 @@ import { useHoverPanel } from "@/lib/use-hover-panel";
 import { useActiveLocale } from "@/lib/use-active-locale";
 import { COPY, makeT } from "@/app/invite/copy";
 
-type Id = "app" | "news" | "events" | "stats" | "interview" | "ai" | "invite" | "game";
+type Id = "app" | "news" | "events" | "stats" | "interview" | "cv" | "ai" | "invite" | "game";
 
 function L(uk: string, en: string, ru: string, rest?: Partial<Record<Locale, string>>): Record<Locale, string> {
   return { uk, en, ru, de: en, es: en, fr: en, pl: en, ptBR: en, zh: en, ...rest };
@@ -172,6 +172,27 @@ const TXT = {
       },
     ),
   },
+  // 28.10.2026: «CV Builder» -- бесплатное PDF-резюме из профиля (/cv-builder, 9 языков).
+  cv: {
+    title: L("CV Builder", "CV Builder", "CV Builder", { de: "Lebenslauf", es: "Crear CV", fr: "Créer un CV", pl: "Kreator CV", ptBR: "Fazer currículo", zh: "简历制作" }),
+    sub: L("Безкоштовне резюме в PDF", "Free CV as a PDF", "Бесплатное резюме в PDF", {
+      de: "Kostenloser Lebenslauf als PDF", es: "CV gratis en PDF", fr: "CV gratuit en PDF", pl: "Darmowe CV w PDF", ptBR: "Currículo grátis em PDF", zh: "免费 PDF 简历",
+    }),
+    badge: L("Новинка", "New", "Новинка", { de: "Neu", es: "Nuevo", fr: "Nouveau", pl: "Nowość", ptBR: "Novo", zh: "新" }),
+    prev: L(
+      "Красиве резюме з Вашого профілю: QR на живий профіль, GitHub і навички з рівнями",
+      "A beautiful CV from your profile: QR to your live profile, GitHub and skill levels",
+      "Красивое резюме из Вашего профиля: QR на живой профиль, GitHub и навыки с уровнями",
+      {
+        de: "Ein schöner Lebenslauf aus Ihrem Profil: QR zum Live-Profil, GitHub und Skill-Level",
+        es: "Un CV bonito a partir de su perfil: QR a su perfil vivo, GitHub y niveles de habilidades",
+        fr: "Un beau CV depuis votre profil : QR vers votre profil en ligne, GitHub et niveaux de compétences",
+        pl: "Piękne CV z Twojego profilu: QR do żywego profilu, GitHub i poziomy umiejętności",
+        ptBR: "Um currículo bonito a partir do seu perfil: QR para o perfil ao vivo, GitHub e níveis de habilidades",
+        zh: "由您的个人资料生成的精美简历：实时主页二维码、GitHub 和技能等级",
+      },
+    ),
+  },
   // 17.10.2026: реферальная программа «Отримай Alpha» -- страница /invite, мини-прогресс прямо в строке меню.
   invite: {
     title: L("Отримай Alpha", "Get Alpha", "Получи Alpha", {
@@ -220,6 +241,7 @@ const TXT = {
 // (de, es, fr, pl, pt, zh) ведём на английские: так читают больше людей, чем по-украински.
 function hrefFor(id: Id, locale: Locale): string {
   if ((id === "news" || id === "events") && locale !== "uk" && locale !== "ru") return `${HREF[id]}/en`;
+  if (id === "cv" && locale !== "uk") return `${HREF[id]}/${locale === "ptBR" ? "pt-br" : locale}`;
   return HREF[id];
 }
 
@@ -232,7 +254,7 @@ function hrefFor(id: Id, locale: Locale): string {
 const NEW_KEY = (Object.keys(TXT) as (keyof typeof TXT)[]).filter((id) => "badge" in TXT[id]).sort().join(",");
 const NEW_SEEN_STORAGE = "a1-more-menu-seen";
 
-const HREF: Record<Id, string> = { app: "/download", news: "/news", events: "/events", stats: "/stats", interview: "/spivbesida", ai: "/ai-assistant", invite: "/invite", game: "/game" };
+const HREF: Record<Id, string> = { app: "/download", news: "/news", events: "/events", stats: "/stats", interview: "/spivbesida", cv: "/cv-builder", ai: "/ai-assistant", invite: "/invite", game: "/game" };
 
 // Сводка рефералки для строки меню: friends -- друзей в зачёте, next -- сколько нужно до следующей награды.
 type InviteLite = { friends: number; months: number; next: { friends: number; months: number } | null };
@@ -325,6 +347,19 @@ function InterviewIcon() {
       <path d="M8 8.5l1.5 1.5 2.5-2.5" className="animate-news-line" style={{ animationDelay: "0ms" }} />
       <path d="M8 14l1.5 1.5 2.5-2.5" className="animate-news-line" style={{ animationDelay: "160ms" }} />
       <path d="M14.5 9h2M14.5 14.5h2" />
+    </svg>
+  );
+}
+
+// 28.10.2026: «CV Builder» -- листок со строками, строки «печатаются» при наведении.
+function CvIcon() {
+  return (
+    <svg {...svgBase}>
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+      <path d="M14 3v5h5" />
+      <circle cx="10" cy="11" r="1.6" />
+      <path d="M8.5 15.5h7" className="animate-news-line" style={{ animationDelay: "0ms" }} />
+      <path d="M8.5 18h4.5" className="animate-news-line" style={{ animationDelay: "140ms" }} />
     </svg>
   );
 }
@@ -649,6 +684,26 @@ function PreviewInterview() {
   );
 }
 
+function PreviewCv() {
+  return (
+    <>
+      <span className="relative block aspect-[16/10] w-full overflow-hidden bg-[linear-gradient(125deg,#335EF7_0%,#6A4BF5_55%,#A63DF2_100%)]">
+        <span className="absolute left-1/2 top-5 block w-[58%] -translate-x-1/2 rotate-[2deg] overflow-hidden rounded-lg shadow-2xl ring-1 ring-black/10">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/cv-builder/cv-en.webp" alt="" className="block w-full" />
+        </span>
+        <span className="pointer-events-none absolute inset-x-0 bottom-0 block h-12 bg-gradient-to-b from-transparent to-[#03051f]" />
+      </span>
+      <span className="block px-5 pb-5 pt-1">
+        <span className="block text-[20px] font-semibold leading-[1.2] text-white"><T {...TXT.cv.title} /></span>
+        <span className="mt-2 block text-[13px] leading-snug text-white/65">
+          <T {...TXT.cv.prev} />
+        </span>
+      </span>
+    </>
+  );
+}
+
 function PreviewAi() {
   const logos = ["claude", "chatgpt", "cursor"];
   return (
@@ -910,6 +965,7 @@ export function NavMoreMenu() {
             <Row id="events" icon={<EventsIcon />} onHover={setHovered} onPick={pick} />
             <Row id="stats" icon={<StatsIcon />} onHover={setHovered} onPick={pick} />
             <Row id="interview" icon={<InterviewIcon />} onHover={setHovered} onPick={pick} />
+            <Row id="cv" icon={<CvIcon />} onHover={setHovered} onPick={pick} />
             <Row id="ai" icon={<AiIcon />} onHover={setHovered} onPick={pick} />
             <InviteRow lite={invite} onHover={setHovered} onPick={pick} />
             <div className="mx-2 my-1 border-t border-neutral-100 dark:border-neutral-800" />
@@ -926,7 +982,7 @@ export function NavMoreMenu() {
               }
             >
               <Link key={hovered} href={hrefFor(hovered, locale)} onClick={pick} className={`animate-nav-preview ${shell("bg-[#03051f]")}`}>
-                {hovered === "app" ? <PreviewApp /> : hovered === "news" ? <PreviewNews latest={latestNews} /> : hovered === "events" ? <PreviewEvents /> : hovered === "stats" ? <PreviewStats data={stats} /> : hovered === "interview" ? <PreviewInterview /> : hovered === "ai" ? <PreviewAi /> : hovered === "invite" ? <PreviewInvite /> : <PreviewGame />}
+                {hovered === "app" ? <PreviewApp /> : hovered === "news" ? <PreviewNews latest={latestNews} /> : hovered === "events" ? <PreviewEvents /> : hovered === "stats" ? <PreviewStats data={stats} /> : hovered === "interview" ? <PreviewInterview /> : hovered === "cv" ? <PreviewCv /> : hovered === "ai" ? <PreviewAi /> : hovered === "invite" ? <PreviewInvite /> : <PreviewGame />}
               </Link>
             </div>
           )}

@@ -38,7 +38,7 @@ const S: Record<Key, Record<CvLang, string>> = {
   interactive1: { uk: "Інтерактивний", ru: "Интерактивный", en: "Interactive", de: "Interaktives", es: "Perfil", fr: "Profil", pl: "Interaktywny", ptBR: "Perfil", zh: "A1 上的" },
   interactive2: { uk: "профіль в A1", ru: "профиль в A1", en: "profile on A1", de: "Profil auf A1", es: "interactivo en A1", fr: "interactif sur A1", pl: "profil w A1", ptBR: "interativo no A1", zh: "互动主页" },
   createdIn: { uk: "Створено в A1", ru: "Создано в A1", en: "Made with A1", de: "Erstellt mit A1", es: "Hecho con A1", fr: "Créé avec A1", pl: "Stworzone w A1", ptBR: "Feito com A1", zh: "由 A1 生成" },
-  listen: { uk: "Послухайте мене", ru: "Послушайте меня", en: "Hear me speak", de: "Hören Sie mich", es: "Escúchame", fr: "Écoutez-moi", pl: "Posłuchaj mnie", ptBR: "Me ouça", zh: "听我介绍" },
+  listen: { uk: "Послухайте мене", ru: "Послушайте меня", en: "Hear me speak", de: "Hören Sie mir zu", es: "Escúcheme", fr: "Écoutez-moi", pl: "Posłuchaj mnie", ptBR: "Me ouça", zh: "听我介绍" },
   present: { uk: "дотепер", ru: "по настоящее время", en: "present", de: "heute", es: "actualidad", fr: "aujourd'hui", pl: "obecnie", ptBR: "atual", zh: "至今" },
   contributions: { uk: "внесків за рік", ru: "вкладов за год", en: "contributions this year", de: "Beiträge im Jahr", es: "contribuciones este año", fr: "contributions cette année", pl: "kontrybucji w roku", ptBR: "contribuições no ano", zh: "年度贡献" },
   dribbbleWorks: { uk: "робіт на Dribbble", ru: "работ на Dribbble", en: "shots on Dribbble", de: "Shots auf Dribbble", es: "trabajos en Dribbble", fr: "shots sur Dribbble", pl: "prac na Dribbble", ptBR: "trabalhos no Dribbble", zh: "Dribbble 作品" },
@@ -74,4 +74,9 @@ export function yearsText(lang: CvLang, n: number): string {
     /* other */
   }
   return (forms[cat] ?? forms.other ?? "{n}").replace("{n}", String(n));
+}
+
+/** Все подписи резюме на языке -- чтобы подгрузить под них шрифт (китайский). */
+export function allCvTexts(lang: CvLang): string {
+  return Object.values(S).map((m) => m[lang] ?? "").join("") + Object.values(YEARS[lang]).join("");
 }

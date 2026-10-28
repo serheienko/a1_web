@@ -54,6 +54,7 @@ const EXPLORE: Item[] = [
   { href: "/stats", label: L("A1 Stats", "A1 Stats", "A1 Stats", { de: "A1 Stats", es: "A1 Stats", fr: "A1 Stats", pl: "A1 Stats", ptBR: "A1 Stats", zh: "A1 Stats" }) },
   // 24.10.2026: раздел «Співбесіда» (чек-листы кандидату и интервьюеру). На телефоне меню «Ще» нет, вход здесь.
   { href: "/spivbesida", label: L("Співбесіда", "Interview", "Собеседование", { de: "Vorstellungsgespräch", es: "Entrevista", fr: "Entretien", pl: "Rozmowa kwalifikacyjna", ptBR: "Entrevista", zh: "面试" }) },
+  { href: "/cv-builder", label: L("Конструктор резюме", "CV Builder", "Конструктор резюме", { de: "Lebenslauf erstellen", es: "Crear CV", fr: "Créer un CV", pl: "Kreator CV", ptBR: "Fazer currículo", zh: "简历制作" }) },
   // 17.10.2026: две новые страницы -- рефералка «Отримай Alpha» и «A1 у ШІ-чаті» (тексты как в меню).
   { href: "/invite", label: L("Отримай Alpha", "Get Alpha", "Получи Alpha", { de: "Hol dir Alpha", es: "Consigue Alpha", fr: "Obtenez Alpha", pl: "Zdobądź Alpha", ptBR: "Ganhe Alpha", zh: "领取 Alpha" }) },
   { href: "/ai-assistant", label: L("A1 у ШІ-чаті", "A1 in your AI chat", "A1 в ИИ-чате", { de: "A1 im KI-Chat", es: "A1 en tu chat IA", fr: "A1 dans l'IA", pl: "A1 w czacie AI", ptBR: "A1 no chat de IA", zh: "在 AI 聊天中使用 A1" }) },
