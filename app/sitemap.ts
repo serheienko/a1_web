@@ -37,6 +37,8 @@ import { ARTICLES } from "@/lib/blog/articles";
 import { INTERVIEW_ENTRIES, interviewAlternates, interviewPath } from "@/lib/interview/registry";
 import { allNews } from "@/lib/news/registry";
 import { CV_LANDING_LANGS, cvLandingAlternates, cvLandingPath } from "@/lib/cv-landing/registry";
+import { CV_ROLES } from "@/lib/cv-roles/roles";
+import { roleAlternates, rolePath } from "@/lib/cv-roles/registry";
 import { loadEvents } from "@/lib/events/store";
 import { MIN_COLLECTION, collectPlaces, collectTags, todayKyiv } from "@/lib/events/util";
 
@@ -187,6 +189,13 @@ async function buildSitemap({ id }: { id: number | string }): Promise<MetadataRo
       const alt = cvLandingAlternates("uk").languages;
       for (const lang of CV_LANDING_LANGS) {
         entries.push({ url: `${SITE_URL}${cvLandingPath(lang)}`, changeFrequency: "weekly", priority: 0.8, alternates: { languages: alt } });
+      }
+      // 28.10.2026: «пример резюме» по ролям -- 25 ролей x 9 языков.
+      for (const r of CV_ROLES) {
+        const ralt = roleAlternates("uk", r.slug).languages;
+        for (const lang of CV_LANDING_LANGS) {
+          entries.push({ url: `${SITE_URL}${rolePath(lang, r.slug)}`, changeFrequency: "weekly", priority: 0.7, alternates: { languages: ralt } });
+        }
       }
     }
     // 08.10.2026: «IT новини» -- список и новости (lib/news), у каждой своя дата.

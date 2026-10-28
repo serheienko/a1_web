@@ -11,6 +11,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CvLandingCta } from "@/components/cv-landing-cta";
+import { CV_ROLES } from "@/lib/cv-roles/roles";
+import { ROLE_TEXT, rolePath } from "@/lib/cv-roles/registry";
 import { CV_FX_CSS, CvCheck, CvReveal, CvTilt, HeroCv, QrScanDemo } from "@/components/cv-landing-fx";
 import type { CvLandingLang } from "@/lib/cv-landing/types";
 import {
@@ -223,9 +225,15 @@ export function CvLandingPage({ lang }: { lang: CvLandingLang }) {
         <h2 className={h2}>{c.rolesTitle}</h2>
         <p className={`mt-3 max-w-3xl ${body}`}>{c.rolesLead}</p>
         <ul className="mt-6 flex flex-wrap gap-2">
-          {c.roles.map((r) => (
-            <li key={r} className="rounded-full bg-[#EEF1FE] px-3.5 py-1.5 text-[14px] font-medium text-[#2840B8] dark:bg-[#1a2350] dark:text-[#b9c6ff]">
-              {r}
+          {/* 28.10.2026: каждая роль ведёт на свою страницу «пример резюме» (lib/cv-roles). */}
+          {CV_ROLES.map((r) => (
+            <li key={r.slug}>
+              <Link
+                href={rolePath(lang, r.slug)}
+                className="inline-block rounded-full bg-[#EEF1FE] px-3.5 py-1.5 text-[14px] font-medium text-[#2840B8] transition hover:bg-[#335EF7] hover:text-white dark:bg-[#1a2350] dark:text-[#b9c6ff] dark:hover:bg-[#335EF7] dark:hover:text-white"
+              >
+                {ROLE_TEXT[lang][r.slug].name}
+              </Link>
             </li>
           ))}
         </ul>

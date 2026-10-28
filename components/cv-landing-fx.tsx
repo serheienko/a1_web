@@ -147,7 +147,8 @@ const SKILLS: [string, number][] = [
 ];
 
 /** Живой лист резюме Mr. Kit на первом экране. Размеры -- в долях ширины (cqw). */
-export function HeroCv({ lang, alt }: { lang: CvLang; alt: string }) {
+export function HeroCv({ lang, alt, title, skills }: { lang: CvLang; alt: string; title?: string; skills?: [string, number][] }) {
+  const SK = skills && skills.length ? skills.slice(0, 4) : SKILLS;
   const t = (k: Parameters<typeof cvText>[1]) => cvText(lang, k);
   const cells = Array.from({ length: 16 * 7 }, (_, i) => [0, 1, 2, 3, 4, 2, 1, 3, 0, 2, 4, 1][(i * 7 + (i % 5)) % 12]);
   const H = (s: string) => (
@@ -164,7 +165,7 @@ export function HeroCv({ lang, alt }: { lang: CvLang; alt: string }) {
           <div style={{ fontSize: "5.4cqw", fontWeight: 800, lineHeight: 1.05, marginTop: ".6cqw" }}>
             <span className="cvl-name">Mr. Kit</span>
           </div>
-          <div className="cvl-a" style={{ fontSize: "2.4cqw", fontWeight: 600, marginTop: ".6cqw", animationDelay: "1.2s" }}>Chief Mascot Officer · A1</div>
+          <div className="cvl-a" style={{ fontSize: "2.4cqw", fontWeight: 600, marginTop: ".6cqw", animationDelay: "1.2s" }}>{title ?? "Chief Mascot Officer · A1"}</div>
           <div className="cvl-a flex flex-wrap" style={{ gap: "1cqw", marginTop: "1.4cqw", animationDelay: "1.4s" }}>
             {["Neptune", "▶ " + t("listen")].map((c) => (
               <span key={c} style={{ fontSize: "1.65cqw", fontWeight: 500, padding: ".6cqw 1.4cqw", borderRadius: 999, background: "rgba(255,255,255,.18)" }}>
@@ -273,7 +274,7 @@ export function HeroCv({ lang, alt }: { lang: CvLang; alt: string }) {
         <div>
         <div className="cvl-a" style={{ animationDelay: "2.2s" }}>
           {H(t("skills"))}
-          {SKILLS.map(([n, v], i) => (
+          {SK.map(([n, v], i) => (
             <div key={n} style={{ marginBottom: "1.5cqw" }}>
               <div className="flex justify-between" style={{ fontSize: "1.6cqw", fontWeight: 600 }}>
                 <span>{n}</span>
