@@ -133,7 +133,10 @@ export async function buildCvData(username: string, fallbackLang: CvLang, forced
   const links: { label: string; url: string }[] = [];
   for (const l of profile.links) {
     if (!/^https?:\/\//.test(l.url)) continue;
-    if (/github\.com|dribbble\.com|stackoverflow\.com/.test(l.url) && links.length >= 2) continue;
+    // У подтверждённых GitHub / Dribbble / Stack Overflow есть своя плитка -- в шапке их не дублируем.
+    if (ghLogin && /github\.com/.test(l.url)) continue;
+    if (drSnap && /dribbble\.com/.test(l.url)) continue;
+    if (soId !== null && /stackoverflow\.com/.test(l.url)) continue;
     links.push({ label: linkLabel(l.url), url: l.url });
     if (links.length >= 3) break;
   }

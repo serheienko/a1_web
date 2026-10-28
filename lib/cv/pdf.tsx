@@ -228,6 +228,7 @@ function CvDocument({ d, logo, family }: { d: CvData; logo: { blue: string; whit
                   <Text style={{ fontSize: 15, fontWeight: 800 }}>{d.stackoverflow.reputation.toLocaleString("en-US").replace(/,/g, " ")}</Text>
                   <Text style={{ fontSize: 8.4, color: MUTED, flex: 1 }}>{t("soReputation")}</Text>
                 </View>
+                {d.stackoverflow.gold + d.stackoverflow.silver + d.stackoverflow.bronze > 0 ? (
                 <View style={{ flexDirection: "row", gap: 9, marginTop: 7 }}>
                   {[
                     ["#E8B400", d.stackoverflow.gold],
@@ -240,6 +241,7 @@ function CvDocument({ d, logo, family }: { d: CvData; logo: { blue: string; whit
                     </View>
                   ))}
                 </View>
+                ) : null}
                 {d.stackoverflow.tags.length ? (
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
                     {d.stackoverflow.tags.map((tag) => (
