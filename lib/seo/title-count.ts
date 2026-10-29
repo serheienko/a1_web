@@ -21,3 +21,19 @@ export function titleWithCount(head: string, n: number, fallback: string): strin
   const noMonth = `${head} — ${num} відкритих | A1 Jobs`;
   return noMonth.length <= TITLE_LIMIT ? noMonth : fallback;
 }
+
+const MONTHS_EN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+export function monthYearEn(d: Date = new Date()): string {
+  return `${MONTHS_EN[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+
+/** Английский вариант: «QA & testing jobs — 569 open roles · October 2026 | A1 Jobs». */
+export function titleWithCountEn(head: string, n: number, fallback: string): string {
+  if (!Number.isFinite(n) || n < 5) return fallback;
+  const num = String(Math.floor(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const withMonth = `${head} — ${num} open roles · ${monthYearEn()} | A1 Jobs`;
+  if (withMonth.length <= TITLE_LIMIT) return withMonth;
+  const noMonth = `${head} — ${num} open roles | A1 Jobs`;
+  return noMonth.length <= TITLE_LIMIT ? noMonth : fallback;
+}

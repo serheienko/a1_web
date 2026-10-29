@@ -10,7 +10,7 @@ import Link from "next/link";
 import { PostCard } from "@/components/post-card";
 import { EmptyState } from "@/components/empty-state";
 import { generateAvatarBlurDataUrl } from "@/lib/avatar-blur";
-import { LOCALES, LOCALE_VISIBILITY_CLASS, T, type Locale } from "@/components/t";
+import { LOCALES, LOCALE_TAG, LOCALE_VISIBILITY_CLASS, T, type Locale } from "@/components/t";
 import { buildLandingBreadcrumbJsonLd } from "@/lib/seo/jsonld";
 import { notFound } from "next/navigation";
 import { Pagination } from "@/components/pagination";
@@ -25,7 +25,20 @@ type L = Record<Locale, string>;
 
 export type SegmentLinkGroup = { title: L; links: { href: string; label: string }[] };
 
-function CountLine({ template, n }: { template: L; n: number }) {
+const num = (n: number) => n.toLocaleString("uk-UA").replace(/ /g, "\u00a0");
+
+/** 29.10.2026: на языковой версии (/en/...) рисуем ОДИН язык, а не все девять. */
+function CountLine({ template, n, locale }: { template: L; n: number; locale?: Locale }) {
+  if (locale) {
+    const [before = "", after = ""] = template[locale].split("{n}");
+    return (
+      <>
+        {before}
+        {num(n)}
+        {after}
+      </>
+    );
+  }
   return (
     <>
       {LOCALES.map((locale) => {
@@ -42,7 +55,7 @@ function CountLine({ template, n }: { template: L; n: number }) {
   );
 }
 
-export function SegmentLinks({ groups }: { groups: SegmentLinkGroup[] }) {
+export function SegmentLinks({ groups, locale }: { groups: SegmentLinkGroup[]; locale?: Locale }) {
   const shown = groups.filter((g) => g.links.length > 0);
   if (shown.length === 0) return null;
   return (
@@ -50,7 +63,7 @@ export function SegmentLinks({ groups }: { groups: SegmentLinkGroup[] }) {
       {shown.map((group, i) => (
         <div key={i}>
           <h2 className="text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
-            <T {...group.title} />
+            {locale ? group.title[locale] : <T {...group.title} />}
           </h2>
           <ul className="mt-3 flex flex-wrap gap-1.5">
             {group.links.map((link) => (
@@ -75,7 +88,7 @@ export function SegmentLinks({ groups }: { groups: SegmentLinkGroup[] }) {
           href="/jobs/catalog"
           className="text-sm text-neutral-500 no-underline transition hover:text-accent dark:text-neutral-400"
         >
-          <T
+          {locale ? "All job collections →" : <T
             uk="Усі добірки вакансій →"
             en="All job collections →"
             ru="Все подборки вакансий →"
@@ -85,7 +98,7 @@ export function SegmentLinks({ groups }: { groups: SegmentLinkGroup[] }) {
             pl="Wszystkie zbiory ofert →"
             ptBR="Todas as coleções →"
             zh="全部职位合集 →"
-          />
+          />}
         </Link>
       </div>
     </section>
@@ -102,6 +115,7 @@ export async function SegmentPage({
   groups,
   page = 1,
   beforeList,
+  locale,
 }: {
   h1: L;
   countLine: L;
@@ -117,6 +131,9 @@ export async function SegmentPage({
    *  (components/salary-summary.tsx). Нужен только на первой странице --
    *  на второй числа те же, а место занимают. */
   beforeList?: React.ReactNode;
+  /** 29.10.2026: язык страницы для версий /en/... — тогда заголовки идут одним языком,
+   *  а не всеми девятью сразу (мастер-план «Языковые версии сайта»). */
+  locale?: Locale;
 }) {
   // 08.10.2026: страницы по 20 с нумерацией (раньше -- только первые 40, дальше листать было некуда).
   const shown = posts.slice((page - 1) * LANDING_PAGE_SIZE, page * LANDING_PAGE_SIZE);
@@ -128,7 +145,7 @@ export async function SegmentPage({
   const insights = page === 1 ? buildLandingInsights(posts) : null;
 
   return (
-    <main className="mx-auto max-w-3xl px-4 pt-6 sm:pt-16 pb-fab-safe">
+    <main className="mx-auto max-w-3xl px-4 pt-6 sm:pt-16 pb-fab-safe" {...(locale ? { lang: LOCALE_TAG[locale] } : {})}>
       {/* eslint-disable-next-line react/no-danger */}
       <script
         type="application/ld+json"
@@ -136,21 +153,21 @@ export async function SegmentPage({
       />
 
       <nav aria-label="breadcrumb" className="mb-4 text-[13px] text-neutral-400 dark:text-neutral-500">
-        <Link href="/" className="transition hover:text-accent">
-          <T uk="Вакансії" en="Jobs" ru="Вакансии" de="Stellen" es="Vacantes" fr="Offres" pl="Oferty" ptBR="Vagas" zh="职位" />
+        <Link href={locale ? `/${locale}` : "/"} className="transition hover:text-accent">
+          {locale ? "Jobs" : <T uk="Вакансії" en="Jobs" ru="Вакансии" de="Stellen" es="Vacantes" fr="Offres" pl="Oferty" ptBR="Vagas" zh="职位" />}
         </Link>
         <span aria-hidden="true" className="px-1.5">/</span>
       </nav>
 
       <header className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl dark:text-neutral-50">
-          <T {...h1} />
+          {locale ? h1[locale] : <T {...h1} />}
         </h1>
         <p className="mt-2 text-neutral-500 dark:text-neutral-400">
-          <CountLine template={countLine} n={posts.length} />
+          <CountLine template={countLine} n={posts.length} locale={locale} />
         </p>
         <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-neutral-600 dark:text-neutral-400">
-          <T {...lead} />
+          {locale ? lead[locale] : <T {...lead} />}
         </p>
       </header>
 
@@ -177,7 +194,7 @@ export async function SegmentPage({
         <Pagination basePath={path} params={new URLSearchParams()} page={page} hasMore={page < totalPages} totalPages={totalPages} />
       ) : null}
 
-      <SegmentLinks groups={groups} />
+      <SegmentLinks groups={groups} locale={locale} />
     </main>
   );
 }

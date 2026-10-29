@@ -39,7 +39,12 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   return pagedMeta({
     title: meta.title,
     description: meta.description,
-    alternates: { canonical: url },
+    // 29.10.2026: связь с английской версией (app/en/jobs/role/[role]/page.tsx). hreflang работает
+    // только взаимно: каждая версия обязана назвать все остальные, включая саму себя.
+    alternates: {
+      canonical: url,
+      languages: { uk: url, en: `${SITE_URL}/en/jobs/role/${info.slug}`, "x-default": url },
+    },
     openGraph: { title: meta.title, description: meta.description, url, type: "website" },
     twitter: { card: "summary_large_image", title: meta.title, description: meta.description },
   }, url, pageOf(await searchParams));

@@ -263,7 +263,11 @@ async function buildSitemap({ id }: { id: number | string }): Promise<MetadataRo
       for (const t of await remoteTechList()) entries.push({ url: `${SITE_URL}/jobs/remote/${t.slug}` });
       for (const { level } of await globalLevelCounts()) entries.push({ url: `${SITE_URL}/jobs/level/${level}` });
       entries.push({ url: `${SITE_URL}/jobs/role` });
-      for (const { role } of await globalRoleCounts()) entries.push({ url: `${SITE_URL}/jobs/role/${role}` });
+      for (const { role } of await globalRoleCounts()) {
+        entries.push({ url: `${SITE_URL}/jobs/role/${role}` });
+        // 29.10.2026: английская версия той же посадочной (app/en/jobs/role/[role]/page.tsx).
+        entries.push({ url: `${SITE_URL}/en/jobs/role/${role}` });
+      }
       // 25.10.2026: профессия + страна.
       const pairs = await countryRolePairs();
       for (const { cc, role } of pairs) entries.push({ url: `${SITE_URL}/jobs/role/${role}/${cc}` });
