@@ -56,11 +56,11 @@ const montserrat = Montserrat({
 
 export const metadata: Metadata = {
   title: "Завантаж A1 — робота та спеціалісти в один дотик",
-  description: "Знаходьте роботу та спеціалістів. Спілкуйтеся напряму. Застосунок A1 для Android та iOS.",
+  description: "Знаходьте роботу та спеціалістів. Спілкуйтеся напряму. Застосунок A1 для Android, iOS та Mac.",
   alternates: { canonical: "/download" },
   openGraph: {
     title: "Завантаж A1 — робота та спеціалісти в один дотик",
-    description: "Знаходьте роботу та спеціалістів. Спілкуйтеся напряму. Застосунок A1 для Android та iOS.",
+    description: "Знаходьте роботу та спеціалістів. Спілкуйтеся напряму. Застосунок A1 для Android, iOS та Mac.",
     url: "https://jobs.a1appp.com/download",
     siteName: "A1",
     type: "website",
@@ -267,9 +267,26 @@ export default function DownloadPage() {
             </a>
           </div>
 
-          <p className={styles.note}>
-            <Loc render={(copy) => copy.note} />
-          </p>
+          <div className={styles.noteRow}>
+            <p className={styles.note}>
+              <Loc render={(copy) => copy.note} />
+            </p>
+            {/* 29.10.2026: версия для Mac -- только на компьютере (с телефона
+                её не поставить). Скромная капсула рядом с подписью, чтобы
+                главными оставались кнопки магазинов. */}
+            <a
+              className={styles.macLink}
+              href={DOWNLOAD_LINKS.mac}
+              rel="noopener"
+              data-track="mac"
+            >
+              <svg className={styles.macIcon} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M17.05 12.536c-.03-3.017 2.463-4.463 2.575-4.534-1.4-2.05-3.58-2.332-4.355-2.363-1.855-.188-3.62 1.09-4.56 1.09-.94 0-2.39-1.063-3.93-1.034-2.02.03-3.885 1.175-4.925 2.985-2.1 3.64-.537 9.03 1.51 11.985 1 1.445 2.19 3.067 3.75 3.01 1.505-.06 2.073-.973 3.89-.973 1.817 0 2.33.973 3.92.94 1.62-.026 2.645-1.47 3.635-2.92 1.145-1.675 1.615-3.295 1.643-3.378-.036-.016-3.152-1.21-3.183-4.808M14.79 3.9c.83-1.006 1.39-2.404 1.237-3.798-1.195.048-2.644.796-3.502 1.8-.77.89-1.444 2.313-1.263 3.678 1.334.104 2.697-.678 3.528-1.68" />
+              </svg>
+              <Loc inline render={(copy) => copy.mac} />
+              <span className={styles.macBeta}>beta</span>
+            </a>
+          </div>
         </div>
       </div>
     </main>

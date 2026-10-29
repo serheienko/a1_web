@@ -64,7 +64,7 @@ const EXPLORE: Item[] = [
 ];
 
 const ABOUT: Item[] = [
-  { href: "/download", label: L("Завантажити додаток", "Get the app", "Скачать приложение", { de: "App holen", es: "Descargar la app", fr: "Télécharger l'app", pl: "Pobierz aplikację", ptBR: "Baixar o app", zh: "下载应用" }) },
+  { href: "/download", label: L("Додатки A1", "A1 apps", "Приложения A1", { de: "A1 Apps", es: "Apps de A1", fr: "Applis A1", pl: "Aplikacje A1", ptBR: "Apps do A1", zh: "A1 应用" }) },
   { href: "https://t.me/a1jobs_bot", external: true, label: L("Telegram-бот вакансій", "Telegram job bot", "Telegram-бот вакансий", { de: "Telegram-Jobbot", es: "Bot de empleos en Telegram", fr: "Bot d'offres Telegram", pl: "Bot ofert w Telegramie", ptBR: "Bot de vagas no Telegram", zh: "Telegram 职位机器人" }) },
   { href: "/terms", label: L("Умови використання", "Terms of use", "Условия использования", { de: "Nutzungsbedingungen", es: "Condiciones de uso", fr: "Conditions d'utilisation", pl: "Regulamin", ptBR: "Termos de uso", zh: "使用条款" }) },
   { href: "/privacy", label: L("Конфіденційність", "Privacy", "Конфиденциальность", { de: "Datenschutz", es: "Privacidad", fr: "Confidentialité", pl: "Prywatność", ptBR: "Privacidade", zh: "隐私政策" }) },

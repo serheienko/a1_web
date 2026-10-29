@@ -17,6 +17,10 @@ export const DOWNLOAD_LINKS = {
   // лендинг-заглушку, толку от которой ноль. Теперь «Сайт A1» ведёт на
   // сам джоб-борд, над которым мы и работаем.
   website: "https://jobs.a1appp.com",
+  // 29.10.2026 (Александр: «рабочая версия для Mac -- надо на страницу
+  // download»). Файл лежит в релизах открытого репозитория сайта; ссылка
+  // «latest» всегда ведёт на последнюю выложенную сборку.
+  mac: "https://github.com/serheienko/a1_web/releases/latest/download/A1-mac.zip",
 } as const;
 
 export type DownloadCopy = {
@@ -46,6 +50,8 @@ export type DownloadCopy = {
   ios: string;
   /** Мелкая подпись под кнопками. */
   note: string;
+  /** Ссылка на версию для Mac под кнопками (только на компьютере). */
+  mac: string;
   /** Текст ссылки на основной сайт, вверху справа. */
   site: string;
   /**
@@ -86,6 +92,7 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     android: "для Android",
     ios: "для iOS",
     note: "Оберіть свою платформу та приєднуйтеся до A1",
+    mac: "Версія для Mac",
     site: "Сайт A1",
     previewTitle: "Завітайте до веб-версії A1 🐈‍⬛",
     previewText: "Вакансії та фахівці прямо у браузері",
@@ -108,6 +115,7 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     android: "for Android",
     ios: "for iOS",
     note: "Choose your platform and join A1",
+    mac: "Version for Mac",
     site: "A1 website",
     previewTitle: "Visit the A1 web version 🐈‍⬛",
     previewText: "Jobs and specialists right in your browser",
@@ -130,6 +138,7 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     android: "для Android",
     ios: "для iOS",
     note: "Выберите свою платформу и присоединяйтесь к A1",
+    mac: "Версия для Mac",
     site: "Сайт A1",
     previewTitle: "Загляните в веб-версию A1 🐈‍⬛",
     previewText: "Вакансии и специалисты прямо в браузере",
@@ -152,6 +161,7 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     android: "für Android",
     ios: "für iOS",
     note: "Wählen Sie Ihre Plattform und kommen Sie zu A1",
+    mac: "Version für Mac",
     site: "A1-Website",
     previewTitle: "Schau in die A1 Web-Version 🐈‍⬛",
     previewText: "Jobs und Fachkräfte direkt im Browser",
@@ -174,6 +184,7 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     android: "para Android",
     ios: "para iOS",
     note: "Elija su plataforma y únase a A1",
+    mac: "Versión para Mac",
     site: "Sitio de A1",
     previewTitle: "Visita la versión web de A1 🐈‍⬛",
     previewText: "Vacantes y especialistas en tu navegador",
@@ -196,6 +207,7 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     android: "pour Android",
     ios: "pour iOS",
     note: "Choisissez votre plateforme et rejoignez A1",
+    mac: "Version pour Mac",
     site: "Site A1",
     previewTitle: "Découvre la version web d'A1 🐈‍⬛",
     previewText: "Offres et spécialistes directement dans le navigateur",
@@ -218,6 +230,7 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     android: "na Androida",
     ios: "na iOS",
     note: "Wybierz swoją platformę i dołącz do A1",
+    mac: "Wersja na Maca",
     site: "Strona A1",
     previewTitle: "Zajrzyj do wersji webowej A1 🐈‍⬛",
     previewText: "Oferty i specjaliści prosto w przeglądarce",
@@ -240,6 +253,7 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     android: "para Android",
     ios: "para iOS",
     note: "Escolha sua plataforma e entre no A1",
+    mac: "Versão para Mac",
     site: "Site do A1",
     previewTitle: "Conheça a versão web do A1 🐈‍⬛",
     previewText: "Vagas e especialistas direto no navegador",
@@ -262,6 +276,7 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     android: "Android 版",
     ios: "iOS 版",
     note: "选择你的平台，加入 A1",
+    mac: "Mac 版",
     site: "A1 官网",
     previewTitle: "来看看 A1 网页版 🐈‍⬛",
     previewText: "职位与人才，直接在浏览器里",

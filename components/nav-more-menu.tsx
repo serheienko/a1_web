@@ -43,23 +43,24 @@ function L(uk: string, en: string, ru: string, rest?: Partial<Record<Locale, str
 
 const TXT = {
   app: {
-    title: L("Завантажити додаток", "Get the app", "Скачать приложение", {
-      de: "App laden", es: "Descargar la app", fr: "Télécharger l'app", pl: "Pobierz aplikację", ptBR: "Baixar o app", zh: "下载应用",
+    // 29.10.2026 (Александр): появилась версия для Mac -- пункт уже не «Завантажити додаток».
+    title: L("Додатки A1", "A1 apps", "Приложения A1", {
+      de: "A1 Apps", es: "Apps de A1", fr: "Applis A1", pl: "Aplikacje A1", ptBR: "Apps do A1", zh: "A1 应用",
     }),
-    sub: L("Android та iOS", "Android and iOS", "Android и iOS", {
-      de: "Android und iOS", es: "Android e iOS", fr: "Android et iOS", pl: "Android i iOS", ptBR: "Android e iOS", zh: "Android 和 iOS",
+    sub: L("iOS, Android та Mac", "iOS, Android and Mac", "iOS, Android и Mac", {
+      de: "iOS, Android und Mac", es: "iOS, Android y Mac", fr: "iOS, Android et Mac", pl: "iOS, Android i Mac", ptBR: "iOS, Android e Mac", zh: "iOS、Android 和 Mac",
     }),
     prev: L(
-      "Android та iOS — вакансії й чати в кишені",
-      "Android and iOS — jobs and chats in your pocket",
-      "Android и iOS — вакансии и чаты в кармане",
+      "Вакансії й чати в кишені та на Mac",
+      "Jobs and chats in your pocket and on your Mac",
+      "Вакансии и чаты в кармане и на Mac",
       {
-        de: "Android und iOS — Jobs und Chats in der Tasche",
-        es: "Android e iOS: vacantes y chats en tu bolsillo",
-        fr: "Android et iOS — offres et messages dans votre poche",
-        pl: "Android i iOS — oferty i czaty w kieszeni",
-        ptBR: "Android e iOS — vagas e chats no bolso",
-        zh: "Android 与 iOS——口袋里的职位和聊天",
+        de: "Jobs und Chats in der Tasche und auf dem Mac",
+        es: "Vacantes y chats en tu bolsillo y en tu Mac",
+        fr: "Offres et messages dans votre poche et sur votre Mac",
+        pl: "Oferty i czaty w kieszeni i na Macu",
+        ptBR: "Vagas e chats no bolso e no Mac",
+        zh: "职位和聊天，在手机上也在 Mac 上",
       },
     ),
   },
