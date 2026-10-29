@@ -15,10 +15,17 @@ export const runtime = "nodejs";
 // получить свой кусок, а не разбирать общий.
 
 import { NextRequest, NextResponse } from "next/server";
-import { resolvedConfig } from "@/lib/app-version";
+import { MAC_UPDATE, resolvedConfig } from "@/lib/app-version";
 
 export async function GET(request: NextRequest) {
   const platform = request.nextUrl.searchParams.get("platform");
+  // 29.10.2026: Mac -- по номеру сборки, архив с нашего сайта (lib/app-version.ts).
+  if (platform === "macos") {
+    return NextResponse.json(
+      { ok: true, platform, minimum: "1.0.0", recommended: "1.0.0", storeUrl: "", ...MAC_UPDATE },
+      { headers: { "Cache-Control": "public, max-age=0, s-maxage=60, stale-while-revalidate=600" } },
+    );
+  }
   const config = await resolvedConfig();
   const body =
     platform === "ios" || platform === "android"
