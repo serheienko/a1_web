@@ -2575,45 +2575,39 @@
 .macLink {
   display: none;
   align-items: center;
-  gap: 7px;
-  height: 32px;
-  padding: 0 12px 0 10px;
+  gap: 9px;
+  height: 46px;
+  padding: 0 20px 0 16px;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--ink) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ink) 16%, transparent);
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  box-shadow: 0 8px 24px -14px rgba(79, 113, 235, 0.55);
+  backdrop-filter: blur(8px);
   color: var(--ink);
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 650;
   text-decoration: none;
   white-space: nowrap;
   transition:
     border-color 180ms ease,
     background-color 180ms ease,
+    box-shadow 180ms ease,
     transform 180ms ease;
 }
 
 .macIcon {
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   fill: currentColor;
   margin-top: -2px;
-}
-
-.macBeta {
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: color-mix(in srgb, #4f71eb 22%, transparent);
-  color: #7d97ff;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 
 @media (hover: hover) {
   .macLink:hover {
     border-color: color-mix(in srgb, #4f71eb 70%, transparent);
     background: color-mix(in srgb, #4f71eb 12%, transparent);
-    transform: translateY(-1px);
+    box-shadow: 0 12px 28px -14px rgba(79, 113, 235, 0.75);
+    transform: translateY(-2px);
   }
 }
 
@@ -2646,4 +2640,10 @@
     line-height: 1.35;
     text-align: center;
   }
+}
+
+/* Пометка на телефоне -- значок остаётся маленьким (29.10.2026). */
+.macHint .macIcon {
+  width: 13px;
+  height: 13px;
 }

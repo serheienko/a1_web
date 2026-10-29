@@ -70,7 +70,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AvatarMenu } from "@/components/avatar-menu";
 import { AppOpenBanner } from "@/components/app-open-banner";
 import { GameMapButton } from "@/components/game-map-button";
@@ -79,6 +79,9 @@ import { NavCountry } from "@/components/nav-country";
 import { NavFilters } from "@/components/nav-filters";
 import { T } from "@/components/t";
 import { GLASS } from "@/lib/glass";
+
+/** Страницы, где шапка сливается с фоном страницы (29.10.2026). */
+const BLEND_PATHS = new Set(["/invite", "/first250"]);
 
 const NAV_ITEMS = [
   {
@@ -109,6 +112,14 @@ const NAV_ITEMS = [
 
 export function SiteNav() {
   const pathname = usePathname();
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    if (!BLEND_PATHS.has(pathname ?? "")) return;
+    const on = () => setScrolled(window.scrollY > 8);
+    on();
+    window.addEventListener("scroll", on, { passive: true });
+    return () => window.removeEventListener("scroll", on);
+  }, [pathname]);
   const navRef = useRef<HTMLElement>(null);
   // 2026-09-02 (Aleksandr, live screenshot of a chat opened on mobile:
   // "давай эту верхнюю часть вообще уберем... поднимем Софию Беннетт,
@@ -182,12 +193,23 @@ export function SiteNav() {
   // + ссылка на основной сайт). Общая навигация сайта на ней лишняя.
   if ((pathname === "/download" || pathname === "/download-new")) return null;
 
+  // 29.10.2026 (Александр: «на "Отримай Alpha" шапка отделяет страницу серой
+  // полосой -- пусть будет в тон градиенту»). На страницах с переливающимся
+  // фоном (/invite, /first250) шапка прозрачная, фон страницы заходит под неё;
+  // при прокрутке -- матовое стекло, чтобы текст под ней не мешал кнопкам.
+  const blend = BLEND_PATHS.has(pathname ?? "");
+  const navBg = blend
+    ? scrolled
+      ? "bg-white/45 backdrop-blur-xl dark:bg-black/35"
+      : "bg-transparent"
+    : "bg-app/80 backdrop-blur-xl dark:bg-black/80";
+
   return (
     <nav
       ref={navRef}
       className={`${
         isChatDetailRoute ? "hidden sm:block " : ""
-      }sticky top-0 z-[45] isolate bg-app/80 pt-[env(safe-area-inset-top)] backdrop-blur-xl [will-change:transform] dark:bg-black/80`}
+      }sticky top-0 z-[45] isolate ${navBg} pt-[env(safe-area-inset-top)] transition-[background-color,backdrop-filter] duration-300 [will-change:transform]`}
       style={{ transform: "translateZ(0)" }}
     >
       <AppOpenBanner />

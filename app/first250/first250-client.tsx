@@ -290,7 +290,7 @@ export function First250Client() {
   const pct = st ? Math.min(100, Math.round((st.taken / st.total) * 100)) : 0;
 
   return (
-    <main className="f250 relative isolate -mb-16 overflow-hidden pb-16">
+    <main className="f250 relative isolate -mb-16 -mt-16 overflow-hidden pt-16 pb-16">
       {canvas}
       {/* фон: мягкий переливающийся градиент и плавающие «искорки» */}
       <div aria-hidden="true" className="f250-bg absolute inset-0 -z-10" />

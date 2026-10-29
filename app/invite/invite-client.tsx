@@ -164,7 +164,7 @@ export function InviteClient() {
   })();
 
   return (
-    <main className="f250 relative isolate -mb-16 overflow-hidden pb-24">
+    <main className="f250 relative isolate -mb-16 -mt-16 overflow-hidden pt-16 pb-24">
       {/* фон: переливающийся градиент и подарки, которые летят вверх из-под стеклянных карточек */}
       <div aria-hidden="true" className="f250-bg absolute inset-0 -z-10" />
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
