@@ -17,6 +17,7 @@ import path from "node:path";
 import os from "node:os";
 import { promises as fs } from "node:fs";
 import sharp from "sharp";
+import type React from "react";
 import { Document, Page, View, Text, Image, Link, Font, Svg, Defs, LinearGradient, Stop, Rect, Path, renderToBuffer } from "@react-pdf/renderer";
 import type { CvData } from "@/lib/cv/data";
 import { allCvTexts, cvText, soAnswers, yearsText } from "@/lib/cv/i18n";
@@ -37,6 +38,10 @@ function registerFonts() {
   });
   // Переносы слов по слогам react-pdf делает по-английски и рвёт украинские слова -- выключаем.
   Font.registerHyphenationCallback((word) => [word]);
+  // 29.10.2026 (Александр: «умеем эмодзи в CV? если нет -- надо научиться»).
+  // В шрифтах эмодзи нет, поэтому react-pdf вставляет их картинками Twemoji
+  // (как в Telegram/X), по одной PNG на эмодзи, с CDN.
+  Font.registerEmojiSource({ format: "png", url: "https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/72x72/" });
   fontsReady = true;
 }
 
@@ -81,11 +86,21 @@ const MUTED = "#5A6180";
 const LINE = "#E2E6F5";
 const HEAT = ["#EDF0FA", "#C7D2FB", "#8FA3F8", ACCENT, "#2840B8"];
 
+// 29.10.2026: эмодзи из профиля рисуются картинками Twemoji (см. registerFonts).
+// Каждое эмодзи -- свой вложенный <Text>, чтобы картинка не цепляла текст рядом.
+// В шрифты Commissioner (assets/cv-fonts) добавлен знак U+FFFC шириной 1em:
+// без него react-pdf отводил под картинку 0,6em и она наезжала на соседние буквы.
+const EMOJI_RE = /((?:\p{Regional_Indicator}{2}|\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic}\uFE0F?|\p{Emoji_Modifier})*))/gu;
+function em(text: string): React.ReactNode {
+  if (!/\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(text)) return text;
+  return text.split(EMOJI_RE).map((part, i) => (i % 2 === 1 ? <Text key={i}>{part}</Text> : part));
+}
+
 function H2({ children }: { children: string }) {
   return <Text style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", color: ACCENT, marginBottom: 7 }}>{children}</Text>;
 }
 
-function Chip({ children, light }: { children: string; light?: boolean }) {
+function Chip({ children, light }: { children: React.ReactNode; light?: boolean }) {
   return (
     <Text
       style={{
@@ -144,10 +159,10 @@ function CvDocument({ d, logo, family }: { d: CvData; logo: { blue: string; whit
           ) : null}
           <View style={{ flex: 1, color: "#FFFFFF" }}>
             <Text style={{ fontSize: 9.5, fontWeight: 600, textTransform: "uppercase", opacity: 0.85 }}>{t("resumeFrom")}</Text>
-            <Text style={{ fontSize: d.name.length > 22 ? 24 : 30, fontWeight: 800, marginTop: 4, lineHeight: 1.08 }}>{d.name}</Text>
-            {d.role ? <Text style={{ fontSize: 13.5, fontWeight: 600, marginTop: 4 }}>{d.role}</Text> : null}
+            <Text style={{ fontSize: d.name.length > 22 ? 24 : 30, fontWeight: 800, marginTop: 4, lineHeight: 1.08 }}>{em(d.name)}</Text>
+            {d.role ? <Text style={{ fontSize: 13.5, fontWeight: 600, marginTop: 4 }}>{em(d.role)}</Text> : null}
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
-              {d.location ? <Chip light>{d.location}</Chip> : null}
+              {d.location ? <Chip light>{em(d.location)}</Chip> : null}
               {d.years ? <Chip light>{yearsText(d.lang, d.years)}</Chip> : null}
               {d.voiceUrl ? (
                 <Link src={d.voiceUrl} style={{ textDecoration: "none" }}>
@@ -263,7 +278,7 @@ function CvDocument({ d, logo, family }: { d: CvData; logo: { blue: string; whit
             {d.about ? (
               <View>
                 <H2>{t("about")}</H2>
-                <Text style={{ fontSize: 10.5, lineHeight: 1.55, color: BODY }}>{d.about}</Text>
+                <Text style={{ fontSize: 10.5, lineHeight: 1.55, color: BODY }}>{em(d.about)}</Text>
               </View>
             ) : null}
             {d.experience.length ? (
@@ -278,9 +293,9 @@ function CvDocument({ d, logo, family }: { d: CvData; logo: { blue: string; whit
                       {i < d.experience.length - 1 ? <View style={{ width: 1.5, flex: 1, backgroundColor: LINE, marginTop: 3 }} /> : null}
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 11.3, fontWeight: 700 }}>{e.company}</Text>
+                      <Text style={{ fontSize: 11.3, fontWeight: 700 }}>{em(e.company)}</Text>
                       {years(e, t("present")) ? <Text style={{ fontSize: 9.8, color: MUTED, marginTop: 1.5 }}>{years(e, t("present"))}</Text> : null}
-                      {e.description ? <Text style={{ fontSize: 10, lineHeight: 1.5, color: BODY, marginTop: 4 }}>{e.description}</Text> : null}
+                      {e.description ? <Text style={{ fontSize: 10, lineHeight: 1.5, color: BODY, marginTop: 4 }}>{em(e.description)}</Text> : null}
                     </View>
                   </View>
                 ))}
@@ -291,7 +306,7 @@ function CvDocument({ d, logo, family }: { d: CvData; logo: { blue: string; whit
                 <H2>{t("education")}</H2>
                 {d.education.map((ed, i) => (
                   <Text key={i} style={{ fontSize: 10.5, fontWeight: 600, marginBottom: 3 }}>
-                    {ed}
+                    {em(ed)}
                   </Text>
                 ))}
               </View>
@@ -302,7 +317,7 @@ function CvDocument({ d, logo, family }: { d: CvData; logo: { blue: string; whit
                 {d.workStyle.map((w) => (
                   <Text key={w.label} style={{ fontSize: w.minor ? 9 : 9.8, lineHeight: 1.5, color: w.minor ? BODY : INK }}>
                     <Text style={{ color: MUTED }}>{`${w.label}: `}</Text>
-                    {w.value}
+                    {em(w.value)}
                   </Text>
                 ))}
               </View>
@@ -313,7 +328,7 @@ function CvDocument({ d, logo, family }: { d: CvData; logo: { blue: string; whit
                 {fav.map((f) => (
                   <Text key={f.label} style={{ fontSize: 9.8, lineHeight: 1.5 }}>
                     <Text style={{ color: MUTED }}>{`${f.label}: `}</Text>
-                    {f.items.join(", ")}
+                    {em(f.items.join(", "))}
                   </Text>
                 ))}
               </View>
@@ -327,7 +342,7 @@ function CvDocument({ d, logo, family }: { d: CvData; logo: { blue: string; whit
                 {d.skills.map((s) => (
                   <View key={s.name} wrap={false} style={{ marginBottom: 7 }}>
                     <View style={{ flexDirection: "row", justifyContent: "space-between", fontSize: 9.8, fontWeight: 600 }}>
-                      <Text>{s.name}</Text>
+                      <Text>{em(s.name)}</Text>
                       <Text style={{ color: MUTED, fontWeight: 500 }}>{`${Math.round(s.level)}%`}</Text>
                     </View>
                     <View style={{ height: 5.2, borderRadius: 3, backgroundColor: "#EDF0FA", marginTop: 3.5 }}>
@@ -357,7 +372,7 @@ function CvDocument({ d, logo, family }: { d: CvData; logo: { blue: string; whit
                 <H2>{t("hobbies")}</H2>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4.5 }}>
                   {d.hobbies.map((h) => (
-                    <Chip key={h}>{h}</Chip>
+                    <Chip key={h}>{em(h)}</Chip>
                   ))}
                 </View>
               </View>
