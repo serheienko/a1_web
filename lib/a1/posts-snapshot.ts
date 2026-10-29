@@ -12,10 +12,15 @@
 //
 // Если базы нет, копия битая или старше суток -- молча возвращаем null, и всё идёт как раньше
 // (полный обход). Хуже, чем было, не станет.
-import { createGzip, gunzipSync } from "node:zlib";
+import { createGunzip, createGzip } from "node:zlib";
+import { Readable } from "node:stream";
+import { createInterface } from "node:readline";
 import type { WebPost } from "@/types/web-post";
 
-const PATH = "a1/cache/job-posts-snapshot.json.gz";
+// 29.10.2026: первая запись показала 68 тыс. вакансий = 135 МБ в сжатом виде. Разжатый текст
+// больше предела одной строки в Node (~512 МБ), поэтому формат -- «по вакансии на строку»
+// (первая строка {"at":...}), и читаем его тоже построчно, не собирая одну огромную строку.
+const PATH = "a1/cache/job-posts-snapshot.ndjson.gz";
 const MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 type Snapshot = { at: number; posts: WebPost[] };
@@ -46,21 +51,23 @@ async function gzipPosts(at: number, posts: WebPost[]): Promise<Buffer> {
       if (gz.write(s)) resolve();
       else gz.once("drain", resolve);
     });
-  await write(`{"at":${at},"posts":[`);
-  for (let i = 0; i < posts.length; i++) {
-    await write((i ? "," : "") + JSON.stringify(posts[i], replacer));
-  }
-  await write("]}");
+  await write(`{"at":${at}}\n`);
+  for (const p of posts) await write(JSON.stringify(p, replacer) + "\n");
   gz.end();
   await done;
   return Buffer.concat(chunks);
 }
 
 let saving: Promise<void> | null = null;
+let savedAt = 0;
+// Запись -- около 2,5 минуты работы процессора на 135 МБ, поэтому после догона пишем не чаще
+// раза в 3 часа (после полного обхода -- всегда). Новой версии этого хватает: она догоняет свежее сама.
+const TOPUP_SAVE_GAP_MS = 3 * 60 * 60 * 1000;
 
 /** Положить список в базу (в фоне; ошибки не мешают сайту). */
-export function saveJobPostsSnapshot(at: number, posts: WebPost[]): void {
+export function saveJobPostsSnapshot(at: number, posts: WebPost[], opts: { force?: boolean } = {}): void {
   if (saving) return; // предыдущая запись ещё идёт -- следующий догон положит свежее
+  if (!opts.force && Date.now() - savedAt < TOPUP_SAVE_GAP_MS) return;
   saving = (async () => {
     try {
       const { kvConfigured, kvPut } = await import("@/lib/kv/store");
@@ -68,6 +75,7 @@ export function saveJobPostsSnapshot(at: number, posts: WebPost[]): void {
       const t0 = Date.now();
       const body = await gzipPosts(at, posts);
       await kvPut(PATH, body);
+      savedAt = Date.now();
       console.log(
         `[posts-snapshot] saved ${posts.length} posts, ${(body.length / 1048576).toFixed(1)} MB gz, ${Date.now() - t0} ms`,
       );
@@ -87,9 +95,21 @@ export async function loadJobPostsSnapshot(): Promise<Snapshot | null> {
     const t0 = Date.now();
     const body = await kvGet(PATH);
     if (!body) return null;
-    const snap = JSON.parse(gunzipSync(body).toString("utf8"), reviver) as Snapshot;
-    if (!snap || !Array.isArray(snap.posts) || typeof snap.at !== "number") return null;
-    if (Date.now() - snap.at > MAX_AGE_MS) return null;
+    const lines = createInterface({ input: Readable.from([body]).pipe(createGunzip()), crlfDelay: Infinity });
+    let at = -1;
+    const posts: WebPost[] = [];
+    for await (const line of lines) {
+      if (!line) continue;
+      if (at < 0) {
+        at = Number((JSON.parse(line) as { at?: unknown }).at);
+        if (!Number.isFinite(at) || Date.now() - at > MAX_AGE_MS) return null;
+        continue;
+      }
+      posts.push(JSON.parse(line, reviver) as WebPost);
+    }
+    if (at < 0 || !posts.length) return null;
+    const snap: Snapshot = { at, posts };
+    savedAt = Date.now(); // копия в базе свежая -- первый догон не перезаписывает её сразу
     console.log(`[posts-snapshot] loaded ${snap.posts.length} posts in ${Date.now() - t0} ms`);
     return snap;
   } catch (e) {

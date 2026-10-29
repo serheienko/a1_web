@@ -202,7 +202,7 @@ function refreshShared(): Promise<WebPost[]> {
     .then((posts) => {
       shared = { at: Date.now(), toppedAt: Date.now(), posts };
       version += 1;
-      saveJobPostsSnapshot(shared.at, posts);
+      saveJobPostsSnapshot(shared.at, posts, { force: true });
       return posts;
     })
     .finally(() => {
