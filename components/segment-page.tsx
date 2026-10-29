@@ -28,6 +28,19 @@ export type SegmentLinkGroup = { title: L; links: { href: string; label: string 
 const num = (n: number) => n.toLocaleString("uk-UA").replace(/ /g, "\u00a0");
 
 /** 29.10.2026: на языковой версии (/en/...) рисуем ОДИН язык, а не все девять. */
+const JOBS_WORD: Record<Locale, string> = { uk: "Вакансії", ru: "Вакансии", en: "Jobs", de: "Stellen", es: "Vacantes", fr: "Offres", pl: "Oferty", ptBR: "Vagas", zh: "职位" };
+const ALL_COLLECTIONS: Record<Locale, string> = {
+  uk: "Усі добірки вакансій →",
+  ru: "Все подборки вакансий →",
+  en: "All job collections →",
+  de: "Alle Job-Sammlungen →",
+  es: "Todas las colecciones →",
+  fr: "Toutes les sélections →",
+  pl: "Wszystkie zbiory ofert →",
+  ptBR: "Todas as coleções →",
+  zh: "全部职位合集 →",
+};
+
 function CountLine({ template, n, locale }: { template: L; n: number; locale?: Locale }) {
   if (locale) {
     const [before = "", after = ""] = template[locale].split("{n}");
@@ -85,10 +98,10 @@ export function SegmentLinks({ groups, locale }: { groups: SegmentLinkGroup[]; l
           робота. */}
       <div>
         <Link
-          href="/jobs/catalog"
+          href={locale ? `/${locale}/jobs/catalog` : "/jobs/catalog"}
           className="text-sm text-neutral-500 no-underline transition hover:text-accent dark:text-neutral-400"
         >
-          {locale ? "All job collections →" : <T
+          {locale ? ALL_COLLECTIONS[locale] : <T
             uk="Усі добірки вакансій →"
             en="All job collections →"
             ru="Все подборки вакансий →"
@@ -153,8 +166,10 @@ export async function SegmentPage({
       />
 
       <nav aria-label="breadcrumb" className="mb-4 text-[13px] text-neutral-400 dark:text-neutral-500">
-        <Link href={locale ? `/${locale}` : "/"} className="transition hover:text-accent">
-          {locale ? "Jobs" : <T uk="Вакансії" en="Jobs" ru="Вакансии" de="Stellen" es="Vacantes" fr="Offres" pl="Oferty" ptBR="Vagas" zh="职位" />}
+        {/* 29.10.2026: у языковых версий нет своей главной -- крошка ведёт в каталог того же языка
+            (раньше /en, /de -- 404). */}
+        <Link href={locale ? `/${locale}/jobs/catalog` : "/"} className="transition hover:text-accent">
+          {locale ? JOBS_WORD[locale] : <T uk="Вакансії" en="Jobs" ru="Вакансии" de="Stellen" es="Vacantes" fr="Offres" pl="Oferty" ptBR="Vagas" zh="职位" />}
         </Link>
         <span aria-hidden="true" className="px-1.5">/</span>
       </nav>

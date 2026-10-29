@@ -11,6 +11,7 @@ export const revalidate = 3600;
 // открыть сорок страниц, чтобы сравнить две.
 
 import type { Metadata } from "next";
+import { altLanguages } from "@/lib/seo/hreflang";
 import Link from "next/link";
 import { LOCALES, LOCALE_VISIBILITY_CLASS, T } from "@/components/t";
 import { EmptyState } from "@/components/empty-state";
@@ -26,7 +27,7 @@ export const metadata: Metadata = {
   title: "Зарплати в IT — вилки та медіани за напрямами | A1 Jobs",
   description:
     "Скільки платять в IT за напрямами: медіана і вилка за вакансіями, де компанія сама назвала суму. Оновлюється щодня.",
-  alternates: { canonical: `${SITE_URL}/jobs/salary` },
+  alternates: { canonical: `${SITE_URL}/jobs/salary`, languages: altLanguages("/jobs/salary") },
   openGraph: {
     title: "Зарплати в IT — вилки та медіани за напрямами | A1 Jobs",
     description: "Медіана і вилка за вакансіями, де компанія сама назвала суму. Оновлюється щодня.",

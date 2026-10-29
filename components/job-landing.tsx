@@ -103,8 +103,8 @@ export async function JobLandingPage({
 
       {/* Крошка -- и для Google, и как ссылка обратно в общую ленту. */}
       <nav aria-label="breadcrumb" className="mb-4 text-[13px] text-neutral-400 dark:text-neutral-500">
-        <a href={withCountry(locale ? `/${locale}` : "/", country)} className="transition hover:text-accent">
-          {locale ? "Jobs" : <T uk="Вакансії" en="Jobs" ru="Вакансии" de="Stellen" es="Vacantes" fr="Offres" pl="Oferty" ptBR="Vagas" zh="职位" />}
+        <a href={locale ? `/${locale}/jobs/catalog` : withCountry("/", country)} className="transition hover:text-accent">
+          {locale ? ({ en: "Jobs", de: "Stellen", es: "Vacantes", pl: "Oferty", fr: "Offres", ptBR: "Vagas", zh: "职位", uk: "Вакансії", ru: "Вакансии" } as Record<string, string>)[locale] ?? "Jobs" : <T uk="Вакансії" en="Jobs" ru="Вакансии" de="Stellen" es="Vacantes" fr="Offres" pl="Oferty" ptBR="Vagas" zh="职位" />}
         </a>
         <span aria-hidden="true" className="px-1.5">/</span>
       </nav>

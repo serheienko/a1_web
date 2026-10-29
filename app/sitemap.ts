@@ -130,11 +130,15 @@ async function buildSitemap({ id }: { id: number | string }): Promise<MetadataRo
     // вакансий с названной суммой меньше порога, -- остальные отвечают
     // 404, и делать им в карте нечего.
     entries.push({ url: `${SITE_URL}/jobs/salary` });
+    // 29.10.2026: языковые зарплатные страницы (components/localized-salary.tsx).
+    for (const lang of LIVE_LOCALES) entries.push({ url: `${SITE_URL}/${lang}/jobs/salary` });
     for (const { role } of await salaryRoles()) {
       entries.push({ url: `${SITE_URL}/jobs/salary/${role}` });
+      for (const lang of LIVE_LOCALES) entries.push({ url: `${SITE_URL}/${lang}/jobs/salary/${role}` });
     }
     for (const pair of await salaryRoleCountryPairs()) {
       entries.push({ url: `${SITE_URL}/jobs/salary/${pair.role}/${pair.cc.toLowerCase()}` });
+      for (const lang of LIVE_LOCALES) entries.push({ url: `${SITE_URL}/${lang}/jobs/salary/${pair.role}/${pair.cc.toLowerCase()}` });
     }
     // 2026-09-18: страница сравнения с Djinni и DOU (app/compare).
     entries.push({ url: `${SITE_URL}/compare` });
@@ -143,6 +147,7 @@ async function buildSitemap({ id }: { id: number | string }): Promise<MetadataRo
     // 10.10.2026: каталог всех витрин (app/jobs/catalog). Для робота это
     // главный узел: с него ведут ссылки на все посадочные разом.
     entries.push({ url: `${SITE_URL}/jobs/catalog` });
+    for (const lang of LIVE_LOCALES) entries.push({ url: `${SITE_URL}/${lang}/jobs/catalog` });
     // 14.10.2026: «Хто наймає в IT» по месяцам и по стеку (lib/seo/hiring-month.ts).
     entries.push({ url: `${SITE_URL}/jobs/hiring` });
     for (const m of await hiringMonths()) {

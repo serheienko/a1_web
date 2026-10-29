@@ -17,6 +17,7 @@ export const revalidate = 3600;
 // MIN_SEGMENT_POSTS, то есть битых адресов здесь не бывает.
 
 import type { Metadata } from "next";
+import { altLanguages } from "@/lib/seo/hreflang";
 import { SegmentLinks, type SegmentLinkGroup } from "@/components/segment-page";
 import { T } from "@/components/t";
 import {
@@ -46,7 +47,7 @@ const DESCRIPTION =
 export const metadata: Metadata = {
   title: TITLE,
   description: DESCRIPTION,
-  alternates: { canonical: `${SITE_URL}/jobs/catalog` },
+  alternates: { canonical: `${SITE_URL}/jobs/catalog`, languages: altLanguages("/jobs/catalog") },
   openGraph: { title: TITLE, description: DESCRIPTION, url: `${SITE_URL}/jobs/catalog`, type: "website" },
   twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION },
 };

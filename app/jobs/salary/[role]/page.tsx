@@ -11,6 +11,7 @@ export const revalidate = 3600;
 // на неё нигде нет: медиана по трём вакансиям хуже, чем её отсутствие.
 
 import type { Metadata } from "next";
+import { altLanguages } from "@/lib/seo/hreflang";
 import { notFound } from "next/navigation";
 import { SegmentPage } from "@/components/segment-page";
 import { SalarySummary } from "@/components/salary-summary";
@@ -40,7 +41,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
     {
       title: meta.title,
       description: meta.description,
-      alternates: { canonical: url },
+      alternates: { canonical: url, languages: altLanguages(`/jobs/salary/${role}`) },
       openGraph: { title: meta.title, description: meta.description, url, type: "website" },
       twitter: { card: "summary_large_image", title: meta.title, description: meta.description },
     },

@@ -7,6 +7,7 @@ export const revalidate = 3600;
 // app/jobs/salary/[role]/page.tsx.
 
 import type { Metadata } from "next";
+import { altLanguages } from "@/lib/seo/hreflang";
 import { notFound, permanentRedirect } from "next/navigation";
 import { RegionNotice } from "@/components/region-notice";
 import { LINK_ROLE_IN_COUNTRY, LINK_SALARY_ALL, thinSalaryText } from "@/lib/seo/region-texts";
@@ -44,7 +45,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
     {
       title: meta.title,
       description: meta.description,
-      alternates: { canonical: url },
+      alternates: { canonical: url, languages: altLanguages(`/jobs/salary/${role}/${cc.toLowerCase()}`) },
       openGraph: { title: meta.title, description: meta.description, url, type: "website" },
       twitter: { card: "summary_large_image", title: meta.title, description: meta.description },
       ...(thin ? { robots: { index: false, follow: true } } : {}),
