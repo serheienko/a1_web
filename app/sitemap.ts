@@ -169,7 +169,11 @@ async function buildSitemap({ id }: { id: number | string }): Promise<MetadataRo
       if (cc) perCountry.set(cc, (perCountry.get(cc) ?? 0) + 1);
     }
     for (const code of COUNTRY_LANDING_CODES) {
-      if ((perCountry.get(code) ?? 0) >= 3) entries.push({ url: `${SITE_URL}/jobs/country/${code}` });
+      if ((perCountry.get(code) ?? 0) >= 3) {
+        entries.push({ url: `${SITE_URL}/jobs/country/${code}` });
+        // 29.10.2026: английская версия страновой витрины (app/en/jobs/country/[code]/page.tsx).
+        entries.push({ url: `${SITE_URL}/en/jobs/country/${code}` });
+      }
     }
 
     // 01.10.2026: блог -- список и статьи (lib/blog).
@@ -262,9 +266,15 @@ async function buildSitemap({ id }: { id: number | string }): Promise<MetadataRo
       for (const city of await listCities()) {
         entries.push({ url: `${SITE_URL}/jobs/city/${city.slug}` });
         entries.push({ url: `${SITE_URL}/en/jobs/city/${city.slug}` });
-        for (const t of await cityTechList(city.slug)) entries.push({ url: `${SITE_URL}/jobs/city/${city.slug}/${t.slug}` });
+        for (const t of await cityTechList(city.slug)) {
+          entries.push({ url: `${SITE_URL}/jobs/city/${city.slug}/${t.slug}` });
+          entries.push({ url: `${SITE_URL}/en/jobs/city/${city.slug}/${t.slug}` });
+        }
       }
-      for (const t of await remoteTechList()) entries.push({ url: `${SITE_URL}/jobs/remote/${t.slug}` });
+      for (const t of await remoteTechList()) {
+        entries.push({ url: `${SITE_URL}/jobs/remote/${t.slug}` });
+        entries.push({ url: `${SITE_URL}/en/jobs/remote/${t.slug}` });
+      }
       for (const { level } of await globalLevelCounts()) {
         entries.push({ url: `${SITE_URL}/jobs/level/${level}` });
         entries.push({ url: `${SITE_URL}/en/jobs/level/${level}` });
@@ -277,7 +287,10 @@ async function buildSitemap({ id }: { id: number | string }): Promise<MetadataRo
       }
       // 25.10.2026: профессия + страна.
       const pairs = await countryRolePairs();
-      for (const { cc, role } of pairs) entries.push({ url: `${SITE_URL}/jobs/role/${role}/${cc}` });
+      for (const { cc, role } of pairs) {
+        entries.push({ url: `${SITE_URL}/jobs/role/${role}/${cc}` });
+        entries.push({ url: `${SITE_URL}/en/jobs/role/${role}/${cc}` });
+      }
       // 25.10.2026: указатель профессий страны -- там, где есть хоть одна страница профессии.
       for (const cc of new Set(pairs.map((p) => p.cc))) entries.push({ url: `${SITE_URL}/jobs/country/${cc}/roles` });
       for (const cc of await segmentCountries()) {

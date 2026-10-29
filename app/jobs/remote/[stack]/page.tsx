@@ -12,6 +12,7 @@ import { remoteTechPosts } from "@/lib/a1/segment-index";
 import { findTechLanding } from "@/lib/seo/tech-landings";
 import { remoteTechCountLine, remoteTechH1, remoteTechLead, remoteTechMeta } from "@/lib/seo/segments";
 import { linksForRemoteTech } from "@/lib/seo/segment-links";
+import { altLanguages } from "@/lib/seo/hreflang";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -21,11 +22,13 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const landing = findTechLanding((await params).stack);
   if (!landing || !(await remoteTechPosts(landing.slug))) return {};
   const meta = remoteTechMeta(landing.label);
-  const url = `${SITE_URL}/jobs/remote/${landing.slug}`;
+  const path = `/jobs/remote/${landing.slug}`;
+  const url = `${SITE_URL}${path}`;
   return pagedMeta({
     title: meta.title,
     description: meta.description,
-    alternates: { canonical: url },
+    // 29.10.2026: связь с английской версией.
+    alternates: { canonical: url, languages: altLanguages(path) },
     openGraph: { title: meta.title, description: meta.description, url, type: "website" },
     twitter: { card: "summary_large_image", title: meta.title, description: meta.description },
   }, url, pageOf(await searchParams));

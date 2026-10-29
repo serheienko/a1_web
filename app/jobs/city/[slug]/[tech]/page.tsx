@@ -13,6 +13,7 @@ import { countryByCode } from "@/lib/seo/countries";
 import { findTechLanding } from "@/lib/seo/tech-landings";
 import { cityTechCountLine, cityTechH1, cityTechLead, cityTechMeta } from "@/lib/seo/segments";
 import { linksForCityTech } from "@/lib/seo/segment-links";
+import { altLanguages } from "@/lib/seo/hreflang";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -32,11 +33,13 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const data = await load(params);
   if (!data) return {};
   const meta = cityTechMeta(data.city.city, data.landing.label, data.country);
-  const url = `${SITE_URL}/jobs/city/${data.city.slug}/${data.landing.slug}`;
+  const path = `/jobs/city/${data.city.slug}/${data.landing.slug}`;
+  const url = `${SITE_URL}${path}`;
   return pagedMeta({
     title: meta.title,
     description: meta.description,
-    alternates: { canonical: url },
+    // 29.10.2026: связь с английской версией.
+    alternates: { canonical: url, languages: altLanguages(path) },
     openGraph: { title: meta.title, description: meta.description, url, type: "website" },
     twitter: { card: "summary_large_image", title: meta.title, description: meta.description },
   }, url, pageOf(await searchParams));

@@ -22,6 +22,7 @@ import { roleInfo } from "@/lib/seo/job-role";
 import { countryByCode, DEFAULT_COUNTRY_CODE, WORLDWIDE_CODE } from "@/lib/seo/countries";
 import { roleCountryCountLine, roleCountryH1, roleCountryLead, roleCountryMeta } from "@/lib/seo/role-texts";
 import { linksForCountry, linksForCountryRoles, linksForRoleCountries } from "@/lib/seo/segment-links";
+import { altLanguages } from "@/lib/seo/hreflang";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -48,11 +49,13 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   // notFound() здесь, а не только в странице: иначе мягкий 404 (см. /jobs/role/[role]).
   if (!r) notFound();
   const meta = roleCountryMeta(r.info.slug, r.country, r.posts.length);
-  const url = `${SITE_URL}/jobs/role/${r.info.slug}/${country}`;
+  const path = `/jobs/role/${r.info.slug}/${country}`;
+  const url = `${SITE_URL}${path}`;
   return pagedMeta({
     title: meta.title,
     description: meta.description,
-    alternates: { canonical: url },
+    // 29.10.2026: связь с английской версией.
+    alternates: { canonical: url, languages: altLanguages(path) },
     openGraph: { title: meta.title, description: meta.description, url, type: "website" },
     twitter: { card: "summary_large_image", title: meta.title, description: meta.description },
     ...(r.thin ? { robots: { index: false, follow: true } } : {}),

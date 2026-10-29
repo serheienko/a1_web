@@ -11,6 +11,7 @@ import { findCountryLanding } from "@/lib/seo/country-landings";
 import { SegmentLinks } from "@/components/segment-page";
 import { articleLinks, linksForCountry, linksForCountryRoles } from "@/lib/seo/segment-links";
 import { parsePageParam, toURLSearchParams, fetchFeedPage, pageToCursor } from "@/lib/a1/feed";
+import { altLanguages } from "@/lib/seo/hreflang";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -24,7 +25,8 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   if (!found) return {};
   const { landing, country } = found;
   const page = parsePageParam(toURLSearchParams(await searchParams));
-  const base = `${SITE_URL}/jobs/${landing.slug}`;
+  const path = `/jobs/${landing.slug}`;
+  const base = `${SITE_URL}${path}`;
   const url = page > 1 ? `${base}?page=${page}` : base;
 
   // Страна без вакансий -- пустая страница, в индексе ей делать нечего.
@@ -33,7 +35,8 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   return {
     title: landing.metaTitle,
     description: landing.metaDescription,
-    alternates: { canonical: url },
+    // 29.10.2026: связь с английской версией (app/en/jobs/country/[code]/page.tsx).
+    alternates: { canonical: url, languages: altLanguages(path) },
     robots: total === 0 ? { index: false, follow: true } : undefined,
     openGraph: { title: landing.metaTitle, description: landing.metaDescription, url, type: "website" },
     twitter: { card: "summary_large_image", title: landing.metaTitle, description: landing.metaDescription },
