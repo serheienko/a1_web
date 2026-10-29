@@ -5,8 +5,9 @@
 import sharp from "sharp";
 import QRCode from "qrcode";
 import { fetchUserByUsername, fetchUserRawByUsername } from "@/lib/a1/users";
-import { fetchHobbyLabels } from "@/lib/a1/datasets";
-import { translateHobbyItem } from "@/lib/pill-translations";
+import { fetchHobbyLabels, fetchWorkStylePreferences, WORK_STYLE_DATASET_KEYS } from "@/lib/a1/datasets";
+import { WORK_STYLE_PREFERENCE_SECTIONS } from "@/components/work-style-labels";
+import { translateHobbyItem, translateWorkStyleOption } from "@/lib/pill-translations";
 import { formatLanguageNameIn } from "@/lib/format";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { findGithubLogin, verifiedGithubLogin } from "@/lib/github/core";
@@ -40,6 +41,8 @@ export type CvData = {
   skills: { name: string; level: number }[];
   languages: { name: string; level: number }[];
   hobbies: string[];
+  /** «Стиль роботи» из профиля. minor -- второстепенные пункты, мельче. */
+  workStyle: { label: string; value: string; minor: boolean }[];
   favorites: { books: string[]; movies: string[]; games: string[] };
   github: { login: string; url: string; total: number; levels: number[][] } | null;
   dribbble: { url: string; shots: number; images: string[] } | null;
@@ -83,6 +86,14 @@ function linkLabel(url: string): string {
   }
 }
 
+// 29.10.2026 (Александр выбрал варианты 1 и 2): в CV -- рабочие пункты
+// (формат, занятость, тип проектов, стиль работы и лидерства) и мельче
+// «о характере» (тип личности, решения, делегирование, сотрудничество).
+// «Ставлення до ризику» и «Партнерство» в резюме не берём -- для найма
+// читаются странно; остальное (баланс, обучение, желаемая среда) тоже нет.
+const CV_WORK_STYLE_MAIN = ["workEnvironment", "workAvailability", "projectType", "workStyle", "leadershipStyle"] as const;
+const CV_WORK_STYLE_MINOR = ["personalityType", "decisionMakingStyle", "workloadAndTaskDelegation", "preferredCollaborationStyle"] as const;
+
 export type CvBuildResult = { status: "ok"; data: CvData } | { status: "not_found" };
 
 export async function buildCvData(username: string, fallbackLang: CvLang, forcedLang: CvLang | null): Promise<CvBuildResult> {
@@ -118,6 +129,25 @@ export async function buildCvData(username: string, fallbackLang: CvLang, forced
     drSnap ? Promise.all(drSnap.shots.slice(0, 3).map((s) => imageAsDataUrl(s.imageUrl, 240, 180))) : Promise.resolve([]),
     profile.hobbies.length ? fetchHobbyLabels().catch(() => null) : Promise.resolve(null),
   ]);
+  const wsKeys = [...CV_WORK_STYLE_MAIN, ...CV_WORK_STYLE_MINOR];
+  const wsDataset = wsKeys.some((k) => profile.workStylePreferences[k].length)
+    ? await fetchWorkStylePreferences().catch(() => null)
+    : null;
+  const workStyle: CvData["workStyle"] = [];
+  if (wsDataset) {
+    for (const key of wsKeys) {
+      const ids = profile.workStylePreferences[key];
+      if (!ids.length) continue;
+      const datasetKey = WORK_STYLE_DATASET_KEYS[key];
+      const labels = ids
+        .map((id) => wsDataset[datasetKey].find((o) => o.value === id)?.text ?? null)
+        .filter((v): v is string => Boolean(v))
+        .map((label) => translateWorkStyleOption(datasetKey, label, lang));
+      const section = WORK_STYLE_PREFERENCE_SECTIONS.find((sec) => sec.key === key);
+      if (!labels.length || !section) continue;
+      workStyle.push({ label: section[lang], value: labels.join(", "), minor: (CV_WORK_STYLE_MINOR as readonly string[]).includes(key) });
+    }
+  }
 
   const now = new Date().getUTCFullYear();
   const experience: CvExperience[] = profile.companies
@@ -199,6 +229,7 @@ export async function buildCvData(username: string, fallbackLang: CvLang, forced
       skills: [...profile.skills].sort((a, b) => b.level - a.level).slice(0, 8).map((s) => ({ name: s.value, level: Math.max(0, Math.min(100, s.level)) })),
       languages: profile.languages.map((l) => ({ name: formatLanguageNameIn(l.value, tag), level: Math.max(1, Math.min(5, l.level + 1)) })), // в профиле уровни 0..4 (5 штук), точек 5
       hobbies,
+      workStyle,
       favorites: {
         books: profile.favoriteBooks.map((b) => b.title).filter(Boolean).slice(0, 3),
         movies: profile.favoriteMovies.map((m) => m.title).filter(Boolean).slice(0, 3),

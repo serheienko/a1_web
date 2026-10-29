@@ -296,6 +296,17 @@ function CvDocument({ d, logo, family }: { d: CvData; logo: { blue: string; whit
                 ))}
               </View>
             ) : null}
+            {d.workStyle.length ? (
+              <View wrap={false}>
+                <H2>{t("workStyle")}</H2>
+                {d.workStyle.map((w) => (
+                  <Text key={w.label} style={{ fontSize: w.minor ? 9 : 9.8, lineHeight: 1.5, color: w.minor ? BODY : INK }}>
+                    <Text style={{ color: MUTED }}>{`${w.label}: `}</Text>
+                    {w.value}
+                  </Text>
+                ))}
+              </View>
+            ) : null}
             {fav.length ? (
               <View wrap={false}>
                 <H2>{t("favorites")}</H2>

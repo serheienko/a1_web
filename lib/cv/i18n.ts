@@ -21,7 +21,8 @@ type Key =
   | "present"
   | "contributions"
   | "dribbbleWorks"
-  | "soReputation";
+  | "soReputation"
+  | "workStyle";
 
 const S: Record<Key, Record<CvLang, string>> = {
   resumeFrom: { uk: "Резюме з A1", ru: "Резюме из A1", en: "Resume from A1", de: "Lebenslauf aus A1", es: "CV de A1", fr: "CV depuis A1", pl: "CV z A1", ptBR: "Currículo do A1", zh: "A1 简历" },
@@ -42,6 +43,7 @@ const S: Record<Key, Record<CvLang, string>> = {
   present: { uk: "дотепер", ru: "по настоящее время", en: "present", de: "heute", es: "actualidad", fr: "aujourd'hui", pl: "obecnie", ptBR: "atual", zh: "至今" },
   contributions: { uk: "внесків за рік", ru: "вкладов за год", en: "contributions this year", de: "Beiträge im Jahr", es: "contribuciones este año", fr: "contributions cette année", pl: "kontrybucji w roku", ptBR: "contribuições no ano", zh: "年度贡献" },
   dribbbleWorks: { uk: "робіт на Dribbble", ru: "работ на Dribbble", en: "shots on Dribbble", de: "Shots auf Dribbble", es: "trabajos en Dribbble", fr: "shots sur Dribbble", pl: "prac na Dribbble", ptBR: "trabalhos no Dribbble", zh: "Dribbble 作品" },
+  workStyle: { uk: "Стиль роботи", ru: "Стиль работы", en: "Work style", de: "Arbeitsstil", es: "Estilo de trabajo", fr: "Style de travail", pl: "Styl pracy", ptBR: "Estilo de trabalho", zh: "工作风格" },
   soReputation: { uk: "репутації Stack Overflow", ru: "репутации Stack Overflow", en: "Stack Overflow reputation", de: "Stack-Overflow-Reputation", es: "reputación en Stack Overflow", fr: "réputation Stack Overflow", pl: "reputacji Stack Overflow", ptBR: "reputação no Stack Overflow", zh: "Stack Overflow 声望" },
 };
 
