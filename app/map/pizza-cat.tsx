@@ -31,6 +31,7 @@ export function PizzaCat() {
   useEffect(() => {
     let anim: { destroy: () => void } | null = null;
     let dead = false;
+    let onVis: (() => void) | null = null;
     const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     (async () => {
@@ -44,6 +45,16 @@ export function PizzaCat() {
           autoplay: !calm,
           path: "/pizza-cat.json",
         });
+        // 29.10.2026: родная частота кадров и пауза в скрытой вкладке --
+        // карта держала процессор на ~40% даже без дела.
+        const a = anim as unknown as { setSubframe?: (v: boolean) => void; play: () => void; pause: () => void };
+        a.setSubframe?.(false);
+        onVis = () => {
+          if (calm) return;
+          if (document.visibilityState === "visible") a.play();
+          else a.pause();
+        };
+        document.addEventListener("visibilitychange", onVis);
         // Проявляем только когда кадр уже отрисован — иначе в плавное
         // появление попадёт пустой прямоугольник.
         (anim as unknown as { addEventListener: (e: string, f: () => void) => void })
@@ -53,7 +64,11 @@ export function PizzaCat() {
       }
     })();
 
-    return () => { dead = true; anim?.destroy(); };
+    return () => {
+      dead = true;
+      if (onVis) document.removeEventListener("visibilitychange", onVis);
+      anim?.destroy();
+    };
   }, []);
 
   return (

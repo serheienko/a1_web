@@ -279,7 +279,7 @@ export function HeroCv({ lang, alt, title, skills }: { lang: CvLang; alt: string
 /** Телефон сканирует QR резюме и открывает живой профиль с голосовым. */
 export function QrScanDemo({ label }: { label: string }) {
   return (
-    <div className="relative h-[260px] overflow-hidden rounded-3xl bg-[linear-gradient(135deg,#EEF1FE,#F6EEFF)] dark:bg-[linear-gradient(135deg,#141a3a,#22123a)]" aria-hidden="true">
+    <div data-pause-offscreen className="relative h-[260px] overflow-hidden rounded-3xl bg-[linear-gradient(135deg,#EEF1FE,#F6EEFF)] dark:bg-[linear-gradient(135deg,#141a3a,#22123a)]" aria-hidden="true">
       {/* кусок резюме с QR */}
       <div className="absolute left-6 top-6 w-[150px] rounded-2xl bg-white p-3 shadow-lg ring-1 ring-black/5">
         <div className="h-2 w-16 rounded-full bg-[#335EF7]/70" />
@@ -292,7 +292,10 @@ export function QrScanDemo({ label }: { label: string }) {
       {/* телефон */}
       <div className="cvl-phone absolute left-[34%] top-6 h-[220px] w-[118px] rounded-[22px] bg-[#141A33] p-[5px] shadow-2xl">
         <div className="relative h-full w-full overflow-hidden rounded-[18px] bg-[#0b1030]">
-          <div className="cvl-scan absolute inset-x-3 h-0.5 rounded-full bg-[#4ade80] shadow-[0_0_12px_#4ade80]" />
+          {/* 29.10.2026: линия едет через transform, а не top -- без перерасчёта вёрстки на каждом кадре. */}
+          <div className="cvl-scan pointer-events-none absolute inset-x-3 top-[8%] h-full">
+            <div className="h-0.5 rounded-full bg-[#4ade80] shadow-[0_0_12px_#4ade80]" />
+          </div>
           <div className="cvl-flash absolute inset-0 bg-white" />
           <div className="cvl-screen absolute inset-0 flex flex-col items-center bg-white px-2 pt-5 text-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}

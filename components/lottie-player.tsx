@@ -99,6 +99,9 @@ export function LottiePlayer({
           autoplay: true,
           animationData,
         });
+        // Кадры с родной частотой файла (обычно 25-30), а не 60/120 в секунду:
+        // глазу не видно, процессору вдвое-вчетверо легче.
+        (anim as unknown as { setSubframe?: (v: boolean) => void }).setSubframe?.(false);
         if (!loop && onComplete) {
           (anim as unknown as { addEventListener: (evt: string, cb: () => void) => void }).addEventListener(
             "complete",

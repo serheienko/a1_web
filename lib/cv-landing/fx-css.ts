@@ -10,7 +10,7 @@ export const CV_FX_CSS = `
 @keyframes cvl-bar{from{width:0}}
 @keyframes cvl-cell{from{background:#EDF0FA}}
 @keyframes cvl-print{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0 0 0 0)}}
-@keyframes cvl-scanline{0%,100%{top:8%}50%{top:88%}}
+@keyframes cvl-scanline{0%,100%{transform:translateY(0)}50%{transform:translateY(80%)}}
 @keyframes cvl-phone{0%,12%{transform:translate(78%,30%) rotate(10deg)}30%,78%{transform:translate(8%,2%) rotate(-3deg)}92%,100%{transform:translate(78%,30%) rotate(10deg)}}
 @keyframes cvl-screen{0%,30%{opacity:0}38%,76%{opacity:1}84%,100%{opacity:0}}
 @keyframes cvl-flash{0%,29%{opacity:0}31%{opacity:.85}38%,100%{opacity:0}}
