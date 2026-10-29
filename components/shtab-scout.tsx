@@ -32,11 +32,14 @@ const CSS = `
 .shs-no:hover{color:#b91c1c;background:#fee2e2}
 .shs-done{color:#15803d;border-color:#86efac}
 .shs-done:hover{color:#166534;background:#dcfce7}
+.shs-later{color:#c2410c;border-color:#fdba74}
+.shs-later:hover{color:#9a3412;background:#ffedd5}
 .shs-rej-box{margin-top:8px}
 .shs-rej-txt{width:100%;font:inherit;font-size:13px;border:1px solid var(--row);border-radius:10px;padding:6px 8px;background:transparent;color:inherit;resize:vertical}
 .shs-rej-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .shs-rej-err{font-size:12px;color:#991b1b}
 .shs-done{color:#15803d;font-weight:700}
+.shs-later-t{color:#c2410c;font-weight:700}
 :root.dark .shs-done{color:#4ade80}
 @media (prefers-color-scheme:dark){:root:not(.light) .shs-done{color:#4ade80}}
 `;
@@ -159,14 +162,15 @@ export async function ShtabScout() {
         </>
       ) : null}
 
-      {rejected.length ? (
+      {rejected.some((r) => r.status !== "later") ? (
         <details>
           <summary>
             <span className="shs-done">Сделано ({rejected.filter((r) => r.status === "done").length})</span> и отклонённые (
-            {rejected.filter((r) => r.status !== "done").length}) · Разведчик читает этот список и не повторяет такое
+            {rejected.filter((r) => r.status === "rejected" || !r.status).length}) · Разведчик читает этот список и не повторяет такое
           </summary>
           <ul className="shs-old">
             {rejected
+              .filter((r) => r.status !== "later")
               .slice()
               .reverse()
               .sort((a, b) => Number(b.status === "done") - Number(a.status === "done"))
@@ -179,6 +183,30 @@ export async function ShtabScout() {
                 </li>
               ))}
           </ul>
+        </details>
+      ) : null}
+
+      {/* 29.10.2026 (Александр: оранжевая кнопка «На потом»): отложенные идеи лежат внизу в сворачиваемой вкладке. */}
+      {rejected.some((r) => r.status === "later") ? (
+        <details>
+          <summary>
+            <span className="shs-later-t">На потом ({rejected.filter((r) => r.status === "later").length})</span> · отложено, Разведчик не повторяет
+          </summary>
+          <div className="shs-list">
+            {rejected
+              .filter((r) => r.status === "later")
+              .slice()
+              .reverse()
+              .map((r, k) => (
+                <div className="shs-i" key={`later-${k}`}>
+                  <div className="shs-top">{r.who ? <span className="shs-who">{r.who}</span> : null}</div>
+                  <div className="shs-what">{r.what}</div>
+                  <div>
+                    <ScoutRejectButton date={r.date} what={r.what} hideLater />
+                  </div>
+                </div>
+              ))}
+          </div>
         </details>
       ) : null}
 

@@ -19,7 +19,7 @@ const Body = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   what: z.string().min(1).max(400),
   reason: z.string().max(600).default(""),
-  status: z.enum(["rejected", "done"]).default("rejected"),
+  status: z.enum(["rejected", "done", "later"]).default("rejected"),
 });
 
 async function allowed(req: Request): Promise<boolean> {

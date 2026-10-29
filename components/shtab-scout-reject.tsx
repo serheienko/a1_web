@@ -7,21 +7,21 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export function ScoutRejectButton({ date, what }: { date: string; what: string }) {
+export function ScoutRejectButton({ date, what, hideLater = false }: { date: string; what: string; hideLater?: boolean }) {
   const [mode, setMode] = useState<"rejected" | "done" | null>(null);
   const router = useRouter();
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(false);
 
-  async function send() {
+  async function send(status: "rejected" | "done" | "later" | null = mode) {
     setBusy(true);
     setErr(false);
     try {
       const r = await fetch("/api/shtab/scout/reject", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ date, what, reason, status: mode }),
+        body: JSON.stringify({ date, what, reason: status === "later" ? "" : reason, status }),
       });
       if (!r.ok) throw new Error(String(r.status));
       router.refresh();
@@ -40,6 +40,12 @@ export function ScoutRejectButton({ date, what }: { date: string; what: string }
         <button type="button" className="shs-rej shs-no" onClick={() => setMode("rejected")}>
           Не подходит
         </button>
+        {hideLater ? null : (
+          <button type="button" className="shs-rej shs-later" disabled={busy} onClick={() => send("later")}>
+            {busy ? "Откладываю…" : "На потом"}
+          </button>
+        )}
+        {err ? <span className="shs-rej-err">Не вышло, попробуй ещё раз</span> : null}
       </div>
     );
   }
@@ -54,7 +60,7 @@ export function ScoutRejectButton({ date, what }: { date: string; what: string }
         onChange={(e) => setReason(e.target.value)}
       />
       <div className="shs-rej-row">
-        <button type="button" className={mode === "done" ? "shs-rej shs-done" : "shs-rej shs-no"} disabled={busy} onClick={send}>
+        <button type="button" className={mode === "done" ? "shs-rej shs-done" : "shs-rej shs-no"} disabled={busy} onClick={() => send()}>
           {busy ? "Убираю…" : mode === "done" ? "Отметить сделанным" : "Убрать идею"}
         </button>
         <button type="button" className="shs-rej" disabled={busy} onClick={() => setMode(null)}>

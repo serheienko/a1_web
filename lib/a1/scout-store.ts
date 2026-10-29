@@ -74,8 +74,9 @@ export async function loadScoutReports(limit = 4): Promise<ScoutReport[]> {
 const REJECTED_PATH = "a1/scout-rejected.json";
 
 // 16.10.2026: у записи есть статус -- "rejected" («Не подходит») или "done" («Сделано»). Старые записи
-// без статуса считаются отклонёнными. reason -- комментарий Александра (почему / как сделали).
-export type ScoutRejected = { date: string; who: string; what: string; reason: string; at: string; status?: "rejected" | "done" };
+// без статуса считаются отклонёнными. 29.10.2026: третий статус "later" («На потом») -- идея скрыта из
+// основного списка и лежит в сворачиваемой вкладке внизу штаба; её можно потом отметить сделанной/неподходящей. reason -- комментарий Александра (почему / как сделали).
+export type ScoutRejected = { date: string; who: string; what: string; reason: string; at: string; status?: "rejected" | "done" | "later" };
 
 const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
 
@@ -95,7 +96,7 @@ export function isRejected(idea: Pick<ScoutIdea, "what">, rejected: ScoutRejecte
 }
 
 /** Отклонить идею из отчёта за date. Причина уходит Разведчику. */
-export async function rejectScoutIdea(input: { date: string; what: string; reason: string; status?: "rejected" | "done" }): Promise<"ok" | "not_found" | "error"> {
+export async function rejectScoutIdea(input: { date: string; what: string; reason: string; status?: "rejected" | "done" | "later" }): Promise<"ok" | "not_found" | "error"> {
   if (!kvConfigured()) return "error";
   try {
     const report = (await loadScoutReports(12)).find((r) => r.date === input.date);
