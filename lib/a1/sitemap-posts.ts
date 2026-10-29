@@ -17,6 +17,7 @@ import { mapPosts } from "./mappers";
 import { PostsSearchOutputSchema } from "./schemas";
 import { isJobPostingExpired } from "../seo/jsonld";
 import type { WebPost } from "@/types/web-post";
+import { loadJobPostsSnapshot, saveJobPostsSnapshot } from "./posts-snapshot";
 
 const PAGE_SIZE = 100; // posts.search's documented max (PLAN.md §0.2)
 
@@ -201,6 +202,7 @@ function refreshShared(): Promise<WebPost[]> {
     .then((posts) => {
       shared = { at: Date.now(), toppedAt: Date.now(), posts };
       version += 1;
+      saveJobPostsSnapshot(shared.at, posts);
       return posts;
     })
     .finally(() => {
@@ -233,7 +235,33 @@ async function topUp(): Promise<void> {
     }
   }
   shared = { at: base.at, toppedAt: Date.now(), posts: fresh.length ? [...fresh, ...base.posts] : base.posts };
-  if (fresh.length) version += 1;
+  if (fresh.length) {
+    version += 1;
+    saveJobPostsSnapshot(shared.at, shared.posts);
+  }
+}
+
+// 29.10.2026: первый запрос после старта -- сначала копия из базы (lib/a1/posts-snapshot.ts),
+// полный обход только если копии нет. Копия старше получаса сразу догоняется свежим.
+let bootstrapping: Promise<WebPost[]> | null = null;
+
+function bootstrap(): Promise<WebPost[]> {
+  bootstrapping ??= loadJobPostsSnapshot()
+    .then((snap) => {
+      if (!snap || snap.posts.length === 0) return refreshShared();
+      shared = { at: snap.at, toppedAt: 0, posts: snap.posts };
+      version += 1;
+      topping ??= topUp()
+        .catch(() => {})
+        .finally(() => {
+          topping = null;
+        });
+      return snap.posts;
+    })
+    .finally(() => {
+      bootstrapping = null;
+    });
+  return bootstrapping;
 }
 
 export async function fetchAllSitemapJobPosts(): Promise<WebPost[]> {
@@ -250,5 +278,5 @@ export async function fetchAllSitemapJobPosts(): Promise<WebPost[]> {
     }
     return shared.posts;
   }
-  return refreshShared();
+  return bootstrap();
 }
