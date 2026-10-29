@@ -13,8 +13,10 @@ export function CvPromoStrip({ className }: { className?: string }) {
         (className ?? "")
       }
     >
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[linear-gradient(125deg,#335EF7,#6A4BF5,#A63DF2)] text-white">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {/* 29.10.2026 (Александр: «чтобы у иконки тоже была анимация при наведении»):
+          плитка чуть поворачивается и растёт, лист внутри подпрыгивает. */}
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[linear-gradient(125deg,#335EF7,#6A4BF5,#A63DF2)] text-white shadow-[0_6px_16px_-8px_rgba(106,75,245,0.6)] transition duration-300 ease-out group-hover:-rotate-6 group-hover:scale-110 group-hover:shadow-[0_10px_24px_-8px_rgba(106,75,245,0.75)] motion-reduce:transition-none motion-reduce:group-hover:transform-none">
+        <svg className="transition-transform duration-300 ease-out group-hover:-translate-y-0.5 group-hover:scale-110 motion-reduce:transition-none" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
           <path d="M14 3v5h5M9 13h6M9 17h4" />
         </svg>
