@@ -20,7 +20,7 @@ import Link from "next/link";
 import type { WebProfile } from "@/types/web-profile";
 import { CachedAvatar } from "@/components/cached-avatar";
 import { ClaimCompanyPrompt } from "@/components/claim-company-prompt";
-import { buildEmployerJsonLd } from "@/lib/seo/profile-meta";
+import { buildEmployerBreadcrumbJsonLd, buildEmployerItemListJsonLd, buildEmployerJsonLd } from "@/lib/seo/profile-meta";
 import { ProfileTabs } from "@/components/profile-tabs";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { profileHref } from "@/lib/profile-href";
@@ -36,7 +36,6 @@ import { OccupationIcon } from "@/components/occupation-icon";
 import { OCCUPATION_LABELS } from "@/components/occupation-labels";
 import { EditProfileButton } from "@/components/edit-profile-button";
 import { ProfileShare } from "@/components/profile-share";
-import { CvDownloadButton } from "@/components/cv-download-button";
 import { GithubSection } from "@/components/github-section";
 import { DribbbleSection } from "@/components/dribbble-section";
 import { StackoverflowSection } from "@/components/stackoverflow-section";
@@ -76,6 +75,8 @@ export type ProfileViewProps = {
   workStyleChips: WorkStyleChip[] | null;
   covers: { books: (CoverImage | null)[]; movies: (CoverImage | null)[]; games: (CoverImage | null)[] };
   openJobs: number;
+  /** 29.10.2026: открытые вакансии компании для разметки ItemList (до 20). */
+  openJobsList?: { slug: string; title: string }[];
   posts: ReactNode;
   postsCount: number;
   demo?: {
@@ -272,6 +273,7 @@ export function ProfileView({
   workStyleChips,
   covers,
   openJobs,
+  openJobsList = [],
   posts,
   postsCount,
   demo,
@@ -363,6 +365,22 @@ export function ProfileView({
               ),
             }}
           />
+          {/* eslint-disable-next-line react/no-danger */}
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify(
+                buildEmployerBreadcrumbJsonLd({ siteUrl: SITE_URL, fullName: profile.fullName, url: `${SITE_URL}${profileHref(profile.username)}` }),
+              ),
+            }}
+          />
+          {buildEmployerItemListJsonLd({ siteUrl: SITE_URL, jobs: openJobsList }) ? (
+            // eslint-disable-next-line react/no-danger
+            <script
+              type="application/ld+json"
+              dangerouslySetInnerHTML={{ __html: JSON.stringify(buildEmployerItemListJsonLd({ siteUrl: SITE_URL, jobs: openJobsList })) }}
+            />
+          ) : null}
           <nav aria-label="breadcrumb" className="mb-4 text-[13px] text-neutral-400 dark:text-neutral-500">
             <Link href="/" className="transition hover:text-accent">
               <T uk="Вакансії" en="Jobs" ru="Вакансии" de="Stellen" es="Vacantes" fr="Offres" pl="Oferty" ptBR="Vagas" zh="职位" />
@@ -487,8 +505,6 @@ export function ProfileView({
             className="absolute right-0 top-9"
           />
         )}
-        {/* 28.10.2026: «Зберегти CV» -- PDF-резюме из профиля (components/cv-download-button.tsx). */}
-        {!demo && raw && <CvDownloadButton username={profile.username} className="absolute right-0 top-[4.5rem]" />}
       </div>
 
       {/* Fuller player element — speed + scrubbing — for the same clip

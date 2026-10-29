@@ -49,6 +49,11 @@ export function buildEmployerTitle(fullName: string): string {
   const name = fullName.replace(/\s+/g, " ").trim();
   if (!name) return "Вакансії | A1 Jobs";
 
+  // 29.10.2026 (идея Разведчика «страницы <компания> careers», Александр: «давай»): по запросам вида
+  // «wallapop careers» мы уже на 9-й позиции, а слова careers в заголовке не было. Пробуем с ним первым.
+  const careers = `${name} careers — вакансії та робота | A1 Jobs`;
+  if (careers.length <= TITLE_MAX) return careers;
+
   const long = `${name} — вакансії та робота | A1 Jobs`;
   if (long.length <= TITLE_MAX) return long;
 
@@ -116,4 +121,35 @@ export function buildEmployerJsonLd(input: {
   if (input.sameAs.length > 0) jsonLd.sameAs = input.sameAs;
 
   return jsonLd;
+}
+
+/** 29.10.2026: список открытых вакансий компании для страницы /u/<компания> (schema.org ItemList). */
+export function buildEmployerItemListJsonLd(input: {
+  siteUrl: string;
+  jobs: { slug: string; title: string }[];
+}): Record<string, unknown> | null {
+  const jobs = input.jobs.filter((j) => j.slug && j.title).slice(0, 20);
+  if (jobs.length === 0) return null;
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    itemListElement: jobs.map((j, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      url: `${input.siteUrl}/jobs/${j.slug}`,
+      name: j.title.replace(/\s+/g, " ").trim(),
+    })),
+  };
+}
+
+/** Хлебные крошки «Вакансії → компания» в разметке (на странице те же крошки видны глазами). */
+export function buildEmployerBreadcrumbJsonLd(input: { siteUrl: string; fullName: string; url: string }): Record<string, unknown> {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Вакансії", item: input.siteUrl },
+      { "@type": "ListItem", position: 2, name: input.fullName, item: input.url },
+    ],
+  };
 }

@@ -302,6 +302,7 @@ export default async function ProfilePage({ params }: Props) {
       workStyleChips={workStyleChips}
       covers={{ books: bookCovers, movies: movieCovers, games: gameCovers }}
       openJobs={openJobs}
+      openJobsList={authorPosts.filter((post) => post.kind === "hiring").map((post) => ({ slug: post.slug, title: post.title }))}
       posts={posts}
       postsCount={Math.max(authorPage?.total ?? 0, authorPosts.length)}
     />
