@@ -20,7 +20,7 @@ export const DOWNLOAD_LINKS = {
   // 29.10.2026 (Александр: «рабочая версия для Mac -- надо на страницу
   // download»). Архив лежит на самом сайте (public/downloads); новая сборка
   // кладётся поверх под тем же именем.
-  mac: "/downloads/A1-mac.zip",
+  mac: "/api/desktop/download",
 } as const;
 
 export type DownloadCopy = {
