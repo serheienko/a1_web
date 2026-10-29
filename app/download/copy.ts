@@ -18,9 +18,9 @@ export const DOWNLOAD_LINKS = {
   // сам джоб-борд, над которым мы и работаем.
   website: "https://jobs.a1appp.com",
   // 29.10.2026 (Александр: «рабочая версия для Mac -- надо на страницу
-  // download»). Файл лежит в релизах открытого репозитория сайта; ссылка
-  // «latest» всегда ведёт на последнюю выложенную сборку.
-  mac: "https://github.com/serheienko/a1_web/releases/latest/download/A1-mac.zip",
+  // download»). Архив лежит на самом сайте (public/downloads); новая сборка
+  // кладётся поверх под тем же именем.
+  mac: "/downloads/A1-mac.zip",
 } as const;
 
 export type DownloadCopy = {
