@@ -166,7 +166,7 @@ export function GhCellsBg() {
     return { o: 0.2 + r * 0.5, t: 3 + (r * 5) % 4, d: (r * 7) % 6 };
   });
   return (
-    <div className="cvl-ghbg pointer-events-none mt-8 grid grid-cols-[repeat(20,minmax(0,1fr))] gap-[4px] opacity-70 [mask-image:linear-gradient(to_bottom,transparent,#000_70%)] max-sm:[&>i:nth-child(n+81)]:hidden sm:grid-cols-[repeat(40,minmax(0,1fr))] sm:gap-[5px]" aria-hidden="true">
+    <div data-pause-offscreen className="cvl-ghbg pointer-events-none mt-8 grid grid-cols-[repeat(20,minmax(0,1fr))] gap-[4px] opacity-70 [mask-image:linear-gradient(to_bottom,transparent,#000_70%)] max-sm:[&>i:nth-child(n+81)]:hidden sm:grid-cols-[repeat(40,minmax(0,1fr))] sm:gap-[5px]" aria-hidden="true">
       {cells.map((c, i) => (
         <i key={i} className="block aspect-square rounded-[3px] bg-white" style={{ ["--o" as string]: c.o, ["--t" as string]: `${c.t}s`, ["--d" as string]: `${c.d}s`, opacity: 0.08 }} />
       ))}

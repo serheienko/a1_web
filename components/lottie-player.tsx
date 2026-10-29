@@ -74,7 +74,19 @@ export function LottiePlayer({
     if (!containerRef.current) return;
 
     let cancelled = false;
-    let anim: { destroy: () => void } | null = null;
+    let anim: { destroy: () => void; play: () => void; pause: () => void } | null = null;
+    // 29.10.2026 (Александр: «сайт чуть-чуть тормозит Мак»). Safari держал
+    // вкладку сайта на ~30% процессора даже без дела: флажок в футере и
+    // другие зацикленные анимации играли 60 раз в секунду, хотя их не видно.
+    // Теперь анимация спит, пока она за краем экрана или вкладка скрыта.
+    let onScreen = true;
+    let io: IntersectionObserver | null = null;
+    const sync = () => {
+      if (!anim) return;
+      if (onScreen && document.visibilityState === "visible") anim.play();
+      else anim.pause();
+    };
+    const onVisibility = () => sync();
 
     Promise.all([import("lottie-web"), fetch(src).then((res) => res.json())])
       .then(([lottieModule, animationData]) => {
@@ -94,6 +106,14 @@ export function LottiePlayer({
           );
         }
         setLoaded(true);
+        if (loop && typeof IntersectionObserver !== "undefined" && containerRef.current) {
+          io = new IntersectionObserver((entries) => {
+            onScreen = entries.some((e) => e.isIntersecting);
+            sync();
+          });
+          io.observe(containerRef.current);
+          document.addEventListener("visibilitychange", onVisibility);
+        }
       })
       .catch((err) => {
         // A missing/broken animation file just means no icon shows — same
@@ -108,6 +128,8 @@ export function LottiePlayer({
 
     return () => {
       cancelled = true;
+      io?.disconnect();
+      document.removeEventListener("visibilitychange", onVisibility);
       anim?.destroy();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- loop/onComplete

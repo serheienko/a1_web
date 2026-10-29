@@ -138,7 +138,7 @@ function Column({ title, items }: { title: Txt; items: Item[] }) {
 export function SiteFooter() {
   const year = new Date().getFullYear();
   return (
-    <footer className="relative isolate mt-16 overflow-hidden border-t border-transparent">
+    <footer data-pause-offscreen className="relative isolate mt-16 overflow-hidden border-t border-transparent">
       {/* градиентная линия сверху. 14.10.2026 (Александр: «чтобы она плавно, мягко туда-сюда
           перетекала по цвету, прям вообще не напряжно»): синий -> фиолетовый -> голубой медленно
           едут по линии туда и обратно (.footer-flow в app/globals.css; при «меньше движения» стоит). */}
