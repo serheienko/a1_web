@@ -197,6 +197,14 @@ export function SettingsPanelBody() {
     } catch {
       // Same as above — best-effort persistence, not required to work.
     }
+    // 29.10.2026 (языковые версии сайта). На адресе вида /en/... заголовки отрисованы
+    // сервером ПО-АНГЛИЙСКИ и переключением классов не меняются. Поэтому уход с английского
+    // на таком адресе -- это переход на украинский адрес (он без приставки), иначе страница
+    // осталась бы наполовину английской.
+    const path = window.location.pathname;
+    if (locale !== "en" && (path === "/en" || path.startsWith("/en/"))) {
+      window.location.href = path.replace(/^\/en/, "") + window.location.search || "/";
+    }
   }
 
   const languageOptions = LOCALES.filter((l) => !(isGeoUa && l === "ru"));

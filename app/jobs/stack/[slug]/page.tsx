@@ -6,57 +6,30 @@ export const revalidate = 3600;
 
 // app/jobs/stack/[slug]/page.tsx
 //
-// 2026-09-18. Посадочная по стеку: /jobs/stack/python и ещё пятнадцать.
-// Зачем они и почему стали возможны только сейчас -- в шапке
-// lib/seo/tech-landings.ts.
+// 2026-09-18. Посадочная по стеку: /jobs/stack/python и ещё семьдесят три.
+// Зачем они и почему стали возможны только сейчас -- в шапке lib/seo/tech-landings.ts.
 //
-// Адрес с отдельным сегментом "stack" не случайно: /jobs/<slug> -- это
-// страница вакансии, и любое новое статическое имя прямо под /jobs
-// пришлось бы держать в голове вечно. Здесь пересечься нечему.
-
+// Адрес с отдельным сегментом "stack" не случайно: /jobs/<slug> -- это страница вакансии,
+// и любое новое статическое имя прямо под /jobs пришлось бы держать в голове вечно.
+//
+// 29.10.2026: тело страницы переехало в components/stack-landing.tsx -- его делят украинский
+// адрес и языковой /en/jobs/stack/<slug> (мастер-план «Языковые версии сайта»).
+//
+// generateStaticParams здесь НЕТ намеренно: каждая такая страница поднимает обход всех вакансий,
+// а сборка раскладывает страницы по процессам -- общий кэш между ними не работает.
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Pagination } from "@/components/pagination";
-import { LANDING_PAGE_SIZE, pagedMeta, pageOf } from "@/lib/seo/paged";
-import { PostCard } from "@/components/post-card";
-import { EmptyState } from "@/components/empty-state";
-import { generateAvatarBlurDataUrl } from "@/lib/avatar-blur";
-import { LOCALES, LOCALE_VISIBILITY_CLASS, T, type Locale } from "@/components/t";
-import { buildLandingBreadcrumbJsonLd } from "@/lib/seo/jsonld";
-import { postsForTech } from "@/lib/a1/tech-index";
-import { buildLandingInsights } from "@/lib/seo/landing-insights";
-import { LandingInsightsBlock } from "@/components/landing-insights";
+import { pagedMeta, pageOf } from "@/lib/seo/paged";
+import { StackLanding } from "@/components/stack-landing";
+import { findTechLanding, techLandingMeta } from "@/lib/seo/tech-landings";
 import { titleWithCount } from "@/lib/seo/title-count";
-import { MIN_SEGMENT_POSTS } from "@/lib/seo/segments";
-import { SegmentLinks } from "@/components/segment-page";
-import { fill, TXT } from "@/components/hiring-page";
-import { currentMonthKey, hiringMonth, monthLabel } from "@/lib/seo/hiring-month";
-import { linksForGlobalLevels, linksForGlobalRoles, linksForTech, articleLinks, interviewLinks } from "@/lib/seo/segment-links";
-import {
-  TECH_LANDINGS,
-  findTechLanding,
-  techLandingCountLine,
-  techLandingH1,
-  techLandingLead,
-  techLandingMeta,
-} from "@/lib/seo/tech-landings";
-
-const SITE_URL = "https://jobs.a1appp.com";
+import { postsForTech } from "@/lib/a1/tech-index";
+import { altLanguages, SITE_URL } from "@/lib/seo/hreflang";
 
 type Props = {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
-
-// generateStaticParams здесь НЕТ намеренно. Каждая такая страница
-// поднимает обход всех вакансий (lib/a1/tech-index.ts), а сборка
-// раскладывает страницы по нескольким процессам -- общий кэш между ними
-// не работает, и шестнадцать страниц дали бы до шестнадцати полных
-// обходов прямо во время сборки. Сборка на Vercel ограничена по времени,
-// и sitemap уже делает один такой обход. Поэтому страницы собираются при
-// первом обращении и живут час; адреса Google всё равно берёт из
-// sitemap.
 
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const landing = findTechLanding((await params).slug);
@@ -65,147 +38,20 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   // 29.10.2026: число открытых вакансий и месяц в названии (lib/seo/title-count.ts).
   const count = (await postsForTech(landing.tech).catch(() => [])).length;
   meta.title = titleWithCount(`${landing.label} вакансії`, count, meta.title);
-  const url = `${SITE_URL}/jobs/stack/${landing.slug}`;
+  const path = `/jobs/stack/${landing.slug}`;
+  const url = `${SITE_URL}${path}`;
 
   return pagedMeta({
     title: meta.title,
     description: meta.description,
-    alternates: { canonical: url },
+    alternates: { canonical: url, languages: altLanguages(path) },
     openGraph: { title: meta.title, description: meta.description, url, type: "website" },
     twitter: { card: "summary_large_image", title: meta.title, description: meta.description },
   }, url, pageOf(await searchParams));
 }
 
-/** Число внутри фразы на девяти языках -- тот же приём, что в
- *  components/job-landing.tsx: рисуем все девять, видимый выбирает CSS. */
-function CountLine({ template, n }: { template: Record<Locale, string>; n: number }) {
-  return (
-    <>
-      {LOCALES.map((locale) => {
-        const [before = "", after = ""] = template[locale].split("{n}");
-        return (
-          <span key={locale} className={LOCALE_VISIBILITY_CLASS[locale]}>
-            {before}
-            {n.toLocaleString("uk-UA").replace(/ /g, " ")}
-            {after}
-          </span>
-        );
-      })}
-    </>
-  );
-}
-
 export default async function Page({ params, searchParams }: Props) {
   const landing = findTechLanding((await params).slug);
   if (!landing) notFound();
-
-  const all = await postsForTech(landing.tech);
-  // 10.10.2026. Порог тот же, что у остальных сегментов (lib/seo/segments.ts):
-  // посадочных по стеку стало семьдесят четыре вместо шестнадцати, и у части
-  // из них вакансий единицы. Тонкая страница Google не нужна, а нам дороже:
-  // от таких страниц портится отношение ко всему домену.
-  if (all.length < MIN_SEGMENT_POSTS) notFound();
-  // 08.10.2026: страницы по 20 с нумерацией (раньше только первые 40, дальше листать было некуда).
-  const page = pageOf(await searchParams);
-  const posts = all.slice((page - 1) * LANDING_PAGE_SIZE, page * LANDING_PAGE_SIZE);
-  if (page > 1 && posts.length === 0) notFound();
-  const totalPages = Math.max(1, Math.ceil(all.length / LANDING_PAGE_SIZE));
-  const avatarBlurs = await Promise.all(posts.map((post) => generateAvatarBlurDataUrl(post.author.avatarUrl)));
-  const hiring = await hiringMonth(currentMonthKey()).catch(() => null);
-  // 29.10.2026: срез по этим же вакансиям (сам стек из «що просять» убираем -- он и так в заголовке).
-  const insights = page === 1 ? buildLandingInsights(all, landing.tech) : null;
-
-  return (
-    <main className="mx-auto max-w-3xl px-4 pt-6 sm:pt-16 pb-fab-safe">
-      {/* eslint-disable-next-line react/no-danger */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(
-            buildLandingBreadcrumbJsonLd(
-              techLandingH1(landing.label).uk,
-              `${SITE_URL}/jobs/stack/${landing.slug}`,
-            ),
-          ),
-        }}
-      />
-
-      <nav aria-label="breadcrumb" className="mb-4 text-[13px] text-neutral-400 dark:text-neutral-500">
-        <Link href="/" className="transition hover:text-accent">
-          <T uk="Вакансії" en="Jobs" ru="Вакансии" de="Stellen" es="Vacantes" fr="Offres" pl="Oferty" ptBR="Vagas" zh="职位" />
-        </Link>
-        <span aria-hidden="true" className="px-1.5">/</span>
-      </nav>
-
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl dark:text-neutral-50">
-          <T {...techLandingH1(landing.label)} />
-        </h1>
-        <p className="mt-2 text-neutral-500 dark:text-neutral-400">
-          <CountLine template={techLandingCountLine(landing.label)} n={all.length} />
-        </p>
-        <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-neutral-600 dark:text-neutral-400">
-          <T {...techLandingLead(landing.label)} />
-        </p>
-      </header>
-
-      {/* 14.10.2026: «Хто наймає <стек>» за текущий месяц (lib/seo/hiring-month.ts), если срез есть. */}
-      {hiring?.byStack[landing.slug] ? (
-        <p className="-mt-4 mb-8">
-          <Link href={`/jobs/hiring/${hiring.month}/${landing.slug}`} className="text-accent no-underline hover:underline">
-            <T {...fill(TXT.h1Stack, { month: monthLabel(hiring.month), label: landing.label })} /> →
-          </Link>
-        </p>
-      ) : null}
-
-      {insights ? <LandingInsightsBlock data={insights} /> : null}
-
-      {posts.length === 0 ? (
-        <EmptyState
-          message={
-            <T uk="Поки немає відкритих вакансій з цим стеком." en="No open jobs with this stack yet." ru="Пока нет открытых вакансий с этим стеком." de="Noch keine offenen Stellen mit diesem Stack." es="Aún no hay vacantes con este stack." fr="Pas encore d'offres avec ce stack." pl="Nie ma jeszcze ofert z tym stackiem." ptBR="Ainda não há vagas com esta stack." zh="该技术栈暂无开放职位。" />
-          }
-        />
-      ) : (
-        <>
-          <ul className="flex flex-col gap-4">
-            {posts.map((post, i) => (
-              <li key={post.id}>
-                <PostCard post={post} avatarBlurDataUrl={avatarBlurs[i]} />
-              </li>
-            ))}
-          </ul>
-          {totalPages > 1 ? (
-            <Pagination basePath={`/jobs/stack/${landing.slug}`} params={new URLSearchParams()} page={page} hasMore={page < totalPages} totalPages={totalPages} />
-          ) : null}
-        </>
-      )}
-
-      {/* Перелинковка между посадочными: и человеку соседний стек под
-          рукой, и роботу маршрут по всем страницам стека с любой из них.
-          10.10.2026: страниц стало не шестнадцать, а весь словарь, и этот
-          блок -- главный способ, которым робот до новых добирается. */}
-      <section className="mt-12 border-t border-neutral-100 pt-6 dark:border-neutral-800">
-        <h2 className="text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
-          <T uk="Інші стеки" en="Other stacks" ru="Другие стеки" de="Weitere Stacks" es="Otros stacks" fr="Autres stacks" pl="Inne stacki" ptBR="Outras stacks" zh="其他技术栈" />
-        </h2>
-        <ul className="mt-3 flex flex-wrap gap-1.5">
-          {TECH_LANDINGS.filter((item) => item.slug !== landing.slug).map((item) => (
-            <li key={item.slug}>
-              <Link
-                href={`/jobs/stack/${item.slug}`}
-                className="inline-block rounded-full bg-neutral-100 px-3 py-1.5 text-sm text-neutral-700 no-underline transition hover:bg-accent/10 hover:text-accent dark:bg-neutral-800 dark:text-neutral-300"
-              >
-                {item.label}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      {/* 30.09.2026: эта технология по странам и уровни -- перелинковка на
-          новые сегменты (lib/seo/segments.ts). */}
-      <SegmentLinks groups={[...interviewLinks({ techSlug: landing.slug }), ...(await linksForTech(landing.slug)), ...(await linksForGlobalLevels()), ...(await linksForGlobalRoles()), ...articleLinks(["zarplaty-v-it-za-tehnologiyamy", "top-tehnologiy-dlya-roboty-v-it", "persha-robota-v-it-bez-dosvidu"])]} />
-    </main>
-  );
+  return <StackLanding landing={landing} page={pageOf(await searchParams)} />;
 }

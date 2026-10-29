@@ -21,6 +21,7 @@ import { JobLandingPage } from "@/components/job-landing";
 import { findJobLanding } from "@/lib/seo/job-landings";
 import { parsePageParam, toURLSearchParams } from "@/lib/a1/feed";
 import { landingCountry } from "@/lib/seo/landing-country";
+import { altLanguages } from "@/lib/seo/hreflang";
 
 const SITE_URL = "https://jobs.a1appp.com";
 const SLUG = "office";
@@ -43,7 +44,8 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     // Каждая страница пагинации канонична сама себе: её вакансий нет на
     // первой, схлопнуть канонический адрес значило бы сказать Google их
     // не индексировать. То же решение, что на главной.
-    alternates: { canonical: url },
+    // 29.10.2026: связь с английской версией (app/en/jobs/<slug>/page.tsx).
+    alternates: { canonical: url, languages: altLanguages(`/jobs/${SLUG}`) },
     openGraph: { title: landing.metaTitle, description: landing.metaDescription, url, type: "website" },
     twitter: { card: "summary_large_image", title: landing.metaTitle, description: landing.metaDescription },
   };

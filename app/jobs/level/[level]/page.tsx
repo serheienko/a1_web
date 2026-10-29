@@ -14,6 +14,7 @@ import { globalLevelPosts } from "@/lib/a1/segment-index";
 import { JOB_LEVELS, type JobLevel } from "@/lib/seo/job-level";
 import { globalLevelCountLine, globalLevelH1, globalLevelLead, globalLevelMeta } from "@/lib/seo/segments";
 import { articleLinks, linksForGlobalLevels, linksForGlobalRoles } from "@/lib/seo/segment-links";
+import { altLanguages } from "@/lib/seo/hreflang";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -27,11 +28,13 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const level = parse((await params).level);
   if (!level || !(await globalLevelPosts(level))) return {};
   const meta = globalLevelMeta(level);
-  const url = `${SITE_URL}/jobs/level/${level}`;
+  const path = `/jobs/level/${level}`;
+  const url = `${SITE_URL}${path}`;
   return pagedMeta({
     title: meta.title,
     description: meta.description,
-    alternates: { canonical: url },
+    // 29.10.2026: связь с английской версией (app/en/jobs/level/[level]/page.tsx).
+    alternates: { canonical: url, languages: altLanguages(path) },
     openGraph: { title: meta.title, description: meta.description, url, type: "website" },
     twitter: { card: "summary_large_image", title: meta.title, description: meta.description },
   }, url, pageOf(await searchParams));

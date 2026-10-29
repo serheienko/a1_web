@@ -15,7 +15,7 @@ import { generateAvatarBlurDataUrl } from "@/lib/avatar-blur";
 import { PostCard } from "@/components/post-card";
 import { Pagination } from "@/components/pagination";
 import { EmptyState } from "@/components/empty-state";
-import { LOCALES, LOCALE_VISIBILITY_CLASS, type Locale } from "@/components/t";
+import { LOCALES, LOCALE_TAG, LOCALE_VISIBILITY_CLASS, type Locale } from "@/components/t";
 import { T } from "@/components/t";
 import type { JobLanding } from "@/lib/seo/job-landings";
 import { landingHref } from "@/lib/seo/landing-for-tag";
@@ -32,7 +32,17 @@ import { buildLandingBreadcrumbJsonLd } from "@/lib/seo/jsonld";
  * Шаблон со «{n}» вместо склейки «число + фраза»: порядок слов в разных
  * языках разный, и склейкой правильную фразу не собрать.
  */
-function CountLine({ template, n }: { template: Record<Locale, string>; n: number }) {
+function CountLine({ template, n, locale }: { template: Record<Locale, string>; n: number; locale?: Locale }) {
+  if (locale) {
+    const [before = "", after = ""] = template[locale].split("{n}");
+    return (
+      <>
+        {before}
+        {n.toLocaleString("uk-UA").replace(/ /g, "\u00a0")}
+        {after}
+      </>
+    );
+  }
   return (
     <>
       {LOCALES.map((locale) => {
@@ -54,9 +64,15 @@ export async function JobLandingPage({
   page,
   filters,
   country,
+  locale,
+  basePathOverride,
 }: {
   landing: JobLanding;
   page: number;
+  /** 29.10.2026: язык страницы для версий /en/... — тогда подписи идут одним языком. */
+  locale?: Locale;
+  /** Адрес этой версии страницы (у английской — с приставкой /en). */
+  basePathOverride?: string;
   /** 30.09.2026: выбранная в селекторе страна (?country=xx) -- сужает выдачу. */
   country?: string;
   /** 30.09.2026: чем отбирать вместо тега -- посадочная «Топ 100»
@@ -70,25 +86,25 @@ export async function JobLandingPage({
   const totalPages = Math.max(1, Math.ceil(total / FEED_PAGE_SIZE));
   const avatarBlurs = await Promise.all(posts.map((post) => generateAvatarBlurDataUrl(post.author.avatarUrl)));
 
-  const basePath = landingHref(landing);
+  const basePath = basePathOverride ?? landingHref(landing);
 
   return (
-    <main className="mx-auto max-w-3xl px-4 pt-6 sm:pt-16 pb-fab-safe">
+    <main className="mx-auto max-w-3xl px-4 pt-6 sm:pt-16 pb-fab-safe" {...(locale ? { lang: LOCALE_TAG[locale] } : {})}>
       {/* 2026-09-15: разметка под ту самую дорожку, что ниже. */}
       {/* eslint-disable-next-line react/no-danger */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
           __html: JSON.stringify(
-            buildLandingBreadcrumbJsonLd(landing.h1.uk, `https://jobs.a1appp.com${basePath}`),
+            buildLandingBreadcrumbJsonLd(locale ? landing.h1[locale] : landing.h1.uk, `https://jobs.a1appp.com${basePath}`),
           ),
         }}
       />
 
       {/* Крошка -- и для Google, и как ссылка обратно в общую ленту. */}
       <nav aria-label="breadcrumb" className="mb-4 text-[13px] text-neutral-400 dark:text-neutral-500">
-        <a href={withCountry("/", country)} className="transition hover:text-accent">
-          <T uk="Вакансії" en="Jobs" ru="Вакансии" de="Stellen" es="Vacantes" fr="Offres" pl="Oferty" ptBR="Vagas" zh="职位" />
+        <a href={withCountry(locale ? `/${locale}` : "/", country)} className="transition hover:text-accent">
+          {locale ? "Jobs" : <T uk="Вакансії" en="Jobs" ru="Вакансии" de="Stellen" es="Vacantes" fr="Offres" pl="Oferty" ptBR="Vagas" zh="职位" />}
         </a>
         <span aria-hidden="true" className="px-1.5">/</span>
       </nav>
@@ -100,13 +116,13 @@ export async function JobLandingPage({
             посадочной он и есть содержание страницы, а не подпись к
             вкладке, которая и так видна в шапке. */}
         <h1 className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl dark:text-neutral-50">
-          <T {...landing.h1} />
+          {locale ? landing.h1[locale] : <T {...landing.h1} />}
         </h1>
         <p className="mt-2 text-neutral-500 dark:text-neutral-400">
-          <CountLine template={landing.countLine} n={total} />
+          <CountLine template={landing.countLine} n={total} locale={locale} />
         </p>
         <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-neutral-600 dark:text-neutral-400">
-          <T {...landing.lead} />
+          {locale ? landing.lead[locale] : <T {...landing.lead} />}
         </p>
         {country ? <LandingCountryBadge country={country} resetHref={basePath} /> : null}
       </header>

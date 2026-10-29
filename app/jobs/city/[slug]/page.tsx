@@ -13,6 +13,7 @@ import { countryByCode } from "@/lib/seo/countries";
 import { cityCountLine, cityH1, cityLabel, cityLead, cityMeta } from "@/lib/seo/segments";
 import { titleWithCount } from "@/lib/seo/title-count";
 import { linksForCity } from "@/lib/seo/segment-links";
+import { altLanguages } from "@/lib/seo/hreflang";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -25,11 +26,13 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const meta = cityMeta(seg.city, country);
   // 29.10.2026: у украинских городов в названии число вакансий и месяц (lib/seo/title-count.ts).
   if (country.code === "UA") meta.title = titleWithCount(`IT вакансії ${cityLabel(seg.city, "uk")}`, seg.posts.length, meta.title);
-  const url = `${SITE_URL}/jobs/city/${seg.slug}`;
+  const path = `/jobs/city/${seg.slug}`;
+  const url = `${SITE_URL}${path}`;
   return pagedMeta({
     title: meta.title,
     description: meta.description,
-    alternates: { canonical: url },
+    // 29.10.2026: связь с английской версией (app/en/jobs/city/[slug]/page.tsx).
+    alternates: { canonical: url, languages: altLanguages(path) },
     openGraph: { title: meta.title, description: meta.description, url, type: "website" },
     twitter: { card: "summary_large_image", title: meta.title, description: meta.description },
   }, url, pageOf(await searchParams));

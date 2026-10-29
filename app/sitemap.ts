@@ -97,6 +97,8 @@ async function buildSitemap({ id }: { id: number | string }): Promise<MetadataRo
     // Их три, поэтому едут вместе с корнем, а не отдельным чанком.
     for (const landing of JOB_LANDINGS) {
       entries.push({ url: `${SITE_URL}/jobs/${landing.slug}` });
+      // 29.10.2026: английские версии витрин формата (remote/office/hybrid).
+      entries.push({ url: `${SITE_URL}/en/jobs/${landing.slug}` });
     }
     // 22.10.2026: посадочные по типу занятости
     // (lib/seo/employment-landings.ts). Их тоже три, едут рядом.
@@ -115,6 +117,7 @@ async function buildSitemap({ id }: { id: number | string }): Promise<MetadataRo
     for (const landing of TECH_LANDINGS) {
       if ((techN.get(landing.tech) ?? 0) < MIN_SEGMENT_POSTS) continue;
       entries.push({ url: `${SITE_URL}/jobs/stack/${landing.slug}` });
+      entries.push({ url: `${SITE_URL}/en/jobs/stack/${landing.slug}` });
     }
     // 2026-09-19: посадочные по признакам из текста вакансии
     // (lib/seo/fact-landings.ts) -- «без досвіду» и «бронювання».
@@ -258,10 +261,14 @@ async function buildSitemap({ id }: { id: number | string }): Promise<MetadataRo
     try {
       for (const city of await listCities()) {
         entries.push({ url: `${SITE_URL}/jobs/city/${city.slug}` });
+        entries.push({ url: `${SITE_URL}/en/jobs/city/${city.slug}` });
         for (const t of await cityTechList(city.slug)) entries.push({ url: `${SITE_URL}/jobs/city/${city.slug}/${t.slug}` });
       }
       for (const t of await remoteTechList()) entries.push({ url: `${SITE_URL}/jobs/remote/${t.slug}` });
-      for (const { level } of await globalLevelCounts()) entries.push({ url: `${SITE_URL}/jobs/level/${level}` });
+      for (const { level } of await globalLevelCounts()) {
+        entries.push({ url: `${SITE_URL}/jobs/level/${level}` });
+        entries.push({ url: `${SITE_URL}/en/jobs/level/${level}` });
+      }
       entries.push({ url: `${SITE_URL}/jobs/role` });
       for (const { role } of await globalRoleCounts()) {
         entries.push({ url: `${SITE_URL}/jobs/role/${role}` });
