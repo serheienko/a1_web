@@ -25,6 +25,8 @@ import { generateAvatarBlurDataUrl } from "@/lib/avatar-blur";
 import { LOCALES, LOCALE_VISIBILITY_CLASS, T, type Locale } from "@/components/t";
 import { buildLandingBreadcrumbJsonLd } from "@/lib/seo/jsonld";
 import { postsForTech } from "@/lib/a1/tech-index";
+import { buildLandingInsights } from "@/lib/seo/landing-insights";
+import { LandingInsightsBlock } from "@/components/landing-insights";
 import { titleWithCount } from "@/lib/seo/title-count";
 import { MIN_SEGMENT_POSTS } from "@/lib/seo/segments";
 import { SegmentLinks } from "@/components/segment-page";
@@ -110,6 +112,8 @@ export default async function Page({ params, searchParams }: Props) {
   const totalPages = Math.max(1, Math.ceil(all.length / LANDING_PAGE_SIZE));
   const avatarBlurs = await Promise.all(posts.map((post) => generateAvatarBlurDataUrl(post.author.avatarUrl)));
   const hiring = await hiringMonth(currentMonthKey()).catch(() => null);
+  // 29.10.2026: срез по этим же вакансиям (сам стек из «що просять» убираем -- он и так в заголовке).
+  const insights = page === 1 ? buildLandingInsights(all, landing.tech) : null;
 
   return (
     <main className="mx-auto max-w-3xl px-4 pt-6 sm:pt-16 pb-fab-safe">
@@ -153,6 +157,8 @@ export default async function Page({ params, searchParams }: Props) {
           </Link>
         </p>
       ) : null}
+
+      {insights ? <LandingInsightsBlock data={insights} /> : null}
 
       {posts.length === 0 ? (
         <EmptyState

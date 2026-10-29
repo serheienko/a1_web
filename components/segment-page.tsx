@@ -16,6 +16,8 @@ import { notFound } from "next/navigation";
 import { Pagination } from "@/components/pagination";
 import { LANDING_PAGE_SIZE } from "@/lib/seo/paged";
 import type { WebPost } from "@/types/web-post";
+import { buildLandingInsights } from "@/lib/seo/landing-insights";
+import { LandingInsightsBlock } from "@/components/landing-insights";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -121,6 +123,9 @@ export async function SegmentPage({
   if (page > 1 && shown.length === 0) notFound();
   const totalPages = Math.max(1, Math.ceil(posts.length / LANDING_PAGE_SIZE));
   const avatarBlurs = await Promise.all(shown.map((post) => generateAvatarBlurDataUrl(post.author.avatarUrl)));
+  // 29.10.2026: срез «хто наймає / що просять / формат і рівень» -- только на первой странице:
+  // на второй цифры те же, а место занимают (то же правило, что у зарплатной сводки).
+  const insights = page === 1 ? buildLandingInsights(posts) : null;
 
   return (
     <main className="mx-auto max-w-3xl px-4 pt-6 sm:pt-16 pb-fab-safe">
@@ -150,6 +155,7 @@ export async function SegmentPage({
       </header>
 
       {page === 1 ? beforeList : null}
+      {insights ? <LandingInsightsBlock data={insights} /> : null}
 
       {shown.length === 0 ? (
         <EmptyState
