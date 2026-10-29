@@ -109,30 +109,32 @@ function meta(loc: SalaryLocale, r: JobRole, c?: Country, median?: string): { ti
   const n = label(r, loc);
   const place = c ? countryName(c, loc) : "";
   const m = monthNow(loc);
-  const med = median ? ` ${median}` : "";
   switch (loc) {
     case "de":
       return {
-        title: c ? `Gehalt ${n} in ${place} — Median${med} · ${m} | A1 Jobs` : `Gehalt ${n} — Median und Spanne · ${m} | A1 Jobs`,
+        title: c ? (median ? `Gehalt ${n} in ${place}: ${median} Median | A1 Jobs` : `Gehalt ${n} in ${place} — Median und Spanne · ${m} | A1 Jobs`) : `Gehalt ${n} — Median und Spanne · ${m} | A1 Jobs`,
         description: `Was ${n}-Stellen${c ? ` in ${place}` : ""} zahlen: Spanne, Median und alle Stellen mit genanntem Gehalt. Täglich aktualisiert.`,
       };
     case "pl":
       return {
-        title: c ? `Zarobki ${n}: ${place} — mediana${med} · ${m} | A1 Jobs` : `Zarobki ${n} — mediana i widełki · ${m} | A1 Jobs`,
+        title: c ? (median ? `Zarobki ${n}: ${place} — mediana ${median} | A1 Jobs` : `Zarobki ${n}: ${place} — mediana i widełki · ${m} | A1 Jobs`) : `Zarobki ${n} — mediana i widełki · ${m} | A1 Jobs`,
         description: `Ile płacą na stanowiskach ${n}${c ? ` — ${place}` : ""}: widełki, mediana i wszystkie oferty z podaną kwotą. Aktualizowane codziennie.`,
       };
     case "es":
       return {
-        title: c ? `Salario ${n} en ${place} — mediana${med} · ${m} | A1 Jobs` : `Salario ${n} — mediana y rango · ${m} | A1 Jobs`,
+        title: c ? (median ? `Salario ${n} en ${place}: mediana ${median} | A1 Jobs` : `Salario ${n} en ${place} — mediana y rango · ${m} | A1 Jobs`) : `Salario ${n} — mediana y rango · ${m} | A1 Jobs`,
         description: `Cuánto se paga en puestos de ${n}${c ? ` en ${place}` : ""}: rango, mediana y todas las vacantes con salario indicado. Actualizado a diario.`,
       };
     default:
       return {
-        title: c ? `${n} salary in ${place} — median${med} · ${m} | A1 Jobs` : `${n} salary — median and range · ${m} | A1 Jobs`,
+        title: c ? (median ? `${n} salary in ${place}: ${median} median | A1 Jobs` : `${n} salary in ${place} — median and range · ${m} | A1 Jobs`) : `${n} salary — median and range · ${m} | A1 Jobs`,
         description: `What ${n} roles pay${c ? ` in ${place}` : ""}: typical range, median and every job with a stated salary. Updated daily.`,
       };
   }
 }
+
+/** Страны, где зарплату называют в месяц; остальные -- в год. */
+const MONTHLY_COUNTRIES = new Set(["UA", "PL", "CZ", "SK", "RO", "BG", "HU", "LT", "LV", "EE", "MD", "GE", "AM", "AZ", "KZ", "RS", "HR", "SI", "BA", "ME", "MK", "AL", "TR", "BR", "AR", "MX", "IN", "PH", "VN"]);
 
 /** Слишком длинный title с медианой -- без неё (Google режет на ~60 символах). */
 function fit(title: string, fallback: string): string {
@@ -217,8 +219,19 @@ export async function salaryCountryMetadata(loc: SalaryLocale, { params, searchP
   const x = await resolveCountry(loc, rs, cc);
   if (!x) return {};
   const segment = await salaryForRoleCountry(x.r, cc);
+  // В заголовке -- в той форме, в какой о зарплате думают в стране: в Британии, США, Германии
+  // и т. п. -- годовая, в Польше, Украине и соседях -- месячная (страница ниже -- всегда в месяц).
+  const yearly = segment ? !MONTHLY_COUNTRIES.has(x.c.code.toUpperCase()) : false;
   const median = segment
-    ? formatSalary({ min: segment.stats.median, max: segment.stats.median, currency: segment.stats.currency, period: "MONTH" }, loc)
+    ? formatSalary(
+        {
+          min: Math.round(segment.stats.median * (yearly ? 12 : 1) / (yearly ? 500 : 1)) * (yearly ? 500 : 1),
+          max: Math.round(segment.stats.median * (yearly ? 12 : 1) / (yearly ? 500 : 1)) * (yearly ? 500 : 1),
+          currency: segment.stats.currency,
+          period: yearly ? "YEAR" : "MONTH",
+        },
+        loc,
+      )
     : undefined;
   const plain = meta(loc, x.r, x.c);
   const withMedian = meta(loc, x.r, x.c, median);
