@@ -208,6 +208,15 @@ export function SettingsPanelBody() {
       const rest = path.replace(/^\/(en|de|pl|es)/, "") || "/";
       const next = ["en", "de", "pl", "es"].includes(locale) ? `/${locale}${rest === "/" ? "" : rest}` : rest;
       window.location.href = (next || "/") + window.location.search;
+    } else if (!m && ["en", "de", "pl", "es"].includes(locale)) {
+      // 29.10.2026 (облегчение страниц): украинские посадочные и вакансии теперь отрисованы
+      // сервером одним языком. Если у страницы есть версия на выбранном языке (её адрес лежит
+      // в <link rel="alternate" hreflang>), уходим туда, а не оставляем страницу украинской.
+      const alt = document.querySelector<HTMLLinkElement>(`link[rel="alternate"][hreflang="${locale}"]`);
+      if (alt?.href) {
+        const u = new URL(alt.href);
+        if (u.pathname !== path) window.location.href = u.pathname + window.location.search;
+      }
     }
   }
 

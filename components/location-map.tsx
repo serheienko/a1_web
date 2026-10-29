@@ -19,12 +19,14 @@
 // совсем, должна быть только в постах" -- LocationMap was pulled off
 // the profile page (app/u/[username]/page.tsx) entirely; the only
 // caller left is the job post detail page (app/jobs/[slug]/page.tsx).
-import { T } from "@/components/t";
+import { T, type Locale } from "@/components/t";
 
 export function LocationMap({
   coordinates,
   label,
+  locale,
 }: {
+  locale?: Locale;
   coordinates: [number, number];
   label: string;
 }) {
@@ -66,7 +68,7 @@ export function LocationMap({
           rel="noopener noreferrer"
           className="shrink-0 text-accent hover:underline"
         >
-          <T
+          <T only={locale}
             uk="Відкрити карту"
             en="Open map"
             ru="Открыть карту"

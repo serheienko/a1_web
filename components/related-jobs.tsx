@@ -15,7 +15,7 @@
 // вторая лента.
 
 import Link from "next/link";
-import { T } from "@/components/t";
+import { T, type Locale } from "@/components/t";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { avatarSourceUrl } from "@/lib/avatar-source";
 import type { WebPost } from "@/types/web-post";
@@ -120,7 +120,10 @@ export function RelatedJobs({
   sameCompany,
   similar,
   companyName,
+  locale,
 }: {
+  /** 29.10.2026: страница одного языка -- подписи одной строкой. */
+  locale?: Locale;
   sameCompany: WebPost[];
   similar: WebPost[];
   companyName: string;
@@ -136,7 +139,7 @@ export function RelatedJobs({
       <Section
         title={
           <>
-            <T
+            <T only={locale}
               uk="Інші вакансії" en="More jobs at" ru="Другие вакансии"
               de="Weitere Jobs bei" es="Más vacantes en" fr="Autres offres chez"
               pl="Więcej ofert w" ptBR="Mais vagas em" zh="更多职位"
@@ -148,7 +151,7 @@ export function RelatedJobs({
       />
       <Section
         title={
-          <T
+          <T only={locale}
             uk="Схожі вакансії" en="Similar jobs" ru="Похожие вакансии"
             de="Ähnliche Jobs" es="Vacantes similares" fr="Offres similaires"
             pl="Podobne oferty" ptBR="Vagas semelhantes" zh="相似职位"

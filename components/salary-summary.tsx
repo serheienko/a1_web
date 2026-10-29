@@ -14,6 +14,7 @@ import { LOCALES, LOCALE_VISIBILITY_CLASS, T, type Locale } from "@/components/t
 import { formatSalary } from "@/lib/format";
 import { countryByCode, countryName, flagEmoji } from "@/lib/seo/countries";
 import type { SalaryStats } from "@/lib/a1/salary-stats";
+import { localizedPath } from "@/lib/seo/hreflang";
 
 function money(amount: number, currency: string, locale: Locale): string {
   return formatSalary({ min: amount, max: amount, currency, period: "MONTH" }, locale);
@@ -56,7 +57,7 @@ export function SalarySummary({
   stats,
   role,
   countries = [],
-  locale,
+  locale: pageLocale,
 }: {
   /** Языковая страница: подписи одним языком и ссылки с приставкой языка. */
   locale?: Locale;
@@ -65,6 +66,8 @@ export function SalarySummary({
   role?: string;
   countries?: SalaryCountry[];
 }) {
+  // 29.10.2026 (облегчение страниц): без языка адреса -- украинский текст одной строкой.
+  const locale: Locale = pageLocale ?? "uk";
   return (
     <section className="mb-8" aria-label="salary summary">
       <div className="flex flex-col gap-3 sm:flex-row">
@@ -90,7 +93,7 @@ export function SalarySummary({
             {countries.map(({ cc, stats: cs }) => (
               <li key={cc}>
                 <Link
-                  href={`${locale ? `/${locale}` : ""}/jobs/salary/${role}/${cc.toLowerCase()}`}
+                  href={localizedPath(`/jobs/salary/${role}/${cc.toLowerCase()}`, pageLocale)}
                   className="flex items-baseline gap-1.5 rounded-full border border-neutral-200 px-3 py-1.5 text-[13px] transition hover:border-accent/40 hover:bg-accent/5 dark:border-neutral-800"
                 >
                   <span aria-hidden="true">{flagEmoji(cc)}</span>

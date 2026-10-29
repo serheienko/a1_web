@@ -18,6 +18,7 @@ import { LANDING_PAGE_SIZE } from "@/lib/seo/paged";
 import type { WebPost } from "@/types/web-post";
 import { buildLandingInsights } from "@/lib/seo/landing-insights";
 import { LandingInsightsBlock } from "@/components/landing-insights";
+import { LIVE_LOCALES, localizedPath } from "@/lib/seo/hreflang";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -98,7 +99,7 @@ export function SegmentLinks({ groups, locale }: { groups: SegmentLinkGroup[]; l
           робота. */}
       <div>
         <Link
-          href={locale ? `/${locale}/jobs/catalog` : "/jobs/catalog"}
+          href={localizedPath("/jobs/catalog", locale)}
           className="text-sm text-neutral-500 no-underline transition hover:text-accent dark:text-neutral-400"
         >
           {locale ? ALL_COLLECTIONS[locale] : <T
@@ -128,7 +129,7 @@ export async function SegmentPage({
   groups,
   page = 1,
   beforeList,
-  locale,
+  locale: pageLocale,
 }: {
   h1: L;
   countLine: L;
@@ -156,9 +157,14 @@ export async function SegmentPage({
   // 29.10.2026: срез «хто наймає / що просять / формат і рівень» -- только на первой странице:
   // на второй цифры те же, а место занимают (то же правило, что у зарплатной сводки).
   const insights = page === 1 ? buildLandingInsights(posts) : null;
+  // 29.10.2026 (облегчение страниц): украинская версия тоже рисуется ОДНИМ языком. Раньше на корне
+  // каждая подпись уходила девятью строками (~20% веса страницы), и Google видел смесь языков.
+  // pageLocale -- язык адреса (для ссылок), locale -- язык текста.
+  const locale: Locale = pageLocale ?? "uk";
+  const isLang = pageLocale !== undefined && LIVE_LOCALES.includes(pageLocale);
 
   return (
-    <main className="mx-auto max-w-3xl px-4 pt-6 sm:pt-16 pb-fab-safe" {...(locale ? { lang: LOCALE_TAG[locale] } : {})}>
+    <main className="mx-auto max-w-3xl px-4 pt-6 sm:pt-16 pb-fab-safe" {...(isLang ? { lang: LOCALE_TAG[locale] } : {})}>
       {/* eslint-disable-next-line react/no-danger */}
       <script
         type="application/ld+json"
@@ -168,7 +174,7 @@ export async function SegmentPage({
       <nav aria-label="breadcrumb" className="mb-4 text-[13px] text-neutral-400 dark:text-neutral-500">
         {/* 29.10.2026: у языковых версий нет своей главной -- крошка ведёт в каталог того же языка
             (раньше /en, /de -- 404). */}
-        <Link href={locale ? `/${locale}/jobs/catalog` : "/"} className="transition hover:text-accent">
+        <Link href={isLang ? `/${locale}/jobs/catalog` : "/"} className="transition hover:text-accent">
           {locale ? JOBS_WORD[locale] : <T uk="Вакансії" en="Jobs" ru="Вакансии" de="Stellen" es="Vacantes" fr="Offres" pl="Oferty" ptBR="Vagas" zh="职位" />}
         </Link>
         <span aria-hidden="true" className="px-1.5">/</span>
@@ -187,12 +193,12 @@ export async function SegmentPage({
       </header>
 
       {page === 1 ? beforeList : null}
-      {insights ? <LandingInsightsBlock data={insights} /> : null}
+      {insights ? <LandingInsightsBlock data={insights} locale={locale} /> : null}
 
       {shown.length === 0 ? (
         <EmptyState
           message={
-            <T uk="Поки немає відкритих вакансій." en="No open jobs yet." ru="Пока нет открытых вакансий." de="Noch keine offenen Stellen." es="Aún no hay vacantes." fr="Pas encore d'offres." pl="Nie ma jeszcze ofert." ptBR="Ainda não há vagas." zh="暂无开放职位。" />
+            <T only={locale} uk="Поки немає відкритих вакансій." en="No open jobs yet." ru="Пока нет открытых вакансий." de="Noch keine offenen Stellen." es="Aún no hay vacantes." fr="Pas encore d'offres." pl="Nie ma jeszcze ofert." ptBR="Ainda não há vagas." zh="暂无开放职位。" />
           }
         />
       ) : (
@@ -206,7 +212,7 @@ export async function SegmentPage({
       )}
 
       {totalPages > 1 ? (
-        <Pagination basePath={path} params={new URLSearchParams()} page={page} hasMore={page < totalPages} totalPages={totalPages} />
+        <Pagination basePath={path} params={new URLSearchParams()} page={page} hasMore={page < totalPages} totalPages={totalPages} locale={locale} />
       ) : null}
 
       <SegmentLinks groups={groups} locale={locale} />

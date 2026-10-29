@@ -64,7 +64,7 @@ export async function JobLandingPage({
   page,
   filters,
   country,
-  locale,
+  locale: pageLocale,
   basePathOverride,
 }: {
   landing: JobLanding;
@@ -87,9 +87,12 @@ export async function JobLandingPage({
   const avatarBlurs = await Promise.all(posts.map((post) => generateAvatarBlurDataUrl(post.author.avatarUrl)));
 
   const basePath = basePathOverride ?? landingHref(landing);
+  // 29.10.2026 (облегчение страниц): украинская версия тоже одним языком (см. SegmentPage).
+  const locale: Locale = pageLocale ?? "uk";
+  const isLang = pageLocale !== undefined && pageLocale !== "uk";
 
   return (
-    <main className="mx-auto max-w-3xl px-4 pt-6 sm:pt-16 pb-fab-safe" {...(locale ? { lang: LOCALE_TAG[locale] } : {})}>
+    <main className="mx-auto max-w-3xl px-4 pt-6 sm:pt-16 pb-fab-safe" {...(isLang ? { lang: LOCALE_TAG[locale] } : {})}>
       {/* 2026-09-15: разметка под ту самую дорожку, что ниже. */}
       {/* eslint-disable-next-line react/no-danger */}
       <script
@@ -103,7 +106,7 @@ export async function JobLandingPage({
 
       {/* Крошка -- и для Google, и как ссылка обратно в общую ленту. */}
       <nav aria-label="breadcrumb" className="mb-4 text-[13px] text-neutral-400 dark:text-neutral-500">
-        <a href={locale ? `/${locale}/jobs/catalog` : withCountry("/", country)} className="transition hover:text-accent">
+        <a href={isLang ? `/${locale}/jobs/catalog` : withCountry("/", country)} className="transition hover:text-accent">
           {locale ? ({ en: "Jobs", de: "Stellen", es: "Vacantes", pl: "Oferty", fr: "Offres", ptBR: "Vagas", zh: "职位", uk: "Вакансії", ru: "Вакансии" } as Record<string, string>)[locale] ?? "Jobs" : <T uk="Вакансії" en="Jobs" ru="Вакансии" de="Stellen" es="Vacantes" fr="Offres" pl="Oferty" ptBR="Vagas" zh="职位" />}
         </a>
         <span aria-hidden="true" className="px-1.5">/</span>
@@ -133,9 +136,9 @@ export async function JobLandingPage({
             // 22.10.2026: у посадочных по типу занятости свой текст --
             // «в цьому форматі» там читалось бы про remote/офис.
             landing.empty ? (
-              <T {...landing.empty} />
+              <T only={locale} {...landing.empty} />
             ) : (
-              <T uk="Поки немає відкритих вакансій у цьому форматі." en="There are no open jobs in this format yet." ru="Пока нет открытых вакансий в этом формате." de="Es gibt noch keine offenen Stellen in diesem Format." es="Todavía no hay vacantes en este formato." fr="Il n'y a pas encore d'offres dans ce format." pl="Nie ma jeszcze ofert w tym formacie." ptBR="Ainda não há vagas neste formato." zh="该形式暂无开放职位。" />
+              <T only={locale} uk="Поки немає відкритих вакансій у цьому форматі." en="There are no open jobs in this format yet." ru="Пока нет открытых вакансий в этом формате." de="Es gibt noch keine offenen Stellen in diesem Format." es="Todavía no hay vacantes en este formato." fr="Il n'y a pas encore d'offres dans ce format." pl="Nie ma jeszcze ofert w tym formacie." ptBR="Ainda não há vagas neste formato." zh="该形式暂无开放职位。" />
             )
           }
         />
@@ -148,7 +151,7 @@ export async function JobLandingPage({
               </li>
             ))}
           </ul>
-          <Pagination basePath={basePath} params={new URLSearchParams(country ? { country: country.toLowerCase() } : {})} page={page} hasMore={hasMore} totalPages={totalPages} />
+          <Pagination basePath={basePath} params={new URLSearchParams(country ? { country: country.toLowerCase() } : {})} page={page} hasMore={hasMore} totalPages={totalPages} locale={locale} />
         </>
       )}
     </main>

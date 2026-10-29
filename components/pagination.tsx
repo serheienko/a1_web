@@ -42,7 +42,7 @@
 // the phone variant tightens its paddings and gaps so five numbers plus both
 // arrows fit across a narrow screen without wrapping.
 import Link from "next/link";
-import { T } from "./t";
+import { T, type Locale } from "./t";
 
 const PAGE_BLOCK = 10;
 const MOBILE_BLOCK = 5;
@@ -84,8 +84,11 @@ export function Pagination({
   page,
   hasMore,
   totalPages,
+  locale,
 }: {
   basePath: string;
+  /** 29.10.2026: страница одного языка -- подписи одной строкой (см. T only). */
+  locale?: Locale;
   // The current page's own searchParams (filters + page) -- reused
   // as-is so every link keeps whatever q/category/tag/location is active.
   params: URLSearchParams;
@@ -140,11 +143,11 @@ export function Pagination({
       <div className="flex w-full items-center justify-between gap-1.5 sm:gap-4">
         {page > 1 ? (
           <Link href={pageHref(basePath, params, page - 1)} className={arrowClass} rel="prev">
-            <T uk="Назад" en="Back" ru="Назад" de="Zurück" es="Atrás" fr="Précédent" pl="Wstecz" ptBR="Voltar" zh="上一页" />
+            <T only={locale} uk="Назад" en="Back" ru="Назад" de="Zurück" es="Atrás" fr="Précédent" pl="Wstecz" ptBR="Voltar" zh="上一页" />
           </Link>
         ) : (
           <span className={arrowDisabledClass} aria-hidden="true">
-            <T uk="Назад" en="Back" ru="Назад" de="Zurück" es="Atrás" fr="Précédent" pl="Wstecz" ptBR="Voltar" zh="上一页" />
+            <T only={locale} uk="Назад" en="Back" ru="Назад" de="Zurück" es="Atrás" fr="Précédent" pl="Wstecz" ptBR="Voltar" zh="上一页" />
           </span>
         )}
 
@@ -180,11 +183,11 @@ export function Pagination({
 
         {hasMore ? (
           <Link href={pageHref(basePath, params, page + 1)} className={arrowClass} rel="next">
-            <T uk="Далі" en="Next" ru="Далее" de="Weiter" es="Siguiente" fr="Suivant" pl="Dalej" ptBR="Próximo" zh="下一页" />
+            <T only={locale} uk="Далі" en="Next" ru="Далее" de="Weiter" es="Siguiente" fr="Suivant" pl="Dalej" ptBR="Próximo" zh="下一页" />
           </Link>
         ) : (
           <span className={arrowDisabledClass} aria-hidden="true">
-            <T uk="Далі" en="Next" ru="Далее" de="Weiter" es="Siguiente" fr="Suivant" pl="Dalej" ptBR="Próximo" zh="下一页" />
+            <T only={locale} uk="Далі" en="Next" ru="Далее" de="Weiter" es="Siguiente" fr="Suivant" pl="Dalej" ptBR="Próximo" zh="下一页" />
           </span>
         )}
       </div>

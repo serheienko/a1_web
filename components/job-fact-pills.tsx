@@ -101,10 +101,11 @@ function englishText(level: string): Record<Locale, string> {
 // Отдельным экспортируемым компонентом -- потому что ту же плашку
 // показывает карточка в ленте (components/post-card.tsx). Строки должны
 // жить в одном месте, иначе они разъедутся.
-export function ReservationPill() {
+export function ReservationPill({ locale }: { locale?: Locale } = {}) {
   return (
     <span className={PILL}>
       <T
+        only={locale}
         uk="🪖 Є бронювання"
         en="🪖 Military deferment"
         ru="🪖 Есть бронирование"
@@ -125,10 +126,11 @@ export function ReservationPill() {
 // это ещё и то, как эту работу ищут в поиске.
 // 2026-09-19 (Александр): эта плашка -- ТОЛЬКО на странице вакансии, в
 // общей ленте её не показываем.
-function FirstJobPill() {
+function FirstJobPill({ locale }: { locale?: Locale }) {
   return (
     <span className={PILL}>
       <T
+        only={locale}
         uk="Без досвіду"
         en="No experience"
         ru="Без опыта"
@@ -143,7 +145,7 @@ function FirstJobPill() {
   );
 }
 
-export function JobFactPills({ facts }: { facts: JobFacts }) {
+export function JobFactPills({ facts, locale }: { facts: JobFacts; locale?: Locale }) {
   const level = facts.english ? englishLabel(facts.english) : "";
   return (
     <>
@@ -156,21 +158,21 @@ export function JobFactPills({ facts }: { facts: JobFacts }) {
               : experienceText(facts.experienceYears);
           return (
             <span className={PILL}>
-              <T uk={t.uk} en={t.en} ru={t.ru} de={t.de} es={t.es} fr={t.fr} pl={t.pl} ptBR={t.ptBR} zh={t.zh} />
+              <T only={locale} uk={t.uk} en={t.en} ru={t.ru} de={t.de} es={t.es} fr={t.fr} pl={t.pl} ptBR={t.ptBR} zh={t.zh} />
             </span>
           );
         })()}
 
-      {facts.firstJob && <FirstJobPill />}
+      {facts.firstJob && <FirstJobPill locale={locale} />}
 
-      {facts.reservation && <ReservationPill />}
+      {facts.reservation && <ReservationPill locale={locale} />}
 
       {level !== "" &&
         (() => {
           const t = englishText(level);
           return (
             <span className={PILL}>
-              <T uk={t.uk} en={t.en} ru={t.ru} de={t.de} es={t.es} fr={t.fr} pl={t.pl} ptBR={t.ptBR} zh={t.zh} />
+              <T only={locale} uk={t.uk} en={t.en} ru={t.ru} de={t.de} es={t.es} fr={t.fr} pl={t.pl} ptBR={t.ptBR} zh={t.zh} />
             </span>
           );
         })()}

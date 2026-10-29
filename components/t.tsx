@@ -83,7 +83,12 @@ export const LOCALE_TAG: Record<Locale, string> = {
   zh: "zh-Hans",
 };
 
-export function T(props: Record<Locale, string>) {
+/**
+ * 29.10.2026 (облегчение страниц): `only` -- страница одного языка (посадочные, вакансии).
+ * Тогда отдаётся одна строка вместо девяти: меньше веса, и Google видит текст одним языком.
+ */
+export function T({ only, ...props }: Record<Locale, string> & { only?: Locale }) {
+  if (only) return <>{props[only]}</>;
   return (
     <>
       {LOCALES.map((locale) => (

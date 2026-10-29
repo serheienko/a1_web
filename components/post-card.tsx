@@ -496,7 +496,7 @@ export function PostCard({
           if (!reservation && post.tags.length === 0) return null;
           return (
             <div className="mt-3 flex flex-wrap gap-1.5">
-              {reservation && <ReservationPill />}
+              {reservation && <ReservationPill locale={locale} />}
               {post.tags.slice(0, 6).map((tag) => (
                 <span key={tag} className="rounded-full border border-neutral-200 bg-white px-2.5 py-0.5 text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400">
                   <TagLabel text={tag} locale={locale} />

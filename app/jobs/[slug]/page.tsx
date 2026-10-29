@@ -35,7 +35,12 @@ import { RelativeTime, SalaryLabel, LocationLabel } from "@/components/locale-fo
 import { pickDefaultCatAvatar } from "@/lib/avatars";
 import { generateImageBlurDataUrl } from "@/lib/avatar-blur";
 import { BLUR_DATA_URL } from "@/lib/blur-placeholder";
-import { T } from "@/components/t";
+import { T, type Locale } from "@/components/t";
+
+// 29.10.2026 (облегчение страниц): страница вакансии -- одним языком. Раньше каждая подпись уходила
+// девятью строками (~20% веса), а таких страниц в карте сайта ~68 тысяч -- самая большая часть
+// того, что обходит Google. Текст самой вакансии и так на языке оригинала.
+const PAGE_LOCALE: Locale = "uk";
 import { CvPromoStrip } from "@/components/cv-promo-strip";
 import { PostOwnerMenu } from "@/components/post-owner-menu";
 import { PostViewerMenu } from "@/components/post-viewer-menu";
@@ -236,11 +241,11 @@ export default async function JobDetailPage({ params }: Props) {
   const jobLevel = extractLevel(post.title);
 
   const locationLabel = post.location ? (
-    <LocationLabel display={post.location.display} country={post.location.country} worldwideAs={worldwideKind(post)} />
+    <LocationLabel display={post.location.display} country={post.location.country} worldwideAs={worldwideKind(post)} locale={PAGE_LOCALE} />
   ) : post.isRemote ? (
-    <T uk="Віддалено" en="Remote" ru="Удалённо" de="Remote" es="Remoto" fr="À distance" pl="Zdalnie" ptBR="Remoto" zh="远程" />
+    <T only={PAGE_LOCALE} uk="Віддалено" en="Remote" ru="Удалённо" de="Remote" es="Remoto" fr="À distance" pl="Zdalnie" ptBR="Remoto" zh="远程" />
   ) : (
-    <T uk="Не вказано" en="Not specified" ru="Не указано" de="Nicht angegeben" es="No especificado" fr="Non précisé" pl="Nie podano" ptBR="Não especificado" zh="未指定" />
+    <T only={PAGE_LOCALE} uk="Не вказано" en="Not specified" ru="Не указано" de="Nicht angegeben" es="No especificado" fr="Non précisé" pl="Nie podano" ptBR="Não especificado" zh="未指定" />
   );
 
   return (
@@ -258,20 +263,20 @@ export default async function JobDetailPage({ params }: Props) {
           до этой правки её не было вовсе, кроме логотипа в шапке. */}
       <nav aria-label="breadcrumb" className="mb-4 text-[13px] text-neutral-400 dark:text-neutral-500">
         <Link href="/" className="transition hover:text-accent">
-          <T uk="Вакансії" en="Jobs" ru="Вакансии" de="Stellen" es="Vacantes" fr="Offres" pl="Oferty" ptBR="Vagas" zh="职位" />
+          <T only={PAGE_LOCALE} uk="Вакансії" en="Jobs" ru="Вакансии" de="Stellen" es="Vacantes" fr="Offres" pl="Oferty" ptBR="Vagas" zh="职位" />
         </Link>
         <span aria-hidden="true" className="px-1.5">/</span>
       </nav>
 
       {expired && (
         <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
-          <T uk="Ця вакансія більше не активна." en="This job is no longer active." ru="Эта вакансия больше не активна." de="Diese Stellenanzeige ist nicht mehr aktiv." es="Esta vacante ya no está activa." fr="Cette offre d'emploi n'est plus active." pl="Ta oferta pracy nie jest już aktywna." ptBR="Esta vaga não está mais ativa." zh="该职位已不再有效。" />
+          <T only={PAGE_LOCALE} uk="Ця вакансія більше не активна." en="This job is no longer active." ru="Эта вакансия больше не активна." de="Diese Stellenanzeige ist nicht mehr aktiv." es="Esta vacante ya no está activa." fr="Cette offre d'emploi n'est plus active." pl="Ta oferta pracy nie jest już aktywna." ptBR="Esta vaga não está mais ativa." zh="该职位已不再有效。" />
         </div>
       )}
 
       <div className="flex items-center justify-between gap-3">
         <span className="inline-block rounded-full bg-accent/10 px-2.5 py-1 text-xs font-medium text-accent dark:bg-accent/20">
-          <T uk="Вакансія" en="Job" ru="Вакансия" de="Stellenanzeige" es="Vacante" fr="Offre d'emploi" pl="Oferta pracy" ptBR="Vaga" zh="职位" />
+          <T only={PAGE_LOCALE} uk="Вакансія" en="Job" ru="Вакансия" de="Stellenanzeige" es="Vacante" fr="Offre d'emploi" pl="Oferta pracy" ptBR="Vaga" zh="职位" />
         </span>
         <PostOwnerMenu postId={post.id} redirectAfterDeleteTo="/jobs" />
       </div>
@@ -332,14 +337,14 @@ export default async function JobDetailPage({ params }: Props) {
               <>
                 <span aria-hidden="true">·</span>
                 <span>
-                  <SalaryLabel salary={post.salary} />
+                  <SalaryLabel salary={post.salary} locale={PAGE_LOCALE} />
                 </span>
               </>
             )}
             <span aria-hidden="true">·</span>
             <span>
               {/* 2026-09-09: real DOU publish date for imported posts, see components/post-card.tsx */}
-              <RelativeTime date={post.sourcePublishedAt ?? post.publishedAt} />
+              <RelativeTime date={post.sourcePublishedAt ?? post.publishedAt} locale={PAGE_LOCALE} />
             </span>
           </div>
         </div>
@@ -416,7 +421,7 @@ export default async function JobDetailPage({ params }: Props) {
             <div className={`${snapshotSummary ? "mt-3.5" : ""} flex flex-wrap gap-1.5`}>
           {(post.salary || salaryChipText) && (
             <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300">
-              💰 {post.salary ? <SalaryLabel salary={post.salary} /> : salaryChipText}
+              💰 {post.salary ? <SalaryLabel salary={post.salary} locale={PAGE_LOCALE} /> : salaryChipText}
             </span>
           )}
           {/* 14.10.2026: уровень по заголовку (Junior/Middle/Senior/Lead) -- ссылкой на посадочную уровня. */}
@@ -428,7 +433,7 @@ export default async function JobDetailPage({ params }: Props) {
               {jobLevel === "lead" ? "Lead" : jobLevel}
             </Link>
           )}
-          <JobFactPills facts={facts} />
+          <JobFactPills facts={facts} locale={PAGE_LOCALE} />
           {post.tags.map((tag) => {
             const pill =
               "rounded-full border border-neutral-200 bg-white px-2.5 py-0.5 text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400";
@@ -445,13 +450,13 @@ export default async function JobDetailPage({ params }: Props) {
                   href={landingHref(landing)}
                   className={`${pill} transition hover:border-accent/40 hover:text-accent`}
                 >
-                  <TagLabel text={tag} />
+                  <TagLabel text={tag} locale={PAGE_LOCALE} />
                 </Link>
               );
             }
             return (
               <span key={tag} className={pill}>
-                <TagLabel text={tag} />
+                <TagLabel text={tag} locale={PAGE_LOCALE} />
               </span>
             );
           })}
@@ -460,7 +465,7 @@ export default async function JobDetailPage({ params }: Props) {
           {techTags.length > 0 && (
             <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1.5">
               <h2 className="text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
-                <T uk="Стек" en="Stack" ru="Стек" de="Stack" es="Stack" fr="Stack" pl="Stack" ptBR="Stack" zh="技术栈" />
+                <T only={PAGE_LOCALE} uk="Стек" en="Stack" ru="Стек" de="Stack" es="Stack" fr="Stack" pl="Stack" ptBR="Stack" zh="技术栈" />
               </h2>
           <ul className="flex flex-wrap gap-1.5">
             {techTags.map((tech) => {
@@ -506,7 +511,7 @@ export default async function JobDetailPage({ params }: Props) {
           "Worldwide" sentinel into coordinates: null). Also removed from
           the profile page entirely per the same message -- job posts only. */}
       {post.location?.coordinates && (
-        <LocationMap coordinates={post.location.coordinates} label={post.location.display} />
+        <LocationMap coordinates={post.location.coordinates} label={post.location.display} locale={PAGE_LOCALE} />
       )}
 
       {/* Aleksandr, 2026-08-30 (live report: "в отображении поста нет
@@ -519,7 +524,7 @@ export default async function JobDetailPage({ params }: Props) {
       {post.links.length > 0 && (
         <div className="mt-6">
           <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
-            <T uk="Посилання" en="Link" ru="Ссылка" de="Link" es="Enlace" fr="Lien" pl="Link" ptBR="Link" zh="链接" />
+            <T only={PAGE_LOCALE} uk="Посилання" en="Link" ru="Ссылка" de="Link" es="Enlace" fr="Lien" pl="Link" ptBR="Link" zh="链接" />
           </h2>
           <div className="mt-2 flex flex-col gap-1">
             {post.links.map((link, i) => (
@@ -544,7 +549,7 @@ export default async function JobDetailPage({ params }: Props) {
       {post.applyQuestions.length > 0 && (
         <div className="mt-6">
           <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
-            <T uk="Питання до відгуку" en="Application questions" ru="Вопросы к отклику" de="Bewerbungsfragen" es="Preguntas de postulación" fr="Questions de candidature" pl="Pytania do zgłoszenia" ptBR="Perguntas de candidatura" zh="申请问题" />
+            <T only={PAGE_LOCALE} uk="Питання до відгуку" en="Application questions" ru="Вопросы к отклику" de="Bewerbungsfragen" es="Preguntas de postulación" fr="Questions de candidature" pl="Pytania do zgłoszenia" ptBR="Perguntas de candidatura" zh="申请问题" />
           </h2>
           <ul className="mt-2 flex flex-col gap-1 text-neutral-700 dark:text-neutral-300">
             {post.applyQuestions.map((q, i) => (
@@ -557,14 +562,15 @@ export default async function JobDetailPage({ params }: Props) {
         </div>
       )}
 
-      <JobMarketStats stats={marketStats} />
+      <JobMarketStats stats={marketStats} locale={PAGE_LOCALE} />
 
       {/* 28.10.2026: ссылка на конструктор резюме (внутренняя перелинковка для SEO). */}
-      <CvPromoStrip />
+      <CvPromoStrip locale={PAGE_LOCALE} />
 
       <PostComments comments={comments} postId={post.id} />
 
       <RelatedJobs
+        locale={PAGE_LOCALE}
         sameCompany={related.sameCompany}
         similar={related.similar}
         companyName={post.author.name}

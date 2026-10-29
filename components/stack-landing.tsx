@@ -51,7 +51,10 @@ function CountLine({ template, n, locale }: { template: Record<Locale, string>; 
   );
 }
 
-export async function StackLanding({ landing, page, locale }: { landing: TechLanding; page: number; locale?: Locale }) {
+export async function StackLanding({ landing, page, locale: pageLocale }: { landing: TechLanding; page: number; locale?: Locale }) {
+  // 29.10.2026 (облегчение страниц): украинская версия тоже одним языком (см. SegmentPage).
+  const locale: Locale = pageLocale ?? "uk";
+  const isLang = pageLocale !== undefined && pageLocale !== "uk";
   const all = await postsForTech(landing.tech);
   if (all.length < MIN_SEGMENT_POSTS) notFound();
   const posts = all.slice((page - 1) * LANDING_PAGE_SIZE, page * LANDING_PAGE_SIZE);
@@ -64,7 +67,7 @@ export async function StackLanding({ landing, page, locale }: { landing: TechLan
   const h1 = techLandingH1(landing.label);
 
   return (
-    <main className="mx-auto max-w-3xl px-4 pt-6 sm:pt-16 pb-fab-safe" {...(locale ? { lang: LOCALE_TAG[locale] } : {})}>
+    <main className="mx-auto max-w-3xl px-4 pt-6 sm:pt-16 pb-fab-safe" {...(isLang ? { lang: LOCALE_TAG[locale] } : {})}>
       {/* eslint-disable-next-line react/no-danger */}
       <script
         type="application/ld+json"
@@ -75,7 +78,7 @@ export async function StackLanding({ landing, page, locale }: { landing: TechLan
 
       <nav aria-label="breadcrumb" className="mb-4 text-[13px] text-neutral-400 dark:text-neutral-500">
         <Link href={localizedPath("/", locale)} className="transition hover:text-accent">
-          {locale ? "Jobs" : <T uk="Вакансії" en="Jobs" ru="Вакансии" de="Stellen" es="Vacantes" fr="Offres" pl="Oferty" ptBR="Vagas" zh="职位" />}
+          {<T only={locale} uk="Вакансії" en="Jobs" ru="Вакансии" de="Stellen" es="Vacantes" fr="Offres" pl="Oferty" ptBR="Vagas" zh="职位" />}
         </Link>
         <span aria-hidden="true" className="px-1.5">/</span>
       </nav>
@@ -96,20 +99,18 @@ export async function StackLanding({ landing, page, locale }: { landing: TechLan
       {hiring?.byStack[landing.slug] ? (
         <p className="-mt-4 mb-8">
           <Link href={`/jobs/hiring/${hiring.month}/${landing.slug}`} className="text-accent no-underline hover:underline">
-            <T {...fill(TXT.h1Stack, { month: monthLabel(hiring.month), label: landing.label })} /> →
+            <T only={locale} {...fill(TXT.h1Stack, { month: monthLabel(hiring.month), label: landing.label })} /> →
           </Link>
         </p>
       ) : null}
 
-      {insights ? <LandingInsightsBlock data={insights} /> : null}
+      {insights ? <LandingInsightsBlock data={insights} locale={locale} /> : null}
 
       {posts.length === 0 ? (
         <EmptyState
           message={
-            locale ? (
-              "No open jobs with this stack yet."
-            ) : (
-              <T uk="Поки немає відкритих вакансій з цим стеком." en="No open jobs with this stack yet." ru="Пока нет открытых вакансий с этим стеком." de="Noch keine offenen Stellen mit diesem Stack." es="Aún no hay vacantes con este stack." fr="Pas encore d'offres avec ce stack." pl="Nie ma jeszcze ofert z tym stackiem." ptBR="Ainda não há vagas com esta stack." zh="该技术栈暂无开放职位。" />
+            (
+              <T only={locale} uk="Поки немає відкритих вакансій з цим стеком." en="No open jobs with this stack yet." ru="Пока нет открытых вакансий с этим стеком." de="Noch keine offenen Stellen mit diesem Stack." es="Aún no hay vacantes con este stack." fr="Pas encore d'offres avec ce stack." pl="Nie ma jeszcze ofert z tym stackiem." ptBR="Ainda não há vagas com esta stack." zh="该技术栈暂无开放职位。" />
             )
           }
         />
@@ -123,14 +124,14 @@ export async function StackLanding({ landing, page, locale }: { landing: TechLan
             ))}
           </ul>
           {totalPages > 1 ? (
-            <Pagination basePath={basePath} params={new URLSearchParams()} page={page} hasMore={page < totalPages} totalPages={totalPages} />
+            <Pagination basePath={basePath} params={new URLSearchParams()} page={page} hasMore={page < totalPages} totalPages={totalPages} locale={locale} />
           ) : null}
         </>
       )}
 
       <section className="mt-12 border-t border-neutral-100 pt-6 dark:border-neutral-800">
         <h2 className="text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
-          {locale ? "Other stacks" : <T uk="Інші стеки" en="Other stacks" ru="Другие стеки" de="Weitere Stacks" es="Otros stacks" fr="Autres stacks" pl="Inne stacki" ptBR="Outras stacks" zh="其他技术栈" />}
+          {<T only={locale} uk="Інші стеки" en="Other stacks" ru="Другие стеки" de="Weitere Stacks" es="Otros stacks" fr="Autres stacks" pl="Inne stacki" ptBR="Outras stacks" zh="其他技术栈" />}
         </h2>
         <ul className="mt-3 flex flex-wrap gap-1.5">
           {TECH_LANDINGS.filter((item) => item.slug !== landing.slug).map((item) => (

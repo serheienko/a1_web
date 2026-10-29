@@ -2,9 +2,9 @@
 // Ставим на страницы вакансий: живые ссылки изнутри сайта подсказывают Google,
 // что /cv-builder важная страница, а кандидату перед откликом полезно резюме.
 import Link from "next/link";
-import { T } from "@/components/t";
+import { T, type Locale } from "@/components/t";
 
-export function CvPromoStrip({ className }: { className?: string }) {
+export function CvPromoStrip({ className, locale }: { className?: string; locale?: Locale }) {
   return (
     <Link
       href="/cv-builder"
@@ -23,10 +23,10 @@ export function CvPromoStrip({ className }: { className?: string }) {
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-[15px] font-semibold text-neutral-900 dark:text-neutral-50">
-          <T uk="Потрібне резюме для відгуку?" en="Need a CV for this application?" ru="Нужно резюме для отклика?" de="Lebenslauf für die Bewerbung nötig?" es="¿Necesita un CV para postularse?" fr="Besoin d'un CV pour postuler ?" pl="Potrzebujesz CV do aplikacji?" ptBR="Precisa de um currículo para se candidatar?" zh="投递需要简历？" />
+          <T only={locale} uk="Потрібне резюме для відгуку?" en="Need a CV for this application?" ru="Нужно резюме для отклика?" de="Lebenslauf für die Bewerbung nötig?" es="¿Necesita un CV para postularse?" fr="Besoin d'un CV pour postuler ?" pl="Potrzebujesz CV do aplikacji?" ptBR="Precisa de um currículo para se candidatar?" zh="投递需要简历？" />
         </span>
         <span className="mt-0.5 block text-[13px] text-neutral-500 dark:text-neutral-400">
-          <T uk="Конструктор резюме A1: безкоштовний PDF з QR-кодом на Ваш профіль" en="A1 CV builder: a free PDF with a QR code to your profile" ru="Конструктор резюме A1: бесплатный PDF с QR-кодом на Ваш профиль" de="A1 Lebenslauf-Generator: kostenloses PDF mit QR-Code zu Ihrem Profil" es="Creador de CV de A1: PDF gratis con código QR a su perfil" fr="Générateur de CV A1 : PDF gratuit avec QR vers votre profil" pl="Kreator CV A1: darmowy PDF z kodem QR do Twojego profilu" ptBR="Criador de currículo do A1: PDF grátis com QR para o seu perfil" zh="A1 简历制作：免费 PDF，带个人主页二维码" />
+          <T only={locale} uk="Конструктор резюме A1: безкоштовний PDF з QR-кодом на Ваш профіль" en="A1 CV builder: a free PDF with a QR code to your profile" ru="Конструктор резюме A1: бесплатный PDF с QR-кодом на Ваш профиль" de="A1 Lebenslauf-Generator: kostenloses PDF mit QR-Code zu Ihrem Profil" es="Creador de CV de A1: PDF gratis con código QR a su perfil" fr="Générateur de CV A1 : PDF gratuit avec QR vers votre profil" pl="Kreator CV A1: darmowy PDF z kodem QR do Twojego profilu" ptBR="Criador de currículo do A1: PDF grátis com QR para o seu perfil" zh="A1 简历制作：免费 PDF，带个人主页二维码" />
         </span>
       </span>
       <span className="shrink-0 text-[#6A4BF5] transition group-hover:translate-x-1" aria-hidden="true">→</span>
