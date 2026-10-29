@@ -202,11 +202,11 @@ export function SettingsPanelBody() {
     // на таком адресе -- это переход на украинский адрес (он без приставки), иначе страница
     // осталась бы наполовину английской.
     const path = window.location.pathname;
-    const m = path.match(/^\/(en|de|pl)(\/|$)/);
+    const m = path.match(/^\/(en|de|pl|es)(\/|$)/);
     if (m && m[1] !== locale) {
       // Уходим на адрес выбранного языка: на свой языковой (если он живой) либо на украинский корень.
-      const rest = path.replace(/^\/(en|de|pl)/, "") || "/";
-      const next = ["en", "de", "pl"].includes(locale) ? `/${locale}${rest === "/" ? "" : rest}` : rest;
+      const rest = path.replace(/^\/(en|de|pl|es)/, "") || "/";
+      const next = ["en", "de", "pl", "es"].includes(locale) ? `/${locale}${rest === "/" ? "" : rest}` : rest;
       window.location.href = (next || "/") + window.location.search;
     }
   }
