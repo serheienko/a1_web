@@ -99,11 +99,13 @@ export const FACT_LANDINGS: FactLanding[] = [
       de: "🪖 Militär", es: "🪖 Ejército", fr: "🪖 Armée",
       pl: "🪖 Wojsko", ptBR: "🪖 Exército", zh: "🪖 军事",
     },
-    metaTitle: "Військо: вакансії з бронюванням та без | A1 Jobs",
+    // 29.10.2026 (Александр про идею Разведчика «Вакансии Defense Tech в Украине»: «у нас есть Військо, это одно и то же?»):
+    // отдельную страницу не делаем, а добавляем в заголовок и описание слова, по которым ищут: Defense Tech, оборонка.
+    metaTitle: "Військо та Defense Tech: вакансії з бронюванням та без | A1 Jobs",
     metaDescription:
-      "Вакансії оборонних і дронових компаній та військові ролі: з бронюванням і без. Статистика попиту за напрямами. Оновлюється щодня.",
+      "Вакансії Defense Tech та оборонки в Україні: оборонні й дронові компанії, військові ролі, з бронюванням і без. Статистика попиту за напрямами. Оновлюється щодня.",
     h1: {
-      uk: "Військо: вакансії з бронюванням та без", en: "Defense jobs: with and without deferment",
+      uk: "Військо та Defense Tech: вакансії з бронюванням та без", en: "Defense jobs: with and without deferment",
       ru: "Военные вакансии: с бронированием и без", de: "Verteidigung: Stellen mit und ohne Freistellung",
       es: "Defensa: empleos con y sin aplazamiento", fr: "Défense : emplois avec et sans sursis",
       pl: "Wojsko: oferty z odroczeniem i bez", ptBR: "Defesa: vagas com e sem adiamento",
