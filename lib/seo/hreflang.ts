@@ -11,7 +11,7 @@ import type { Locale } from "@/components/t";
 export const SITE_URL = "https://jobs.a1appp.com";
 
 /** Языки, у которых уже есть свои адреса. Украинский -- на корне, без приставки. */
-export const LIVE_LOCALES: Locale[] = ["en"];
+export const LIVE_LOCALES: Locale[] = ["en", "de", "pl"];
 
 /** Адрес этого же пути на нужном языке: ("/jobs/role/qa", "en") -> "/en/jobs/role/qa". */
 export function localizedPath(path: string, locale?: Locale): string {

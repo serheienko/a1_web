@@ -37,3 +37,44 @@ export function titleWithCountEn(head: string, n: number, fallback: string): str
   const noMonth = `${head} — ${num} open roles | A1 Jobs`;
   return noMonth.length <= TITLE_LIMIT ? noMonth : fallback;
 }
+
+// 29.10.2026 (включаем языки по очереди): то же самое для любого языка. Слова взяты те же,
+// что в подписях интерфейса, месяц -- родительный падеж там, где он нужен.
+const MONTHS_L: Record<string, string[]> = {
+  en: MONTHS_EN,
+  uk: MONTHS_UK,
+  ru: ["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"],
+  de: ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"],
+  es: ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"],
+  fr: ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"],
+  pl: ["styczeń", "luty", "marzec", "kwiecień", "maj", "czerwiec", "lipiec", "sierpień", "wrzesień", "październik", "listopad", "grudzień"],
+  ptBR: ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"],
+  zh: ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"],
+};
+
+const OPEN_WORD: Record<string, string> = {
+  en: "open roles",
+  uk: "відкритих",
+  ru: "открытых",
+  de: "offene Stellen",
+  es: "vacantes",
+  fr: "offres",
+  pl: "otwartych ofert",
+  ptBR: "vagas",
+  zh: "个职位",
+};
+
+/** «Python jobs — 17 968 offene Stellen · Oktober 2026 | A1 Jobs» для любого языка. */
+export function titleWithCountL(locale: string, head: string, n: number, fallback: string): string {
+  const months = MONTHS_L[locale] ?? MONTHS_EN;
+  const word = OPEN_WORD[locale] ?? OPEN_WORD.en;
+  if (!Number.isFinite(n) || n < 5) return fallback;
+  const sep = locale === "en" ? "," : "\u00a0";
+  const num = String(Math.floor(n)).replace(/\B(?=(\d{3})+(?!\d))/g, sep);
+  const d = new Date();
+  const month = `${months[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+  const withMonth = `${head} — ${num} ${word} · ${month} | A1 Jobs`;
+  if (withMonth.length <= TITLE_LIMIT) return withMonth;
+  const noMonth = `${head} — ${num} ${word} | A1 Jobs`;
+  return noMonth.length <= TITLE_LIMIT ? noMonth : fallback;
+}

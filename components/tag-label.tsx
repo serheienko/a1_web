@@ -22,10 +22,12 @@
 // every span — same as translateTagLabel's own no-match behavior — so an
 // unrecognized/free-form tag (a custom skill someone typed, "iOS",
 // "Firebase", ...) still renders exactly once, just untranslated.
-import { LOCALES, LOCALE_VISIBILITY_CLASS } from "@/components/t";
+import { LOCALES, LOCALE_VISIBILITY_CLASS, type Locale } from "@/components/t";
 import { translateTagLabel } from "@/components/label-translations";
 
-export function TagLabel({ text }: { text: string }) {
+export function TagLabel({ text, locale: only }: { text: string; locale?: Locale }) {
+  // 29.10.2026: один язык вместо девяти на страницах /en/...
+  if (only) return <>{translateTagLabel(text, only)}</>;
   return (
     <>
       {LOCALES.map((locale) => (

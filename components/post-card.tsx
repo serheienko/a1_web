@@ -26,7 +26,7 @@ import type { WebPost } from "@/types/web-post";
 import { RelativeTime, SalaryLabel, LocationLabel } from "@/components/locale-format";
 import { worldwideKind } from "@/lib/seo/worldwide-kind";
 import { pickDefaultCatAvatar } from "@/lib/avatars";
-import { T } from "@/components/t";
+import { T, type Locale } from "@/components/t";
 import { TagLabel } from "@/components/tag-label";
 import { extractJobFacts } from "@/lib/a1/job-facts";
 import { ReservationPill } from "@/components/job-fact-pills";
@@ -37,6 +37,12 @@ import { profileHref as buildProfileHref } from "@/lib/profile-href";
 import { HighlightMatches } from "@/components/highlight-match";
 import { FoldableArticle } from "@/components/foldable-article";
 import { postMenuData } from "@/lib/post-menu-data";
+
+// 29.10.2026: одноязычные подписи карточки для страниц /en/... (те же слова, что в <T/> ниже).
+const REMOTE_WORDS: Record<Locale, string> = { uk: "Віддалено", en: "Remote", ru: "Удалённо", de: "Remote", es: "Remoto", fr: "À distance", pl: "Zdalnie", ptBR: "Remoto", zh: "远程" };
+const NOT_SET_WORDS: Record<Locale, string> = { uk: "Не вказано", en: "Not specified", ru: "Не указано", de: "Nicht angegeben", es: "No especificado", fr: "Non précisé", pl: "Nie podano", ptBR: "Não especificado", zh: "未指定" };
+const KIND_JOB: Record<Locale, string> = { uk: "Вакансія", en: "Job", ru: "Вакансия", de: "Stellenanzeige", es: "Vacante", fr: "Offre d'emploi", pl: "Oferta pracy", ptBR: "Vaga", zh: "职位" };
+const KIND_TALENT: Record<Locale, string> = { uk: "Фахівець", en: "Talent", ru: "Специалист", de: "Fachkraft", es: "Especialista", fr: "Spécialiste", pl: "Specjalista", ptBR: "Especialista", zh: "人才" };
 
 export function PostCard({
   post,
@@ -99,6 +105,7 @@ export function PostCard({
   // 16.10.2026: блок под карточкой внутри неё (вкладка «Мої відгуки»: вопрос «Ви відгукнулися?»).
   footer,
   salaryOverride,
+  locale,
 }: {
   post: WebPost;
   avatarBlurDataUrl?: string | null;
@@ -111,6 +118,9 @@ export function PostCard({
   footer?: ReactNode;
   /** Своя подпись вместо зарплаты (24.10.2026: пример Mr Kit, «300–500 консерв/міс»). */
   salaryOverride?: ReactNode;
+  /** 29.10.2026 (языковые версии): задан -- подписи карточки идут одним языком, а не девятью.
+   *  Девять подписей на двадцати карточках давали около четверти веса страницы. */
+  locale?: Locale;
 }) {
   // 2026-08-30, live-testing feedback ("Berlin, Germany - нужна
   // локализация", reported against the profile page but this feed card
@@ -118,9 +128,11 @@ export function PostCard({
   // components/locale-format.tsx's LocationLabel for why only the
   // country word is localized, and only into uk.
   const locationLabel = post.location ? (
-    <LocationLabel display={post.location.display} country={post.location.country} worldwideAs={worldwideKind(post)} />
+    <LocationLabel display={post.location.display} country={post.location.country} worldwideAs={worldwideKind(post)} locale={locale} />
   ) : post.isRemote ? (
-    <T uk="Віддалено" en="Remote" ru="Удалённо" de="Remote" es="Remoto" fr="À distance" pl="Zdalnie" ptBR="Remoto" zh="远程" />
+    locale ? REMOTE_WORDS[locale] : <T uk="Віддалено" en="Remote" ru="Удалённо" de="Remote" es="Remoto" fr="À distance" pl="Zdalnie" ptBR="Remoto" zh="远程" />
+  ) : locale ? (
+    NOT_SET_WORDS[locale]
   ) : (
     <T uk="Не вказано" en="Not specified" ru="Не указано" de="Nicht angegeben" es="No especificado" fr="Non précisé" pl="Nie podano" ptBR="Não especificado" zh="未指定" />
   );
@@ -342,7 +354,7 @@ export function PostCard({
                       : "bg-[#C830FF]/10 text-[#C830FF] dark:bg-[#C830FF]/20")
                   }
                 >
-                  {post.kind === "hiring" ? <T uk="Вакансія" en="Job" ru="Вакансия" de="Stellenanzeige" es="Vacante" fr="Offre d'emploi" pl="Oferta pracy" ptBR="Vaga" zh="职位" /> : <T uk="Фахівець" en="Talent" ru="Специалист" de="Fachkraft" es="Especialista" fr="Spécialiste" pl="Specjalista" ptBR="Especialista" zh="人才" />}
+                  {locale ? (post.kind === "hiring" ? KIND_JOB[locale] : KIND_TALENT[locale]) : post.kind === "hiring" ? <T uk="Вакансія" en="Job" ru="Вакансия" de="Stellenanzeige" es="Vacante" fr="Offre d'emploi" pl="Oferta pracy" ptBR="Vaga" zh="职位" /> : <T uk="Фахівець" en="Talent" ru="Специалист" de="Fachkraft" es="Especialista" fr="Spécialiste" pl="Specjalista" ptBR="Especialista" zh="人才" />}
                 </span>
               )}
               {/* 2026-08-30, live-testing feedback: "•••" не працює
@@ -393,7 +405,7 @@ export function PostCard({
                   : "bg-[#C830FF]/10 text-[#C830FF] dark:bg-[#C830FF]/20")
               }
             >
-              {post.kind === "hiring" ? <T uk="Вакансія" en="Job" ru="Вакансия" de="Stellenanzeige" es="Vacante" fr="Offre d'emploi" pl="Oferta pracy" ptBR="Vaga" zh="职位" /> : <T uk="Фахівець" en="Talent" ru="Специалист" de="Fachkraft" es="Especialista" fr="Spécialiste" pl="Specjalista" ptBR="Especialista" zh="人才" />}
+              {locale ? (post.kind === "hiring" ? KIND_JOB[locale] : KIND_TALENT[locale]) : post.kind === "hiring" ? <T uk="Вакансія" en="Job" ru="Вакансия" de="Stellenanzeige" es="Vacante" fr="Offre d'emploi" pl="Oferta pracy" ptBR="Vaga" zh="职位" /> : <T uk="Фахівець" en="Talent" ru="Специалист" de="Fachkraft" es="Especialista" fr="Spécialiste" pl="Specjalista" ptBR="Especialista" zh="人才" />}
             </span>
           )}
         </div>
@@ -427,7 +439,7 @@ export function PostCard({
             <>
               <span aria-hidden="true">·</span>
               <span>
-                {salaryOverride ?? <SalaryLabel salary={post.salary!} />}
+                {salaryOverride ?? <SalaryLabel salary={post.salary!} locale={locale} />}
               </span>
             </>
           )}
@@ -437,7 +449,7 @@ export function PostCard({
                 vacancy freshness) for imported posts instead of when it
                 landed on A1; native posts have no sourcePublishedAt, so
                 this falls back to publishedAt exactly as before. */}
-            <RelativeTime date={post.sourcePublishedAt ?? post.publishedAt} />
+            <RelativeTime date={post.sourcePublishedAt ?? post.publishedAt} locale={locale} />
           </span>
         </div>
 
@@ -487,7 +499,7 @@ export function PostCard({
               {reservation && <ReservationPill />}
               {post.tags.slice(0, 6).map((tag) => (
                 <span key={tag} className="rounded-full border border-neutral-200 bg-white px-2.5 py-0.5 text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400">
-                  <TagLabel text={tag} />
+                  <TagLabel text={tag} locale={locale} />
                 </span>
               ))}
             </div>

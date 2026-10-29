@@ -144,7 +144,7 @@ export async function JobLandingPage({
           <ul className="flex flex-col gap-4">
             {posts.map((post, i) => (
               <li key={post.id}>
-                <PostCard post={post} avatarBlurDataUrl={avatarBlurs[i]} />
+                <PostCard post={post} avatarBlurDataUrl={avatarBlurs[i]} locale={locale} />
               </li>
             ))}
           </ul>

@@ -41,6 +41,7 @@ import { CV_ROLES } from "@/lib/cv-roles/roles";
 import { roleAlternates, rolePath } from "@/lib/cv-roles/registry";
 import { loadEvents } from "@/lib/events/store";
 import { MIN_COLLECTION, collectPlaces, collectTags, todayKyiv } from "@/lib/events/util";
+import { LIVE_LOCALES } from "@/lib/seo/hreflang";
 
 const SITE_URL = "https://jobs.a1appp.com";
 
@@ -98,7 +99,7 @@ async function buildSitemap({ id }: { id: number | string }): Promise<MetadataRo
     for (const landing of JOB_LANDINGS) {
       entries.push({ url: `${SITE_URL}/jobs/${landing.slug}` });
       // 29.10.2026: английские версии витрин формата (remote/office/hybrid).
-      entries.push({ url: `${SITE_URL}/en/jobs/${landing.slug}` });
+      for (const lang of LIVE_LOCALES) entries.push({ url: `${SITE_URL}/${lang}/jobs/${landing.slug}` });
     }
     // 22.10.2026: посадочные по типу занятости
     // (lib/seo/employment-landings.ts). Их тоже три, едут рядом.
@@ -117,7 +118,7 @@ async function buildSitemap({ id }: { id: number | string }): Promise<MetadataRo
     for (const landing of TECH_LANDINGS) {
       if ((techN.get(landing.tech) ?? 0) < MIN_SEGMENT_POSTS) continue;
       entries.push({ url: `${SITE_URL}/jobs/stack/${landing.slug}` });
-      entries.push({ url: `${SITE_URL}/en/jobs/stack/${landing.slug}` });
+      for (const lang of LIVE_LOCALES) entries.push({ url: `${SITE_URL}/${lang}/jobs/stack/${landing.slug}` });
     }
     // 2026-09-19: посадочные по признакам из текста вакансии
     // (lib/seo/fact-landings.ts) -- «без досвіду» и «бронювання».
@@ -172,7 +173,7 @@ async function buildSitemap({ id }: { id: number | string }): Promise<MetadataRo
       if ((perCountry.get(code) ?? 0) >= 3) {
         entries.push({ url: `${SITE_URL}/jobs/country/${code}` });
         // 29.10.2026: английская версия страновой витрины (app/en/jobs/country/[code]/page.tsx).
-        entries.push({ url: `${SITE_URL}/en/jobs/country/${code}` });
+        for (const lang of LIVE_LOCALES) entries.push({ url: `${SITE_URL}/${lang}/jobs/country/${code}` });
       }
     }
 
@@ -265,31 +266,31 @@ async function buildSitemap({ id }: { id: number | string }): Promise<MetadataRo
     try {
       for (const city of await listCities()) {
         entries.push({ url: `${SITE_URL}/jobs/city/${city.slug}` });
-        entries.push({ url: `${SITE_URL}/en/jobs/city/${city.slug}` });
+        for (const lang of LIVE_LOCALES) entries.push({ url: `${SITE_URL}/${lang}/jobs/city/${city.slug}` });
         for (const t of await cityTechList(city.slug)) {
           entries.push({ url: `${SITE_URL}/jobs/city/${city.slug}/${t.slug}` });
-          entries.push({ url: `${SITE_URL}/en/jobs/city/${city.slug}/${t.slug}` });
+          for (const lang of LIVE_LOCALES) entries.push({ url: `${SITE_URL}/${lang}/jobs/city/${city.slug}/${t.slug}` });
         }
       }
       for (const t of await remoteTechList()) {
         entries.push({ url: `${SITE_URL}/jobs/remote/${t.slug}` });
-        entries.push({ url: `${SITE_URL}/en/jobs/remote/${t.slug}` });
+        for (const lang of LIVE_LOCALES) entries.push({ url: `${SITE_URL}/${lang}/jobs/remote/${t.slug}` });
       }
       for (const { level } of await globalLevelCounts()) {
         entries.push({ url: `${SITE_URL}/jobs/level/${level}` });
-        entries.push({ url: `${SITE_URL}/en/jobs/level/${level}` });
+        for (const lang of LIVE_LOCALES) entries.push({ url: `${SITE_URL}/${lang}/jobs/level/${level}` });
       }
       entries.push({ url: `${SITE_URL}/jobs/role` });
       for (const { role } of await globalRoleCounts()) {
         entries.push({ url: `${SITE_URL}/jobs/role/${role}` });
         // 29.10.2026: английская версия той же посадочной (app/en/jobs/role/[role]/page.tsx).
-        entries.push({ url: `${SITE_URL}/en/jobs/role/${role}` });
+        for (const lang of LIVE_LOCALES) entries.push({ url: `${SITE_URL}/${lang}/jobs/role/${role}` });
       }
       // 25.10.2026: профессия + страна.
       const pairs = await countryRolePairs();
       for (const { cc, role } of pairs) {
         entries.push({ url: `${SITE_URL}/jobs/role/${role}/${cc}` });
-        entries.push({ url: `${SITE_URL}/en/jobs/role/${role}/${cc}` });
+        for (const lang of LIVE_LOCALES) entries.push({ url: `${SITE_URL}/${lang}/jobs/role/${role}/${cc}` });
       }
       // 25.10.2026: указатель профессий страны -- там, где есть хоть одна страница профессии.
       for (const cc of new Set(pairs.map((p) => p.cc))) entries.push({ url: `${SITE_URL}/jobs/country/${cc}/roles` });

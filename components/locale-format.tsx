@@ -23,7 +23,10 @@ import { countryByCode, countryName, flagEmoji } from "@/lib/seo/countries";
 import type { WorldwideKind } from "@/lib/seo/worldwide-kind";
 import type { WebPostSalary } from "@/types/web-post";
 
-export function RelativeTime({ date }: { date: Date }) {
+export function RelativeTime({ date, locale: only }: { date: Date; locale?: Locale }) {
+  // 29.10.2026: на языковой версии страницы (/en/...) рисуем ОДИН язык -- девять подписей
+  // на каждой из двадцати карточек давали около четверти веса страницы.
+  if (only) return <>{formatRelativeTime(date, only)}</>;
   return (
     <>
       {LOCALES.map((locale) => (
@@ -35,7 +38,8 @@ export function RelativeTime({ date }: { date: Date }) {
   );
 }
 
-export function SalaryLabel({ salary }: { salary: WebPostSalary }) {
+export function SalaryLabel({ salary, locale: only }: { salary: WebPostSalary; locale?: Locale }) {
+  if (only) return <>{formatSalary(salary, only)}</>;
   return (
     <>
       {LOCALES.map((locale) => (
@@ -81,14 +85,29 @@ export function LocationLabel({
   display,
   country,
   worldwideAs,
+  locale: only,
 }: {
   display: string;
   country?: string | null;
   /** Как подписать «весь мир» (lib/seo/worldwide-kind.ts). Только для country "WW". */
   worldwideAs?: WorldwideKind | null;
+  /** 29.10.2026: один язык вместо девяти -- на страницах /en/... */
+  locale?: Locale;
 }) {
   const flag = flagFor(display, country);
   const ua = countryByCode("UA");
+  const one = (locale: Locale) =>
+    worldwideAs === "ua" && ua ? (
+      <>🇺🇦 {countryName(ua, locale)}</>
+    ) : worldwideAs === "remote" ? (
+      <>🌏 {REMOTE_WORD[locale]}</>
+    ) : (
+      <>
+        {flag}
+        {localizeLocationDisplay(display, country, locale)}
+      </>
+    );
+  if (only) return one(only);
   return (
     <>
       {LOCALES.map((locale) => (
