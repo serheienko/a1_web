@@ -14,7 +14,6 @@
 // (полный обход). Хуже, чем было, не станет.
 import { createGunzip, createGzip } from "node:zlib";
 import { Readable } from "node:stream";
-import { createInterface } from "node:readline";
 import type { WebPost } from "@/types/web-post";
 
 // 29.10.2026: первая запись показала 68 тыс. вакансий = 135 МБ в сжатом виде. Разжатый текст
@@ -52,7 +51,10 @@ async function gzipPosts(at: number, posts: WebPost[]): Promise<Buffer> {
       else gz.once("drain", resolve);
     });
   await write(`{"at":${at}}\n`);
-  for (const p of posts) await write(JSON.stringify(p, replacer) + "\n");
+  // U+2028/U+2029 JSON оставляет как есть -- экранируем, чтобы строка была ровно одна.
+  for (const p of posts) {
+    await write(JSON.stringify(p, replacer).replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029") + "\n");
+  }
   gz.end();
   await done;
   return Buffer.concat(chunks);
@@ -95,10 +97,25 @@ export async function loadJobPostsSnapshot(): Promise<Snapshot | null> {
     const t0 = Date.now();
     const body = await kvGet(PATH);
     if (!body) return null;
-    const lines = createInterface({ input: Readable.from([body]).pipe(createGunzip()), crlfDelay: Infinity });
+    // 29.10.2026: делим строго по "\n" (readline резал ещё и по U+2028 внутри
+    // текста вакансий -- «load failed: Unterminated string»).
+    async function* splitLines() {
+      let rest = "";
+      const gz = Readable.from([body!]).pipe(createGunzip());
+      gz.setEncoding("utf8"); // буквы на стыке кусков не ломаются
+      for await (const chunk of gz) {
+        rest += chunk as string;
+        let i: number;
+        while ((i = rest.indexOf("\n")) >= 0) {
+          yield rest.slice(0, i);
+          rest = rest.slice(i + 1);
+        }
+      }
+      if (rest) yield rest;
+    }
     let at = -1;
     const posts: WebPost[] = [];
-    for await (const line of lines) {
+    for await (const line of splitLines()) {
       if (!line) continue;
       if (at < 0) {
         at = Number((JSON.parse(line) as { at?: unknown }).at);
