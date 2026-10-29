@@ -52,6 +52,8 @@ export type DownloadCopy = {
   note: string;
   /** Ссылка на версию для Mac под кнопками (только на компьютере). */
   mac: string;
+  /** Пометка на телефоне: есть версия для Mac, открыть на компьютере. */
+  macHint: string;
   /** Текст ссылки на основной сайт, вверху справа. */
   site: string;
   /**
@@ -93,6 +95,7 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     ios: "для iOS",
     note: "Оберіть свою платформу та приєднуйтеся до A1",
     mac: "Версія для Mac",
+    macHint: "Є версія для Mac: відкрийте цю сторінку на комп\u2019ютері",
     site: "Сайт A1",
     previewTitle: "Завітайте до веб-версії A1 🐈‍⬛",
     previewText: "Вакансії та фахівці прямо у браузері",
@@ -116,6 +119,7 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     ios: "for iOS",
     note: "Choose your platform and join A1",
     mac: "Version for Mac",
+    macHint: "Also on Mac: open this page on your computer",
     site: "A1 website",
     previewTitle: "Visit the A1 web version 🐈‍⬛",
     previewText: "Jobs and specialists right in your browser",
@@ -139,6 +143,7 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     ios: "для iOS",
     note: "Выберите свою платформу и присоединяйтесь к A1",
     mac: "Версия для Mac",
+    macHint: "Есть версия для Mac: откройте эту страницу на компьютере",
     site: "Сайт A1",
     previewTitle: "Загляните в веб-версию A1 🐈‍⬛",
     previewText: "Вакансии и специалисты прямо в браузере",
@@ -162,6 +167,7 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     ios: "für iOS",
     note: "Wählen Sie Ihre Plattform und kommen Sie zu A1",
     mac: "Version für Mac",
+    macHint: "Auch für Mac: Seite am Computer öffnen",
     site: "A1-Website",
     previewTitle: "Schau in die A1 Web-Version 🐈‍⬛",
     previewText: "Jobs und Fachkräfte direkt im Browser",
@@ -185,6 +191,7 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     ios: "para iOS",
     note: "Elija su plataforma y únase a A1",
     mac: "Versión para Mac",
+    macHint: "También para Mac: abra esta página en su ordenador",
     site: "Sitio de A1",
     previewTitle: "Visita la versión web de A1 🐈‍⬛",
     previewText: "Vacantes y especialistas en tu navegador",
@@ -208,6 +215,7 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     ios: "pour iOS",
     note: "Choisissez votre plateforme et rejoignez A1",
     mac: "Version pour Mac",
+    macHint: "Aussi sur Mac : ouvrez cette page sur votre ordinateur",
     site: "Site A1",
     previewTitle: "Découvre la version web d'A1 🐈‍⬛",
     previewText: "Offres et spécialistes directement dans le navigateur",
@@ -231,6 +239,7 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     ios: "na iOS",
     note: "Wybierz swoją platformę i dołącz do A1",
     mac: "Wersja na Maca",
+    macHint: "Jest też wersja na Maca: otwórz tę stronę na komputerze",
     site: "Strona A1",
     previewTitle: "Zajrzyj do wersji webowej A1 🐈‍⬛",
     previewText: "Oferty i specjaliści prosto w przeglądarce",
@@ -254,6 +263,7 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     ios: "para iOS",
     note: "Escolha sua plataforma e entre no A1",
     mac: "Versão para Mac",
+    macHint: "Também para Mac: abra esta página no computador",
     site: "Site do A1",
     previewTitle: "Conheça a versão web do A1 🐈‍⬛",
     previewText: "Vagas e especialistas direto no navegador",
@@ -277,6 +287,7 @@ export const DOWNLOAD_COPY: Record<Locale, DownloadCopy> = {
     ios: "iOS 版",
     note: "选择你的平台，加入 A1",
     mac: "Mac 版",
+    macHint: "也有 Mac 版：请在电脑上打开此页面",
     site: "A1 官网",
     previewTitle: "来看看 A1 网页版 🐈‍⬛",
     previewText: "职位与人才，直接在浏览器里",

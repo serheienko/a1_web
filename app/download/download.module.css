@@ -2627,3 +2627,23 @@
 :global(html.platform-android) .macLink {
   display: none;
 }
+
+/* Пометка «Є версія для Mac» -- только на телефоне (29.10.2026) */
+.macHint {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .macHint {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    margin: 0;
+    color: var(--ink-muted);
+    font-size: 12.5px;
+    line-height: 1.35;
+    text-align: center;
+  }
+}
