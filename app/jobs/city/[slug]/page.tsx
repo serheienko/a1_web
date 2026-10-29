@@ -10,7 +10,8 @@ import { SegmentPage } from "@/components/segment-page";
 import { pagedMeta, pageOf } from "@/lib/seo/paged";
 import { cityPosts } from "@/lib/a1/segment-index";
 import { countryByCode } from "@/lib/seo/countries";
-import { cityCountLine, cityH1, cityLead, cityMeta } from "@/lib/seo/segments";
+import { cityCountLine, cityH1, cityLabel, cityLead, cityMeta } from "@/lib/seo/segments";
+import { titleWithCount } from "@/lib/seo/title-count";
 import { linksForCity } from "@/lib/seo/segment-links";
 
 const SITE_URL = "https://jobs.a1appp.com";
@@ -22,6 +23,8 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const country = seg && countryByCode(seg.cc);
   if (!seg || !country) return {};
   const meta = cityMeta(seg.city, country);
+  // 29.10.2026: у украинских городов в названии число вакансий и месяц (lib/seo/title-count.ts).
+  if (country.code === "UA") meta.title = titleWithCount(`IT вакансії ${cityLabel(seg.city, "uk")}`, seg.posts.length, meta.title);
   const url = `${SITE_URL}/jobs/city/${seg.slug}`;
   return pagedMeta({
     title: meta.title,

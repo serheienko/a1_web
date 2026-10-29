@@ -13,6 +13,7 @@ import { pagedMeta, pageOf } from "@/lib/seo/paged";
 import { globalRolePosts } from "@/lib/a1/segment-index";
 import { roleInfo } from "@/lib/seo/job-role";
 import { roleCountLine, roleH1, roleLead, roleMeta } from "@/lib/seo/role-texts";
+import { titleWithCount } from "@/lib/seo/title-count";
 import { articleLinks, interviewLinks, linksForGlobalLevels, linksForGlobalRoles, linksForRoleCountries, linksForSalaryOfRole } from "@/lib/seo/segment-links";
 
 const SITE_URL = "https://jobs.a1appp.com";
@@ -29,8 +30,11 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   // порядке», и для Google страница оставалась живой. generateMetadata
   // выполняется ДО первой отправки (её результат нужен в <head>), поэтому
   // отсюда 404 ставится честно.
-  if (!info || !(await globalRolePosts(info.slug))) notFound();
+  const rolePosts = info ? await globalRolePosts(info.slug) : null;
+  if (!info || !rolePosts) notFound();
   const meta = roleMeta(info.slug);
+  // 29.10.2026: число открытых вакансий и месяц в названии (lib/seo/title-count.ts).
+  meta.title = titleWithCount(info.titleUk.split(" — ")[0] ?? info.titleUk, rolePosts.length, meta.title);
   const url = `${SITE_URL}/jobs/role/${info.slug}`;
   return pagedMeta({
     title: meta.title,

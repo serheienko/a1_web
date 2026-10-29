@@ -25,6 +25,7 @@ import { generateAvatarBlurDataUrl } from "@/lib/avatar-blur";
 import { LOCALES, LOCALE_VISIBILITY_CLASS, T, type Locale } from "@/components/t";
 import { buildLandingBreadcrumbJsonLd } from "@/lib/seo/jsonld";
 import { postsForTech } from "@/lib/a1/tech-index";
+import { titleWithCount } from "@/lib/seo/title-count";
 import { MIN_SEGMENT_POSTS } from "@/lib/seo/segments";
 import { SegmentLinks } from "@/components/segment-page";
 import { fill, TXT } from "@/components/hiring-page";
@@ -59,6 +60,9 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const landing = findTechLanding((await params).slug);
   if (!landing) return {};
   const meta = techLandingMeta(landing.label);
+  // 29.10.2026: число открытых вакансий и месяц в названии (lib/seo/title-count.ts).
+  const count = (await postsForTech(landing.tech).catch(() => [])).length;
+  meta.title = titleWithCount(`${landing.label} вакансії`, count, meta.title);
   const url = `${SITE_URL}/jobs/stack/${landing.slug}`;
 
   return pagedMeta({
